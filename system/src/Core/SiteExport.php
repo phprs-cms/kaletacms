@@ -174,6 +174,7 @@ final class SiteExport
         // nor the requests to Claude (2.15, Core\Requests) – the team's work list, not content (their attachments are Media and go along);
         // nor the scheduled Claude runs (2.17, Core\AgentSchedules) – a routine in Claude is set up per site and the run history belongs to it
         // nor the customer records (3.28, Core\Contacts: ka_contacts, ka_companies, ka_contact_activities) – personal data, like the enquiries
+        // nor the deals of the pipeline (3.31, Core\Deals: ka_deals, ka_deal_stage_history) – they point to the customers left out above
         fwrite($f, "}\n");
         fclose($f);
     }

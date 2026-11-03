@@ -9531,7 +9531,7 @@ check('3.28: two different addresses are never merged by Kaleta – link() finds
         && str_contains($k328Src, "self::normalise((string) \$r['email']) === \$norm ? self::find("),
     substr_count($k328Src, 'SET contact_id = ? WHERE contact_id = ?'), substr_count($k328Src, 'SET contact_id = ? WHERE ' . "' . \$key . ' = ? AND contact_id IS NULL"),
     str_contains($k328Src, "\$kind === 'subscriber' && !\$record['confirmed']"), $k328::hasOpenDeal(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 1),
-], [true, true, 2, 1, true, false]);
+], [true, true, 3, 1, true, false]); // 3.31: merge() moves the deals too
 check('3.28 (N328-3): linking a new address scans no table until the first merge or change of a linked address (contacts_merged_at); merge() and an address change set it, and it is bookkeeping that undo never resets', [
     str_contains($k328Src, "if (\$s->get('contacts_merged_at') === '') {\n            return null;"), substr_count($k328Src, 'self::markMerged($app->settings());'),
     array_key_exists('contacts_merged_at', Kaleta\Core\Settings::DEFAULTS), preg_match('/_(check|time|checked|seen|ts|at)$/', 'contacts_merged_at'),

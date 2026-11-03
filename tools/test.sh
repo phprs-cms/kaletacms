@@ -10271,9 +10271,13 @@ expect "3.31 personal data: the file of the customer lists their deals" \
 mcp_as "$T331_TA" erase_personal_data '{"email":"karel.t331@firma-t331.cz","confirm":true}' > /dev/null
 expect "3.31 erase_personal_data: the contact goes, its deals stay without it (no contact, no lost note)" \
   "$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T331_C1:-0}")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(contact_id IS NULL), '|', SUM(lost_note IS NULL)) FROM ka_deals WHERE id IN (${T331_D1:-0}, ${T331_D2:-0})")" "0|2|2|2"
+T331_M1=$(t331_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'm1.t331@example.org'], $T331_ADMIN);"); T331_M2=$(t331_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'm2.t331@example.org'], $T331_ADMIN);")
+T331_D4=$(t331_php "echo Kaleta\\Core\\Deals::save(\$app, null, ['title' => 'Merge T331', 'contact_id' => ${T331_M2:-0}], $T331_ADMIN);")
+expect "3.31: merging two contacts moves the deals of the merged one" "$(t331_php "echo Kaleta\\Core\\Contacts::merge(\$app, ${T331_M1:-0}, ${T331_M2:-0}, $T331_ADMIN)['moved']['deals'];")|$(sq "SELECT contact_id = ${T331_M1:-0} FROM ka_deals WHERE id = ${T331_D4:-0}")" "1|1"
 check "3.31: the record of processing names the deals" 200 "/admin.php?module=settings&action=processing_record" "Obchody se zákazníky"
 sq "DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0}); DELETE FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0};
-  DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_contacts WHERE email LIKE '%t331%' OR id = ${T331_C5:-0}; DELETE FROM ka_companies WHERE domain = 'firma-t331.cz';
+  DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email LIKE '%t331%');
+  DELETE FROM ka_contacts WHERE email LIKE '%t331%' OR id = ${T331_C5:-0}; DELETE FROM ka_companies WHERE domain = 'firma-t331.cz';
   DELETE FROM ka_poptavky WHERE email LIKE '%t331%'; DELETE FROM ka_api_tokeny WHERE nazev LIKE 't331-%'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($T331_JANA, $T331_PETR); DELETE FROM ka_uzivatele WHERE user LIKE 't331-%';
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('contacts_backfill', '')" > /dev/null
 
