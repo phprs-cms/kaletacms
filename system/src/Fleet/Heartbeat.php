@@ -16,8 +16,11 @@ use Kaleta\Core\Extensions;
 use Kaleta\Core\Health;
 use Kaleta\Core\Language;
 use Kaleta\Core\PendingReview;
+use Kaleta\Core\Privacy;
+use Kaleta\Core\RecoveryKey;
 use Kaleta\Core\Redact;
 use Kaleta\Core\Scheduler;
+use Kaleta\Core\SecurityHygiene;
 use Kaleta\Core\Updater;
 
 /**
@@ -43,6 +46,13 @@ use Kaleta\Core\Updater;
  *
  * 3.18 – claude_connection: whether Claude is connected (Core\ClaudeConnection::summary) – the state, the moment of the last
  * call and of the earliest end of a connection, and how requests are picked up; never who connected or how.
+ *
+ * 3.29 – what the console's health matrix and Today view check (Fleet\Checks), as states, dates and counts: the off-site
+ * copies (offsite), how mail goes out (mail_setup), two-step sign-in (twofa), the last cookie scan (cookie_scan), whether
+ * the privacy policy and the accessibility statement are published (privacy_page, accessibility_statement), the hand-over
+ * checklist (handover: done, total and the keys of the rows not done) and the team's workload (workload: enquiries this
+ * and last week, unanswered after 24 hours, the median hours to the first reply this month, open and overdue tasks,
+ * customers added this month). Never a host, an address, a name or the text of anything.
  */
 final class Heartbeat
 {
@@ -55,6 +65,12 @@ final class Heartbeat
 
     /** Agent run statuses a heartbeat counts (Core\AgentSchedules; "running" is not a result yet). */
     public const array RUN_STATUSES = ['ok', 'partial', 'failed', 'missed'];
+
+    /** 3.29: the setting require_2fa as the heartbeat names it ('' = none). */
+    public const array TWOFA = ['spravci' => 'admins', 'vsichni' => 'everyone'];
+
+    /** 3.29: how many enquiries with a reply the median time to the first reply reads at most. */
+    private const int REPLY_SAMPLE = 2000;
 
     /** @return array<string, mixed> */
     public static function build(App $app): array
@@ -118,6 +134,15 @@ final class Heartbeat
             'updates' => ['behind_days' => Updater::behindDays($update), 'major_available' => self::part(fn (): ?string => self::version(Updater::nextMajor($s)['verze'] ?? null))],
             'report_month' => self::part(fn (): ?string => self::reportMonth($db)),
             'report_summary' => self::part(fn (): ?array => ($month = self::reportMonth($db)) !== null ? self::reportSummary(\Kaleta\Core\ReportArchive::get($db, $month)) : null),
+            // 3.29: the console's health matrix and Today view (Fleet\Checks) – see the class description
+            'offsite' => self::part(fn (): array => self::offsite($s, RecoveryKey::state($s))),
+            'mail_setup' => self::part(fn (): array => self::mailSetup($s)),
+            'twofa' => self::part(fn (): array => ['required' => self::TWOFA[$s->get('require_2fa')] ?? 'none', 'admins_without' => count(SecurityHygiene::findings($app)['two_step'])]),
+            'cookie_scan' => self::part(fn (): array => self::cookieScan(Privacy::lastScan($s))),
+            'privacy_page' => self::part(fn (): string => self::privacyPage($app)),
+            'accessibility_statement' => self::part(fn (): string => self::accessibilityStatement($app)),
+            'handover' => self::part(fn (): array => self::handover((new Audit($app))->handoverChecklist())),
+            'workload' => self::part(fn (): array => self::workload($app)),
         ];
     }
 
@@ -296,5 +321,166 @@ final class Heartbeat
         $month = (string) $db->value('SELECT MAX(month) FROM {monthly_reports}');
 
         return preg_match('/^\d{4}-\d{2}/', $month) === 1 ? substr($month, 0, 7) : null;
+    }
+
+    /**
+     * The off-site copies (3.29) as the console checks them: status off (no target) | never (no copy tried yet) | ok |
+     * paused (waiting for the recovery key, 3.28) | failing; at = the day of the last try ('Y-m-d'), recovery_key = none |
+     * unconfirmed | confirmed (Core\RecoveryKey::state). Never the target, its host or the error text. Pure.
+     *
+     * @return array{status: string, at: ?string, recovery_key: string}
+     */
+    public static function offsite(\Kaleta\Core\Settings $s, string $recoveryKey): array
+    {
+        [$when, $result] = explode('|', $s->get('remote_backup_status'), 2) + [1 => ''];
+        $at = preg_match('/^\d{4}-\d{2}-\d{2}/', $when) === 1 ? substr($when, 0, 10) : null;
+        $status = match (true) {
+            !\Kaleta\Core\RemoteBackup::isOn($s) => 'off',
+            $at === null => 'never',
+            $result === 'ok' => 'ok',
+            $result === \Kaleta\Core\RemoteBackup::PAUSED => 'paused',
+            default => 'failing',
+        };
+
+        return ['status' => $status, 'at' => $status === 'off' ? null : $at, 'recovery_key' => in_array($recoveryKey, ['none', 'unconfirmed', 'confirmed'], true) ? $recoveryKey : 'none'];
+    }
+
+    /**
+     * How mail goes out (3.29): mode smtp | php (the host's mail()), whether the SMTP server set now accepted a message
+     * (Core\Mail::smtpTested, 3.23) and on which day it last did. Never the server's name. Pure.
+     *
+     * @return array{mode: string, tested: bool, tested_at: ?string}
+     */
+    public static function mailSetup(\Kaleta\Core\Settings $s): array
+    {
+        $smtp = $s->get('mail_mode') === 'smtp' && $s->get('smtp_host') !== '';
+        $tested = $smtp && \Kaleta\Core\Mail::smtpTested($s);
+        $day = substr($s->get('smtp_last_ok'), 0, 10);
+
+        return ['mode' => $smtp ? 'smtp' : 'php', 'tested' => $tested, 'tested_at' => $tested && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) === 1 ? $day : null];
+    }
+
+    /**
+     * The last cookie scan (3.29, Core\Privacy::lastScan): the day, whether it failed, how many cookies the server set –
+     * never their names. Pure.
+     *
+     * @param array<string, mixed> $scan
+     * @return array{at: ?string, error: bool, cookies: int}
+     */
+    public static function cookieScan(array $scan): array
+    {
+        $time = is_int($scan['time'] ?? null) && $scan['time'] > 0 ? $scan['time'] : null;
+
+        return ['at' => $time !== null ? date('Y-m-d', $time) : null, 'error' => is_string($scan['error'] ?? null) && $scan['error'] !== '',
+            'cookies' => is_array($scan['cookies'] ?? null) ? count($scan['cookies']) : 0];
+    }
+
+    /**
+     * Whether the privacy policy is published (3.29): published (a visible page named like it – Settings::privacyPolicyPage –
+     * or a link set for the cookie bar), hidden (the page is there, not shown) or none.
+     */
+    private static function privacyPage(App $app): string
+    {
+        $page = \Kaleta\Admin\Modules\Settings::privacyPolicyPage($app->db(), $app->settings());
+
+        return match (true) {
+            ($page['visible'] ?? false) === true, Privacy::policyUrl($app->settings()) !== '' => 'published',
+            $page !== null => 'hidden',
+            default => 'none',
+        };
+    }
+
+    /**
+     * Whether the accessibility statement is published (3.29): published (a visible page whose address names it, as the
+     * site audit looks for it – Audit::STATEMENT), draft (the statement drafted from Settings → Privacy and cookies is still
+     * hidden) or none.
+     */
+    private static function accessibilityStatement(App $app): string
+    {
+        $db = $app->db();
+        foreach ($db->all('SELECT seo_link FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') as $page) {
+            if (preg_match(Audit::STATEMENT, (string) $page['seo_link']) === 1) {
+                return 'published';
+            }
+        }
+        $draft = $app->settings()->int('accessibility_statement_page');
+        $visible = $draft > 0 ? $db->value('SELECT zobrazit FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$draft]) : null;
+
+        return match (true) {
+            $visible === null => 'none',
+            (int) $visible === 1 => 'published',
+            default => 'draft',
+        };
+    }
+
+    /**
+     * The hand-over checklist (3.29, Core\Audit::handoverChecklist) as counts and the keys of the rows not done – never
+     * their texts (they name accounts and connections).
+     *
+     * @param array{done: int, total: int, items: list<array<string, mixed>>} $checklist
+     * @return array{done: int, total: int, failing: list<string>}
+     */
+    public static function handover(array $checklist): array
+    {
+        return ['done' => $checklist['done'], 'total' => $checklist['total'],
+            'failing' => array_values(array_map(fn (array $i): string => (string) $i['key'], array_filter($checklist['items'], fn (array $i): bool => empty($i['done']))))];
+    }
+
+    /**
+     * The team's workload (3.29) – counts only, each null when its part is off or not there yet: enquiries (spam left out)
+     * in the last 7 days and the 7 before, open ones without a reply older than 24 hours, the median whole hours to the
+     * first reply of this month's enquiries (Core\EnquiryReply), open and overdue tasks (Core\Tasks), customers added this
+     * month (Core\Contacts).
+     *
+     * @return array{enquiries_this_week: ?int, enquiries_last_week: ?int, unanswered_over_24h: ?int, median_first_reply_hours: ?int, tasks_open: ?int, tasks_overdue: ?int, customers_this_month: ?int}
+     */
+    private static function workload(App $app): array
+    {
+        $db = $app->db();
+        $enquiries = Extensions::isEnabled($app->settings(), 'poptavky');
+        $notSpam = Enquiries::NOT_SPAM;
+        $month = Clock::at('first day of this month midnight');
+        $count = fn (string $sql, array $params = []): ?int => self::part(fn (): int => (int) $db->value($sql, $params));
+        $noReply = "(replies IS NULL OR replies = '' OR replies = '[]')";
+
+        return [
+            'enquiries_this_week' => $enquiries ? $count('SELECT COUNT(*) FROM {poptavky} WHERE datum > ? AND ' . $notSpam, [Clock::at('-7 days')]) : null,
+            'enquiries_last_week' => $enquiries ? $count('SELECT COUNT(*) FROM {poptavky} WHERE datum > ? AND datum <= ? AND ' . $notSpam, [Clock::at('-14 days'), Clock::at('-7 days')]) : null,
+            'unanswered_over_24h' => $enquiries ? $count('SELECT COUNT(*) FROM {poptavky} WHERE stav < 2 AND datum <= ? AND ' . $noReply . ' AND ' . $notSpam, [Clock::at('-24 hours')]) : null,
+            'median_first_reply_hours' => $enquiries ? self::part(fn (): ?int => self::medianFirstReply($db->all("SELECT datum, replies FROM {poptavky} WHERE datum >= ? AND replies IS NOT NULL AND replies <> '' AND "
+                . $notSpam . ' ORDER BY idp DESC LIMIT ' . self::REPLY_SAMPLE, [$month]))) : null,
+            'tasks_open' => $count('SELECT COUNT(*) FROM {tasks} WHERE done_at IS NULL'),
+            'tasks_overdue' => $count('SELECT COUNT(*) FROM {tasks} WHERE done_at IS NULL AND due_at IS NOT NULL AND due_at < ?', [Clock::now()]),
+            'customers_this_month' => $count('SELECT COUNT(*) FROM {contacts} WHERE created_at >= ? AND anonymised_at IS NULL', [$month]),
+        ];
+    }
+
+    /**
+     * The median whole hours from an enquiry to its first reply (3.29), null when none has a reply. Only the moments are
+     * read (Core\EnquiryReply::decode) – never who replied or what. Pure.
+     *
+     * @param list<array<string, mixed>> $rows datum (DATETIME) and replies (JSON) of ka_poptavky
+     */
+    public static function medianFirstReply(array $rows): ?int
+    {
+        $hours = [];
+        foreach ($rows as $row) {
+            $received = strtotime((string) ($row['datum'] ?? ''));
+            $first = null;
+            foreach (\Kaleta\Core\EnquiryReply::decode($row['replies'] ?? null) as $reply) {
+                $at = strtotime($reply['at']);
+                $first = $at !== false && ($first === null || $at < $first) ? $at : $first;
+            }
+            if ($received !== false && $first !== null && $first >= $received) {
+                $hours[] = ($first - $received) / 3600;
+            }
+        }
+        if ($hours === []) {
+            return null;
+        }
+        sort($hours);
+        $middle = intdiv(count($hours), 2);
+
+        return (int) round(count($hours) % 2 === 1 ? $hours[$middle] : ($hours[$middle - 1] + $hours[$middle]) / 2);
     }
 }

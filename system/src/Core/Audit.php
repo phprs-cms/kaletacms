@@ -313,8 +313,8 @@ final class Audit
         . 'hier|mehr|weiterlesen|mehr erfahren|ici|cliquez ici|plus|en savoir plus|aquí|haz clic aquí|más|leer más|qui|clicca qui|di più|leggi di più|'
         . 'tutaj|kliknij tutaj|więcej|czytaj więcej|tu|kliknite sem|viac|čítať ďalej)[.!…]?$/iu';
 
-    /** Page addresses of an accessibility statement in the site languages. */
-    private const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i';
+    /** Page addresses of an accessibility statement in the site languages (public since 3.29: the fleet heartbeat, Fleet\Heartbeat). */
+    public const string STATEMENT = '/(accessibility|pristupnost|prístupnosť|pristupnost|barrierefreiheit|accessibilite|accesibilidad|accessibilita|dostepnosc)/i';
 
     private function accessibility(): void
     {

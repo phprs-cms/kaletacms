@@ -40,7 +40,9 @@ final class Console
         // 3.17: the headline counts of the site's latest monthly report (Fleet\History::summary) for the fleet report
         'report_summary',
         // 3.18: whether Claude is connected to the site (Core\ClaudeConnection::summary)
-        'claude_connection'];
+        'claude_connection',
+        // 3.29: the health matrix, the Today view and the workload roll-up (Fleet\Checks::PARTS, bounded by Checks::clean)
+        'offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload'];
 
     /**
      * The address of a site as the console keeps and links it (3.17, N317-5): http(s), a host without user information
@@ -559,7 +561,11 @@ final class Console
         $out = [];
         foreach (self::HEARTBEAT_KEYS as $key) {
             $value = $d[$key] ?? null;
-            $out[$key] = in_array($key, self::PARTS, true) ? self::cleanPart($key, $value) : self::cleanLegacy($key, $value);
+            $out[$key] = match (true) {
+                in_array($key, Checks::PARTS, true) => Checks::clean($key, $value), // 3.29
+                in_array($key, self::PARTS, true) => self::cleanPart($key, $value),
+                default => self::cleanLegacy($key, $value),
+            };
         }
         // the whistleblowing channel never shows on the console (3.16, N316-3) – a site before 3.16.0 still sends its events
         if (is_array($out['problems_7_days'])) {
