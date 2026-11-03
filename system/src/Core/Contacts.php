@@ -1149,7 +1149,9 @@ final class Contacts
     }
 
     /**
-     * The contacts of one address and of the given linked records (Core\PersonalData): ids.
+     * The contacts of one address and of the given linked records (Core\PersonalData): ids. N328-6: also a contact whose
+     * log names the address – the note of a merge keeps the address merged into it, which may be the only trace of it left
+     * (a contact added by hand or imported has no records), like an enquiry that has the address in a field.
      *
      * @param list<int> $enquiryIds
      * @param list<int> $bookingIds
@@ -1162,6 +1164,8 @@ final class Contacts
             $norm = self::normalise($email);
             if ($norm !== null) {
                 $ids = array_map('intval', array_column($db->all('SELECT id FROM {contacts} WHERE email_norm = ?', [$norm]), 'id'));
+                $ids = [...$ids, ...array_map('intval', array_column($db->all('SELECT DISTINCT contact_id FROM {contact_activities} WHERE LOWER(text) LIKE ?',
+                    ['%' . addcslashes($norm, '%_\\') . '%']), 'contact_id'))];
             }
             foreach (['poptavky' => ['idp', $enquiryIds], 'bookings' => ['id', $bookingIds], 'odberatele' => ['ido', $subscriberId !== null ? [$subscriberId] : []]] as $table => [$key, $list]) {
                 $list = array_values(array_filter(array_map('intval', $list), fn (int $id): bool => $id > 0));

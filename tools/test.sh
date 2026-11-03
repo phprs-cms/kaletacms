@@ -9821,6 +9821,15 @@ mcp_as "$T328_TA" erase_personal_data '{"email":"marta.t328@firma-t328.cz","conf
 expect "3.28 erase_personal_data: the contact, its log, comments and tasks are gone; the company stays" \
   "$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T328_C1:-0}")|$(sq "SELECT COUNT(*) FROM ka_contact_activities WHERE contact_id = ${T328_C1:-0}")|$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'contact:${T328_C1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE target = 'contact:${T328_C1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_companies WHERE id = $T328_CO")" \
   "0|0|0|0|1"
+# N328-6: an address merged into another contact (a contact added by hand, no records of its own) is still found – by the
+# merge's note – and erasing it takes the contact it went into
+T328_SOLO=$(t328_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'solo.t328@example.org', 'name' => 'Solo T328'], $T328_ADMIN);")
+T328_INTO=$(t328_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'into.t328@example.org'], $T328_ADMIN);")
+t328_php "Kaleta\\Core\\Contacts::merge(\$app, ${T328_INTO:-0}, ${T328_SOLO:-0}, $T328_ADMIN);" > /dev/null
+mcp_as "$T328_TA" find_personal_data '{"email":"solo.t328@example.org"}' > "$WORK/response"; mcp_text
+T328_SOLO_FOUND=$(t328_json found.contacts)
+mcp_as "$T328_TA" erase_personal_data '{"email":"solo.t328@example.org","confirm":true}' > /dev/null
+expect "3.28 (N328-6): an address merged into another contact is found by the merge's note, and erased with it" "$T328_SOLO_FOUND|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id IN (${T328_SOLO:-0}, ${T328_INTO:-0})")|$(sq "SELECT COUNT(*) FROM ka_contact_activities WHERE text LIKE '%solo.t328@%'")" "1|0|0"
 sq "DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE name LIKE '%T328%' OR email LIKE '%t328%'); DELETE FROM ka_contacts WHERE name LIKE '%T328%' OR email LIKE '%t328%' OR id = ${T328_C3:-0};
   DELETE FROM ka_companies WHERE name LIKE '%T328%'; DELETE FROM ka_poptavky WHERE formular = 'Bez adresy T328' OR email LIKE '%t328%'; DELETE FROM ka_odberatele WHERE email LIKE '%t328%';
   DELETE FROM ka_api_tokeny WHERE nazev LIKE 't328-%'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($T328_JANA, $T328_PETR, $T328_EVA); DELETE FROM ka_uzivatele WHERE user LIKE 't328-%'" > /dev/null

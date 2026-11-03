@@ -13,7 +13,8 @@ namespace Kaleta\Core;
  *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
  *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
- *  - 3.28: the customer records (Core\Contacts) of the address and of the enquiries, bookings and subscription found – with
+ *  - 3.28: the customer records (Core\Contacts) of the address, of the enquiries, bookings and subscription found and of a
+ *    log entry naming the address (a merge's note keeps the address merged in – N328-6) – with
  *    the company they work for (its name only: a company is not a person's data and is never erased here), the team's log
  *    of calls, meetings, e-mails and notes, and the team's comments and tasks about the contact. Erasing deletes them all.
  *  - Erasing deletes the enquiries with their attachments, internal notes (3.25) and tasks (3.27), the subscriber with the newsletter queue rows, the pending
