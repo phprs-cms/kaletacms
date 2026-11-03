@@ -213,9 +213,9 @@ final class Calendar
         if (count($out) > self::MAX_REMINDERS) {
             return null;
         }
-        rsort($out);
+        rsort($out); // rsort re-indexes: a list
 
-        return array_values($out);
+        return $out;
     }
 
     /** @return list<int> the thresholds in force (the setting, the default when it is not a valid list) */

@@ -173,8 +173,8 @@ final class Inventory
 
         return array_values(array_filter($rows, static function (array $r) use ($filters, $words): bool {
             foreach (self::FILTERS as $filter => $key) {
-                $want = $filters[$filter] ?? '';
-                if ($want === '' || $want === 0 || $want === null) {
+                $want = $filters[$filter] ?? ''; // a missing or null filter is '' = any
+                if ($want === '' || $want === 0) {
                     continue;
                 }
                 if ($filter === 'customer') {
