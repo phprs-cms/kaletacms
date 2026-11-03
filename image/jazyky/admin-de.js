@@ -3079,5 +3079,6 @@ window.KALETA_PREKLAD = {
 	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Kein gültiger Abstand. Geben Sie eine Zahl mit Einheit ein (24px, 1.5rem, 5 %) oder wählen Sie eine Stufe.",
 	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Geben Sie #hex, rgb(…) oder oklch(…) ein oder wählen Sie eine Farbe der Website.",
 	"Pozadí": "Hintergrund",
-	"Linka": "Linie"
+	"Linka": "Linie",
+	"customer": "Kunde"
 };

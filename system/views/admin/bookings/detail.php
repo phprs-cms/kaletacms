@@ -8,6 +8,7 @@
  * @var array<string, mixed> $b
  * @var DateTimeImmutable $deadline until when the customer may cancel by the link
  * @var list<array{id: int, starts_at: string, ends_at: string}> $proposals times already proposed to the customer (pending)
+ * @var array<string, mixed>|null $contactBox the customer of the booking (3.28, Admin\Modules\Contacts::box); null without Customers
  * @var list<string> $free free times of this person to propose from, "YYYY-MM-DD HH:MM" (pending)
  */
 use Kaleta\Core\Booking;
@@ -33,6 +34,9 @@ use Kaleta\Core\Booking;
 	<dt><?= e(t('Reminder')) ?></dt><dd><?= $b['reminded_at'] !== null ? e(t('sent %s', format_date((string) $b['reminded_at'], true))) : e(t('not yet')) ?> · <?= e(t('the customer may cancel online until %s', format_date($deadline, true))) ?></dd>
 <?php endif ?>
 </dl>
+<?php if ($contactBox !== null): /* 3.28: the customer this booking belongs to */ ?>
+<?= $app->view->render('admin/contact_box', ['csrf' => $csrf, 'box' => $contactBox]) ?>
+<?php endif ?>
 <?php if ($b['status'] === 'pending'): ?>
 <p class="napoveda"><?= $b['hold_until'] !== null ? e(strtotime((string) $b['hold_until']) > time() ? t('The time is held until %s.', format_date((string) $b['hold_until'], true)) : t('The hold ran out on %s – the time is free for others, but you can still answer.', format_date((string) $b['hold_until'], true))) : '' ?></p>
 <?php if ($proposals !== []): ?>

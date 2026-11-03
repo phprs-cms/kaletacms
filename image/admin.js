@@ -449,6 +449,7 @@
 		var popupCommands = [];
 		try { popupCommands = JSON.parse(document.getElementById('paleta-data').textContent) || []; } catch (e) {}
 		var popupNews = [];
+		var popupContacts = []; // 3.28: customers found on the server (Customers → search_json)
 		var popupSelected = 0;
 		var popupTimer = null;
 		var removeDiacritics = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
@@ -460,7 +461,7 @@
 				var whereParts = removeDiacritics(p.n + ' ' + p.s);
 				return words.every(function (s) { return whereParts.indexOf(s) !== -1; });
 			});
-			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupNews);
+			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupContacts, q === '' ? [] : popupNews);
 		};
 		var popupRender = function () {
 			var items = popupItems();
@@ -493,6 +494,7 @@
 			if (palette.open) { return; }
 			popupFields.value = '';
 			popupNews = [];
+			popupContacts = [];
 			popupSelected = 0;
 			popupRender();
 			palette.showModal();
@@ -515,13 +517,23 @@
 			clearTimeout(popupTimer);
 			var q = popupFields.value.trim();
 			var address = palette.getAttribute('data-clanky');
-			if (!address || q.length < 2) { popupNews = []; return; }
+			var customers = palette.getAttribute('data-contacts');
+			if (q.length < 2) { popupNews = []; popupContacts = []; return; }
 			popupTimer = setTimeout(function () {
-				fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-					if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
-					popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('news item') : T('news item – unpublished') }; });
-					popupRender();
-				}).catch(function () {});
+				if (address) {
+					fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+						if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
+						popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('news item') : T('news item – unpublished') }; });
+						popupRender();
+					}).catch(function () {});
+				}
+				if (customers) {
+					fetch(customers + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+						if (popupFields.value.trim() !== q) { return; }
+						popupContacts = (d.contacts || []).map(function (c) { return { n: c.name, u: c.url, s: T('customer') + (c.note ? ' · ' + c.note : '') }; });
+						popupRender();
+					}).catch(function () {});
+				}
 			}, 200);
 		});
 		popupFields.addEventListener('keydown', function (e) {

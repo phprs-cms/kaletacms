@@ -70,6 +70,8 @@ $paths = [
     'ven' => '<path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>',
     'moje' => '<path d="M10 6h10M10 12h10M10 18h10"/><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11"/><circle cx="5.5" cy="18" r="1.5"/>', // 3.24: My work
     'zvonek' => '<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21a2 2 0 0 0 4 0"/>', // 3.26: the bell of notifications
+    'zakaznici' => '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10.5" r="2.3"/><path d="M5.5 16.5a3.5 3.5 0 0 1 7 0"/><path d="M15 9.5h3M15 13.5h3"/>', // 3.28: Customers
+    'telefon' => '<path d="M5 4h3.5l1.8 4.5-2.3 1.4a11 11 0 0 0 6.1 6.1l1.4-2.3 4.5 1.8V19a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>', // 3.28: a call on a customer's timeline
 ];
 
 return fn (string $key): string => '<svg class="ikona" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$key] ?? $paths['clanek']) . '</svg>';

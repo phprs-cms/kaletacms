@@ -3562,6 +3562,83 @@ await step('3.27 tasks: enquiry follow-up, done, snooze, edit, hand to Claude; t
       DELETE FROM ka_poptavky WHERE idp = ${enquiry}; DELETE FROM ka_stranky WHERE ids = ${pageId}; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${jana}; DELETE FROM ka_uzivatele WHERE idu = ${jana}`);
   }
 });
+// 3.28 (agent B): Customers – the list (cards on a phone), a customer's detail with the timeline, "Log a call / meeting" from
+// the chips, the company suggestion, the merge screen side by side, the box on an enquiry and the palette search; 1440 and
+// 390 px, light and dark, no sideways scroll
+await step('3.28 customers: list, detail, log a meeting, company suggestion, merge screen, enquiry box, palette (1440 and 390 px, light/dark)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("DELETE FROM ka_contacts WHERE email_norm LIKE '%b328%'; DELETE FROM ka_companies WHERE name LIKE '%B328%'");
+  const eva = Number(sql(`INSERT INTO ka_contacts (email, email_norm, name, phone, language, source, summary, first_seen_at, last_activity_at, created_at, updated_at)
+    VALUES ('eva.b328@northwind-b328.example', 'eva.b328@northwind-b328.example', 'Eva Longname-Doubleservice B328', '+44 20 7946 0328', 'en', 'enquiry', 'Prefers e-mail. Asked about the yearly service plan for all three offices.', NOW() - INTERVAL 20 DAY, NOW() - INTERVAL 2 DAY, NOW(), NOW()); SELECT LAST_INSERT_ID();`).trim());
+  const other = Number(sql(`INSERT INTO ka_contacts (email, email_norm, name, phone, language, source, first_seen_at, last_activity_at, created_at, updated_at)
+    VALUES ('eva.private.b328@gmail.com', 'eva.private.b328@gmail.com', 'Eva B328', '', '', 'subscriber', NOW() - INTERVAL 5 DAY, NOW() - INTERVAL 5 DAY, NOW(), NOW()); SELECT LAST_INSERT_ID();`).trim());
+  const enquiry = Number(sql(`INSERT INTO ka_poptavky (datum, formular, email, data, stav, contact_id) VALUES (NOW() - INTERVAL 2 DAY, 'Contact B328', 'eva.b328@northwind-b328.example', '[["Message","Secret message B328"]]', 1, ${eva}); SELECT LAST_INSERT_ID();`).trim());
+  const submit = async (locator) => { await Promise.all([page.waitForNavigation(), locator.click()]); };
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=contacts&search=B328');
+    if ((await page.locator('[data-contacts-list] tr[data-contact]').count()) !== 2) { throw new Error('the search does not list both customers'); }
+    await submit(page.locator(`tr[data-contact="${eva}"] td:first-child a`));
+    if (!(await page.locator('h1').innerText()).includes('Eva Longname-Doubleservice B328')) { throw new Error('the detail is not titled after the customer'); }
+    if ((await page.locator('[data-timeline-entry="enquiry"]').count()) !== 1) { throw new Error('the enquiry is not on the timeline'); }
+    // the company of the e-mail domain is suggested; one click creates it and adds her
+    await submit(page.locator('form[data-company-suggestion] button'));
+    await page.locator('.hlaska-ok', { hasText: 'The contact was saved.' }).waitFor();
+    if (!(await page.locator('[data-contact-card] dd a', { hasText: 'Northwind' }).count())) { throw new Error('the suggested company was not added'); }
+    // log a meeting from the chips
+    await page.locator('.zakaznik-druh label', { hasText: 'Meeting' }).click();
+    await page.locator('#zapis-text').fill('Met at the trade fair – sends the floor plans by Friday.');
+    await submit(page.locator('form[data-activity-form] button[type="submit"]'));
+    await page.locator('.hlaska-ok', { hasText: 'Logged.' }).waitFor();
+    const first = page.locator('[data-timeline-list] [data-timeline-entry]').first();
+    if ((await first.getAttribute('data-timeline-entry')) !== 'meeting' || !(await first.innerText()).includes('floor plans')) { throw new Error('the meeting is not first on the timeline'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/328-contact-detail.png`, fullPage: true }); }
+    // the merge screen: both side by side
+    await visit(`/admin.php?module=contacts&action=merge&id=${eva}&with=${other}`);
+    const sides = await page.locator('[data-merge-side]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top));
+    if (sides.length !== 2 || Math.abs(sides[0] - sides[1]) > 2) { throw new Error(`the two contacts are not side by side at 1440 px: ${JSON.stringify(sides)}`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/328-merge.png` }); }
+    // the box on the enquiry
+    await visit(`/admin.php?module=enquiries&action=detail&id=${enquiry}`);
+    const box = page.locator(`[data-contact-box="${eva}"]`);
+    if (!(await box.innerText()).includes('Eva Longname-Doubleservice B328')) { throw new Error('the enquiry does not show its customer'); }
+    // the palette finds her by the company
+    await page.keyboard.press('Control+k');
+    await page.locator('#paleta .paleta-pole').fill('Northwind');
+    await page.locator('#paleta .paleta-seznam a', { hasText: 'Eva Longname-Doubleservice B328' }).waitFor({ timeout: 5000 });
+    await page.keyboard.press('Escape');
+    // light and dark, desktop and phone: no sideways scroll, readable text; the list becomes cards on a phone
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other2 = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other2.newPage(); watch(p2);
+        try {
+          for (const url of ['/admin.php?module=contacts&search=B328', `/admin.php?module=contacts&action=detail&id=${eva}`, `/admin.php?module=contacts&action=merge&id=${eva}&with=${other}`]) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+            if (url.includes('search=B328')) {
+              const display = await p2.locator('[data-contacts-list] tbody tr').first().evaluate((el) => getComputedStyle(el).display);
+              if ((label === 'phone') !== (display === 'block')) { throw new Error(`the list rows are ${display} on the ${label}`); }
+            }
+            if (url.includes('action=detail')) {
+              const colours = await p2.locator('.zakaznik-karta').evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('dd')).color]);
+              if (colours[0] === colours[1]) { throw new Error(`the card text has the colour of the card (${label}, ${scheme})`); }
+            }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/328-${url.includes('merge') ? 'merge' : url.includes('detail') ? 'detail' : 'list'}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other2.close();
+        }
+      }
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_contact_activities WHERE contact_id IN (${eva}, ${other}); DELETE FROM ka_poptavky WHERE idp = ${enquiry};
+      DELETE FROM ka_contacts WHERE id IN (${eva}, ${other}); DELETE FROM ka_companies WHERE domain = 'northwind-b328.example'`);
+  }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

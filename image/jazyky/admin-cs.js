@@ -2964,5 +2964,6 @@ window.KALETA_PREKLAD = {
 	"Custom colour": "Vlastní barva",
 	"Colours of the site": "Barvy webu",
 	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Neplatná mezera. Zadejte číslo s jednotkou (24px, 1.5rem, 5 %) nebo vyberte krok.",
-	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Neplatná barva. Zadejte #hex, rgb(…) nebo oklch(…), nebo vyberte barvu webu."
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Neplatná barva. Zadejte #hex, rgb(…) nebo oklch(…), nebo vyberte barvu webu.",
+	"customer": "zákazník"
 };

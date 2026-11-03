@@ -1173,4 +1173,10 @@ return [
     '%s made you the responsible person for the customer #%s.' => '%s hat dich als verantwortliche Person für den Kunden #%s festgelegt.',
     'You are responsible for the company “%s”' => 'Du bist für die Firma „%s“ verantwortlich',
     '%s made you the responsible person for the company “%s”.' => '%s hat dich als verantwortliche Person für die Firma „%s“ festgelegt.',
+    'Try another word or clear the filter.' => 'Versuche ein anderes Wort oder setze den Filter zurück.',
+    'or paste the rows' => 'oder füge die Zeilen ein',
+    'Everyone who sends an enquiry, books an appointment or subscribes to the newsletter becomes a customer here – one record per e-mail address. You can also add one by hand.' => 'Jeder, der eine Anfrage sendet, einen Termin bucht oder den Newsletter abonniert, erscheint hier als Kunde – ein Eintrag pro E-Mail-Adresse. Du kannst auch selbst einen anlegen.',
+    'Two records of one person – for example a private and a work e-mail address. Kaleta never merges two different addresses by itself. Find the other contact:' => 'Zwei Einträge einer Person – zum Beispiel eine private und eine geschäftliche E-Mail-Adresse. Kaleta führt nie selbst zwei verschiedene Adressen zusammen. Such den anderen Kontakt:',
+    'Enquiries, bookings and newsletter subscriptions create their customer by themselves. Add one here for someone who called or came in person – an e-mail address, a name or a phone number is enough.' => 'Anfragen, Buchungen und Newsletter-Abonnements legen ihren Kunden selbst an. Leg hier jemanden an, der angerufen hat oder persönlich vorbeikam – eine E-Mail-Adresse, ein Name oder eine Telefonnummer genügt.',
+    'Tick that you want to merge the two contacts.' => 'Kreuze an, dass du die beiden Kontakte zusammenführen möchtest.',
 ];

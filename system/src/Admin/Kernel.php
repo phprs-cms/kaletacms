@@ -43,6 +43,7 @@ final class Kernel
         Modules\Facts::class,
         Modules\Blueprints::class,
         Modules\Enquiries::class, // 3.25: the Workspace group (formerly Customers) – the daily inboxes
+        Modules\Contacts::class, // 3.28: Customers – the contacts and companies the enquiries, bookings and subscriptions come from
         Modules\Bookings::class,
         Modules\Appearance::class,
         Modules\SiteParts::class,
@@ -91,11 +92,11 @@ final class Kernel
      * choose – and anything not classified (an unknown section, an add-on page) clears, as before.
      *
      * The sections whose changes never reach the site: enquiries, subscribers, statistics, requests to Claude and their
-     * schedules, the notebook, the audit and the link check, roles, newsletters (an e-mail, no page on the site) and the
-     * fleet console (it publishes to other sites).
+     * schedules, the notebook, the audit and the link check, roles, newsletters (an e-mail, no page on the site), the
+     * fleet console (it publishes to other sites) and the customers (3.28 – the site never reads contacts).
      */
     public const array SITE_NEUTRAL_MODULES = ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles',
-        'newsletters', 'fleet'];
+        'newsletters', 'fleet', 'contacts'];
 
     /** The sections whose changes can alter the site: their POSTs clear the page cache, except the SITE_NEUTRAL_ACTIONS. */
     public const array SITE_CHANGING_MODULES = ['pages', 'news', 'collections', 'media', 'categories', 'tags', 'business', 'facts', 'blueprints', 'bookings',
