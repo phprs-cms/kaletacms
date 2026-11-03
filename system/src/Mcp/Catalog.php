@@ -216,6 +216,12 @@ final class Catalog
         'save_contact' => ['write', ''],
         'log_activity' => ['write', ''],
         'merge_contacts' => ['destructive', ''],
+        // The lean pipeline (3.31, Core\Deals): deals point to customers – never shown on the site and never journaled for
+        // undo; deleting a deal stays in the administration (administrators)
+        'list_deals' => ['read', ''],
+        'save_deal' => ['write', ''],
+        'move_deal' => ['write', ''],
+        'pipeline_summary' => ['read', ''],
     ];
 
     /**
@@ -381,6 +387,10 @@ final class Catalog
         'save_contact' => 'Create or change a contact',
         'log_activity' => 'Log a call, meeting or note',
         'merge_contacts' => 'Merge two contacts',
+        'list_deals' => 'List deals',
+        'save_deal' => 'Create or change a deal',
+        'move_deal' => 'Move a deal to another stage',
+        'pipeline_summary' => 'Get the pipeline summary',
     ];
 
     /**
@@ -408,7 +418,7 @@ final class Catalog
         'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
         'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
-        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task'];
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal'];
 
     /**
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
@@ -421,7 +431,7 @@ final class Catalog
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
-        'save_contact', 'log_activity', 'merge_contacts'];
+        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal'];
 
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool
@@ -458,7 +468,7 @@ final class Catalog
     public const array WORK = ['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'triage_enquiries', 'reply_to_enquiry', 'list_comments', 'add_comment',
         'assign', 'get_email_signature', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
         'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task', 'list_contacts', 'get_contact', 'save_contact',
-        'log_activity', 'merge_contacts'];
+        'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary'];
 
     /**
      * The tools a tool set lists before the META tools: null = every tool (all).

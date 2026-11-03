@@ -1213,4 +1213,12 @@ return [
     'Built from each site\'s last report (every hour) and the console\'s own uptime checks. Open leads to the screen of the site\'s own administration that fixes it – sign in there as usual; the console has no access to the sites.' => 'Erstellt aus dem letzten Bericht jeder Website (stündlich) und den eigenen Erreichbarkeitsprüfungen der Konsole. „Öffnen“ führt zur Seite in der Verwaltung der Website, auf der es behoben wird – melde dich dort wie gewohnt an; die Konsole hat keinen Zugriff auf die Websites.',
     'Each cell opens the screen of the site\'s own administration where the check is fixed – sign in there as usual. A site before Kaleta 3.29 sends only part of the checks: update it to see the rest.' => 'Jede Zelle öffnet die Seite in der Verwaltung der Website, auf der die Prüfung behoben wird – melde dich dort wie gewohnt an. Eine Website vor Kaleta 3.29 sendet nur einen Teil der Prüfungen: Aktualisiere sie, um den Rest zu sehen.',
     'From %s, only visits confirmed by a visitor’s browser are counted – bots, link previews and your own visits are left out. Earlier numbers include some of them.' => 'Seit %s werden nur Besuche gezählt, die der Browser eines Besuchers bestätigt – Bots, Linkvorschauen und deine eigenen Besuche bleiben außen vor. Frühere Zahlen enthalten einen Teil davon.',
+    'The stage “%s” still has deals – move them to another stage first.' => 'In der Phase „%s“ sind noch Deals – verschiebe sie zuerst in eine andere Phase.',
+    'Give the deal a title.' => 'Gib dem Deal einen Titel.',
+    'Move a deal to another stage with Move – it keeps the history.' => 'Verschiebe einen Deal mit „Verschieben“ in eine andere Phase – so bleibt der Verlauf erhalten.',
+    'Say why the deal was lost: %s.' => 'Gib an, warum der Deal verloren ging: %s.',
+    'Write the expected close as a date, e.g. %s.' => 'Gib den erwarteten Abschluss als Datum an, z. B. %s.',
+    'This person cannot open the pipeline (or the account is blocked) – choose someone who can.' => 'Diese Person kann die Pipeline nicht öffnen (oder das Konto ist gesperrt) – wähle jemanden, der es kann.',
+    'You are responsible for the deal #%s' => 'Du bist für den Deal #%s verantwortlich',
+    '%s made you the responsible person for the deal #%s.' => '%s hat dich als verantwortliche Person für den Deal #%s festgelegt.',
 ];

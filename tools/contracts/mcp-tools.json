@@ -1166,6 +1166,25 @@
             "openWorldHint": false
         }
     },
+    "list_deals": {
+        "parameters": {
+            "company": "integer",
+            "contact": "integer",
+            "limit": "integer",
+            "owner": "string",
+            "page": "integer",
+            "search": "string",
+            "stage": "string",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List deals",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_draft_comments": {
         "parameters": {
             "include_resolved": "boolean",
@@ -1488,11 +1507,42 @@
             "openWorldHint": true
         }
     },
+    "move_deal": {
+        "parameters": {
+            "id": "integer",
+            "lost_note": "string",
+            "lost_reason": "string",
+            "stage": "string"
+        },
+        "required": [
+            "id",
+            "stage"
+        ],
+        "annotations": {
+            "title": "Move a deal to another stage",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+        }
+    },
     "my_work": {
         "parameters": [],
         "required": [],
         "annotations": {
             "title": "Get my work",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "pipeline_summary": {
+        "parameters": {
+            "owner": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Get the pipeline summary",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
@@ -1977,6 +2027,27 @@
         "required": [],
         "annotations": {
             "title": "Create or change a contact",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_deal": {
+        "parameters": {
+            "company": "integer",
+            "contact": "integer",
+            "currency": "string",
+            "enquiry": "integer",
+            "expected_close": "string",
+            "id": "integer",
+            "owner": "string",
+            "stage": "string",
+            "title": "string",
+            "value": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Create or change a deal",
             "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": false

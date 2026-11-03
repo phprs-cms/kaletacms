@@ -318,6 +318,10 @@ final class Translator
         'save_contact' => ['save_contact', '', []],
         'log_activity' => ['log_activity', '', []],
         'merge_contacts' => ['merge_contacts', '', []],
+        'list_deals' => ['list_deals', '', []], // 3.31: English only
+        'save_deal' => ['save_deal', '', []],
+        'move_deal' => ['move_deal', '', []],
+        'pipeline_summary' => ['pipeline_summary', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
