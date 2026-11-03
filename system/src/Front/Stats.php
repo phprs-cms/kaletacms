@@ -111,10 +111,10 @@ final class Stats
      *  - 'agent': no user agent, or a known bot (BOTS);
      *  - 'prefetch': the browser fetches ahead for a page nobody has seen yet (Sec-Purpose / Purpose: prefetch, prerender);
      *  - 'origin': the request comes from another site – the Origin header names a different host than this request's own
-     *    (the Host header, a proxy's X-Forwarded-Host) or the configured site address. 'null' is no host to compare: a real
-     *    browser sends it on its own same-origin beacon when the page's referrer policy is no-referrer (a server's or a
-     *    meta tag's hardening, the private whistleblowing page), so it is left to Sec-Fetch-Site (N329-1) – a sandboxed
-     *    frame of another site gets cross-site there;
+     *    (the Host header, a proxy's X-Forwarded-Host) or the configured site address. 'null' is no host to compare: the
+     *    Fetch standard has a browser send it on a page's own beacon (a no-cors POST) when the page's referrer policy is
+     *    no-referrer – a hosting's or a meta tag's hardening, the private whistleblowing page (Chrome sends its origin
+     *    anyway) – so it is left to Sec-Fetch-Site (N329-1); a sandboxed frame of another site gets cross-site there;
      *  - 'site': Sec-Fetch-Site, when the browser sends it, is not same-origin.
      *
      * @param array<string, mixed> $server
