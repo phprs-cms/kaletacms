@@ -4658,6 +4658,12 @@ contains -q '"isError":true' "$WORK/response" && ! contains -q 'connector' "$WOR
 mcp fleet_plan '{}' > "$WORK/response"; contains -q '"connector"' "$WORK/response" && { echo "  CHYBA  fleet_plan works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_plan exists only on a console"
 mcp save_task '{"title":"Console task off the console","target":"fleet_site:1"}' > "$WORK/response"
 expect "3.30: no console task where the console is off" "$(grep -c 'does not exist' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE title = 'Console task off the console'")" "1|0"
+# N330-4: the console is for administrators only – a forged or stale section right never makes an editor a candidate for a console task
+sq3 "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'fleet' FROM ka_uzivatele WHERE user = 'editor330'" > /dev/null
+y330_call save_task "{\"title\":\"Forged right 330\",\"target\":\"fleet_site:$HOST329\",\"assignee\":\"editor330\"}" > "$WORK/response"
+expect "3.30 review N330-4: an editor with a forged fleet right gets no console task and cannot list the console tasks" \
+  "$(sq3 "SELECT COUNT(*) FROM ka_tasks WHERE title = 'Forged right 330'")|$(y330_mcp "$Y330_ETOKEN" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"list_tasks\",\"arguments\":{\"filter\":\"target:fleet_site:$HOST329\"}}}" | grep -c 'the fleet console can see the tasks')" "0|1"
+sq3 "DELETE p FROM ka_uzivatele_prava p JOIN ka_uzivatele u ON u.idu = p.fk_id_user WHERE u.user = 'editor330' AND p.ident_modulu = 'fleet'" > /dev/null
 expect "3.30: the prompt fleet_fix is listed on the console (and runs fleet_plan), not on a site that is not a console" \
   "$(y330_mcp "$CON_TOKEN" '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}' | grep -c '"name":"fleet_fix"')|$(y330_mcp "$CON_TOKEN" '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"fleet_fix","arguments":{"severity":"amber"}}}' | grep -c 'only the amber items. You are connected to a Kaleta fleet console')|$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}' | grep -c 'fleet_fix')" "1|1|0"
 # Claude reports back on the console: complete_task with the id from the plan; a task id of another record never reaches it through a panel

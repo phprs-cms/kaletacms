@@ -10102,6 +10102,14 @@ check('3.30 review N330-3 – how long a window is open; under two hours is too 
     array_map(fn (string $w): int => Kaleta\Fleet\Rollout::windowMinutes((array) Kaleta\Fleet\Rollout::parseWindow($w)), ['1|22:00-05:00', '1|03:00-03:30', '67|00:00-00:00', '1|23:30-00:30', '1|01:00-03:00']),
     array_map(Kaleta\Fleet\Rollout::longEnough(...), ['', '1|22:00-05:00', '1|03:00-03:30', '67|00:00-00:00', '1|23:30-00:30', '1|01:00-03:00', 'nonsense'])],
     [[420, 30, 1440, 60, 120], [true, true, false, true, false, true, true]]);
+$x330AdminSections = [];
+foreach (Kaleta\Admin\Kernel::MODULES as $x330Class) {
+    if ($x330Class::ADMIN_ONLY && in_array($x330Class::IDENT, Kaleta\Core\Assignment::KINDS, true)) {
+        $x330AdminSections[] = $x330Class::IDENT;
+    }
+}
+check('3.30 review N330-4 – Assignment::ADMIN_SECTIONS are exactly the sections of Assignment::KINDS that only administrators open', [array_values(array_unique($x330AdminSections))],
+    [Kaleta\Core\Assignment::ADMIN_SECTIONS]);
 $x330Sites = [
     ['id' => 1, 'name' => 'Pilot site', 'url' => 'https://pilot.example', 'ring' => 'canary', 'version' => '3.30.0', 'manage_updates' => 1, 'update_allowed' => '', 'status' => 'ok', 'up' => 1,
         'version_since' => date('Y-m-d H:i:s', $x330Now - 50 * 3600), 'heartbeat' => '{}', 'customer_id' => null, 'update_window' => null],
