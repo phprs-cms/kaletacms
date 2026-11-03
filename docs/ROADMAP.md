@@ -1328,6 +1328,29 @@ recurrence.
    account) are listed under "Not assigned" in the Team tab with "Reassign to…" (MCP `list_tasks` `assignee:none` for
    administrators); tasks follow an enquiry's deletion and anonymisation.
 
+## 3.28 – customers: contacts and companies (5 November 2026)
+
+Stage 5 of the team work and the core of the built-in CRM (owner, 3 November: "ok start the step 5"; stage 4 skipped). From
+here on Kaleta holds a customer database. Migration 0114 adds `ka_contacts`, `ka_companies`, `ka_contact_activities` and a
+`contact_id` on enquiries, bookings and newsletter subscribers; `KALETA_DB_VERSION` 114. No setting key, POST field, MCP tool,
+parameter or Czech alias renamed; new non-essential MCP tools `list_contacts`, `get_contact`, `save_contact`, `log_activity`
+and `merge_contacts` (also in the `work` tool set).
+
+1. **Customers** (Workspace → Customers, section `contacts`, given by the migration to everyone who has Enquiries): a list with
+   search and filters, a company list, a customer's detail with a timeline of enquiries, replies, bookings, the subscription,
+   comments, tasks and logged calls, meetings, e-mails and notes; a company's detail; CSV export and import for
+   administrators; Ctrl K finds customers.
+2. **One record per person:** new enquiries, bookings and confirmed subscriptions are linked after the response by the
+   normalised e-mail address; older rows are linked by a background job in batches. Two different addresses are never merged
+   by themselves – administrators merge by hand. A company is suggested from the e-mail domain, never for free-mail.
+3. **A customer box** on every enquiry and booking.
+4. **Retention and privacy:** `contacts_months` (default = the enquiries' period) anonymises customers with no activity; an
+   expired enquiry leaves "first contact on … through the form …" without the message; finding, exporting and erasing personal
+   data cover customers; the record of processing has "Customer relations"; Claude's changes to customers cannot be undone.
+5. **Encrypted off-site backups (D-W12):** the database copy for FTPS or S3 is encrypted (XChaCha20-Poly1305, or AES-256-GCM
+   without sodium) with a recovery key kept outside the database; until an administrator saves the key, off-site database
+   copies wait and the site says so; restoring on a new hosting needs the key.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
