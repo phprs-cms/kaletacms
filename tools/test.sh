@@ -4066,6 +4066,50 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 SUMMARY317=$(sq3 "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.report_summary.month')), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.visits'), '|', JSON_EXTRACT(heartbeat, '\$.report_summary.changes_claude'), '|', heartbeat LIKE '%Secret title 317%', '|', heartbeat LIKE '%Kontakt%') FROM ka_fleet_sites WHERE id = $FLEET_ID")
 expect "report_summary: the heartbeat carries the counts of the site's last archived month – no titles, no forms" "$SUMMARY317" "$PREV317|4321|9|0|0"
 [ "$SUMMARY317" = "$PREV317|4321|9|0|0" ] || echo "         (the site's last error: $(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_last_error'"); its archive: $(sq "SELECT CONCAT(month, ' ', LEFT(data, 60)) FROM ka_monthly_reports ORDER BY month DESC LIMIT 1"))"
+# 3.29: the parts behind the console's health matrix, Today and workload (Fleet\Checks) – states, days and counts only
+REQ2FA329=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'require_2fa'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', 'spravci');
+  INSERT INTO ka_tasks (title, due_at, created_at, updated_at) VALUES ('Call Jan329 at jan329@client.example', '$(site_time '-2 days')', '$(site_time '-3 days')', '$(site_time '-3 days')'), ('Open329', NULL, '$(site_time)', '$(site_time)')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
+expect "3.29: the heartbeat carries the new parts – off-site, mail, two-step, cookie scan, privacy, statement, hand-over, workload" \
+  "$(sq3 "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.offsite.status')) IN ('off', 'never', 'ok', 'paused', 'failing'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.mail_setup.mode')), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.twofa.required')),
+    JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.cookie_scan')), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.privacy_page')) IN ('published', 'hidden', 'none'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.accessibility_statement')) IN ('published', 'draft', 'none'),
+    JSON_EXTRACT(heartbeat, '\$.handover.total') > 0, JSON_EXTRACT(heartbeat, '\$.handover.done') <= JSON_EXTRACT(heartbeat, '\$.handover.total'), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.handover.failing')),
+    JSON_EXTRACT(heartbeat, '\$.workload.tasks_open') >= 2, JSON_EXTRACT(heartbeat, '\$.workload.tasks_overdue') >= 1, JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.workload.enquiries_this_week'))) FROM ka_fleet_sites WHERE id = $FLEET_ID")" \
+  "1|$(sq "SELECT IF(COUNT(*) = 2, 'smtp', 'php') FROM ka_nastaveni WHERE (promenna = 'mail_mode' AND hodnota = 'smtp') OR (promenna = 'smtp_host' AND hodnota <> '')")|admins|OBJECT|1|1|1|1|ARRAY|1|1|INTEGER"
+contains -qE 'Jan329|jan329@|smtp_host|backup_host|"cookies":\[' <<< "$(sq3 "SELECT JSON_EXTRACT(heartbeat, '\$.offsite', '\$.mail_setup', '\$.twofa', '\$.cookie_scan', '\$.handover', '\$.workload') FROM ka_fleet_sites WHERE id = $FLEET_ID")" \
+  && { echo "  CHYBA  3.29: a new part carries a name, an address, a host or cookie names"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.29: the new parts carry no name, address, host or cookie name – counts, days and states only"
+# the console maps them (Fleet\Checks): two-step required → ok, the link to fix it is built from the site's known address
+php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone();
+  $site = $app->db()->one("SELECT * FROM {fleet_sites} WHERE id = ?", [(int) $argv[2]]); $c = array_column(Kaleta\Core\Language::runWith("en", fn () => Kaleta\Fleet\Checks::forRow($site), "admin-"), null, "id");
+  $today = array_column(array_filter(Kaleta\Fleet\Checks::today([$site]), fn ($i) => $i["check"] === "privacy_policy" || $i["check"] === "handover"), "link");
+  echo $c["two_step"]["state"], "|", $c["uptime"]["state"], "|", $c["reporting"]["state"], "|", count(array_filter($c, fn ($x) => $x["state"] === "unknown" && $x["detail"] === "Update the site to see")), "|",
+    count(array_filter($today, fn ($l) => !str_starts_with($l, rtrim((string) $site["url"], "/") . "/admin.php?module="))), "|", Kaleta\Fleet\Checks::workload([$site])["reporting"];' "$WORK/web3" "$FLEET_ID" > "$WORK/checks329.txt" 2>&1
+expect "3.29: the console maps the stored parts – two-step required ok, up, reporting, no 'update the site' for a 3.29 site, links from its known address, workload known" "$(cat "$WORK/checks329.txt")" "ok|ok|ok|0|0|1"
+# a hostile heartbeat signed by the site's own key: huge, negative, odd and unknown values are bounded or dropped, the console stays up
+sleep 1
+php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings();
+  $body = json_encode(["action" => "heartbeat", "site_id" => $s->int("fleet_site_id"), "ts" => time(), "version" => "3.29.0", "name" => "Hostile329",
+    "offsite" => ["status" => "ok", "at" => "9999-99-99", "recovery_key" => "<script>", "host" => "ftp.evil329.test"], "mail_setup" => ["mode" => "smtp", "tested" => "yes", "tested_at" => "2026-02-30"],
+    "twofa" => ["required" => "admins", "admins_without" => 9.9e300], "cookie_scan" => ["at" => "2026-11-03", "error" => "x", "cookies" => -40, "names" => ["evil329"]],
+    "privacy_page" => "javascript:alert(1)", "accessibility_statement" => ["draft"], "handover" => ["done" => 999999, "total" => 16, "failing" => ["smtp", "https://evil329.test/", "smtp"]],
+    "workload" => ["enquiries_this_week" => 1e300, "tasks_open" => 9223372036854775807, "tasks_overdue" => "7", "unanswered_over_24h" => -1, "jan329" => 5], "links" => ["two_step" => "https://evil329.test/"]]);
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hostile329.json" > "$WORK/hostile329.sig"
+expect "3.29: a hostile heartbeat signed by the site is accepted and bounded (no 500)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hostile329.sig")" --data-binary @"$WORK/hostile329.json")" "200"
+expect "3.29: the hostile values – dates and enums dropped, counts clamped, unknown keys and failing rows left out" \
+  "$(sq3 "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.offsite.status')), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.offsite.at')), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.offsite.recovery_key')),
+    JSON_EXTRACT(heartbeat, '\$.mail_setup.tested'), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.mail_setup.tested_at')), JSON_EXTRACT(heartbeat, '\$.twofa.admins_without'), JSON_EXTRACT(heartbeat, '\$.cookie_scan.cookies'),
+    JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.privacy_page')), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.accessibility_statement')), JSON_EXTRACT(heartbeat, '\$.handover.done'), JSON_EXTRACT(heartbeat, '\$.handover.failing'),
+    JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.workload.enquiries_this_week')), JSON_EXTRACT(heartbeat, '\$.workload.tasks_open'), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.workload.tasks_overdue')), JSON_EXTRACT(heartbeat, '\$.workload.unanswered_over_24h'),
+    heartbeat LIKE '%evil329%', heartbeat LIKE '%jan329%') FROM ka_fleet_sites WHERE id = $FLEET_ID")" \
+  "ok|NULL|NULL|false|NULL|0|0|NULL|NULL|16|[\"smtp\"]|NULL|1000000|NULL|0|0|0"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -w '%{http_code}' "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID" > "$WORK/code329.txt"
+expect "3.29: the console's pages still open after the hostile heartbeat" "$(cat "$WORK/code329.txt")" "200"
+# back to the real report
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', '$REQ2FA329'); DELETE FROM ka_tasks WHERE title IN ('Call Jan329 at jan329@client.example', 'Open329')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=console"; sleep 1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=fleet_send" -d "_csrf=$(csrf)"
 # 3.26.1: the site's own uptime – it asks its console (POST /fleet/uptime, signed both ways; Fleet\Uptime), keeps the days and its monthly
 # report (and MCP get_monthly_report, also for a month archived before) gains "uptime"; an older console without the address changes nothing
 sq3 "INSERT INTO ka_fleet_history (site_id, day, checks_ok, checks_failed, response_ms_total, response_count) VALUES ($FLEET_ID, '$PREV317-05', 286, 2, 0, 286)" > /dev/null

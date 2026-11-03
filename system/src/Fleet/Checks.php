@@ -10,7 +10,7 @@ namespace Kaleta\Fleet;
  *
  * Each check reads its part of the stored heartbeat (Fleet\Heartbeat; the console's own uptime for "Site answers") and maps
  * it to a state ok | warn | bad | unknown with a short system text (no personal data – the heartbeat carries none). A
- * site that does not send a check's part yet (before 3.29) is "unknown – update the site to see"; nothing about it is
+ * site that sends none of the 3.29 parts (before 3.29) is "unknown – update the site to see"; nothing about it is
  * guessed. The link to fix a check is built HERE from the site's known address (Console::url) and a fixed admin path per
  * check (CHECKS) – never from a path or an address the site sends. The console never calls into a site (plain links only).
  *
@@ -63,7 +63,7 @@ final class Checks
     /** The counts of the workload part (Heartbeat::workload), each null when the site does not have it. */
     public const array WORKLOAD = ['enquiries_this_week', 'enquiries_last_week', 'unanswered_over_24h', 'median_first_reply_hours', 'tasks_open', 'tasks_overdue', 'customers_this_month'];
 
-    /** The version from which a site sends the 3.29 parts: before it, a missing part means "update the site to see". */
+    /** The release that added the parts (PARTS): a site that sends none of them shows "update the site to see". */
     public const string SINCE = '3.29.0';
 
     /** Thresholds (days or hours) of the checks. */
@@ -145,7 +145,8 @@ final class Checks
     {
         $now ??= time();
         $beat = $heartbeat !== [] ? array_filter(Console::clean($heartbeat), static fn (mixed $v): bool => $v !== null) : [];
-        $old = $beat === [] || !is_string($beat['version'] ?? null) || version_compare($beat['version'], self::SINCE, '<');
+        // a site that sends none of the 3.29 parts is before 3.29 (the version alone would not tell a build between releases)
+        $old = array_intersect_key($beat, array_flip(self::PARTS)) === [];
         $out = [];
         foreach (self::CHECKS as $id => [$label, $field, $weight, $path]) {
             [$state, $detail, $since] = self::evaluate($id, $beat, $uptime, $now, $old, $context) + [2 => null];
@@ -257,7 +258,7 @@ final class Checks
     }
 
     /**
-     * One check: [state, detail, since]. $old = the site is before 3.29 (or sent nothing): a missing 3.29 part is unknown,
+     * One check: [state, detail, since]. $old = the site sends none of the 3.29 parts (or nothing): a missing part is unknown,
      * "update the site to see".
      *
      * @param array<string, mixed> $beat cleaned, nulls left out
