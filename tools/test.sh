@@ -9658,7 +9658,7 @@ T328_TJ=$(t328_token 1 "$T328_JANA" t328-jana work); T328_TE=$(t328_token 2 "$T3
 T328_CO=$(sq "INSERT INTO ka_companies (name, domain, created_at, updated_at) VALUES ('Firma T328', 'firma-t328.cz', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
 # the linking job is held far ahead: whatever is linked below, the after-response path linked it
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('contacts_backfill', '{\"enquiry\":2000000000,\"booking\":2000000000,\"subscriber\":2000000000}')" > /dev/null
-curl -s -o "$WORK/formular.html" "$B/kontakt"; FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
+curl -sL -o "$WORK/formular.html" "$B/kontakt"; FORM_SOURCE=$(field_value zdroj); FORM_ELEMENT=$(field_value prvek); FORM_TIME=$(field_value as_cas); FORM_SIGNATURE=$(field_value as_podpis); sleep 4
 t328_submit() { sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null; submit_form "$@" > /dev/null; sq "SELECT MAX(idp) FROM ka_poptavky"; }
 T328_E1=$(t328_submit --data-urlencode "p0=Marta T328" --data-urlencode p1=Marta.T328@Firma-T328.cz -d p2=777328328 --data-urlencode "p3=Tajná zpráva T328" -d p4=1)
 expect "3.28: a submitted enquiry is linked after the response – one contact by the normalised address, the name and phone from the form, the company of its domain, source enquiry" \
