@@ -2573,7 +2573,9 @@ S3_PORT=$((PORT + 6)); mkdir -p "$WORK/s3"
 cat > "$WORK/s3/router.php" <<'PHP'
 <?php
 $h = array_change_key_case(getallheaders());
-file_put_contents(__DIR__ . '/puts.log', $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI'] . ' ' . strlen(file_get_contents('php://input')) . ' ' . (str_starts_with($h['authorization'] ?? '', 'AWS4-HMAC-SHA256 ') ? 'signed' : 'unsigned') . "\n", FILE_APPEND);
+$body = file_get_contents('php://input');
+file_put_contents(__DIR__ . '/puts.log', $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI'] . ' ' . strlen($body) . ' ' . (str_starts_with($h['authorization'] ?? '', 'AWS4-HMAC-SHA256 ') ? 'signed' : 'unsigned') . "\n", FILE_APPEND);
+if (preg_match('#/(kaleta-[^/]+\.sql[^/]*)$#', $_SERVER['REQUEST_URI'], $m)) { file_put_contents(__DIR__ . '/' . $m[1], $body); } // 3.28: the database copies as they arrived
 http_response_code(200); return true;
 PHP
 (cd "$WORK/s3" && exec php -S "127.0.0.1:$S3_PORT" router.php > /dev/null 2>&1) & S3_PID=$!
@@ -2584,11 +2586,48 @@ rm -f "$WORK/web/storage/zalohy/media-kopie.json"
 MEDIA_FILES=$(cd "$WORK/web" && find media -type f ! -name '.*' ! -name '*.php' | wc -l | tr -d ' ')
 backup_now() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup" -d "_csrf=$(csrf)"; }
 backup_now
-expect "the backup and every media file uploaded, signed (sql/media/unsigned)" "$(grep -c '^PUT /kaleta-zalohy/kaleta-.*\.sql' "$WORK/s3/puts.log")/$(grep -c '^PUT /kaleta-zalohy/media/' "$WORK/s3/puts.log")/$(grep -c 'unsigned' "$WORK/s3/puts.log")" "1/$MEDIA_FILES/0"
+# 3.28 (D-W12): the database leaves the server only encrypted – until the recovery key is saved its copy waits (the media,
+# the site's public files, go as they are)
+expect "no recovery key yet: the database copy waits, every media file uploaded, signed (sql/media/unsigned)" "$(grep -c '^PUT /kaleta-zalohy/kaleta-.*\.sql' "$WORK/s3/puts.log")/$(grep -c '^PUT /kaleta-zalohy/media/' "$WORK/s3/puts.log")/$(grep -c 'unsigned' "$WORK/s3/puts.log")" "0/$MEDIA_FILES/0"
 expect "media status: complete" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT SUBSTRING_INDEX(hodnota, '|', -2) FROM ka_nastaveni WHERE promenna = 'remote_media_status'")" "ok|0"
+expect "3.28: the copy is paused, with one alert event, never the key" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUBSTRING_INDEX(hodnota, '|', -1), '/', (SELECT COUNT(*) FROM ka_events WHERE type = 'backup.copy_paused' AND severity = 'warning')) FROM ka_nastaveni WHERE promenna = 'remote_backup_status'")" "paused/1"
 check "Backups show the media copy" 200 "/admin.php?module=settings&tab=backups" "Média: kopie je kompletní"
+check "3.28: Backups say the copies wait for the recovery key" 200 "/admin.php?module=settings&tab=backups" "Zobrazit a uložit obnovovací klíč"
+check "3.28: System status warns that the off-site copies are paused" 200 "/admin.php?module=status" "pozastavené – zálohy se mimo server kopírují jen zašifrované"
+TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o "$WORK/recovery.html" -X POST "$B/admin.php?module=settings&action=backup_key" -d "_csrf=$TOKEN"
+RECOVERY_KEY=$(grep -o -m1 'KBK1\(-[A-Z2-7]\{4\}\)\{13\}' "$WORK/recovery.html" | head -1)
+expect "3.28: the recovery key is shown once, made outside the database (storage/backup-key.php, not readable by others)" "$([ -n "$RECOVERY_KEY" ] && echo shown)/$([ -f "$WORK/web/storage/backup-key.php" ] && echo file)/$(php -r 'echo decoct(fileperms($argv[1]) & 07);' "$WORK/web/storage/backup-key.php")/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%$(sed -n 's/^key=//p' "$WORK/web/storage/backup-key.php" | cut -c1-20)%'")" "shown/file/0/0"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/recovery.txt" -X POST "$B/admin.php?module=settings&action=backup_key_download" -d "_csrf=$TOKEN"
+expect "3.28: the recovery key downloads as a text file while unconfirmed" "$(grep -c -- "$RECOVERY_KEY" "$WORK/recovery.txt")" "1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup_key_confirm" -d "_csrf=$TOKEN"
+expect "3.28: no confirmation without the tick" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'backup_key_confirmed'")" ""
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=backup_key_confirm" -d "_csrf=$TOKEN" -d "saved=1"
+expect "3.28: confirmed – only the key's one-way id and the time are stored" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota REGEXP '^[0-9a-f]{16}[|][0-9]{4}-' FROM ka_nastaveni WHERE promenna = 'backup_key_confirmed'")" "1"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/recovery2.html" -X POST "$B/admin.php?module=settings&action=backup_key" -d "_csrf=$TOKEN"
+expect "3.28: after the confirmation the key is never shown again" "$(grep -c -- "$RECOVERY_KEY" "$WORK/recovery2.html")" "0"
+expect "3.28: the key is in no log, event or change log" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT (SELECT COUNT(*) FROM ka_protokol WHERE CONCAT_WS(' ', akce, popis) LIKE '%KBK1%') + (SELECT COUNT(*) FROM ka_events WHERE CONCAT_WS(' ', message, data) LIKE '%KBK1%')")/$(grep -c 'KBK1' "$WORK/server.log" "$WORK"/web/storage/log/* 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')" "0/0"
 : > "$WORK/s3/puts.log"; backup_now
-expect "the next backup uploads no unchanged media" "$(grep -c '^PUT /kaleta-zalohy/media/' "$WORK/s3/puts.log")" "0"
+UPLOADED=$(grep -o '^PUT /kaleta-zalohy/kaleta-[^ ]*' "$WORK/s3/puts.log" | sed 's#^PUT /kaleta-zalohy/##' | head -1)
+expect "the next backup uploads the database encrypted (….sql.gz.enc) and no unchanged media" "$(grep -c '^PUT /kaleta-zalohy/kaleta-.*\.sql\(\.gz\)\?\.enc ' "$WORK/s3/puts.log")/$(grep -c '^PUT /kaleta-zalohy/media/' "$WORK/s3/puts.log")" "1/0"
+expect "3.28: the uploaded bytes are encrypted – the format's header, no SQL, no temporary file left" "$(head -c 8 "$WORK/s3/$UPLOADED" | od -An -tx1 | tr -d ' \n')/$({ gzip -dc "$WORK/s3/$UPLOADED" 2>/dev/null || cat "$WORK/s3/$UPLOADED"; } | grep -a -c 'INSERT INTO')/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.upload-')" "894b424b0d0a1a0a/0/0"
+# restoring after losing the hosting: the off-site copy uploaded into storage/zalohy/, restored with the recovery key
+cp "$WORK/s3/$UPLOADED" "$WORK/web/storage/zalohy/$UPLOADED"
+mv "$WORK/web/storage/backup-key.php" "$WORK/backup-key.saved"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = 'Pred sifrovanou' WHERE promenna = 'site_name'"
+SAFETY_BEFORE=$(ls "$WORK/web/storage/zalohy" | grep -c predobnovou || true)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
+expect "3.28: Backups offer the recovery key field for the .enc backup" "$(grep -c 'name="recovery_key"' "$WORK/response")" "1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
+expect "3.28: without the key the encrypted backup is refused clearly and nothing changes" "$(grep -c 'Tahle záloha je zašifrovaná. Zadejte obnovovací klíč' "$WORK/response")/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")" "1/Pred sifrovanou"
+WRONG_KEY=$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Core\RecoveryKey::format(random_bytes(32));' "$WORK/web")
+TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$WRONG_KEY"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
+expect "3.28: a wrong key is refused clearly, no safety backup made, nothing changes" "$(grep -c 'Obnovovací klíč k této záloze nepatří' "$WORK/response")/$(ls "$WORK/web/storage/zalohy" | grep -c predobnovou || true)/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")" "1/$SAFETY_BEFORE/Pred sifrovanou"
+TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$(echo "$RECOVERY_KEY" | tr 'A-Z-' 'a-z ')"
+expect "3.28: with the recovery key (any case, spaces) the encrypted backup restores, and the key becomes this site's again" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Pred sifrovanou' FROM ka_nastaveni WHERE promenna = 'site_name'")/$(cmp -s "$WORK/web/storage/backup-key.php" "$WORK/backup-key.saved" && echo same || (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\RecoveryKey::load() === Kaleta\Core\RecoveryKey::parse($argv[1]) ? "same" : "other";' -- "$RECOVERY_KEY"))/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/same/0"
+check "3.28: after the restore the copies go on with the same key" 200 "/admin.php?module=settings&tab=backups" "Obnovovací klíč uložen"
+rm -f "$WORK/web/storage/zalohy/$UPLOADED" "$WORK/backup-key.saved"
 mkdir -p "$WORK/web/media/2026/09" && echo "novy" > "$WORK/web/media/2026/09/novy-soubor.txt"; : > "$WORK/s3/puts.log"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "cron copies only the new file" "$(cat "$WORK/s3/puts.log")" "PUT /kaleta-zalohy/media/2026/09/novy-soubor.txt 5 signed"

@@ -11,6 +11,7 @@
 /tools/klice/
 /tools/klice
 /storage/zalohy/
+/storage/backup-key.php
 /storage/import/*
 !/storage/import/.htaccess
 !/storage/import/.gitkeep

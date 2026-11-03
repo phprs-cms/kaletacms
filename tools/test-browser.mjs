@@ -3562,6 +3562,55 @@ await step('3.27 tasks: enquiry follow-up, done, snooze, edit, hand to Claude; t
       DELETE FROM ka_poptavky WHERE idp = ${enquiry}; DELETE FROM ka_stranky WHERE ids = ${pageId}; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${jana}; DELETE FROM ka_uzivatele WHERE idu = ${jana}`);
   }
 });
+
+// 3.28 (D-W12): off-site backups are encrypted at rest – until the recovery key is saved the copies wait and the Backups tab
+// says so plainly; the key is shown on a page of its own (readable at 1440 and 390 px, light and dark), confirmed with a tick,
+// and never shown again
+await step('3.28 Backups: the recovery key of the encrypted off-site copies – paused until saved, shown once, confirmed (1440 and 390 px, light/dark)', async () => {
+  const keyFile = `${process.env.WEB_DIR}/storage/backup-key.php`;
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('remote_backup', 's3'), ('backup_host', 's3.example.com'), ('backup_folder', 'kaleta-zalohy'), ('backup_key_confirmed', '')`);
+  const submit = async (locator) => { await Promise.all([page.waitForNavigation(), locator.click()]); };
+  try {
+    await visit('/admin.php?module=settings&tab=backups');
+    const state = page.locator('#recovery-key-state');
+    if (!(await state.evaluate((el) => el.classList.contains('hlaska-chyba'))) || !(await state.innerText()).includes('Off-site copies are paused')) { throw new Error(`the Backups tab does not say the copies wait: ${await state.innerText()}`); }
+    await submit(state.locator('button', { hasText: 'Show and save the recovery key' }));
+    const shown = (await page.locator('#recovery-key').innerText()).trim();
+    if (!/^KBK1(-[A-Z2-7]{4}){13}$/.test(shown)) { throw new Error(`the recovery key looks wrong: ${shown}`); }
+    if (!(await page.locator('button[data-kopirovat="#recovery-key"]').count()) || !(await page.locator('form[action*="backup_key_download"] button').count())) { throw new Error('no Copy or Download for the key'); }
+    // light and dark, desktop and phone: the key page fits without sideways scrolling and the key is readable
+    const stored = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: stored, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=settings&tab=backups`, { waitUntil: 'networkidle' });
+          await Promise.all([p2.waitForNavigation(), p2.locator('#recovery-key-state button', { hasText: 'Show and save the recovery key' }).click()]);
+          if ((await p2.locator('#recovery-key').innerText()).trim() !== shown) { throw new Error(`another key was shown (${label}, ${scheme})`); }
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label}, ${scheme})`); }
+          const colours = await p2.locator('#recovery-key').evaluate((el) => [getComputedStyle(el.closest('.hlaska')).backgroundColor, getComputedStyle(el).color]);
+          if (colours[0] === colours[1]) { throw new Error(`the key has the colour of its box (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/328-recovery-key-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    // the tick is required, then the copies start and the key is not offered again
+    await page.locator('form[action*="backup_key_confirm"] input[name="saved"]').check();
+    await submit(page.locator('form[action*="backup_key_confirm"] button[type="submit"]'));
+    await page.locator('.hlaska-ok', { hasText: 'The recovery key is saved.' }).waitFor();
+    const after = page.locator('#recovery-key-state');
+    if (!(await after.evaluate((el) => el.classList.contains('hlaska-ok'))) || !(await after.innerText()).includes('Recovery key saved') || await after.locator('button', { hasText: 'Show and save the recovery key' }).count()) { throw new Error(`the confirmed state is wrong: ${await after.innerText()}`); }
+    if ((await page.content()).includes(shown)) { throw new Error('the key is shown again after the confirmation'); }
+    if (SHOTS) { await after.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/328-backups-confirmed.png`, fullPage: true }); }
+  } finally {
+    sql(`UPDATE ka_nastaveni SET hodnota = 'vypnuto' WHERE promenna = 'remote_backup'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('backup_host', 'backup_folder', 'backup_key_confirmed')`);
+    try { (await import('node:fs')).unlinkSync(keyFile); } catch (e) { /* none was made */ }
+  }
+});
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

@@ -429,7 +429,10 @@ final class Privacy
                 $s->get('mail_mode') === 'smtp' => t('E-mail: sent through the SMTP server %s.', $s->get('smtp_host')),
                 default => t('E-mail: sent by the hosting server’s mail function.'),
             },
-            $s->get('remote_backup') !== 'vypnuto' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host')) : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
+            $s->get('remote_backup') !== 'vypnuto' ? t('Backups: automatic %s, an off-site copy over %s to %s.', $yes($s->bool('auto_backups')), strtoupper($s->get('remote_backup')), $s->get('backup_host'))
+                // 3.28 (D-W12): the database copy is encrypted at rest, not only in transit
+                . ' ' . (RecoveryKey::ready($s) ? t('The database copy is encrypted before it leaves the server; only the recovery key kept by the administrator opens it.') : t('The off-site copies are paused until the recovery key is saved.'))
+                : t('Backups: automatic %s, kept on this server only.', $yes($s->bool('auto_backups'))),
             Extensions::isEnabled($s, 'asistent') && $s->get('ai_provider') !== '' ? t('Writing assistant: %s – texts the administrators ask about%s are sent to it.', $s->get('ai_provider'), $s->bool('triage_assistant') ? ' ' . t('and new enquiries (triage)') : '') : t('Writing assistant: off.'),
             Extensions::isEnabled($s, 'claude') ? t('Claude (MCP): administrators’ assistants work with the content; enquiries are shown to them as the Enquiries screen shows them.') : '',
             // 3.19 (N3182-7): a store locator that loads its map at once sends every visitor's address to OpenStreetMap

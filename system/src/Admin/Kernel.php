@@ -115,7 +115,7 @@ final class Kernel
     private const array SETTINGS_NEUTRAL = ['backup', 'download_backup', 'vault_move', 'config_permissions', 'user_ini', 'delete_backup', 'fleet_pair', 'fleet_send',
         'fleet_updates', 'fleet_unpair', 'fleet_kit', 'fleet_titles', 'firewall_unblock', 'delete_log', 'check', 'forget_updates', 'media_backup', 'test_mail',
         'report_preview', 'report_send', 'report_view', 'report_download', 'report_rebuild', 'domain_check', 'test_webhook', 'retry_webhook',
-        'new_webhook_secret', 'processing_record'];
+        'new_webhook_secret', 'processing_record', 'backup_key', 'backup_key_download', 'backup_key_confirm', 'backup_key_new', 'backup_key_use']; // 3.28: the recovery key
 
     /**
      * In a section of SITE_CHANGING_MODULES, the actions that never reach the site ('' = the screens outside a section:

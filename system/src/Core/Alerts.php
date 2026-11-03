@@ -19,7 +19,8 @@ final class Alerts
     public const int MAX_IN_ONE = 30;
 
     /** Warnings worth an e-mail (2.10); the rest of the warnings – e.g. a blocked address – stay in the events and System status. */
-    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed'];
+    public const array WARNINGS = ['notfound.spike', 'content.expired', 'content.review', 'security.account_suspended', 'security.connection_revoked', 'agent_run.missed',
+        'backup.copy_paused']; // 3.28: off-site copies wait for the recovery key (RemoteBackup::upload, at most once a week)
 
     /** One run of the job: returns what it did, for System status. */
     public static function run(App $app): string

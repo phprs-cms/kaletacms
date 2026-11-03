@@ -493,8 +493,13 @@ final class Audit
             !Mail::smtpTested($s) => [$finding(t('No message has gone out through the SMTP server %s yet – send a test e-mail (Settings → Mail) to be sure that mail arrives.', $s->get('smtp_host')), 'admin.php?module=settings&tab=mail', 'smtp_tested')],
             default => [],
         });
-        $row('remote_backup', t('Off-site backups set up'), 'admin.php?module=settings&tab=backups',
-            $check($s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto', t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup'));
+        // 3.28 (D-W12): set up = an off-site target and the recovery key saved – without it the copies wait (RemoteBackup::upload)
+        $remoteOn = $s->get('remote_backup') !== '' && $s->get('remote_backup') !== 'vypnuto';
+        $row('remote_backup', t('Off-site backups set up'), 'admin.php?module=settings&tab=backups', match (true) {
+            !$remoteOn => [$finding(t('Backups stay on the same server – add an off-site copy (FTPS or S3) in case the hosting is lost.'), 'admin.php?module=settings&tab=backups', 'remote_backup')],
+            !RecoveryKey::ready($s) => [$finding(t('Off-site copies are paused until the recovery key is saved – save it in Settings → Backups and updates and keep it with the site\'s records (the client needs it to restore the site after losing the hosting).'), 'admin.php?module=settings&tab=backups#recovery-key-state', 'recovery_key')],
+            default => [],
+        });
         $row('company', t('Business details filled in'), 'admin.php?module=business',
             $check(trim($s->get('company_name')) !== '' && trim($s->get('company_street')) !== '', t('Business details are missing – the footer, the imprint and search engines use them.'), 'admin.php?module=business', 'company'));
         $row('indexing', t('Search engines may index the site'), 'admin.php?module=settings&tab=seo',

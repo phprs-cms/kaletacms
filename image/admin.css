@@ -1690,3 +1690,6 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 /* 3.27: "Reassign to…" of a task nobody has (My work → Team) – the person and Save on one line, wrapping on a phone */
 form.moje-predat { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
 form.moje-predat select { max-width: 100%; }
+
+/* 3.28 (D-W12): the recovery key of the off-site backups – one line where it fits, broken at its dashes on a phone */
+.recovery-key { font-size: 15px; letter-spacing: .02em; overflow-wrap: anywhere; }

@@ -288,6 +288,7 @@ class Settings extends Module
             'screenUrl' => $tab === 'general' ? \Kaleta\Front\Screen::url($this->app) : '',
             'backups' => $tab === 'backups' ? Backup::listAll() : [],
             'vaultState' => $tab === 'backups' ? \Kaleta\Core\Vault::state($settings) : '', // 3.15 (N42): where the encryption key is
+            'recoveryState' => $tab === 'backups' ? \Kaleta\Core\RecoveryKey::state($settings) : '', // 3.28 (D-W12): the recovery key of the off-site copies – never the key
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'major' => in_array($tab, ['backups', 'health'], true) ? Updater::nextMajor($settings) : null, // 3.15: Kaleta 4.0 on its own update source
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
@@ -536,7 +537,9 @@ class Settings extends Module
             return $this->back(t('The backup could not be created: %s', t($e->getMessage())), '', ['tab' => 'backups'], 'chyba');
         }
         $remote = \Kaleta\Core\RemoteBackup::upload($this->app->settings(), (string) Backup::path($file));
-        if ($remote !== null) {
+        // 3.28: a database copy that waits for the recovery key does not hold up the media (the site's public files)
+        $paused = $remote !== null && \Kaleta\Core\RemoteBackup::paused($this->app->settings());
+        if ($remote !== null && !$paused) {
             \Kaleta\Admin\ChangeLog::changedAnyway(); // the backup exists, only its copy failed: it is logged (3.23.1)
             return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
         }
@@ -545,6 +548,10 @@ class Settings extends Module
         if ($media !== null) {
             \Kaleta\Admin\ChangeLog::changedAnyway();
             return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'chyba');
+        }
+        if ($paused) {
+            \Kaleta\Admin\ChangeLog::changedAnyway();
+            return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, (string) $remote), '', ['tab' => 'backups'], 'chyba');
         }
 
         return $this->back(t('Backup %s is ready.', $file), '', ['tab' => 'backups']);
@@ -584,6 +591,109 @@ class Settings extends Module
             'missing' => $this->back(\Kaleta\Core\Vault::describe('missing'), '', ['tab' => 'backups'], 'chyba'),
             default => $this->back(t('The move failed and nothing has changed in the database: %s', (string) ($result['error'] ?? '')), '', ['tab' => 'backups'], 'chyba'),
         };
+    }
+
+    /**
+     * 3.28 (D-W12, Core\RecoveryKey): the recovery key of the encrypted off-site backups, shown on a page of its own – made
+     * when the site has none yet. Only while its saving has not been confirmed; afterwards the administration never shows
+     * it again (a lost key = a new one). The key is never written to a log, the change log, an event or the session.
+     */
+    protected function actionBackupKey(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $settings = $this->app->settings();
+        if (\Kaleta\Core\RecoveryKey::state($settings) === 'confirmed') {
+            return $this->back(t('The recovery key has been saved already, so it is not shown again. If it is lost, make a new one.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        try {
+            $new = \Kaleta\Core\RecoveryKey::load() === null;
+            $key = \Kaleta\Core\RecoveryKey::ensure();
+        } catch (\Throwable $e) {
+            return $this->back($e->getMessage(), '', ['tab' => 'backups'], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', $new ? 'recovery key created' : 'recovery key shown', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+
+        return $this->view('backup_key', 'Recovery key', ['key' => \Kaleta\Core\RecoveryKey::format($key)]);
+    }
+
+    /** 3.28: the recovery key as a text file – only while its saving has not been confirmed (actionBackupKey). */
+    protected function actionBackupKeyDownload(): Response
+    {
+        $key = \Kaleta\Core\RecoveryKey::load();
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin() || $key === null || \Kaleta\Core\RecoveryKey::state($this->app->settings()) === 'confirmed') {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'recovery key downloaded', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+        $host = (string) preg_replace('/[^a-z0-9.-]+/', '-', strtolower((string) parse_url($this->app->request->origin(), PHP_URL_HOST)));
+
+        return new Response(\Kaleta\Core\RecoveryKey::document($key, $this->app->request->origin() . $this->app->url('')), 200, [
+            'Content-Type' => 'text/plain; charset=utf-8', 'Content-Disposition' => 'attachment; filename="kaleta-recovery-key-' . trim($host, '-') . '.txt"',
+            'Cache-Control' => 'no-store, private',
+        ]);
+    }
+
+    /** 3.28: the administrator has saved the recovery key – off-site copies start with the next backup. */
+    protected function actionBackupKeyConfirm(): Response
+    {
+        $key = \Kaleta\Core\RecoveryKey::load();
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin() || $key === null) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        if (!$this->request->postBool('saved')) {
+            return $this->back(t('Tick that you have saved the recovery key – off-site copies start only then.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        \Kaleta\Core\RecoveryKey::confirm($this->app->settings(), $key);
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'recovery key confirmed', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+
+        return $this->back(t('The recovery key is saved. From the next backup on, the off-site copies are encrypted with it – click “Create backup now” to send one right away.'), '', ['tab' => 'backups']);
+    }
+
+    /**
+     * 3.28: a new recovery key (the old one was lost or got out). Off-site copies wait until it is saved; the copies already
+     * uploaded still need the old key.
+     */
+    protected function actionBackupKeyNew(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        try {
+            $key = \Kaleta\Core\RecoveryKey::create();
+        } catch (\Throwable $e) {
+            return $this->back($e->getMessage(), '', ['tab' => 'backups'], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'new recovery key', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+
+        return $this->view('backup_key', 'Recovery key', ['key' => \Kaleta\Core\RecoveryKey::format($key)]);
+    }
+
+    /**
+     * 3.28: puts back a recovery key the administrator kept – the site lost its key file (another server, a restored
+     * database). Accepted only when it is the key this database confirmed; then the off-site copies go on with it.
+     */
+    protected function actionBackupKeyUse(): Response
+    {
+        if (!$this->request->isPost() || !$this->app->auth()->isAdmin()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $key = \Kaleta\Core\RecoveryKey::parse($this->request->post('recovery_key'));
+        $settings = $this->app->settings();
+        if ($key === null) {
+            return $this->back(t('That is not a recovery key – it starts with KBK1 and has 13 groups of four characters after it. Copy it again in full.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        if (!hash_equals(\Kaleta\Core\RecoveryKey::confirmedId($settings), \Kaleta\Core\BackupEncryption::keyId($key))) {
+            return $this->back(t('This recovery key is not the one this site confirmed. Nothing has changed – make a new key if the old one is lost.'), '', ['tab' => 'backups'], 'chyba');
+        }
+        try {
+            \Kaleta\Core\RecoveryKey::save($key);
+        } catch (\Throwable $e) {
+            return $this->back($e->getMessage(), '', ['tab' => 'backups'], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'recovery key put back', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+
+        return $this->back(t('The recovery key is back in place – the off-site copies go on with it.'), '', ['tab' => 'backups']);
     }
 
     /** 3.19.1 (N83): config.php readable only by the site (0600, or 0640 – Core\Vault::configMode), from System status. */
@@ -824,9 +934,29 @@ class Settings extends Module
         if (!$this->request->isPost()) {
             return $this->back('', '', ['tab' => 'backups']);
         }
+        // 3.28 (D-W12): an encrypted off-site copy needs the recovery key – the one entered here, or this site's own; a key
+        // that does not belong to the backup stops here, before a safety backup or anything else is made
+        $file = $this->request->post('soubor');
+        $entered = trim($this->request->post('recovery_key')) !== '' ? \Kaleta\Core\RecoveryKey::parse($this->request->post('recovery_key')) : null;
+        if (Backup::encrypted($file) && ($path = Backup::path($file)) !== null) {
+            if (trim($this->request->post('recovery_key')) !== '' && $entered === null) {
+                return $this->back(t('That is not a recovery key – it starts with KBK1 and has 13 groups of four characters after it. Copy it again in full.'), '', ['tab' => 'backups'], 'chyba');
+            }
+            $key = $entered ?? \Kaleta\Core\RecoveryKey::load();
+            try {
+                if ($key === null) {
+                    throw new \RuntimeException(t('This backup is encrypted. Enter the recovery key of the site it comes from, then click Restore again. Nothing was restored.'));
+                }
+                if (!hash_equals(\Kaleta\Core\BackupEncryption::inspect($path)['key_id'], \Kaleta\Core\BackupEncryption::keyId($key))) {
+                    throw new \RuntimeException(t('The recovery key does not belong to this backup – check that it was copied in full, or use the key of the site the backup comes from. Nothing was restored.'));
+                }
+            } catch (\RuntimeException $e) {
+                return $this->back(t('Obnova se nezdařila: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
+            }
+        }
         try {
             $safetyBackup = Backup::create($this->db, 'predobnovou');
-            $statementCount = Backup::restore($this->db, $this->request->post('soubor'));
+            $statementCount = Backup::restore($this->db, $file, Backup::encrypted($file) ? ($key ?? null) : null);
         } catch (\Throwable $e) {
             $reverted = false;
             if (isset($safetyBackup)) {
@@ -845,12 +975,34 @@ class Settings extends Module
         \Kaleta\Front\Cache::clear();
         // 3.19.1 (N82): the restore replaced the change log and the events with the backup's copies – the record of the
         // restore itself is written now, into the restored database, so it is not lost with the rest
-        $file = (string) basename((string) Backup::path($this->request->post('soubor')));
+        $file = (string) basename((string) Backup::path($file));
+        // 3.28: restored with a recovery key entered here – on a new server (no key of its own) or when it is the key the
+        // restored database confirmed, it becomes this site's key, so the off-site copies go on with the key the owner keeps
+        if ($entered !== null && Backup::encrypted($file) && (\Kaleta\Core\RecoveryKey::load() === null
+            || hash_equals(self::restoredKeyId($this->db), \Kaleta\Core\BackupEncryption::keyId($entered)))) {
+            try {
+                \Kaleta\Core\RecoveryKey::save($entered);
+            } catch (\Throwable) {
+                // the restore stands; the Backups tab asks for the key again
+            }
+        }
         \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup restored', $file . ' (safety backup: ' . $safetyBackup . ')');
         \Kaleta\Core\Events::record($this->db, 'backup.restored', 'warning', t('The database was restored from backup %s; the state before the restore is in backup %s.', $file, $safetyBackup),
             ['file' => $file, 'safety_backup' => $safetyBackup, 'statements' => $statementCount, 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)]);
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
+    }
+
+    /** The id of the recovery key the database just restored had confirmed (3.28) – read fresh, the settings in memory are older. */
+    private static function restoredKeyId(\Kaleta\Core\Db $db): string
+    {
+        try {
+            $id = explode('|', (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'backup_key_confirmed'"), 2)[0];
+        } catch (\Throwable) {
+            return '';
+        }
+
+        return preg_match('/^[0-9a-f]{16}$/D', $id) === 1 ? $id : '';
     }
 
     /** 3.19.1 (N88): "nothing has changed" only when the rollback put every file back – otherwise the message says what to do. */

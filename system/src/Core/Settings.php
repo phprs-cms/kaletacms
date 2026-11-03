@@ -200,6 +200,7 @@ final class Settings
         'backup_media' => '1',         // copy media/ to the off-site target too, incrementally (1.8)
         'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
         'media_sync_check' => '0',     // when the background media copy last ran
+        'backup_key_confirmed' => '',  // 3.28 (D-W12, Core\RecoveryKey): "key id|Y-m-d H:i" of the recovery key an administrator confirmed saving – never the key; '' = off-site copies wait
         'update_url' => '',      // URL of the aktualizace.json file; empty = the project's default source
         'update_channel' => 'latest', // 3.8: latest (a new minor every week) or stable (security fixes, a new minor about monthly) – Core\Updater
         'update_cache' => '',

@@ -82,10 +82,14 @@ final class Backup
      * the end of a line (values are written by PDO::quote, line breaks in texts are encoded in them), so it can be read line
      * by line without loading the whole file into memory.
      *
+     * An encrypted backup (….enc, the off-site copy uploaded back – 3.28, D-W12) is decrypted first into a temporary file
+     * with $key (the recovery key; null = this site's own, RecoveryKey::load), every chunk checked: a wrong key or a
+     * damaged file stops before the database is touched.
+     *
      * @return int number of executed statements
      * @throws \RuntimeException
      */
-    public static function restore(Db $db, string $file): int
+    public static function restore(Db $db, string $file, ?string $key = null): int
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -94,6 +98,27 @@ final class Backup
         if ($path === null) {
             throw new \RuntimeException('Backup does not exist.');
         }
+        if (str_ends_with($path, BackupEncryption::EXTENSION)) {
+            $key ??= RecoveryKey::load();
+            if ($key === null) {
+                throw new \RuntimeException(t('This backup is encrypted. Enter the recovery key of the site it comes from, then click Restore again. Nothing was restored.'));
+            }
+            $plain = self::FOLDER . '/.restore-' . bin2hex(random_bytes(6)) . (str_ends_with(substr($path, 0, -strlen(BackupEncryption::EXTENSION)), '.gz') ? '.sql.gz' : '.sql');
+            try {
+                BackupEncryption::decryptFile($path, $plain, $key);
+
+                return self::restorePath($db, $plain);
+            } finally {
+                @unlink($plain);
+            }
+        }
+
+        return self::restorePath($db, $path);
+    }
+
+    /** Restores from a readable (not encrypted) backup file at $path – see restore(). */
+    private static function restorePath(Db $db, string $path): int
+    {
         $gz = str_ends_with($path, '.gz');
         if ($gz && !function_exists('gzopen')) {
             throw new \RuntimeException('The server cannot read compressed backups (zlib is missing).');
@@ -244,10 +269,16 @@ final class Backup
         return $backups;
     }
 
-    /** Path to an existing backup by the name from the URL; null = invalid name. */
+    /** Path to an existing backup by the name from the URL (3.28: also an encrypted off-site copy, ….enc); null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?$/D', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+    }
+
+    /** Is this backup an encrypted off-site copy (3.28)? */
+    public static function encrypted(string $file): bool
+    {
+        return str_ends_with($file, BackupEncryption::EXTENSION);
     }
 
     /**
