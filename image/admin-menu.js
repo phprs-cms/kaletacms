@@ -3,22 +3,30 @@
  *
  *   <details data-menu-skupina="content" [data-aktualni] open>   one group; the server renders every group open
  *
- * The group with the current screen is always open. The others follow what the person last did in this browser
- * (localStorage "kaleta-menu": {"content": 1, "appearance": 0}); without a choice they stay open, except on a phone, where
- * only the current group is open so the menu sheet stays short. Storage may be blocked – then nothing is remembered.
+ * The group with the current screen is always open. The others follow what the person did in this browser since they
+ * signed in (localStorage "kaleta-menu": {"_signin": "<start of the sign-in>", "content": 1, "appearance": 0}); without a
+ * choice only the group marked data-menu-vychozi (Content, Admin\MenuGroups::OPEN_AT_SIGN_IN) is open – on a phone too.
+ * 3.29.1: a new sign-in (data-menu-prihlaseni on this script, Core\Auth's login_at) forgets the choices of the one before,
+ * so after signing in only Content is open. Storage may be blocked – then nothing is remembered.
  */
 (function () {
 	'use strict';
 
 	var KEY = 'kaleta-menu';
+	var signIn = document.currentScript ? document.currentScript.getAttribute('data-menu-prihlaseni') || '' : '';
 	var stored = {};
-	try { stored = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { stored = {}; }
-	var phone = window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+	try {
+		stored = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
+		if (signIn !== '' && stored._signin !== signIn) {
+			stored = { _signin: signIn }; // a new sign-in: the menu starts again with only Content open
+			localStorage.setItem(KEY, JSON.stringify(stored));
+		}
+	} catch (e) { stored = {}; }
 
 	document.querySelectorAll('details[data-menu-skupina]').forEach(function (group) {
 		var key = group.getAttribute('data-menu-skupina');
 		if (!group.hasAttribute('data-aktualni')) {
-			var open = Object.prototype.hasOwnProperty.call(stored, key) ? !!stored[key] : !phone;
+			var open = Object.prototype.hasOwnProperty.call(stored, key) ? !!stored[key] : group.hasAttribute('data-menu-vychozi');
 			if (!open) { group.removeAttribute('open'); }
 		}
 		// only the person's own click (or Enter / Space on the summary) is remembered – a details element parsed open fires

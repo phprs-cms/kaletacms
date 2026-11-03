@@ -53,6 +53,10 @@ use Kaleta\Core\Updater;
  * checklist (handover: done, total and the keys of the rows not done) and the team's workload (workload: enquiries this
  * and last week, unanswered after 24 hours, the median hours to the first reply this month, open and overdue tasks,
  * customers added this month). Never a host, an address, a name or the text of anything.
+ *
+ * 3.29.1 – stats_confirmed_since: the day the site started to count only visits confirmed by a visitor's browser
+ * ('Y-m-d', Front\Stats::confirmedSince), null when the statistics are off or the site has counted that way from the start –
+ * so the console marks the drop of visits_7_days that follows as fewer bots, not fewer people.
  */
 final class Heartbeat
 {
@@ -113,6 +117,8 @@ final class Heartbeat
             'enquiries_unanswered' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0') : null,
             'enquiries_7_days' => Extensions::isEnabled($s, 'poptavky') ? (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?', [\Kaleta\Core\Clock::at('-7 days')]) : null,
             'visits_7_days' => \Kaleta\Front\Stats::enabled($s) ? (int) $db->value('SELECT COALESCE(SUM(navstevy), 0) FROM {stat_dny} WHERE den > ?', [\Kaleta\Core\Clock::day('-7 days')]) : null,
+            // 3.29.1: the day browser-confirmed counting started, when there are older numbers it changed (see the class description)
+            'stats_confirmed_since' => \Kaleta\Front\Stats::enabled($s) ? self::part(fn (): ?string => \Kaleta\Front\Stats::confirmedSince($s, $db)) : null,
             'audit' => $audit,
             'problems_7_days' => self::withoutWhistleblowing(Events::problems($db, 168)),
             'claude' => Extensions::isEnabled($s, 'claude'),

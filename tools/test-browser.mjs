@@ -3185,7 +3185,7 @@ await step('3.25 builder Versions: draft history, per-section compare, load an a
 
 // 3.25 (C): the left menu – Dashboard, My work, then the groups Content, Workspace, Appearance, Claude, Site care,
 // Administration; a group folds (details/summary, by keyboard too), the group of the current screen is always open, the
-// browser remembers the others; on a phone only the current group is open at first; nothing scrolls sideways
+// browser remembers the others; at first only Content and the current group are open (3.29.1), on a phone too; nothing scrolls sideways
 await step('3.25 menu: groups in order, folding by keyboard, remembered per browser, the current one open (1440 and 390 px, dark mode)', async () => {
   await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -3199,9 +3199,13 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
   const statsGroup = await page.locator('.menu-cast a[href$="module=stats"]').evaluate((a) => a.closest('details').getAttribute('data-menu-skupina'));
   if (statsGroup !== 'site-care') { throw new Error(`Statistics is in ${statsGroup}`); }
   if (await page.locator('.menu-cast a[href$="module=subscribers"]').count() !== 0) { throw new Error('Subscribers still has its own menu item next to the Newsletter hub'); }
-  // the keyboard folds Appearance; the next screen keeps it folded, its own screen opens it, and it stays remembered
+  // the keyboard opens and folds Appearance (3.29.1: folded at first – only Content and the current group are open);
+  // the next screen keeps it folded, its own screen opens it, and it stays remembered
   const appearance = page.locator('details[data-menu-skupina="appearance"]');
+  if (await appearance.evaluate((d) => d.open)) { throw new Error('Appearance is open before anyone opened it'); }
   await appearance.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  if (!(await appearance.evaluate((d) => d.open))) { throw new Error('Enter on the summary did not open Appearance'); }
   await page.keyboard.press('Enter');
   if (await appearance.evaluate((d) => d.open)) { throw new Error('Enter on the summary did not fold Appearance'); }
   if (!(await page.locator('details[data-menu-skupina="appearance"] a').first().isHidden())) { throw new Error('a folded group still shows its items'); }
@@ -3220,7 +3224,7 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
   if (colours[0] === colours[1]) { throw new Error(`a group name is unreadable in dark mode: ${colours}`); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/menu-groups-desktop-dark.png` }); }
   await page.emulateMedia({ colorScheme: 'light' });
-  // a phone with nothing remembered: only the current group is open, the summaries are big enough to tap, no sideways scroll
+  // a phone with nothing remembered: only Content (here also the current group) is open, the summaries are big enough to tap, no sideways scroll
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true, storageState: await page.context().storageState() });
   const p3 = await phone.newPage(); watch(p3);
   try {
@@ -3242,6 +3246,49 @@ await step('3.25 menu: groups in order, folding by keyboard, remembered per brow
     await phone.close();
   }
   await page.evaluate(() => { try { localStorage.removeItem('kaleta-menu'); } catch (e) { /* nothing */ } });
+});
+
+// 3.29.1 (owner, 3 Nov): after signing in only Content is open in the left menu – whatever this browser remembered from
+// before; within the sign-in the person's own folding is kept; signing out and in starts again; a phone follows the same rule
+await step('3.29.1 menu: after a sign-in only Content is open; opening Appearance lasts while signed in; a new sign-in starts again (1440 and 390 px)', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+  const openGroups = (p) => p.locator('details[data-menu-skupina]').evaluateAll((all) => all.filter((d) => d.open).map((d) => d.getAttribute('data-menu-skupina')));
+  const signIn = async (p) => {
+    await p.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+    await p.fill('input[name="user"]', 'admin');
+    await p.fill('input[name="password"]', PASSWORD);
+    await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
+  };
+  try {
+    const p = await ctx.newPage(); watch(p);
+    await p.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+    // an earlier sign-in of this browser left every group open
+    await p.evaluate(() => { localStorage.setItem('kaleta-menu', JSON.stringify({ _signin: '1', content: 1, workspace: 1, appearance: 1, claude: 1, 'site-care': 1, administration: 1 })); });
+    await signIn(p);
+    let open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content'])) { throw new Error(`open after signing in: ${open.join(', ')}`); }
+    if (SHOTS) { await p.screenshot({ path: `${SHOTS}/3291-menu-after-sign-in.png` }); }
+    await p.locator('details[data-menu-skupina="appearance"] > summary').click();
+    await p.goto(BASE + '/admin.php?module=pages', { waitUntil: 'networkidle' });
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content', 'appearance'])) { throw new Error(`open on the next screen: ${open.join(', ')}`); }
+    await p.goto(BASE + '/admin.php?module=stats', { waitUntil: 'networkidle' });
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content', 'appearance', 'site-care'])) { throw new Error(`the current group is not open as well: ${open.join(', ')}`); }
+    await p.waitForTimeout(1100); // the next sign-in starts in another second
+    await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
+    await signIn(p);
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content'])) { throw new Error(`open after signing in again: ${open.join(', ')}`); }
+    // a phone: the same rule in the menu sheet
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto(BASE + '/admin.php?module=bookings', { waitUntil: 'networkidle' });
+    await p.click('.menu-prepinac');
+    open = await openGroups(p);
+    if (JSON.stringify(open) !== JSON.stringify(['content', 'workspace'])) { throw new Error(`open on a phone: ${open.join(', ')}`); }
+  } finally {
+    await ctx.close();
+  }
 });
 
 // 3.25 (N-U9): one link picker everywhere – the builder's Button link and the menu editor's custom link use the same search
@@ -3813,6 +3860,22 @@ await step('3.29 visits confirmed by a browser: none under automation, exactly o
   if (!/only visits confirmed by a visitor’s browser are counted/.test(await note.innerText())) { throw new Error(`the note says: ${await note.innerText()}`); }
   if (await page.locator('.graf-sloupec.graf-zacatek').count() !== 1) { throw new Error('the first day of browser-confirmed counting is not marked on the chart'); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/329-stats-confirmed.png`, fullPage: true }); }
+});
+// 3.29.1: the dashboard's chart of 14 days says it too – the day marked with a line, its bar's label and the note of Statistics
+await step('3.29.1 the dashboard chart marks the day browser-confirmed counting started and says why the visits dropped', async () => {
+  await visit('/admin.php');
+  const chart = page.locator('.prehled-graf');
+  await chart.waitFor();
+  const note = chart.locator('[data-stats-confirmed]');
+  if (!/only visits confirmed by a visitor’s browser are counted/.test(await note.innerText())) { throw new Error(`the dashboard note says: ${await note.innerText()}`); }
+  const line = chart.locator('line.prehled-zacatek');
+  if (await line.count() !== 1) { throw new Error(`${await line.count()} marked days on the dashboard chart`); }
+  const day = await line.getAttribute('data-stats-confirmed-day');
+  if (day !== sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats_confirmed_since'").trim()) { throw new Error(`the chart marks ${day}`); }
+  if (await chart.locator('rect[aria-label*="only visits confirmed by a browser count from this day"]').count() !== 1) { throw new Error('the marked day\'s bar does not say it'); }
+  const stroke = await line.evaluate((el) => getComputedStyle(el).stroke);
+  if (!stroke || stroke === 'none') { throw new Error('the marker line is not drawn'); }
+  if (SHOTS) { await chart.screenshot({ path: `${SHOTS}/3291-dashboard-confirmed.png` }); }
 });
 await browser.close();
 if (errors.length) {

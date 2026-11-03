@@ -11,14 +11,18 @@ namespace Kaleta\Admin;
  *
  *  - an item = a module the person may open that is not hidden under its parent (Categories under News, Subscribers under
  *    the Newsletter hub…); My work is not in a group – the layout puts it next to the Dashboard
- *  - each group is a collapsible <details>; the one with the current screen is always open (image/admin.js remembers the
- *    others per browser)
+ *  - each group is a collapsible <details>; the one with the current screen is always open (image/admin-menu.js remembers
+ *    the others per browser); after each sign-in only OPEN_AT_SIGN_IN is open (3.29.1) – the person's own folding counts
+ *    until they sign out
  *  - with FLAT_LIMIT items or fewer in all (Dashboard and My work counted) the menu has no group headers at all
  */
 final class MenuGroups
 {
     /** The groups in menu order (Kernel::MODULES follows it); the English labels are the dictionary keys. */
     public const array ORDER = ['Content', 'Workspace', 'Appearance', 'Claude', 'Site care', 'Administration'];
+
+    /** 3.29.1 (owner, 3 Nov): the only group open after a sign-in, besides the one with the current screen. */
+    public const string OPEN_AT_SIGN_IN = 'Content';
 
     /** A group never holds more items than this – related screens become tabs of a hub instead. */
     public const int MAX_ITEMS = 7;

@@ -83,9 +83,10 @@ final class MonthlyReport
             $daily = array_map('intval', $db->pairs('SELECT DAY(den), SUM(navstevy) FROM {stat_dny} WHERE den >= ? AND den < ? GROUP BY den', [$fromDay, $toDay]));
             $stats['days'] = array_map(static fn (int $day): int => $daily[$day] ?? 0, range(1, (int) $monthStart->format('t')));
             // 3.29: browser-confirmed counting started in this month or the one it is compared with – the report says so,
-            // because the earlier days include some bots and the team's own visits (an additive key of the stored data)
+            // because the earlier days include some bots and the team's own visits (an additive key of the stored data);
+            // 3.29.1: the two months compared reach across the switch (Front\Stats::spansSwitch) – the change of visits is no drop
             $since = \Kaleta\Front\Stats::confirmedSince($s, $db);
-            if ($since !== null && $since > $previousStart->format('Y-m-d') && $since < $toDay) {
+            if (\Kaleta\Front\Stats::spansSwitch($since, $previousStart->format('Y-m-d'), $monthEnd->modify('-1 day')->format('Y-m-d'))) {
                 $stats['confirmed_since'] = $since;
             }
         }
@@ -557,9 +558,12 @@ final class MonthlyReport
                 $rows[] = ReportVisual::rule() . ReportVisual::row($html);
                 $text[] = $plain;
             };
-            $change = static function (int $now, int $before) use ($n): string {
+            $change = static function (int $now, int $before, ?string $countingChanged = null) use ($n): string {
                 if ($before === 0) {
                     return $n($now);
+                }
+                if ($countingChanged !== null && $now < $before) {
+                    return $n($now) . ' (' . t('counting changed on %s', format_date($countingChanged)) . ')'; // 3.29.1: no drop across the switch
                 }
                 $percent = (int) round(100 * ($now - $before) / $before);
 
@@ -596,7 +600,8 @@ final class MonthlyReport
             // traffic: the visits of each day, the pages, where visitors came from
             $stats = is_array($data['stats'] ?? null) ? $data['stats'] : null;
             if ($stats !== null) {
-                $pairs = [[t('Visits'), $change((int) ($stats['visits'] ?? 0), (int) ($stats['previous_visits'] ?? 0))], [t('Page views'), $change((int) ($stats['views'] ?? 0), (int) ($stats['previous_views'] ?? 0))]];
+                $pairs = [[t('Visits'), $change((int) ($stats['visits'] ?? 0), (int) ($stats['previous_visits'] ?? 0), ReportSummary::countingChanged($stats))],
+                    [t('Page views'), $change((int) ($stats['views'] ?? 0), (int) ($stats['previous_views'] ?? 0), ReportSummary::countingChanged($stats))]];
                 foreach (['calls' => 'Calls – clicks on a phone number', 'emails' => 'E-mails – clicks on an e-mail address', 'whatsapp' => 'WhatsApp – clicks on a WhatsApp link'] as $key => $label) {
                     if ((int) ($stats['contact_clicks'][$key] ?? 0) > 0) {
                         $pairs[] = [t($label), $n($stats['contact_clicks'][$key])];

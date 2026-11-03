@@ -145,7 +145,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
     if ($menuFlat): ?>
 <?= $groupHtml ?>
 <?php else: $groupHere = in_array($inMenu, $menuGroup['items'], true); ?>
-		<li class="menu-sekce"><details class="menu-skupiny" data-menu-skupina="<?= e(Kaleta\Admin\MenuGroups::key($menuGroup['group'])) ?>"<?= $groupHere ? ' data-aktualni' : '' ?> open><summary class="menu-skupina"><span><?= e(t($menuGroup['group'])) ?></span><?php if ($groupBadge > 0): ?><span class="menu-skupina-pocet"><span class="menu-pocet" aria-hidden="true"><?= $groupBadge > 99 ? '99+' : $groupBadge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $groupBadge)) ?></span></span><?php endif ?></summary>
+		<li class="menu-sekce"><details class="menu-skupiny" data-menu-skupina="<?= e(Kaleta\Admin\MenuGroups::key($menuGroup['group'])) ?>"<?= $groupHere ? ' data-aktualni' : '' ?><?= $menuGroup['group'] === Kaleta\Admin\MenuGroups::OPEN_AT_SIGN_IN ? ' data-menu-vychozi' : '' ?> open><summary class="menu-skupina"><span><?= e(t($menuGroup['group'])) ?></span><?php if ($groupBadge > 0): ?><span class="menu-skupina-pocet"><span class="menu-pocet" aria-hidden="true"><?= $groupBadge > 99 ? '99+' : $groupBadge ?></span><span class="navod-skryte"> – <?= e(t('%d new', $groupBadge)) ?></span></span><?php endif ?></summary>
 		<ul class="menu-cast">
 <?= $groupHtml ?>
 		</ul></details></li>
@@ -154,8 +154,9 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>
 	</ul>
-<?php if (!$menuFlat): // 3.25: before the first paint – the groups this browser closed stay closed (no jump after the page loads) ?>
-	<script src="<?= e($app->url('image/admin-menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>"></script>
+<?php if (!$menuFlat): // 3.25: before the first paint – the groups this browser closed stay closed (no jump after the page loads)
+    // 3.29.1: the sign-in this page belongs to (its start, Core\Auth) – a new one starts the menu again with only Content open ?>
+	<script src="<?= e($app->url('image/admin-menu.js')) ?>?v=<?= e(KALETA_VERSION) ?>" data-menu-prihlaseni="<?= (int) $app->session->get('login_at', 0) ?>"></script>
 <?php endif ?>
 	</nav>
 </header>
