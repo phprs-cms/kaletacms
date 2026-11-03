@@ -9767,7 +9767,7 @@ expect "3.28: comments and tasks about a customer (contact:<id>), never journale
 mcp_as "$T328_TE" add_comment "{\"target\":\"contact:${T328_C1:-0}\",\"text\":\"x\"}" > "$WORK/response"; mcp_text
 expect "3.28 add_comment: on a customer only with Customers" "$(grep -c 'Only a user who may open Customers' "$WORK/text")" "1"
 # merge: a person's decision – confirm needed; the free-mail contact goes into the company one, a note keeps the history
-mcp_as "$T328_TJ" merge_contacts "{\"into\":${T328_C1:-0},\"from\":${T328_C2:-0}}" > "$WORK/response"; mcp_text
+mcp_as "$T328_TA" merge_contacts "{\"into\":${T328_C1:-0},\"from\":${T328_C2:-0}}" > "$WORK/response"; mcp_text
 expect "3.28 merge_contacts: without confirm nothing changes" "$(grep -c 'needs confirm=true' "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T328_C2:-0}")" "1|1"
 mcp_as "$T328_TJ" merge_contacts "{\"into\":${T328_C1:-0},\"from\":${T328_C2:-0},\"confirm\":true}" > "$WORK/response"; mcp_text
 expect "3.28 merge_contacts (N328-1): administrators only, as in the administration – Jana with Customers is refused, nothing changes" "$(grep -c 'Only an administrator can merge customers' "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T328_C2:-0}")" "1|1"
@@ -9799,6 +9799,15 @@ T328_P=$(t328_php 'echo Kaleta\Core\Contacts::purge($app);')
 expect "3.28 retention: the contact inactive for 12 months is anonymised – address, name, summary gone, its log without text, unlinked; the active ones stay" \
   "$([ "${T328_P:-0}" -ge 1 ] && echo 1)|$(sq "SELECT CONCAT(email, '|', email_norm IS NULL, '|', name, '|', summary IS NULL, '|', anonymised_at IS NOT NULL) FROM ka_contacts WHERE id = ${T328_C3:-0}")|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(text = '')) FROM ka_contact_activities WHERE contact_id = ${T328_C3:-0}")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id IN (${T328_C1:-0}, ${T328_C4:-0}) AND anonymised_at IS NULL")" \
   "1||1||1|1|1/1|2"
+# N328-7: the team's work counts as activity – a customer quiet for 30 months but with an open task due next week is kept
+# (the task's title is not blanked) and its last activity moves, so it leaves the clean-up's batch
+T328_BUSY=$(t328_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'busy.t328@example.org', 'name' => 'Busy T328'], $T328_ADMIN);")
+sq "UPDATE ka_contacts SET created_at = '$(site_time '-30 months')', first_seen_at = '$(site_time '-30 months')', last_activity_at = NULL WHERE id = ${T328_BUSY:-0}" > /dev/null
+t328_php "Kaleta\\Core\\Tasks::create(\$app, ['title' => 'Call Busy T328 back', 'target' => 'contact:${T328_BUSY:-0}', 'assignee_id' => $T328_ADMIN, 'due_at' => '+7 days'], $T328_ADMIN);" > /dev/null
+t328_php 'Kaleta\Core\Contacts::purge($app);' > /dev/null
+expect "3.28 (N328-7): a customer with an open task is not anonymised by the retention, the task keeps its title, the last activity moves" \
+  "$(sq "SELECT CONCAT(anonymised_at IS NULL, '|', name, '|', last_activity_at IS NOT NULL) FROM ka_contacts WHERE id = ${T328_BUSY:-0}")|$(sq "SELECT title FROM ka_tasks WHERE target = 'contact:${T328_BUSY:-0}'")" "1|Busy T328|1|Call Busy T328 back"
+sq "DELETE FROM ka_tasks WHERE target = 'contact:${T328_BUSY:-0}'; DELETE FROM ka_contacts WHERE id = ${T328_BUSY:-0}" > /dev/null
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '24'), ('contacts_months', '24')" > /dev/null
 check "3.28: the record of processing names customer relations" 200 "/admin.php?module=settings&action=processing_record" "Péče o zákazníky"
 # N328-5: an uploaded customers CSV nobody confirmed (personal data) goes with the daily clean-up after a day, not only when

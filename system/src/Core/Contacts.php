@@ -1021,7 +1021,7 @@ final class Contacts
     /**
      * The retention clean-up (the daily job cleanup, Notifications::purgePersonalData): contacts with no activity for
      * contacts_months – last activity, or creation when there was none, before that – and no open deal are anonymised.
-     * Returns how many.
+     * Returns how many. N328-7: the team's comments and tasks about a contact count as activity (teamActivity()).
      */
     public static function purge(App $app): int
     {
@@ -1030,15 +1030,50 @@ final class Contacts
             return 0;
         }
         $db = $app->db();
+        $before = Clock::monthsAgo($months);
         try {
             $ids = array_map('intval', array_column($db->all('SELECT id FROM {contacts} WHERE anonymised_at IS NULL AND COALESCE(last_activity_at, created_at) < ? ORDER BY id LIMIT ' . self::PURGE_BATCH,
-                [Clock::monthsAgo($months)]), 'id'));
+                [$before]), 'id'));
         } catch (\PDOException) {
             return 0; // before migration 0114
         }
-        $ids = array_values(array_filter($ids, fn (int $id): bool => !self::hasOpenDeal($db, $id)));
+        $ids = array_values(array_filter($ids, function (int $id) use ($db, $before): bool {
+            // N328-7: the team's comment or a task about the customer within the period is activity too – an open task due next
+            // week is never blanked by the retention; the contact's last activity moves to it, so it leaves this batch for good
+            $team = self::teamActivity($db, $id);
+            if ($team !== null && $team >= $before) {
+                self::touch($db, $id, min($team, Clock::now()));
+
+                return false;
+            }
+
+            return !self::hasOpenDeal($db, $id);
+        }));
 
         return self::anonymise($db, $ids);
+    }
+
+    /**
+     * The latest moment of the team's work about a contact: a comment written, a task created, changed, done or due; null
+     * for none (N328-7).
+     */
+    public static function teamActivity(Db $db, int $contactId): ?string
+    {
+        $target = Comments::contact($contactId);
+        $moments = [];
+        try {
+            $moments[] = $db->value('SELECT MAX(created_at) FROM {comments} WHERE target = ?', [$target]);
+        } catch (\PDOException) {
+            // before the 3.25 migration
+        }
+        try {
+            $moments[] = $db->value('SELECT MAX(GREATEST(created_at, updated_at, COALESCE(done_at, created_at), COALESCE(due_at, created_at))) FROM {tasks} WHERE target = ?', [$target]);
+        } catch (\PDOException) {
+            // before the 3.27 migration
+        }
+        $moments = array_filter(array_map(fn (mixed $m): string => (string) $m, $moments), fn (string $m): bool => $m !== '');
+
+        return $moments === [] ? null : max($moments);
     }
 
     /* ---------- permissions, labels, handover ---------- */
