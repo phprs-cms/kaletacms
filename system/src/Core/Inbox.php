@@ -25,7 +25,8 @@ namespace Kaleta\Core;
 final class Inbox
 {
     /** What a notification can be about. */
-    public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due'];
+    public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due',
+        'fleet_expiry']; // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -304,7 +305,7 @@ final class Inbox
 
     /**
      * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27), "contact:4", "company:2" (3.28),
-     * "fleet_site:4", "fleet_customer:2" (3.30); null for anything else. Pure.
+     * "fleet_site:4", "fleet_customer:2" (3.30: console tasks, calendar reminders); null for anything else. Pure.
      *
      * @return array{0: string, 1: int}|null
      */
@@ -326,6 +327,7 @@ final class Inbox
             'assigned' => t('%s assigned it to you', $actor),
             'review_due' => t('The review date has come'),
             'task_due' => t('A task is due'),
+            'fleet_expiry' => t('A date of a site comes up'),
             default => $kind,
         };
     }
@@ -345,7 +347,7 @@ final class Inbox
             'task' => t('Task “%s”', (string) $place['title']),
             'contact' => t('Customer #%s', (string) $place['id']), // 3.28: a number only – an e-mail of the bell never carries a customer's name
             'company' => t('Company “%s”', (string) $place['title']),
-            'fleet_site' => t('Site “%s”', (string) $place['title']), // 3.30: a site of a fleet console
+            'fleet_site' => t('Site “%s” in the fleet console', (string) $place['title']), // 3.30: console tasks, calendar reminders
             'fleet_customer' => t('Console customer “%s”', (string) $place['title']),
             default => t('(no longer available)'),
         };

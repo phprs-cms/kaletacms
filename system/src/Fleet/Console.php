@@ -19,7 +19,8 @@ use Kaleta\Core\Updater;
  *    last one and answers – signed by its own key – which version the site may install.
  *  - Staged updates: canary sites get a new version at once; the rest when every canary has run it for UPDATE_WAIT without
  *    errors, without being down and without a failed update (without canaries: UPDATE_WAIT after the console first saw
- *    the version). Security releases go to everyone at once. An administrator can allow a version by hand.
+ *    the version). Security releases go to everyone at once. An administrator can allow a version by hand. Since 3.30
+ *    rings pilot | normal | careful with their own delays and a maintenance window per customer or site (Fleet\Rollout).
  *  - Uptime: the console asks each site's home page every 5 minutes; down twice in a row = the event fleet.site_down.
  *  - History (3.17, Fleet\History): each check and the day's state of each site are kept 400 days – trends, alert rules
  *    (Fleet\AlertRules), the weekly digest (Fleet\Digest) and the monthly report per customer (Fleet\Report) read it.
@@ -42,7 +43,9 @@ final class Console
         // 3.18: whether Claude is connected to the site (Core\ClaudeConnection::summary)
         'claude_connection',
         // 3.29: the health matrix, the Today view and the workload roll-up (Fleet\Checks::PARTS, bounded by Checks::clean)
-        'offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload'];
+        'offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload',
+        // 3.30: the inventory and the expiry calendar (Fleet\Inventory::PARTS, bounded by Inventory::clean)
+        'db_server', 'web_server', 'features', 'addons', 'languages', 'recovery_key_since'];
 
     /**
      * The address of a site as the console keeps and links it (3.17, N317-5): http(s), a host without user information
@@ -174,7 +177,10 @@ final class Console
         $db->update('fleet_sites', $update, ['id' => (int) $site['id']]);
         $site = array_merge($site, $update);
         [$latest, $security, $firstSeen] = self::latest($app);
-        $allowed = self::allowedVersion(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time());
+        // 3.30: the ring's delay and the maintenance window of the site or its customer (Fleet\Rollout); security releases at once
+        $window = Rollout::parseWindow(Rollout::windowOf($site, Rollout::customerWindows($db)));
+        $allowed = Rollout::decide(self::row($site), array_map(self::row(...), self::sites($db)), $latest, $security, $firstSeen, time(), Rollout::delays($app->settings()), $window,
+            new \DateTimeZone(date_default_timezone_get()))['version'];
 
         // 2.16: the newest shared design kit is only announced here – a site that wants it asks /fleet/kit itself (Fleet\Kit)
         // 3.17: a kit meant for one customer is announced to that customer's sites only
@@ -267,30 +273,16 @@ final class Console
     }
 
     /**
-     * Which version a site may install now ('' = none). Pure – see the class description.
+     * Which version a site may install now ('' = none) with the rings' default delays and no maintenance window – 2.9's
+     * answer; the heartbeat asks Fleet\Rollout::decide with the console's delays and the site's window (3.30). Pure.
      *
      * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool} $site
      * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}> $sites
      */
     public static function allowedVersion(array $site, array $sites, string $latest, bool $security, int $firstSeen, int $now): string
     {
-        if (!$site['manage_updates'] || $latest === '' || ($site['version'] !== '' && !version_compare($latest, $site['version'], '>'))) {
-            return '';
-        }
-        if ($site['update_allowed'] === $latest || $security || $site['ring'] === 'canary') {
-            return $latest;
-        }
-        $canaries = array_filter($sites, fn (array $c): bool => $c['ring'] === 'canary' && $c['manage_updates'] && $c['id'] !== $site['id']);
-        if ($canaries === []) {
-            return $firstSeen > 0 && $now - $firstSeen >= self::UPDATE_WAIT ? $latest : '';
-        }
-        foreach ($canaries as $c) {
-            if ($c['version'] !== $latest || $c['version_since'] === null || $now - $c['version_since'] < self::UPDATE_WAIT || $c['status'] === 'error' || $c['up'] === false || $c['update_problem']) {
-                return '';
-            }
-        }
-
-        return $latest;
+        return Rollout::decide($site, $sites, $latest, $security, $firstSeen, $now, ['pilot' => 0, 'normal' => intdiv(self::UPDATE_WAIT, 3600), 'careful' => Rollout::DEFAULT_HOURS['careful']],
+            null, new \DateTimeZone('UTC'))['version'];
     }
 
     /**
@@ -564,6 +556,7 @@ final class Console
             $value = $d[$key] ?? null;
             $out[$key] = match (true) {
                 in_array($key, Checks::PARTS, true) => Checks::clean($key, $value), // 3.29
+                in_array($key, Inventory::PARTS, true) => Inventory::clean($key, $value), // 3.30
                 in_array($key, self::PARTS, true) => self::cleanPart($key, $value),
                 default => self::cleanLegacy($key, $value),
             };
@@ -581,6 +574,11 @@ final class Console
 
                 return $p['detail'] === '' ? null : $p;
             }, $out['problems']), fn (mixed $p): bool => $p !== null));
+        }
+        foreach (['features', 'addons'] as $list) { // 3.30: not even whether the channel is switched on
+            if (is_array($out[$list])) {
+                $out[$list] = array_values(array_filter($out[$list], fn (string $name): bool => !Heartbeat::isWhistleblowing($name)));
+            }
         }
         if (is_array($out['jobs_failing'])) {
             $out['jobs_failing'] = array_values(array_filter($out['jobs_failing'], fn (mixed $job): bool => !is_string($job) || !Heartbeat::isWhistleblowing($job)));

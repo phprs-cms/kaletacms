@@ -61,7 +61,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <tbody>
 <?php foreach ($sites as $s): ?>
 <tr>
-	<td><a href="<?= e($module->url('detail', ['id' => (int) $s['id']])) ?>"><strong><?= e((string) $s['name'] !== '' ? (string) $s['name'] : (string) $s['url']) ?></strong></a><br><span class="smltxt"><?= e((string) $s['url']) ?><?= $s['ring'] === 'canary' ? ' · ' . e(t('test site')) : '' ?></span></td>
+	<td><a href="<?= e($module->url('detail', ['id' => (int) $s['id']])) ?>"><strong><?= e((string) $s['name'] !== '' ? (string) $s['name'] : (string) $s['url']) ?></strong></a><br><span class="smltxt"><?= e((string) $s['url']) ?><?= Kaleta\Fleet\Rollout::ring($s['ring']) !== 'normal' ? ' · ' . e(t(Kaleta\Fleet\Rollout::RING_LABELS[Kaleta\Fleet\Rollout::ring($s['ring'])])) : '' ?></span></td>
 	<td data-popisek="<?= e(t('Customer')) ?>"><?php if (isset($customers[(int) $s['customer_id']])): ?><a href="<?= e($module->url('sites', ['customer' => (int) $s['customer_id']])) ?>"><?= e($customers[(int) $s['customer_id']]) ?></a><?php endif ?></td>
 	<td data-popisek="<?= e(t('What needs attention')) ?>"><?php if ($s['reasons'] === []): ?><span class="stitek stitek-vydano"><?= e(t('ok')) ?></span><?php endif ?><?php foreach ($s['reasons'] as $r): ?><span class="stitek<?= $severity($r) !== '' ? ' stitek-' . $severity($r) : '' ?>"><?= e($reasonLabels[$r]) ?></span> <?php endforeach ?></td>
 	<td data-popisek="<?= e(t('Waiting')) ?>" class="stred"><?= ($n = $waiting[(int) $s['id']] ?? 0) > 0 ? '<a href="' . e($module->url('inbox', ['site' => (int) $s['id']])) . '">' . $n . '</a>' : '0' ?></td>

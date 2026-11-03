@@ -61,6 +61,7 @@ final class Scheduler
         'fleet_alerts' => [300, 'any', 'Fleet console: alert e-mails by the rules'],
         'fleet_digest' => [3600, 'any', 'Fleet console: the weekly digest on Monday'],
         'fleet_reports' => [3600, 'any', 'Fleet console: the monthly report per customer'],
+        'fleet_expiry' => [3600, 'any', 'Fleet console: reminders of certificates and domains that end soon'], // 3.30 (Fleet\Calendar)
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
         'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
@@ -165,6 +166,7 @@ final class Scheduler
             'fleet_alerts' => fn (App $app): string => \Kaleta\Fleet\AlertRules::run($app),
             'fleet_digest' => fn (App $app): string => \Kaleta\Fleet\Digest::runIfDue($app),
             'fleet_reports' => fn (App $app): string => \Kaleta\Fleet\Report::runIfDue($app),
+            'fleet_expiry' => fn (App $app): string => \Kaleta\Fleet\Calendar::run($app),
             'report_archive' => fn (App $app): string => ReportArchive::runIfDue($app),
             'monthly_report' => fn (App $app): string => MonthlyReport::runIfDue($app),
             'cookie_scan' => function (App $app): string {
@@ -240,7 +242,7 @@ final class Scheduler
     {
         return match ($name) {
             'heartbeat' => \Kaleta\Fleet\Link::isPaired($s),
-            'fleet_uptime', 'fleet_history', 'fleet_alerts', 'fleet_digest', 'fleet_reports' => Extensions::isEnabled($s, 'fleet'),
+            'fleet_uptime', 'fleet_history', 'fleet_alerts', 'fleet_digest', 'fleet_reports', 'fleet_expiry' => Extensions::isEnabled($s, 'fleet'),
             default => true,
         };
     }

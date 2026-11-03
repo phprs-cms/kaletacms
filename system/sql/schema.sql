@@ -1112,7 +1112,7 @@ CREATE TABLE ka_fleet_sites (
     relay_token     VARCHAR(80)  NULL,                      -- the site's Claude token for the console; never shown or exported
     relay_access    VARCHAR(10)  NOT NULL DEFAULT '',       -- '' (no relay) | read | drafts | full
     relay_expires   DATETIME     NULL,
-    ring            VARCHAR(10)  NOT NULL DEFAULT 'normal', -- canary | normal
+    ring            VARCHAR(10)  NOT NULL DEFAULT 'normal', -- pilot | normal | careful (3.30, Fleet\Rollout; canary before)
     manage_updates  TINYINT(1)   NOT NULL DEFAULT 0,        -- the site lets the console decide when updates install
     update_allowed  VARCHAR(30)  NOT NULL DEFAULT '',       -- the version the console allowed the site to install
     paired_at       DATETIME     NOT NULL,
@@ -1130,6 +1130,7 @@ CREATE TABLE ka_fleet_sites (
     silent_reported TINYINT(1)   NOT NULL DEFAULT 0,        -- "stopped reporting" already recorded as an event
     customer_id     INT UNSIGNED NULL,                      -- 3.17: ka_fleet_customers (Fleet\Customers), NULL = none
     note            VARCHAR(1000) NOT NULL DEFAULT '',      -- 3.17: the owner's own note; it stays on the console
+    update_window   VARCHAR(40)  NULL,                      -- 3.30: the site's own maintenance window (Fleet\Rollout), NULL = its customer's, '' = any time
     PRIMARY KEY (id),
     UNIQUE KEY uq_fleet_sites_key (public_key),
     KEY ix_fleet_sites_customer (customer_id)
@@ -1139,8 +1140,21 @@ CREATE TABLE ka_fleet_sites (
 CREATE TABLE ka_fleet_customers (
     id   INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(150) NOT NULL,
+    update_window VARCHAR(40) NOT NULL DEFAULT '',          -- 3.30: when its sites may install a new version ("1234567|HH:MM-HH:MM", Fleet\Rollout), '' = any time
     PRIMARY KEY (id),
     UNIQUE KEY uq_fleet_customers_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- Reminders of the expiry calendar sent (3.30, Fleet\Calendar): one row per site, kind (certificate | domain), date and
+-- "days before" – each reminder goes out once; a renewed certificate has a new date and so new reminders. Kept 400 days.
+CREATE TABLE ka_fleet_expiry_reminders (
+    site_id     INT UNSIGNED NOT NULL,
+    kind        VARCHAR(20) NOT NULL,
+    expires     DATE NOT NULL,
+    days_before SMALLINT UNSIGNED NOT NULL,
+    sent_at     DATETIME NOT NULL,
+    PRIMARY KEY (site_id, kind, expires, days_before),
+    KEY ix_fleet_expiry_reminders_sent (sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_fleet_pairing (

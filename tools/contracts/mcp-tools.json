@@ -634,6 +634,19 @@
             "openWorldHint": false
         }
     },
+    "fleet_calendar": {
+        "parameters": {
+            "customer": "string",
+            "days": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List the expiry dates of the fleet",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "fleet_health": {
         "parameters": {
             "customer": "string"
@@ -656,6 +669,27 @@
         "required": [],
         "annotations": {
             "title": "List what waits across the fleet",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "fleet_inventory": {
+        "parameters": {
+            "addon": "string",
+            "channel": "string",
+            "customer": "string",
+            "db": "string",
+            "feature": "string",
+            "language": "string",
+            "php": "string",
+            "search": "string",
+            "server": "string",
+            "version": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List the inventory of the fleet",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
