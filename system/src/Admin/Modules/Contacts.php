@@ -732,14 +732,20 @@ final class Contacts extends Module
         return preg_match('/^[a-f0-9]{24}$/D', $token) === 1 ? KALETA_ROOT . '/storage/import/contacts-' . $token . '.json' : '';
     }
 
-    /** Removes import files nobody confirmed within a day (they hold personal data). */
-    private static function sweepImports(): void
+    /**
+     * Removes import files nobody confirmed within a day (they hold personal data): when Import is opened, and by the daily
+     * clean-up of personal data (Notifications::purgePersonalData – N328-5). Returns how many went.
+     */
+    public static function sweepImports(?int $now = null): int
     {
+        $removed = 0;
         foreach (glob(KALETA_ROOT . '/storage/import/contacts-*.json') ?: [] as $file) {
-            if (filemtime($file) < time() - self::IMPORT_TTL) {
-                @unlink($file);
+            if ((int) @filemtime($file) < ($now ?? time()) - self::IMPORT_TTL && @unlink($file)) {
+                $removed++;
             }
         }
+
+        return $removed;
     }
 
     /* ---------- the box on an enquiry and a booking ---------- */

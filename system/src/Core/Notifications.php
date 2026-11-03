@@ -75,6 +75,7 @@ final class Notifications
         \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
         Booking::purge($app); // bookings follow the same retention (3.0)
         Contacts::purge($app); // 3.28: customers with no activity for contacts_months are anonymised
+        \Kaleta\Admin\Modules\Contacts::sweepImports(); // N328-5: an uploaded customers CSV nobody confirmed (personal data) goes after a day, not only when Import is opened again
         if ($s->int('cookies_log_months') > 0) {
             // records of cookie consents should not be kept forever
             $app->db()->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($s->int('cookies_log_months'))]);

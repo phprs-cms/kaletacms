@@ -9801,6 +9801,15 @@ expect "3.28 retention: the contact inactive for 12 months is anonymised – add
   "1||1||1|1|1/1|2"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '24'), ('contacts_months', '24')" > /dev/null
 check "3.28: the record of processing names customer relations" 200 "/admin.php?module=settings&action=processing_record" "Péče o zákazníky"
+# N328-5: an uploaded customers CSV nobody confirmed (personal data) goes with the daily clean-up after a day, not only when
+# Import is opened again; a fresh one stays for its preview
+mkdir -p "$WORK/web/storage/import"; echo '{"user":1,"name":"x.csv","rows":[]}' > "$WORK/web/storage/import/contacts-aaaaaaaaaaaaaaaaaaaaaaaa.json"
+cp "$WORK/web/storage/import/contacts-aaaaaaaaaaaaaaaaaaaaaaaa.json" "$WORK/web/storage/import/contacts-bbbbbbbbbbbbbbbbbbbbbbbb.json"
+touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK/web/storage/import/contacts-aaaaaaaaaaaaaaaaaaaaaaaa.json"
+t328_php 'echo Kaleta\Admin\Modules\Contacts::sweepImports();' > /dev/null # what the daily clean-up calls (unit test)
+expect "3.28 (N328-5): the daily clean-up removes an unconfirmed import older than a day, keeps a fresh one" \
+  "$([ -f "$WORK/web/storage/import/contacts-aaaaaaaaaaaaaaaaaaaaaaaa.json" ] && echo kept || echo gone)/$([ -f "$WORK/web/storage/import/contacts-bbbbbbbbbbbbbbbbbbbbbbbb.json" ] && echo kept || echo gone)" "gone/kept"
+rm -f "$WORK/web/storage/import/contacts-bbbbbbbbbbbbbbbbbbbbbbbb.json"
 
 # erasure on request: the contact with its log, comments and tasks goes with the enquiries
 mcp_as "$T328_TA" find_personal_data '{"email":"marta.t328@firma-t328.cz"}' > "$WORK/response"; mcp_text
