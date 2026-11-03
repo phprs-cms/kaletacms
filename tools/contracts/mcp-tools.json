@@ -634,6 +634,18 @@
             "openWorldHint": false
         }
     },
+    "fleet_health": {
+        "parameters": {
+            "customer": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Get the health matrix of the fleet",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "fleet_inbox": {
         "parameters": {
             "customer": "string",
@@ -657,6 +669,19 @@
         "required": [],
         "annotations": {
             "title": "Get a monthly fleet report",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "fleet_today": {
+        "parameters": {
+            "customer": "string",
+            "severity": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List what needs attention today",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false

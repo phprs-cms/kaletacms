@@ -24,7 +24,7 @@ use Kaleta\Fleet\Inbox;
 
 $urgencyLabel = ['urgent' => t('urgent'), 'normal' => t('waiting'), 'low' => t('when convenient')];
 $urgencyClass = ['urgent' => ' stitek-chyba', 'normal' => ' stitek-koncept', 'low' => ''];
-$link = fn (array $change): string => $module->url('', array_filter(array_merge(['kind' => $kind, 'site' => $filters['site'], 'customer' => $filters['customer'], 'urgent' => $filters['urgent'] ? '1' : ''], $change)));
+$link = fn (array $change): string => $module->url('inbox', array_filter(array_merge(['kind' => $kind, 'site' => $filters['site'], 'customer' => $filters['customer'], 'urgent' => $filters['urgent'] ? '1' : ''], $change)));
 $moment = fn (int $ts): string => format_date((new DateTimeImmutable())->setTimestamp($ts), true);
 $age = function (int $since): string {
     $hours = max(0, intdiv(time() - $since, 3600));
@@ -33,7 +33,7 @@ $age = function (int $since): string {
 };
 $filtered = $kind !== '' || $filters['site'] > 0 || $filters['customer'] > 0 || $filters['urgent'];
 ?>
-<?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => '', 'pairingKey' => $pairingKey]) ?>
+<?= $app->view->render('admin/fleet/tabs', ['module' => $module, 'current' => 'inbox', 'pairingKey' => $pairingKey]) ?>
 <?php if ($siteCount === 0): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'web', 'heading' => t('No site reports to this console yet. Make a pairing key and paste it on the site.'),
     'text' => t('When the sites report, everything that waits on them – requests, enquiries, drafts, bookings, failed updates, expiring certificates – comes together here.')]) ?>
@@ -48,7 +48,7 @@ $filtered = $kind !== '' || $filters['site'] > 0 || $filters['customer'] > 0 || 
 <?php endforeach ?>
 </nav>
 <form class="hromadne" method="get" action="<?= e($app->url('admin.php')) ?>">
-	<input type="hidden" name="module" value="fleet"><?php if ($kind !== ''): ?><input type="hidden" name="kind" value="<?= e($kind) ?>"><?php endif ?>
+	<input type="hidden" name="module" value="fleet"><input type="hidden" name="action" value="inbox"><?php if ($kind !== ''): ?><input type="hidden" name="kind" value="<?= e($kind) ?>"><?php endif ?>
 	<label><?= e(t('Site')) ?> <select name="site"><option value="0"><?= e(t('all')) ?></option>
 <?php foreach ($sites as $id => $name): ?>
 		<option value="<?= (int) $id ?>"<?= $filters['site'] === (int) $id ? ' selected' : '' ?>><?= e($name) ?></option>
@@ -64,7 +64,7 @@ $filtered = $kind !== '' || $filters['site'] > 0 || $filters['customer'] > 0 || 
 	<label><input type="checkbox" name="urgent" value="1"<?= $filters['urgent'] ? ' checked' : '' ?>> <?= e(t('only urgent')) ?></label>
 	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
 <?php if ($filtered): ?>
-	<a href="<?= e($module->url('')) ?>"><?= e(t('Clear filter')) ?></a>
+	<a href="<?= e($module->url('inbox')) ?>"><?= e(t('Clear filter')) ?></a>
 <?php endif ?>
 </form>
 <?php if ($rows === []): ?>

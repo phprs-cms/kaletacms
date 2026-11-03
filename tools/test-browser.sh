@@ -119,6 +119,14 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
       "response_ms_total" => (288 - $failed) * (180 + $i % 30), "response_count" => 288 - $failed, "status" => "ok", "version" => $i > 20 ? "3.16.2" : "3.17.0",
       "attention" => $i === 12 ? 100 : 0, "reasons" => $i === 12 ? "down" : "", "updated_at" => $at("-$i days")]);
   }
+  // 3.29: a site that sends the parts of the health checks – some red and amber, the workload counts (Today, Health, Workload)
+  $db->insert("fleet_sites", ["id" => 901, "name" => "Northwind Architects", "url" => "https://northwind-architects.example", "public_key" => "browser-test-329", "paired_at" => $at("-60 days"),
+    "last_seen" => $at("now"), "version" => "3.29.0", "version_since" => $at("-1 days"), "status" => "ok", "up" => 1, "up_checked" => $at("now"),
+    "heartbeat" => json_encode(["version" => "3.29.0", "last_backup" => time() - 3600, "cron_last_run" => time() - 5 * 3600, "auto_updates" => false, "jobs_failing" => [],
+      "offsite" => ["status" => "paused", "at" => date("Y-m-d", time() - 3 * 86400), "recovery_key" => "unconfirmed"], "mail_setup" => ["mode" => "smtp", "tested" => false, "tested_at" => null],
+      "twofa" => ["required" => "none", "admins_without" => 2], "cookie_scan" => ["at" => date("Y-m-d", time() - 20 * 86400), "error" => false, "cookies" => 3], "privacy_page" => "published",
+      "accessibility_statement" => "draft", "handover" => ["done" => 12, "total" => 18, "failing" => ["smtp", "two_step"]],
+      "workload" => ["enquiries_this_week" => 14, "enquiries_last_week" => 9, "unanswered_over_24h" => 3, "median_first_reply_hours" => 5, "tasks_open" => 11, "tasks_overdue" => 2, "customers_this_month" => 4]])]);
   $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
   Kaleta\Core\Events::record($db, "fleet.site_updated", "info", "https://shop.smile.example runs version 3.17.0.", ["site" => 900, "version" => "3.17.0"]);
   Kaleta\Fleet\Report::store($app, Kaleta\Core\MonthlyReport::previousMonth(new DateTimeImmutable()));') || { echo "preparing the fleet console failed"; exit 1; }

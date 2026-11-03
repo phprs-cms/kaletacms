@@ -8,10 +8,12 @@ use Kaleta\Admin\ChangeLog;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 use Kaleta\Fleet\AlertRules;
+use Kaleta\Fleet\Checks;
 use Kaleta\Fleet\Console;
 use Kaleta\Fleet\Customers;
 use Kaleta\Fleet\Inbox;
 use Kaleta\Fleet\Digest;
+use Kaleta\Fleet\Health;
 use Kaleta\Fleet\History;
 use Kaleta\Fleet\Kit;
 use Kaleta\Fleet\Report;
@@ -22,7 +24,8 @@ use Kaleta\Fleet\Report;
  * also the shared design kit (Fleet\Kit) the sites receive as drafts. Since 3.17 the console opens on the inbox – what waits
  * on every site (Fleet\Inbox) – sites belong to customers (Fleet\Customers), the console keeps history (Fleet\History: trends
  * on a site's page), sends alerts by rules and a weekly digest (Fleet\AlertRules, Fleet\Digest; Alerts and digest) and makes a
- * monthly report per customer (Fleet\Report; Reports).
+ * monthly report per customer (Fleet\Report; Reports). Since 3.29 it opens on Today (what needs attention, Fleet\Checks), with
+ * the health matrix and the workload of the sites next to the inbox.
  */
 final class Fleet extends Module
 {
@@ -34,10 +37,61 @@ final class Fleet extends Module
     public const bool ADMIN_ONLY = true;
 
     /**
-     * The inbox (3.17, Fleet\Inbox): everything that waits on the sites, the most urgent and the oldest first – filtered by
-     * kind, site, customer and "only urgent"; the filter bar counts each kind under the other filters.
+     * Today (3.29, the console opens on it – Fleet\Checks::today through Fleet\Health): what needs attention across the sites,
+     * red before amber, then the check's weight and the oldest first; filtered by customer and severity, with a summary of
+     * the fleet. An older link with the inbox's own filters (kind, site, urgent) still opens the inbox.
      */
     protected function actionList(): Response
+    {
+        if ($this->request->get('kind') !== '' || $this->request->getInt('site') > 0 || $this->request->get('urgent') !== '') {
+            return $this->actionInbox();
+        }
+        $now = time();
+        $context = Health::context($this->app);
+        $sites = Console::sites($this->db);
+        $items = Checks::today($sites, $now, $context);
+        $customers = Customers::names($this->db);
+        $customer = $this->request->getInt('customer');
+        $customer = $customer === -1 || isset($customers[$customer]) ? $customer : 0;
+        $severity = in_array($this->request->get('severity'), Health::SEVERITIES, true) ? $this->request->get('severity') : '';
+
+        return $this->view('today', 'Fleet', ['items' => Health::filter($items, $customer, $severity), 'total' => count($items), 'summary' => Health::summary($sites, $items, $now, $context),
+            'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now, 'pairingKey' => $this->pairingKey()]);
+    }
+
+    /** The health matrix (3.29): a row per site, a column per check (Fleet\Checks::CHECKS), each cell linking to its fix. */
+    protected function actionHealth(): Response
+    {
+        $customers = Customers::names($this->db);
+        $customer = $this->request->getInt('customer');
+        $customer = $customer === -1 || isset($customers[$customer]) ? $customer : 0;
+        $sort = in_array($this->request->get('sort'), Health::MATRIX_SORTS, true) ? $this->request->get('sort') : 'worst';
+        $sites = array_values(array_filter(Console::sites($this->db), fn (array $s): bool => $customer === 0 || ($customer < 0 ? Console::customerIdOf($s) === 0 : Console::customerIdOf($s) === $customer)));
+
+        return $this->view('health', 'Health', ['rows' => Health::matrix($sites, time(), Health::context($this->app), $sort, $customers), 'customers' => $customers,
+            'customer' => $customer, 'sort' => $sort, 'siteCount' => (int) $this->db->value('SELECT COUNT(*) FROM {fleet_sites}')]);
+    }
+
+    /** The workload (3.29, Fleet\Checks::workload): per site and in total the enquiries, replies, tasks and new customers – counts only. */
+    protected function actionWorkload(): Response
+    {
+        $customers = Customers::names($this->db);
+        $customer = $this->request->getInt('customer');
+        $customer = $customer === -1 || isset($customers[$customer]) ? $customer : 0;
+        $sites = array_values(array_filter(Console::sites($this->db), fn (array $s): bool => $customer === 0 || ($customer < 0 ? Console::customerIdOf($s) === 0 : Console::customerIdOf($s) === $customer)));
+        $sort = in_array($this->request->get('sort'), Checks::WORKLOAD, true) ? $this->request->get('sort') : 'site';
+        $dir = $this->request->get('dir') === 'asc' || ($sort === 'site' && $this->request->get('dir') !== 'desc') ? 'asc' : 'desc';
+        $workload = Checks::workload($sites);
+
+        return $this->view('workload', 'Workload', ['rows' => Health::sortWorkload($workload['sites'], $sort, $dir), 'totals' => $workload['totals'], 'reporting' => $workload['reporting'],
+            'customers' => $customers, 'customer' => $customer, 'sort' => $sort, 'dir' => $dir, 'siteCount' => (int) $this->db->value('SELECT COUNT(*) FROM {fleet_sites}')]);
+    }
+
+    /**
+     * The inbox (3.17, Fleet\Inbox; its own tab since 3.29): everything that waits on the sites, the most urgent and the
+     * oldest first – filtered by kind, site, customer and "only urgent"; the filter bar counts each kind under the other filters.
+     */
+    protected function actionInbox(): Response
     {
         $all = Inbox::load($this->db, $this->app->settings(), time());
         $customer = $this->request->getInt('customer');
