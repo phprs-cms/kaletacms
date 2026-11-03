@@ -14,6 +14,7 @@
  * @var array<string, string> $draft
  * @var array<string, mixed> $thread
  * @var array<string, mixed> $tasks
+ * @var array<string, mixed>|null $deals the company's deals (3.31, Admin\Modules\Pipeline::deals); null without the Pipeline
  * @var bool $admin
  */
 ?>
@@ -45,6 +46,9 @@
 <?php endif ?>
 </div>
 </section>
+<?php if ($deals !== null): ?>
+<?= $app->view->render('admin/pipeline/deals_box', ['box' => $deals]) ?>
+<?php endif ?>
 
 <section id="company-contacts" data-company-contacts>
 <h2><?= e(t('Contacts')) ?> <small><?= format_count($contacts['total']) ?></small></h2>
@@ -78,7 +82,7 @@
 <?php if ($timeline === []): ?>
 <p class="napoveda" data-timeline-empty><?= e(t('Nothing yet.')) ?></p>
 <?php else: ?>
-<p class="napoveda"><?= e(t('The latest of everything that happened with its contacts.')) ?></p>
+<p class="napoveda"><?= e(t('The latest of everything that happened with its contacts and its deals.')) ?></p>
 <?= $app->view->render('admin/contacts/timeline', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'timeline' => $timeline, 'contactId' => 0, 'authors' => [], 'admin' => $admin, 'me' => 0]) ?>
 <?php endif ?>
 </section>

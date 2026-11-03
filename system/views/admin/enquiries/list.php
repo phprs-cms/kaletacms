@@ -18,8 +18,13 @@
  * @var int $spam enquiries marked as spam
  * @var string $search
  * @var array<int, string> $users
+ * @var array<int, array{id: int, stage: string, closed: bool}> $deals the deal each enquiry became (3.31, Core\Deals::forEnquiries; empty without the Pipeline)
+ * @var list<array{key: string, label: string, kind: string, custom: bool}> $stages
  */
 use Kaleta\Admin\Modules\Enquiries;
+
+$stageLabels = array_column($stages, 'label', 'key');
+$stageKinds = array_column($stages, 'kind', 'key');
 
 $pageCount = (int) ceil($total / $perPage);
 // a ticked consent is stored as "yes" in the site language – the preview says what it is (3.11, UX310-25)
@@ -63,7 +68,7 @@ $preview = function (string $data) use ($yes): string {
 	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['stav'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
 	<td><?= bdi($p['formular']) ?><?= ($p['tema'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': ' . (Kaleta\Front\Forms::isSafePage((string) $p['stranka']) ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . bdi($p['tema']) . '</a>' : bdi($p['tema'])) . '</small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . bdi($p['email']) . '</small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priorita'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= bdi($preview((string) $p['data'])) ?></a></td>
-	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($users[(int) $p['prirazeno']]) ? '<br><small>' . e($users[(int) $p['prirazeno']]) . '</small>' : '' ?></td>
+	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($users[(int) $p['prirazeno']]) ? '<br><small>' . e($users[(int) $p['prirazeno']]) . '</small>' : '' ?><?php if (isset($deals[(int) $p['idp']])): $deal = $deals[(int) $p['idp']]; $dealKind = $stageKinds[$deal['stage']] ?? 'open'; /* 3.31 */ ?><br><a class="stitek obchod-odznak<?= $dealKind === 'won' ? ' stitek-vydano' : ($dealKind === 'lost' ? ' stitek-chyba' : '') ?>" href="<?= e($app->url(Kaleta\Core\Deals::adminPath($deal['id']))) ?>" data-enquiry-deal="<?= (int) $deal['id'] ?>"><?= e(t('Deal: %s', $stageLabels[$deal['stage']] ?? $deal['stage'])) ?></a><?php endif ?></td>
 	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['idp'] ?>"></td>
 </tr>
 <?php endforeach ?>

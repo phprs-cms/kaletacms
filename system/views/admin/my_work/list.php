@@ -3,7 +3,8 @@
  * My work (3.24, Core\MyWork): one table per list the person may open, only lists with something in them; every row links
  * to where the work is done. Nothing at all = the empty state. 3.27: the person's tasks first, grouped overdue / today /
  * upcoming / later, each with Done and the snooze buttons (one form, the buttons post with formaction); administrators get
- * the tabs Mine and Team; "New task" (folded) is the shared form views/admin/task_form.php.
+ * the tabs Mine and Team; "New task" (folded) is the shared form views/admin/task_form.php. 3.31: the open deals the person
+ * is responsible for (Core\Deals::forOwner) – title, stage, customer, expected close, overdue marked.
  *
  * @var array{action: string, people: array<int, string>, draft: string} $newTask
  * @var string $csrf
@@ -19,6 +20,7 @@ $headings = [
     'pages' => 'Pages you are responsible for',
     'items' => 'Collection items you are responsible for',
     'requests' => 'Your requests Claude answered',
+    'deals' => 'Deals you are responsible for', // 3.31
 ];
 $reason = fn (string $code, array $row): string => match ($code) {
     'overdue' => t('Review overdue since %s', format_date((string) $row['review_by'])),
@@ -38,6 +40,7 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
     'page' => t('Page “%s”', $about['title']),
     'contact' => t('Customer “%s”', $about['title']), // 3.28
     'company' => t('Company “%s”', $about['title']),
+    'deal' => t('Deal #%s', (string) $about['id']), // 3.31: by its number, as the bell names it
     default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
 };
 ?>
@@ -95,6 +98,17 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
 	<td><a href="<?= e($app->url($r['url'])) ?>"><?= e($r['title'] !== '' ? $r['title'] : t('Enquiry')) ?> #<?= (int) $r['id'] ?></a><?= $r['about'] !== '' ? '<br><span class="smltxt">' . e($r['about']) . '</span>' : '' ?></td>
 	<td><?= $r['status'] === 'new' ? '<span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td class="cislo"><?= e(format_date($r['date'], true)) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+<?php elseif ($list === 'deals'): /* 3.31: the open deals, overdue first */ ?>
+<thead><tr><th scope="col"><?= e(t('Deal')) ?></th><th scope="col"><?= e(t('Stage')) ?></th><th scope="col"><?= e(t('Expected close')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($rows as $r): ?>
+<tr data-deal="<?= (int) $r['id'] ?>">
+	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi($r['title']) ?></a><?= ($r['contact'] ?? null) !== null ? '<br><span class="smltxt">' . bdi((string) $r['contact']) . '</span>' : '' ?></td>
+	<td><span class="stitek"><?= e($r['stage_label']) ?></span></td>
+	<td class="cislo"><?= $r['expected_close'] === null ? '<span class="smltxt">' . e(t('no date')) . '</span>' : ($r['overdue'] ? '<span class="stitek stitek-chyba">' . e(t('overdue since %s', format_date($r['expected_close']))) . '</span>' : e(format_date($r['expected_close']))) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

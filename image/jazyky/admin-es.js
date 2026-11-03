@@ -3081,5 +3081,15 @@ window.KALETA_PREKLAD = {
 	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Color no válido. Escriba #hex, rgb(…) u oklch(…), o elija un color del sitio.",
 	"Pozadí": "Fondo",
 	"Linka": "Línea",
-	"customer": "cliente"
+	"customer": "cliente",
+	"deal": "trato",
+	"The deal stays in %s.": "El trato se queda en %s.",
+	"Say why “%s” was lost, then press Move.": "Indica por qué se perdió «%s» y pulsa Mover.",
+	"The deal could not be moved.": "No se pudo mover el trato.",
+	"Moved to %s.": "Movido a %s.",
+	"Move “%s”": "Mover «%s»",
+	"Drag, or press Space to move with the arrow keys": "Arrastra, o pulsa Espacio y mueve con las flechas",
+	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "Has cogido «%s» en %s. Elige la etapa con las flechas; Espacio lo suelta, Esc cancela.",
+	"Over %s.": "Sobre %s.",
+	"Cancelled – “%s” stays where it was.": "Cancelado: «%s» se queda donde estaba."
 };

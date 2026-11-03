@@ -15,6 +15,8 @@ namespace Kaleta\Core;
  *  - 'contact:<id>' and 'company:<id>', kind 'comment' (3.28, Core\Contacts): the team's thread on a customer and on a
  *    company – the section Customers (Contacts::SECTION). They follow their record like an enquiry's notes: deleted with
  *    it (Contacts::delete → forget()), blanked when the contact is anonymised (anonymiseTargets()), never journaled.
+ *  - 'deal:<id>', kind 'comment' (3.31, Core\Deals): the team's thread on a deal – the section Pipeline (Deals::SECTION);
+ *    deleted with the deal (Admin\Modules\Pipeline::actionDelete → forget(), sweepContent() for any other path).
  *
  * Mentions (3.26): "@" and a sign-in name (the "@" autocomplete of image/admin.js inserts it). The server resolves them
  * (mentions()) and refuses anyone who is blocked or cannot open the target's section (Assignment::allowed – the rule of
@@ -39,10 +41,10 @@ final class Comments
     public const int MAX_TEXT = 5000;
 
     /** Each kind of target => the kind of its comments (3.26); the kind of target is also the Assignment kind of its section. */
-    public const array KINDS = ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment'];
+    public const array KINDS = ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment', 'deal' => 'comment'];
 
     /** The name of the section each kind of target needs (for the refusal of a mention). */
-    private const array SECTION_NAMES = ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections', 'contact' => 'Customers', 'company' => 'Customers'];
+    private const array SECTION_NAMES = ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections', 'contact' => 'Customers', 'company' => 'Customers', 'deal' => 'Pipeline'];
 
     /** A mention (3.26): "@" and a sign-in name (Users allows letters without diacritics, digits and ._-), not inside a word or an e-mail address. */
     public const string MENTION = '/(?<![\p{L}\p{N}._@-])@([a-zA-Z0-9._-]{2,40})/u';
@@ -90,15 +92,21 @@ final class Comments
         return 'company:' . $id;
     }
 
+    /** The target of a deal's thread (3.31, Core\Deals). */
+    public static function deal(int $id): string
+    {
+        return 'deal:' . $id;
+    }
+
     /**
-     * What a target names: an enquiry, a page, a collection item, a contact or a company (3.28) and its positive id; null
-     * for anything else. Pure.
+     * What a target names: an enquiry, a page, a collection item, a contact or a company (3.28), a deal (3.31) and its
+     * positive id; null for anything else. Pure.
      *
-     * @return array{type: 'enquiry'|'page'|'item'|'contact'|'company', id: int}|null
+     * @return array{type: 'enquiry'|'page'|'item'|'contact'|'company'|'deal', id: int}|null
      */
     public static function parseTarget(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item|contact|company):([1-9]\d{0,9})$/D', $target, $m) === 1 ? ['type' => $m[1], 'id' => (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|contact|company|deal):([1-9]\d{0,9})$/D', $target, $m) === 1 ? ['type' => $m[1], 'id' => (int) $m[2]] : null;
     }
 
     /**
@@ -399,6 +407,7 @@ final class Comments
             'item' => $db->value('SELECT owner_id FROM {kolekce_polozky} WHERE idp = ?', [$parsed['id']]),
             'contact' => $db->value('SELECT owner_id FROM {contacts} WHERE id = ? AND anonymised_at IS NULL', [$parsed['id']]), // 3.28
             'company' => $db->value('SELECT owner_id FROM {companies} WHERE id = ?', [$parsed['id']]),
+            'deal' => $db->value('SELECT owner_id FROM {deals} WHERE id = ?', [$parsed['id']]), // 3.31
             default => null,
         };
 
@@ -672,12 +681,12 @@ final class Comments
      * The threads of pages and items that no longer exist (deleted by a path that did not call forget(), e.g. a whole
      * collection or an import into an empty site) – removed like sweep() does for enquiries: the rows are looked up by
      * their primary key, nothing is cast in SQL. A page or an item in the trash still exists: its thread stays. 3.28: the
-     * threads of contacts and companies that are gone too.
+     * threads of contacts and companies that are gone too; 3.31: of deals.
      */
     public static function sweepContent(Db $db): int
     {
         $deleted = 0;
-        foreach (['page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id']] as $type => [$table, $key]) {
+        foreach (['page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id'], 'deal' => ['deals', 'id']] as $type => [$table, $key]) {
             try {
                 $targets = array_map(fn (array $r): string => (string) $r['target'], $db->all('SELECT DISTINCT target FROM {comments} WHERE target LIKE ?', [$type . ':%']));
                 $gone = [];

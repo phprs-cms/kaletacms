@@ -3814,6 +3814,89 @@ await step('3.29 visits confirmed by a browser: none under automation, exactly o
   if (await page.locator('.graf-sloupec.graf-zacatek').count() !== 1) { throw new Error('the first day of browser-confirmed counting is not marked on the chart'); }
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/329-stats-confirmed.png`, fullPage: true }); }
 });
+// 3.31 (agent B): the Pipeline board – a column per stage; a card moves with the keyboard (Space, an arrow, Space – the live
+// region announces it) and by dragging; a lost column asks for the reason in the card's own form; no sideways scroll at 1440
+// and 390 px (the columns stack on a phone), light and dark; axe clean on the board and a deal
+await step('3.31 pipeline: the board – keyboard move with an announcement, drag to Lost asks the reason; 1440 and 390 px, light/dark, axe', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%B331%'); DELETE FROM ka_deals WHERE title LIKE '%B331%'; DELETE FROM ka_contacts WHERE email_norm LIKE '%b331%'");
+  const eva = Number(sql(`INSERT INTO ka_contacts (email, email_norm, name, phone, language, source, first_seen_at, last_activity_at, created_at, updated_at)
+    VALUES ('eva.b331@northwind-b331.example', 'eva.b331@northwind-b331.example', 'Eva Longname-Doubleservice B331', '', 'en', 'manual', NOW(), NOW(), NOW(), NOW()); SELECT LAST_INSERT_ID();`).trim());
+  const deal = (title, stage, value, currency, close) => Number(sql(`INSERT INTO ka_deals (title, contact_id, stage, value, currency, expected_close, created_at, updated_at)
+    VALUES ('${title}', ${eva}, '${stage}', ${value === null ? 'NULL' : `'${value}'`}, ${currency === null ? 'NULL' : `'${currency}'`}, ${close === null ? 'NULL' : `'${close}'`}, NOW(), NOW()); SELECT LAST_INSERT_ID();`).trim());
+  const a = deal('Website redesign B331', 'new', '12500.50', 'EUR', '2026-01-15');
+  const b = deal('Yearly service plan for all three offices B331', 'new', '480.00', 'EUR', null);
+  const c = deal('Logo B331', 'qualified', null, null, null);
+  sql(`INSERT INTO ka_deal_stage_history (deal_id, from_stage, to_stage, at) VALUES (${a}, NULL, 'new', NOW()), (${b}, NULL, 'new', NOW()), (${c}, NULL, 'qualified', NOW())`);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=pipeline');
+    if ((await page.locator('[data-pipeline-board] section[data-stage]').count()) !== 5) { throw new Error('the board does not have the five default stages'); }
+    if (!(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('12980.50 EUR')) { throw new Error('the sum of New in EUR is not 12980.50'); }
+    // the keyboard: the handle, Space, ArrowRight, Space – posted as JSON, the card moves, the counts and sums follow, announced
+    const before = (await page.locator('[data-stage-count]').allInnerTexts()).map(Number);
+    await page.locator(`#deal-${a} .obchod-uchyt`).focus();
+    await page.keyboard.press('Space');
+    if (!/Picked up/.test(await page.locator('[data-pipeline-announce]').innerText({ timeout: 2000 }).catch(() => ''))) { await page.waitForTimeout(200); }
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Space');
+    await page.locator(`section[data-stage="qualified"] #deal-${a}`).waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => /Qualified/.test(document.querySelector('[data-pipeline-announce]').textContent));
+    if (sql(`SELECT stage FROM ka_deals WHERE id = ${a}`).trim() !== 'qualified') { throw new Error('the keyboard move was not saved'); }
+    const counts = (await page.locator('[data-stage-count]').allInnerTexts()).map(Number);
+    if (counts[0] !== before[0] - 1 || counts[1] !== before[1] + 1 || !(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('480.00 EUR')) { throw new Error(`the counts and sums did not follow: ${before} → ${counts}`); }
+    if (await page.evaluate(() => !document.activeElement.classList.contains('obchod-uchyt'))) { throw new Error('the focus did not stay on the moved card'); }
+    // dragging to Lost: the card's form shows the reason, focused; nothing is saved yet
+    await page.locator(`#deal-${b}`).dragTo(page.locator('section[data-stage="lost"]'));
+    await page.locator(`#deal-${b} select[name="lost_reason"]`).waitFor({ state: 'visible', timeout: 3000 });
+    if ((await page.evaluate(() => document.activeElement.name)) !== 'lost_reason') { throw new Error('the reason is not focused after a drop on Lost'); }
+    if (sql(`SELECT stage FROM ka_deals WHERE id = ${b}`).trim() !== 'new') { throw new Error('a drop on Lost saved without a reason'); }
+    await page.selectOption(`#deal-${b} select[name="lost_reason"]`, 'timing');
+    await Promise.all([page.waitForNavigation(), page.locator(`#deal-${b} form button[type="submit"]`).click()]);
+    if (sql(`SELECT CONCAT(stage, '/', lost_reason) FROM ka_deals WHERE id = ${b}`).trim() !== 'lost/timing') { throw new Error('Move with the reason did not lose the deal'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/331-board.png`, fullPage: true }); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of ['/admin.php?module=pipeline', `/admin.php?module=pipeline&action=detail&id=${a}`, '/admin.php?module=pipeline&view=list&status=all']) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+            if (url.endsWith('pipeline')) {
+              const tops = await p2.locator('section[data-stage]').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+              if ((label === 'phone') !== (tops[1] > tops[0])) { throw new Error(`the columns ${label === 'phone' ? 'do not stack' : 'are not side by side'} (${label}, ${scheme})`); }
+            }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/331-${url.includes('detail') ? 'detail' : url.includes('list') ? 'list' : 'board'}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [['/admin.php?module=pipeline', ['[data-pipeline-filter]', '[data-pipeline-board]']], [`/admin.php?module=pipeline&action=detail&id=${a}`, ['[data-deal-card]', '#move', '[data-deal-history]']]]) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_deal_stage_history WHERE deal_id IN (${a}, ${b}, ${c}); DELETE FROM ka_deals WHERE id IN (${a}, ${b}, ${c}); DELETE FROM ka_contacts WHERE id = ${eva}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

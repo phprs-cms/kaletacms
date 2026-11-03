@@ -2965,5 +2965,15 @@ window.KALETA_PREKLAD = {
 	"Colours of the site": "Barvy webu",
 	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Neplatná mezera. Zadejte číslo s jednotkou (24px, 1.5rem, 5 %) nebo vyberte krok.",
 	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Neplatná barva. Zadejte #hex, rgb(…) nebo oklch(…), nebo vyberte barvu webu.",
-	"customer": "zákazník"
+	"customer": "zákazník",
+	"deal": "obchod",
+	"The deal stays in %s.": "Obchod zůstává ve fázi %s.",
+	"Say why “%s” was lost, then press Move.": "Napište, proč se „%s“ nepovedl, a stiskněte Přesunout.",
+	"The deal could not be moved.": "Obchod nešlo přesunout.",
+	"Moved to %s.": "Přesunuto do fáze %s.",
+	"Move “%s”": "Přesunout „%s“",
+	"Drag, or press Space to move with the arrow keys": "Přetáhněte, nebo stiskněte mezerník a přesuňte šipkami",
+	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "Zvednuto „%s“ ve fázi %s. Šipkami vyberte fázi, mezerník ho položí, Esc ruší.",
+	"Over %s.": "Nad fází %s.",
+	"Cancelled – “%s” stays where it was.": "Zrušeno – „%s“ zůstává, kde byl."
 };

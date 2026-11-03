@@ -170,7 +170,7 @@ trait TaskTools
     {
         $section = \Kaleta\Core\Assignment::KINDS[explode(':', $target)[0]];
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
-            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers'][$section] . ' can see the tasks about it.');
+            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'pipeline' => 'Pipeline'][$section] . ' can see the tasks about it.');
         }
     }
 }

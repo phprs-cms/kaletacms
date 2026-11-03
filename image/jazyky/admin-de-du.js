@@ -420,5 +420,8 @@ Object.assign(window.KALETA_PREKLAD, {
 	"No team comments yet. Write the first one – type @ to mention a colleague.": "Noch keine Kommentare des Teams. Schreib den ersten – mit @ erwähnst du jemanden aus dem Team.",
 	"Comments of your colleagues on this page – only administration users see them. Also in the page settings.": "Kommentare deines Teams zu dieser Seite – nur Benutzer der Administration sehen sie. Auch in den Seiteneinstellungen.",
 	"Not a valid spacing. Use a number with a unit (24px, 1.5rem, 5%) or pick a step.": "Kein gültiger Abstand. Gib eine Zahl mit Einheit ein (24px, 1.5rem, 5 %) oder wähle eine Stufe.",
-	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Gib #hex, rgb(…) oder oklch(…) ein oder wähle eine Farbe der Website."
+	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Gib #hex, rgb(…) oder oklch(…) ein oder wähle eine Farbe der Website.",
+	"Say why “%s” was lost, then press Move.": "Gib an, warum „%s“ verloren ging, und drück dann „Verschieben“.",
+	"Drag, or press Space to move with the arrow keys": "Zieh, oder drück die Leertaste und verschieb mit den Pfeiltasten",
+	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "„%s“ in %s aufgenommen. Wähl die Phase mit den Pfeiltasten; die Leertaste legt ihn ab, Esc bricht ab."
 });

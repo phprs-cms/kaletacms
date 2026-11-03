@@ -1823,3 +1823,52 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 	table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 0; }
 	table.flotila-prace tfoot tr { border-width: 2px; }
 }
+
+/* 3.31: the Pipeline – the board (a column per stage, the cards and their move forms), a deal, the stages, the boxes */
+.obchody-navod { margin: 0 0 12px; font-size: 13px; }
+.obchody-zuzeni { margin: -6px 0 16px; }
+.obchody-tabule { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(13rem, 1fr); gap: 12px; align-items: start; margin: 0 0 24px; padding: 0 0 8px; overflow-x: auto; }
+.obchody-sloupec { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--linka); border-radius: var(--radius); background: color-mix(in oklch, var(--akcent) 3%, var(--podklad)); }
+.obchody-sloupec.obchody-won { border-top: 3px solid var(--ok); }
+.obchody-sloupec.obchody-lost { border-top: 3px solid var(--linka-pole); }
+.obchody-cil { outline: 2px dashed var(--fokus); outline-offset: 2px; }
+.obchody-hlava h2 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.obchody-pocet { flex: none; min-width: 1.6em; padding: 1px 7px; border-radius: 999px; background: var(--akcent-svetly); color: var(--text); font-size: 12px; text-align: center; }
+.obchody-soucty { min-height: 1.2em; margin: 2px 0 0; color: var(--text-slaby); font-size: 13px; overflow-wrap: anywhere; }
+.obchody-karty { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.obchody-prazdne { margin: 0; font-size: 13px; }
+.obchod-karta { position: relative; display: grid; gap: 4px; min-width: 0; padding: 10px 12px; border: 1px solid var(--linka); border-radius: 8px; background: var(--plocha); overflow-wrap: anywhere; }
+.obchod-karta[draggable="true"] { cursor: grab; }
+.obchod-po-terminu { box-shadow: inset 3px 0 0 var(--chyba); }
+.obchod-titulek { margin: 0; padding-right: 30px; font-size: 15px; }
+.obchod-kdo, .obchod-udaje { margin: 0; color: var(--text-slaby); font-size: 13px; }
+.obchod-udaje { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.obchod-hodnota { color: var(--text); }
+.obchod-presun { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 0; }
+.obchod-presun select { flex: 1 1 8em; min-width: 0; max-width: 100%; }
+.obchod-presun button { flex: none; }
+.obchod-duvod { display: none; }
+.obchod-presun:has(select[name="stage"] option[data-kind="lost"]:checked:not([data-current])) .obchod-duvod { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 6px; }
+.obchod-uchyt { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-slaby); font-size: 16px; line-height: 1; cursor: grab; }
+.obchod-uchyt:hover, .obchod-uchyt[aria-pressed="true"] { border-color: var(--linka-pole); color: var(--text); }
+.obchod-zvednuta { outline: 2px solid var(--fokus); outline-offset: 2px; }
+.obchod-tazena, .obchod-presouva { opacity: .55; }
+.obchod-castka { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.obchod-castka input { width: 10em; max-width: 100%; }
+.obchod-castka .napoveda { flex: 1 1 100%; }
+.obchod-posun { margin: 0 0 24px; }
+.obchod-presun-detail { padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.obchod-presun-detail > label, .obchod-presun-detail .obchod-duvod label { font-weight: 600; }
+.obchod-presun-detail .obchod-duvod input { flex: 1 1 14em; min-width: 0; }
+.obchod-presun-detail select { flex: 0 1 18em; }
+.obchod-historie { margin: 0 0 24px; padding: 0 0 0 18px; }
+.obchod-historie li { margin: 0 0 6px; overflow-wrap: anywhere; }
+.obchod-historie .napoveda { display: block; font-size: 13px; }
+.obchody-box-seznam { display: grid; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+.obchody-box-seznam li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
+.obchody-box .tlacitka, .obchod-box form { margin: 0; }
+a.obchod-odznak { display: inline-block; margin-top: 4px; text-decoration: none; }
+.obchody-etapy .obchody-poradi { width: 5em; }
+@media (max-width: 760px) {
+	.obchody-tabule { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); overflow: visible; }
+}

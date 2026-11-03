@@ -42,13 +42,14 @@ final class Roles extends Module
      * key => [name, description, level, sections]
      * 3.23.1 (N-C1, owner decision D1 of 30 October): the Client gets the Appearance area (menu, footer) and Business details
      * (opening hours) – the client's most frequent edits. Roles saved before keep their sections. 3.28: whoever answers
-     * enquiries has Customers too (as migration 0114 gives every role with Enquiries).
+     * enquiries has Customers too (as migration 0114 gives every role with Enquiries); 3.31: and the Pipeline of their deals
+     * (as migration 0117 gives every role with Customers).
      */
     public const array PRESETS = [
         'client' => ['Client', 'Edits pages, news, collection items, the menu, the footer and the opening hours, answers enquiries, sees the statistics and asks Claude for changes – design, settings and users stay with the agency.',
-            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'contacts', 'stats', 'requests', 'business', Auth::APPEARANCE_AREA]],
+            Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'contacts', 'pipeline', 'stats', 'requests', 'business', Auth::APPEARANCE_AREA]],
         'writer' => ['Writer', 'Writes news for someone else to publish.', Auth::AUTHOR, ['news', 'tags']],
-        'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers, and asks Claude for changes.', Auth::AUTHOR, ['enquiries', 'contacts', 'subscribers', 'requests']],
+        'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers, and asks Claude for changes.', Auth::AUTHOR, ['enquiries', 'contacts', 'pipeline', 'subscribers', 'requests']],
     ];
 
     protected function actionNew(): Response

@@ -19,6 +19,7 @@
  * @var array<string, string> $activityDraft a refused log entry
  * @var array<string, mixed> $thread Admin\CommentActions::commentThread
  * @var array<string, mixed> $tasks Admin\TaskActions::taskPanel
+ * @var array<string, mixed>|null $deals the customer's deals (3.31, Admin\Modules\Pipeline::deals); null without the Pipeline
  * @var bool $admin
  * @var int $me
  */
@@ -95,6 +96,9 @@ $sources = ['enquiry' => 'from an enquiry', 'booking' => 'from a booking', 'subs
 <?php endif ?>
 </div>
 </section>
+<?php if ($deals !== null): ?>
+<?= $app->view->render('admin/pipeline/deals_box', ['box' => $deals]) ?>
+<?php endif ?>
 
 <section class="zakaznik-osa" id="timeline" data-timeline>
 <h2><?= e(t('Timeline')) ?></h2>

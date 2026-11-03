@@ -2,7 +2,8 @@
 /**
  * A customer's timeline (3.28, Core\Contacts::timeline), newest first: an icon per kind, what it was (a form, a subject, a
  * service – data, not translated), who and when, its status, a link to the enquiry, booking or task. On a company's page
- * each entry names its contact. The author of a logged entry (or an administrator) may delete it.
+ * each entry names its contact. The author of a logged entry (or an administrator) may delete it. 3.31: a deal's move
+ * (created, moved, won, lost, reopened – the text is the stage) with "Open the deal" for whoever may open the Pipeline.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Contacts $module
@@ -20,12 +21,18 @@ $icon = require __DIR__ . '/../icons.php';
 $status = ['new' => Enquiries::STATUSES[0], 'read' => Enquiries::STATUSES[1], 'resolved' => Enquiries::STATUSES[2], 'sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
     'failed' => 'Not delivered', 'overdue' => 'overdue', 'today' => 'today'] + Kaleta\Core\Booking::STATUSES;
 $taskStatus = ['done' => 'Done', 'overdue' => 'overdue', 'today' => 'today'];
-$linked = ['enquiry', 'reply', 'booking', 'subscription', 'task'];
+$linked = ['enquiry', 'reply', 'booking', 'subscription', 'task', ...($app->auth()->hasModule(Kaleta\Core\Deals::SECTION) ? ['deal'] : [])];
+$dealStatus = ['created' => 'new deal', 'moved' => 'moved', 'won' => 'won', 'lost' => 'lost', 'reopened' => 'reopened']; // 3.31
 ?>
 <ol class="upozorneni zakaznik-udalosti" data-timeline-list>
 <?php foreach ($timeline as $entry): [$iconKey, $label] = Contacts::KINDS[$entry['kind']] ?? ['clanek', $entry['kind']];
     $statusKey = (string) ($entry['status'] ?? '');
-    $statusText = $entry['kind'] === 'task' ? ($taskStatus[$statusKey] ?? '') : ($entry['kind'] === 'subscription' ? ($statusKey === 'confirmed' ? 'confirmed' : 'waiting for confirmation') : ($status[$statusKey] ?? ''));
+    $statusText = match ($entry['kind']) {
+        'task' => $taskStatus[$statusKey] ?? '',
+        'subscription' => $statusKey === 'confirmed' ? 'confirmed' : 'waiting for confirmation',
+        'deal' => $dealStatus[$statusKey] ?? '',
+        default => $status[$statusKey] ?? '',
+    };
     $text = (string) ($entry['text'] ?? '');
     if ($entry['kind'] === 'booking' && $text !== '') {
         $text = format_date($text, true); // the appointment
@@ -38,7 +45,7 @@ $linked = ['enquiry', 'reply', 'booking', 'subscription', 'task'];
 		<span class="upozorneni-ikona"><?= $icon($iconKey) ?></span>
 		<div class="upozorneni-text">
 			<p class="upozorneni-co"><strong><?= e(t($label)) ?></strong><?= ($entry['title'] ?? '') !== '' ? ' · ' . bdi((string) $entry['title']) : '' ?><?= ($entry['by'] ?? '') !== '' ? ' · ' . e((string) $entry['by']) : '' ?>
-				<?= $statusText !== '' ? '<span class="stitek' . ($statusKey === 'failed' || $statusKey === 'overdue' ? ' stitek-chyba' : ($statusKey === 'new' || $statusKey === 'pending' || $statusKey === 'queued' ? ' stitek-koncept' : '')) . '">' . e(t($statusText)) . '</span>' : '' ?></p>
+				<?= $statusText !== '' ? '<span class="stitek' . ($statusKey === 'failed' || $statusKey === 'overdue' || ($entry['kind'] === 'deal' && $statusKey === 'lost') ? ' stitek-chyba' : ($statusKey === 'new' || $statusKey === 'pending' || $statusKey === 'queued' ? ' stitek-koncept' : ($entry['kind'] === 'deal' && $statusKey === 'won' ? ' stitek-vydano' : ''))) . '">' . e(t($statusText)) . '</span>' : '' ?></p>
 <?php if (isset($entry['contact'])): ?>
 			<p class="upozorneni-kde"><a href="<?= e($module->url('detail', ['id' => $entry['contact_id']])) ?>"><?= bdi((string) $entry['contact']) ?></a></p>
 <?php endif ?>
@@ -46,7 +53,7 @@ $linked = ['enquiry', 'reply', 'booking', 'subscription', 'task'];
 			<p class="upozorneni-vynatek"><?= e($text) ?></p>
 <?php endif ?>
 <?php if (in_array($entry['kind'], $linked, true) && ($entry['path'] ?? '') !== ''): ?>
-			<p class="upozorneni-kde"><a href="<?= e($app->url((string) $entry['path'])) ?>"><?= e(t(match ($entry['kind']) { 'booking' => 'Open the booking', 'subscription' => 'Open the subscribers', 'task' => 'Open in My work', default => 'Open the enquiry' })) ?></a></p>
+			<p class="upozorneni-kde"><a href="<?= e($app->url((string) $entry['path'])) ?>"><?= e(t(match ($entry['kind']) { 'booking' => 'Open the booking', 'subscription' => 'Open the subscribers', 'task' => 'Open in My work', 'deal' => 'Open the deal', default => 'Open the enquiry' })) ?></a></p>
 <?php endif ?>
 <?php if ($mayDelete): ?>
 			<form class="vradku zakaznik-smazat-zapis" method="post" action="<?= e($module->url('activity')) ?>" data-activity-delete data-potvrdit="<?= e(t('Delete this entry? This cannot be undone.')) ?>">

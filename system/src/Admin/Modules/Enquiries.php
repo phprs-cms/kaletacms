@@ -79,9 +79,13 @@ final class Enquiries extends Module
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
         $pageNumber = max(1, $this->request->getInt('page', 1));
+        $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
+        // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
+        $deals = isset($this->kernel->modules()[Pipeline::IDENT]) ? \Kaleta\Core\Deals::forEnquiries($this->db, array_map('intval', array_column($rows, 'idp'))) : [];
 
         return $this->view('list', 'Enquiries', [
-            'enquiries' => $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),
+            'enquiries' => $rows,
+            'deals' => $deals, 'stages' => $deals !== [] ? \Kaleta\Core\Deals::stages($this->app->settings()) : [],
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY " . $this->db->sortText("IF(jmeno = '', user, jmeno)")),
@@ -123,7 +127,9 @@ final class Enquiries extends Module
             'tasks' => $this->taskPanel(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']], ['follow_up' => true, 'replied' => $this->takeFollowUp((int) $p['idp'])]),
             // 3.28: the customer of the enquiry (Customers), or "Link to a contact" for one from before 3.28
             'contactBox' => Contacts::box($this->app, $this->kernel->modules(), 'enquiry', (int) $p['idp'], isset($p['contact_id']) ? (int) $p['contact_id'] : null,
-                ($p['anonymizovano'] ?? null) === null && \Kaleta\Core\Contacts::normalise((string) $p['email']) !== null)]);
+                ($p['anonymizovano'] ?? null) === null && \Kaleta\Core\Contacts::normalise((string) $p['email']) !== null),
+            // 3.31: the deal the enquiry became, or "Create deal" (for whoever may open the Pipeline)
+            'dealBox' => Pipeline::enquiryBox($this->app, $this->kernel->modules(), (int) $p['idp'])]);
     }
 
     /** 3.27: was a reply to this enquiry just sent (actionReply)? Once – the detail offers the follow-up at its top. */

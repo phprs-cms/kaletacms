@@ -226,6 +226,8 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
 // 3.28: the MCP tools of Customers come with agent A's branch; until both are merged the admin actions name them as admin-only
 // (after the merge this falls back to the plain tool names – the lead may inline them)
 $contactTool = fn (string $tool): string => in_array($tool, Kaleta\Mcp\Translator::names(), true) ? $tool : 'admin: ' . $tool . ' (the MCP tool of 3.28)';
+// 3.31: the MCP tools of the Pipeline come with agent A's branch – the same fallback until both are merged
+$dealTool = fn (string $tool): string => in_array($tool, Kaleta\Mcp\Translator::names(), true) ? $tool : 'admin: ' . $tool . ' (the MCP tool of 3.31)';
 $parity = [
     'pages' => $builderParity + ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'export' => $readOnly, 'save' => 'update_page', 'save_text' => 'update_page',
         'delete' => 'trash_page', 'restore' => 'restore_from_trash', 'delete_permanently' => 'admin: the trash empties itself after 30 days',
@@ -275,6 +277,13 @@ $parity = [
         'link' => 'admin: an old enquiry or booking linked by hand – the job "contacts" links them by itself',
         'import_upload' => 'admin: a CSV of customers comes through the admin, never over MCP (personal data in bulk)', 'import_run' => 'admin: a CSV of customers comes through the admin, never over MCP (personal data in bulk)',
         'comment' => 'admin: the team’s thread on a customer or a company – a person writes it; Claude gets the comments over MCP with the work tools',
+        'task' => 'save_task'],
+    // 3.31: the Pipeline – Claude reads and moves the same deals with list_deals, save_deal, move_deal and pipeline_summary; deleting a
+    // deal and changing the stages stay with an administrator
+    'pipeline' => ['list' => $dealTool('list_deals'), 'detail' => $dealTool('list_deals'), 'new' => $readOnly, 'search_json' => $readOnly, 'stages' => $readOnly,
+        'save' => $dealTool('save_deal'), 'move' => $dealTool('move_deal'), 'from_enquiry' => $dealTool('save_deal'),
+        'delete' => 'admin: deleting a deal for good is an administrator\'s decision', 'stages_save' => 'admin: the stages of the pipeline are the administrator\'s set-up',
+        'comment' => 'admin: the team’s thread on a deal – a person writes it; Claude gets the comments over MCP with the work tools',
         'task' => 'save_task'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
@@ -8823,7 +8832,7 @@ check('3.24 T1: every admin section is classified once – changing the site or 
     array_values(array_diff(Kaleta\Admin\Kernel::SITE_NEUTRAL_TABS, array_keys(Kaleta\Admin\Modules\Settings::TABS))),
 ], [[], [], [], true, [], [], ['newsletters'], []]);
 check('3.24 T1: the site-neutral admin sections – the team\'s work that never reaches the site',
-    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts']); // 3.28: Customers
+    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts', 'pipeline']); // 3.28: Customers; 3.31: Pipeline
 $t324Post = fn (string $module, string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => $module, 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
 check('3.24 T1: Kernel::clearsPageCache – enquiries, notes, requests, the notebook, roles and drafts keep the cache; content, the look, Settings tabs visitors see, a new signing key, updates, the author box and anything unknown clear it', [
     $t324Post('enquiries', 'note'), $t324Post('enquiries', 'reply'), $t324Post('enquiries', 'triage'), $t324Post('enquiries', 'bulk'), $t324Post('requests', 'save'),
@@ -8990,7 +8999,7 @@ check('3.25 (C): the menu groups of an administrator with every feature on – c
 ], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
 check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
     'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
-    'Workspace' => ['enquiries', 'contacts', 'bookings'], // 3.28: Customers right after Enquiries
+    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'bookings'], // 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers
     'Appearance' => ['appearance', 'parts', 'menu', 'components', 'popups'],
     'Claude' => ['requests', 'claude_settings'],
     'Site care' => ['audit', 'stats', 'redirects', 'broken_links', 'changelog', 'status'],
@@ -9004,7 +9013,7 @@ check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged)
     Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'collections', 'media', 'business', 'enquiries', 'parts']))),
     Kaleta\Admin\MenuGroups::key('Site care'),
 ], [[['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], 'newsletters', 'newsletter', 'newsletter', 'Newsletter', [['subscribers'], ['stats']],
-    31, false, true, false, 'site-care']); // 3.28: Customers
+    32, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline
 $c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
 check('3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
@@ -9147,7 +9156,7 @@ check('3.26 (A): targets of a thread – an enquiry, a page or an item with a po
     $a326::page(12), $a326::item(3), $a326::parseTarget('page:12'), $a326::parseTarget('item:7'), $a326::parseTarget('enquiry:4'), $a326::parseTarget('page:0'), $a326::parseTarget('item:3x'),
     $a326::parseTarget('stranka:3'), $a326::parseTarget('page:12345678901'), $a326::KINDS,
 ], ['page:12', 'item:3', ['type' => 'page', 'id' => 12], ['type' => 'item', 'id' => 7], ['type' => 'enquiry', 'id' => 4], null, null, null, null,
-    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment']]); // 3.28: customers and companies
+    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment', 'deal' => 'comment']]); // 3.28: customers and companies; 3.31: deals
 check('3.26 (A): "@" and a sign-in name is a mention – once each, not inside a word or an e-mail address, not a single letter', [
     $a326::mentionTokens('Hi @jana and @Petr.Novak, mail x@y.cz or @jana again, @a, a@b, (@petr)'), $a326::mentionTokens('no mention'), $a326::mentionTokens("line\n@eva-k: ok"),
 ], [['jana', 'Petr.Novak', 'petr'], [], ['eva-k']]);
@@ -9559,7 +9568,7 @@ check('3.28: ka_contacts, ka_companies and ka_contact_activities alike in schema
     true, true, true, true, 3, 3, false, ['contacts', 'companies', 'contact_activities'], ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'], true, '24', true]);
 check('3.28: comments, tasks and notifications take customers and companies (section Customers); the hand-over counts them; never journaled', [
     Kaleta\Core\Comments::parseTarget('contact:4'), Kaleta\Core\Comments::parseTarget('company:2'), Kaleta\Core\Comments::parseTarget('contact:0'), Kaleta\Core\Comments::contact(7), Kaleta\Core\Comments::company(8),
-    array_map(Kaleta\Core\Tasks::cleanTarget(...), ['contact:3', 'company:9', 'contact:x', 'deal:1']), Kaleta\Core\Inbox::parse('contact:3'), Kaleta\Core\Inbox::parse('company:2'),
+    array_map(Kaleta\Core\Tasks::cleanTarget(...), ['contact:3', 'company:9', 'contact:x', 'deal:x']), Kaleta\Core\Inbox::parse('contact:3'), Kaleta\Core\Inbox::parse('company:2'),
     Kaleta\Core\Tasks::personal('contact:3'), Kaleta\Core\Tasks::personal('company:3'), Kaleta\Core\Tasks::personal('enquiry:1'), Kaleta\Core\Tasks::personal(null),
     Kaleta\Core\Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 1, 'contact' => 2, 'company' => 0]), Kaleta\Core\Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 0, 'company' => 1]),
     Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Handover::describe(['page' => 0, 'item' => 0, 'enquiry' => 0, 'contact' => 3, 'company' => 1]), 'admin-'),
@@ -9897,6 +9906,78 @@ check('3.29 Checks – the hand-over row keys match the site audit; every label 
     array_map(fn (string $code): array => array_values(array_diff($c329Strings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es']),
     isset((require KALETA_SYSTEM . '/jazyky/admin-de-du.php')['Update the site to see'])],
     [[], [], true, [[], [], []], true]);
+
+// 3.31 (agent B): the Pipeline – the module (Workspace, right after Customers, core, site-neutral, in the role presets next to
+// Customers), its filter, the board's columns and exact sums, the stage editor's rows, deal threads and tasks, the timeline
+// kind, the palette, the boxes on an enquiry, a customer and a company, My work, the move script and escaping in the views
+$b331 = Kaleta\Admin\Modules\Pipeline::class;
+$b331Modules = array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES);
+$b331Icons = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
+$b331Post = fn (string $action): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'pipeline', 'action' => $action], ['id' => '1'], ['REQUEST_METHOD' => 'POST']));
+$b331Preset = fn (string $key): int => array_search('pipeline', Kaleta\Admin\Modules\Roles::PRESETS[$key][3], true) - array_search('contacts', Kaleta\Admin\Modules\Roles::PRESETS[$key][3], true);
+check('3.31 (B): the Pipeline – IDENT pipeline (= Core\Deals::SECTION), in Workspace right after Customers, core, site-neutral, comments and tasks, an icon, next to Customers in the presets, named in cs/de/es', [
+    $b331::IDENT, Kaleta\Core\Deals::SECTION, $b331::NAME, $b331::GROUP, $b331::EXTENSION, $b331::ADMIN_ONLY, array_search('pipeline', $b331Modules, true) - array_search('contacts', $b331Modules, true),
+    in_array('pipeline', Kaleta\Admin\Kernel::SITE_NEUTRAL_MODULES, true), $b331Post('move'), $b331Post('stages_save'), $b331Post('delete'),
+    [in_array(Kaleta\Admin\CommentActions::class, class_uses($b331), true), in_array(Kaleta\Admin\TaskActions::class, class_uses($b331), true)],
+    str_contains($b331Icons, "'" . $b331::ICON . "' =>"), $b331Preset('client'), $b331Preset('office'), isset(Kaleta\Admin\Guide::MODULES['pipeline']),
+    array_map(fn (string $code): string => (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Pipeline'] ?? '', ['cs', 'de', 'es'])],
+    ['pipeline', 'pipeline', 'Pipeline', 'Workspace', '', false, 1, true, false, false, false, [true, true], true, 1, 1, true, ['Obchody', 'Pipeline', 'Embudo']]);
+check('3.31 (B): the filter of the board and the list – unknown values fall back, a word is cut; the query leaves the defaults out', [
+    $b331::filter([]), $b331::filter(['owner' => 'mine', 'contact' => '12', 'company' => 'x', 'search' => '  Web ', 'status' => 'won', 'view' => 'list']),
+    $b331::filter(['owner' => '-1', 'status' => 'nonsense', 'view' => 'kanban', 'contact' => '-3']), $b331::filter(['owner' => '7'])['owner'], mb_strlen($b331::filter(['search' => str_repeat('a', 300)])['search']),
+    $b331::query($b331::filter(['owner' => 'none', 'status' => 'won'])), $b331::query($b331::filter(['view' => 'list', 'status' => 'open', 'company' => '4']))],
+    [['owner' => '', 'contact' => 0, 'company' => 0, 'search' => '', 'status' => 'open', 'view' => 'board'],
+        ['owner' => 'mine', 'contact' => 12, 'company' => 0, 'search' => 'Web', 'status' => 'won', 'view' => 'list'],
+        ['owner' => '', 'contact' => 0, 'company' => 0, 'search' => '', 'status' => 'open', 'view' => 'board'], '7', 100,
+        ['owner' => 'none'], ['view' => 'list', 'company' => 4]]);
+$b331Deal = fn (int $id, string $stage, ?string $value, ?string $currency, ?string $closed = null): array => ['id' => $id, 'stage' => $stage, 'value' => $value, 'currency' => $currency, 'closed_at' => $closed];
+$b331Columns = $b331::columns(Kaleta\Core\Deals::parseStages(''), [$b331Deal(1, 'new', '12500.50', 'CZK'), $b331Deal(2, 'new', '0.70', 'CZK'), $b331Deal(3, 'new', '99.99', 'EUR'), $b331Deal(4, 'new', null, null),
+    $b331Deal(5, 'won', '100.00', 'EUR', '2026-11-02 10:00:00'), $b331Deal(6, 'lost', '5.00', 'EUR', '2026-10-30 10:00:00'), $b331Deal(7, 'gone', '1.00', 'EUR')], '2026-11-01 00:00:00');
+check('3.31 (B): the board – a column per stage in order; open stages sum the values per currency exactly (never across currencies); won and lost hold this month only; an unknown stage is left out', [
+    array_column($b331Columns, 'key'), array_column($b331Columns, 'count'), $b331Columns[0]['sums'], $b331Columns[3]['sums'], array_column($b331Columns[3]['deals'], 'id'),
+    $b331::sums(array_fill(0, 1000, ['value' => '0.10', 'currency' => 'EUR'])), $b331::sums([['value' => '9999999999.99', 'currency' => 'USD'], ['value' => '0.01', 'currency' => 'USD']])],
+    [['new', 'qualified', 'proposal', 'won', 'lost'], [4, 0, 0, 1, 0], ['CZK' => '12501.20', 'EUR' => '99.99'], [], [5], ['EUR' => '100.00'], ['USD' => '10000000000.00']]);
+check('3.31 (B): the stage editor – rows in the order of their numbers (unnumbered after, ties as in the form), removed and empty rows left out, an unknown kind is open, a label is cut', [
+    $b331::stageRows(['new', 'won', '', 'lost', '', 'qualified'], ['New', 'Won', 'Demo', 'Lost', '', 'Qualified'], ['open', 'won', 'nonsense', 'lost', 'open', 'open'], ['1', '9', '', '5', '', '1'], ['5']),
+    mb_strlen($b331::stageRows([''], [str_repeat('x', 100)], ['open'], ['1'], [])[0]['label'])],
+    [[['key' => 'new', 'label' => 'New', 'kind' => 'open'], ['key' => 'lost', 'label' => 'Lost', 'kind' => 'lost'], ['key' => 'won', 'label' => 'Won', 'kind' => 'won'], ['key' => '', 'label' => 'Demo', 'kind' => 'open']],
+        Kaleta\Core\Deals::LABEL_MAX]);
+check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeline) – personal, never journaled; the timeline shows a deal with an icon and a label; "Deal #N" in My work', [
+    Kaleta\Core\Comments::parseTarget('deal:3'), Kaleta\Core\Comments::deal(5), Kaleta\Core\Comments::KINDS['deal'] ?? null, Kaleta\Core\Comments::parseTarget('deal:0'),
+    Kaleta\Core\Tasks::cleanTarget('deal:4'), Kaleta\Core\Tasks::personal('deal:4'), Kaleta\Core\Assignment::KINDS['deal'],
+    Kaleta\Admin\Modules\Contacts::KINDS['deal'] ?? null, str_contains($b331Icons, "'obchody' =>"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Deal'], (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Open the deal']), ['cs', 'de', 'es']),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/timeline.php'), "'deal' => 'Open the deal'"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php'), "'deal' => t('Deal #%s'")],
+    [['type' => 'deal', 'id' => 3], 'deal:5', 'comment', null, 'deal:4', true, 'pipeline', ['obchody', 'Deal'], true, [true, true, true], true, true]);
+$b331Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
+$b331Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
+$b331Board = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pipeline/board.php');
+check('3.31 (B): the palette searches deals only for whoever has the Pipeline; the board script posts the move form as JSON, announces moves and lets a lost column ask for the reason; the boxes on an enquiry, a customer and a company', [
+    str_contains($b331Layout, "isset(\$modules['pipeline']) ? ' data-deals=\"'"), str_contains($b331Script, "palette.getAttribute('data-deals')"), str_contains($b331Script, "T('deal')"),
+    str_contains($b331Script, "document.querySelector('[data-pipeline-board]')"), str_contains($b331Script, "data.set('format', 'json')"), str_contains($b331Board, 'aria-live="polite" data-pipeline-announce'),
+    str_contains($b331Script, "col.getAttribute('data-kind') === 'lost'"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php'), "render('admin/deal_box'"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/detail.php') . (string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/company.php'), "render('admin/pipeline/deals_box'"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.css'), '.obchod-presun:has(select[name="stage"] option[data-kind="lost"]:checked:not([data-current])) .obchod-duvod'),
+    array_map(fn (string $code): string => (string) json_decode((string) (preg_match('/^\t"deal": ("[^"]*")/m', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-' . $code . '.js'), $m) ? $m[1] : '""')), ['cs', 'de', 'es'])],
+    [true, true, true, true, true, true, true, true, 2, true, ['obchod', 'Deal', 'trato']]);
+$b331View = new Kaleta\Core\View([KALETA_SYSTEM . '/views']);
+$b331App = new Kaleta\Core\App([]);
+$b331Url = new class { /** @param array<string, scalar> $p */ public function url(string $a = '', array $p = []): string { return 'admin.php?' . http_build_query(['module' => 'pipeline'] + ($a !== '' ? ['action' => $a] : []) + $p); } };
+$b331Evil = '<script>alert(1)</script>';
+$b331Row = ['id' => 7, 'title' => $b331Evil, 'contact_id' => 3, 'contact_name' => $b331Evil, 'contact_email' => 'a@example.com', 'company_id' => 2, 'company_name' => $b331Evil, 'owner_id' => null,
+    'stage' => 'lost', 'value' => '10.00', 'currency' => 'EUR', 'expected_close' => '2026-01-01', 'closed_at' => null, 'lost_reason' => 'price', 'lost_note' => $b331Evil, 'created_by' => null,
+    'created_at' => '2026-11-01 10:00:00', 'updated_at' => '2026-11-01 10:00:00', 'source_enquiry_id' => null];
+$b331Card = Kaleta\Core\Language::runWith('en', fn (): string => $b331View->render('admin/pipeline/card', ['app' => $b331App, 'module' => $b331Url, 'csrf' => '', 'd' => $b331Row,
+    'stages' => Kaleta\Core\Deals::parseStages(''), 'owners' => [], 'return' => 'module=pipeline&x="><b>', 'today' => '2026-11-03', 'canContacts' => true]), 'admin-');
+$b331Box = Kaleta\Core\Language::runWith('en', fn (): string => $b331View->render('admin/pipeline/deals_box', ['box' => ['deals' => [$b331Row + ['url' => '/admin.php?module=pipeline&action=detail&id=7']],
+    'labels' => ['lost' => $b331Evil], 'kinds' => ['lost' => 'lost'], 'today' => '2026-11-03', 'newUrl' => '/n', 'allUrl' => '/a']]), 'admin-');
+check('3.31 (B): the views escape a deal\'s title, customer, company and stage; a card moves without JavaScript (its stage select marks the current one); an overdue card is marked', [
+    str_contains($b331Card . $b331Box, '<script>'), str_contains($b331Card, '&lt;script&gt;alert(1)&lt;/script&gt;'), str_contains($b331Card, 'value="module=pipeline&amp;x=&quot;&gt;&lt;b&gt;"'),
+    str_contains($b331Card, '<option value="lost" data-kind="lost" selected data-current>'), str_contains($b331Card, 'name="lost_reason"'), str_contains($b331Card, 'obchod-po-terminu'),
+    str_contains($b331Box, 'stitek stitek-chyba">&lt;script&gt;')],
+    [false, true, true, true, true, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

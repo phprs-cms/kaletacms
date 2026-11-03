@@ -450,6 +450,7 @@
 		try { popupCommands = JSON.parse(document.getElementById('paleta-data').textContent) || []; } catch (e) {}
 		var popupNews = [];
 		var popupContacts = []; // 3.28: customers found on the server (Customers → search_json)
+		var popupDeals = []; // 3.31: deals found on the server (Pipeline → search_json)
 		var popupSelected = 0;
 		var popupTimer = null;
 		var removeDiacritics = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
@@ -461,7 +462,7 @@
 				var whereParts = removeDiacritics(p.n + ' ' + p.s);
 				return words.every(function (s) { return whereParts.indexOf(s) !== -1; });
 			});
-			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupContacts, q === '' ? [] : popupNews);
+			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupContacts, q === '' ? [] : popupDeals, q === '' ? [] : popupNews);
 		};
 		var popupRender = function () {
 			var items = popupItems();
@@ -495,6 +496,7 @@
 			popupFields.value = '';
 			popupNews = [];
 			popupContacts = [];
+			popupDeals = [];
 			popupSelected = 0;
 			popupRender();
 			palette.showModal();
@@ -518,7 +520,8 @@
 			var q = popupFields.value.trim();
 			var address = palette.getAttribute('data-clanky');
 			var customers = palette.getAttribute('data-contacts');
-			if (q.length < 2) { popupNews = []; popupContacts = []; return; }
+			var deals = palette.getAttribute('data-deals');
+			if (q.length < 2) { popupNews = []; popupContacts = []; popupDeals = []; return; }
 			popupTimer = setTimeout(function () {
 				if (address) {
 					fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
@@ -531,6 +534,13 @@
 					fetch(customers + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
 						if (popupFields.value.trim() !== q) { return; }
 						popupContacts = (d.contacts || []).map(function (c) { return { n: c.name, u: c.url, s: T('customer') + (c.note ? ' · ' + c.note : '') }; });
+						popupRender();
+					}).catch(function () {});
+				}
+				if (deals) {
+					fetch(deals + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+						if (popupFields.value.trim() !== q) { return; }
+						popupDeals = (d.deals || []).map(function (c) { return { n: c.name, u: c.url, s: T('deal') + (c.note ? ' · ' + c.note : '') }; });
 						popupRender();
 					}).catch(function () {});
 				}
@@ -726,4 +736,168 @@
 		}
 	}, true);
 	document.addEventListener('focusout', function (e) { if (e.target === mentionField) { mentionClose(); } });
+	/* ---------- 3.31: the Pipeline board – drag and drop and the keyboard on top of the move forms that work without them ---------- */
+	// Each card ([data-deal]) has its own form (stage select + Move). Here: a card is dragged to a column, or its handle is
+	// picked up with Space, the arrows choose the column and Space drops it (Esc cancels); the move is posted as JSON and the
+	// card, the counts and the sums follow; every step is announced in the live region. A lost column needs a reason: the
+	// card's own form then shows the reason select (its stage set to that column) and the person finishes with Move.
+	var board = document.querySelector('[data-pipeline-board]');
+	if (board && window.fetch && window.FormData) {
+		var boardSay = document.querySelector('[data-pipeline-announce]');
+		var say = function (text) {
+			if (!boardSay) { return; }
+			boardSay.textContent = '';
+			setTimeout(function () { boardSay.textContent = text; }, 50); // emptied first, so the same message twice is read twice
+		};
+		var boardColumns = function () { return Array.prototype.slice.call(board.querySelectorAll('section[data-stage]')); };
+		var stageName = function (col) { var l = col.querySelector('[data-stage-label]'); return l ? l.textContent : col.getAttribute('data-stage'); };
+		var cardTitle = function (card) { var h = card.querySelector('h3'); return h ? h.textContent.trim() : ''; };
+		var decimalComma = !/^(en|ar|he)\b/.test(document.documentElement.lang || 'en');
+		var money = function (cents, currency) { var text = (cents / 100).toFixed(2); return (decimalComma ? text.replace('.', ',') : text) + ' ' + currency; };
+		var recount = function () {
+			boardColumns().forEach(function (col) {
+				var cards = col.querySelectorAll('[data-deal]');
+				var count = col.querySelector('[data-stage-count]');
+				if (count) { count.textContent = String(cards.length); }
+				var empty = col.querySelector('[data-stage-empty]');
+				if (empty) { empty.hidden = cards.length > 0; }
+				var sums = col.querySelector('[data-stage-sums]');
+				if (!sums) { return; }
+				var by = {};
+				Array.prototype.forEach.call(cards, function (card) {
+					var value = card.getAttribute('data-value'), currency = card.getAttribute('data-currency');
+					if (!value || !currency) { return; }
+					var parts = value.split('.');
+					by[currency] = (by[currency] || 0) + parseInt(parts[0], 10) * 100 + parseInt(((parts[1] || '') + '00').slice(0, 2), 10);
+				});
+				sums.textContent = Object.keys(by).sort().map(function (c) { return money(by[c], c); }).join(' · ');
+			});
+		};
+		var setStage = function (card, key, current) {
+			var select = card.querySelector('select[name="stage"]');
+			if (!select) { return; }
+			select.value = key;
+			if (current) {
+				Array.prototype.forEach.call(select.options, function (o) { if (o.value === key) { o.setAttribute('data-current', ''); } else { o.removeAttribute('data-current'); } });
+			}
+		};
+		var place = function (card, col) {
+			var from = card.closest('section[data-stage]');
+			var handle = card.querySelector('.obchod-uchyt');
+			if (!col || from === col) { say(T('The deal stays in %s.').replace('%s', stageName(from))); return; }
+			if (col.getAttribute('data-kind') === 'lost') {
+				// a lost deal needs a reason – the card's own form asks for it, Move finishes
+				setStage(card, col.getAttribute('data-stage'), false);
+				var reason = card.querySelector('select[name="lost_reason"]');
+				if (reason) { reason.focus(); }
+				say(T('Say why “%s” was lost, then press Move.').replace('%s', cardTitle(card)));
+				return;
+			}
+			var form = card.querySelector('form[data-deal-move]');
+			var data = new FormData(form);
+			data.set('stage', col.getAttribute('data-stage'));
+			data.set('format', 'json');
+			data.delete('lost_reason');
+			card.classList.add('obchod-presouva');
+			fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+				card.classList.remove('obchod-presouva');
+				if (!j.ok) { say(j.chyba || T('The deal could not be moved.')); return; }
+				col.querySelector('[data-stage-cards]').prepend(card);
+				setStage(card, j.stage, true);
+				recount();
+				if (handle) { handle.focus(); }
+				say(j.zprava || T('Moved to %s.').replace('%s', stageName(col)));
+			}).catch(function () {
+				card.classList.remove('obchod-presouva');
+				say(T('The deal could not be moved.'));
+			});
+		};
+		// the mouse: drag a card to a column
+		var dragged = null;
+		Array.prototype.forEach.call(board.querySelectorAll('[data-deal]'), function (card) {
+			card.setAttribute('draggable', 'true');
+			card.addEventListener('dragstart', function (e) {
+				if (e.target !== card) { return; }
+				dragged = card;
+				card.classList.add('obchod-tazena');
+				e.dataTransfer.effectAllowed = 'move';
+				e.dataTransfer.setData('text/plain', card.getAttribute('data-deal'));
+			});
+			card.addEventListener('dragend', function () {
+				card.classList.remove('obchod-tazena');
+				dragged = null;
+				boardColumns().forEach(function (col) { col.classList.remove('obchody-cil'); });
+			});
+			// the keyboard: a handle at the top of the card
+			var handle = document.createElement('button');
+			handle.type = 'button';
+			handle.className = 'obchod-uchyt';
+			handle.textContent = '⠿';
+			handle.setAttribute('aria-label', T('Move “%s”').replace('%s', cardTitle(card)));
+			handle.setAttribute('aria-describedby', 'obchody-navod');
+			handle.setAttribute('aria-pressed', 'false');
+			handle.title = T('Drag, or press Space to move with the arrow keys');
+			card.insertBefore(handle, card.firstChild);
+		});
+		boardColumns().forEach(function (col) {
+			col.addEventListener('dragover', function (e) {
+				if (!dragged) { return; }
+				e.preventDefault();
+				e.dataTransfer.dropEffect = 'move';
+				col.classList.add('obchody-cil');
+			});
+			col.addEventListener('dragleave', function (e) { if (!col.contains(e.relatedTarget)) { col.classList.remove('obchody-cil'); } });
+			col.addEventListener('drop', function (e) {
+				if (!dragged) { return; }
+				e.preventDefault();
+				col.classList.remove('obchody-cil');
+				place(dragged, col);
+			});
+		});
+		var lifted = null;
+		var liftedTo = 0;
+		var mark = function () { boardColumns().forEach(function (col, i) { col.classList.toggle('obchody-cil', lifted !== null && i === liftedTo); }); };
+		var putDown = function () {
+			if (lifted) {
+				lifted.classList.remove('obchod-zvednuta');
+				var h = lifted.querySelector('.obchod-uchyt');
+				if (h) { h.setAttribute('aria-pressed', 'false'); }
+			}
+			lifted = null;
+			mark();
+		};
+		board.addEventListener('keydown', function (e) {
+			var handle = e.target.closest && e.target.closest('.obchod-uchyt');
+			if (!handle) { return; }
+			var card = handle.closest('[data-deal]');
+			var cols = boardColumns();
+			if (e.key === ' ' || e.key === 'Enter') {
+				e.preventDefault();
+				if (lifted !== card) {
+					putDown();
+					lifted = card;
+					liftedTo = cols.indexOf(card.closest('section[data-stage]'));
+					card.classList.add('obchod-zvednuta');
+					handle.setAttribute('aria-pressed', 'true');
+					mark();
+					say(T('Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.').replace('%s', cardTitle(card)).replace('%s', stageName(cols[liftedTo])));
+				} else {
+					var target = cols[liftedTo];
+					putDown();
+					place(card, target);
+				}
+			} else if (lifted === card && ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].indexOf(e.key) !== -1) {
+				e.preventDefault();
+				liftedTo = Math.max(0, Math.min(cols.length - 1, liftedTo + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1)));
+				mark();
+				cols[liftedTo].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+				say(T('Over %s.').replace('%s', stageName(cols[liftedTo])));
+			} else if (lifted === card && e.key === 'Escape') {
+				e.preventDefault();
+				putDown();
+				say(T('Cancelled – “%s” stays where it was.').replace('%s', cardTitle(card)));
+			}
+		});
+		board.addEventListener('focusout', function (e) { if (lifted && e.target.closest && e.target.closest('.obchod-uchyt') && !board.contains(e.relatedTarget)) { putDown(); } });
+	}
 })();

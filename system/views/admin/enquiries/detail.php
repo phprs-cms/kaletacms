@@ -18,6 +18,7 @@
  * @var list<array{id: int, at: string, by: string, by_id: int, text: string, via: string, kind: string, mentions: list<int>, edited: ?string, deleted: bool}> $notes internal notes, oldest first (3.25, Core\Comments; 3.26 with the deleted ones)
  * @var array<string, mixed> $tasks the enquiry's tasks and the follow-up buttons (3.27, Admin\TaskActions::taskPanel)
  * @var array<string, mixed>|null $contactBox the customer of the enquiry (3.28, Admin\Modules\Contacts::box); null without Customers
+ * @var array<string, mixed>|null $dealBox the deal of the enquiry and "Create deal" (3.31, Admin\Modules\Pipeline::enquiryBox); null without the Pipeline
  * @var array<string, mixed> $thread the notes as a thread – names of the people mentioned, who may be mentioned, a refused text (3.26, Admin\CommentActions::commentThread)
  */
 use Kaleta\Admin\Modules\Enquiries;
@@ -64,6 +65,9 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 </dl>
 <?php if ($contactBox !== null): /* 3.28: the customer this enquiry belongs to */ ?>
 <?= $app->view->render('admin/contact_box', ['csrf' => $csrf, 'box' => $contactBox]) ?>
+<?php endif ?>
+<?php if ($dealBox !== null): /* 3.31: the deal this enquiry became, or Create deal */ ?>
+<?= $app->view->render('admin/deal_box', ['csrf' => $csrf, 'box' => $dealBox]) ?>
 <?php endif ?>
 <?php
 // 3.22 (C10): the reply goes from the site to the enquiry's own address; the history keeps who answered, when and what

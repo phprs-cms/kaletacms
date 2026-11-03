@@ -459,12 +459,12 @@ final class Tasks
         throw new \DomainException(t('The date “%s” is not understood – use YYYY-MM-DD, YYYY-MM-DD HH:MM, “tomorrow” or “+3 days”.', $value));
     }
 
-    /** A target as stored: 'enquiry:<id>', 'page:<id>', 'item:<id>', 'contact:<id>' or 'company:<id>' (3.28); null for anything else (an empty one too). Pure. */
+    /** A target as stored: 'enquiry:<id>', 'page:<id>', 'item:<id>', 'contact:<id>' or 'company:<id>' (3.28), 'deal:<id>' (3.31); null for anything else (an empty one too). Pure. */
     public static function cleanTarget(mixed $target): ?string
     {
         $target = is_string($target) ? trim($target) : '';
 
-        return preg_match('/^(enquiry|page|item|contact|company):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
+        return preg_match('/^(enquiry|page|item|contact|company|deal):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
     }
 
     /** What a person is responsible for in tasks: their open ones (Core\Handover). */
@@ -593,12 +593,12 @@ final class Tasks
             $byKind[$kind][] = (int) $id;
         }
         $gone = [];
-        foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id']] as $kind => [$table, $key]) {
+        foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id'], 'deal' => ['deals', 'id']] as $kind => [$table, $key]) {
             foreach (array_chunk(array_values(array_unique(array_filter($byKind[$kind] ?? []))), 500) as $chunk) {
                 try {
                     $existing = array_flip(array_map('intval', array_column($db->all('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' IN (' . implode(',', $chunk) . ')'), $key)));
                 } catch (\PDOException) {
-                    continue; // the contacts tables before migration 0114
+                    continue; // the contacts tables before migration 0114, the deals before 0117
                 }
                 foreach ($chunk as $id) {
                     if (!isset($existing[$id])) {
@@ -724,10 +724,10 @@ final class Tasks
         }
     }
 
-    /** Is a task about a person (an enquiry, or a contact since 3.28)? Its changes never enter the undo journal. Pure. */
+    /** Is a task about a person (an enquiry, or a contact since 3.28, a deal since 3.31 – it points to one)? Its changes never enter the undo journal. Pure. */
     public static function personal(?string $target): bool
     {
-        return str_starts_with((string) $target, 'enquiry:') || str_starts_with((string) $target, 'contact:');
+        return str_starts_with((string) $target, 'enquiry:') || str_starts_with((string) $target, 'contact:') || str_starts_with((string) $target, 'deal:');
     }
 
     /**

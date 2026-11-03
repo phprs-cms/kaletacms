@@ -57,6 +57,7 @@ final class Contacts extends Module
         'enquiry' => ['poptavky', 'Enquiry'], 'reply' => ['rozesilka', 'Reply sent'], 'booking' => ['rezervace', 'Booking'],
         'subscription' => ['newsletter', 'Newsletter subscription'], 'comment' => ['komentare', 'Comment'], 'task' => ['moje', 'Task'],
         'call' => ['telefon', 'Call'], 'meeting' => ['uzivatele', 'Meeting'], 'email' => ['newsletter', 'E-mail'], 'note' => ['zapisnik', 'Note'],
+        'deal' => ['obchody', 'Deal'], // 3.31: a deal created, moved, won, lost or reopened (Core\Deals::timeline)
     ];
 
     /** The columns an import reads: field => the header names it recognises (lower case, letters only, no diacritics). */
@@ -184,6 +185,7 @@ final class Contacts extends Module
             'draft' => $this->takeDraft('contact_draft', $id), 'activityDraft' => $this->takeDraft('activity_draft', $id),
             'thread' => $this->commentThread($target, ['id' => $id]),
             'tasks' => $this->taskPanel($target, ['id' => $id]),
+            'deals' => $contact['anonymised_at'] === null ? Pipeline::deals($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.31
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
     }
 
@@ -397,6 +399,14 @@ final class Contacts extends Module
                 $timeline[] = $entry + ['contact' => Customers::displayName($c), 'contact_id' => $c['id']];
             }
         }
+        // 3.31: the moves of the company's deals its contacts' timelines do not carry (a deal without a contact, or of a
+        // contact beyond the first 30) – each move once
+        $seen = array_flip(array_map(fn (array $e): string => $e['ref'] . '|' . $e['at'] . '|' . ($e['status'] ?? ''), $timeline));
+        foreach (\Kaleta\Core\Deals::timeline($this->db, 'company', $id, self::COMPANY_TIMELINE) as $entry) {
+            if (!isset($seen[$entry['ref'] . '|' . $entry['at'] . '|' . $entry['status']])) {
+                $timeline[] = $entry;
+            }
+        }
         usort($timeline, fn (array $x, array $y): int => [$y['at'], $y['ref']] <=> [$x['at'], $x['ref']]);
         $target = Comments::company($id);
 
@@ -406,6 +416,7 @@ final class Contacts extends Module
             'draft' => $this->takeDraft('company_draft', $id),
             'thread' => $this->commentThread($target, ['company' => $id]),
             'tasks' => $this->taskPanel($target, ['company' => $id]),
+            'deals' => Pipeline::deals($this->app, $this->kernel->modules(), 'company', $id), // 3.31
             'admin' => $this->app->auth()->isAdmin()]);
     }
 
