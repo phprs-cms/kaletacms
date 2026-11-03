@@ -110,7 +110,10 @@ final class Stats
      *  - 'agent': no user agent, or a known bot (BOTS);
      *  - 'prefetch': the browser fetches ahead for a page nobody has seen yet (Sec-Purpose / Purpose: prefetch, prerender);
      *  - 'origin': the request comes from another site – the Origin header names a different host than this request's own
-     *    (the Host header, a proxy's X-Forwarded-Host) or the configured site address; 'null' (a sandboxed frame) is foreign too;
+     *    (the Host header, a proxy's X-Forwarded-Host) or the configured site address. 'null' is no host to compare: a real
+     *    browser sends it on its own same-origin beacon when the page's referrer policy is no-referrer (a server's or a
+     *    meta tag's hardening, the private whistleblowing page), so it is left to Sec-Fetch-Site (N329-1) – a sandboxed
+     *    frame of another site gets cross-site there;
      *  - 'site': Sec-Fetch-Site, when the browser sends it, is not same-origin.
      *
      * @param array<string, mixed> $server
@@ -125,7 +128,7 @@ final class Stats
             return 'prefetch';
         }
         $origin = trim((string) ($server['HTTP_ORIGIN'] ?? ''));
-        if ($origin !== '') {
+        if ($origin !== '' && strtolower($origin) !== 'null') {
             $host = static fn (string $value): string => strtolower((string) (parse_url(str_contains($value, '//') ? $value : '//' . $value, PHP_URL_HOST) ?? ''));
             $own = array_filter([$host((string) ($server['HTTP_HOST'] ?? '')), $host((string) ($server['HTTP_X_FORWARDED_HOST'] ?? '')), $host($siteOrigin)], fn (string $h): bool => $h !== '');
             if ($host($origin) === '' || !in_array($host($origin), $own, true)) {

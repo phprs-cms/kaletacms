@@ -3543,7 +3543,16 @@ check('3.29: Stats::refusal – a person\'s beacon from this site passes; a bot,
     Stats329::refusal($person329 + ['HTTP_ORIGIN' => 'https://www.firma.cz.evil.example'], 'https://www.firma.cz'),
     Stats329::refusal($person329 + ['HTTP_SEC_FETCH_SITE' => 'cross-site'], 'https://www.firma.cz'),
     Stats329::refusal($person329 + ['HTTP_SEC_FETCH_SITE' => 'same-site'], 'https://www.firma.cz'),
-], [null, null, null, null, null, 'agent', 'agent', 'prefetch', 'prefetch', 'origin', 'origin', 'origin', 'site', 'site']);
+], [null, null, null, null, null, 'agent', 'agent', 'prefetch', 'prefetch', 'origin', null, 'origin', 'site', 'site']);
+// N329-1: a page with the referrer policy no-referrer (a server's hardening header, a meta tag, the private whistleblowing page)
+// makes a real browser send Origin: null on its own same-origin beacon – Sec-Fetch-Site decides; a sandboxed frame of another
+// site is cross-site there
+check('3.29 (N329-1): Origin: null is no host – a same-origin beacon (or a browser without Sec-Fetch-Site) passes, a cross-site one is refused', [
+    Stats329::refusal($person329 + ['HTTP_ORIGIN' => 'null', 'HTTP_SEC_FETCH_SITE' => 'same-origin'], 'https://www.firma.cz'),
+    Stats329::refusal($person329 + ['HTTP_ORIGIN' => 'null'], 'https://www.firma.cz'),
+    Stats329::refusal($person329 + ['HTTP_ORIGIN' => 'null', 'HTTP_SEC_FETCH_SITE' => 'cross-site'], 'https://www.firma.cz'),
+    Stats329::refusal($person329 + ['HTTP_ORIGIN' => 'NULL', 'HTTP_SEC_FETCH_SITE' => 'same-site'], 'https://www.firma.cz'),
+], [null, null, 'site', 'site']);
 check('3.29: the flood guard – 300 views a day at most, 10 views within 10 seconds is a machine', [Stats329::DAILY_VIEWS, Stats329::BURST_VIEWS, Stats329::BURST_SECONDS], [300, 10, 10]);
 $vitalsJs329 = (string) file_get_contents(KALETA_ROOT . '/image/vitals.js');
 check('3.29: the beacon script counts the page view only when a person can see it – visible, not prerendered, never under browser automation – once, with sendBeacon (fetch keepalive as a fallback), without cookies or storage', [
