@@ -11,7 +11,8 @@ use Kaleta\Core\Language;
 /**
  * MCP tools of contacts and companies (3.28, Core\Contacts): list_contacts and get_contact read the customers,
  * save_contact creates or changes one (and its company through the company_* fields), log_activity logs a call, a
- * meeting, an e-mail or a note, merge_contacts joins two records of one person (destructive, confirm: true). Only for a
+ * meeting, an e-mail or a note, merge_contacts joins two records of one person (destructive, confirm: true; administrators
+ * only, as in the administration). Only for a
  * user who may open Customers (Contacts::mayOpen). Contacts are personal data: never journaled, so undo_agent_session
  * cannot take these changes back (the tool descriptions say so), and they never change the site (Catalog::SITE_NEUTRAL).
  * Refusals come in English (Language::runWith). Part of Mcp\Tools.
@@ -141,6 +142,10 @@ trait ContactTools
     private function toolMergeContacts(string $name, array $a): mixed
     {
         $this->contactsOpen();
+        if (!$this->app->auth()->isAdmin()) {
+            // as in the administration (Admin\Modules\Contacts::actionMerge): merging deletes a record – administrators only (N328-1)
+            throw new \DomainException('Only an administrator can merge customers. Nothing changed.');
+        }
         if (($a['confirm'] ?? false) !== true) {
             throw new \InvalidArgumentException('Merging needs confirm=true – only when the user asked to merge these two contacts. It cannot be undone.');
         }

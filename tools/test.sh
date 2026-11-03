@@ -9760,6 +9760,8 @@ expect "3.28 add_comment: on a customer only with Customers" "$(grep -c 'Only a 
 mcp_as "$T328_TJ" merge_contacts "{\"into\":${T328_C1:-0},\"from\":${T328_C2:-0}}" > "$WORK/response"; mcp_text
 expect "3.28 merge_contacts: without confirm nothing changes" "$(grep -c 'needs confirm=true' "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T328_C2:-0}")" "1|1"
 mcp_as "$T328_TJ" merge_contacts "{\"into\":${T328_C1:-0},\"from\":${T328_C2:-0},\"confirm\":true}" > "$WORK/response"; mcp_text
+expect "3.28 merge_contacts (N328-1): administrators only, as in the administration – Jana with Customers is refused, nothing changes" "$(grep -c 'Only an administrator can merge customers' "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T328_C2:-0}")" "1|1"
+mcp_as "$T328_TA" merge_contacts "{\"into\":${T328_C1:-0},\"from\":${T328_C2:-0},\"confirm\":true}" > "$WORK/response"; mcp_text
 expect "3.28 merge_contacts: the enquiry moves, the other contact is gone, a note names the merged address, the change log has it" \
   "$(t328_json moved.enquiries)|$(sq "SELECT contact_id = ${T328_C1:-0} FROM ka_poptavky WHERE idp = ${T328_E3:-0}")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T328_C2:-0}")|$(sq "SELECT COUNT(*) FROM ka_contact_activities WHERE contact_id = ${T328_C1:-0} AND kind = 'note' AND text LIKE '%marta.t328@gmail.com%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'contacts' AND akce = 'merge' AND popis = '#${T328_C2:-0} → #${T328_C1:-0}'")" \
   "1|1|0|1|1"

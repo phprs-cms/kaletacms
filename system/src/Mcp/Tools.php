@@ -513,7 +513,7 @@ final class Tools
                 $s(['contact' => $number('contact id (list_contacts)'), 'kind' => $text('call | meeting | email | note'), 'text' => $text('what happened, plain text up to 5000 characters'),
                     'at' => $text('when: YYYY-MM-DD HH:MM, "today"; default now')], ['contact', 'kind', 'text'])],
             ['merge_contacts', 'Merges two contacts of the same person (3.28) – only on the user\'s explicit request: the enquiries, bookings, subscription, logged activities, comments and tasks of from move to into; into keeps its e-mail and fills its empty fields from from; from is deleted and a note on into records the merge. Kaleta never merges two different addresses by itself. '
-                . 'DESTRUCTIVE AND NOT UNDOABLE: needs confirm true.',
+                . 'Administrators only. DESTRUCTIVE AND NOT UNDOABLE: needs confirm true.',
                 $s(['into' => $number('the contact that stays'), 'from' => $number('the contact merged into it and deleted'), 'confirm' => ['type' => 'boolean', 'description' => 'true – the user asked for this merge']], ['into', 'from', 'confirm'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
