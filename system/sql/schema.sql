@@ -702,6 +702,48 @@ CREATE TABLE ka_contact_activities (
     KEY ix_contact_activities_contact (contact_id, happened_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- 3.31: the lean pipeline (Core\Deals) – deals moving through the stages of the one pipeline (setting pipeline_stages).
+-- A deal may name its contact, company, responsible person and the enquiry it came from (one open deal per enquiry); a
+-- value is a number with its currency. Won and lost close it (closed_at; lost with lost_reason from a short list and an
+-- optional lost_note); reopening clears them. No foreign keys: the links follow their records in code.
+CREATE TABLE ka_deals (
+    id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    title             VARCHAR(200) NOT NULL,
+    contact_id        INT UNSIGNED NULL,
+    company_id        INT UNSIGNED NULL,
+    owner_id          INT UNSIGNED NULL,
+    stage             VARCHAR(20) CHARACTER SET ascii NOT NULL,   -- a key of pipeline_stages
+    value             DECIMAL(12,2) NULL,
+    currency          CHAR(3) CHARACTER SET ascii NULL,           -- ISO 4217 (Deals::CURRENCIES)
+    source_enquiry_id INT UNSIGNED NULL,
+    expected_close    DATE NULL,
+    closed_at         DATETIME NULL,                              -- won or lost; NULL = open
+    lost_reason       VARCHAR(20) CHARACTER SET ascii NULL,       -- Deals::LOST_REASONS
+    lost_note         VARCHAR(500) NULL,
+    created_by        INT UNSIGNED NULL,
+    created_at        DATETIME NOT NULL,
+    updated_at        DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_deals_stage (stage, closed_at),
+    KEY ix_deals_owner (owner_id, closed_at),
+    KEY ix_deals_contact (contact_id),
+    KEY ix_deals_company (company_id),
+    KEY ix_deals_enquiry (source_enquiry_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.31: every move of a deal (from_stage NULL = created) – the timeline of its contact and company and the monthly counts.
+CREATE TABLE ka_deal_stage_history (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    deal_id    INT UNSIGNED NOT NULL,
+    from_stage VARCHAR(20) CHARACTER SET ascii NULL,
+    to_stage   VARCHAR(20) CHARACTER SET ascii NOT NULL,
+    at         DATETIME NOT NULL,
+    user_id    INT UNSIGNED NULL,
+    PRIMARY KEY (id),
+    KEY ix_deal_stage_history_deal (deal_id, at),
+    KEY ix_deal_stage_history_at (at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (

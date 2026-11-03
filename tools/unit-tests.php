@@ -8753,7 +8753,7 @@ check('3.24 (B): the assignment e-mail – English by the site, Czech and German
 $a324App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor(); // never reaches the database: refused before it
 check('3.24 (B): no assignment e-mail to oneself, to nobody, or for an unknown kind', [
     Kaleta\Core\Assignment::notify($a324App, 'enquiry', 1, 5, 5), Kaleta\Core\Assignment::notify($a324App, 'page', 1, 0, 5), Kaleta\Core\Assignment::notify($a324App, 'news', 1, 6, 5),
-    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts']]); // 3.28: customers and companies
+    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company', 'deal'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts', 'pipeline']]); // 3.28: customers and companies; 3.31: deals
 // the review reminder: one e-mail per person and day at most, an item once per review date; people without an owner never
 $r324 = [['kind' => 'page', 'id' => 1, 'review_by' => '2026-11-01', 'owner_id' => 3], ['kind' => 'collection_item', 'id' => 1, 'review_by' => '2026-11-02', 'owner_id' => 3],
     ['kind' => 'page', 'id' => 2, 'review_by' => '2026-11-02', 'owner_id' => 4], ['kind' => 'page', 'id' => 5, 'review_by' => '2026-11-02', 'owner_id' => null]];
@@ -9068,7 +9068,7 @@ check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
     Kaleta\Core\Inbox::excerpt("  Jana,\n please check\tthe <b>prices</b> & more  "), mb_strlen(Kaleta\Core\Inbox::excerpt(str_repeat('a', 500))), str_ends_with(Kaleta\Core\Inbox::excerpt(str_repeat('a ', 300)), '…'),
     Kaleta\Core\Inbox::excerpt("a\x07b"), Kaleta\Core\Inbox::parse('enquiry:12'), Kaleta\Core\Inbox::parse('page:5'), Kaleta\Core\Inbox::parse('item:9'), Kaleta\Core\Inbox::parse('stranka:5'),
-    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['deal:3', 'x']),
+    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['quote:3', 'x']),
     Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 07:59')), Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 08:00')),
     Kaleta\Core\Inbox::due('2026-11-02', new DateTimeImmutable('2026-11-02 15:00')), Kaleta\Core\Inbox::due('2026-11-01', new DateTimeImmutable('2026-11-02 23:10'))],
     ['daily', 'instant', 'instant', 'Jana, please check the <b>prices</b> & more', 200, true, 'ab', ['enquiry', 12], ['page', 5], ['item', 9], null, null, null, [], false, true, false, true]);

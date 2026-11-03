@@ -421,11 +421,12 @@ final class Enquiries extends Module
         if ($months <= 0) {
             return;
         }
-        // 3.28: an enquiry of a customer with an open deal stays until the deal closes (Contacts::heldByDeals – deals come in 3.29)
+        // 3.31 (D-W6): an enquiry of a deal, or of a customer with a deal, stays while the deal is open and for the retention
+        // after it closed (Contacts::heldByDeals → Core\Deals::heldEnquiries)
         $before = \Kaleta\Core\Clock::monthsAgo($months);
         $anonymise = $siteSettings->get('enquiries_expiry') === 'anonymise';
         $expired = array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE datum < ?' . ($anonymise ? ' AND anonymizovano IS NULL' : ''), [$before]), 'idp'));
-        $held = \Kaleta\Core\Contacts::heldByDeals($db, $expired);
+        $held = \Kaleta\Core\Contacts::heldByDeals($db, $expired, $months);
         $keep = $held !== [] ? ' AND idp NOT IN (' . implode(',', $held) . ')' : '';
         $expired = array_values(array_diff($expired, $held));
         \Kaleta\Core\Contacts::enquiriesExpiring($db, $siteSettings, $expired); // 3.28: the customer keeps "first contact on … through …"

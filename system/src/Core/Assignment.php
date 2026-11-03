@@ -17,8 +17,8 @@ namespace Kaleta\Core;
  */
 final class Assignment
 {
-    /** kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers (Core\Contacts::SECTION) */
-    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts'];
+    /** kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers (Core\Contacts::SECTION); 3.31: a deal the pipeline (Core\Deals::SECTION) */
+    public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts', 'deal' => 'pipeline'];
 
     /** How a removed account is shown where its id is left (untranslated at the MCP boundary, t() in the admin). */
     public const string FORMER_USER = '(former user)';
@@ -171,6 +171,9 @@ final class Assignment
                 // 3.28: a customer is named by its number only – the e-mail never carries a customer's personal data
                 'contact' => [t('You are responsible for the customer #%s', (string) $target['id']),
                     t('%s made you the responsible person for the customer #%s.', $by, (string) $target['id']) . ' ' . t('It is listed under Mine in Customers. It does not change who may open it.')],
+                // 3.31: a deal is named by its number only – its title may name a customer
+                'deal' => [t('You are responsible for the deal #%s', (string) $target['id']),
+                    t('%s made you the responsible person for the deal #%s.', $by, (string) $target['id']) . ' ' . t('It is listed in My work and under Mine in the pipeline. It does not change who may open it.')],
                 'company' => [t('You are responsible for the company “%s”', $target['title']),
                     t('%s made you the responsible person for the company “%s”.', $by, $target['title']) . ' ' . t('It is listed under Mine in Customers. It does not change who may open it.')],
                 default => [t('You are responsible for “%s” in %s', $target['title'], (string) ($target['collection'] ?? '')),
@@ -183,7 +186,7 @@ final class Assignment
 
     /**
      * What the e-mail names and where it leads: the form name of an enquiry (never its fields), the title of a page, the
-     * name and the collection of an item, the number of a customer (3.28 – never their name), the name of a company. Null
+     * name and the collection of an item, the number of a customer (3.28 – never their name) or a deal (3.31), the name of a company. Null
      * when it does not exist (or is in the trash, or anonymised).
      *
      * @return array{id: int, title: string, collection?: string, path: string}|null
@@ -194,6 +197,11 @@ final class Assignment
             $exists = $db->value('SELECT 1 FROM {contacts} WHERE id = ? AND anonymised_at IS NULL', [$id]);
 
             return $exists === null ? null : ['id' => $id, 'title' => '#' . $id, 'path' => Contacts::adminPath($id)];
+        }
+        if ($kind === 'deal') {
+            $exists = $db->value('SELECT 1 FROM {deals} WHERE id = ?', [$id]);
+
+            return $exists === null ? null : ['id' => $id, 'title' => '#' . $id, 'path' => Deals::adminPath($id)];
         }
         if ($kind === 'company') {
             $name = $db->value('SELECT name FROM {companies} WHERE id = ?', [$id]);

@@ -81,6 +81,8 @@ return [
     'contacts' => ['contacts', []], // 3.28
     'companies' => ['companies', []],
     'contact_activities' => ['contact_activities', []],
+    'deals' => ['deals', []], // 3.31
+    'deal_stage_history' => ['deal_stage_history', []],
     // links, imports and statistics
     'nenalezeno' => ['not_found', ['cesta' => 'path', 'pocet' => 'hits', 'naposledy' => 'last_seen_at']],
     'odkazy_vadne' => ['broken_links', ['ido' => 'id']],

@@ -37,8 +37,11 @@ trait WorkTools
         // 3.27: the open tasks as list_tasks shows them (only additive keys: tasks)
         $tasks = $lists['tasks'] ?? [];
         unset($lists['tasks']);
-        $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests'];
+        $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests', 'deals' => 'deals'];
         $out = ['user' => Handover::person($this->app->db(), $userId)];
+        // 3.31: the open deals the user is responsible for (additive key deals) – the stage and expected close, no customer
+        $deals = $lists['deals'] ?? null;
+        unset($lists['deals']);
         if ($tasks !== []) {
             $out['tasks'] = array_map(fn (array $t): array => ['id' => $t['id'], 'title' => $t['title'], 'group' => $t['group']]
                 + ($t['due_at'] !== null ? ['due' => substr((string) $t['due_at'], 0, 16)] : [])
@@ -47,7 +50,12 @@ trait WorkTools
         foreach ($lists as $list => $rows) {
             $out[$keys[$list]] = array_map($row, $rows);
         }
-        $total = array_sum(array_map(count(...), $lists)) + count($tasks);
+        if ($deals !== null) {
+            $out['deals'] = array_map(fn (array $d): array => ['id' => $d['id'], 'title' => $d['title'], 'stage' => $d['stage'], 'stage_label' => $d['stage_label']]
+                + ($d['expected_close'] !== null ? ['expected_close' => $d['expected_close']] : []) + ($d['overdue'] ? ['overdue' => true] : [])
+                + ['admin_url' => $origin . $this->app->url($d['url'])], $deals);
+        }
+        $total = array_sum(array_map(count(...), $lists)) + count($tasks) + count($deals ?? []);
 
         return $out + ['total' => $total,
             'reasons' => 'tasks: group overdue | today | upcoming (7 days) | later (complete_task, save_task to snooze); overdue = the review date has passed, review = review due within ' . \Kaleta\Core\MyWork::REVIEW_DAYS . ' days, draft = unpublished changes, comments = unresolved comments on the draft, hidden = a hidden item changed lately',

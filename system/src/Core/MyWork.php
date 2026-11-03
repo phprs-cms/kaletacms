@@ -15,6 +15,8 @@ namespace Kaleta\Core;
  *  - their requests to Claude where Claude wrote last (an answer or a question waits for them);
  *  - their open tasks (3.27, Core\Tasks), first on the screen, grouped overdue / today / upcoming / later – for everyone,
  *    no section needed. The tile and the badge count the overdue ones and today's (counts()).
+ *  - (3.31) the open deals they are responsible for (Core\Deals::forOwner), by expected close – with the pipeline section;
+ *    the tile counts only those whose expected close has passed (an open deal is not work due every day).
  *
  * Every query starts from an indexed column (prirazeno + stav, owner_id, requests of one author) and is capped by LIMIT.
  */
@@ -33,7 +35,7 @@ final class MyWork
     public const int REQUEST_DAYS = PendingReview::REQUEST_DAYS;
 
     /** The lists and the section (Module::IDENT) each needs. */
-    public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests'];
+    public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests', 'deals' => 'pipeline'];
 
     /**
      * The lists of one person. Only the lists of sections in $modules are present; each row has id, title, url (relative
@@ -69,9 +71,12 @@ final class MyWork
     public static function count(App $app, array $modules, int $userId, array $skip = []): int
     {
         $tasks = Tasks::counts($app->db(), $userId); // 3.27: of the tasks only what is due – overdue and today's
+        $lists = self::lists($app, $modules, $userId);
+        // 3.31: of the open deals only those whose expected close has passed
+        $deals = in_array('deals', $skip, true) ? 0 : count(array_filter($lists['deals'] ?? [], fn (array $d): bool => (bool) ($d['overdue'] ?? false)));
 
-        return array_sum(array_map(count(...), array_diff_key(self::lists($app, $modules, $userId), array_flip([...$skip, 'tasks']))))
-            + (in_array('tasks', $skip, true) ? 0 : $tasks['overdue'] + $tasks['today']);
+        return array_sum(array_map(count(...), array_diff_key($lists, array_flip([...$skip, 'tasks', 'deals']))))
+            + (in_array('tasks', $skip, true) ? 0 : $tasks['overdue'] + $tasks['today']) + $deals;
     }
 
     /**
@@ -143,6 +148,8 @@ final class MyWork
                 return self::byUrgency(array_map(fn (array $r): array => ['kind' => 'item', 'id' => (int) $r['idp'], 'title' => (string) $r['nazev'], 'collection' => (string) $r['kolekce'],
                     'reasons' => [...self::reviewReasons($r['review_by'], $soon), ...($r['hidden'] ? ['hidden'] : [])], 'review_by' => $r['review_by'] !== null ? (string) $r['review_by'] : null,
                     'url' => 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . (int) $r['idp']], $rows));
+            case 'deals':
+                return Deals::forOwner($app, $userId, self::LIMIT); // 3.31: kind deal, stage, stage_label, expected_close, overdue, contact, url
             case 'requests':
                 // the person's own requests where the last message is Claude's; a finished or declined one only for REQUEST_DAYS
                 $rows = $db->all("SELECT r.id, r.title, r.status, r.updated_at FROM {requests} r WHERE r.author_id = ? AND (r.status IN ('new', 'in_progress') OR r.done_at >= ?)"

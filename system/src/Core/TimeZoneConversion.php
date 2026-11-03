@@ -82,6 +82,8 @@ final class TimeZoneConversion
         'contacts' => ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'], // 3.28
         'companies' => ['created_at', 'updated_at'],
         'contact_activities' => ['happened_at', 'created_at'],
+        'deals' => ['closed_at', 'created_at', 'updated_at'], // 3.31
+        'deal_stage_history' => ['at'],
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],
         'kolekce_sablony' => ['zmeneno'],
@@ -149,6 +151,7 @@ final class TimeZoneConversion
         'stranky' => ['valid_until', 'review_by'],
         'kolekce_polozky' => ['valid_until', 'review_by'],
         'popupy' => ['valid_until', 'review_by'],
+        'deals' => ['expected_close'], // 3.31: the day a deal is expected to close
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
         'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
         // opening hours exceptions (holidays), appointments, days off and proposed times: a 10:00 appointment stays at 10:00

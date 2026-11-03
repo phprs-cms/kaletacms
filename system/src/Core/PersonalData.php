@@ -17,6 +17,8 @@ namespace Kaleta\Core;
  *    log entry naming the address (a merge's note keeps the address merged in – N328-6) – with
  *    the company they work for (its name only: a company is not a person's data and is never erased here), the team's log
  *    of calls, meetings, e-mails and notes, and the team's comments and tasks about the contact. Erasing deletes them all.
+ *    3.31: the file lists the deals with the customer (Core\Deals); erasing keeps a deal for the pipeline without the
+ *    person – no contact, no lost note, a title that names them becomes "#<id>".
  *  - Erasing deletes the enquiries with their attachments, internal notes (3.25) and tasks (3.27), the subscriber with the newsletter queue rows, the pending
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
@@ -94,6 +96,7 @@ final class PersonalData
     private static function contacts(Db $db, array $ids): array
     {
         $out = [];
+        $deals = Deals::ofContacts($db, $ids); // 3.31
         foreach ($ids as $id) {
             $c = Contacts::find($db, $id);
             if ($c === null) {
@@ -104,7 +107,9 @@ final class PersonalData
                 'source' => $c['source'], 'summary' => $c['summary'], 'first_seen_at' => $c['first_seen_at'], 'last_activity_at' => $c['last_activity_at'], 'created_at' => $c['created_at'],
                 'activities' => array_map(fn (array $a): array => ['at' => $a['at'], 'kind' => $a['kind'], 'by' => $a['by'], 'text' => $a['text']], Contacts::activities($db, $id, 1000)),
                 'notes' => array_map(fn (array $n): array => ['at' => $n['at'], 'by' => $n['by'], 'text' => $n['text']], Comments::of($db, $target)),
-                'tasks' => array_map(fn (array $t): array => ['title' => $t['title'], 'due_at' => $t['due_at'], 'done_at' => $t['done_at'], 'created_at' => $t['created_at']], Tasks::forTarget($db, $target))];
+                'tasks' => array_map(fn (array $t): array => ['title' => $t['title'], 'due_at' => $t['due_at'], 'done_at' => $t['done_at'], 'created_at' => $t['created_at']], Tasks::forTarget($db, $target)),
+                // 3.31: the deals with this customer – erasing keeps them for the pipeline, without the person (Deals::unlinkContacts)
+                'deals' => $deals[$id] ?? []];
         }
 
         return $out;

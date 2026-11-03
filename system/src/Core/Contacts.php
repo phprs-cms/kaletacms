@@ -19,7 +19,7 @@ namespace Kaleta\Core;
  *  - Companies: a new contact is attached to an existing company whose domain is its e-mail domain – never for a free-mail
  *    domain (FREE_MAIL, isFreeMail()); a company is never created by itself, suggestCompany() proposes one for the admin.
  *  - Retention (GDPR): the clean-up anonymises contacts with no activity for contacts_months (default = enquiries_months,
- *    migration 0114) – unless they have an open deal (hasOpenDeal(), the hook of 3.29). When an enquiry expires, its contact
+ *    migration 0114) – unless they have an open deal (hasOpenDeal(), 3.31 Core\Deals). When an enquiry expires, its contact
  *    keeps "first contact on <date> through <form>" in the summary, without the message (enquiriesExpiring()).
  *  - Personal data: Core\PersonalData finds, exports and erases contacts with their activities, comments and tasks; the
  *    tables are never journaled for undo (AgentJournal::PERSONAL_TABLES) – Claude's changes to a contact cannot be undone.
@@ -364,7 +364,8 @@ final class Contacts
 
     /**
      * Deletes a contact for good (the admin's Delete, an erasure on request): its activities, the team's comments and tasks
-     * about it and the notifications pointing to it go; its enquiries, bookings and subscription stay and are unlinked.
+     * about it and the notifications pointing to it go; its enquiries, bookings and subscription stay and are unlinked, and
+     * its deals stay without the person (3.31, Deals::unlinkContacts).
      * Returns whether it existed.
      */
     public static function delete(App $app, int $id): bool
@@ -374,6 +375,7 @@ final class Contacts
             return false;
         }
         self::unlink($db, [$id]);
+        Deals::unlinkContacts($db, [$id]); // 3.31: its deals stay without the person
         $db->run('DELETE FROM {contact_activities} WHERE contact_id = ?', [$id]);
         Comments::forget($db, [Comments::contact($id)]); // the comments, their notifications and the tasks about it
         $db->delete('contacts', ['id' => $id]);
@@ -385,7 +387,7 @@ final class Contacts
      * Anonymises contacts (the retention clean-up, Core\Privacy): the row stays for statistics (source, when first seen and
      * last active, the responsible person), the address, name, phone, company and summary go; the activities keep their kind,
      * time and author without the text; the team's comments and the titles of tasks about it are blanked; its enquiries,
-     * bookings and subscription are unlinked. Already anonymised ones are skipped. Returns how many were anonymised.
+     * bookings and subscription are unlinked; its deals stay without the person (3.31, Deals::unlinkContacts). Already anonymised ones are skipped. Returns how many were anonymised.
      *
      * @param list<int> $ids
      */
@@ -404,6 +406,7 @@ final class Contacts
                 continue;
             }
             $in = implode(',', $chunk);
+            Deals::unlinkContacts($db, $chunk); // 3.31: its deals stay without the person (before the name and address go)
             $now = Clock::now();
             $done += $db->run("UPDATE {contacts} SET email = '', email_norm = NULL, name = '', phone = '', company_id = NULL, summary = NULL, anonymised_at = ?, updated_at = ? WHERE id IN (" . $in . ')',
                 [$now, $now])->rowCount();
@@ -735,7 +738,8 @@ final class Contacts
      * status), the subscription, the team's comments and tasks about it, and the activities (call, meeting, e-mail, note).
      * Each entry: at, kind (enquiry | reply | booking | subscription | comment | task | call | meeting | email | note), title
      * (data, not translated: a form name, a subject, a service), optional text, by, status, ref ('enquiry:12', 'booking:3',
-     * 'comment:5', 'task:7', 'activity:9') and path (the admin address, relative). Deals join in 3.29.
+     * 'comment:5', 'task:7', 'activity:9', 'deal:4') and path (the admin address, relative). 3.31: the deals' moves (kind
+     * deal, status created | moved | won | lost | reopened, text = the stage's label).
      *
      * @return list<array<string, mixed>>
      */
@@ -778,7 +782,10 @@ final class Contacts
         foreach (self::activities($db, $id, $limit) as $act) {
             $out[] = ['at' => $act['at'], 'kind' => $act['kind'], 'title' => '', 'text' => $act['text'], 'by' => $act['by'], 'ref' => 'activity:' . $act['id'], 'path' => self::adminPath($id)];
         }
-        // 3.29: the deals of the contact join here
+        // 3.31: the deals of the contact – created, moved, won, lost, reopened (Core\Deals::timeline)
+        foreach (Deals::timeline($db, 'contact', $id, $limit) as $entry) {
+            $out[] = $entry;
+        }
         usort($out, fn (array $x, array $y): int => [$y['at'], $y['ref']] <=> [$x['at'], $x['ref']]);
 
         return array_slice(array_map(fn (array $e): array => array_filter($e, fn (mixed $v, string $k): bool => $v !== '' || in_array($k, ['at', 'kind', 'title'], true), ARRAY_FILTER_USE_BOTH), $out), 0, $limit);
@@ -938,41 +945,25 @@ final class Contacts
     }
 
     /**
-     * Does the contact have an open deal? The hook of 3.29 (lean pipeline): a contact with an open deal is never anonymised
-     * by the retention, and its enquiries are kept until the deal closes. There are no deals before 3.29 – always false.
+     * Does the contact have an open deal (3.31, Core\Deals)? A contact with an open deal is never anonymised by the
+     * retention, and its enquiries are kept until the deal closes plus the enquiries' retention (heldByDeals).
      */
     public static function hasOpenDeal(Db $db, int $contactId): bool
     {
-        return false;
+        return Deals::hasOpenDeal($db, $contactId);
     }
 
     /**
-     * The enquiries of the given ones that must be kept although their retention has passed: those of a contact with an open
-     * deal (hasOpenDeal – none before 3.29). Enquiries::deleteExpired leaves them for the next day.
+     * The enquiries of the given ones that must be kept although their retention has passed (D-W6, 3.31 Core\Deals): the
+     * source enquiry of a deal and the enquiries of a customer with a deal, while the deal is open or closed less than
+     * $months (the enquiries' retention) ago. Enquiries::deleteExpired leaves them for a later day.
      *
      * @param list<int> $idps
      * @return list<int>
      */
-    public static function heldByDeals(Db $db, array $idps): array
+    public static function heldByDeals(Db $db, array $idps, int $months = 0): array
     {
-        $idps = array_values(array_filter(array_map('intval', $idps), fn (int $id): bool => $id > 0));
-        if ($idps === []) {
-            return [];
-        }
-        $held = [];
-        try {
-            foreach (array_chunk($idps, 500) as $chunk) {
-                foreach ($db->all('SELECT idp, contact_id FROM {poptavky} WHERE contact_id IS NOT NULL AND idp IN (' . implode(',', $chunk) . ')') as $r) {
-                    if (self::hasOpenDeal($db, (int) $r['contact_id'])) {
-                        $held[] = (int) $r['idp'];
-                    }
-                }
-            }
-        } catch (\PDOException) {
-            return []; // before migration 0114
-        }
-
-        return $held;
+        return Deals::heldEnquiries($db, $idps, $months);
     }
 
     /**
