@@ -10082,6 +10082,22 @@ check('3.30 Rollout::decide – the decision table: rings and their delays, the 
 ], ['self::', 'updated::', 'allowed:3.30.0:', 'allowed:3.30.0:', 'allowed:3.30.0:', 'waiting::Sat 22:00+38h', 'waiting::Fri 13:00+5h', 'waiting::Sat 20:00+36h', 'allowed:3.30.0:', 'blocked::',
     'allowed:3.30.0:', 'waiting::Sat 22:00+38h', 'blocked::', 'blocked::', 'allowed:3.30.0:', 'waiting::Wed 06:00+118h', 'allowed:3.30.0:', 'allowed:3.30.0:', 'waiting::Mon 22:00+86h',
     'allowed:3.30.0:', 'allowed:3.30.0:', 'waiting::Fri 22:00+14h']);
+// N330-1/2: a pilot already past the release counts as running it; a pilot that stopped reporting while healthy on an
+// older version (or never reported since its pairing) is left out – no site waits for it forever; down, an error or a
+// failed update still hold the others back; Console::row carries the last report (or the pairing)
+check('3.30 review N330-1/2 – a newer pilot passes the gate; a silent healthy pilot is left out, a silent broken one still holds back', [
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.31.0', 'pilot')]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.29.0', 'pilot', ['last_seen' => $x330Now - 30 * 3600])], ['first_seen' => $x330Now - 49 * 3600]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.29.0', 'pilot', ['last_seen' => $x330Now - 30 * 3600])]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.29.0', 'pilot', ['last_seen' => $x330Now - 2 * 3600])], ['first_seen' => $x330Now - 49 * 3600]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.29.0', 'pilot', ['last_seen' => $x330Now - 30 * 3600, 'up' => false])], ['first_seen' => $x330Now - 49 * 3600]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.29.0', 'pilot', ['last_seen' => $x330Now - 30 * 3600, 'update_problem' => true])], ['first_seen' => $x330Now - 49 * 3600]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.29.0', 'pilot', ['last_seen' => $x330Now - 30 * 3600, 'status' => 'error'])], ['first_seen' => $x330Now - 49 * 3600]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '', 'pilot', ['last_seen' => $x330Now - 30 * 3600]), $x330Pilot]),
+    $x330Decide($x330Row(2, '3.29.0'), [$x330Row(1, '3.30.0', 'pilot', ['last_seen' => $x330Now - 30 * 3600, 'status' => 'error'])]),
+    Kaleta\Fleet\Console::row(['id' => 1, 'version' => '', 'ring' => 'pilot', 'manage_updates' => 1, 'update_allowed' => '', 'status' => '', 'up' => null, 'version_since' => null,
+        'heartbeat' => null, 'last_seen' => null, 'paired_at' => date('Y-m-d H:i:s', $x330Now - 40 * 3600)])['last_seen'] === $x330Now - 40 * 3600,
+], ['allowed:3.30.0:', 'allowed:3.30.0:', 'waiting::Sun 07:00+47h', 'blocked::', 'blocked::', 'blocked::', 'blocked::', 'allowed:3.30.0:', 'blocked::', true]);
 $x330Sites = [
     ['id' => 1, 'name' => 'Pilot site', 'url' => 'https://pilot.example', 'ring' => 'canary', 'version' => '3.30.0', 'manage_updates' => 1, 'update_allowed' => '', 'status' => 'ok', 'up' => 1,
         'version_since' => date('Y-m-d H:i:s', $x330Now - 50 * 3600), 'heartbeat' => '{}', 'customer_id' => null, 'update_window' => null],

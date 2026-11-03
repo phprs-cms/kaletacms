@@ -278,8 +278,8 @@ final class Console
      * Which version a site may install now ('' = none) with the rings' default delays and no maintenance window – 2.9's
      * answer; the heartbeat asks Fleet\Rollout::decide with the console's delays and the site's window (3.30). Pure.
      *
-     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool} $site
-     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}> $sites
+     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen?: ?int} $site
+     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen?: ?int}> $sites
      */
     public static function allowedVersion(array $site, array $sites, string $latest, bool $security, int $firstSeen, int $now): string
     {
@@ -533,15 +533,19 @@ final class Console
      * A row in the shape allowedVersion() reads.
      *
      * @param array<string, mixed> $site
-     * @return array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}
+     * @return array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen: ?int}
      */
     public static function row(array $site): array
     {
         $beat = json_decode((string) ($site['heartbeat'] ?? ''), true);
+        // 3.30 (N330-2): the last heartbeat, or the pairing when there was none yet – Rollout::silentPilot
+        $seen = $site['last_seen'] ?? $site['paired_at'] ?? null;
+        $seen = is_string($seen) && ($t = strtotime($seen)) !== false ? $t : null;
 
         return ['id' => (int) $site['id'], 'version' => (string) $site['version'], 'ring' => (string) $site['ring'], 'manage_updates' => (int) $site['manage_updates'] === 1,
             'update_allowed' => (string) $site['update_allowed'], 'status' => (string) $site['status'], 'up' => $site['up'] === null ? null : (int) $site['up'] === 1,
-            'version_since' => $site['version_since'] !== null ? (int) strtotime((string) $site['version_since']) : null, 'update_problem' => is_array($beat) && !empty($beat['update_problem'])];
+            'version_since' => $site['version_since'] !== null ? (int) strtotime((string) $site['version_since']) : null, 'update_problem' => is_array($beat) && !empty($beat['update_problem']),
+            'last_seen' => $seen];
     }
 
     /**

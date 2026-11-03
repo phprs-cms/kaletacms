@@ -16,6 +16,8 @@ use Kaleta\Core\Settings;
  *    release. With pilot sites, normal and careful sites also wait until every pilot that lets the console decide runs the
  *    release without errors, without being down and without a failed update – the delay then counts from the moment the
  *    last pilot started running it, minus the pilots' own delay (with the default 0 h: 48 hours after the pilots, as in 2.9).
+ *    A pilot already on a newer version counts as running it; a pilot that stopped reporting while it looked healthy on an
+ *    older version is left out (silentPilot), so no site waits for it forever.
  *  - Maintenance window per customer, optionally per site: ISO days of the week and a time range in the console's time
  *    zone ("12345|22:00-05:00" – a range past midnight belongs to the day it starts; the same start and end = the whole
  *    day; '' = any time). A site is told "you may update now" only inside its window, after its ring delay. On a night the
@@ -234,8 +236,8 @@ final class Rollout
     /**
      * Which version a site may install now and why (see the class description). Pure.
      *
-     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool} $site Console::row
-     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool}> $sites
+     * @param array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen?: ?int} $site Console::row
+     * @param list<array{id: int, version: string, ring: string, manage_updates: bool, update_allowed: string, status: string, up: ?bool, version_since: ?int, update_problem: bool, last_seen?: ?int}> $sites
      * @param array{pilot: int, normal: int, careful: int} $delays hours
      * @param array{days: list<int>, from: int, to: int}|null $window
      * @return array{version: string, state: string, from: ?int} state updated | allowed | waiting (from = when) | blocked (the pilots) | self
@@ -256,7 +258,8 @@ final class Rollout
         if ($ring === 'pilot') {
             $start = max(0, $firstSeen) + $hours('pilot') * 3600;
         } else {
-            $pilots = array_filter($sites, static fn (array $p): bool => self::ring($p['ring']) === 'pilot' && $p['manage_updates'] && $p['id'] !== $site['id']);
+            $pilots = array_filter($sites, static fn (array $p): bool => self::ring($p['ring']) === 'pilot' && $p['manage_updates'] && $p['id'] !== $site['id']
+                && !self::silentPilot($p, $latest, $now));
             if ($pilots === []) {
                 if ($firstSeen <= 0) {
                     return ['version' => '', 'state' => 'blocked', 'from' => null];
@@ -265,7 +268,8 @@ final class Rollout
             } else {
                 $since = 0;
                 foreach ($pilots as $p) {
-                    if ($p['version'] !== $latest || $p['version_since'] === null || $p['status'] === 'error' || $p['up'] === false || $p['update_problem']) {
+                    // a pilot already past the release (another update channel, a version allowed by hand) has run it
+                    if (version_compare($p['version'], $latest, '<') || $p['version_since'] === null || $p['status'] === 'error' || $p['up'] === false || $p['update_problem']) {
                         return ['version' => '', 'state' => 'blocked', 'from' => null];
                     }
                     $since = max($since, $p['version_since']);
@@ -281,6 +285,22 @@ final class Rollout
         }
 
         return ['version' => $latest, 'state' => 'allowed', 'from' => $start];
+    }
+
+    /**
+     * A pilot that has stopped reporting (no heartbeat for Console::SILENT_AFTER since its last one or its pairing) while it
+     * still runs an older version and its last report showed no problem: it would hold back every other site forever, so
+     * the gate leaves it out (N330-2). A silent pilot that is down, reported errors or a failed update, or runs the release
+     * still counts. A row without last_seen (an older caller) is never silent. Pure.
+     *
+     * @param array<string, mixed> $p Console::row
+     */
+    public static function silentPilot(array $p, string $latest, int $now): bool
+    {
+        $seen = $p['last_seen'] ?? null;
+
+        return is_int($seen) && $now - $seen > Console::SILENT_AFTER && $p['up'] !== false && $p['status'] !== 'error' && !$p['update_problem']
+            && version_compare((string) $p['version'], $latest, '<');
     }
 
     /**
