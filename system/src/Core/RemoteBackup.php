@@ -11,6 +11,12 @@ namespace Kaleta\Core;
  * with an AWS Signature V4 signature; FTPS through cURL too since 3.19.1 (N80) – PHP's FTP extension cannot check the
  * server's certificate, cURL checks it like the S3 path does. Only a server whose PHP has no cURL with FTPS falls back to
  * the extension, and the Backups tab says that the certificate is not checked there (ftpsVerified()).
+ *
+ * Since 3.28 (D-W12) the database backup leaves the server only encrypted at rest (Core\BackupEncryption under the
+ * recovery key, Core\RecoveryKey). The media copy stays as it is: media/ is the site's public folder – every file in it
+ * is served to any visitor by its address – and the customer data are in the database. Private files (enquiry
+ * attachments in storage/prilohy/, whistleblowing attachments in storage/oznameni/) are not copied off the server at all;
+ * whatever private folder joins the off-site copy later must go through BackupEncryption too.
  */
 final class RemoteBackup
 {
@@ -20,26 +26,83 @@ final class RemoteBackup
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;
 
-    /** @return string|null error text, null = uploaded (or remote backup is turned off) */
+    /** remote_backup_status when a backup was not copied because the recovery key has not been saved yet (3.28). */
+    public const string PAUSED = 'paused';
+
+    /** Days between two backup.copy_paused events (and so alert e-mails) while the copies wait for the recovery key. */
+    private const int PAUSED_EVENT_DAYS = 7;
+
+    /**
+     * Copies one database backup off the server – encrypted (3.28, D-W12): BackupEncryption under the recovery key, as
+     * <name>.enc, through a temporary file in storage/zalohy/ that is deleted afterwards; the local backup stays as it is.
+     * Until the administrator has saved the recovery key (RecoveryKey::ready) nothing is uploaded: the status says
+     * "paused", System status, the Backups tab and the hand-over checklist say why, and an alert goes out (event
+     * backup.copy_paused, at most once a week) – a backup leaves the server only encrypted, never in the clear.
+     *
+     * @return string|null error text, null = uploaded (or remote backup is turned off)
+     */
     public static function upload(Settings $s, string $path): ?string
     {
         if (!self::isOn($s)) {
             return null;
         }
+        if (!RecoveryKey::ready($s)) {
+            $s->set('remote_backup_status', date('Y-m-d H:i') . '|' . self::PAUSED);
+            self::recordPaused($s);
+
+            return self::pausedText();
+        }
+        $encrypted = null;
         try {
+            $key = RecoveryKey::load();
+            if ($key === null) {
+                throw new \RuntimeException(self::pausedText());
+            }
+            $encrypted = dirname($path) . '/.upload-' . bin2hex(random_bytes(6)) . BackupEncryption::EXTENSION;
+            BackupEncryption::encryptFile($path, $encrypted, $key);
             [$put, $close] = self::open($s);
             try {
-                $put(basename($path), $path);
+                $put(basename($path) . BackupEncryption::EXTENSION, $encrypted);
             } finally {
                 $close();
             }
             $error = null;
         } catch (\Throwable $e) {
             $error = $e->getMessage();
+        } finally {
+            if ($encrypted !== null) {
+                @unlink($encrypted);
+            }
         }
         $s->set('remote_backup_status', date('Y-m-d H:i') . '|' . ($error ?? 'ok'));
 
         return $error;
+    }
+
+    /** Why a backup was not copied off the server while the recovery key waits (3.28). */
+    public static function pausedText(): string
+    {
+        return t('Off-site copies are paused until the recovery key is saved (Settings → Backups and updates).');
+    }
+
+    /** Is the last status "paused" (3.28)? */
+    public static function paused(Settings $s): bool
+    {
+        return (explode('|', $s->get('remote_backup_status'), 2)[1] ?? '') === self::PAUSED;
+    }
+
+    /** The event (and so the alert e-mail, Alerts::WARNINGS) of paused copies – at most once a week. */
+    private static function recordPaused(Settings $s): void
+    {
+        $db = $s->db();
+        try {
+            $recent = $db->value('SELECT 1 FROM {events} WHERE type = ? AND created_at > ? LIMIT 1', ['backup.copy_paused', date('Y-m-d H:i:s', time() - self::PAUSED_EVENT_DAYS * 86400)]);
+        } catch (\Throwable) {
+            $recent = null;
+        }
+        if ($recent === null) {
+            Events::record($db, 'backup.copy_paused', 'warning', t('A backup was not copied off the server: off-site copies are encrypted now and wait until an administrator saves the recovery key in Settings → Backups and updates.'));
+        }
     }
 
     public static function isOn(Settings $s): bool

@@ -90,6 +90,23 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 <details class="pokrocile"<?= $values['remote_backup'] !== 'vypnuto' ? ' open' : '' ?>>
 <summary><?= e(t('Off-site backup copies')) ?><?= $values['remote_backup'] !== 'vypnuto' ? ' – ' . e(t('zapnuté')) : '' ?></summary>
 <p class="napoveda"><?= e(t('A backup on the same server as the site does not help if you lose the hosting. Each new database backup therefore uploads itself elsewhere, and the media/ folder is copied to the same place – only new and changed files, in the background.')) ?></p>
+<?php // 3.28 (D-W12, Core\RecoveryKey): the database leaves the server only encrypted – the copies wait until the recovery key is saved
+$remoteOn = $values['remote_backup'] !== 'vypnuto' && $values['remote_backup'] !== '';
+$keyConfirmedAt = Kaleta\Core\RecoveryKey::confirmedAt($app->settings());
+$keyOnRecord = Kaleta\Core\RecoveryKey::confirmedId($app->settings()) !== '' && $recoveryState !== 'confirmed'; ?>
+<div id="recovery-key-state" class="hlaska<?= $recoveryState === 'confirmed' ? ' hlaska-ok' : ($remoteOn ? ' hlaska-chyba' : '') ?>">
+	<p><?= e(Kaleta\Core\RecoveryKey::describe($recoveryState, $remoteOn)) ?><?= $recoveryState === 'confirmed' && $keyConfirmedAt !== '' ? ' ' . e(t('Recovery key saved %s.', $keyConfirmedAt)) : '' ?></p>
+	<p class="napoveda"><?= e(t('The database (pages, enquiries, contacts, accounts) is encrypted. The media are copied as they are – they are the site\'s public files, which any visitor can open by their address.')) ?></p>
+<?php if ($recoveryState !== 'confirmed'): ?>
+	<p><button class="tl" type="submit" formaction="<?= e($module->url('backup_key')) ?>"><?= e(t('Show and save the recovery key')) ?></button></p>
+<?php else: ?>
+	<p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('backup_key_new')) ?>" data-potvrdit="<?= e(t('Make a new recovery key? Off-site copies wait until you have saved the new one, and copies already uploaded can still be opened only with the old key – keep it as long as you keep them.')) ?>"><?= e(t('Make a new recovery key')) ?></button></p>
+<?php endif ?>
+<?php if ($keyOnRecord): // the database confirmed a key this server does not have (another server, a restored database) ?>
+	<p class="napoveda"><?= e(t('This site already had a recovery key, but its file is not on this server. If you kept the key, enter it under “Recovery key” below and put it back; otherwise make a new one.')) ?></p>
+	<p><button class="navigace" type="submit" formaction="<?= e($module->url('backup_key_use')) ?>"><?= e(t('Put back the recovery key')) ?></button></p>
+<?php endif ?>
+</div>
 <div class="radek"><label for="remote_backup"><?= e(t('Copy to')) ?></label><select id="remote_backup" name="remote_backup">
 	<option value="vypnuto"><?= e(t('nowhere')) ?></option>
 	<option value="ftp"<?= $values['remote_backup'] === 'ftp' ? ' selected' : '' ?>><?= e(t('to an FTP server with FTPS encryption (another host, home NAS)')) ?></option>
@@ -116,7 +133,11 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 ?>
 <?php $field('backup_media', 'Copy the media too', 'ano', 'Uploaded images and files go to the folder media/ of the same target. A file deleted on the site stays in the copy.'); ?>
 <?php if ($remoteStatus !== ''): [$when, $how] = explode('|', $remoteStatus, 2) + [1 => '']; ?>
-<p class="hlaska<?= $how === 'ok' ? ' hlaska-ok' : ' hlaska-chyba' ?>"><?= e($how === 'ok' ? t('The last copy was uploaded %s.', $when) : t('The last attempt %s failed: %s', $when, t($how))) ?></p>
+<p class="hlaska<?= $how === 'ok' ? ' hlaska-ok' : ' hlaska-chyba' ?>"><?= e(match ($how) {
+    'ok' => t('The last copy was uploaded %s.', $when),
+    Kaleta\Core\RemoteBackup::PAUSED => t('The backup of %s was not copied off the server: off-site copies are paused until the recovery key is saved.', $when),
+    default => t('The last attempt %s failed: %s', $when, t($how)),
+}) ?></p>
 <?php endif ?>
 <?php if ($mediaStatus !== '' && $values['backup_media'] === '1'): [$when, $how, $waiting] = explode('|', $mediaStatus, 3) + [1 => '', 2 => '0']; ?>
 <p class="hlaska<?= $how === 'ok' ? ((int) $waiting === 0 ? ' hlaska-ok' : '') : ' hlaska-chyba' ?>"><?= e($how !== 'ok' ? t('Media: the last attempt %s failed: %s', $when, t($how)) : ((int) $waiting === 0 ? t('Media: the copy is complete (checked %s).', $when) : t('Media: %d files are still waiting – the copy continues in the background.', (int) $waiting))) ?></p>
@@ -125,6 +146,10 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 </details>
 <?php $field('auto_backups', 'Automatic backups', 'ano', 'Every day something changed on the site, otherwise once a week – while an administrator works in the administration or cron runs. The last 10 backups are kept.'); ?>
 <p><button class="tl" type="submit" formaction="<?= e($module->url('backup')) ?>"><?= e(t('Create backup now')) ?></button></p>
+<?php if ($keyOnRecord || array_filter($backups, fn (array $b): bool => Kaleta\Core\Backup::encrypted($b['soubor'])) !== []): // 3.28: an off-site copy uploaded back (….enc) ?>
+<div class="radek"><label for="recovery_key"><?= e(t('Recovery key')) ?></label><div><input class="textpole siroke" type="password" id="recovery_key" name="recovery_key" value="" autocomplete="off" spellcheck="false" placeholder="KBK1-…">
+	<span class="napoveda"><?= e(t('Only for an encrypted backup (….enc): enter the recovery key of the site it comes from, then click Restore at that backup. This site\'s own key is used when you leave it empty.')) ?></span></div></div>
+<?php endif ?>
 <?php if ($backups !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
@@ -149,9 +174,9 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <ol>
 	<li><?= e(t('Install Kaleta on the new hosting with the same table prefix (ka_ unless you changed it) and any starter site.')) ?></li>
 	<li><?= e(t('Copy the line with vault_key from the old site\'s config.php into the new config.php, in place of the one the installer wrote – without it the connector secrets and whistleblowing reports in the backup cannot be read.')) ?></li>
-	<li><?= e(t('Upload the latest database backup (kaleta-….sql.gz from your FTP or S3 copy, or a downloaded one) over FTP into the backups folder storage/zalohy/.')) ?></li>
+	<li><?= e(t('Upload the latest database backup over FTP into the backups folder storage/zalohy/: kaleta-….sql.gz.enc from your FTP or S3 copy (encrypted), or a downloaded kaleta-….sql.gz.')) ?></li>
 	<li><?= e(t('Copy the media/ folder from the same place into the root of the site.')) ?></li>
-	<li><?= e(t('Here in Backups, click Restore at that backup. Then sign in with the accounts from the backup.')) ?></li>
+	<li><?= e(t('Here in Backups, enter the recovery key you saved (only for an encrypted ….enc backup), then click Restore at that backup. Without the recovery key an encrypted backup cannot be restored. Then sign in with the accounts from the backup.')) ?></li>
 </ol>
 <p class="napoveda"><?= e(t('Moving a site to another Kaleta installation without accounts and secrets is simpler with Export of the whole site and Import from Kaleta (Import and export).')) ?></p>
 </details>

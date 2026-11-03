@@ -200,6 +200,11 @@ $builderParity = [
 $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_backup' => $readOnly, 'backup' => 'admin: backups', 'restore_backup' => 'admin: backups',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates', 'update_major' => 'admin: updates (a major version only on an explicit action, 3.15)',
     'vault_move' => 'admin: the encryption key goes into config.php – never through a connection (3.15, N42)',
+    'backup_key' => 'admin: the recovery key of the encrypted off-site backups is shown only to an administrator, never through a connection (3.28, D-W12)',
+    'backup_key_download' => 'admin: the recovery key of the encrypted off-site backups is shown only to an administrator, never through a connection (3.28, D-W12)',
+    'backup_key_confirm' => 'admin: only the administrator who saved the recovery key can confirm it (3.28, D-W12)',
+    'backup_key_new' => 'admin: a new recovery key is the administrator\'s security decision (3.28, D-W12)',
+    'backup_key_use' => 'admin: a kept recovery key is put back by the administrator, never through a connection (3.28, D-W12)',
     'new_signing_key' => 'admin: a new signing key withdraws every signed link of the site – a security decision of the administrator (3.19.1, N84)',
     'config_permissions' => 'admin: the file permissions of config.php are the server\'s, never set through a connection (3.19.1, N83)', 'user_ini' => 'admin: a .user.ini with larger upload limits is a file of the server, never written through a connection (3.22, C14)', 'instructions_seen' => 'admin: an administrator has looked at the changed instructions for Claude (3.15, N44)',
     'delete_backup' => 'admin: backups', 'media_backup' => 'admin: backups', 'delete_log' => 'admin: error log', 'check' => 'admin: updates', 'update' => 'admin: updates', 'forget_updates' => 'admin: updates',
@@ -758,6 +763,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
             'general_split', // 3.23 (C12): the marker of the split General form – Settings::actionSave then saves only the General fields
             'module', // 3.23.1 (N-C12): the tab select on a phone is its own GET form (module=settings&tab=…), never posted to the save
+            'recovery_key', 'saved', // 3.28 (D-W12): the recovery key for a restore or to put back (never saved as a setting), "I have saved it" of its confirmation
             'screen_collections', 'novy_token_obrazovka'], true)) { // 2.11 screen mode: the collections list is added by fields() from the site's collections, the button makes a new address
             $unknownFields[] = basename($view) . ': ' . $name;
         }
@@ -8548,7 +8554,7 @@ $n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
 check('3.23.1 review (N3231-1): a partial save marks the change, the Kernel forgets the mark before the next action; every "saved, but" error marks it', [...$n32311,
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), 'ChangeLog::changedAnyway();'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "ChangeLog::changedAnyway(); // the item is saved"),
-], [false, true, false, 4, 1]);
+], [false, true, false, 5, 1]); // 3.28: a backup whose database copy waits for the recovery key is a fifth "saved, but"
 
 // N3231-2 (review of 3.23.1): a module whose action logs under another area (Business details → the 'settings' rows of Core\Hours,
 // Menu and Transfer → 'appearance' of Core\Look, Settings and Collections → 'pages' of the statement and the listing page) writes one row, not two
@@ -9442,6 +9448,117 @@ check('3.28 (B): the palette searches customers on the server only for whoever h
     str_contains($b328Box, '<?= $csrf ?><input type="hidden" name="kind"'),
     array_map(fn (string $code): string => (string) json_decode((string) (preg_match('/^\t"customer": ("[^"]*")/m', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-' . $code . '.js'), $m) ? $m[1] : '""')), ['cs', 'de', 'es'])],
     [true, true, true, true, true, true, ['zákazník', 'Kunde', 'cliente']]);
+
+// 3.28 (D-W12): off-site backups encrypted at rest – BackupEncryption (sodium secretstream or OpenSSL AES-256-GCM, chunked,
+// versioned header) under the recovery key (RecoveryKey: outside the database, confirmed before any copy leaves the server)
+$c328Dir = sys_get_temp_dir() . '/kaleta-c328-' . bin2hex(random_bytes(4));
+mkdir($c328Dir);
+$c328Key = random_bytes(32);
+$c328Error = function (callable $run): string {
+    try {
+        $run();
+
+        return 'no error';
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    }
+};
+$c328Trip = function (int $algorithm, string $plain, int $chunk) use ($c328Dir, $c328Key): array {
+    file_put_contents($c328Dir . '/in', $plain);
+    @unlink($c328Dir . '/out');
+    Kaleta\Core\BackupEncryption::encryptFile($c328Dir . '/in', $c328Dir . '/enc', $c328Key, $algorithm, $chunk);
+    $cipher = (string) file_get_contents($c328Dir . '/enc');
+    Kaleta\Core\BackupEncryption::decryptFile($c328Dir . '/enc', $c328Dir . '/out', $c328Key);
+
+    return [file_get_contents($c328Dir . '/out') === $plain, $plain === '' || !str_contains($cipher, substr($plain, 0, 64)), Kaleta\Core\BackupEncryption::inspect($c328Dir . '/enc')['algorithm'],
+        Kaleta\Core\BackupEncryption::isEncrypted($c328Dir . '/enc'), is_file($c328Dir . '/enc.part') || is_file($c328Dir . '/out.part')];
+};
+$c328Plain = "-- Kaleta 3.28 - database backup\n" . str_repeat("INSERT INTO `ka_contacts` VALUES (1,'jana@example.com');\n", 300) . random_bytes(777);
+$c328Results = [];
+foreach ([Kaleta\Core\BackupEncryption::SODIUM, Kaleta\Core\BackupEncryption::OPENSSL] as $c328Algorithm) {
+    // several chunks, an exact multiple of the chunk size (an empty final chunk), an empty file
+    $c328Results[$c328Algorithm] = [$c328Trip($c328Algorithm, $c328Plain, 1024), $c328Trip($c328Algorithm, str_repeat('x', 2048), 1024), $c328Trip($c328Algorithm, '', 1024)];
+    $c328Trip($c328Algorithm, $c328Plain, 1024);
+    $c328Enc = (string) file_get_contents($c328Dir . '/enc');
+    $c328Out = $c328Dir . '/restored';
+    $c328Decrypt = fn (string $bytes, ?string $key = null): string => $c328Error(function () use ($c328Dir, $bytes, $key, $c328Key, $c328Out): void {
+        file_put_contents($c328Dir . '/case', $bytes);
+        Kaleta\Core\BackupEncryption::decryptFile($c328Dir . '/case', $c328Out, $key ?? $c328Key);
+    });
+    $c328Flipped = $c328Enc;
+    $c328Flipped[intdiv(strlen($c328Flipped), 2)] = chr(ord($c328Flipped[intdiv(strlen($c328Flipped), 2)]) ^ 1);
+    $c328NewVersion = $c328Enc;
+    $c328NewVersion[8] = chr(2);
+    $c328Chunk = $c328Enc;
+    $c328Chunk[12] = chr(ord($c328Chunk[12]) ^ 1); // the chunk size in the header: authenticated, so the first chunk fails
+    // the last chunk cut away completely: every remaining chunk is genuine, only the final one is missing
+    $c328LastChunk = $c328Algorithm === Kaleta\Core\BackupEncryption::SODIUM ? 4 + (strlen($c328Plain) % 1024) + 17 : 1 + 4 + (strlen($c328Plain) % 1024) + 16;
+    $c328Results[$c328Algorithm][] = [
+        str_contains($c328Decrypt($c328Enc, random_bytes(32)), 'does not belong to this backup'),
+        str_contains($c328Decrypt(substr($c328Enc, 0, -10)), 'incomplete'),
+        str_contains($c328Decrypt(substr($c328Enc, 0, -$c328LastChunk)), 'incomplete'),
+        str_contains($c328Decrypt(substr($c328Enc, 0, 20)), 'incomplete'),
+        str_contains($c328Decrypt($c328Flipped), 'damaged'),
+        str_contains($c328Decrypt($c328Chunk), 'damaged'),
+        str_contains($c328Decrypt($c328Enc . 'x'), 'damaged'),
+        str_contains($c328Decrypt($c328NewVersion), 'newer version of Kaleta (format 2)'),
+        str_contains($c328Decrypt('-- Kaleta 3.28 - database backup'), 'not an encrypted Kaleta backup'),
+        str_contains($c328Decrypt(str_replace("\r\n", "\n", $c328Enc)), 'not an encrypted Kaleta backup'), // FTP text mode
+        is_file($c328Out) || is_file($c328Out . '.part'), // nothing is left behind by a failed decryption
+    ];
+}
+$c328Formatted = Kaleta\Core\RecoveryKey::format($c328Key);
+check('3.28 (D-W12): backup encryption – round trip (several chunks, an exact multiple, empty) with both algorithms; wrong key, cut-off, changed bytes, a newer format and FTP text mode refused, nothing half written', [
+    $c328Results, Kaleta\Core\BackupEncryption::keyId($c328Key) === Kaleta\Core\BackupEncryption::inspect($c328Dir . '/enc')['key_id'], strlen(Kaleta\Core\BackupEncryption::keyId($c328Key)),
+    Kaleta\Core\BackupEncryption::algorithm(), Kaleta\Core\BackupEncryption::isEncrypted($c328Dir . '/in')],
+    [[1 => [[true, true, 1, true, false], [true, true, 1, true, false], [true, true, 1, true, false], [...array_fill(0, 10, true), false]],
+        2 => [[true, true, 2, true, false], [true, true, 2, true, false], [true, true, 2, true, false], [...array_fill(0, 10, true), false]]],
+        true, 16, Kaleta\Core\BackupEncryption::SODIUM, false]);
+// a larger backup streams through with the real chunk size: memory stays near one chunk
+file_put_contents($c328Dir . '/big', str_repeat(random_bytes(1024 * 64), 80)); // 5 MB
+$c328Memory = memory_get_peak_usage();
+Kaleta\Core\BackupEncryption::encryptFile($c328Dir . '/big', $c328Dir . '/big.enc', $c328Key);
+Kaleta\Core\BackupEncryption::decryptFile($c328Dir . '/big.enc', $c328Dir . '/big.out', $c328Key);
+check('3.28: a 5 MB backup is encrypted and decrypted in chunks (peak memory grows by far less than the file)', [
+    hash_file('sha256', $c328Dir . '/big') === hash_file('sha256', $c328Dir . '/big.out'), memory_get_peak_usage() - $c328Memory < 4 * 1048576], [true, true]);
+
+// the recovery key: KBK1 + 13 groups, read back from any case and spacing, outside the database, confirmed by its one-way id
+$c328Settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($c328Settings, ['backup_key_confirmed' => '']);
+$c328File = $c328Dir . '/storage/backup-key.php';
+$c328States = [Kaleta\Core\RecoveryKey::state($c328Settings, $c328File)];
+Kaleta\Core\RecoveryKey::save($c328Key, $c328File);
+$c328States[] = Kaleta\Core\RecoveryKey::state($c328Settings, $c328File);
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($c328Settings, ['backup_key_confirmed' => Kaleta\Core\BackupEncryption::keyId($c328Key) . '|2026-11-03 10:00']);
+$c328States[] = Kaleta\Core\RecoveryKey::state($c328Settings, $c328File);
+$c328States[] = Kaleta\Core\RecoveryKey::ready($c328Settings, $c328File);
+$c328Second = Kaleta\Core\RecoveryKey::create($c328File); // a new key: not confirmed until the administrator saves it
+$c328States[] = Kaleta\Core\RecoveryKey::state($c328Settings, $c328File);
+$c328Content = (string) file_get_contents($c328File);
+check('3.28: the recovery key – format and parse, a file outside the database that prints nothing over the web, states none → unconfirmed → confirmed → a new key unconfirmed', [
+    (bool) preg_match('/^KBK1(-[A-Z2-7]{4}){13}$/D', $c328Formatted), Kaleta\Core\RecoveryKey::parse($c328Formatted) === $c328Key,
+    Kaleta\Core\RecoveryKey::parse(' ' . strtolower(str_replace('-', ' ', substr($c328Formatted, 5))) . "\n") === $c328Key,
+    Kaleta\Core\RecoveryKey::parse(substr($c328Formatted, 0, -1)), Kaleta\Core\RecoveryKey::parse(str_repeat('A', 51) . 'B'), Kaleta\Core\RecoveryKey::parse('KBK1-hello'),
+    $c328States, Kaleta\Core\RecoveryKey::load($c328File) === $c328Second, str_starts_with($c328Content, '<?php exit; ?>'), str_contains($c328Content, $c328Formatted),
+    Kaleta\Core\RecoveryKey::confirmedAt($c328Settings), str_contains(Kaleta\Core\RecoveryKey::document($c328Key, 'https://example.com/'), $c328Formatted)],
+    [true, true, true, null, null, null, ['none', 'unconfirmed', 'confirmed', true, 'unconfirmed'], true, true, false, '2026-11-03 10:00', true]);
+
+// the encrypted copy uploaded back is a backup of the list, restored only with a key; its texts are translated; the actions
+// never clear the page cache; the paused copies alert the owner; the media copy stays as it is (public files)
+$c328Strings = ['Off-site copies are paused until the recovery key is saved (Settings → Backups and updates).', 'Show and save the recovery key', 'Make a new recovery key', 'Recovery key',
+    'Save this recovery key now, somewhere away from this server.', 'I have saved the recovery key somewhere away from this server', 'Confirm and start the off-site copies',
+    'The recovery key does not belong to this backup – check that it was copied in full, or use the key of the site the backup comes from. Nothing was restored.',
+    'This backup is encrypted. Enter the recovery key of the site it comes from, then click Restore again. Nothing was restored.',
+    'The encrypted backup is damaged or was changed – it cannot be restored. Nothing was restored.', 'Download the recovery key (.txt)', 'Recovery key saved %s.'];
+check('3.28: .enc backups are listed and restored with the key; site-neutral actions; the pause alerts; translated (cs, de, es)', [
+    (bool) preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D', 'kaleta-20261103-101500-auto-a1b2c3d4.sql.gz.enc'), Kaleta\Core\Backup::encrypted('kaleta-1-auto-x.sql.gz.enc'), Kaleta\Core\Backup::encrypted('kaleta-1-auto-x.sql.gz'),
+    array_map(fn (string $a): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'settings', 'action' => $a], [], ['REQUEST_METHOD' => 'POST'])), ['backup_key', 'backup_key_download', 'backup_key_confirm', 'backup_key_new', 'backup_key_use']),
+    in_array('backup.copy_paused', Kaleta\Core\Alerts::WARNINGS, true), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RemoteBackup.php'), "\$put(basename(\$path) . BackupEncryption::EXTENSION, \$encrypted)"),
+    array_map(fn (string $code): array => array_values(array_diff($c328Strings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [true, true, false, [false, false, false, false, false], true, true, [[], [], []]]);
+array_map('unlink', array_filter(glob($c328Dir . '/{,storage/}*', GLOB_BRACE) ?: [], 'is_file'));
+@rmdir($c328Dir . '/storage');
+@rmdir($c328Dir);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

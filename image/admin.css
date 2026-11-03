@@ -1754,3 +1754,7 @@ form.moje-predat select { max-width: 100%; }
 	.zakaznici-filtr label, .zakaznici-filtr select { flex: 1 1 100%; max-width: none; }
 	.zakaznik-karta { padding: 14px; }
 }
+
+
+/* 3.28 (D-W12): the recovery key of the off-site backups – one line where it fits, broken at its dashes on a phone */
+.recovery-key { font-size: 15px; letter-spacing: .02em; overflow-wrap: anywhere; }
