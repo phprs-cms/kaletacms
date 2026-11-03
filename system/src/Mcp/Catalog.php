@@ -207,6 +207,13 @@ final class Catalog
         'list_tasks' => ['read', ''],
         'save_task' => ['write', ''],
         'complete_task' => ['write', ''],
+        // Contacts and companies (3.28, Core\Contacts): the customer memory of the site – personal data, never shown on the
+        // site and never journaled for undo (AgentJournal::PERSONAL_TABLES); merging two contacts cannot be taken back
+        'list_contacts' => ['read', ''],
+        'get_contact' => ['read', ''],
+        'save_contact' => ['write', ''],
+        'log_activity' => ['write', ''],
+        'merge_contacts' => ['destructive', ''],
     ];
 
     /**
@@ -365,6 +372,11 @@ final class Catalog
         'list_tasks' => 'List tasks',
         'save_task' => 'Create or change a task',
         'complete_task' => 'Complete a task',
+        'list_contacts' => 'List contacts',
+        'get_contact' => 'Get a contact with its timeline',
+        'save_contact' => 'Create or change a contact',
+        'log_activity' => 'Log a call, meeting or note',
+        'merge_contacts' => 'Merge two contacts',
     ];
 
     /**
@@ -404,7 +416,8 @@ final class Catalog
      */
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
-        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task'];
+        'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
+        'save_contact', 'log_activity', 'merge_contacts'];
 
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool
@@ -440,7 +453,8 @@ final class Catalog
      */
     public const array WORK = ['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'triage_enquiries', 'reply_to_enquiry', 'list_comments', 'add_comment',
         'assign', 'get_email_signature', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
-        'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task'];
+        'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task', 'list_contacts', 'get_contact', 'save_contact',
+        'log_activity', 'merge_contacts'];
 
     /**
      * The tools a tool set lists before the META tools: null = every tool (all).

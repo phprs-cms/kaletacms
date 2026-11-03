@@ -60,7 +60,7 @@ trait CommentTools
         // a full-access connection posts as the administration does (mentions stored, the mentioned and the responsible person
         // notified); a drafts-only one only appends the comment and sends nobody anything
         $commentId = $auth->draftsOnly() ? Comments::add($db, $target, $text, $auth->user() ?? [], 'mcp') : Comments::post($this->app, $target, $text, $auth->user() ?? [], 'mcp')['id'];
-        if ($db->journal !== null && $type !== 'enquiry') {
+        if ($db->journal !== null && !in_array($type, ['enquiry', 'contact'], true)) { // 3.28: nor a note on a customer (personal data)
             $db->journal->inserted('comments', [], $commentId); // ka_comments is not a journaled table (AgentJournal::PERSONAL_TABLES): this row is
         }
         $people = array_map(fn (array $p): string => strtolower($p['user']), Comments::people($db, $mentions));
@@ -79,20 +79,27 @@ trait CommentTools
      * or an item not in the trash) – otherwise an error says why and nothing is read or written.
      *
      * @param array<string, mixed> $a
-     * @return array{0: 'enquiry'|'page'|'item', 1: int, 2: string}
+     * @return array{0: 'enquiry'|'page'|'item'|'contact'|'company', 1: int, 2: string}
      */
     private function commentThread(array $a): array
     {
         $parsed = Comments::parseTarget(trim(is_scalar($a['target'] ?? null) ? (string) $a['target'] : ''))
-            ?? throw new \InvalidArgumentException('target must be "enquiry:<id>", "page:<id>" or "item:<id>" – e.g. "page:12" (ids from list_enquiries, list_pages, list_collection_items).');
+            ?? throw new \InvalidArgumentException('target must be "enquiry:<id>", "page:<id>", "item:<id>", "contact:<id>" or "company:<id>" – e.g. "page:12" (ids from list_enquiries, list_pages, list_collection_items, list_contacts).');
         ['type' => $type, 'id' => $id] = $parsed;
-        [$section, , $table, $idColumn] = Handover::KINDS[$type];
+        // 3.28: a customer or a company (Core\Contacts) – the section Customers
+        [$section, , $table, $idColumn] = Handover::KINDS[$type] ?? [\Kaleta\Core\Contacts::SECTION, '', $type === 'contact' ? 'contacts' : 'companies', 'id'];
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
-            throw new \DomainException('Only a user who may open ' . ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections'][$type] . ' can read and write its comments.');
+            throw new \DomainException('Only a user who may open ' . ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections', 'contact' => 'Customers', 'company' => 'Customers'][$type] . ' can read and write its comments.');
         }
-        if ($this->app->db()->value('SELECT 1 FROM {' . $table . '} WHERE ' . $idColumn . ' = ?' . ($type === 'enquiry' ? '' : ' AND smazano IS NULL'), [$id]) === null) {
+        $where = match ($type) {
+            'page', 'item' => ' AND smazano IS NULL',
+            'contact' => ' AND anonymised_at IS NULL',
+            default => '',
+        };
+        if ($this->app->db()->value('SELECT 1 FROM {' . $table . '} WHERE ' . $idColumn . ' = ?' . $where, [$id]) === null) {
             throw new \InvalidArgumentException(['page' => 'The page does not exist (or is in the trash). Use list_pages.', 'item' => 'The collection item does not exist (or is in the trash). Use list_collection_items.',
-                'enquiry' => 'The enquiry does not exist. Use list_enquiries.'][$type]);
+                'enquiry' => 'The enquiry does not exist. Use list_enquiries.', 'contact' => 'The contact does not exist (or was anonymised). Use list_contacts.',
+                'company' => 'The company does not exist. Use list_contacts with kind companies.'][$type]);
         }
 
         return [$type, $id, $type . ':' . $id];
@@ -119,6 +126,8 @@ trait CommentTools
         $path = match ($type) {
             'enquiry' => 'admin.php?module=enquiries&action=detail&id=' . $id,
             'page' => 'admin.php?module=pages&action=edit&id=' . $id,
+            'contact' => \Kaleta\Core\Contacts::adminPath($id), // 3.28
+            'company' => \Kaleta\Core\Contacts::companyAdminPath($id),
             default => 'admin.php?module=collections&action=item&id=' . (int) $this->app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [$id]) . '&item=' . $id,
         };
 

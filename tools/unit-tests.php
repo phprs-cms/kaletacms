@@ -9011,7 +9011,7 @@ check('3.26 (C): list_comments (read) and add_comment (draft – no @mention fro
 // a comment Claude writes on a page or an item is journaled by its row (undo takes it back); the table stays out of the
 // journaled tables, so an enquiry note never waits in the journal
 check('3.26 (C): comments on pages and items join the Claude session for undo, enquiry notes never; the table itself stays a personal-data table', [
-    str_contains($c326Tools, "if (\$db->journal !== null && \$type !== 'enquiry') {"),
+    str_contains($c326Tools, "if (\$db->journal !== null && !in_array(\$type, ['enquiry', 'contact'], true)) {"), // 3.28: nor a note on a customer
     Kaleta\Core\AgentJournal::journaled('comments'), in_array('comments', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true),
 ], [true, false, true]);
 $w326All = array_map(Kaleta\Mcp\Server::listed(...), Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()));
@@ -9317,6 +9317,76 @@ check('3.27: tasks nobody has – the Team tab lists them with Reassign to… (s
     str_contains(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['list_tasks']['inputSchema']['properties']['filter']['description'] ?? '', 'assignee:none'),
     array_map(fn (string $code): array => array_values(array_diff($n327rStrings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
     [false, true, false, true, true, true, [[], [], []]]);
+
+// 3.28 (agent A): contacts and companies – the customer memory of the site (Core\Contacts, migration 0114)
+$k328 = Kaleta\Core\Contacts::class;
+check('3.28: an address is keyed normalised (trimmed, lower case); the domain, the free-mail rule (a list and the country families) and the company domain', [
+    $k328::normalise('  Jana.Nova@Firma.CZ '), $k328::normalise('not an address'), $k328::domainOf('x@Acme.Example.com'), $k328::domainOf(''),
+    array_map($k328::isFreeMail(...), ['gmail.com', 'seznam.cz', 'yahoo.co.uk', 'hotmail.de', 'outlook.cz', 'gmx.at', 'acme.cz', 'gmail.acme.cz', 'mygmail.com', '']),
+    $k328::companyDomain('jan@gmail.com'), $k328::companyDomain('jan@acme.cz'), $k328::companyDomain('jan@post.cz'),
+    $k328::suggestCompany(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 'jan@gmail.com'),
+], ['jana.nova@firma.cz', null, 'acme.example.com', '', [true, true, true, true, true, true, false, false, false, true], '', 'acme.cz', '', null]);
+check('3.28: a company domain is cleaned (no scheme, www, path or @), anything else is no domain', array_map($k328::cleanDomain(...), ['https://www.Acme.cz/kontakt', '@acme.cz', 'acme', 'a b.cz', 'sub.acme.co.uk', '']),
+    ['acme.cz', 'acme.cz', '', '', 'sub.acme.co.uk', '']);
+check('3.28: the name and phone of a contact come from the form\'s fields – a name field, a phone; never a message, an attachment or the address', [
+    $k328::fromFields([['Name', 'Jana Nová'], ['E-mail', 'jana@x.cz'], ['Telefon', '+420 777 123 456'], ['Message', "Hello,\nplease call"]], 'jana@x.cz'),
+    $k328::fromFields([['Message', 'Call me at 777 123 456 please'], ['CV', 'cv.pdf', '2026/11/x.pdf']]),
+    $k328::fromFields([['Company name', 'Acme'], ['Jméno a příjmení', 'Petr Dvořák'], ['Mobil', '777123456']]),
+    $k328::fromFields([['Name', str_repeat('x', 120)]]), $k328::fromFields(['bad', [1]]),
+], [['name' => 'Jana Nová', 'phone' => '+420 777 123 456'], ['name' => '', 'phone' => ''], ['name' => 'Petr Dvořák', 'phone' => '777123456'], ['name' => '', 'phone' => ''], ['name' => '', 'phone' => '']]);
+$k328Src = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
+check('3.28: two different addresses are never merged by Kaleta – link() finds the contact by the normalised address or a record of the same address a person merged; only merge() moves another contact\'s records', [
+    str_contains($k328Src, '$contact = self::findByEmail($db, $norm) ?? self::mergedInto($db, $norm, $kind, $id);'),
+    str_contains($k328Src, "'SELECT contact_id FROM {' . \$table . '} WHERE LOWER(' . \$column . ') = ? AND contact_id IS NOT NULL'"),
+    substr_count($k328Src, 'SET contact_id = ? WHERE contact_id = ?'), substr_count($k328Src, 'SET contact_id = ? WHERE ' . "' . \$key . ' = ? AND contact_id IS NULL"),
+    str_contains($k328Src, "\$kind === 'subscriber' && !\$record['confirmed']"), $k328::hasOpenDeal(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 1),
+], [true, true, 2, 1, true, false]);
+check('3.28: the timeline is bounded – the default and the most, every source limited, newest first; get_contact shows at most 50 entries, each text at most 200 characters', [
+    $k328::TIMELINE, $k328::TIMELINE_MAX, str_contains($k328Src, '$limit = max(1, min(self::TIMELINE_MAX, $limit));'), substr_count($k328Src, "LIMIT ' . \$limit, [\$id]"),
+    str_contains($k328Src, "return array_slice(array_map("), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "\$limit = max(0, min(50, (int) (\$a['timeline'] ?? 20)));"),
+], [100, 500, true, 2, true, true]);
+$k328Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+$k328Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0114-contacts.sql');
+$k328Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|TEXT)/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
+check('3.28: ka_contacts, ka_companies and ka_contact_activities alike in schema.sql and migration 0114, contact_id on enquiries, bookings and subscribers (indexed), the names map, the moments, DB version 114', [
+    $k328Columns($k328Schema, 'ka_contacts'), $k328Columns($k328Schema, 'ka_contacts') === $k328Columns($k328Migration, 'ka_contacts'),
+    $k328Columns($k328Schema, 'ka_companies') === $k328Columns($k328Migration, 'ka_companies') && $k328Columns($k328Schema, 'ka_companies') !== [],
+    $k328Columns($k328Schema, 'ka_contact_activities') === $k328Columns($k328Migration, 'ka_contact_activities') && $k328Columns($k328Schema, 'ka_contact_activities') !== [],
+    str_contains($k328Schema, 'UNIQUE KEY ux_contacts_email (email_norm)'), preg_match_all('/ALTER TABLE ka_(poptavky|bookings|odberatele) ADD COLUMN contact_id INT UNSIGNED NULL DEFAULT NULL, ADD KEY ix_\1_contact \(contact_id\);/', $k328Migration),
+    preg_match_all('/KEY ix_(poptavky|bookings|odberatele)_contact \(contact_id\)/', $k328Schema), str_contains($k328Migration, 'FOREIGN KEY'),
+    array_map(Kaleta\Core\Names::english(...), ['contacts', 'companies', 'contact_activities']), Kaleta\Core\TimeZoneConversion::INSTANTS['contacts'] ?? null, KALETA_DB_VERSION >= 114,
+    Kaleta\Core\Settings::DEFAULTS['contacts_months'] ?? null, str_contains($k328Migration, "SELECT 'contacts_months', e.hodnota FROM (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months') AS e;"),
+], [['id', 'email', 'email_norm', 'name', 'phone', 'company_id', 'owner_id', 'language', 'source', 'summary', 'first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'],
+    true, true, true, true, 3, 3, false, ['contacts', 'companies', 'contact_activities'], ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'], true, '24', true]);
+check('3.28: comments, tasks and notifications take customers and companies (section Customers); the hand-over counts them; never journaled', [
+    Kaleta\Core\Comments::parseTarget('contact:4'), Kaleta\Core\Comments::parseTarget('company:2'), Kaleta\Core\Comments::parseTarget('contact:0'), Kaleta\Core\Comments::contact(7), Kaleta\Core\Comments::company(8),
+    array_map(Kaleta\Core\Tasks::cleanTarget(...), ['contact:3', 'company:9', 'contact:x', 'deal:1']), Kaleta\Core\Inbox::parse('contact:3'), Kaleta\Core\Inbox::parse('company:2'),
+    Kaleta\Core\Tasks::personal('contact:3'), Kaleta\Core\Tasks::personal('company:3'), Kaleta\Core\Tasks::personal('enquiry:1'), Kaleta\Core\Tasks::personal(null),
+    Kaleta\Core\Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 1, 'contact' => 2, 'company' => 0]), Kaleta\Core\Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 0, 'company' => 1]),
+    Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Handover::describe(['page' => 0, 'item' => 0, 'enquiry' => 0, 'contact' => 3, 'company' => 1]), 'admin-'),
+    array_map(fn (string $t): bool => in_array($t, Kaleta\Core\AgentJournal::PERSONAL_TABLES, true) && !Kaleta\Core\AgentJournal::journaled($t), ['contacts', 'companies', 'contact_activities']),
+    Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Inbox::where(['kind' => 'contact', 'id' => 4, 'title' => 'Jana Nová']), 'admin-'),
+], [['type' => 'contact', 'id' => 4], ['type' => 'company', 'id' => 2], null, 'contact:7', 'company:8', ['contact:3', 'company:9', null, null], ['contact', 3], ['company', 2],
+    true, false, true, false, ['enquiries', 'contacts'], ['contacts'], 'customers: 3, companies: 1', [true, true, true], 'Customer #4']);
+$k328Mail = Kaleta\Core\Assignment::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], 'contact', ['id' => 12, 'title' => '#12', 'path' => ''], 'Jana', 'https://x/1');
+check('3.28: the assignment e-mail of a customer names its number only – never the customer\'s name', [$k328Mail[0], str_contains($k328Mail[1], 'customer #12'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php'), "['id' => \$id, 'title' => '#' . \$id, 'path' => Contacts::adminPath(\$id)]")],
+    ['You are responsible for the customer #12', true, true]);
+$k328Tools = ['list_contacts', 'get_contact', 'save_contact', 'log_activity', 'merge_contacts'];
+$k328Defs = array_column(Kaleta\Mcp\Tools::definitions(), null, 'name');
+check('3.28: the contact tools – English on both sides, in the work set and never in the essentials, site-neutral, merge destructive with confirm, the descriptions say the changes are not undoable', [
+    array_map(fn (string $t): ?array => Kaleta\Mcp\Catalog::TOOLS[$t] ?? null, $k328Tools), array_map(Kaleta\Mcp\Translator::czech(...), $k328Tools),
+    array_values(array_intersect($k328Tools, Kaleta\Mcp\Catalog::ESSENTIALS)), array_values(array_intersect($k328Tools, Kaleta\Mcp\Catalog::WORK)),
+    array_map(Kaleta\Mcp\Catalog::isSiteNeutral(...), ['save_contact', 'log_activity', 'merge_contacts']), Kaleta\Mcp\Discovery::runner('merge_contacts'), Kaleta\Mcp\Catalog::allows('drafts', 'save_contact'),
+    $k328Defs['merge_contacts']['inputSchema']['required'] ?? null, array_map(fn (string $t): bool => str_contains($k328Defs[$t]['description'] ?? '', 'NOT UNDOABLE'), ['save_contact', 'log_activity', 'merge_contacts']),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "if ((\$a['confirm'] ?? false) !== true) {"),
+], [[['read', ''], ['read', ''], ['write', ''], ['write', ''], ['destructive', '']], $k328Tools, [], $k328Tools, [true, true, true], 'run_destructive_tool', false, ['into', 'from', 'confirm'], [true, true, true], true]);
+$k328Strings = ['Give the contact an e-mail address, a name or a phone number.', 'A contact with this e-mail address already exists (#%d) – open it, or merge the two.', 'Merged with the contact #%d (%s).',
+    'First contact on %s through the form “%s”.', 'Customer relations', 'customers: %d', 'companies: %d', 'Customer #%s', 'Call', 'Meeting', 'Anonymise customers inactive for',
+    'You are responsible for the customer #%s', 'This person cannot open Customers (or the account is blocked) – choose someone who can.', 'Customer records: %d'];
+check('3.28: the texts of contacts are in every admin language; the du overlay addresses the person informally', [
+    array_map(fn (string $code): array => array_values(array_diff($k328Strings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es']),
+    (require KALETA_SYSTEM . '/jazyky/admin-de-du.php')['You can delete only your own entries.'] ?? null,
+], [[[], [], []], 'Du kannst nur deine eigenen Einträge löschen.']);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -692,6 +692,20 @@
             "openWorldHint": false
         }
     },
+    "get_contact": {
+        "parameters": {
+            "email": "string",
+            "id": "integer",
+            "timeline": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Get a contact with its timeline",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_due_agent_runs": {
         "parameters": [],
         "required": [],
@@ -1108,6 +1122,25 @@
             "openWorldHint": false
         }
     },
+    "list_contacts": {
+        "parameters": {
+            "company": "integer",
+            "inactive_months": "integer",
+            "kind": "string",
+            "limit": "integer",
+            "owner": "string",
+            "page": "integer",
+            "search": "string",
+            "sort": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List contacts",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_draft_comments": {
         "parameters": {
             "include_resolved": "boolean",
@@ -1376,6 +1409,43 @@
             "title": "List the trash",
             "readOnlyHint": true,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "log_activity": {
+        "parameters": {
+            "at": "string",
+            "contact": "integer",
+            "kind": "string",
+            "text": "string"
+        },
+        "required": [
+            "contact",
+            "kind",
+            "text"
+        ],
+        "annotations": {
+            "title": "Log a call, meeting or note",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "merge_contacts": {
+        "parameters": {
+            "confirm": "boolean",
+            "from": "integer",
+            "into": "integer"
+        },
+        "required": [
+            "into",
+            "from",
+            "confirm"
+        ],
+        "annotations": {
+            "title": "Merge two contacts",
+            "readOnlyHint": false,
+            "destructiveHint": true,
             "openWorldHint": false
         }
     },
@@ -1860,6 +1930,28 @@
         "required": [],
         "annotations": {
             "title": "Save a component",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_contact": {
+        "parameters": {
+            "company": "string",
+            "company_domain": "string",
+            "company_registration_no": "string",
+            "company_vat_id": "string",
+            "email": "string",
+            "id": "integer",
+            "language": "string",
+            "name": "string",
+            "owner": "string",
+            "phone": "string",
+            "summary": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Create or change a contact",
             "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": false

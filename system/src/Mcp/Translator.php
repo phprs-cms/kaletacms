@@ -311,6 +311,11 @@ final class Translator
         'list_tasks' => ['list_tasks', '', []],
         'save_task' => ['save_task', '', []],
         'complete_task' => ['complete_task', '', []],
+        'list_contacts' => ['list_contacts', '', []], // 3.28: English only, like the newsletter tools
+        'get_contact' => ['get_contact', '', []],
+        'save_contact' => ['save_contact', '', []],
+        'log_activity' => ['log_activity', '', []],
+        'merge_contacts' => ['merge_contacts', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
