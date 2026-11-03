@@ -2691,6 +2691,18 @@ curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php"
 expect "pozvánka otevřená u jiného přihlášení nastaví heslo a odhlásí" "$SIGNED_IN|$INVITE_FORM|${INVITE_SET%% *}|$(grep -q 'password_changed=1$' <<< "$INVITE_SET" && echo ok)|$(grep -c 'autocomplete="current-password"' "$WORK/response" || true)" "302|1|1|302|ok|1"
 invite_login() { local jar="$WORK/jar-$2"; curl -s -c "$jar" -o "$WORK/response" "$B/admin.php"; curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" --data-urlencode "user=$1" --data-urlencode "password=Pozvany-heslo-123"; }
 expect "pozvaný se přihlásí jménem i e-mailem" "$(invite_login pozvany name)|$(invite_login pozvany@example.cz email)" "302|302"
+# 3.29.1 review: an e-mail two accounts share (in another case too) signs neither in; wrong passwords typed with the e-mail
+# count to that account's lock as with its user name, and the lock then holds for the right password
+OWN_EMAIL3291=$(sq "SELECT email FROM ka_uzivatele WHERE user = 'obchodnik'")
+sq "UPDATE ka_uzivatele SET email = 'POZVANY@example.cz' WHERE user = 'obchodnik'" > /dev/null
+SHARED3291=$(invite_login pozvany@example.cz shared)
+sq "UPDATE ka_uzivatele SET email = '$OWN_EMAIL3291' WHERE user = 'obchodnik'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+JAR6="$WORK/jar6"; curl -s -c "$JAR6" -o "$WORK/response" "$B/admin.php"; TOKEN6=$(csrf_of "$WORK/response")
+for i in $(seq 1 10); do curl -s -b "$JAR6" -c "$JAR6" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN6" --data-urlencode user=pozvany@example.cz -d password=wrong-by-email-3291; done
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+LOCKED3291="$(sq "SELECT zamceno_do > '$(site_time)' FROM ka_uzivatele WHERE user = 'pozvany'")|$(invite_login pozvany locked)"
+sq "UPDATE ka_uzivatele SET zamceno_do = NULL, pocet_chyb = 0 WHERE user = 'pozvany'; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+expect "3.29.1 review: a shared e-mail signs nobody in; wrong passwords by e-mail lock the account as by name" "$SHARED3291|$LOCKED3291" "401|1|401"
 JAR4="$WORK/jar4"
 TOKEN4=$(curl -s -c "$JAR4" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 for i in $(seq 1 10); do curl -s -b "$JAR4" -c "$JAR4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN4" -d user=obchodnik -d password=spatne-heslo-xyz; done
