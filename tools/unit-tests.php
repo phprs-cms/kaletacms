@@ -9554,6 +9554,12 @@ check('3.28: the recovery key – format and parse, a file outside the database 
     Kaleta\Core\RecoveryKey::confirmedAt($c328Settings), str_contains(Kaleta\Core\RecoveryKey::document($c328Key, 'https://example.com/'), $c328Formatted)],
     [true, true, true, null, null, null, ['none', 'unconfirmed', 'confirmed', true, 'unconfirmed'], true, true, false, '2026-11-03 10:00', true]);
 
+clearstatcache();
+check('3.28 (N328-8): the key file is closed to others before the key is written into it, and no temporary file stays', [
+    fileperms($c328File) & 0007, Kaleta\Core\Vault::configMode() & 0007, glob($c328File . '.kaleta-*') ?: [],
+    strpos((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RecoveryKey.php'), '@chmod($temporary') < strpos((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RecoveryKey.php'), '@file_put_contents($temporary')],
+    [0, 0, [], true]);
+
 // the encrypted copy uploaded back is a backup of the list, restored only with a key; its texts are translated; the actions
 // never clear the page cache; the paused copies alert the owner; the media copy stays as it is (public files)
 $c328Strings = ['Off-site copies are paused until the recovery key is saved (Settings → Backups and updates).', 'Show and save the recovery key', 'Make a new recovery key', 'Recovery key',

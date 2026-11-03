@@ -118,10 +118,16 @@ final class RecoveryKey
         $content = "<?php exit; ?>\n# Kaleta: the key of the encrypted off-site backups (3.28). The recovery key the administrator saved is this key.\n"
             . "# Never share this file; keep it out of every copy of the site.\nkey=" . base64_encode($key) . "\n";
         $temporary = $file . '.kaleta-' . bin2hex(random_bytes(4));
-        if (@file_put_contents($temporary, $content, LOCK_EX) === false) {
+        // N328-8: the file is made empty and closed to others first, the key is written only then – never readable by another
+        // account of a shared hosting, not even for a moment between the write and the chmod
+        $made = @touch($temporary);
+        if ($made) {
+            @chmod($temporary, Vault::configMode()); // a filesystem without permissions keeps what it has, as before
+        }
+        if (!$made || @file_put_contents($temporary, $content, LOCK_EX) === false) {
+            @unlink($temporary);
             throw new \RuntimeException(t('The recovery key cannot be saved – the folder storage/ is not writable.'));
         }
-        @chmod($temporary, Vault::configMode());
         if (!@rename($temporary, $file)) {
             @unlink($temporary);
             throw new \RuntimeException(t('The recovery key cannot be saved – the folder storage/ is not writable.'));
