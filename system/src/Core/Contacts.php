@@ -598,13 +598,13 @@ final class Contacts
 
     /**
      * Merges contact $from into $into – a person's decision, never Kaleta's (two different addresses are merged only here):
-     * the enquiries, bookings, subscription, activities, the team's comments and tasks and the notifications of $from move to
+     * the enquiries, bookings, subscription, activities, the team's comments and tasks, the notifications and (3.31) the deals of $from move to
      * $into; $into keeps its address and fills its empty name, phone, company, responsible person and language from $from,
      * the summaries are joined, the first and last activity span both. $from is deleted; a note on $into keeps the history
      * (which contact and address were merged, by whom). Returns what moved.
      *
      * @param int $byUserId who merges (the author of the note; 0 = Kaleta itself)
-     * @return array{into: int, from: int, moved: array{enquiries: int, bookings: int, subscriptions: int, activities: int, comments: int, tasks: int}}
+     * @return array{into: int, from: int, moved: array{enquiries: int, bookings: int, subscriptions: int, activities: int, comments: int, tasks: int, deals: int}}
      * @throws \DomainException with a translated reason; nothing changes
      */
     public static function merge(App $app, int $into, int $from, int $byUserId): array
@@ -640,6 +640,11 @@ final class Contacts
                 $db->run('UPDATE {notifications} SET target = ? WHERE target = ?', [$new, $old]);
             } catch (\PDOException) {
                 // before migration 0112
+            }
+            try {
+                $moved['deals'] = $db->run('UPDATE {deals} SET contact_id = ? WHERE contact_id = ?', [$a['id'], $b['id']])->rowCount(); // 3.31
+            } catch (\PDOException) {
+                $moved['deals'] = 0; // before migration 0117
             }
             $fill = array_filter(['name' => $a['name'] === '' ? $b['name'] : '', 'phone' => $a['phone'] === '' ? $b['phone'] : '', 'language' => $a['language'] === '' ? $b['language'] : ''],
                 fn (string $v): bool => $v !== '');

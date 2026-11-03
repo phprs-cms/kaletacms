@@ -159,6 +159,7 @@ final class PersonalData
             $db->delete('poptavky', ['idp' => (int) $idp]);
         }
         Comments::forgetEnquiries($db, array_map('intval', array_column($found['enquiries'], 'idp'))); // 3.25: the team's notes on them too
+        Deals::forgetEnquiries($db, array_map('intval', array_column($found['enquiries'], 'idp'))); // 3.31: a deal from one stays, without the link
         if ($found['subscriber'] !== null) {
             if ((int) $found['subscriber']['stav'] === 1) {
                 Newsletter::enqueue($app, (string) $found['subscriber']['email'], 'odebrat'); // gone from the mailing service too

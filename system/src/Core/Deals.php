@@ -824,12 +824,33 @@ final class Deals
         return $changed;
     }
 
+    /**
+     * Enquiries were deleted (the retention, an erasure on request): the deals that came from them keep everything else and
+     * forget the enquiry (source_enquiry_id = NULL). Returns how many deals changed.
+     *
+     * @param list<int> $idps
+     */
+    public static function forgetEnquiries(Db $db, array $idps): int
+    {
+        $idps = array_values(array_unique(array_filter(array_map('intval', $idps), fn (int $id): bool => $id > 0)));
+        $changed = 0;
+        try {
+            foreach (array_chunk($idps, 500) as $chunk) {
+                $changed += $db->run('UPDATE {deals} SET source_enquiry_id = NULL WHERE source_enquiry_id IN (' . implode(',', $chunk) . ')')->rowCount();
+            }
+        } catch (\PDOException) {
+            return $changed; // before migration 0117
+        }
+
+        return $changed;
+    }
+
     /** Does a text name the person – their name (a word of at least 3 letters of it, all of them) or their address? Pure. */
     public static function names(string $text, string $name, string $email): bool
     {
         $text = mb_strtolower($text);
         $email = mb_strtolower(trim($email));
-        if ($email !== '' && (str_contains($text, $email) || str_contains($text, (string) strstr($email, '@', true)))) {
+        if ($email !== '' && str_contains($text, $email)) {
             return true;
         }
         $words = array_values(array_filter(preg_split('/[\s,.;]+/u', mb_strtolower(trim($name))) ?: [], fn (string $w): bool => mb_strlen($w) >= 3));

@@ -28,6 +28,9 @@ namespace Kaleta\Core;
  * the change against the month before, the visits of each day, and "What it took to run the site" – what the site did by
  * itself, what Claude did and what people did, and how often it needed a person to decide (build() stores the extra counts
  * under "care"). With a fleet console the data carry "uptime" and the e-mail shows it; without one there is no uptime part.
+ *
+ * 3.31: "pipeline" – new, won and lost deals and how many reached each stage (Core\Deals::monthCounts); counts only, never
+ * values (D-W7), and none on a site without deals.
  */
 final class MonthlyReport
 {
@@ -192,6 +195,8 @@ final class MonthlyReport
             'newsletter' => Extensions::isEnabled($s, 'newsletter') ? $section(fn (): array => ['signups' => (int) $signups,
                 'campaigns' => array_map(static fn (array $r): array => ['subject' => (string) $r['subject'], 'date' => self::iso($r['finished_at']), 'sent' => (int) $r['sent_count']],
                     $db->all("SELECT subject, finished_at, sent_count FROM {newsletters} WHERE status = 'sent' AND finished_at >= ? AND finished_at < ? ORDER BY finished_at LIMIT 20", [$from, $to]))]) : null,
+            // 3.31: the pipeline – counts only, never values (D-W7: a report is never money); null on a site without deals
+            'pipeline' => $section(fn (): ?array => self::pipeline($app, $from, $to)),
             'open' => $section(fn (): array => self::open($app, $enquiries)),
             // 3.26.1: the month's uptime from the fleet console (Fleet\Uptime, drawn by Core\UptimeStrip) – null without a console
             'uptime' => $section(fn (): ?array => \Kaleta\Fleet\Uptime::month($s, $monthStart->format('Y-m'))),
@@ -276,6 +281,25 @@ final class MonthlyReport
 
     /** At most this many titles in one list of the archived report (requests, pages, news, runs). */
     public const int LIST_LIMIT = 20;
+
+    /**
+     * The pipeline of the month (3.31, Core\Deals::monthCounts): new deals, won and lost ones, and how many deals reached
+     * each stage, with the stages' names in the site's language – counts only, never values. Null without deals.
+     *
+     * @return array{new: int, won: int, lost: int, stages: list<array{key: string, label: string, n: int}>}|null
+     */
+    private static function pipeline(App $app, string $from, string $to): ?array
+    {
+        $counts = Deals::monthCounts($app, $from, $to);
+        if ($counts === null) {
+            return null;
+        }
+        $s = $app->settings();
+        $labels = array_column(Language::runWith(Language::defaults($s), fn (): array => Deals::stages($s), 'admin-'), 'label', 'key');
+
+        return ['new' => $counts['new'], 'won' => $counts['won'], 'lost' => $counts['lost'],
+            'stages' => array_map(fn (string $key, int $n): array => ['key' => $key, 'label' => (string) ($labels[$key] ?? $key), 'n' => $n], array_keys($counts['stages']), array_values($counts['stages']))];
+    }
 
     /** Areas of the site a change belongs to, in the order the report shows them. */
     public const array AREAS = ['pages' => 'Pages and builder', 'news' => 'News', 'collections' => 'Collections', 'look' => 'Look and menu', 'media' => 'Media',
@@ -665,6 +689,13 @@ final class MonthlyReport
                     $plain[] = [t('Newsletter sign-ups'), $n($signups)];
                 }
                 $section($html, mb_strtoupper(t('Enquiries and sign-ups')) . "\n" . $plainPairs($plain));
+            }
+
+            // 3.31: the pipeline – counts only (new, won, lost), never values
+            $pipeline = is_array($data['pipeline'] ?? null) ? $data['pipeline'] : null;
+            if ($pipeline !== null) {
+                $pairs = [[t('New deals'), $n($pipeline['new'] ?? 0)], [t('Deals won'), $n($pipeline['won'] ?? 0)], [t('Deals lost'), $n($pipeline['lost'] ?? 0)]];
+                $section(ReportVisual::title(t('Pipeline'), $p) . ReportVisual::pairs($pairs, $p), mb_strtoupper(t('Pipeline')) . "\n" . $plainPairs($pairs));
             }
 
             // what is new on the site: pages and news published this month

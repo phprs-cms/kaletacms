@@ -264,6 +264,16 @@ final class ReportPage
             ]);
         }
 
+        // 3.31: the pipeline – counts only, never values (D-W7)
+        $pipeline = is_array($data['pipeline'] ?? null) ? $data['pipeline'] : null;
+        if ($pipeline !== null) {
+            $add('pipeline', t('Pipeline'), [
+                $pairs([[t('New deals'), $n($pipeline['new'] ?? 0)], [t('Deals won'), $n($pipeline['won'] ?? 0)], [t('Deals lost'), $n($pipeline['lost'] ?? 0)]]),
+                $table(t('Deals that reached each stage'), [t('Stage'), t('Deals')], array_map(static fn (array $st): array => [(string) ($st['label'] ?? ''), $n($st['n'] ?? 0)],
+                    array_values(array_filter((array) ($pipeline['stages'] ?? []), static fn (mixed $st): bool => is_array($st) && (int) ($st['n'] ?? 0) > 0))), [1]),
+            ]);
+        }
+
         // newsletter
         $newsletter = is_array($data['newsletter'] ?? null) ? $data['newsletter'] : null;
         if ($newsletter !== null) {

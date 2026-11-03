@@ -9540,7 +9540,7 @@ check('3.28: two different addresses are never merged by Kaleta – link() finds
         && str_contains($k328Src, "self::normalise((string) \$r['email']) === \$norm ? self::find("),
     substr_count($k328Src, 'SET contact_id = ? WHERE contact_id = ?'), substr_count($k328Src, 'SET contact_id = ? WHERE ' . "' . \$key . ' = ? AND contact_id IS NULL"),
     str_contains($k328Src, "\$kind === 'subscriber' && !\$record['confirmed']"), $k328::hasOpenDeal(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 1),
-], [true, true, 2, 1, true, false]);
+], [true, true, 3, 1, true, false]); // 3.31: merge() moves the deals too
 check('3.28 (N328-3): linking a new address scans no table until the first merge or change of a linked address (contacts_merged_at); merge() and an address change set it, and it is bookkeeping that undo never resets', [
     str_contains($k328Src, "if (\$s->get('contacts_merged_at') === '') {\n            return null;"), substr_count($k328Src, 'self::markMerged($app->settings());'),
     array_key_exists('contacts_merged_at', Kaleta\Core\Settings::DEFAULTS), preg_match('/_(check|time|checked|seen|ts|at)$/', 'contacts_merged_at'),
@@ -9907,6 +9907,113 @@ check('3.29 Checks – the hand-over row keys match the site audit; every label 
     isset((require KALETA_SYSTEM . '/jazyky/admin-de-du.php')['Update the site to see'])],
     [[], [], true, [[], [], []], true]);
 
+// 3.31 (agent A): the lean pipeline – deals, stages, money as numbers with a currency, retention, MCP, the monthly report
+$d331 = Kaleta\Core\Deals::class;
+check('3.31: the stages – the defaults (labels translated in the UI language), a custom pipeline as stored (its labels as typed), a damaged or invalid one falls back to the defaults', [
+    Kaleta\Core\Language::runWith('en', fn (): array => array_map(fn (array $s): string => $s['key'] . ':' . $s['kind'] . ':' . $s['label'], $d331::parseStages('')), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): array => array_column($d331::parseStages(''), 'label'), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): array => array_map(fn (array $s): string => $s['key'] . ':' . $s['label'] . ':' . (int) $s['custom'],
+        $d331::parseStages('[{"key":"new","label":"","kind":"open"},{"key":"demo","label":"Demo booked","kind":"open"},{"key":"won","label":"Signed","kind":"won"},{"key":"lost","label":"","kind":"lost"}]')), 'admin-'),
+    array_column($d331::parseStages('{broken'), 'key'), array_column($d331::parseStages('[{"key":"a","label":"A","kind":"open"},{"key":"b","label":"B","kind":"open"},{"key":"c","label":"C","kind":"lost"}]'), 'key'),
+    $d331::DEFAULT_STAGES['won'][1], Kaleta\Core\Settings::DEFAULTS['pipeline_stages'] ?? null,
+], [['new:open:New', 'qualified:open:Qualified', 'proposal:open:Proposal', 'won:won:Won', 'lost:lost:Lost'], ['Nový', 'Kvalifikovaný', 'Nabídka', 'Vyhraný', 'Ztracený'],
+    ['new:Nový:0', 'demo:Demo booked:1', 'won:Signed:1', 'lost:Ztracený:0'], ['new', 'qualified', 'proposal', 'won', 'lost'], ['new', 'qualified', 'proposal', 'won', 'lost'], 'won', '']);
+$d331Refuse = function (callable $fn): string {
+    try {
+        return (string) json_encode($fn());
+    } catch (DomainException $e) {
+        return 'refused: ' . $e->getMessage();
+    }
+};
+check('3.31: a value is a non-negative number with at most two decimals (spaces, a decimal comma and thousands separators of both kinds read), none when empty; a currency from the fixed ISO list', [
+    array_map($d331::value(...), ['12 500,50', '12.500,50', '12,500.50', '12500.5', '0', '7', ' ', '', null]),
+    Kaleta\Core\Language::runWith('en', fn (): array => array_map(fn (mixed $v): string => $d331Refuse(fn () => $d331::value($v)), ['-5', 'abc', '1.234', '99999999999', true]), 'admin-'),
+    array_map($d331::currency(...), ['eur', ' CZK ', '']), Kaleta\Core\Language::runWith('en', fn (): string => $d331Refuse(fn () => $d331::currency('XYZ')), 'admin-'),
+    in_array('CZK', $d331::CURRENCIES, true) && in_array('EUR', $d331::CURRENCIES, true) && count($d331::CURRENCIES) === count(array_unique($d331::CURRENCIES)),
+    $d331::defaultCurrency($reportSettings(['site_language' => 'cs'])), $d331::defaultCurrency($reportSettings([])),
+], [['12500.50', '12500.50', '12500.50', '12500.50', '0.00', '7.00', null, null, null],
+    ['refused: The value cannot be negative.', 'refused: The value must be a number.', 'refused: The value must be a number.', 'refused: The value is too large.', 'refused: The value must be a number.'],
+    ['EUR', 'CZK', ''], 'refused: “XYZ” is not a currency Kaleta offers.', true, 'CZK', 'EUR']);
+$d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
+check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
+    $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),
+    $d331::event('lost', 'new', $d331Kinds), $d331::event('lost', 'lost2', $d331Kinds),
+    $d331::ownerFilter('mine', 7), $d331::ownerFilter('mine', 0), $d331::ownerFilter('none', 7), $d331::ownerFilter('3', 7), $d331::ownerFilter(0, 7), $d331::ownerFilter(-1, 7), $d331::STATUSES,
+], ['created', 'moved', 'won', 'lost', 'reopened', 'lost', 7, -1, -1, 3, 0, -1, ['open', 'closed', 'won', 'lost', 'all']]);
+check('3.31: a deal\'s title names the person when it has every word of their name or their address – such a title loses it when the person is erased', [
+    $d331::names('Olga Nováková – yearly contract', 'Olga Nováková', 'olga@x.cz'), $d331::names('Yearly contract for NOVÁKOVÁ Olga', 'Olga Nováková', ''), $d331::names('Website for Acme', 'Olga Nováková', 'olga@acme.cz'),
+    $d331::names('Offer sent to olga@acme.cz', 'Olga', 'olga@acme.cz'), $d331::names('Olga\'s website', 'Olga Nováková', ''), $d331::names('Anything', '', ''), $d331::names('Jo Li deal', 'Jo Li', ''),
+    $d331::names('Anything', '', 'not-an-address'), $d331::names('Information pack', '', 'info@acme.cz'),
+], [true, true, false, true, false, false, false, false, false]);
+$d331Src = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+check('3.31: won and lost close a deal, lost needs a reason, reopening clears it; one open deal per enquiry; every move is in the history; delete is for administrators', [
+    str_contains($d331Src, "\$closedAt = \$to['kind'] === 'open' ? null :"), str_contains($d331Src, "if (!isset(self::LOST_REASONS[\$reason])) {"),
+    str_contains($d331Src, "['stage' => \$to['key'], 'closed_at' => \$closedAt, 'lost_reason' => \$reason, 'lost_note' => \$note"), substr_count($d331Src, "\$db->insert('deal_stage_history',"),
+    substr_count($d331Src, '$open = self::openForEnquiry($db, '), str_contains($d331Src, "if (!\$app->auth()->isAdmin()) {\n            throw new \\DomainException(t('Only an administrator can delete a deal.'));"),
+    array_keys($d331::LOST_REASONS), $d331::SECTION, Kaleta\Core\Assignment::KINDS['deal'] ?? null,
+], [true, true, true, 2, 2, true, ['price', 'competitor', 'timing', 'no_response', 'not_a_fit', 'other'], 'pipeline', 'pipeline']);
+check('3.31 (D-W6): an enquiry of a deal is kept while the deal is open and for the retention after it closed; a customer with an open deal is never anonymised; an erased or anonymised customer\'s deals stay without the person', [
+    str_contains($d331Src, "\$live = '(d.closed_at IS NULL' . (\$months > 0 ? ' OR d.closed_at >= ?' : '') . ')';"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), '$held = \Kaleta\Core\Contacts::heldByDeals($db, $expired, $months);'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php'), "return Deals::hasOpenDeal(\$db, \$contactId);"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php'), 'Deals::unlinkContacts($db, '),
+    str_contains($d331Src, "['contact_id' => null, 'title' => \$title, 'lost_note' => null, 'updated_at' => Clock::now()]"),
+    Kaleta\Core\Contacts::heldByDeals(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), []),
+], [true, true, true, 2, true, []]);
+$d331Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+$d331Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0117-pipeline.sql');
+$d331Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|DATE|TEXT|DECIMAL|CHAR)\b/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
+check('3.31: ka_deals and ka_deal_stage_history alike in schema.sql and migration 0117 (indexes for stage, owner, contact, company, enquiry; no foreign keys), the names map, the moments and the civil day, the section granted with Customers, DB version 117, never journaled', [
+    $d331Columns($d331Schema, 'ka_deals'), $d331Columns($d331Schema, 'ka_deals') === $d331Columns($d331Migration, 'ka_deals'),
+    $d331Columns($d331Schema, 'ka_deal_stage_history') === $d331Columns($d331Migration, 'ka_deal_stage_history') && $d331Columns($d331Schema, 'ka_deal_stage_history') !== [],
+    preg_match_all('/KEY ix_deals_(stage|owner|contact|company|enquiry) /', $d331Migration), preg_match_all('/KEY ix_deals_(stage|owner|contact|company|enquiry) /', $d331Schema), str_contains($d331Migration, 'FOREIGN KEY'),
+    str_contains($d331Schema, 'value             DECIMAL(12,2) NULL') && str_contains($d331Schema, 'currency          CHAR(3) CHARACTER SET ascii NULL'),
+    array_map(Kaleta\Core\Names::english(...), ['deals', 'deal_stage_history']), Kaleta\Core\TimeZoneConversion::INSTANTS['deals'] ?? null, Kaleta\Core\TimeZoneConversion::INSTANTS['deal_stage_history'] ?? null,
+    Kaleta\Core\TimeZoneConversion::CIVIL['deals'] ?? null, KALETA_DB_VERSION >= 117,
+    str_contains($d331Migration, "SELECT p.fk_id_user, 'pipeline' FROM (SELECT fk_id_user FROM ka_uzivatele_prava WHERE ident_modulu = 'contacts') AS p;")
+        && str_contains($d331Migration, "UPDATE ka_role SET moduly = CONCAT(moduly, ',pipeline') WHERE FIND_IN_SET('contacts', moduly) > 0 AND FIND_IN_SET('pipeline', moduly) = 0;"),
+    array_map(fn (string $t): bool => in_array($t, Kaleta\Core\AgentJournal::PERSONAL_TABLES, true) && !Kaleta\Core\AgentJournal::journaled($t), ['deals', 'deal_stage_history']),
+], [['id', 'title', 'contact_id', 'company_id', 'owner_id', 'stage', 'value', 'currency', 'source_enquiry_id', 'expected_close', 'closed_at', 'lost_reason', 'lost_note', 'created_by', 'created_at', 'updated_at'],
+    true, true, 5, 5, false, true, ['deals', 'deal_stage_history'], ['closed_at', 'created_at', 'updated_at'], ['at'], ['expected_close'], true, true, [true, true]]);
+$d331Mail = Kaleta\Core\Assignment::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], 'deal', ['id' => 12, 'title' => '#12', 'path' => ''], 'Jana', 'https://x/1');
+check('3.31: the bell and the assignment e-mail name a deal by its number only (its title may name a customer); the hand-over counts deals and needs the pipeline; My work lists them', [
+    Kaleta\Core\Inbox::parse('deal:3'), Kaleta\Core\Inbox::TARGETS['deal'] ?? null, Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Inbox::where(['kind' => 'deal', 'id' => 4, 'title' => '#4']), 'admin-'),
+    $d331Mail[0], str_contains($d331Mail[1], 'deal #12'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php'), "['id' => \$id, 'title' => '#' . \$id, 'path' => Deals::adminPath(\$id)]"),
+    Kaleta\Core\Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 0, 'deal' => 2]), Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Handover::describe(['page' => 0, 'item' => 0, 'enquiry' => 0, 'deal' => 2]), 'admin-'),
+    Kaleta\Core\MyWork::LISTS['deals'] ?? null, $d331::adminPath(5),
+], [['deal', 3], 'deal', 'Deal #4', 'You are responsible for the deal #12', true, true, ['pipeline'], 'deals: 2', 'pipeline', 'admin.php?module=pipeline&action=detail&id=5']);
+$d331Tools = ['list_deals', 'save_deal', 'move_deal', 'pipeline_summary'];
+$d331Defs = array_column(Kaleta\Mcp\Tools::definitions(), null, 'name');
+$d331Handler = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/DealTools.php');
+check('3.31: the pipeline tools – English on both sides, in the work set and never in the essentials, site-neutral, move_deal idempotent, no delete over MCP, titled, the access check in every handler, the writes say they are not undoable', [
+    array_map(fn (string $t): ?array => Kaleta\Mcp\Catalog::TOOLS[$t] ?? null, $d331Tools), array_map(Kaleta\Mcp\Translator::czech(...), $d331Tools),
+    array_values(array_intersect($d331Tools, Kaleta\Mcp\Catalog::ESSENTIALS)), array_values(array_intersect($d331Tools, Kaleta\Mcp\Catalog::WORK)),
+    array_map(Kaleta\Mcp\Catalog::isSiteNeutral(...), ['save_deal', 'move_deal']), Kaleta\Mcp\Catalog::isIdempotent('move_deal'), Kaleta\Mcp\Catalog::isIdempotent('save_deal'),
+    array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS), fn (string $t): bool => str_contains($t, 'deal') && str_starts_with($t, 'delete'))),
+    array_map(fn (string $t): bool => isset(Kaleta\Mcp\Catalog::TITLES[$t]), $d331Tools), substr_count($d331Handler, '$this->pipelineOpen();'),
+    array_map(fn (string $t): bool => str_contains($d331Defs[$t]['description'] ?? '', 'NOT UNDOABLE'), ['save_deal', 'move_deal']), $d331Defs['move_deal']['inputSchema']['required'] ?? null,
+    Kaleta\Mcp\Catalog::allows('drafts', 'save_deal'), Kaleta\Mcp\Tools::annotations('pipeline_summary')['readOnlyHint'],
+], [[['read', ''], ['write', ''], ['write', ''], ['read', '']], $d331Tools, [], $d331Tools, [true, true], true, false, [], [true, true, true, true], 4, [true, true], ['id', 'stage'], false, true]);
+$d331Report = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections(['month' => '2026-10', 'pipeline' => ['new' => 4, 'won' => 1, 'lost' => 2,
+    'stages' => [['key' => 'new', 'label' => 'New', 'n' => 4], ['key' => 'qualified', 'label' => 'Qualified', 'n' => 0], ['key' => 'won', 'label' => 'Won', 'n' => 1]]]]), 'admin-');
+$d331Section = array_values(array_filter($d331Report, fn (array $s): bool => $s['key'] === 'pipeline'))[0] ?? null;
+check('3.31 (D-W7): the monthly report counts the pipeline – new, won and lost deals and the stages reached (those with deals) – never a value; none without deals', [
+    $d331Section['title'] ?? null, $d331Section['blocks'][0]['rows'] ?? null, $d331Section['blocks'][1]['rows'] ?? null,
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/MonthlyReport.php'), "'pipeline' => \$section(fn (): ?array => self::pipeline(\$app, \$from, \$to)),"),
+    preg_match('/function monthCounts.*?\n    }\n/s', $d331Src, $d331Fn) === 1 && !str_contains($d331Fn[0], 'SUM(') && !str_contains($d331Fn[0], 'currency'),
+    array_values(array_filter(Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections(['month' => '2026-10']), 'admin-'), fn (array $s): bool => $s['key'] === 'pipeline')),
+    array_map(fn (string $part): bool => str_contains(($d331Mail2 ??= MonthlyReport::render($reportData + ['pipeline' => ['new' => 4, 'won' => 1, 'lost' => 2, 'stages' => []]], $reportSettings([]), 'https://example.com'))['text'], $part),
+        ["PIPELINE\n  New deals: 4\n  Deals won: 1\n  Deals lost: 2"]), str_contains(MonthlyReport::render($reportData, $reportSettings([]), 'https://example.com')['text'], 'PIPELINE'),
+], ['Pipeline', [['New deals', '4'], ['Deals won', '1'], ['Deals lost', '2']], [['New', '4'], ['Won', '1']], true, true, [], [true], false]);
+preg_match_all("/\\bt\\('((?:[^'\\\\]|\\\\.)*)'/", $d331Src, $d331Texts);
+$d331Strings = array_values(array_unique([...array_map('stripslashes', $d331Texts[1]), ...array_column($d331::DEFAULT_STAGES, 0), ...array_values($d331::LOST_REASONS),
+    'You are responsible for the deal #%s', '%s made you the responsible person for the deal #%s.', 'It is listed in My work and under Mine in the pipeline. It does not change who may open it.',
+    'Deal #%s', 'deals: %d', 'Pipeline', 'New deals', 'Deals won', 'Deals lost', 'Deals that reached each stage', 'Stage', 'Deals']));
+check('3.31: the texts of the pipeline are in every admin language; the du overlay addresses the person informally', [
+    count($d331Strings) > 40, array_map(fn (string $code): array => array_values(array_diff($d331Strings, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es']),
+    (require KALETA_SYSTEM . '/jazyky/admin-de-du.php')['Give the deal a title.'] ?? null,
+], [true, [[], [], []], 'Gib dem Deal einen Titel.']);
+
 // 3.31 (agent B): the Pipeline – the module (Workspace, right after Customers, core, site-neutral, in the role presets next to
 // Customers), its filter, the board's columns and exact sums, the stage editor's rows, deal threads and tasks, the timeline
 // kind, the palette, the boxes on an enquiry, a customer and a company, My work, the move script and escaping in the views
@@ -9921,7 +10028,7 @@ check('3.31 (B): the Pipeline – IDENT pipeline (= Core\Deals::SECTION), in Wor
     [in_array(Kaleta\Admin\CommentActions::class, class_uses($b331), true), in_array(Kaleta\Admin\TaskActions::class, class_uses($b331), true)],
     str_contains($b331Icons, "'" . $b331::ICON . "' =>"), $b331Preset('client'), $b331Preset('office'), isset(Kaleta\Admin\Guide::MODULES['pipeline']),
     array_map(fn (string $code): string => (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Pipeline'] ?? '', ['cs', 'de', 'es'])],
-    ['pipeline', 'pipeline', 'Pipeline', 'Workspace', '', false, 1, true, false, false, false, [true, true], true, 1, 1, true, ['Obchody', 'Pipeline', 'Embudo']]);
+    ['pipeline', 'pipeline', 'Pipeline', 'Workspace', '', false, 1, true, false, false, false, [true, true], true, 1, 1, true, ['Obchody', 'Vertriebspipeline', 'Embudo de ventas']]);
 check('3.31 (B): the filter of the board and the list – unknown values fall back, a word is cut; the query leaves the defaults out', [
     $b331::filter([]), $b331::filter(['owner' => 'mine', 'contact' => '12', 'company' => 'x', 'search' => '  Web ', 'status' => 'won', 'view' => 'list']),
     $b331::filter(['owner' => '-1', 'status' => 'nonsense', 'view' => 'kanban', 'contact' => '-3']), $b331::filter(['owner' => '7'])['owner'], mb_strlen($b331::filter(['search' => str_repeat('a', 300)])['search']),
@@ -9961,7 +10068,7 @@ check('3.31 (B): the palette searches deals only for whoever has the Pipeline; t
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/detail.php') . (string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/company.php'), "render('admin/pipeline/deals_box'"),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.css'), '.obchod-presun:has(select[name="stage"] option[data-kind="lost"]:checked:not([data-current])) .obchod-duvod'),
     array_map(fn (string $code): string => (string) json_decode((string) (preg_match('/^\t"deal": ("[^"]*")/m', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-' . $code . '.js'), $m) ? $m[1] : '""')), ['cs', 'de', 'es'])],
-    [true, true, true, true, true, true, true, true, 2, true, ['obchod', 'Deal', 'trato']]);
+    [true, true, true, true, true, true, true, true, 2, true, ['obchod', 'Deal', 'oportunidad']]);
 $b331View = new Kaleta\Core\View([KALETA_SYSTEM . '/views']);
 $b331App = new Kaleta\Core\App([]);
 $b331Url = new class { /** @param array<string, scalar> $p */ public function url(string $a = '', array $p = []): string { return 'admin.php?' . http_build_query(['module' => 'pipeline'] + ($a !== '' ? ['action' => $a] : []) + $p); } };

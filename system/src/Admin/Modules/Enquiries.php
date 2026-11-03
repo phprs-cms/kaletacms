@@ -444,6 +444,7 @@ final class Enquiries extends Module
         self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < ?' . $keep, [$before]));
         $db->run('DELETE FROM {poptavky} WHERE datum < ?' . $keep, [$before]);
         \Kaleta\Core\Comments::forgetEnquiries($db, $expired); // 3.25: the notes go with their enquiry
+        \Kaleta\Core\Deals::forgetEnquiries($db, $expired); // 3.31: a deal from it stays, without the link
     }
 
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */

@@ -1219,4 +1219,12 @@ return [
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.' => 'Mach aus der Anfrage einen Deal und verfolge ihn bis Gewonnen oder Verloren – Kunde und Bearbeiter werden übernommen.',
     'Say why the deal was lost.' => 'Gib an, warum der Deal verloren ging.',
     'Deals you are responsible for' => 'Deals, für die du verantwortlich bist',
+    'The stage “%s” still has deals – move them to another stage first.' => 'In der Phase „%s“ sind noch Deals – verschiebe sie zuerst in eine andere Phase.',
+    'Give the deal a title.' => 'Gib dem Deal einen Titel.',
+    'Move a deal to another stage with Move – it keeps the history.' => 'Verschiebe einen Deal mit „Verschieben“ in eine andere Phase – so bleibt der Verlauf erhalten.',
+    'Say why the deal was lost: %s.' => 'Gib an, warum der Deal verloren ging: %s.',
+    'Write the expected close as a date, e.g. %s.' => 'Gib den erwarteten Abschluss als Datum an, z. B. %s.',
+    'This person cannot open the pipeline (or the account is blocked) – choose someone who can.' => 'Diese Person kann die Pipeline nicht öffnen (oder das Konto ist gesperrt) – wähle jemanden, der es kann.',
+    'You are responsible for the deal #%s' => 'Du bist für den Deal #%s verantwortlich',
+    '%s made you the responsible person for the deal #%s.' => '%s hat dich als verantwortliche Person für den Deal #%s festgelegt.',
 ];
