@@ -13,6 +13,12 @@ final class Backup
     private const int KEEP = 10;
 
     /**
+     * The code of a restore's \RuntimeException thrown before the database was touched (3.28, N328-2): an encrypted backup
+     * with no key, a wrong key, or a damaged or cut-off file – the caller must not "revert" a database that never changed.
+     */
+    public const int UNTOUCHED = 3281;
+
+    /**
      * The public demo (3.3.2, N24): a web request never makes, restores or hands out a backup – a dump holds the site's
      * secret key and password hashes. The demo's own snapshot and reset run from the command line and may.
      */
@@ -101,11 +107,15 @@ final class Backup
         if (str_ends_with($path, BackupEncryption::EXTENSION)) {
             $key ??= RecoveryKey::load();
             if ($key === null) {
-                throw new \RuntimeException(t('This backup is encrypted. Enter the recovery key of the site it comes from, then click Restore again. Nothing was restored.'));
+                throw new \RuntimeException(t('This backup is encrypted. Enter the recovery key of the site it comes from, then click Restore again. Nothing was restored.'), self::UNTOUCHED);
             }
             $plain = self::FOLDER . '/.restore-' . bin2hex(random_bytes(6)) . (str_ends_with(substr($path, 0, -strlen(BackupEncryption::EXTENSION)), '.gz') ? '.sql.gz' : '.sql');
             try {
-                BackupEncryption::decryptFile($path, $plain, $key);
+                try {
+                    BackupEncryption::decryptFile($path, $plain, $key);
+                } catch (\RuntimeException $e) {
+                    throw new \RuntimeException($e->getMessage(), self::UNTOUCHED, $e); // every chunk is checked before a statement runs
+                }
 
                 return self::restorePath($db, $plain);
             } finally {

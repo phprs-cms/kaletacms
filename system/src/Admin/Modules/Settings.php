@@ -958,6 +958,13 @@ class Settings extends Module
             $safetyBackup = Backup::create($this->db, 'predobnovou');
             $statementCount = Backup::restore($this->db, $file, Backup::encrypted($file) ? ($key ?? null) : null);
         } catch (\Throwable $e) {
+            if (isset($safetyBackup) && $e instanceof \RuntimeException && $e->getCode() === Backup::UNTOUCHED) {
+                // 3.28 (N328-2): an encrypted backup refused before a statement ran (a damaged or cut-off file) – the database never
+                // changed, so it is not "reverted" (a whole restore for nothing), and the needless safety backup goes
+                @unlink((string) Backup::path($safetyBackup));
+
+                return $this->back(t('Obnova se nezdařila: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
+            }
             $reverted = false;
             if (isset($safetyBackup)) {
                 // failure in the middle of the restore: the database returns by itself to the state before the restore

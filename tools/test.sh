@@ -2624,6 +2624,16 @@ WRONG_KEY=$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Core
 TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$WRONG_KEY"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
 expect "3.28: a wrong key is refused clearly, no safety backup made, nothing changes" "$(grep -c 'Obnovovací klíč k této záloze nepatří' "$WORK/response")/$(ls "$WORK/web/storage/zalohy" | grep -c predobnovou || true)/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")" "1/$SAFETY_BEFORE/Pred sifrovanou"
+# N328-2: a damaged or cut-off copy (the right key) is refused while every chunk is checked – before a statement runs, so the
+# database is not "reverted" by a whole restore of the safety backup, and that needless safety backup does not stay
+for T328_CUT in tampered truncated; do
+  T328_BAD="${UPLOADED/kaleta-/kaleta-$T328_CUT-}"
+  php -r '$s = file_get_contents($argv[1]); if ($argv[3] === "tampered") { $s[200] = chr(ord($s[200]) ^ 1); } else { $s = substr($s, 0, -40); } file_put_contents($argv[2], $s);' "$WORK/web/storage/zalohy/$UPLOADED" "$WORK/web/storage/zalohy/$T328_BAD" "$T328_CUT"
+  TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$T328_BAD" --data-urlencode "recovery_key=$RECOVERY_KEY"
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
+  expect "3.28 (N328-2): a $T328_CUT encrypted backup is refused, nothing reverted, no safety backup left, nothing changes" "$(grep -c 'Zašifrovaná záloha je poškozená nebo byla změněna\|Zašifrovaná záloha není celá' "$WORK/response")/$(grep -c 'Databáze je zpět ve stavu před obnovou' "$WORK/response")/$(ls "$WORK/web/storage/zalohy" | grep -c predobnovou || true)/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/0/$SAFETY_BEFORE/Pred sifrovanou/0"
+  rm -f "$WORK/web/storage/zalohy/$T328_BAD"
+done
 TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$(echo "$RECOVERY_KEY" | tr 'A-Z-' 'a-z ')"
 expect "3.28: with the recovery key (any case, spaces) the encrypted backup restores, and the key becomes this site's again" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Pred sifrovanou' FROM ka_nastaveni WHERE promenna = 'site_name'")/$(cmp -s "$WORK/web/storage/backup-key.php" "$WORK/backup-key.saved" && echo same || (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\RecoveryKey::load() === Kaleta\Core\RecoveryKey::parse($argv[1]) ? "same" : "other";' -- "$RECOVERY_KEY"))/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/same/0"
 check "3.28: after the restore the copies go on with the same key" 200 "/admin.php?module=settings&tab=backups" "Obnovovací klíč uložen"
