@@ -4546,7 +4546,7 @@ expect "3.30 Inventory CSV: a download of what is filtered (the three X330 sites
   "$(grep -ci '^content-type: text/csv' "$WORK/head330.txt")|$(grep -ci 'attachment; filename="fleet-inventory-' "$WORK/head330.txt")|$(grep -c 'X330' "$WORK/inventory330.csv")|$(grep -c "^\"'=SUM(1) X330 Old\";" "$WORK/inventory330.csv")|$(wc -l < "$WORK/inventory330.csv" | tr -d ' ')" "1|1|3|1|4"
 # the calendar and its reminders: sent once per date and "days before", e-mail and the bell
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=calendar" > "$WORK/code330.txt"
-expect "3.30 Calendar: the month view and the list carry the pilot's certificate (red) and domain (green), the careful site's recovery key waits" \
+expect "3.30 Calendar: the month view and the list carry the pilot's certificate (red) and domain (amber), the careful site's recovery key waits" \
   "$(cat "$WORK/code330.txt")|$(grep -c 'class="flotila-stav flotila-stav-bad" href="/admin.php?module=fleet&amp;action=detail&amp;id='"$PILOT330"'"' "$WORK/response" | awk '{print ($1 >= 1)}')|$(grep -c 'class="vypis vypis-karty flotila-terminy"' "$WORK/response")|$(grep -A3 'X330 Careful' "$WORK/response" | grep -c 'flotila-stav-bad')" "200|1|1|1"
 SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp330"; command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'console@example.cz'), ('alerts_enabled', '1');
@@ -4622,7 +4622,7 @@ php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r
   foreach ($d["dates"] ?? [] as $e) { $by[$e["site"] . ":" . $e["kind"]] = $e["state"] . ":" . $e["days_left"]; }
   $keys = array_column($d["recovery_keys"] ?? [], "state", "site");
   echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean"]);' "$WORK/response" > "$WORK/mcp330.txt"
-expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days" "$(cat "$WORK/mcp330.txt")" "bad:4|ok:19|bad|ok|45,10|clean"
+expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":9999}}}' > "$WORK/response"
 contains -q 'days must be between' "$WORK/response" && echo "  ok     3.30 MCP fleet_calendar: days out of range refused" || { echo "  CHYBA  3.30 MCP fleet_calendar days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp fleet_inventory '{}' > "$WORK/response"; contains -q 'delays_hours' "$WORK/response" && { echo "  CHYBA  fleet_inventory works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_inventory and fleet_calendar exist only on a console"

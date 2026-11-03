@@ -1838,9 +1838,10 @@ table.flotila-kalendar tbody tr:last-child td { border-bottom: 0; }
 table.flotila-kalendar td.flotila-mimo { background: color-mix(in srgb, var(--text) 3%, var(--plocha)); color: var(--text-slaby); }
 table.flotila-kalendar td.flotila-dnes-den .flotila-den { display: inline-block; min-width: 1.6em; border-radius: 999px; background: var(--text); color: var(--plocha); text-align: center; }
 table.flotila-kalendar .flotila-den { font-weight: 600; font-variant-numeric: tabular-nums; }
-table.flotila-kalendar ul { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
-table.flotila-kalendar .flotila-stav { justify-content: flex-start; width: 100%; height: auto; min-height: 24px; padding: 2px 6px; font-size: 12px; overflow: hidden; }
-.flotila-kal-web { overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+table.flotila-kalendar ul { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
+table.flotila-kalendar li { min-width: 0; }
+table.flotila-kalendar .flotila-stav { justify-content: flex-start; box-sizing: border-box; width: 100%; max-width: 100%; height: auto; min-height: 24px; padding: 2px 6px; font-size: 12px; overflow: hidden; }
+.flotila-kal-web { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 table.flotila-terminy tr.flotila-bad td:first-child { box-shadow: inset 3px 0 0 var(--chyba); }
 table.flotila-terminy tr.flotila-warn td:first-child { box-shadow: inset 3px 0 0 var(--varovani); }
 .flotila-odkaz { width: 100%; font-family: ui-monospace, monospace; font-size: 13px; }
@@ -1852,7 +1853,8 @@ form.flotila-okno fieldset { margin: 0 0 12px; }
 table.flotila-okruhy th.cislo, table.flotila-okruhy thead th { white-space: normal; }
 @media (max-width: 640px) {
 	.flotila-mesice h2 { flex: 1 1 auto; min-width: 0; }
-	.flotila-mesice form { flex: 1 1 100%; margin: 0; }
+	.flotila-mesice form { flex: 1 1 100%; min-width: 0; margin: 0; }
+	.flotila-mesice form label { flex-wrap: wrap; }
 	/* the month as a list: only the days with a date, each with its full date */
 	.tab-obal:has(> table.flotila-kalendar) { overflow: visible; border: 0; border-radius: 0; background: none; }
 	table.flotila-kalendar, table.flotila-kalendar tbody, table.flotila-kalendar tr { display: block; min-width: 0; }
