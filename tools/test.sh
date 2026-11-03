@@ -4722,10 +4722,15 @@ expect "3.30 Inventory CSV: a download of what is filtered (the three X330 sites
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=calendar" > "$WORK/code330.txt"
 expect "3.30 Calendar: the month view and the list carry the pilot's certificate (red) and domain (amber), the careful site's recovery key waits" \
   "$(cat "$WORK/code330.txt")|$(grep -c 'class="flotila-stav flotila-stav-bad" href="/admin.php?module=fleet&amp;action=detail&amp;id='"$PILOT330"'"' "$WORK/response" | awk '{print ($1 >= 1)}')|$(grep -c 'class="vypis vypis-karty flotila-terminy"' "$WORK/response")|$(grep -A3 'X330 Careful' "$WORK/response" | grep -c 'flotila-stav-bad')" "200|1|1|1"
-SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp330"; command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
+SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp330"
+# an earlier sink on the same port may still be closing: wait until the port is free, then until the new sink listens
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' "$SMTP_PORT" && break; sleep 0.1; done
+command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' "$SMTP_PORT" && break; sleep 0.1; done
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'console@example.cz'), ('alerts_enabled', '1');
   DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null
-curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
+curl -s -o /dev/null "$B3/tasks?token=contoken317"
+for _ in $(seq 1 50); do ls "$WORK"/smtp330/*.eml > /dev/null 2>&1 && break; sleep 0.2; done; sleep 0.5 # the job may finish after the reply
 F=$(grep -l "^X-Rcpt-To: owner317@agency.example" "$WORK"/smtp330/*.eml 2>/dev/null | tail -1 || true); : > "$WORK/eml330.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml330.txt"
 expect "3.30 reminders: the certificate (5 days: 30 and 7 days before recorded, one reminder) and the domain (20 days: 30) – one e-mail to the alert recipients with plain links, a bell notification for the administrator" \
   "$(sq3 "SELECT GROUP_CONCAT(CONCAT(kind, ':', days_before) ORDER BY kind, days_before) FROM ka_fleet_expiry_reminders WHERE site_id = $PILOT330")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c '^X-Rcpt-To: owner317@agency.example' "$WORK/eml330.txt")|$(grep -c "admin.php?module=fleet&action=detail&id=$PILOT330" "$WORK/eml330.txt")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry' AND target = 'fleet_site:$PILOT330' AND emailed_at IS NOT NULL")" \
