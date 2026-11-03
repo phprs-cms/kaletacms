@@ -3570,7 +3570,7 @@ $kernel329 = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php')
 check('3.29: rendering a page or serving it from the page cache counts nothing; the beacon (and so the counting) is only on indexable pages outside previews and for nobody signed in', [
     str_contains($kernel329, 'Stats::record('), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Cache.php'), 'Stats::record('),
     preg_match('/visit = visit \+ 1/', $kernel329 . file_get_contents(KALETA_SYSTEM . '/src/Front/Cache.php')),
-    str_contains($kernel329, "\$meta['vitals'] = Stats::isOn(\$this->app) && \$this->app->request->get('preview') === '' && !\$this->sitePreview && \$this->app->auth()->user() === null;"),
+    str_contains($kernel329, "\$meta['vitals'] = Stats::isOn(\$this->app) && \$this->app->request->get('preview') === '' && !\$this->wantsDraft() && \$this->app->auth()->user() === null;"),
     in_array('hit', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), in_array('hit', Kaleta\Core\Routes::NEWS_RESERVED, true), Kaleta\Core\Routes::pageLike('/hit'), Kaleta\Core\Settings::DEFAULTS['stats_confirmed_since']],
     [false, false, 0, true, true, true, false, '']);
 

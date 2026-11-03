@@ -1657,9 +1657,10 @@ final class Kernel
         unset($meta['clanek']);
         if ($status === 200 && empty($meta['noindex'])) {
             // 3.29: the page carries the beacon that counts the view once the visitor's browser shows it (Front\Stats::hit) –
-            // never in previews (a single draft, the whole-site preview of drafts) or the builder (noindex), and not for
-            // signed-in users (their own visits, the editing bar). Real-user speed (2.8) is measured on the same page views.
-            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && !$this->sitePreview && $this->app->auth()->user() === null;
+            // never in previews (a single draft, the whole-site preview of drafts, a draft build shown through a shared
+            // preview link – ?build=koncept&preview_key, N329-3) or the builder (noindex), and not for signed-in users (their
+            // own visits, the editing bar). Real-user speed (2.8) is measured on the same page views.
+            $meta['vitals'] = Stats::isOn($this->app) && $this->app->request->get('preview') === '' && !$this->wantsDraft() && $this->app->auth()->user() === null;
         }
 
         if (($meta['obrazek'] ?? '') !== '' && !preg_match('#^https?://#', $meta['obrazek'])) {
