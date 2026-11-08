@@ -732,9 +732,11 @@ final class Deals
         $won = 0;
         $lost = 0;
         foreach ($closed as $r) {
-            if (($kinds[(string) $r['stage']] ?? '') === 'won') {
+            // N331-3: a closed deal left in a stage whose kind was changed to open since is neither won nor lost (as summary())
+            $kind = $kinds[(string) $r['stage']] ?? '';
+            if ($kind === 'won') {
                 $won += (int) $r['n'];
-            } else {
+            } elseif ($kind === 'lost') {
                 $lost += (int) $r['n'];
             }
         }

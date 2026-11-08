@@ -10587,6 +10587,11 @@ expect "3.31: deleting a deal needs an administrator" "$(t331_php "try { Kaleta\
 expect "3.31 monthly report: new, won and lost deals and the stages reached this month – never a value" \
   "$(t331_php '$d = Kaleta\Core\MonthlyReport::build($app, new DateTimeImmutable("first day of this month")); $p = $d["pipeline"] ?? []; echo $p["new"] ?? "x", "|", $p["won"] ?? "x", "|", $p["lost"] ?? "x", "|", json_encode(array_column($p["stages"] ?? [], "n", "key")), "|", (int) str_contains(json_encode($p), "12500"), "|", (int) str_contains(json_encode($p), "300");')" \
   '2|1|0|{"new":2,"qualified":1,"proposal":1,"won":1,"lost":1}|0|0'
+# N331-3: the stage "won" turned into an open one (a new "done" wins now) – its closed deal is no longer won, and never counted as lost
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('pipeline_stages', '[{\"key\":\"new\",\"label\":\"\",\"kind\":\"open\"},{\"key\":\"qualified\",\"label\":\"\",\"kind\":\"open\"},{\"key\":\"proposal\",\"label\":\"\",\"kind\":\"open\"},{\"key\":\"won\",\"label\":\"\",\"kind\":\"open\"},{\"key\":\"done\",\"label\":\"Done\",\"kind\":\"won\"},{\"key\":\"lost\",\"label\":\"\",\"kind\":\"lost\"}]')" > /dev/null
+expect "3.31 monthly report (N331-3): a closed deal in a stage that is open now is neither won nor lost" \
+  "$(t331_php '$p = Kaleta\Core\MonthlyReport::build($app, new DateTimeImmutable("first day of this month"))["pipeline"] ?? []; echo $p["won"] ?? "x", "|", $p["lost"] ?? "x";')" "0|0"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('pipeline_stages', '')" > /dev/null
 
 # retention (D-W6): an enquiry of a deal stays while the deal is open and for the retention after it closed
 sq "UPDATE ka_poptavky SET datum = '$(site_time '-30 months')' WHERE idp = ${T331_E1:-0}" > /dev/null
