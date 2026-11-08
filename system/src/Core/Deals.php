@@ -24,7 +24,8 @@ namespace Kaleta\Core;
  *  - Retention (D-W6): an enquiry that is the source of a deal, or of a customer with a deal, is kept while the deal is
  *    open and for the enquiries' retention after it closed (heldEnquiries(), called by Enquiries::deleteExpired through
  *    Contacts::heldByDeals); a contact with an open deal is never anonymised (Contacts::hasOpenDeal). Erasing or
- *    anonymising a contact keeps its deals without the person (unlinkContacts()).
+ *    anonymising a contact keeps its deals without the person (unlinkContacts()); the team's comments on them follow the
+ *    rule of the comments on the contact – erased: they go; anonymised: who and when stay, the text goes.
  *  - Notifications: a new responsible person gets the bell (kind "assigned", target "deal:<id>") and the e-mail of
  *    Core\Assignment – the deal named by its number only. My work lists a person's open deals (forOwner()).
  *  - The change log gets a row for create, save, move and delete (module SECTION). Deals are never journaled for undo
@@ -795,11 +796,14 @@ final class Deals
     /**
      * A contact is erased or anonymised (Contacts::delete, Contacts::anonymise): its deals stay for the pipeline, without
      * the person – no contact, no lost note (free text about them), and a title that names the person (their name or
-     * address) becomes "#<id>". Returns how many deals changed.
+     * address) becomes "#<id>". The team's comments on those deals follow the rule of the comments on the contact itself
+     * (3.31): erased ($erase, Contacts::delete) – the comments go; anonymised – who wrote them and when stay, the text and
+     * the mentions go. Either way the notifications of the deals lose their quotes and the tasks about them keep who and
+     * when without the title (the deal and its work stay; a title may name the person). Returns how many deals changed.
      *
      * @param list<int> $contactIds
      */
-    public static function unlinkContacts(Db $db, array $contactIds): int
+    public static function unlinkContacts(Db $db, array $contactIds, bool $erase = false): int
     {
         $contactIds = array_values(array_unique(array_filter(array_map('intval', $contactIds), fn (int $id): bool => $id > 0)));
         if ($contactIds === []) {
@@ -809,6 +813,7 @@ final class Deals
         try {
             foreach (array_chunk($contactIds, 500) as $chunk) {
                 $rows = $db->all('SELECT d.id, d.title, c.name, c.email FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id WHERE d.contact_id IN (' . implode(',', $chunk) . ')');
+                self::forgetComments($db, array_map(fn (array $r): string => Comments::deal((int) $r['id']), $rows), $erase);
                 foreach ($rows as $r) {
                     $title = (string) $r['title'];
                     if (self::names($title, (string) ($r['name'] ?? ''), (string) ($r['email'] ?? ''))) {
@@ -822,6 +827,31 @@ final class Deals
         }
 
         return $changed;
+    }
+
+    /**
+     * unlinkContacts(): the comments on deals of an erased contact go ($erase), of an anonymised one lose their text and
+     * mentions (Comments::anonymiseTargets – the notifications lose their quotes, the tasks their titles).
+     *
+     * @param list<string> $targets 'deal:<id>'
+     */
+    private static function forgetComments(Db $db, array $targets, bool $erase): void
+    {
+        if ($targets === []) {
+            return;
+        }
+        if (!$erase) {
+            Comments::anonymiseTargets($db, $targets);
+
+            return;
+        }
+        Inbox::forgetTargets($db, $targets, true); // the deal stays: its notifications too, without the quotes
+        Tasks::anonymiseTargets($db, $targets);
+        try {
+            $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($targets), '?')) . ')', $targets);
+        } catch (\PDOException) {
+            // before the 3.25 migration
+        }
     }
 
     /**

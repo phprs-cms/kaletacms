@@ -10568,23 +10568,37 @@ sq "UPDATE ka_contacts SET created_at = '$(site_time '-30 months')', last_activi
 t331_php 'Kaleta\Core\Contacts::purge($app);' > /dev/null
 expect "3.31 retention: a customer quiet for 30 months with an open deal is not anonymised" "$(sq "SELECT CONCAT(anonymised_at IS NULL, '|', name) FROM ka_contacts WHERE id = ${T331_C5:-0}")" "1|Olga Nováková"
 t331_php "Kaleta\\Core\\Deals::move(\$app, ${T331_D3:-0}, 'lost', $T331_ADMIN, 'timing', 'Olga will call in spring');" > /dev/null
+# the team's comments and tasks on the deal follow the rule of the comments on the customer (3.31): anonymised – who and when stay, the text goes
+t331_php "Kaleta\\Core\\Comments::add(\$app->db(), 'deal:${T331_D3:-0}', 'Olga prefers calls T331', ['idu' => $T331_ADMIN, 'user' => 'admin']);
+  Kaleta\\Core\\Tasks::create(\$app, ['title' => 'Call Olga Nováková T331', 'target' => 'deal:${T331_D3:-0}'], $T331_ADMIN);
+  Kaleta\\Core\\Inbox::record(\$app->db(), $T331_JANA, 'comment', 'deal:${T331_D3:-0}', $T331_ADMIN, 'Olga prefers calls T331');" > /dev/null
 sq "UPDATE ka_contacts SET last_activity_at = '$(site_time '-30 months')' WHERE id = ${T331_C5:-0}; UPDATE ka_deals SET closed_at = '$(site_time '-30 months')' WHERE id = ${T331_D3:-0}" > /dev/null
 t331_php 'Kaleta\Core\Contacts::purge($app);' > /dev/null
 expect "3.31 retention: … closed, the customer is anonymised; the deal stays without the person – no contact, no note, a title naming them becomes its number" \
   "$(sq "SELECT anonymised_at IS NOT NULL FROM ka_contacts WHERE id = ${T331_C5:-0}")|$(sq "SELECT CONCAT(IFNULL(contact_id, 'null'), '|', title, '|', IFNULL(lost_note, 'null'), '|', lost_reason) FROM ka_deals WHERE id = ${T331_D3:-0}")" \
   "1|null|#${T331_D3:-0}|null|timing"
+expect "3.31 retention: … the comments on the deal keep who and when without the text and mentions, its task without the title, its notification without the quote" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(text = ''), '|', SUM(mentions IS NULL), '|', SUM(author_id = $T331_ADMIN)) FROM ka_comments WHERE target = 'deal:${T331_D3:-0}'")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(title = '')) FROM ka_tasks WHERE target = 'deal:${T331_D3:-0}'")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(excerpt = '')) FROM ka_notifications WHERE target = 'deal:${T331_D3:-0}' AND kind = 'comment'")" \
+  "1|1|1|1|1|1|1|1"
 # erasure on request: the file lists the deals; erasing keeps them without the person
-expect "3.31 personal data: the file of the customer lists their deals" \
-  "$(t331_php '$f = json_decode(Kaleta\Core\PersonalData::export($app, "karel.t331@firma-t331.cz"), true); echo count($f["contacts"][0]["deals"] ?? []);')" "2"
+t331_php "Kaleta\\Core\\Comments::add(\$app->db(), 'deal:${T331_D1:-0}', 'Karel asked for a discount T331', ['idu' => $T331_ADMIN, 'user' => 'admin']);
+  Kaleta\\Core\\Tasks::create(\$app, ['title' => 'Send Karel Dvořák the offer T331', 'target' => 'deal:${T331_D1:-0}'], $T331_ADMIN);
+  Kaleta\\Core\\Inbox::record(\$app->db(), $T331_JANA, 'comment', 'deal:${T331_D1:-0}', $T331_ADMIN, 'Karel asked for a discount T331');" > /dev/null
+expect "3.31 personal data: the file of the customer lists their deals, with the team's comments and tasks on each" \
+  "$(t331_php '$f = json_decode(Kaleta\Core\PersonalData::export($app, "karel.t331@firma-t331.cz"), true); $d = array_column($f["contacts"][0]["deals"] ?? [], null, "id"); echo count($d), "|", $d['"${T331_D1:-0}"']["notes"][0]["text"] ?? "", "|", $d['"${T331_D1:-0}"']["tasks"][0]["title"] ?? "", "|", count($d['"${T331_D2:-0}"']["notes"] ?? [1]);')" \
+  "2|Karel asked for a discount T331|Send Karel Dvořák the offer T331|0"
 mcp_as "$T331_TA" erase_personal_data '{"email":"karel.t331@firma-t331.cz","confirm":true}' > /dev/null
 expect "3.31 erase_personal_data: the contact goes, its deals stay without it (no contact, no lost note)" \
   "$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = ${T331_C1:-0}")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(contact_id IS NULL), '|', SUM(lost_note IS NULL)) FROM ka_deals WHERE id IN (${T331_D1:-0}, ${T331_D2:-0})")" "0|2|2|2"
+expect "3.31 erase_personal_data: … the comments on its deals go, the deal's task stays without its title, the notification without the quote" \
+  "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('deal:${T331_D1:-0}', 'deal:${T331_D2:-0}')")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(title = '')) FROM ka_tasks WHERE target = 'deal:${T331_D1:-0}'")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(excerpt = '')) FROM ka_notifications WHERE target = 'deal:${T331_D1:-0}' AND kind = 'comment'")" \
+  "0|1|1|1|1"
 T331_M1=$(t331_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'm1.t331@example.org'], $T331_ADMIN);"); T331_M2=$(t331_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'm2.t331@example.org'], $T331_ADMIN);")
 T331_D4=$(t331_php "echo Kaleta\\Core\\Deals::save(\$app, null, ['title' => 'Merge T331', 'contact_id' => ${T331_M2:-0}], $T331_ADMIN);")
 expect "3.31: merging two contacts moves the deals of the merged one" "$(t331_php "echo Kaleta\\Core\\Contacts::merge(\$app, ${T331_M1:-0}, ${T331_M2:-0}, $T331_ADMIN)['moved']['deals'];")|$(sq "SELECT contact_id = ${T331_M1:-0} FROM ka_deals WHERE id = ${T331_D4:-0}")" "1|1"
 check "3.31: the record of processing names the deals" 200 "/admin.php?module=settings&action=processing_record" "Obchody se zákazníky"
 sq "DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0}); DELETE FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0};
-  DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email LIKE '%t331%');
+  DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_comments WHERE target LIKE 'deal:%'; DELETE FROM ka_tasks WHERE target LIKE 'deal:%'; DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email LIKE '%t331%');
   DELETE FROM ka_contacts WHERE email LIKE '%t331%' OR id = ${T331_C5:-0}; DELETE FROM ka_companies WHERE domain = 'firma-t331.cz';
   DELETE FROM ka_poptavky WHERE email LIKE '%t331%'; DELETE FROM ka_api_tokeny WHERE nazev LIKE 't331-%'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($T331_JANA, $T331_PETR); DELETE FROM ka_uzivatele WHERE user LIKE 't331-%';
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('contacts_backfill', '')" > /dev/null

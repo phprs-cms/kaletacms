@@ -10481,5 +10481,16 @@ check('3.31: every target kind parses, is a task target, is swept, has an assign
     Kaleta\Core\Assignment::KINDS['deal'], Kaleta\Core\Assignment::ADMIN_SECTIONS],
     [['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal'], [], 'pipeline', ['fleet']]);
 
+// 3.31: comments on the deals of an erased or anonymised customer follow the rule of the comments on the customer itself
+$p331Contacts = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
+$p331Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+$p331Data = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/PersonalData.php');
+check('3.31: an erased customer\'s deals lose the comments, an anonymised one\'s keep them blanked (Comments::anonymiseTargets); the personal data file carries them', [
+    str_contains($p331Contacts, 'Deals::unlinkContacts($db, [$id], true);'), str_contains($p331Contacts, 'Deals::unlinkContacts($db, $chunk);'),
+    str_contains($p331Deals, "self::forgetComments(\$db, array_map(fn (array \$r): string => Comments::deal((int) \$r['id']), \$rows), \$erase);"),
+    str_contains($p331Deals, "Comments::anonymiseTargets(\$db, \$targets);"), str_contains($p331Deals, "\$db->run('DELETE FROM {comments} WHERE target IN ('"),
+    substr_count($p331Data, 'Comments::deal((int) $d[\'id\'])'), (new ReflectionMethod(Kaleta\Core\Deals::class, 'unlinkContacts'))->getParameters()[2]->getDefaultValue()],
+    [true, true, true, true, true, 2, false]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

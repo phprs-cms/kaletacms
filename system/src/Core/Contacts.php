@@ -365,7 +365,7 @@ final class Contacts
     /**
      * Deletes a contact for good (the admin's Delete, an erasure on request): its activities, the team's comments and tasks
      * about it and the notifications pointing to it go; its enquiries, bookings and subscription stay and are unlinked, and
-     * its deals stay without the person (3.31, Deals::unlinkContacts).
+     * its deals stay without the person and without the team's comments on them (3.31, Deals::unlinkContacts).
      * Returns whether it existed.
      */
     public static function delete(App $app, int $id): bool
@@ -375,7 +375,7 @@ final class Contacts
             return false;
         }
         self::unlink($db, [$id]);
-        Deals::unlinkContacts($db, [$id]); // 3.31: its deals stay without the person
+        Deals::unlinkContacts($db, [$id], true); // 3.31: its deals stay without the person, the comments on them go
         $db->run('DELETE FROM {contact_activities} WHERE contact_id = ?', [$id]);
         Comments::forget($db, [Comments::contact($id)]); // the comments, their notifications and the tasks about it
         $db->delete('contacts', ['id' => $id]);
@@ -387,7 +387,7 @@ final class Contacts
      * Anonymises contacts (the retention clean-up, Core\Privacy): the row stays for statistics (source, when first seen and
      * last active, the responsible person), the address, name, phone, company and summary go; the activities keep their kind,
      * time and author without the text; the team's comments and the titles of tasks about it are blanked; its enquiries,
-     * bookings and subscription are unlinked; its deals stay without the person (3.31, Deals::unlinkContacts). Already anonymised ones are skipped. Returns how many were anonymised.
+     * bookings and subscription are unlinked; its deals stay without the person, the team's comments on them blanked alike (3.31, Deals::unlinkContacts). Already anonymised ones are skipped. Returns how many were anonymised.
      *
      * @param list<int> $ids
      */
@@ -406,7 +406,7 @@ final class Contacts
                 continue;
             }
             $in = implode(',', $chunk);
-            Deals::unlinkContacts($db, $chunk); // 3.31: its deals stay without the person (before the name and address go)
+            Deals::unlinkContacts($db, $chunk); // 3.31: its deals stay without the person (before the name and address go), the comments on them are blanked
             $now = Clock::now();
             $done += $db->run("UPDATE {contacts} SET email = '', email_norm = NULL, name = '', phone = '', company_id = NULL, summary = NULL, anonymised_at = ?, updated_at = ? WHERE id IN (" . $in . ')',
                 [$now, $now])->rowCount();
