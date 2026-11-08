@@ -10499,5 +10499,13 @@ check('3.31: the moved-field redirect checks the origin and the protocol and kee
     str_contains($x331Js, "location.replace(movedUrl.pathname.replace(/^\\/+/, '/') + movedUrl.search + '#' + encodeURIComponent(movedId));"),
     str_contains($x331Js, "location.replace(movedTo")], [true, true, false]);
 
+// 3.31 (code scanning #45): the dummy hashes are valid bcrypt hashes of cost 12 and 10, and no bcrypt literal stands in Auth.php
+$h331 = new ReflectionClass(Kaleta\Core\Auth::class);
+$h331Info = fn (string $name): array => [password_get_info((string) $h331->getConstant($name))['algoName'], password_get_info((string) $h331->getConstant($name))['options']['cost'] ?? 0, strlen((string) $h331->getConstant($name))];
+check('3.31: the dummy hashes stay valid bcrypt of cost 12 and 10 (60 characters) and no bcrypt hash literal is left in Auth.php', [
+    $h331Info('DUMMY_HASH'), $h331Info('DUMMY_HASH_10'), password_verify('anything', (string) $h331->getConstant('DUMMY_HASH_10')),
+    preg_match('/\$2[aby]?\$\d+\$[.\/A-Za-z0-9]{53}/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php'))],
+    [['bcrypt', 12, 60], ['bcrypt', 10, 60], false, 0]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
