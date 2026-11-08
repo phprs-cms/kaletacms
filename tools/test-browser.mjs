@@ -3452,6 +3452,8 @@ await step('3.29.1 menu: after a sign-in only Content is open; opening Appearanc
     if (JSON.stringify(open) !== JSON.stringify(['content'])) { throw new Error(`open after signing in: ${open.join(', ')}`); }
     if (SHOTS) { await p.screenshot({ path: `${SHOTS}/3291-menu-after-sign-in.png` }); }
     await p.locator('details[data-menu-skupina="appearance"] > summary').click();
+    // the menu stores the click a moment later (setTimeout 0) – wait for it before leaving the page
+    await p.waitForFunction(() => { try { return (JSON.parse(localStorage.getItem('kaleta-menu') || '{}') || {}).appearance === 1; } catch (e) { return false; } });
     await p.goto(BASE + '/admin.php?module=pages', { waitUntil: 'networkidle' });
     open = await openGroups(p);
     if (JSON.stringify(open) !== JSON.stringify(['content', 'appearance'])) { throw new Error(`open on the next screen: ${open.join(', ')}`); }
