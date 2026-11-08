@@ -10469,5 +10469,17 @@ check('3.31 (B): the views escape a deal\'s title, customer, company and stage; 
     str_contains($b331Box, 'stitek stitek-chyba">&lt;script&gt;')],
     [false, true, true, true, true, true, true]);
 
+// 3.31 merge with 3.30: every target kind (a deal and the console's site and customer alike) parses, is cleaned and swept as a
+// task target, opens through an assignment kind, and has its own label in both task lists of My work (Mine and Team)
+$m331Kinds = array_keys(Kaleta\Core\Inbox::TARGETS);
+$m331Views = array_map(fn (string $v): string => (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/' . $v . '.php'), ['list', 'team']);
+$m331Sweep = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Tasks.php');
+check('3.31: every target kind parses, is a task target, is swept, has an assignment kind and a label in My work (Mine, Team)', [
+    $m331Kinds, array_values(array_filter($m331Kinds, fn (string $k): bool => Kaleta\Core\Inbox::parse($k . ':7') !== [$k, 7] || Kaleta\Core\Tasks::cleanTarget($k . ':7') !== $k . ':7'
+        || !isset(Kaleta\Core\Assignment::KINDS[$k]) || !str_contains($m331Sweep, "'" . $k . "' => ['")
+        || ($k !== 'item' && array_filter($m331Views, fn (string $v): bool => !str_contains($v, "    '" . $k . "' => t(")) !== []))),
+    Kaleta\Core\Assignment::KINDS['deal'], Kaleta\Core\Assignment::ADMIN_SECTIONS],
+    [['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal'], [], 'pipeline', ['fleet']]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -84,7 +84,7 @@ trait CommentTools
     private function commentThread(array $a): array
     {
         $parsed = Comments::parseTarget(trim(is_scalar($a['target'] ?? null) ? (string) $a['target'] : ''))
-            ?? throw new \InvalidArgumentException('target must be "enquiry:<id>", "page:<id>", "item:<id>", "contact:<id>" or "company:<id>" – e.g. "page:12" (ids from list_enquiries, list_pages, list_collection_items, list_contacts).');
+            ?? throw new \InvalidArgumentException('target must be "enquiry:<id>", "page:<id>", "item:<id>", "contact:<id>", "company:<id>" or "deal:<id>" – e.g. "page:12" (ids from list_enquiries, list_pages, list_collection_items, list_contacts, list_deals).');
         ['type' => $type, 'id' => $id] = $parsed;
         // 3.28: a customer or a company (Core\Contacts) – the section Customers
         // 3.31: a deal (Core\Deals) – the section Pipeline
