@@ -647,12 +647,19 @@
 	window.addEventListener('scroll', function () { if (tipTarget) { showTip(tipTarget); } }, { passive: true }); // when the page scrolls, the tooltip moves with the element
 
 	// 3.23 (C12): Settings → General was split into tabs; a link to a field that moved (tab=general#additional_languages,
-	// a bookmark or a note from before) goes on to the field's tab – data-pole-jinde is {element id: address of its tab}
+	// a bookmark or a note from before) goes on to the field's tab – data-pole-jinde is {element id: address of its tab}.
+	// 3.31 (code scanning #44): only to an http(s) address of this same origin, and only its path and query – never a
+	// protocol-relative "//host" (leading slashes are folded into one)
 	var movedFields = document.querySelector('[data-pole-jinde]');
 	if (movedFields && location.hash.length > 1) {
-		var movedId = decodeURIComponent(location.hash.slice(1)), movedTo = null;
-		try { movedTo = JSON.parse(movedFields.getAttribute('data-pole-jinde'))[movedId]; } catch (e) { movedTo = null; }
-		if (movedTo && !document.getElementById(movedId)) { location.replace(movedTo + '#' + encodeURIComponent(movedId)); }
+		var movedId = '', movedTo = null, movedUrl = null;
+		try { movedId = decodeURIComponent(location.hash.slice(1)); movedTo = JSON.parse(movedFields.getAttribute('data-pole-jinde'))[movedId]; } catch (e) { movedTo = null; }
+		if (typeof movedTo === 'string' && movedTo !== '' && !document.getElementById(movedId)) {
+			try { movedUrl = new URL(movedTo, location.href); } catch (e) { movedUrl = null; }
+			if (movedUrl && movedUrl.origin === location.origin && (movedUrl.protocol === 'https:' || movedUrl.protocol === 'http:')) {
+				location.replace(movedUrl.pathname.replace(/^\/+/, '/') + movedUrl.search + '#' + encodeURIComponent(movedId));
+			}
+		}
 	}
 	// 3.26: "@" in a comment offers the colleagues who may open the record – textarea[data-mentions] carries them as JSON
 	// [{id, user, name}] (only those the server would accept; it checks again). Typing "@ja" lists the matches under the

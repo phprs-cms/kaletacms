@@ -1558,6 +1558,26 @@ await step('3.23 Settings tabs: saving one keeps the others, old links move on, 
   await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
   await page.waitForURL(/tab=security#require_2fa$/, { timeout: 5000 });
   if (!(await page.locator('#require_2fa').isVisible())) { throw new Error('the old link did not reach Two-factor sign-in'); }
+  // 3.31 (code scanning #44): a map naming another origin, a protocol-relative path or javascript: never moves the page;
+  // a same-origin path with doubled slashes goes to the path on this origin
+  const movedRoute = (map) => async (route) => {
+    const response = await route.fetch();
+    const html = (await response.text()).replace(/data-pole-jinde="[^"]*"/, `data-pole-jinde="${JSON.stringify(map).replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"`);
+    await route.fulfill({ response, body: html });
+  };
+  const movedPattern = /module=settings&tab=general$/;
+  for (const evil of ['https://evil.example/x', '//evil.example/x', '/\\evil.example/x', 'javascript:alert(1)']) {
+    await page.route(movedPattern, movedRoute({ require_2fa: evil }));
+    await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
+    await page.waitForTimeout(400);
+    await page.unroute(movedPattern);
+    if (!/module=settings&tab=general#require_2fa$/.test(page.url())) { throw new Error(`the moved-field map ${evil} moved the page to ${page.url()}`); }
+  }
+  await page.route(movedPattern, movedRoute({ require_2fa: new URL(BASE).origin + '//admin.php?module=settings&tab=security' }));
+  await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
+  await page.waitForURL((url) => url.hash === '#require_2fa' && url.search === '?module=settings&tab=security', { timeout: 5000 });
+  await page.unroute(movedPattern);
+  if (new URL(page.url()).origin !== new URL(BASE).origin) { throw new Error(`a doubled slash left the site: ${page.url()}`); }
   // the console tab: not in the row without an agency, the last one with it
   await visit('/admin.php?module=settings&tab=agency');
   const agencyBefore = await page.inputValue('#agency_name');

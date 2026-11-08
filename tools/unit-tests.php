@@ -10492,5 +10492,12 @@ check('3.31: an erased customer\'s deals lose the comments, an anonymised one\'s
     substr_count($p331Data, 'Comments::deal((int) $d[\'id\'])'), (new ReflectionMethod(Kaleta\Core\Deals::class, 'unlinkContacts'))->getParameters()[2]->getDefaultValue()],
     [true, true, true, true, true, 2, false]);
 
+// 3.31 (code scanning #44): the moved-field redirect of Settings goes only to a same-origin http(s) path, never "//host"
+$x331Js = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
+check('3.31: the moved-field redirect checks the origin and the protocol and keeps only the path and query', [
+    str_contains($x331Js, "movedUrl.origin === location.origin && (movedUrl.protocol === 'https:' || movedUrl.protocol === 'http:')"),
+    str_contains($x331Js, "location.replace(movedUrl.pathname.replace(/^\\/+/, '/') + movedUrl.search + '#' + encodeURIComponent(movedId));"),
+    str_contains($x331Js, "location.replace(movedTo")], [true, true, false]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);
