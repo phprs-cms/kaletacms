@@ -1423,6 +1423,31 @@ reports the ring `pilot` where it said `canary`); new non-essential MCP tools `f
    tasks and the site's own connector address (`<url>/mcp`, never a token); Claude works one site at a time through that
    site's connection; the console runs nothing. The site page shows the connector address with a copy button.
 
+## 3.31 – the sales pipeline, CRM stage 6 (8 November 2026)
+
+Stage 6 of the staged CRM (owner, 1 November): one pipeline of deals next to contacts, enquiries and tasks. Migration 0117
+adds `ka_deals` and `ka_deal_stage_history`; `KALETA_DB_VERSION` 117. No setting key, POST field, MCP tool, parameter or
+Czech alias renamed; new non-essential MCP tools `list_deals`, `save_deal`, `move_deal` and `pipeline_summary`.
+
+1. **Deals** (`Core\Deals`, admin `Modules\Pipeline` in the Workspace group): a board and a list, a deal page with its
+   history, comments and tasks, boxes on the contact, company and enquiry pages, and a "Create deal" step from an enquiry.
+   A value is a number and a currency only; no forecasts, no weighted totals.
+2. **Stages** (setting `pipeline_stages`, 3–12 stages, each open, won or lost): every move is kept in the history; won and
+   lost close the deal and lost asks for a reason (`Deals::LOST_REASONS`).
+3. **Work on a deal**: `deal:<id>` is a target for comments, tasks, notifications and responsibility
+   (`Assignment::KINDS['deal']`); the bell and e-mails name a deal only by its number. My work and the Team tab list deal
+   tasks. A unit test now checks that every target kind is parsed, swept, assignable and labelled.
+4. **Privacy**: an enquiry linked to a deal is kept while the deal is open and for the retention period after it closes;
+   a contact with an open deal is not anonymised. Erasing or anonymising a contact leaves the deal without the person
+   (`Deals::unlinkContacts`), and comments on that person's deals follow the rule of the person's own comments (erased –
+   deleted, anonymised – text removed). The personal data file lists the comments and tasks under each deal.
+5. **Reports**: the monthly report and summaries show counts only, never values. Merging two contacts moves their deals;
+   the site export leaves deals out; deals are not journalled for undo.
+6. **Fixes**: the Settings redirect for a moved field goes only to a same-origin http(s) path (code scanning #44); the
+   dummy bcrypt hashes in `Core\Auth` are no longer written as one literal (code scanning #45); a Fleet expiry reminder
+   whose e-mail fails is retried by the mail queue (after 5, 30, 120 and 720 minutes), and `fleet_expiry` reports how many
+   are waiting.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
