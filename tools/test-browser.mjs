@@ -1566,15 +1566,17 @@ await step('3.23 Settings tabs: saving one keeps the others, old links move on, 
     await route.fulfill({ response, body: html });
   };
   const movedPattern = /module=settings&tab=general$/;
+  // each time from another page: a goto to the same address with the same #anchor is a jump within the page, no reload
+  const openGeneral = async () => { await page.goto(BASE + '/admin.php?module=settings&tab=agency'); await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa'); };
   for (const evil of ['https://evil.example/x', '//evil.example/x', '/\\evil.example/x', 'javascript:alert(1)']) {
     await page.route(movedPattern, movedRoute({ require_2fa: evil }));
-    await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
+    await openGeneral();
     await page.waitForTimeout(400);
     await page.unroute(movedPattern);
     if (!/module=settings&tab=general#require_2fa$/.test(page.url())) { throw new Error(`the moved-field map ${evil} moved the page to ${page.url()}`); }
   }
   await page.route(movedPattern, movedRoute({ require_2fa: new URL(BASE).origin + '//admin.php?module=settings&tab=security' }));
-  await page.goto(BASE + '/admin.php?module=settings&tab=general#require_2fa');
+  await openGeneral();
   await page.waitForURL((url) => url.hash === '#require_2fa' && url.search === '?module=settings&tab=security', { timeout: 5000 });
   await page.unroute(movedPattern);
   if (new URL(page.url()).origin !== new URL(BASE).origin) { throw new Error(`a doubled slash left the site: ${page.url()}`); }

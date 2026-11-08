@@ -4744,7 +4744,9 @@ expect "3.30: the bell lists the reminder with the site in the console" "$(grep 
 kill "$SMTP_PID" 2>/dev/null || true; wait "$SMTP_PID" 2>/dev/null || true
 for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' "$SMTP_PORT" && break; sleep 0.1; done
 R331_REMINDER="(predmet LIKE '%termíny vašich webů%' OR predmet LIKE '%dates of your sites%')"
-r331_emls() { local n=0 f; for f in "$WORK"/smtp330/*.eml; do [ -f "$f" ] && grep -q '^X-Rcpt-To: owner317@agency.example' "$f" && eml "$f" | grep -qE '^Subject-Decoded: .*(termíny vašich webů|dates of your sites)' && n=$((n + 1)); done; echo "$n"; }
+# (no "eml | grep -q" here: grep quits early and pipefail would count the cut-off eml as a failure)
+r331_emls() { local n=0 f; for f in "$WORK"/smtp330/*.eml; do { [ -f "$f" ] && grep -q '^X-Rcpt-To: owner317@agency.example' "$f"; } || continue
+  case "$(eml "$f" | grep '^Subject-Decoded: ')" in *"termíny vašich webů"*|*"dates of your sites"*) n=$((n + 1)) ;; esac; done; echo "$n"; }
 R331_P0=$(sq3 "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
 sq3 "DELETE FROM ka_fleet_expiry_reminders WHERE site_id = $PILOT330 AND kind = 'domain'; DELETE FROM ka_jobs WHERE name IN ('fleet_expiry', 'mail')" > /dev/null
 curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
