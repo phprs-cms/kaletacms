@@ -94,6 +94,7 @@ trait EnquiryAndPopupTools
             \Kaleta\Admin\Modules\Enquiries::deleteAttachments([$enquiry]);
             $db->delete('poptavky', ['idp' => $id]);
             \Kaleta\Core\Comments::forgetEnquiries($db, [$id]); // 3.25: its internal notes too
+            \Kaleta\Core\Deals::forgetEnquiries($db, [$id]); // N331-2: a deal from it stays, without the link
 
             return ['deleted' => $id];
         }

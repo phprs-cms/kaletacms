@@ -925,7 +925,7 @@ final class Contacts
     }
 
     /**
-     * Deletes a company: its contacts stay without a company; the team's comments and tasks about it go. Returns whether it
+     * Deletes a company: its contacts (and, 3.31, its deals) stay without a company; the team's comments and tasks about it go. Returns whether it
      * existed.
      */
     public static function deleteCompany(App $app, int $id): bool
@@ -935,6 +935,11 @@ final class Contacts
             return false;
         }
         $db->run('UPDATE {contacts} SET company_id = NULL WHERE company_id = ?', [$id]);
+        try {
+            $db->run('UPDATE {deals} SET company_id = NULL WHERE company_id = ?', [$id]); // N331-2: its deals stay, without the company
+        } catch (\PDOException) {
+            // before migration 0117
+        }
         Comments::forget($db, [Comments::company($id)]);
         $db->delete('companies', ['id' => $id]);
 

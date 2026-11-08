@@ -303,6 +303,7 @@ final class Enquiries extends Module
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
             $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
             \Kaleta\Core\Comments::forgetEnquiries($this->db, $ids);
+            \Kaleta\Core\Deals::forgetEnquiries($this->db, $ids); // N331-2: a deal from one stays, without the link
 
             return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
@@ -339,6 +340,7 @@ final class Enquiries extends Module
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
             \Kaleta\Core\Comments::forgetEnquiries($this->db, [$this->request->postInt('idp')]);
+            \Kaleta\Core\Deals::forgetEnquiries($this->db, [$this->request->postInt('idp')]); // N331-2: a deal from it stays, without the link
         }
 
         return $this->back('The enquiry was deleted.');

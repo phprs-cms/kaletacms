@@ -10633,6 +10633,14 @@ expect "3.31 erase_personal_data: … the comments on its deals go, the deal's t
 T331_M1=$(t331_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'm1.t331@example.org'], $T331_ADMIN);"); T331_M2=$(t331_php "echo Kaleta\\Core\\Contacts::create(\$app, ['email' => 'm2.t331@example.org'], $T331_ADMIN);")
 T331_D4=$(t331_php "echo Kaleta\\Core\\Deals::save(\$app, null, ['title' => 'Merge T331', 'contact_id' => ${T331_M2:-0}], $T331_ADMIN);")
 expect "3.31: merging two contacts moves the deals of the merged one" "$(t331_php "echo Kaleta\\Core\\Contacts::merge(\$app, ${T331_M1:-0}, ${T331_M2:-0}, $T331_ADMIN)['moved']['deals'];")|$(sq "SELECT contact_id = ${T331_M1:-0} FROM ka_deals WHERE id = ${T331_D4:-0}")" "1|1"
+# N331-2: a deal forgets an enquiry deleted by hand (MCP delete_enquiry; also the admin's Delete, bulk delete, the job applications' purge) and a deleted company
+T331_E9=$(sq "INSERT INTO ka_poptavky (datum, formular, tema, email, data, stav) VALUES ('$(site_time)', 'Poptávka T331', 'Gone T331', '', '[]', 1); SELECT LAST_INSERT_ID();")
+T331_CO9=$(t331_php "echo Kaleta\\Core\\Contacts::saveCompany(\$app, null, ['name' => 'Gone Co T331'], $T331_ADMIN);")
+T331_D9=$(t331_php "echo Kaleta\\Core\\Deals::save(\$app, null, ['title' => 'Forget T331', 'source_enquiry_id' => ${T331_E9:-0}, 'company_id' => ${T331_CO9:-0}], $T331_ADMIN);")
+mcp_as "$T331_TA" delete_enquiry "{\"id\":${T331_E9:-0}}" > /dev/null
+t331_php "Kaleta\\Core\\Contacts::deleteCompany(\$app, ${T331_CO9:-0});" > /dev/null
+expect "3.31 (N331-2): a deleted enquiry and a deleted company leave the deal, which stays" \
+  "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = ${T331_E9:-0}")|$(sq "SELECT CONCAT(title, '|', source_enquiry_id IS NULL, '|', company_id IS NULL) FROM ka_deals WHERE id = ${T331_D9:-0}")" "0|Forget T331|1|1"
 check "3.31: the record of processing names the deals" 200 "/admin.php?module=settings&action=processing_record" "Obchody se zákazníky"
 sq "DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0}); DELETE FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0};
   DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_comments WHERE target LIKE 'deal:%'; DELETE FROM ka_tasks WHERE target LIKE 'deal:%'; DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email LIKE '%t331%');
