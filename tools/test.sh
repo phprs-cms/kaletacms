@@ -4010,12 +4010,14 @@ check "System status lists the background jobs" 200 "/admin.php?module=status" "
 sq "UPDATE ka_nastaveni SET hodnota = (SELECT COALESCE(MAX(id), 0) FROM ka_events) WHERE promenna = 'alerts_cursor'; UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'alerts_last_sent'" > /dev/null
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) SELECT 'alerts_cursor', (SELECT COALESCE(MAX(id), 0) FROM ka_events) FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_nastaveni WHERE promenna = 'alerts_cursor')" > /dev/null
 sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES ('$(site_time)', 'backup.failed', 'error', 'Test: the automatic backup failed')" > /dev/null
+# earlier steps leave real warnings; on a slow run the hourly job may already have mailed them – count only what follows
+ALERTS_BEFORE="$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")"
 sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
-expect "alerts: one e-mail with the error, the next waits an hour" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")" "1"
+expect "alerts: one e-mail with the error, the next waits an hour" "$(( $(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'") - ALERTS_BEFORE ))" "1"
 sq "INSERT INTO ka_events (created_at, type, severity, message) VALUES ('$(site_time)', 'mail.failed', 'error', 'Test: second')" > /dev/null; sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'alerts'" > /dev/null
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
-expect "alerts: at most one an hour" "$(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'")" "1"
+expect "alerts: at most one an hour" "$(( $(sq "SELECT COUNT(*) FROM ka_posta WHERE predmet LIKE '%problem%' OR predmet LIKE '%problém%'") - ALERTS_BEFORE ))" "1"
 # the check after an update: only with the one-time code
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/ulohy?probe=abc"); expect "update check without the code is refused" "$code" "403"
 sq "INSERT INTO ka_nastaveni VALUES ('update_probe','probe123') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
