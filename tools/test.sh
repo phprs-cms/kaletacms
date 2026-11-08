@@ -10529,6 +10529,17 @@ expect "3.31: the responsible person is notified in the bell (assigned, deal:<id
   "$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $T331_JANA AND kind = 'assigned' AND target = 'deal:${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'pipeline' AND akce = 'create' AND popis = '#${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_agent_journal WHERE tbl IN ('deals', 'deal_stage_history')")" "1|1|0"
 mcp_as "$T331_TA" save_deal "{\"enquiry\":${T331_E1:-0}}" > "$WORK/response"; mcp_text
 expect "3.31 save_deal: one open deal per enquiry – a second one is refused" "$(grep -c "already has an open deal (#${T331_D1:-0})" "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE source_enquiry_id = ${T331_E1:-0}")" "1|1"
+# N331-1: as in the administration – Pia has the pipeline only: no deal from an enquiry (Enquiries), no contact or company (Customers)
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
+  ('t331-pia', '$T331_HASH', 'Pia T331', 'pia-t331@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pipeline' FROM ka_uzivatele WHERE user = 't331-pia'" > /dev/null
+T331_PIA=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 't331-pia'"); T331_TPIA=$(t331_token 6 "$T331_PIA" t331-pia work); T331_NPIA=$(sq "SELECT COUNT(*) FROM ka_deals")
+mcp_as "$T331_TPIA" save_deal "{\"enquiry\":${T331_E1:-0}}" > "$WORK/response"; mcp_text; T331_P1=$(grep -c 'Only a user who may open Enquiries' "$WORK/text")
+mcp_as "$T331_TPIA" save_deal "{\"title\":\"Pia T331\",\"contact\":${T331_C1:-0}}" > "$WORK/response"; mcp_text; T331_P2=$(grep -c 'Only a user who may open Customers' "$WORK/text")
+mcp_as "$T331_TPIA" save_deal "{\"id\":${T331_D1:-0},\"company\":\"none\"}" > "$WORK/response"; mcp_text; T331_P3=$(grep -c 'Only a user who may open Customers' "$WORK/text")
+mcp_as "$T331_TPIA" list_deals '{}' > "$WORK/response"; mcp_text
+expect "3.31 save_deal (N331-1): pipeline only – a deal from an enquiry and a contact or company are refused, nothing saved; list_deals works" \
+  "$T331_P1|$T331_P2|$T331_P3|$(sq "SELECT COUNT(*) FROM ka_deals")|$(sq "SELECT company_id IS NOT NULL OR contact_id IS NOT NULL FROM ka_deals WHERE id = ${T331_D1:-0}")|$(t331_json total)" "1|1|1|$T331_NPIA|1|1"
 mcp_as "$T331_TJ" save_deal "{\"id\":${T331_D1:-0},\"owner\":$T331_PETR}" > "$WORK/response"; mcp_text; T331_R1=$(grep -c 'cannot open the pipeline' "$WORK/text")
 mcp_as "$T331_TJ" save_deal '{"title":"Bad T331","value":"-5"}' > "$WORK/response"; mcp_text; T331_R2=$(grep -c 'cannot be negative' "$WORK/text")
 mcp_as "$T331_TJ" save_deal '{"title":"Bad T331","value":"100","currency":"XYZ"}' > "$WORK/response"; mcp_text; T331_R3=$(grep -c 'is not a currency' "$WORK/text")
@@ -10626,7 +10637,7 @@ check "3.31: the record of processing names the deals" 200 "/admin.php?module=se
 sq "DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0}); DELETE FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0};
   DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_comments WHERE target LIKE 'deal:%'; DELETE FROM ka_tasks WHERE target LIKE 'deal:%'; DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email LIKE '%t331%');
   DELETE FROM ka_contacts WHERE email LIKE '%t331%' OR id = ${T331_C5:-0}; DELETE FROM ka_companies WHERE domain = 'firma-t331.cz';
-  DELETE FROM ka_poptavky WHERE email LIKE '%t331%'; DELETE FROM ka_api_tokeny WHERE nazev LIKE 't331-%'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($T331_JANA, $T331_PETR); DELETE FROM ka_uzivatele WHERE user LIKE 't331-%';
+  DELETE FROM ka_poptavky WHERE email LIKE '%t331%'; DELETE FROM ka_api_tokeny WHERE nazev LIKE 't331-%'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($T331_JANA, $T331_PETR, ${T331_PIA:-0}); DELETE FROM ka_uzivatele WHERE user LIKE 't331-%';
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('contacts_backfill', '')" > /dev/null
 
 echo "== 3.31 (B): the Pipeline – the board and the list, a new deal, a deal from an enquiry and its badge, moves without JavaScript (lost with a reason), the detail, comments and tasks, the stages, permissions"

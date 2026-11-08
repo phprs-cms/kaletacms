@@ -12,7 +12,8 @@ use Kaleta\Core\Language;
  * MCP tools of the lean pipeline (3.31, Core\Deals): list_deals reads the deals, save_deal creates one (also from an
  * enquiry) or changes its fields, move_deal moves it to another stage (won, lost with a reason, reopened) and
  * pipeline_summary gives the counts per stage with the sums per currency. Only for a user who may open the pipeline
- * (Deals::mayOpen); deleting a deal stays in the administration (administrators). Deals point to customers: never
+ * (Deals::mayOpen); as in the administration, a deal from an enquiry also needs Enquiries and choosing a deal's contact or
+ * company needs Customers; deleting a deal stays in the administration (administrators). Deals point to customers: never
  * journaled, so undo_agent_session cannot take these changes back (the tool descriptions say so), and they never change
  * the site (Catalog::SITE_NEUTRAL). Refusals come in English (Language::runWith). Part of Mcp\Tools.
  *
@@ -68,6 +69,14 @@ trait DealTools
         }
         if ($id > 0 && $enquiry > 0) {
             throw new \InvalidArgumentException('enquiry creates a new deal – leave out id.');
+        }
+        // N331-1: as in the administration – a deal from an enquiry needs Enquiries, choosing its contact or company needs
+        // Customers (otherwise any enquiry's or contact's name and e-mail could be read back through the deal)
+        if ($enquiry > 0 && !Handover::mayOpen($db, $this->app->settings(), $self, 'enquiries')) {
+            throw new \DomainException('Only a user who may open Enquiries can create a deal from an enquiry. Nothing was saved.');
+        }
+        if ((array_key_exists('contact_id', $fields) || array_key_exists('company_id', $fields)) && !Handover::mayOpen($db, $this->app->settings(), $self, \Kaleta\Core\Contacts::SECTION)) {
+            throw new \DomainException('Only a user who may open Customers can choose the contact or company of a deal – leave out contact and company. Nothing was saved.');
         }
         try {
             $id = Language::runWith('en', fn (): int => match (true) {
