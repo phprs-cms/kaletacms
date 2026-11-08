@@ -10507,5 +10507,14 @@ check('3.31: the dummy hashes stay valid bcrypt of cost 12 and 10 (60 characters
     preg_match('/\$2[aby]?\$\d+\$[.\/A-Za-z0-9]{53}/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php'))],
     [['bcrypt', 12, 60], ['bcrypt', 10, 60], false, 0]);
 
+// 3.31: a fleet expiry reminder whose e-mail fails is retried by the mail queue (Mail::send keeps it), never re-sent by the job
+$f331 = (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Calendar.php');
+$f331Send = new ReflectionMethod(Kaleta\Core\Mail::class, 'send');
+check('3.31: Calendar::run sends each reminder e-mail with Mail::send and its queue (a failure waits for the job "mail"); the reminder is recorded first', [
+    substr_count($f331, 'Mail::send('), str_contains($f331, '$queued += Mail::send($s, $recipient, $subject, $text) ? 0 : 1;'),
+    $f331Send->getParameters()[6]->getName(), $f331Send->getParameters()[6]->getDefaultValue(),
+    strpos($f331, "INSERT IGNORE INTO {fleet_expiry_reminders}") < strpos($f331, '$queued += Mail::send(')],
+    [1, true, 'queueOnFailure', true, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

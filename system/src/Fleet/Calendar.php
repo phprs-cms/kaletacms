@@ -26,6 +26,10 @@ use Kaleta\Core\Settings;
  *    bell of each administrator (Core\Inbox, kind fleet_expiry). Each date is reminded once per "days before" (table
  *    ka_fleet_expiry_reminders – written before anything is sent, so two runs at once never send twice); a date found when
  *    several thresholds have passed already is reminded once, at the smallest. A renewed certificate has a new date.
+ *    3.31: an e-mail that fails (the mail server down) is not lost – Mail::send keeps it, per recipient, in the mail queue
+ *    (ka_posta) and the job "mail" retries it after 5, 30, 120 and 720 minutes (Mail::RETRY_DELAYS), exactly once when it
+ *    goes through and only to the address it was meant for; the reminder stays recorded, so neither the bell nor the
+ *    e-mail is repeated by this job. A failure the queue gives up on is an event "mail.failed" in System status.
  *  - A calendar feed (.ics) per administrator: GET /fleet/calendar.ics?token=… with a secret only its owner saw (stored as
  *    a hash, setting fleet_calendar_feeds), revoked in one click; the feed has the dates and plain links to the console.
  * Dates, kinds and site names only – never anything a site's visitors wrote. Everything apart from run(), feed() and the
@@ -314,14 +318,16 @@ final class Calendar
         }, 'admin-');
         \Kaleta\Core\Inbox::markEmailed($db, $noted); // the e-mail below says it; the daily summary must not say it again
         $recipients = $s->bool('alerts_enabled') ? AlertRules::recipients($s) : [];
+        $queued = 0;
         if ($recipients !== []) {
             [$subject, $text] = self::message($s, $fresh, AlertRules::consoleUrl($app));
             foreach ($recipients as $recipient) {
-                Mail::send($s, $recipient, $subject, $text);
+                // a failed send waits in the mail queue and the job "mail" retries it (never queueOnFailure false here)
+                $queued += Mail::send($s, $recipient, $subject, $text) ? 0 : 1;
             }
         }
 
-        return 'reminded ' . count($fresh) . ($recipients === [] ? ' (bell only)' : '');
+        return 'reminded ' . count($fresh) . ($recipients === [] ? ' (bell only)' : '') . ($queued > 0 ? ', e-mails queued for a retry: ' . $queued : '');
     }
 
     /** "Certificate of Acme ends on 1 December 2026 (in 7 days)." in the current language. Pure apart from the dictionaries. @param array<string, mixed> $e */

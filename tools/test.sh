@@ -4739,6 +4739,30 @@ sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null; curl -s -o /d
 expect "3.30 reminders: the next run sends nothing again" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")" "3|1|2"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?action=inbox"
 expect "3.30: the bell lists the reminder with the site in the console" "$(grep -cE 'X330 Pilot' "$WORK/response" | awk '{print ($1 >= 1)}')" "1"
+# 3.31: the mail server is down when a reminder is due – the bell arrives, the e-mail waits in the mail queue; once the server
+# is back the job "mail" delivers it exactly once, and no later run repeats the e-mail or the bell
+kill "$SMTP_PID" 2>/dev/null || true; wait "$SMTP_PID" 2>/dev/null || true
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' "$SMTP_PORT" && break; sleep 0.1; done
+R331_REMINDER="(predmet LIKE '%termíny vašich webů%' OR predmet LIKE '%dates of your sites%')"
+r331_emls() { local n=0 f; for f in "$WORK"/smtp330/*.eml; do [ -f "$f" ] && grep -q '^X-Rcpt-To: owner317@agency.example' "$f" && eml "$f" | grep -qE '^Subject-Decoded: .*(termíny vašich webů|dates of your sites)' && n=$((n + 1)); done; echo "$n"; }
+R331_P0=$(sq3 "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
+sq3 "DELETE FROM ka_fleet_expiry_reminders WHERE site_id = $PILOT330 AND kind = 'domain'; DELETE FROM ka_jobs WHERE name IN ('fleet_expiry', 'mail')" > /dev/null
+curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
+expect "3.31 reminders, mail server down: the reminder recorded, the bell once more, no e-mail delivered – it waits in the mail queue for owner317 only" \
+  "$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus IS NOT NULL), '|', SUM(komu = 'owner317@agency.example')) FROM ka_posta WHERE idp > $R331_P0 AND $R331_REMINDER")" \
+  "3|3|1|1|1|1"
+command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' "$SMTP_PORT" && break; sleep 0.1; done
+sq3 "UPDATE ka_posta SET dalsi_pokus = '$(site_time '-1 day')' WHERE idp > $R331_P0 AND odeslano IS NULL AND telo IS NOT NULL; DELETE FROM ka_jobs WHERE name IN ('fleet_expiry', 'mail')" > /dev/null
+curl -s -o /dev/null "$B3/tasks?token=contoken317"
+for _ in $(seq 1 50); do [ "$(r331_emls)" -ge 2 ] && break; sleep 0.2; done; sleep 0.5
+expect "3.31 reminders, mail server back: the job \"mail\" delivers the waiting reminder exactly once, to owner317; the bell is not repeated" \
+  "$(r331_emls)|$(sq3 "SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NOT NULL)) FROM ka_posta WHERE idp > $R331_P0 AND $R331_REMINDER")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")" \
+  "2|1|1|3"
+sq3 "DELETE FROM ka_jobs WHERE name IN ('fleet_expiry', 'mail')" > /dev/null; curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
+expect "3.31 reminders: the next run sends no e-mail and no bell again" \
+  "$(r331_emls)|$(sq3 "SELECT COUNT(*) FROM ka_posta WHERE idp > $R331_P0 AND $R331_REMINDER")|$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")" \
+  "2|1|3|3"
 kill "$SMTP_PID" 2>/dev/null || true; sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=calendar"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=10, 45"
