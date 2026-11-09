@@ -7451,4 +7451,7 @@ return [
     'A deal' => 'Obchod',
     'Domain registrations – days before' => 'Registrace domén – dní předem',
     'For example 14, 7: each certificate date is reminded once 14 days and once 7 days before. Certificates usually renew themselves about 30 days before they end. Empty = no reminders.' => 'Například 14, 7: každý termín certifikátu připomeneme jednou 14 dní a jednou 7 dní předem. Certifikáty se obvykle samy obnovují asi 30 dní před koncem. Prázdné = bez připomínek.',
+    'Update rollout held back' => 'Nasazování aktualizace se zdrželo',
+    'Version %s – sites held back by the pilot sites: %s' => 'Verze %s – webů čekajících na pilotní weby: %s',
+    'Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.' => 'Čeká se: pilotní web zatím nemá novou verzi bez chyb, výpadků nebo nepovedené aktualizace. Opravte pilotní web a nasazování pokračuje samo, nebo verzi povolte ručně na stránce webu.',
 ];

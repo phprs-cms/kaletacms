@@ -10146,6 +10146,22 @@ check('3.30 Rollout::overview – per site its ring, state and the moment it may
     Kaleta\Fleet\Console::allowedVersion($x330Row(2, '3.29.0'), [$x330Row(1, '3.30.0', 'canary', ['version_since' => $x330Now - 10 * 3600])], '3.30.0', false, 0, $x330Now)],
     [['1:pilot:updated::', '2:normal:waiting:Mon 22:00:1|22:00-05:00', '4:normal:self::', '3:careful:failed::'],
         ['pilot' => ['updated' => 1], 'normal' => ['waiting' => 1, 'self' => 1], 'careful' => ['failed' => 1]], true, '1|22:00-05:00', '', '']);
+// 3.31.1: a rollout held back by the pilots for more than 3 days is one amber item of Today (counted from when the first held
+// site would otherwise have been allowed), with the plain link to the Rollout tab; a security release or a short hold is none
+$a3311Held = fn (int $firstSeen, bool $security = false, array $states = ['blocked', 'blocked']): ?array => Kaleta\Core\Language::runWith('en', fn (): ?array => Kaleta\Fleet\Rollout::heldItem(['version' => '3.32.0',
+    'security' => $security, 'first_seen' => $firstSeen, 'sites' => [['ring' => 'pilot', 'state' => 'failed'], ['ring' => 'normal', 'state' => $states[0]], ['ring' => 'careful', 'state' => $states[1]]],
+    'rings' => [], 'next' => []], $x330Delays, $x330Now), 'admin-');
+$a3311Item = $a3311Held($x330Now - 6 * 86400);
+$a3311Today = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/today.php');
+check('3.31.1 Rollout::heldItem – one item for the release (held since the first held site\'s ring delay), amber, linking to the Rollout tab; none under 3 days, for a security release or without held sites; a careful site counts from its own week; Today and fleet_today show it', [
+    array_intersect_key($a3311Item ?? [], array_flip(['kind', 'site_id', 'check', 'state', 'label', 'detail', 'link', 'weight', 'held'])), ($a3311Item['since'] ?? 0) === $x330Now - 4 * 86400,
+    $a3311Held($x330Now - 5 * 86400), $a3311Held($x330Now - 6 * 86400, true), $a3311Held($x330Now - 6 * 86400, false, ['waiting', 'allowed']), $a3311Held($x330Now - 6 * 86400, false, ['waiting', 'blocked']), $a3311Held($x330Now - 11 * 86400, false, ['waiting', 'blocked'])['held'] ?? 0,
+    count(Kaleta\Fleet\ConsoleTasks::rank([['site' => 'B', 'site_id' => 2, 'state' => 'bad', 'weight' => 100, 'since' => 1], $a3311Item])),
+    str_contains($a3311Today, "(\$i['kind'] ?? '') === 'rollout'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Fleet.php'), '$held = $customer === 0 ? $this->heldRollout($sites, $now) : null;'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/FleetTools.php'), 'Rollout::heldItem('),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Update rollout held back'], (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Version %s – sites held back by the pilot sites: %s']), ['cs', 'de', 'es'])],
+    [['kind' => 'rollout', 'site_id' => 0, 'check' => 'rollout', 'label' => 'Update rollout held back', 'state' => 'warn', 'detail' => 'Version 3.32.0 – sites held back by the pilot sites: 2',
+        'link' => 'admin.php?module=fleet&action=rollout', 'weight' => 50, 'held' => 2], true, null, null, null, null, 1, 2, true, true, true, [true, true, true]]);
 
 // the expiry calendar
 $x330Watch = fn (int $certDays, ?int $domainDays, array $more = []): array => ['domain_watch' => $more + ['checked' => $x330Now - 3600, 'local' => false,

@@ -4811,6 +4811,20 @@ sq3 "UPDATE ka_fleet_sites SET update_window = '1234567|00:00-00:00' WHERE id = 
 sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317; UPDATE ka_fleet_sites SET status = 'error' WHERE id = $PILOT330" > /dev/null; G9=$(hb330)
 expect "3.30 update gate: normal after the pilot ran it 48 h | its own window closed | its customer's window closed | its own 'any time' over the customer's | careful (7 days) | a security release at once, window or not | a pilot outside its window | inside it | the pilot fails → held back" \
   "$G1|$G2|$G3|$G4|$G5|$G6|$G7|$G8|$G9" "3.99.9|-|-|3.99.9|-|3.99.9|-|3.99.9|-"
+# 3.31.1: the pilot fails and the release has been known for 6 days – Today and fleet_today have one amber item "rollout held
+# back" with a plain link to the Rollout tab, which says how it goes on; known for an hour only – no item
+FV3311=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'")
+sq3 "UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 6 * 86400)),false]}' WHERE promenna = 'fleet_versions'" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+A3311_TODAY="$(grep -c 'data-fleet-rollout-held="3.99.9"' "$WORK/response")|$(grep -A6 'data-fleet-rollout-held=' "$WORK/response" | grep -c 'href="/admin.php?module=fleet&amp;action=rollout"' | awk '{print ($1 >= 1)}')|$(grep -cE '<strong>(Nasazování aktualizace se zdrželo|Update rollout held back)</strong>' "$WORK/response")"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_today","arguments":{}}}' > "$WORK/response"
+A3311_MCP=$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $i = array_values(array_filter($d["items"] ?? [], fn ($x) => $x["check"] === "rollout"));
+  echo count($i), "|", $i[0]["state"] ?? "-", "|", (int) preg_match("~^http://127\.0\.0\.1:[0-9]+/admin\.php\?module=fleet&action=rollout$~", $i[0]["link"] ?? ""), "|", (int) isset($i[0]["site_id"]), "|", (int) str_starts_with($i[0]["detail"] ?? "", "Version 3.99.9");' "$WORK/response")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=rollout"; A3311_HINT=$(grep -c 'data-rollout-held' "$WORK/response")
+sq3 "UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 3600)),false]}' WHERE promenna = 'fleet_versions'" > /dev/null
+expect "3.31.1 Today: a rollout held back by the pilots for 6 days is one amber item with a plain link to Rollout (screen and fleet_today), Rollout says how it goes on; after an hour – none" \
+  "$A3311_TODAY|$A3311_MCP|$A3311_HINT|$(curl -s -b "$JAR_CON" -c "$JAR_CON" "$B3/admin.php?module=fleet" | grep -c 'data-fleet-rollout-held=')" "1|1|1|1|warn|1|0|1|1|0"
+sq3 "UPDATE ka_nastaveni SET hodnota = '$FV3311' WHERE promenna = 'fleet_versions'" > /dev/null
 sq3 "UPDATE ka_fleet_sites SET status = 'ok' WHERE id = $PILOT330" > /dev/null
 # N330-5: the console installed a security release on itself before any site asked – it still goes to every site at once
 V330=$(sed -nE "s/^const KALETA_VERSION = '([^']+)';/\\1/p" "$WORK/web3/system/bootstrap.php")

@@ -7860,4 +7860,7 @@ return [
     'A deal' => 'Ein Deal',
     'Domain registrations – days before' => 'Domain-Registrierungen – Tage vorher',
     'For example 14, 7: each certificate date is reminded once 14 days and once 7 days before. Certificates usually renew themselves about 30 days before they end. Empty = no reminders.' => 'Zum Beispiel 14, 7: An jeden Zertifikatstermin wird einmal 14 Tage und einmal 7 Tage vorher erinnert. Zertifikate erneuern sich meist selbst etwa 30 Tage vor ihrem Ablauf. Leer = keine Erinnerungen.',
+    'Update rollout held back' => 'Rollout des Updates hängt fest',
+    'Version %s – sites held back by the pilot sites: %s' => 'Version %s – Websites, die auf die Pilot-Websites warten: %s',
+    'Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.' => 'Wartet: Eine Pilot-Website läuft mit der neuen Version noch nicht ohne Fehler, Ausfälle oder ein fehlgeschlagenes Update. Beheben Sie das bei der Pilot-Website, dann geht der Rollout von selbst weiter, oder geben Sie die Version auf der Seite einer Website von Hand frei.',
 ];

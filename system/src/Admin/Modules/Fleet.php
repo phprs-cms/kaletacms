@@ -68,11 +68,28 @@ final class Fleet extends Module
         $severity = in_array($this->request->get('severity'), Health::SEVERITIES, true) ? $this->request->get('severity') : '';
         // 3.30: the overdue console tasks ranked among the checks (kind "task"); the summary counts the checks only
         $tasks = ConsoleTasks::todayItems(ConsoleTasks::open($this->db), $sites, $customers);
-        $all = ConsoleTasks::rank([...$items, ...$tasks]);
+        // 3.31.1: a rollout held back by the pilots for more than 3 days (kind "rollout") – the whole fleet's, so not under a customer filter
+        $held = $customer === 0 ? $this->heldRollout($sites, $now) : null;
+        $all = ConsoleTasks::rank([...$items, ...$tasks, ...($held !== null ? [$held] : [])]);
 
         return $this->view('today', 'Fleet', ['items' => Health::filter($all, $customer, $severity), 'total' => count($all), 'summary' => Health::summary($sites, $items, $now, $context),
             'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now, 'pairingKey' => $this->pairingKey(), 'overdueTasks' => count($tasks),
             'names' => \Kaleta\Core\Assignment::labels($this->db, array_column($tasks, 'assignee_id')), 'me' => $this->app->auth()->id()]);
+    }
+
+    /**
+     * The item of Today for a rollout held back too long (3.31.1, Rollout::heldItem), or null.
+     *
+     * @param list<array<string, mixed>> $sites
+     * @return array<string, mixed>|null
+     */
+    private function heldRollout(array $sites, int $now): ?array
+    {
+        [$latest, $security, $firstSeen] = Console::latest($this->app);
+        $delays = Rollout::delays($this->app->settings());
+
+        return Rollout::heldItem(Rollout::overview($sites, Rollout::customerWindows($this->db), $latest, $security, $firstSeen, $now, $delays,
+            new \DateTimeZone(date_default_timezone_get())), $delays, $now);
     }
 
     /** The health matrix (3.29): a row per site, a column per check (Fleet\Checks::CHECKS), each cell linking to its fix. */
