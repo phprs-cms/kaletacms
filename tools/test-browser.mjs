@@ -3994,6 +3994,53 @@ await step('3.28 Backups: the recovery key of the encrypted off-site copies – 
     try { (await import('node:fs')).unlinkSync(keyFile); } catch (e) { /* none was made */ }
   }
 });
+// 3.31.1: an encrypted off-site copy uploaded back for a restore (….enc) is marked in the Backups list and never counts as a
+// backup made here – with only such a fresh copy in the folder, opening the administration still makes the automatic local
+// backup at once (before 3.31.1 the copy's upload time held it up); 1440 and 390 px, light and dark, no sideways scroll, axe
+await step('3.31.1 Backups: an uploaded copy is marked and does not hold up the automatic backup, 1440 and 390 px, light/dark, axe', async () => {
+  const fs = await import('node:fs');
+  const folder = `${process.env.WEB_DIR}/storage/zalohy`;
+  const aside = `${process.env.WEB_DIR}/storage/zalohy-3311`;
+  const copy = 'kaleta-20261109-030000-auto-b3311abc.sql.gz.enc';
+  fs.mkdirSync(folder, { recursive: true });
+  fs.mkdirSync(aside, { recursive: true });
+  const local = fs.readdirSync(folder).filter((f) => /^kaleta-.*\.sql(\.gz)?$/.test(f));
+  for (const f of local) { fs.renameSync(`${folder}/${f}`, `${aside}/${f}`); }
+  fs.writeFileSync(`${folder}/${copy}`, Buffer.concat([Buffer.from([0x89, 0x4b, 0x42, 0x4b, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64)]));
+  try {
+    await visit('/admin.php');
+    const made = fs.readdirSync(folder).filter((f) => /^kaleta-.*-auto-.*\.sql(\.gz)?$/.test(f));
+    if (made.length !== 1) { throw new Error(`the uploaded copy held up the automatic backup (${made.length} made)`); }
+    if ((await page.content()).includes('The site has no database backup yet.')) { throw new Error('the dashboard warns although a backup was just made'); }
+    const stored = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        // bypassCSP: only so axe can be injected into the admin page (script-src 'self'), as the other admin axe checks do
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: stored, bypassCSP: true, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=settings&tab=backups`, { waitUntil: 'networkidle' });
+          const row = p2.locator('table.vypis tr', { hasText: copy });
+          const badge = row.locator('.stitek', { hasText: 'uploaded copy' });
+          if (await badge.count() !== 1) { throw new Error(`the uploaded copy is not marked (${label}, ${scheme})`); }
+          if (!(await badge.getAttribute('title') || '').includes('does not count as a backup made on this server')) { throw new Error('the badge does not say why'); }
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label}, ${scheme})`); }
+          const found = await axeViolations(p2, `backups ${label} ${scheme}`);
+          if (found.length) { throw new Error(found.join('\n')); }
+          if (SHOTS) { await row.scrollIntoViewIfNeeded(); await p2.screenshot({ path: `${SHOTS}/3311-uploaded-copy-${label}-${scheme}.png` }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+  } finally {
+    try { fs.unlinkSync(`${folder}/${copy}`); } catch (e) { /* gone already */ }
+    for (const f of fs.readdirSync(folder).filter((f) => /^kaleta-.*\.sql(\.gz)?$/.test(f))) { fs.unlinkSync(`${folder}/${f}`); } // made during the step
+    for (const f of local) { fs.renameSync(`${aside}/${f}`, `${folder}/${f}`); }
+    fs.rmdirSync(aside);
+  }
+});
 // 3.29: visits confirmed by a browser (Front\Stats::hit). Playwright's Chrome reports navigator.webdriver, so on a page as it is
 // the beacon must not go out at all; a context set up like a visitor's browser (a normal user agent, webdriver hidden – on the
 // test side only, the site has no switch for it) sends exactly one per page view, which counts exactly one view
