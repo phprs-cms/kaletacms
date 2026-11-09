@@ -9799,6 +9799,29 @@ check('3.31.1: the rotation never deletes the copy being restored – an old upl
     substr_count($b3311Settings, "Backup::create(\$this->db, 'predobnovou'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php'), "if (\$prune) {\n            self::prune([\$file]);")],
     [10, ['kaleta-20261020-030000-auto-y.sql.gz'], [], ['kaleta-20260920-030000-auto-z.sql.gz.enc'], [], [], true, true, true, 1, true]);
 
+// a failed off-site copy is one backup.failed event with a short system text; a paused copy stays backup.copy_paused
+$b3311S = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($b3311S, ['backup_password' => 'Pa55-' . 'word-x', 'backup_user' => 'jan.novak']);
+$b3311Fail = fn (string $error): string => Kaleta\Core\RemoteBackup::failureText($error, $b3311S);
+$b3311Remote = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RemoteBackup.php');
+$b3311Upload = substr($b3311Remote, (int) strpos($b3311Remote, 'public static function upload('), 2600);
+check('3.31.1: failureText – one line without "|", no password or user name of the target (any case), no credentials in an address, no e-mail address, no site folder, at most 200 characters', [
+    $b3311Fail("530 Login incorrect\n for JAN.NOVAK"), $b3311Fail('Could not connect to ftp://jan.novak:Pa55-word-x@nas.example.com/zalohy'),
+    $b3311Fail('Access denied (user jan@client.example)'), $b3311Fail('fopen(' . KALETA_ROOT . '/storage/zalohy/.upload-1.enc): failed'),
+    mb_strlen($b3311Fail(str_repeat('é', 500))), str_ends_with($b3311Fail(str_repeat('x', 500)), '…'),
+    $b3311Fail('The storage refused the upload (code 403): Access Denied.'), $b3311Fail('a | b'),
+    (function () use ($b3311S): string { (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($b3311S, ['backup_password' => 'ab', 'backup_user' => '']); return Kaleta\Core\RemoteBackup::failureText('ab cab', $b3311S); })()],
+    ['530 Login incorrect for …', 'Could not connect to ftp://nas.example.com/zalohy', 'Access denied (user …)', 'fopen(storage/zalohy/.upload-1.enc): failed', 200, true,
+        'The storage refused the upload (code 403): Access Denied.', 'a b', 'ab cab']);
+check('3.31.1: upload() records backup.failed once per failed copy (the short text in the status and the event), the paused copy returns before it; the media copy records its failure when it starts; translated (cs, de, es)', [
+    substr_count($b3311Upload, "Events::record(\$s->db(), 'backup.failed', 'error'"), strpos($b3311Upload, 'return self::pausedText();') < strpos($b3311Upload, "'backup.failed'"),
+    str_contains($b3311Upload, "\$s->set('remote_backup_status', date('Y-m-d H:i') . '|' . \$text);"),
+    substr_count($b3311Remote, "'backup.failed'"), str_contains($b3311Remote, 'if ($error !== null && !$failing) {'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php'), "'backup.failed'"), isset(Kaleta\Core\Events::TYPES['backup.failed']), in_array('backup.copy_paused', Kaleta\Core\Alerts::WARNINGS, true),
+    array_map(fn (string $code): array => array_values(array_diff(['The off-site copy of the backup failed: %s', 'The off-site copy of the media failed: %s'],
+        array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [1, true, true, 2, true, 2, true, true, [[], [], []]]);
+
 /* ---------- 3.29: the console's health checks, Today and workload (Fleet\Checks, the heartbeat parts behind them) ---------- */
 $c329Now = 1_800_000_000;
 $c329Day = fn (int $days): string => date('Y-m-d', $c329Now + $days * 86400);

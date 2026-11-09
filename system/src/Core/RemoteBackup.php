@@ -29,6 +29,9 @@ final class RemoteBackup
     /** remote_backup_status when a backup was not copied because the recovery key has not been saved yet (3.28). */
     public const string PAUSED = 'paused';
 
+    /** The longest short system text of a failed off-site copy (failureText, 3.31.1). */
+    public const int FAILURE_LENGTH = 200;
+
     /** Days between two backup.copy_paused events (and so alert e-mails) while the copies wait for the recovery key. */
     private const int PAUSED_EVENT_DAYS = 7;
 
@@ -74,9 +77,39 @@ final class RemoteBackup
                 @unlink($encrypted);
             }
         }
-        $s->set('remote_backup_status', date('Y-m-d H:i') . '|' . ($error ?? 'ok'));
+        if ($error === null) {
+            $s->set('remote_backup_status', date('Y-m-d H:i') . '|ok');
+
+            return null;
+        }
+        // 3.31.1: a failed copy (connection, sign-in, quota, the FTPS certificate…) is the event backup.failed, once per failed
+        // upload, so the alert e-mail, System status and the fleet heartbeat see it – with a short system text, never a
+        // secret; the caller still gets the full text to show the administrator once
+        $text = self::failureText($error, $s);
+        $s->set('remote_backup_status', date('Y-m-d H:i') . '|' . $text);
+        Events::record($s->db(), 'backup.failed', 'error', t('The off-site copy of the backup failed: %s', $text), ['file' => basename($path), 'offsite' => true]);
 
         return $error;
+    }
+
+    /**
+     * The short system text of a failed off-site copy (3.31.1) for the status, the event and so the alert e-mail and the
+     * heartbeat: one line (no "|") of at most FAILURE_LENGTH characters, without the target's password and user name (a server's
+     * reply may repeat them), credentials in an address, e-mail addresses or this site's folder on the disk. Pure.
+     */
+    public static function failureText(string $error, Settings $s): string
+    {
+        $text = trim((string) preg_replace('/[\s|]+/u', ' ', $error)); // one line; "|" separates the parts of the status
+        foreach ([$s->get('backup_password'), $s->get('backup_user')] as $secret) {
+            if (mb_strlen($secret) >= 4) {
+                $text = str_ireplace($secret, '…', $text);
+            }
+        }
+        $text = (string) preg_replace('#\b([a-z][a-z0-9+.-]*://)[^\s/@]+@#i', '$1', $text); // ftp://user:pass@host → ftp://host
+        $text = (string) preg_replace('/[^\s@<>()"\']+@[^\s@<>()"\']+\.[a-z]{2,}/i', '…', $text); // e-mail addresses
+        $text = str_replace([KALETA_ROOT . '/', KALETA_ROOT], '', $text);
+
+        return mb_strlen($text) > self::FAILURE_LENGTH ? rtrim(mb_substr($text, 0, self::FAILURE_LENGTH - 1)) . '…' : $text;
     }
 
     /** Why a backup was not copied off the server while the recovery key waits (3.28). */
@@ -163,7 +196,13 @@ final class RemoteBackup
             }
             file_put_contents(self::MEDIA_MANIFEST, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES), LOCK_EX);
         }
-        $s->set('remote_media_status', date('Y-m-d H:i') . '|' . ($error ?? 'ok') . '|' . (count($pending) - $done));
+        $failing = !in_array(explode('|', $s->get('remote_media_status'))[1] ?? '', ['', 'ok'], true); // the copy before this one failed already
+        $text = $error === null ? 'ok' : self::failureText($error, $s);
+        $s->set('remote_media_status', date('Y-m-d H:i') . '|' . $text . '|' . (count($pending) - $done));
+        if ($error !== null && !$failing) {
+            // 3.31.1: the media copy runs every hour – its failure is one event when it starts failing, not one an hour
+            Events::record($s->db(), 'backup.failed', 'error', t('The off-site copy of the media failed: %s', $text), ['offsite' => true, 'media' => true]);
+        }
 
         return $error;
     }

@@ -27,7 +27,7 @@ final class Events
         'build.published' => 'A page, a site part, a collection template or a pop-up was published.',
         'look.published' => 'The draft look (design system, classes, menus) was published.',
         'backup.created' => 'An automatic database backup was made.',
-        'backup.failed' => 'A database backup or its off-site copy failed.',
+        'backup.failed' => 'A database backup or its off-site copy failed (3.31.1: every failed upload of the database copy, and the media copy when it starts failing – data offsite, media, the file; a short system text, never the target\'s secrets).',
         'backup.copied' => 'An automatic backup was copied off the server (FTPS or S3; the file) – the monthly report counts the copies (3.26.1).',
         'backup.restored' => 'The database was restored from a backup in Settings → Backups and updates (3.19.1; the file, the safety backup made before it and the user) – written after the restore, so the restored database keeps it.',
         'backup.deleted' => 'A database backup was deleted in Settings → Backups and updates (3.19.1; the file and the user).',
