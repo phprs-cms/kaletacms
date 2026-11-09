@@ -505,7 +505,8 @@ final class Deals
      * about (its topic, otherwise the form's name), its contact (linked now when the after-response link has not run yet)
      * and the contact's company, the person who handles the enquiry as responsible (when they may open the pipeline,
      * otherwise nobody), source_enquiry_id. One open deal per enquiry: a second one is refused. $fields may override title,
-     * owner_id, value, currency and expected_close. Returns the new deal's id.
+     * owner_id, value, currency, expected_close and (3.31.1) stage – an open stage, checked by save() as for any new deal;
+     * the first open stage by default. Returns the new deal's id.
      *
      * @param array<string, mixed> $fields
      * @throws \DomainException with a translated reason; nothing is saved
@@ -518,6 +519,10 @@ final class Deals
         if ($open !== null) {
             throw new \DomainException(t('The enquiry already has an open deal (#%d).', $open));
         }
+        $stage = is_scalar($fields['stage'] ?? null) ? (string) $fields['stage'] : '';
+        if ($stage !== '' && (self::stage($app->settings(), $stage)['kind'] ?? null) !== 'open') {
+            throw new \DomainException(t('A new deal starts in an open stage.')); // as save() – before the contact is linked
+        }
         $contactId = $enquiry['contact_id'] !== null ? (int) $enquiry['contact_id'] : null;
         if ($contactId === null && $enquiry['anonymizovano'] === null) {
             try {
@@ -529,7 +534,7 @@ final class Deals
         $topic = self::line($enquiry['tema'] ?? '', self::TITLE_MAX);
         $assignee = (int) ($enquiry['prirazeno'] ?? 0);
 
-        return self::save($app, null, array_intersect_key($fields, array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close'])) + [
+        return self::save($app, null, array_intersect_key($fields, array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage'])) + [
             'title' => $topic !== '' ? $topic : (string) $enquiry['formular'], 'contact_id' => $contactId ?? 0,
             'owner_id' => $assignee > 0 && self::mayOpen($db, $app->settings(), $assignee) ? $assignee : null, 'source_enquiry_id' => $idp,
         ], $byUserId);

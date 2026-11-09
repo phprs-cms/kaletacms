@@ -540,7 +540,7 @@ final class Tools
                 $s(['id' => $number('deal id to change; without it a new deal'), 'enquiry' => $number('create the deal from this enquiry id (list_enquiries)'), 'title' => $text('what the deal is, up to 200 characters'),
                     'contact' => $number('contact id (list_contacts); 0 = none'), 'company' => $number('company id; 0 = none (a new deal takes the contact\'s company)'),
                     'owner' => $text('the responsible person: a user id, e-mail or "me"; "none" = nobody'), 'value' => $text('the value, e.g. 12500 or 12500.50; empty = none'),
-                    'currency' => $text('ISO currency code, e.g. EUR'), 'expected_close' => $text('YYYY-MM-DD; "none" = no date'), 'stage' => $text('a new deal only: the open stage it starts in')])],
+                    'currency' => $text('ISO currency code, e.g. EUR'), 'expected_close' => $text('YYYY-MM-DD; "none" = no date'), 'stage' => $text('a new deal only (also with enquiry): the open stage it starts in; default the first open stage')])],
             ['move_deal', 'Moves a deal to another stage (3.31): the move is kept in its history; a won or lost stage closes it, lost needs lost_reason; moving a closed deal to an open stage reopens it. NOT UNDOABLE: never in the undo journal.',
                 $s(['id' => $number('deal id (list_deals)'), 'stage' => $text('the stage key to move to (list_deals stages)'),
                     'lost_reason' => $text('for a lost stage: ' . implode(' | ', array_keys(\Kaleta\Core\Deals::LOST_REASONS))), 'lost_note' => $text('for a lost stage: an optional note, up to 500 characters')], ['id', 'stage'])],

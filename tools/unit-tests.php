@@ -10323,6 +10323,17 @@ check('3.31: a move is created, moved, won, lost or reopened (from a closing sta
     $d331::event('lost', 'new', $d331Kinds), $d331::event('lost', 'lost2', $d331Kinds),
     $d331::ownerFilter('mine', 7), $d331::ownerFilter('mine', 0), $d331::ownerFilter('none', 7), $d331::ownerFilter('3', 7), $d331::ownerFilter(0, 7), $d331::ownerFilter(-1, 7), $d331::STATUSES,
 ], ['created', 'moved', 'won', 'lost', 'reopened', 'lost', 7, -1, -1, 3, 0, -1, ['open', 'closed', 'won', 'lost', 'all']]);
+// 3.31.1: save_deal with enquiry honours stage – createFromEnquiry passes it to save() and refuses a stage that is not open
+// before it links the enquiry's contact (the same refusal as a new deal without an enquiry)
+$a3311From = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+$a3311FromBody = substr($a3311From, (int) strpos($a3311From, 'public static function createFromEnquiry('), 2600);
+check('3.31.1: createFromEnquiry takes stage (an open one, checked before the contact is linked, the refusal of save()); the tool says so; the parameter stays', [
+    str_contains($a3311FromBody, "array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage'])"),
+    strpos($a3311FromBody, "throw new \\DomainException(t('A new deal starts in an open stage.'));") < strpos($a3311FromBody, 'Contacts::link($app'),
+    substr_count($a3311From, "t('A new deal starts in an open stage.')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), "'stage' => \$text('a new deal only (also with enquiry): the open stage it starts in"),
+    json_decode((string) file_get_contents(KALETA_ROOT . '/tools/contracts/mcp-tools.json'), true)['save_deal']['parameters']['stage'] ?? null],
+    [true, true, 2, true, 'string']);
 check('3.31: a deal\'s title names the person when it has every word of their name or their address – such a title loses it when the person is erased', [
     $d331::names('Olga Nováková – yearly contract', 'Olga Nováková', 'olga@x.cz'), $d331::names('Yearly contract for NOVÁKOVÁ Olga', 'Olga Nováková', ''), $d331::names('Website for Acme', 'Olga Nováková', 'olga@acme.cz'),
     $d331::names('Offer sent to olga@acme.cz', 'Olga', 'olga@acme.cz'), $d331::names('Olga\'s website', 'Olga Nováková', ''), $d331::names('Anything', '', ''), $d331::names('Jo Li deal', 'Jo Li', ''),

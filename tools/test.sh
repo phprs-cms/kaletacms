@@ -10531,6 +10531,18 @@ expect "3.31: the responsible person is notified in the bell (assigned, deal:<id
   "$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $T331_JANA AND kind = 'assigned' AND target = 'deal:${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'pipeline' AND akce = 'create' AND popis = '#${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_agent_journal WHERE tbl IN ('deals', 'deal_stage_history')")" "1|1|0"
 mcp_as "$T331_TA" save_deal "{\"enquiry\":${T331_E1:-0}}" > "$WORK/response"; mcp_text
 expect "3.31 save_deal: one open deal per enquiry – a second one is refused" "$(grep -c "already has an open deal (#${T331_D1:-0})" "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE source_enquiry_id = ${T331_E1:-0}")" "1|1"
+# 3.31.1: save_deal with enquiry honours stage – an open stage is used; won or an unknown stage get the refusal of a deal
+# without an enquiry, before the enquiry's contact is linked (the test deal goes again: the monthly report below counts the others)
+T3311_E=$(sq "INSERT INTO ka_poptavky (datum, formular, tema, email, data, stav) VALUES ('$(site_time)', 'Poptávka T331', 'Stage T331', 'stage.t331@example.org', '[]', 1); SELECT LAST_INSERT_ID();")
+mcp_as "$T331_TA" save_deal "{\"enquiry\":${T3311_E:-0},\"stage\":\"won\"}" > "$WORK/response"; mcp_text; T3311_R1=$(grep -c 'A new deal starts in an open stage' "$WORK/text")
+mcp_as "$T331_TA" save_deal "{\"enquiry\":${T3311_E:-0},\"stage\":\"nope\"}" > "$WORK/response"; mcp_text; T3311_R2=$(grep -c 'A new deal starts in an open stage' "$WORK/text")
+mcp_as "$T331_TA" save_deal '{"title":"Stage T331","stage":"nope"}' > "$WORK/response"; mcp_text; T3311_R3=$(grep -c 'A new deal starts in an open stage' "$WORK/text")
+T3311_LINKED=$(sq "SELECT CONCAT(IFNULL(contact_id, 'null'), '|', (SELECT COUNT(*) FROM ka_deals WHERE source_enquiry_id = ${T3311_E:-0})) FROM ka_poptavky WHERE idp = ${T3311_E:-0}")
+mcp_as "$T331_TA" save_deal "{\"enquiry\":${T3311_E:-0},\"stage\":\"qualified\"}" > "$WORK/response"; mcp_text; T3311_D=$(t331_json id)
+expect "3.31.1 save_deal with enquiry: stage won and an unknown stage refused as without an enquiry, the contact not linked yet; an open stage is used, in its history" \
+  "$T3311_R1|$T3311_R2|$T3311_R3|$T3311_LINKED|$(t331_json deal.stage)|$(sq "SELECT CONCAT(stage, '|', source_enquiry_id = ${T3311_E:-0}, '|', (SELECT GROUP_CONCAT(to_stage) FROM ka_deal_stage_history WHERE deal_id = ${T3311_D:-0})) FROM ka_deals WHERE id = ${T3311_D:-0}")" \
+  "1|1|1|null|0|qualified|qualified|1|qualified"
+sq "DELETE FROM ka_deal_stage_history WHERE deal_id = ${T3311_D:-0}; DELETE FROM ka_deals WHERE id = ${T3311_D:-0}; DELETE FROM ka_notifications WHERE target = 'deal:${T3311_D:-0}'" > /dev/null
 # N331-1: as in the administration – Pia has the pipeline only: no deal from an enquiry (Enquiries), no contact or company (Customers)
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('t331-pia', '$T331_HASH', 'Pia T331', 'pia-t331@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off');
