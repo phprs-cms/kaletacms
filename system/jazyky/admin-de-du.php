@@ -1230,7 +1230,7 @@ return [
     'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Dieser Browser ist als %s angemeldet. Das Festlegen des Passworts meldet ihn ab; melde dich danach als %s an.',
     'A deal is what a customer may buy – it moves from New to Won or Lost. Create one here, or with “Create deal” on an enquiry or a customer.' => 'Ein Deal ist, was ein Kunde kaufen könnte – er wandert von Neu zu Gewonnen oder Verloren. Leg ihn hier an oder mit „Deal anlegen“ bei einer Anfrage oder einem Kunden.',
     'Move a deal with its stage and Move, or drag the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.' => 'Verschiebe einen Deal mit seiner Phase und „Verschieben“ oder zieh die Karte. Mit der Tastatur: Fokus auf den Griff einer Karte, Leertaste drücken, die Phase mit den Pfeiltasten wählen und erneut die Leertaste drücken; Esc bricht ab.',
-    'Change the numbers to reorder the stages. A stage with deals cannot be removed – move its deals first.' => 'Ändere die Zahlen, um die Phasen umzuordnen. Eine Phase mit Deals lässt sich nicht entfernen – verschiebe zuerst ihre Deals.',
+    'Change the numbers to reorder the stages. A stage with deals cannot be removed and keeps its kind – move its deals first.' => 'Ändere die Zahlen, um die Phasen umzuordnen. Eine Phase mit Deals lässt sich nicht entfernen und behält ihre Art – verschiebe zuerst ihre Deals.',
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.' => 'Mach aus der Anfrage einen Deal und verfolge ihn bis Gewonnen oder Verloren – Kunde und Bearbeiter werden übernommen.',
     'Say why the deal was lost.' => 'Gib an, warum der Deal verloren ging.',
     'Deals you are responsible for' => 'Deals, für die du verantwortlich bist',
@@ -1242,4 +1242,5 @@ return [
     'This person cannot open the pipeline (or the account is blocked) – choose someone who can.' => 'Diese Person kann die Pipeline nicht öffnen (oder das Konto ist gesperrt) – wähle jemanden, der es kann.',
     'You are responsible for the deal #%s' => 'Du bist für den Deal #%s verantwortlich',
     '%s made you the responsible person for the deal #%s.' => '%s hat dich als verantwortliche Person für den Deal #%s festgelegt.',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Die Art der Phase „%s“ lässt sich nicht ändern, solange Deals darin sind (%s) – verschiebe sie zuerst in eine andere Phase.',
 ];

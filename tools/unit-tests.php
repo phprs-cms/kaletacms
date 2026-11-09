@@ -10432,6 +10432,16 @@ check('3.31 (B): the stage editor – rows in the order of their numbers (unnumb
     mb_strlen($b331::stageRows([''], [str_repeat('x', 100)], ['open'], ['1'], [])[0]['label'])],
     [[['key' => 'new', 'label' => 'New', 'kind' => 'open'], ['key' => 'lost', 'label' => 'Lost', 'kind' => 'lost'], ['key' => 'won', 'label' => 'Won', 'kind' => 'won'], ['key' => '', 'label' => 'Demo', 'kind' => 'open']],
         Kaleta\Core\Deals::LABEL_MAX]);
+// 3.31.1: a stage with deals keeps its kind – saveStages compares the kinds of the stages that stay (kindChanges) and refuses
+$a3311Stages = Kaleta\Core\Deals::parseStages('');
+$a3311Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+check('3.31.1: kindChanges – the stages that stay with another kind (a removed or a new stage is not one); saveStages refuses them while deals are in them, naming how many', [
+    Kaleta\Core\Deals::kindChanges($a3311Stages, $a3311Stages),
+    Kaleta\Core\Deals::kindChanges($a3311Stages, [['key' => 'new', 'kind' => 'open'], ['key' => 'proposal', 'kind' => 'lost'], ['key' => 'won', 'kind' => 'open'], ['key' => 'fresh', 'kind' => 'won'], ['key' => 'lost', 'kind' => 'lost']]),
+    str_contains($a3311Deals, '$rekinded = self::kindChanges($current, $clean);'),
+    strpos($a3311Deals, '$rekinded = self::kindChanges(') < strpos($a3311Deals, "\$app->settings()->set('pipeline_stages'"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.']), ['cs', 'de', 'es', 'de-du'])],
+    [[], ['proposal', 'won'], true, true, [true, true, true, true]]);
 check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeline) – personal, never journaled; the timeline shows a deal with an icon and a label; "Deal #N" in My work', [
     Kaleta\Core\Comments::parseTarget('deal:3'), Kaleta\Core\Comments::deal(5), Kaleta\Core\Comments::KINDS['deal'] ?? null, Kaleta\Core\Comments::parseTarget('deal:0'),
     Kaleta\Core\Tasks::cleanTarget('deal:4'), Kaleta\Core\Tasks::personal('deal:4'), Kaleta\Core\Assignment::KINDS['deal'],

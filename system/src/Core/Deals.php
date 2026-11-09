@@ -147,7 +147,8 @@ final class Deals
      * kept as it is (lower case a–z, 0–9, _); a new stage without a key gets one from its label. At least MIN_STAGES and at
      * most MAX_STAGES, at least one open stage, exactly one won and at least one lost. A default stage whose label is left
      * empty (or is its translated default) keeps the translated label; any other label is stored as typed. A stage that
-     * still has deals cannot be removed. Writes the change log.
+     * still has deals cannot be removed, nor can its kind change (3.31.1: open, closed or not – a won deal must not become
+     * open or lost by an edit of the stages; its label and its place may change). Writes the change log.
      *
      * @param list<array<string, mixed>> $stages
      * @throws \DomainException with a translated reason; nothing is saved
@@ -155,7 +156,8 @@ final class Deals
     public static function saveStages(App $app, array $stages): void
     {
         $clean = self::cleanStages($stages, true);
-        $removed = array_diff(array_column(self::stages($app->settings()), 'key'), array_column($clean, 'key'));
+        $current = self::stages($app->settings());
+        $removed = array_diff(array_column($current, 'key'), array_column($clean, 'key'));
         if ($removed !== []) {
             try {
                 $used = $app->db()->value('SELECT stage FROM {deals} WHERE stage IN (' . implode(',', array_fill(0, count($removed), '?')) . ') LIMIT 1', array_values($removed));
@@ -166,10 +168,46 @@ final class Deals
                 throw new \DomainException(t('The stage “%s” still has deals – move them to another stage first.', (string) $used));
             }
         }
+        $rekinded = self::kindChanges($current, $clean);
+        if ($rekinded !== []) {
+            try {
+                $counts = array_map('intval', $app->db()->pairs('SELECT stage, COUNT(*) FROM {deals} WHERE stage IN (' . implode(',', array_fill(0, count($rekinded), '?')) . ') GROUP BY stage',
+                    $rekinded));
+            } catch (\PDOException) {
+                $counts = [];
+            }
+            $labels = array_column($current, 'label', 'key');
+            foreach ($rekinded as $key) {
+                if (($counts[$key] ?? 0) > 0) {
+                    throw new \DomainException(t('The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.', $labels[$key] ?? $key,
+                        format_count($counts[$key])));
+                }
+            }
+        }
         $isDefault = array_keys(self::DEFAULT_STAGES) === array_column($clean, 'key') && array_column(self::DEFAULT_STAGES, 1) === array_column($clean, 'kind')
             && array_filter(array_column($clean, 'label')) === [];
         $app->settings()->set('pipeline_stages', $isDefault ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'stages', implode(', ', array_column($clean, 'key')));
+    }
+
+    /**
+     * The keys of the stages that stay but get another kind (3.31.1), in the order of $current. Pure.
+     *
+     * @param list<array{key: string, kind: string}> $current
+     * @param list<array{key: string, kind: string}> $new
+     * @return list<string>
+     */
+    public static function kindChanges(array $current, array $new): array
+    {
+        $kinds = array_column($new, 'kind', 'key');
+        $out = [];
+        foreach ($current as $st) {
+            if (isset($kinds[$st['key']]) && $kinds[$st['key']] !== $st['kind']) {
+                $out[] = $st['key'];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -590,7 +628,7 @@ final class Deals
             $isOpen = (int) $r['open'] === 1;
             $kind = $kinds[$stage] ?? ($isOpen ? 'open' : 'lost');
             if ($isOpen !== ($kind === 'open')) {
-                continue; // a deal left in a stage whose kind was changed since – counted where it belongs only
+                continue; // a deal left in a stage whose kind was changed (before 3.31.1 – saveStages refuses it now) – counted where it belongs only
             }
             $n = (int) $r['n'];
             $counts[$stage] = ($counts[$stage] ?? 0) + $n;

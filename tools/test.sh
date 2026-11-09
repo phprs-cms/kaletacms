@@ -10755,6 +10755,20 @@ check "3.31: … removing a stage that has deals is refused and the form keeps w
 expect "3.31: … the setting unchanged, the refused labels offered again; too few stages refused too" \
   "$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)|$(b331_has 'value="Ukázka"')|$(b331_post "$JAR" "module=pipeline&action=stages" "module=pipeline&action=stages_save" -d 'key[]=won' -d 'key[]=lost' -d 'label[]=W' -d 'label[]=L' -d 'kind[]=won' -d 'kind[]=lost' -d 'order[]=1' -d 'order[]=2' > /dev/null; [ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" \
   "same|1|same"
+# 3.31.1: a stage with deals keeps its kind (Nabídka B331 holds the reopened deal) – refused, saying how many; a stage without deals may change it
+a3311_stages() { b331_post "$JAR" "module=pipeline&action=stages" "module=pipeline&action=stages_save" -d 'key[]=new' -d 'key[]=qualified' -d 'key[]=ukazka_b331' -d 'key[]=proposal' -d 'key[]=won' -d 'key[]=lost' \
+  -d 'label[]=New' -d 'label[]=Qualified' --data-urlencode 'label[]=Ukázka B331' --data-urlencode 'label[]=Nabídka B331' -d 'label[]=Won' -d 'label[]=Lost' \
+  -d 'kind[]=open' -d 'kind[]=open' -d "kind[]=$1" -d "kind[]=$2" -d 'kind[]=won' -d 'kind[]=lost' -d 'order[]=1' -d 'order[]=2' -d 'order[]=3' -d 'order[]=4' -d 'order[]=5' -d 'order[]=6' > /dev/null; }
+a3311_stages open lost
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=stages"
+expect "3.31.1: changing the kind of a stage with deals is refused – the stage and the count of its deals named, nothing saved, the form keeps what was typed" \
+  "$(b331_has 'class="hlaska hlaska-chyba"')|$(grep -cE 'Druh fáze „Nabídka B331“ nejde změnit, dokud jsou v ní obchody \(1\)|The kind of the stage “Nabídka B331” cannot change while deals are in it \(1\)' "$WORK/response")|$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" "1|1|same"
+a3311_stages lost open
+A3311_KINDS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'" | php -r 'echo implode(",", array_map(fn ($s) => $s["key"] . ":" . $s["kind"], json_decode(stream_get_contents(STDIN), true)));')
+a3311_stages open open
+expect "3.31.1: … a stage without deals changes its kind, and back" \
+  "$A3311_KINDS|$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" \
+  "new:open,qualified:open,ukazka_b331:lost,proposal:open,won:won,lost:lost|same"
 # permissions: Jana (Enquiries, Customers, Pipeline; no administrator) moves and sees My work, but stages and delete are the
 # administrators'; "Mine" is a filter; Petr (no Pipeline) gets 403 and no deal box, badge or palette search
 B331_JJAR=$(b331_login b331-jana)

@@ -7382,7 +7382,7 @@ return [
     'New stage' => 'Nová fáze',
     'has deals' => 'má obchody',
     'Remove “%s”' => 'Odebrat „%s“',
-    'Change the numbers to reorder the stages. A stage with deals cannot be removed – move its deals first.' => 'Pořadí fází změníte čísly. Fázi s obchody nejde odebrat – nejdřív její obchody přesuňte.',
+    'Change the numbers to reorder the stages. A stage with deals cannot be removed and keeps its kind – move its deals first.' => 'Pořadí fází změníte čísly. Fázi s obchody nejde odebrat ani změnit její druh – nejdřív její obchody přesuňte.',
     'Save the stages' => 'Uložit fáze',
     'Open the deal' => 'Otevřít obchod',
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.' => 'Z poptávky udělejte obchod a sledujte ho až do výhry nebo prohry – zákazník i ten, kdo ji vyřizuje, se převezmou.',
@@ -7447,4 +7447,5 @@ return [
     'Deals that reached each stage' => 'Obchody, které dosáhly jednotlivých fází',
     'Stage' => 'Fáze',
     'Deals' => 'Obchody',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Druh fáze „%s“ nejde změnit, dokud jsou v ní obchody (%s) – nejdřív je přesuňte do jiné fáze.',
 ];

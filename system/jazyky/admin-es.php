@@ -7810,7 +7810,7 @@ return [
     'New stage' => 'Nueva etapa',
     'has deals' => 'tiene oportunidades',
     'Remove “%s”' => 'Quitar «%s»',
-    'Change the numbers to reorder the stages. A stage with deals cannot be removed – move its deals first.' => 'Cambia los números para reordenar las etapas. Una etapa con oportunidades no se puede quitar: mueve antes sus oportunidades.',
+    'Change the numbers to reorder the stages. A stage with deals cannot be removed and keeps its kind – move its deals first.' => 'Cambia los números para reordenar las etapas. Una etapa con oportunidades no se puede quitar y mantiene su tipo: mueve antes sus oportunidades.',
     'Save the stages' => 'Guardar las etapas',
     'Open the deal' => 'Abrir la oportunidad',
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.' => 'Convierte la consulta en una oportunidad y síguela hasta ganada o perdida: el cliente y quien la atiende pasan con ella.',
@@ -7875,4 +7875,5 @@ return [
     'Deals that reached each stage' => 'Oportunidades que alcanzaron cada etapa',
     'Stage' => 'Etapa',
     'Deals' => 'Oportunidades',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'El tipo de la etapa «%s» no puede cambiar mientras tenga oportunidades (%s): muévelas antes a otra etapa.',
 ];

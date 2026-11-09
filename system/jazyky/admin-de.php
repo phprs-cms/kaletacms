@@ -7791,7 +7791,7 @@ return [
     'New stage' => 'Neue Phase',
     'has deals' => 'hat Deals',
     'Remove “%s”' => '„%s“ entfernen',
-    'Change the numbers to reorder the stages. A stage with deals cannot be removed – move its deals first.' => 'Ändern Sie die Zahlen, um die Phasen umzuordnen. Eine Phase mit Deals lässt sich nicht entfernen – verschieben Sie zuerst ihre Deals.',
+    'Change the numbers to reorder the stages. A stage with deals cannot be removed and keeps its kind – move its deals first.' => 'Ändern Sie die Zahlen, um die Phasen umzuordnen. Eine Phase mit Deals lässt sich nicht entfernen und behält ihre Art – verschieben Sie zuerst ihre Deals.',
     'Save the stages' => 'Phasen speichern',
     'Open the deal' => 'Deal öffnen',
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.' => 'Machen Sie aus der Anfrage einen Deal und verfolgen Sie ihn bis Gewonnen oder Verloren – Kunde und Bearbeiter werden übernommen.',
@@ -7856,4 +7856,5 @@ return [
     'Stage' => 'Phase',
     'Deal #%s' => 'Deal #%s',
     'Deals' => 'Deals',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Die Art der Phase „%s“ lässt sich nicht ändern, solange Deals darin sind (%s) – verschieben Sie sie zuerst in eine andere Phase.',
 ];
