@@ -10619,8 +10619,8 @@ expect "3.31: the deals' moves are on the customer's timeline (created, moved, l
   "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_unique(array_column(array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"), "status")));' "$WORK/text")" "created,won,reopened,lost,moved"
 # 3.31.1: Petr (Customers, no pipeline) sees the same moves only as "a deal" – no title, stage, status, who or link
 mcp_as "$T331_TP" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
-expect "3.31.1 get_contact without the pipeline: the deal entries are there, without title, stage, status or who; no deal title in the answer" \
-  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $e = array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"); echo count($e) > 0 ? "some" : "none", "|", count(array_filter($e, fn ($x) => isset($x["title"]) || isset($x["text"]) || isset($x["status"]) || isset($x["by"])));' "$WORK/text")|$(grep -c 'Website redesign T331' "$WORK/text")" \
+expect "3.31.1 get_contact without the pipeline: the deal entries are there, without title, stage, status or who; no stage name in the answer (the enquiry keeps its topic)" \
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $e = array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"); echo count($e) > 0 ? "some" : "none", "|", count(array_filter($e, fn ($x) => isset($x["title"]) || isset($x["text"]) || isset($x["status"]) || isset($x["by"])));' "$WORK/text")|$(grep -c '"Proposal"' "$WORK/text")" \
   "some|0|0"
 expect "3.31: the hand-over counts Jana's open deal" "$(t331_php "echo Kaleta\\Core\\Handover::owned(\$app->db(), $T331_JANA)['deal'];")" "1"
 expect "3.31: deleting a deal needs an administrator" "$(t331_php "try { Kaleta\\Core\\Deals::delete(\$app, ${T331_D2:-0}); echo 'deleted'; } catch (DomainException \$e) { echo 'refused'; }")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE id = ${T331_D2:-0}")" "refused|1"
