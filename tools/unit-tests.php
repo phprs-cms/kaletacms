@@ -10171,6 +10171,19 @@ check('3.30 Calendar::due – each date once per threshold; a date found past se
     $x330Due($x330Dates, $x330Sent(['2:certificate:2027-02-04:30'])), $x330Due($x330Dates, $x330Sent(['1:certificate:2027-01-20:30'])),
     $x330Due([['site_id' => 9, 'kind' => 'domain', 'date' => '2027-01-10', 'days' => -5]], []), Kaleta\Fleet\Calendar::due($x330Dates, [], [])],
     [['1:certificate:7:30,7', '2:certificate:30:30'], ['2:certificate:30:30'], ['1:certificate:7:30,7'], ['1:certificate:7:30,7', '2:certificate:30:30'], ['9:domain:7:30,7'], []]);
+// 3.31.1: certificates are reminded 14 and 7 days before (fleet_certificate_reminders), domains keep fleet_expiry_reminders;
+// a date reminded within a threshold already (an old 30-day reminder sent 12 days before) is not reminded again at it
+$a3311ByKind = ['certificate' => [14, 7], 'domain' => [30, 7]];
+$a3311Due = fn (array $sent): array => array_map(fn (array $d): string => $d['event']['site_id'] . ':' . $d['event']['kind'] . ':' . $d['days_before'] . ':' . implode(',', $d['passed']),
+    Kaleta\Fleet\Calendar::dueByKind([...$x330Dates, ['site_id' => 9, 'kind' => 'domain', 'date' => '2027-02-04', 'days' => 19]], $a3311ByKind, $sent));
+$a3311Old = [['site_id' => '1', 'kind' => 'certificate', 'expires' => '2027-01-20', 'days_before' => '30', 'sent_at' => '2027-01-08 09:00:00'],
+    ['site_id' => '2', 'kind' => 'certificate', 'expires' => '2027-02-04', 'days_before' => '30', 'sent_at' => '2027-01-05 09:00:00']];
+check('3.31.1 Calendar: the reminder days by kind – certificates 14 and 7 (a 19-day certificate waits, a 19-day domain is reminded), the old 30-day certificate reminders cover what they reached', [
+    Kaleta\Core\Settings::DEFAULTS['fleet_certificate_reminders'], Kaleta\Core\Settings::DEFAULTS['fleet_expiry_reminders'], Kaleta\Fleet\Calendar::REMINDER_SETTINGS,
+    $a3311Due([]), Kaleta\Fleet\Calendar::covered($a3311Old, $a3311ByKind), $a3311Due(Kaleta\Fleet\Calendar::covered($a3311Old, $a3311ByKind)),
+    Kaleta\Fleet\Calendar::covered([['site_id' => 1, 'kind' => 'domain', 'expires' => 'x', 'sent_at' => '2027-01-01']], $a3311ByKind)],
+    ['14,7', '30,7', ['certificate' => 'fleet_certificate_reminders', 'domain' => 'fleet_expiry_reminders'],
+        ['1:certificate:7:14,7', '9:domain:30:30'], ['1:certificate:2027-01-20:14' => true], ['1:certificate:7:14,7', '9:domain:30:30'], []]);
 check('3.30 Calendar – the reminder days, the month grid from Monday, the recovery keys', [
     array_map(Kaleta\Fleet\Calendar::parseReminders(...), ['30, 7', '7,30,30', '', ' 0 ', '400', '1,2,3,4,5,6', 'x', '-1']),
     count(Kaleta\Fleet\Calendar::month($x330Dates, '2026-11', $x330Now)['weeks']), Kaleta\Fleet\Calendar::month($x330Dates, '2026-11', $x330Now)['weeks'][0][0]['date'],

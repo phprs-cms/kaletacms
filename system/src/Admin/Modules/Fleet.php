@@ -554,24 +554,37 @@ final class Fleet extends Module
         $this->app->session->set('fleet_calendar_link', null);
 
         return $this->view('calendar', 'Calendar', ['month' => Calendar::month($narrowed, $this->request->get('month'), $now), 'events' => $narrowed, 'keys' => Calendar::keys($sites, $now),
-            'customers' => $customers, 'customer' => $customer, 'reminders' => Calendar::reminders($this->app->settings()), 'now' => $now, 'siteCount' => count($sites),
+            'customers' => $customers, 'customer' => $customer, 'reminders' => Calendar::remindersByKind($this->app->settings()), 'now' => $now, 'siteCount' => count($sites),
             'feedLink' => is_string($link) && $link !== '' ? AlertRules::consoleUrl($this->app) . '/fleet/calendar.ics?token=' . rawurlencode($link) : '',
             'hasFeed' => Calendar::hasFeed($this->app->settings(), $this->app->auth()->id()), 'alertsOn' => $this->app->settings()->bool('alerts_enabled'),
             'recipients' => AlertRules::recipients($this->app->settings())]);
     }
 
-    /** Saves the reminder days of the calendar ("30, 7"; empty = no reminders). */
+    /**
+     * Saves the reminder days of the calendar ("30, 7"; empty = no reminders) – 3.31.1: for domain registrations
+     * (fleet_expiry_reminders) and certificates (fleet_certificate_reminders) apart; a field the form does not send stays.
+     * A wrong list saves nothing.
+     */
     protected function actionCalendarSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back('', 'calendar');
         }
-        $days = Calendar::parseReminders($this->request->post('fleet_expiry_reminders'));
-        if ($days === null) {
-            return $this->back(t('Write up to %d whole numbers of days from 0 to %d, separated by commas.', Calendar::MAX_REMINDERS, Calendar::MAX_REMINDER), 'calendar', [], 'chyba');
+        $saved = [];
+        foreach (Calendar::REMINDER_SETTINGS as $key) {
+            if (!$this->request->hasPost($key)) {
+                continue;
+            }
+            $days = Calendar::parseReminders($this->request->post($key));
+            if ($days === null) {
+                return $this->back(t('Write up to %d whole numbers of days from 0 to %d, separated by commas.', Calendar::MAX_REMINDERS, Calendar::MAX_REMINDER), 'calendar', [], 'chyba');
+            }
+            $saved[$key] = implode(',', $days);
         }
-        $this->app->settings()->set('fleet_expiry_reminders', implode(',', $days));
-        ChangeLog::write($this->app, 'fleet', 'calendar_reminders', implode(',', $days));
+        foreach ($saved as $key => $value) {
+            $this->app->settings()->set($key, $value);
+        }
+        ChangeLog::write($this->app, 'fleet', 'calendar_reminders', implode('; ', array_map(fn (string $k, string $v): string => $k . ' ' . $v, array_keys($saved), $saved)));
 
         return $this->back('Saved.', 'calendar');
     }

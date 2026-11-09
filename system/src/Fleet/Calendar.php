@@ -21,11 +21,16 @@ use Kaleta\Core\Settings;
  * checks (Fleet\Checks): a certificate is red under 7 days and amber under Console::CERTIFICATE_DAYS, a domain red under 14
  * and amber under Console::DOMAIN_DAYS.
  *
- *  - Reminders (job fleet_expiry, hourly): N days before each date (setting fleet_expiry_reminders, default 30 and 7) one
- *    e-mail to the console's alert recipients (AlertRules::recipients, only while alerts_enabled) and a notification in the
- *    bell of each administrator (Core\Inbox, kind fleet_expiry). Each date is reminded once per "days before" (table
+ *  - Reminders (job fleet_expiry, hourly): N days before each date one e-mail to the console's alert recipients
+ *    (AlertRules::recipients, only while alerts_enabled) and a notification in the bell of each administrator (Core\Inbox,
+ *    kind fleet_expiry). The days differ by kind (REMINDER_SETTINGS, 3.31.1): a domain registration by the setting
+ *    fleet_expiry_reminders (default 30 and 7 – a console that saved its own keeps it), a certificate by
+ *    fleet_certificate_reminders (default 14 and 7, as the certificate check's amber and red; certificates usually renew
+ *    30 days before they end, so a 30-day reminder was noise). Each date is reminded once per "days before" (table
  *    ka_fleet_expiry_reminders – written before anything is sent, so two runs at once never send twice); a date found when
- *    several thresholds have passed already is reminded once, at the smallest. A renewed certificate has a new date.
+ *    several thresholds have passed already is reminded once, at the smallest; a threshold counts as reminded when any
+ *    reminder of the date went out within it (covered() – a date reminded at 30 days before 3.31.1 while 12 days were left
+ *    is not reminded again at 14). A renewed certificate has a new date.
  *    3.31: an e-mail that fails (the mail server down) is not lost – Mail::send keeps it, per recipient, in the mail queue
  *    (ka_posta) and the job "mail" retries it after 5, 30, 120 and 720 minutes (Mail::RETRY_DELAYS), exactly once when it
  *    goes through and only to the address it was meant for; the reminder stays recorded, so neither the bell nor the
@@ -43,6 +48,9 @@ final class Calendar
     /** Under this many days a date is red (bad), under WARN_DAYS amber – as Fleet\Checks. */
     public const array BAD_DAYS = ['certificate' => 7, 'domain' => 14];
     public const array WARN_DAYS = ['certificate' => Console::CERTIFICATE_DAYS, 'domain' => Console::DOMAIN_DAYS];
+
+    /** The setting of the reminder days of each kind (3.31.1; a certificate had the domains' days before). */
+    public const array REMINDER_SETTINGS = ['certificate' => 'fleet_certificate_reminders', 'domain' => 'fleet_expiry_reminders'];
 
     /** At most this many reminder thresholds, each 0–MAX_REMINDER days before. */
     public const int MAX_REMINDERS = 5;
@@ -222,10 +230,27 @@ final class Calendar
         return $out;
     }
 
-    /** @return list<int> the thresholds in force (the setting, the default when it is not a valid list) */
-    public static function reminders(Settings $s): array
+    /** @return list<int> the thresholds in force for a kind (its setting, the default when it is not a valid list); domain by default */
+    public static function reminders(Settings $s, string $kind = 'domain'): array
     {
-        return self::parseReminders($s->get('fleet_expiry_reminders')) ?? self::parseReminders(Settings::DEFAULTS['fleet_expiry_reminders']) ?? [];
+        $key = self::REMINDER_SETTINGS[$kind] ?? self::REMINDER_SETTINGS['domain'];
+
+        return self::parseReminders($s->get($key)) ?? self::parseReminders(Settings::DEFAULTS[$key]) ?? [];
+    }
+
+    /**
+     * The thresholds in force of every kind (3.31.1).
+     *
+     * @return array<string, list<int>> kind => thresholds
+     */
+    public static function remindersByKind(Settings $s): array
+    {
+        $out = [];
+        foreach (array_keys(self::REMINDER_SETTINGS) as $kind) {
+            $out[$kind] = self::reminders($s, $kind);
+        }
+
+        return $out;
     }
 
     /**
@@ -254,6 +279,56 @@ final class Calendar
         return $out;
     }
 
+    /**
+     * due() with each kind's own thresholds (3.31.1): a certificate by its days, a domain by its. Pure.
+     *
+     * @param list<array<string, mixed>> $events dates()
+     * @param array<string, list<int>> $byKind kind => thresholds
+     * @param array<string, true> $sent
+     * @return list<array{event: array<string, mixed>, days_before: int, passed: list<int>}>
+     */
+    public static function dueByKind(array $events, array $byKind, array $sent): array
+    {
+        $out = [];
+        foreach ($events as $e) {
+            foreach (self::due([$e], $byKind[$e['kind']] ?? [], $sent) as $d) {
+                $out[] = $d;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The thresholds already reminded in effect (3.31.1), as sent keys: a reminder of a date that went out while N or fewer
+     * days were left covers the threshold N of that date, whichever threshold it was recorded at – so changing the days
+     * (the certificates' 30 before 3.31.1 to 14) never reminds a date again within days of the last reminder. Pure.
+     *
+     * @param list<array<string, mixed>> $records rows of ka_fleet_expiry_reminders (site_id, kind, expires, sent_at)
+     * @param array<string, list<int>> $byKind kind => thresholds in force
+     * @return array<string, true> "site:kind:date:N"
+     */
+    public static function covered(array $records, array $byKind): array
+    {
+        $out = [];
+        foreach ($records as $r) {
+            $date = substr((string) $r['expires'], 0, 10);
+            $end = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+            $sent = \DateTimeImmutable::createFromFormat('!Y-m-d', substr((string) $r['sent_at'], 0, 10));
+            if ($end === false || $sent === false) {
+                continue;
+            }
+            $left = (int) round(($end->getTimestamp() - $sent->getTimestamp()) / 86400);
+            foreach ($byKind[(string) $r['kind']] ?? [] as $n) {
+                if ($left <= $n) {
+                    $out[self::sentKey(['site_id' => $r['site_id'], 'kind' => $r['kind'], 'date' => $date], $n)] = true;
+                }
+            }
+        }
+
+        return $out;
+    }
+
     /** @param array<string, mixed> $e */
     private static function sentKey(array $e, int $n): string
     {
@@ -271,17 +346,18 @@ final class Calendar
         if (Demo::active()) {
             return 'off';
         }
-        $thresholds = self::reminders($s);
+        $thresholds = self::remindersByKind($s);
         try {
             $db->run('DELETE FROM {fleet_expiry_reminders} WHERE sent_at < ? OR site_id NOT IN (SELECT id FROM {fleet_sites})', [Clock::at('-' . self::KEEP_DAYS . ' days')]);
-            $sent = [];
-            foreach ($db->all('SELECT site_id, kind, expires, days_before FROM {fleet_expiry_reminders}') as $r) {
-                $sent[$r['site_id'] . ':' . $r['kind'] . ':' . substr((string) $r['expires'], 0, 10) . ':' . $r['days_before']] = true;
-            }
+            $records = $db->all('SELECT site_id, kind, expires, days_before, sent_at FROM {fleet_expiry_reminders}');
         } catch (\PDOException) {
             return 'before the migration';
         }
-        if ($thresholds === []) {
+        $sent = self::covered($records, $thresholds);
+        foreach ($records as $r) {
+            $sent[$r['site_id'] . ':' . $r['kind'] . ':' . substr((string) $r['expires'], 0, 10) . ':' . $r['days_before']] = true;
+        }
+        if ($thresholds['certificate'] === [] && $thresholds['domain'] === []) {
             return 'no reminders set';
         }
         $sites = [];
@@ -289,7 +365,7 @@ final class Calendar
             $sites[(int) $site['id']] = $site;
         }
         $fresh = [];
-        foreach (self::due(self::dates(array_values($sites), time()), $thresholds, $sent) as $d) {
+        foreach (self::dueByKind(self::dates(array_values($sites), time()), $thresholds, $sent) as $d) {
             $e = $d['event'];
             $first = 0;
             foreach ($d['passed'] as $n) {
@@ -360,7 +436,8 @@ final class Calendar
             }
             $subject = t('%s: %d dates of your sites are coming up', $s->get('site_name'), count($due));
             $text = t('These dates of your sites are coming up:') . "\n\n" . implode("\n", $lines) . "\n\n"
-                . t('Each date is reminded once, %s days before. Change it in Fleet → Calendar:', implode(', ', self::reminders($s))) . ' '
+                . t('Each date is reminded once – a certificate %s days before, a domain registration %s days before. Change it in Fleet → Calendar:',
+                    implode(', ', self::reminders($s, 'certificate')) ?: '–', implode(', ', self::reminders($s, 'domain')) ?: '–') . ' '
                 . $consoleUrl . '/admin.php?module=fleet&action=calendar';
 
             return [$subject, $text];

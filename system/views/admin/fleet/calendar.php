@@ -13,7 +13,7 @@
  * @var list<array<string, mixed>> $keys Calendar::keys
  * @var array<int, string> $customers
  * @var int $customer
- * @var list<int> $reminders
+ * @var array<string, list<int>> $reminders kind => days before (Calendar::remindersByKind, 3.31.1)
  * @var int $now
  * @var int $siteCount
  * @var string $feedLink the calendar link made just now ('' = none to show)
@@ -135,8 +135,10 @@ $keyText = fn (array $k): string => match ($k['state']) {
 <?= $csrf ?>
 <fieldset>
 <legend><?= e(t('Reminders')) ?></legend>
-<div class="radek"><label for="fleet-reminders"><?= e(t('Days before')) ?></label><div><input class="textpole" type="text" id="fleet-reminders" name="fleet_expiry_reminders" value="<?= e(implode(', ', $reminders)) ?>" inputmode="numeric" maxlength="40" size="12">
-<span class="napoveda"><?= e(t('For example 30, 7: each certificate and domain date is reminded once 30 days and once 7 days before. Empty = no reminders.')) ?></span></div></div>
+<div class="radek"><label for="fleet-reminders-certificate"><?= e(t('Certificates – days before')) ?></label><div><input class="textpole" type="text" id="fleet-reminders-certificate" name="<?= e(Calendar::REMINDER_SETTINGS['certificate']) ?>" value="<?= e(implode(', ', $reminders['certificate'])) ?>" inputmode="numeric" maxlength="40" size="12">
+<span class="napoveda"><?= e(t('For example 14, 7: each certificate date is reminded once 14 days and once 7 days before. Certificates usually renew themselves about 30 days before they end. Empty = no reminders.')) ?></span></div></div>
+<div class="radek"><label for="fleet-reminders"><?= e(t('Domain registrations – days before')) ?></label><div><input class="textpole" type="text" id="fleet-reminders" name="<?= e(Calendar::REMINDER_SETTINGS['domain']) ?>" value="<?= e(implode(', ', $reminders['domain'])) ?>" inputmode="numeric" maxlength="40" size="12">
+<span class="napoveda"><?= e(t('For example 30, 7: each domain registration date is reminded once 30 days and once 7 days before. Empty = no reminders.')) ?></span></div></div>
 <p class="smltxt"><?= $alertsOn && $recipients !== [] ? e(t('Every administrator gets a notification; an e-mail goes to %s (the recipients of Alerts and digest).', implode(', ', $recipients)))
     : e(t('Every administrator gets a notification. E-mail: the alert e-mails are off or have no address (Alerts and digest).')) ?></p>
 <p><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>

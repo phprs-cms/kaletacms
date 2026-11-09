@@ -4734,9 +4734,9 @@ sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'),
 curl -s -o /dev/null "$B3/tasks?token=contoken317"
 for _ in $(seq 1 50); do ls "$WORK"/smtp330/*.eml > /dev/null 2>&1 && break; sleep 0.2; done; sleep 0.5 # the job may finish after the reply
 F=$(grep -l "^X-Rcpt-To: owner317@agency.example" "$WORK"/smtp330/*.eml 2>/dev/null | tail -1 || true); : > "$WORK/eml330.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml330.txt"
-expect "3.30 reminders: the certificate (5 days: 30 and 7 days before recorded, one reminder) and the domain (20 days: 30) – one e-mail to the alert recipients with plain links, a bell notification for the administrator" \
+expect "3.30 reminders: the certificate (5 days: 3.31.1 – 14 and 7 days before recorded, one reminder) and the domain (20 days: 30) – one e-mail to the alert recipients with plain links, a bell notification for the administrator" \
   "$(sq3 "SELECT GROUP_CONCAT(CONCAT(kind, ':', days_before) ORDER BY kind, days_before) FROM ka_fleet_expiry_reminders WHERE site_id = $PILOT330")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c '^X-Rcpt-To: owner317@agency.example' "$WORK/eml330.txt")|$(grep -c "admin.php?module=fleet&action=detail&id=$PILOT330" "$WORK/eml330.txt")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry' AND target = 'fleet_site:$PILOT330' AND emailed_at IS NOT NULL")" \
-  "certificate:7,certificate:30,domain:30|1|1|2|2"
+  "certificate:7,certificate:14,domain:30|1|1|2|2"
 sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null; curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
 expect "3.30 reminders: the next run sends nothing again" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")" "3|1|2"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?action=inbox"
@@ -4772,6 +4772,15 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fl
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=10, 45"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=400"
 expect "3.30 Calendar: the reminder days saved, the largest first; a wrong list keeps them" "$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_expiry_reminders'")" "45,10"
+# 3.31.1: certificates have their own reminder days (14, 7 by default) next to the domains'; one wrong list saves neither
+A3311_CAL=$(grep -c 'name="fleet_certificate_reminders" value="14, 7"' "$WORK/response")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_certificate_reminders=3, 21" --data-urlencode "fleet_expiry_reminders=60, 10"
+A3311_SAVED=$(sq3 "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('fleet_certificate_reminders', 'fleet_expiry_reminders')")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_certificate_reminders=14, 7" --data-urlencode "fleet_expiry_reminders=x"
+expect "3.31.1 Calendar: the certificates' reminder days next to the domains' (14, 7 by default), both saved; a wrong list saves neither" \
+  "$A3311_CAL|$A3311_SAVED|$(sq3 "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('fleet_certificate_reminders', 'fleet_expiry_reminders')")" \
+  "1|fleet_certificate_reminders=21,3,fleet_expiry_reminders=60,10|fleet_certificate_reminders=21,3,fleet_expiry_reminders=60,10"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_certificate_reminders=14, 7" --data-urlencode "fleet_expiry_reminders=45, 10"
 # the calendar link: shown once, the feed with the dates, revoked → gone
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_feed" -d "_csrf=$(csrf)" -d feed=new
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=calendar"
@@ -4842,14 +4851,14 @@ curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $by = [];
   foreach ($d["dates"] ?? [] as $e) { $by[$e["site"] . ":" . $e["kind"]] = $e["state"] . ":" . $e["days_left"]; }
   $keys = array_column($d["recovery_keys"] ?? [], "state", "site");
-  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean"]);' "$WORK/response" > "$WORK/mcp330.txt"
-expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean"
+  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean", implode(",", $d["certificate_reminder_days_before"] ?? [])]);' "$WORK/response" > "$WORK/mcp330.txt"
+expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days (3.31.1: the certificates' apart)" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean|14,7"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":9999}}}' > "$WORK/response"
 contains -q 'days must be between' "$WORK/response" && echo "  ok     3.30 MCP fleet_calendar: days out of range refused" || { echo "  CHYBA  3.30 MCP fleet_calendar days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp fleet_inventory '{}' > "$WORK/response"; contains -q 'delays_hours' "$WORK/response" && { echo "  CHYBA  fleet_inventory works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_inventory and fleet_calendar exist only on a console"
 sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL, customer_id = $CUST330 WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317;
   DELETE FROM ka_fleet_sites WHERE public_key IN ('old330key', 'pilot330key', 'careful330key'); DELETE FROM ka_fleet_expiry_reminders; DELETE FROM ka_notifications WHERE kind = 'fleet_expiry';
-  DELETE FROM ka_nastaveni WHERE promenna IN ('fleet_ring_pilot_hours', 'fleet_ring_normal_hours', 'fleet_ring_careful_hours', 'fleet_expiry_reminders')" > /dev/null
+  DELETE FROM ka_nastaveni WHERE promenna IN ('fleet_ring_pilot_hours', 'fleet_ring_normal_hours', 'fleet_ring_careful_hours', 'fleet_expiry_reminders', 'fleet_certificate_reminders')" > /dev/null
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '$ALLOWED330')" > /dev/null
 # N317-9: the archived reports of a forgotten customer (id 900 here) never pass to a new customer
 sq3 "INSERT INTO ka_fleet_reports (month, customer_id, customer, created_at, data) VALUES ('2020-01', 900, 'Forgotten 317', '$(site_time)', '{}')" > /dev/null
