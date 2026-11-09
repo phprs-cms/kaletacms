@@ -2645,9 +2645,30 @@ for T328_CUT in tampered truncated; do
   expect "3.28 (N328-2): a $T328_CUT encrypted backup is refused, nothing reverted, no safety backup left, nothing changes" "$(grep -c 'Zašifrovaná záloha je poškozená nebo byla změněna\|Zašifrovaná záloha není celá' "$WORK/response")/$(grep -c 'Databáze je zpět ve stavu před obnovou' "$WORK/response")/$(ls "$WORK/web/storage/zalohy" | grep -c predobnovou || true)/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/0/$SAFETY_BEFORE/Pred sifrovanou/0"
   rm -f "$WORK/web/storage/zalohy/$T328_BAD"
 done
+# 3.31.1: the copy being restored is the oldest file and ten local backups are there already – the safety backup made before
+# the restore must not push it out (before 3.31.1 the rotation deleted it, and the restore found no backup); the real local
+# backups wait aside meanwhile (the later steps count them), ten stand-ins take their place
+local_backups() { ls "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -vc '\.enc$' || true; }
+local_names() { ls "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' || true; }
+N3311_SOURCE=$(ls -t "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
+mkdir -p "$WORK/aside3311"; for f in $(local_names); do mv "$WORK/web/storage/zalohy/$f" "$WORK/aside3311/"; done
+for i in 1 2 3 4 5 6 7 8 9 10; do cp "$WORK/aside3311/$N3311_SOURCE" "$WORK/web/storage/zalohy/kaleta-20200101-0000$(printf %02d "$i")-fake3311-$(printf %08d "$i").sql${N3311_SOURCE#*.sql}"; done
+touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*-fake3311-*
+touch -t "$(date -v-3d +%Y%m%d%H%M 2>/dev/null || date -d '-3 days' +%Y%m%d%H%M)" "$WORK/web/storage/zalohy/$UPLOADED"
+expect "3.31.1: ten local backups and an older uploaded copy before the restore" "$(local_backups)/$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | head -1)" "10/$UPLOADED"
 TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$(echo "$RECOVERY_KEY" | tr 'A-Z-' 'a-z ')"
+expect "3.31.1: the uploaded copy outlives the safety backup, the rotation keeps ten local backups afterwards, no hold left" "$([ -f "$WORK/web/storage/zalohy/$UPLOADED" ] && echo kept)/$(local_backups)/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.hold-' || true)" "kept/10/0"
 expect "3.28: with the recovery key (any case, spaces) the encrypted backup restores, and the key becomes this site's again" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Pred sifrovanou' FROM ka_nastaveni WHERE promenna = 'site_name'")/$(cmp -s "$WORK/web/storage/backup-key.php" "$WORK/backup-key.saved" && echo same || (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\RecoveryKey::load() === Kaleta\Core\RecoveryKey::parse($argv[1]) ? "same" : "other";' -- "$RECOVERY_KEY"))/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/same/0"
 check "3.28: after the restore the copies go on with the same key" 200 "/admin.php?module=settings&tab=backups" "Obnovovací klíč uložen"
+check "3.31.1: the Backups tab marks the uploaded copy" 200 "/admin.php?module=settings&tab=backups" "nahraná kopie"
+# a backup held by a restore under way (another request) stays when a new backup rotates; a hold left by a dead request expires
+N3311_OLDEST=$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
+touch "$WORK/web/storage/zalohy/.hold-$N3311_OLDEST"; backup_now
+expect "3.31.1: a held backup is not rotated away (the rotation keeps one more meanwhile)" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept)/$(local_backups)" "kept/11"
+touch -t "$(date -v-2H +%Y%m%d%H%M 2>/dev/null || date -d '-2 hours' +%Y%m%d%H%M)" "$WORK/web/storage/zalohy/.hold-$N3311_OLDEST"; backup_now
+expect "3.31.1: a hold older than an hour no longer protects" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept || echo gone)/$(local_backups)" "gone/10"
+rm -f "$WORK"/web/storage/zalohy/.hold-*; for f in $(local_names); do rm -f "$WORK/web/storage/zalohy/$f"; done
+mv "$WORK"/aside3311/* "$WORK/web/storage/zalohy/"; rmdir "$WORK/aside3311"
 rm -f "$WORK/web/storage/zalohy/$UPLOADED" "$WORK/backup-key.saved"
 mkdir -p "$WORK/web/media/2026/09" && echo "novy" > "$WORK/web/media/2026/09/novy-soubor.txt"; : > "$WORK/s3/puts.log"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"

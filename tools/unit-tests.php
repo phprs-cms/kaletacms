@@ -9779,6 +9779,26 @@ check('3.31.1: an encrypted copy uploaded back (.enc) is not a local backup – 
         array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
     [['kaleta-20261101-030000-auto-b1b2c3d4.sql.gz', 'kaleta-20261020-030000-rucni-c1b2c3d4.sql'], [], [], 0, 6, true, [[], [], []]]);
 
+// the rotation: the backups made here and the uploaded copies rotate apart (KEEP each), a protected or held name is never deleted
+$b3311Backups = fn (int $local, int $uploaded, int $uploadedFirst = 0): array => [
+    ...array_map(fn (int $i): array => ['soubor' => sprintf('kaleta-202611%02d-030000-auto-x.sql.gz.enc', 30 - $i), 'velikost' => 1, 'cas' => 2000 - $i], $uploadedFirst > 0 ? range(0, $uploadedFirst - 1) : []),
+    ...array_map(fn (int $i): array => ['soubor' => sprintf('kaleta-202610%02d-030000-auto-y.sql.gz', 30 - $i), 'velikost' => 1, 'cas' => 1000 - $i], $local > 0 ? range(0, $local - 1) : []),
+    ...array_map(fn (int $i): array => ['soubor' => sprintf('kaleta-202609%02d-030000-auto-z.sql.gz.enc', 30 - $i), 'velikost' => 1, 'cas' => 500 - $i], $uploaded > 0 ? range(0, $uploaded - 1) : []),
+];
+$b3311Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
+$b3311Restore = substr($b3311Settings, (int) strpos($b3311Settings, 'function actionRestoreBackup'), 6000);
+check('3.31.1: the rotation never deletes the copy being restored – an old uploaded copy is not pushed out by ten local backups, each kind keeps its newest KEEP, protected names stay; the restore holds the file, makes the safety backup without rotating and prunes afterwards', [
+    Kaleta\Core\Backup::KEEP,
+    Kaleta\Core\Backup::prunable($b3311Backups(11, 1)), // the safety backup before restoring the old uploaded copy: only the 11th local goes
+    Kaleta\Core\Backup::prunable($b3311Backups(11, 1), ['kaleta-20261020-030000-auto-y.sql.gz']), // the oldest local is being restored: it stays
+    Kaleta\Core\Backup::prunable($b3311Backups(3, 11)), // eleven uploaded copies: the oldest one goes, the newest always stays
+    Kaleta\Core\Backup::prunable($b3311Backups(10, 2, 1)), Kaleta\Core\Backup::prunable([]),
+    (new ReflectionMethod(Kaleta\Core\Backup::class, 'create'))->getParameters()[2]->getDefaultValue(),
+    strpos($b3311Restore, 'Backup::hold($file);') < strpos($b3311Restore, "Backup::create(\$this->db, 'predobnovou', false)"),
+    (bool) preg_match('/\} finally \{\s+Backup::release\(\$file\);\s+Backup::prune\(\[\$file\]\);/', $b3311Restore),
+    substr_count($b3311Settings, "Backup::create(\$this->db, 'predobnovou'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php'), "if (\$prune) {\n            self::prune([\$file]);")],
+    [10, ['kaleta-20261020-030000-auto-y.sql.gz'], [], ['kaleta-20260920-030000-auto-z.sql.gz.enc'], [], [], true, true, true, 1, true]);
+
 /* ---------- 3.29: the console's health checks, Today and workload (Fleet\Checks, the heartbeat parts behind them) ---------- */
 $c329Now = 1_800_000_000;
 $c329Day = fn (int $days): string => date('Y-m-d', $c329Now + $days * 86400);

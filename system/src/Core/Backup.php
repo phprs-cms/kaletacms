@@ -10,7 +10,12 @@ namespace Kaleta\Core;
 final class Backup
 {
     public const string FOLDER = KALETA_ROOT . '/storage/zalohy';
-    private const int KEEP = 10;
+    /** How many backups made here the rotation keeps – and, apart from them, how many encrypted copies uploaded back (3.31.1). */
+    public const int KEEP = 10;
+    /** The name of a backup file (3.28: also an encrypted off-site copy, ….enc). */
+    private const string NAME = '/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D';
+    /** A hold (hold(), a restore under way) older than this was left by a request that died – the rotation ignores it. */
+    private const int HOLD_SECONDS = 3600;
 
     /**
      * The code of a restore's \RuntimeException thrown before the database was touched (3.28, N328-2): an encrypted backup
@@ -27,8 +32,11 @@ final class Backup
         return Demo::active() && PHP_SAPI !== 'cli';
     }
 
-    /** @return string name of the created file */
-    public static function create(Db $db, string $reason = 'rucni'): string
+    /**
+     * @param bool $prune false = the rotation waits (3.31.1: the safety backup before a restore – the caller prunes after it)
+     * @return string name of the created file
+     */
+    public static function create(Db $db, string $reason = 'rucni', bool $prune = true): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -76,11 +84,84 @@ final class Backup
         $write("SET FOREIGN_KEY_CHECKS = 1;\n");
         $gz ? gzclose($f) : fclose($f);
 
-        foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(self::FOLDER . '/' . $old['soubor']);
+        if ($prune) {
+            self::prune([$file]);
         }
 
         return $file;
+    }
+
+    /**
+     * The rotation (3.31.1): deletes what prunable() says, never a file in $protect or one held by a restore under way
+     * (hold()) – before 3.31.1 the safety backup made right before a restore could delete the very backup about to be
+     * restored (an older uploaded copy, or the oldest of the ten).
+     *
+     * @param list<string> $protect file names
+     */
+    public static function prune(array $protect = []): void
+    {
+        foreach (self::prunable(self::listAll(), [...$protect, ...self::held()]) as $old) {
+            @unlink(self::FOLDER . '/' . $old);
+        }
+    }
+
+    /**
+     * Which backups the rotation deletes (3.31.1, pure): the backups made here and the encrypted copies uploaded back
+     * (….enc) rotate apart, each keeping its newest KEEP – an uploaded copy never pushes a backup made here out, nor the
+     * other way round, and the newest of each always stays; a name in $protect is never deleted.
+     *
+     * @param list<array{soubor:string, velikost:int, cas:int}> $backups newest first (listAll)
+     * @param list<string> $protect
+     * @return list<string>
+     */
+    public static function prunable(array $backups, array $protect = []): array
+    {
+        $groups = ['local' => [], 'uploaded' => []];
+        foreach ($backups as $backup) {
+            $groups[self::encrypted($backup['soubor']) ? 'uploaded' : 'local'][] = $backup['soubor'];
+        }
+        $delete = [];
+        foreach ($groups as $files) {
+            foreach (array_slice($files, self::KEEP) as $old) {
+                if (!in_array($old, $protect, true)) {
+                    $delete[] = $old;
+                }
+            }
+        }
+
+        return $delete;
+    }
+
+    /**
+     * Keeps a backup out of the rotation while a restore from it runs (3.31.1) – also from a backup another request (cron, a
+     * second administrator) makes meanwhile: a marker .hold-<name> next to it, removed by release(); a marker left by a
+     * request that died stops counting after HOLD_SECONDS.
+     */
+    public static function hold(string $file): void
+    {
+        if (self::path($file) !== null) {
+            @touch(self::FOLDER . '/.hold-' . $file);
+        }
+    }
+
+    public static function release(string $file): void
+    {
+        if (preg_match(self::NAME, $file) === 1) { // also when the backup itself is gone meanwhile
+            @unlink(self::FOLDER . '/.hold-' . $file);
+        }
+    }
+
+    /** @return list<string> the backups held by a restore under way */
+    private static function held(): array
+    {
+        $held = [];
+        foreach (glob(self::FOLDER . '/.hold-kaleta-*') ?: [] as $marker) {
+            if ((int) @filemtime($marker) > time() - self::HOLD_SECONDS) {
+                $held[] = substr(basename($marker), strlen('.hold-'));
+            }
+        }
+
+        return $held;
     }
 
     /**
@@ -310,7 +391,7 @@ final class Backup
     /** Path to an existing backup by the name from the URL (3.28: also an encrypted off-site copy, ….enc); null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return preg_match(self::NAME, $file) === 1 && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
     /** Is this backup an encrypted off-site copy (3.28)? */
