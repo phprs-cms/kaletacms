@@ -61,6 +61,9 @@ trait ContactTools
         $company = $contact['company_id'] !== null ? Contacts::findCompany($db, $contact['company_id']) : null;
         $origin = $this->app->request->origin();
         $timeline = $limit > 0 ? Contacts::timeline($db, $contact['id'], $limit) : [];
+        if ($timeline !== [] && !\Kaleta\Core\Deals::mayOpen($db, $this->app->settings(), $this->app->auth()->id())) {
+            $timeline = \Kaleta\Core\Deals::neutralTimeline($timeline); // 3.31.1: without the pipeline a deal is only "a deal"
+        }
 
         return ['contact' => $this->contactOut($contact) + ($contact['summary'] !== '' ? ['summary' => $contact['summary']] : [])]
             + ($company !== null ? ['company' => $this->companyOut($company)] : [])
@@ -71,7 +74,8 @@ trait ContactTools
                     + (isset($e['by']) ? ['by' => $e['by']] : []) + (isset($e['status']) ? ['status' => $e['status']] : []) + (isset($e['ref']) ? ['ref' => $e['ref']] : []), $timeline),
                 'admin_url' => $origin . $this->app->url(Contacts::adminPath($contact['id']))]
             + ($contact['anonymised_at'] !== null ? ['anonymised_at' => substr($contact['anonymised_at'], 0, 16)] : [])
-            + ['note' => 'Personal data – show the user what they asked for. Enquiry messages are not part of the timeline; read one with list_enquiries.'];
+            + ['note' => 'Personal data – show the user what they asked for. Enquiry messages are not part of the timeline; read one with list_enquiries.'
+                . ' A deal entry without its title and stage means the user may not open the pipeline.'];
     }
 
     /** save_contact */

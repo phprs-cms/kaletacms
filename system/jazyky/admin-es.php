@@ -7876,4 +7876,5 @@ return [
     'Stage' => 'Etapa',
     'Deals' => 'Oportunidades',
     'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'El tipo de la etapa «%s» no puede cambiar mientras tenga oportunidades (%s): muévelas antes a otra etapa.',
+    'A deal' => 'Una oportunidad',
 ];

@@ -178,7 +178,7 @@ final class Contacts extends Module
         return $this->view('detail', Customers::displayName($contact), ['c' => $contact,
             'company' => $contact['company_id'] !== null ? Customers::findCompany($this->db, $contact['company_id']) : null,
             'counts' => Customers::linkCounts($this->db, [$id])[$id] ?? ['enquiries' => 0, 'bookings' => 0, 'subscribed' => false],
-            'timeline' => Customers::timeline($this->db, $id), 'authors' => $byIds,
+            'timeline' => $this->dealsShown(Customers::timeline($this->db, $id)), 'authors' => $byIds,
             'suggestion' => $contact['company_id'] === null && $contact['anonymised_at'] === null ? Customers::suggestCompany($this->db, $contact['email']) : null,
             'people' => Assignment::candidates($this->db, 'contact', (int) $contact['owner_id']),
             'companies' => Customers::companies($this->db, [], 1, 500)['rows'],
@@ -410,7 +410,7 @@ final class Contacts extends Module
         usort($timeline, fn (array $x, array $y): int => [$y['at'], $y['ref']] <=> [$x['at'], $x['ref']]);
         $target = Comments::company($id);
 
-        return $this->view('company', $company['name'], ['co' => $company, 'contacts' => $contacts, 'timeline' => array_slice($timeline, 0, self::COMPANY_TIMELINE),
+        return $this->view('company', $company['name'], ['co' => $company, 'contacts' => $contacts, 'timeline' => $this->dealsShown(array_slice($timeline, 0, self::COMPANY_TIMELINE)),
             'people' => Assignment::candidates($this->db, 'company', (int) $company['owner_id']),
             'owners' => Assignment::labels($this->db, array_values(array_filter([$company['owner_id'], ...array_column($contacts['rows'], 'owner_id')]))),
             'draft' => $this->takeDraft('company_draft', $id),
@@ -418,6 +418,18 @@ final class Contacts extends Module
             'tasks' => $this->taskPanel($target, ['company' => $id]),
             'deals' => Pipeline::deals($this->app, $this->kernel->modules(), 'company', $id), // 3.31
             'admin' => $this->app->auth()->isAdmin()]);
+    }
+
+    /**
+     * The timeline as this user may see it (3.31.1): without the Pipeline a deal's entry is only "a deal" – no title,
+     * stage, status or link (Deals::neutralTimeline).
+     *
+     * @param list<array<string, mixed>> $timeline
+     * @return list<array<string, mixed>>
+     */
+    private function dealsShown(array $timeline): array
+    {
+        return isset($this->kernel->modules()[Pipeline::IDENT]) ? $timeline : \Kaleta\Core\Deals::neutralTimeline($timeline);
     }
 
     protected function actionCompanyNew(): Response

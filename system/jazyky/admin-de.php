@@ -7857,4 +7857,5 @@ return [
     'Deal #%s' => 'Deal #%s',
     'Deals' => 'Deals',
     'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Die Art der Phase „%s“ lässt sich nicht ändern, solange Deals darin sind (%s) – verschieben Sie sie zuerst in eine andere Phase.',
+    'A deal' => 'Ein Deal',
 ];

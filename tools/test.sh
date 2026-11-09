@@ -10582,6 +10582,11 @@ expect "3.31 My work (Deals::forOwner): Jana's open deal, its stage and overdue 
 mcp_as "$T331_TJ" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
 expect "3.31: the deals' moves are on the customer's timeline (created, moved, lost, reopened, won)" \
   "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_unique(array_column(array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"), "status")));' "$WORK/text")" "created,won,reopened,lost,moved"
+# 3.31.1: Petr (Customers, no pipeline) sees the same moves only as "a deal" – no title, stage, status, who or link
+mcp_as "$T331_TP" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
+expect "3.31.1 get_contact without the pipeline: the deal entries are there, without title, stage, status or who; no deal title in the answer" \
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $e = array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"); echo count($e) > 0 ? "some" : "none", "|", count(array_filter($e, fn ($x) => isset($x["title"]) || isset($x["text"]) || isset($x["status"]) || isset($x["by"])));' "$WORK/text")|$(grep -c 'Website redesign T331' "$WORK/text")" \
+  "some|0|0"
 expect "3.31: the hand-over counts Jana's open deal" "$(t331_php "echo Kaleta\\Core\\Handover::owned(\$app->db(), $T331_JANA)['deal'];")" "1"
 expect "3.31: deleting a deal needs an administrator" "$(t331_php "try { Kaleta\\Core\\Deals::delete(\$app, ${T331_D2:-0}); echo 'deleted'; } catch (DomainException \$e) { echo 'refused'; }")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE id = ${T331_D2:-0}")" "refused|1"
 
@@ -10784,6 +10789,11 @@ curl -s -b "$B331_PJAR" -o "$WORK/response" "$B/admin.php?module=enquiries&actio
 expect "3.31: Petr without the Pipeline – the board, a deal, a move, Create deal and the palette search are 403; his enquiry has no deal box, his list no badge, his palette no deals" \
   "$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pipeline")|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pipeline&action=detail&id=$B331_D1")|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pipeline&action=move" -d "_csrf=$B331_PTOKEN" -d "id=$B331_D1" -d stage=won)|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pipeline&action=from_enquiry" -d "_csrf=$B331_PTOKEN" -d "idp=$B331_ENQ")|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pipeline&action=search_json&q=B331")|$(b331_has 'data-deal-box')|$(b331_has 'data-deals=')|$(curl -s -b "$B331_PJAR" "$B/admin.php?module=enquiries" | grep -c 'data-enquiry-deal')|$(b331_deal "$B331_D1" | cut -d/ -f2)" \
   "403|403|403|403|403|0|0|0|proposal"
+# 3.31.1: Petr opens Eva's customer page – her deal's moves are on the timeline only as "a deal": no title, stage or link
+curl -s -b "$B331_PJAR" -o "$WORK/response" "$B/admin.php?module=contacts&action=detail&id=$B331_EVA"
+expect "3.31.1: without the Pipeline the customer's timeline shows \"Obchod\" entries without the deal's title, stage or link; the company page too" \
+  "$(b331_has 'data-timeline-entry="deal"' | sed 's/[2-9]/1/')|$(b331_has 'Nový web B331')|$(b331_has 'Nabídka B331')|$(b331_has 'module=pipeline&amp;action=detail')|$(curl -s -b "$B331_PJAR" "$B/admin.php?module=contacts&action=company&id=$B331_CO" | grep -c 'Nový web B331')" \
+  "1|0|0|0|0"
 # delete (administrators): the deal, its history, comments and tasks go; the customer and the enquiry stay
 b331_post "$JAR" "module=pipeline&action=detail&id=$B331_D1" "module=pipeline&action=delete" -d "id=$B331_D1" > /dev/null
 expect "3.31: Delete – the deal, its history, comments, tasks and notifications go; the customer stays; one change-log row" \

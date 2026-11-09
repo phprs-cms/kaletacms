@@ -727,6 +727,20 @@ final class Deals
     }
 
     /**
+     * The timeline for someone who may not open the pipeline (3.31.1: the customer's and company's page, MCP get_contact):
+     * each deal entry becomes a neutral "a deal" – when and the deal's number (ref) only, without its title, stage, status,
+     * who moved it or a link; the other entries are left as they are. Pure.
+     *
+     * @param list<array<string, mixed>> $entries Contacts::timeline (and the company's merged one)
+     * @return list<array<string, mixed>>
+     */
+    public static function neutralTimeline(array $entries): array
+    {
+        return array_map(fn (array $e): array => ($e['kind'] ?? '') === 'deal'
+            ? array_intersect_key($e, array_flip(['at', 'kind', 'ref', 'contact', 'contact_id'])) + ['title' => ''] : $e, $entries);
+    }
+
+    /**
      * What a move was: created (no previous stage), won, lost, reopened (from a closing stage to an open one) or moved. Pure.
      *
      * @param array<string, string> $kinds stage key => kind

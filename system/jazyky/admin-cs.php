@@ -7448,4 +7448,5 @@ return [
     'Stage' => 'Fáze',
     'Deals' => 'Obchody',
     'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Druh fáze „%s“ nejde změnit, dokud jsou v ní obchody (%s) – nejdřív je přesuňte do jiné fáze.',
+    'A deal' => 'Obchod',
 ];

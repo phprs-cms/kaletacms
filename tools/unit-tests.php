@@ -10450,6 +10450,18 @@ check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeli
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/timeline.php'), "'deal' => 'Open the deal'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php'), "'deal' => t('Deal #%s'")],
     [['type' => 'deal', 'id' => 3], 'deal:5', 'comment', null, 'deal:4', true, 'pipeline', ['obchody', 'Deal'], true, [true, true, true], true, true]);
+// 3.31.1: without the Pipeline a customer's or company's timeline (admin and MCP get_contact) shows a deal only as "A deal"
+$a3311Timeline = [['at' => '2026-11-09 10:00:00', 'kind' => 'deal', 'title' => 'Olga Nováková – yearly contract', 'status' => 'won', 'text' => 'Signed', 'by' => 'Jana',
+    'ref' => 'deal:7', 'path' => 'admin.php?module=pipeline&action=detail&id=7', 'contact' => 'Olga', 'contact_id' => 3],
+    ['at' => '2026-11-08 10:00:00', 'kind' => 'enquiry', 'title' => 'Contact form', 'text' => 'Website', 'status' => 'new', 'ref' => 'enquiry:4', 'path' => 'admin.php?module=enquiries&action=detail&id=4']];
+check('3.31.1: Deals::neutralTimeline – a deal entry keeps when, its number and the contact only (no title, stage, status, who or link); other entries stay; used by the customer, the company and get_contact', [
+    Kaleta\Core\Deals::neutralTimeline($a3311Timeline), Kaleta\Core\Deals::neutralTimeline([]),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Contacts.php'), '$this->dealsShown('),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Contacts.php'), "return isset(\$this->kernel->modules()[Pipeline::IDENT]) ? \$timeline : \\Kaleta\\Core\\Deals::neutralTimeline(\$timeline);"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "if (\$timeline !== [] && !\\Kaleta\\Core\\Deals::mayOpen(\$db, \$this->app->settings(), \$this->app->auth()->id())) {"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/timeline.php'), "\$label = 'A deal';"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['A deal']), ['cs', 'de', 'es'])],
+    [[['at' => '2026-11-09 10:00:00', 'kind' => 'deal', 'ref' => 'deal:7', 'contact' => 'Olga', 'contact_id' => 3, 'title' => ''], $a3311Timeline[1]], [], 2, true, true, true, [true, true, true]]);
 $b331Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $b331Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
 $b331Board = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pipeline/board.php');
