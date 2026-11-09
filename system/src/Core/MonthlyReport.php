@@ -119,7 +119,7 @@ final class MonthlyReport
 
             return ['type' => (string) $e['type'], 'date' => self::iso($e['created_at']), 'message' => (string) $e['message'], 'from' => (string) ($info['from'] ?? ''), 'to' => (string) ($info['version'] ?? '')];
         }, $db->all('SELECT type, created_at, message, data FROM {events} WHERE type IN (?, ?, ?) AND created_at >= ? AND created_at < ? ORDER BY id', [...self::UPDATE_EVENTS, $from, $to]));
-        $lastBackup = Backup::listAll()[0]['cas'] ?? null;
+        $lastBackup = Backup::listLocal()[0]['cas'] ?? null; // 3.31.1: without the uploaded copies (….enc)
         $backups = [
             'created' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.created', $from, $to]),
             'failed' => $count('SELECT COUNT(*) FROM {events} WHERE type = ? AND created_at >= ? AND created_at < ?', ['backup.failed', $from, $to]),

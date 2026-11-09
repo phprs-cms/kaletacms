@@ -267,7 +267,12 @@ final class Backup
         return $count;
     }
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> newest first */
+    /**
+     * Every backup in the folder, newest first – the ones made here and the encrypted off-site copies uploaded back for a
+     * restore (….enc). The Backups tab lists them all; whatever asks "when was the last backup" uses listLocal().
+     *
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
     public static function listAll(): array
     {
         $backups = [];
@@ -277,6 +282,29 @@ final class Backup
         usort($backups, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
 
         return $backups;
+    }
+
+    /**
+     * The backups made on this server, newest first (3.31.1): an encrypted off-site copy uploaded back (….enc) is not one –
+     * counted as one, its fresh upload time made the "last backup" look new and held up the automatic backup, the System
+     * status check, the dashboard warning, the monthly report, get_health and the fleet heartbeat.
+     *
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
+    public static function listLocal(): array
+    {
+        return self::local(self::listAll());
+    }
+
+    /**
+     * Only the backups made here (listLocal, testable without files).
+     *
+     * @param list<array{soubor:string, velikost:int, cas:int}> $backups
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
+    public static function local(array $backups): array
+    {
+        return array_values(array_filter($backups, fn (array $b): bool => !self::encrypted($b['soubor'])));
     }
 
     /** Path to an existing backup by the name from the URL (3.28: also an encrypted off-site copy, ….enc); null = invalid name. */
@@ -300,7 +328,7 @@ final class Backup
         if (!$settings->bool('auto_backups')) {
             return;
         }
-        $last = self::listAll()[0]['cas'] ?? 0;
+        $last = self::listLocal()[0]['cas'] ?? 0; // 3.31.1: an uploaded copy (….enc) does not stand in for a backup made here
         $age = time() - $last;
         $changed = fn (): bool => (int) $db->value('SELECT COUNT(*) FROM {protokol} WHERE cas > ?', [date('Y-m-d H:i:s', $last)]) > 0
             || (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?', [date('Y-m-d H:i:s', $last)]) > 0;

@@ -7875,4 +7875,6 @@ return [
     'Deals that reached each stage' => 'Oportunidades que alcanzaron cada etapa',
     'Stage' => 'Etapa',
     'Deals' => 'Oportunidades',
+    'uploaded copy' => 'copia subida',
+    'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.' => 'Una copia externa cifrada que se ha vuelto a subir para restaurarla. No cuenta como copia de seguridad hecha en este servidor.',
 ];

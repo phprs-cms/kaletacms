@@ -88,7 +88,7 @@ final class Heartbeat
         $checks = Language::runWith('en', fn (): array => Health::checks($app, true)); // without the whistleblowing channel
         $problems = array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning',
             'detail' => mb_substr(trim(strip_tags((string) $c['info'])), 0, 200)], array_filter($checks, fn (array $c): bool => $c['stav'] !== 'ok')));
-        $backup = Backup::listAll()[0] ?? null;
+        $backup = Backup::listLocal()[0] ?? null; // 3.31.1: the last backup made here, never an uploaded copy (….enc)
         $update = (new Updater($s))->state();
         $rolledBack = $db->one("SELECT created_at, message FROM {events} WHERE type IN ('update.rolled_back', 'update.failed') ORDER BY id DESC LIMIT 1");
         $pending = self::part(fn (): array => PendingReview::counts($app));

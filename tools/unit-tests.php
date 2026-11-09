@@ -9766,6 +9766,19 @@ array_map('unlink', array_filter(glob($c328Dir . '/{,storage/}*', GLOB_BRACE) ?:
 @rmdir($c328Dir . '/storage');
 @rmdir($c328Dir);
 
+/* ---------- 3.31.1: backups – an uploaded copy is not a local backup, the rotation never takes the copy being restored, a failed off-site copy is an event ---------- */
+$b3311List = [['soubor' => 'kaleta-20261109-030000-auto-a1b2c3d4.sql.gz.enc', 'velikost' => 9, 'cas' => 300], ['soubor' => 'kaleta-20261101-030000-auto-b1b2c3d4.sql.gz', 'velikost' => 9, 'cas' => 200],
+    ['soubor' => 'kaleta-20261020-030000-rucni-c1b2c3d4.sql', 'velikost' => 9, 'cas' => 100]];
+$b3311Sources = implode("\n", array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/src/' . $f),
+    ['Core/Health.php', 'Core/MonthlyReport.php', 'Admin/Kernel.php', 'Mcp/Handlers/HealthTools.php', 'Fleet/Heartbeat.php', 'Core/Backup.php']));
+check('3.31.1: an encrypted copy uploaded back (.enc) is not a local backup – the schedule, System status, the dashboard, the monthly report, get_health and the heartbeat read listLocal()', [
+    array_column(Kaleta\Core\Backup::local($b3311List), 'soubor'), Kaleta\Core\Backup::local([]), array_column(Kaleta\Core\Backup::local([$b3311List[0]]), 'soubor'),
+    preg_match_all('/Backup::listAll\(\)\[0\]/', $b3311Sources), substr_count($b3311Sources, 'Backup::listLocal()[0]') + substr_count($b3311Sources, 'self::listLocal()[0]'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/backups.php'), "Kaleta\\Core\\Backup::encrypted(\$z['soubor'])): // 3.31.1"),
+    array_map(fn (string $code): array => array_values(array_diff(['uploaded copy', 'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.'],
+        array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [['kaleta-20261101-030000-auto-b1b2c3d4.sql.gz', 'kaleta-20261020-030000-rucni-c1b2c3d4.sql'], [], [], 0, 6, true, [[], [], []]]);
+
 /* ---------- 3.29: the console's health checks, Today and workload (Fleet\Checks, the heartbeat parts behind them) ---------- */
 $c329Now = 1_800_000_000;
 $c329Day = fn (int $days): string => date('Y-m-d', $c329Now + $days * 86400);
