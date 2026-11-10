@@ -9,7 +9,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
 cleanup() { local status=$?; if [ "$status" -ne 0 ] && [ -s "$WORK/server.log" ]; then echo "== the last lines of the site's server log (exit $status; an empty reply = the PHP process died)"; tail -n 25 "$WORK/server.log"; fi
-  [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true; for pid in "${RACE_PID:-}" "${RACE2_PID:-}" "${HOSTILE_PID:-}" "${SITEMAPS_PID:-}" "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${SMTP3261_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+  [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true
+  # T1 (Q4): every background server still running – all are background jobs of this shell (the fake S3, AI, webhook,
+  # old-console, probe, second-site and source servers were missing from the old list of names), so an early exit under
+  # set -e leaves none listening; the fake services' logs live in $WORK, removed with it
+  local pid; for pid in $(jobs -p); do kill "$pid" 2>/dev/null || true; done
+  rm -rf "${WORK:?}"; }
 trap cleanup EXIT
 # Clocks (INV-36): the site runs on its own time zone (Europe/Prague – bootstrap.php and the Czech installer), the database
 # in UTC (the MySQL service on CI; this script's sessions are forced to UTC below, so a local run fails the same way).
@@ -21,6 +26,8 @@ SITE_TZ=Europe/Prague; export TZ="$SITE_TZ"
 php() { command php -d date.timezone="$SITE_TZ" "$@"; }
 site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" "${2:-Y-m-d H:i:s}"; } # site_time ['-1 hour'|tomorrow…] [format]
 site_date() { site_time "$1" Y-m-d; }
+# run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
+run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' "$1"); }
 
 echo "== syntaxe PHP"
 # Kaleta's own files only – not the git worktrees of parallel work under .claude/ nor add-ons in extensions/
@@ -33,8 +40,8 @@ mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
 FAKE_PORT=$((PORT + 15)) # the fake of every outside service a connector talks to (2.13, tools/fake-services.php)
-(cd "$ROOT/tools" && exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
-rm -f "$(php -r 'echo sys_get_temp_dir();')"/kaleta-fake-"$FAKE_PORT"-*.log
+mkdir "$WORK/fake" # T1 (Q4): the fake services write their logs and flags here, not in the system temp folder
+(cd "$ROOT/tools" && KALETA_FAKE_DIR="$WORK/fake" exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
 (cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_CONNECTORS_FAKE="http://127.0.0.1:$FAKE_PORT" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 KALETA_LINKS_LOCAL=1 KALETA_FLEET_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
@@ -114,6 +121,26 @@ grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: th
 # 3.19.1 (N83): config.php holds the database password and the encryption key – readable only by the site (PHP owns the folder here)
 config_mode() { php -r 'clearstatcache(); printf("%o", fileperms($argv[1]) & 0777);' "$WORK/web/config.php"; }
 expect "3.19.1 (N83): the installer wrote config.php with mode 600" "$(config_mode)" "600"
+# T1 (Q1): a PHP deprecation on a live site is logged once a day and the page goes on – a host's PHP upgrade is no HTTP 500.
+# The test copy then defines KALETA_STRICT_DEPRECATIONS, so any deprecation from here on fails the run as before.
+# (a script file, not php -r: PHP never calls the exception handler for code given with -r)
+printf '%s\n' '<?php require __DIR__ . "/system/bootstrap.php"; $app = Kaleta\Core\App::boot(); trigger_error("T1 smoke deprecation", E_USER_DEPRECATED); trigger_error("T1 smoke deprecation", E_USER_DEPRECATED); echo "survived";' > "$WORK/web/t1-deprecation.php"
+t1_deprecation() { php "$WORK/web/t1-deprecation.php" 2>&1 | tail -c 300; }
+expect "T1 (Q1): a deprecation after App::boot() is logged, not thrown – once, as one line" \
+  "$(t1_deprecation)|$(grep -c '\] PHP deprecation: T1 smoke deprecation in t1-deprecation.php:1' "$WORK/web/storage/log/chyby.log")" "survived|1"
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_STRICT_DEPRECATIONS\x27, true);", (string) file_get_contents($f), 1));' "$WORK/web/config.php"
+expect "T1 (Q1): with KALETA_STRICT_DEPRECATIONS (the test copies) a deprecation is thrown again" "$(t1_deprecation | grep -c survived)|$(grep -c '\] ErrorException: T1 smoke deprecation' "$WORK/web/storage/log/chyby.log")" "0|1"
+rm -f "$WORK/web/t1-deprecation.php"
+php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 smoke deprecation"))));' "$WORK/web/storage/log/chyby.log"
+# T1 (Q13): an uncaught exception on a request is one line with the method and path (no query), the version and a short
+# trace without arguments; an e-mail address in the message and a token in the query never reach the log
+printf '%s\n' '<?php require __DIR__ . "/system/bootstrap.php"; $app = Kaleta\Core\App::boot(); (function () { throw new RuntimeException("T1 probe for probe@example.cz"); })();' > "$WORK/web/t1-probe.php"
+T1_TOKEN="t1$(date +%s)x$(date +%s)tok"
+T1_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$B/t1-probe.php?token=$T1_TOKEN"); T1_ROW=$(grep 'T1 probe' "$WORK/web/storage/log/chyby.log" || true)
+expect "T1 (Q13): the error log line has the request, the version and a trace, and no e-mail address or query" \
+  "$T1_CODE|$(printf '%s' "$T1_ROW" | grep -c 'RuntimeException: T1 probe for \[e-mail\] in t1-probe.php:1 · GET /t1-probe.php · Kaleta [0-9.]* · trace: #0 t1-probe.php:1 ')|$(printf '%s' "$T1_ROW" | grep -c "probe@example\|$T1_TOKEN" || true)" "500|1|0"
+rm -f "$WORK/web/t1-probe.php"
+php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 probe"))));' "$WORK/web/storage/log/chyby.log"
 
 echo "== web"
 check "úvodní stránka" 200 / "Testovací firma"
@@ -1455,7 +1482,9 @@ check "novinka v koši nejde upravit" 404 "/admin.php?module=news&action=edit&id
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=news&action=restore" -d "_csrf=$TOKEN" -d "smaz[]=$IDC"
 expect "obnovená novinka se vrátí jako koncept" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(visible, '/', smazano IS NULL) FROM ka_novinky WHERE idc = $IDC")" "0/1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_novinky SET visible = 1, smazano = '$(site_time)' - INTERVAL 31 DAY WHERE idc = $IDC"
-check "vstup do administrace vysype starý koš" 200 /admin.php "Přehled"
+check "administrace" 200 /admin.php "Přehled"
+expect "T1 (Q5): opening the administration no longer empties the trash (a GET deletes nothing)" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE idc = $IDC")" "1"
+expect "T1 (Q5): the daily background job empties the trash" "$(run_job trash | cut -d, -f1-2)" "news 1, pages 0"
 expect "novinka starší 30 dní v koši je smazaná natrvalo" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE idc = $IDC")" "0"
 
 echo "== přesměrování po změně adresy kategorie a stránky"
@@ -5866,6 +5895,8 @@ mcp erase_personal_data '{"email":"erase325@example.cz","confirm":true}' > /dev/
 N325K=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt 325', 'keep325@example.cz', '[]', 1); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_comments (target, kind, text, created_at) VALUES ('enquiry:987654321', 'note', 'orphan', '$(site_time)'), ('enquiry:x325', 'note', 'malformed', '$(site_time)'), ('enquiry:$N325K', 'note', 'keep', '$(site_time)')" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=enquiries"
+expect "T1 (Q5): the Enquiries list no longer sweeps notes on a GET" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('enquiry:987654321', 'enquiry:x325')")" "2"
+run_job cleanup > /dev/null
 expect "3.25: erase_personal_data, delete_enquiry and the cleanup leave no note behind (a malformed one too), the note of a live enquiry stays" \
   "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('enquiry:$N325E', 'enquiry:$N325D', 'enquiry:987654321', 'enquiry:x325')")|$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'enquiry:$N325K'")" "0|1"
 sq "DELETE FROM ka_comments WHERE target = 'enquiry:$N325K'; DELETE FROM ka_poptavky WHERE idp = $N325K" > /dev/null
@@ -6015,7 +6046,7 @@ mcp get_build "{\"id\":$F9_PAGE}" > "$WORK/response"
 expect "MCP: get_build answers with the English element and item names" "$(mcp_value build children 0 children 1 type)|$(mcp_value build children 0 children 1 content plans 1 badge)|$(mcp_value build children 0 children 3 content points 1 name)|$(mcp_value build children 0 children 4 content milestones 0 date)" "pricing_table|Most popular|Workshop|2020"
 mcp trash_page "{\"id\":$F9_PAGE}" > /dev/null
 echo "== 2.13: outbound connectors (OAuth with PKCE, encrypted credentials, the delivery log)"
-FAKE_LOGS="$(php -r 'echo sys_get_temp_dir();')/kaleta-fake-$FAKE_PORT"
+FAKE_LOGS="$WORK/fake/kaleta-fake-$FAKE_PORT"
 # connect_fake <service>: the site's OAuth app with test credentials, the sign-in through the fake service and back
 connect_fake() {
   curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
@@ -6213,11 +6244,13 @@ grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td>' "$WORK/response" &
 grep -q '<td><code>kaleta_souhlas</code></td><td>Kaleta</td><td>[^<]*</td><td>6 měsíců</td>' "$WORK/response" && grep -q '<td><code>kaleta</code></td><td>Kaleta</td>' "$WORK/response" \
   && grep -q '<td><code>ka_nahled</code></td>' "$WORK/response" && ! grep -q 'PHPSESSID' "$WORK/response" && ! grep -q '<code>kaleta_souhlas_id</code>' "$WORK/response" \
   && echo "  ok     3.13: the cookie table names the session cookie kaleta, keeps the choice 6 months, lists the preview cookie and no consent id while consents are not recorded" || { echo "  CHYBA  3.13 own cookies in the table"; grep -o 'ka-cookies-tabulka.\{0,900\}' "$WORK/response" | head -c 1000; ERRORS=$((ERRORS+1)); }
-# anonymise instead of delete: the retention keeps the row with blanks (the choice first – opening Enquiries runs the retention, which would delete the old row under the default)
+# anonymise instead of delete: the retention keeps the row with blanks (the choice first – the clean-up job would delete the old row under the default)
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=0 -d po_uplynuti=anonymise
 F17_OLD=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, tema, email, data, stav, kategorie) VALUES ('$(site_time)' - INTERVAL 30 MONTH, 'Servis 2.14', '/video-2-14', 'Video', 'stary@example.com', '[[\"Jméno\",\"Starý Zákazník\"],[\"E-mail\",\"stary@example.com\"],[\"Zpráva\",\"Opravte kotel\"]]', 2, 'sales'); SELECT LAST_INSERT_ID()")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
+expect "T1 (Q5): opening Enquiries runs no retention (the expired enquiry is untouched)" "$(sq "SELECT CONCAT(email, '|', anonymizovano IS NULL) FROM ka_poptavky WHERE idp = $F17_OLD")" "stary@example.com|1"
+run_job cleanup > /dev/null
 expect "2.14: retention with anonymise keeps the row – date, form, page, topic and kind stay, the person is blank" "$(sq "SELECT CONCAT(formular, '|', stranka, '|', tema, '|', kategorie, '|', email, '|', data, '|', anonymizovano IS NOT NULL) FROM ka_poptavky WHERE idp = $F17_OLD")" 'Servis 2.14|/video-2-14|Video|sales||[["Jméno",""],["E-mail",""],["Zpráva",""]]|1'
 grep -q 'name="po_uplynuti" value="anonymise" checked' "$WORK/response" && echo "  ok     2.14: the enquiry settings remember anonymise" || { echo "  CHYBA  2.14 enquiry settings"; ERRORS=$((ERRORS+1)); }
 F17_NEW=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES ('$(site_time)', 'Servis 2.14', '/video-2-14', 'novy@example.com', '[[\"Jméno\",\"Nový Zákazník\"],[\"E-mail\",\"novy@example.com\"]]', 0); SELECT LAST_INSERT_ID()")
@@ -9861,10 +9894,12 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collection
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=delete_permanently" -d "_csrf=$(csrf)" -d "ids=$A326_PAGE"
 expect "3.26: deleting them for good deletes their threads" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('item:$A326_ITEM', 'page:$A326_PAGE')")" "0"
 expect "3.26 (merge): … and the notifications about them" "$(sq "SELECT COUNT(*) FROM ka_notifications WHERE target IN ('item:$A326_ITEM', 'page:$A326_PAGE')")" "0"
-# the emptied trash and any other path (the Pages list sweeps what is left of pages and items that are gone)
+# the emptied trash and any other path (T1: the daily trash job sweeps what is left of pages and items that are gone – no longer the Pages list)
 A326_OLD=$(sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, zmeneno, smazano) VALUES ('a326-old', 'Old A326', '', 0, '$(site_time)', '$(site_time '-40 days')'); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_comments (target, kind, text, created_at) VALUES ('page:$A326_OLD', 'comment', 'old', '$(site_time)'), ('page:987654321', 'comment', 'orphan', '$(site_time)'), ('item:987654321', 'comment', 'orphan', '$(site_time)')" > /dev/null
 check "3.26: the Pages list" 200 "/admin.php?module=pages"
+expect "T1 (Q5): the Pages list deletes nothing on a GET" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('page:$A326_OLD', 'page:987654321', 'item:987654321')")" "3"
+run_job trash > /dev/null
 expect "3.26: the emptied trash and the sweep leave no thread of a page or an item that is gone" "$(sq "SELECT COUNT(*) FROM ka_comments WHERE target IN ('page:$A326_OLD', 'page:987654321', 'item:987654321')")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE ids = $A326_OLD")" "0|0"
 # the enquiry notes: mentions (only people with Enquiries), edit and delete one's own, anonymising still blanks them
 A326_ENQ=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt A326', 'a326@example.cz', '[]', 1); SELECT LAST_INSERT_ID();")

@@ -13,6 +13,9 @@ OLD="${DB_NAME}_old"; NEW="${DB_NAME}_new"; ERRORS=0
 cleanup() { "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$OLD\`; DROP DATABASE IF EXISTS \`$NEW\`" 2>/dev/null; }
 trap cleanup EXIT
 
+echo "== migration numbers (T1, Q12)"
+php "$ROOT/tools/check-migrations.php" || ERRORS=$((ERRORS+1))
+
 echo "== database upgrade from $FROM"
 OLD_DB_VERSION=$(git -C "$ROOT" show "${FROM}:system/bootstrap.php" | sed -nE 's/^const KALETA_(VERZE_DB|DB_VERSION) = ([0-9]+);/\2/p') # renamed in 1.4
 [ -n "$OLD_DB_VERSION" ] || { echo "  CHYBA  cannot read the database version of $FROM"; exit 1; }

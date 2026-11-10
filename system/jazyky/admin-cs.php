@@ -7470,4 +7470,6 @@ return [
     'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.' => 'Vlastní e-mail, heslo a dvoufázové přihlášení změníte na stránce Můj účet – tam se ptá na současné heslo.',
     'Your current password' => 'Vaše současné heslo',
     'Needed only to set a new password for this user or to turn off their two-factor sign-in.' => 'Potřeba jen pro nastavení nového hesla tohoto uživatele nebo vypnutí jeho dvoufázového přihlášení.',
+    '%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them' => '%d upozornění PHP na zastaralé funkce – web běží dál, odstraní je aktualizace Kalety',
+    'Trash: news, pages and collection items deleted more than 30 days ago removed' => 'Koš: novinky, stránky a položky kolekcí smazané před více než 30 dny odstraněny',
 ];

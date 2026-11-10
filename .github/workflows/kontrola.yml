@@ -87,9 +87,25 @@ jobs:
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
       - name: PHPStan
+        # T1 (Q12): the download is checked against the digest of the release asset (GitHub's sha256 of 2.1.30) – to update,
+        # change the version and the digest together (gh api repos/phpstan/phpstan/releases/tags/<version>, assets[].digest)
         run: |
           curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          echo "9b75057f287c127c257ae0cdfce36b82b5fe75f40114de9ed8f2e6a0b03e8100  /tmp/phpstan.phar" | sha256sum -c -
           php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+  guards:
+    # T1 (Q12): cheap checks that need no database – every JavaScript file parses, and no migration number is duplicated or
+    # merged below one the previous release shipped (tools/check-migrations.php compares with the newest v* tag)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.4', coverage: none }
+      - name: JavaScript syntax (node --check)
+        run: git ls-files -z '*.js' '*.mjs' | xargs -0 -n1 node --check
+      - name: Migration numbers
+        run: php tools/check-migrations.php
   bezpecnost:
     runs-on: ubuntu-latest
     steps:

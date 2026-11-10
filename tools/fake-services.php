@@ -17,9 +17,12 @@ parse_str((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_
 $body = (string) file_get_contents('php://input');
 $json = json_decode($body, true);
 $headers = array_change_key_case(function_exists('getallheaders') ? (getallheaders() ?: []) : []);
-// a file of this fake server in the temp folder: logs and the flag files the test creates (the port keeps parallel runs apart)
+// a file of this fake server: logs and the flag files the test creates (the port keeps parallel runs apart) – in the folder
+// KALETA_FAKE_DIR when tools/test.sh gives one (its work folder, removed by its exit trap – T1, Q4), else the temp folder
+$fakeDir = (string) getenv('KALETA_FAKE_DIR');
+$fakeDir = $fakeDir !== '' && is_dir($fakeDir) ? $fakeDir : sys_get_temp_dir();
 // nosemgrep: php.lang.security.injection.tainted-filename.tainted-filename
-$fakeFile = fn (string $name): string => sys_get_temp_dir() . '/kaleta-fake-' . (int) ($_SERVER['SERVER_PORT'] ?? 0) . '-' . preg_replace('/[^a-z0-9.\-]/', '', $name);
+$fakeFile = fn (string $name): string => $fakeDir . '/kaleta-fake-' . (int) ($_SERVER['SERVER_PORT'] ?? 0) . '-' . preg_replace('/[^a-z0-9.\-]/', '', $name);
 $log = function (string $name, array $entry) use ($fakeFile): void {
     file_put_contents($fakeFile($name . '.log'), json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n", FILE_APPEND);
 };

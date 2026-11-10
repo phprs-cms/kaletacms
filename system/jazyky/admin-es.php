@@ -7896,4 +7896,6 @@ return [
     'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.' => 'Tu propio correo electrónico, tu contraseña y tu verificación en dos pasos se cambian en Mi cuenta, donde se pide tu contraseña actual.',
     'Your current password' => 'Tu contraseña actual',
     'Needed only to set a new password for this user or to turn off their two-factor sign-in.' => 'Solo hace falta para establecer una nueva contraseña para este usuario o desactivar su verificación en dos pasos.',
+    '%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them' => '%d aviso(s) de PHP sobre funciones obsoletas: el sitio sigue funcionando, una actualización de Kaleta los elimina',
+    'Trash: news, pages and collection items deleted more than 30 days ago removed' => 'Papelera: noticias, páginas y elementos de colecciones eliminados hace más de 30 días, borrados',
 ];

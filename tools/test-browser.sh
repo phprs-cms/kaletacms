@@ -13,8 +13,10 @@ MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zon
 cleanup() { for pid in ${SERVER_PID:-} ${STARTER_PIDS:-} ${SMTP_PID:-}; do kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
 trap cleanup EXIT
 
-# axe-core (3.5) next to playwright-core: the accessibility check injects it from this local copy, never from a CDN
-npm i --silent --prefix "$WORK/pw" playwright-core@1 axe-core@4 > /dev/null
+# axe-core (3.5) next to playwright-core: the accessibility check injects it from this local copy, never from a CDN.
+# Exact versions (T1, Q12): a new release of either must not turn main red without a change of ours – update them on purpose.
+PLAYWRIGHT_CORE_VERSION=1.65.0; AXE_CORE_VERSION=4.14.0
+npm i --silent --prefix "$WORK/pw" "playwright-core@$PLAYWRIGHT_CORE_VERSION" "axe-core@$AXE_CORE_VERSION" > /dev/null
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web")
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 # 3.6: the Crafts and Consulting starters too (ports PORT+1 and PORT+2, databases DB_NAME_remeslo and DB_NAME_poradenstvi),

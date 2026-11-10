@@ -9186,7 +9186,7 @@ check('3.26 (A): a thread follows its target – the permanent delete and the em
     str_contains($a326Src('src/Admin/Modules/Collections.php'), "Comments::forget(\$this->db, [\\Kaleta\\Core\\Comments::item(\$this->request->postInt('idp'))]);"),
     str_contains($a326Src('src/Admin/Modules/Collections.php'), 'Comments::forget($db, array_map(\Kaleta\Core\Comments::item(...), $ids));'),
     str_contains($a326Src('src/Builder/Collections.php'), 'Comments::forget($db, array_map('),
-    str_contains($a326Src('src/Admin/Modules/Pages.php'), 'Comments::sweepContent($this->db);'),
+    str_contains($a326Src('src/Core/Scheduler.php'), '$threads = Comments::sweepContent($app->db());'), // T1 (Q5): the daily trash job, no longer the Pages list
     // the merge: the real Core\Inbox is called directly (it never throws), no longer behind is_callable
     str_contains($a326Src('src/Core/Comments.php'), 'Inbox::notify($app, $userId, $kind, $target,') && !str_contains($a326Src('src/Core/Comments.php'), 'is_callable'),
     in_array('comment', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS['pages'], true) && in_array('comment', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS['collections'], true),
@@ -10867,6 +10867,124 @@ check('3.31.2: Html::safe leaves "ka-" classes out of a news text or description
 // the admin editor puts no "ka-" class into a text (so no allowlist is needed); if it ever does, this fails and Html::textClasses needs one
 preg_match_all('/(?<![a-z0-9_-])ka-[a-z0-9-]+/', (string) file_get_contents(KALETA_ROOT . '/image/editor.js'), $t3312Editor);
 check('3.31.2: image/editor.js writes no "ka-" class into the text it edits', $t3312Editor[0], []);
+/* ---------- T1 (Q1): a PHP deprecation is logged, never thrown ---------- */
+$t1Log = sys_get_temp_dir() . '/kaleta-t1-errors-' . getmypid() . '.log';
+@unlink($t1Log);
+Kaleta\Core\ErrorLog::$path = $t1Log;
+$t1Thrown = static function (int $severity, ?bool $strict): string {
+    try {
+        return Kaleta\Core\App::handleError($severity, 'T1 old function', KALETA_ROOT . '/system/src/Core/X.php', 7, $strict) ? 'handled' : 'php';
+    } catch (\ErrorException $e) {
+        return 'thrown ' . $e->getSeverity();
+    }
+};
+$t1Rows = static fn (): array => array_values(array_filter(explode("\n", (string) @file_get_contents($t1Log))));
+check('T1 Q1: a deprecation (PHP or user) is logged and the page goes on; a warning and a notice are still thrown; strict mode (the tests) throws a deprecation', [
+    $t1Thrown(E_DEPRECATED, false), $t1Thrown(E_USER_DEPRECATED, false), $t1Thrown(E_WARNING, false), $t1Thrown(E_USER_NOTICE, false), $t1Thrown(E_USER_DEPRECATED, true)],
+    ['handled', 'handled', 'thrown ' . E_WARNING, 'thrown ' . E_USER_NOTICE, 'thrown ' . E_USER_DEPRECATED]);
+$t1First = $t1Rows();
+check('T1 Q1: the deprecation is one line, once a day (the same message and place), with the path inside the site; System status tells it from an error', [
+    count($t1First), (bool) preg_match('~^\[\d{4}-\d\d-\d\dT[^\]]+\] PHP deprecation: T1 old function in system/src/Core/X\.php:7$~', $t1First[0] ?? ''),
+    Kaleta\Core\ErrorLog::isDeprecation($t1First[0] ?? ''), Kaleta\Core\ErrorLog::isDeprecation('[2026-11-10T10:00:00+01:00] RuntimeException: PHP deprecation: x')],
+    [1, true, true, false]);
+// another request the same day (a fresh process forgets what it logged): the log itself says it is there already
+$t1Seen = new ReflectionProperty(Kaleta\Core\ErrorLog::class, 'seen');
+$t1Seen->setValue(null, []);
+check('T1 Q1: a later request the same day does not log the same deprecation again; another message is logged', [
+    Kaleta\Core\ErrorLog::deprecation('T1 old function', KALETA_ROOT . '/system/src/Core/X.php', 7), Kaleta\Core\ErrorLog::deprecation('T1 other', KALETA_ROOT . '/system/src/Core/X.php', 8), count($t1Rows())],
+    [false, true, 2]);
+check('T1 Q1: App installs handleError, the strict switch is the constant of the test copies, and the System status text is translated (cs, de, es)', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/App.php'), 'set_error_handler(self::handleError(...));'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/test.sh'), '<?php define(\x27KALETA_STRICT_DEPRECATIONS\x27, true);'),
+    isset($adminCs['%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them'], $adminDe['%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them'], $a3312Es['%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them'])],
+    [true, true, true]);
+Kaleta\Core\ErrorLog::$path = null;
+@unlink($t1Log);
+
+/* ---------- T1 (Q13): the error log names the request, the user, the version and a short trace; capped and rotated ---------- */
+$t13Log = sys_get_temp_dir() . '/kaleta-t13-errors-' . getmypid() . '.log';
+@unlink($t13Log); @unlink($t13Log . '.1');
+Kaleta\Core\ErrorLog::$path = $t13Log;
+$t13Deep = static function (int $n) use (&$t13Deep): never {
+    if ($n > 0) {
+        $t13Deep($n - 1);
+    }
+    throw new RuntimeException('Duplicate entry jana.novakova@example.cz for key email, token ' . str_repeat('ab12', 8) . ' in /var/x');
+};
+try {
+    $t13Deep(12);
+} catch (RuntimeException $t13E) {
+}
+$t13Entry = Kaleta\Core\ErrorLog::exception($t13E);
+check('T1 Q13: an exception entry has class, message, place, context (cli here) with the version and the first eight frames without arguments', [
+    str_starts_with($t13Entry, 'RuntimeException: Duplicate entry [e-mail] for key email, token [redacted] in /var/x in tools/unit-tests.php:'),
+    str_contains($t13Entry, ' · cli · Kaleta ' . KALETA_VERSION . ' · trace: #0 tools/unit-tests.php:'), substr_count($t13Entry, ' | #'), str_contains($t13Entry, '#8 '), (bool) preg_match('/ \| … \d+ more$/', $t13Entry),
+    str_contains($t13Entry, 'jana.novakova'), str_contains($t13Entry, str_repeat('ab12', 8)), str_contains($t13Entry, "\n")],
+    [true, true, 7, false, true, false, false, false]);
+// a web request: method and path only – never the query, which can hold a token or a preview key
+$t13Server = $_SERVER;
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_SERVER['REQUEST_URI'] = '/admin.php?module=settings&token=' . str_repeat('cd34', 8);
+check('T1 Q13: a web request is logged as method and path – the query (a token here) is left out', [Kaleta\Core\ErrorLog::context('fpm-fcgi')], ['POST /admin.php · Kaleta ' . KALETA_VERSION]);
+check('T1 Q13: clean() keeps ordinary words, class names and paths; masks e-mails and token-like strings', [
+    Kaleta\Core\ErrorLog::clean('SQLSTATE[42S02]: Base table ka_poptavky not found in system/src/Core/Contacts.php'),
+    Kaleta\Core\ErrorLog::clean('key ' . bin2hex(random_bytes(16)) . ' for x@y.cz'), mb_strlen(Kaleta\Core\ErrorLog::clean(str_repeat('slovo ', 200)))],
+    ['SQLSTATE[42S02]: Base table ka_poptavky not found in system/src/Core/Contacts.php', 'key [redacted] for [e-mail]', 500]);
+$_SERVER = $t13Server;
+// the cap: a log over MAX_BYTES moves to .1 before the next entry; the older .1 is replaced; one line per entry
+file_put_contents($t13Log, str_repeat("[2026-01-01T00:00:00+01:00] old\n", (int) ceil((Kaleta\Core\ErrorLog::MAX_BYTES + 10) / 32)));
+file_put_contents($t13Log . '.1', 'oldest');
+Kaleta\Core\ErrorLog::write("first line\nsecond line");
+check('T1 Q13: past 1 MB the log is rotated to chyby.log.1 (the older copy dropped), the new entry starts a fresh file as one line', [
+    (string) file_get_contents($t13Log), filesize($t13Log . '.1') > Kaleta\Core\ErrorLog::MAX_BYTES, count(Kaleta\Core\ErrorLog::files())],
+    ['[' . date('c') . "] first line second line\n", true, 2]);
+check('T1 Q13: the exception handler, the migration error and Clear the log use Core\ErrorLog', [
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/App.php'), 'ErrorLog::write(ErrorLog::exception($e));'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Migration.php'), "ErrorLog::write('The database migration failed: '"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), 'foreach (\Kaleta\Core\ErrorLog::files() as $i => $log)')],
+    [true, true, true]);
+Kaleta\Core\ErrorLog::$path = null;
+@unlink($t13Log); @unlink($t13Log . '.1');
+
+/* ---------- T1 (Q5): clean-up off GET requests, two indexes, the customers' order ---------- */
+$t5Enq = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
+$t5List = substr($t5Enq, (int) strpos($t5Enq, 'protected function actionList('), 3000);
+$t5Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
+$t5Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
+$t5Pages = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php');
+check('T1 Q5: the Enquiries list, the Pages list and the admin kernel delete nothing on a GET; the daily jobs do it (trash and threads once a day, retention in the clean-up)', [
+    str_contains($t5List, 'deleteExpired('), str_contains($t5List, 'purgeApplications('), str_contains($t5Kernel, 'emptyTrash(') || str_contains(substr($t5Pages, (int) strpos($t5Pages, 'protected function actionList('), 2000), 'sweepContent('),
+    Kaleta\Core\Scheduler::JOBS['trash'][0], Kaleta\Core\Scheduler::JOBS['trash'][1], isset(Kaleta\Core\Scheduler::jobs()['trash']),
+    isset($adminCs[Kaleta\Core\Scheduler::JOBS['trash'][2]], $adminDe[Kaleta\Core\Scheduler::JOBS['trash'][2]], $a3312Es[Kaleta\Core\Scheduler::JOBS['trash'][2]]),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Notifications.php'), '\Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);')],
+    [false, false, false, 86400, 'any', true, true, true]);
+check('T1 Q5: migration 0118 and the schema add ix_poptavky_datum and ix_notifications_target; the customers sort by activity without a filesort term', [
+    str_contains($t5Schema, 'KEY ix_poptavky_datum (datum)'), str_contains($t5Schema, 'KEY ix_notifications_target (target)'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0118-cleanup-indexes.sql'), 'ADD KEY'), KALETA_DB_VERSION, Kaleta\Core\Contacts::SORTS['activity']],
+    [true, true, 2, 118, 'c.last_activity_at DESC, c.id DESC']);
+
+/* ---------- T1 (Q12): CI guards ---------- */
+$t12Ci = (string) file_get_contents(KALETA_ROOT . '/.github/workflows/kontrola.yml');
+$t12Browser = (string) file_get_contents(KALETA_ROOT . '/tools/test-browser.sh');
+check('T1 Q12: CI checks the PHPStan download by its digest, runs node --check on every JS file and the migration-number guard; the browser packages are pinned exactly', [
+    (bool) preg_match('~curl -sSL -o /tmp/phpstan\.phar \S+\n\s+echo "[0-9a-f]{64}  /tmp/phpstan\.phar" \| sha256sum -c -\n~', $t12Ci),
+    str_contains($t12Ci, "git ls-files -z '*.js' '*.mjs' | xargs -0 -n1 node --check"), str_contains($t12Ci, 'run: php tools/check-migrations.php'),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/tools/test-migrations.sh'), 'php "$ROOT/tools/check-migrations.php"'),
+    (bool) preg_match('/PLAYWRIGHT_CORE_VERSION=\d+\.\d+\.\d+; AXE_CORE_VERSION=\d+\.\d+\.\d+\n/', $t12Browser), (bool) preg_match('/(playwright-core|axe-core)@\d+[ "\n]/', $t12Browser . (string) file_get_contents(KALETA_ROOT . '/tools/screenshots.sh'))],
+    [true, true, true, true, true, false]);
+// the guard itself: no duplicate number, KALETA_DB_VERSION is the highest (the comparison with the last tag needs git – CI and test-migrations.sh)
+$t12Numbers = array_map(fn (string $f): int => (int) substr(basename($f), 0, 4), glob(KALETA_SYSTEM . '/sql/migrace/[0-9]*') ?: []);
+check('T1 Q12: no migration number is used twice and KALETA_DB_VERSION is the highest', [count($t12Numbers) === count(array_unique($t12Numbers)), max($t12Numbers) === KALETA_DB_VERSION], [true, true]);
+
+/* ---------- T1 (Q4): tools/test.sh leaves no server or temp file behind ---------- */
+$t4Sh = (string) file_get_contents(KALETA_ROOT . '/tools/test.sh');
+$t4Trap = substr($t4Sh, (int) strpos($t4Sh, 'cleanup() {'), 1500);
+preg_match_all('/& *([A-Z0-9_]+)=\$!/', $t4Sh, $t4Started);
+check('T1 Q4: the exit trap kills every background job of the run (each server is one – none started in a subshell), and the fake services log into the work folder', [
+    str_contains($t4Trap, 'for pid in $(jobs -p); do kill "$pid"'), str_contains($t4Trap, 'rm -rf "${WORK:?}"'), count(array_unique($t4Started[1])) >= 20,
+    (bool) preg_match('/\$\([^)]*php -S/', $t4Sh), str_contains($t4Sh, 'KALETA_FAKE_DIR="$WORK/fake" exec php -S'), str_contains($t4Sh, 'FAKE_LOGS="$WORK/fake/kaleta-fake-$FAKE_PORT"'),
+    str_contains($t4Sh, "sys_get_temp_dir();')/kaleta-fake"), str_contains((string) file_get_contents(KALETA_ROOT . '/tools/fake-services.php'), "getenv('KALETA_FAKE_DIR')")],
+    [true, true, true, false, true, true, false, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

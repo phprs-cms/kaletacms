@@ -67,7 +67,7 @@ $group = '';
 <?php if ($errorLog === []): ?>
 <p><?= e(t('No errors – the log is empty.')) ?></p>
 <?php else: ?>
-<pre class="log-chyb"><?php foreach (array_reverse($errorLog) as $row): ?><?= e(mb_strimwidth(str_replace(KALETA_ROOT, '', $row), 0, 400, '…')) . "\n" ?><?php endforeach ?></pre>
+<pre class="log-chyb"><?php foreach (array_reverse($errorLog) as $row): ?><?= e(mb_strimwidth(str_replace(KALETA_ROOT, '', $row), 0, 1500, '…')) . "\n" ?><?php endforeach ?></pre>
 <p><button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_log')) ?>" data-potvrdit="<?= e(t('Clear the error log?')) ?>"><?= e(t('Clear the log')) ?></button> <span class="smltxt"><?= e(t('Newest first, the last 40 entries from storage/log/chyby.log.')) ?></span></p>
 <?php endif ?>
 </fieldset>

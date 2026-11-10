@@ -41,6 +41,7 @@ final class Scheduler
         // firewall log of that month, and before the e-mail, which is written from it
         'report_archive' => [3600, 'any', 'Monthly report archive: the previous month stored, 24 months kept'],
         'cleanup' => [0, 'any', 'Deleting old personal data and events'],
+        'trash' => [86400, 'any', 'Trash: news, pages and collection items deleted more than 30 days ago removed'], // T1 (Q5): no longer on admin requests or the Pages list
         'alerts' => [300, 'any', 'Alert e-mails'],
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
@@ -132,6 +133,14 @@ final class Scheduler
                 Firewall::cleanUp($app->db());
 
                 return 'ok';
+            },
+            'trash' => function (App $app): string {
+                $news = \Kaleta\Admin\Modules\News::emptyTrash($app->db());
+                $pages = \Kaleta\Admin\Modules\Pages::emptyTrash($app->db());
+                \Kaleta\Admin\Modules\Collections::emptyTrash($app->db());
+                $threads = Comments::sweepContent($app->db()); // 3.26: the threads of pages, items and CRM records that are gone
+
+                return 'news ' . $news . ', pages ' . $pages . ', threads ' . $threads;
             },
             'alerts' => fn (App $app): string => Alerts::run($app),
             'domain_watch' => function (App $app): string {

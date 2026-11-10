@@ -579,7 +579,8 @@ CREATE TABLE ka_poptavky (
     KEY ix_poptavky_stav (stav, idp),
     KEY ix_poptavky_kategorie (kategorie, idp),
     KEY ix_poptavky_prirazeno (prirazeno, stav),                -- "assigned to me" (3.24, migration 0110)
-    KEY ix_poptavky_contact (contact_id)                        -- the enquiries of a customer (3.28, migration 0114)
+    KEY ix_poptavky_contact (contact_id),                       -- the enquiries of a customer (3.28, migration 0114)
+    KEY ix_poptavky_datum (datum)                               -- the retention clean-up (T1, migration 0118)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- Internal comments of the team on a record (3.25, Core\Comments): appended, never overwritten. target = what they are
@@ -616,7 +617,8 @@ CREATE TABLE ka_notifications (
     emailed_at  DATETIME NULL,
     PRIMARY KEY (id),
     KEY ix_notifications_user (user_id, read_at, id),
-    KEY ix_notifications_created (created_at)
+    KEY ix_notifications_created (created_at),
+    KEY ix_notifications_target (target)                     -- forgetting the notifications of a removed target (T1, migration 0118)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- 3.27: tasks and follow-ups (Core\Tasks). One person each (assignee_id; NULL only after a leaver's work went to nobody),

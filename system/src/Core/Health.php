@@ -178,15 +178,16 @@ final class Health
             $claude['state'] !== 'off' ? [['text' => t('Claude settings'), 'url' => $app->url('admin.php?module=claude_settings')]] : []);
 
         // --- operation
-        $log = KALETA_ROOT . '/storage/log/chyby.log';
-        $errorCount = 0;
-        if (is_file($log)) {
-            $from = date('c', time() - 86400);
-            foreach (array_slice(file($log, FILE_IGNORE_NEW_LINES) ?: [], -500) as $row) {
-                $errorCount += (int) (substr($row, 1, 25) >= $from);
+        $errorCount = $deprecations = 0;
+        $from = date('c', time() - 86400);
+        foreach (array_slice(explode("\n", ErrorLog::tail(256 * 1024)), -500) as $row) {
+            if ($row === '' || substr($row, 1, 25) < $from) {
+                continue;
             }
+            ErrorLog::isDeprecation($row) ? $deprecations++ : $errorCount++; // T1 (Q1): a deprecation is logged, the site works
         }
-        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'varovani', $errorCount === 0 ? t('žádné') : t('%d - details in storage/log/chyby.log', $errorCount));
+        $add(t('Operation'), t('Errors in the last 24 hours'), $errorCount === 0 ? 'ok' : 'varovani', ($errorCount === 0 ? t('žádné') : t('%d - details in storage/log/chyby.log', $errorCount))
+            . ($deprecations > 0 ? '; ' . t('%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them', $deprecations) : ''));
         $last = Backup::listLocal()[0]['cas'] ?? 0; // 3.31.1: an uploaded copy (….enc) is not a backup made here
         $age = $last > 0 ? (int) floor((time() - $last) / 86400) : null;
         $add(t('Operation'), t('Database backup'), $age !== null && $age <= 8 ? 'ok' : 'varovani', $age === null ? t('none yet - create one on the Backups and updates tab') : ($age === 0 ? t('today') : t('%d days ago', $age)) . ', ' . ($siteSettings->bool('auto_backups') ? t('automatic backups on') : t('automatic backups off')));
