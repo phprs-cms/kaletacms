@@ -139,14 +139,14 @@ final class Health
         $add($group, t('Unused accounts'), $unusedAccounts === [] ? 'ok' : 'varovani', match (true) {
             $unusedAccounts === [] => t('every account has been used in the last %d days', SecurityHygiene::ACCOUNT_DAYS),
             in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) => t('%d account(s) unused for %d days – the automatic suspension blocks them on its next daily run', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
-            default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → General', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
+            default => t('%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → Security', count($unusedAccounts), SecurityHygiene::ACCOUNT_DAYS),
         }, array_map(static fn (array $a): array => $userLink($a, SecurityHygiene::displayName($a) . ' (' . t('last activity %s', format_date((string) $a['last'])) . ')'), $unusedAccounts));
         $connectionLink = static fn (array $c): array => ['text' => $c['name'] . ' (' . $c['user'] . ')', 'url' => $app->url('admin.php?module=users&action=edit&id=' . (int) $c['idu'] . '#napojeni')];
         $unusedConnections = $hygiene['unused_connections'];
         $add($group, t('Unused Claude connections'), $unusedConnections === [] ? 'ok' : 'varovani', match (true) {
             $unusedConnections === [] => t('every connection has been used in the last %d days', SecurityHygiene::CONNECTION_DAYS),
             in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) => t('%d connection(s) unused for %d days – the automatic suspension revokes them on its next daily run', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
-            default => t('%d connection(s) unused for %d days – revoke them in the user’s account, or switch on the automatic suspension in Settings → General', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
+            default => t('%d connection(s) unused for %d days – revoke them in the user’s account, or switch on the automatic suspension in Settings → Security', count($unusedConnections), SecurityHygiene::CONNECTION_DAYS),
         }, array_map($connectionLink, $unusedConnections));
         $add($group, t('Connections without an expiry'), $hygiene['no_expiry'] === [] ? 'ok' : 'varovani',
             $hygiene['no_expiry'] === [] ? t('every personal token has an expiry date') : t('%d personal token(s) never expire – a token works until it is revoked; revoke those that are not needed, or create them again with an expiry', count($hygiene['no_expiry'])),

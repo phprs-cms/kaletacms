@@ -9822,6 +9822,20 @@ $b3311Masked = (function () use ($b3311S): array {
 })();
 check('3.31.1 (review): failureText masks a password with "|" and double spaces in the raw text and in its one-line form; running it again changes nothing', $b3311Masked,
     ['auth failed for … with …', 'auth failed for … with …', 'auth failed for … with …']);
+// review of 3.31.1: the warnings of unused accounts and Claude connections point to Settings → Security (the switch moved there in
+// 3.23); the old keys are replaced, not kept beside the new ones
+$h3311Keys = ['%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → Security',
+    '%d connection(s) unused for %d days – revoke them in the user’s account, or switch on the automatic suspension in Settings → Security'];
+$h3311Health = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php');
+check('3.31.1 (review): System status sends the automatic suspension of unused accounts and connections to Settings → Security – both warnings, every dictionary (cs, de, de-du, es), no old key left', [
+    array_map(fn (string $key): bool => str_contains($h3311Health, "t('" . $key . "'"), $h3311Keys), substr_count($h3311Health, 'automatic suspension in Settings → General'),
+    array_map(function (string $code) use ($h3311Keys): array {
+        $dictionary = require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php';
+
+        return [count(array_intersect_key($dictionary, array_flip($h3311Keys))), count(array_filter(array_keys($dictionary), fn (string $key): bool => str_contains($key, 'automatic suspension in Settings → General'))),
+            count(array_filter(array_intersect_key($dictionary, array_flip($h3311Keys)), fn (string $text): bool => (bool) preg_match('/→ (Zabezpečení|Sicherheit|Seguridad)\b/u', $text)))];
+    }, ['cs', 'de', 'de-du', 'es'])],
+    [[true, true], 0, [[2, 0, 2], [2, 0, 2], [2, 0, 2], [2, 0, 2]]]);
 check('3.31.1: upload() records backup.failed once per failed copy (the short text in the status and the event), the paused copy returns before it; the media copy records its failure when it starts; translated (cs, de, es)', [
     substr_count($b3311Upload, "Events::record(\$s->db(), 'backup.failed', 'error'"), strpos($b3311Upload, 'return self::pausedText();') < strpos($b3311Upload, "'backup.failed'"),
     str_contains($b3311Upload, "\$s->set('remote_backup_status', date('Y-m-d H:i') . '|' . \$text);"),
