@@ -153,6 +153,15 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **2.0 bez vrstev kompatibility:** žádné aliasy tříd (`class-aliases.php` je od 2.0.1 pryč; balíček ho nese jen jako „legacy“ pro aktualizace z 1.4–2.0), žádné staré adresy administrace ani
   pomocné funkce, veřejné API pryč. Staré klíče nastavení jen v `Core\OldSettingsKeys` (migrace, MCP `update_settings`, import). **Datová migrace** je
   `system/sql/migrace/NNNN-*.php` (vrací funkci `(Db, Settings)`) a musí mít nejvyšší číslo svého vydání – starý kód aktualizace zná jen `.sql`.
+- **Obchody** (3.31, `Core\Deals`, tabulky `ka_deals` + `ka_deal_stage_history`, migrace 0117, admin `Modules\Pipeline` ve skupině Workspace, MCP
+  `list_deals`, `save_deal`, `move_deal`, `pipeline_summary` – mimo ESSENTIALS): jedna pipeline, etapy v nastavení `pipeline_stages` (open | won | lost),
+  hodnota jen číslo + měna, žádné prognózy. Každý přesun do historie; won/lost uzavře, lost chce důvod (`LOST_REASONS`); etapa, ve které jsou obchody,
+  nemění druh (3.31.1). Měsíční report a souhrny jen počty – nikdy hodnoty. Cíl `deal:<id>` pro komentáře, úkoly, upozornění a odpovědnost
+  (`Assignment::KINDS['deal'] = 'pipeline'`); zvonek a e-mail jmenují obchod jen číslem, kdo nemá Pipeline, vidí u zákazníka jen „obchod“ (3.31.1).
+  Nový druh cíle = `Inbox::TARGETS`, `Inbox::parse`, `Tasks::cleanTarget` + `sweep`, `Assignment::KINDS` a popisek v `my_work/list.php` i `team.php`
+  (hlídá `tools/unit-tests.php`). Retence: poptávka obchodu se drží, dokud je otevřený, a po uzavření ještě po dobu retence; zákazník s otevřeným
+  obchodem se neanonymizuje. Smazání/anonymizace zákazníka nechá obchod bez osoby (`Deals::unlinkContacts`) a komentáře na jeho obchodech jdou stejně
+  jako jeho vlastní (smazání → pryč, anonymizace → bez textu). Obchody se nežurnálují pro undo.
 - **Zálohy mimo server** (`Core\RemoteBackup`): záloha databáze i přírůstková kopie `media/` (`syncMedia`, manifest `storage/zalohy/media-kopie.json`)
   na FTPS nebo S3; automatická záloha denně při změně (`ka_protokol`, nové poptávky), jinak týdně. Testy: falešné S3 přes `backup_test_url`.
 - **Pošta** vždy přes `Core\Mail::send()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (whitelist přípon).
