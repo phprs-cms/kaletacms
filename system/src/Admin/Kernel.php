@@ -544,7 +544,32 @@ final class Kernel
     /** Where to go after sign-in: if an app connection via OAuth (the Claude connector) is waiting, straight to the consent, otherwise to the overview. */
     private function resolveAfterSignIn(): string
     {
-        return $this->app->url(\Kaleta\Front\OAuth::pendingRequests($this->app->session) !== [] ? 'admin.php?action=oauth' : 'admin.php');
+        if (\Kaleta\Front\OAuth::pendingRequests($this->app->session) !== []) {
+            return $this->app->url('admin.php?action=oauth');
+        }
+
+        return $this->app->url(self::landsOnMyWork($this->app->auth()->isAdmin(), $this->modules()) ? 'admin.php?module=my_work' : 'admin.php');
+    }
+
+    /**
+     * The landing rule (3.32, U36/A2): after sign-in a person who sees no content section – only Workspace (Customers,
+     * Pipeline, Enquiries…) and the rest – lands on My work, not on the Dashboard. Media (offered to every user, for the
+     * upload in the text editor) and My work itself do not count as content. Administrators always land on the Dashboard.
+     *
+     * @param array<string, class-string<Module>> $modules the sections the person may open (modules())
+     */
+    public static function landsOnMyWork(bool $admin, array $modules): bool
+    {
+        if ($admin || !isset($modules['my_work'])) {
+            return false;
+        }
+        foreach ($modules as $ident => $class) {
+            if ($class::GROUP === 'Content' && !in_array($ident, ['my_work', 'media'], true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function login(): Response

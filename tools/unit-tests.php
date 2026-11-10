@@ -10477,6 +10477,14 @@ check('3.32 (U35): list row buttons are 32/40 px; My work links the task title, 
     str_contains($u35View, "\$module->url('take')"),
     method_exists(Kaleta\Admin\Modules\MyWork::class, 'actionTaskEdit'), method_exists(Kaleta\Admin\Modules\MyWork::class, 'actionTake'),
 ], [true, true, false, true, 5, true, true, true, true]);
+// 3.32 (U36, A2): Workspace-only people land on My work; the look bar only on the dashboard and the Appearance screens
+$u36 = fn (bool $admin, array $idents): bool => Kaleta\Admin\Kernel::landsOnMyWork($admin, array_intersect_key(array_column(array_map(fn (string $c): array => [$c::IDENT, $c], Kaleta\Admin\Kernel::MODULES), 1, 0), array_flip($idents)));
+check('3.32 (U36, A2): after sign-in only a person without content sections lands on My work; the look bar shows on the dashboard and the Appearance group', [
+    $u36(false, ['my_work', 'media', 'enquiries', 'contacts', 'pipeline']), $u36(false, ['my_work', 'media', 'enquiries', 'pages']), $u36(false, ['my_work', 'media', 'news']),
+    $u36(true, ['my_work', 'media', 'enquiries']), $u36(false, ['media', 'enquiries']),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), "\$lookHere = \$onDashboard || (isset(\$modules[\$active]) && \$modules[\$active]::GROUP === 'Appearance');"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), "self::landsOnMyWork(\$this->app->auth()->isAdmin(), \$this->modules()) ? 'admin.php?module=my_work' : 'admin.php'"),
+], [true, false, false, false, false, true, true]);
 $d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
 check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
     $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),

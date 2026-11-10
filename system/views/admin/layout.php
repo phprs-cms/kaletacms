@@ -199,10 +199,12 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 <p class="hlaska hlaska-<?= e($message['typ']) ?>" role="status"><?= Kaleta\Admin\MenuPaths::links($app->url('admin.php'), t($message['text']), array_keys($modules)) ?></p>
 <?php endforeach ?>
 <?php
-// a draft look waits on every screen until it is published or discarded – not at the two-factor gate (N3183-2); 3.23: a user
+// a draft look waits until it is published or discarded – not at the two-factor gate (N3183-2); 3.23: a user
 // with the Appearance area sees it read only on the screens of that area (Menu, Site parts, Pop-ups, Components), with the preview
 $lookReadOnly = !$app->auth()->isAdmin() && $app->auth()->hasAppearanceArea() && isset($modules[$active]) && $modules[$active]::SHARES_PERMISSION_OF === Kaleta\Core\Auth::APPEARANCE_AREA;
-if (empty($gated) && ($app->auth()->isAdmin() || $lookReadOnly) && Kaleta\Core\Look::hasDraft($app->settings())): ?>
+// 3.32 (A2): only where it belongs – the dashboard and the Appearance screens (Appearance, Menu, Site parts, Pop-ups, Components)
+$lookHere = $onDashboard || (isset($modules[$active]) && $modules[$active]::GROUP === 'Appearance');
+if (empty($gated) && $lookHere && ($app->auth()->isAdmin() || $lookReadOnly) && Kaleta\Core\Look::hasDraft($app->settings())): ?>
 <?= $app->view->render('admin/look_bar', ['app' => $app, 'summary' => Kaleta\Core\Look::summary($app->db(), $app->settings(), false), 'menus' => Kaleta\Core\Look::menuChanges($app), 'areas' => Kaleta\Core\Look::areas($app->settings()), 'csrf' => $app->session->csrfField(), 'readOnly' => $lookReadOnly]) ?>
 <?php endif ?>
 <?= $content ?>

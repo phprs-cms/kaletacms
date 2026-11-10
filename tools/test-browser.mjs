@@ -1056,7 +1056,7 @@ await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" 
   if (!/colours/.test(areas) || /menu/.test(areas)) { throw new Error(`the bar should list only the colours after publishing the menu, it says "${areas.trim()}"`); }
   const tall = (await bar.boundingBox()).height;
   await page.setViewportSize({ width: 390, height: 844 });
-  await visit('/admin.php?module=pages');
+  await visit('/admin.php?module=menu'); // 3.32 (A2): the bar is on the Appearance screens and the dashboard only
   const phone = (await page.locator('#vzhled-koncept').boundingBox()).height;
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-bar-phone.png` }); }
   await page.setViewportSize({ width: 1440, height: 900 });

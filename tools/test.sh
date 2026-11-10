@@ -1293,7 +1293,9 @@ curl -s -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WOR
 curl -s -b "$WORK/preview.jar" -c "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG?preview_end=1"
 curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     ending the preview shows the published site again" || { echo "  CHYBA  the preview did not end"; ERRORS=$((ERRORS+1)); }
 mcp discard_draft "{\"id\":$DRAFTPAGE}" > /dev/null
-check "the admin shows the look bar on every screen" 200 "/admin.php?module=pages" 'id="vzhled-koncept"' # 3.6: one line, its button says Publish
+check "the admin shows the look bar on the Appearance screens" 200 "/admin.php?module=menu" 'id="vzhled-koncept"' # 3.6: one line, its button says Publish
+# 3.32 (A2): only on the dashboard and the Appearance screens – not on Pages, Users or Settings
+expect "3.32 (A2): the look bar is on the dashboard, not on Pages, Users or Settings" "$(curl -s -b "$JAR" "$B/admin.php" | grep -c 'id="vzhled-koncept"')|$(curl -s -b "$JAR" "$B/admin.php?module=pages" | grep -c 'id="vzhled-koncept"')|$(curl -s -b "$JAR" "$B/admin.php?module=users" | grep -c 'id="vzhled-koncept"')|$(curl -s -b "$JAR" "$B/admin.php?module=settings" | grep -c 'id="vzhled-koncept"')" "1|0|0|0"
 mcp publish_look '{}' > "$WORK/response"
 expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
 expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
@@ -1727,7 +1729,7 @@ LOOK_VERSION=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_look_versions")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"Published at once","url":"/published-at-once"}]'
 expect "3.6 UXA-09: Save and publish menu publishes that menu with a version, another menu waits in the draft" \
   "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%published-at-once%'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE polozky LIKE '%draft-only%'")|$(sq "SELECT hodnota LIKE '%draft-only%' AND hodnota NOT LIKE '%published-at-once%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COALESCE(MAX(id), 0) > $LOOK_VERSION FROM ka_look_versions")" "1|0|1|1"
-check "3.6 UXA-09: the draft look bar is one line naming what waits, the details open below" 200 "/admin.php?module=pages" '<summary><strong>Nepublikované změny:</strong> menu</summary>'
+check "3.6 UXA-09: the draft look bar is one line naming what waits, the details open below" 200 "/admin.php?module=menu" '<summary><strong>Nepublikované změny:</strong> menu</summary>'
 publish_look
 
 echo "== ikony, manifest, cache"
@@ -3390,7 +3392,7 @@ mcp get_menu '{"location":"footer"}' > "$WORK/response"
 expect "3.6 the footer menu draft: custom links stay, a path of the old site stays a path" "$(wxr_menu)" "draft:Facebook=https://facebook.example/stavbynovak*,Ochrana údajů=/ochrana-udaju"
 # 3.12 (UX310-17): the look bar says what each draft menu changes for visitors and Publish asks first; the import result offers
 # to preview and publish only the menus, with the same summary
-check "3.12 UX310-17: the look bar lists the main menu before → after" 200 "/admin.php?module=pages" "Hlavní menu – položky: [0-9]* → [0-9]*\."
+check "3.12 UX310-17: the look bar lists the main menu before → after" 200 "/admin.php?module=appearance" "Hlavní menu – položky: [0-9]* → [0-9]*\."
 contains -q 'Z menu zmizí:' "$WORK/response" && contains -q 'publish_look" data-potvrdit=' "$WORK/response" \
   && echo "  ok     3.12 UX310-17: the look bar names what leaves the menu and Publish asks first" || { echo "  CHYBA  3.12 UX310-17: no removed items or no confirmation in the look bar"; ERRORS=$((ERRORS+1)); }
 check "3.12 UX310-17: the import result shows the menu changes and publishes only the menus" 200 "/admin.php?module=transfer&action=progress&file=$WXR_FILE" 'action=publish_menus" data-potvrdit='
@@ -9611,6 +9613,11 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&ac
 expect "3.32 (U35) My work: … Take it makes it the editor's (once, logged); taking it again changes nothing" \
   "$(sq "SELECT prirazeno FROM ka_poptavky WHERE idp = $W332_TAKE")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'enquiry_taken' AND popis = '#$W332_TAKE'")" "$W324_ED|1"
 sq "DELETE FROM ka_poptavky WHERE idp = $W332_TAKE" > /dev/null
+# 3.32 (U36, A2): the landing rule – the salesperson (Enquiries only, no content section) lands on My work after sign-in,
+# the editor (Pages, Collections) on the Dashboard
+w332_land() { local jar="$WORK/jar-w332-$1" token; token=$(curl -s -c "$jar" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+  curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php" -d "_csrf=$token" -d "user=$1" --data-urlencode "password=$PASSWORD" | sed 's#^http://[^/]*##'; }
+expect "3.32 (U36): after sign-in the salesperson lands on My work, the editor on the Dashboard" "$(w332_land w324-sales)|$(w332_land w324-editor)" "/admin.php?module=my_work|/admin.php"
 JAR324W="$WORK/jar-w324w"
 TOKEN324W=$(curl -s -c "$JAR324W" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR324W" -c "$JAR324W" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN324W" -d user=w324-writer --data-urlencode "password=$PASSWORD"
