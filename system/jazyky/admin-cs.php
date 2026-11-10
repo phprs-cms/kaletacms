@@ -7468,4 +7468,5 @@ return [
     '(no name)' => '(bez jména)',
     'Enquiry: %s' => 'Poptávka: %s',
     'Deal “%s”' => 'Obchod „%s“',
+    'Unanswered enquiries nobody is responsible for' => 'Nezodpovězené poptávky bez odpovědné osoby',
 ];

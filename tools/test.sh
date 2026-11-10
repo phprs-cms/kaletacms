@@ -11100,5 +11100,11 @@ expect "3.32 names: the e-mail of a notification still names the deal by its num
   "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $place = Kaleta\Core\Inbox::places($app->db(), ["deal:" . $argv[1]])["deal:" . $argv[1]];
     [$subject, $text] = Kaleta\Core\Inbox::mail($app->settings(), ["jazyk" => "en"], ["kind" => "assigned", "actor_name" => "Wendy", "excerpt" => ""], $place, "u", "a"); echo (str_contains($subject . $text, "Brackets") ? "named" : "number") . "|" . $subject;' "$A332_D")" \
   "number|Wendy assigned you Deal #$A332_D"
+# My work (R1): an opened but unanswered enquiry nobody handles stays in "nobody handles yet"; a reply or a resolved status takes it off
+A332_R=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, replies) VALUES ('$(site_time)', 'Kontakt', 'r-a332@example.com', '[]', 1, '[{\"at\":\"$(site_time)\",\"by\":\"Jana\",\"subject\":\"Re\",\"text\":\"Hi\",\"status\":\"sent\"}]'); SELECT LAST_INSERT_ID();")
+A332_S=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 's-a332@example.com', '[]', 2); SELECT LAST_INSERT_ID();")
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
+expect "3.32 My work (R1): the opened enquiry (read, no reply, nobody) is still listed; the answered and the resolved one are not" \
+  "$(sq "SELECT stav FROM ka_poptavky WHERE idp = $A332_E")|$(awk '/data-list="unassigned"/{u=1} /<\/section>/{u=0} u' "$WORK/response" | grep -c "data-enquiry=\"$A332_E\"")|$(grep -c "data-enquiry=\"$A332_R\"\|data-enquiry=\"$A332_S\"" "$WORK/response")|$(grep -c 'Nezodpovězené poptávky bez odpovědné osoby' "$WORK/response")" "1|1|0|1"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

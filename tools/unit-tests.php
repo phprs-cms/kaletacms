@@ -10822,5 +10822,10 @@ check('3.32 (U27/U41): RecordTitle – who (name, else company, else e-mail) and
     [['Olivia Hart – We need 40 custom brackets for…', 'Hartsteel Ltd – Contact', 'Olivia Hart – Services – Bathroom renovation', 'olivia@hartsteel.example – Contact', 'Contact', 'Enquiry',
         'Deal “Maintenance contract”', 'Deal #6', 'Enquiry: Olivia Hart – We need', 'Customer #4', '(no longer available)', 'Deal #6'], true, false, [[], [], []]]);
 
+$a332MyWork = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
+check('3.32 (R1): My work keeps an unassigned enquiry until it is answered (a reply in replies) or resolved – read or not', [
+    Kaleta\Core\MyWork::UNANSWERED, str_contains($a332MyWork, "'prirazeno IS NULL AND ' . self::UNANSWERED"), str_contains($a332MyWork, 'prirazeno IS NULL AND stav = 0')],
+    ["stav < 2 AND (replies IS NULL OR replies IN ('', '[]'))", true, false]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

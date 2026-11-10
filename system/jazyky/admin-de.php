@@ -7875,4 +7875,5 @@ return [
     '(no name)' => '(ohne Namen)',
     'Enquiry: %s' => 'Anfrage: %s',
     'Deal “%s”' => 'Deal „%s“',
+    'Unanswered enquiries nobody is responsible for' => 'Unbeantwortete Anfragen ohne verantwortliche Person',
 ];

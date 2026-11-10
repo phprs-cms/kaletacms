@@ -7894,4 +7894,5 @@ return [
     '(no name)' => '(sin nombre)',
     'Enquiry: %s' => 'Consulta: %s',
     'Deal “%s”' => 'Oportunidad «%s»',
+    'Unanswered enquiries nobody is responsible for' => 'Consultas sin respuesta y sin persona responsable',
 ];

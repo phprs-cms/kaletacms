@@ -16,7 +16,7 @@
  */
 $headings = [
     'assigned' => 'Enquiries you handle',
-    'unassigned' => 'New enquiries nobody handles yet',
+    'unassigned' => 'Unanswered enquiries nobody is responsible for', // 3.32 (R1): read ones too
     'pages' => 'Pages you are responsible for',
     'items' => 'Collection items you are responsible for',
     'requests' => 'Your requests Claude answered',

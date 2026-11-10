@@ -8,7 +8,8 @@ namespace Kaleta\Core;
  * "My work" (3.24): what waits for one person – the admin screen Modules\MyWork and the MCP tool my_work read the same
  * lists. Each list only when the person may open its section (the modules of Admin\Kernel::modules()):
  *
- *  - enquiries assigned to them that are still open, and – with Enquiries – new ones nobody handles yet;
+ *  - enquiries assigned to them that are still open, and – with Enquiries – the ones nobody handles yet: unassigned and
+ *    not answered, opened or not (3.32, UNANSWERED);
  *  - pages and collection items they are responsible for (owner_id) whose "review by" date is within REVIEW_DAYS or
  *    past, that have unpublished changes (a page's draft build, a hidden item changed lately) or unresolved comments on
  *    the draft (pages);
@@ -33,6 +34,13 @@ final class MyWork
 
     /** A request Claude finished or declined stays on the list this many days (as PendingReview). */
     public const int REQUEST_DAYS = PendingReview::REQUEST_DAYS;
+
+    /**
+     * An enquiry not answered yet (3.32, R1): not resolved (stav < 2) and no reply sent from Kaleta (ka_poptavky.replies –
+     * Core\EnquiryReply writes every reply there, queued ones too). Read or not does not matter. A reply sent from someone's
+     * own mail program is not known – marking the enquiry resolved, or choosing a responsible person, takes it off the list.
+     */
+    public const string UNANSWERED = "stav < 2 AND (replies IS NULL OR replies IN ('', '[]'))";
 
     /** The lists and the section (Module::IDENT) each needs. */
     public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests', 'deals' => 'pipeline'];
@@ -111,7 +119,9 @@ final class MyWork
             case 'unassigned':
                 // the key ix_poptavky_prirazeno (prirazeno, stav) of migration 0110 serves both
                 // spam left out of both, as in the Enquiries list and the dashboard tiles (N324-5)
-                $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND stav = 0') . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
+                // 3.32 (R1): "nobody handles it yet" = nobody assigned and not answered (UNANSWERED), whatever the read state –
+                // opening an enquiry is not handling it
+                $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND ' . self::UNANSWERED) . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
                 $rows = $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit, $list === 'assigned' ? [$userId] : []);
 
                 // 3.32: name = who and what (RecordTitle::enquiry) for the screen; the MCP tool my_work keeps title (the form) and leaves name out
