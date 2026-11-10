@@ -7898,4 +7898,6 @@ return [
     '%d checks, all fine' => '%d Prüfungen, alles in Ordnung',
     'The enquiry’s customer' => 'Kunde aus der Anfrage',
     'The customer’s company' => 'Unternehmen des Kunden',
+    'Personal data clean-up' => 'Bereinigung personenbezogener Daten',
+    'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'zuletzt erfolgreich %s – Anfragen und andere personenbezogene Daten nach Ablauf der Aufbewahrungsfrist werden nicht gelöscht; richten Sie Cron ein, die Adresse finden Sie weiter unten auf dieser Seite',
 ];

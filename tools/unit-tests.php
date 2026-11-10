@@ -11151,7 +11151,7 @@ $i332Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'
 $i332Work = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php');
 check('3.32: the dashboard names its latest enquiries with RecordTitle::enquiry (the form under it) and reads the columns it needs; My work\'s unassigned list has the Who cell and Take it in one row', [
     str_contains($i332Dash, 'bdi(Kaleta\\Core\\RecordTitle::enquiry($p))'), str_contains($i332Dash, "e(\$p['formular'] !== '' ? \$p['formular'] : t('Enquiry'))"),
-    str_contains($i332Kernel, "SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5"),
+    str_contains($i332Kernel, "SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav FROM {poptavky} WHERE ' . Modules\\Enquiries::NOT_SPAM . ' ORDER BY idp DESC LIMIT 5"),
     str_contains($i332Work, "<?= bdi((string) (\$r['name'] ?? \$r['title'])) ?>"), substr_count($i332Work, 'data-enquiry-take'),
     Kaleta\Core\RecordTitle::enquiry(['formular' => 'Contact', 'email' => 'olivia@example.com', 'data' => json_encode([['Name', 'Olivia Hart'], ['Message', 'We need forty brackets for March']])])],
     [true, false, true, true, 1, 'Olivia Hart – We need forty brackets for March']);
@@ -11232,6 +11232,16 @@ Kaleta\Core\ErrorLog::$path = $r332Saved;
 array_map('unlink', glob($r332Dir . '/*') ?: []);
 @rmdir($r332Dir);
 check('3.32: a rotated log keeps its history in .1 when a second request rotates late', $r332State, [true, 1]);
+
+/* ---------- 3.32 (pre-release review): System status warns when the clean-up has not succeeded for 2 days; the dashboard's latest enquiries leave spam out ---------- */
+$r332Now = strtotime('2026-11-10 12:00:00');
+check('3.32: Scheduler::cleanupStale – a success older than 2 days is reported; a recent one, none yet, or no cleanup row are not; Health adds the row', [
+    Kaleta\Core\Scheduler::cleanupStale([['name' => 'mail', 'last_ok' => '2026-01-01 00:00:00'], ['name' => 'cleanup', 'last_ok' => '2026-11-08 11:00:00']], $r332Now),
+    Kaleta\Core\Scheduler::cleanupStale([['name' => 'cleanup', 'last_ok' => '2026-11-08 13:00:00']], $r332Now),
+    Kaleta\Core\Scheduler::cleanupStale([['name' => 'cleanup', 'last_ok' => null]], $r332Now), Kaleta\Core\Scheduler::cleanupStale([], $r332Now),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "\$add(t('Operation'), t('Personal data clean-up'), 'varovani',"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), "FROM {poptavky} WHERE ' . Modules\\Enquiries::NOT_SPAM . ' ORDER BY idp DESC LIMIT 5'")],
+    ['2026-11-08 11:00:00', null, null, null, true, true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

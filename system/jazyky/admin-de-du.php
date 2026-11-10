@@ -1253,4 +1253,5 @@ return [
     '%s made you responsible' => '%s hat dich als verantwortliche Person eingetragen',
     '%s made you responsible for %s' => '%s hat dich als verantwortliche Person eingetragen: %s',
     'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei dir.',
+    'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'zuletzt erfolgreich %s – Anfragen und andere personenbezogene Daten nach Ablauf der Aufbewahrungsfrist werden nicht gelöscht; richte Cron ein, die Adresse findest du weiter unten auf dieser Seite',
 ];

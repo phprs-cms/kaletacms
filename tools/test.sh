@@ -11402,5 +11402,15 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&ac
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pipeline&action=save" -d "_csrf=$(csrf)" -d id=0 -d "enquiry=$R332_F2" --data-urlencode "title=Paving R332" -d contact_id=none -d company_id=none -d value= -d currency= -d expected_close= -d stage=new -d owner_id=0
 expect "3.32 Create deal: 0 keeps the customer the enquiry is linked to now; none leaves the deal without one" \
   "$(sq "SELECT CONCAT(d.contact_id IS NOT NULL, '|', d.contact_id <=> p.contact_id) FROM ka_deals d JOIN ka_poptavky p ON p.idp = d.source_enquiry_id WHERE d.source_enquiry_id = $R332_F1")|$(sq "SELECT IFNULL(contact_id, 'null') FROM ka_deals WHERE source_enquiry_id = $R332_F2")" "1|1|null"
+# item 7: System status warns when the daily clean-up has not succeeded for more than 2 days; the dashboard leaves spam out of
+# its latest enquiries, as the enquiry list does
+sq "INSERT INTO ka_jobs (name, last_run, last_ok, last_error, failures, runs, duration_ms) VALUES ('cleanup', '$(site_time)', '$(site_time '-3 days')', '', 0, 1, 0) ON DUPLICATE KEY UPDATE last_ok = VALUES(last_ok)" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; R332_S1=$(grep -q 'Úklid osobních údajů' "$WORK/response" && echo 1 || echo 0) # named in the problems list and in its row
+sq "UPDATE ka_jobs SET last_ok = '$(site_time '-1 hour')' WHERE name = 'cleanup'" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; R332_S2=$(grep -q 'Úklid osobních údajů' "$WORK/response" && echo 1 || echo 0) # named in the problems list and in its row
+R332_SP=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, kategorie) VALUES ('$(site_time)', 'Kontakt', 'spam-r332@example.com', '[[\"Jméno\",\"Spammy Sender R332\"]]', 0, 'spam'); SELECT LAST_INSERT_ID();")
+expect "3.32 System status: the clean-up 3 days without success warns, a recent one does not; the dashboard leaves spam out" \
+  "$R332_S1|$R332_S2|$(curl -s -b "$JAR" "$B/admin.php" | grep -c 'Spammy Sender R332')" "1|0|0"
+sq "DELETE FROM ka_poptavky WHERE idp = $R332_SP" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

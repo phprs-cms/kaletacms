@@ -303,9 +303,14 @@ final class Health
             });
         }
         // 2.8: background jobs (Core\Scheduler) and the problems of the last week (Core\Events)
-        $failing = array_filter(Scheduler::overview($db, $app->settings()), fn (array $j): bool => $j['failures'] > 0 && !($leaving && Whistleblowing::concerns((string) $j['name'])));
+        $jobs = Scheduler::overview($db, $app->settings());
+        $failing = array_filter($jobs, fn (array $j): bool => $j['failures'] > 0 && !($leaving && Whistleblowing::concerns((string) $j['name'])));
         $add(t('Operation'), t('Background jobs'), $failing === [] ? 'ok' : (max(array_column($failing, 'failures')) >= Scheduler::FAILURES_TO_ALERT ? 'chyba' : 'varovani'),
             $failing === [] ? t('every job worked the last time it ran') : implode('; ', array_map(fn (array $j): string => t('%s failed %d× in a row: %s', t($j['label']), $j['failures'], $j['last_error']), $failing)));
+        $cleanupOk = Scheduler::cleanupStale($jobs, time()); // 3.32 review: the retention must not stop silently on a host without cron
+        if ($cleanupOk !== null) {
+            $add(t('Operation'), t('Personal data clean-up'), 'varovani', t('last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page', format_date($cleanupOk, true)));
+        }
         $problems = array_filter(Events::problems($db, 168), fn (string|int $type): bool => !($leaving && Whistleblowing::concerns((string) $type)), ARRAY_FILTER_USE_KEY);
         if ($problems !== []) {
             $add(t('Operation'), t('Problems in the last 7 days'), 'varovani', implode(', ', array_map(fn (string $type, int $n): string => $type . ' ×' . $n, array_keys($problems), $problems)));

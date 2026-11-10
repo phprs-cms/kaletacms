@@ -291,6 +291,29 @@ final class Scheduler
         }
     }
 
+    /** 3.32 review: System status warns when the daily clean-up (the retention of personal data) has not succeeded for this many days. */
+    public const int CLEANUP_DAYS = 2;
+
+    /**
+     * The last success of the clean-up job when it is older than CLEANUP_DAYS (System status warns: on a host without cron
+     * the retention must not stop silently), else null – also when it has not run yet (a new site) or never succeeded (the
+     * failing job is reported by the "Background jobs" row). Pure.
+     *
+     * @param list<array{name: string, last_ok: ?string}> $jobs overview()
+     */
+    public static function cleanupStale(array $jobs, int $now): ?string
+    {
+        foreach ($jobs as $job) {
+            if ($job['name'] === 'cleanup') {
+                $ok = (string) ($job['last_ok'] ?? '');
+
+                return $ok !== '' && (int) strtotime($ok) < $now - self::CLEANUP_DAYS * 86400 ? $ok : null;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * The state of every job for System status and get_health.
      *

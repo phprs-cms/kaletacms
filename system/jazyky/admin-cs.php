@@ -7491,4 +7491,6 @@ return [
     '%d checks, all fine' => 'kontrol: %d, vše v pořádku',
     'The enquiry’s customer' => 'Zákazník z poptávky',
     'The customer’s company' => 'Firma zákazníka',
+    'Personal data clean-up' => 'Úklid osobních údajů',
+    'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'naposledy úspěšně %s – poptávky a další osobní údaje po době uchování se nemažou; nastavte cron, adresu najdete níže na této stránce',
 ];
