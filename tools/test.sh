@@ -8901,7 +8901,15 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&a
 expect "3.10 (N310-3): Forget needs the CSRF token, clears what was remembered, is in the change log, and the source is accepted again" \
   "$FORGOT_BAD|$(sq "SELECT JSON_LENGTH(hodnota) FROM ka_nastaveni WHERE promenna = 'update_seen'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'forget update information'")|$(contains -F 'value="3.99.9"' "$WORK/response" && echo offered)" "1|1|1|offered"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_seen')" > /dev/null
+# 3.31.2 (N102): the site is in maintenance mode while it updates – visitors get 503, the check after the update still passes
+# (/ulohy answers, the 503 of the home page is not an error) and nothing is rolled back
+S3312_BEFORE=$(sq "SELECT COUNT(*) FROM ka_events WHERE type IN ('update.rolled_back', 'update.failed')")
+setting maintenance 1
+S3312_VISITOR=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PROBE_PORT/")
 update_from ok.json
+setting maintenance 0
+expect "3.31.2 N102: an update of a site in maintenance mode is installed, not rolled back (visitors saw 503 meanwhile)" \
+  "$S3312_VISITOR|$([ -f "$WORK/web/image/test-aktualizace.txt" ] && echo installed)|$(( $(sq "SELECT COUNT(*) FROM ka_events WHERE type IN ('update.rolled_back', 'update.failed')") - S3312_BEFORE ))|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_probe'")" "503|installed|0|"
 [ -f "$WORK/web/image/test-aktualizace.txt" ] && echo "  ok     podepsaná aktualizace se nainstaluje" || { echo "  CHYBA  aktualizace se nenainstalovala"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }
 expect "2.10.2: after an update the site knows it runs the newest version (no new check, no error)" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')), '|', JSON_TYPE(JSON_EXTRACT(hodnota, '\$.chyba'))) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "3.99.9|NULL"
@@ -10993,5 +11001,25 @@ s3312_admin_sets() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.
 expect "3.31.2 N101: Users – the form sends 0 for the unticked box; unticked keeps the user's token, no field revokes it" \
   "$(grep -c '<input type="hidden" name="zrusit_tokeny" value="0">' "$WORK/response")|$(s3312_admin_sets -d zrusit_tokeny=0; s3312_tokens)|$(s3312_admin_sets; s3312_tokens)" "1|1|0"
 sq "DELETE FROM ka_api_tokeny WHERE idu = $S3312_USER OR nazev = 's3312 drafts'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $S3312_USER; DELETE FROM ka_uzivatele WHERE idu = $S3312_USER" > /dev/null
+# N102: in maintenance mode visitors get 503, but the check after an update (/ulohy?probe=) and cron (/ulohy?token=) answer as
+# usual – with their code only; the updater's own request for the home page gets the same page with 200 while the check runs
+# (the updater of 3.31.1 and older reads a 503 as a broken release)
+S3312_TASKS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'tasks_token'"); [ -n "$S3312_TASKS" ] || { S3312_TASKS="s3312tasks$RANDOM"; setting tasks_token "$S3312_TASKS"; }
+S3312_MAINTENANCE=$(sq "SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'maintenance'), '0')")
+s3312_code() { curl -s -o "$WORK/response" -w '%{http_code}' "${@:2}" "$B$1"; }
+setting maintenance 1; setting update_probe ''
+expect "3.31.2 N102: maintenance mode – visitors get 503; the update check and cron are refused only for a wrong code (403), never by the maintenance page" \
+  "$(s3312_code /)|$(s3312_code /kontakty)|$(s3312_code '/ulohy?probe=abc')|$(s3312_code '/ulohy?token=wrong')|$(s3312_code /ulohy)" "503|503|403|403|403"
+setting update_probe s3312probe
+expect "3.31.2 N102: … with the one-time code the check answers the running version" "$(s3312_code '/ulohy?probe=s3312probe')|$(cat "$WORK/response")" \
+  "200|KALETA-PROBE $(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$WORK/web/system/bootstrap.php")"
+expect "3.31.2 N102: … while the check runs the updater's own request for the home page gets the maintenance page with 200; a visitor still 503" \
+  "$(s3312_code / -A 'Kaleta-update-check/3.31.1')|$(grep -c '<h1' "$WORK/response")|$(s3312_code / -A 'Mozilla/5.0 test')" "200|1|503"
+setting update_probe ''
+expect "3.31.2 N102: … and never outside the check" "$(s3312_code / -A 'Kaleta-update-check/3.31.1')" "503"
+sq "UPDATE ka_jobs SET last_run = '$(site_time)'" > /dev/null # nothing is due: the call itself is what is checked
+expect "3.31.2 N102: cron runs in maintenance mode (tasks_last_run moves)" \
+  "$(setting tasks_last_run 0; s3312_code "/ulohy?token=$S3312_TASKS")|$(head -c 3 "$WORK/response")|$(sq "SELECT hodnota > 0 FROM ka_nastaveni WHERE promenna = 'tasks_last_run'")" "200|OK |1"
+setting maintenance "$S3312_MAINTENANCE"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

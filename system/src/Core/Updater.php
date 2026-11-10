@@ -813,7 +813,7 @@ final class Updater
             $this->settings->set('update_probe', '');
         }
 
-        return self::probeVerdict($answers, $version);
+        return self::probeVerdict($answers, $version, $this->settings->bool('maintenance'));
     }
 
     /**
@@ -821,14 +821,22 @@ final class Updater
      * answer of the old version (PHP still runs cached files, or a proxy answers) = unknown, not broken (null) – undoing
      * a working update would be worse than keeping it.
      *
+     * In maintenance mode (3.31.2, N102) the home page answers 503 to everyone who is not signed in – that is the site
+     * working as set, not an error: the answer of the home page then says nothing, the check itself (/ulohy, which runs in
+     * maintenance mode too) and the administration decide. Any other status of the home page still counts.
+     *
      * @param array{probe: array{0: int, 1: string}, home: array{0: int, 1: string}, admin: array{0: int, 1: string}} $answers [status, body]
+     * @param bool $maintenance the site is in maintenance mode (the setting "maintenance")
      */
-    public static function probeVerdict(array $answers, string $version): ?string
+    public static function probeVerdict(array $answers, string $version, bool $maintenance = false): ?string
     {
         if ($answers['probe'][0] >= 500 && trim($answers['probe'][1]) !== 'KALETA-PROBE ' . $version) {
             return t('the site does not start');
         }
         foreach (['home' => t('the home page'), 'admin' => t('the administration')] as $key => $what) {
+            if ($key === 'home' && $maintenance && $answers[$key][0] === 503) {
+                continue;
+            }
             if ($answers[$key][0] >= 500) {
                 return t('%s ends with error %d', $what, $answers[$key][0]);
             }

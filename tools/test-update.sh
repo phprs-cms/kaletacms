@@ -5,6 +5,7 @@
 # admin still work. Same env as tools/test.sh: DB_HOST DB_PORT DB_NAME DB_USER DB_PASS PORT.
 # PACKAGE=dist/kaleta-X.Y.Z.zip tests a real release package instead (tools/release.php; the manifest next to it), signed
 # with the publisher's key the old release already trusts – run it before uploading a release.
+# MAINTENANCE=1 updates a site that is in maintenance mode (3.31.2, N102).
 # MANIFEST=dist/aktualizace-stable.json takes the stable manifest instead (a patch of the stable line, docs/RELEASING.md).
 # 3.9: the manifest's signatures v1 and v2 are checked first. v2 also covers the package address the test points to its
 # own channel, so for an old release that checks v2 (3.9+) v2 is signed again with a throwaway key it trusts; v1 stays
@@ -191,6 +192,13 @@ echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
 [ "$FROM_1X" = 1 ] && OLD_KEY="('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), " || OLD_KEY=""
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES $OLD_KEY('update_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('aktualizace_cache', 'update_cache')"
+# 3.31.2 (N102): MAINTENANCE=1 puts the old site into maintenance mode first. The updater of 3.31.1 and older reads the 503 of
+# the home page as a broken release and rolled the update back; the new version answers that updater's own check with the
+# maintenance page and 200, so this release still installs (visitors keep getting 503)
+if [ "${MAINTENANCE:-0}" = 1 ]; then
+  "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('maintenance', '1') ON DUPLICATE KEY UPDATE hodnota = '1'"
+  expect "maintenance mode: a visitor gets 503 before the update" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "503"
+fi
 # the old release answers to its own URLs (the admin of a 1.3 site clicks Update there)
 if [ "$FROM_1X" = 1 ]; then
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?modul=config&zalozka=zalohy"; TOKEN=$(csrf) # 1.4+ redirects this to its own URL
@@ -208,6 +216,11 @@ else
 fi
 if grep -qF "$NEW_VERSION" "$WORK/response"; then echo "  ok     update installed"; else
   echo "  CHYBA  update failed:"; sed 's/<[^>]*>//g' "$WORK/response" | grep -i -m3 'aktualiz'; exit 1; fi
+if [ "${MAINTENANCE:-0}" = 1 ]; then
+  expect "maintenance mode: the update was not rolled back, a visitor still gets 503, cron and the check answer (403 without their code)" \
+    "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_events WHERE type IN ('update.rolled_back', 'update.failed')")|$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -o /dev/null -w '%{http_code}' "$B/ulohy?token=x")|$(curl -s -o /dev/null -w '%{http_code}' "$B/ulohy?probe=x")" "0|503|403|403"
+  "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'maintenance'"
+fi
 cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -qF "KALETA_VERSION = '$NEW_VERSION'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/migrace/[0-9]*-*.php 2>/dev/null | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
 LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$|install\.php$|media/|storage/|image/ukazka/)' \

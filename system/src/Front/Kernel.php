@@ -151,10 +151,18 @@ final class Kernel
         if (($oauth = (new OAuth($this->app))->handle($request->path())) !== null) {
             return $oauth;
         }
-        if ($this->app->settings()->bool('maintenance') && $request->path() !== '/mcp' && $this->app->auth()->user() === null) {
+        // 3.31.2 (N102): /ulohy runs in maintenance mode like /mcp does – the check after an update (?probe=, a one-time code)
+        // and cron (?token=) are not visitors. Before, a site in maintenance mode failed that check, an update was rolled
+        // back and background tasks stopped; both addresses still answer 403 without their code.
+        if ($this->app->settings()->bool('maintenance') && !in_array($request->path(), ['/mcp', '/ulohy'], true) && $this->app->auth()->user() === null) {
+            // while an update checks itself (update_probe is set for those few seconds), its own request for the home page
+            // gets the maintenance page with 200: the updater of 3.31.1 and older reads a 503 as "the new version is broken"
+            // and would roll this very release back. The page is the same; everyone else gets 503 as always.
+            $selfCheck = $this->app->settings()->get('update_probe') !== '' && str_starts_with((string) ($request->serverValues()['HTTP_USER_AGENT'] ?? ''), 'Kaleta-update-check/');
+
             return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::code()) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
                 . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
-                . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600']);
+                . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', $selfCheck ? 200 : 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600', 'Cache-Control' => 'no-store']);
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
