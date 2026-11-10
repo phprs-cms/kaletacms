@@ -10905,5 +10905,15 @@ check('T1 Q12: CI checks the PHPStan download by its digest, runs node --check o
 $t12Numbers = array_map(fn (string $f): int => (int) substr(basename($f), 0, 4), glob(KALETA_SYSTEM . '/sql/migrace/[0-9]*') ?: []);
 check('T1 Q12: no migration number is used twice and KALETA_DB_VERSION is the highest', [count($t12Numbers) === count(array_unique($t12Numbers)), max($t12Numbers) === KALETA_DB_VERSION], [true, true]);
 
+/* ---------- T1 (Q4): tools/test.sh leaves no server or temp file behind ---------- */
+$t4Sh = (string) file_get_contents(KALETA_ROOT . '/tools/test.sh');
+$t4Trap = substr($t4Sh, (int) strpos($t4Sh, 'cleanup() {'), 1500);
+preg_match_all('/& *([A-Z0-9_]+)=\$!/', $t4Sh, $t4Started);
+check('T1 Q4: the exit trap kills every background job of the run (each server is one – none started in a subshell), and the fake services log into the work folder', [
+    str_contains($t4Trap, 'for pid in $(jobs -p); do kill "$pid"'), str_contains($t4Trap, 'rm -rf "${WORK:?}"'), count(array_unique($t4Started[1])) >= 20,
+    (bool) preg_match('/\$\([^)]*php -S/', $t4Sh), str_contains($t4Sh, 'KALETA_FAKE_DIR="$WORK/fake" exec php -S'), str_contains($t4Sh, 'FAKE_LOGS="$WORK/fake/kaleta-fake-$FAKE_PORT"'),
+    str_contains($t4Sh, "sys_get_temp_dir();')/kaleta-fake"), str_contains((string) file_get_contents(KALETA_ROOT . '/tools/fake-services.php'), "getenv('KALETA_FAKE_DIR')")],
+    [true, true, true, false, true, true, false, true]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

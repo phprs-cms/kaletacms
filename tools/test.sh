@@ -9,7 +9,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
 cleanup() { local status=$?; if [ "$status" -ne 0 ] && [ -s "$WORK/server.log" ]; then echo "== the last lines of the site's server log (exit $status; an empty reply = the PHP process died)"; tail -n 25 "$WORK/server.log"; fi
-  [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true; for pid in "${RACE_PID:-}" "${RACE2_PID:-}" "${HOSTILE_PID:-}" "${SITEMAPS_PID:-}" "${SERVER_PID:-}" "${SERVER3_PID:-}" "${CHANNEL_PID:-}" "${SERVICE_PID:-}" "${SMTP_PID:-}" "${SMTP3261_PID:-}" "${CAPTCHA_PID:-}" "${OLDSITE_PID:-}" "${FAKE_PID:-}"; do [ -z "$pid" ] || kill "$pid" 2>/dev/null || true; done; rm -rf "$WORK"; }
+  [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true
+  # T1 (Q4): every background server still running – all are background jobs of this shell (the fake S3, AI, webhook,
+  # old-console, probe, second-site and source servers were missing from the old list of names), so an early exit under
+  # set -e leaves none listening; the fake services' logs live in $WORK, removed with it
+  local pid; for pid in $(jobs -p); do kill "$pid" 2>/dev/null || true; done
+  rm -rf "${WORK:?}"; }
 trap cleanup EXIT
 # Clocks (INV-36): the site runs on its own time zone (Europe/Prague – bootstrap.php and the Czech installer), the database
 # in UTC (the MySQL service on CI; this script's sessions are forced to UTC below, so a local run fails the same way).
@@ -35,8 +40,8 @@ mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
 CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
 FAKE_PORT=$((PORT + 15)) # the fake of every outside service a connector talks to (2.13, tools/fake-services.php)
-(cd "$ROOT/tools" && exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
-rm -f "$(php -r 'echo sys_get_temp_dir();')"/kaleta-fake-"$FAKE_PORT"-*.log
+mkdir "$WORK/fake" # T1 (Q4): the fake services write their logs and flags here, not in the system temp folder
+(cd "$ROOT/tools" && KALETA_FAKE_DIR="$WORK/fake" exec php -S "127.0.0.1:$FAKE_PORT" fake-services.php > /dev/null 2>&1) & FAKE_PID=$!
 (cd "$WORK/web" && KALETA_CAPTCHA_VERIFY="http://127.0.0.1:$CAPTCHA_PORT/" KALETA_CONNECTORS_FAKE="http://127.0.0.1:$FAKE_PORT" KALETA_IMPORT_LOCAL=1 KALETA_FIREWALL_LOCAL=1 KALETA_LINKS_LOCAL=1 KALETA_FLEET_LOCAL=1 exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done
 
@@ -6035,7 +6040,7 @@ mcp get_build "{\"id\":$F9_PAGE}" > "$WORK/response"
 expect "MCP: get_build answers with the English element and item names" "$(mcp_value build children 0 children 1 type)|$(mcp_value build children 0 children 1 content plans 1 badge)|$(mcp_value build children 0 children 3 content points 1 name)|$(mcp_value build children 0 children 4 content milestones 0 date)" "pricing_table|Most popular|Workshop|2020"
 mcp trash_page "{\"id\":$F9_PAGE}" > /dev/null
 echo "== 2.13: outbound connectors (OAuth with PKCE, encrypted credentials, the delivery log)"
-FAKE_LOGS="$(php -r 'echo sys_get_temp_dir();')/kaleta-fake-$FAKE_PORT"
+FAKE_LOGS="$WORK/fake/kaleta-fake-$FAKE_PORT"
 # connect_fake <service>: the site's OAuth app with test credentials, the sign-in through the fake service and back
 connect_fake() {
   curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=connectors"
