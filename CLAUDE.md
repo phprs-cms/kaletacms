@@ -164,7 +164,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   jako jeho vlastní (smazání → pryč, anonymizace → bez textu). Obchody se nežurnálují pro undo.
 - **Bezpečnost 3.31.2:** třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`, `Build::userClasses` i při vykreslení; hlídá unit test háčků
   tříd ve web.js). `/ulohy` běží i v režimu údržby. Automatická aktualizace má tři pokusy (`Updater::RETRY_DELAYS`, `update_attempt` = `verze` nebo
-  `verze|pokusy|další`). Token a zapnutí 2FA v Můj účet chtějí současné heslo; změna hesla ruší osobní tokeny, pokud formulář nepošle `zrusit_tokeny=0`.
+  `verze|pokusy|další`; drží-li zámek jiná instalace, záloha se nedělá a pokus se odloží o `Updater::BUSY_WAIT`). Token a zapnutí 2FA v Můj účet chtějí současné heslo; změna hesla ruší osobní tokeny, pokud formulář nepošle `zrusit_tokeny=0`.
+  Každé „současné heslo“ jen přes `Auth::confirmPassword` (stejné počítadlo a zámek jako přihlášení, sezení zůstává); v Uživatelích se vlastní
+  e-mail, heslo a reset 2FA ignorují (odkaz na Můj účet) a heslo či reset 2FA jiného účtu chce heslo správce. `Html::safe` zahazuje třídy `ka-…` (`Html::textClasses`).
 - **Zálohy 3.31.1:** poslední záloha = `Backup::listLocal()` (nahraná kopie `.enc` se nepočítá); rotace drží 10 místních a zvlášť 10 nahraných kopií
   (`Backup::prunable`), obnova drží soubor vlastní značkou `.hold-<název>.<token>` (`Backup::hold`/`release`, 1 h); neúspěšná kopie mimo server =
   `backup.failed` s textem `RemoteBackup::failureText` (bez hesla, uživatele, e-mailů a cest). Flotila: připomínky certifikátů

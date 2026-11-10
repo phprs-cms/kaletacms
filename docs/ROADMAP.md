@@ -1482,6 +1482,17 @@ parameter or Czech alias changed.
    there and tasks keep running.
 5. **N103:** a failed automatic update is tried again after 1 hour and after 12 hours (`Updater::RETRY_DELAYS`); the check
    re-asks on 502/503/504; the site e-mail hears of the first and the last failure.
+6. **Pre-release review:** in Users an administrator's own e-mail, password and two-factor reset are ignored (the form
+   points to My account, which asks for the current password); setting another user's password or turning off their
+   second factor asks for the acting administrator's current password (recovery unchanged: an administrator resets
+   others; a locked-out sole administrator has the reset e-mail and backup codes).
+7. **Pre-release review:** every "current password" check (`Auth::confirmPassword` – My account, Users) counts on the
+   sign-in's counter: ten wrong in a row lock the account for 15 minutes; the session stays and the form says so.
+8. **Pre-release review:** when another installation holds the update lock, the background job makes no backup and
+   postpones its try by 10 minutes (`Updater::BUSY_WAIT`, `update_attempt` = `verze|pokusy|další`) instead of retrying
+   on every request.
+9. **Pre-release review:** rich text sanitized by `Html::safe` (news and page texts of non-administrators, category and
+   tag descriptions, imports, a collection field in Custom HTML) drops `ka-` classes (any case); the editor writes none.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
