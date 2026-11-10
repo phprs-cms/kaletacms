@@ -14,7 +14,9 @@
  * @var list<array{key: string, label: string, kind: string, custom: bool}> $stages the open stages (a new deal)
  * @var bool $canContacts
  * @var int $me
- * @var int $enquiry (a new deal, 3.32) the enquiry it comes from – Deals::createFromEnquiry saves it; 0 = none
+ * @var int $enquiry (a new deal, 3.32) the enquiry it comes from – Deals::createFromEnquiry saves it; 0 = none. From an
+ *      enquiry the customer and company not filled in yet post 0 = "keep the enquiry's" (its customer is linked when the
+ *      deal is made) and "—" posts "none" = explicitly nobody.
  */
 use Kaleta\Core\Deals;
 
@@ -22,6 +24,8 @@ $new = (int) $d['id'] === 0;
 $value = fn (string $key): string => (string) ($draft[$key] ?? $d[$key] ?? '');
 $contactId = (int) $value('contact_id');
 $companyId = (int) $value('company_id');
+$fromEnquiry = $new && (int) ($enquiry ?? 0) > 0;
+$none = $fromEnquiry ? 'none' : '0'; // 3.32 review: from an enquiry "—" must differ from "the enquiry's customer" (0)
 $ownerId = (int) $value('owner_id');
 $currency = $value('currency');
 $prefix = $new ? 'obchod-novy' : 'obchod-' . (int) $d['id'];
@@ -31,12 +35,12 @@ $prefix = $new ? 'obchod-novy' : 'obchod-' . (int) $d['id'];
 	<div class="radek"><label for="<?= $prefix ?>-titulek"><?= e(t('Name of the deal')) ?></label><div><input class="textpole siroke" type="text" id="<?= $prefix ?>-titulek" name="title" maxlength="<?= Deals::TITLE_MAX ?>" required value="<?= e($value('title')) ?>" autocomplete="off">
 		<span class="napoveda"><?= e(t('What the customer may buy – e.g. Website redesign, Yearly service.')) ?></span></div></div>
 <?php if ($canContacts): ?>
-	<div class="radek"><label for="<?= $prefix ?>-zakaznik"><?= e(t('Customer')) ?></label><div><select id="<?= $prefix ?>-zakaznik" name="contact_id"><option value="0">—</option>
+	<div class="radek"><label for="<?= $prefix ?>-zakaznik"><?= e(t('Customer')) ?></label><div><select id="<?= $prefix ?>-zakaznik" name="contact_id"><?php if ($fromEnquiry && $contactId === 0): ?><option value="0"<?= $value('contact_id') !== 'none' ? ' selected' : '' ?>><?= e(t('The enquiry’s customer')) ?></option><?php endif ?><option value="<?= $none ?>"<?= $fromEnquiry && $value('contact_id') === 'none' ? ' selected' : '' ?>>—</option>
 <?php foreach ($contacts as $id => $name): ?>
 		<option value="<?= (int) $id ?>"<?= $contactId === (int) $id ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>
 	</select></div></div>
-	<div class="radek"><label for="<?= $prefix ?>-firma"><?= e(t('Company')) ?></label><div><select id="<?= $prefix ?>-firma" name="company_id"><option value="0">—</option>
+	<div class="radek"><label for="<?= $prefix ?>-firma"><?= e(t('Company')) ?></label><div><select id="<?= $prefix ?>-firma" name="company_id"><?php if ($fromEnquiry && $companyId === 0): ?><option value="0"<?= $value('company_id') !== 'none' ? ' selected' : '' ?>><?= e(t('The customer’s company')) ?></option><?php endif ?><option value="<?= $none ?>"<?= $fromEnquiry && $value('company_id') === 'none' ? ' selected' : '' ?>>—</option>
 <?php foreach ($companies as $id => $name): ?>
 		<option value="<?= (int) $id ?>"<?= $companyId === (int) $id ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>

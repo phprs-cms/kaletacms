@@ -302,10 +302,17 @@ final class Pipeline extends Module
         if ($this->request->hasPost('owner_id')) {
             $fields['owner_id'] = $this->request->postInt('owner_id');
         }
+        $fromEnquiry = $id <= 0 && $this->request->postInt('enquiry') > 0;
         if (isset($this->kernel->modules()[Customers::SECTION])) {
             foreach (['contact_id', 'company_id'] as $key) {
-                if ($this->request->hasPost($key)) {
-                    $fields[$key] = $this->request->postInt($key);
+                if (!$this->request->hasPost($key)) {
+                    continue;
+                }
+                // 3.32 review: from an enquiry 0 keeps the enquiry's customer (and its company), linked by createFromEnquiry;
+                // "none" (the form's "—") is explicitly nobody
+                $chosen = $this->request->post($key) === 'none' ? 0 : $this->request->postInt($key);
+                if ($chosen > 0 || !$fromEnquiry || $this->request->post($key) === 'none') {
+                    $fields[$key] = $chosen;
                 }
             }
         }
@@ -326,7 +333,13 @@ final class Pipeline extends Module
             }
             $saved = $idp > 0 ? Deals::createFromEnquiry($this->app, $idp, $this->app->auth()->id(), $fields) : Deals::save($this->app, $id > 0 ? $id : null, $fields, $this->app->auth()->id());
         } catch (\DomainException $e) {
-            $this->app->session->set('deal_draft', ['id' => $idp > 0 ? -$idp : $id] + array_map(fn (mixed $v): string => mb_substr((string) $v, 0, Deals::TITLE_MAX), $fields));
+            $draft = array_map(fn (mixed $v): string => mb_substr((string) $v, 0, Deals::TITLE_MAX), $fields);
+            foreach (['contact_id', 'company_id'] as $key) {
+                if ($fromEnquiry && $this->request->post($key) === 'none') {
+                    $draft[$key] = 'none'; // the form offers "—" again, not "the enquiry's customer"
+                }
+            }
+            $this->app->session->set('deal_draft', ['id' => $idp > 0 ? -$idp : $id] + $draft);
 
             return $this->back($e->getMessage(), $id > 0 ? 'detail' : 'new', $id > 0 ? ['id' => $id] : ($idp > 0 ? ['enquiry' => $idp] : []), 'chyba');
         }

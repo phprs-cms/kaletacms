@@ -7489,4 +7489,6 @@ return [
     'warning' => 'varování',
     '%d of %d need attention' => '%d z %d chce pozornost',
     '%d checks, all fine' => 'kontrol: %d, vše v pořádku',
+    'The enquiry’s customer' => 'Zákazník z poptávky',
+    'The customer’s company' => 'Firma zákazníka',
 ];

@@ -11390,5 +11390,17 @@ expect "3.32 My work: an opened enquiry from 40 days ago is not listed; a new on
   "$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W1\"")|$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W2\"")|$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W3\"")|$(php -r '$ids = array_column(json_decode(file_get_contents($argv[1]), true)["enquiries_unassigned"] ?? [], "id"); echo implode(",", array_map(fn ($i) => (int) in_array((int) $i, $ids, true), array_slice($argv, 2)));' "$WORK/text" "$R332_W1" "$R332_W2" "$R332_W3")" \
   "0|1|1|0,1,1"
 sq "DELETE FROM ka_poptavky WHERE idp IN ($R332_W1, $R332_W2, $R332_W3)" > /dev/null
+# item 5: Create deal from an enquiry not linked to a customer yet – the form's "the enquiry's customer" (0) keeps the customer
+# linked when the deal is made; "—" (none) leaves the deal without one
+R332_F1=$(r332_enq "Ivy North R332" "" "ivy-r332@example.com" "A new fence for the garden"); R332_F2=$(r332_enq "Jon West R332" "" "jon-r332@example.com" "Paving the driveway")
+sq "UPDATE ka_poptavky SET contact_id = NULL WHERE idp IN ($R332_F1, $R332_F2)" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=new&enquiry=$R332_F1"
+expect "3.32 Create deal: the form offers the enquiry's customer (0, chosen) apart from — (none)" \
+  "$(grep -c '<option value="0" selected>Zákazník z poptávky</option><option value="none">—</option>' "$WORK/response")|$(grep -c '<option value="0" selected>Firma zákazníka</option><option value="none">—</option>' "$WORK/response")" "1|1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pipeline&action=save" -d "_csrf=$(csrf)" -d id=0 -d "enquiry=$R332_F1" --data-urlencode "title=Fence R332" -d contact_id=0 -d company_id=0 -d value= -d currency= -d expected_close= -d stage=new -d owner_id=0
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=new&enquiry=$R332_F2"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pipeline&action=save" -d "_csrf=$(csrf)" -d id=0 -d "enquiry=$R332_F2" --data-urlencode "title=Paving R332" -d contact_id=none -d company_id=none -d value= -d currency= -d expected_close= -d stage=new -d owner_id=0
+expect "3.32 Create deal: 0 keeps the customer the enquiry is linked to now; none leaves the deal without one" \
+  "$(sq "SELECT CONCAT(d.contact_id IS NOT NULL, '|', d.contact_id <=> p.contact_id) FROM ka_deals d JOIN ka_poptavky p ON p.idp = d.source_enquiry_id WHERE d.source_enquiry_id = $R332_F1")|$(sq "SELECT IFNULL(contact_id, 'null') FROM ka_deals WHERE source_enquiry_id = $R332_F2")" "1|1|null"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

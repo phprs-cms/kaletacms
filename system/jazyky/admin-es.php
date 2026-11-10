@@ -7915,4 +7915,6 @@ return [
     'warning' => 'aviso',
     '%d of %d need attention' => '%d de %d requieren atención',
     '%d checks, all fine' => '%d comprobaciones, todo bien',
+    'The enquiry’s customer' => 'Cliente de la consulta',
+    'The customer’s company' => 'Empresa del cliente',
 ];

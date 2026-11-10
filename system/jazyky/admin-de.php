@@ -7896,4 +7896,6 @@ return [
     'warning' => 'Warnung',
     '%d of %d need attention' => '%d von %d brauchen Aufmerksamkeit',
     '%d checks, all fine' => '%d Prüfungen, alles in Ordnung',
+    'The enquiry’s customer' => 'Kunde aus der Anfrage',
+    'The customer’s company' => 'Unternehmen des Kunden',
 ];
