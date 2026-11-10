@@ -8633,6 +8633,16 @@ $broken->addFromString('index.php', "<?php\nif (str_starts_with((string) parse_u
 $broken->close();
 $shaB = hash_file('sha256', dirname($site) . '/kanal/b.zip');
 file_put_contents(dirname($site) . '/kanal/rozbity.json', json_encode(Kaleta\Core\Signature::signManifest(['url' => "http://127.0.0.1:$port/b.zip", 'sha256' => $shaB] + $m, $sk)));
+// 3.31.2 (N103): a security release 3.99.11 whose package is not on the server yet (the download fails) – the test puts
+// it there later, so a later try of the same version succeeds
+$retry = new ZipArchive();
+$retry->open(dirname($site) . '/kanal/retry-package.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+$retry->addFromString('image/test-retry.txt', "retried\n");
+$retry->addFromString('system/bootstrap.php', str_replace("const KALETA_VERSION = '3.99.9';", "const KALETA_VERSION = '3.99.11';", $bootstrap));
+$retry->addFromString('index.php', (string) file_get_contents($site . '/index.php'));
+$retry->close();
+file_put_contents(dirname($site) . '/kanal/retry-bezpecnostni.json', json_encode(Kaleta\Core\Signature::signManifest(['verze' => '3.99.11', 'bezpecnostni' => true,
+    'url' => "http://127.0.0.1:$port/retry.zip", 'sha256' => hash_file('sha256', dirname($site) . '/kanal/retry-package.zip')] + $m, $sk)));
 // a foreign v1 signature (v2 holds): the installation checks v1 as before and refuses
 file_put_contents(dirname($site) . '/kanal/zly.json', json_encode(['podpis' => base64_encode(random_bytes(64))] + $m));
 // 3.7: a correctly signed release for a PHP newer than the server runs
@@ -8747,6 +8757,7 @@ sq "INSERT INTO ka_nastaveni VALUES ('site_url','http://127.0.0.1:$PROBE_PORT') 
 update_from rozbity.json
 [ ! -f "$WORK/web/image/test-rozbita.txt" ] && ! grep -q "echo 'broken'" "$WORK/web/index.php" && [ "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.rolled_back'")" = 1 ] \
   && sq "SELECT message FROM ka_events WHERE type = 'update.rolled_back'" | contains '500' && echo "  ok     2.8: an update that breaks the site undoes itself (event update.rolled_back)" || { echo "  CHYBA  rozbitá aktualizace se nevrátila"; sq "SELECT message, data FROM ka_events WHERE type LIKE 'update.%'"; ERRORS=$((ERRORS+1)); }
+expect "3.31.2 N103: an administrator's update that was rolled back does not mark the version as done for the background job" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_attempt'")" ""
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_attempt'" > /dev/null
 # 3.3.2 (N40): the version the administrator saw must be the one the source offers when installing
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/ok.json') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'"
@@ -8771,6 +8782,12 @@ sq "INSERT INTO ka_nastaveni VALUES ('auto_updates', '1') ON DUPLICATE KEY UPDAT
   UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'" > /dev/null
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 [ ! -f "$WORK/web/image/test-aktualizace.txt" ] && grep -q 'updates: failed 3.99.9' "$WORK/tasks.txt" && echo "  ok     3.3.2: a security flag the signed package does not carry stops the automatic installation" || { echo "  CHYBA  automatic installation on an unverified security flag"; grep updates "$WORK/tasks.txt"; ERRORS=$((ERRORS+1)); }
+# 3.31.2 (N103): that failure was try 1 of 3 – the version is not done with, it waits an hour for the next try
+s3312_attempt() { sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_attempt'"; }
+s3312_updates() { sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"; grep -o 'updates: [^,]*' "$WORK/tasks.txt" | head -1; }
+s3312_due() { sq "UPDATE ka_nastaveni SET hodnota = CONCAT(SUBSTRING_INDEX(hodnota, '|', 2), '|', UNIX_TIMESTAMP() - 5) WHERE promenna = 'update_attempt' AND hodnota LIKE '%|%|%'" > /dev/null; }
+s3312_shape() { s3312_attempt | php -r '$p = explode("|", trim((string) stream_get_contents(STDIN))); echo $p[0], "|", $p[1] ?? "-", "|", isset($p[2]) ? (int) round(((int) $p[2] - time()) / 3600) . "h" : "-";'; }
+expect "3.31.2 N103: a failed automatic installation says which try it was and waits an hour for the next" "$(grep -o 'updates: [^,]*' "$WORK/tasks.txt" | head -1)|$(s3312_shape)" "updates: failed 3.99.9 (try 1 of 3)|3.99.9|1|1h"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_attempt', 'update_cache'); UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'" > /dev/null
 # 3.8 (D3): release channels – Latest (default) reads aktualizace.json, Stable the signed aktualizace-stable.json next to it
 channel_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
@@ -8914,6 +8931,43 @@ expect "3.31.2 N102: an update of a site in maintenance mode is installed, not r
 grep -q "vlastni uprava spravce" "$WORK/web/.htaccess" && [ -f "$WORK/web/.htaccess.kaleta-nova" ] && echo "  ok     vlastní .htaccess zůstal, nová verze leží vedle" || { echo "  CHYBA  aktualizace přepsala vlastní .htaccess"; ERRORS=$((ERRORS+1)); }
 expect "2.10.2: after an update the site knows it runs the newest version (no new check, no error)" "$(sq "SELECT CONCAT(JSON_UNQUOTE(JSON_EXTRACT(hodnota, '\$.manifest.verze')), '|', JSON_TYPE(JSON_EXTRACT(hodnota, '\$.chyba'))) FROM ka_nastaveni WHERE promenna = 'update_cache'")" "3.99.9|NULL"
 expect "2.8: a working update is checked and recorded (update.applied)" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.applied'")" "1"
+
+echo "== 3.31.2 (N103): a failed automatic update is tried again later – three tries, an hour and twelve hours apart"
+S3312_SITE_EMAIL=$(sq "SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'), '')")
+setting site_email s3312-updates@example.com; sq "DELETE FROM ka_posta WHERE komu = 's3312-updates@example.com'" > /dev/null
+s3312_mails() { sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 's3312-updates@example.com' AND predmet LIKE '%3.99.11%'"; }
+s3312_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/retry-bezpecnostni.json'), ('auto_updates', '1') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota);
+  UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt')" > /dev/null; }
+s3312_source
+expect "3.31.2 N103: the download fails – try 1 of 3, the next in an hour, the site e-mail is told" "$(s3312_updates)|$(s3312_shape)|$(s3312_mails)" "updates: failed 3.99.11 (try 1 of 3)|3.99.11|1|1h|1"
+expect "3.31.2 N103: before its time the version is not tried again (nothing counted)" "$(s3312_updates)|$(s3312_shape)" "updates: checked recently|3.99.11|1|1h"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
+expect "3.31.2 N103: … also after a new look at the source" "$(s3312_updates)|$(s3312_shape)" "updates: version 3.99.11 waits for try 2|3.99.11|1|1h"
+s3312_due
+expect "3.31.2 N103: when its time comes it is tried again from the remembered manifest; the second failure waits twelve hours, without another e-mail" \
+  "$(s3312_updates)|$(s3312_shape)|$(s3312_mails)" "updates: failed 3.99.11 (try 2 of 3)|3.99.11|2|12h|1"
+s3312_due
+expect "3.31.2 N103: the third failure is the last – the version is done with, the site e-mail is told, nothing is tried after it" \
+  "$(s3312_updates)|$(s3312_attempt)|$(s3312_mails)|$(s3312_updates)|$(sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; s3312_updates)|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.failed' AND message LIKE '%3.99.11%'")" \
+  "updates: failed 3.99.11|3.99.11|2|updates: checked recently|updates: version 3.99.11 available|0"
+# two requests at once: the one that does not get the lock neither tries nor counts (no false failure)
+sq "UPDATE ka_nastaveni SET hodnota = '3.99.11|1|1' WHERE promenna = 'update_attempt'" > /dev/null
+S3312_LOCK=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\App::boot()->db()->lockName("update-attempt");')
+( "${MYSQL[@]}" "$DB_NAME" -e "SELECT GET_LOCK('$S3312_LOCK', 0); SELECT SLEEP(6)" > /dev/null ) & S3312_LOCK_PID=$!
+sleep 1.5
+expect "3.31.2 N103: while another request holds the attempt, this one neither tries nor counts" "$(s3312_updates)|$(s3312_attempt)" "updates: version 3.99.11 is being handled|3.99.11|1|1"
+wait "$S3312_LOCK_PID" 2>/dev/null || true
+# the package reaches the server: the try that was waiting installs the version (in maintenance mode too, N102) and says so
+cp "$WORK/kanal/retry-package.zip" "$WORK/kanal/retry.zip"; setting maintenance 1
+sq "DELETE FROM ka_posta WHERE komu = 's3312-updates@example.com'" > /dev/null
+expect "3.31.2 N103: the second try, an hour later, installs the security release – on a site in maintenance mode as well" \
+  "$(s3312_updates)|$([ -f "$WORK/web/image/test-retry.txt" ] && echo installed)|$(grep -o "KALETA_VERSION = '[^']*'" "$WORK/web/system/bootstrap.php")|$(s3312_attempt)|$(s3312_mails)|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.applied' AND data LIKE '%3.99.11%'")" \
+  "updates: installed 3.99.11|installed|KALETA_VERSION = '3.99.11'|3.99.11|1|1"
+# back to 3.99.9 for the rest of the test
+setting maintenance 0; setting site_email "$S3312_SITE_EMAIL"
+sed -i.bak "s/const KALETA_VERSION = '3.99.11';/const KALETA_VERSION = '3.99.9';/" "$WORK/web/system/bootstrap.php" && rm -f "$WORK/web/system/bootstrap.php.bak" "$WORK/web/image/test-retry.txt"
+sq "DELETE FROM ka_events WHERE type LIKE 'update.%' AND (data LIKE '%3.99.11%' OR message LIKE '%3.99.11%'); DELETE FROM ka_posta WHERE komu = 's3312-updates@example.com';
+  UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt')" > /dev/null
 
 echo "== 3.15: a major version on its own update source (aktualizace-4.json), never with the regular updates"
 major_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1/aktualizace.json'), ('update_channel', 'latest') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota);

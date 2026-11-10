@@ -217,7 +217,7 @@ final class Settings
         'update_major_cache' => '', // 3.15: the last answer of the next major version's manifest (aktualizace-4.json, Core\Updater – offered, never installed by itself)
         'update_behind_since' => '0', // 3.15: since when a newer release of the site's line has been offered (Unix time, 0 = up to date) – the update prompt
         'auto_updates' => '1',    // install security releases automatically
-        'update_attempt' => '',    // the version the background maintenance has already tried / announced
+        'update_attempt' => '',    // the version the background maintenance is done with (announced, or out of tries), or "<version>|<tries>|<next try>" while tries are left (3.31.2, Core\Updater::attempt)
         'extensions' => '',            // enabled extensions (Core\Extensions); empty = default set
         'mail_mode' => 'mail',      // mail = the server's mail() function | smtp = own SMTP server
         'mail_from' => '',             // sender address; empty = the site e-mail

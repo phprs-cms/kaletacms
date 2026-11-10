@@ -71,6 +71,69 @@ final class Updater
      */
     public const int RESTORE_FAILED = 3912;
 
+    /** The exception code of install() when another installation holds the lock: nothing was tried (3.31.2). */
+    public const int BUSY = 3913;
+
+    /**
+     * 3.31.2 (N103): a failed automatic installation of a version is tried again – after an hour, then after twelve –
+     * and only the third failure is final. Before, one failure (a download that timed out, a server that answered 502
+     * for the seconds of the check) left the site on the old release until a person came. The setting update_attempt
+     * holds "<version>" when the version is done with (announced, or out of tries) and "<version>|<tries>|<next try, Unix
+     * time>" while tries are left; emptying it starts over, as before.
+     */
+    public const array RETRY_DELAYS = [3600, 12 * 3600];
+
+    /** How often the check after an update asks again when a proxy answers 502, 503 or 504, and how long it waits (seconds). */
+    private const int PROBE_REPEATS = 2;
+    private const int PROBE_WAIT = 3;
+
+    /**
+     * What update_attempt says (see RETRY_DELAYS).
+     *
+     * @return array{version: string, tries: int, next: int, final: bool}
+     */
+    public static function attempt(string $stored): array
+    {
+        $parts = explode('|', $stored);
+        if (count($parts) === 3 && ctype_digit($parts[1]) && ctype_digit($parts[2])) {
+            return ['version' => $parts[0], 'tries' => (int) $parts[1], 'next' => (int) $parts[2], 'final' => false];
+        }
+
+        return ['version' => $stored, 'tries' => 0, 'next' => 0, 'final' => $stored !== ''];
+    }
+
+    /**
+     * 3.31.2 (N103): 502, 503 and 504 are what a proxy says while the server behind it is busy or restarting – the check
+     * after an update asks such an address again (twice, a few seconds apart) before the answer counts. A failure that
+     * stays still rolls the update back; the background job then tries the version again later (RETRY_DELAYS).
+     *
+     * @param \Closure(string): array{0: int, 1: string} $fetch
+     * @return \Closure(string): array{0: int, 1: string}
+     */
+    public static function askingAgain(\Closure $fetch, int $wait = self::PROBE_WAIT): \Closure
+    {
+        return static function (string $url) use ($fetch, $wait): array {
+            $answer = $fetch($url);
+            for ($i = 0; $i < self::PROBE_REPEATS && in_array($answer[0], [502, 503, 504], true); $i++) {
+                sleep($wait);
+                $answer = $fetch($url);
+            }
+
+            return $answer;
+        };
+    }
+
+    /**
+     * What update_attempt holds once try number $try of $version has started: the version alone when it is the last one
+     * (or nothing is installed, only announced), otherwise the count and the time of the next try.
+     */
+    public static function attemptAfter(string $version, int $try, bool $install, int $now): string
+    {
+        $delay = self::RETRY_DELAYS[$try - 1] ?? null;
+
+        return !$install || $delay === null ? $version : $version . '|' . $try . '|' . ($now + $delay);
+    }
+
     /** The first line of storage/udrzba.lock after a failed rollback: the lock then holds until a person removes it (App::boot). */
     public const string RESTORE_FAILED_MARK = 'kaleta-restore-failed';
 
@@ -414,9 +477,11 @@ final class Updater
     /**
      * The background job "updates" (2.9, Core\Scheduler): once every 12 hours checks for a new version and installs it when
      * that is allowed – a security release with automatic updates on, or the version the fleet console allowed (the site
-     * lets the console decide, Fleet\Link). Otherwise a security release is announced to the site e-mail. Each version is
-     * tried once (update_attempt); a failure is recorded as an event (update.failed / update.rolled_back), so it reaches
-     * the alert e-mail.
+     * lets the console decide, Fleet\Link). Otherwise a security release is announced to the site e-mail. A version is
+     * announced once; an installation that fails is tried again later, three times in all (3.31.2, RETRY_DELAYS,
+     * update_attempt). A failure is recorded as an event (update.failed / update.rolled_back), so it reaches the alert
+     * e-mail. Two requests at once (index.php calls this after every page) cannot both try: the attempt is taken under a
+     * database lock and re-read there.
      */
     public static function runInBackground(App $app): string
     {
@@ -431,7 +496,10 @@ final class Updater
         $byConsole = $s->bool('fleet_updates') && \Kaleta\Fleet\Link::isPaired($s) ? $s->get('fleet_update_allowed') : '';
         $cache = json_decode($s->get('update_cache'), true);
         $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['overeno'] ?? 0) < (($cache['chyba'] ?? null) !== null ? 3600 : 12 * 3600);
-        if ($fresh && ($byConsole === '' || !version_compare($byConsole, KALETA_VERSION, '>') || $s->get('update_attempt') === $byConsole)) {
+        $attempt = self::attempt($s->get('update_attempt'));
+        // 3.31.2 (N103): a version waiting for another try is looked at again when its time comes, from the remembered manifest
+        $retryDue = !$attempt['final'] && $attempt['tries'] > 0 && $attempt['next'] <= time();
+        if ($fresh && !$retryDue && ($byConsole === '' || !version_compare($byConsole, KALETA_VERSION, '>') || $attempt['version'] === $byConsole)) {
             return 'checked recently';
         }
         $newVersion = $a->state(!$fresh)['nova'];
@@ -440,44 +508,75 @@ final class Updater
         }
         $version = (string) $newVersion['verze'];
         $allowedByConsole = $byConsole !== '' && $byConsole === $version;
-        if ((!$allowedByConsole && empty($newVersion['bezpecnostni'])) || $s->get('update_attempt') === $version) {
+        if ((!$allowedByConsole && empty($newVersion['bezpecnostni'])) || ($attempt['final'] && $attempt['version'] === $version)) {
             return 'version ' . $version . ' available';
         }
-        $s->set('update_attempt', $version); // each version is tried and announced only once
         $install = $allowedByConsole || $s->bool('auto_updates');
-        // written to the site e-mail (an address without an account): admin texts in the site's default language. The task also
-        // runs from the public site, where the admin dictionary is not loaded – Language::runWith() loads it just for this moment
-        // (also for installation error messages).
-        [$subject, $text, $result] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion, $version, $install, $allowedByConsole): array {
-            $result = 'announced';
-            $message = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', $version);
-            if ($install) {
-                try {
-                    Backup::create($app->db(), 'predaktualizaci');
-                    // 3.3.2 (N40): the decision came from the cached manifest – install only that version with that flag
-                    $a->install($app->db(), $version, $allowedByConsole ? null : !empty($newVersion['bezpecnostni']));
-                    $result = 'installed';
-                    $message = t('Security update %s was installed automatically. A database backup was created before the installation.', $version);
-                } catch (\Throwable $e) {
-                    $result = 'failed';
-                    $message .= ' ' . t('The automatic installation failed: %s', $e->getMessage());
-                }
+        $tries = $attempt['version'] === $version ? $attempt['tries'] : 0;
+        if ($install && $tries > 0 && $attempt['next'] > time()) {
+            return 'version ' . $version . ' waits for try ' . ($tries + 1);
+        }
+        // one request at a time decides and tries: a second visit in the same moment would install (or announce) the same
+        // version again and e-mail a failure that never happened
+        $db = $app->db();
+        $lock = $db->lockName('update-attempt');
+        if ((int) $db->value('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
+            return 'version ' . $version . ' is being handled';
+        }
+        $try = $tries + 1;
+        $total = count(self::RETRY_DELAYS) + 1;
+        $stored = self::attemptAfter($version, $try, $install, time());
+        $last = $stored === $version; // nothing more is tried after this: the last try, or only an announcement
+        try {
+            $before = $s->get('update_attempt');
+            if ((string) ($db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', ['update_attempt']) ?? '') !== $before) {
+                return 'version ' . $version . ' is being handled'; // another request tried or announced it while this one was deciding
             }
+            $s->set('update_attempt', $stored);
+            // written to the site e-mail (an address without an account): admin texts in the site's default language. The task also
+            // runs from the public site, where the admin dictionary is not loaded – Language::runWith() loads it just for this moment
+            // (also for installation error messages).
+            [$subject, $text, $result] = Language::runWith(Language::defaults($s), function () use ($app, $a, $s, $newVersion, $version, $install, $allowedByConsole, $before, $try, $total, $last): array {
+                $result = 'announced';
+                $message = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', $version);
+                if ($install) {
+                    try {
+                        Backup::create($app->db(), 'predaktualizaci');
+                        // 3.3.2 (N40): the decision came from the cached manifest – install only that version with that flag
+                        $a->install($app->db(), $version, $allowedByConsole ? null : !empty($newVersion['bezpecnostni']));
+                        $result = 'installed';
+                        $message = t('Security update %s was installed automatically. A database backup was created before the installation.', $version);
+                        $s->set('update_attempt', $version);
+                    } catch (\Throwable $e) {
+                        if ($e->getCode() === self::BUSY) {
+                            $s->set('update_attempt', $before); // an administrator is installing right now: this was no try
 
-            return [
-                t('Kaleta: security update %s', $version),
-                $message . "\n\n" . t('Changes:') . "\n- " . implode("\n- ", (array) $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
-                $result,
-            ];
-        }, 'admin-');
+                            return ['', '', 'busy'];
+                        }
+                        $result = 'failed';
+                        $message .= ' ' . t('The automatic installation failed: %s', $e->getMessage()) . ' ' . ($last
+                            ? t('That was the last automatic attempt (%d of %d) – the update now waits for an administrator.', $try, $total)
+                            : t('Kaleta will try again by itself – this was attempt %d of %d.', $try, $total));
+                    }
+                }
+
+                return [
+                    t('Kaleta: security update %s', $version),
+                    $message . "\n\n" . t('Changes:') . "\n- " . implode("\n- ", (array) $newVersion['zmeny']) . "\n\n" . $s->get('site_name'),
+                    $result,
+                ];
+            }, 'admin-');
+        } finally {
+            $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
         // an update the console decided about is the console owner's business – the client is not e-mailed (a failure still
-        // reaches the alert e-mail as an event)
+        // reaches the alert e-mail as an event). Of the failed tries the first and the last are e-mailed, not the one between.
         $recipient = $s->get('site_email');
-        if ($recipient !== '' && !empty($newVersion['bezpecnostni']) && !$allowedByConsole) {
+        if ($recipient !== '' && $subject !== '' && !empty($newVersion['bezpecnostni']) && !$allowedByConsole && ($result !== 'failed' || $try === 1 || $last)) {
             Mail::send($s, $recipient, $subject, $text);
         }
 
-        return $result . ' ' . $version;
+        return $result . ' ' . $version . ($result === 'failed' && !$last ? ' (try ' . $try . ' of ' . $total . ')' : '');
     }
 
     /**
@@ -538,7 +637,7 @@ final class Updater
         // lock: an automatic update from background tasks and an administrator's click (or two visits at once) must not overwrite files simultaneously
         $lock = fopen(KALETA_ROOT . '/storage/cache/aktualizace.zamek', 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
-            throw new \RuntimeException(t('An update is already running. Try again in a moment.'));
+            throw new \RuntimeException(t('An update is already running. Try again in a moment.'), self::BUSY);
         }
         $workDir = KALETA_ROOT . '/storage/cache/aktualizace-' . bin2hex(random_bytes(4));
         $zip = $workDir . '.zip';
@@ -617,7 +716,8 @@ final class Updater
                 if (function_exists('opcache_reset')) {
                     @opcache_reset();
                 }
-                $this->settings->set('update_attempt', (string) $m['verze']); // an automatic update does not try the same version again
+                // 3.31.2 (N103): the version is no longer marked as done here – the background job counts its own tries
+                // (runInBackground), and an administrator's failed click does not take them away
                 if ($stuck !== null) {
                     // not rolled back: the monthly report and the heartbeat count it as a failed update, the event above names the files
                     Events::record($db, 'update.failed', 'error', mb_substr(t('Installing version %s failed: %s', (string) $m['verze'], $problem), 0, 255), ['version' => (string) $m['verze']]);
@@ -795,6 +895,7 @@ final class Updater
 
             return [$status, $body === false ? '' : $body];
         };
+        $fetch = self::askingAgain($fetch, $this->probeFetch === null ? self::PROBE_WAIT : 0);
         try {
             $probe = $fetch($site . '/ulohy?probe=' . $code);
             if (str_starts_with(trim($probe[1]), 'KALETA-PROBE ') && trim($probe[1]) !== 'KALETA-PROBE ' . $version) {

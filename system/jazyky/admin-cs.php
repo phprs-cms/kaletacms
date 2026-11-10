@@ -7463,4 +7463,6 @@ return [
     'Needed to turn on two-factor sign-in.' => 'Potřeba k zapnutí dvoufázového přihlášení.',
     'Enter your current password to create a token. Nothing was created.' => 'K vytvoření tokenu zadejte své současné heslo. Nic se nevytvořilo.',
     'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Potřeba k vytvoření tokenu – token funguje bez hesla i bez dvoufázového přihlášení.',
+    'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'To byl poslední automatický pokus (%d z %d) – aktualizace teď čeká na správce.',
+    'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta to zkusí sama znovu – tohle byl pokus %d z %d.',
 ];
