@@ -30,7 +30,8 @@ use Kaleta\Core\Response;
  *  - detail: a deal – its fields (edit), Move (won, lost with a reason and a note, reopen), the stage history, the enquiry
  *    it came from, the customer and the company, the team's comments and tasks (target deal:N); Delete for administrators
  *  - new and save: a new deal (from the board, a customer or a company) or the changed fields of one
- *  - from_enquiry: "Create deal" on an enquiry (Deals::createFromEnquiry – one open deal per enquiry)
+ *  - new?enquiry=: "Create deal" on an enquiry (3.32) – the short form prefilled from it, saved through
+ *    Deals::createFromEnquiry (one open deal per enquiry); from_enquiry creates one at once (forms of 3.31, kept)
  *  - stages and stages_save (administrators): rename, reorder, add and remove stages (Deals::saveStages; a stage with deals
  *    keeps its kind and cannot be removed – 3.31.1)
  *  - search_json: the command palette (Ctrl K) finds deals by title, customer or company
@@ -237,24 +238,48 @@ final class Pipeline extends Module
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
     }
 
-    /** A new deal – from the board (nothing filled in), a customer (?contact=) or a company (?company=). */
+    /**
+     * A new deal – from the board (nothing filled in), a customer (?contact=), a company (?company=) or (3.32, U25) an
+     * enquiry (?enquiry=, "Create deal"): the short form prefilled from the enquiry (Deals::enquiryDefaults – the title from
+     * who and what, the customer and company, the responsible person, the first open stage), the value, currency and close
+     * left empty for the person to add; saving creates it through Deals::createFromEnquiry. An enquiry needs Enquiries and
+     * one open deal per enquiry – with one, back to the enquiry.
+     */
     protected function actionNew(): Response
     {
         $modules = $this->kernel->modules();
         $canContacts = isset($modules[Customers::SECTION]);
+        $me = $this->app->auth()->id();
+        $people = Assignment::candidates($this->db, 'deal');
+        $idp = $this->request->getInt('enquiry');
+        $fromEnquiry = null;
+        if ($idp > 0) {
+            if (!isset($modules['enquiries'])) {
+                return $this->error('You do not have access to this module.', 403);
+            }
+            $open = Deals::openForEnquiry($this->db, $idp);
+            $fromEnquiry = $open === null ? Deals::enquiryDefaults($this->app, $idp, $me) : null;
+            if ($fromEnquiry === null) {
+                $this->app->session->flash('chyba', $open !== null ? t('The enquiry already has an open deal (#%d).', $open) : t('The enquiry does not exist.'));
+
+                return Response::redirect($this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp) . '#deal');
+            }
+        }
         $contact = $canContacts && $this->request->getInt('contact') > 0 ? Customers::find($this->db, $this->request->getInt('contact')) : null;
         $contact = $contact !== null && $contact['anonymised_at'] === null ? $contact : null;
         $companyId = $canContacts && $this->request->getInt('company') > 0 && Customers::findCompany($this->db, $this->request->getInt('company')) !== null ? $this->request->getInt('company') : 0;
         $companyId = $companyId > 0 ? $companyId : (int) ($contact['company_id'] ?? 0);
-        $me = $this->app->auth()->id();
-        $people = Assignment::candidates($this->db, 'deal');
+        $start = $fromEnquiry !== null
+            ? ['title' => $fromEnquiry['title'], 'contact_id' => (string) ($fromEnquiry['contact_id'] ?? ''), 'company_id' => (string) ($fromEnquiry['company_id'] ?? ''),
+                'owner_id' => (string) ($fromEnquiry['owner_id'] ?? ''), 'currency' => '', 'stage' => $fromEnquiry['stage']]
+            : ['contact_id' => (string) ($contact['id'] ?? ''), 'company_id' => $companyId > 0 ? (string) $companyId : '',
+                'owner_id' => isset($people[$me]) ? (string) $me : '', 'currency' => Deals::defaultCurrency($this->app->settings())];
 
-        return $this->view('new', t('New deal'), ['draft' => $this->takeDraft('deal_draft', 0) + ['contact_id' => (string) ($contact['id'] ?? ''), 'company_id' => $companyId > 0 ? (string) $companyId : '',
-            'owner_id' => isset($people[$me]) ? (string) $me : '', 'currency' => Deals::defaultCurrency($this->app->settings())],
+        return $this->view('new', t('New deal'), ['draft' => $this->takeDraft('deal_draft', -$idp) + $start,
             'stages' => array_values(array_filter(Deals::stages($this->app->settings()), fn (array $s): bool => $s['kind'] === 'open')),
-            'people' => $people, 'canContacts' => $canContacts, 'me' => $me,
-            'contacts' => $canContacts ? self::contactChoices($this->db, $contact['id'] ?? null) : [],
-            'companies' => $canContacts ? self::companyChoices($this->db, $companyId > 0 ? $companyId : null) : []]);
+            'people' => $people, 'canContacts' => $canContacts, 'me' => $me, 'enquiry' => $idp,
+            'contacts' => $canContacts ? self::contactChoices($this->db, $fromEnquiry !== null ? $fromEnquiry['contact_id'] : ($contact['id'] ?? null)) : [],
+            'companies' => $canContacts ? self::companyChoices($this->db, $fromEnquiry !== null ? $fromEnquiry['company_id'] : ($companyId > 0 ? $companyId : null)) : []]);
     }
 
     /**
@@ -290,15 +315,20 @@ final class Pipeline extends Module
         if ($id <= 0 && $this->request->hasPost('stage')) {
             $fields['stage'] = $this->request->post('stage');
         }
+        // 3.32 (U25): the prefilled form of "Create deal" names its enquiry – the deal is made by Deals::createFromEnquiry
+        $idp = $id <= 0 ? $this->request->postInt('enquiry') : 0;
+        if ($idp > 0 && !isset($this->kernel->modules()['enquiries'])) {
+            return $this->error('You do not have access to this module.', 403);
+        }
         try {
             if ($id > 0 && Deals::get($this->db, $id) === null) {
                 return $this->error('The deal does not exist.', 404);
             }
-            $saved = Deals::save($this->app, $id > 0 ? $id : null, $fields, $this->app->auth()->id());
+            $saved = $idp > 0 ? Deals::createFromEnquiry($this->app, $idp, $this->app->auth()->id(), $fields) : Deals::save($this->app, $id > 0 ? $id : null, $fields, $this->app->auth()->id());
         } catch (\DomainException $e) {
-            $this->app->session->set('deal_draft', ['id' => $id] + array_map(fn (mixed $v): string => mb_substr((string) $v, 0, Deals::TITLE_MAX), $fields));
+            $this->app->session->set('deal_draft', ['id' => $idp > 0 ? -$idp : $id] + array_map(fn (mixed $v): string => mb_substr((string) $v, 0, Deals::TITLE_MAX), $fields));
 
-            return $this->back($e->getMessage(), $id > 0 ? 'detail' : 'new', $id > 0 ? ['id' => $id] : [], 'chyba');
+            return $this->back($e->getMessage(), $id > 0 ? 'detail' : 'new', $id > 0 ? ['id' => $id] : ($idp > 0 ? ['enquiry' => $idp] : []), 'chyba');
         }
 
         return $this->back($id > 0 ? 'The deal was saved.' : 'The deal was created.', 'detail', ['id' => $saved]);
@@ -499,6 +529,7 @@ final class Pipeline extends Module
 
         return ['idp' => $idp, 'deal' => $deal, 'label' => $stage['label'] ?? (string) ($deal['stage'] ?? ''), 'kind' => $stage['kind'] ?? 'open',
             'url' => $deal !== null ? $app->url(Deals::adminPath($deal['id'])) : '', 'createUrl' => $app->url('admin.php?module=' . self::IDENT . '&action=from_enquiry'),
+            'formUrl' => $app->url('admin.php?module=' . self::IDENT . '&action=new&enquiry=' . $idp), // 3.32: the prefilled form
             'canCreate' => $deal === null || $deal['closed']];
     }
 

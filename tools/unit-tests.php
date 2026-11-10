@@ -10455,7 +10455,7 @@ check('3.31: a move is created, moved, won, lost or reopened (from a closing sta
 $a3311From = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
 $a3311FromBody = substr($a3311From, (int) strpos($a3311From, 'public static function createFromEnquiry('), 2600);
 check('3.31.1: createFromEnquiry takes stage (an open one, checked before the contact is linked, the refusal of save()); the tool says so; the parameter stays', [
-    str_contains($a3311FromBody, "array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage'])"),
+    str_contains($a3311FromBody, "array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage', 'contact_id', 'company_id'])" /* 3.32: and the customer of the prefilled form */),
     strpos($a3311FromBody, "throw new \\DomainException(t('A new deal starts in an open stage.'));") < strpos($a3311FromBody, 'Contacts::link($app'),
     substr_count($a3311From, "t('A new deal starts in an open stage.')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), "'stage' => \$text('a new deal only (also with enquiry): the open stage it starts in"),
@@ -10826,6 +10826,15 @@ $a332MyWork = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php')
 check('3.32 (R1): My work keeps an unassigned enquiry until it is answered (a reply in replies) or resolved – read or not', [
     Kaleta\Core\MyWork::UNANSWERED, str_contains($a332MyWork, "'prirazeno IS NULL AND ' . self::UNANSWERED"), str_contains($a332MyWork, 'prirazeno IS NULL AND stav = 0')],
     ["stav < 2 AND (replies IS NULL OR replies IN ('', '[]'))", true, false]);
+
+$a332Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+$a332Pipeline = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pipeline.php');
+check('3.32 (U25): Create deal opens the short form prefilled from the enquiry (the title from who and what, no value, the first stage); createFromEnquiry and MCP save_deal take the same default title, an explicit one wins', [
+    str_contains($a332Deals, "'title' => self::line(RecordTitle::enquiry(\$enquiry), self::TITLE_MAX)"), str_contains($a332Deals, "\$given + ['title' => \$defaults['title']"),
+    str_contains($a332Deals, "'title' => \$topic !== '' ? \$topic"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/deal_box.php'), "href=\"<?= e(\$box['formUrl']) ?>\" data-deal-create"),
+    str_contains($a332Pipeline, "Deals::createFromEnquiry(\$this->app, \$idp, \$this->app->auth()->id(), \$fields)"), str_contains($a332Pipeline, "'currency' => '', 'stage' => \$fromEnquiry['stage']"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.']), ['cs', 'de', 'es', 'de-du'])],
+    [true, true, false, true, true, true, [true, true, true, true]]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

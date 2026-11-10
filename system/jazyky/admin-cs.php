@@ -7469,4 +7469,6 @@ return [
     'Enquiry: %s' => 'Poptávka: %s',
     'Deal “%s”' => 'Obchod „%s“',
     'Unanswered enquiries nobody is responsible for' => 'Nezodpovězené poptávky bez odpovědné osoby',
+    'Back to the enquiry' => 'Zpět na poptávku',
+    'Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.' => 'Vyplněno z poptávky – zkontrolujte název, doplňte hodnotu a předpokládané uzavření, pokud je znáte, a obchod vytvořte.',
 ];

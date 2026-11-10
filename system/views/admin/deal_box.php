@@ -1,11 +1,12 @@
 <?php
 /**
  * The deal of an enquiry (3.31, Admin\Modules\Pipeline::enquiryBox): its stage and "Open the deal" when it has one, and
- * "Create deal" unless an open one exists (Core\Deals::createFromEnquiry – the customer and the person handling the enquiry
- * come with it). Only for people who may open the Pipeline.
+ * "Create deal" unless an open one exists – 3.32: a link to the short New deal form prefilled from the enquiry (Core\Deals::enquiryDefaults:
+ * the title from who and what, the customer, the person handling it), saved through Core\Deals::createFromEnquiry. Only for
+ * people who may open the Pipeline.
  *
  * @var string $csrf
- * @var array{idp: int, deal: ?array{id: int, stage: string, closed: bool}, label: string, kind: string, url: string, createUrl: string, canCreate: bool} $box
+ * @var array{idp: int, deal: ?array{id: int, stage: string, closed: bool}, label: string, kind: string, url: string, createUrl: string, formUrl: string, canCreate: bool} $box
  */
 $deal = $box['deal'];
 ?>
@@ -19,9 +20,7 @@ $deal = $box['deal'];
 <?php else: ?>
 <p class="napoveda"><?= e(t('Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.')) ?></p>
 <?php endif ?>
-<?php if ($box['canCreate']): ?>
-<form class="vradku" method="post" action="<?= e($box['createUrl']) ?>" data-deal-create>
-	<?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $box['idp'] ?>">
-	<button class="navigace" type="submit"><?= e(t($deal !== null ? 'Create a new deal' : 'Create deal')) ?></button></form>
+<?php if ($box['canCreate']): /* 3.32 (U25): the short form prefilled from the enquiry – the person checks the title and adds the value */ ?>
+<p><a class="navigace" href="<?= e($box['formUrl']) ?>" data-deal-create><?= e(t($deal !== null ? 'Create a new deal' : 'Create deal')) ?></a></p>
 <?php endif ?>
 </section>

@@ -523,12 +523,44 @@ final class Deals
     }
 
     /**
-     * A deal from an enquiry ("Create deal" on an enquiry, MCP save_deal with enquiry): the title from what the enquiry was
-     * about (its topic, otherwise the form's name), its contact (linked now when the after-response link has not run yet)
-     * and the contact's company, the person who handles the enquiry as responsible (when they may open the pipeline,
-     * otherwise nobody), source_enquiry_id. One open deal per enquiry: a second one is refused. $fields may override title,
-     * owner_id, value, currency, expected_close and (3.31.1) stage – an open stage, checked by save() as for any new deal;
-     * the first open stage by default. Returns the new deal's id.
+     * What a deal from an enquiry starts with (3.32, U25/R4 – the prefilled "Create deal" form and createFromEnquiry): the
+     * title from who and what (RecordTitle::enquiry – "Olivia Hart – We need 40 custom brackets…", never just the form's
+     * topic), the enquiry's contact (null when it is not linked yet) and the contact's company, the responsible person – the
+     * person handling the enquiry when they may open the pipeline – and the first open stage. No
+     * value or close date: the person adds them. Null when the enquiry does not exist.
+     *
+     * @return array{title: string, contact_id: ?int, company_id: ?int, owner_id: ?int, stage: string}|null
+     */
+    public static function enquiryDefaults(App $app, int $idp, int $byUserId): ?array
+    {
+        $db = $app->db();
+        $enquiry = $db->one('SELECT idp, formular, tema, zdroj, email, data, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]);
+        if ($enquiry === null) {
+            return null;
+        }
+        $contactId = $enquiry['contact_id'] !== null ? (int) $enquiry['contact_id'] : null;
+        $contact = $contactId !== null ? Contacts::find($db, $contactId) : null;
+        $owner = null;
+        foreach ([(int) ($enquiry['prirazeno'] ?? 0)] as $candidate) {
+            if ($candidate > 0 && self::mayOpen($db, $app->settings(), $candidate)) {
+                $owner = $candidate;
+                break;
+            }
+        }
+
+        return ['title' => self::line(RecordTitle::enquiry($enquiry), self::TITLE_MAX), 'contact_id' => $contact !== null && $contact['anonymised_at'] === null ? $contactId : null,
+            'company_id' => isset($contact['company_id']) ? (int) $contact['company_id'] : null, 'owner_id' => $owner, 'stage' => self::firstStage($app->settings())];
+    }
+
+    /**
+     * A deal from an enquiry ("Create deal" on an enquiry, MCP save_deal with enquiry): the title from who and what (3.32,
+     * enquiryDefaults – before 3.32 the topic, which was often only the page's name "Contact"), its contact (linked now when
+     * the after-response link has not run yet) and the contact's company, the person who handles the enquiry as responsible
+     * (only when they may open the pipeline, otherwise nobody),
+     * source_enquiry_id. One open deal per enquiry: a second one is refused. $fields may override title, owner_id, value,
+     * currency, expected_close, (3.31.1) stage – an open stage, checked by save() as for any new deal; the first open stage
+     * by default – and (3.32, the prefilled form) contact_id and company_id. An explicit title always wins. Returns the new
+     * deal's id.
      *
      * @param array<string, mixed> $fields
      * @throws \DomainException with a translated reason; nothing is saved
@@ -536,7 +568,7 @@ final class Deals
     public static function createFromEnquiry(App $app, int $idp, int $byUserId, array $fields = []): int
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, formular, tema, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]) ?? throw new \DomainException(t('The enquiry does not exist.'));
+        $enquiry = $db->one('SELECT idp, contact_id, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]) ?? throw new \DomainException(t('The enquiry does not exist.'));
         $open = self::openForEnquiry($db, $idp);
         if ($open !== null) {
             throw new \DomainException(t('The enquiry already has an open deal (#%d).', $open));
@@ -553,13 +585,13 @@ final class Deals
                 $contactId = null; // the linking job tries again; the deal stands without a contact
             }
         }
-        $topic = self::line($enquiry['tema'] ?? '', self::TITLE_MAX);
-        $assignee = (int) ($enquiry['prirazeno'] ?? 0);
+        $defaults = self::enquiryDefaults($app, $idp, $byUserId) ?? throw new \DomainException(t('The enquiry does not exist.'));
+        $given = array_intersect_key($fields, array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage', 'contact_id', 'company_id']));
+        if (trim(is_scalar($given['title'] ?? null) ? (string) $given['title'] : '') === '') {
+            unset($given['title']); // an empty title takes the default (an explicit one wins)
+        }
 
-        return self::save($app, null, array_intersect_key($fields, array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage'])) + [
-            'title' => $topic !== '' ? $topic : (string) $enquiry['formular'], 'contact_id' => $contactId ?? 0,
-            'owner_id' => $assignee > 0 && self::mayOpen($db, $app->settings(), $assignee) ? $assignee : null, 'source_enquiry_id' => $idp,
-        ], $byUserId);
+        return self::save($app, null, $given + ['title' => $defaults['title'], 'contact_id' => $contactId ?? 0, 'owner_id' => $defaults['owner_id'], 'source_enquiry_id' => $idp], $byUserId);
     }
 
     /** The open deal that came from this enquiry, or null. */

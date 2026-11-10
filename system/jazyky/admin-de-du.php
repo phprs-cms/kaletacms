@@ -1246,4 +1246,6 @@ return [
     'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'Die Zwei-Faktor-Anmeldung ist bereits eingeschaltet. Um sie neu einzurichten, schalte sie zuerst aus.',
     'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Gib dein aktuelles Passwort ein, um die Zwei-Faktor-Anmeldung einzuschalten. Es wurde nichts geändert.',
     'Enter your current password to create a token. Nothing was created.' => 'Gib dein aktuelles Passwort ein, um ein Token zu erstellen. Es wurde nichts erstellt.',
+    // 3.32 part A
+    'Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.' => 'Aus der Anfrage ausgefüllt – prüfe den Namen, ergänze den Wert und den erwarteten Abschluss, falls bekannt, und lege den Deal an.',
 ];

@@ -10668,9 +10668,9 @@ expect "3.31: the work set lists list_deals, save_deal, move_deal and pipeline_s
 mkdir -p "$WORK/web/storage/cache/stranky"; echo cached > "$WORK/web/storage/cache/stranky/t331.html"
 mcp_as "$T331_TA" save_deal "{\"enquiry\":${T331_E1:-0},\"value\":\"12 500,50\",\"currency\":\"czk\"}" > "$WORK/response"; mcp_text
 T331_D1=$(t331_json id)
-expect "3.31 save_deal from an enquiry: the topic as the title, its customer, its handler responsible, the source, the first stage, the value with its currency, one history row; the page cache stays" \
+expect "3.31 save_deal from an enquiry: (3.32) who and what as the title, its customer, its handler responsible, the source, the first stage, the value with its currency, one history row; the page cache stays" \
   "$(t331_json created)|$(sq "SELECT CONCAT(title, '|', contact_id = ${T331_C1:-0}, '|', owner_id = $T331_JANA, '|', source_enquiry_id = ${T331_E1:-0}, '|', stage, '|', value, '|', currency, '|', closed_at IS NULL) FROM ka_deals WHERE id = ${T331_D1:-0}")|$(sq "SELECT CONCAT(COUNT(*), '|', IFNULL(MAX(from_stage), 'null'), '|', MAX(to_stage)) FROM ka_deal_stage_history WHERE deal_id = ${T331_D1:-0}")|$([ -f "$WORK/web/storage/cache/stranky/t331.html" ] && echo kept)" \
-  "true|Website redesign T331|1|1|1|new|12500.50|CZK|1|1|null|new|kept"
+  "true|Karel Dvořák – Secret message T331|1|1|1|new|12500.50|CZK|1|1|null|new|kept"
 expect "3.31: the responsible person is notified in the bell (assigned, deal:<id>); the change log has create; never journaled for undo" \
   "$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $T331_JANA AND kind = 'assigned' AND target = 'deal:${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'pipeline' AND akce = 'create' AND popis = '#${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_agent_journal WHERE tbl IN ('deals', 'deal_stage_history')")" "1|1|0"
 mcp_as "$T331_TA" save_deal "{\"enquiry\":${T331_E1:-0}}" > "$WORK/response"; mcp_text
@@ -10855,9 +10855,9 @@ check "3.31: an enquiry offers Create deal" 200 "/admin.php?module=enquiries&act
 REDIRECT=$(b331_post "$JAR" "module=enquiries&action=detail&id=$B331_ENQ" "module=pipeline&action=from_enquiry" -d "idp=$B331_ENQ")
 B331_D2=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_deals WHERE source_enquiry_id = $B331_ENQ")
 B331_NOVAK=$(sq "SELECT IFNULL(contact_id, 0) FROM ka_poptavky WHERE idp = $B331_ENQ")
-expect "3.31: Create deal – the topic as the title, the contact linked, Jana responsible and notified; back to the deal" \
+expect "3.31: Create deal – (3.32) who and what as the title, the contact linked, Jana responsible and notified; back to the deal" \
   "$(b331_deal "$B331_D2")|$(echo "$REDIRECT" | grep -c "action=detail&id=$B331_D2")|$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $B331_JANA AND target = 'deal:$B331_D2'")" \
-  "Servis kotle B331/new/-/-/$B331_JANA/$B331_NOVAK/-/$B331_ENQ/open/-/-|1|1"
+  "novak-b331@example.com – Servis kotle B331/new/-/-/$B331_JANA/$B331_NOVAK/-/$B331_ENQ/open/-/-|1|1"
 REDIRECT=$(b331_post "$JAR" "module=enquiries&action=detail&id=$B331_ENQ" "module=pipeline&action=from_enquiry" -d "idp=$B331_ENQ")
 expect "3.31: … a second deal of the same enquiry is refused while the first is open (back to the enquiry)" "$(sq "SELECT COUNT(*) FROM ka_deals WHERE source_enquiry_id = $B331_ENQ")|$(echo "$REDIRECT" | grep -c "module=enquiries&action=detail&id=$B331_ENQ#deal")" "1|1"
 check "3.31: … the enquiry shows its deal (Open the deal), no Create deal while it is open" 200 "/admin.php?module=enquiries&action=detail&id=$B331_ENQ" "data-deal-box=\"$B331_D2\""
@@ -11106,5 +11106,29 @@ A332_S=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
 expect "3.32 My work (R1): the opened enquiry (read, no reply, nobody) is still listed; the answered and the resolved one are not" \
   "$(sq "SELECT stav FROM ka_poptavky WHERE idp = $A332_E")|$(awk '/data-list="unassigned"/{u=1} /<\/section>/{u=0} u' "$WORK/response" | grep -c "data-enquiry=\"$A332_E\"")|$(grep -c "data-enquiry=\"$A332_R\"\|data-enquiry=\"$A332_S\"" "$WORK/response")|$(grep -c 'Nezodpovězené poptávky bez odpovědné osoby' "$WORK/response")" "1|1|0|1"
+# Create deal (U25, R4): the enquiry links to the short form prefilled – the title from who and what (never just "Kontakt"),
+# value and currency empty but offered, the first open stage; saving makes the deal from the enquiry; a second form goes back
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$A332_E"
+expect "3.32 Create deal: the enquiry links to the prefilled form" "$(grep -c "href=\"/admin.php?module=pipeline&amp;action=new&amp;enquiry=$A332_E\" data-deal-create" "$WORK/response")" "1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=new&enquiry=$A332_E"
+expect "3.32 Create deal: the form – the title, an empty value and currency, the first stage, the enquiry named" \
+  "$(grep -c 'name="title" maxlength="200" required value="Olivia Hart A332 – We need 40 custom brackets for…"' "$WORK/response")|$(grep -c 'name="value" maxlength="20" value=""' "$WORK/response")|$(grep -c '<option value="" selected>—</option>' "$WORK/response")|$(grep -c '<option value="new" selected>' "$WORK/response")|$(grep -c "name=\"enquiry\" value=\"$A332_E\"" "$WORK/response")|$(grep -c "data-deal-from-enquiry=\"$A332_E\"" "$WORK/response")" \
+  "1|1|1|1|1|1"
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=pipeline&action=save" -d "_csrf=$(csrf)" -d id=0 -d "enquiry=$A332_E" \
+  --data-urlencode "title=Olivia Hart A332 – We need 40 custom brackets for…" -d value= -d currency= -d expected_close= -d stage=new -d owner_id=0)
+A332_DE=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_deals WHERE source_enquiry_id = $A332_E")
+expect "3.32 Create deal: saved from the enquiry – no value or currency, back to the deal" \
+  "$(sq "SELECT CONCAT_WS('/', title, stage, IFNULL(value, '-'), IFNULL(currency, '-'), source_enquiry_id) FROM ka_deals WHERE id = $A332_DE")|$(echo "$REDIRECT" | grep -c "action=detail&id=$A332_DE")" \
+  "Olivia Hart A332 – We need 40 custom brackets for…/new/-/-/$A332_E|1"
+expect "3.32 Create deal: with an open deal the form goes back to the enquiry" \
+  "$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' "$B/admin.php?module=pipeline&action=new&enquiry=$A332_E" | grep -c "module=enquiries&action=detail&id=$A332_E#deal")" "1"
+# MCP save_deal with enquiry: the same default title; an explicit title still wins
+A332_DATA2='[["Jméno","Hannah Fischer A332"],["Zpráva","Kitchen for a new family house in the spring"]]'
+A332_M=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', 'Kontakt', 'hannah-a332@example.com', '$A332_DATA2', 1); SELECT LAST_INSERT_ID();")
+A332_M2=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', 'Kontakt', 'ida-a332@example.com', '$A332_DATA2', 1); SELECT LAST_INSERT_ID();")
+mcp save_deal "{\"enquiry\":$A332_M}" > "$WORK/response"; mcp save_deal "{\"enquiry\":$A332_M2,\"title\":\"Own title A332\"}" > /dev/null
+expect "3.32 save_deal with enquiry: who and what as the default title; an explicit title wins" \
+  "$(sq "SELECT title FROM ka_deals WHERE source_enquiry_id = $A332_M")|$(sq "SELECT title FROM ka_deals WHERE source_enquiry_id = $A332_M2")" \
+  "Hannah Fischer A332 – Kitchen for a new family house in…|Own title A332"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
