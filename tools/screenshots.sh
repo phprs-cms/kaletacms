@@ -15,7 +15,7 @@ trap cleanup EXIT
 mkdir -p "$OUT"
 
 echo "== Playwright"
-npm i --silent --prefix "$WORK/pw" playwright-core@1 > /dev/null
+npm i --silent --prefix "$WORK/pw" playwright-core@1.65.0 > /dev/null # exact, as tools/test-browser.sh (T1, Q12)
 
 # starter site => site name for the sample company
 for SITE in firemni remeslo poradenstvi; do
