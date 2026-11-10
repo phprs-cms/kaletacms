@@ -162,6 +162,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   (hlídá `tools/unit-tests.php`). Retence: poptávka obchodu se drží, dokud je otevřený, a po uzavření ještě po dobu retence; zákazník s otevřeným
   obchodem se neanonymizuje. Smazání/anonymizace zákazníka nechá obchod bez osoby (`Deals::unlinkContacts`) a komentáře na jeho obchodech jdou stejně
   jako jeho vlastní (smazání → pryč, anonymizace → bez textu). Obchody se nežurnálují pro undo.
+- **CRM pro každý den (3.32):** `Core\RecordTitle` je jediný zobrazovaný název záznamu (poptávka = kdo – co; `Inbox::places` nese `name`
+  jen pro toho, kdo má sekci; e-maily, MCP `my_work` a protokol změn ho nepoužívají). Slova Workspace drží `Core\Glossary` + unit test.
+  Hodnota obchodu na obrazovce jen přes `Deals::formatValue`/`moneyFormat` (MCP nechává čísla); výchozí měna `Deals::defaultCurrency`
+  (`default_currency`, '' = automaticky). Kdo nevidí žádnou sekci obsahu, přistane na Mé práci (`Admin\Kernel::landsOnMyWork`);
+  lišta vzhledu jen na nástěnce a ve Vzhledu.
+- **Záchranná síť (3.32):** zastaralá funkce PHP se loguje, nehází (`App::handleError`; `Core\ErrorLog` je jediný zapisovatel `chyby.log`;
+  testy definují `KALETA_STRICT_DEPRECATIONS`). Žádné mazání při GET – úklid patří do úlohy Scheduleru (`trash`, `cleanup`). Nová migrace
+  musí projít `tools/check-migrations.php`.
 - **Bezpečnost 3.31.2:** třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`, `Build::userClasses` i při vykreslení; hlídá unit test háčků
   tříd ve web.js). `/ulohy` běží i v režimu údržby. Automatická aktualizace má tři pokusy (`Updater::RETRY_DELAYS`, `update_attempt` = `verze` nebo
   `verze|pokusy|další`; drží-li zámek jiná instalace, záloha se nedělá a pokus se odloží o `Updater::BUSY_WAIT`). Token a zapnutí 2FA v Můj účet chtějí současné heslo; změna hesla ruší osobní tokeny, pokud formulář nepošle `zrusit_tokeny=0`.
