@@ -4324,6 +4324,74 @@ await step('3.31.2 N99: the collection list is fetched only from its own page �
   }
 });
 
+// 3.32 (agent A): records named by who and what – the enquiry list's Who column, Create deal as the short prefilled form
+// (the creator responsible when nobody handles the enquiry), the follow-up offered in the reply form; 1440 and 390 px,
+// light and dark, no sideways scroll, axe clean on the list, the reply form and the new deal form
+await step('3.32 names: Who in the enquiry list, Create deal prefilled, the follow-up in the reply form (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const data = JSON.stringify([['Name', 'Olivia Hart A332'], ['E-mail', 'olivia@hartsteel-a332.example'], ['Message', 'We need 40 custom brackets for a new hall in March']]).replace(/'/g, "''");
+  const enquiry = Number(sql(`INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, data, stav) VALUES (NOW(), 'Contact', 'stranka:1', 'Contact', 'olivia@hartsteel-a332.example', '${data}', 0); SELECT LAST_INSERT_ID();`).trim());
+  const mail = sql("SELECT IFNULL(GROUP_CONCAT(CONCAT(promenna, '=', hodnota) SEPARATOR '\\n'), '') FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'mail_from')").trim();
+  sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('mail_from', 'web@example.com')");
+  let deal = 0;
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=enquiries');
+    const cell = page.locator(`td[data-enquiry-name]:has(a[href*="id=${enquiry}"])`);
+    if (!/Olivia Hart A332\s*We need 40 custom brackets for…/.test(await cell.innerText())) { throw new Error(`the Who cell says: ${await cell.innerText()}`); }
+    await visit(`/admin.php?module=enquiries&action=detail&id=${enquiry}`);
+    if (!/Olivia Hart A332 – We need 40 custom brackets for…/.test(await page.title())) { throw new Error(`the page title is ${await page.title()}`); }
+    if ((await page.locator('select[data-reply-follow-up] option').count()) !== 4) { throw new Error('the reply form does not offer the follow-up'); }
+    await Promise.all([page.waitForNavigation(), page.locator('a[data-deal-create]').click()]);
+    if ((await page.locator('input[name="title"]').inputValue()) !== 'Olivia Hart A332 – We need 40 custom brackets for…') { throw new Error(`the deal form starts with "${await page.locator('input[name="title"]').inputValue()}"`); }
+    if ((await page.locator('input[name="value"]').inputValue()) !== '' || (await page.locator('select[name="currency"]').inputValue()) !== '') { throw new Error('the value or currency is not empty'); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of ['/admin.php?module=enquiries', `/admin.php?module=enquiries&action=detail&id=${enquiry}`, `/admin.php?module=pipeline&action=new&enquiry=${enquiry}`]) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/332-${url.includes('pipeline') ? 'new-deal' : url.includes('detail') ? 'enquiry' : 'enquiries'}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [['/admin.php?module=enquiries', ['table.vypis']], [`/admin.php?module=enquiries&action=detail&id=${enquiry}`, ['form[data-reply-form]']], [`/admin.php?module=pipeline&action=new&enquiry=${enquiry}`, ['form[data-deal-form]']]]) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    await Promise.all([page.waitForNavigation(), page.locator('form[data-deal-form] button[type="submit"]').click()]);
+    deal = Number(sql(`SELECT IFNULL(MAX(id), 0) FROM ka_deals WHERE source_enquiry_id = ${enquiry}`).trim());
+    const row = sql(`SELECT CONCAT_WS('/', title, IFNULL(value, '-'), IFNULL(currency, '-'), owner_id = (SELECT idu FROM ka_uzivatele WHERE user = 'admin')) FROM ka_deals WHERE id = ${deal}`).trim();
+    if (row !== 'Olivia Hart A332 – We need 40 custom brackets for…/-/-/1' || !page.url().includes(`action=detail&id=${deal}`)) { throw new Error(`the deal from the form: ${row} (${page.url()})`); }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_deal_stage_history WHERE deal_id = ${deal}; DELETE FROM ka_deals WHERE id = ${deal}; DELETE FROM ka_poptavky WHERE idp = ${enquiry}; DELETE FROM ka_contacts WHERE email_norm = 'olivia@hartsteel-a332.example'; DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'mail_from')`);
+    for (const line of mail.split('\n').filter((l) => l.includes('='))) {
+      const [key, ...value] = line.split('=');
+      sql(`INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('${key}', '${value.join('=').replace(/'/g, "''")}')`);
+    }
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
