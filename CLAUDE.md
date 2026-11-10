@@ -162,6 +162,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   (hlídá `tools/unit-tests.php`). Retence: poptávka obchodu se drží, dokud je otevřený, a po uzavření ještě po dobu retence; zákazník s otevřeným
   obchodem se neanonymizuje. Smazání/anonymizace zákazníka nechá obchod bez osoby (`Deals::unlinkContacts`) a komentáře na jeho obchodech jdou stejně
   jako jeho vlastní (smazání → pryč, anonymizace → bez textu). Obchody se nežurnálují pro undo.
+- **Bezpečnost 3.31.2:** třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`, `Build::userClasses` i při vykreslení; hlídá unit test háčků
+  tříd ve web.js). `/ulohy` běží i v režimu údržby. Automatická aktualizace má tři pokusy (`Updater::RETRY_DELAYS`, `update_attempt` = `verze` nebo
+  `verze|pokusy|další`). Token a zapnutí 2FA v Můj účet chtějí současné heslo; změna hesla ruší osobní tokeny, pokud formulář nepošle `zrusit_tokeny=0`.
+- **Zálohy 3.31.1:** poslední záloha = `Backup::listLocal()` (nahraná kopie `.enc` se nepočítá); rotace drží 10 místních a zvlášť 10 nahraných kopií
+  (`Backup::prunable`), obnova drží soubor vlastní značkou `.hold-<název>.<token>` (`Backup::hold`/`release`, 1 h); neúspěšná kopie mimo server =
+  `backup.failed` s textem `RemoteBackup::failureText` (bez hesla, uživatele, e-mailů a cest). Flotila: připomínky certifikátů
+  `fleet_certificate_reminders` (14,7), domény `fleet_expiry_reminders` (30,7); zadržený rollout > 3 dny = položka Dnes (`Rollout::heldItem`).
 - **Zálohy mimo server** (`Core\RemoteBackup`): záloha databáze i přírůstková kopie `media/` (`syncMedia`, manifest `storage/zalohy/media-kopie.json`)
   na FTPS nebo S3; automatická záloha denně při změně (`ka_protokol`, nové poptávky), jinak týdně. Testy: falešné S3 přes `backup_test_url`.
 - **Pošta** vždy přes `Core\Mail::send()` (fronta `ka_posta`). **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (whitelist přípon).

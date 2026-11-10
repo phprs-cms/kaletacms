@@ -1469,6 +1469,20 @@ Czech alias renamed; new setting `fleet_certificate_reminders`, new MCP output k
 7. **Smaller**: System status points the automatic suspension and its warnings to Settings → Security; Customers and Pipeline link to their
    own guide articles; Czech labels for the customer CSV import and export.
 
+**3.31.2 (10 November 2026):** security release from the deep audit of 10 November (N99–N103). No migration; no MCP tool,
+parameter or Czech alias changed.
+1. **N99 (high): script through a builder class.** `image/web.js` swaps a collection list only from the same origin and
+   path and only from an HTML answer of that page; class names starting with `ka-` are reserved for Kaleta
+   (`Build::CLASS_PATTERN` – builder, MCP, shared classes, imports, kits) and are stripped from builds saved earlier.
+2. **N100:** turning two-step sign-in on asks for the current password; an account that has a second factor keeps it
+   until it is turned off with the password. Recovery (backup code, administrator reset) is unchanged.
+3. **N101:** a personal token needs the current password; a password change (My account, or by an administrator in Users)
+   revokes the account's personal tokens unless the form says otherwise. The update itself revokes nothing.
+4. **N102:** `/ulohy` (cron and the check after an update) runs in maintenance mode, so an update is no longer rolled back
+   there and tasks keep running.
+5. **N103:** a failed automatic update is tried again after 1 hour and after 12 hours (`Updater::RETRY_DELAYS`); the check
+   re-asks on 502/503/504; the site e-mail hears of the first and the last failure.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
