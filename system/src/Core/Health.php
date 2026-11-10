@@ -181,7 +181,7 @@ final class Health
         $errorCount = $deprecations = 0;
         $from = date('c', time() - 86400);
         foreach (array_slice(explode("\n", ErrorLog::tail(256 * 1024)), -500) as $row) {
-            if ($row === '' || substr($row, 1, 25) < $from) {
+            if (!str_starts_with($row, '[') || substr($row, 1, 25) < $from) { // 3.32 review: the cut first line of the tail is no entry
                 continue;
             }
             ErrorLog::isDeprecation($row) ? $deprecations++ : $errorCount++; // T1 (Q1): a deprecation is logged, the site works

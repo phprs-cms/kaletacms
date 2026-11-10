@@ -46,14 +46,32 @@ final class ErrorLog
         @file_put_contents(self::file(), $line, FILE_APPEND | LOCK_EX);
     }
 
-    /** Moves a log over MAX_BYTES to <log>.1 (replacing the older one). */
+    /**
+     * Moves a log over MAX_BYTES to <log>.1 (replacing the older one). 3.32 review: under an exclusive lock of the file, and
+     * only when the file at the path is still the one locked and still over the cap – two requests that both saw a full log
+     * no longer rotate twice (the second would move the fresh log over the history).
+     */
     public static function rotate(): void
     {
         $file = self::file();
         clearstatcache(true, $file);
-        if (is_file($file) && (int) filesize($file) > self::MAX_BYTES) {
-            @rename($file, $file . '.1');
+        if (!is_file($file) || (int) filesize($file) <= self::MAX_BYTES) {
+            return;
         }
+        $f = @fopen($file, 'rb');
+        if ($f === false) {
+            return;
+        }
+        if (flock($f, LOCK_EX)) {
+            clearstatcache(true, $file);
+            $locked = fstat($f);
+            $now = @stat($file);
+            if (is_array($locked) && is_array($now) && $locked['ino'] === $now['ino'] && $locked['dev'] === $now['dev'] && (int) $now['size'] > self::MAX_BYTES) {
+                @rename($file, $file . '.1');
+            }
+            flock($f, LOCK_UN);
+        }
+        fclose($f);
     }
 
     /** Both files of the log, the current one first (the ones that exist). @return list<string> */
@@ -99,12 +117,15 @@ final class ErrorLog
 
     /**
      * No personal data or secrets in the log: e-mail addresses and token-like strings (20+ letters and digits that mix
-     * both, as keys, tokens and hashes do) are masked; a long message is shortened.
+     * both, as keys, tokens and hashes do; 3.32 review: also 32+ letters only or digits only) are masked, and so is the
+     * value a database reports in "Duplicate entry '…'" (an address, a name, a token); a long message is shortened.
      */
     public static function clean(string $text): string
     {
+        $text = (string) preg_replace("/(Duplicate entry ')(?:[^'\\\\]|\\\\.)*'/u", '$1[redacted]\'', $text);
         $text = (string) preg_replace('/[^\s@<>"\'(),;:]+@[^\s@<>"\'(),;:]+\.[a-z]{2,}/iu', '[e-mail]', $text);
         $text = (string) preg_replace('/(?<![A-Za-z0-9])(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{20,}(?![A-Za-z0-9])/', '[redacted]', $text);
+        $text = (string) preg_replace('/(?<![A-Za-z0-9])(?:[A-Za-z]{32,}|[0-9]{32,})(?![A-Za-z0-9])/', '[redacted]', $text);
 
         return mb_strimwidth($text, 0, 500, '…');
     }
