@@ -997,7 +997,7 @@ final class Deals
     /**
      * A contact is erased or anonymised (Contacts::delete, Contacts::anonymise): its deals stay for the pipeline, without
      * the person – no contact, no lost note (free text about them), and a title that names the person (their name or
-     * address) becomes "#<id>". The team's comments on those deals follow the rule of the comments on the contact itself
+     * address) becomes "#<id>" (3.32: also one that holds the words of the enquiry it came from – neutralTitle()). The team's comments on those deals follow the rule of the comments on the contact itself
      * (3.31): erased ($erase, Contacts::delete) – the comments go; anonymised – who wrote them and when stay, the text and
      * the mentions go. Either way the notifications of the deals lose their quotes and the tasks about them keep who and
      * when without the title (the deal and its work stay; a title may name the person). Returns how many deals changed.
@@ -1013,13 +1013,19 @@ final class Deals
         $changed = 0;
         try {
             foreach (array_chunk($contactIds, 500) as $chunk) {
-                $rows = $db->all('SELECT d.id, d.title, c.name, c.email FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id WHERE d.contact_id IN (' . implode(',', $chunk) . ')');
+                $rows = $db->all('SELECT d.id, d.title, d.source_enquiry_id, c.name, c.email FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id WHERE d.contact_id IN (' . implode(',', $chunk) . ')');
                 self::forgetComments($db, array_map(fn (array $r): string => Comments::deal((int) $r['id']), $rows), $erase);
+                $sources = array_values(array_filter(array_map('intval', array_column($rows, 'source_enquiry_id'))));
+                $enquiries = [];
+                foreach ($sources === [] ? [] : $db->all('SELECT idp, formular, tema, zdroj, email, data FROM {poptavky} WHERE idp IN (' . implode(',', array_unique($sources)) . ')') as $e) {
+                    $enquiries[(int) $e['idp']] = $e;
+                }
                 foreach ($rows as $r) {
                     $title = (string) $r['title'];
-                    if (self::names($title, (string) ($r['name'] ?? ''), (string) ($r['email'] ?? ''))) {
-                        $title = '#' . (int) $r['id'];
-                    }
+                    // 3.32: the words of the enquiry the deal came from (its message, a company or address the contact lacks)
+                    // leave "#<id> – <topic>"; otherwise a title naming the contact becomes "#<id>"
+                    $title = self::neutralTitle((int) $r['id'], $title, $enquiries[(int) $r['source_enquiry_id']] ?? [])
+                        ?? (self::names($title, (string) ($r['name'] ?? ''), (string) ($r['email'] ?? '')) ? '#' . (int) $r['id'] : $title);
                     $changed += $db->update('deals', ['contact_id' => null, 'title' => $title, 'lost_note' => null, 'updated_at' => Clock::now()], ['id' => (int) $r['id']]);
                 }
             }
@@ -1056,14 +1062,16 @@ final class Deals
     }
 
     /**
-     * Enquiries were deleted (the retention, an erasure on request): the deals that came from them keep everything else and
-     * forget the enquiry (source_enquiry_id = NULL). Returns how many deals changed.
+     * Enquiries are being deleted (the retention, an erasure on request, Delete in the admin or over MCP): the deals that
+     * came from them keep everything else, lose the person's words in their title (forgetEnquiryWords – so call this BEFORE
+     * the enquiry rows go) and forget the enquiry (source_enquiry_id = NULL). Returns how many deals forgot their enquiry.
      *
      * @param list<int> $idps
      */
     public static function forgetEnquiries(Db $db, array $idps): int
     {
         $idps = array_values(array_unique(array_filter(array_map('intval', $idps), fn (int $id): bool => $id > 0)));
+        self::forgetEnquiryWords($db, $idps);
         $changed = 0;
         try {
             foreach (array_chunk($idps, 500) as $chunk) {
@@ -1074,6 +1082,73 @@ final class Deals
         }
 
         return $changed;
+    }
+
+    /**
+     * 3.32: the deals that came from these enquiries lose what of the person their title carries – called while the
+     * enquiry rows still hold the person (before they are deleted or anonymised, and when the enquiry's customer is
+     * erased): a title that is still the generated one ("Olivia Hart – We need 40 custom brackets…") or names who wrote
+     * (name, company, e-mail) or quotes the message becomes "#<id>", with the enquiry's topic when it has one (a product,
+     * a page – not personal). Nothing of the old title is logged. Returns how many deals were retitled.
+     *
+     * @param list<int> $idps
+     */
+    public static function forgetEnquiryWords(Db $db, array $idps): int
+    {
+        $idps = array_values(array_unique(array_filter(array_map('intval', $idps), fn (int $id): bool => $id > 0)));
+        $changed = 0;
+        try {
+            foreach (array_chunk($idps, 500) as $chunk) {
+                $enquiries = [];
+                foreach ($db->all('SELECT idp, formular, tema, zdroj, email, data FROM {poptavky} WHERE idp IN (' . implode(',', $chunk) . ')') as $e) {
+                    $enquiries[(int) $e['idp']] = $e; // anonymizovano left out: the words count even on a row being anonymised now
+                }
+                foreach ($db->all('SELECT id, title, source_enquiry_id FROM {deals} WHERE source_enquiry_id IN (' . implode(',', $chunk) . ')') as $d) {
+                    $title = self::neutralTitle((int) $d['id'], (string) $d['title'], $enquiries[(int) $d['source_enquiry_id']] ?? []);
+                    if ($title !== null) {
+                        $changed += $db->update('deals', ['title' => $title, 'updated_at' => Clock::now()], ['id' => (int) $d['id']]);
+                    }
+                }
+            }
+        } catch (\PDOException) {
+            return $changed; // before migration 0117
+        }
+
+        return $changed;
+    }
+
+    /**
+     * The title a deal takes when the enquiry it came from goes (forgetEnquiryWords), or null when its title keeps nothing
+     * of the person: "#<id> – <topic>" ("#<id>" without a topic) when the title equals the generated one
+     * (RecordTitle::enquiry, as enquiryDefaults() made it), names who wrote (names() for the name, the company or e-mail
+     * as written) or holds the excerpt of their message. Pure apart from the dictionaries.
+     *
+     * @param array<string, mixed> $enquiry a row of ka_poptavky (formular, tema, zdroj, email, data); [] when gone
+     */
+    public static function neutralTitle(int $id, string $title, array $enquiry): ?string
+    {
+        if ($enquiry === []) {
+            return null;
+        }
+        unset($enquiry['anonymizovano']);
+        $topic = RecordTitle::enquiryTopic($enquiry);
+        $neutral = '#' . $id . ($topic !== '' ? ' – ' . $topic : '');
+        if ($title === $neutral || ($topic !== '' && $title === $topic)) {
+            return null;
+        }
+        if ($title === self::line(RecordTitle::enquiry($enquiry), self::TITLE_MAX)) {
+            return self::line($neutral, self::TITLE_MAX);
+        }
+        $lower = mb_strtolower($title);
+        $people = RecordTitle::enquiryPeople($enquiry);
+        $excerpt = rtrim(RecordTitle::enquiryExcerpt($enquiry), '…');
+        $words = [$people['company'], $people['name'], $people['email'], $excerpt];
+        $named = self::names($title, $people['name'], $people['email']);
+        foreach ($words as $word) {
+            $named = $named || (mb_strlen($word) >= 3 && str_contains($lower, mb_strtolower($word)));
+        }
+
+        return $named ? self::line($neutral, self::TITLE_MAX) : null;
     }
 
     /** Does a text name the person – their name (a word of at least 3 letters of it, all of them) or their address? Pure. */

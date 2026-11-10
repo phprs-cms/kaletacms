@@ -56,23 +56,63 @@ final class RecordTitle
         if (($row['anonymizovano'] ?? null) !== null) {
             return '';
         }
-        $email = trim((string) ($row['email'] ?? ''));
+        $people = self::enquiryPeople($row);
+        $who = $people['name'] !== '' ? $people['name'] : ($people['company'] !== '' ? $people['company'] : $people['email']);
+
+        return self::cut($who, 80);
+    }
+
+    /**
+     * Who an enquiry names, each part on its own (3.32 – also what Deals::neutralTitle looks for in a deal's title once
+     * the enquiry goes): the name from the form, the company field (when it is short enough to be a name) and the e-mail;
+     * '' for a part not known. Reads the row as it is – also one already anonymised (then it is empty).
+     *
+     * @param array<string, mixed> $row
+     * @return array{name: string, company: string, email: string}
+     */
+    public static function enquiryPeople(array $row): array
+    {
+        $email = self::line(trim((string) ($row['email'] ?? '')));
         $fields = self::fields($row);
-        $name = Contacts::fromFields($fields, $email)['name'];
-        if ($name !== '') {
-            return self::cut(self::line($name), 80);
-        }
+        $name = self::line(Contacts::fromFields($fields, $email)['name']);
+        $company = '';
         foreach ($fields as $field) {
             if (is_array($field) && !isset($field[2]) && is_scalar($field[0] ?? null) && is_scalar($field[1] ?? null)
                 && preg_match(EnquiryDelivery::COMPANY_LABEL, (string) $field[0]) === 1) {
-                $company = self::line((string) $field[1]);
-                if ($company !== '' && mb_strlen($company) <= 100) {
-                    return self::cut($company, 80);
+                $value = self::line((string) $field[1]);
+                if ($value !== '' && mb_strlen($value) <= 100) {
+                    $company = $value;
+                    break;
                 }
             }
         }
 
-        return self::cut(self::line($email), 80);
+        return ['name' => $name, 'company' => $company, 'email' => $email];
+    }
+
+    /**
+     * The first WORDS words of the customer's message ("We need 40 custom brackets for…"), '' when there is none or the
+     * enquiry is anonymised. The message is personal; the topic of a collection item is not.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function enquiryExcerpt(array $row): string
+    {
+        if (($row['anonymizovano'] ?? null) !== null) {
+            return '';
+        }
+        // the name or company is never the message (a "Hartsteel Ltd" field reads like a short sentence)
+        $who = self::enquiryWho($row);
+        $fields = array_values(array_filter(self::fields($row), fn (mixed $f): bool => !is_array($f) || !is_scalar($f[1] ?? null)
+            || (self::line((string) $f[1]) !== $who && preg_match('/\p{L}{2}/u', (string) $f[1]) === 1))); // a phone number is no message
+        $message = self::line(EnquiryThread::message($fields, trim((string) ($row['email'] ?? ''))));
+        if ($message === '') {
+            return '';
+        }
+        $words = preg_split('/\s+/u', $message) ?: [];
+        $first = implode(' ', array_slice($words, 0, self::WORDS));
+
+        return self::cut($first, 100) . (count($words) > self::WORDS && mb_strlen($first) <= 100 ? '…' : '');
     }
 
     /**
@@ -86,21 +126,19 @@ final class RecordTitle
         if ($topic !== '' && str_starts_with((string) ($row['zdroj'] ?? ''), 'kolekce:')) {
             return self::cut($topic, 100);
         }
-        if (($row['anonymizovano'] ?? null) === null) {
-            // the name or company is never the message (a "Hartsteel Ltd" field reads like a short sentence)
-            $who = self::enquiryWho($row);
-            $fields = array_values(array_filter(self::fields($row), fn (mixed $f): bool => !is_array($f) || !is_scalar($f[1] ?? null)
-                || (self::line((string) $f[1]) !== $who && preg_match('/\p{L}{2}/u', (string) $f[1]) === 1))); // a phone number is no message
-            $message = self::line(EnquiryThread::message($fields, trim((string) ($row['email'] ?? ''))));
-            if ($message !== '') {
-                $words = preg_split('/\s+/u', $message) ?: [];
-                $first = implode(' ', array_slice($words, 0, self::WORDS));
+        $excerpt = self::enquiryExcerpt($row);
 
-                return self::cut($first, 100) . (count($words) > self::WORDS && mb_strlen($first) <= 100 ? '…' : '');
-            }
-        }
+        return $excerpt !== '' ? $excerpt : self::cut($topic, 100);
+    }
 
-        return self::cut($topic, 100);
+    /**
+     * The topic of an enquiry on its own – a collection item, a page or pop-up title; never personal. '' when none.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function enquiryTopic(array $row): string
+    {
+        return self::cut(self::line((string) ($row['tema'] ?? '')), 100);
     }
 
     /**

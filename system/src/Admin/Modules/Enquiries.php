@@ -331,9 +331,9 @@ final class Enquiries extends Module
         $v = implode(',', $ids);
         if ($this->request->post('provest') === 'smazat') {
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
+            \Kaleta\Core\Deals::forgetEnquiries($this->db, $ids); // N331-2: a deal from one stays, without the link and (3.32) the person's words – before the rows go
             $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
             \Kaleta\Core\Comments::forgetEnquiries($this->db, $ids);
-            \Kaleta\Core\Deals::forgetEnquiries($this->db, $ids); // N331-2: a deal from one stays, without the link
 
             return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
@@ -368,9 +368,9 @@ final class Enquiries extends Module
     {
         if ($this->request->isPost()) {
             self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
+            \Kaleta\Core\Deals::forgetEnquiries($this->db, [$this->request->postInt('idp')]); // N331-2: a deal from it stays, without the link and (3.32) the person's words – before the row goes
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
             \Kaleta\Core\Comments::forgetEnquiries($this->db, [$this->request->postInt('idp')]);
-            \Kaleta\Core\Deals::forgetEnquiries($this->db, [$this->request->postInt('idp')]); // N331-2: a deal from it stays, without the link
         }
 
         return $this->back('The enquiry was deleted.');
@@ -474,9 +474,9 @@ final class Enquiries extends Module
             return;
         }
         self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < ?' . $keep, [$before]));
+        \Kaleta\Core\Deals::forgetEnquiries($db, $expired); // 3.31: a deal from it stays, without the link and (3.32) the person's words – before the rows go
         $db->run('DELETE FROM {poptavky} WHERE datum < ?' . $keep, [$before]);
         \Kaleta\Core\Comments::forgetEnquiries($db, $expired); // 3.25: the notes go with their enquiry
-        \Kaleta\Core\Deals::forgetEnquiries($db, $expired); // 3.31: a deal from it stays, without the link
     }
 
     /** Blanks everything about the person in one enquiry and keeps the row (2.14, Core\Privacy). */

@@ -88,9 +88,9 @@ final class Jobs
             return 0;
         }
         Enquiries::deleteAttachments($expired);
+        Deals::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // N331-2: a deal from one stays, without the link and (3.32) the person's words – before the rows go
         $db->run('DELETE FROM {poptavky} WHERE idp IN (' . implode(',', array_map(fn (array $r): int => (int) $r['idp'], $expired)) . ')');
         Comments::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // 3.25: their internal notes too
-        Deals::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // N331-2: a deal from one stays, without the link
         ChangeLog::write($app, 'enquiries', 'purge_applications', sprintf('%d older than %d months', count($expired), $months));
         Events::record($db, 'applications.purged', 'info', t('%d job applications older than %d months were deleted, including the CVs.', count($expired), $months), ['count' => count($expired), 'months' => $months]);
 
