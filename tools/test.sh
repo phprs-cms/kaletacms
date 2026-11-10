@@ -10932,5 +10932,36 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"; TOK
 expect "3.31.2 N99: a shared class cannot take a \"ka-\" name in the builder; an ordinary name is still accepted" \
   "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_class" -d "_csrf=$TOKEN" -d name=ka-kolekce-strany -d pouziti=1)|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_class" -d "_csrf=$TOKEN" -d name=card3312 -d pouziti=1)" "400|200"
 sq "DELETE FROM ka_stranky WHERE ids = $S3312_PAGE" > /dev/null
+# N100: a signed-in session alone neither sets nor replaces the second factor – turning it on asks for the current password,
+# and an account that has one keeps it until it is turned off (with the password); a backup code and the administrator's
+# reset keep working. An administrator of its own (s3312) so the main account stays as the other checks left it.
+S3312_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('s3312', '$S3312_HASH', 'Tester S3312', 's3312@example.com', '', 2, '$(site_time)', '$(site_time)', 0);
+  DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
+S3312_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 's3312'")
+S3312_JAR="$WORK/jar-s3312"; rm -f "$S3312_JAR"
+curl -s -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php"; curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=s3312 --data-urlencode "password=$PASSWORD"
+s3312_account() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=account" -d "_csrf=$S3312_CSRF" "$@"; }
+s3312_totp() { sq "SELECT CONCAT(totp_tajemstvi, '/', IFNULL(JSON_LENGTH(totp_zalozni), 0)) FROM ka_uzivatele WHERE idu = $S3312_USER"; }
+s3312_code() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30));' "$ROOT" "$1"; }
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+s3312_account -d co=totp_start > /dev/null
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"
+S3312_SECRET=$(grep -o '<code class="totp-klic">[A-Z2-7 ]*</code>' "$WORK/response" | head -1 | sed 's/<[^>]*>//g' | tr -d ' ')
+expect "3.31.2 N100: turning two-factor sign-in on shows the key and asks for the current password" "$([ ${#S3312_SECRET} -ge 16 ] && echo key)|$(grep -c 'id="zap-heslo" name="soucasne"' "$WORK/response")" "key|1"
+expect "3.31.2 N100: without the password, or with a wrong one, a right code turns nothing on" \
+  "$(s3312_account -d co=totp_potvrd -d "kod=$(s3312_code "$S3312_SECRET")")|$(s3312_totp)|$(s3312_account -d co=totp_potvrd -d "kod=$(s3312_code "$S3312_SECRET")" -d soucasne=wrong-password-1)|$(s3312_totp)" "302|/0|302|/0"
+expect "3.31.2 N100: with the password and the code it is on, with its backup codes" \
+  "$(s3312_account -d co=totp_potvrd -d "kod=$(s3312_code "$S3312_SECRET")" --data-urlencode "soucasne=$PASSWORD")|$([ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo on)" "200|on"
+# the attack of the audit: the session posts a new secret and confirms it – with or without the password, the owner's factor stays
+s3312_account -d co=totp_start > /dev/null
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"
+expect "3.31.2 N100: with the second factor on, a new secret is not issued or confirmed – the app and the backup codes of the owner stay" \
+  "$(grep -c 'totp_potvrd' "$WORK/response")|$(s3312_account -d co=totp_potvrd -d kod=123456)|$(s3312_account -d co=totp_potvrd -d kod=123456 --data-urlencode "soucasne=$PASSWORD")|$([ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo kept)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE kdo = $S3312_USER AND akce = 'two_factor_on'")" \
+  "0|302|302|kept|1"
+# recovery: turning it off with the password still works, and so does setting it up again afterwards
+expect "3.31.2 N100: turning it off asks for the password as before; then it can be set up again" \
+  "$(s3312_account -d co=totp_vypni -d soucasne=wrong-password-1 > /dev/null; [ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo kept)|$(s3312_account -d co=totp_vypni --data-urlencode "soucasne=$PASSWORD" > /dev/null; s3312_totp)|$(s3312_account -d co=totp_start > /dev/null; curl -s -b "$S3312_JAR" "$B/admin.php?action=account" | grep -c 'name="co" value="totp_potvrd"')" \
+  "kept|/0|1"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

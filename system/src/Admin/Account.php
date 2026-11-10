@@ -134,9 +134,24 @@ final class Account
                     $message = ['ok', 'The application is disconnected – it will not get into the website until you allow it again.'];
                     break;
                 case 'totp_start':
-                    $app->session->set('totp_nove', Totp::newSecret());
-                    break;
                 case 'totp_potvrd':
+                    // 3.31.2 (N100): a session alone never sets or replaces the second factor. An account that has one keeps
+                    // it until it is turned off (that asks for the password, below) – so the owner's app and backup codes
+                    // cannot be swapped under them; setting one up asks for the current password, like a new passkey does.
+                    // Recovery stays as it was: a backup code at sign-in, or an administrator resets it in Users.
+                    if ((string) $user['totp_tajemstvi'] !== '') {
+                        $app->session->remove('totp_nove');
+                        $message = ['chyba', 'Two-factor sign-in is already on. To set it up again, turn it off first.'];
+                        break;
+                    }
+                    if ($r->post('co') === 'totp_start') {
+                        $app->session->set('totp_nove', Totp::newSecret());
+                        break;
+                    }
+                    if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+                        $message = ['chyba', 'Enter your current password to turn on two-factor sign-in. Nothing was changed.'];
+                        break;
+                    }
                     $secret = (string) $app->session->get('totp_nove', '');
                     if ($secret === '' || !Totp::verify($secret, $r->post('kod'))) {
                         $message = ['chyba', 'The code does not match. Check the time on your phone and try again.'];

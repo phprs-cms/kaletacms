@@ -7865,4 +7865,7 @@ return [
     'Update rollout held back' => 'Rollout des Updates hängt fest',
     'Version %s – sites held back by the pilot sites: %s' => 'Version %s – Websites, die auf die Pilot-Websites warten: %s',
     'Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.' => 'Wartet: Eine Pilot-Website läuft mit der neuen Version noch nicht ohne Fehler, Ausfälle oder ein fehlgeschlagenes Update. Beheben Sie das bei der Pilot-Website, dann geht der Rollout von selbst weiter, oder geben Sie die Version auf der Seite einer Website von Hand frei.',
+    'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'Die Zwei-Faktor-Anmeldung ist bereits eingeschaltet. Um sie neu einzurichten, schalten Sie sie zuerst aus.',
+    'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Geben Sie Ihr aktuelles Passwort ein, um die Zwei-Faktor-Anmeldung einzuschalten. Es wurde nichts geändert.',
+    'Needed to turn on two-factor sign-in.' => 'Nötig, um die Zwei-Faktor-Anmeldung einzuschalten.',
 ];

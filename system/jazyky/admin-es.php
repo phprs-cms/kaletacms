@@ -7884,4 +7884,7 @@ return [
     'Update rollout held back' => 'El despliegue de la actualización está detenido',
     'Version %s – sites held back by the pilot sites: %s' => 'Versión %s – sitios que esperan a los sitios piloto: %s',
     'Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.' => 'En espera: un sitio piloto todavía no ejecuta la nueva versión sin errores, caídas ni una actualización fallida. Arregla el sitio piloto y el despliegue sigue solo, o permite la versión a mano en la página de un sitio.',
+    'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'La verificación en dos pasos ya está activada. Para configurarla de nuevo, desactívala primero.',
+    'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Introduce tu contraseña actual para activar la verificación en dos pasos. No se ha cambiado nada.',
+    'Needed to turn on two-factor sign-in.' => 'Necesaria para activar la verificación en dos pasos.',
 ];

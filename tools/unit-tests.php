@@ -5352,12 +5352,13 @@ check('3.3.3 (N59): the reset link is queued and sent after the response; the qu
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/PasswordReset.php'), 'Mail::later('), str_contains((string) file_get_contents(KALETA_ROOT . '/admin.php'), 'Kaleta\Core\Mail::afterResponse($app);'),
     str_contains($mailSource, 'WHERE idp = ? AND pokusu = ? AND odeslano IS NULL')], [true, true, true]);
 $accountSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
+// 3.31.2: turning two-factor sign-in on (N100) and creating a token (N101) ask for it too
 check('3.3.3 (N56): a new e-mail and a new passkey need the current password; the old address hears about the change; the texts are translated', [
     substr_count($accountSource, "password_verify((string) (\$_POST['soucasne'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/klice.js'), "soucasne: password ? password.value : ''"),
     array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
         fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))],
-    [4, true, true, []]);
+    [5, true, true, []]);
 
 /* ---------- 3.3.4: OAuth for the Claude connection (N13, N14, N20, N65, N66) ---------- */
 check('3.3.4 N65: Claude\'s own hosts are claude.ai, claude.com and their subdomains, and loopback for Claude Code; look-alikes are not', array_map(Kaleta\Front\OAuth::isClaudeHost(...),

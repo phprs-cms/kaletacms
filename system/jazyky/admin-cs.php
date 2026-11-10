@@ -7458,4 +7458,7 @@ return [
     'Update rollout held back' => 'Nasazování aktualizace se zdrželo',
     'Version %s – sites held back by the pilot sites: %s' => 'Verze %s – webů čekajících na pilotní weby: %s',
     'Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.' => 'Čeká se: pilotní web zatím nemá novou verzi bez chyb, výpadků nebo nepovedené aktualizace. Opravte pilotní web a nasazování pokračuje samo, nebo verzi povolte ručně na stránce webu.',
+    'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'Dvoufázové přihlášení je už zapnuté. Chcete-li ho nastavit znovu, nejdřív ho vypněte.',
+    'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'K zapnutí dvoufázového přihlášení zadejte své současné heslo. Nic se nezměnilo.',
+    'Needed to turn on two-factor sign-in.' => 'Potřeba k zapnutí dvoufázového přihlášení.',
 ];
