@@ -11130,5 +11130,23 @@ mcp save_deal "{\"enquiry\":$A332_M}" > "$WORK/response"; mcp save_deal "{\"enqu
 expect "3.32 save_deal with enquiry: who and what as the default title; an explicit title wins" \
   "$(sq "SELECT title FROM ka_deals WHERE source_enquiry_id = $A332_M")|$(sq "SELECT title FROM ka_deals WHERE source_enquiry_id = $A332_M2")" \
   "Hannah Fischer A332 – Kitchen for a new family house in…|Own title A332"
+# defaults (R4): a deal created without a responsible person gets its creator ("none" still means nobody); the reply form
+# offers the follow-up – chosen, the signed-in person's own task "Follow up: <form>" is added with the reply
+expect "3.32 defaults: a deal from save_deal without owner is the creator's; owner none leaves it to nobody" \
+  "$(sq "SELECT IFNULL(owner_id, '-') FROM ka_deals WHERE source_enquiry_id = $A332_M")|$(mcp save_deal '{"title":"Nobody A332","owner":"none"}' > /dev/null; sq "SELECT IFNULL(owner_id, '-') FROM ka_deals WHERE title = 'Nobody A332'")" "$A332_ADMIN|-"
+[ -z "${SMTP_PID:-}" ] || kill "$SMTP_PID" 2>/dev/null || true
+A332_SMTP="$WORK/smtp-a332"; mkdir -p "$A332_SMTP"
+for i in $(seq 1 20); do (exec 3<>"/dev/tcp/127.0.0.1/$SMTP2_PORT") 2>/dev/null || break; sleep 0.2; done
+command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$A332_SMTP" > /dev/null 2>&1 & SMTP_PID=$!
+sq "DROP TABLE IF EXISTS ka_a332_mail; CREATE TABLE ka_a332_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$A332_M"
+expect "3.32 defaults: the reply form offers the follow-up" "$(grep -c 'name="follow_up" data-reply-follow-up' "$WORK/response")|$(grep -c '<option value="3days">' "$WORK/response")" "1|2"
+c10_reply "$A332_M" --data-urlencode "subject=Re: kitchen" --data-urlencode "text=Thank you, we will send a proposal." -d follow_up=3days
+expect "3.32 defaults: the reply with a follow-up – the task is mine, about the enquiry, due in 3 days, titled by the form (its reminder is e-mailed)" \
+  "$(sq "SELECT CONCAT(title, '|', assignee_id, '|', DATE(due_at)) FROM ka_tasks WHERE target = 'enquiry:$A332_M'")" "Ozvat se: Kontakt|$A332_ADMIN|$(site_date '+3 days')"
+c10_reply "$A332_M2" --data-urlencode "subject=Re" --data-urlencode "text=Thank you." -d follow_up=
+expect "3.32 defaults: … without a choice no task is added" "$(sq "SELECT COUNT(*) FROM ka_tasks WHERE target = 'enquiry:$A332_M2'")" "0"
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from'); INSERT INTO ka_nastaveni SELECT * FROM ka_a332_mail; DROP TABLE ka_a332_mail" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

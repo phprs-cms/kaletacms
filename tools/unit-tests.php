@@ -10836,5 +10836,14 @@ check('3.32 (U25): Create deal opens the short form prefilled from the enquiry (
     array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.']), ['cs', 'de', 'es', 'de-du'])],
     [true, true, false, true, true, true, [true, true, true, true]]);
 
+$a332Enquiries = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
+check('3.32 (R4): a new deal without a responsible person gets its creator (when they may open the pipeline), from an enquiry its handler first; the reply form offers the follow-up, titled by the form only', [
+    str_contains($a332Deals, "\$data['owner_id'] = \$byUserId > 0 && self::mayOpen(\$db, \$s, \$byUserId) ? \$byUserId : null;"),
+    str_contains($a332Deals, "foreach ([(int) (\$enquiry['prirazeno'] ?? 0), \$byUserId] as \$candidate)"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php'), 'name="follow_up" data-reply-follow-up'),
+    str_contains($a332Enquiries, "\\Kaleta\\Admin\\TaskPanel::followUpTitle((string) \$form)"),
+    array_map(fn (string $code): array => array_values(array_diff(['Follow up if they do not answer', 'No follow-up'], array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [true, true, true, true, [[], [], []]]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

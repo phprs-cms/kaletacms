@@ -7897,4 +7897,6 @@ return [
     'Unanswered enquiries nobody is responsible for' => 'Consultas sin respuesta y sin persona responsable',
     'Back to the enquiry' => 'Volver a la consulta',
     'Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.' => 'Rellenado a partir de la consulta: revise el nombre, añada el valor y el cierre previsto si los conoce, y cree la oportunidad.',
+    'Follow up if they do not answer' => 'Hacer seguimiento si no responden',
+    'No follow-up' => 'Sin seguimiento',
 ];

@@ -385,7 +385,8 @@ final class Deals
 
     /**
      * Creates a deal ($id null) or changes the given fields of one, and returns its id. Fields: title (required for a new
-     * one), contact_id, company_id (a new deal with a contact and no company takes the contact's), owner_id, value (>= 0;
+     * one), contact_id, company_id (a new deal with a contact and no company takes the contact's), owner_id (3.32: left out
+     * of a new deal = its creator when they may open the pipeline; 0 = nobody), value (>= 0;
      * '' or null = none), currency (CURRENCIES; a value without one takes defaultCurrency()), expected_close (YYYY-MM-DD;
      * '' = none), source_enquiry_id (a new deal only), stage (a new deal only – an open stage; the first one by default; a
      * stage of an existing deal changes only through move()). The responsible person must be able to open the pipeline and
@@ -424,7 +425,11 @@ final class Deals
             }
             $data['company_id'] = $companyId > 0 ? $companyId : null;
         }
-        if ($deal === null || array_key_exists('owner_id', $fields)) {
+        if ($deal === null && !array_key_exists('owner_id', $fields)) {
+            // 3.32 (R4): a new deal without a word about who is responsible gets its creator, when they may open the pipeline
+            // (an explicit 0 / "none" still means nobody)
+            $data['owner_id'] = $byUserId > 0 && self::mayOpen($db, $s, $byUserId) ? $byUserId : null;
+        } elseif ($deal === null || array_key_exists('owner_id', $fields)) {
             $data['owner_id'] = self::owner($db, $s, $fields['owner_id'] ?? null, $deal['owner_id'] ?? null);
         }
         if ($deal === null || array_key_exists('value', $fields) || array_key_exists('currency', $fields)) {
@@ -526,7 +531,7 @@ final class Deals
      * What a deal from an enquiry starts with (3.32, U25/R4 – the prefilled "Create deal" form and createFromEnquiry): the
      * title from who and what (RecordTitle::enquiry – "Olivia Hart – We need 40 custom brackets…", never just the form's
      * topic), the enquiry's contact (null when it is not linked yet) and the contact's company, the responsible person – the
-     * person handling the enquiry when they may open the pipeline – and the first open stage. No
+     * person handling the enquiry, else (R4) $byUserId, each only when they may open the pipeline – and the first open stage. No
      * value or close date: the person adds them. Null when the enquiry does not exist.
      *
      * @return array{title: string, contact_id: ?int, company_id: ?int, owner_id: ?int, stage: string}|null
@@ -541,7 +546,7 @@ final class Deals
         $contactId = $enquiry['contact_id'] !== null ? (int) $enquiry['contact_id'] : null;
         $contact = $contactId !== null ? Contacts::find($db, $contactId) : null;
         $owner = null;
-        foreach ([(int) ($enquiry['prirazeno'] ?? 0)] as $candidate) {
+        foreach ([(int) ($enquiry['prirazeno'] ?? 0), $byUserId] as $candidate) { // 3.32 (R4): the handler, else the creator
             if ($candidate > 0 && self::mayOpen($db, $app->settings(), $candidate)) {
                 $owner = $candidate;
                 break;
@@ -556,7 +561,7 @@ final class Deals
      * A deal from an enquiry ("Create deal" on an enquiry, MCP save_deal with enquiry): the title from who and what (3.32,
      * enquiryDefaults – before 3.32 the topic, which was often only the page's name "Contact"), its contact (linked now when
      * the after-response link has not run yet) and the contact's company, the person who handles the enquiry as responsible
-     * (only when they may open the pipeline, otherwise nobody),
+     * – 3.32 (R4): otherwise the creator; either only when they may open the pipeline, otherwise nobody –,
      * source_enquiry_id. One open deal per enquiry: a second one is refused. $fields may override title, owner_id, value,
      * currency, expected_close, (3.31.1) stage – an open stage, checked by save() as for any new deal; the first open stage
      * by default – and (3.32, the prefilled form) contact_id and company_id. An explicit title always wins. Returns the new

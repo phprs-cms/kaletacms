@@ -7878,4 +7878,6 @@ return [
     'Unanswered enquiries nobody is responsible for' => 'Unbeantwortete Anfragen ohne verantwortliche Person',
     'Back to the enquiry' => 'Zurück zur Anfrage',
     'Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.' => 'Aus der Anfrage ausgefüllt – prüfen Sie den Namen, ergänzen Sie den Wert und den erwarteten Abschluss, falls bekannt, und legen Sie den Deal an.',
+    'Follow up if they do not answer' => 'Nachfassen, falls keine Antwort kommt',
+    'No follow-up' => 'Nicht nachfassen',
 ];
