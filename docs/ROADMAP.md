@@ -1451,7 +1451,8 @@ Czech alias renamed; new non-essential MCP tools `list_deals`, `save_deal`, `mov
 **3.31.1 (10 November 2026):** fixes after 3.31 (owner, 9 November). No migration; no setting, MCP tool, parameter or
 Czech alias renamed; new setting `fleet_certificate_reminders`, new MCP output key `fleet_calendar.certificate_reminder_days_before`.
 1. **Stages keep their kind while deals are in them**: `Deals::saveStages` refuses to change open/won/lost of a stage that
-   holds deals (open or closed) and says how many; labels and order still change.
+   holds deals that do not fit the new kind and says how many (`Deals::dealsFitKind` – data left inconsistent by 3.31.0
+   can still be repaired); labels and order still change.
 2. **A customer's timeline without Pipeline access** shows a deal only as "A deal" with its time and number – no title,
    stage, person or link (`Deals::neutralTimeline`, also in MCP `get_contact`).
 3. **`save_deal` with an enquiry honours `stage`** (an open stage; the first open stage stays the default).
@@ -1461,10 +1462,11 @@ Czech alias renamed; new setting `fleet_certificate_reminders`, new MCP output k
    `fleet_today`), linking to the Rollout tab, which now says how to release it.
 6. **Backups**: an encrypted copy uploaded back for a restore (`.enc`) no longer counts as a local backup anywhere
    (`Backup::listLocal` – schedule, System status, dashboard, monthly report, `get_health`, heartbeat); local backups and
-   uploaded copies rotate separately (10 each) and a restore holds its file (`.hold-<name>`, one hour) and rotates only after
-   it finished; a failed off-site copy records `backup.failed` (`offsite`; for media once when it starts failing) with a
-   short text from `RemoteBackup::failureText` (no password, user name, e-mail addresses or paths).
-7. **Smaller**: System status points the automatic suspension to Settings → Security; Customers and Pipeline link to their
+   uploaded copies rotate separately (10 each, ties in the same second broken by name) and a restore holds its file with its
+   own marker (`.hold-<name>.<token>`, expired after an hour and then deleted) and rotates only after it finished; a failed off-site copy records `backup.failed` (`offsite`; for media once when it starts failing) with a
+   short text from `RemoteBackup::failureText` (no password, user name, e-mail addresses or paths; texts saved before
+   3.31.1 are masked when System status, `get_health` or the heartbeat read them).
+7. **Smaller**: System status points the automatic suspension and its warnings to Settings → Security; Customers and Pipeline link to their
    own guide articles; Czech labels for the customer CSV import and export.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)

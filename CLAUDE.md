@@ -156,7 +156,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Obchody** (3.31, `Core\Deals`, tabulky `ka_deals` + `ka_deal_stage_history`, migrace 0117, admin `Modules\Pipeline` ve skupině Workspace, MCP
   `list_deals`, `save_deal`, `move_deal`, `pipeline_summary` – mimo ESSENTIALS): jedna pipeline, etapy v nastavení `pipeline_stages` (open | won | lost),
   hodnota jen číslo + měna, žádné prognózy. Každý přesun do historie; won/lost uzavře, lost chce důvod (`LOST_REASONS`); etapa, ve které jsou obchody,
-  nemění druh (3.31.1). Měsíční report a souhrny jen počty – nikdy hodnoty. Cíl `deal:<id>` pro komentáře, úkoly, upozornění a odpovědnost
+  mění druh jen tehdy, když mu všechny už odpovídají (3.31.1, `Deals::dealsFitKind`). Měsíční report a souhrny jen počty – nikdy hodnoty. Cíl `deal:<id>` pro komentáře, úkoly, upozornění a odpovědnost
   (`Assignment::KINDS['deal'] = 'pipeline'`); zvonek a e-mail jmenují obchod jen číslem, kdo nemá Pipeline, vidí u zákazníka jen „obchod“ (3.31.1).
   Nový druh cíle = `Inbox::TARGETS`, `Inbox::parse`, `Tasks::cleanTarget` + `sweep`, `Assignment::KINDS` a popisek v `my_work/list.php` i `team.php`
   (hlídá `tools/unit-tests.php`). Retence: poptávka obchodu se drží, dokud je otevřený, a po uzavření ještě po dobu retence; zákazník s otevřeným
