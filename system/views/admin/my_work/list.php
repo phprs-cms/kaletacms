@@ -16,7 +16,7 @@
  */
 $headings = [
     'assigned' => 'Enquiries you are responsible for', // 3.32: one term for the responsible person (Core\Glossary)
-    'unassigned' => 'Unanswered enquiries nobody is responsible for', // 3.32 (R1): read ones too
+    'unassigned' => 'Unanswered enquiries nobody is responsible for', // 3.32 (R1): read ones too – new, or from the last 30 days (MyWork::UNASSIGNED_DAYS)
     'pages' => 'Pages you are responsible for',
     'items' => 'Collection items you are responsible for',
     'requests' => 'Your requests Claude answered',

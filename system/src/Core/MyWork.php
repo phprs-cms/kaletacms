@@ -9,7 +9,8 @@ namespace Kaleta\Core;
  * lists. Each list only when the person may open its section (the modules of Admin\Kernel::modules()):
  *
  *  - enquiries assigned to them that are still open, and – with Enquiries – the ones nobody handles yet: unassigned and
- *    not answered, opened or not (3.32, UNANSWERED);
+ *    not answered, opened or not (3.32, UNANSWERED), while still new or no older than UNASSIGNED_DAYS (an old opened one
+ *    nobody took is not today's work);
  *  - pages and collection items they are responsible for (owner_id) whose "review by" date is within REVIEW_DAYS or
  *    past, that have unpublished changes (a page's draft build, a hidden item changed lately) or unresolved comments on
  *    the draft (pages);
@@ -42,6 +43,12 @@ final class MyWork
      */
     public const string UNANSWERED = "stav < 2 AND (replies IS NULL OR replies IN ('', '[]'))";
 
+    /**
+     * 3.32 (review): an unassigned, unanswered enquiry is listed while it is new (stav = 0) or arrived within this many
+     * days – an opened one nobody took weeks ago stays in Enquiries, not in everyone's My work (and MCP my_work).
+     */
+    public const int UNASSIGNED_DAYS = 30;
+
     /** The lists and the section (Module::IDENT) each needs. */
     public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests', 'deals' => 'pipeline'];
 
@@ -50,13 +57,14 @@ final class MyWork
      * to the site, admin.php?…) and what makes it wait.
      *
      * @param array<string, string> $modules ident => class, the sections the person may open
+     * @param list<string> $skip list keys (LISTS) not read at all (count() – their queries do not run)
      * @return array<string, list<array<string, mixed>>> list => rows
      */
-    public static function lists(App $app, array $modules, int $userId): array
+    public static function lists(App $app, array $modules, int $userId, array $skip = []): array
     {
         $out = ['tasks' => self::tasks($app->db(), $userId)];
         foreach (self::LISTS as $list => $section) {
-            if (!isset($modules[$section])) {
+            if (!isset($modules[$section]) || in_array($list, $skip, true)) {
                 continue;
             }
             try {
@@ -79,7 +87,7 @@ final class MyWork
     public static function count(App $app, array $modules, int $userId, array $skip = []): int
     {
         $tasks = Tasks::counts($app->db(), $userId); // 3.27: of the tasks only what is due – overdue and today's
-        $lists = self::lists($app, $modules, $userId);
+        $lists = self::lists($app, $modules, $userId, $skip); // a skipped list is not queried
         // 3.31: of the open deals only those whose expected close has passed
         $deals = in_array('deals', $skip, true) ? 0 : count(array_filter($lists['deals'] ?? [], fn (array $d): bool => (bool) ($d['overdue'] ?? false)));
 
@@ -120,9 +128,10 @@ final class MyWork
                 // the key ix_poptavky_prirazeno (prirazeno, stav) of migration 0110 serves both
                 // spam left out of both, as in the Enquiries list and the dashboard tiles (N324-5)
                 // 3.32 (R1): "nobody handles it yet" = nobody assigned and not answered (UNANSWERED), whatever the read state –
-                // opening an enquiry is not handling it
-                $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND ' . self::UNANSWERED) . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
-                $rows = $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit, $list === 'assigned' ? [$userId] : []);
+                // opening an enquiry is not handling it – while it is new or arrived within UNASSIGNED_DAYS (3.32 review)
+                $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND ' . self::UNANSWERED . ' AND (stav = 0 OR datum >= ?)') . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
+                $rows = $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit,
+                    $list === 'assigned' ? [$userId] : [Clock::at('-' . self::UNASSIGNED_DAYS . ' days')]);
 
                 // 3.32: name = who and what (RecordTitle::enquiry) for the screen; the MCP tool my_work keeps title (the form) and leaves name out
                 return array_map(fn (array $p): array => ['kind' => 'enquiry', 'id' => (int) $p['idp'], 'title' => (string) $p['formular'], 'name' => RecordTitle::enquiry($p), 'about' => (string) $p['tema'],
