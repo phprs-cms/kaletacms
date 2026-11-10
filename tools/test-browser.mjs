@@ -4128,7 +4128,7 @@ await step('3.31 pipeline: the board – keyboard move with an announcement, dra
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit('/admin.php?module=pipeline');
     if ((await page.locator('[data-pipeline-board] section[data-stage]').count()) !== 5) { throw new Error('the board does not have the five default stages'); }
-    if (!(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('12980.50 EUR')) { throw new Error('the sum of New in EUR is not 12980.50'); }
+    if (!(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('€12,980.50')) { throw new Error('the sum of New in EUR is not €12,980.50'); } // 3.32 (U29): money format
     // the keyboard: the handle, Space, ArrowRight, Space – posted as JSON, the card moves, the counts and sums follow, announced
     const before = (await page.locator('[data-stage-count]').allInnerTexts()).map(Number);
     await page.locator(`#deal-${a} .obchod-uchyt`).focus();
@@ -4140,7 +4140,8 @@ await step('3.31 pipeline: the board – keyboard move with an announcement, dra
     await page.waitForFunction(() => /Qualified/.test(document.querySelector('[data-pipeline-announce]').textContent));
     if (sql(`SELECT stage FROM ka_deals WHERE id = ${a}`).trim() !== 'qualified') { throw new Error('the keyboard move was not saved'); }
     const counts = (await page.locator('[data-stage-count]').allInnerTexts()).map(Number);
-    if (counts[0] !== before[0] - 1 || counts[1] !== before[1] + 1 || !(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('480.00 EUR')) { throw new Error(`the counts and sums did not follow: ${before} → ${counts}`); }
+    if (counts[0] !== before[0] - 1 || counts[1] !== before[1] + 1 || !(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('€480')) { // 3.32 (U29): the live total reads like the server's (no .00)
+      throw new Error(`the counts and sums did not follow: ${before} → ${counts}`); }
     if (await page.evaluate(() => !document.activeElement.classList.contains('obchod-uchyt'))) { throw new Error('the focus did not stay on the moved card'); }
     // dragging to Lost: the card's form shows the reason, focused; nothing is saved yet
     await page.locator(`#deal-${b}`).dragTo(page.locator('section[data-stage="lost"]'));

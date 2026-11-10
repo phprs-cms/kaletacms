@@ -45,6 +45,9 @@ class Settings extends Module
     /** Company types for the field company_type (vyber:…). */
     private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
 
+    /** 3.32: the currencies of the setting default_currency (Core\Deals::CURRENCIES) for its vyber: type. */
+    private const string CURRENCY_CHOICES = 'EUR|CZK|PLN|HUF|RON|BGN|SEK|DKK|NOK|ISK|CHF|GBP|UAH|RSD|TRY|USD|CAD|AUD|NZD|JPY|CNY|INR|SGD|HKD|KRW|BRL|MXN|ZAR|ILS|AED|SAR';
+
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
 
     /**
@@ -59,6 +62,7 @@ class Settings extends Module
             // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
             'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
             'time_zone' => 'pasmo',
+            'default_currency' => 'vyber:|' . self::CURRENCY_CHOICES, // 3.32 (U29, Core\Deals::defaultCurrency): '' = automatic
         ],
         // 3.23 (C12): the tabs that were part of General – the keys and the field names are the same as before
         'languages' => [

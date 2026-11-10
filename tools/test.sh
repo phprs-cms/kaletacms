@@ -10863,10 +10863,18 @@ expect "3.31: … a second deal of the same enquiry is refused while the first i
 check "3.31: … the enquiry shows its deal (Open the deal), no Create deal while it is open" 200 "/admin.php?module=enquiries&action=detail&id=$B331_ENQ" "data-deal-box=\"$B331_D2\""
 expect "3.31: … no Create deal; the enquiry list shows the deal badge" "$(b331_has 'data-deal-create')|$(curl -s -b "$JAR" "$B/admin.php?module=enquiries" | grep -c "data-enquiry-deal=\"$B331_D2\"")" "0|1"
 # the board: a column per stage, the cards with their move forms, counts and sums per currency; overdue marked
+# 3.32 (U29): money reads "12 500,50 Kč" (non-breaking spaces) in Czech; the board carries the same rule for its live totals
+B332_NB=$'\xc2\xa0'
 check "3.31: the board – both deals in New with their move forms" 200 "/admin.php?module=pipeline" "id=\"deal-$B331_D1\""
 expect "3.31: … five columns, two cards in New, the sum of New in CZK (and the card's value), the first card overdue, the live region; the search finds one" \
-  "$(b331_has '<section class="obchody-sloupec')|$(sed -n '/data-stage="new"/,/<\/section>/p' "$WORK/response" | grep -c 'data-deal="')|$(b331_has '12500,50 CZK')|$(b331_has 'obchod-karta obchod-po-terminu')|$(b331_has 'data-pipeline-announce')|$(curl -s -b "$JAR" "$B/admin.php?module=pipeline&search=kotle" | grep -c 'id="deal-')" \
+  "$(b331_has '<section class="obchody-sloupec')|$(sed -n '/data-stage="new"/,/<\/section>/p' "$WORK/response" | grep -c 'data-deal="')|$(b331_has "12${B332_NB}500,50${B332_NB}Kč")|$(b331_has 'obchod-karta obchod-po-terminu')|$(b331_has 'data-pipeline-announce')|$(curl -s -b "$JAR" "$B/admin.php?module=pipeline&search=kotle" | grep -c 'id="deal-')" \
   "5|2|2|1|1|1"
+expect "3.32 (U29): … the board carries the money format of the admin language for its live totals" "$(b331_has 'data-money="{&quot;decimal&quot;:&quot;,&quot;')" "1"
+# 3.32 (U29): the default currency – automatic from the site (Czech test site: CZK), a chosen one is what New deal starts with
+check "3.32 (U29): Settings → General offers the currency, automatic by default" 200 "/admin.php?module=settings&tab=general" '<option value="">Automaticky (CZK)</option>'
+setting default_currency GBP
+check "3.32 (U29): … with GBP chosen, New deal starts in GBP" 200 "/admin.php?module=pipeline&action=new" '<option value="GBP" selected>GBP</option>'
+setting default_currency ''
 # moves without JavaScript: back to the board with its filter; a lost stage without a reason goes to the detail, with one it closes
 REDIRECT=$(b331_post "$JAR" "module=pipeline" "module=pipeline&action=move" -d "id=$B331_D1" -d stage=qualified --data-urlencode "return=module=pipeline&owner=mine&evil=1")
 expect "3.31: Move – the stage, a history row, one change-log row 'move'; back to the board with its filter and the card" \

@@ -7891,4 +7891,6 @@ return [
     'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Necesaria para crear un token: un token funciona sin la contraseña y sin la verificación en dos pasos.',
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'Ese fue el último intento automático (%d de %d): la actualización espera ahora a un administrador.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta lo intentará de nuevo por sí misma: este fue el intento %d de %d.',
+    'Automatic (%s)' => 'Automática (%s)',
+    'The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.' => 'La moneda con la que empieza el valor de una nueva oportunidad. Automática toma la moneda del país de la empresa o, si no, la de la zona horaria.',
 ];

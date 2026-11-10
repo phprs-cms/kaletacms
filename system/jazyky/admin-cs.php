@@ -7465,4 +7465,6 @@ return [
     'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Potřeba k vytvoření tokenu – token funguje bez hesla i bez dvoufázového přihlášení.',
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'To byl poslední automatický pokus (%d z %d) – aktualizace teď čeká na správce.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta to zkusí sama znovu – tohle byl pokus %d z %d.',
+    'Automatic (%s)' => 'Automaticky (%s)',
+    'The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.' => 'Měna, se kterou začíná hodnota nového obchodu. Automaticky se vezme měna země firmy, jinak země časového pásma.',
 ];

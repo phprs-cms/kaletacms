@@ -10440,10 +10440,31 @@ check('3.31: a value is a non-negative number with at most two decimals (spaces,
     Kaleta\Core\Language::runWith('en', fn (): array => array_map(fn (mixed $v): string => $d331Refuse(fn () => $d331::value($v)), ['-5', 'abc', '1.234', '99999999999', true]), 'admin-'),
     array_map($d331::currency(...), ['eur', ' CZK ', '']), Kaleta\Core\Language::runWith('en', fn (): string => $d331Refuse(fn () => $d331::currency('XYZ')), 'admin-'),
     in_array('CZK', $d331::CURRENCIES, true) && in_array('EUR', $d331::CURRENCIES, true) && count($d331::CURRENCIES) === count(array_unique($d331::CURRENCIES)),
-    $d331::defaultCurrency($reportSettings(['site_language' => 'cs'])), $d331::defaultCurrency($reportSettings([])),
+    $d331::defaultCurrency($reportSettings(['site_language' => 'cs', 'time_zone' => 'UTC'])), $d331::defaultCurrency($reportSettings(['time_zone' => 'UTC'])),
 ], [['12500.50', '12500.50', '12500.50', '12500.50', '0.00', '7.00', null, null, null],
     ['refused: The value cannot be negative.', 'refused: The value must be a number.', 'refused: The value must be a number.', 'refused: The value is too large.', 'refused: The value must be a number.'],
     ['EUR', 'CZK', ''], 'refused: “XYZ” is not a currency Kaleta offers.', true, 'CZK', 'EUR']);
+// 3.32 (U29): one money formatter – thousands separated, ".00" left out, sign or code by the admin language; the default
+// currency is a setting, automatic = company country → time zone country → site language
+$m332 = fn (string $lang): array => Kaleta\Core\Language::runWith($lang, fn (): array => [Kaleta\Core\Deals::formatValue('18000.00', 'GBP'), Kaleta\Core\Deals::formatValue('10800.5', 'EUR'),
+    Kaleta\Core\Deals::formatValue('1250000', 'CZK'), Kaleta\Core\Deals::formatValue('99.99', 'USD'), Kaleta\Core\Deals::formatValue(null, 'EUR')], 'admin-');
+$a332Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
+preg_match("/CURRENCY_CHOICES = '([^']+)'/", $a332Settings, $a332Choices);
+check('3.32 (U29): deal values read as money in each admin language; the default currency is chosen or derived; the board totals use the same rule', [
+    $m332('en'), $m332('cs'), $m332('de'), $m332('es'),
+    Kaleta\Core\Deals::defaultCurrency($reportSettings(['default_currency' => 'SEK', 'company_country' => 'GB'])),
+    Kaleta\Core\Deals::defaultCurrency($reportSettings(['default_currency' => 'XXX', 'company_country' => 'gb'])),
+    Kaleta\Core\Deals::defaultCurrency($reportSettings(['time_zone' => 'Europe/London'])),
+    Kaleta\Core\Deals::defaultCurrency($reportSettings(['time_zone' => 'Europe/Warsaw', 'site_language' => 'cs'])),
+    Kaleta\Core\Deals::defaultCurrency($reportSettings(['time_zone' => 'Europe/Berlin'])),
+    Kaleta\Core\Deals::defaultCurrency($reportSettings(['time_zone' => 'UTC', 'site_language' => 'cs'])),
+    explode('|', $a332Choices[1] ?? '') === Kaleta\Core\Deals::CURRENCIES, Kaleta\Core\Settings::DEFAULTS['default_currency'] ?? null,
+    array_values(array_diff(array_unique(Kaleta\Core\Deals::COUNTRY_CURRENCIES), Kaleta\Core\Deals::CURRENCIES)),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.js'), "board.getAttribute('data-money')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/pipeline/board.php'), 'data-money="<?= e((string) json_encode(Deals::moneyFormat()'),
+], [["£18,000", "€10,800.50", "CZK\u{00A0}1,250,000", '$99.99', ''], ["18\u{00A0}000\u{00A0}£", "10\u{00A0}800,50\u{00A0}€", "1\u{00A0}250\u{00A0}000\u{00A0}Kč", "99,99\u{00A0}$", ''],
+    ["18.000\u{00A0}£", "10.800,50\u{00A0}€", "1.250.000\u{00A0}CZK", "99,99\u{00A0}$", ''], ["18.000\u{00A0}£", "10.800,50\u{00A0}€", "1.250.000\u{00A0}CZK", "99,99\u{00A0}$", ''],
+    'SEK', 'GBP', 'GBP', 'PLN', 'EUR', 'CZK', true, '', [], true, true]);
 $d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
 check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
     $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),

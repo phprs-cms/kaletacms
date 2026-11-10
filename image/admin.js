@@ -759,8 +759,15 @@
 		var boardColumns = function () { return Array.prototype.slice.call(board.querySelectorAll('section[data-stage]')); };
 		var stageName = function (col) { var l = col.querySelector('[data-stage-label]'); return l ? l.textContent : col.getAttribute('data-stage'); };
 		var cardTitle = function (card) { var h = card.querySelector('h3'); return h ? h.textContent.trim() : ''; };
-		var decimalComma = !/^(en|ar|he)\b/.test(document.documentElement.lang || 'en');
-		var money = function (cents, currency) { var text = (cents / 100).toFixed(2); return (decimalComma ? text.replace('.', ',') : text) + ' ' + currency; };
+		// 3.32 (U29): the totals read as the server writes them – Core\Deals::moneyFormat() in data-money (separators, sign before/after)
+		var moneyFormat = {};
+		try { moneyFormat = JSON.parse(board.getAttribute('data-money') || '{}'); } catch (e) { moneyFormat = {}; }
+		var money = function (cents, currency) {
+			var whole = Math.floor(cents / 100), rest = cents % 100;
+			var text = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, moneyFormat.thousands || ' ') + (rest ? (moneyFormat.decimal || ',') + String(100 + rest).slice(1) : '');
+			var affix = (moneyFormat.affixes && moneyFormat.affixes[currency]) || ['', '\u00a0' + currency];
+			return affix[0] + text + affix[1];
+		};
 		var recount = function () {
 			boardColumns().forEach(function (col) {
 				var cards = col.querySelectorAll('[data-deal]');
