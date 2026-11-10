@@ -374,10 +374,27 @@ final class Forms
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
         $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
-        // 3.32 (R2): the subject keeps "<form>: <site>" (mail filters) and adds who wrote it – the same mail carries the name anyway
-        $who = \Kaleta\Core\RecordTitle::enquiryWho(['email' => $email, 'data' => $data]);
-        $subject = t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')) . ($who !== '' ? ' – ' . $who : '');
-        Mail::send($siteSettings, implode(', ', $to), $subject, $text, '', $headers);
+        [$subject, $base] = self::notificationSubject((string) $element['obsah']['nazev'], $siteSettings->get('site_name'), $email, $data);
+        Mail::send($siteSettings, implode(', ', $to), $subject, $text, '', $headers, true, $base); // the log keeps the base only
+    }
+
+    /**
+     * The subject of a form notification and the one the mail log keeps (3.32, R2): "<form>: <site>" (mail filters rely
+     * on it) and – in the e-mail only – who wrote it: the name, else the company; never the visitor's e-mail address, and
+     * no suffix when neither is known. The log (ka_posta.predmet, the mail.failed event) keeps "<form>: <site>".
+     *
+     * @param list<array{0: string, 1: string, 2?: string}> $data the form fields as stored
+     * @return array{0: string, 1: string} [subject, logged subject]
+     */
+    public static function notificationSubject(string $form, string $site, string $email, array $data): array
+    {
+        $people = \Kaleta\Core\RecordTitle::enquiryPeople(['email' => $email, 'data' => $data]);
+        $who = $people['name'] !== '' ? $people['name'] : $people['company'];
+        $who = str_contains($who, '@') ? '' : $who; // an address typed into the name field is still an address
+        $who = mb_strlen($who) > 80 ? rtrim(mb_substr($who, 0, 79)) . '…' : $who;
+        $base = t('%s: %s', $form, $site);
+
+        return [$base . ($who !== '' ? ' – ' . $who : ''), $base];
     }
 
     /**

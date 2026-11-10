@@ -34,8 +34,11 @@ final class Mail
      * @param array<string, string> $headers extra headers (e.g. List-Unsubscribe); 'Bcc' = hidden recipients separated by commas,
      *        they get the message without anyone seeing them (the header never goes out with it)
      * @param bool $queueOnFailure false = a one-off message that is not retried on error (test e-mail)
+     * @param string $logSubject 3.32: what the mail log (ka_posta.predmet) and the mail.failed event keep instead of a
+     *        subject that names a person (a form notification's "<form>: <site> – Olivia Hart" is logged as "<form>: <site>");
+     *        a queued message keeps its full subject in its body until it is sent. '' = the subject itself.
      */
-    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true): bool
+    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = ''): bool
     {
         if ($html === '' && Language::isRtl(Language::code())) {
             $html = self::rightToLeft($text, Language::code()); // a plain message in Arabic reads from the right in every mail client
@@ -45,9 +48,9 @@ final class Mail
         self::$lastId = null;
         try {
             self::$lastId = $siteSettings->db()->insert('posta', [
-                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
+                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($logSubject !== '' ? $logSubject : $subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
                 'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
-                'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers] + ($logSubject !== '' ? ['predmet' => $subject] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
                 'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
             if (random_int(1, 50) === 1) {
@@ -154,14 +157,15 @@ final class Mail
                 [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['idp'], $z['pokusu']])->rowCount() === 0) {
                 continue;
             }
-            if (self::deliver($siteSettings, $z['komu'], $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
+            // 3.32: a subject naming a person waits in the body (predmet holds the logged one) and goes with it once sent
+            if (self::deliver($siteSettings, $z['komu'], is_string($body['predmet'] ?? null) ? $body['predmet'] : $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
                 $db->update('posta', ['odeslano' => date('Y-m-d H:i:s'), 'telo' => null, 'dalsi_pokus' => null, 'chyba' => ''], ['idp' => $z['idp']]);
                 $sent++;
             } else {
                 $end = !isset(self::RETRY_DELAYS[$attempt - 1]);
                 $db->update('posta', ['chyba' => mb_substr(self::$error, 0, 255)] + ($end ? ['telo' => null, 'dalsi_pokus' => null] : []), ['idp' => $z['idp']]);
                 if ($end) {
-                    // the subject and the error, not the recipient (2.8, Core\Events)
+                    // the subject and the error, not the recipient (2.8, Core\Events) – the logged subject, never a person's name (3.32)
                     Events::record($db, 'mail.failed', 'error', mb_substr(t('E-mail “%s” could not be sent: %s', (string) ($z['predmet'] ?? ''), self::$error), 0, 255), ['mail' => (int) $z['idp']]);
                 }
             }

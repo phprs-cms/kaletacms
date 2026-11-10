@@ -11353,5 +11353,20 @@ expect "3.32 deal titles: the admin's Anonymise (the link stays) and erase_perso
   "$(r332_title "$R332_D6")/$(r332_title "$R332_D7")" "#$R332_D6 – Kontakt|$R332_E6/#$R332_D7 – Kontakt|null"
 expect "3.32 deal titles: nothing of the old titles was written anywhere else (change log, history)" \
   "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%R332%'")" "0"
+# item 2: a form notification names the visitor (name or company, never the address) only in the e-mail – the mail log, its
+# retries and the mail.failed event keep "<form>: <site>"; a queued message keeps the full subject in its body until sent
+sq "DROP TABLE IF EXISTS ka_r332_mail; CREATE TABLE ka_r332_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '1'), ('smtp_encryption', 'zadne'), ('smtp_user', ''); DELETE FROM ka_kontrola_ip" > /dev/null
+R332_P0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
+submit_form --data-urlencode "p0=Quinn Ray R332" --data-urlencode p1=quinn-r332@example.com -d p2=777332332 --data-urlencode "p3=Please call me about the offer" -d p4=1 > /dev/null
+expect "3.32 form notification: the mail log keeps the subject without the person; the queued body holds the full one (name, never the address)" \
+  "$(sq "SELECT CONCAT(SUM(predmet LIKE '%Quinn%' OR predmet LIKE '%quinn-r332%'), '|', SUM(telo LIKE '%\"predmet\":\"%: % – Quinn Ray R332\"%'), '|', SUM(telo LIKE '%\"predmet\":\"%quinn-r332@%')) FROM ka_posta WHERE idp > $R332_P0")" "0|1|0"
+sq "UPDATE ka_posta SET pokusu = 4, dalsi_pokus = '$(site_time '-1 minute')' WHERE idp > $R332_P0 AND odeslano IS NULL AND telo IS NOT NULL" > /dev/null
+R332_EV0=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_events")
+r332_php 'Kaleta\Core\Mail::processQueue($app->settings(), 50);' > /dev/null
+expect "3.32 mail.failed: the event names the logged subject, never the visitor" \
+  "$(sq "SELECT CONCAT(COUNT(*) > 0, '|', SUM(message LIKE '%Quinn%')) FROM ka_events WHERE type = 'mail.failed' AND id > $R332_EV0")" "1|0"
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user'); INSERT INTO ka_nastaveni SELECT * FROM ka_r332_mail; DROP TABLE ka_r332_mail;
+  DELETE FROM ka_posta WHERE idp > $R332_P0" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
