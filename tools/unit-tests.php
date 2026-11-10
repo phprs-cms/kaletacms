@@ -10493,6 +10493,17 @@ check('3.32 (U37): the tiles come before the onboarding blocks, which are detail
     str_contains($u37Dash, "<?= \$finished < count(\$firstSteps) ? ' open' : '' ?>"), str_contains($u37Connect, "<?= \$connect['admin'] ? ' open' : '' ?>"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/ask_claude.php'), '<details class="ask-claude-priklady-obal"><summary>'),
 ], [true, true, true, true, true]);
+// 3.32 (U46, U47, U49, U50): scrolling table wrappers become focusable regions, the cookie table is a listing, yes/no boxes
+// are named by their row, the charts are groups of bars that are images
+$a11yJs = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
+check('3.32 (U46, U47, U49, U50): focusable scrollers, the cookie listing, named boxes, chart roles', [
+    str_contains($a11yJs, "box.setAttribute('tabindex', '0');") && str_contains($a11yJs, "box.setAttribute('role', 'region');") && strpos($a11yJs, 'var markScrollers') > strpos($a11yJs, "tab.classList.add('vypis-karty');"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), "<div class=\"tab-obal\">\n<table class=\"vypis cookies-tabulka\">"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/list.php'), "<input type=\"checkbox\" aria-labelledby=\"' . e(\$key) . '-popisek\" name=\"' . e(\$key) . '\" value=\"1\"'"),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/alerts.php'), '-popisek"'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php'), 'role="group" aria-label="<?= e(t(\'Bar chart of page views by day\')) ?>" aria-describedby="graf-souhrn"'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/dashboard.php'), 'role="img"'),
+], [true, true, true, 4, true, 1]);
 $d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
 check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
     $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),

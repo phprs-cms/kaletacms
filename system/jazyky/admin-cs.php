@@ -7471,4 +7471,5 @@ return [
     'The enquiry is yours now.' => 'Poptávku teď máte na starosti vy.',
     'Someone already handles this enquiry.' => 'Poptávku už má na starosti někdo jiný.',
     'Examples' => 'Příklady',
+    '%s to %s: %s page views and %s visits in all; the most page views on %s (%s).' => '%s až %s: celkem %s zobrazení stránek a %s návštěv; nejvíc zobrazení %s (%s).',
 ];

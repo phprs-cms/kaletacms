@@ -76,13 +76,13 @@
 ?>
 <section class="prehled-graf" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
 	<h2><?= e(t('Visits in the last 14 days')) ?> <small><?= e(t('%s visits', format_count(array_sum($days)))) ?></small></h2>
-	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
+	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="group" aria-label="<?= e(t('Visits in the last 14 days')) ?>"><?php /* 3.32 (U50): each bar an image with its text */ ?>
 <?php $x = 0; foreach ($days as $day => $count): $v = max(1, (int) round($count / $max * 62));
     $dayLabel = t('%s: %s visits', format_date($day), $count) . ($day === $confirmedSince ? ' – ' . t('only visits confirmed by a browser count from this day') : ''); ?>
 <?php if ($day === $confirmedSince): ?>
 		<line class="prehled-zacatek" x1="<?= $x * 20 + 1 ?>" y1="0" x2="<?= $x * 20 + 1 ?>" y2="70" vector-effect="non-scaling-stroke" data-stats-confirmed-day="<?= e($day) ?>"></line>
 <?php endif ?>
-		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"></rect>
+		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e($dayLabel) ?>" role="img" aria-label="<?= e($dayLabel) ?>" tabindex="0"></rect>
 <?php $x++; endforeach ?>
 	</svg>
 <?php if ($confirmedSince !== null): ?>

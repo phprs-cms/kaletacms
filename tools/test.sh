@@ -852,6 +852,9 @@ expect "3.18.3, 3.25: … exactly 5, by name, then More… to the list of collec
 check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" data-menu-vychozi open><summary class="menu-skupina"><span>Obsah</span>'
 expect "3.25: … the group script, Statistics in Site care, no Company group, the Business details in Content" "$(grep -c 'src="/image/admin-menu.js?v=' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="site-care".*?module=stats.*?</details>}s ? 1 : 0' "$WORK/response")|$(grep -c '<span>Firma</span>' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="content"[^>]*>.*?module=business".*?</details>}s ? 1 : 0' "$WORK/response")" "1|1|0|1"
 check "3.25: the current screen's group is marked" 200 "/admin.php?module=stats" 'data-menu-skupina="site-care" data-aktualni open>'
+# 3.32 (U50): the chart is a group of bars, each an image with its text, described by a summary
+expect "3.32 (U50): Statistics – the chart is a group described by its summary; every bar is an image" \
+  "$(grep -c 'class="graf" role="group" aria-label="[^"]*" aria-describedby="graf-souhrn"' "$WORK/response")|$(grep -c 'id="graf-souhrn"' "$WORK/response")|$([ "$(grep -c 'class="graf-sloupec' "$WORK/response")" = "$(grep -c 'class="graf-sloupec[^"]*" data-tip="[^"]*" role="img"' "$WORK/response")" ] && echo same)" "1|1|same"
 code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php")
 expect "3.25: an author's short menu is a flat list – no group, no group script" "$code|$(grep -c 'menu-skupiny' "$WORK/response")|$(grep -c 'admin-menu.js' "$WORK/response")|$(grep -c '<li><a href="/admin.php?module=news">' "$WORK/response")" "200|0|0|1"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kolekce WHERE seo_link LIKE 'cap-_' OR seo_link IN ('mimo-menu', 'v-menu')"
@@ -996,6 +999,11 @@ component_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_
 check "komponenta v builderu" 200 "/admin.php?module=components&action=builder&id=$IDM" 'id="stavitel-data"'
 check "2.4: builder links to its guide article" 200 "/admin.php?module=components&action=builder&id=$IDM" '"navod":"https:[^"]*guide[^"]*components"'
 check "2.4: settings tab links to its guide article" 200 "/admin.php?module=settings&tab=backups" 'class="navod-odkaz" href="https://kaletacms.com/[a-z/]*guide/backups-updates"'
+# 3.32 (U49): a yes/no box is named by its row label, not by "Yes"
+expect "3.32 (U49): the automatic updates box is labelled by its row" "$(grep -c '<span class="popisek" id="auto_updates-popisek">' "$WORK/response")|$(grep -c 'aria-labelledby="auto_updates-popisek" name="auto_updates" value="1"' "$WORK/response")" "1|1"
+# 3.32 (U47): the cookie table of Settings → Privacy and cookies is a listing in its wrapper (cards on a phone, admin.js)
+check "3.32 (U47): Privacy and cookies – the cookie table is a listing in a wrapper" 200 "/admin.php?module=settings&tab=cookies" '<table class="vypis cookies-tabulka">'
+expect "3.32 (U47): … right after its wrapper" "$(grep -B1 '<table class="vypis cookies-tabulka">' "$WORK/response" | head -1)" '<div class="tab-obal">'
 check "2.4: dashboard links to the guide" 200 "/admin.php" 'guide/first-steps#the-dashboard'
 component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
 expect "publikování komponenty" "$(component_action build_publish)" 200

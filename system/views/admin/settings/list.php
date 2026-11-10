@@ -39,7 +39,8 @@ $field = function (string $key, string $labelText, string $kind = 'text', string
     $hintHtml = $hint !== '' ? '<span class="napoveda">' . (str_contains($hint, '<') ? $hint : $module->hint($hint)) . '</span>' : '';
     echo '<div class="radek">';
     if ($kind === 'ano') {
-        echo '<span class="popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
+        // 3.32 (U49): the box is named by its row label ("Automatic updates"), not by the word next to it ("Yes")
+        echo '<span class="popisek" id="' . e($key) . '-popisek">' . e($labelText) . '</span><div class="volby"><label><input type="checkbox" aria-labelledby="' . e($key) . '-popisek" name="' . e($key) . '" value="1"' . ($h === '1' ? ' checked' : '') . '> ' . e(t('Yes')) . '</label>' . $hintHtml . '</div>';
     } elseif ($kind === 'radky' || $kind === 'kod') {
         echo '<label for="' . e($key) . '">' . e($labelText) . '</label><div><textarea class="textbox nizky' . ($kind === 'kod' ? ' kod' : '') . '" id="' . e($key) . '" name="' . e($key) . '" rows="4" ' . $attributes . '>' . e($h) . '</textarea>' . $hintHtml . '</div>';
     } else {

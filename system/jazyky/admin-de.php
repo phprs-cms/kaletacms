@@ -7878,4 +7878,5 @@ return [
     'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei Ihnen.',
     'Someone already handles this enquiry.' => 'Diese Anfrage bearbeitet bereits jemand.',
     'Examples' => 'Beispiele',
+    '%s to %s: %s page views and %s visits in all; the most page views on %s (%s).' => '%s bis %s: insgesamt %s Seitenaufrufe und %s Besuche; die meisten Seitenaufrufe am %s (%s).',
 ];
