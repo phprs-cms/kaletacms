@@ -112,9 +112,10 @@ final class MyWork
                 // the key ix_poptavky_prirazeno (prirazeno, stav) of migration 0110 serves both
                 // spam left out of both, as in the Enquiries list and the dashboard tiles (N324-5)
                 $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND stav = 0') . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
-                $rows = $db->all('SELECT idp, datum, formular, tema, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit, $list === 'assigned' ? [$userId] : []);
+                $rows = $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit, $list === 'assigned' ? [$userId] : []);
 
-                return array_map(fn (array $p): array => ['kind' => 'enquiry', 'id' => (int) $p['idp'], 'title' => (string) $p['formular'], 'about' => (string) $p['tema'],
+                // 3.32: name = who and what (RecordTitle::enquiry) for the screen; the MCP tool my_work keeps title (the form) and leaves name out
+                return array_map(fn (array $p): array => ['kind' => 'enquiry', 'id' => (int) $p['idp'], 'title' => (string) $p['formular'], 'name' => RecordTitle::enquiry($p), 'about' => (string) $p['tema'],
                     'status' => ['new', 'read', 'resolved'][(int) $p['stav']] ?? 'new', 'priority' => Triage::PRIORITIES[(int) $p['priorita']] ?? null, 'date' => (string) $p['datum'],
                     'url' => 'admin.php?module=enquiries&action=detail&id=' . (int) $p['idp']], $rows);
             case 'pages':

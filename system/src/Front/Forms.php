@@ -374,7 +374,10 @@ final class Forms
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
         $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
-        Mail::send($siteSettings, implode(', ', $to), t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')), $text, '', $headers);
+        // 3.32 (R2): the subject keeps "<form>: <site>" (mail filters) and adds who wrote it – the same mail carries the name anyway
+        $who = \Kaleta\Core\RecordTitle::enquiryWho(['email' => $email, 'data' => $data]);
+        $subject = t('%s: %s', $element['obsah']['nazev'], $siteSettings->get('site_name')) . ($who !== '' ? ' – ' . $who : '');
+        Mail::send($siteSettings, implode(', ', $to), $subject, $text, '', $headers);
     }
 
     /**

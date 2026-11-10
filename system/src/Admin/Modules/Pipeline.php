@@ -220,7 +220,7 @@ final class Pipeline extends Module
         $target = Comments::deal($id);
         $enquiry = null;
         if ($deal['source_enquiry_id'] !== null && isset($modules['enquiries'])) {
-            $enquiry = $this->db->one('SELECT idp, datum, formular FROM {poptavky} WHERE idp = ?', [$deal['source_enquiry_id']]);
+            $enquiry = $this->db->one('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano FROM {poptavky} WHERE idp = ?', [$deal['source_enquiry_id']]);
         }
 
         return $this->view('detail', $deal['title'], ['d' => $deal, 'stages' => $stages, 'stage' => Deals::stage($this->app->settings(), $deal['stage']),

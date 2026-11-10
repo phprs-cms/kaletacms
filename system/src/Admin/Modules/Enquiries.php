@@ -79,7 +79,7 @@ final class Enquiries extends Module
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
         $pageNumber = max(1, $this->request->getInt('page', 1));
-        $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
+        $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, zdroj, email, stav, kategorie, priorita, data, prirazeno, anonymizovano FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
         $deals = isset($this->kernel->modules()[Pipeline::IDENT]) ? \Kaleta\Core\Deals::forEnquiries($this->db, array_map('intval', array_column($rows, 'idp'))) : [];
 
@@ -108,7 +108,8 @@ final class Enquiries extends Module
             $p['stav'] = 1;
         }
 
-        return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+        // 3.32 (U27): the page is titled by who and what (Core\RecordTitle), the number stays in the breadcrumb of the form
+        return $this->view('detail', \Kaleta\Core\RecordTitle::enquiry($p), ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
             'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
             // 3.20 (C2): the form and the page the enquiry came from, as links into the builder and the page settings
             'origin' => \Kaleta\Admin\EnquiryOrigin::resolve($this->app, $p),

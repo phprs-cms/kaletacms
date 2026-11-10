@@ -52,7 +52,7 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 	<dt><?= e(t('Company')) ?></dt><dd><?= $canContacts ? '<a href="' . e($app->url(Contacts::companyAdminPath($d['company_id']))) . '">' . bdi((string) $d['company_name']) . '</a>' : bdi((string) $d['company_name']) ?></dd>
 <?php endif ?>
 <?php if ($d['source_enquiry_id'] !== null): ?>
-	<dt><?= e(t('Came from')) ?></dt><dd data-deal-enquiry><?= $enquiry !== null ? '<a href="' . e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $enquiry['idp'])) . '">' . e(t('Enquiry #%s', (string) $enquiry['idp'])) . '</a> · ' . bdi((string) $enquiry['formular']) . ' · ' . e(format_date((string) $enquiry['datum'])) : e(t('Enquiry #%s', (string) $d['source_enquiry_id'])) ?></dd>
+	<dt><?= e(t('Came from')) ?></dt><dd data-deal-enquiry><?= $enquiry !== null ? '<a href="' . e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $enquiry['idp'])) . '">' . bdi(Kaleta\Core\RecordTitle::enquiry($enquiry)) . '</a> · ' . e(t('Enquiry #%s', (string) $enquiry['idp'])) . ' · ' . bdi((string) $enquiry['formular']) . ' · ' . e(format_date((string) $enquiry['datum'])) : e(t('Enquiry #%s', (string) $d['source_enquiry_id'])) ?></dd>
 <?php endif ?>
 	<dt><?= e(t('Created')) ?></dt><dd><?= e(format_date($d['created_at'], true)) ?><?= $d['created_by'] !== null && ($names[$d['created_by']] ?? '') !== '' ? ' · ' . e($names[$d['created_by']]) : '' ?></dd>
 </dl>

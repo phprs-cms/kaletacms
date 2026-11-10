@@ -7872,4 +7872,7 @@ return [
     'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Nötig, um ein Token zu erstellen – ein Token funktioniert ohne Passwort und ohne Zwei-Faktor-Anmeldung.',
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'Das war der letzte automatische Versuch (%d von %d) – das Update wartet nun auf einen Administrator.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta versucht es von selbst erneut – das war Versuch %d von %d.',
+    '(no name)' => '(ohne Namen)',
+    'Enquiry: %s' => 'Anfrage: %s',
+    'Deal “%s”' => 'Deal „%s“',
 ];

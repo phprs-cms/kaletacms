@@ -10796,5 +10796,31 @@ check('3.31.2 N103: the check after an update asks again when a proxy answers 50
 $u3312Texts = ['That was the last automatic attempt (%d of %d) – the update now waits for an administrator.', 'Kaleta will try again by itself – this was attempt %d of %d.'];
 check('3.31.2 N103: the texts of the e-mail about a failed try are translated (cs, de, es)', array_values(array_filter($u3312Texts, fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k], $a3312Es[$k]))), []);
 
+// ---------- 3.32 part A (CRM for daily use): names, My work, Create deal, defaults, glossary ----------
+// 3.32 (U27, U41, R2): one helper names a record by who and what; a section the viewer may not open, and every e-mail, keep the number
+$a332Row = ['formular' => 'Contact', 'tema' => 'Contact', 'zdroj' => 'stranka:4', 'email' => 'olivia@hartsteel.example', 'data' => json_encode([['Name', 'Olivia Hart'], ['E-mail', 'olivia@hartsteel.example'],
+    ['Message', 'We need 40 custom brackets for a new hall in March']])];
+$a332Views = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/list.php') . (string) file_get_contents(KALETA_SYSTEM . '/views/admin/inbox.php') . (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php');
+$a332Texts = ['(no name)', 'Enquiry: %s', 'Deal “%s”', 'Customer “%s”', 'Who'];
+check('3.32 (U27/U41): RecordTitle – who (name, else company, else e-mail) and what (a collection topic, else the first words of the message, else the topic); the form only when nothing is known; place() names only for the section', [
+    Kaleta\Core\Language::runWith('en', fn (): array => [
+        Kaleta\Core\RecordTitle::enquiry($a332Row),
+        Kaleta\Core\RecordTitle::enquiry(['data' => json_encode([['Company', 'Hartsteel Ltd'], ['Phone', '+44 20 7946 0000']])] + $a332Row),
+        Kaleta\Core\RecordTitle::enquiry(['zdroj' => 'kolekce:2', 'tema' => 'Services – Bathroom renovation'] + $a332Row),
+        Kaleta\Core\RecordTitle::enquiry(['data' => '[]'] + $a332Row),
+        Kaleta\Core\RecordTitle::enquiry(['data' => '[]', 'email' => '', 'anonymizovano' => '2026-01-01 00:00:00', 'tema' => ''] + $a332Row),
+        Kaleta\Core\RecordTitle::enquiry(['formular' => '', 'tema' => '', 'email' => '', 'data' => '[]']),
+        Kaleta\Core\RecordTitle::place(['kind' => 'deal', 'id' => 6, 'title' => '#6', 'name' => 'Maintenance contract'], ['pipeline' => 'x']),
+        Kaleta\Core\RecordTitle::place(['kind' => 'deal', 'id' => 6, 'title' => '#6', 'name' => 'Maintenance contract'], ['enquiries' => 'x']),
+        Kaleta\Core\RecordTitle::place(['kind' => 'enquiry', 'id' => 3, 'title' => 'Contact', 'name' => 'Olivia Hart – We need'], ['enquiries' => 'x']),
+        Kaleta\Core\RecordTitle::place(['kind' => 'contact', 'id' => 4, 'title' => 'Olivia Hart', 'name' => 'Olivia Hart'], []),
+        Kaleta\Core\RecordTitle::place(null, ['pipeline' => 'x']),
+        Kaleta\Core\Inbox::where(['kind' => 'deal', 'id' => 6, 'title' => '#6', 'name' => 'Maintenance contract'])]),
+    str_contains($a332Views, 'data-enquiry-name') && str_contains($a332Views, 'RecordTitle::place($place, $modules)') && str_contains($a332Views, "bdi((string) (\$r['name'] ?? \$r['title']))"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/WorkTools.php'), "'name'"),
+    array_map(fn (string $code): array => array_values(array_diff($a332Texts, array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [['Olivia Hart – We need 40 custom brackets for…', 'Hartsteel Ltd – Contact', 'Olivia Hart – Services – Bathroom renovation', 'olivia@hartsteel.example – Contact', 'Contact', 'Enquiry',
+        'Deal “Maintenance contract”', 'Deal #6', 'Enquiry: Olivia Hart – We need', 'Customer #4', '(no longer available)', 'Deal #6'], true, false, [[], [], []]]);
+
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

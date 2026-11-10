@@ -101,7 +101,7 @@ final class MyWork extends Module
                 'was' => $t['assignee_id'] !== null ? \Kaleta\Core\Assignment::label($this->db, $t['assignee_id']) : t('nobody')];
         }
 
-        return $this->view('team', 'My work', ['people' => Tasks::team($this->db), 'unassigned' => $tasks]);
+        return $this->view('team', 'My work', ['people' => Tasks::team($this->db), 'unassigned' => $tasks, 'modules' => $this->kernel->modules()]);
     }
 
     /**

@@ -11075,5 +11075,30 @@ sq "UPDATE ka_jobs SET last_run = '$(site_time)'" > /dev/null # nothing is due: 
 expect "3.31.2 N102: cron runs in maintenance mode (tasks_last_run moves)" \
   "$(setting tasks_last_run 0; s3312_code "/ulohy?token=$S3312_TASKS")|$(head -c 3 "$WORK/response")|$(sq "SELECT hodnota > 0 FROM ka_nastaveni WHERE promenna = 'tasks_last_run'")" "200|OK |1"
 setting maintenance "$S3312_MAINTENANCE"
+echo "== 3.32 part A: CRM for daily use"
+# names (U27, U41, R2): the enquiry list has who and what, My work and the page title too; the bell names a deal by its title
+# for whoever has the Pipeline and by its number for anyone else; e-mails keep the number
+A332_DATA='[["Jméno","Olivia Hart A332"],["E-mail","olivia@hartsteel-a332.example"],["Zpráva","We need 40 custom brackets for a new hall in March"]]'
+A332_E=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', 'Kontakt', 'olivia@hartsteel-a332.example', '$A332_DATA', 0); SELECT LAST_INSERT_ID();")
+A332_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
+A332_D=$(sq "INSERT INTO ka_deals (title, stage, created_at, updated_at) VALUES ('Brackets for the hall A332', 'new', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
+expect "3.32 names: the enquiry list has a Who column – the person and the first words of the message" \
+  "$(grep -c '<th scope="col">Kdo</th>' "$WORK/response")|$(grep -A1 'data-enquiry-name' "$WORK/response" | grep -c 'Olivia Hart A332</bdi></a><br><small><bdi>We need 40 custom brackets for…')" "1|1"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
+expect "3.32 names: My work names the enquiry by who and what, the form and number under it" \
+  "$(grep -A1 "data-enquiry=\"$A332_E\"" "$WORK/response" | grep -c "Olivia Hart A332 – We need 40 custom brackets for…</bdi></a><br><span class=\"smltxt\"><bdi>Kontakt #$A332_E")" "1"
+expect "3.32 names: the enquiry's page title" "$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&action=detail&id=$A332_E" | grep -c '<title>Olivia Hart A332 – We need 40 custom brackets for…')" "1"
+sq "INSERT INTO ka_notifications (user_id, kind, target, actor_id, actor_name, excerpt, created_at) VALUES ($A332_ADMIN, 'assigned', 'deal:$A332_D', NULL, 'Wendy A332', '', '$(site_time)'),
+  ($A332_ADMIN, 'assigned', 'enquiry:$A332_E', NULL, 'Wendy A332', '', '$(site_time)'), ($W324_WRITER, 'assigned', 'deal:$A332_D', NULL, 'Wendy A332', '', '$(site_time)')" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=inbox"
+expect "3.32 names (U41): the administrator's bell names the deal and the enquiry" \
+  "$(grep -c 'Obchod „Brackets for the hall A332“' "$WORK/response")|$(grep -c 'Poptávka: Olivia Hart A332 – We need' "$WORK/response")" "1|1"
+expect "3.32 names: without the Pipeline the bell names the deal by its number only" \
+  "$(curl -s -b "$JAR324W" "$B/admin.php?action=inbox" | grep -c "Obchod #$A332_D<")|$(curl -s -b "$JAR324W" "$B/admin.php?action=inbox" | grep -c 'Brackets for the hall A332')" "1|0"
+expect "3.32 names: the e-mail of a notification still names the deal by its number" \
+  "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $place = Kaleta\Core\Inbox::places($app->db(), ["deal:" . $argv[1]])["deal:" . $argv[1]];
+    [$subject, $text] = Kaleta\Core\Inbox::mail($app->settings(), ["jazyk" => "en"], ["kind" => "assigned", "actor_name" => "Wendy", "excerpt" => ""], $place, "u", "a"); echo (str_contains($subject . $text, "Brackets") ? "named" : "number") . "|" . $subject;' "$A332_D")" \
+  "number|Wendy assigned you Deal #$A332_D"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

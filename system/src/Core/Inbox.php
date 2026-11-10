@@ -249,11 +249,13 @@ final class Inbox
 
     /**
      * Where notifications point: per target the kind (enquiry | page | item), the id, a title (the form name of an enquiry
-     * – never its fields –, the title of a page, the name and the collection of an item) and the admin path. A target that
+     * – never its fields –, the title of a page, the name and the collection of an item) and the admin path. 3.32: an
+     * enquiry, a deal and a customer also carry 'name' (who and what, the deal's title, the customer's name) for
+     * RecordTitle::place – screens of people with the section only; where() and the e-mails never use it. A target that
      * no longer exists (deleted, in the trash) or is unknown is left out. Batched: one query per kind.
      *
      * @param list<string> $targets
-     * @return array<string, array{kind: string, id: int, title: string, collection?: string, path: string}>
+     * @return array<string, array{kind: string, id: int, title: string, name?: string, collection?: string, path: string}>
      */
     public static function places(Db $db, array $targets): array
     {
@@ -266,8 +268,9 @@ final class Inbox
         }
         $out = [];
         if (isset($ids['enquiry'])) {
-            foreach ($db->all('SELECT idp, formular FROM {poptavky} WHERE idp IN (' . implode(',', array_unique($ids['enquiry'])) . ')') as $r) {
-                $out['enquiry:' . (int) $r['idp']] = ['kind' => 'enquiry', 'id' => (int) $r['idp'], 'title' => (string) $r['formular'],
+            // 3.32: 'name' = who and what (RecordTitle::enquiry) – shown only on screens of people with Enquiries, never e-mailed
+            foreach ($db->all('SELECT idp, formular, tema, zdroj, email, data, anonymizovano FROM {poptavky} WHERE idp IN (' . implode(',', array_unique($ids['enquiry'])) . ')') as $r) {
+                $out['enquiry:' . (int) $r['idp']] = ['kind' => 'enquiry', 'id' => (int) $r['idp'], 'title' => (string) $r['formular'], 'name' => RecordTitle::enquiry($r),
                     'path' => 'admin.php?module=enquiries&action=detail&id=' . (int) $r['idp']];
             }
         }

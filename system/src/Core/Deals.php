@@ -1020,18 +1020,19 @@ final class Deals
 
     /**
      * Labels of deals by target (Core\Inbox::places): 'deal:<id>' => kind, id, title ("#<id>" – a notification and its
-     * e-mail never carry the title, which may name a customer), path. Missing ones are left out.
+     * e-mail never carry the title, which may name a customer), name (3.32: the title, for RecordTitle::place – screens of
+     * people with the Pipeline only), path. Missing ones are left out.
      *
      * @param list<int> $ids
-     * @return array<string, array{kind: string, id: int, title: string, path: string}>
+     * @return array<string, array{kind: string, id: int, title: string, name: string, path: string}>
      */
     public static function places(Db $db, array $ids): array
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0)));
         $out = [];
         try {
-            foreach ($ids === [] ? [] : $db->all('SELECT id FROM {deals} WHERE id IN (' . implode(',', $ids) . ')') as $r) {
-                $out['deal:' . (int) $r['id']] = ['kind' => 'deal', 'id' => (int) $r['id'], 'title' => '#' . (int) $r['id'], 'path' => self::adminPath((int) $r['id'])];
+            foreach ($ids === [] ? [] : $db->all('SELECT id, title FROM {deals} WHERE id IN (' . implode(',', $ids) . ')') as $r) {
+                $out['deal:' . (int) $r['id']] = ['kind' => 'deal', 'id' => (int) $r['id'], 'title' => '#' . (int) $r['id'], 'name' => (string) $r['title'], 'path' => self::adminPath((int) $r['id'])];
             }
         } catch (\PDOException) {
             // before migration 0117

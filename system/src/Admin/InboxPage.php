@@ -65,6 +65,7 @@ final class InboxPage
             'more' => $list['more'],
             'page' => $page,
             'unread' => Inbox::unreadCount($db, $userId),
+            'modules' => $this->kernel->modules(), // 3.32: a record is named (who, what) only for a section the person may open
             'email' => Inbox::emailMode((string) ($app->auth()->user()['notify_email'] ?? '')),
             'csrf' => $app->session->csrfField(),
         ]));

@@ -367,7 +367,7 @@ final class Tasks
      * What a target is: kind, id, title (the form name of an enquiry – never its fields –, the title of a page, the name of
      * an item and its collection) and the admin URL (relative, admin.php?…). Null for none, an unknown or a missing record.
      *
-     * @return array{kind: string, id: int, title: string, collection?: string, url: string}|null
+     * @return array{kind: string, id: int, title: string, name?: string, collection?: string, url: string}|null
      */
     public static function label(Db $db, ?string $target): ?array
     {
@@ -380,13 +380,14 @@ final class Tasks
      * label() of many targets at once (one query per kind – Inbox::places): target => label; missing ones are left out.
      *
      * @param list<?string> $targets
-     * @return array<string, array{kind: string, id: int, title: string, collection?: string, url: string}>
+     * @return array<string, array{kind: string, id: int, title: string, name?: string, collection?: string, url: string}>
      */
     public static function labels(Db $db, array $targets): array
     {
         $out = [];
         foreach (Inbox::places($db, array_values(array_filter(array_map(self::cleanTarget(...), $targets)))) as $target => $place) {
             $out[$target] = ['kind' => $place['kind'], 'id' => $place['id'], 'title' => $place['title']]
+                + (isset($place['name']) ? ['name' => $place['name']] : []) // 3.32: RecordTitle::place on screens only, never in MCP
                 + (isset($place['collection']) ? ['collection' => $place['collection']] : []) + ['url' => $place['path']];
         }
 

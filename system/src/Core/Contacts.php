@@ -1112,7 +1112,7 @@ final class Contacts
      *
      * @param list<int> $contactIds
      * @param list<int> $companyIds
-     * @return array<string, array{kind: string, id: int, title: string, path: string}>
+     * @return array<string, array{kind: string, id: int, title: string, name?: string, path: string}>
      */
     public static function places(Db $db, array $contactIds, array $companyIds): array
     {
@@ -1120,7 +1120,7 @@ final class Contacts
         try {
             if ($contactIds !== []) {
                 foreach ($db->all('SELECT id, name, email FROM {contacts} WHERE id IN (' . implode(',', array_map('intval', array_unique($contactIds))) . ')') as $r) {
-                    $out['contact:' . (int) $r['id']] = ['kind' => 'contact', 'id' => (int) $r['id'], 'title' => self::displayName($r), 'path' => self::adminPath((int) $r['id'])];
+                    $out['contact:' . (int) $r['id']] = ['kind' => 'contact', 'id' => (int) $r['id'], 'title' => self::displayName($r), 'name' => self::displayName($r), 'path' => self::adminPath((int) $r['id'])];
                 }
             }
             if ($companyIds !== []) {
