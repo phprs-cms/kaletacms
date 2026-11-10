@@ -14,7 +14,7 @@ final class Backup
     public const int KEEP = 10;
     /** The name of a backup file (3.28: also an encrypted off-site copy, ….enc). */
     private const string NAME = '/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D';
-    /** A hold (hold(), a restore under way) older than this was left by a request that died – the rotation ignores it. */
+    /** A hold (hold(), a restore under way) older than this was left by a request that died – the rotation ignores and deletes it. */
     private const int HOLD_SECONDS = 3600;
 
     /**
@@ -134,34 +134,51 @@ final class Backup
 
     /**
      * Keeps a backup out of the rotation while a restore from it runs (3.31.1) – also from a backup another request (cron, a
-     * second administrator) makes meanwhile: a marker .hold-<name> next to it, removed by release(); a marker left by a
-     * request that died stops counting after HOLD_SECONDS.
+     * second administrator) makes meanwhile: a marker .hold-<name>.<token> next to it, one per request, so two restores of
+     * the same file each hold it and the first to finish releases only its own. Returns the token for release() ('' when the
+     * backup does not exist). A marker left by a request that died stops counting after HOLD_SECONDS and the rotation deletes it.
      */
-    public static function hold(string $file): void
+    public static function hold(string $file): string
     {
-        if (self::path($file) !== null) {
-            @touch(self::FOLDER . '/.hold-' . $file);
+        if (self::path($file) === null) {
+            return '';
+        }
+        $token = bin2hex(random_bytes(6));
+        @touch(self::FOLDER . '/.hold-' . $file . '.' . $token);
+
+        return $token;
+    }
+
+    /** Ends the hold of hold() – only the marker of this request (also when the backup itself is gone meanwhile). */
+    public static function release(string $file, string $token): void
+    {
+        if (self::heldName('.hold-' . $file . '.' . $token) === $file) {
+            @unlink(self::FOLDER . '/.hold-' . $file . '.' . $token);
         }
     }
 
-    public static function release(string $file): void
+    /**
+     * The backup a hold marker (a file name) keeps, or null when the name is not a marker: .hold-<backup name>.<12 hex>. Pure.
+     */
+    public static function heldName(string $marker): ?string
     {
-        if (preg_match(self::NAME, $file) === 1) { // also when the backup itself is gone meanwhile
-            @unlink(self::FOLDER . '/.hold-' . $file);
-        }
+        return preg_match('/^\.hold-(kaleta-[0-9a-z-]+\.sql(?:\.gz)?(?:\.enc)?)\.[0-9a-f]{12}$/D', $marker, $m) === 1 ? $m[1] : null;
     }
 
-    /** @return list<string> the backups held by a restore under way */
-    private static function held(): array
+    /** @return list<string> the backups held by a restore under way; an expired or malformed marker is deleted */
+    public static function held(): array
     {
         $held = [];
         foreach (glob(self::FOLDER . '/.hold-kaleta-*') ?: [] as $marker) {
-            if ((int) @filemtime($marker) > time() - self::HOLD_SECONDS) {
-                $held[] = substr(basename($marker), strlen('.hold-'));
+            $name = self::heldName(basename($marker));
+            if ($name !== null && (int) @filemtime($marker) > time() - self::HOLD_SECONDS) {
+                $held[$name] = $name;
+            } else {
+                @unlink($marker); // left by a request that died (more than an hour ago), or not a marker of hold()
             }
         }
 
-        return $held;
+        return array_values($held);
     }
 
     /**
@@ -360,7 +377,20 @@ final class Backup
         foreach (glob(self::FOLDER . '/kaleta-*.sql*') ?: [] as $path) {
             $backups[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
         }
-        usort($backups, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+
+        return self::newestFirst($backups);
+    }
+
+    /**
+     * Backups newest first (3.31.1); within one second the later name first – a name carries its time – so the order (and
+     * what the rotation deletes) never depends on the order the folder is listed in. Pure.
+     *
+     * @param list<array{soubor:string, velikost:int, cas:int}> $backups
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
+    public static function newestFirst(array $backups): array
+    {
+        usort($backups, fn (array $a, array $b): int => [$b['cas'], $b['soubor']] <=> [$a['cas'], $a['soubor']]);
 
         return $backups;
     }

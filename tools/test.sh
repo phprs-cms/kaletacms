@@ -2654,7 +2654,11 @@ local_names() { ls "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc
 N3311_SOURCE=$(ls -t "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
 mkdir -p "$WORK/aside3311"; for f in $(local_names); do mv "$WORK/web/storage/zalohy/$f" "$WORK/aside3311/"; done
 for i in 1 2 3 4 5 6 7 8 9 10; do cp "$WORK/aside3311/$N3311_SOURCE" "$WORK/web/storage/zalohy/kaleta-20200101-0000$(printf %02d "$i")-fake3311-$(printf %08d "$i").sql${N3311_SOURCE#*.sql}"; done
-touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*-fake3311-*
+# each stand-in a minute apart (fake3311-1 the oldest): with one shared time, "the oldest" was a tie that ls and PHP broke
+# differently on Linux (GitHub CI), so the hold checks below watched another file than the one the rotation deletes
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  touch -t "$(date -v-2d -v+"${i}"M +%Y%m%d%H%M 2>/dev/null || date -d "-2 days +$i minutes" +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*-fake3311-"$(printf %08d "$i")".sql*
+done
 touch -t "$(date -v-3d +%Y%m%d%H%M 2>/dev/null || date -d '-3 days' +%Y%m%d%H%M)" "$WORK/web/storage/zalohy/$UPLOADED"
 expect "3.31.1: ten local backups and an older uploaded copy before the restore" "$(local_backups)/$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | head -1)" "10/$UPLOADED"
 TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$(echo "$RECOVERY_KEY" | tr 'A-Z-' 'a-z ')"
@@ -2664,10 +2668,21 @@ check "3.28: after the restore the copies go on with the same key" 200 "/admin.p
 check "3.31.1: the Backups tab marks the uploaded copy" 200 "/admin.php?module=settings&tab=backups" "nahraná kopie"
 # a backup held by a restore under way (another request) stays when a new backup rotates; a hold left by a dead request expires
 N3311_OLDEST=$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
-touch "$WORK/web/storage/zalohy/.hold-$N3311_OLDEST"; backup_now
+expect "3.31.1: … the file watched is a stand-in and the one the rotation deletes next (the oldest in PHP's order too)" \
+  "$(echo "$N3311_OLDEST" | grep -c -- '-fake3311-')/$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $l = Kaleta\Core\Backup::listLocal(); echo end($l)["soubor"] ?? "";')" "1/$N3311_OLDEST"
+N3311_HOLD="$WORK/web/storage/zalohy/.hold-$N3311_OLDEST.$(printf '%012x' 3311)" # one marker per request: .hold-<name>.<token>
+touch "$N3311_HOLD"; backup_now
 expect "3.31.1: a held backup is not rotated away (the rotation keeps one more meanwhile)" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept)/$(local_backups)" "kept/11"
-touch -t "$(date -v-2H +%Y%m%d%H%M 2>/dev/null || date -d '-2 hours' +%Y%m%d%H%M)" "$WORK/web/storage/zalohy/.hold-$N3311_OLDEST"; backup_now
-expect "3.31.1: a hold older than an hour no longer protects" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept || echo gone)/$(local_backups)" "gone/10"
+touch -t "$(date -v-2H +%Y%m%d%H%M 2>/dev/null || date -d '-2 hours' +%Y%m%d%H%M)" "$N3311_HOLD"; backup_now
+expect "3.31.1: a hold older than an hour no longer protects, and the rotation deletes the expired marker" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept || echo gone)/$(local_backups)/$([ -f "$N3311_HOLD" ] && echo marker || echo none)" "gone/10/none"
+# review of 3.31.1: two restores of the same file – each holds it with its own marker; the first to finish releases only its own,
+# so the file stays held for the second; a name or token from outside the pattern removes nothing
+N3311_NEXT=$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
+expect "3.31.1 (review): two restores of one file – the first release leaves the second hold, the second release ends it; a foreign name removes nothing" \
+  "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $f = $argv[1]; $a = Kaleta\Core\Backup::hold($f); $b = Kaleta\Core\Backup::hold($f); Kaleta\Core\Backup::release($f, $a);
+    $mid = Kaleta\Core\Backup::held(); Kaleta\Core\Backup::release("../" . $f, $b); Kaleta\Core\Backup::release($f, "../x"); $still = count(glob(Kaleta\Core\Backup::FOLDER . "/.hold-*"));
+    Kaleta\Core\Backup::release($f, $b); echo ($a !== $b ? "two" : "one"), "/", implode(",", $mid) === $f ? "held" : "free", "/", $still, "/", count(Kaleta\Core\Backup::held()), "/", count(glob(Kaleta\Core\Backup::FOLDER . "/.hold-*"));' -- "$N3311_NEXT")" \
+  "two/held/1/0/0"
 rm -f "$WORK"/web/storage/zalohy/.hold-*; for f in $(local_names); do rm -f "$WORK/web/storage/zalohy/$f"; done
 mv "$WORK"/aside3311/* "$WORK/web/storage/zalohy/"; rmdir "$WORK/aside3311"
 rm -f "$WORK/web/storage/zalohy/$UPLOADED" "$WORK/backup-key.saved"

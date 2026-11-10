@@ -9795,9 +9795,27 @@ check('3.31.1: the rotation never deletes the copy being restored – an old upl
     Kaleta\Core\Backup::prunable($b3311Backups(10, 2, 1)), Kaleta\Core\Backup::prunable([]),
     (new ReflectionMethod(Kaleta\Core\Backup::class, 'create'))->getParameters()[2]->getDefaultValue(),
     strpos($b3311Restore, 'Backup::hold($file);') < strpos($b3311Restore, "Backup::create(\$this->db, 'predobnovou', false)"),
-    (bool) preg_match('/\} finally \{\s+Backup::release\(\$file\);\s+Backup::prune\(\[\$file\]\);/', $b3311Restore),
+    (bool) preg_match('/\} finally \{\s+Backup::release\(\$file, \$hold\);\s+Backup::prune\(\[\$file\]\);/', $b3311Restore),
     substr_count($b3311Settings, "Backup::create(\$this->db, 'predobnovou'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php'), "if (\$prune) {\n            self::prune([\$file]);")],
     [10, ['kaleta-20261020-030000-auto-y.sql.gz'], [], ['kaleta-20260920-030000-auto-z.sql.gz.enc'], [], [], true, true, true, 1, true]);
+
+// review of 3.31.1: one hold marker per request (.hold-<name>.<token>) – two restores of one file each hold it and release only
+// their own; a marker name is checked (no other folder, no other file); the order of backups never depends on the folder listing
+$b3311Tok = '0123456789ab';
+$b3311Sorted = array_column(Kaleta\Core\Backup::newestFirst([['soubor' => 'kaleta-20200101-000001-a.sql', 'velikost' => 1, 'cas' => 100],
+    ['soubor' => 'kaleta-20200101-000003-c.sql', 'velikost' => 1, 'cas' => 100], ['soubor' => 'kaleta-20200101-000002-b.sql', 'velikost' => 1, 'cas' => 100],
+    ['soubor' => 'kaleta-20190101-000000-z.sql', 'velikost' => 1, 'cas' => 200]]), 'soubor');
+$b3311BackupSrc = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php');
+check('3.31.1 (review): a hold marker per request – heldName reads .hold-<backup>.<12 hex> only (no old single marker, no path, no other name); held() deletes an expired marker; the restore releases its own token; ties of one second sort by name', [
+    Kaleta\Core\Backup::heldName('.hold-kaleta-20261101-030000-auto-x.sql.gz.' . $b3311Tok), Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.gz.enc.' . $b3311Tok),
+    Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.' . $b3311Tok), Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.gz'),
+    Kaleta\Core\Backup::heldName('.hold-kaleta-a/../b.sql.' . $b3311Tok), Kaleta\Core\Backup::heldName('.hold-../kaleta-b.sql.' . $b3311Tok),
+    Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.' . strtoupper($b3311Tok)), Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.' . $b3311Tok . '0'),
+    Kaleta\Core\Backup::heldName('.hold-kaleta-x.txt.' . $b3311Tok),
+    str_contains($b3311Restore, '$hold = Backup::hold($file);'), (new ReflectionMethod(Kaleta\Core\Backup::class, 'release'))->getNumberOfRequiredParameters(),
+    str_contains($b3311BackupSrc, "@unlink(\$marker); // left by a request that died"), $b3311Sorted],
+    ['kaleta-20261101-030000-auto-x.sql.gz', 'kaleta-x.sql.gz.enc', 'kaleta-x.sql', null, null, null, null, null, null, true, 2, true,
+        ['kaleta-20190101-000000-z.sql', 'kaleta-20200101-000003-c.sql', 'kaleta-20200101-000002-b.sql', 'kaleta-20200101-000001-a.sql']]);
 
 // a failed off-site copy is one backup.failed event with a short system text; a paused copy stays backup.copy_paused
 $b3311S = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();

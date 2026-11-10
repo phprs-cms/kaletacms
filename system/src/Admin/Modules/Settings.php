@@ -957,11 +957,11 @@ class Settings extends Module
         // 3.31.1: the backup being restored is held out of the rotation (also from a backup cron makes meanwhile), the safety
         // backup does not rotate, and the rotation runs only once the restore is over – before, the safety backup could delete
         // the very copy about to be restored (an older uploaded .enc, or the oldest of the ten)
-        Backup::hold($file);
+        $hold = Backup::hold($file);
         try {
             return $this->restoreHeld($file, $entered, $key ?? null);
         } finally {
-            Backup::release($file);
+            Backup::release($file, $hold);
             Backup::prune([$file]);
         }
     }
