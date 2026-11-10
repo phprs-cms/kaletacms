@@ -1,26 +1,44 @@
 <?php
-/** The "Stav systému" (System health) tab. */
+/**
+ * The "Stav systému" (System health) tab. 3.32 (U48): what needs attention first – under the summary the amber and red items
+ * with links to their rows – then the groups: a group with a problem is open, a group that is all green is folded to one
+ * line with its count. Every check is still listed; nothing is left out.
+ */
 $icons = ['ok' => '✓', 'varovani' => '!', 'chyba' => '✕'];
 $summary = Kaleta\Core\Health::summary($checks);
-$group = '';
+$groups = [];
+foreach ($checks as $i => $k) {
+    $groups[$k['skupina']][$i] = $k;
+}
+$problems = array_filter($checks, fn (array $k): bool => $k['stav'] !== 'ok');
+uasort($problems, fn (array $a, array $b): int => ($b['stav'] === 'chyba') <=> ($a['stav'] === 'chyba')); // errors before warnings, else in order
 ?>
 <p class="hlaska hlaska-<?= ['ok' => 'ok', 'varovani' => 'varovani', 'chyba' => 'chyba'][$summary] ?>"><?= e(t(['ok' => 'Everything is fine.', 'varovani' => 'The system is running, but some items deserve attention.', 'chyba' => 'Errors were found that prevent the site from running properly.'][$summary])) ?></p>
+<?php if ($problems !== []): ?>
+<ul class="stav-problemy" data-status-problems>
+<?php foreach ($problems as $i => $k): ?>
+	<li><span class="stitek stitek-<?= $k['stav'] === 'chyba' ? 'chyba' : 'koncept' ?>" aria-hidden="true"><?= $icons[$k['stav']] ?></span> <a href="#stav-<?= (int) $i ?>"><?= e($k['nazev']) ?></a> <span class="smltxt"><?= e($k['skupina']) ?> · <?= e(t($k['stav'] === 'chyba' ? 'error' : 'warning')) ?></span></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
+<?php foreach ($groups as $group => $rows): $bad = count(array_filter($rows, fn (array $k): bool => $k['stav'] !== 'ok')); ?>
+<details class="stav-skupina" data-status-group<?= $bad > 0 ? ' open' : '' ?>>
+	<summary><h2><?= e((string) $group) ?></h2> <span class="stitek stitek-<?= $bad > 0 ? 'koncept' : 'vydano' ?>"><?= e($bad > 0 ? t('%d of %d need attention', $bad, count($rows)) : t('%d checks, all fine', count($rows))) ?></span></summary>
 <div class="tab-obal">
 <table class="vypis vypis-stav">
 <tbody>
-<?php foreach ($checks as $k): ?>
-<?php if ($k['skupina'] !== $group): $group = $k['skupina']; ?>
-<tr><th colspan="3" scope="colgroup"><?= e($group) ?></th></tr>
-<?php endif ?>
-<tr>
+<?php foreach ($rows as $i => $k): ?>
+<tr id="stav-<?= (int) $i ?>"<?= $k['stav'] !== 'ok' ? ' class="stav-' . e($k['stav']) . '"' : '' ?>>
 	<td class="stred"><span class="stitek stitek-<?= ['ok' => 'vydano', 'varovani' => 'koncept', 'chyba' => 'chyba'][$k['stav']] ?>" title="<?= e(t(['ok' => 'v pořádku', 'varovani' => 'varování', 'chyba' => 'chyba'][$k['stav']])) ?>"><?= $icons[$k['stav']] ?></span></td>
 	<td><strong><?= e($k['nazev']) ?></strong></td>
-	<td><?= $module->hint((string) $k['info']) ?><?php if (($k['odkazy'] ?? []) !== []): ?><br><span class="smltxt"><?php foreach ($k['odkazy'] as $i => $link): ?><?= $i > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
+	<td><?= $module->hint((string) $k['info']) ?><?php if (($k['odkazy'] ?? []) !== []): ?><br><span class="smltxt"><?php foreach ($k['odkazy'] as $j => $link): ?><?= $j > 0 ? ', ' : '' ?><a href="<?= e($link['url']) ?>"><?= e($link['text']) ?></a><?php endforeach ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
+</details>
+<?php endforeach ?>
 <?php if (Kaleta\Core\Vault::configWorldReadable() && Kaleta\Core\Vault::canProtectConfig()): // 3.19.1 (N83) ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('config_permissions')) ?>"<?= Kaleta\Core\Vault::configMode() === 0640 ? ' data-potvrdit="' . e(t('PHP does not run as the owner of the site\'s folder here, so config.php gets mode 0640. Your FTP user may then no longer be able to read or download it – keep a copy of config.php first. Continue?')) . '"' : '' ?>><?= e(t('Make config.php readable only by the site')) ?></button></p>
 <?php endif ?>

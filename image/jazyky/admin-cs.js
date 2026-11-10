@@ -2975,5 +2975,6 @@ window.KALETA_PREKLAD = {
 	"Drag, or press Space to move with the arrow keys": "Přetáhněte, nebo stiskněte mezerník a přesuňte šipkami",
 	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "Zvednuto „%s“ ve fázi %s. Šipkami vyberte fázi, mezerník ho položí, Esc ruší.",
 	"Over %s.": "Nad fází %s.",
-	"Cancelled – “%s” stays where it was.": "Zrušeno – „%s“ zůstává, kde byl."
+	"Cancelled – “%s” stays where it was.": "Zrušeno – „%s“ zůstává, kde byl.",
+	"Table": "Tabulka"
 };

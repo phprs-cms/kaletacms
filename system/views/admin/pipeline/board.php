@@ -43,7 +43,7 @@ $sums = fn (array $sums): string => implode(' · ', array_map(fn (string $cur, s
 <p class="hlaska hlaska-info"><?= e(t('The board shows the first %d open deals – %d more are in the list.', Pipeline::BOARD_MAX, $more)) ?> <a href="<?= e($module->url('', ['view' => 'list'] + $query)) ?>"><?= e(t('Open the list')) ?></a></p>
 <?php endif ?>
 <p class="napoveda obchody-navod" id="obchody-navod"><?= e(t('Move a deal with its stage and Move, or drag the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.')) ?></p>
-<div class="obchody-tabule" data-pipeline-board>
+<div class="obchody-tabule" data-pipeline-board data-money="<?= e((string) json_encode(Deals::moneyFormat(), JSON_UNESCAPED_UNICODE)) ?>">
 <?php foreach ($columns as $col): ?>
 	<section class="obchody-sloupec obchody-<?= e($col['kind']) ?>" data-stage="<?= e($col['key']) ?>" data-kind="<?= e($col['kind']) ?>" aria-labelledby="etapa-<?= e($col['key']) ?>">
 		<header class="obchody-hlava">

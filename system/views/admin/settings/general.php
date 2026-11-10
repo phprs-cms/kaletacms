@@ -35,6 +35,17 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <?php endif ?>
 	</div>
 </div>
+<?php // 3.32 (U29): the currency a new deal value takes; automatic = from the company country, the time zone or the site language ?>
+<div class="radek">
+	<label for="default_currency"><?= e(t('Currency')) ?></label>
+	<div><select id="default_currency" name="default_currency">
+		<option value=""><?= e(t('Automatic (%s)', Kaleta\Core\Deals::derivedCurrency($app->settings()))) ?></option>
+<?php foreach (Kaleta\Core\Deals::CURRENCIES as $currencyCode): ?>
+		<option value="<?= e($currencyCode) ?>"<?= ($values['default_currency'] ?? '') === $currencyCode ? ' selected' : '' ?>><?= e($currencyCode) ?></option>
+<?php endforeach ?>
+	</select>
+	<span class="napoveda"><?= e(t('The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.')) ?></span></div>
+</div>
 </fieldset>
 <fieldset>
 <legend><?= e(t('Home page and news')) ?></legend>

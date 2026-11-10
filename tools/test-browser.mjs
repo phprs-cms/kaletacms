@@ -1056,7 +1056,7 @@ await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" 
   if (!/colours/.test(areas) || /menu/.test(areas)) { throw new Error(`the bar should list only the colours after publishing the menu, it says "${areas.trim()}"`); }
   const tall = (await bar.boundingBox()).height;
   await page.setViewportSize({ width: 390, height: 844 });
-  await visit('/admin.php?module=pages');
+  await visit('/admin.php?module=menu'); // 3.32 (A2): the bar is on the Appearance screens and the dashboard only
   const phone = (await page.locator('#vzhled-koncept').boundingBox()).height;
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/look-bar-phone.png` }); }
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -3715,7 +3715,7 @@ await step('3.27 My work: the tasks first by group, Done and snooze, the Team ta
     if (groups.join(',') !== 'overdue,today,upcoming,later') { throw new Error(`the groups are ${groups.join(',')}`); }
     const today = page.locator('[data-list="tasks"] tr[data-task]', { hasText: 'Review the price list' });
     if (!(await today.locator('a', { hasText: 'Page “Price list 327”' }).isVisible())) { throw new Error('the task does not link to its page'); }
-    if (await page.locator('[data-list="tasks"] tr[data-task] button').count() !== 12) { throw new Error('not every task has Done, Tomorrow and In 3 days'); }
+    if (await page.locator('[data-list="tasks"] tr[data-task] td.akce > button').count() !== 12) { throw new Error('not every task has Done, Tomorrow and In 3 days'); }
     if (await page.locator('.zalozky a', { hasText: 'Team' }).count() !== 1) { throw new Error('no Team tab for the administrator'); }
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/my-work-tasks-desktop.png`, fullPage: true }); }
     const state = await context.storageState();
@@ -4129,7 +4129,7 @@ await step('3.31 pipeline: the board – keyboard move with an announcement, dra
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit('/admin.php?module=pipeline');
     if ((await page.locator('[data-pipeline-board] section[data-stage]').count()) !== 5) { throw new Error('the board does not have the five default stages'); }
-    if (!(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('12980.50 EUR')) { throw new Error('the sum of New in EUR is not 12980.50'); }
+    if (!(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('€12,980.50')) { throw new Error('the sum of New in EUR is not €12,980.50'); } // 3.32 (U29): money format
     // the keyboard: the handle, Space, ArrowRight, Space – posted as JSON, the card moves, the counts and sums follow, announced
     const before = (await page.locator('[data-stage-count]').allInnerTexts()).map(Number);
     await page.locator(`#deal-${a} .obchod-uchyt`).focus();
@@ -4141,7 +4141,8 @@ await step('3.31 pipeline: the board – keyboard move with an announcement, dra
     await page.waitForFunction(() => /Qualified/.test(document.querySelector('[data-pipeline-announce]').textContent));
     if (sql(`SELECT stage FROM ka_deals WHERE id = ${a}`).trim() !== 'qualified') { throw new Error('the keyboard move was not saved'); }
     const counts = (await page.locator('[data-stage-count]').allInnerTexts()).map(Number);
-    if (counts[0] !== before[0] - 1 || counts[1] !== before[1] + 1 || !(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('480.00 EUR')) { throw new Error(`the counts and sums did not follow: ${before} → ${counts}`); }
+    if (counts[0] !== before[0] - 1 || counts[1] !== before[1] + 1 || !(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('€480')) { // 3.32 (U29): the live total reads like the server's (no .00)
+      throw new Error(`the counts and sums did not follow: ${before} → ${counts}`); }
     if (await page.evaluate(() => !document.activeElement.classList.contains('obchod-uchyt'))) { throw new Error('the focus did not stay on the moved card'); }
     // dragging to Lost: the card's form shows the reason, focused; nothing is saved yet
     await page.locator(`#deal-${b}`).dragTo(page.locator('section[data-stage="lost"]'));
@@ -4413,6 +4414,89 @@ await step('3.32 names: Who in the enquiry list, Create deal prefilled, the foll
       const [key, ...value] = line.split('=');
       sql(`INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('${key}', '${value.join('=').replace(/'/g, "''")}')`);
     }
+  }
+});
+
+// 3.32 part B: row buttons 32/40 px and axe target size on My work at 390 px, a task edited in its row, Take it; the dashboard
+// leads with its numbers; Privacy and cookies fits a phone; scrolling table wrappers are focusable; the Statistics chart, the
+// Backups boxes and System status pass axe; System status lists its problems first and folds the green groups
+await step('3.32 (U35–U50): row buttons, My work edit and Take it, dashboard order, phone fit, focusable scrollers, axe', async () => {
+  const admin = sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim();
+  sql(`INSERT INTO ka_tasks (title, assignee_id, created_by, due_at, created_at, updated_at) VALUES ('B332 call back', ${admin}, ${admin}, NOW() - INTERVAL 1 DAY, NOW(), NOW()), ('B332 send the offer', ${admin}, ${admin}, NULL, NOW(), NOW());
+    INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES (NOW(), 'B332 form', 'b332@visitor.example', '[]', 0)`);
+  const state = await context.storageState();
+  try {
+    // desktop: 32 px, the task edited in its row
+    await visit('/admin.php?module=my_work');
+    const row = page.locator('[data-list="tasks"] tr[data-task]', { hasText: 'B332 send the offer' });
+    const desk = await row.locator('td.akce button.navigace').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().height));
+    if (!desk.length || desk.some((h) => h < 32)) { throw new Error(`row buttons on a desktop: ${desk}`); }
+    await row.locator('details.moje-ukol-upravit > summary').click();
+    await row.locator('input[name="title"]').fill('B332 send the new offer');
+    await Promise.all([page.waitForNavigation(), row.locator('button', { hasText: 'Save the task' }).click()]);
+    if (!(await page.locator('[data-list="tasks"] .moje-ukol-nazev', { hasText: 'B332 send the new offer' }).count())) { throw new Error('the task was not saved from its row'); }
+    const take = page.locator('[data-list="unassigned"] tr', { hasText: 'B332 form' }).locator('button', { hasText: 'Take it' });
+    await Promise.all([page.waitForNavigation(), take.click()]);
+    if (sql("SELECT prirazeno FROM ka_poptavky WHERE formular = 'B332 form'").trim() !== admin) { throw new Error('Take it did not assign the enquiry'); }
+    sql("UPDATE ka_poptavky SET prirazeno = NULL WHERE formular = 'B332 form'");
+    // a phone with touch: 40 px, no sideways scroll, axe (with target size) clean in the lists of My work
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', storageState: state, isMobile: true, hasTouch: true, bypassCSP: true });
+    try {
+      const p2 = await phone.newPage(); watch(p2);
+      await p2.goto(BASE + '/admin.php?module=my_work', { waitUntil: 'networkidle' });
+      const touch = await p2.locator('[data-list="tasks"] td.akce button.navigace, [data-list="unassigned"] td.akce button.navigace').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect().height));
+      if (!touch.length || touch.some((h) => h < 40)) { throw new Error(`row buttons on a phone: ${touch}`); }
+      if (await p2.evaluate(() => document.documentElement.scrollWidth > innerWidth)) { throw new Error('My work scrolls sideways on a phone'); }
+      await p2.addScriptTag({ path: AXE });
+      const found = await p2.evaluate((tags) => window.axe.run({ include: [['[data-list="tasks"]'], ['[data-list="unassigned"]']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+      if (found.violations.length) { throw new Error('axe My work (390 px): ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/my-work-332-phone.png`, fullPage: true }); }
+      // U47: Privacy and cookies fits a phone
+      await p2.goto(BASE + '/admin.php?module=settings&tab=cookies', { waitUntil: 'networkidle' });
+      const wide = await p2.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      if (wide > 0) { throw new Error(`Privacy and cookies scrolls ${wide} px sideways at 390 px`); }
+    } finally {
+      await phone.close();
+    }
+    // U37: the dashboard leads with the numbers
+    await visit('/admin.php');
+    const order = await page.evaluate(() => { const t = document.querySelector('.dlazdice'), o = document.querySelector('#pripojit-claude, .ask-claude, .pruvodce'); return Boolean(t && (!o || t.compareDocumentPosition(o) & Node.DOCUMENT_POSITION_FOLLOWING)); });
+    if (!order) { throw new Error('the dashboard tiles do not come before the onboarding blocks'); }
+    // U46: at 1024 px a table wrapper that scrolls sideways is a named, focusable region
+    await page.setViewportSize({ width: 1024, height: 800 });
+    for (const url of ['/admin.php?module=fleet&action=rollout', '/admin.php?module=fleet&action=inventory', '/admin.php?module=fleet&action=sites&show=all', '/admin.php?module=pages', '/admin.php?module=status']) {
+      await visit(url);
+      const bad = await page.evaluate(() => [...document.querySelectorAll('.tab-obal')].filter((b) => b.scrollWidth > b.clientWidth + 1 && (b.tabIndex !== 0 || !b.getAttribute('aria-label'))).length);
+      if (bad) { throw new Error(`${url}: ${bad} scrolling table wrapper(s) cannot be reached with the keyboard`); }
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // U48: problems first, every problem links to its row; all-green groups folded
+    await visit('/admin.php?module=status');
+    const status = await page.evaluate(() => {
+      const links = [...document.querySelectorAll('[data-status-problems] a')];
+      const groups = [...document.querySelectorAll('details[data-status-group]')];
+      return { linked: links.every((a) => document.querySelector(a.getAttribute('href'))), folded: groups.every((g) => g.open === Boolean(g.querySelector('tr.stav-varovani, tr.stav-chyba'))), groups: groups.length,
+        first: !links.length || (document.querySelector('[data-status-problems]').compareDocumentPosition(groups[0]) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 };
+    });
+    if (!status.linked || !status.folded || status.groups < 3 || !status.first) { throw new Error(`System status: ${JSON.stringify(status)}`); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/status-332.png`, fullPage: true }); }
+    // axe: the Statistics chart (U50), the Backups boxes (U49), System status and Privacy and cookies
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [['/admin.php?module=stats', ['.graf']], ['/admin.php?module=settings&tab=backups', ['form.formular']], ['/admin.php?module=status', ['main']], ['/admin.php?module=settings&tab=cookies', ['.cookies-tabulka']]]) {
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        if (!(await axePage.locator(include[0]).count())) { continue; } // e.g. Statistics switched off on this site
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+        if (found.violations.length) { throw new Error(`axe ${url}: ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql("DELETE FROM ka_tasks WHERE title LIKE 'B332 %'; DELETE FROM ka_poptavky WHERE formular = 'B332 form'");
   }
 });
 

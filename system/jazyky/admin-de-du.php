@@ -1252,4 +1252,5 @@ return [
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the responsible person come along.' => 'Mach aus der Anfrage einen Deal und verfolge ihn bis Gewonnen oder Verloren – Kunde und verantwortliche Person werden übernommen.',
     '%s made you responsible' => '%s hat dich als verantwortliche Person eingetragen',
     '%s made you responsible for %s' => '%s hat dich als verantwortliche Person eingetragen: %s',
+    'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei dir.',
 ];

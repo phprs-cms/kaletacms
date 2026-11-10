@@ -44,9 +44,9 @@ use Kaleta\Fleet\AlertRules;
 </fieldset>
 <fieldset>
 <legend><?= e(t('Weekly digest')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('Send the weekly digest')) ?></span><div class="volby"><label><input type="checkbox" name="fleet_digest" value="1"<?= $digest ? ' checked' : '' ?>> <?= e(t('Yes')) ?></label>
+<div class="radek"><span class="popisek" id="fleet_digest-popisek"><?= e(t('Send the weekly digest')) ?></span><div class="volby"><label><input type="checkbox" aria-labelledby="fleet_digest-popisek" name="fleet_digest" value="1"<?= $digest ? ' checked' : '' ?>> <?= e(t('Yes')) ?></label>
 <span class="napoveda"><?= e(t('Every Monday morning one e-mail about the week before, by customer: the sites that need attention, what waits, outages and uptime, the updates installed. To the same recipients as the alerts.')) ?></span></div></div>
-<div class="radek"><span class="popisek"><?= e(t('Request titles in the digest')) ?></span><div class="volby"><label><input type="checkbox" name="fleet_digest_titles" value="1"<?= $digestTitles ? ' checked' : '' ?>> <?= e(t('Yes')) ?></label>
+<div class="radek"><span class="popisek" id="fleet_digest_titles-popisek"><?= e(t('Request titles in the digest')) ?></span><div class="volby"><label><input type="checkbox" aria-labelledby="fleet_digest_titles-popisek" name="fleet_digest_titles" value="1"<?= $digestTitles ? ' checked' : '' ?>> <?= e(t('Yes')) ?></label>
 <span class="napoveda"><?= e(t('Off: the digest only counts the requests. The e-mail leaves the console – turn the titles on only when the recipients may read them.')) ?></span></div></div>
 <p><a class="navigace" href="<?= e($module->url('digest_preview')) ?>"><?= e(t('Preview the digest')) ?></a></p>
 </fieldset>

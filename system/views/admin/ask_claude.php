@@ -33,12 +33,14 @@ $requestsUrl = fn (string $action = '', array $params = []): string => $app->url
 		</div>
 	</form>
 <?php if ($ask['examples'] !== []): ?>
+	<details class="ask-claude-priklady-obal"><summary><?= e(t('Examples')) ?></summary><?php /* 3.32 (U37): the example chips behind one line */ ?>
 	<p class="smltxt ask-claude-zkuste"><?= e($ask['connected'] ? t('For example – click one, change it and send:') : t('For example – click one, change it and save:')) ?></p>
 	<ul class="ask-claude-priklady">
 <?php foreach ($ask['examples'] as $key => $text): ?>
 		<li><button type="button" class="ask-claude-priklad" data-ask-claude-example="<?= e($key) ?>"><?= e(t($text)) ?></button></li>
 <?php endforeach ?>
 	</ul>
+	</details>
 <?php endif ?>
 <?php if ($ask['recent'] !== []): ?>
 	<h3><?= e(t('Your requests')) ?></h3>

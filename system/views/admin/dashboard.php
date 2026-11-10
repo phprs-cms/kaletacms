@@ -34,27 +34,7 @@
 		<form class="vradku" method="post" action="<?= e($w[3]) ?>"><?= $app->session->csrfField() ?><input type="hidden" name="zpet" value="prehled"><button class="navigace" type="submit"><?= e($w[4] ?? t('Ignore all')) ?></button></form><?php endif ?></p>
 </div>
 <?php endforeach ?>
-<?php if ($connect !== null): // until Claude is connected: Connect Claude, then First steps, Ask Claude below (3.5) ?>
-<?= $app->view->render('admin/claude_connect', ['app' => $app, 'connect' => $connect]) ?>
-<?php elseif ($ask !== null): ?>
-<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
-<?php endif ?>
-<?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['hotovo'])); ?>
-<section class="pruvodce" aria-label="<?= e(t('First steps')) ?>">
-	<div class="pruvodce-hlava">
-		<h2><?= e(t('First steps')) ?> <small><?= $finished ?> / <?= count($firstSteps) ?></small></h2>
-		<form method="post" action="<?= e($app->url('admin.php?action=hide_first_steps')) ?>"><?= $app->session->csrfField() ?><button class="navigace" type="submit"><?= e(t('Hide')) ?></button></form>
-	</div>
-	<ol class="pruvodce-kroky">
-<?php foreach ($firstSteps as $k): ?>
-		<li class="<?= $k['hotovo'] ? 'hotovo' : '' ?>"><a href="<?= e($k['url']) ?>"><strong><?= e(t($k['nazev'])) ?></strong><span><?= e(t($k['popis'])) ?></span></a></li>
-<?php endforeach ?>
-	</ol>
-</section>
-<?php endif ?>
-<?php if ($connect !== null && $ask !== null): ?>
-<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
-<?php endif ?>
+<?php // 3.32 (U37): the site's numbers first – Waiting for you and the tiles – then the onboarding blocks, which fold away once done ?>
 <?php if ($pending !== []): ?>
 <?= $app->view->render('admin/pending_review', ['app' => $app, 'pending' => $pending]) ?>
 <?php endif ?>
@@ -63,6 +43,27 @@
 	<a class="dlazdice-polozka" href="<?= e($app->url($url)) ?>"><strong><?= format_count($count) ?></strong><span><?= e(t($description)) ?></span></a>
 <?php endforeach ?>
 </div>
+<?php if ($connect !== null): // until Claude is connected: Connect Claude, then First steps, Ask Claude below (3.5) ?>
+<?= $app->view->render('admin/claude_connect', ['app' => $app, 'connect' => $connect]) ?>
+<?php elseif ($ask !== null): ?>
+<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
+<?php endif ?>
+<?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['hotovo'])); ?>
+<details class="pruvodce" aria-label="<?= e(t('First steps')) ?>"<?= $finished < count($firstSteps) ? ' open' : '' ?>><?php /* 3.32 (U37): folded to one line once every step is done */ ?>
+	<summary class="pruvodce-hlava">
+		<h2><?= e(t('First steps')) ?> <small><?= $finished ?> / <?= count($firstSteps) ?></small></h2>
+	</summary>
+	<form class="pruvodce-skryt" method="post" action="<?= e($app->url('admin.php?action=hide_first_steps')) ?>"><?= $app->session->csrfField() ?><button class="navigace" type="submit"><?= e(t('Hide')) ?></button></form>
+	<ol class="pruvodce-kroky">
+<?php foreach ($firstSteps as $k): ?>
+		<li class="<?= $k['hotovo'] ? 'hotovo' : '' ?>"><a href="<?= e($k['url']) ?>"><strong><?= e(t($k['nazev'])) ?></strong><span><?= e(t($k['popis'])) ?></span></a></li>
+<?php endforeach ?>
+	</ol>
+</details>
+<?php endif ?>
+<?php if ($connect !== null && $ask !== null): ?>
+<?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
+<?php endif ?>
 <?php if (count($traffic) >= 2):
     // bar chart in plain SVG: one bar per day, height by visits
     $days = [];
@@ -75,13 +76,13 @@
 ?>
 <section class="prehled-graf" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
 	<h2><?= e(t('Visits in the last 14 days')) ?> <small><?= e(t('%s visits', format_count(array_sum($days)))) ?></small></h2>
-	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="img" aria-label="<?= e(t('Visits in the last 14 days')) ?>">
+	<svg viewBox="0 0 280 70" preserveAspectRatio="none" role="group" aria-label="<?= e(t('Visits in the last 14 days')) ?>"><?php /* 3.32 (U50): each bar an image with its text */ ?>
 <?php $x = 0; foreach ($days as $day => $count): $v = max(1, (int) round($count / $max * 62));
     $dayLabel = t('%s: %s visits', format_date($day), $count) . ($day === $confirmedSince ? ' – ' . t('only visits confirmed by a browser count from this day') : ''); ?>
 <?php if ($day === $confirmedSince): ?>
 		<line class="prehled-zacatek" x1="<?= $x * 20 + 1 ?>" y1="0" x2="<?= $x * 20 + 1 ?>" y2="70" vector-effect="non-scaling-stroke" data-stats-confirmed-day="<?= e($day) ?>"></line>
 <?php endif ?>
-		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e($dayLabel) ?>" aria-label="<?= e($dayLabel) ?>" tabindex="0"></rect>
+		<rect x="<?= $x * 20 + 2 ?>" y="<?= 66 - $v ?>" width="16" height="<?= $v ?>" rx="2" data-tip="<?= e($dayLabel) ?>" role="img" aria-label="<?= e($dayLabel) ?>" tabindex="0"></rect>
 <?php $x++; endforeach ?>
 	</svg>
 <?php if ($confirmedSince !== null): ?>

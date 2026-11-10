@@ -319,6 +319,35 @@
 		});
 	});
 
+	// 3.32 (U46): a table wrapper that scrolls sideways (a wide table at 1024 px) can be reached and scrolled with the keyboard –
+	// it becomes a focusable region named after its heading; one that fits is left alone (no extra stop for the Tab key)
+	var scrollers = document.querySelectorAll('.tab-obal');
+	var markScrollers = function () {
+		Array.prototype.forEach.call(scrollers, function (box) {
+			if (box.scrollWidth > box.clientWidth + 1) {
+				if (!box.hasAttribute('tabindex')) { // a wrapper with its own tabindex keeps it
+					var heading = null, el = box;
+					while (el && !heading) {
+						var prev = el.previousElementSibling;
+						while (prev && !/^H[2-4]$/.test(prev.tagName)) { prev = prev.previousElementSibling; }
+						heading = prev;
+						el = el.parentElement;
+						if (el && el.tagName === 'MAIN') { break; }
+					}
+					box.setAttribute('tabindex', '0');
+					box.setAttribute('role', 'region');
+					box.setAttribute('aria-label', heading ? heading.textContent.trim() : T('Table'));
+				}
+			} else if (box.getAttribute('tabindex') === '0' && box.getAttribute('role') === 'region') {
+				box.removeAttribute('tabindex'); box.removeAttribute('role'); box.removeAttribute('aria-label');
+			}
+		});
+	};
+	if (scrollers.length) {
+		markScrollers();
+		window.addEventListener('resize', function () { clearTimeout(markScrollers.t); markScrollers.t = setTimeout(markScrollers, 150); });
+	}
+
 	// Warning before leaving a form with unsaved changes
 	document.querySelectorAll('form.formular').forEach(function (form) {
 		var changed = false;
@@ -759,8 +788,15 @@
 		var boardColumns = function () { return Array.prototype.slice.call(board.querySelectorAll('section[data-stage]')); };
 		var stageName = function (col) { var l = col.querySelector('[data-stage-label]'); return l ? l.textContent : col.getAttribute('data-stage'); };
 		var cardTitle = function (card) { var h = card.querySelector('h3'); return h ? h.textContent.trim() : ''; };
-		var decimalComma = !/^(en|ar|he)\b/.test(document.documentElement.lang || 'en');
-		var money = function (cents, currency) { var text = (cents / 100).toFixed(2); return (decimalComma ? text.replace('.', ',') : text) + ' ' + currency; };
+		// 3.32 (U29): the totals read as the server writes them – Core\Deals::moneyFormat() in data-money (separators, sign before/after)
+		var moneyFormat = {};
+		try { moneyFormat = JSON.parse(board.getAttribute('data-money') || '{}'); } catch (e) { moneyFormat = {}; }
+		var money = function (cents, currency) {
+			var whole = Math.floor(cents / 100), rest = cents % 100;
+			var text = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, moneyFormat.thousands || ' ') + (rest ? (moneyFormat.decimal || ',') + String(100 + rest).slice(1) : '');
+			var affix = (moneyFormat.affixes && moneyFormat.affixes[currency]) || ['', '\u00a0' + currency];
+			return affix[0] + text + affix[1];
+		};
 		var recount = function () {
 			boardColumns().forEach(function (col) {
 				var cards = col.querySelectorAll('[data-deal]');

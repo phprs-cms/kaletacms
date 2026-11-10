@@ -77,14 +77,17 @@ $field('cookies_log_months', 'Keep consent records (months)', 'cislo', 'Older re
 <fieldset>
 <legend><?= e(t('Cookies and storage this site uses')) ?></legend>
 <p class="napoveda"><?= e(t('What Kaleta itself sets, what the known embeds and tags found in your pages and settings set (YouTube, Google Maps, Analytics, Tag Manager, Matomo, Meta Pixel, CAPTCHA) and what the server answers with. Put {{cookie_table}} into your cookie policy page – the table appears there in the site language.')) ?></p>
-<table class="tabulka cookies-tabulka">
-<thead><tr><th><?= e(t('Name')) ?></th><th><?= e(t('Provider')) ?></th><th><?= e(t('Purpose')) ?></th><th><?= e(t('Duration')) ?></th><th><?= e(t('Category')) ?></th></tr></thead>
+<?php // 3.32 (U47): a listing like the others – cards on a phone (admin.js), no sideways scroll of the page ?>
+<div class="tab-obal">
+<table class="vypis cookies-tabulka">
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Provider')) ?></th><th scope="col"><?= e(t('Purpose')) ?></th><th scope="col"><?= e(t('Duration')) ?></th><th scope="col"><?= e(t('Category')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($cookieTable as $r): ?>
 	<tr><td><code><?= e($r['name']) ?></code></td><td><?= e($r['provider']) ?></td><td><?= e($r['purpose']) ?></td><td><?= e($r['duration']) ?></td><td><?= e(t(Kaleta\Core\Privacy::CATEGORIES[$r['category']] ?? $r['category'])) ?></td></tr>
 <?php endforeach ?>
 </tbody>
 </table>
+</div>
 <p class="napoveda"><?= isset($cookieScan['time']) ? e(t('Last scan of the site’s own pages: %s, %d pages, %d cookies set by the server.', format_date(date('Y-m-d H:i:s', (int) $cookieScan['time']), true), (int) ($cookieScan['pages'] ?? 0), count($cookieScan['cookies'] ?? [])))
     . (($cookieScan['error'] ?? '') !== '' ? ' ' . e(t('The server could not reach the site: %s.', (string) $cookieScan['error'])) : '') : e(t('The site’s own pages have not been scanned yet – the background tasks do it daily.')) ?></p>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('cookie_scan')) ?>"><?= e(t('Scan the site now')) ?></button></p>

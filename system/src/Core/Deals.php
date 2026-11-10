@@ -285,20 +285,103 @@ final class Deals
 
     /* ---------- money ---------- */
 
-    /** The currency a new deal takes when none is given: CZK on a Czech site, otherwise EUR. */
+    /**
+     * 3.32 (U29): the currency of a country (ISO 3166 alpha-2 => a code of CURRENCIES) – for the automatic default currency.
+     * Bulgaria pays in euro since 2026.
+     */
+    public const array COUNTRY_CURRENCIES = ['AT' => 'EUR', 'BE' => 'EUR', 'BG' => 'EUR', 'HR' => 'EUR', 'CY' => 'EUR', 'EE' => 'EUR', 'FI' => 'EUR', 'FR' => 'EUR',
+        'DE' => 'EUR', 'GR' => 'EUR', 'IE' => 'EUR', 'IT' => 'EUR', 'LV' => 'EUR', 'LT' => 'EUR', 'LU' => 'EUR', 'MT' => 'EUR', 'NL' => 'EUR', 'PT' => 'EUR',
+        'SK' => 'EUR', 'SI' => 'EUR', 'ES' => 'EUR', 'AD' => 'EUR', 'MC' => 'EUR', 'SM' => 'EUR', 'VA' => 'EUR', 'ME' => 'EUR', 'XK' => 'EUR',
+        'CZ' => 'CZK', 'PL' => 'PLN', 'HU' => 'HUF', 'RO' => 'RON', 'SE' => 'SEK', 'DK' => 'DKK', 'NO' => 'NOK', 'IS' => 'ISK', 'CH' => 'CHF', 'LI' => 'CHF',
+        'GB' => 'GBP', 'UA' => 'UAH', 'RS' => 'RSD', 'TR' => 'TRY', 'US' => 'USD', 'CA' => 'CAD', 'AU' => 'AUD', 'NZ' => 'NZD', 'JP' => 'JPY', 'CN' => 'CNY',
+        'IN' => 'INR', 'SG' => 'SGD', 'HK' => 'HKD', 'KR' => 'KRW', 'BR' => 'BRL', 'MX' => 'MXN', 'ZA' => 'ZAR', 'IL' => 'ILS', 'AE' => 'AED', 'SA' => 'SAR'];
+
+    /** 3.32 (U29): currencies shown by their sign in every admin language; other currencies by their code (CZK as "Kč" in Czech). */
+    public const array CURRENCY_SIGNS = ['EUR' => '€', 'GBP' => '£', 'USD' => '$', 'JPY' => '¥', 'INR' => '₹'];
+
+    /**
+     * The currency a new deal takes when none is given (3.32, U29): the setting default_currency when it names one of
+     * CURRENCIES; otherwise ('' = automatic) derived – the currency of the company's country (company_country), else of the
+     * country of the site's time zone, else CZK on a Czech site and EUR on any other.
+     */
     public static function defaultCurrency(Settings $s): string
     {
+        $chosen = $s->get('default_currency');
+        if (in_array($chosen, self::CURRENCIES, true)) {
+            return $chosen;
+        }
+
+        return self::derivedCurrency($s);
+    }
+
+    /** The automatic default currency (default_currency = ''): company country → time zone country → site language. */
+    public static function derivedCurrency(Settings $s): string
+    {
+        $country = strtoupper(trim($s->get('company_country')));
+        if (isset(self::COUNTRY_CURRENCIES[$country])) {
+            return self::COUNTRY_CURRENCIES[$country];
+        }
+        try {
+            $zone = $s->get('time_zone');
+            $location = $zone !== '' ? (new \DateTimeZone($zone))->getLocation() : false;
+            $country = is_array($location) ? strtoupper((string) ($location['country_code'] ?? '')) : '';
+        } catch (\Exception) {
+            $country = '';
+        }
+        if (isset(self::COUNTRY_CURRENCIES[$country])) {
+            return self::COUNTRY_CURRENCIES[$country];
+        }
+
         return Language::defaults($s) === 'cs' ? 'CZK' : 'EUR';
     }
 
-    /** "12 500,00 CZK" – a value with its currency, in the current language's number format. Pure apart from the dictionaries. */
+    /**
+     * How money reads in the current (admin) language (3.32, U29) – the one rule of formatValue() and of the board's totals
+     * in image/admin.js (data-money): the decimal and thousands separators and, per currency, the text before and after
+     * the number. English puts a sign or the code first ("£18,000", "CZK 18,000"); the other languages put it after the
+     * number with a non-breaking space ("18 000 Kč", "18.000 €").
+     *
+     * @return array{decimal: string, thousands: string, affixes: array<string, array{0: string, 1: string}>}
+     */
+    public static function moneyFormat(): array
+    {
+        $language = Language::base(Language::code());
+        [$decimal, $thousands] = match ($language) {
+            'en', 'ar', 'he', 'ja', 'zh', 'ko' => ['.', ','],
+            'de', 'es', 'it', 'nl', 'pt', 'da', 'id', 'tr', 'ro', 'hr', 'sl', 'el' => [',', '.'],
+            default => [',', "\u{00A0}"],
+        };
+        $affixes = [];
+        foreach (self::CURRENCIES as $code) {
+            $sign = self::CURRENCY_SIGNS[$code] ?? ($code === 'CZK' && $language === 'cs' ? 'Kč' : $code);
+            $affixes[$code] = $language === 'en'
+                ? [isset(self::CURRENCY_SIGNS[$code]) ? $sign : $sign . "\u{00A0}", '']
+                : ['', "\u{00A0}" . $sign];
+        }
+
+        return ['decimal' => $decimal, 'thousands' => $thousands, 'affixes' => $affixes];
+    }
+
+    /**
+     * "18 000 Kč", "£18,000", "€1,250.50" – a value with its currency in the current language (3.32, U29): thousands
+     * separated, ".00" left out, the sign or code placed as moneyFormat() says. MCP never uses it (values stay raw numbers).
+     */
     public static function formatValue(float|string|null $value, ?string $currency): string
     {
         if ($value === null || $value === '') {
             return '';
         }
+        $number = (float) $value;
+        $format = self::moneyFormat();
+        $whole = abs($number - round($number)) < 0.005;
+        $text = number_format($number, $whole ? 0 : 2, $format['decimal'], $format['thousands']);
+        $currency = (string) $currency;
+        if ($currency === '') {
+            return $text;
+        }
+        [$before, $after] = $format['affixes'][$currency] ?? ['', "\u{00A0}" . $currency];
 
-        return trim(format_number((float) $value, 2) . ' ' . (string) $currency);
+        return $before . $text . $after;
     }
 
     /* ---------- deals ---------- */

@@ -3090,5 +3090,6 @@ window.KALETA_PREKLAD = {
 	"Drag, or press Space to move with the arrow keys": "Ziehen Sie, oder drücken Sie die Leertaste und verschieben Sie mit den Pfeiltasten",
 	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "„%s“ in %s aufgenommen. Wählen Sie die Phase mit den Pfeiltasten; die Leertaste legt ihn ab, Esc bricht ab.",
 	"Over %s.": "Über %s.",
-	"Cancelled – “%s” stays where it was.": "Abgebrochen – „%s“ bleibt, wo er war."
+	"Cancelled – “%s” stays where it was.": "Abgebrochen – „%s“ bleibt, wo er war.",
+	"Table": "Tabelle"
 };

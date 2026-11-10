@@ -215,6 +215,10 @@ grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<h2 id="predani-na
 dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.5: not connected – Connect Claude, First steps, then Ask Claude" "$(dash_order 'id="pripojit-claude"' 'class="pruvodce"' 'id="ask-claude-nadpis"')" "ok"
+# 3.32 (U37): the site's numbers first (Waiting for you and the tiles), then Connect Claude – open for the administrator –
+# First steps (open while a step is left) and Ask Claude with its examples folded
+expect "3.32 (U37): the tiles come before Connect Claude; the card and First steps are open for the administrator; the examples are folded" \
+  "$(dash_order 'class="dlazdice"' 'id="pripojit-claude"' 'class="pruvodce"')|$(grep -c 'id="pripojit-claude" aria-labelledby="pripojit-claude-nadpis" open>' "$WORK/response")|$(grep -c '<details class="pruvodce" aria-label="[^"]*" open>' "$WORK/response")|$(grep -c '<details class="ask-claude-priklady-obal"><summary>' "$WORK/response")" "ok|1|1|1"
 expect "3.12 (UX310-26): with the Connect Claude card, First steps do not repeat it" "$(grep -c 'admin.php#pripojit-claude' "$WORK/response" || true)" "0"
 grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<code id=\"mcp-adresa-prehled\">$B/mcp</code>" "$WORK/response" && grep -q 'Web neběží na HTTPS' "$WORK/response" \
   && echo "  ok     3.5: the card has the MCP address with Copy and warns that the site is not on HTTPS" || { echo "  CHYBA  3.5: connect card"; ERRORS=$((ERRORS+1)); }
@@ -256,7 +260,7 @@ check "3.5: a token nobody used keeps the Connect Claude card" 200 /admin.php 'i
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_api_tokeny SET pouzit = NOW() WHERE nazev = 'unused 3.5'"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE nazev = 'unused 3.5'"
-expect "3.5: once a connection was used, Ask Claude leads again and the card is gone" "$(dash_order 'id="ask-claude-nadpis"' 'class="pruvodce"' 'class="dlazdice"')|$(grep -c 'id="pripojit-claude"' "$WORK/response" || true)" "ok|0"
+expect "3.5: once a connection was used, Ask Claude leads again and the card is gone (3.32: after the numbers)" "$(dash_order 'class="dlazdice"' 'id="ask-claude-nadpis"' 'class="pruvodce"')|$(grep -c 'id="pripojit-claude"' "$WORK/response" || true)" "ok|0"
 # 3.18: "connected" means a valid connection exists now – revoking the only one says "not connected" again and the card returns
 check "3.18: revoking every connection shows Claude as not connected again" 200 /admin.php 'class="claude-stav claude-stav-none"'
 grep -q 'id="pripojit-claude"' "$WORK/response" && grep -q 'Claude není k tomuto webu připojený' "$WORK/response" && echo "  ok     3.18: the Connect Claude card returns, Ask Claude warns" || { echo "  CHYBA  3.18: not connected after revoking"; ERRORS=$((ERRORS+1)); }
@@ -270,6 +274,9 @@ for z in general seo analytics cookies mail webhooks backups; do check "nastaven
 # 3.2: tabs that became screens of their own – the old address leads there; the new screens and hubs open
 for z in company:business health:status; do expect "3.2: settings&tab=${z%%:*} leads to ${z##*:}" "$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' "$B/admin.php?module=settings&tab=${z%%:*}" | sed 's/.*module=//')" "${z##*:}"; done
 check "3.2: System status is its own screen" 200 "/admin.php?module=status" "Cron"
+# 3.32 (U48): problems first (each linking to its row), then the groups – a group with a problem open, an all-green one folded
+expect "3.32 (U48): System status – the problems link to their rows, the open groups are those with a problem, green ones are folded" \
+  "$(php -r '$h = (string) file_get_contents($argv[1]); preg_match_all("#<a href=\"\\#(stav-\\d+)\">#", $h, $links); $missing = array_filter($links[1], fn ($id) => !str_contains($h, "<tr id=\"$id\" class=\"stav-")); preg_match_all("#<details class=\"stav-skupina\" data-status-group( open)?>\\s*<summary><h2>[^<]*</h2> <span class=\"stitek stitek-(\\w+)\">#", $h, $g, PREG_SET_ORDER); $wrong = array_filter($g, fn ($m) => ($m[1] === " open") !== ($m[2] === "koncept")); echo count($g) > 3 ? "groups" : "few", "|", $missing === [] ? "linked" : "broken", "|", $wrong === [] ? "folded" : "wrong", "|", str_contains($h, "data-status-problems") === (count($links[1]) > 0) ? "list" : "nolist";' "$WORK/response")" "groups|linked|folded|list"
 check "3.2: Claude settings hold the instructions and the guardrails" 200 "/admin.php?module=claude_settings" 'name="claude_instructions"'
 check "3.2: Business details show the hub tabs" 200 "/admin.php?module=facts" 'zalozky-hub'
 check "3.2: the menu leads to the hubs" 200 "/admin.php" "module=claude_settings"
@@ -881,6 +888,9 @@ expect "3.18.3, 3.25: … exactly 5, by name, then More… to the list of collec
 check "3.25: the administrator's menu has collapsible groups" 200 "/admin.php" '<details class="menu-skupiny" data-menu-skupina="content" data-menu-vychozi open><summary class="menu-skupina"><span>Obsah</span>'
 expect "3.25: … the group script, Statistics in Site care, no Company group, the Business details in Content" "$(grep -c 'src="/image/admin-menu.js?v=' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="site-care".*?module=stats.*?</details>}s ? 1 : 0' "$WORK/response")|$(grep -c '<span>Firma</span>' "$WORK/response")|$(perl -0ne 'print m{data-menu-skupina="content"[^>]*>.*?module=business".*?</details>}s ? 1 : 0' "$WORK/response")" "1|1|0|1"
 check "3.25: the current screen's group is marked" 200 "/admin.php?module=stats" 'data-menu-skupina="site-care" data-aktualni open>'
+# 3.32 (U50): the chart is a group of bars, each an image with its text, described by a summary
+expect "3.32 (U50): Statistics – the chart is a group described by its summary; every bar is an image" \
+  "$(grep -c 'class="graf" role="group" aria-label="[^"]*" aria-describedby="graf-souhrn"' "$WORK/response")|$(grep -c 'id="graf-souhrn"' "$WORK/response")|$([ "$(grep -c 'class="graf-sloupec' "$WORK/response")" = "$(grep -c 'class="graf-sloupec[^"]*" data-tip="[^"]*" role="img"' "$WORK/response")" ] && echo same)" "1|1|same"
 code=$(curl -s -b "$JAR2" -o "$WORK/response" -w '%{http_code}' "$B/admin.php")
 expect "3.25: an author's short menu is a flat list – no group, no group script" "$code|$(grep -c 'menu-skupiny' "$WORK/response")|$(grep -c 'admin-menu.js' "$WORK/response")|$(grep -c '<li><a href="/admin.php?module=news">' "$WORK/response")" "200|0|0|1"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_kolekce WHERE seo_link LIKE 'cap-_' OR seo_link IN ('mimo-menu', 'v-menu')"
@@ -1025,6 +1035,11 @@ component_action() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_
 check "komponenta v builderu" 200 "/admin.php?module=components&action=builder&id=$IDM" 'id="stavitel-data"'
 check "2.4: builder links to its guide article" 200 "/admin.php?module=components&action=builder&id=$IDM" '"navod":"https:[^"]*guide[^"]*components"'
 check "2.4: settings tab links to its guide article" 200 "/admin.php?module=settings&tab=backups" 'class="navod-odkaz" href="https://kaletacms.com/[a-z/]*guide/backups-updates"'
+# 3.32 (U49): a yes/no box is named by its row label, not by "Yes"
+expect "3.32 (U49): the automatic updates box is labelled by its row" "$(grep -c '<span class="popisek" id="auto_updates-popisek">' "$WORK/response")|$(grep -c 'aria-labelledby="auto_updates-popisek" name="auto_updates" value="1"' "$WORK/response")" "1|1"
+# 3.32 (U47): the cookie table of Settings → Privacy and cookies is a listing in its wrapper (cards on a phone, admin.js)
+check "3.32 (U47): Privacy and cookies – the cookie table is a listing in a wrapper" 200 "/admin.php?module=settings&tab=cookies" '<table class="vypis cookies-tabulka">'
+expect "3.32 (U47): … right after its wrapper" "$(grep -B1 '<table class="vypis cookies-tabulka">' "$WORK/response" | head -1)" '<div class="tab-obal">'
 check "2.4: dashboard links to the guide" 200 "/admin.php" 'guide/first-steps#the-dashboard'
 component_action build_save --data-urlencode 'stavba={"v":1,"deti":[{"id":"kse1","typ":"sekce","deti":[{"id":"kna1","typ":"nadpis","znacka":"h3","obsah":{"text":"{{nadpis}}"},"styl":{"zaklad":{"barva":"primarni"}}},{"typ":"tlacitko","obsah":{"text":"Více","odkaz":"{{odkaz}}"}},{"typ":"komponenta","obsah":{"komponenta":"'"$IDM"'"}}]}]}' > /dev/null
 expect "publikování komponenty" "$(component_action build_publish)" 200
@@ -1326,7 +1341,9 @@ curl -s -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WOR
 curl -s -b "$WORK/preview.jar" -c "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG?preview_end=1"
 curl -s -b "$WORK/preview.jar" -o "$WORK/response" "$B/$DRAFTSLUG"; ! grep -q 'Only in the draft' "$WORK/response" && echo "  ok     ending the preview shows the published site again" || { echo "  CHYBA  the preview did not end"; ERRORS=$((ERRORS+1)); }
 mcp discard_draft "{\"id\":$DRAFTPAGE}" > /dev/null
-check "the admin shows the look bar on every screen" 200 "/admin.php?module=pages" 'id="vzhled-koncept"' # 3.6: one line, its button says Publish
+check "the admin shows the look bar on the Appearance screens" 200 "/admin.php?module=menu" 'id="vzhled-koncept"' # 3.6: one line, its button says Publish
+# 3.32 (A2): only on the dashboard and the Appearance screens – not on Pages, Users or Settings
+expect "3.32 (A2): the look bar is on the dashboard, not on Pages, Users or Settings" "$(curl -s -b "$JAR" "$B/admin.php" | grep -c 'id="vzhled-koncept"')|$(curl -s -b "$JAR" "$B/admin.php?module=pages" | grep -c 'id="vzhled-koncept"')|$(curl -s -b "$JAR" "$B/admin.php?module=users" | grep -c 'id="vzhled-koncept"')|$(curl -s -b "$JAR" "$B/admin.php?module=settings" | grep -c 'id="vzhled-koncept"')" "1|0|0|0"
 mcp publish_look '{}' > "$WORK/response"
 expect "MCP: publish_look publishes everything and keeps the previous look" "$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(hodnota, '$.barvy.primarni')) FROM ka_nastaveni WHERE promenna = 'design_system'")|$(sq "SELECT css LIKE '%2rem%' OR styl LIKE '%2rem%' OR styl LIKE '%\"xl\"%' FROM ka_tridy WHERE nazev = 'look-test'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'hlavni' AND polozky LIKE '%draft-link%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COUNT(*) > 0 FROM ka_look_versions")" "#123456|1|1||1"
 expect "publishing the look is in the change log with what changed" "$(sq "SELECT popis LIKE '%#123456%' FROM ka_protokol WHERE akce = 'publish look' ORDER BY idp DESC LIMIT 1")" "1"
@@ -1762,7 +1779,7 @@ LOOK_VERSION=$(sq "SELECT COALESCE(MAX(id), 0) FROM ka_look_versions")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=menu&action=save&location=paticka" -d "_csrf=$TOKEN" -d publikovat=1 --data-urlencode 'polozky=[{"typ":"odkaz","text":"Published at once","url":"/published-at-once"}]'
 expect "3.6 UXA-09: Save and publish menu publishes that menu with a version, another menu waits in the draft" \
   "$(sq "SELECT COUNT(*) FROM ka_menu WHERE umisteni = 'paticka' AND polozky LIKE '%published-at-once%'")|$(sq "SELECT COUNT(*) FROM ka_menu WHERE polozky LIKE '%draft-only%'")|$(sq "SELECT hodnota LIKE '%draft-only%' AND hodnota NOT LIKE '%published-at-once%' FROM ka_nastaveni WHERE promenna = 'look_draft'")|$(sq "SELECT COALESCE(MAX(id), 0) > $LOOK_VERSION FROM ka_look_versions")" "1|0|1|1"
-check "3.6 UXA-09: the draft look bar is one line naming what waits, the details open below" 200 "/admin.php?module=pages" '<summary><strong>Nepublikované změny:</strong> menu</summary>'
+check "3.6 UXA-09: the draft look bar is one line naming what waits, the details open below" 200 "/admin.php?module=menu" '<summary><strong>Nepublikované změny:</strong> menu</summary>'
 publish_look
 
 echo "== ikony, manifest, cache"
@@ -3425,7 +3442,7 @@ mcp get_menu '{"location":"footer"}' > "$WORK/response"
 expect "3.6 the footer menu draft: custom links stay, a path of the old site stays a path" "$(wxr_menu)" "draft:Facebook=https://facebook.example/stavbynovak*,Ochrana údajů=/ochrana-udaju"
 # 3.12 (UX310-17): the look bar says what each draft menu changes for visitors and Publish asks first; the import result offers
 # to preview and publish only the menus, with the same summary
-check "3.12 UX310-17: the look bar lists the main menu before → after" 200 "/admin.php?module=pages" "Hlavní menu – položky: [0-9]* → [0-9]*\."
+check "3.12 UX310-17: the look bar lists the main menu before → after" 200 "/admin.php?module=appearance" "Hlavní menu – položky: [0-9]* → [0-9]*\."
 contains -q 'Z menu zmizí:' "$WORK/response" && contains -q 'publish_look" data-potvrdit=' "$WORK/response" \
   && echo "  ok     3.12 UX310-17: the look bar names what leaves the menu and Publish asks first" || { echo "  CHYBA  3.12 UX310-17: no removed items or no confirmation in the look bar"; ERRORS=$((ERRORS+1)); }
 check "3.12 UX310-17: the import result shows the menu changes and publishes only the menus" 200 "/admin.php?module=transfer&action=progress&file=$WXR_FILE" 'action=publish_menus" data-potvrdit='
@@ -4719,7 +4736,7 @@ expect "3.30 Today: the severity filter red leaves the amber task out; the custo
 # My work lists it with what it is about; the reminder job notifies me once in the bell (task_due, the site as the target)
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=my_work"
 expect "3.30 My work: the console tasks with the site and the customer they are about, linking to their panels" \
-  "$(grep -c "Renew Lindner&#039;s domain 330<br><a class=\"smltxt\" href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\">Web „B329 &lt;script&gt;" "$WORK/response")|$(grep -c "href=\"/admin.php?module=fleet&amp;action=customer_detail&amp;id=$ACME317#tasks\">Zákazník konzole „$Y330_ACME“" "$WORK/response")" "1|1"
+  "$(grep -c "Renew Lindner&#039;s domain 330</a><br><a class=\"smltxt\" href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\">Web „B329 &lt;script&gt;" "$WORK/response")|$(grep -c "href=\"/admin.php?module=fleet&amp;action=customer_detail&amp;id=$ACME317#tasks\">Zákazník konzole „$Y330_ACME“" "$WORK/response")" "1|1"
 Y330_RUN=$(cd "$WORK/web3" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); echo Kaleta\Core\Tasks::run($app);')
 expect "3.30 reminder: the job tasks notifies me of the overdue console task once (task_due, the site), not of tomorrow's" \
   "$(echo "$Y330_RUN" | grep -c 'notified 1')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'task_due' AND user_id = $Y330_ADMIN AND target = 'fleet_site:$HOST329' AND excerpt = 'Renew Lindner''s domain 330'")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE target = 'fleet_customer:$ACME317'")" "1|1|0"
@@ -9143,7 +9160,7 @@ expect "3.19.1 (N88): the message names the file and the folder, the originals s
   "$([[ "$N88" == "1 file(s) could not be put back (system/n88.txt)"*"storage/cache/aktualizace-n88-puvodni"* ]] && echo said)|$(cat "$WORK/web/storage/cache/aktualizace-n88-puvodni/system/n88.txt")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.restore_failed' AND data LIKE '%system/n88.txt%' AND data LIKE '%aktualizace-n88-puvodni%'")" \
   "said|old|1"
 expect "3.19.1 (N88): visitors keep the maintenance page (a lock older than 10 minutes too), the administration opens and System status says what to do" \
-  "$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=status")|$(grep -c 'Vrácení aktualizace' "$WORK/response")" "503|200|1"
+  "$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=status")|$(grep -c '<strong>Vrácení aktualizace' "$WORK/response")" "503|200|1"
 rm -f "$WORK/web/storage/udrzba.lock" "$WORK/web/system/n88.txt"; rm -rf "$WORK/web/storage/cache/aktualizace-n88-puvodni"
 expect "3.19.1 (N88): without the lock the site answers again" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
 echo "== 3.22 (C9): the optional Appearance area of a role"
@@ -9652,6 +9669,22 @@ expect "3.24 My work: the first menu item for a non-administrator, with the coun
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.24 My work: an administrator keeps the Dashboard first, My work right after it" \
   "$(php -r '$h = (string) file_get_contents($argv[1]); $w = strpos($h, "class=\"menu-moje"); $d = strpos($h, "class=\"menu-prehled"); echo $w !== false && $d !== false && $d < $w ? "after" : "no";' "$WORK/response")" "after"
+# 3.32 (U35): "Take it" on a new enquiry nobody handles – the editor takes it; a second take (someone has it) changes nothing
+sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'W332 take', 'take@visitor.example', '[]', 0)" > /dev/null
+W332_TAKE=$(sq "SELECT idp FROM ka_poptavky WHERE formular = 'W332 take'")
+curl -s -b "$JAR324" -o "$WORK/response" "$B/admin.php?module=my_work"
+W332_CSRF=$(grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//')
+expect "3.32 (U35) My work: an unassigned enquiry has Take it" "$(grep -c "data-enquiry-take><input type=\"hidden\" name=\"_csrf\"[^>]*><input type=\"hidden\" name=\"idp\" value=\"$W332_TAKE\"" "$WORK/response")" "1"
+curl -s -b "$JAR324" -c "$JAR324" -o /dev/null -X POST "$B/admin.php?module=my_work&action=take" -d "_csrf=$W332_CSRF" -d "idp=$W332_TAKE"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=take" -d "_csrf=$(csrf)" -d "idp=$W332_TAKE"
+expect "3.32 (U35) My work: … Take it makes it the editor's (once, logged); taking it again changes nothing" \
+  "$(sq "SELECT prirazeno FROM ka_poptavky WHERE idp = $W332_TAKE")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'enquiry_taken' AND popis = '#$W332_TAKE'")" "$W324_ED|1"
+sq "DELETE FROM ka_poptavky WHERE idp = $W332_TAKE" > /dev/null
+# 3.32 (U36, A2): the landing rule – the salesperson (Enquiries only, no content section) lands on My work after sign-in,
+# the editor (Pages, Collections) on the Dashboard
+w332_land() { local jar="$WORK/jar-w332-$1" token; token=$(curl -s -c "$jar" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+  curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php" -d "_csrf=$token" -d "user=$1" --data-urlencode "password=$PASSWORD" | sed 's#^http://[^/]*##'; }
+expect "3.32 (U36): after sign-in the salesperson lands on My work, the editor on the Dashboard" "$(w332_land w324-sales)|$(w332_land w324-editor)" "/admin.php?module=my_work|/admin.php"
 JAR324W="$WORK/jar-w324w"
 TOKEN324W=$(curl -s -c "$JAR324W" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR324W" -c "$JAR324W" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN324W" -d user=w324-writer --data-urlencode "password=$PASSWORD"
@@ -10129,6 +10162,13 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&ac
 expect "3.27 My work: Done marks it done, Tomorrow moves the due day keeping its time; both logged, the page cache stays" \
   "$(sq "SELECT done_by = $T327_ADMIN FROM ka_tasks WHERE id = ${T327_A1:-0}")|$(sq "SELECT CONCAT(due_at, '|', notified_at IS NULL) FROM ka_tasks WHERE id = ${T327_A2:-0}")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce IN ('task_done', 'task_snoozed')")|$([ -f "$WORK/web/storage/cache/stranky/t327.html" ] && echo kept)" \
   "1|$(site_date '+1 day') 23:30:00|1|2|kept"
+# 3.32 (U35): the task title is a link, Edit sits in the row (a form after the table, form=…) and saves title and due day
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
+expect "3.32 (U35) My work: the title links to the record's tasks (or Edit), each open task has Edit with its own form" \
+  "$(grep -c "class=\"moje-ukol-nazev\" href=\"[^\"]*#task-${T327_A3:-0}-edit\"" "$WORK/response")|$(grep -c "id=\"ukol-uprava-${T327_A3:-0}\"" "$WORK/response")|$(grep -c "form=\"ukol-uprava-${T327_A3:-0}\"" "$WORK/response")" "1|1|5"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=task_edit" -d "_csrf=$(csrf)" -d "id=${T327_A3:-0}" -d "title=Later T332" -d "due_date=$(site_date '+5 days')" -d due_time= -d remind= -d assignee_id=0
+expect "3.32 (U35) My work: … Edit saves the title and the due day, keeps the person; logged" \
+  "$(sq "SELECT CONCAT(title, '|', LEFT(due_at, 10), '|', assignee_id = $T327_ADMIN) FROM ka_tasks WHERE id = ${T327_A3:-0}")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_edited'")" "Later T332|$(site_date '+5 days')|1|1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=complete" -d "_csrf=$(csrf)" -d "id=987654321"
 expect "3.27 My work: a task that does not exist changes nothing" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_done'")" "1"
 # N327-3: a task about an enquiry done in My work – the change log names the task and the enquiry, never the title (it may name
@@ -10917,10 +10957,18 @@ expect "3.31: … a second deal of the same enquiry is refused while the first i
 check "3.31: … the enquiry shows its deal (Open the deal), no Create deal while it is open" 200 "/admin.php?module=enquiries&action=detail&id=$B331_ENQ" "data-deal-box=\"$B331_D2\""
 expect "3.31: … no Create deal; the enquiry list shows the deal badge" "$(b331_has 'data-deal-create')|$(curl -s -b "$JAR" "$B/admin.php?module=enquiries" | grep -c "data-enquiry-deal=\"$B331_D2\"")" "0|1"
 # the board: a column per stage, the cards with their move forms, counts and sums per currency; overdue marked
+# 3.32 (U29): money reads "12 500,50 Kč" (non-breaking spaces) in Czech; the board carries the same rule for its live totals
+B332_NB=$'\xc2\xa0'
 check "3.31: the board – both deals in New with their move forms" 200 "/admin.php?module=pipeline" "id=\"deal-$B331_D1\""
 expect "3.31: … five columns, two cards in New, the sum of New in CZK (and the card's value), the first card overdue, the live region; the search finds one" \
-  "$(b331_has '<section class="obchody-sloupec')|$(sed -n '/data-stage="new"/,/<\/section>/p' "$WORK/response" | grep -c 'data-deal="')|$(b331_has '12500,50 CZK')|$(b331_has 'obchod-karta obchod-po-terminu')|$(b331_has 'data-pipeline-announce')|$(curl -s -b "$JAR" "$B/admin.php?module=pipeline&search=kotle" | grep -c 'id="deal-')" \
+  "$(b331_has '<section class="obchody-sloupec')|$(sed -n '/data-stage="new"/,/<\/section>/p' "$WORK/response" | grep -c 'data-deal="')|$(b331_has "12${B332_NB}500,50${B332_NB}Kč")|$(b331_has 'obchod-karta obchod-po-terminu')|$(b331_has 'data-pipeline-announce')|$(curl -s -b "$JAR" "$B/admin.php?module=pipeline&search=kotle" | grep -c 'id="deal-')" \
   "5|2|2|1|1|1"
+expect "3.32 (U29): … the board carries the money format of the admin language for its live totals" "$(b331_has 'data-money="{&quot;decimal&quot;:&quot;,&quot;')" "1"
+# 3.32 (U29): the default currency – automatic from the site (Czech test site: CZK), a chosen one is what New deal starts with
+check "3.32 (U29): Settings → General offers the currency, automatic by default" 200 "/admin.php?module=settings&tab=general" '<option value="">Automaticky (CZK)</option>'
+setting default_currency GBP
+check "3.32 (U29): … with GBP chosen, New deal starts in GBP" 200 "/admin.php?module=pipeline&action=new" '<option value="GBP" selected>GBP</option>'
+setting default_currency ''
 # moves without JavaScript: back to the board with its filter; a lost stage without a reason goes to the detail, with one it closes
 REDIRECT=$(b331_post "$JAR" "module=pipeline" "module=pipeline&action=move" -d "id=$B331_D1" -d stage=qualified --data-urlencode "return=module=pipeline&owner=mine&evil=1")
 expect "3.31: Move – the stage, a history row, one change-log row 'move'; back to the board with its filter and the card" \
