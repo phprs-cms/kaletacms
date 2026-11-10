@@ -1448,6 +1448,25 @@ Czech alias renamed; new non-essential MCP tools `list_deals`, `save_deal`, `mov
    whose e-mail fails is retried by the mail queue (after 5, 30, 120 and 720 minutes), and `fleet_expiry` reports how many
    are waiting.
 
+**3.31.1 (10 November 2026):** fixes after 3.31 (owner, 9 November). No migration; no setting, MCP tool, parameter or
+Czech alias renamed; new setting `fleet_certificate_reminders`, new MCP output key `fleet_calendar.certificate_reminder_days_before`.
+1. **Stages keep their kind while deals are in them**: `Deals::saveStages` refuses to change open/won/lost of a stage that
+   holds deals (open or closed) and says how many; labels and order still change.
+2. **A customer's timeline without Pipeline access** shows a deal only as "A deal" with its time and number – no title,
+   stage, person or link (`Deals::neutralTimeline`, also in MCP `get_contact`).
+3. **`save_deal` with an enquiry honours `stage`** (an open stage; the first open stage stays the default).
+4. **Fleet certificate reminders 14 and 7 days before** (`fleet_certificate_reminders`); domain registrations keep
+   `fleet_expiry_reminders` (30 and 7). A reminder already sent within a threshold counts for it (`Calendar::covered`).
+5. **Today: an update rollout held back by the pilot sites for more than 3 days** is one item per release (also in MCP
+   `fleet_today`), linking to the Rollout tab, which now says how to release it.
+6. **Backups**: an encrypted copy uploaded back for a restore (`.enc`) no longer counts as a local backup anywhere
+   (`Backup::listLocal` – schedule, System status, dashboard, monthly report, `get_health`, heartbeat); local backups and
+   uploaded copies rotate separately (10 each) and a restore holds its file (`.hold-<name>`, one hour) and rotates only after
+   it finished; a failed off-site copy records `backup.failed` (`offsite`; for media once when it starts failing) with a
+   short text from `RemoteBackup::failureText` (no password, user name, e-mail addresses or paths).
+7. **Smaller**: System status points the automatic suspension to Settings → Security; Customers and Pipeline link to their
+   own guide articles; Czech labels for the customer CSV import and export.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
