@@ -7873,4 +7873,8 @@ return [
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'Das war der letzte automatische Versuch (%d von %d) – das Update wartet nun auf einen Administrator.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta versucht es von selbst erneut – das war Versuch %d von %d.',
     'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.' => 'Zu viele falsche Passwörter hintereinander – Änderungen, die Ihr Passwort brauchen, sind für 15 Minuten gesperrt. Sie bleiben angemeldet; es wurde nichts geändert.',
+    'Enter your own current password to set this user\'s password or turn off their two-factor sign-in. Nothing was saved.' => 'Geben Sie Ihr eigenes aktuelles Passwort ein, um das Passwort dieses Benutzers zu setzen oder seine Zwei-Faktor-Anmeldung auszuschalten. Es wurde nichts gespeichert.',
+    'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.' => 'Ihre eigene E-Mail-Adresse, Ihr Passwort und Ihre Zwei-Faktor-Anmeldung ändern Sie unter Mein Konto – dort wird nach Ihrem aktuellen Passwort gefragt.',
+    'Your current password' => 'Ihr aktuelles Passwort',
+    'Needed only to set a new password for this user or to turn off their two-factor sign-in.' => 'Nur nötig, um diesem Benutzer ein neues Passwort zu setzen oder seine Zwei-Faktor-Anmeldung auszuschalten.',
 ];

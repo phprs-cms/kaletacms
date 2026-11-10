@@ -88,6 +88,9 @@ final class Users extends Module
             $data['admin'] = Auth::ADMIN;
             $data['role'] = null;
             $data['blokovat'] = 0;
+            // 3.31.2: one's own e-mail, password and second factor change only in My account, which asks for the current
+            // password – here a signed-in session alone would do (the form shows them as a link to My account)
+            $data['email'] = (string) $this->db->value('SELECT email FROM {uzivatele} WHERE idu = ?', [$id]);
         }
         if (!$data['blokovat']) {
             $data['pocet_chyb'] = 0;
@@ -95,12 +98,9 @@ final class Users extends Module
         }
         // an administrator saving the account confirms it is wanted: the check of unused accounts (Core\SecurityHygiene) counts from now
         $data['potvrzeno'] = date('Y-m-d H:i:s');
-        if ($r->postBool('totp_reset')) {
-            // the user lost both the phone and the backup codes: the administrator disables their two-factor sign-in
-            $data['totp_tajemstvi'] = '';
-            $data['totp_zalozni'] = null;
-            $this->app->db()->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // passkeys depend on two-factor sign-in
-        }
+        // the user lost both the phone and the backup codes: the administrator turns off their two-factor sign-in (never
+        // their own here – My account does that with the password)
+        $totpReset = $id > 0 && !$isSelf && $r->postBool('totp_reset');
 
         $errors = [];
         if (!preg_match('/^[a-zA-Z0-9._-]{2,40}$/D', $data['user'])) {
@@ -112,7 +112,7 @@ final class Users extends Module
             $errors['email'] = 'The e-mail address is not valid.';
         }
         // the password as typed, like My account, the reset and the installer (3.3.3, N61); only blanks mean "no change"
-        $password = is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
+        $password = !$isSelf && is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';
         $invite = $id === 0 && $r->postBool('pozvat');
         if ($invite && $data['email'] === '') {
             $errors['email'] = 'An invitation needs an e-mail.';
@@ -132,8 +132,26 @@ final class Users extends Module
         if ($handOver === null) {
             $errors['hand_over_to'] = 'This person cannot take the work over – choose someone who may open those sections.';
         }
+        // 3.31.2: a new password or a turned-off second factor of an existing account takes it over as surely as a sign-in –
+        // the acting administrator confirms it with their own current password (Auth::confirmPassword: the sign-in's
+        // counter and lock). A new account, and every other change, needs no password. Recovery stays: an administrator
+        // resets another user's factor and password this way; a locked-out sole administrator has the password-reset
+        // e-mail and the backup codes.
+        if ($errors === [] && $id > 0 && ($password !== '' || $totpReset)) {
+            $check = $this->app->auth()->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '');
+            if ($check !== 'ok') {
+                $errors['soucasne'] = $check === 'locked' ? Auth::CONFIRM_LOCKED : 'Enter your own current password to set this user\'s password or turn off their two-factor sign-in. Nothing was saved.';
+            }
+        }
         if ($errors !== []) {
-            return $this->form(['idu' => $id] + $data, $errors);
+            // the rest of the account as saved (the two-factor row, the automatic block) stays in the form
+            unset($data['password']);
+
+            return $this->form(['idu' => $id] + $data + ($id > 0 ? (array) $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$id]) : []), $errors);
+        }
+        if ($totpReset) {
+            $data['totp_tajemstvi'] = '';
+            $data['totp_zalozni'] = null;
         }
 
         // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
@@ -144,9 +162,12 @@ final class Users extends Module
         };
 
         $revokeTokens = !\Kaleta\Admin\Account::keepsTokens($r->post('zrusit_tokeny')); // 3.31.2 (N101): kept only when the box is unticked
-        $this->db->transaction(function () use (&$id, $data, $modules, $revokeTokens): void {
+        $this->db->transaction(function () use (&$id, $data, $modules, $revokeTokens, $totpReset): void {
             if ($id > 0) {
                 $this->db->update('uzivatele', $data, ['idu' => $id]);
+                if ($totpReset) {
+                    $this->db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // passkeys depend on two-factor sign-in
+                }
                 if (isset($data['password'])) {
                     \Kaleta\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections (N39-1)
                     if ($revokeTokens) {

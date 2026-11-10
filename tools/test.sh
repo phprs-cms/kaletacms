@@ -357,13 +357,13 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&acti
 # tokens stay only when the box is unticked (3.31.2, N101: the form then sends zrusit_tokeny=0 – without the field they go)
 IDU_AUTOR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE user = 'autor'")
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren, expirace) VALUES ($IDU_AUTOR, 'Claude', 'n39client', 'obnova', SHA2('n39-refresh', 256), '$(site_time)', '$(site_time '+300 days')'), ($IDU_AUTOR, 'Claude', 'n39client', 'pristup', SHA2('n39-access', 256), '$(site_time)', '$(site_time '+1 hour')'), ($IDU_AUTOR, 'personal', NULL, 'token', SHA2('n39-personal', 256), '$(site_time)', NULL)"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0 -d zrusit_tokeny=0
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" --data-urlencode "soucasne=$PASSWORD" -d admin=0 -d zrusit_tokeny=0
 expect "3.9 N39-1: an administrator's new password ends the user's Claude connections, the personal token stays when the box is unticked" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUM(druh <> 'token'), '|', SUM(druh = 'token')) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "0|1"
 # 3.15 (N19): the user's form offers to revoke the personal tokens too (ticked, as in My account); without a new password nothing goes
 check "3.15 N19: the user's form offers to revoke the personal tokens with the new password" 200 "/admin.php?module=users&action=edit&id=$IDU_AUTOR" 'name="zrusit_tokeny" value="1" checked'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor -d admin=0 -d zrusit_tokeny=1
 N19_KEPT=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR AND druh = 'token'")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0 -d zrusit_tokeny=1
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" --data-urlencode "soucasne=$PASSWORD" -d admin=0 -d zrusit_tokeny=1
 expect "3.15 N19: with it ticked an administrator's new password revokes the personal tokens too" "$N19_KEPT|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "1|0"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE idu = $IDU_AUTOR"
 JAR2="$WORK/jar2"
@@ -11075,9 +11075,38 @@ sq "DELETE FROM ka_api_tokeny WHERE idu = $S3312_USER AND nazev = 's3312-c'" > /
 # the administrator's form in Users: the same rule (ticked or no field revokes, unticked keeps)
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($S3312_USER, 's3312-b', 'read', 'all', SHA2('s3312-b-$RANDOM', 256), '$(site_time)')" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=edit&id=$S3312_USER"; TOKEN=$(csrf)
-s3312_admin_sets() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$S3312_USER" -d "jmeno=Tester S3312" -d user=s3312 -d email=s3312@example.com -d admin=2 --data-urlencode "password=$PASSWORD" "$@"; }
+s3312_admin_sets() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$S3312_USER" -d "jmeno=Tester S3312" -d user=s3312 -d email=s3312@example.com -d admin=2 --data-urlencode "password=$PASSWORD" --data-urlencode "soucasne=$PASSWORD" "$@"; }
 expect "3.31.2 N101: Users – the form sends 0 for the unticked box; unticked keeps the user's token, no field revokes it" \
   "$(grep -c '<input type="hidden" name="zrusit_tokeny" value="0">' "$WORK/response")|$(s3312_admin_sets -d zrusit_tokeny=0; s3312_tokens)|$(s3312_admin_sets; s3312_tokens)" "1|1|0"
+# 3.31.2 (pre-release review): an administrator setting another user's password or turning off their second factor in Users
+# confirms it with their own current password; without it (or with a wrong one) nothing of the save is written. Recovery
+# still works with it: the factor and the passkeys go, the new password signs the user in.
+S3312_SECRET2=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' "$ROOT")
+sq "UPDATE ka_uzivatele SET totp_tajemstvi = '$S3312_SECRET2', totp_zalozni = '[]', jmeno = 'Tester S3312' WHERE idu = $S3312_USER;
+  INSERT INTO ka_uzivatele_klice (idu, nazev, otisk_id, id_klice, verejny, alg, pocitadlo, vytvoreno) VALUES ($S3312_USER, 's3312 key', SHA2('s3312-key-$RANDOM', 256), 'k3312', 'x', -7, 0, '$(site_time)')" > /dev/null
+S3312_HASH_NOW=$(sq "SELECT password FROM ka_uzivatele WHERE idu = $S3312_USER")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=edit&id=$S3312_USER"; TOKEN=$(csrf)
+s3312_users_save() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$S3312_USER" -d user=s3312 -d email=s3312@example.com -d admin=2 "$@"; }
+s3312_state() { sq "SELECT CONCAT(password = '$S3312_HASH_NOW', '/', totp_tajemstvi <> '', '/', (SELECT COUNT(*) FROM ka_uzivatele_klice k WHERE k.idu = $S3312_USER), '/', jmeno) FROM ka_uzivatele WHERE idu = $S3312_USER"; }
+S3312_NEW2="Reset-$(openssl rand -hex 8)"
+expect "3.31.2 review: Users – another account's form asks for the administrator's current password" "$(grep -c 'id="soucasne" name="soucasne"' "$WORK/response")" "1"
+expect "3.31.2 review: Users – a new password or a turned-off second factor without the administrator's password (or with a wrong one) saves nothing and says why" \
+  "$(s3312_users_save -d jmeno=Changed --data-urlencode "password=$S3312_NEW2")|$(grep -c 'Nic se neuložilo\|Nothing was saved' "$WORK/response")|$(s3312_state)|$(s3312_users_save -d jmeno=Changed -d totp_reset=1 -d soucasne=wrong-password-1)|$(s3312_state)" \
+  "200|1|1/1/1/Tester S3312|200|1/1/1/Tester S3312"
+expect "3.31.2 review: Users – other changes need no password" "$(s3312_users_save -d jmeno=Renamed)|$(s3312_state)" "302|1/1/1/Renamed"
+sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'" > /dev/null
+expect "3.31.2 review: Users – with it, recovery works: the second factor and passkeys go, the new password signs the user in" \
+  "$(s3312_users_save -d jmeno=Renamed -d totp_reset=1 --data-urlencode "password=$S3312_NEW2" --data-urlencode "soucasne=$PASSWORD")|$(s3312_state)|$(curl -s -c "$WORK/jar-s3312c" -o "$WORK/response" "$B/admin.php"; curl -s -b "$WORK/jar-s3312c" -c "$WORK/jar-s3312c" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=s3312 --data-urlencode "password=$S3312_NEW2")" \
+  "302|0/0/0/Renamed|302"
+# one's own account in Users: the e-mail, a password and a two-factor reset are ignored (My account asks for the password)
+S3312_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
+S3312_ADMIN_ROW=$(sq "SELECT CONCAT(password, '/', email, '/', totp_tajemstvi) FROM ka_uzivatele WHERE idu = $S3312_ADMIN")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=edit&id=$S3312_ADMIN"; TOKEN=$(csrf)
+expect "3.31.2 review: Users – one's own form has no password, current-password or two-factor fields and points to My account" \
+  "$(grep -c 'name="password"\|name="soucasne"\|name="totp_reset"\|name="email"' "$WORK/response")|$(grep -c 'Můj účet – tam se ptá na současné heslo\|My account – it asks for your current password' "$WORK/response")" "0|1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$S3312_ADMIN" -d user=admin -d email=taken-over@example.com --data-urlencode "password=Taken-over-$RANDOM-x" -d totp_reset=1 -d admin=2
+expect "3.31.2 review: Users – one's own e-mail, password and second factor stay as they were; the session stays signed in" \
+  "$([ "$(sq "SELECT CONCAT(password, '/', email, '/', totp_tajemstvi) FROM ka_uzivatele WHERE idu = $S3312_ADMIN")" = "$S3312_ADMIN_ROW" ] && echo same)|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=users")" "same|200"
 sq "DELETE FROM ka_api_tokeny WHERE idu = $S3312_USER OR nazev = 's3312 drafts'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $S3312_USER; DELETE FROM ka_uzivatele WHERE idu = $S3312_USER" > /dev/null
 # N102: in maintenance mode visitors get 503, but the check after an update (/ulohy?probe=) and cron (/ulohy?token=) answer as
 # usual – with their code only; the updater's own request for the home page gets the same page with 200 while the check runs

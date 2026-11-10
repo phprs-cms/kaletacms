@@ -41,7 +41,12 @@ $role = [
 </div>
 <div class="radek">
 	<label for="email"><?= e(t('Email')) ?></label>
+<?php if ($isSelf): // 3.31.2: one's own e-mail, password and second factor change in My account, which asks for the current password ?>
+	<div><input class="textpole siroke" type="email" id="email" value="<?= e($author['email']) ?>" disabled>
+	<span class="napoveda"><?= e(t('Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.')) ?> <a href="<?= e($app->url('admin.php?action=account')) ?>"><?= e(t('My account')) ?></a></span></div>
+<?php else: ?>
 	<div><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($author['email']) ?>" maxlength="190"><?= $error('email') ?></div>
+<?php endif ?>
 </div>
 <?php if (($teamChoices ?? []) !== []): ?>
 <div class="radek">
@@ -62,6 +67,7 @@ $role = [
 <?php endif ?></span></div>
 </div>
 <?php endif ?>
+<?php if (!$isSelf): ?>
 <div class="radek">
 	<label for="password"><?= e(t($author['idu'] ? 'New password' : 'Password')) ?></label>
 	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password">
@@ -76,6 +82,14 @@ $role = [
 <?php endif ?>
 	</div>
 </div>
+<?php endif ?>
+<?php if ($author['idu'] && !$isSelf): // 3.31.2: a new password or a turned-off second factor of someone else needs the administrator's own password ?>
+<div class="radek">
+	<label for="soucasne"><?= e(t('Your current password')) ?></label>
+	<div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password"><?= $error('soucasne') ?>
+	<span class="napoveda"><?= e(t('Needed only to set a new password for this user or to turn off their two-factor sign-in.')) ?></span></div>
+</div>
+<?php endif ?>
 
 <fieldset>
 <legend><?= e(t('Roles')) ?></legend>
@@ -117,7 +131,7 @@ $role = [
 		<span class="napoveda"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?> <?= e(t('Appearance is never given by default – tick it for someone who keeps the menu, the header and footer, the pop-ups and the components up to date.')) ?></span>
 	</div>
 </div>
-<?php if (!empty($author['totp_tajemstvi'])): ?>
+<?php if (!empty($author['totp_tajemstvi']) && !$isSelf): ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Two-factor sign-in')) ?></span>
 	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>

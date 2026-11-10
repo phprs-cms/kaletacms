@@ -7892,4 +7892,8 @@ return [
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'Ese fue el último intento automático (%d de %d): la actualización espera ahora a un administrador.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta lo intentará de nuevo por sí misma: este fue el intento %d de %d.',
     'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.' => 'Demasiadas contraseñas incorrectas seguidas: los cambios que necesitan tu contraseña quedan bloqueados durante 15 minutos. Sigues con la sesión iniciada; no se ha cambiado nada.',
+    'Enter your own current password to set this user\'s password or turn off their two-factor sign-in. Nothing was saved.' => 'Introduce tu propia contraseña actual para establecer la contraseña de este usuario o desactivar su verificación en dos pasos. No se ha guardado nada.',
+    'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.' => 'Tu propio correo electrónico, tu contraseña y tu verificación en dos pasos se cambian en Mi cuenta, donde se pide tu contraseña actual.',
+    'Your current password' => 'Tu contraseña actual',
+    'Needed only to set a new password for this user or to turn off their two-factor sign-in.' => 'Solo hace falta para establecer una nueva contraseña para este usuario o desactivar su verificación en dos pasos.',
 ];

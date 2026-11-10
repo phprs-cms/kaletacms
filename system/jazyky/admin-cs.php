@@ -7466,4 +7466,8 @@ return [
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'To byl poslední automatický pokus (%d z %d) – aktualizace teď čeká na správce.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta to zkusí sama znovu – tohle byl pokus %d z %d.',
     'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.' => 'Příliš mnoho chybných hesel za sebou – změny, které chtějí heslo, jsou na 15 minut zamčené. Zůstáváte přihlášeni; nic se nezměnilo.',
+    'Enter your own current password to set this user\'s password or turn off their two-factor sign-in. Nothing was saved.' => 'Pro nastavení hesla tohoto uživatele nebo vypnutí jeho dvoufázového přihlášení zadejte své vlastní současné heslo. Nic se neuložilo.',
+    'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.' => 'Vlastní e-mail, heslo a dvoufázové přihlášení změníte na stránce Můj účet – tam se ptá na současné heslo.',
+    'Your current password' => 'Vaše současné heslo',
+    'Needed only to set a new password for this user or to turn off their two-factor sign-in.' => 'Potřeba jen pro nastavení nového hesla tohoto uživatele nebo vypnutí jeho dvoufázového přihlášení.',
 ];

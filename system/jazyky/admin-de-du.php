@@ -1247,4 +1247,7 @@ return [
     'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Gib dein aktuelles Passwort ein, um die Zwei-Faktor-Anmeldung einzuschalten. Es wurde nichts geändert.',
     'Enter your current password to create a token. Nothing was created.' => 'Gib dein aktuelles Passwort ein, um ein Token zu erstellen. Es wurde nichts erstellt.',
     'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.' => 'Zu viele falsche Passwörter hintereinander – Änderungen, die dein Passwort brauchen, sind für 15 Minuten gesperrt. Du bleibst angemeldet; es wurde nichts geändert.',
+    'Enter your own current password to set this user\'s password or turn off their two-factor sign-in. Nothing was saved.' => 'Gib dein eigenes aktuelles Passwort ein, um das Passwort dieses Benutzers zu setzen oder seine Zwei-Faktor-Anmeldung auszuschalten. Es wurde nichts gespeichert.',
+    'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.' => 'Deine eigene E-Mail-Adresse, dein Passwort und deine Zwei-Faktor-Anmeldung änderst du unter Mein Konto – dort wird nach deinem aktuellen Passwort gefragt.',
+    'Your current password' => 'Dein aktuelles Passwort',
 ];
