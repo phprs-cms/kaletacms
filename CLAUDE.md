@@ -165,10 +165,15 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **CRM pro každý den (3.32):** `Core\RecordTitle` je jediný zobrazovaný název záznamu (poptávka = kdo – co; `Inbox::places` nese `name`
   jen pro toho, kdo má sekci; e-maily, MCP `my_work` a protokol změn ho nepoužívají). Slova Workspace drží `Core\Glossary` + unit test.
   Hodnota obchodu na obrazovce jen přes `Deals::formatValue`/`moneyFormat` (MCP nechává čísla); výchozí měna `Deals::defaultCurrency`
-  (`default_currency`, '' = automaticky). Kdo nevidí žádnou sekci obsahu, přistane na Mé práci (`Admin\Kernel::landsOnMyWork`);
-  lišta vzhledu jen na nástěnce a ve Vzhledu.
+  (`default_currency`, '' = automaticky: země firmy → nejčastější měna obchodů webu → CZK na českém webu, jinak EUR; časové pásmo ne).
+  Obchod z poptávky ji nepřežije s osobou: každá cesta, která poptávku maže nebo anonymizuje, volá `Deals::forgetEnquiries`
+  (resp. `forgetEnquiryWords`) PŘED smazáním – název s kým/čím se změní na „#<id> – <téma>“ (`Deals::neutralTitle`). Předmět
+  s osobou (upozornění z formuláře: jméno nebo firma, nikdy e-mail) jde jen do e-mailu – `Mail::send(…, $logSubject)` drží v `ka_posta.predmet`
+  a `mail.failed` jen „<formulář>: <web>“. Mé práce: nepřiřazená nezodpovězená poptávka jen nová nebo do `MyWork::UNASSIGNED_DAYS` (30).
+  Kdo nevidí žádnou sekci obsahu, přistane na Mé práci (`Admin\Kernel::landsOnMyWork`); lišta vzhledu jen na nástěnce a ve Vzhledu.
 - **Záchranná síť (3.32):** zastaralá funkce PHP se loguje, nehází (`App::handleError`; `Core\ErrorLog` je jediný zapisovatel `chyby.log`;
-  testy definují `KALETA_STRICT_DEPRECATIONS`). Žádné mazání při GET – úklid patří do úlohy Scheduleru (`trash`, `cleanup`). Nová migrace
+  testy definují `KALETA_STRICT_DEPRECATIONS`; rotace pod zámkem s novou kontrolou souboru). Žádné mazání při GET – úklid patří do úlohy
+  Scheduleru (`trash`, `cleanup`; Stav systému varuje, když `cleanup` neuspěl přes 2 dny – `Scheduler::cleanupStale`). Nová migrace
   musí projít `tools/check-migrations.php`.
 - **Bezpečnost 3.31.2:** třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`, `Build::userClasses` i při vykreslení; hlídá unit test háčků
   tříd ve web.js). `/ulohy` běží i v režimu údržby. Automatická aktualizace má tři pokusy (`Updater::RETRY_DELAYS`, `update_attempt` = `verze` nebo

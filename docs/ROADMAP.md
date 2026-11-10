@@ -1500,7 +1500,8 @@ The first release of the plan of 10 November – 10 December: the Workspace read
 the whole system. Migration 0118 adds two indexes (`ix_poptavky_datum`, `ix_notifications_target`); `KALETA_DB_VERSION`
 118. New setting `default_currency`. No setting key, POST field, MCP tool, parameter or Czech alias renamed; MCP changes
 are additive: `save_deal` with `enquiry` titles the deal by who and what unless `title` is given and makes the creator
-responsible when nobody is named, and `my_work` lists unanswered enquiries nobody handles whether read or not. MCP keeps
+responsible when nobody is named, and `my_work` lists unanswered enquiries nobody handles whether read or not, while they
+are new or no older than 30 days. MCP keeps
 raw numbers for deal values and keeps the form and number for enquiries (no `name`).
 
 1. **Names** (`Core\RecordTitle`): an enquiry is named by who and what – the person's name (else the company, else the
@@ -1508,13 +1509,20 @@ raw numbers for deal values and keeps the form and number for enquiries (no `nam
    enquiry's page title, My work, task rows, the bell and the dashboard's latest enquiries; a deal names its source
    enquiry. A place in the bell shows the name only to someone who may open that section; e-mails, MCP `my_work` and the
    change log keep the number and the form (a deal is still named only by its number there). The form notification's
-   subject adds who wrote it.
+   subject adds who wrote it – the name or the company, never the e-mail address; the mail log (`ka_posta.predmet`) and
+   the `mail.failed` event keep only "<form>: <site>" (`Mail::send` `$logSubject`; a queued message keeps the full subject
+   in its body until it is sent). A deal made from an enquiry does not outlive its person: wherever the enquiry is deleted,
+   expires, is erased or anonymised, a deal title that is still the generated one, names who wrote or quotes the message
+   becomes "#<id> – <topic>" before the enquiry data goes (`Deals::forgetEnquiryWords`, `Deals::neutralTitle`; erasing or
+   anonymising the customer does the same).
 2. **My work**: an enquiry stays under "Unanswered enquiries nobody is responsible for" until someone is responsible or a
-   reply is sent – opening it is not handling it. "Take it" makes such an enquiry yours (only while nobody has it). Every
+   reply is sent – opening it is not handling it – while it is new or arrived within the last 30 days
+   (`MyWork::UNASSIGNED_DAYS`; the dashboard tile does not query a list it leaves out). "Take it" makes such an enquiry yours (only while nobody has it). Every
    task can be edited in its row, and its title opens the record it is about.
 3. **Create deal and defaults**: "Create deal" on an enquiry opens a short New deal form prefilled from it (title from who
    and what, customer, company, the person handling the enquiry, first open stage; value, currency and close offered but
-   empty). A new deal without a word about its responsible person gets its creator; an explicit nobody stays nobody. The
+   empty; a customer not linked yet shows as "the enquiry's customer" and is linked when the deal is made, "—" is
+   explicitly nobody). A new deal without a word about its responsible person gets its creator; an explicit nobody stays nobody. The
    reply form of an enquiry offers "Follow up if they do not answer" (tomorrow, in 3 days, in a week) as a task of one's own.
 4. **Glossary** (`Core\Glossary`, pinned by a unit test in cs, de and es): "Responsible person" everywhere (was "Handled
    by" on an enquiry and "For" on a task; the bell says "… made you responsible"); the people of the CRM are Customers
@@ -1523,18 +1531,23 @@ raw numbers for deal values and keeps the form and number for enquiries (no `nam
 5. **Money and default currency**: one formatter (`Deals::formatValue`, `Deals::moneyFormat`) for cards, lists, totals,
    the deal page and the customer's deals – thousands separated, `.00` left out, the sign or code placed by the admin
    language (£18,000, 18 000 Kč). Settings → General → Currency (`default_currency`, `Deals::defaultCurrency`): automatic
-   = the company's country, else the time zone's country, else CZK on a Czech site and EUR elsewhere; a value saved
-   without a currency takes it.
+   = the company's country, else the currency most of the site's deals use (an existing site keeps its currency), else
+   CZK on a Czech site and EUR elsewhere as in 3.31 – the time zone is no evidence; a value saved without a currency takes
+   it.
 6. **Row buttons, landing, dashboard, look bar**: row actions are at least 32 px high (40 px on touch screens), 8 px apart.
    People who see no content section land on My work after sign-in (`Admin\Kernel::landsOnMyWork`; administrators keep
    the Dashboard). The dashboard leads with Waiting for you and the tiles; Connect Claude, First steps and the Ask Claude
    examples fold away. The unpublished-changes bar shows only on the dashboard and the Appearance screens.
 7. **Accessibility and System status**: Privacy and cookies fits a phone; a table wrapper that scrolls sideways is a
    focusable, named region; yes/no boxes are named by their row; the Statistics and dashboard charts are described for
-   screen readers. System status lists its problems first (linked to their rows) and folds groups that are all fine.
+   screen readers. System status lists its problems first (linked to their rows) and folds groups that are all fine, and
+   warns when the daily clean-up (the retention of personal data) has not succeeded for more than 2 days
+   (`Scheduler::cleanupStale`). The dashboard's latest enquiries leave spam out, as the enquiry list does.
 8. **Safety net**: a PHP deprecation is logged once a day and the page goes on (`App::handleError`; the test suites set
    `KALETA_STRICT_DEPRECATIONS` and still fail on one); `Core\ErrorLog` is the one writer of `chyby.log` – request
-   method and path, user number, version and a short trace, e-mails and tokens masked, rotated at 1 MB. No clean-up runs
+   method and path, user number, version and a short trace, e-mails and tokens masked (also 32+ letters-only or
+   digits-only strings and the value of "Duplicate entry '…'"), rotated at 1 MB under a lock that re-checks the file, so
+   two requests never rotate the history away; System status ignores the cut first line of the log's tail. No clean-up runs
    on a GET page load any more: the trash of news, pages and items and the sweep of orphaned threads moved to the new
    daily job `trash`, the enquiry retention stays in `cleanup`. CI guards: `tools/check-migrations.php` (numbering,
    `KALETA_DB_VERSION`, shipped migrations untouched), `node --check` on every script, a PHPStan checksum and pinned
