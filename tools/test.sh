@@ -10810,7 +10810,7 @@ t331_php "Kaleta\\Core\\Contacts::deleteCompany(\$app, ${T331_CO9:-0});" > /dev/
 expect "3.31 (N331-2): a deleted enquiry and a deleted company leave the deal, which stays" \
   "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = ${T331_E9:-0}")|$(sq "SELECT CONCAT(title, '|', source_enquiry_id IS NULL, '|', company_id IS NULL) FROM ka_deals WHERE id = ${T331_D9:-0}")" "0|Forget T331|1|1"
 check "3.31: the record of processing names the deals" 200 "/admin.php?module=settings&action=processing_record" "Obchody se zákazníky"
-sq "DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0}); DELETE FROM ka_deals WHERE title LIKE '%T331%' OR id = ${T331_D3:-0};
+sq "DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%T331%' OR id IN (${T331_D1:-0}, ${T331_D2:-0}, ${T331_D3:-0})); DELETE FROM ka_deals WHERE title LIKE '%T331%' OR id IN (${T331_D1:-0}, ${T331_D2:-0}, ${T331_D3:-0}); /* 3.32: an erased customer's name leaves the title as #<id> */
   DELETE FROM ka_notifications WHERE target LIKE 'deal:%'; DELETE FROM ka_comments WHERE target LIKE 'deal:%'; DELETE FROM ka_tasks WHERE target LIKE 'deal:%'; DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email LIKE '%t331%');
   DELETE FROM ka_contacts WHERE email LIKE '%t331%' OR id = ${T331_C5:-0}; DELETE FROM ka_companies WHERE domain = 'firma-t331.cz';
   DELETE FROM ka_poptavky WHERE email LIKE '%t331%'; DELETE FROM ka_api_tokeny WHERE nazev LIKE 't331-%'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($T331_JANA, $T331_PETR, ${T331_PIA:-0}); DELETE FROM ka_uzivatele WHERE user LIKE 't331-%';
@@ -11134,7 +11134,7 @@ A332_M2=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, data
 mcp save_deal "{\"enquiry\":$A332_M}" > "$WORK/response"; mcp save_deal "{\"enquiry\":$A332_M2,\"title\":\"Own title A332\"}" > /dev/null
 expect "3.32 save_deal with enquiry: who and what as the default title; an explicit title wins" \
   "$(sq "SELECT title FROM ka_deals WHERE source_enquiry_id = $A332_M")|$(sq "SELECT title FROM ka_deals WHERE source_enquiry_id = $A332_M2")" \
-  "Hannah Fischer A332 – Kitchen for a new family house in…|Own title A332"
+  "Hannah Fischer A332 – Kitchen for a new family house…|Own title A332"
 # defaults (R4): a deal created without a responsible person gets its creator ("none" still means nobody); the reply form
 # offers the follow-up – chosen, the signed-in person's own task "Follow up: <form>" is added with the reply
 expect "3.32 defaults: a deal from save_deal without owner is the creator's; owner none leaves it to nobody" \
@@ -11146,7 +11146,7 @@ command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$A332_SMTP" > /dev/null 2
 sq "DROP TABLE IF EXISTS ka_a332_mail; CREATE TABLE ka_a332_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$A332_M"
-expect "3.32 defaults: the reply form offers the follow-up" "$(grep -c 'name="follow_up" data-reply-follow-up' "$WORK/response")|$(grep -c '<option value="3days">' "$WORK/response")" "1|2"
+expect "3.32 defaults: the reply form offers the follow-up" "$(grep -c 'name="follow_up" data-reply-follow-up' "$WORK/response")|$(grep -c "<option value=\"3days\">" "$WORK/response")" "1|1"
 c10_reply "$A332_M" --data-urlencode "subject=Re: kitchen" --data-urlencode "text=Thank you, we will send a proposal." -d follow_up=3days
 expect "3.32 defaults: the reply with a follow-up – the task is mine, about the enquiry, due in 3 days, titled by the form (its reminder is e-mailed)" \
   "$(sq "SELECT CONCAT(title, '|', assignee_id, '|', DATE(due_at)) FROM ka_tasks WHERE target = 'enquiry:$A332_M'")" "Ozvat se: Kontakt|$A332_ADMIN|$(site_date '+3 days')"
