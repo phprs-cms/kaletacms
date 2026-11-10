@@ -33,8 +33,8 @@ final class Guide
         'connectors' => 'connections',
         'whistleblowing' => 'privacy-cookies', // 2.14: until the guide has its own article on the whistleblowing channel
         'enquiries' => 'forms#enquiries',
-        'contacts' => 'forms#enquiries', // 3.28: Customers – until the guide has its own article, the one on enquiries they come from
-        'pipeline' => 'forms#enquiries', // 3.31: Pipeline – until the guide has its own article, the one on the enquiries deals come from
+        'contacts' => 'customers', // 3.28: Customers (own guide article since 3.31.1)
+        'pipeline' => 'pipeline', // 3.31: Pipeline (own guide article since 3.31.1)
         'bookings' => 'bookings',
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
         'subscribers' => 'newsletter',

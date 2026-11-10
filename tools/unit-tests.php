@@ -2701,7 +2701,7 @@ check('tools/rename.php self-test', $renameCode, 0);
 /* ---------- 2.4: guide links in the administration ---------- */
 // the articles of the guide on kaletacms.com; a new admin module or settings tab needs its article here and in Admin\Guide
 $guideArticles = ['install', 'first-steps', 'extensions', 'builder-basics', 'styling-responsive', 'elements', 'page-settings', 'site-appearance', 'classes', 'components',
-    'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'newsletter', 'company-details', 'seo', 'languages',
+    'site-parts', 'popups', 'menus', 'collections', 'collection-lists', 'site-search', 'news', 'forms', 'customers', 'pipeline', 'newsletter', 'company-details', 'seo', 'languages',
     'claude-connect', 'claude-capabilities', 'ai-assistant', 'users-roles', 'wordpress-import', 'backups-updates', 'media', 'statistics', 'privacy-cookies', 'email', 'site-health', 'fleet-console', 'industry-blueprints', 'connections', 'addons', 'bookings', 'claude-operator'];
 $guideTargets = [...Kaleta\Admin\Guide::MODULES, ...Kaleta\Admin\Guide::SETTINGS, ...Kaleta\Admin\Guide::BUILDER, ...Kaleta\Admin\Guide::ACCOUNT];
 check('2.4: every admin module and settings tab links to an existing guide article', [
