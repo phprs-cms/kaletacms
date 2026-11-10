@@ -1245,4 +1245,5 @@ return [
     'Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.' => 'Wartet: Eine Pilot-Website läuft mit der neuen Version noch nicht ohne Fehler, Ausfälle oder ein fehlgeschlagenes Update. Behebe das bei der Pilot-Website, dann geht der Rollout von selbst weiter, oder gib die Version auf der Seite einer Website von Hand frei.',
     'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'Die Zwei-Faktor-Anmeldung ist bereits eingeschaltet. Um sie neu einzurichten, schalte sie zuerst aus.',
     'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Gib dein aktuelles Passwort ein, um die Zwei-Faktor-Anmeldung einzuschalten. Es wurde nichts geändert.',
+    'Enter your current password to create a token. Nothing was created.' => 'Gib dein aktuelles Passwort ein, um ein Token zu erstellen. Es wurde nichts erstellt.',
 ];

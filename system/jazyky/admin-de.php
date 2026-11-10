@@ -7868,4 +7868,6 @@ return [
     'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'Die Zwei-Faktor-Anmeldung ist bereits eingeschaltet. Um sie neu einzurichten, schalten Sie sie zuerst aus.',
     'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Geben Sie Ihr aktuelles Passwort ein, um die Zwei-Faktor-Anmeldung einzuschalten. Es wurde nichts geändert.',
     'Needed to turn on two-factor sign-in.' => 'Nötig, um die Zwei-Faktor-Anmeldung einzuschalten.',
+    'Enter your current password to create a token. Nothing was created.' => 'Geben Sie Ihr aktuelles Passwort ein, um ein Token zu erstellen. Es wurde nichts erstellt.',
+    'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Nötig, um ein Token zu erstellen – ein Token funktioniert ohne Passwort und ohne Zwei-Faktor-Anmeldung.',
 ];

@@ -353,11 +353,12 @@ expect "výchozí kategorie založená v jazyce webu" "$("${MYSQL[@]}" "$DB_NAME
 # news author: sees only their own news items and does not publish
 NEWS_ID=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idc FROM ka_novinky ORDER BY idc LIMIT 1")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
-# 3.9 N39-1: a new password set by an administrator ends the user's Claude connections (OAuth tokens live a year), personal tokens stay
+# 3.9 N39-1: a new password set by an administrator ends the user's Claude connections (OAuth tokens live a year); personal
+# tokens stay only when the box is unticked (3.31.2, N101: the form then sends zrusit_tokeny=0 – without the field they go)
 IDU_AUTOR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idu FROM ka_uzivatele WHERE user = 'autor'")
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren, expirace) VALUES ($IDU_AUTOR, 'Claude', 'n39client', 'obnova', SHA2('n39-refresh', 256), '$(site_time)', '$(site_time '+300 days')'), ($IDU_AUTOR, 'Claude', 'n39client', 'pristup', SHA2('n39-access', 256), '$(site_time)', '$(site_time '+1 hour')'), ($IDU_AUTOR, 'personal', NULL, 'token', SHA2('n39-personal', 256), '$(site_time)', NULL)"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0
-expect "3.9 N39-1: an administrator's new password ends the user's Claude connections, the personal token stays" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUM(druh <> 'token'), '|', SUM(druh = 'token')) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "0|1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor --data-urlencode "password=$PASSWORD" -d admin=0 -d zrusit_tokeny=0
+expect "3.9 N39-1: an administrator's new password ends the user's Claude connections, the personal token stays when the box is unticked" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(SUM(druh <> 'token'), '|', SUM(druh = 'token')) FROM ka_api_tokeny WHERE idu = $IDU_AUTOR")" "0|1"
 # 3.15 (N19): the user's form offers to revoke the personal tokens too (ticked, as in My account); without a new password nothing goes
 check "3.15 N19: the user's form offers to revoke the personal tokens with the new password" 200 "/admin.php?module=users&action=edit&id=$IDU_AUTOR" 'name="zrusit_tokeny" value="1" checked'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$IDU_AUTOR" -d jmeno=Autor -d user=autor -d admin=0 -d zrusit_tokeny=1
@@ -2972,9 +2973,9 @@ curl -s -X POST "$B/mcp" -H "Authorization: Bearer $OAUTH_DRAFTS" -H 'Content-Ty
 contains -q '"name":"save_build"' "$WORK/response" && ! contains -q '"name":"publish_build"' "$WORK/response" && ! contains -q '"name":"update_settings"' "$WORK/response" && echo "  ok     a drafts-only connection lists only reads and draft tools" || { echo "  CHYBA  tools/list for drafts"; ERRORS=$((ERRORS+1)); }
 # personal tokens with limited access (My account)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; ACCOUNT_CSRF=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude read" -d access=read
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude read" -d access=read --data-urlencode "soucasne=$PASSWORD"
 READ_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude drafts" -d access=drafts
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude drafts" -d access=drafts --data-urlencode "soucasne=$PASSWORD"
 DRAFT_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
 expect "tokens from My account keep the chosen access" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(access ORDER BY nazev) FROM ka_api_tokeny WHERE nazev IN ('Claude read', 'Claude drafts')")" "drafts,read"
 mcp_text() { php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' "$WORK/response" > "$WORK/text"; } # the tool result itself
@@ -3306,11 +3307,11 @@ contains -q 'The find_tools query is too long – at most 200 characters and 20 
 # personal tokens: all tools by default, the essentials when chosen; My account shows and switches the tool set
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; ACCOUNT_CSRF=$(csrf)
 contains -q 'name="tool_set" value="all" checked' "$WORK/response" && echo "  ok     3.10: a new personal token preselects all tools" || { echo "  CHYBA  3.10: personal token default"; ERRORS=$((ERRORS+1)); }
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials" -d access=full -d tool_set=essentials
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials" -d access=full -d tool_set=essentials --data-urlencode "soucasne=$PASSWORD"
 ESS_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
 expect "3.10: a personal token with the essentials lists them" "$(sq "SELECT tool_set FROM ka_api_tokeny WHERE nazev = 'Claude essentials'")|$(mcp_list "$ESS_TOKEN" | cut -d'|' -f2-)" "essentials|find_tools,run_read_tool,run_tool,run_destructive_tool|small"
 # N310-6: a read-only essentials connection lists find_tools and run_read_tool only; a drafts-only one no runner for tools it can never run
-for a in read drafts; do curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials $a" -d access=$a -d tool_set=essentials
+for a in read drafts; do curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials $a" -d access=$a -d tool_set=essentials --data-urlencode "soucasne=$PASSWORD"
   printf -v "ESS_$a" '%s' "$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)"; done
 expect "3.10 N310-6: the runners of read-only and drafts-only essentials connections" "$(mcp_list "$ESS_read" | cut -d'|' -f2)|$(mcp_list "$ESS_drafts" | cut -d'|' -f2)" "find_tools,run_read_tool|find_tools,run_read_tool,run_tool,run_destructive_tool"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
@@ -9896,7 +9897,7 @@ contains -q 'YOUR TOOL LIST HOLDS THE WORK TOOLS' "$WORK/response" && echo "  ok
 # My account: a new token may take the work tool set (Advanced), the list labels it, the switch goes to all tools
 check "3.26 My account: the work tool set is offered for a new token, a work connection is labelled" 200 "/admin.php?action=account" 'name="tool_set" value="work"'
 TOKEN=$(csrf)
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=token_novy -d nazev=c326-new -d access=drafts -d tool_set=work -d platnost=30
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=token_novy -d nazev=c326-new -d access=drafts -d tool_set=work -d platnost=30 --data-urlencode "soucasne=$PASSWORD"
 expect "3.26 My account: the new token keeps the work tool set" "$(sq "SELECT CONCAT(access, '/', tool_set) FROM ka_api_tokeny WHERE nazev = 'c326-new'")" "drafts/work"
 C326_NEW=$(sq "SELECT idt FROM ka_api_tokeny WHERE nazev = 'c326-new'")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
@@ -10963,5 +10964,34 @@ expect "3.31.2 N100: with the second factor on, a new secret is not issued or co
 expect "3.31.2 N100: turning it off asks for the password as before; then it can be set up again" \
   "$(s3312_account -d co=totp_vypni -d soucasne=wrong-password-1 > /dev/null; [ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo kept)|$(s3312_account -d co=totp_vypni --data-urlencode "soucasne=$PASSWORD" > /dev/null; s3312_totp)|$(s3312_account -d co=totp_start > /dev/null; curl -s -b "$S3312_JAR" "$B/admin.php?action=account" | grep -c 'name="co" value="totp_potvrd"')" \
   "kept|/0|1"
+# N101: a personal token needs the current password; a password change revokes the account's personal tokens unless the box is
+# unticked (zrusit_tokeny=0) – a request without the field revokes too. Tokens of other accounts and OAuth clients of others stay.
+sq "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE idu = $S3312_USER" > /dev/null
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+s3312_tokens() { sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $S3312_USER AND druh = 'token'"; }
+expect "3.31.2 N101: the token form asks for the current password; without it, or with a wrong one, no token is created (also full access without expiry)" \
+  "$(grep -c 'id="token-heslo" name="soucasne"' "$WORK/response")|$(s3312_account -d co=token_novy -d nazev=s3312-a -d access=full -d platnost=0)|$(s3312_account -d co=token_novy -d nazev=s3312-a -d access=full -d platnost=0 -d soucasne=wrong-password-1)|$(grep -c 'kaleta_[a-f0-9]\{48\}' "$WORK/response")|$(s3312_tokens)" \
+  "1|302|302|0|0"
+expect "3.31.2 N101: with the current password the token is created and shown once" \
+  "$(s3312_account -d co=token_novy -d nazev=s3312-a -d access=full -d platnost=0 --data-urlencode "soucasne=$PASSWORD")|$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | sort -u | wc -l | tr -d ' ')|$(sq "SELECT CONCAT(access, '/', IFNULL(expirace, 'none')) FROM ka_api_tokeny WHERE idu = $S3312_USER AND nazev = 's3312-a'")" "200|1|full/none"
+S3312_PERSONAL=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1)
+s3312_works() { curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'; }
+S3312_OTHERS=$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu <> $S3312_USER")
+S3312_NEW="Changed-$(openssl rand -hex 8)"
+s3312_password() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf); s3312_account -d co=heslo --data-urlencode "soucasne=$1" --data-urlencode "nove=$2" --data-urlencode "nove2=$2" "${@:3}" > /dev/null; }
+expect "3.31.2 N101: the password form sends zrusit_tokeny=0 when the box is unticked, and the box is ticked" \
+  "$(curl -s -b "$S3312_JAR" "$B/admin.php?action=account" | grep -c '<input type="hidden" name="zrusit_tokeny" value="0"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked>')" "1"
+s3312_password "$PASSWORD" "$S3312_NEW" -d zrusit_tokeny=0
+expect "3.31.2 N101: the box unticked – the personal token survives the password change and still works" "$(s3312_tokens)|$(s3312_works "$S3312_PERSONAL")" "1|200"
+s3312_password "$S3312_NEW" "$PASSWORD"
+expect "3.31.2 N101: a password change without the field revokes the account's personal tokens – the token stops working; other accounts' tokens stay" \
+  "$(s3312_tokens)|$(s3312_works "$S3312_PERSONAL")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu <> $S3312_USER")|$(sq "SELECT popis FROM ka_protokol WHERE kdo = $S3312_USER AND akce = 'password_change' ORDER BY idp DESC LIMIT 1" | grep -c ': 1')" "0|401|$S3312_OTHERS|1"
+# the administrator's form in Users: the same rule (ticked or no field revokes, unticked keeps)
+sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($S3312_USER, 's3312-b', 'read', 'all', SHA2('s3312-b-$RANDOM', 256), '$(site_time)')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=edit&id=$S3312_USER"; TOKEN=$(csrf)
+s3312_admin_sets() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$S3312_USER" -d "jmeno=Tester S3312" -d user=s3312 -d email=s3312@example.com -d admin=2 --data-urlencode "password=$PASSWORD" "$@"; }
+expect "3.31.2 N101: Users – the form sends 0 for the unticked box; unticked keeps the user's token, no field revokes it" \
+  "$(grep -c '<input type="hidden" name="zrusit_tokeny" value="0">' "$WORK/response")|$(s3312_admin_sets -d zrusit_tokeny=0; s3312_tokens)|$(s3312_admin_sets; s3312_tokens)" "1|1|0"
+sq "DELETE FROM ka_api_tokeny WHERE idu = $S3312_USER OR nazev = 's3312 drafts'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $S3312_USER; DELETE FROM ka_uzivatele WHERE idu = $S3312_USER" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

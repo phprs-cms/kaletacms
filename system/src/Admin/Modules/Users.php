@@ -143,14 +143,14 @@ final class Users extends Module
             default => self::defaultModules((int) $data['admin']),
         };
 
-        $revokeTokens = $r->postBool('zrusit_tokeny');
+        $revokeTokens = !\Kaleta\Admin\Account::keepsTokens($r->post('zrusit_tokeny')); // 3.31.2 (N101): kept only when the box is unticked
         $this->db->transaction(function () use (&$id, $data, $modules, $revokeTokens): void {
             if ($id > 0) {
                 $this->db->update('uzivatele', $data, ['idu' => $id]);
                 if (isset($data['password'])) {
                     \Kaleta\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections (N39-1)
                     if ($revokeTokens) {
-                        // 3.15 (N19): personal tokens too when the administrator leaves it ticked, as on a change in My account
+                        // 3.15 (N19): personal tokens too unless the administrator unticks it, as on a change in My account
                         $this->db->delete('api_tokeny', ['idu' => $id, 'druh' => 'token']);
                     }
                 }

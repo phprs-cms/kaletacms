@@ -221,6 +221,7 @@ await step('account: Enter in the token name creates the token, with tokens list
   for (const name of ['Enter token 1', 'Enter token 2']) {
     await visit('/admin.php?action=account');
     await page.fill('#token-nazev', name);
+    await page.fill('#token-heslo', PASSWORD); // 3.31.2 (N101): a token needs the current password
     await Promise.all([page.waitForNavigation(), page.press('#token-nazev', 'Enter')]);
     if (!((await page.locator('code.totp-klic').first().textContent()) || '').startsWith('kaleta_')) throw new Error(`no new token for ${name}`);
   }

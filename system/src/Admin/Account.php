@@ -74,9 +74,11 @@ final class Account
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
                         $db->update('uzivatele', ['password' => $newHash], ['idu' => $user['idu']]);
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
-                        // apps connected over OAuth (Claude) always go – their refresh token lives a year (N39-1); personal tokens on request
+                        // apps connected over OAuth (Claude) always go – their refresh token lives a year (N39-1). Personal tokens
+                        // go too (3.31.2, N101) unless the form says to keep them: the unticked box sends zrusit_tokeny=0, and a
+                        // request without the field revokes – a token would otherwise outlive the password it was made under
                         $revoked = \Kaleta\Front\OAuth::revokeConnections($db, (int) $user['idu'])
-                            + ($r->postBool('zrusit_tokeny') ? $db->delete('api_tokeny', ['idu' => $user['idu'], 'druh' => 'token']) : 0);
+                            + (self::keepsTokens($r->post('zrusit_tokeny')) ? 0 : $db->delete('api_tokeny', ['idu' => $user['idu'], 'druh' => 'token']));
                         ChangeLog::write($app, 'ucet', 'password_change', $revoked > 0 ? t('connection tokens revoked: %d', $revoked) : '');
                         $message = ['ok', $revoked > 0 ? 'The password has been changed, other sign-ins ended and connection tokens revoked.' : 'The password has been changed and other sign-ins of this account have been ended.'];
                     }
@@ -87,6 +89,12 @@ final class Account
                     }
                     if ($app->auth()->isMissingRequired2fa($app->settings())) {
                         $message = ['chyba', 'The website requires two-step sign-in – you can create a token once you turn it on.'];
+                        break;
+                    }
+                    // 3.31.2 (N101): a token works without the password and the second factor, at /mcp, with this account's
+                    // role – a signed-in session alone must not mint one (an unattended computer, a stolen cookie)
+                    if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
+                        $message = ['chyba', 'Enter your current password to create a token. Nothing was created.'];
                         break;
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
@@ -194,6 +202,16 @@ final class Account
         }
 
         return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+    }
+
+    /**
+     * Whether a password change keeps the account's personal tokens (3.31.2, N101): only when the form explicitly says so –
+     * the box "also revoke connection tokens" unticked sends "0" from the hidden field before it. Ticked ("1") or no field at
+     * all (another client, an old form) revokes. Used by My account and by Users.
+     */
+    public static function keepsTokens(string $posted): bool
+    {
+        return $posted === '0';
     }
 
     /**

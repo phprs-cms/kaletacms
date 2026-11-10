@@ -7461,4 +7461,6 @@ return [
     'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'Dvoufázové přihlášení je už zapnuté. Chcete-li ho nastavit znovu, nejdřív ho vypněte.',
     'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'K zapnutí dvoufázového přihlášení zadejte své současné heslo. Nic se nezměnilo.',
     'Needed to turn on two-factor sign-in.' => 'Potřeba k zapnutí dvoufázového přihlášení.',
+    'Enter your current password to create a token. Nothing was created.' => 'K vytvoření tokenu zadejte své současné heslo. Nic se nevytvořilo.',
+    'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Potřeba k vytvoření tokenu – token funguje bez hesla i bez dvoufázového přihlášení.',
 ];

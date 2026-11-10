@@ -388,7 +388,8 @@ The **Claude connection (MCP)** is switched on in new installations (under Featu
   Connected apps are listed (and can be disconnected) in **My account**. This needs the site on HTTPS. A site in a
   subfolder works too – the Claude app finds the sign-in there; for a tool that does not, use a personal token.
 - **Claude Code:** run the command below and confirm access in the browser. Alternatively, create an access token under
-  **My account** and add `--header "Authorization: Bearer <token>"`.
+  **My account** (it asks for your current password) and add `--header "Authorization: Bearer <token>"`. Changing the
+  account's password revokes its personal tokens unless you untick that in the form; connected apps are always disconnected.
 
 ```bash
 claude mcp add --transport http kaleta https://your-site.com/mcp

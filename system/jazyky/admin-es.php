@@ -7887,4 +7887,6 @@ return [
     'Two-factor sign-in is already on. To set it up again, turn it off first.' => 'La verificación en dos pasos ya está activada. Para configurarla de nuevo, desactívala primero.',
     'Enter your current password to turn on two-factor sign-in. Nothing was changed.' => 'Introduce tu contraseña actual para activar la verificación en dos pasos. No se ha cambiado nada.',
     'Needed to turn on two-factor sign-in.' => 'Necesaria para activar la verificación en dos pasos.',
+    'Enter your current password to create a token. Nothing was created.' => 'Introduce tu contraseña actual para crear un token. No se ha creado nada.',
+    'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Necesaria para crear un token: un token funciona sin la contraseña y sin la verificación en dos pasos.',
 ];

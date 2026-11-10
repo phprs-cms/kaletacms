@@ -68,7 +68,7 @@ $role = [
 	<label style="font-weight:normal"><input type="checkbox" data-ukaz-heslo="password"> <?= e(t('zobrazit')) ?></label><?= $error('password') ?>
 	<span class="napoveda"><?= e(t('At least 10 characters.')) ?> <?= e(t($author['idu'] ? 'Leave empty if you are not changing the password.' : 'The user can change it later under My account.')) ?></span>
 <?php if ($author['idu'] && array_filter($connections ?? [], fn (array $c): bool => $c['kind'] === 'token') !== []): ?>
-	<label style="font-weight:normal"><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
+	<input type="hidden" name="zrusit_tokeny" value="0"><label style="font-weight:normal"><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
 	<span class="napoveda"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span>
 <?php endif ?>
 <?php if (!$author['idu']): ?>

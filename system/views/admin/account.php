@@ -89,7 +89,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <div class="radek"><label for="nove"><?= e(t('New password')) ?></label><div><input class="textpole" type="password" id="nove" name="nove" size="30" minlength="10" autocomplete="new-password" required><span class="napoveda"><?= e(t('At least 10 characters.')) ?></span></div></div>
 <div class="radek"><label for="nove2"><?= e(t('New password again')) ?></label><div><input class="textpole" type="password" id="nove2" name="nove2" size="30" autocomplete="new-password" required></div></div>
 <?php if ($tokens !== []): ?>
-<div class="radek"><span class="popisek"><?= e(t('Connections')) ?></span><div class="volby"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
+<div class="radek"><span class="popisek"><?= e(t('Connections')) ?></span><div class="volby"><input type="hidden" name="zrusit_tokeny" value="0"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
 	<span class="napoveda"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span></div></div>
 <?php endif ?>
 <?php if ($apps !== []): ?>
@@ -209,6 +209,7 @@ $toolSetSwitch = fn (string $set, string $target): string => '<button class="nav
 <?php endforeach ?>
 </select><span class="napoveda"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
 <?= $app->view->render('admin/connection-access', ['role' => t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? ''), 'selected' => 'full', 'toolSet' => 'all']) ?>
+<div class="radek"><label for="token-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="token-heslo" name="soucasne" size="30" autocomplete="current-password" required><span class="napoveda"><?= e(t('Needed to create a token – a token works without the password and without two-factor sign-in.')) ?></span></div></div>
 <p class="tlacitka"><button class="tl" type="submit" name="co" value="token_novy"><?= e(t('Create token')) ?></button></p>
 </fieldset>
 </form>
