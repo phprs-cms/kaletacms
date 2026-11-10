@@ -7879,4 +7879,7 @@ return [
     'Someone already handles this enquiry.' => 'Diese Anfrage bearbeitet bereits jemand.',
     'Examples' => 'Beispiele',
     '%s to %s: %s page views and %s visits in all; the most page views on %s (%s).' => '%s bis %s: insgesamt %s Seitenaufrufe und %s Besuche; die meisten Seitenaufrufe am %s (%s).',
+    'warning' => 'Warnung',
+    '%d of %d need attention' => '%d von %d brauchen Aufmerksamkeit',
+    '%d checks, all fine' => '%d Prüfungen, alles in Ordnung',
 ];

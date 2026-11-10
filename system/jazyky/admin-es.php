@@ -7898,4 +7898,7 @@ return [
     'Someone already handles this enquiry.' => 'Alguien ya se encarga de esta solicitud.',
     'Examples' => 'Ejemplos',
     '%s to %s: %s page views and %s visits in all; the most page views on %s (%s).' => 'Del %s al %s: %s vistas de página y %s visitas en total; el día con más vistas fue el %s (%s).',
+    'warning' => 'aviso',
+    '%d of %d need attention' => '%d de %d requieren atención',
+    '%d checks, all fine' => '%d comprobaciones, todo bien',
 ];

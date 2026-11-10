@@ -1956,3 +1956,18 @@ table.flotila-okruhy th.cislo, table.flotila-okruhy thead th { white-space: norm
 	table.flotila-terminy tr.flotila-warn { box-shadow: inset 3px 0 0 var(--varovani); }
 	table.flotila-okruhy td.cislo { text-align: left; }
 }
+
+/* 3.32 (U48): System status – what needs attention first, then the groups; an all-green group is folded to one line */
+.stav-problemy { margin: 0 0 20px; padding: 12px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); list-style: none; }
+.stav-problemy li { padding: 4px 0; }
+.stav-problemy .stitek { margin-right: 4px; }
+.stav-skupina { margin: 0 0 12px; }
+.stav-skupina > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-height: 40px; padding: 4px 0; cursor: pointer; list-style: none; }
+.stav-skupina > summary::-webkit-details-marker { display: none; }
+.stav-skupina > summary::before { content: "▸"; color: var(--text-slaby); transition: transform 0.12s; }
+.stav-skupina[open] > summary::before { transform: rotate(90deg); }
+.stav-skupina > summary h2 { margin: 0; font-size: 16px; }
+.stav-skupina[open] > summary { margin-bottom: 8px; }
+table.vypis-stav tr.stav-chyba td:first-child { box-shadow: inset 3px 0 0 var(--chyba); }
+table.vypis-stav tr.stav-varovani td:first-child { box-shadow: inset 3px 0 0 var(--varovani); }
+table.vypis-stav tr:target { background: var(--akcent-svetly); }

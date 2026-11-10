@@ -10504,6 +10504,12 @@ check('3.32 (U46, U47, U49, U50): focusable scrollers, the cookie listing, named
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php'), 'role="group" aria-label="<?= e(t(\'Bar chart of page views by day\')) ?>" aria-describedby="graf-souhrn"'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/dashboard.php'), 'role="img"'),
 ], [true, true, true, 4, true, 1]);
+// 3.32 (U48): System status lists the problems first and folds the all-green groups; every check stays
+$u48 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/health.php');
+check('3.32 (U48): System status – problems first with links to their rows, a group open only with a problem, every check a row', [
+    strpos($u48, 'data-status-problems') < strpos($u48, 'data-status-group'), str_contains($u48, "<details class=\"stav-skupina\" data-status-group<?= \$bad > 0 ? ' open' : '' ?>>"),
+    str_contains($u48, '<a href="#stav-<?= (int) $i ?>">') && str_contains($u48, '<tr id="stav-<?= (int) $i ?>"'), str_contains($u48, 'foreach ($checks as $i => $k) {'),
+], [true, true, true, true]);
 $d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
 check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
     $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),

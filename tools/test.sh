@@ -247,6 +247,9 @@ for z in general seo analytics cookies mail webhooks backups; do check "nastaven
 # 3.2: tabs that became screens of their own – the old address leads there; the new screens and hubs open
 for z in company:business health:status; do expect "3.2: settings&tab=${z%%:*} leads to ${z##*:}" "$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' "$B/admin.php?module=settings&tab=${z%%:*}" | sed 's/.*module=//')" "${z##*:}"; done
 check "3.2: System status is its own screen" 200 "/admin.php?module=status" "Cron"
+# 3.32 (U48): problems first (each linking to its row), then the groups – a group with a problem open, an all-green one folded
+expect "3.32 (U48): System status – the problems link to their rows, the open groups are those with a problem, green ones are folded" \
+  "$(php -r '$h = (string) file_get_contents($argv[1]); preg_match_all("#<a href=\"\\#(stav-\\d+)\">#", $h, $links); $missing = array_filter($links[1], fn ($id) => !str_contains($h, "<tr id=\"$id\" class=\"stav-")); preg_match_all("#<details class=\"stav-skupina\" data-status-group( open)?>\\s*<summary><h2>[^<]*</h2> <span class=\"stitek stitek-(\\w+)\">#", $h, $g, PREG_SET_ORDER); $wrong = array_filter($g, fn ($m) => ($m[1] === " open") !== ($m[2] === "koncept")); echo count($g) > 3 ? "groups" : "few", "|", $missing === [] ? "linked" : "broken", "|", $wrong === [] ? "folded" : "wrong", "|", str_contains($h, "data-status-problems") === (count($links[1]) > 0) ? "list" : "nolist";' "$WORK/response")" "groups|linked|folded|list"
 check "3.2: Claude settings hold the instructions and the guardrails" 200 "/admin.php?module=claude_settings" 'name="claude_instructions"'
 check "3.2: Business details show the hub tabs" 200 "/admin.php?module=facts" 'zalozky-hub'
 check "3.2: the menu leads to the hubs" 200 "/admin.php" "module=claude_settings"
@@ -9105,7 +9108,7 @@ expect "3.19.1 (N88): the message names the file and the folder, the originals s
   "$([[ "$N88" == "1 file(s) could not be put back (system/n88.txt)"*"storage/cache/aktualizace-n88-puvodni"* ]] && echo said)|$(cat "$WORK/web/storage/cache/aktualizace-n88-puvodni/system/n88.txt")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'update.restore_failed' AND data LIKE '%system/n88.txt%' AND data LIKE '%aktualizace-n88-puvodni%'")" \
   "said|old|1"
 expect "3.19.1 (N88): visitors keep the maintenance page (a lock older than 10 minutes too), the administration opens and System status says what to do" \
-  "$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=status")|$(grep -c 'Vrácení aktualizace' "$WORK/response")" "503|200|1"
+  "$(curl -s -o /dev/null -w '%{http_code}' "$B/")|$(curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=status")|$(grep -c '<strong>Vrácení aktualizace' "$WORK/response")" "503|200|1"
 rm -f "$WORK/web/storage/udrzba.lock" "$WORK/web/system/n88.txt"; rm -rf "$WORK/web/storage/cache/aktualizace-n88-puvodni"
 expect "3.19.1 (N88): without the lock the site answers again" "$(curl -s -o /dev/null -w '%{http_code}' "$B/")" "200"
 echo "== 3.22 (C9): the optional Appearance area of a role"

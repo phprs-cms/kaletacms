@@ -7472,4 +7472,7 @@ return [
     'Someone already handles this enquiry.' => 'Poptávku už má na starosti někdo jiný.',
     'Examples' => 'Příklady',
     '%s to %s: %s page views and %s visits in all; the most page views on %s (%s).' => '%s až %s: celkem %s zobrazení stránek a %s návštěv; nejvíc zobrazení %s (%s).',
+    'warning' => 'varování',
+    '%d of %d need attention' => '%d z %d chce pozornost',
+    '%d checks, all fine' => 'kontrol: %d, vše v pořádku',
 ];
