@@ -243,8 +243,10 @@ Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktual
 ## Spuštění a testy
 
 `php -S 127.0.0.1:8095 system/dev-router.php` (preview `kaleta`), vývojová databáze `kaleta_dev`, `config.php` není v gitu.
-Po změně: `tools/test.sh` (lint, jednotkové testy `tools/unit-tests.php`, čistá instalace a průchod webem i administrací; potřebuje MySQL,
-databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/unit-tests.php`, a projít dotčené stránky v prohlížeči.
+Po změně: `tools/test.sh` (lint, jednotkové testy, čistá instalace a průchod webem i administrací; potřebuje MySQL,
+databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/unit-tests.php` (jeden soubor: `php tools/unit-tests.php 0310` nebo část názvu),
+a projít dotčené stránky v prohlížeči. Testy leží v `tools/tests/unit/NNNN-tema.php` a `tools/tests/smoke/NNNN-tema.sh` (běží v pořadí čísel,
+smoke v jednom shellu); nové téma = nový soubor s dalším volným číslem, nikdy připisovat na konec cizího souboru (`tools/tests/README.md`).
 
 ## Screenshoty a angličtina
 
