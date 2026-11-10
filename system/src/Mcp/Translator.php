@@ -520,6 +520,7 @@ final class Translator
         '/^Třída \.(\S+) \((\w+)\): deklaraci „(.*)“ builder ve stavu neumí – vynechána\.$/su' => 'Class .$1 ($2): the builder cannot use the declaration “$3” in a state – left out.',
         '/^Nepovolená deklarace: (.*)$/su' => 'Declaration not allowed: $1',
         '/^Atribut může být jen data-…, aria-…, title, lang, role nebo rel\.$/su' => 'An attribute can only be data-…, aria-…, title, lang, role or rel.',
+        '/^Třídy začínající „ka-“ jsou vyhrazené pro Kaletu – vynechány\.$/su' => 'Class names starting with "ka-" are reserved for Kaleta – left out.',
         '/^Datum podmínky zobrazení musí být ve tvaru RRRR-MM-DD\.$/su' => 'The date of a display condition must be YYYY-MM-DD.',
         '/^Datum a čas musí být ve tvaru RRRR-MM-DD HH:MM – pole zůstalo prázdné\.$/su' => 'A date and time must be YYYY-MM-DD HH:MM – the field was left empty.',
         '/^Jazyk podmínky zobrazení musí být kód jazykové verze webu \(„“ = výchozí jazyk\)\.$/su' => 'The language of a display condition must be the code of a language version of the site ("" = the default language).',

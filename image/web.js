@@ -653,11 +653,23 @@
 	/* ---------- collection lists: filters and pages without reloading the page (2.10). The links work without JavaScript too
 	   (they carry ?f-<id>= / ?s-<id>=); here only the list is fetched and swapped, the address changes, Back works ---------- */
 
+	/* 3.31.2 (N99): the list is only ever fetched from this very page – the same origin and the same path, only the query
+	   differs (that is all a filter or page link changes). Any other address is an ordinary link: the browser follows it and
+	   nothing from it is put into this page. The same origin alone would not do – an uploaded file is on it too. */
+	function ownPage(url) {
+		try {
+			var u = new URL(url, location.href);
+			return u.origin === location.origin && u.pathname.replace(/\/+$/, '') === location.pathname.replace(/\/+$/, '');
+		} catch (e) { return false; }
+	}
+
 	function swapList(wrapper, url, push) {
+		if (!ownPage(url)) { location.href = url; return; }
 		var id = wrapper.getAttribute('data-kolekce');
 		wrapper.setAttribute('aria-busy', 'true');
 		fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'kaleta-list' } }).then(function (r) {
-			if (!r.ok) { throw new Error('HTTP ' + r.status); }
+			// a redirect elsewhere, or an answer that is not a page: nothing of it is used
+			if (!r.ok || !ownPage(r.url) || !/^text\/html\b/i.test(r.headers.get('Content-Type') || '')) { throw new Error('HTTP ' + r.status); }
 			return r.text();
 		}).then(function (html) {
 			var fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-kolekce="' + id + '"]');
@@ -673,6 +685,7 @@
 	document.addEventListener('click', function (e) {
 		var link = e.target.closest && e.target.closest('[data-kolekce] .ka-kolekce-filtry a, [data-kolekce] .ka-kolekce-strany a');
 		if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0 || !window.fetch || !window.DOMParser) { return; }
+		if (!ownPage(link.href)) { return; } // not a link of this list: left to the browser
 		e.preventDefault();
 		swapList(link.closest('[data-kolekce]'), link.href, true);
 	});

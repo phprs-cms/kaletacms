@@ -2774,7 +2774,7 @@
 		const newClass = el('input', { type: 'text', list: 'st-dl-tridy', placeholder: T('e.g. card'), onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); addClass(); } } });
 		const addClass = () => {
 			const name = newClass.value.trim().toLowerCase();
-			if (!/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/.test(name) || classes.includes(name)) { return; }
+			if (!/^(?!ka-)[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/.test(name) || classes.includes(name)) { return; }
 			applyChange(() => { p.tridy = classes.concat([name]); });
 		};
 		panel.append(el('div', { class: 'st-pole' }, el('span', {}, T('Classes')),

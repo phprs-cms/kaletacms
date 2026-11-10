@@ -10911,5 +10911,26 @@ sq "DELETE FROM ka_notifications WHERE user_id IN ($B331_JANA, $B331_PETR) OR ta
   UPDATE ka_poptavky SET contact_id = NULL WHERE idp = $B331_ENQ; DELETE FROM ka_poptavky WHERE idp = $B331_ENQ;
   DELETE FROM ka_contact_activities WHERE contact_id IN (SELECT id FROM ka_contacts WHERE email_norm LIKE '%b331%'); DELETE FROM ka_contacts WHERE email_norm LIKE '%b331%'; DELETE FROM ka_companies WHERE name LIKE '%B331%';
   DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($B331_JANA, $B331_PETR); DELETE FROM ka_uzivatele WHERE user LIKE 'b331-%'" > /dev/null
+
+echo "== 3.31.2: security fixes (N99–N103)"
+# N99: a drafts-only connection saves a draft whose card text carries the class of the collection list's page links – the
+# class is left out with a note; a build stored with it (before 3.31.2) is rendered without it; ordinary classes stay
+S3312_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE admin = 2 AND blokovat = 0 ORDER BY idu LIMIT 1")
+S3312_TOKEN="kaleta_$(openssl rand -hex 24)"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($S3312_ADMIN, 's3312 drafts', 'drafts', 'all', SHA2('$S3312_TOKEN', 256), '$(site_time)')" > /dev/null
+s3312_mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $S3312_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+sq "INSERT INTO ka_stranky (seo_link, titulek, text, v_menu, zobrazit) VALUES ('s3312-n99', 'N99', '', 0, 1)" > /dev/null
+S3312_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 's3312-n99' AND jazyk = ''")
+s3312_mcp save_build '{"id":'"$S3312_PAGE"',"build":{"v":1,"children":[{"type":"section","children":[{"id":"n99txt","type":"text","classes":["ka-kolekce-strany","card3312","ka-kolekce-filtry"],"content":{"html":"<p><a href=\"https://evil.example/p\">More</a></p>"}}]}]}}' > "$WORK/response"
+expect "3.31.2 N99: save_build over a drafts connection leaves the \"ka-\" classes out and says so; the other class stays in the draft" \
+  "$(grep -c 'reserved for Kaleta' "$WORK/response")|$(sq "SELECT stavba_koncept LIKE '%ka-kolekce%' FROM ka_stranky WHERE ids = $S3312_PAGE")|$(sq "SELECT stavba_koncept LIKE '%\"card3312\"%' FROM ka_stranky WHERE ids = $S3312_PAGE")" "1|0|1"
+sq "UPDATE ka_stranky SET stavba_koncept = NULL, stavba = '{\"v\":1,\"deti\":[{\"id\":\"n99sec\",\"typ\":\"sekce\",\"znacka\":\"section\",\"obsah\":{},\"deti\":[{\"id\":\"n99txt\",\"typ\":\"text\",\"znacka\":\"div\",\"obsah\":{\"html\":\"<p><a href=\\\\\"https://evil.example/p\\\\\">More</a></p>\"},\"tridy\":[\"ka-kolekce-strany\",\"card3312\"]}]}]}' WHERE ids = $S3312_PAGE" > /dev/null
+rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/s3312-n99"
+expect "3.31.2 N99: a build stored with a \"ka-\" class renders without it – the element, its other class and its link stay" \
+  "$(grep -c 'ka-kolekce-strany' "$WORK/response")|$(grep -c 'class="[^"]*card3312[^"]*"' "$WORK/response")|$(grep -c 'href="https://evil.example/p"' "$WORK/response")" "0|1|1"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"; TOKEN=$(csrf)
+expect "3.31.2 N99: a shared class cannot take a \"ka-\" name in the builder; an ordinary name is still accepted" \
+  "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_class" -d "_csrf=$TOKEN" -d name=ka-kolekce-strany -d pouziti=1)|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_class" -d "_csrf=$TOKEN" -d name=card3312 -d pouziti=1)" "400|200"
+sq "DELETE FROM ka_stranky WHERE ids = $S3312_PAGE" > /dev/null
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

@@ -19,7 +19,14 @@ final class Build
     public const int VERSION = 1;
     public const int MAX_ELEMENTS = 800;
     public const int MAX_DEPTH = 12;
-    public const string CLASS_PATTERN = '/^[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/D';
+
+    /**
+     * A class name an element or a shared class may take. Names starting with "ka-" are Kaleta's own (3.31.2, N99): the
+     * site's scripts and styles hang on them (image/web.js follows the links inside .ka-kolekce-strany, the store locator
+     * reads .ka-pobocky-seznam…), so a class from the editor, MCP or an import never starts with it – the same rule as
+     * data-ka-… attributes and ka-… anchors. The renderer checks a stored build again (userClasses).
+     */
+    public const string CLASS_PATTERN = '/^(?!ka-)[a-z][a-z0-9-]{0,40}(__[a-z0-9-]{1,30})?(--[a-z0-9-]{1,30})?$/D';
 
     /**
      * Custom attributes of an element: only harmless ones – no on…, style, href or src, and none of the hooks the site's scripts read
@@ -136,7 +143,10 @@ final class Build
             if ($style !== []) {
                 $clean['styl'] = $style;
             }
-            $classes = array_values(array_unique(array_filter(is_array($p['tridy'] ?? null) ? $p['tridy'] : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
+            $classes = self::userClasses($p['tridy'] ?? null);
+            if (is_array($p['tridy'] ?? null) && array_filter($p['tridy'], fn (mixed $t): bool => is_string($t) && str_starts_with($t, 'ka-')) !== []) {
+                $errors[$place . '.tridy'] = 'Třídy začínající „ka-“ jsou vyhrazené pro Kaletu – vynechány.';
+            }
             if ($classes !== []) {
                 $clean['tridy'] = array_slice($classes, 0, 8);
             }
@@ -675,12 +685,14 @@ final class Build
         // 3.19.1 (N78): an anchor stored before the check (gtag, poptavka…) is not written – the element keeps its style id
         $anchor = is_string($p['kotva'] ?? null) && self::isFreeAnchor($p['kotva']) ? $p['kotva'] : null;
         $id = $isRepeated ? null : ($anchor ?? ($hasStyle ? 's-' . $p['id'] : null));
-        $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $p['tridy'] ?? []);
+        // 3.31.2 (N99): a build saved before "ka-" names were reserved loses them here – the element renders without the hook
+        $own = self::userClasses($p['tridy'] ?? null);
+        $classes = array_merge($isRepeated && $hasStyle ? ['s-' . $p['id']] : [], $own);
         if ($hasStyle && !isset($k->styles[$p['id']])) {
             $k->styles[$p['id']] = true;
             $k->css .= Style::css($isRepeated ? '.s-' . $p['id'] : '#' . $id, $style, $customCss, $k->app->request->basePath());
         }
-        foreach ($p['tridy'] ?? [] as $t) {
+        foreach ($own as $t) {
             $k->classes[$t] = true;
         }
         $custom = self::customAttributes($p['atributy'] ?? null);
@@ -693,6 +705,17 @@ final class Build
         $html = $className::render($p, $a, $children, $k);
 
         return $custom === '' ? $html : self::customAttributesLast($html, $custom);
+    }
+
+    /**
+     * The classes of an element that may be written to the page: valid names only, never one of Kaleta's own ("ka-…",
+     * CLASS_PATTERN). Used when a build is saved and again when it is rendered.
+     *
+     * @return list<string>
+     */
+    public static function userClasses(mixed $classes): array
+    {
+        return array_values(array_unique(array_filter(is_array($classes) ? $classes : [], fn (mixed $t): bool => is_string($t) && preg_match(self::CLASS_PATTERN, $t) === 1)));
     }
 
     /**
