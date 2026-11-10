@@ -7906,7 +7906,7 @@ return [
     'New customer' => 'Nuevo cliente',
     'New customer here' => 'Nuevo cliente aquí',
     'Automatic (%s)' => 'Automática (%s)',
-    'The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.' => 'La moneda con la que empieza el valor de una nueva oportunidad. Automática toma la moneda del país de la empresa o, si no, la de la zona horaria.',
+    'The currency a new deal value starts with. Automatic takes the currency of the company country, else the one most existing deals use.' => 'La moneda con la que empieza el valor de una nueva oportunidad. Automática toma la moneda del país de la empresa o, si no, la que usan la mayoría de las oportunidades existentes.',
     'Take it' => 'Encargarme',
     'The enquiry is yours now.' => 'Ahora la solicitud es tuya.',
     'Someone already handles this enquiry.' => 'Alguien ya se encarga de esta solicitud.',

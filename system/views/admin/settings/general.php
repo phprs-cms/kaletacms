@@ -35,7 +35,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 <?php endif ?>
 	</div>
 </div>
-<?php // 3.32 (U29): the currency a new deal value takes; automatic = from the company country, the time zone or the site language ?>
+<?php // 3.32 (U29): the currency a new deal value takes; automatic = from the company country, the currency most deals use or the site language ?>
 <div class="radek">
 	<label for="default_currency"><?= e(t('Currency')) ?></label>
 	<div><select id="default_currency" name="default_currency">
@@ -44,7 +44,7 @@ $field('site_email', 'Site email', 'email', 'System notifications are sent to it
 		<option value="<?= e($currencyCode) ?>"<?= ($values['default_currency'] ?? '') === $currencyCode ? ' selected' : '' ?>><?= e($currencyCode) ?></option>
 <?php endforeach ?>
 	</select>
-	<span class="napoveda"><?= e(t('The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.')) ?></span></div>
+	<span class="napoveda"><?= e(t('The currency a new deal value starts with. Automatic takes the currency of the company country, else the one most existing deals use.')) ?></span></div>
 </div>
 </fieldset>
 <fieldset>

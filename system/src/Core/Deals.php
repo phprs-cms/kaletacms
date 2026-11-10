@@ -301,8 +301,9 @@ final class Deals
 
     /**
      * The currency a new deal takes when none is given (3.32, U29): the setting default_currency when it names one of
-     * CURRENCIES; otherwise ('' = automatic) derived – the currency of the company's country (company_country), else of the
-     * country of the site's time zone, else CZK on a Czech site and EUR on any other.
+     * CURRENCIES; otherwise ('' = automatic) derived – the currency of the company's country (company_country), else the
+     * currency most of the site's deals use (an existing site keeps what it has been using), else CZK on a Czech site and
+     * EUR on any other (the rule of 3.31). The time zone is no evidence: the installer sets it from its language.
      */
     public static function defaultCurrency(Settings $s): string
     {
@@ -314,25 +315,32 @@ final class Deals
         return self::derivedCurrency($s);
     }
 
-    /** The automatic default currency (default_currency = ''): company country → time zone country → site language. */
+    /** The automatic default currency (default_currency = ''): company country → the deals' most used currency → site language. */
     public static function derivedCurrency(Settings $s): string
     {
         $country = strtoupper(trim($s->get('company_country')));
         if (isset(self::COUNTRY_CURRENCIES[$country])) {
             return self::COUNTRY_CURRENCIES[$country];
         }
-        try {
-            $zone = $s->get('time_zone');
-            $location = $zone !== '' ? (new \DateTimeZone($zone))->getLocation() : false;
-            $country = is_array($location) ? strtoupper((string) ($location['country_code'] ?? '')) : '';
-        } catch (\Exception) {
-            $country = '';
-        }
-        if (isset(self::COUNTRY_CURRENCIES[$country])) {
-            return self::COUNTRY_CURRENCIES[$country];
+        $used = self::mostUsedCurrency($s);
+        if ($used !== '') {
+            return $used;
         }
 
         return Language::defaults($s) === 'cs' ? 'CZK' : 'EUR';
+    }
+
+    /** The currency most of the site's deals carry (a tie goes to the latest deal's), '' when no deal has one. */
+    public static function mostUsedCurrency(Settings $s): string
+    {
+        try {
+            $code = $s->db()->value('SELECT currency FROM {deals} WHERE currency IN (' . implode(',', array_fill(0, count(self::CURRENCIES), '?')) . ')'
+                . ' GROUP BY currency ORDER BY COUNT(*) DESC, MAX(id) DESC LIMIT 1', self::CURRENCIES);
+        } catch (\Throwable) {
+            return ''; // before migration 0117, or settings without a database (the unit tests)
+        }
+
+        return is_string($code) ? $code : '';
     }
 
     /**

@@ -7480,7 +7480,7 @@ return [
     'New customer' => 'Nový zákazník',
     'New customer here' => 'Nový zákazník v této firmě',
     'Automatic (%s)' => 'Automaticky (%s)',
-    'The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.' => 'Měna, se kterou začíná hodnota nového obchodu. Automaticky se vezme měna země firmy, jinak země časového pásma.',
+    'The currency a new deal value starts with. Automatic takes the currency of the company country, else the one most existing deals use.' => 'Měna, se kterou začíná hodnota nového obchodu. Automaticky se vezme měna země firmy, jinak ta, kterou má nejvíc stávajících obchodů.',
     'Take it' => 'Převzít',
     'The enquiry is yours now.' => 'Poptávku teď máte na starosti vy.',
     'Someone already handles this enquiry.' => 'Poptávku už má na starosti někdo jiný.',

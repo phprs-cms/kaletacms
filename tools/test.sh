@@ -11368,5 +11368,16 @@ expect "3.32 mail.failed: the event names the logged subject, never the visitor"
   "$(sq "SELECT CONCAT(COUNT(*) > 0, '|', SUM(message LIKE '%Quinn%')) FROM ka_events WHERE type = 'mail.failed' AND id > $R332_EV0")" "1|0"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user'); INSERT INTO ka_nastaveni SELECT * FROM ka_r332_mail; DROP TABLE ka_r332_mail;
   DELETE FROM ka_posta WHERE idp > $R332_P0" > /dev/null
+# item 3: the automatic currency keeps what a site uses – the company country, else the currency most of its deals carry,
+# else the site language (the time zone is no evidence: the installer sets it from its language)
+sq "DROP TABLE IF EXISTS ka_r332_cur; CREATE TABLE ka_r332_cur AS SELECT * FROM ka_nastaveni WHERE promenna IN ('company_country', 'default_currency', 'time_zone');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_country', ''), ('default_currency', ''), ('time_zone', 'Europe/London')" > /dev/null
+R332_N=$(sq "SELECT COUNT(*) FROM ka_deals WHERE currency IS NOT NULL")
+for i in $(seq 0 "$R332_N"); do sq "INSERT INTO ka_deals (title, stage, value, currency, created_at, updated_at) VALUES ('Currency R332', 'new', 100, 'GBP', '$(site_time)', '$(site_time)')" > /dev/null; done
+R332_C1=$(r332_php 'echo Kaleta\Core\Deals::defaultCurrency($app->settings());')
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_country', 'SE')" > /dev/null
+R332_C2=$(r332_php 'echo Kaleta\Core\Deals::defaultCurrency($app->settings());')
+sq "DELETE FROM ka_deals WHERE title = 'Currency R332'; DELETE FROM ka_nastaveni WHERE promenna IN ('company_country', 'default_currency', 'time_zone'); INSERT INTO ka_nastaveni SELECT * FROM ka_r332_cur; DROP TABLE ka_r332_cur" > /dev/null
+expect "3.32 currency: automatic = the currency most deals use (not the London time zone), the company country before it" "$R332_C1|$R332_C2" "GBP|SEK"
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
