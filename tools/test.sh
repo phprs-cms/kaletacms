@@ -125,6 +125,15 @@ php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php de
 expect "T1 (Q1): with KALETA_STRICT_DEPRECATIONS (the test copies) a deprecation is thrown again" "$(t1_deprecation | grep -c survived)|$(grep -c '\] ErrorException: T1 smoke deprecation' "$WORK/web/storage/log/chyby.log")" "0|1"
 rm -f "$WORK/web/t1-deprecation.php"
 php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 smoke deprecation"))));' "$WORK/web/storage/log/chyby.log"
+# T1 (Q13): an uncaught exception on a request is one line with the method and path (no query), the version and a short
+# trace without arguments; an e-mail address in the message and a token in the query never reach the log
+printf '%s\n' '<?php require __DIR__ . "/system/bootstrap.php"; $app = Kaleta\Core\App::boot(); (function () { throw new RuntimeException("T1 probe for probe@example.cz"); })();' > "$WORK/web/t1-probe.php"
+T1_TOKEN="t1$(date +%s)x$(date +%s)tok"
+T1_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$B/t1-probe.php?token=$T1_TOKEN"); T1_ROW=$(grep 'T1 probe' "$WORK/web/storage/log/chyby.log" || true)
+expect "T1 (Q13): the error log line has the request, the version and a trace, and no e-mail address or query" \
+  "$T1_CODE|$(printf '%s' "$T1_ROW" | grep -c 'RuntimeException: T1 probe for \[e-mail\] in t1-probe.php:1 · GET /t1-probe.php · Kaleta [0-9.]* · trace: #0 t1-probe.php:1 ')|$(printf '%s' "$T1_ROW" | grep -c "probe@example\|$T1_TOKEN" || true)" "500|1|0"
+rm -f "$WORK/web/t1-probe.php"
+php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 probe"))));' "$WORK/web/storage/log/chyby.log"
 
 echo "== web"
 check "úvodní stránka" 200 / "Testovací firma"

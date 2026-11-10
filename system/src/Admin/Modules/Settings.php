@@ -277,7 +277,7 @@ class Settings extends Module
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
-            'errorLog' => $tab === 'health' ? self::readFileTail(KALETA_ROOT . '/storage/log/chyby.log', 40) : [],
+            'errorLog' => $tab === 'health' ? self::readFileTail(\Kaleta\Core\ErrorLog::file(), 40) : [],
             'domainWatch' => in_array($tab, ['health', 'mail'], true) ? \Kaleta\Core\DomainWatch::cached($settings) : null, // Mail (3.9): the SPF and DKIM of the chosen service
             'mail' => $tab === 'mail' ? $this->db->all('SELECT komu, predmet, vytvoreno, odeslano, pokusu, dalsi_pokus, chyba FROM {posta} ORDER BY idp DESC LIMIT 30') : [],
             'webhookSecret' => $tab === 'webhooks' ? \Kaleta\Core\Webhook::secret($settings) : '',
@@ -903,8 +903,10 @@ class Settings extends Module
 
     protected function actionDeleteLog(): Response
     {
-        if ($this->request->isPost() && is_file(KALETA_ROOT . '/storage/log/chyby.log')) {
-            file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', '');
+        if ($this->request->isPost()) {
+            foreach (\Kaleta\Core\ErrorLog::files() as $i => $log) {
+                $i === 0 ? file_put_contents($log, '') : @unlink($log); // T1 (Q13): the rotated part goes too
+            }
         }
 
         return $this->back('The error log is empty.', '', ['tab' => 'health']);

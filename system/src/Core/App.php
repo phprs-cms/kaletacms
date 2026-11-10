@@ -168,7 +168,7 @@ final class App
         ini_set('display_errors', '0');
         set_error_handler(self::handleError(...));
         set_exception_handler(function (\Throwable $e): void {
-            ErrorLog::write(sprintf('%s: %s in %s:%d', $e::class, $e->getMessage(), ErrorLog::shortPath($e->getFile()), $e->getLine()));
+            ErrorLog::write(ErrorLog::exception($e)); // T1 (Q13): with the request, user, version and a short trace
             if (!headers_sent()) {
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
