@@ -83,6 +83,16 @@ final class Updater
      */
     public const array RETRY_DELAYS = [3600, 12 * 3600];
 
+    /**
+     * 3.31.2 (pre-release review): how long the background job waits when another installation holds the update lock (an
+     * administrator's click, another request) – the attempt is postponed by this many seconds instead of staying due, so
+     * the requests in between neither make a pre-update backup nor try again.
+     */
+    public const int BUSY_WAIT = 600;
+
+    /** The file install() locks while it runs (relative to KALETA_ROOT). */
+    private const string LOCK_FILE = '/storage/cache/aktualizace.zamek';
+
     /** How often the check after an update asks again when a proxy answers 502, 503 or 504, and how long it waits (seconds). */
     private const int PROBE_REPEATS = 2;
     private const int PROBE_WAIT = 3;
@@ -132,6 +142,37 @@ final class Updater
         $delay = self::RETRY_DELAYS[$try - 1] ?? null;
 
         return !$install || $delay === null ? $version : $version . '|' . $try . '|' . ($now + $delay);
+    }
+
+    /**
+     * What update_attempt holds when the try of $version found another installation running (3.31.2, pre-release review):
+     * the tries made so far stay (this was no try), the next one comes BUSY_WAIT seconds later. $before is what it held
+     * before this try started.
+     */
+    public static function postponed(string $before, string $version, int $now): string
+    {
+        $was = self::attempt($before);
+
+        return $version . '|' . ($was['version'] === $version && !$was['final'] ? $was['tries'] : 0) . '|' . ($now + self::BUSY_WAIT);
+    }
+
+    /**
+     * Whether another installation holds the update lock right now (3.31.2, pre-release review): the background job asks
+     * before it makes the pre-update backup. The lock is taken and let go at once; install() takes it for real.
+     */
+    public static function installRunning(): bool
+    {
+        $lock = @fopen(KALETA_ROOT . self::LOCK_FILE, 'c');
+        if ($lock === false) {
+            return false; // install() reports what is wrong with the folder
+        }
+        $free = flock($lock, LOCK_EX | LOCK_NB);
+        if ($free) {
+            flock($lock, LOCK_UN);
+        }
+        fclose($lock);
+
+        return !$free;
     }
 
     /** The first line of storage/udrzba.lock after a failed rollback: the lock then holds until a person removes it (App::boot). */
@@ -498,7 +539,8 @@ final class Updater
         $fresh = is_array($cache) && ($cache['url'] ?? '') === $a->url() && time() - (int) ($cache['overeno'] ?? 0) < (($cache['chyba'] ?? null) !== null ? 3600 : 12 * 3600);
         $attempt = self::attempt($s->get('update_attempt'));
         // 3.31.2 (N103): a version waiting for another try is looked at again when its time comes, from the remembered manifest
-        $retryDue = !$attempt['final'] && $attempt['tries'] > 0 && $attempt['next'] <= time();
+        // (or a try postponed while another installation ran – then possibly with no try made yet)
+        $retryDue = !$attempt['final'] && $attempt['next'] > 0 && $attempt['next'] <= time();
         if ($fresh && !$retryDue && ($byConsole === '' || !version_compare($byConsole, KALETA_VERSION, '>') || $attempt['version'] === $byConsole)) {
             return 'checked recently';
         }
@@ -513,7 +555,7 @@ final class Updater
         }
         $install = $allowedByConsole || $s->bool('auto_updates');
         $tries = $attempt['version'] === $version ? $attempt['tries'] : 0;
-        if ($install && $tries > 0 && $attempt['next'] > time()) {
+        if ($install && $attempt['version'] === $version && $attempt['next'] > time()) {
             return 'version ' . $version . ' waits for try ' . ($tries + 1);
         }
         // one request at a time decides and tries: a second visit in the same moment would install (or announce) the same
@@ -541,6 +583,10 @@ final class Updater
                 $message = t('Security update %s is available. Install it in the administration: Settings → Backups and updates.', $version);
                 if ($install) {
                     try {
+                        if (self::installRunning()) {
+                            // 3.31.2 (pre-release review): another installation runs – no backup, no try (handled below)
+                            throw new \RuntimeException('', self::BUSY);
+                        }
                         Backup::create($app->db(), 'predaktualizaci');
                         // 3.3.2 (N40): the decision came from the cached manifest – install only that version with that flag
                         $a->install($app->db(), $version, $allowedByConsole ? null : !empty($newVersion['bezpecnostni']));
@@ -549,7 +595,9 @@ final class Updater
                         $s->set('update_attempt', $version);
                     } catch (\Throwable $e) {
                         if ($e->getCode() === self::BUSY) {
-                            $s->set('update_attempt', $before); // an administrator is installing right now: this was no try
+                            // another installation runs right now (an administrator's click): this was no try. It is
+                            // postponed a little – left due, every request in between would back up and try again
+                            $s->set('update_attempt', self::postponed($before, $version, time()));
 
                             return ['', '', 'busy'];
                         }
@@ -635,7 +683,7 @@ final class Updater
         }
 
         // lock: an automatic update from background tasks and an administrator's click (or two visits at once) must not overwrite files simultaneously
-        $lock = fopen(KALETA_ROOT . '/storage/cache/aktualizace.zamek', 'c');
+        $lock = fopen(KALETA_ROOT . self::LOCK_FILE, 'c');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             throw new \RuntimeException(t('An update is already running. Try again in a moment.'), self::BUSY);
         }

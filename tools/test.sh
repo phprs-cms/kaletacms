@@ -8788,6 +8788,19 @@ s3312_updates() { sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'updates'"
 s3312_due() { sq "UPDATE ka_nastaveni SET hodnota = CONCAT(SUBSTRING_INDEX(hodnota, '|', 2), '|', UNIX_TIMESTAMP() - 5) WHERE promenna = 'update_attempt' AND hodnota LIKE '%|%|%'" > /dev/null; }
 s3312_shape() { s3312_attempt | php -r '$p = explode("|", trim((string) stream_get_contents(STDIN))); echo $p[0], "|", $p[1] ?? "-", "|", isset($p[2]) ? (int) round(((int) $p[2] - time()) / 3600) . "h" : "-";'; }
 expect "3.31.2 N103: a failed automatic installation says which try it was and waits an hour for the next" "$(grep -o 'updates: [^,]*' "$WORK/tasks.txt" | head -1)|$(s3312_shape)" "updates: failed 3.99.9 (try 1 of 3)|3.99.9|1|1h"
+# 3.31.2 (pre-release review): the next try is due, but another installation holds the update lock – no pre-update backup,
+# and the try is postponed by 10 minutes (the tries so far stay), so the requests in between neither back up nor try again
+# the source offers the security release again (flip.php answers it to the first request) and the manifest is looked at anew
+s3312_due; echo 0 > "$WORK/kanal/flip.n"; sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
+(cd "$WORK/web" && exec php -r '$f = fopen("storage/cache/aktualizace.zamek", "c"); flock($f, LOCK_EX); sleep(60);') & S3312_HOLDER=$!
+sleep 1
+s3312_backups() { find "$WORK/web/storage/zalohy" -name '*predaktualizaci*' 2>/dev/null | wc -l | tr -d ' '; }
+S3312_BACKUPS=$(s3312_backups)
+S3312_BUSY=$(s3312_updates)
+S3312_SHAPE=$(s3312_attempt | php -r '$p = explode("|", trim((string) stream_get_contents(STDIN))); echo $p[0], "|", $p[1] ?? "-", "|", isset($p[2]) ? (int) round(((int) $p[2] - time()) / 60) . "min" : "-";')
+expect "3.31.2 review: a due try that finds another installation running makes no backup and waits 10 minutes, keeping its count; the next request waits too" \
+  "$S3312_BUSY|$S3312_SHAPE|$(s3312_backups)|$(s3312_updates | grep -c 'busy\|failed\|installed')|$(s3312_backups)" "updates: busy 3.99.9|3.99.9|1|10min|$S3312_BACKUPS|0|$S3312_BACKUPS"
+kill "$S3312_HOLDER" 2>/dev/null || true; wait "$S3312_HOLDER" 2>/dev/null || true
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_attempt', 'update_cache'); UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'auto_updates'" > /dev/null
 # 3.8 (D3): release channels – Latest (default) reads aktualizace.json, Stable the signed aktualizace-stable.json next to it
 channel_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0.0.1:$CHANNEL_PORT/$1') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null; }
