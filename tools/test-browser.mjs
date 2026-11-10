@@ -4380,8 +4380,9 @@ await step('3.32 names: Who in the enquiry list, Create deal prefilled, the foll
     }
     await Promise.all([page.waitForNavigation(), page.locator('form[data-deal-form] button[type="submit"]').click()]);
     deal = Number(sql(`SELECT IFNULL(MAX(id), 0) FROM ka_deals WHERE source_enquiry_id = ${enquiry}`).trim());
-    const row = sql(`SELECT CONCAT_WS('/', title, IFNULL(value, '-'), IFNULL(currency, '-'), owner_id = (SELECT idu FROM ka_uzivatele WHERE user = 'admin')) FROM ka_deals WHERE id = ${deal}`).trim();
-    if (row !== 'Olivia Hart A332 – We need 40 custom brackets for…/-/-/1' || !page.url().includes(`action=detail&id=${deal}`)) { throw new Error(`the deal from the form: ${row} (${page.url()})`); }
+    // the title as ASCII and its length in characters (the mysql client of the test may not speak UTF-8)
+    const row = sql(`SELECT CONCAT_WS('/', LEFT(title, 16), CHAR_LENGTH(title), IFNULL(value, '-'), IFNULL(currency, '-'), owner_id = (SELECT idu FROM ka_uzivatele WHERE user = 'admin')) FROM ka_deals WHERE id = ${deal}`).trim();
+    if (row !== 'Olivia Hart A332/50/-/-/1' || !page.url().includes(`action=detail&id=${deal}`)) { throw new Error(`the deal from the form: ${row} (${page.url()})`); }
   } finally {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.setViewportSize({ width: 1440, height: 900 });
