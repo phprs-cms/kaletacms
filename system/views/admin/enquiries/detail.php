@@ -81,7 +81,7 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 <h2 id="thread"><?= e(t('Conversation')) ?></h2>
 <ol class="odpovedi vlakno" data-thread data-replies>
 <?php if (trim((string) ($p['poznamka'] ?? '')) !== ''): /* the summary – the one note an enquiry had before 3.25 – stays first */ ?>
-	<li class="vlakno-poznamka" data-thread-item="summary"><p><strong><?= e(t('Summary')) ?></strong> · <span class="napoveda"><?= e(t('Internal – the customer does not see this. Edit it under Handled by below.')) ?></span></p>
+	<li class="vlakno-poznamka" data-thread-item="summary"><p><strong><?= e(t('Summary')) ?></strong> · <span class="napoveda"><?= e(t('Internal – the customer does not see this. Edit it under Responsible person below.')) ?></span></p>
 		<div class="odpoved-text"><?= nl2br(e((string) $p['poznamka'])) ?></div></li>
 <?php endif ?>
 <?php foreach (Kaleta\Core\EnquiryThread::entries($p, $replies, $notes) as $item): $entry = $item['entry']; ?>
@@ -161,7 +161,7 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 </form>
 <form method="post" action="<?= e($module->url('note')) ?>">
 	<?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>">
-	<div class="radek"><label for="prirazeno"><?= e(t('Handled by')) ?></label><select id="prirazeno" name="prirazeno"><option value="0">—</option>
+	<div class="radek"><label for="prirazeno"><?= e(t('Responsible person')) ?></label><select id="prirazeno" name="prirazeno"><option value="0">—</option>
 <?php foreach ($users as $userId => $displayName): ?>
 		<option value="<?= (int) $userId ?>"<?= (int) ($p['prirazeno'] ?? 0) === (int) $userId ? ' selected' : '' ?>><?= e($displayName) ?></option>
 <?php endforeach ?>

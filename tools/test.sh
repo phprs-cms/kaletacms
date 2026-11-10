@@ -11089,17 +11089,22 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
 expect "3.32 names: My work names the enquiry by who and what, the form and number under it" \
   "$(grep -A1 "data-enquiry=\"$A332_E\"" "$WORK/response" | grep -c "Olivia Hart A332 – We need 40 custom brackets for…</bdi></a><br><span class=\"smltxt\"><bdi>Kontakt #$A332_E")" "1"
 expect "3.32 names: the enquiry's page title" "$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&action=detail&id=$A332_E" | grep -c '<title>Olivia Hart A332 – We need 40 custom brackets for…')" "1"
+# a writer without the Pipeline or Enquiries, signed in for the bell
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('a332-writer', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Writer A332', '', 'cs', 0, '$(site_time)', '$(site_time)', 0)" > /dev/null
+A332_WRITER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'a332-writer'"); A332_WJAR="$WORK/jar-a332w"
+A332_WTOKEN=$(curl -s -c "$A332_WJAR" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$A332_WJAR" -c "$A332_WJAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$A332_WTOKEN" -d user=a332-writer --data-urlencode "password=$PASSWORD"
 sq "INSERT INTO ka_notifications (user_id, kind, target, actor_id, actor_name, excerpt, created_at) VALUES ($A332_ADMIN, 'assigned', 'deal:$A332_D', NULL, 'Wendy A332', '', '$(site_time)'),
-  ($A332_ADMIN, 'assigned', 'enquiry:$A332_E', NULL, 'Wendy A332', '', '$(site_time)'), ($W324_WRITER, 'assigned', 'deal:$A332_D', NULL, 'Wendy A332', '', '$(site_time)')" > /dev/null
+  ($A332_ADMIN, 'assigned', 'enquiry:$A332_E', NULL, 'Wendy A332', '', '$(site_time)'), ($A332_WRITER, 'assigned', 'deal:$A332_D', NULL, 'Wendy A332', '', '$(site_time)')" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=inbox"
 expect "3.32 names (U41): the administrator's bell names the deal and the enquiry" \
   "$(grep -c 'Obchod „Brackets for the hall A332“' "$WORK/response")|$(grep -c 'Poptávka: Olivia Hart A332 – We need' "$WORK/response")" "1|1"
 expect "3.32 names: without the Pipeline the bell names the deal by its number only" \
-  "$(curl -s -b "$JAR324W" "$B/admin.php?action=inbox" | grep -c "Obchod #$A332_D<")|$(curl -s -b "$JAR324W" "$B/admin.php?action=inbox" | grep -c 'Brackets for the hall A332')" "1|0"
+  "$(curl -s -b "$A332_WJAR" "$B/admin.php?action=inbox" | grep -c "Obchod #$A332_D</a>")|$(curl -s -b "$A332_WJAR" "$B/admin.php?action=inbox" | grep -c 'Brackets for the hall A332')" "1|0"
 expect "3.32 names: the e-mail of a notification still names the deal by its number" \
   "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $place = Kaleta\Core\Inbox::places($app->db(), ["deal:" . $argv[1]])["deal:" . $argv[1]];
     [$subject, $text] = Kaleta\Core\Inbox::mail($app->settings(), ["jazyk" => "en"], ["kind" => "assigned", "actor_name" => "Wendy", "excerpt" => ""], $place, "u", "a"); echo (str_contains($subject . $text, "Brackets") ? "named" : "number") . "|" . $subject;' "$A332_D")" \
-  "number|Wendy assigned you Deal #$A332_D"
+  "number|Wendy made you responsible for Deal #$A332_D"
 # My work (R1): an opened but unanswered enquiry nobody handles stays in "nobody handles yet"; a reply or a resolved status takes it off
 A332_R=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, replies) VALUES ('$(site_time)', 'Kontakt', 'r-a332@example.com', '[]', 1, '[{\"at\":\"$(site_time)\",\"by\":\"Jana\",\"subject\":\"Re\",\"text\":\"Hi\",\"status\":\"sent\"}]'); SELECT LAST_INSERT_ID();")
 A332_S=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 's-a332@example.com', '[]', 2); SELECT LAST_INSERT_ID();")

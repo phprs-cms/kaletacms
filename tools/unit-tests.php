@@ -9099,17 +9099,17 @@ check('3.26 Inbox: the instant e-mail – who, what, where in the recipient\'s a
     str_contains($i326Mention[1], 'https://example.com/admin.php?action=account#notifications'),
     $i326Assigned[0], str_contains($i326Assigned[1], 'never shown'), $i326Review[0], str_contains($i326Review[1], 'Der Prüftermin ist da: „Oak“ in Products'),
     $i326Long[0], str_contains($i326Long[1], 'bbb')],
-    ['Jana mentioned you: Enquiry #12 · Contact', true, true, true, 'Kaleta vám přidělil(a): Stránka „Services“', false, 'Heute zu prüfen: „Oak“', true, 'Petr commented on (no longer available)', false]);
+    ['Jana mentioned you: Enquiry #12 · Contact', true, true, true, 'Kaleta vás určil(a) jako odpovědnou osobu: Stránka „Services“', false, 'Heute zu prüfen: „Oak“', true, 'Petr commented on (no longer available)', false]);
 $i326Digest = Kaleta\Core\Inbox::digest($reportSettings(['site_name' => 'Firma']), $i326Recipient('es'), [
     ['kind' => 'mention', 'actor_name' => 'Jana', 'excerpt' => 'Mira esto', 'url' => 'https://x/a', 'place' => $i326Enquiry],
     ['kind' => 'assigned', 'actor_name' => 'Petr', 'excerpt' => 'hidden', 'url' => '', 'place' => null]], 'https://x/inbox', 'https://x/account');
 check('3.26 Inbox: the daily summary – the count and the site in the subject, each notification with its quote and link, the screen and the choice', [
-    $i326Digest[0], str_contains($i326Digest[1], "- Jana te ha mencionado – Consulta n.º 12 · Contact\n  “Mira esto”\n  https://x/a"), str_contains($i326Digest[1], 'Petr te lo ha asignado – (ya no está disponible)'),
+    $i326Digest[0], str_contains($i326Digest[1], "- Jana te ha mencionado – Consulta n.º 12 · Contact\n  “Mira esto”\n  https://x/a"), str_contains($i326Digest[1], 'Petr te ha nombrado persona responsable – (ya no está disponible)'),
     str_contains($i326Digest[1], 'hidden'), str_contains($i326Digest[1], "https://x/inbox"), str_contains($i326Digest[1], "https://x/account"),
     Kaleta\Core\Inbox::digest($reportSettings(['site_name' => 'Firma']), $i326Recipient('en'), [['kind' => 'comment', 'actor_name' => 'A', 'excerpt' => '', 'url' => '', 'place' => null]], 'i', 'a')[0]],
     ['2 notificaciones nuevas – Firma', true, true, false, true, true, '1 new notification – Firma']);
-$i326Texts = ['%s mentioned you', '%s commented', '%s assigned it to you', 'The review date has come', 'Enquiry #%s · %s', '“%s” in %s', '(no longer available)', '%s mentioned you: %s', '%s commented on %s',
-    '%s assigned you %s', 'This e-mail came right away because of your choice in My account. You can have one summary a day instead, or none:', '1 new notification – %s', '%d new notifications – %s',
+$i326Texts = ['%s mentioned you', '%s commented', '%s made you responsible', 'The review date has come', 'Enquiry #%s · %s', '“%s” in %s', '(no longer available)', '%s mentioned you: %s', '%s commented on %s',
+    '%s made you responsible for %s', 'This e-mail came right away because of your choice in My account. You can have one summary a day instead, or none:', '1 new notification – %s', '%d new notifications – %s',
     'What happened since the last summary:', 'All notifications:', 'You chose one summary a day in My account. You can have each notification right away instead, or none:',
     'All notifications are marked as read.', 'This notification no longer exists – notifications are kept for 90 days.', 'What this notification was about is no longer available.', 'Notifications',
     'You get one e-mail summary a day, in the morning.', 'You get no e-mail about them – they are only here.', 'You get an e-mail about each one right away.',
@@ -10844,6 +10844,50 @@ check('3.32 (R4): a new deal without a responsible person gets its creator (when
     str_contains($a332Enquiries, "\\Kaleta\\Admin\\TaskPanel::followUpTitle((string) \$form)"),
     array_map(fn (string $code): array => array_values(array_diff(['Follow up if they do not answer', 'No follow-up'], array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
     [true, true, true, true, [[], [], []]]);
+
+// 3.32 (U38, U39): one glossary – every language calls each term as Core\Glossary says, no screen uses a retired key, and in
+// Czech an enquiry kind is never "Obchod" (a deal) and a lost stage is never "prohraná"
+$a332Dicts = array_map(fn (string $code): array => require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php', array_combine(Kaleta\Core\Glossary::LANGUAGES, Kaleta\Core\Glossary::LANGUAGES));
+$a332Glossary = [ // English key => [cs, de, es]
+    'Responsible person' => ['Odpovědná osoba', 'Verantwortliche Person', 'Persona responsable'],
+    'Customers' => ['Zákazníci', 'Kunden', 'Clientes'],
+    'Customer' => ['Zákazník', 'Kunde', 'Cliente'],
+    'New customer' => ['Nový zákazník', 'Neuer Kunde', 'Nuevo cliente'],
+    'People' => ['Lidé', 'Personen', 'Personas'],
+    'Companies' => ['Firmy', 'Unternehmen', 'Empresas'],
+    'Deal' => ['Obchod', 'Deal', 'Oportunidad'],
+    'Deals' => ['Obchody', 'Deals', 'Oportunidades'],
+    'Sales' => ['Prodej', 'Vertrieb', 'Ventas'],
+    'Won' => ['Vyhraný', 'Gewonnen', 'Ganado'],
+    'Lost' => ['Ztracený', 'Verloren', 'Perdido'],
+    '%s made you responsible' => ['%s vás určil(a) jako odpovědnou osobu', '%s hat Sie als verantwortliche Person eingetragen', '%s te ha nombrado persona responsable'],
+];
+$a332Wrong = array_values(array_diff(Kaleta\Core\Glossary::TERMS, array_keys($a332Glossary)));
+foreach ($a332Glossary as $a332Key => $a332Words) {
+    foreach (Kaleta\Core\Glossary::LANGUAGES as $a332I => $a332Code) {
+        if (($a332Dicts[$a332Code][$a332Key] ?? null) !== $a332Words[$a332I]) {
+            $a332Wrong[] = $a332Code . ': ' . $a332Key . ' = ' . ($a332Dicts[$a332Code][$a332Key] ?? 'missing');
+        }
+    }
+}
+$a332Retired = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM, FilesystemIterator::SKIP_DOTS)) as $a332File) {
+    $a332Path = (string) $a332File;
+    if (!str_ends_with($a332Path, '.php') || str_contains($a332Path, '/jazyky/') || (!str_contains($a332Path, '/src/') && !str_contains($a332Path, '/views/'))) {
+        continue;
+    }
+    $a332Code = (string) file_get_contents($a332Path);
+    foreach (array_keys(Kaleta\Core\Glossary::RETIRED) as $a332Key) {
+        if (str_contains($a332Code, "t('" . $a332Key . "'") || str_contains($a332Code, "['" . $a332Key . "', 'module=")) {
+            $a332Retired[] = substr($a332Path, strlen(KALETA_SYSTEM)) . ': ' . $a332Key;
+        }
+    }
+}
+check('3.32 (U38/U39): the glossary – the terms in cs, de and es, no retired key on a screen, Czech "Prodej" for the Sales kind (a deal is "Obchod"), no "prohraná" for a lost stage', [
+    $a332Wrong, $a332Retired, array_values(array_filter(Kaleta\Core\Triage::CATEGORIES, fn (string $label): bool => ($a332Dicts['cs'][$label] ?? '') === $a332Dicts['cs']['Deal'])),
+    array_values(array_filter(array_keys($a332Dicts['cs']), fn (string $k): bool => str_contains($a332Dicts['cs'][$k], 'prohr'))),
+    array_map(fn (string $code): array => array_values(array_diff(array_values(Kaleta\Core\Glossary::RETIRED), array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
+    [[], [], [], [], [[], [], []]]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

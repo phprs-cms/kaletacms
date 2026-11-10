@@ -3637,7 +3637,7 @@ await step('3.26 notifications: the bell, the Notifications screen, open and mar
     if (await rows.count() !== 4 || await page.locator('[data-inbox] .upozorneni-neprectene').count() !== 4) { throw new Error(`the screen lists ${await rows.count()} notifications`); }
     const first = await rows.first().innerText();
     if (!first.includes('Wendy Work mentioned you') || !first.includes('Page “Price list 326”') || !first.includes('Please check the prices')) { throw new Error(`the first row says ${first}`); }
-    if (!(await rows.nth(1).innerText()).includes('Wendy Work assigned it to you') || !(await rows.nth(2).innerText()).includes('The review date has come')) { throw new Error('the assignment or the review row is wrong'); }
+    if (!(await rows.nth(1).innerText()).includes('Wendy Work made you responsible') || !(await rows.nth(2).innerText()).includes('The review date has come')) { throw new Error('the assignment or the review row is wrong'); }
     if (!(await rows.nth(3).innerText()).includes('(no longer available)') || await rows.nth(3).locator('a').count() !== 0) { throw new Error('a place that is gone still has a link'); }
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/notifications-desktop.png`, fullPage: true }); }
     // light and dark, desktop and phone: no sideways scroll; on the phone the bell sits in the header row without covering the logo

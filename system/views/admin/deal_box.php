@@ -18,7 +18,7 @@ $deal = $box['deal'];
 <p><a class="navigace" href="<?= e($box['url']) ?>"><?= e(t('Open the deal')) ?></a></p>
 <?php endif ?>
 <?php else: ?>
-<p class="napoveda"><?= e(t('Turn the enquiry into a deal to follow it to won or lost – the customer and the person handling it come along.')) ?></p>
+<p class="napoveda"><?= e(t('Turn the enquiry into a deal to follow it to won or lost – the customer and the responsible person come along.')) ?></p>
 <?php endif ?>
 <?php if ($box['canCreate']): /* 3.32 (U25): the short form prefilled from the enquiry – the person checks the title and adds the value */ ?>
 <p><a class="navigace" href="<?= e($box['formUrl']) ?>" data-deal-create><?= e(t($deal !== null ? 'Create a new deal' : 'Create deal')) ?></a></p>

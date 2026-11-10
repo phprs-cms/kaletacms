@@ -330,7 +330,7 @@ final class Inbox
         return match ($kind) {
             'mention' => t('%s mentioned you', $actor),
             'comment' => t('%s commented', $actor),
-            'assigned' => t('%s assigned it to you', $actor),
+            'assigned' => t('%s made you responsible', $actor), // 3.32: one term for the responsible person (Core\Glossary)
             'review_due' => t('The review date has come'),
             'task_due' => t('A task is due'),
             'fleet_expiry' => t('A date of a site comes up'),
@@ -378,7 +378,7 @@ final class Inbox
             $subject = match ($note['kind']) {
                 'mention' => t('%s mentioned you: %s', $actor, $where),
                 'comment' => t('%s commented on %s', $actor, $where),
-                'assigned' => t('%s assigned you %s', $actor, $where),
+                'assigned' => t('%s made you responsible for %s', $actor, $where),
                 'task_due' => t('Task due: %s', $note['excerpt'] !== '' ? $note['excerpt'] : $where),
                 default => t('Review by today: “%s”', (string) ($place['title'] ?? $where)),
             };

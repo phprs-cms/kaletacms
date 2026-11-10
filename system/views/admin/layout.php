@@ -35,7 +35,7 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     }
     $quick = [
         'pages' => [['New page', 'module=pages&action=new']],
-        'contacts' => [['New contact', 'module=contacts&action=new'], ['Companies', 'module=contacts&action=companies']], // 3.28
+        'contacts' => [['New customer', 'module=contacts&action=new'], ['Companies', 'module=contacts&action=companies']], // 3.28
         'pipeline' => [['New deal', 'module=pipeline&action=new'], ['Deals as a list', 'module=pipeline&view=list']], // 3.31
         'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
         'categories' => [['New category', 'module=categories&action=new']],

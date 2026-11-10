@@ -15,7 +15,7 @@
  * @var array<string, class-string<Kaleta\Admin\Module>> $modules
  */
 $headings = [
-    'assigned' => 'Enquiries you handle',
+    'assigned' => 'Enquiries you are responsible for', // 3.32: one term for the responsible person (Core\Glossary)
     'unassigned' => 'Unanswered enquiries nobody is responsible for', // 3.32 (R1): read ones too
     'pages' => 'Pages you are responsible for',
     'items' => 'Collection items you are responsible for',
