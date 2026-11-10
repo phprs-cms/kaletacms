@@ -11,10 +11,11 @@
  * @var string $csrf
  * @var array<int, array{name: string, overdue: int, today: int, upcoming: int, later: int, open: int, unassigned: bool}> $people
  * @var list<array<string, mixed>> $unassigned  rows of Tasks::unassigned + about (Tasks::labels), people (id => name), was (who had it)
+ * @var array<string, string> $modules the sections the administrator may open (3.32, Core\RecordTitle::place)
  */
 $me = $app->auth()->id();
 $due = fn (?string $at): string => $at === null ? '' : format_date($at, substr($at, 11, 5) !== Kaleta\Core\Tasks::DEFAULT_TIME);
-$aboutText = fn (array $about): string => match ($about['kind']) {
+$aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\Core\Assignment::KINDS[$about['kind']] ?? '']) ? Kaleta\Core\RecordTitle::place($about, $modules) : match ($about['kind']) { // 3.32
     'enquiry' => t('Enquiry #%s · %s', (string) $about['id'], $about['title']),
     'page' => t('Page “%s”', $about['title']),
     'contact' => t('Customer “%s”', $about['title']), // 3.28

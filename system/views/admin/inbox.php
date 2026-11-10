@@ -10,6 +10,7 @@
  * @var int $unread
  * @var string $email  the person's e-mail choice (instant | daily | off)
  * @var string $csrf
+ * @var array<string, string> $modules the sections the person may open (3.32: Core\RecordTitle::place names a record only for them)
  */
 $icon = require __DIR__ . '/icons.php';
 $kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje', 'fleet_expiry' => 'web'];
@@ -36,7 +37,7 @@ $emailNote = match ($email) {
     $place = $row['place'];
     $unreadRow = $row['read_at'] === null;
     $what = Kaleta\Core\Inbox::what($row['kind'], $row['actor_name']);
-    $where = Kaleta\Core\Inbox::where($place);
+    $where = Kaleta\Core\RecordTitle::place($place, $modules); // 3.32 (U41): "Deal “Maintenance contract”" for whoever has the Pipeline, "Deal #6" otherwise
     ?>
 	<li class="upozorneni-polozka<?= $unreadRow ? ' upozorneni-neprectene' : '' ?>" data-kind="<?= e($row['kind']) ?>">
 		<span class="upozorneni-ikona" aria-hidden="true"><?= $icon($kindIcon[$row['kind']] ?? 'zvonek') ?></span>

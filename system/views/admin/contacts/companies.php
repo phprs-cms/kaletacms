@@ -30,7 +30,7 @@ $filtered = $search !== '' || $ownerKey !== '';
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-companies-list>
-<thead><tr><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('Domain')) ?></th><th scope="col"><?= e(t('Registration number')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th><th scope="col"><?= e(t('Contacts')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('Domain')) ?></th><th scope="col"><?= e(t('Registration number')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th><th scope="col"><?= e(t('People')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($result['rows'] as $co): ?>
 <tr data-company="<?= (int) $co['id'] ?>">
@@ -38,7 +38,7 @@ $filtered = $search !== '' || $ownerKey !== '';
 	<td data-popisek="<?= e(t('Domain')) ?>"><?= e($co['domain']) ?></td>
 	<td data-popisek="<?= e(t('Registration number')) ?>"><?= e($co['registration_no']) ?></td>
 	<td data-popisek="<?= e(t('Responsible person')) ?>"><?= $co['owner_id'] !== null ? e($owners[$co['owner_id']] ?? '') : '' ?></td>
-	<td class="cislo" data-popisek="<?= e(t('Contacts')) ?>"><?= $co['contacts'] > 0 ? '<a href="' . e($module->url('', ['company' => $co['id']])) . '">' . (int) $co['contacts'] . '</a>' : '' ?></td>
+	<td class="cislo" data-popisek="<?= e(t('People')) ?>"><?= $co['contacts'] > 0 ? '<a href="' . e($module->url('', ['company' => $co['id']])) . '">' . (int) $co['contacts'] . '</a>' : '' ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

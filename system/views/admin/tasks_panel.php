@@ -85,7 +85,7 @@ $row = function (array $t) use ($app, $csrf, $hidden, $action, $claude, $request
         $id = 'ukol-' . (int) $t['id'];
         $html .= '<details class="komentar-upravit ukol-upravit"><summary>' . e(t('Edit')) . '</summary>'
             . $form('edit', '<div class="ukol-pole ukol-pole-uprava"><div class="ukol-pole-nazev"><label for="' . $id . '-nazev">' . e(t('Task')) . '</label><input class="textpole siroke" type="text" id="' . $id . '-nazev" name="title" maxlength="' . Kaleta\Core\Tasks::TITLE . '" value="' . e($t['title']) . '" required></div>'
-                . '<div><label for="' . $id . '-kdo">' . e(t('For')) . '</label><select id="' . $id . '-kdo" name="assignee_id">' . $people . '</select></div>'
+                . '<div><label for="' . $id . '-kdo">' . e(t('Responsible person')) . '</label><select id="' . $id . '-kdo" name="assignee_id">' . $people . '</select></div>'
                 . '<div><label for="' . $id . '-datum">' . e(t('Due')) . '</label><input class="textpole" type="date" id="' . $id . '-datum" name="due_date" value="' . e(substr((string) $t['due_at'], 0, 10)) . '"></div>'
                 . '<div><label for="' . $id . '-cas">' . e(t('Time')) . '</label><input class="textpole" type="time" id="' . $id . '-cas" name="due_time" value="' . e(substr((string) $t['due_at'], 11, 5)) . '"></div>'
                 . '<div><label for="' . $id . '-pripominka">' . e(t('Reminder')) . '</label><select id="' . $id . '-pripominka" name="remind">' . $remind . '</select></div></div>'

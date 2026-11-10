@@ -15,8 +15,8 @@
  * @var array<string, class-string<Kaleta\Admin\Module>> $modules
  */
 $headings = [
-    'assigned' => 'Enquiries you handle',
-    'unassigned' => 'New enquiries nobody handles yet',
+    'assigned' => 'Enquiries you are responsible for', // 3.32: one term for the responsible person (Core\Glossary)
+    'unassigned' => 'Unanswered enquiries nobody is responsible for', // 3.32 (R1): read ones too
     'pages' => 'Pages you are responsible for',
     'items' => 'Collection items you are responsible for',
     'requests' => 'Your requests Claude answered',
@@ -35,7 +35,9 @@ $tasks = $filled['tasks'] ?? [];
 unset($filled['tasks']);
 $groups = ['overdue' => 'Overdue', 'today' => 'Today', 'upcoming' => 'Upcoming (7 days)', 'later' => 'Later or without a date'];
 $due = fn (?string $at): string => $at === null ? '' : format_date($at, substr($at, 11, 5) !== Kaleta\Core\Tasks::DEFAULT_TIME);
-$aboutText = fn (array $about): string => match ($about['kind']) {
+// 3.32 (U27): a task about an enquiry, a deal or a customer names who and what (Core\RecordTitle::place) for a section the
+// person may open; the labels below stay for everything else
+$aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\Core\Assignment::KINDS[$about['kind']] ?? '']) ? Kaleta\Core\RecordTitle::place($about, $modules) : match ($about['kind']) {
     'enquiry' => t('Enquiry #%s · %s', (string) $about['id'], $about['title']),
     'page' => t('Page “%s”', $about['title']),
     'contact' => t('Customer “%s”', $about['title']), // 3.28
@@ -93,11 +95,11 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
 <div class="tab-obal">
 <table class="vypis">
 <?php if ($list === 'assigned' || $list === 'unassigned'): ?>
-<thead><tr><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Enquiry')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($rows as $r): ?>
-<tr>
-	<td><a href="<?= e($app->url($r['url'])) ?>"><?= e($r['title'] !== '' ? $r['title'] : t('Enquiry')) ?> #<?= (int) $r['id'] ?></a><?= $r['about'] !== '' ? '<br><span class="smltxt">' . e($r['about']) . '</span>' : '' ?></td>
+<?php foreach ($rows as $r): /* 3.32 (U27): who and what first, the form and its number under it */ ?>
+<tr data-enquiry="<?= (int) $r['id'] ?>">
+	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi((string) ($r['name'] ?? $r['title'])) ?></a><br><span class="smltxt"><?= bdi(($r['title'] !== '' ? $r['title'] : t('Enquiry')) . ' #' . (int) $r['id']) ?></span></td>
 	<td><?= $r['status'] === 'new' ? '<span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td class="cislo"><?= e(format_date($r['date'], true)) ?></td>
 </tr>

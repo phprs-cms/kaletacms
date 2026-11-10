@@ -158,7 +158,7 @@ final class Contacts extends Module
     {
         $draft = $this->takeDraft('contact_draft', 0);
 
-        return $this->view('new', t('New contact'), ['draft' => $draft + ['company_id' => max(0, $this->request->getInt('company'))],
+        return $this->view('new', t('New customer'), ['draft' => $draft + ['company_id' => max(0, $this->request->getInt('company'))],
             'companies' => Customers::companies($this->db, [], 1, 500)['rows'], 'people' => Assignment::candidates($this->db, 'contact')]);
     }
 

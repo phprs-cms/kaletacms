@@ -39,7 +39,7 @@
 	<details class="zakaznik-upravit"<?= $draft !== [] ? ' open' : '' ?>><summary><?= e(t('Edit')) ?></summary>
 	<?= $app->view->render('admin/contacts/company_form', ['module' => $module, 'csrf' => $csrf, 'co' => $co, 'draft' => $draft, 'people' => $people]) ?>
 	</details>
-	<a class="navigace" href="<?= e($module->url('new', ['company' => $co['id']])) ?>"><?= e(t('New contact here')) ?></a>
+	<a class="navigace" href="<?= e($module->url('new', ['company' => $co['id']])) ?>"><?= e(t('New customer here')) ?></a>
 <?php if ($admin): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('company_delete')) ?>" data-company-delete data-potvrdit="<?= e(t('Delete the company “%s”? Its contacts stay, without a company; its comments and tasks go.', $co['name'])) ?>">
 		<?= $csrf ?><input type="hidden" name="company" value="<?= (int) $co['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
@@ -51,7 +51,7 @@
 <?php endif ?>
 
 <section id="company-contacts" data-company-contacts>
-<h2><?= e(t('Contacts')) ?> <small><?= format_count($contacts['total']) ?></small></h2>
+<h2><?= e(t('People')) ?> <small><?= format_count($contacts['total']) ?></small></h2>
 <?php if ($contacts['rows'] === []): ?>
 <p class="napoveda"><?= e(t('No contacts in this company yet.')) ?></p>
 <?php else: ?>

@@ -19,7 +19,7 @@ $prefix ??= 'ukol';
 	<?= $csrf ?><?php foreach ($fields as $name => $value): ?><input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>"><?php endforeach ?><input type="hidden" name="op" value="add">
 	<div class="ukol-pole">
 		<div class="ukol-pole-nazev"><label for="<?= e($prefix) ?>-nazev"><?= e(t('Task')) ?></label><input class="textpole siroke" type="text" id="<?= e($prefix) ?>-nazev" name="title" maxlength="<?= Kaleta\Core\Tasks::TITLE ?>" value="<?= e($draft) ?>" required placeholder="<?= e(t('e.g. Call back about the offer')) ?>"></div>
-		<div><label for="<?= e($prefix) ?>-kdo"><?= e(t('For')) ?></label>
+		<div><label for="<?= e($prefix) ?>-kdo"><?= e(t('Responsible person')) ?></label>
 			<select id="<?= e($prefix) ?>-kdo" name="assignee_id">
 <?php foreach ($people as $id => $name): ?>
 				<option value="<?= (int) $id ?>"<?= (int) $id === $me ? ' selected' : '' ?>><?= e((int) $id === $me ? t('Me (%s)', $name) : $name) ?></option>

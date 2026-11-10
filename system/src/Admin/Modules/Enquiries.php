@@ -78,7 +78,7 @@ final class Enquiries extends Module
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
         $pageNumber = max(1, $this->request->getInt('page', 1));
-        $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, email, stav, kategorie, priorita, data, prirazeno FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
+        $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, zdroj, email, stav, kategorie, priorita, data, prirazeno, anonymizovano FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
         $deals = isset($this->kernel->modules()[Pipeline::IDENT]) ? \Kaleta\Core\Deals::forEnquiries($this->db, array_map('intval', array_column($rows, 'idp'))) : [];
 
@@ -107,7 +107,8 @@ final class Enquiries extends Module
             $p['stav'] = 1;
         }
 
-        return $this->view('detail', t('Enquiry') . ' #' . $p['idp'], ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
+        // 3.32 (U27): the page is titled by who and what (Core\RecordTitle), the number stays in the breadcrumb of the form
+        return $this->view('detail', \Kaleta\Core\RecordTitle::enquiry($p), ['p' => $p, 'data' => json_decode((string) $p['data'], true) ?: [],
             'testimonials' => \Kaleta\Core\Testimonials::ofEnquiry($this->db, (int) $p['idp']),
             // 3.20 (C2): the form and the page the enquiry came from, as links into the builder and the page settings
             'origin' => \Kaleta\Admin\EnquiryOrigin::resolve($this->app, $p),
@@ -172,12 +173,42 @@ final class Enquiries extends Module
 
             return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
         }
-        $this->app->session->set('task_follow_up', $id); // 3.27: the detail offers "Follow up if they do not answer" first
+        // 3.32 (R4): a follow-up chosen in the reply form is added at once (the signed-in person's own task, as the buttons do);
+        // otherwise the detail offers "Follow up if they do not answer" first (3.27)
+        $followUp = $this->replyFollowUp($id, $this->request->post('follow_up'));
+        if ($followUp === null) {
+            $this->app->session->set('task_follow_up', $id);
+        }
+        $added = $followUp !== null ? ' ' . t('A follow-up for %s is in My work.', format_date($followUp, true)) : '';
         if ($result['status'] === 'sent') {
-            return $this->back(t($result['resolved'] ? 'The reply was sent to %s and the enquiry is resolved.' : 'The reply was sent to %s.', $result['to']), 'detail', ['id' => $id]);
+            return $this->back(t($result['resolved'] ? 'The reply was sent to %s and the enquiry is resolved.' : 'The reply was sent to %s.', $result['to']) . $added, 'detail', ['id' => $id]);
         }
 
-        return $this->back(t('The reply could not be sent right now (%s). It waits in the mail queue and the site tries again in a few minutes – the history below shows when it goes out.', $result['error']), 'detail', ['id' => $id], 'chyba');
+        return $this->back(t('The reply could not be sent right now (%s). It waits in the mail queue and the site tries again in a few minutes – the history below shows when it goes out.', $result['error']) . $added, 'detail', ['id' => $id], 'chyba');
+    }
+
+    /**
+     * The follow-up chosen in the reply form (3.32, R4; a key of Admin\TaskPanel::FOLLOW_UP, '' = none): the signed-in
+     * person's own task "Follow up: <form>" about the enquiry – the same task as the follow-up buttons (never the customer's
+     * name or text in the title: its reminder is e-mailed). Returns its due moment, or null when none was chosen or it failed.
+     */
+    private function replyFollowUp(int $idp, string $choice): ?string
+    {
+        $days = \Kaleta\Admin\TaskPanel::FOLLOW_UP[$choice] ?? null;
+        $form = $days !== null ? $this->db->value('SELECT formular FROM {poptavky} WHERE idp = ?', [$idp]) : null;
+        if ($days === null || $form === null) {
+            return null;
+        }
+        $me = $this->app->auth()->id();
+        try {
+            $task = \Kaleta\Core\Tasks::create($this->app, ['title' => \Kaleta\Admin\TaskPanel::followUpTitle((string) $form), 'target' => \Kaleta\Core\Comments::enquiry($idp),
+                'assignee_id' => $me, 'due_at' => '+' . $days . ' days'], $me);
+        } catch (\DomainException) {
+            return null; // the reply went out; the buttons on the detail still offer the follow-up
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task follow-up added', '#' . $idp . ' (task #' . $task . ')');
+
+        return \Kaleta\Core\Tasks::find($this->db, $task)['due_at'] ?? null;
     }
 
     /**

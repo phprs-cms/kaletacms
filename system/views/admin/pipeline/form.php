@@ -14,6 +14,7 @@
  * @var list<array{key: string, label: string, kind: string, custom: bool}> $stages the open stages (a new deal)
  * @var bool $canContacts
  * @var int $me
+ * @var int $enquiry (a new deal, 3.32) the enquiry it comes from – Deals::createFromEnquiry saves it; 0 = none
  */
 use Kaleta\Core\Deals;
 
@@ -26,7 +27,7 @@ $currency = $value('currency');
 $prefix = $new ? 'obchod-novy' : 'obchod-' . (int) $d['id'];
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-deal-form>
-	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $d['id'] ?>">
+	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $d['id'] ?>"><?php if ($new && (int) ($enquiry ?? 0) > 0): ?><input type="hidden" name="enquiry" value="<?= (int) $enquiry ?>"><?php endif ?>
 	<div class="radek"><label for="<?= $prefix ?>-titulek"><?= e(t('Name of the deal')) ?></label><div><input class="textpole siroke" type="text" id="<?= $prefix ?>-titulek" name="title" maxlength="<?= Deals::TITLE_MAX ?>" required value="<?= e($value('title')) ?>" autocomplete="off">
 		<span class="napoveda"><?= e(t('What the customer may buy – e.g. Website redesign, Yearly service.')) ?></span></div></div>
 <?php if ($canContacts): ?>
@@ -48,6 +49,9 @@ $prefix = $new ? 'obchod-novy' : 'obchod-' . (int) $d['id'];
 	</select> <span class="napoveda"><?= e(t('Gets an e-mail when someone else chooses them. It does not change who may open the deal.')) ?></span></div></div>
 	<div class="radek"><label for="<?= $prefix ?>-hodnota"><?= e(t('Value')) ?></label><div class="obchod-castka"><input class="textpole" type="text" inputmode="decimal" id="<?= $prefix ?>-hodnota" name="value" maxlength="20" value="<?= e($value('value')) ?>" autocomplete="off">
 		<label class="navod-skryte" for="<?= $prefix ?>-mena"><?= e(t('Currency')) ?></label><select id="<?= $prefix ?>-mena" name="currency">
+<?php if ($currency === ''): /* 3.32: from an enquiry the currency is offered, not chosen – a value without one takes the site's default */ ?>
+			<option value="" selected>—</option>
+<?php endif ?>
 <?php foreach (Deals::CURRENCIES as $code): ?>
 			<option value="<?= e($code) ?>"<?= $currency === $code ? ' selected' : '' ?>><?= e($code) ?></option>
 <?php endforeach ?>

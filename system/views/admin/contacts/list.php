@@ -63,7 +63,7 @@ $filtered = $search !== '' || $ownerKey !== '' || $activity !== '' || $company >
 <?php elseif ($result['rows'] === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'zakaznici', 'heading' => t('No customers yet.'),
     'text' => t('Everyone who sends an enquiry, books an appointment or subscribes to the newsletter becomes a customer here – one record per e-mail address. You can also add one by hand.'),
-    'action' => [$module->url('new'), t('New contact')]]) ?>
+    'action' => [$module->url('new'), t('New customer')]]) ?>
 <?php else: ?>
 <p class="napoveda" data-contacts-total><?= e(t('Customers: %s', format_count($result['total']))) ?></p>
 <div class="tab-obal">
