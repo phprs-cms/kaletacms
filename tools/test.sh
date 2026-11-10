@@ -114,6 +114,17 @@ grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: th
 # 3.19.1 (N83): config.php holds the database password and the encryption key – readable only by the site (PHP owns the folder here)
 config_mode() { php -r 'clearstatcache(); printf("%o", fileperms($argv[1]) & 0777);' "$WORK/web/config.php"; }
 expect "3.19.1 (N83): the installer wrote config.php with mode 600" "$(config_mode)" "600"
+# T1 (Q1): a PHP deprecation on a live site is logged once a day and the page goes on – a host's PHP upgrade is no HTTP 500.
+# The test copy then defines KALETA_STRICT_DEPRECATIONS, so any deprecation from here on fails the run as before.
+# (a script file, not php -r: PHP never calls the exception handler for code given with -r)
+printf '%s\n' '<?php require __DIR__ . "/system/bootstrap.php"; $app = Kaleta\Core\App::boot(); trigger_error("T1 smoke deprecation", E_USER_DEPRECATED); trigger_error("T1 smoke deprecation", E_USER_DEPRECATED); echo "survived";' > "$WORK/web/t1-deprecation.php"
+t1_deprecation() { php "$WORK/web/t1-deprecation.php" 2>&1 | tail -c 300; }
+expect "T1 (Q1): a deprecation after App::boot() is logged, not thrown – once, as one line" \
+  "$(t1_deprecation)|$(grep -c '\] PHP deprecation: T1 smoke deprecation in t1-deprecation.php:1' "$WORK/web/storage/log/chyby.log")" "survived|1"
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_STRICT_DEPRECATIONS\x27, true);", (string) file_get_contents($f), 1));' "$WORK/web/config.php"
+expect "T1 (Q1): with KALETA_STRICT_DEPRECATIONS (the test copies) a deprecation is thrown again" "$(t1_deprecation | grep -c survived)|$(grep -c '\] ErrorException: T1 smoke deprecation' "$WORK/web/storage/log/chyby.log")" "0|1"
+rm -f "$WORK/web/t1-deprecation.php"
+php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 smoke deprecation"))));' "$WORK/web/storage/log/chyby.log"
 
 echo "== web"
 check "úvodní stránka" 200 / "Testovací firma"

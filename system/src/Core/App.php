@@ -143,19 +143,32 @@ final class App
         }
     }
 
+    /**
+     * The PHP error handler: a warning or notice is thrown (the page fails and the error is logged), a deprecation is logged
+     * once a day and the page goes on (T1, Q1) – a host's PHP upgrade must not take a site down. The test copies define
+     * KALETA_STRICT_DEPRECATIONS in config.php, so a deprecation still fails the tests there.
+     */
+    public static function handleError(int $severity, string $message, string $file, int $line, ?bool $strict = null): bool
+    {
+        if (!(error_reporting() & $severity)) {
+            return false;
+        }
+        $strict ??= defined('KALETA_STRICT_DEPRECATIONS') && (bool) constant('KALETA_STRICT_DEPRECATIONS');
+        if (($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) && !$strict) {
+            ErrorLog::deprecation($message, $file, $line);
+
+            return true;
+        }
+        throw new \ErrorException($message, 0, $severity, $file, $line);
+    }
+
     private function installErrorHandler(): void
     {
         error_reporting(E_ALL);
         ini_set('display_errors', '0');
-        set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
-            if (!(error_reporting() & $severity)) {
-                return false;
-            }
-            throw new \ErrorException($message, 0, $severity, $file, $line);
-        });
+        set_error_handler(self::handleError(...));
         set_exception_handler(function (\Throwable $e): void {
-            $line = sprintf("[%s] %s: %s in %s:%d\n", date('c'), $e::class, $e->getMessage(), $e->getFile(), $e->getLine());
-            @file_put_contents(KALETA_ROOT . '/storage/log/chyby.log', $line, FILE_APPEND | LOCK_EX);
+            ErrorLog::write(sprintf('%s: %s in %s:%d', $e::class, $e->getMessage(), ErrorLog::shortPath($e->getFile()), $e->getLine()));
             if (!headers_sent()) {
                 http_response_code(500);
                 header('Content-Type: text/html; charset=utf-8');
