@@ -4324,6 +4324,28 @@ await step('3.31.2 N99: the collection list is fetched only from its own page â€
   }
 });
 
+// 3.31.2 (pre-release review): one's own account in Users has no e-mail, password or two-factor fields (My account asks for the
+// current password); another account's new password needs the administrator's own current password
+await step('3.31.2 review: Users â€“ the own form points to My account; a new password for another user asks for the administrator\'s password', async () => {
+  await visit('/admin.php?module=users&action=edit&id=1');
+  if (await page.locator('#password, #soucasne, input[name="totp_reset"], input[name="email"]').count() !== 0) { throw new Error('the own form still offers the e-mail, a password or the two-factor reset'); }
+  if (!(await page.locator('#email').isDisabled()) || !(await page.locator('.napoveda a[href*="action=account"]').count())) { throw new Error('the own form does not point to My account'); }
+  sql("INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('b3312', 'x', 'B3312', '', '', 0, NOW(), NOW(), 0)");
+  const id = sql("SELECT idu FROM ka_uzivatele WHERE user = 'b3312'").trim();
+  try {
+    await visit(`/admin.php?module=users&action=edit&id=${id}`);
+    await page.fill('#password', 'New-password-3312');
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+    if (!(await page.locator('#soucasne ~ .chyba-pole').count()) || sql(`SELECT password FROM ka_uzivatele WHERE idu = ${id}`).trim() !== 'x') { throw new Error('a new password was saved without the administrator\'s password'); }
+    await page.fill('#password', 'New-password-3312');
+    await page.fill('#soucasne', PASSWORD);
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular input[type="submit"]').first().click()]);
+    if (sql(`SELECT password <> 'x' FROM ka_uzivatele WHERE idu = ${id}`).trim() !== '1') { throw new Error('the new password was not saved with the administrator\'s password'); }
+  } finally {
+    sql(`DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${id}; DELETE FROM ka_uzivatele WHERE idu = ${id}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
