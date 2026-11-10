@@ -237,11 +237,7 @@ final class Kernel
         if ($app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
             \Kaleta\Core\Backup::createAutomatic($app->db(), $app->settings());
         }
-        if ($app->auth()->user() !== null) {
-            Modules\News::emptyTrash($app->db()); // the trash keeps news and pages for 30 days
-            Modules\Pages::emptyTrash($app->db());
-            Modules\Collections::emptyTrash($app->db());
-        }
+        // T1 (Q5): the trash (30 days) is emptied by the daily background job 'trash' (Core\Scheduler), not on every admin request
 
         $ident = $request->get('module');
         if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {

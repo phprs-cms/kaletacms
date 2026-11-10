@@ -7873,4 +7873,5 @@ return [
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'Das war der letzte automatische Versuch (%d von %d) – das Update wartet nun auf einen Administrator.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta versucht es von selbst erneut – das war Versuch %d von %d.',
     '%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them' => '%d PHP-Hinweis(e) auf veraltete Funktionen – die Website läuft weiter, ein Kaleta-Update beseitigt sie',
+    'Trash: news, pages and collection items deleted more than 30 days ago removed' => 'Papierkorb: vor mehr als 30 Tagen gelöschte News, Seiten und Sammlungseinträge entfernt',
 ];

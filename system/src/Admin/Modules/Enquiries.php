@@ -48,8 +48,7 @@ final class Enquiries extends Module
 
     protected function actionList(): Response
     {
-        \Kaleta\Core\Jobs::purgeApplications($this->app); // applications to job openings have their own, usually shorter, retention (2.11)
-        self::deleteExpired($this->db, $this->app->settings());
+        // T1 (Q5): the retention of enquiries and applications runs in the daily clean-up job (Notifications::purgePersonalData), never on this GET
         $filter = $this->request->get('status');
         $conditions = match ($filter) {
             'otevrene' => ['stav < 2'],

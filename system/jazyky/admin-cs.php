@@ -7466,4 +7466,5 @@ return [
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'To byl poslední automatický pokus (%d z %d) – aktualizace teď čeká na správce.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta to zkusí sama znovu – tohle byl pokus %d z %d.',
     '%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them' => '%d upozornění PHP na zastaralé funkce – web běží dál, odstraní je aktualizace Kalety',
+    'Trash: news, pages and collection items deleted more than 30 days ago removed' => 'Koš: novinky, stránky a položky kolekcí smazané před více než 30 dny odstraněny',
 ];

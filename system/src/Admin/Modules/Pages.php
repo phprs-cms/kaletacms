@@ -105,7 +105,7 @@ final class Pages extends Module
 
     protected function actionList(): Response
     {
-        \Kaleta\Core\Comments::sweepContent($this->db); // 3.26: the threads of pages and items some other path deleted for good
+        // T1 (Q5): the threads of pages and items some other path deleted for good are swept by the daily job 'trash', not on this GET
         // status tab (3.20, C1): published | hidden | draft (unpublished changes) | kos (trash); anything else is All
         $status = $this->request->get('status');
         $status = isset(self::STATUSES[$status]) || $status === self::MINE ? $status : '';

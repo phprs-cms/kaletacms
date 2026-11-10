@@ -82,7 +82,7 @@ final class Contacts
     public const int PURGE_BATCH = 500;
 
     /** What list() can be sorted by => ORDER BY. */
-    public const array SORTS = ['activity' => 'c.last_activity_at IS NULL, c.last_activity_at DESC, c.id DESC', 'name' => 'c.name = \'\', c.name, c.email, c.id',
+    public const array SORTS = ['activity' => 'c.last_activity_at DESC, c.id DESC', 'name' => 'c.name = \'\', c.name, c.email, c.id',
         'created' => 'c.created_at DESC, c.id DESC'];
 
     /** @var list<array{0: string, 1: int}> records waiting for afterResponse() */
