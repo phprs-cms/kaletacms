@@ -7896,4 +7896,5 @@ return [
     'Take it' => 'Encargarme',
     'The enquiry is yours now.' => 'Ahora la solicitud es tuya.',
     'Someone already handles this enquiry.' => 'Alguien ya se encarga de esta solicitud.',
+    'Examples' => 'Ejemplos',
 ];

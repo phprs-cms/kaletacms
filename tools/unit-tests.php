@@ -10485,6 +10485,14 @@ check('3.32 (U36, A2): after sign-in only a person without content sections land
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), "\$lookHere = \$onDashboard || (isset(\$modules[\$active]) && \$modules[\$active]::GROUP === 'Appearance');"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), "self::landsOnMyWork(\$this->app->auth()->isAdmin(), \$this->modules()) ? 'admin.php?module=my_work' : 'admin.php'"),
 ], [true, false, false, false, false, true, true]);
+// 3.32 (U37): the dashboard leads with the site's numbers; Connect Claude, First steps and the examples fold to one line
+$u37Dash = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/dashboard.php');
+$u37Connect = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/claude_connect.php');
+check('3.32 (U37): the tiles come before the onboarding blocks, which are details (Connect Claude open for administrators, First steps while a step is left)', [
+    strpos($u37Dash, '<div class="dlazdice">') < strpos($u37Dash, "render('admin/claude_connect'"), strpos($u37Dash, "render('admin/pending_review'") < strpos($u37Dash, '<div class="dlazdice">'),
+    str_contains($u37Dash, "<?= \$finished < count(\$firstSteps) ? ' open' : '' ?>"), str_contains($u37Connect, "<?= \$connect['admin'] ? ' open' : '' ?>"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/ask_claude.php'), '<details class="ask-claude-priklady-obal"><summary>'),
+], [true, true, true, true, true]);
 $d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
 check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
     $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),

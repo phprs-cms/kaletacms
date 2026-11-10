@@ -188,6 +188,10 @@ grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<h2 id="predani-na
 dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.5: not connected – Connect Claude, First steps, then Ask Claude" "$(dash_order 'id="pripojit-claude"' 'class="pruvodce"' 'id="ask-claude-nadpis"')" "ok"
+# 3.32 (U37): the site's numbers first (Waiting for you and the tiles), then Connect Claude – open for the administrator –
+# First steps (open while a step is left) and Ask Claude with its examples folded
+expect "3.32 (U37): the tiles come before Connect Claude; the card and First steps are open for the administrator; the examples are folded" \
+  "$(dash_order 'class="dlazdice"' 'id="pripojit-claude"' 'class="pruvodce"')|$(grep -c 'id="pripojit-claude" aria-labelledby="pripojit-claude-nadpis" open>' "$WORK/response")|$(grep -c '<details class="pruvodce" aria-label="[^"]*" open>' "$WORK/response")|$(grep -c '<details class="ask-claude-priklady-obal"><summary>' "$WORK/response")" "ok|1|1|1"
 expect "3.12 (UX310-26): with the Connect Claude card, First steps do not repeat it" "$(grep -c 'admin.php#pripojit-claude' "$WORK/response" || true)" "0"
 grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<code id=\"mcp-adresa-prehled\">$B/mcp</code>" "$WORK/response" && grep -q 'Web neběží na HTTPS' "$WORK/response" \
   && echo "  ok     3.5: the card has the MCP address with Copy and warns that the site is not on HTTPS" || { echo "  CHYBA  3.5: connect card"; ERRORS=$((ERRORS+1)); }
@@ -229,7 +233,7 @@ check "3.5: a token nobody used keeps the Connect Claude card" 200 /admin.php 'i
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_api_tokeny SET pouzit = NOW() WHERE nazev = 'unused 3.5'"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_api_tokeny WHERE nazev = 'unused 3.5'"
-expect "3.5: once a connection was used, Ask Claude leads again and the card is gone" "$(dash_order 'id="ask-claude-nadpis"' 'class="pruvodce"' 'class="dlazdice"')|$(grep -c 'id="pripojit-claude"' "$WORK/response" || true)" "ok|0"
+expect "3.5: once a connection was used, Ask Claude leads again and the card is gone (3.32: after the numbers)" "$(dash_order 'class="dlazdice"' 'id="ask-claude-nadpis"' 'class="pruvodce"')|$(grep -c 'id="pripojit-claude"' "$WORK/response" || true)" "ok|0"
 # 3.18: "connected" means a valid connection exists now – revoking the only one says "not connected" again and the card returns
 check "3.18: revoking every connection shows Claude as not connected again" 200 /admin.php 'class="claude-stav claude-stav-none"'
 grep -q 'id="pripojit-claude"' "$WORK/response" && grep -q 'Claude není k tomuto webu připojený' "$WORK/response" && echo "  ok     3.18: the Connect Claude card returns, Ask Claude warns" || { echo "  CHYBA  3.18: not connected after revoking"; ERRORS=$((ERRORS+1)); }

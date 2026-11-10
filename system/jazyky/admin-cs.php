@@ -7470,4 +7470,5 @@ return [
     'Take it' => 'Převzít',
     'The enquiry is yours now.' => 'Poptávku teď máte na starosti vy.',
     'Someone already handles this enquiry.' => 'Poptávku už má na starosti někdo jiný.',
+    'Examples' => 'Příklady',
 ];

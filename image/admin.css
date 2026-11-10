@@ -1101,11 +1101,24 @@ body.login {
 }
 
 /* ---------- first steps after installation (dashboard) ---------- */
-.pruvodce { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
-.pruvodce-hlava { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pruvodce { position: relative; margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.pruvodce-hlava { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 0; padding-right: 90px; }
+.pruvodce[open] .pruvodce-hlava { margin-bottom: 12px; }
+.pruvodce-skryt { position: absolute; top: 12px; right: 16px; }
+/* 3.32 (U37): onboarding blocks fold to one line – a details whose summary is the block's heading */
+.pruvodce > summary, .pripojit-claude > summary, .ask-claude-priklady-obal > summary { cursor: pointer; list-style: none; }
+.pruvodce > summary::-webkit-details-marker, .pripojit-claude > summary::-webkit-details-marker, .ask-claude-priklady-obal > summary::-webkit-details-marker { display: none; }
+.pruvodce > summary h2::before, .pripojit-claude > summary h2::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--text-slaby); transition: transform 0.12s; }
+.pruvodce[open] > summary h2::before, .pripojit-claude[open] > summary h2::before { transform: rotate(90deg); }
+.pripojit-claude > summary h2 { display: inline; }
+.pripojit-claude[open] > summary { margin-bottom: 4px; }
+.ask-claude-priklady-obal { margin-top: 14px; }
+.ask-claude-priklady-obal > summary { display: inline-flex; align-items: center; min-height: 32px; font-size: 14px; font-weight: 500; color: var(--text); }
+.ask-claude-priklady-obal > summary::before { content: "▸ "; white-space: pre; }
+.ask-claude-priklady-obal[open] > summary::before { content: "▾ "; }
 .pruvodce-hlava h2 { margin: 0; font-size: 16px; }
 .pruvodce-hlava small { margin-left: 6px; font-weight: 400; color: var(--text-slaby); }
-.pruvodce-kroky { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: krok; }
+.pruvodce-kroky { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); grid-auto-rows: 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: krok; }
 .pruvodce-kroky li { counter-increment: krok; }
 .pruvodce-kroky a, .pruvodce-kroky button { display: grid; align-content: start; gap: 3px; height: 100%; padding: 12px 14px 12px 44px; position: relative; border: 1px solid var(--linka); border-radius: 8px; color: inherit; text-decoration: none; }
 .pruvodce-kroky a::before, .pruvodce-kroky button::before { content: counter(krok); position: absolute; left: 12px; top: 12px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--akcent); color: var(--akcent); font-size: 12px; font-weight: 600; }
@@ -1139,7 +1152,7 @@ body.login {
 .ask-claude-soubory { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--text-slaby); }
 .ask-claude-soubory input { max-width: 100%; font-size: 13px; }
 .ask-claude-tlacitka [data-ask-claude-copy] { margin-left: auto; }
-.ask-claude .ask-claude-zkuste { margin: 16px 0 8px; }
+.ask-claude .ask-claude-zkuste { margin: 8px 0 8px; }
 .ask-claude-priklady { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ask-claude-priklad { padding: 6px 12px; border: 1px solid var(--linka-pole); border-radius: 999px; background: var(--podklad); color: var(--text); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; cursor: pointer; transition: border-color .15s; }
 .ask-claude-priklad:hover, .ask-claude-priklad:focus-visible { border-color: var(--akcent); }
