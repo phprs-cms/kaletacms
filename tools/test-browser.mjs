@@ -3273,7 +3273,8 @@ await step('3.24 My work: first in an editor\'s menu, the waiting rows (1440 and
     const first = await p2.locator('#menu > li').first().evaluate((li) => ({ cls: li.className, text: li.textContent.trim() }));
     if (!first.cls.includes('menu-moje') || !first.text.startsWith('My work')) { throw new Error(`the first menu item is ${JSON.stringify(first)}`); }
     await Promise.all([p2.waitForNavigation(), p2.locator('#menu > li.menu-moje a').click()]);
-    for (const [list, text] of [['assigned', 'Quote 324'], ['pages', 'Price list 324']]) {
+    // 3.32: an enquiry row links by who wrote it (the form and number under it)
+    for (const [list, text] of [['assigned', 'q324@visitor.example'], ['pages', 'Price list 324']]) {
       if (!(await p2.locator(`[data-list="${list}"] a`, { hasText: text }).isVisible())) { throw new Error(`My work does not show ${text} in ${list}`); }
     }
     if (!(await p2.locator('[data-list="pages"] .stitek', { hasText: 'Unpublished changes' }).isVisible())) { throw new Error('the page row does not say why it waits'); }
