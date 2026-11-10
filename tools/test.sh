@@ -11048,6 +11048,30 @@ expect "3.31.2 N101: the box unticked – the personal token survives the passwo
 s3312_password "$S3312_NEW" "$PASSWORD"
 expect "3.31.2 N101: a password change without the field revokes the account's personal tokens – the token stops working; other accounts' tokens stay" \
   "$(s3312_tokens)|$(s3312_works "$S3312_PERSONAL")|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu <> $S3312_USER")|$(sq "SELECT popis FROM ka_protokol WHERE kdo = $S3312_USER AND akce = 'password_change' ORDER BY idp DESC LIMIT 1" | grep -c ': 1')" "0|401|$S3312_OTHERS|1"
+# 3.31.2 (pre-release review): every "current password" in My account counts on the sign-in's own counter – ten wrong ones in a
+# row (in any of its forms) lock the account for 15 minutes; an empty field is not counted; the session stays and says why;
+# the right password changes nothing while the lock lasts, and a new sign-in is refused like any locked one
+sq "UPDATE ka_uzivatele SET jazyk = 'en', pocet_chyb = 0, zamceno_do = NULL WHERE idu = $S3312_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+s3312_errors() { sq "SELECT CONCAT(pocet_chyb, '/', zamceno_do IS NOT NULL) FROM ka_uzivatele WHERE idu = $S3312_USER"; }
+S3312_EMPTY="$(s3312_account -d co=token_novy -d nazev=s3312-c > /dev/null; s3312_errors)"
+for i in 1 2 3 4 5 6 7 8; do s3312_account -d co=token_novy -d nazev=s3312-c -d "soucasne=wrong-password-$i" > /dev/null; done
+s3312_account -d co=heslo -d soucasne=wrong-password-9 --data-urlencode "nove=$S3312_NEW" --data-urlencode "nove2=$S3312_NEW" > /dev/null
+S3312_NINE=$(s3312_errors)
+s3312_account -d co=profil -d jmeno=s3312 -d email=s3312-other@example.com -d soucasne=wrong-password-10 > /dev/null
+expect "3.31.2 review: a wrong current password counts like a wrong sign-in (token, password, e-mail forms alike), an empty one does not; the tenth locks the account" \
+  "$S3312_EMPTY|$S3312_NINE|$(s3312_errors)|$(sq "SELECT email FROM ka_uzivatele WHERE idu = $S3312_USER")" "0/0|9/0|0/1|s3312@example.com"
+expect "3.31.2 review: the lock does not sign the person out – the page opens and says what happened" \
+  "$(curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account")|$(grep -c 'changes that need your password are locked for 15 minutes. You stay signed in' "$WORK/response")" "200|1"
+S3312_CSRF=$(csrf); S3312_PW_BEFORE=$(sq "SELECT password FROM ka_uzivatele WHERE idu = $S3312_USER")
+expect "3.31.2 review: while locked, the right password creates no token and changes no password; a new sign-in is refused" \
+  "$(s3312_account -d co=token_novy -d nazev=s3312-c --data-urlencode "soucasne=$PASSWORD")|$(s3312_tokens)|$(s3312_account -d co=heslo --data-urlencode "soucasne=$PASSWORD" --data-urlencode "nove=$S3312_NEW" --data-urlencode "nove2=$S3312_NEW" > /dev/null; [ "$(sq "SELECT password FROM ka_uzivatele WHERE idu = $S3312_USER")" = "$S3312_PW_BEFORE" ] && echo same)|$(curl -s -c "$WORK/jar-s3312b" -o "$WORK/response" "$B/admin.php"; curl -s -b "$WORK/jar-s3312b" -c "$WORK/jar-s3312b" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=s3312 --data-urlencode "password=$PASSWORD")" \
+  "302|0|same|401"
+sq "UPDATE ka_uzivatele SET pocet_chyb = 0, zamceno_do = NULL WHERE idu = $S3312_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+expect "3.31.2 review: after the lock the right password works again and resets nothing it should not" \
+  "$(s3312_account -d co=token_novy -d nazev=s3312-c -d access=read --data-urlencode "soucasne=$PASSWORD")|$(s3312_tokens)|$(s3312_errors)" "200|1|0/0"
+sq "DELETE FROM ka_api_tokeny WHERE idu = $S3312_USER AND nazev = 's3312-c'" > /dev/null
 # the administrator's form in Users: the same rule (ticked or no field revokes, unticked keeps)
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($S3312_USER, 's3312-b', 'read', 'all', SHA2('s3312-b-$RANDOM', 256), '$(site_time)')" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=users&action=edit&id=$S3312_USER"; TOKEN=$(csrf)

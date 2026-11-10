@@ -7465,4 +7465,5 @@ return [
     'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Potřeba k vytvoření tokenu – token funguje bez hesla i bez dvoufázového přihlášení.',
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'To byl poslední automatický pokus (%d z %d) – aktualizace teď čeká na správce.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta to zkusí sama znovu – tohle byl pokus %d z %d.',
+    'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.' => 'Příliš mnoho chybných hesel za sebou – změny, které chtějí heslo, jsou na 15 minut zamčené. Zůstáváte přihlášeni; nic se nezměnilo.',
 ];

@@ -5354,7 +5354,7 @@ check('3.3.3 (N59): the reset link is queued and sent after the response; the qu
 $accountSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 // 3.31.2: turning two-factor sign-in on (N100) and creating a token (N101) ask for it too
 check('3.3.3 (N56): a new e-mail and a new passkey need the current password; the old address hears about the change; the texts are translated', [
-    substr_count($accountSource, "password_verify((string) (\$_POST['soucasne'] ?? ''), \$user['password'])"), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
+    substr_count($accountSource, '$this->passwordRefused(\''), str_contains($accountSource, 'noticeOfNewEmail($user, $email)'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/klice.js'), "soucasne: password ? password.value : ''"),
     array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
         fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))],
@@ -10723,7 +10723,7 @@ check('3.31.2 N99: web.js fetches a list only from its own page (same origin and
 /* ---------- 3.31.2 (N100, N101): the second factor and a personal token need the current password; a password change revokes personal tokens by default ---------- */
 $a3312 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $a3312Case = fn (string $case): string => substr($a3312, (int) strpos($a3312, "case '" . $case . "':"), 2200);
-$a3312Verify = "password_verify((string) (\$_POST['soucasne'] ?? ''), \$user['password'])";
+$a3312Verify = '$this->passwordRefused(\'';
 check('3.31.2 N100: a new second factor is refused while one is set, and confirming one checks the password before the code and before anything is written', [
     (bool) preg_match("/case 'totp_start':\s+case 'totp_potvrd':/", $a3312),
     strpos($a3312Case('totp_start'), "\$user['totp_tajemstvi'] !== ''") < strpos($a3312Case('totp_start'), 'Totp::newSecret()'),
@@ -10795,6 +10795,22 @@ check('3.31.2 N103: the check after an update asks again when a proxy answers 50
     [[200, 1], [200, 2], [200, 3], [502, 3], [500, 1], [403, 1], true]);
 $u3312Texts = ['That was the last automatic attempt (%d of %d) – the update now waits for an administrator.', 'Kaleta will try again by itself – this was attempt %d of %d.'];
 check('3.31.2 N103: the texts of the e-mail about a failed try are translated (cs, de, es)', array_values(array_filter($u3312Texts, fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k], $a3312Es[$k]))), []);
+
+/* ---------- 3.31.2 (pre-release review): one check of the current password, on the sign-in's counter and lock ---------- */
+$c3312Auth = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
+$c3312Confirm = substr($c3312Auth, (int) strpos($c3312Auth, 'public function confirmPassword('), 900);
+$c3312User = substr($c3312Auth, (int) strpos($c3312Auth, 'public function user(): ?array'), 2200);
+check('3.31.2: every "current password" goes through Auth::confirmPassword – no password_verify of its own in My account; the lock is checked before the password, a wrong one counts like a wrong sign-in, an empty one is not counted, a right one resets nothing, and the lock never ends the sign-in', [
+    substr_count($a3312, 'password_verify('), substr_count($a3312, '->confirmPassword('),
+    strpos($c3312Confirm, 'self::isLocked($user)') < strpos($c3312Confirm, 'self::matchingPassword('),
+    str_contains($c3312Confirm, "return \$this->countError(\$user) ? 'locked' : 'wrong';"),
+    strpos($c3312Confirm, "if (\$typed === '') {") < strpos($c3312Confirm, 'countError('),
+    str_contains($c3312Confirm, 'pocet_chyb\' => 0') || str_contains($c3312Confirm, 'recordSignIn('),
+    str_contains($c3312User, 'zamceno_do'),
+    str_contains($a3312, "'locked' => ['chyba', \\Kaleta\\Core\\Auth::CONFIRM_LOCKED],")],
+    [0, 1, true, true, true, false, false, true]);
+check('3.31.2: the message of the lock is translated (cs, de, es) with an informal German form', [
+    isset($adminCs[Kaleta\Core\Auth::CONFIRM_LOCKED], $adminDe[Kaleta\Core\Auth::CONFIRM_LOCKED], $a3312Es[Kaleta\Core\Auth::CONFIRM_LOCKED], $a3312Du[Kaleta\Core\Auth::CONFIRM_LOCKED])], [true]);
 
 echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -42,8 +42,7 @@ final class Account
                     $emailChanged = $email !== (string) $user['email'];
                     // the e-mail is where a password reset goes: changing it needs the current password, like a new password
                     // does – a stolen session alone must not take the account over (3.3.3, N56)
-                    if ($emailChanged && !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
-                        $message = ['chyba', 'Enter your current password to change the e-mail address. Nothing was saved.'];
+                    if ($emailChanged && ($message = $this->passwordRefused('Enter your current password to change the e-mail address. Nothing was saved.')) !== null) {
                         break;
                     }
                     $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
@@ -64,11 +63,11 @@ final class Account
                     break;
                 case 'heslo':
                     $newItems = (string) ($_POST['nove'] ?? '');
+                    // the new password is checked first: a too short or mistyped one does not cost an attempt of the current one
                     $message = match (true) {
-                        !password_verify((string) ($_POST['soucasne'] ?? ''), $user['password']) => ['chyba', 'The current password is not correct.'],
                         mb_strlen($newItems) < 10 => ['chyba', 'The new password must be at least 10 characters long.'],
                         $newItems !== (string) ($_POST['nove2'] ?? '') => ['chyba', 'The new passwords do not match.'],
-                        default => null,
+                        default => $this->passwordRefused('The current password is not correct.'),
                     };
                     if ($message === null) {
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
@@ -93,8 +92,7 @@ final class Account
                     }
                     // 3.31.2 (N101): a token works without the password and the second factor, at /mcp, with this account's
                     // role – a signed-in session alone must not mint one (an unattended computer, a stolen cookie)
-                    if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
-                        $message = ['chyba', 'Enter your current password to create a token. Nothing was created.'];
+                    if (($message = $this->passwordRefused('Enter your current password to create a token. Nothing was created.')) !== null) {
                         break;
                     }
                     $token = 'kaleta_' . bin2hex(random_bytes(24));
@@ -156,8 +154,7 @@ final class Account
                         $app->session->set('totp_nove', Totp::newSecret());
                         break;
                     }
-                    if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
-                        $message = ['chyba', 'Enter your current password to turn on two-factor sign-in. Nothing was changed.'];
+                    if (($message = $this->passwordRefused('Enter your current password to turn on two-factor sign-in. Nothing was changed.')) !== null) {
                         break;
                     }
                     $secret = (string) $app->session->get('totp_nove', '');
@@ -180,8 +177,7 @@ final class Account
                     $message = ['ok', 'The passkey has been removed.'];
                     break;
                 case 'totp_vypni':
-                    if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
-                        $message = ['chyba', 'Enter the correct password to turn it off.'];
+                    if (($message = $this->passwordRefused('Enter the correct password to turn it off.')) !== null) {
                         break;
                     }
                     $db->update('uzivatele', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
@@ -202,6 +198,21 @@ final class Account
         }
 
         return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+    }
+
+    /**
+     * The current password typed in the form, checked by Auth::confirmPassword (3.31.2 – the same counter and lock as the
+     * sign-in): null when it is right, otherwise the message to show – $wrong, or that the account is locked for a while.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function passwordRefused(string $wrong): ?array
+    {
+        return match ($this->kernel->app->auth()->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '')) {
+            'ok' => null,
+            'locked' => ['chyba', \Kaleta\Core\Auth::CONFIRM_LOCKED],
+            default => ['chyba', $wrong],
+        };
     }
 
     /**
@@ -251,8 +262,8 @@ final class Account
         }
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
-            if (!password_verify((string) ($_POST['soucasne'] ?? ''), $user['password'])) {
-                return Response::json(['chyba' => t('Enter your current password to add a passkey.')], 403);
+            if (($refused = $this->passwordRefused('Enter your current password to add a passkey.')) !== null) {
+                return Response::json(['chyba' => t($refused[1])], 403);
             }
             $challenge = Passkey::challenge();
             $app->session->set('klic_registrace', $challenge);

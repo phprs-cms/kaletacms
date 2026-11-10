@@ -7891,4 +7891,5 @@ return [
     'Needed to create a token – a token works without the password and without two-factor sign-in.' => 'Necesaria para crear un token: un token funciona sin la contraseña y sin la verificación en dos pasos.',
     'That was the last automatic attempt (%d of %d) – the update now waits for an administrator.' => 'Ese fue el último intento automático (%d de %d): la actualización espera ahora a un administrador.',
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta lo intentará de nuevo por sí misma: este fue el intento %d de %d.',
+    'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.' => 'Demasiadas contraseñas incorrectas seguidas: los cambios que necesitan tu contraseña quedan bloqueados durante 15 minutos. Sigues con la sesión iniciada; no se ha cambiado nada.',
 ];

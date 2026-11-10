@@ -175,13 +175,56 @@ final class Auth
         return $user['zamceno_do'] !== null && strtotime((string) $user['zamceno_do']) > time();
     }
 
-    /** One more wrong password, code or passkey for the account; the tenth in a row locks it for 15 minutes. @param array<string, mixed> $user */
-    private function countError(array $user): void
+    /**
+     * One more wrong password, code or passkey for the account; the tenth in a row locks it for 15 minutes.
+     *
+     * @param array<string, mixed> $user
+     * @return bool whether this error locked the account
+     */
+    private function countError(array $user): bool
     {
         $errorCount = (int) $user['pocet_chyb'] + 1;
         $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
             ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
             : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+
+        return $errorCount >= self::MAX_ERRORS;
+    }
+
+    /** The answer of confirmPassword() when the account is locked (3.31.2): the person stays signed in, the step waits. */
+    public const string CONFIRM_LOCKED = 'Too many wrong passwords in a row – changes that need your password are locked for 15 minutes. You stay signed in; nothing was changed.';
+
+    /**
+     * The "current password" of a signed-in person (3.31.2): every form that asks for it before a sensitive change (My
+     * account – e-mail, password, token, second factor, passkey; Users – an administrator setting another user's password
+     * or turning off their second factor) checks it here, never with its own password_verify(). A wrong password counts
+     * on the same per-account counter as a wrong one at sign-in (ten in a row lock the account for 15 minutes), so a
+     * stolen session is not a second, unlimited channel for guessing the password. While the account is locked the
+     * password is not checked at all (as at sign-in). The lock does not end this sign-in – user() never looks at it – so
+     * the form answers CONFIRM_LOCKED and the person can go on working; a new sign-in waits like any locked one. A right
+     * password resets nothing: the counter goes back to zero only with a completed sign-in (recordSignIn), as before.
+     * An empty field is "wrong" without counting – nothing was guessed.
+     *
+     * @return 'ok'|'wrong'|'locked'
+     */
+    public function confirmPassword(string $typed): string
+    {
+        $id = $this->id();
+        $user = $id > 0 ? $this->db->one('SELECT idu, password, pocet_chyb, zamceno_do FROM {uzivatele} WHERE idu = ?', [$id]) : null;
+        if ($user === null) {
+            return 'wrong';
+        }
+        if (self::isLocked($user)) {
+            return 'locked';
+        }
+        if ($typed === '') {
+            return 'wrong'; // nothing typed is not a guess – it is not counted
+        }
+        if (self::matchingPassword($typed, (string) $user['password']) !== null) {
+            return 'ok';
+        }
+
+        return $this->countError($user) ? 'locked' : 'wrong';
     }
 
     /**
