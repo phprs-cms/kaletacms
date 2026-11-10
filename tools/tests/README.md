@@ -1,0 +1,29 @@
+# Tests
+
+The two suites keep their commands; their checks live here, one file per topic.
+
+| Command | Files | What |
+|---|---|---|
+| `php tools/unit-tests.php [filter …]` | `tests/unit/bootstrap.php`, then `tests/unit/NNNN-<topic>.php` | no database |
+| `tools/test.sh` | `tests/smoke/bootstrap.sh`, then `tests/smoke/NNNN-<topic>.sh` | clean install, site, admin, MCP (MySQL) |
+
+Both runners take the files in number order. A file whose name does not match `NNNN-<topic>.php` / `.sh`
+(lower case, digits, dots and hyphens) or two files with the same number stop the run, so nothing is skipped silently.
+
+## How to add a test
+
+- **A new topic is a new file.** Take the next free number after the highest one (step 10, e.g. `1790-3.33-invoices.php`),
+  start it with the section's one-line header as the existing files do. Do not append to someone else's file just because
+  it is the last one – that is what made the old single files a merge conflict in every release.
+- **Unit file:** `<?php`, `declare(strict_types=1);`, the `use` imports it needs, then `check('label', $actual, $expected);`
+  calls. All files share one global scope (a later file may use a variable an earlier one prepared), so prefix your
+  variables (`$i333…`) as before. `php tools/unit-tests.php 1790` runs just that file (any part of a file name works, e.g.
+  `fleet`); what earlier files prepare for it (variables, the active language) is replayed first without counting.
+- **Smoke file:** plain bash, sourced into the one shell of `tools/test.sh` – the same site, cookie jar and database as
+  every section before it. Start with `echo "== <topic>"`, report with `check`, `expect` or `echo "  ok     …"` /
+  `ERRORS=$((ERRORS+1))`. A section that needs state of an earlier one simply gets a higher number; the order is the
+  contract. Helpers used by many sections belong in `bootstrap.sh` only if they are needed before the first section.
+- **Paths:** the checkout is `KALETA_ROOT` (or `dirname(__DIR__, 3)`) in a unit file and `$ROOT` in a smoke file.
+- A guard that reads the smoke suite as text uses `smoke_test_source()` (bootstrap.php), not `tools/test.sh`.
+- `KALETA_UNIT_LABELS=<file> php tools/unit-tests.php` writes every check's file and label – compare two lists to prove
+  that a refactoring kept every check.

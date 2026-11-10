@@ -32,8 +32,9 @@ tools/test-english.sh        # the English installer, site and admin must contai
 tools/test-migrations.sh        # database upgrade from 1.0.0
 ```
 
-Add a test for what you change – a unit test in `tools/unit-tests.php`, or a check in `tools/test.sh` for anything that needs
-a running site.
+Add a test for what you change – a unit test in `tools/tests/unit/`, or a check in `tools/tests/smoke/` for anything that
+needs a running site. A new topic is a new numbered file; `php tools/unit-tests.php <number or name>` runs one unit file
+(`tools/tests/README.md`).
 
 ## Writing tests that pass in CI
 
