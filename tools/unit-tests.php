@@ -305,7 +305,7 @@ $parity = [
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions',
         'handover' => 'admin: handing all of a leaver\'s work over goes with blocking or deleting the account (3.24) – Claude moves one record with assign'],
-    'my_work' => ['list' => 'my_work', 'team' => 'list_tasks', 'complete' => 'complete_task', 'snooze' => 'save_task', 'task' => 'save_task', 'reassign' => 'save_task'], // 3.24; 3.27 tasks (task = New task; reassign = a task nobody has, list_tasks assignee:none)
+    'my_work' => ['list' => 'my_work', 'team' => 'list_tasks', 'complete' => 'complete_task', 'snooze' => 'save_task', 'task' => 'save_task', 'reassign' => 'save_task', 'task_edit' => 'save_task', 'take' => 'assign'], // 3.32 (U35): edit a task, take an enquiry; 3.24; 3.27 tasks (task = New task; reassign = a task nobody has, list_tasks assignee:none)
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
     'addons' => ['list' => $readOnly, 'toggle' => 'admin: running code from another developer is the administrator’s decision (3.0)', 'page' => 'admin: pages add-ons add to the administration'],
@@ -10465,6 +10465,18 @@ check('3.32 (U29): deal values read as money in each admin language; the default
 ], [["£18,000", "€10,800.50", "CZK\u{00A0}1,250,000", '$99.99', ''], ["18\u{00A0}000\u{00A0}£", "10\u{00A0}800,50\u{00A0}€", "1\u{00A0}250\u{00A0}000\u{00A0}Kč", "99,99\u{00A0}$", ''],
     ["18.000\u{00A0}£", "10.800,50\u{00A0}€", "1.250.000\u{00A0}CZK", "99,99\u{00A0}$", ''], ["18.000\u{00A0}£", "10.800,50\u{00A0}€", "1.250.000\u{00A0}CZK", "99,99\u{00A0}$", ''],
     'SEK', 'GBP', 'GBP', 'PLN', 'EUR', 'CZK', true, '', [], true, true]);
+// 3.32 (U35): row actions 32 px (40 px on touch and phone), the task title a link, Edit and Take it in My work
+$u35Css = (string) file_get_contents(KALETA_ROOT . '/image/admin.css');
+$u35View = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php');
+check('3.32 (U35): list row buttons are 32/40 px; My work links the task title, edits a task (a form outside the Done form) and takes an enquiry', [
+    (bool) preg_match('/table\.vypis button\.navigace,\s*table\.vypis a\.navigace,[^{]*\{[^}]*min-height: 32px;/', $u35Css),
+    (bool) preg_match('/@media \(pointer: coarse\), \(max-width: 640px\) \{\s*table\.vypis button\.navigace,[^{]*\{ min-height: 40px;/', $u35Css),
+    str_contains($u35Css, 'table.vypis button.navigace {' . "\n\tpadding: 2px 8px;"),
+    str_contains($u35View, 'class="moje-ukol-nazev"'), substr_count($u35View, 'form="<?= e($editForm) ?>"'),
+    strpos($u35View, "action=\"<?= e(\$module->url('task_edit')) ?>\"") > strpos($u35View, '</form>'),
+    str_contains($u35View, "\$module->url('take')"),
+    method_exists(Kaleta\Admin\Modules\MyWork::class, 'actionTaskEdit'), method_exists(Kaleta\Admin\Modules\MyWork::class, 'actionTake'),
+], [true, true, false, true, 5, true, true, true, true]);
 $d331Kinds = ['new' => 'open', 'qualified' => 'open', 'won' => 'won', 'lost' => 'lost', 'lost2' => 'lost'];
 check('3.31: a move is created, moved, won, lost or reopened (from a closing stage to an open one); the owner filter takes mine, none, an id', [
     $d331::event(null, 'new', $d331Kinds), $d331::event('new', 'qualified', $d331Kinds), $d331::event('qualified', 'won', $d331Kinds), $d331::event('won', 'lost', $d331Kinds),

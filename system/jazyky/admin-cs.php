@@ -7467,4 +7467,7 @@ return [
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta to zkusí sama znovu – tohle byl pokus %d z %d.',
     'Automatic (%s)' => 'Automaticky (%s)',
     'The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.' => 'Měna, se kterou začíná hodnota nového obchodu. Automaticky se vezme měna země firmy, jinak země časového pásma.',
+    'Take it' => 'Převzít',
+    'The enquiry is yours now.' => 'Poptávku teď máte na starosti vy.',
+    'Someone already handles this enquiry.' => 'Poptávku už má na starosti někdo jiný.',
 ];

@@ -7874,4 +7874,7 @@ return [
     'Kaleta will try again by itself – this was attempt %d of %d.' => 'Kaleta versucht es von selbst erneut – das war Versuch %d von %d.',
     'Automatic (%s)' => 'Automatisch (%s)',
     'The currency a new deal value starts with. Automatic takes the currency of the company country, else of the time zone.' => 'Die Währung, mit der der Wert eines neuen Geschäfts beginnt. Automatisch nimmt die Währung des Firmenlandes, sonst des Landes der Zeitzone.',
+    'Take it' => 'Übernehmen',
+    'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei Ihnen.',
+    'Someone already handles this enquiry.' => 'Diese Anfrage bearbeitet bereits jemand.',
 ];

@@ -3714,7 +3714,7 @@ await step('3.27 My work: the tasks first by group, Done and snooze, the Team ta
     if (groups.join(',') !== 'overdue,today,upcoming,later') { throw new Error(`the groups are ${groups.join(',')}`); }
     const today = page.locator('[data-list="tasks"] tr[data-task]', { hasText: 'Review the price list' });
     if (!(await today.locator('a', { hasText: 'Page “Price list 327”' }).isVisible())) { throw new Error('the task does not link to its page'); }
-    if (await page.locator('[data-list="tasks"] tr[data-task] button').count() !== 12) { throw new Error('not every task has Done, Tomorrow and In 3 days'); }
+    if (await page.locator('[data-list="tasks"] tr[data-task] td.akce > button').count() !== 12) { throw new Error('not every task has Done, Tomorrow and In 3 days'); }
     if (await page.locator('.zalozky a', { hasText: 'Team' }).count() !== 1) { throw new Error('no Team tab for the administrator'); }
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/my-work-tasks-desktop.png`, fullPage: true }); }
     const state = await context.storageState();

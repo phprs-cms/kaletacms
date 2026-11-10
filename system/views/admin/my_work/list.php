@@ -66,11 +66,25 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
 <tbody>
 <?php foreach ($rows as $r): ?>
 <tr id="task-<?= (int) $r['id'] ?>" data-task="<?= (int) $r['id'] ?>">
-	<td><?= e($r['title'] !== '' ? $r['title'] : t('(no title)')) ?><?php if ($r['about'] !== null): ?><br><a class="smltxt" href="<?= e($app->url($r['about']['url'])) ?>"><?= e($aboutText($r['about'])) ?></a><?php endif ?></td>
+	<td><?php /* 3.32 (U35): the title opens the record the task is about (its task panel); a task about nothing opens Edit */ ?><a class="moje-ukol-nazev" href="<?= e($r['about'] !== null ? $app->url($r['about']['url']) . '#tasks' : '#task-' . (int) $r['id'] . '-edit') ?>"><?= e($r['title'] !== '' ? $r['title'] : t('(no title)')) ?></a><?php if ($r['about'] !== null): ?><br><a class="smltxt" href="<?= e($app->url($r['about']['url'])) ?>"><?= e($aboutText($r['about'])) ?></a><?php endif ?></td>
 	<td class="cislo"><?= $r['due_at'] === null ? '<span class="smltxt">' . e(t('no date')) . '</span>' : ($group === 'overdue' ? '<span class="stitek stitek-koncept">' . e($due($r['due_at'])) . '</span>' : e($due($r['due_at']))) ?></td>
 	<td class="akce"><button class="navigace" type="submit" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('Done')) ?></button>
 		<button class="navigace" type="submit" formaction="<?= e($module->url('snooze', ['by' => 'tomorrow'])) ?>" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('Tomorrow')) ?></button>
-		<button class="navigace" type="submit" formaction="<?= e($module->url('snooze', ['by' => '3days'])) ?>" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('In 3 days')) ?></button></td>
+		<button class="navigace" type="submit" formaction="<?= e($module->url('snooze', ['by' => '3days'])) ?>" name="id" value="<?= (int) $r['id'] ?>"><?= e(t('In 3 days')) ?></button>
+<?php $editId = 'task-' . (int) $r['id'] . '-edit'; $editForm = 'ukol-uprava-' . (int) $r['id']; $remindChoice = Kaleta\Admin\TaskPanel::remindChoice($r['due_at'], $r['remind_at']); ?>
+		<details class="komentar-upravit ukol-upravit moje-ukol-upravit" id="<?= e($editId) ?>"><summary><?= e(t('Edit')) ?></summary><?php /* 3.32 (U35): the fields belong to a form after the table (form=…) – forms cannot nest */ ?>
+			<div class="ukol-pole ukol-pole-uprava">
+				<div class="ukol-pole-nazev"><label for="<?= e($editId) ?>-nazev"><?= e(t('Task')) ?></label><input form="<?= e($editForm) ?>" class="textpole siroke" type="text" id="<?= e($editId) ?>-nazev" name="title" maxlength="<?= Kaleta\Core\Tasks::TITLE ?>" value="<?= e($r['title']) ?>" required></div>
+				<div><label for="<?= e($editId) ?>-datum"><?= e(t('Due')) ?></label><input form="<?= e($editForm) ?>" class="textpole" type="date" id="<?= e($editId) ?>-datum" name="due_date" value="<?= e(substr((string) $r['due_at'], 0, 10)) ?>"></div>
+				<div><label for="<?= e($editId) ?>-cas"><?= e(t('Time')) ?></label><input form="<?= e($editForm) ?>" class="textpole" type="time" id="<?= e($editId) ?>-cas" name="due_time" value="<?= e(substr((string) $r['due_at'], 11, 5)) ?>"></div>
+				<div><label for="<?= e($editId) ?>-pripominka"><?= e(t('Reminder')) ?></label><select form="<?= e($editForm) ?>" id="<?= e($editId) ?>-pripominka" name="remind">
+<?php foreach (Kaleta\Admin\TaskPanel::REMIND_LABELS + ($remindChoice === 'keep' ? ['keep' => ''] : []) as $remindKey => $remindLabel): ?>
+					<option value="<?= e($remindKey) ?>"<?= $remindKey === $remindChoice ? ' selected' : '' ?>><?= e($remindKey === 'keep' ? t('As set: %s', format_date((string) $r['remind_at'], true)) : t($remindLabel)) ?></option>
+<?php endforeach ?>
+				</select></div>
+			</div>
+			<p class="tlacitka"><button form="<?= e($editForm) ?>" class="navigace" type="submit"><?= e(t('Save the task')) ?></button></p>
+		</details></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -78,6 +92,9 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
 </div>
 <?php endforeach ?>
 </form>
+<?php foreach ($tasks as $r): /* 3.32 (U35): the edit form of each task (its fields are in the row, form=…) */ ?>
+<form id="ukol-uprava-<?= (int) $r['id'] ?>" method="post" action="<?= e($module->url('task_edit')) ?>" data-task-edit hidden><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $r['id'] ?>"><input type="hidden" name="assignee_id" value="0"></form>
+<?php endforeach ?>
 </section>
 <?php endif ?>
 <?php if ($filled === [] && $tasks === []): ?>
@@ -93,13 +110,16 @@ $aboutText = fn (array $about): string => match ($about['kind']) {
 <div class="tab-obal">
 <table class="vypis">
 <?php if ($list === 'assigned' || $list === 'unassigned'): ?>
-<thead><tr><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Received')) ?></th><?php if ($list === 'unassigned'): ?><th scope="col"><?= e(t('Actions')) ?></th><?php endif ?></tr></thead>
 <tbody>
 <?php foreach ($rows as $r): ?>
 <tr>
 	<td><a href="<?= e($app->url($r['url'])) ?>"><?= e($r['title'] !== '' ? $r['title'] : t('Enquiry')) ?> #<?= (int) $r['id'] ?></a><?= $r['about'] !== '' ? '<br><span class="smltxt">' . e($r['about']) . '</span>' : '' ?></td>
 	<td><?= $r['status'] === 'new' ? '<span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td class="cislo"><?= e(format_date($r['date'], true)) ?></td>
+<?php if ($list === 'unassigned'): /* 3.32 (U35): take a new enquiry nobody handles */ ?>
+	<td class="akce"><form method="post" action="<?= e($module->url('take')) ?>" data-enquiry-take><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $r['id'] ?>"><button class="navigace" type="submit"><?= e(t('Take it')) ?></button></form></td>
+<?php endif ?>
 </tr>
 <?php endforeach ?>
 </tbody>

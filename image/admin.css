@@ -495,11 +495,34 @@ label.navigace:hover {
 /* file via a button: the field is only visually hidden so it can be chosen with the keyboard; the button shows the focus */
 label.navigace input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
 label.navigace:focus-within { outline: 3px solid var(--akcent); outline-offset: 2px; }
-table.vypis button.navigace {
-	padding: 2px 8px;
-	font-size: 12px;
+/* 3.32 (U35): row actions of the lists (Done, Tomorrow, Duplicate, Delete…) are 32 px high on a desktop and 40 px on a
+   touch screen or a phone, 8 px apart – the axe target size and a finger both fit */
+table.vypis button.navigace,
+table.vypis a.navigace,
+.komentar-akce button.navigace,
+.ukol-akce button.navigace {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 32px;
+	min-width: 32px;
+	padding: 4px 10px;
+	font-size: 13px;
 	font-weight: 500;
+	vertical-align: middle;
 }
+table.vypis td.akce > :is(button, a, form, details) + :is(button, a, form, details) { margin-left: 8px; }
+table.vypis td.akce form { display: inline-block; }
+@media (pointer: coarse), (max-width: 640px) {
+	table.vypis button.navigace,
+	table.vypis a.navigace,
+	.komentar-akce button.navigace,
+	.ukol-akce button.navigace { min-height: 40px; min-width: 40px; padding: 6px 14px; }
+	table.vypis td.akce { white-space: normal; }
+	table.vypis td.akce > :is(button, a, form, details) { margin: 4px 8px 4px 0; }
+}
+.moje-ukol-upravit { display: inline-block; margin-left: 8px; vertical-align: middle; }
+.moje-ukol-upravit[open] { display: block; margin: 8px 0 0; white-space: normal; }
 /* red belongs only to irreversible actions (deleting) - other buttons in a listing are neutral */
 button.nebezpecne,
 a.nebezpecne {
@@ -1574,10 +1597,10 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .vlakno .vlakno-smazany { border-style: dashed; background: none; }
 .zminka { padding: 0 3px; border-radius: 4px; background: color-mix(in oklch, var(--akcent) 14%, var(--plocha)); font-weight: 600; white-space: nowrap; }
 .komentar-akce { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 12px; margin-top: 8px; font-size: 13px; }
-.komentar-akce button.navigace { padding: 2px 10px; font-size: 13px; font-weight: 500; }
 .komentar-upravit[open] { flex: 1 1 100%; order: 1; }
-.komentar-upravit summary { display: inline-block; padding: 2px 10px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); font-weight: 500; line-height: 1.25; list-style: none; cursor: pointer; }
+.komentar-upravit summary { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 10px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); font-weight: 500; line-height: 1.25; list-style: none; cursor: pointer; }
 .komentar-upravit summary::-webkit-details-marker { display: none; }
+@media (pointer: coarse), (max-width: 640px) { .komentar-upravit summary { min-height: 40px; padding: 6px 14px; } }
 .komentar-upravit summary:hover { border-color: var(--text-slaby); }
 .komentar-upravit[open] summary { margin-bottom: 6px; }
 .komentar-upravit .tlacitka { margin: 6px 0 0; }
@@ -1661,7 +1684,6 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .ukol .ukol-meta { margin-top: 2px; color: var(--text-slaby); font-size: 13px; overflow-wrap: anywhere; }
 .ukol-akce { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; font-size: 13px; }
 .ukol-akce form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; }
-.ukol-akce button.navigace { padding: 2px 10px; font-size: 13px; font-weight: 500; }
 .ukol-upravit[open] { flex: 1 1 100%; order: 1; }
 .ukol-upravit form { display: block; }
 .ukol-pole { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; align-items: start; }

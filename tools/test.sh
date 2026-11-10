@@ -4684,7 +4684,7 @@ expect "3.30 Today: the severity filter red leaves the amber task out; the custo
 # My work lists it with what it is about; the reminder job notifies me once in the bell (task_due, the site as the target)
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=my_work"
 expect "3.30 My work: the console tasks with the site and the customer they are about, linking to their panels" \
-  "$(grep -c "Renew Lindner&#039;s domain 330<br><a class=\"smltxt\" href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\">Web „B329 &lt;script&gt;" "$WORK/response")|$(grep -c "href=\"/admin.php?module=fleet&amp;action=customer_detail&amp;id=$ACME317#tasks\">Zákazník konzole „$Y330_ACME“" "$WORK/response")" "1|1"
+  "$(grep -c "Renew Lindner&#039;s domain 330</a><br><a class=\"smltxt\" href=\"/admin.php?module=fleet&amp;action=detail&amp;id=$HOST329#tasks\">Web „B329 &lt;script&gt;" "$WORK/response")|$(grep -c "href=\"/admin.php?module=fleet&amp;action=customer_detail&amp;id=$ACME317#tasks\">Zákazník konzole „$Y330_ACME“" "$WORK/response")" "1|1"
 Y330_RUN=$(cd "$WORK/web3" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); echo Kaleta\Core\Tasks::run($app);')
 expect "3.30 reminder: the job tasks notifies me of the overdue console task once (task_due, the site), not of tomorrow's" \
   "$(echo "$Y330_RUN" | grep -c 'notified 1')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'task_due' AND user_id = $Y330_ADMIN AND target = 'fleet_site:$HOST329' AND excerpt = 'Renew Lindner''s domain 330'")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE target = 'fleet_customer:$ACME317'")" "1|1|0"
@@ -9600,6 +9600,17 @@ expect "3.24 My work: the first menu item for a non-administrator, with the coun
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.24 My work: an administrator keeps the Dashboard first, My work right after it" \
   "$(php -r '$h = (string) file_get_contents($argv[1]); $w = strpos($h, "class=\"menu-moje"); $d = strpos($h, "class=\"menu-prehled"); echo $w !== false && $d !== false && $d < $w ? "after" : "no";' "$WORK/response")" "after"
+# 3.32 (U35): "Take it" on a new enquiry nobody handles – the editor takes it; a second take (someone has it) changes nothing
+sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'W332 take', 'take@visitor.example', '[]', 0)" > /dev/null
+W332_TAKE=$(sq "SELECT idp FROM ka_poptavky WHERE formular = 'W332 take'")
+curl -s -b "$JAR324" -o "$WORK/response" "$B/admin.php?module=my_work"
+W332_CSRF=$(grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//')
+expect "3.32 (U35) My work: an unassigned enquiry has Take it" "$(grep -c "data-enquiry-take><input type=\"hidden\" name=\"_csrf\"[^>]*><input type=\"hidden\" name=\"idp\" value=\"$W332_TAKE\"" "$WORK/response")" "1"
+curl -s -b "$JAR324" -c "$JAR324" -o /dev/null -X POST "$B/admin.php?module=my_work&action=take" -d "_csrf=$W332_CSRF" -d "idp=$W332_TAKE"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=take" -d "_csrf=$(csrf)" -d "idp=$W332_TAKE"
+expect "3.32 (U35) My work: … Take it makes it the editor's (once, logged); taking it again changes nothing" \
+  "$(sq "SELECT prirazeno FROM ka_poptavky WHERE idp = $W332_TAKE")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'enquiry_taken' AND popis = '#$W332_TAKE'")" "$W324_ED|1"
+sq "DELETE FROM ka_poptavky WHERE idp = $W332_TAKE" > /dev/null
 JAR324W="$WORK/jar-w324w"
 TOKEN324W=$(curl -s -c "$JAR324W" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR324W" -c "$JAR324W" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN324W" -d user=w324-writer --data-urlencode "password=$PASSWORD"
@@ -10075,6 +10086,13 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&ac
 expect "3.27 My work: Done marks it done, Tomorrow moves the due day keeping its time; both logged, the page cache stays" \
   "$(sq "SELECT done_by = $T327_ADMIN FROM ka_tasks WHERE id = ${T327_A1:-0}")|$(sq "SELECT CONCAT(due_at, '|', notified_at IS NULL) FROM ka_tasks WHERE id = ${T327_A2:-0}")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce IN ('task_done', 'task_snoozed')")|$([ -f "$WORK/web/storage/cache/stranky/t327.html" ] && echo kept)" \
   "1|$(site_date '+1 day') 23:30:00|1|2|kept"
+# 3.32 (U35): the task title is a link, Edit sits in the row (a form after the table, form=…) and saves title and due day
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
+expect "3.32 (U35) My work: the title links to the record's tasks (or Edit), each open task has Edit with its own form" \
+  "$(grep -c "class=\"moje-ukol-nazev\" href=\"[^\"]*#task-${T327_A3:-0}-edit\"" "$WORK/response")|$(grep -c "id=\"ukol-uprava-${T327_A3:-0}\"" "$WORK/response")|$(grep -c "form=\"ukol-uprava-${T327_A3:-0}\"" "$WORK/response")" "1|1|5"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=task_edit" -d "_csrf=$(csrf)" -d "id=${T327_A3:-0}" -d "title=Later T332" -d "due_date=$(site_date '+5 days')" -d due_time= -d remind= -d assignee_id=0
+expect "3.32 (U35) My work: … Edit saves the title and the due day, keeps the person; logged" \
+  "$(sq "SELECT CONCAT(title, '|', LEFT(due_at, 10), '|', assignee_id = $T327_ADMIN) FROM ka_tasks WHERE id = ${T327_A3:-0}")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_edited'")" "Later T332|$(site_date '+5 days')|1|1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=my_work&action=complete" -d "_csrf=$(csrf)" -d "id=987654321"
 expect "3.27 My work: a task that does not exist changes nothing" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'my_work' AND akce = 'task_done'")" "1"
 # N327-3: a task about an enquiry done in My work – the change log names the task and the enquiry, never the title (it may name

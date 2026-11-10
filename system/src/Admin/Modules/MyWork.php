@@ -177,6 +177,58 @@ final class MyWork extends Module
     }
 
     /**
+     * Edit of a task right in My work (3.32, U35; POST id, title, assignee_id, due_date, due_time, remind): the fields of the
+     * shared task form (Admin\TaskPanel::fromForm) saved by Tasks::update – who may change the task (its person, who added
+     * it, an administrator) and to whom it may go are checked there, as in a record's task panel. remind=keep keeps the
+     * reminder; assignee 0 keeps the person.
+     */
+    protected function actionTaskEdit(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $id = $this->request->postInt('id');
+        try {
+            $fields = \Kaleta\Admin\TaskPanel::fromForm($this->request);
+            if ($fields['assignee_id'] === 0) {
+                unset($fields['assignee_id']);
+            }
+            if ($this->request->post('remind') === 'keep') {
+                unset($fields['remind_at']);
+            }
+            Tasks::update($this->app, $id, $fields, $this->app->auth()->id());
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), type: 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_edited', self::logged($id, Tasks::find($this->db, $id)));
+
+        return $this->back('The task was saved.');
+    }
+
+    /**
+     * "Take it" (3.32, U35; POST idp): a new enquiry nobody handles becomes mine – only while nobody handles it (one UPDATE
+     * with prirazeno IS NULL, so two people taking it at once cannot both get it) and only for someone with the Enquiries
+     * section of a site with enquiries on. Nobody is e-mailed: I chose it myself.
+     */
+    protected function actionTake(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        if (!\Kaleta\Core\Extensions::isEnabled($this->app->settings(), Enquiries::EXTENSION) || !$this->app->auth()->hasModule(Enquiries::IDENT)) {
+            return $this->error('You do not have access to this section.', 403);
+        }
+        $idp = $this->request->postInt('idp');
+        $me = $this->app->auth()->id();
+        if ($this->db->run('UPDATE {poptavky} SET prirazeno = ? WHERE idp = ? AND prirazeno IS NULL', [$me, $idp])->rowCount() !== 1) {
+            return $this->back('Someone already handles this enquiry.', type: 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'enquiry_taken', '#' . $idp);
+
+        return $this->back('The enquiry is yours now.');
+    }
+
+    /**
      * What the change log says about a task (N327-3): its id and title – for a task about an enquiry its id and the
      * enquiry instead, since the title may name the customer and the change log outlives the enquiry's deletion and
      * anonymisation (Core\Tasks::forgetTargets, anonymiseTargets), as Admin\TaskActions logs it.
