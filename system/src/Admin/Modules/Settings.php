@@ -954,9 +954,24 @@ class Settings extends Module
                 return $this->back(t('Obnova se nezdařila: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
             }
         }
+        // 3.31.1: the backup being restored is held out of the rotation (also from a backup cron makes meanwhile), the safety
+        // backup does not rotate, and the rotation runs only once the restore is over – before, the safety backup could delete
+        // the very copy about to be restored (an older uploaded .enc, or the oldest of the ten)
+        Backup::hold($file);
         try {
-            $safetyBackup = Backup::create($this->db, 'predobnovou');
-            $statementCount = Backup::restore($this->db, $file, Backup::encrypted($file) ? ($key ?? null) : null);
+            return $this->restoreHeld($file, $entered, $key ?? null);
+        } finally {
+            Backup::release($file);
+            Backup::prune([$file]);
+        }
+    }
+
+    /** The restore itself (actionRestoreBackup, with the backup held out of the rotation). */
+    private function restoreHeld(string $file, ?string $entered, ?string $key): Response
+    {
+        try {
+            $safetyBackup = Backup::create($this->db, 'predobnovou', false);
+            $statementCount = Backup::restore($this->db, $file, Backup::encrypted($file) ? $key : null);
         } catch (\Throwable $e) {
             if (isset($safetyBackup) && $e instanceof \RuntimeException && $e->getCode() === Backup::UNTOUCHED) {
                 // 3.28 (N328-2): an encrypted backup refused before a statement ran (a damaged or cut-off file) – the database never

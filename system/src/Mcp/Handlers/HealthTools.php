@@ -26,7 +26,7 @@ trait HealthTools
         }
         $db = $this->app->db();
         $checks = Language::runWith('en', fn (): array => Health::checks($this->app), 'admin-'); // as System status in an English administration (the group names are Czech keys of the admin dictionary)
-        $backup = Backup::listAll()[0] ?? null;
+        $backup = Backup::listLocal()[0] ?? null; // 3.31.1: the last backup made here, never an uploaded copy (….enc)
         $cron = $this->app->settings()->int('tasks_last_run');
         $update = (new \Kaleta\Core\Updater($this->app->settings()))->state(); // remembered from the checks above, no new request
 

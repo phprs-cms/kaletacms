@@ -10,7 +10,12 @@ namespace Kaleta\Core;
 final class Backup
 {
     public const string FOLDER = KALETA_ROOT . '/storage/zalohy';
-    private const int KEEP = 10;
+    /** How many backups made here the rotation keeps – and, apart from them, how many encrypted copies uploaded back (3.31.1). */
+    public const int KEEP = 10;
+    /** The name of a backup file (3.28: also an encrypted off-site copy, ….enc). */
+    private const string NAME = '/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D';
+    /** A hold (hold(), a restore under way) older than this was left by a request that died – the rotation ignores it. */
+    private const int HOLD_SECONDS = 3600;
 
     /**
      * The code of a restore's \RuntimeException thrown before the database was touched (3.28, N328-2): an encrypted backup
@@ -27,8 +32,11 @@ final class Backup
         return Demo::active() && PHP_SAPI !== 'cli';
     }
 
-    /** @return string name of the created file */
-    public static function create(Db $db, string $reason = 'rucni'): string
+    /**
+     * @param bool $prune false = the rotation waits (3.31.1: the safety backup before a restore – the caller prunes after it)
+     * @return string name of the created file
+     */
+    public static function create(Db $db, string $reason = 'rucni', bool $prune = true): string
     {
         if (self::refusedInDemo()) {
             throw new \RuntimeException(Demo::refusal());
@@ -76,11 +84,84 @@ final class Backup
         $write("SET FOREIGN_KEY_CHECKS = 1;\n");
         $gz ? gzclose($f) : fclose($f);
 
-        foreach (array_slice(self::listAll(), self::KEEP) as $old) {
-            @unlink(self::FOLDER . '/' . $old['soubor']);
+        if ($prune) {
+            self::prune([$file]);
         }
 
         return $file;
+    }
+
+    /**
+     * The rotation (3.31.1): deletes what prunable() says, never a file in $protect or one held by a restore under way
+     * (hold()) – before 3.31.1 the safety backup made right before a restore could delete the very backup about to be
+     * restored (an older uploaded copy, or the oldest of the ten).
+     *
+     * @param list<string> $protect file names
+     */
+    public static function prune(array $protect = []): void
+    {
+        foreach (self::prunable(self::listAll(), [...$protect, ...self::held()]) as $old) {
+            @unlink(self::FOLDER . '/' . $old);
+        }
+    }
+
+    /**
+     * Which backups the rotation deletes (3.31.1, pure): the backups made here and the encrypted copies uploaded back
+     * (….enc) rotate apart, each keeping its newest KEEP – an uploaded copy never pushes a backup made here out, nor the
+     * other way round, and the newest of each always stays; a name in $protect is never deleted.
+     *
+     * @param list<array{soubor:string, velikost:int, cas:int}> $backups newest first (listAll)
+     * @param list<string> $protect
+     * @return list<string>
+     */
+    public static function prunable(array $backups, array $protect = []): array
+    {
+        $groups = ['local' => [], 'uploaded' => []];
+        foreach ($backups as $backup) {
+            $groups[self::encrypted($backup['soubor']) ? 'uploaded' : 'local'][] = $backup['soubor'];
+        }
+        $delete = [];
+        foreach ($groups as $files) {
+            foreach (array_slice($files, self::KEEP) as $old) {
+                if (!in_array($old, $protect, true)) {
+                    $delete[] = $old;
+                }
+            }
+        }
+
+        return $delete;
+    }
+
+    /**
+     * Keeps a backup out of the rotation while a restore from it runs (3.31.1) – also from a backup another request (cron, a
+     * second administrator) makes meanwhile: a marker .hold-<name> next to it, removed by release(); a marker left by a
+     * request that died stops counting after HOLD_SECONDS.
+     */
+    public static function hold(string $file): void
+    {
+        if (self::path($file) !== null) {
+            @touch(self::FOLDER . '/.hold-' . $file);
+        }
+    }
+
+    public static function release(string $file): void
+    {
+        if (preg_match(self::NAME, $file) === 1) { // also when the backup itself is gone meanwhile
+            @unlink(self::FOLDER . '/.hold-' . $file);
+        }
+    }
+
+    /** @return list<string> the backups held by a restore under way */
+    private static function held(): array
+    {
+        $held = [];
+        foreach (glob(self::FOLDER . '/.hold-kaleta-*') ?: [] as $marker) {
+            if ((int) @filemtime($marker) > time() - self::HOLD_SECONDS) {
+                $held[] = substr(basename($marker), strlen('.hold-'));
+            }
+        }
+
+        return $held;
     }
 
     /**
@@ -267,7 +348,12 @@ final class Backup
         return $count;
     }
 
-    /** @return list<array{soubor:string, velikost:int, cas:int}> newest first */
+    /**
+     * Every backup in the folder, newest first – the ones made here and the encrypted off-site copies uploaded back for a
+     * restore (….enc). The Backups tab lists them all; whatever asks "when was the last backup" uses listLocal().
+     *
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
     public static function listAll(): array
     {
         $backups = [];
@@ -279,10 +365,33 @@ final class Backup
         return $backups;
     }
 
+    /**
+     * The backups made on this server, newest first (3.31.1): an encrypted off-site copy uploaded back (….enc) is not one –
+     * counted as one, its fresh upload time made the "last backup" look new and held up the automatic backup, the System
+     * status check, the dashboard warning, the monthly report, get_health and the fleet heartbeat.
+     *
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
+    public static function listLocal(): array
+    {
+        return self::local(self::listAll());
+    }
+
+    /**
+     * Only the backups made here (listLocal, testable without files).
+     *
+     * @param list<array{soubor:string, velikost:int, cas:int}> $backups
+     * @return list<array{soubor:string, velikost:int, cas:int}>
+     */
+    public static function local(array $backups): array
+    {
+        return array_values(array_filter($backups, fn (array $b): bool => !self::encrypted($b['soubor'])));
+    }
+
     /** Path to an existing backup by the name from the URL (3.28: also an encrypted off-site copy, ….enc); null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D', $file) && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
+        return preg_match(self::NAME, $file) === 1 && is_file(self::FOLDER . '/' . $file) ? self::FOLDER . '/' . $file : null;
     }
 
     /** Is this backup an encrypted off-site copy (3.28)? */
@@ -300,7 +409,7 @@ final class Backup
         if (!$settings->bool('auto_backups')) {
             return;
         }
-        $last = self::listAll()[0]['cas'] ?? 0;
+        $last = self::listLocal()[0]['cas'] ?? 0; // 3.31.1: an uploaded copy (….enc) does not stand in for a backup made here
         $age = time() - $last;
         $changed = fn (): bool => (int) $db->value('SELECT COUNT(*) FROM {protokol} WHERE cas > ?', [date('Y-m-d H:i:s', $last)]) > 0
             || (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?', [date('Y-m-d H:i:s', $last)]) > 0;
@@ -315,11 +424,12 @@ final class Backup
                 return;
             }
             try {
-                // the result is shown by the system health page and the Backups tab; a copy that arrived is counted by the monthly report (3.26.1)
+                // the result is shown by the system health page and the Backups tab; a copy that arrived is counted by the monthly report (3.26.1);
+                // a failed one is recorded by upload() itself (backup.failed, 3.31.1), a paused one is backup.copy_paused
                 if (RemoteBackup::isOn($settings) && RemoteBackup::upload($settings, (string) self::path($file)) === null) {
                     Events::record($db, 'backup.copied', 'info', t('The backup %s was copied off the server.', $file), ['file' => $file]);
                 }
-            } catch (\Throwable $e) {
+            } catch (\Throwable $e) { // only what upload() could not catch itself
                 Events::record($db, 'backup.failed', 'error', mb_substr(t('The off-site copy of the backup failed: %s', $e->getMessage()), 0, 255), ['file' => $file]);
             }
         }

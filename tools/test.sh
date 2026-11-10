@@ -2586,6 +2586,7 @@ cat > "$WORK/s3/router.php" <<'PHP'
 $h = array_change_key_case(getallheaders());
 $body = file_get_contents('php://input');
 file_put_contents(__DIR__ . '/puts.log', $_SERVER['REQUEST_METHOD'] . ' ' . $_SERVER['REQUEST_URI'] . ' ' . strlen($body) . ' ' . (str_starts_with($h['authorization'] ?? '', 'AWS4-HMAC-SHA256 ') ? 'signed' : 'unsigned') . "\n", FILE_APPEND);
+if (str_starts_with($_SERVER['REQUEST_URI'], '/kaleta-odmitnuto/')) { http_response_code(403); echo '<Error><Message>Access denied for AKIDTEST, secret tajne-s3</Message></Error>'; return true; } // 3.31.1: a refusing target
 if (preg_match('#/(kaleta-[^/]+\.sql[^/]*)$#', $_SERVER['REQUEST_URI'], $m)) { file_put_contents(__DIR__ . '/' . $m[1], $body); } // 3.28: the database copies as they arrived
 http_response_code(200); return true;
 PHP
@@ -2645,13 +2646,47 @@ for T328_CUT in tampered truncated; do
   expect "3.28 (N328-2): a $T328_CUT encrypted backup is refused, nothing reverted, no safety backup left, nothing changes" "$(grep -c 'Zašifrovaná záloha je poškozená nebo byla změněna\|Zašifrovaná záloha není celá' "$WORK/response")/$(grep -c 'Databáze je zpět ve stavu před obnovou' "$WORK/response")/$(ls "$WORK/web/storage/zalohy" | grep -c predobnovou || true)/$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_name'")/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/0/$SAFETY_BEFORE/Pred sifrovanou/0"
   rm -f "$WORK/web/storage/zalohy/$T328_BAD"
 done
+# 3.31.1: the copy being restored is the oldest file and ten local backups are there already – the safety backup made before
+# the restore must not push it out (before 3.31.1 the rotation deleted it, and the restore found no backup); the real local
+# backups wait aside meanwhile (the later steps count them), ten stand-ins take their place
+local_backups() { ls "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -vc '\.enc$' || true; }
+local_names() { ls "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' || true; }
+N3311_SOURCE=$(ls -t "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
+mkdir -p "$WORK/aside3311"; for f in $(local_names); do mv "$WORK/web/storage/zalohy/$f" "$WORK/aside3311/"; done
+for i in 1 2 3 4 5 6 7 8 9 10; do cp "$WORK/aside3311/$N3311_SOURCE" "$WORK/web/storage/zalohy/kaleta-20200101-0000$(printf %02d "$i")-fake3311-$(printf %08d "$i").sql${N3311_SOURCE#*.sql}"; done
+touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*-fake3311-*
+touch -t "$(date -v-3d +%Y%m%d%H%M 2>/dev/null || date -d '-3 days' +%Y%m%d%H%M)" "$WORK/web/storage/zalohy/$UPLOADED"
+expect "3.31.1: ten local backups and an older uploaded copy before the restore" "$(local_backups)/$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | head -1)" "10/$UPLOADED"
 TOKEN=$(csrf); curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$TOKEN" -d "soubor=$UPLOADED" --data-urlencode "recovery_key=$(echo "$RECOVERY_KEY" | tr 'A-Z-' 'a-z ')"
+expect "3.31.1: the uploaded copy outlives the safety backup, the rotation keeps ten local backups afterwards, no hold left" "$([ -f "$WORK/web/storage/zalohy/$UPLOADED" ] && echo kept)/$(local_backups)/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.hold-' || true)" "kept/10/0"
 expect "3.28: with the recovery key (any case, spaces) the encrypted backup restores, and the key becomes this site's again" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota <> 'Pred sifrovanou' FROM ka_nastaveni WHERE promenna = 'site_name'")/$(cmp -s "$WORK/web/storage/backup-key.php" "$WORK/backup-key.saved" && echo same || (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\RecoveryKey::load() === Kaleta\Core\RecoveryKey::parse($argv[1]) ? "same" : "other";' -- "$RECOVERY_KEY"))/$(ls -a "$WORK/web/storage/zalohy" | grep -c '^\.restore-')" "1/same/0"
 check "3.28: after the restore the copies go on with the same key" 200 "/admin.php?module=settings&tab=backups" "Obnovovací klíč uložen"
+check "3.31.1: the Backups tab marks the uploaded copy" 200 "/admin.php?module=settings&tab=backups" "nahraná kopie"
+# a backup held by a restore under way (another request) stays when a new backup rotates; a hold left by a dead request expires
+N3311_OLDEST=$(ls -tr "$WORK/web/storage/zalohy" | grep '^kaleta-' | grep -v '\.enc$' | head -1)
+touch "$WORK/web/storage/zalohy/.hold-$N3311_OLDEST"; backup_now
+expect "3.31.1: a held backup is not rotated away (the rotation keeps one more meanwhile)" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept)/$(local_backups)" "kept/11"
+touch -t "$(date -v-2H +%Y%m%d%H%M 2>/dev/null || date -d '-2 hours' +%Y%m%d%H%M)" "$WORK/web/storage/zalohy/.hold-$N3311_OLDEST"; backup_now
+expect "3.31.1: a hold older than an hour no longer protects" "$([ -f "$WORK/web/storage/zalohy/$N3311_OLDEST" ] && echo kept || echo gone)/$(local_backups)" "gone/10"
+rm -f "$WORK"/web/storage/zalohy/.hold-*; for f in $(local_names); do rm -f "$WORK/web/storage/zalohy/$f"; done
+mv "$WORK"/aside3311/* "$WORK/web/storage/zalohy/"; rmdir "$WORK/aside3311"
 rm -f "$WORK/web/storage/zalohy/$UPLOADED" "$WORK/backup-key.saved"
 mkdir -p "$WORK/web/media/2026/09" && echo "novy" > "$WORK/web/media/2026/09/novy-soubor.txt"; : > "$WORK/s3/puts.log"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "cron copies only the new file" "$(cat "$WORK/s3/puts.log")" "PUT /kaleta-zalohy/media/2026/09/novy-soubor.txt 5 signed"
+# 3.31.1: a failed off-site copy is the event backup.failed – once per failed upload, with a short text that never carries the
+# target's user or password (the server repeats both here); the status says it, System status shows it; paused stays separate
+N3311_FAILED=$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed'"); N3311_PAUSED=$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.copy_paused'")
+sq "UPDATE ka_nastaveni SET hodnota = 'kaleta-odmitnuto' WHERE promenna = 'backup_folder'" > /dev/null
+backup_now; backup_now
+expect "3.31.1: two failed copies = two backup.failed events (offsite, the file), no secret in them or the status, no paused event" \
+  "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed' AND severity = 'error' AND data LIKE '%\"offsite\":true%' AND data LIKE '%\"file\":\"kaleta-%'")/$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed' AND (message LIKE '%tajne-s3%' OR message LIKE '%AKIDTEST%')")/$(sq "SELECT (hodnota LIKE '%403%') + 2 * (hodnota LIKE '%tajne-s3%' OR hodnota LIKE '%AKIDTEST%') FROM ka_nastaveni WHERE promenna = 'remote_backup_status'")/$(( $(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed'") - N3311_FAILED ))/$(( $(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.copy_paused'") - N3311_PAUSED ))" \
+  "2/0/1/2/0"
+check "3.31.1: System status shows the failed off-site copy" 200 "/admin.php?module=status" "Úložiště nahrání odmítlo (kód 403)"
+echo "novy2" > "$WORK/web/media/2026/09/novy-soubor-2.txt"
+for i in 1 2; do sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"; done
+expect "3.31.1: the failing media copy is one event when it starts failing, not one per run" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed' AND data LIKE '%\"media\":true%'")/$(sq "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(hodnota, '|', 2), '|', -1) LIKE '%403%' FROM ka_nastaveni WHERE promenna = 'remote_media_status'")" "1/1"
+sq "UPDATE ka_nastaveni SET hodnota = 'kaleta-zalohy' WHERE promenna = 'backup_folder'" > /dev/null
 # a daily backup when something changed, otherwise it waits for the week
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('auto_backups', '1'), ('remote_backup', 'vypnuto'); INSERT INTO ka_protokol (cas, modul, akce) VALUES ('$(site_time)', 'test', 'change')"
 touch -t "$(date -v-2d +%Y%m%d%H%M 2>/dev/null || date -d '-2 days' +%Y%m%d%H%M)" "$WORK"/web/storage/zalohy/kaleta-*

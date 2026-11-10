@@ -7855,4 +7855,7 @@ return [
     'Stage' => 'Phase',
     'Deal #%s' => 'Deal #%s',
     'Deals' => 'Deals',
+    'uploaded copy' => 'hochgeladene Kopie',
+    'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.' => 'Eine verschlüsselte externe Kopie, die für eine Wiederherstellung zurückgeladen wurde. Sie zählt nicht als auf diesem Server erstelltes Backup.',
+    'The off-site copy of the media failed: %s' => 'Die Kopie der Medien außerhalb des Servers ist fehlgeschlagen: %s',
 ];

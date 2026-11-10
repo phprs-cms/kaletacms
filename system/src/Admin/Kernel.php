@@ -415,7 +415,7 @@ final class Kernel
                 $warnings[] = [t('Version %s has been available for %d days and this site still runs %s. Security fixes come out only in the newest release, so keep the site up to date.', (string) $update['nova']['verze'], $behind, KALETA_VERSION),
                     $this->app->url('admin.php?module=settings&tab=backups'), t('Update')];
             }
-            $backup = \Kaleta\Core\Backup::listAll()[0]['cas'] ?? 0;
+            $backup = \Kaleta\Core\Backup::listLocal()[0]['cas'] ?? 0; // 3.31.1: an uploaded copy (….enc) does not hide a missing backup
             if (time() - $backup > 8 * 86400) {
                 $warnings[] = [$backup === 0 ? t('The site has no database backup yet.') : t('The last database backup is from %s.', format_date(date('Y-m-d H:i:s', $backup))), $this->app->url('admin.php?module=settings&tab=backups')];
             }

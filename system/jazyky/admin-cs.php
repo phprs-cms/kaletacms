@@ -7448,4 +7448,7 @@ return [
     'Deals' => 'Obchody',
     'Export (CSV)' => 'Exportovat (CSV)',
     'Import (CSV)' => 'Importovat (CSV)',
+    'uploaded copy' => 'nahraná kopie',
+    'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.' => 'Zašifrovaná kopie zálohy z úložiště mimo server, nahraná zpět kvůli obnově. Nepočítá se jako záloha vytvořená na tomto serveru.',
+    'The off-site copy of the media failed: %s' => 'Kopie médií mimo server selhala: %s',
 ];
