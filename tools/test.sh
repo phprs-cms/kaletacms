@@ -2683,6 +2683,14 @@ expect "3.31.1: two failed copies = two backup.failed events (offsite, the file)
   "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed' AND severity = 'error' AND data LIKE '%\"offsite\":true%' AND data LIKE '%\"file\":\"kaleta-%'")/$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed' AND (message LIKE '%tajne-s3%' OR message LIKE '%AKIDTEST%')")/$(sq "SELECT (hodnota LIKE '%403%') + 2 * (hodnota LIKE '%tajne-s3%' OR hodnota LIKE '%AKIDTEST%') FROM ka_nastaveni WHERE promenna = 'remote_backup_status'")/$(( $(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed'") - N3311_FAILED ))/$(( $(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.copy_paused'") - N3311_PAUSED ))" \
   "2/0/1/2/0"
 check "3.31.1: System status shows the failed off-site copy" 200 "/admin.php?module=status" "Úložiště nahrání odmítlo (kód 403)"
+# review of 3.31.1: a status saved before 3.31.1 holds the whole error (secrets, "|") – System status and get_health (and so the
+# heartbeat's problems) mask it when they read it
+sq "UPDATE ka_nastaveni SET hodnota = '2026-11-08 03:00|Login failed for AKIDTEST with tajne-s3 | write to ops@client.example' WHERE promenna = 'remote_backup_status'" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+R3311_STATUS="$(grep -c 'Login failed for … with … write to …' "$WORK/response" || true)/$(grep -c 'tajne-s3\|AKIDTEST\|ops@client' "$WORK/response" || true)"
+mcp get_health '{}' > "$WORK/response"
+expect "3.31.1 (review): an error text saved before 3.31.1 is masked when System status and get_health read it" \
+  "$R3311_STATUS/$(grep -c 'Login failed for' "$WORK/response")/$(grep -c 'tajne-s3\|AKIDTEST\|ops@client' "$WORK/response")" "1/0/1/0"
 echo "novy2" > "$WORK/web/media/2026/09/novy-soubor-2.txt"
 for i in 1 2; do sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'media_sync_check'" > /dev/null; curl -s -o /dev/null "$B/ulohy?token=testtoken123"; done
 expect "3.31.1: the failing media copy is one event when it starts failing, not one per run" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.failed' AND data LIKE '%\"media\":true%'")/$(sq "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(hodnota, '|', 2), '|', -1) LIKE '%403%' FROM ka_nastaveni WHERE promenna = 'remote_media_status'")" "1/1"

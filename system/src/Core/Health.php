@@ -198,13 +198,16 @@ final class Health
             }
         }
         $add(t('Operation'), t('Media size'), 'ok', self::size($media));
+        // a failed attempt's text is shortened and masked once more when read (3.31.1): a status saved before 3.31.1 holds the
+        // whole error, which may carry the target's password, user name or e-mail address – System status, get_health and
+        // the heartbeat's problems show it
         $remote = explode('|', $app->settings()->get('remote_backup_status'), 2);
         if ($app->settings()->get('remote_backup') !== 'vypnuto' && !RecoveryKey::ready($app->settings())) {
             // 3.28 (D-W12): the database leaves the server only encrypted – until the recovery key is saved nothing is copied
             $add(t('Operation'), t('Off-site backups'), 'varovani', t('paused – backups are copied off the server only encrypted, and the copies wait until an administrator saves the recovery key (Settings → Backups and updates)')
                 . (($remote[1] ?? '') === 'ok' ? '; ' . t('last copy uploaded %s', $remote[0]) : ''));
         } elseif ($app->settings()->get('remote_backup') !== 'vypnuto') {
-            $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'varovani', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], $remote[1]) : t('no copy has been made yet')));
+            $add(t('Operation'), t('Off-site backups'), ($remote[1] ?? '') === 'ok' ? 'ok' : 'varovani', ($remote[1] ?? '') === 'ok' ? t('last copy uploaded %s', $remote[0]) : (($remote[1] ?? '') !== '' ? t('last attempt %s failed: %s', $remote[0], RemoteBackup::failureText($remote[1], $app->settings())) : t('no copy has been made yet')));
         } else {
             $add(t('Operation'), t('Off-site backups'), 'varovani', t('off – backups are stored only on the same server as the site (Settings → Backups and updates)'));
         }
