@@ -10577,8 +10577,16 @@ check('3.31.1: kindChanges – the stages that stay with another kind (a removed
     Kaleta\Core\Deals::kindChanges($a3311Stages, [['key' => 'new', 'kind' => 'open'], ['key' => 'proposal', 'kind' => 'lost'], ['key' => 'won', 'kind' => 'open'], ['key' => 'fresh', 'kind' => 'won'], ['key' => 'lost', 'kind' => 'lost']]),
     str_contains($a3311Deals, '$rekinded = self::kindChanges($current, $clean);'),
     strpos($a3311Deals, '$rekinded = self::kindChanges(') < strpos($a3311Deals, "\$app->settings()->set('pipeline_stages'"),
-    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.']), ['cs', 'de', 'es', 'de-du'])],
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first. It can change only when all its deals already fit the new kind (all open, all won or all lost).']), ['cs', 'de', 'es', 'de-du'])],
     [[], ['proposal', 'won'], true, true, [true, true, true, true]]);
+// review of 3.31.1: a kind change is allowed when every deal of the stage already fits the new kind – the repair of a stage
+// whose kind changed under 3.31.0 – and refused, with the hint, when one does not
+$a3311Fit = fn (int $open, int $won, int $lost, string $kind): bool => Kaleta\Core\Deals::dealsFitKind(['n' => $open + $won + $lost, 'open' => $open, 'won' => $won, 'lost' => $lost], $kind);
+check('3.31.1 (review): dealsFitKind – open = all deals open, won = all closed without a lost reason, lost = all closed with one; saveStages refuses only a stage whose deals do not fit', [
+    $a3311Fit(3, 0, 0, 'open'), $a3311Fit(0, 2, 0, 'won'), $a3311Fit(0, 0, 2, 'lost'), $a3311Fit(0, 0, 0, 'lost'),
+    $a3311Fit(2, 1, 0, 'open'), $a3311Fit(0, 2, 1, 'won'), $a3311Fit(0, 1, 1, 'lost'), $a3311Fit(1, 0, 0, 'won'), $a3311Fit(0, 1, 0, 'nonsense'),
+    str_contains($a3311Deals, 'if (isset($counts[$key]) && !self::dealsFitKind($counts[$key], $kinds[$key])) {')],
+    [true, true, true, true, false, false, false, false, false, true]);
 check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeline) – personal, never journaled; the timeline shows a deal with an icon and a label; "Deal #N" in My work', [
     Kaleta\Core\Comments::parseTarget('deal:3'), Kaleta\Core\Comments::deal(5), Kaleta\Core\Comments::KINDS['deal'] ?? null, Kaleta\Core\Comments::parseTarget('deal:0'),
     Kaleta\Core\Tasks::cleanTarget('deal:4'), Kaleta\Core\Tasks::personal('deal:4'), Kaleta\Core\Assignment::KINDS['deal'],

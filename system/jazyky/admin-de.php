@@ -7858,7 +7858,7 @@ return [
     'uploaded copy' => 'hochgeladene Kopie',
     'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.' => 'Eine verschlüsselte externe Kopie, die für eine Wiederherstellung zurückgeladen wurde. Sie zählt nicht als auf diesem Server erstelltes Backup.',
     'The off-site copy of the media failed: %s' => 'Die Kopie der Medien außerhalb des Servers ist fehlgeschlagen: %s',
-    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Die Art der Phase „%s“ lässt sich nicht ändern, solange Deals darin sind (%s) – verschieben Sie sie zuerst in eine andere Phase.',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first. It can change only when all its deals already fit the new kind (all open, all won or all lost).' => 'Die Art der Phase „%s“ lässt sich nicht ändern, solange Deals darin sind (%s) – verschieben Sie sie zuerst in eine andere Phase. Ändern lässt sie sich nur, wenn alle ihre Deals schon zur neuen Art passen (alle offen, alle gewonnen oder alle verloren).',
     'A deal' => 'Ein Deal',
     'Domain registrations – days before' => 'Domain-Registrierungen – Tage vorher',
     'For example 14, 7: each certificate date is reminded once 14 days and once 7 days before. Certificates usually renew themselves about 30 days before they end. Empty = no reminders.' => 'Zum Beispiel 14, 7: An jeden Zertifikatstermin wird einmal 14 Tage und einmal 7 Tage vorher erinnert. Zertifikate erneuern sich meist selbst etwa 30 Tage vor ihrem Ablauf. Leer = keine Erinnerungen.',

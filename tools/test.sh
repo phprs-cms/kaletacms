@@ -10867,6 +10867,19 @@ a3311_stages open open
 expect "3.31.1: … a stage without deals changes its kind, and back" \
   "$A3311_KINDS|$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" \
   "new:open,qualified:open,ukazka_b331:lost,proposal:open,won:won,lost:lost|same"
+# review of 3.31.1: data left inconsistent by 3.31.0 can be repaired – a lost deal in an open stage: the stage may become lost
+# (every deal in it fits), but not open again while the deal is closed (refused with the hint); reopened, the stage turns back
+a3311_kinds() { sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'" | php -r 'echo implode(",", array_map(fn ($s) => $s["key"] . ":" . $s["kind"], json_decode(stream_get_contents(STDIN), true)));'; }
+sq "UPDATE ka_deals SET closed_at = '$(site_time)', lost_reason = 'price' WHERE id = ${B331_D1:-0}" > /dev/null
+a3311_stages open lost; A3311_REPAIRED=$(a3311_kinds)
+a3311_stages open open
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=stages"
+expect "3.31.1 (review): a stage whose deals all fit the new kind changes it (the repair of 3.31.0 data); back to open is refused while its deal is closed, with the hint" \
+  "$A3311_REPAIRED|$(a3311_kinds)|$(grep -cE 'Změnit jde, jen když všechny její obchody novému druhu už odpovídají|It can change only when all its deals already fit the new kind' "$WORK/response")" \
+  "new:open,qualified:open,ukazka_b331:open,proposal:lost,won:won,lost:lost|new:open,qualified:open,ukazka_b331:open,proposal:lost,won:won,lost:lost|1"
+sq "UPDATE ka_deals SET closed_at = NULL, lost_reason = NULL WHERE id = ${B331_D1:-0}" > /dev/null
+a3311_stages open open
+expect "3.31.1 (review): … once its deal is open again, the stage turns back to open" "$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" "same"
 # permissions: Jana (Enquiries, Customers, Pipeline; no administrator) moves and sees My work, but stages and delete are the
 # administrators'; "Mine" is a filter; Petr (no Pipeline) gets 403 and no deal box, badge or palette search
 B331_JJAR=$(b331_login b331-jana)

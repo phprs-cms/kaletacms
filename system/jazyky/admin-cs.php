@@ -7451,7 +7451,7 @@ return [
     'uploaded copy' => 'nahraná kopie',
     'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.' => 'Zašifrovaná kopie zálohy z úložiště mimo server, nahraná zpět kvůli obnově. Nepočítá se jako záloha vytvořená na tomto serveru.',
     'The off-site copy of the media failed: %s' => 'Kopie médií mimo server selhala: %s',
-    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'Druh fáze „%s“ nejde změnit, dokud jsou v ní obchody (%s) – nejdřív je přesuňte do jiné fáze.',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first. It can change only when all its deals already fit the new kind (all open, all won or all lost).' => 'Druh fáze „%s“ nejde změnit, dokud jsou v ní obchody (%s) – nejdřív je přesuňte do jiné fáze. Změnit jde, jen když všechny její obchody novému druhu už odpovídají (všechny otevřené, všechny vyhrané, nebo všechny prohrané).',
     'A deal' => 'Obchod',
     'Domain registrations – days before' => 'Registrace domén – dní předem',
     'For example 14, 7: each certificate date is reminded once 14 days and once 7 days before. Certificates usually renew themselves about 30 days before they end. Empty = no reminders.' => 'Například 14, 7: každý termín certifikátu připomeneme jednou 14 dní a jednou 7 dní předem. Certifikáty se obvykle samy obnovují asi 30 dní před koncem. Prázdné = bez připomínek.',

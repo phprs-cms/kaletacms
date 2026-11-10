@@ -7877,7 +7877,7 @@ return [
     'uploaded copy' => 'copia subida',
     'An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.' => 'Una copia externa cifrada que se ha vuelto a subir para restaurarla. No cuenta como copia de seguridad hecha en este servidor.',
     'The off-site copy of the media failed: %s' => 'La copia externa de los archivos multimedia falló: %s',
-    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.' => 'El tipo de la etapa «%s» no puede cambiar mientras tenga oportunidades (%s): muévelas antes a otra etapa.',
+    'The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first. It can change only when all its deals already fit the new kind (all open, all won or all lost).' => 'El tipo de la etapa «%s» no puede cambiar mientras tenga oportunidades (%s): muévelas antes a otra etapa. Solo puede cambiar cuando todas sus oportunidades ya encajan con el nuevo tipo (todas abiertas, todas ganadas o todas perdidas).',
     'A deal' => 'Una oportunidad',
     'Domain registrations – days before' => 'Registros de dominio – días antes',
     'For example 14, 7: each certificate date is reminded once 14 days and once 7 days before. Certificates usually renew themselves about 30 days before they end. Empty = no reminders.' => 'Por ejemplo 14, 7: cada fecha de certificado se recuerda una vez 14 días antes y otra 7 días antes. Los certificados suelen renovarse solos unos 30 días antes de caducar. Vacío = sin recordatorios.',

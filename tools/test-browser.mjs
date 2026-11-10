@@ -4205,7 +4205,7 @@ await step('3.31.1: a stage with deals keeps its kind; the certificates\' remind
     await visit('/admin.php?module=pipeline&action=stages');
     await page.selectOption('tr[data-stage-row="qualified"] select[name="kind[]"]', 'lost');
     await Promise.all([page.waitForNavigation(), page.locator('form[data-stages-form] button[type="submit"]').click()]);
-    if (!/The kind of the stage “Qualified” cannot change while deals are in it \(1\)/.test(await page.locator('.hlaska-chyba').innerText())) { throw new Error('the editor does not refuse the kind change with the count'); }
+    if (!/The kind of the stage “Qualified” cannot change while deals are in it \(1\).*It can change only when all its deals already fit the new kind/s.test(await page.locator('.hlaska-chyba').innerText())) { throw new Error('the editor does not refuse the kind change with the count and the hint'); }
     if ((await page.locator('tr[data-stage-row="qualified"] select[name="kind[]"]').inputValue()) !== 'lost') { throw new Error('the refused form lost what was typed'); }
     if (sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'), '')").trim() !== '') { throw new Error('the refused stages were saved'); }
     await visit('/admin.php?module=fleet&action=calendar');

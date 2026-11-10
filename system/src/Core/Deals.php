@@ -148,7 +148,8 @@ final class Deals
      * most MAX_STAGES, at least one open stage, exactly one won and at least one lost. A default stage whose label is left
      * empty (or is its translated default) keeps the translated label; any other label is stored as typed. A stage that
      * still has deals cannot be removed, nor can its kind change (3.31.1: open, closed or not – a won deal must not become
-     * open or lost by an edit of the stages; its label and its place may change). Writes the change log.
+     * open or lost by an edit of the stages; its label and its place may change) – unless every deal in it already fits the
+     * new kind (dealsFitKind), which repairs a stage whose kind was changed under 3.31.0. Writes the change log.
      *
      * @param list<array<string, mixed>> $stages
      * @throws \DomainException with a translated reason; nothing is saved
@@ -170,17 +171,21 @@ final class Deals
         }
         $rekinded = self::kindChanges($current, $clean);
         if ($rekinded !== []) {
+            $counts = [];
             try {
-                $counts = array_map('intval', $app->db()->pairs('SELECT stage, COUNT(*) FROM {deals} WHERE stage IN (' . implode(',', array_fill(0, count($rekinded), '?')) . ') GROUP BY stage',
-                    $rekinded));
+                foreach ($app->db()->all('SELECT stage, COUNT(*) AS n, SUM(closed_at IS NULL) AS open_n, SUM(closed_at IS NOT NULL AND lost_reason IS NULL) AS won_n,'
+                    . ' SUM(closed_at IS NOT NULL AND lost_reason IS NOT NULL) AS lost_n FROM {deals} WHERE stage IN (' . implode(',', array_fill(0, count($rekinded), '?')) . ') GROUP BY stage', $rekinded) as $row) {
+                    $counts[(string) $row['stage']] = ['n' => (int) $row['n'], 'open' => (int) $row['open_n'], 'won' => (int) $row['won_n'], 'lost' => (int) $row['lost_n']];
+                }
             } catch (\PDOException) {
                 $counts = [];
             }
             $labels = array_column($current, 'label', 'key');
+            $kinds = array_column($clean, 'kind', 'key');
             foreach ($rekinded as $key) {
-                if (($counts[$key] ?? 0) > 0) {
-                    throw new \DomainException(t('The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.', $labels[$key] ?? $key,
-                        format_count($counts[$key])));
+                if (isset($counts[$key]) && !self::dealsFitKind($counts[$key], $kinds[$key])) {
+                    throw new \DomainException(t('The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first. It can change only when all its deals already fit the new kind (all open, all won or all lost).',
+                        $labels[$key] ?? $key, format_count($counts[$key]['n'])));
                 }
             }
         }
@@ -188,6 +193,23 @@ final class Deals
             && array_filter(array_column($clean, 'label')) === [];
         $app->settings()->set('pipeline_stages', $isDefault ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'stages', implode(', ', array_column($clean, 'key')));
+    }
+
+    /**
+     * Whether every deal of a stage already fits a kind (review of 3.31.1), from the counts of the stage's deals: open = not
+     * closed (closed_at NULL), won = closed without a lost reason, lost = closed with a lost reason. A stage whose kind was
+     * changed under 3.31.0 (a won deal in a stage that became lost or open…) can so get its right kind back. Pure.
+     *
+     * @param array{n: int, open: int, won: int, lost: int} $counts
+     */
+    public static function dealsFitKind(array $counts, string $kind): bool
+    {
+        return match ($kind) {
+            'open' => $counts['open'] === $counts['n'],
+            'won' => $counts['won'] === $counts['n'],
+            'lost' => $counts['lost'] === $counts['n'],
+            default => false,
+        };
     }
 
     /**
