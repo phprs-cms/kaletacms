@@ -154,7 +154,7 @@ final class Health
         $blocked = $db->all('SELECT idu, user, jmeno, blokovano_automaticky FROM {uzivatele} WHERE blokovat = 1 ORDER BY user');
         $add($group, t('Blocked accounts'), $blocked === [] ? 'ok' : 'varovani', $blocked === [] ? t('žádné') : t('%d – blocked by an administrator or by the automatic suspension; you can reactivate them in Users', count($blocked)),
             $accountLinks($blocked));
-        $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → General)')
+        $add($group, t('Automatic suspension'), 'ok', $suspend === [] ? t('off – unused accounts and connections are only reported (Settings → Security)')
             : implode(', ', array_filter([in_array(SecurityHygiene::SUSPEND_ACCOUNTS, $suspend, true) ? t('accounts after %d days', SecurityHygiene::ACCOUNT_DAYS) : '', in_array(SecurityHygiene::SUSPEND_CONNECTIONS, $suspend, true) ? t('Claude connections after %d days', SecurityHygiene::CONNECTION_DAYS) : ''])));
 
         // 3.18: whether requests reach Claude (Core\ClaudeConnection) – a warning when new requests wait and nothing picks them
