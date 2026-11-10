@@ -95,14 +95,19 @@ final class RemoteBackup
     /**
      * The short system text of a failed off-site copy (3.31.1) for the status, the event and so the alert e-mail and the
      * heartbeat: one line (no "|") of at most FAILURE_LENGTH characters, without the target's password and user name (a server's
-     * reply may repeat them), credentials in an address, e-mail addresses or this site's folder on the disk. Pure.
+     * reply may repeat them), credentials in an address, e-mail addresses or this site's folder on the disk. Pure and
+     * idempotent (Health runs it again over a status saved before 3.31.1).
      */
     public static function failureText(string $error, Settings $s): string
     {
-        $text = trim((string) preg_replace('/[\s|]+/u', ' ', $error)); // one line; "|" separates the parts of the status
-        foreach ([$s->get('backup_password'), $s->get('backup_user')] as $secret) {
-            if (mb_strlen($secret) >= 4) {
-                $text = str_ireplace($secret, '…', $text);
+        $flat = static fn (string $text): string => trim((string) preg_replace('/[\s|]+/u', ' ', $text)); // one line; "|" separates the parts of the status
+        $secrets = array_values(array_filter([$s->get('backup_password'), $s->get('backup_user')], static fn (string $secret): bool => mb_strlen($secret) >= 4));
+        // the secrets are masked in the raw text first – a password with "|" or two spaces no longer matches once the text is
+        // one line – and then once more as one line themselves (a server that already squeezed the spaces of its reply)
+        $text = $flat(str_ireplace($secrets, '…', $error));
+        foreach ($secrets as $secret) {
+            if (mb_strlen($flat($secret)) >= 4) {
+                $text = str_ireplace($flat($secret), '…', $text);
             }
         }
         $text = (string) preg_replace('#\b([a-z][a-z0-9+.-]*://)[^\s/@]+@#i', '$1', $text); // ftp://user:pass@host → ftp://host

@@ -9813,6 +9813,15 @@ check('3.31.1: failureText – one line without "|", no password or user name of
     (function () use ($b3311S): string { (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($b3311S, ['backup_password' => 'ab', 'backup_user' => '']); return Kaleta\Core\RemoteBackup::failureText('ab cab', $b3311S); })()],
     ['530 Login incorrect for …', 'Could not connect to ftp://nas.example.com/zalohy', 'Access denied (user …)', 'fopen(storage/zalohy/.upload-1.enc): failed', 200, true,
         'The storage refused the upload (code 403): Access Denied.', 'a b', 'ab cab']);
+// review of 3.31.1: the secrets are masked before the text becomes one line – a password with "|" or two spaces is still masked
+$b3311Masked = (function () use ($b3311S): array {
+    (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($b3311S, ['backup_password' => 'se|cr  ' . 'et9', 'backup_user' => 'bob1']);
+    $once = Kaleta\Core\RemoteBackup::failureText('auth failed for bob1 with se|cr  et9', $b3311S);
+
+    return [$once, Kaleta\Core\RemoteBackup::failureText('auth failed for BOB1 with se cr et9', $b3311S), Kaleta\Core\RemoteBackup::failureText($once, $b3311S)];
+})();
+check('3.31.1 (review): failureText masks a password with "|" and double spaces in the raw text and in its one-line form; running it again changes nothing', $b3311Masked,
+    ['auth failed for … with …', 'auth failed for … with …', 'auth failed for … with …']);
 check('3.31.1: upload() records backup.failed once per failed copy (the short text in the status and the event), the paused copy returns before it; the media copy records its failure when it starts; translated (cs, de, es)', [
     substr_count($b3311Upload, "Events::record(\$s->db(), 'backup.failed', 'error'"), strpos($b3311Upload, 'return self::pausedText();') < strpos($b3311Upload, "'backup.failed'"),
     str_contains($b3311Upload, "\$s->set('remote_backup_status', date('Y-m-d H:i') . '|' . \$text);"),
