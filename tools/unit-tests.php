@@ -10938,6 +10938,9 @@ check('3.31.2: image/editor.js writes no "ka-" class into the text it edits', $t
 $t1Log = sys_get_temp_dir() . '/kaleta-t1-errors-' . getmypid() . '.log';
 @unlink($t1Log);
 Kaleta\Core\ErrorLog::$path = $t1Log;
+// App::boot() sets error_reporting(E_ALL) before it installs handleError; the bare PHP of the tests may not (setup-php in CI uses
+// php.ini-production: E_ALL & ~E_DEPRECATED, so handleError would hand the deprecation back to PHP), so the checks set it the same way
+$t1Reporting = error_reporting(E_ALL);
 $t1Thrown = static function (int $severity, ?bool $strict): string {
     try {
         return Kaleta\Core\App::handleError($severity, 'T1 old function', KALETA_ROOT . '/system/src/Core/X.php', 7, $strict) ? 'handled' : 'php';
@@ -10966,6 +10969,7 @@ check('T1 Q1: App installs handleError, the strict switch is the constant of the
     isset($adminCs['%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them'], $adminDe['%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them'], $a3312Es['%d PHP deprecation notice(s) – the site keeps working, a Kaleta update removes them'])],
     [true, true, true]);
 Kaleta\Core\ErrorLog::$path = null;
+error_reporting($t1Reporting);
 @unlink($t1Log);
 
 /* ---------- T1 (Q13): the error log names the request, the user, the version and a short trace; capped and rotated ---------- */
