@@ -40,6 +40,22 @@ final class Html
         return preg_match('/^[\p{L}\p{N}_-]{1,100}$/uD', $id) === 1 && preg_match('/^ka[-_]/i', $id) !== 1 && !in_array(mb_strtolower($id), self::RESERVED_IDS, true);
     }
 
+    /**
+     * The class attribute of a user's text without Kaleta's reserved "ka-…" classes (3.31.2, pre-release review – as the
+     * builder does with Build::CLASS_PATTERN): the site's scripts and styles hook on those (image/web.js swaps a list on
+     * .ka-kolekce-strany, for one), so a text must not borrow them. Compared in any case; the other classes stay as they
+     * are. Kaleta's editor (image/editor.js) puts no "ka-" class into a text – the classes the site adds to a news text
+     * (the outline, sharing, media players: Front\NewsText) come when it is shown, after this – so nothing is allowed back.
+     * '' = no class left (the attribute goes).
+     */
+    public static function textClasses(string $value): string
+    {
+        $tokens = preg_split('/[\t\n\f\r ]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $kept = array_filter($tokens, fn (string $t): bool => stripos($t, 'ka-') !== 0);
+
+        return count($kept) === count($tokens) ? $value : implode(' ', $kept);
+    }
+
     /** Sanitized HTML; '' when it is over a limit of HtmlLimits (HtmlLimits::guard() turns that into an error). */
     public static function safe(string $html): string
     {
@@ -245,6 +261,13 @@ final class Html
                     && ($name !== 'id' || self::isSafeId($a->value));
                 if (!$ok) {
                     $n->removeAttributeNode($a);
+                } elseif ($name === 'class' && ($classes = self::textClasses($a->value)) !== $a->value) {
+                    // 3.31.2: Kaleta's "ka-" classes are left out (textClasses)
+                    if ($classes === '') {
+                        $n->removeAttributeNode($a);
+                    } else {
+                        $a->value = $classes;
+                    }
                 }
             }
             if (strtolower($n->localName) === 'a' && $n->getAttribute('target') === '_blank') {

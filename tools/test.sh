@@ -389,6 +389,12 @@ TOKEN2=$(curl -s -b "$JAR2" "$B/admin.php?module=news&action=new" | grep -o 'nam
 curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=XSS-test -d tema=1 \
   --data-urlencode 'uvod=<p onmouseover="alert(1)">Perex</p><script>alert(2)</script>' --data-urlencode 'text=<p><img src=x onerror=alert(3)><a href="javascript:alert(4)">odkaz</a></p>'
 expect "autor nevloží do novinky skript" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(uvod, text) REGEXP 'script|onerror|onmouseover|javascript' FROM ka_novinky WHERE titulek = 'XSS-test'")" "0"
+# 3.31.2 (pre-release review): Kaleta's "ka-" classes (any case) are left out of an author's text, like in the builder; the
+# author's own classes and the editor's gallery stay
+curl -s -b "$JAR2" -c "$JAR2" -o /dev/null -X POST "$B/admin.php?module=news&action=save" -d "_csrf=$TOKEN2" -d idc=0 -d titulek=KA-class-3312 -d tema=1 \
+  --data-urlencode 'uvod=<p class="KA-Kolekce-strany">Perex</p>' --data-urlencode 'text=<p class="ka-kolekce-strany karta3312"><a class="ka-tlacitko" href="/kontakt">odkaz</a></p><figure class="galerie"><img src="/media/x3312.jpg" alt=""></figure>'
+expect "3.31.2 review: an author's news text loses Kaleta's ka- classes and keeps its own and the gallery" \
+  "$(sq "SELECT CONCAT(CONCAT(uvod, text) REGEXP '(?i)ka-', '|', text LIKE '%class=\"karta3312\"%', '|', text LIKE '%<figure class=\"galerie\">%', '|', uvod) FROM ka_novinky WHERE titulek = 'KA-class-3312'")" "0|1|1|<p>Perex</p>"
 check "editor vidí na přehledu novinky od autorů, které čekají na vydání" 200 /admin.php "Novinky od autorů čekají na vydání"
 check "výpis novinek: filtr Čekají na vydání" 200 "/admin.php?module=news&status=ke_vydani" "XSS-test"
 
