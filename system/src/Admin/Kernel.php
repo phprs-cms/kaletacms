@@ -485,7 +485,7 @@ final class Kernel
                 'Published news' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 1 AND datum <= ?{$scope}", [\Kaleta\Core\Clock::now()]), 'admin.php?module=news&status=vydane'] : null,
                 'News drafts' => isset($modules['news']) ? [(int) $db->value("SELECT COUNT(*) FROM {novinky} WHERE visible = 0{$scope}"), 'admin.php?module=news&status=koncepty'] : null,
             ]),
-            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT idp, datum, formular, email, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
+            'enquiries' => isset($modules['enquiries']) ? $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav FROM {poptavky} ORDER BY idp DESC LIMIT 5') : [],
             'edited' => array_slice($edited, 0, 8),
         ];
     }

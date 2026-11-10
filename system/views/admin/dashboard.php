@@ -95,12 +95,13 @@
 <h2><?= e(t('Latest enquiries')) ?></h2>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Form')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Enquiry')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($enquiries as $p): ?>
 <tr<?= (int) $p['stav'] === 0 ? '' : ' class="nevydany"' ?>>
 	<?php // 3.20 (C22): the status in its own cell – a screen reader no longer reads "Enquiry new" as the form name ?>
-	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['idp'])) ?>"><?= e($p['formular'] !== '' ? $p['formular'] : t('Enquiry')) ?></a></td>
+	<?php // 3.32 (U27): who and what (Core\RecordTitle::enquiry), the form under it ?>
+	<td><a href="<?= e($app->url('admin.php?module=enquiries&action=detail&id=' . (int) $p['idp'])) ?>"><?= bdi(Kaleta\Core\RecordTitle::enquiry($p)) ?></a><?= $p['formular'] !== '' ? '<br><span class="smltxt">' . bdi((string) $p['formular']) . '</span>' : '' ?></td>
 	<td><?= (int) $p['stav'] === 0 ? '<span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td><?= e($p['email']) ?></td>
 	<td class="cislo"><?= e(format_date($p['datum'], true)) ?></td>

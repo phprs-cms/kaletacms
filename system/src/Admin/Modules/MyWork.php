@@ -206,9 +206,9 @@ final class MyWork extends Module
     }
 
     /**
-     * "Take it" (3.32, U35; POST idp): a new enquiry nobody handles becomes mine – only while nobody handles it (one UPDATE
-     * with prirazeno IS NULL, so two people taking it at once cannot both get it) and only for someone with the Enquiries
-     * section of a site with enquiries on. Nobody is e-mailed: I chose it myself.
+     * "Take it" (3.32, U35; POST idp): an unanswered enquiry nobody handles (the list "unassigned", R1) becomes mine – only
+     * while nobody handles it (one UPDATE with prirazeno IS NULL, so two people taking it at once cannot both get it) and
+     * only for someone with the Enquiries section of a site with enquiries on. Nobody is e-mailed: I chose it myself.
      */
     protected function actionTake(): Response
     {

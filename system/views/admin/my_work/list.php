@@ -119,7 +119,7 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
 	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi((string) ($r['name'] ?? $r['title'])) ?></a><br><span class="smltxt"><?= bdi(($r['title'] !== '' ? $r['title'] : t('Enquiry')) . ' #' . (int) $r['id']) ?></span></td>
 	<td><?= $r['status'] === 'new' ? '<span class="stitek stitek-koncept">' . e(t('new')) . '</span>' : '' ?></td>
 	<td class="cislo"><?= e(format_date($r['date'], true)) ?></td>
-<?php if ($list === 'unassigned'): /* 3.32 (U35): take a new enquiry nobody handles */ ?>
+<?php if ($list === 'unassigned'): /* 3.32 (U35, R1): take an unanswered enquiry nobody handles; the Who cell above names it */ ?>
 	<td class="akce"><form method="post" action="<?= e($module->url('take')) ?>" data-enquiry-take><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $r['id'] ?>"><button class="navigace" type="submit"><?= e(t('Take it')) ?></button></form></td>
 <?php endif ?>
 </tr>
