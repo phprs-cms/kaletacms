@@ -68,11 +68,28 @@ final class Fleet extends Module
         $severity = in_array($this->request->get('severity'), Health::SEVERITIES, true) ? $this->request->get('severity') : '';
         // 3.30: the overdue console tasks ranked among the checks (kind "task"); the summary counts the checks only
         $tasks = ConsoleTasks::todayItems(ConsoleTasks::open($this->db), $sites, $customers);
-        $all = ConsoleTasks::rank([...$items, ...$tasks]);
+        // 3.31.1: a rollout held back by the pilots for more than 3 days (kind "rollout") – the whole fleet's, so not under a customer filter
+        $held = $customer === 0 ? $this->heldRollout($sites, $now) : null;
+        $all = ConsoleTasks::rank([...$items, ...$tasks, ...($held !== null ? [$held] : [])]);
 
         return $this->view('today', 'Fleet', ['items' => Health::filter($all, $customer, $severity), 'total' => count($all), 'summary' => Health::summary($sites, $items, $now, $context),
             'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now, 'pairingKey' => $this->pairingKey(), 'overdueTasks' => count($tasks),
             'names' => \Kaleta\Core\Assignment::labels($this->db, array_column($tasks, 'assignee_id')), 'me' => $this->app->auth()->id()]);
+    }
+
+    /**
+     * The item of Today for a rollout held back too long (3.31.1, Rollout::heldItem), or null.
+     *
+     * @param list<array<string, mixed>> $sites
+     * @return array<string, mixed>|null
+     */
+    private function heldRollout(array $sites, int $now): ?array
+    {
+        [$latest, $security, $firstSeen] = Console::latest($this->app);
+        $delays = Rollout::delays($this->app->settings());
+
+        return Rollout::heldItem(Rollout::overview($sites, Rollout::customerWindows($this->db), $latest, $security, $firstSeen, $now, $delays,
+            new \DateTimeZone(date_default_timezone_get())), $delays, $now);
     }
 
     /** The health matrix (3.29): a row per site, a column per check (Fleet\Checks::CHECKS), each cell linking to its fix. */
@@ -554,24 +571,37 @@ final class Fleet extends Module
         $this->app->session->set('fleet_calendar_link', null);
 
         return $this->view('calendar', 'Calendar', ['month' => Calendar::month($narrowed, $this->request->get('month'), $now), 'events' => $narrowed, 'keys' => Calendar::keys($sites, $now),
-            'customers' => $customers, 'customer' => $customer, 'reminders' => Calendar::reminders($this->app->settings()), 'now' => $now, 'siteCount' => count($sites),
+            'customers' => $customers, 'customer' => $customer, 'reminders' => Calendar::remindersByKind($this->app->settings()), 'now' => $now, 'siteCount' => count($sites),
             'feedLink' => is_string($link) && $link !== '' ? AlertRules::consoleUrl($this->app) . '/fleet/calendar.ics?token=' . rawurlencode($link) : '',
             'hasFeed' => Calendar::hasFeed($this->app->settings(), $this->app->auth()->id()), 'alertsOn' => $this->app->settings()->bool('alerts_enabled'),
             'recipients' => AlertRules::recipients($this->app->settings())]);
     }
 
-    /** Saves the reminder days of the calendar ("30, 7"; empty = no reminders). */
+    /**
+     * Saves the reminder days of the calendar ("30, 7"; empty = no reminders) – 3.31.1: for domain registrations
+     * (fleet_expiry_reminders) and certificates (fleet_certificate_reminders) apart; a field the form does not send stays.
+     * A wrong list saves nothing.
+     */
     protected function actionCalendarSave(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back('', 'calendar');
         }
-        $days = Calendar::parseReminders($this->request->post('fleet_expiry_reminders'));
-        if ($days === null) {
-            return $this->back(t('Write up to %d whole numbers of days from 0 to %d, separated by commas.', Calendar::MAX_REMINDERS, Calendar::MAX_REMINDER), 'calendar', [], 'chyba');
+        $saved = [];
+        foreach (Calendar::REMINDER_SETTINGS as $key) {
+            if (!$this->request->hasPost($key)) {
+                continue;
+            }
+            $days = Calendar::parseReminders($this->request->post($key));
+            if ($days === null) {
+                return $this->back(t('Write up to %d whole numbers of days from 0 to %d, separated by commas.', Calendar::MAX_REMINDERS, Calendar::MAX_REMINDER), 'calendar', [], 'chyba');
+            }
+            $saved[$key] = implode(',', $days);
         }
-        $this->app->settings()->set('fleet_expiry_reminders', implode(',', $days));
-        ChangeLog::write($this->app, 'fleet', 'calendar_reminders', implode(',', $days));
+        foreach ($saved as $key => $value) {
+            $this->app->settings()->set($key, $value);
+        }
+        ChangeLog::write($this->app, 'fleet', 'calendar_reminders', implode('; ', array_map(fn (string $k, string $v): string => $k . ' ' . $v, array_keys($saved), $saved)));
 
         return $this->back('Saved.', 'calendar');
     }

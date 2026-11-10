@@ -3,7 +3,9 @@
  * Today (3.29, the console opens on it): what needs attention across the sites, ranked by Fleet\Checks::today – red
  * before amber, the check's weight, the oldest first. Each row opens the screen that fixes it on the site: a plain link
  * built by the console from the site's known address (no token, no sign-in on the owner's behalf). 3.30: the overdue console
- * tasks (Fleet\ConsoleTasks, kind "task") are ranked among them, amber; their row opens the task on the console.
+ * tasks (Fleet\ConsoleTasks, kind "task") are ranked among them, amber; their row opens the task on the console. 3.31.1: a
+ * rollout held back by the pilot sites for more than 3 days (Fleet\Rollout::heldItem, kind "rollout") – one amber row
+ * that opens the Rollout tab of the console.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Fleet $module
@@ -79,6 +81,15 @@ $severityClass = ['bad' => ' stitek-chyba', 'warn' => ' stitek-koncept'];
 	<td data-popisek="<?= e(t('Severity')) ?>"><span class="stitek<?= $severityClass[$i['state']] ?>"><span aria-hidden="true"><?= Health::SYMBOLS[$i['state']] ?></span> <?= e(t('overdue')) ?></span></td>
 	<td data-popisek="<?= e(t('Since')) ?>"><?= $i['since'] !== null ? '<span title="' . e(format_date((string) $i['due_at'], true)) . '">' . e(Health::age($i['since'], $now)) . '</span>' : '–' ?></td>
 	<td data-popisek="<?= e(t('Open')) ?>" class="akce"><a class="navigace" href="<?= e($app->url($i['link'])) ?>"><?= e(t('Open')) ?><span class="navod-skryte"> – <?= e($i['label']) ?>, <?= e($i['site']) ?></span></a></td>
+</tr>
+<?php continue; endif ?>
+<?php if (($i['kind'] ?? '') === 'rollout'): /* 3.31.1: the rollout held back by the pilots – it opens the Rollout tab */ ?>
+<tr class="flotila-<?= e($i['state']) ?>" data-fleet-rollout-held="<?= e((string) $i['version']) ?>">
+	<td><strong><?= e($i['label']) ?></strong><br><span class="smltxt"><?= e($i['detail']) ?></span></td>
+	<td data-popisek="<?= e(t('Site')) ?>"><a href="<?= e($module->url('rollout')) ?>"><?= e(t('Rollout')) ?></a></td>
+	<td data-popisek="<?= e(t('Severity')) ?>"><span class="stitek<?= $severityClass[$i['state']] ?>"><span aria-hidden="true"><?= Health::SYMBOLS[$i['state']] ?></span> <?= e($severityLabel[$i['state']]) ?></span></td>
+	<td data-popisek="<?= e(t('Since')) ?>"><span title="<?= e(format_date((new DateTimeImmutable())->setTimestamp($i['since']), true)) ?>"><?= e(Health::age($i['since'], $now)) ?></span></td>
+	<td data-popisek="<?= e(t('Open')) ?>" class="akce"><a class="navigace" href="<?= e($app->url($i['link'])) ?>"><?= e(t('Open')) ?><span class="navod-skryte"> – <?= e($i['label']) ?></span></a></td>
 </tr>
 <?php continue; endif ?>
 <tr class="flotila-<?= e($i['state']) ?>">

@@ -31,7 +31,8 @@ use Kaleta\Core\Response;
  *    it came from, the customer and the company, the team's comments and tasks (target deal:N); Delete for administrators
  *  - new and save: a new deal (from the board, a customer or a company) or the changed fields of one
  *  - from_enquiry: "Create deal" on an enquiry (Deals::createFromEnquiry – one open deal per enquiry)
- *  - stages and stages_save (administrators): rename, reorder, add and remove stages (Deals::saveStages)
+ *  - stages and stages_save (administrators): rename, reorder, add and remove stages (Deals::saveStages; a stage with deals
+ *    keeps its kind and cannot be removed – 3.31.1)
  *  - search_json: the command palette (Ctrl K) finds deals by title, customer or company
  *
  * Responsibility only: the responsible person never limits who sees a deal – "Mine" is a filter. (D-W3, an optional role
@@ -136,7 +137,8 @@ final class Pipeline extends Module
     /**
      * The columns of the board: one per stage in its order with its deals (as Deals::list gives them), the count and – for
      * an open stage – the sums of the open values per currency (exact, never converted or added across currencies). A won
-     * or lost column holds the deals closed since $monthStart (and any open deal left in it after its kind was changed).
+     * or lost column holds the deals closed since $monthStart (and any open deal left in it after its kind was changed – old
+     * data only: since 3.31.1 Deals::saveStages refuses a kind change while deals are in the stage; the board stays tolerant).
      * Deals of a stage the pipeline no longer has are left out. Pure.
      *
      * @param list<array{key: string, label: string, kind: string, custom: bool}> $stages

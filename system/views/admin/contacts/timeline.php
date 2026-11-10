@@ -3,7 +3,8 @@
  * A customer's timeline (3.28, Core\Contacts::timeline), newest first: an icon per kind, what it was (a form, a subject, a
  * service – data, not translated), who and when, its status, a link to the enquiry, booking or task. On a company's page
  * each entry names its contact. The author of a logged entry (or an administrator) may delete it. 3.31: a deal's move
- * (created, moved, won, lost, reopened – the text is the stage) with "Open the deal" for whoever may open the Pipeline.
+ * (created, moved, won, lost, reopened – the text is the stage) with "Open the deal" for whoever may open the Pipeline;
+ * 3.31.1: for anyone else the module passes it neutral (Core\Deals::neutralTimeline) – only "A deal" and when.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Contacts $module
@@ -26,6 +27,9 @@ $dealStatus = ['created' => 'new deal', 'moved' => 'moved', 'won' => 'won', 'los
 ?>
 <ol class="upozorneni zakaznik-udalosti" data-timeline-list>
 <?php foreach ($timeline as $entry): [$iconKey, $label] = Contacts::KINDS[$entry['kind']] ?? ['clanek', $entry['kind']];
+    if ($entry['kind'] === 'deal' && !isset($entry['path'])) {
+        $label = 'A deal'; // 3.31.1: the neutral entry of someone without the Pipeline
+    }
     $statusKey = (string) ($entry['status'] ?? '');
     $statusText = match ($entry['kind']) {
         'task' => $taskStatus[$statusKey] ?? '',

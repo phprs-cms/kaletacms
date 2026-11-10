@@ -2,7 +2,8 @@
 /**
  * The stages of the pipeline (3.31, administrators, Core\Deals::saveStages): rename, reorder (the numbers), add (the empty
  * rows) and remove; each stage is open, won or lost. 3 to 12 stages, at least one open, exactly one won and at least one
- * lost; a stage that still has deals cannot be removed – the refusal says so and the form keeps what was typed.
+ * lost; a stage that still has deals cannot be removed and keeps its kind (3.31.1) – the refusal says so (how many deals)
+ * and the form keeps what was typed.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Pipeline $module
@@ -42,6 +43,6 @@ for ($i = 0, $free = min(Pipeline::NEW_STAGE_ROWS, Deals::MAX_STAGES - count($ro
 </tbody>
 </table>
 </div>
-<p class="napoveda"><?= e(t('Change the numbers to reorder the stages. A stage with deals cannot be removed – move its deals first.')) ?></p>
+<p class="napoveda"><?= e(t('Change the numbers to reorder the stages. A stage with deals cannot be removed and keeps its kind – move its deals first.')) ?></p>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save the stages')) ?></button></p>
 </form>

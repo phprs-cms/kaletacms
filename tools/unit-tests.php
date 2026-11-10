@@ -10202,6 +10202,22 @@ check('3.30 Rollout::overview – per site its ring, state and the moment it may
     Kaleta\Fleet\Console::allowedVersion($x330Row(2, '3.29.0'), [$x330Row(1, '3.30.0', 'canary', ['version_since' => $x330Now - 10 * 3600])], '3.30.0', false, 0, $x330Now)],
     [['1:pilot:updated::', '2:normal:waiting:Mon 22:00:1|22:00-05:00', '4:normal:self::', '3:careful:failed::'],
         ['pilot' => ['updated' => 1], 'normal' => ['waiting' => 1, 'self' => 1], 'careful' => ['failed' => 1]], true, '1|22:00-05:00', '', '']);
+// 3.31.1: a rollout held back by the pilots for more than 3 days is one amber item of Today (counted from when the first held
+// site would otherwise have been allowed), with the plain link to the Rollout tab; a security release or a short hold is none
+$a3311Held = fn (int $firstSeen, bool $security = false, array $states = ['blocked', 'blocked']): ?array => Kaleta\Core\Language::runWith('en', fn (): ?array => Kaleta\Fleet\Rollout::heldItem(['version' => '3.32.0',
+    'security' => $security, 'first_seen' => $firstSeen, 'sites' => [['ring' => 'pilot', 'state' => 'failed'], ['ring' => 'normal', 'state' => $states[0]], ['ring' => 'careful', 'state' => $states[1]]],
+    'rings' => [], 'next' => []], $x330Delays, $x330Now), 'admin-');
+$a3311Item = $a3311Held($x330Now - 6 * 86400);
+$a3311Today = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/today.php');
+check('3.31.1 Rollout::heldItem – one item for the release (held since the first held site\'s ring delay), amber, linking to the Rollout tab; none under 3 days, for a security release or without held sites; a careful site counts from its own week; Today and fleet_today show it', [
+    array_intersect_key($a3311Item ?? [], array_flip(['kind', 'site_id', 'check', 'state', 'label', 'detail', 'link', 'weight', 'held'])), ($a3311Item['since'] ?? 0) === $x330Now - 4 * 86400,
+    $a3311Held($x330Now - 5 * 86400), $a3311Held($x330Now - 6 * 86400, true), $a3311Held($x330Now - 6 * 86400, false, ['waiting', 'allowed']), $a3311Held($x330Now - 6 * 86400, false, ['waiting', 'blocked']), $a3311Held($x330Now - 11 * 86400, false, ['waiting', 'blocked'])['held'] ?? 0,
+    count(Kaleta\Fleet\ConsoleTasks::rank([['site' => 'B', 'site_id' => 2, 'state' => 'bad', 'weight' => 100, 'since' => 1], $a3311Item])),
+    str_contains($a3311Today, "(\$i['kind'] ?? '') === 'rollout'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Fleet.php'), '$held = $customer === 0 ? $this->heldRollout($sites, $now) : null;'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/FleetTools.php'), 'Rollout::heldItem('),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Update rollout held back'], (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Version %s – sites held back by the pilot sites: %s']), ['cs', 'de', 'es'])],
+    [['kind' => 'rollout', 'site_id' => 0, 'check' => 'rollout', 'label' => 'Update rollout held back', 'state' => 'warn', 'detail' => 'Version 3.32.0 – sites held back by the pilot sites: 2',
+        'link' => 'admin.php?module=fleet&action=rollout', 'weight' => 50, 'held' => 2], true, null, null, null, null, 1, 2, true, true, true, [true, true, true]]);
 
 // the expiry calendar
 $x330Watch = fn (int $certDays, ?int $domainDays, array $more = []): array => ['domain_watch' => $more + ['checked' => $x330Now - 3600, 'local' => false,
@@ -10227,6 +10243,19 @@ check('3.30 Calendar::due – each date once per threshold; a date found past se
     $x330Due($x330Dates, $x330Sent(['2:certificate:2027-02-04:30'])), $x330Due($x330Dates, $x330Sent(['1:certificate:2027-01-20:30'])),
     $x330Due([['site_id' => 9, 'kind' => 'domain', 'date' => '2027-01-10', 'days' => -5]], []), Kaleta\Fleet\Calendar::due($x330Dates, [], [])],
     [['1:certificate:7:30,7', '2:certificate:30:30'], ['2:certificate:30:30'], ['1:certificate:7:30,7'], ['1:certificate:7:30,7', '2:certificate:30:30'], ['9:domain:7:30,7'], []]);
+// 3.31.1: certificates are reminded 14 and 7 days before (fleet_certificate_reminders), domains keep fleet_expiry_reminders;
+// a date reminded within a threshold already (an old 30-day reminder sent 12 days before) is not reminded again at it
+$a3311ByKind = ['certificate' => [14, 7], 'domain' => [30, 7]];
+$a3311Due = fn (array $sent): array => array_map(fn (array $d): string => $d['event']['site_id'] . ':' . $d['event']['kind'] . ':' . $d['days_before'] . ':' . implode(',', $d['passed']),
+    Kaleta\Fleet\Calendar::dueByKind([...$x330Dates, ['site_id' => 9, 'kind' => 'domain', 'date' => '2027-02-04', 'days' => 19]], $a3311ByKind, $sent));
+$a3311Old = [['site_id' => '1', 'kind' => 'certificate', 'expires' => '2027-01-20', 'days_before' => '30', 'sent_at' => '2027-01-08 09:00:00'],
+    ['site_id' => '2', 'kind' => 'certificate', 'expires' => '2027-02-04', 'days_before' => '30', 'sent_at' => '2027-01-05 09:00:00']];
+check('3.31.1 Calendar: the reminder days by kind – certificates 14 and 7 (a 19-day certificate waits, a 19-day domain is reminded), the old 30-day certificate reminders cover what they reached', [
+    Kaleta\Core\Settings::DEFAULTS['fleet_certificate_reminders'], Kaleta\Core\Settings::DEFAULTS['fleet_expiry_reminders'], Kaleta\Fleet\Calendar::REMINDER_SETTINGS,
+    $a3311Due([]), Kaleta\Fleet\Calendar::covered($a3311Old, $a3311ByKind), $a3311Due(Kaleta\Fleet\Calendar::covered($a3311Old, $a3311ByKind)),
+    Kaleta\Fleet\Calendar::covered([['site_id' => 1, 'kind' => 'domain', 'expires' => 'x', 'sent_at' => '2027-01-01']], $a3311ByKind)],
+    ['14,7', '30,7', ['certificate' => 'fleet_certificate_reminders', 'domain' => 'fleet_expiry_reminders'],
+        ['1:certificate:7:14,7', '9:domain:30:30'], ['1:certificate:2027-01-20:14' => true], ['1:certificate:7:14,7', '9:domain:30:30'], []]);
 check('3.30 Calendar – the reminder days, the month grid from Monday, the recovery keys', [
     array_map(Kaleta\Fleet\Calendar::parseReminders(...), ['30, 7', '7,30,30', '', ' 0 ', '400', '1,2,3,4,5,6', 'x', '-1']),
     count(Kaleta\Fleet\Calendar::month($x330Dates, '2026-11', $x330Now)['weeks']), Kaleta\Fleet\Calendar::month($x330Dates, '2026-11', $x330Now)['weeks'][0][0]['date'],
@@ -10379,6 +10408,17 @@ check('3.31: a move is created, moved, won, lost or reopened (from a closing sta
     $d331::event('lost', 'new', $d331Kinds), $d331::event('lost', 'lost2', $d331Kinds),
     $d331::ownerFilter('mine', 7), $d331::ownerFilter('mine', 0), $d331::ownerFilter('none', 7), $d331::ownerFilter('3', 7), $d331::ownerFilter(0, 7), $d331::ownerFilter(-1, 7), $d331::STATUSES,
 ], ['created', 'moved', 'won', 'lost', 'reopened', 'lost', 7, -1, -1, 3, 0, -1, ['open', 'closed', 'won', 'lost', 'all']]);
+// 3.31.1: save_deal with enquiry honours stage – createFromEnquiry passes it to save() and refuses a stage that is not open
+// before it links the enquiry's contact (the same refusal as a new deal without an enquiry)
+$a3311From = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+$a3311FromBody = substr($a3311From, (int) strpos($a3311From, 'public static function createFromEnquiry('), 2600);
+check('3.31.1: createFromEnquiry takes stage (an open one, checked before the contact is linked, the refusal of save()); the tool says so; the parameter stays', [
+    str_contains($a3311FromBody, "array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage'])"),
+    strpos($a3311FromBody, "throw new \\DomainException(t('A new deal starts in an open stage.'));") < strpos($a3311FromBody, 'Contacts::link($app'),
+    substr_count($a3311From, "t('A new deal starts in an open stage.')"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), "'stage' => \$text('a new deal only (also with enquiry): the open stage it starts in"),
+    json_decode((string) file_get_contents(KALETA_ROOT . '/tools/contracts/mcp-tools.json'), true)['save_deal']['parameters']['stage'] ?? null],
+    [true, true, 2, true, 'string']);
 check('3.31: a deal\'s title names the person when it has every word of their name or their address – such a title loses it when the person is erased', [
     $d331::names('Olga Nováková – yearly contract', 'Olga Nováková', 'olga@x.cz'), $d331::names('Yearly contract for NOVÁKOVÁ Olga', 'Olga Nováková', ''), $d331::names('Website for Acme', 'Olga Nováková', 'olga@acme.cz'),
     $d331::names('Offer sent to olga@acme.cz', 'Olga', 'olga@acme.cz'), $d331::names('Olga\'s website', 'Olga Nováková', ''), $d331::names('Anything', '', ''), $d331::names('Jo Li deal', 'Jo Li', ''),
@@ -10488,6 +10528,16 @@ check('3.31 (B): the stage editor – rows in the order of their numbers (unnumb
     mb_strlen($b331::stageRows([''], [str_repeat('x', 100)], ['open'], ['1'], [])[0]['label'])],
     [[['key' => 'new', 'label' => 'New', 'kind' => 'open'], ['key' => 'lost', 'label' => 'Lost', 'kind' => 'lost'], ['key' => 'won', 'label' => 'Won', 'kind' => 'won'], ['key' => '', 'label' => 'Demo', 'kind' => 'open']],
         Kaleta\Core\Deals::LABEL_MAX]);
+// 3.31.1: a stage with deals keeps its kind – saveStages compares the kinds of the stages that stay (kindChanges) and refuses
+$a3311Stages = Kaleta\Core\Deals::parseStages('');
+$a3311Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
+check('3.31.1: kindChanges – the stages that stay with another kind (a removed or a new stage is not one); saveStages refuses them while deals are in them, naming how many', [
+    Kaleta\Core\Deals::kindChanges($a3311Stages, $a3311Stages),
+    Kaleta\Core\Deals::kindChanges($a3311Stages, [['key' => 'new', 'kind' => 'open'], ['key' => 'proposal', 'kind' => 'lost'], ['key' => 'won', 'kind' => 'open'], ['key' => 'fresh', 'kind' => 'won'], ['key' => 'lost', 'kind' => 'lost']]),
+    str_contains($a3311Deals, '$rekinded = self::kindChanges($current, $clean);'),
+    strpos($a3311Deals, '$rekinded = self::kindChanges(') < strpos($a3311Deals, "\$app->settings()->set('pipeline_stages'"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['The kind of the stage “%s” cannot change while deals are in it (%s) – move them to another stage first.']), ['cs', 'de', 'es', 'de-du'])],
+    [[], ['proposal', 'won'], true, true, [true, true, true, true]]);
 check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeline) – personal, never journaled; the timeline shows a deal with an icon and a label; "Deal #N" in My work', [
     Kaleta\Core\Comments::parseTarget('deal:3'), Kaleta\Core\Comments::deal(5), Kaleta\Core\Comments::KINDS['deal'] ?? null, Kaleta\Core\Comments::parseTarget('deal:0'),
     Kaleta\Core\Tasks::cleanTarget('deal:4'), Kaleta\Core\Tasks::personal('deal:4'), Kaleta\Core\Assignment::KINDS['deal'],
@@ -10496,6 +10546,18 @@ check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeli
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/timeline.php'), "'deal' => 'Open the deal'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php'), "'deal' => t('Deal #%s'")],
     [['type' => 'deal', 'id' => 3], 'deal:5', 'comment', null, 'deal:4', true, 'pipeline', ['obchody', 'Deal'], true, [true, true, true], true, true]);
+// 3.31.1: without the Pipeline a customer's or company's timeline (admin and MCP get_contact) shows a deal only as "A deal"
+$a3311Timeline = [['at' => '2026-11-09 10:00:00', 'kind' => 'deal', 'title' => 'Olga Nováková – yearly contract', 'status' => 'won', 'text' => 'Signed', 'by' => 'Jana',
+    'ref' => 'deal:7', 'path' => 'admin.php?module=pipeline&action=detail&id=7', 'contact' => 'Olga', 'contact_id' => 3],
+    ['at' => '2026-11-08 10:00:00', 'kind' => 'enquiry', 'title' => 'Contact form', 'text' => 'Website', 'status' => 'new', 'ref' => 'enquiry:4', 'path' => 'admin.php?module=enquiries&action=detail&id=4']];
+check('3.31.1: Deals::neutralTimeline – a deal entry keeps when, its number and the contact only (no title, stage, status, who or link); other entries stay; used by the customer, the company and get_contact', [
+    Kaleta\Core\Deals::neutralTimeline($a3311Timeline), Kaleta\Core\Deals::neutralTimeline([]),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Contacts.php'), '$this->dealsShown('),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Contacts.php'), "return isset(\$this->kernel->modules()[Pipeline::IDENT]) ? \$timeline : \\Kaleta\\Core\\Deals::neutralTimeline(\$timeline);"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "if (\$timeline !== [] && !\\Kaleta\\Core\\Deals::mayOpen(\$db, \$this->app->settings(), \$this->app->auth()->id())) {"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/contacts/timeline.php'), "\$label = 'A deal';"),
+    array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['A deal']), ['cs', 'de', 'es'])],
+    [[['at' => '2026-11-09 10:00:00', 'kind' => 'deal', 'ref' => 'deal:7', 'contact' => 'Olga', 'contact_id' => 3, 'title' => ''], $a3311Timeline[1]], [], 2, true, true, true, [true, true, true]]);
 $b331Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $b331Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
 $b331Board = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pipeline/board.php');

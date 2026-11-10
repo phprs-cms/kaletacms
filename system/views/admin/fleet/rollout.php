@@ -2,7 +2,8 @@
 /**
  * The rollout of the fleet console (3.30, Fleet\Rollout): where the newest release has reached in each ring – updated,
  * may update now, waiting (until when), held back by the pilot sites, failed, decides itself – each site with its ring
- * and window, the delay of each ring and the maintenance window of each customer.
+ * and window, the delay of each ring and the maintenance window of each customer. 3.31.1: when sites are held back, a
+ * note says how the rollout goes on (Today links here after 3 days).
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Fleet $module
@@ -45,6 +46,9 @@ $hours = fn (int $h): string => $h % 24 === 0 && $h > 0 ? t('%d days', intdiv($h
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
+<?php if (array_sum(array_column($overview['rings'], 'blocked')) > 0): /* 3.31.1: how a held rollout goes on (Today links here) */ ?>
+<p class="napoveda" data-rollout-held><?= e(t('Held back: a pilot site does not run the new version without errors, outages or a failed update yet. Fix the pilot site and the rollout goes on by itself, or allow the version by hand on a site\'s page.')) ?></p>
+<?php endif ?>
 <h2><?= e(t('Sites')) ?></h2>
 <div class="tab-obal"><table class="vypis vypis-karty flotila-rollout">
 <thead><tr><th scope="col"><?= e(t('Site')) ?></th><th scope="col"><?= e(t('Ring')) ?></th><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('State')) ?></th><th scope="col"><?= e(t('Maintenance window')) ?></th></tr></thead>

@@ -4769,9 +4769,9 @@ sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'),
 curl -s -o /dev/null "$B3/tasks?token=contoken317"
 for _ in $(seq 1 50); do ls "$WORK"/smtp330/*.eml > /dev/null 2>&1 && break; sleep 0.2; done; sleep 0.5 # the job may finish after the reply
 F=$(grep -l "^X-Rcpt-To: owner317@agency.example" "$WORK"/smtp330/*.eml 2>/dev/null | tail -1 || true); : > "$WORK/eml330.txt"; [ -n "$F" ] && eml "$F" > "$WORK/eml330.txt"
-expect "3.30 reminders: the certificate (5 days: 30 and 7 days before recorded, one reminder) and the domain (20 days: 30) – one e-mail to the alert recipients with plain links, a bell notification for the administrator" \
+expect "3.30 reminders: the certificate (5 days: 3.31.1 – 14 and 7 days before recorded, one reminder) and the domain (20 days: 30) – one e-mail to the alert recipients with plain links, a bell notification for the administrator" \
   "$(sq3 "SELECT GROUP_CONCAT(CONCAT(kind, ':', days_before) ORDER BY kind, days_before) FROM ka_fleet_expiry_reminders WHERE site_id = $PILOT330")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c '^X-Rcpt-To: owner317@agency.example' "$WORK/eml330.txt")|$(grep -c "admin.php?module=fleet&action=detail&id=$PILOT330" "$WORK/eml330.txt")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry' AND target = 'fleet_site:$PILOT330' AND emailed_at IS NOT NULL")" \
-  "certificate:7,certificate:30,domain:30|1|1|2|2"
+  "certificate:7,certificate:14,domain:30|1|1|2|2"
 sq3 "DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null; curl -s -o /dev/null "$B3/tasks?token=contoken317"; sleep 1
 expect "3.30 reminders: the next run sends nothing again" "$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")" "3|1|2"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?action=inbox"
@@ -4807,6 +4807,15 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fl
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=10, 45"
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_expiry_reminders=400"
 expect "3.30 Calendar: the reminder days saved, the largest first; a wrong list keeps them" "$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_expiry_reminders'")" "45,10"
+# 3.31.1: certificates have their own reminder days (14, 7 by default) next to the domains'; one wrong list saves neither
+A3311_CAL=$(grep -c 'name="fleet_certificate_reminders" value="14, 7"' "$WORK/response")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_certificate_reminders=3, 21" --data-urlencode "fleet_expiry_reminders=60, 10"
+A3311_SAVED=$(sq3 "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('fleet_certificate_reminders', 'fleet_expiry_reminders')")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_certificate_reminders=14, 7" --data-urlencode "fleet_expiry_reminders=x"
+expect "3.31.1 Calendar: the certificates' reminder days next to the domains' (14, 7 by default), both saved; a wrong list saves neither" \
+  "$A3311_CAL|$A3311_SAVED|$(sq3 "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna) FROM ka_nastaveni WHERE promenna IN ('fleet_certificate_reminders', 'fleet_expiry_reminders')")" \
+  "1|fleet_certificate_reminders=21,3,fleet_expiry_reminders=60,10|fleet_certificate_reminders=21,3,fleet_expiry_reminders=60,10"
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_save" -d "_csrf=$(csrf)" --data-urlencode "fleet_certificate_reminders=14, 7" --data-urlencode "fleet_expiry_reminders=45, 10"
 # the calendar link: shown once, the feed with the dates, revoked → gone
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o /dev/null -X POST "$B3/admin.php?module=fleet&action=calendar_feed" -d "_csrf=$(csrf)" -d feed=new
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=calendar"
@@ -4837,6 +4846,20 @@ sq3 "UPDATE ka_fleet_sites SET update_window = '1234567|00:00-00:00' WHERE id = 
 sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317; UPDATE ka_fleet_sites SET status = 'error' WHERE id = $PILOT330" > /dev/null; G9=$(hb330)
 expect "3.30 update gate: normal after the pilot ran it 48 h | its own window closed | its customer's window closed | its own 'any time' over the customer's | careful (7 days) | a security release at once, window or not | a pilot outside its window | inside it | the pilot fails → held back" \
   "$G1|$G2|$G3|$G4|$G5|$G6|$G7|$G8|$G9" "3.99.9|-|-|3.99.9|-|3.99.9|-|3.99.9|-"
+# 3.31.1: the pilot fails and the release has been known for 6 days – Today and fleet_today have one amber item "rollout held
+# back" with a plain link to the Rollout tab, which says how it goes on; known for an hour only – no item
+FV3311=$(sq3 "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'")
+sq3 "UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 6 * 86400)),false]}' WHERE promenna = 'fleet_versions'" > /dev/null
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet"
+A3311_TODAY="$(grep -c 'data-fleet-rollout-held="3.99.9"' "$WORK/response")|$(grep -A6 'data-fleet-rollout-held=' "$WORK/response" | grep -c 'href="/admin.php?module=fleet&amp;action=rollout"' | awk '{print ($1 >= 1)}')|$(grep -cE '<strong>(Nasazování aktualizace se zdrželo|Update rollout held back)</strong>' "$WORK/response")"
+curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_today","arguments":{}}}' > "$WORK/response"
+A3311_MCP=$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $i = array_values(array_filter($d["items"] ?? [], fn ($x) => $x["check"] === "rollout"));
+  echo count($i), "|", $i[0]["state"] ?? "-", "|", (int) preg_match("~^http://127\.0\.0\.1:[0-9]+/admin\.php\?module=fleet&action=rollout$~", $i[0]["link"] ?? ""), "|", (int) isset($i[0]["site_id"]), "|", (int) str_starts_with($i[0]["detail"] ?? "", "Version 3.99.9");' "$WORK/response")
+curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=rollout"; A3311_HINT=$(grep -c 'data-rollout-held' "$WORK/response")
+sq3 "UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 3600)),false]}' WHERE promenna = 'fleet_versions'" > /dev/null
+expect "3.31.1 Today: a rollout held back by the pilots for 6 days is one amber item with a plain link to Rollout (screen and fleet_today), Rollout says how it goes on; after an hour – none" \
+  "$A3311_TODAY|$A3311_MCP|$A3311_HINT|$(curl -s -b "$JAR_CON" -c "$JAR_CON" "$B3/admin.php?module=fleet" | grep -c 'data-fleet-rollout-held=')" "1|1|1|1|warn|1|0|1|1|0"
+sq3 "UPDATE ka_nastaveni SET hodnota = '$FV3311' WHERE promenna = 'fleet_versions'" > /dev/null
 sq3 "UPDATE ka_fleet_sites SET status = 'ok' WHERE id = $PILOT330" > /dev/null
 # N330-5: the console installed a security release on itself before any site asked – it still goes to every site at once
 V330=$(sed -nE "s/^const KALETA_VERSION = '([^']+)';/\\1/p" "$WORK/web3/system/bootstrap.php")
@@ -4877,14 +4900,14 @@ curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $by = [];
   foreach ($d["dates"] ?? [] as $e) { $by[$e["site"] . ":" . $e["kind"]] = $e["state"] . ":" . $e["days_left"]; }
   $keys = array_column($d["recovery_keys"] ?? [], "state", "site");
-  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean"]);' "$WORK/response" > "$WORK/mcp330.txt"
-expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean"
+  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean", implode(",", $d["certificate_reminder_days_before"] ?? [])]);' "$WORK/response" > "$WORK/mcp330.txt"
+expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days (3.31.1: the certificates' apart)" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean|14,7"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":9999}}}' > "$WORK/response"
 contains -q 'days must be between' "$WORK/response" && echo "  ok     3.30 MCP fleet_calendar: days out of range refused" || { echo "  CHYBA  3.30 MCP fleet_calendar days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp fleet_inventory '{}' > "$WORK/response"; contains -q 'delays_hours' "$WORK/response" && { echo "  CHYBA  fleet_inventory works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_inventory and fleet_calendar exist only on a console"
 sq3 "UPDATE ka_fleet_sites SET ring = 'normal', update_window = NULL, customer_id = $CUST330 WHERE id = $FLEET_ID; UPDATE ka_fleet_customers SET update_window = '' WHERE id = $ACME317;
   DELETE FROM ka_fleet_sites WHERE public_key IN ('old330key', 'pilot330key', 'careful330key'); DELETE FROM ka_fleet_expiry_reminders; DELETE FROM ka_notifications WHERE kind = 'fleet_expiry';
-  DELETE FROM ka_nastaveni WHERE promenna IN ('fleet_ring_pilot_hours', 'fleet_ring_normal_hours', 'fleet_ring_careful_hours', 'fleet_expiry_reminders')" > /dev/null
+  DELETE FROM ka_nastaveni WHERE promenna IN ('fleet_ring_pilot_hours', 'fleet_ring_normal_hours', 'fleet_ring_careful_hours', 'fleet_expiry_reminders', 'fleet_certificate_reminders')" > /dev/null
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '$ALLOWED330')" > /dev/null
 # N317-9: the archived reports of a forgotten customer (id 900 here) never pass to a new customer
 sq3 "INSERT INTO ka_fleet_reports (month, customer_id, customer, created_at, data) VALUES ('2020-01', 900, 'Forgotten 317', '$(site_time)', '{}')" > /dev/null
@@ -10566,6 +10589,18 @@ expect "3.31: the responsible person is notified in the bell (assigned, deal:<id
   "$(sq "SELECT COUNT(*) FROM ka_notifications WHERE user_id = $T331_JANA AND kind = 'assigned' AND target = 'deal:${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'pipeline' AND akce = 'create' AND popis = '#${T331_D1:-0}'")|$(sq "SELECT COUNT(*) FROM ka_agent_journal WHERE tbl IN ('deals', 'deal_stage_history')")" "1|1|0"
 mcp_as "$T331_TA" save_deal "{\"enquiry\":${T331_E1:-0}}" > "$WORK/response"; mcp_text
 expect "3.31 save_deal: one open deal per enquiry – a second one is refused" "$(grep -c "already has an open deal (#${T331_D1:-0})" "$WORK/text")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE source_enquiry_id = ${T331_E1:-0}")" "1|1"
+# 3.31.1: save_deal with enquiry honours stage – an open stage is used; won or an unknown stage get the refusal of a deal
+# without an enquiry, before the enquiry's contact is linked (the test deal goes again: the monthly report below counts the others)
+T3311_E=$(sq "INSERT INTO ka_poptavky (datum, formular, tema, email, data, stav) VALUES ('$(site_time)', 'Poptávka T331', 'Stage T331', 'stage.t331@example.org', '[]', 1); SELECT LAST_INSERT_ID();")
+mcp_as "$T331_TA" save_deal "{\"enquiry\":${T3311_E:-0},\"stage\":\"won\"}" > "$WORK/response"; mcp_text; T3311_R1=$(grep -c 'A new deal starts in an open stage' "$WORK/text")
+mcp_as "$T331_TA" save_deal "{\"enquiry\":${T3311_E:-0},\"stage\":\"nope\"}" > "$WORK/response"; mcp_text; T3311_R2=$(grep -c 'A new deal starts in an open stage' "$WORK/text")
+mcp_as "$T331_TA" save_deal '{"title":"Stage T331","stage":"nope"}' > "$WORK/response"; mcp_text; T3311_R3=$(grep -c 'A new deal starts in an open stage' "$WORK/text")
+T3311_LINKED=$(sq "SELECT CONCAT(IFNULL(contact_id, 'null'), '|', (SELECT COUNT(*) FROM ka_deals WHERE source_enquiry_id = ${T3311_E:-0})) FROM ka_poptavky WHERE idp = ${T3311_E:-0}")
+mcp_as "$T331_TA" save_deal "{\"enquiry\":${T3311_E:-0},\"stage\":\"qualified\"}" > "$WORK/response"; mcp_text; T3311_D=$(t331_json id)
+expect "3.31.1 save_deal with enquiry: stage won and an unknown stage refused as without an enquiry, the contact not linked yet; an open stage is used, in its history" \
+  "$T3311_R1|$T3311_R2|$T3311_R3|$T3311_LINKED|$(t331_json deal.stage)|$(sq "SELECT CONCAT(stage, '|', source_enquiry_id = ${T3311_E:-0}, '|', (SELECT GROUP_CONCAT(to_stage) FROM ka_deal_stage_history WHERE deal_id = ${T3311_D:-0})) FROM ka_deals WHERE id = ${T3311_D:-0}")" \
+  "1|1|1|null|0|qualified|qualified|1|qualified"
+sq "DELETE FROM ka_deal_stage_history WHERE deal_id = ${T3311_D:-0}; DELETE FROM ka_deals WHERE id = ${T3311_D:-0}; DELETE FROM ka_notifications WHERE target = 'deal:${T3311_D:-0}'" > /dev/null
 # N331-1: as in the administration – Pia has the pipeline only: no deal from an enquiry (Enquiries), no contact or company (Customers)
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('t331-pia', '$T331_HASH', 'Pia T331', 'pia-t331@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off');
@@ -10617,6 +10652,11 @@ expect "3.31 My work (Deals::forOwner): Jana's open deal, its stage and overdue 
 mcp_as "$T331_TJ" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
 expect "3.31: the deals' moves are on the customer's timeline (created, moved, lost, reopened, won)" \
   "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_unique(array_column(array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"), "status")));' "$WORK/text")" "created,won,reopened,lost,moved"
+# 3.31.1: Petr (Customers, no pipeline) sees the same moves only as "a deal" – no title, stage, status, who or link
+mcp_as "$T331_TP" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
+expect "3.31.1 get_contact without the pipeline: the deal entries are there, without title, stage, status or who; no stage name in the answer (the enquiry keeps its topic)" \
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $e = array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"); echo count($e) > 0 ? "some" : "none", "|", count(array_filter($e, fn ($x) => isset($x["title"]) || isset($x["text"]) || isset($x["status"]) || isset($x["by"])));' "$WORK/text")|$(grep -c '"Proposal"' "$WORK/text")" \
+  "some|0|0"
 expect "3.31: the hand-over counts Jana's open deal" "$(t331_php "echo Kaleta\\Core\\Handover::owned(\$app->db(), $T331_JANA)['deal'];")" "1"
 expect "3.31: deleting a deal needs an administrator" "$(t331_php "try { Kaleta\\Core\\Deals::delete(\$app, ${T331_D2:-0}); echo 'deleted'; } catch (DomainException \$e) { echo 'refused'; }")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE id = ${T331_D2:-0}")" "refused|1"
 
@@ -10790,6 +10830,20 @@ check "3.31: … removing a stage that has deals is refused and the form keeps w
 expect "3.31: … the setting unchanged, the refused labels offered again; too few stages refused too" \
   "$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)|$(b331_has 'value="Ukázka"')|$(b331_post "$JAR" "module=pipeline&action=stages" "module=pipeline&action=stages_save" -d 'key[]=won' -d 'key[]=lost' -d 'label[]=W' -d 'label[]=L' -d 'kind[]=won' -d 'kind[]=lost' -d 'order[]=1' -d 'order[]=2' > /dev/null; [ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" \
   "same|1|same"
+# 3.31.1: a stage with deals keeps its kind (Nabídka B331 holds the reopened deal) – refused, saying how many; a stage without deals may change it
+a3311_stages() { b331_post "$JAR" "module=pipeline&action=stages" "module=pipeline&action=stages_save" -d 'key[]=new' -d 'key[]=qualified' -d 'key[]=ukazka_b331' -d 'key[]=proposal' -d 'key[]=won' -d 'key[]=lost' \
+  -d 'label[]=New' -d 'label[]=Qualified' --data-urlencode 'label[]=Ukázka B331' --data-urlencode 'label[]=Nabídka B331' -d 'label[]=Won' -d 'label[]=Lost' \
+  -d 'kind[]=open' -d 'kind[]=open' -d "kind[]=$1" -d "kind[]=$2" -d 'kind[]=won' -d 'kind[]=lost' -d 'order[]=1' -d 'order[]=2' -d 'order[]=3' -d 'order[]=4' -d 'order[]=5' -d 'order[]=6' > /dev/null; }
+a3311_stages open lost
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=stages"
+expect "3.31.1: changing the kind of a stage with deals is refused – the stage and the count of its deals named, nothing saved, the form keeps what was typed" \
+  "$(b331_has 'class="hlaska hlaska-chyba"')|$(grep -cE 'Druh fáze „Nabídka B331“ nejde změnit, dokud jsou v ní obchody \(1\)|The kind of the stage “Nabídka B331” cannot change while deals are in it \(1\)' "$WORK/response")|$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" "1|1|same"
+a3311_stages lost open
+A3311_KINDS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'" | php -r 'echo implode(",", array_map(fn ($s) => $s["key"] . ":" . $s["kind"], json_decode(stream_get_contents(STDIN), true)));')
+a3311_stages open open
+expect "3.31.1: … a stage without deals changes its kind, and back" \
+  "$A3311_KINDS|$([ "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'")" = "$B331_STAGES" ] && echo same)" \
+  "new:open,qualified:open,ukazka_b331:lost,proposal:open,won:won,lost:lost|same"
 # permissions: Jana (Enquiries, Customers, Pipeline; no administrator) moves and sees My work, but stages and delete are the
 # administrators'; "Mine" is a filter; Petr (no Pipeline) gets 403 and no deal box, badge or palette search
 B331_JJAR=$(b331_login b331-jana)
@@ -10805,6 +10859,11 @@ curl -s -b "$B331_PJAR" -o "$WORK/response" "$B/admin.php?module=enquiries&actio
 expect "3.31: Petr without the Pipeline – the board, a deal, a move, Create deal and the palette search are 403; his enquiry has no deal box, his list no badge, his palette no deals" \
   "$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pipeline")|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pipeline&action=detail&id=$B331_D1")|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pipeline&action=move" -d "_csrf=$B331_PTOKEN" -d "id=$B331_D1" -d stage=won)|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=pipeline&action=from_enquiry" -d "_csrf=$B331_PTOKEN" -d "idp=$B331_ENQ")|$(curl -s -b "$B331_PJAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pipeline&action=search_json&q=B331")|$(b331_has 'data-deal-box')|$(b331_has 'data-deals=')|$(curl -s -b "$B331_PJAR" "$B/admin.php?module=enquiries" | grep -c 'data-enquiry-deal')|$(b331_deal "$B331_D1" | cut -d/ -f2)" \
   "403|403|403|403|403|0|0|0|proposal"
+# 3.31.1: Petr opens Eva's customer page – her deal's moves are on the timeline only as "a deal": no title, stage or link
+curl -s -b "$B331_PJAR" -o "$WORK/response" "$B/admin.php?module=contacts&action=detail&id=$B331_EVA"
+expect "3.31.1: without the Pipeline the customer's timeline shows \"Obchod\" entries without the deal's title, stage or link; the company page too" \
+  "$(b331_has 'data-timeline-entry="deal"' | sed 's/[2-9]/1/')|$(b331_has 'Nový web B331')|$(b331_has 'Nabídka B331')|$(b331_has 'module=pipeline&amp;action=detail')|$(curl -s -b "$B331_PJAR" "$B/admin.php?module=contacts&action=company&id=$B331_CO" | grep -c 'Nový web B331')" \
+  "1|0|0|0|0"
 # delete (administrators): the deal, its history, comments and tasks go; the customer and the enquiry stay
 b331_post "$JAR" "module=pipeline&action=detail&id=$B331_D1" "module=pipeline&action=delete" -d "id=$B331_D1" > /dev/null
 expect "3.31: Delete – the deal, its history, comments, tasks and notifications go; the customer stays; one change-log row" \

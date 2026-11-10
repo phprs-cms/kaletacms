@@ -4192,6 +4192,67 @@ await step('3.31 pipeline: the board – keyboard move with an announcement, dra
   }
 });
 
+// 3.31.1 (agent A): a stage with deals keeps its kind – the editor refuses and keeps what was typed; Fleet → Calendar has the
+// certificates' reminder days next to the domains'; a rollout held back by the pilot sites for 6 days is one amber row of Today
+// with a plain link to Rollout (1440 and 390 px, light and dark, no sideways scroll, axe clean)
+await step('3.31.1: a stage with deals keeps its kind; the certificates\' reminder days; Today shows a held rollout (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length || !WEB_DIR) { throw new Error('MYSQL_JSON and WEB_DIR are not set'); }
+  const deal = Number(sql("INSERT INTO ka_deals (title, stage, created_at, updated_at) VALUES ('Kind A3311', 'qualified', NOW(), NOW()); SELECT LAST_INSERT_ID();").trim());
+  const version = /const KALETA_VERSION = '([^']+)'/.exec(fs.readFileSync(`${WEB_DIR}/system/bootstrap.php`, 'utf8'))[1];
+  const versions = sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'fleet_versions'), '')").trim();
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=pipeline&action=stages');
+    await page.selectOption('tr[data-stage-row="qualified"] select[name="kind[]"]', 'lost');
+    await Promise.all([page.waitForNavigation(), page.locator('form[data-stages-form] button[type="submit"]').click()]);
+    if (!/The kind of the stage “Qualified” cannot change while deals are in it \(1\)/.test(await page.locator('.hlaska-chyba').innerText())) { throw new Error('the editor does not refuse the kind change with the count'); }
+    if ((await page.locator('tr[data-stage-row="qualified"] select[name="kind[]"]').inputValue()) !== 'lost') { throw new Error('the refused form lost what was typed'); }
+    if (sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'), '')").trim() !== '') { throw new Error('the refused stages were saved'); }
+    await visit('/admin.php?module=fleet&action=calendar');
+    if ((await page.locator('input[name="fleet_certificate_reminders"]').inputValue()) !== '14, 7' || (await page.locator('input[name="fleet_expiry_reminders"]').inputValue()) !== '30, 7') { throw new Error('the calendar does not offer 14, 7 for certificates and 30, 7 for domains'); }
+    sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '{"${version}":[${Math.floor(Date.now() / 1000) - 6 * 86400},false]}')`);
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+        await page.setViewportSize({ width, height });
+        await visit('/admin.php?module=fleet');
+        const row = page.locator(`table.flotila-dnes tr[data-fleet-rollout-held="${version}"]`);
+        if ((await row.count()) !== 1) { throw new Error(`Today has ${await row.count()} held-rollout rows (${name}, ${scheme})`); }
+        if (!/Update rollout held back/.test(await row.innerText())) { throw new Error('the held-rollout row has no label'); }
+        const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (wider > 1) { throw new Error(`Today scrolls sideways by ${wider} px at ${width} px (${scheme})`); }
+        if (SHOTS) { await page.screenshot({ path: `${SHOTS}/3311-today-held-${name}-${scheme}.png`, fullPage: true }); }
+      }
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=fleet');
+    await Promise.all([page.waitForNavigation(), page.locator('tr[data-fleet-rollout-held] td.akce a').click()]);
+    if (!/action=rollout/.test(page.url()) || !(await page.locator('[data-rollout-held]').count())) { throw new Error('Open does not lead to the Rollout tab with the note on the held rollout'); }
+    const state = await context.storageState();
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        for (const [url, include] of [['/admin.php?module=fleet', ['table.flotila-dnes']], ['/admin.php?module=fleet&action=calendar', ['form.formular']]]) {
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((s) => [s]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_deal_stage_history WHERE deal_id = ${deal}; DELETE FROM ka_deals WHERE id = ${deal}; DELETE FROM ka_nastaveni WHERE promenna = 'pipeline_stages'`);
+    sql(versions === '' ? "DELETE FROM ka_nastaveni WHERE promenna = 'fleet_versions'" : `REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '${versions.replace(/'/g, "''")}')`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

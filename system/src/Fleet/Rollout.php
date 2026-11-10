@@ -28,6 +28,11 @@ use Kaleta\Core\Settings;
  *    security release itself when its automatic security updates are on (Core\Updater) – the console never delays that.
  *  - A site that decides about its updates itself (manage_updates off) is told nothing.
  *
+ *  - Today (3.31.1, heldItem): a rollout held back by the pilot sites for more than HELD_DAYS – counted from the moment the
+ *    first held site would otherwise have been allowed (the console first saw the release + its ring's delay) – is one
+ *    amber item of Today and fleet_today, with a plain link to the Rollout tab (each held site's page has "Allow version
+ *    now"; fixing the pilot releases it for all).
+ *
  * decide() and the window helpers are pure (tools/unit-tests.php has the decision table); Console::heartbeat calls them.
  */
 final class Rollout
@@ -56,6 +61,15 @@ final class Rollout
     public const array RING_LABELS = ['pilot' => 'Pilot', 'normal' => 'Normal', 'careful' => 'Careful'];
     public const array STATE_LABELS = ['updated' => 'Updated', 'allowed' => 'May update now', 'waiting' => 'Waiting', 'blocked' => 'Held back by the pilot sites',
         'failed' => 'Update failed', 'self' => 'Decides itself'];
+
+    /** A rollout held back longer than this many days is an item of Today (3.31.1, heldItem). */
+    public const int HELD_DAYS = 3;
+
+    /** The weight of that item in the Today ranking – as the check "Updates" (Checks::CHECKS). */
+    public const int HELD_WEIGHT = 50;
+
+    /** Where it is released or resumed: the Rollout tab of the console (relative). */
+    public const string HELD_PATH = 'admin.php?module=fleet&action=rollout';
 
     /** The ring as stored: canary (before 3.30) is pilot, anything unknown is normal. Pure. */
     public static function ring(mixed $stored): string
@@ -363,5 +377,40 @@ final class Rollout
             <=> [$order[$b['ring']], $stateOrder[$b['state']], mb_strtolower($b['site']), $b['site_id']]);
 
         return ['version' => $latest, 'security' => $security, 'first_seen' => $firstSeen, 'sites' => $out, 'rings' => $rings, 'next' => $next];
+    }
+
+    /**
+     * The item of Today for a rollout held back by the pilot sites more than HELD_DAYS (3.31.1), or null: one item for the
+     * release (never one per site), amber, in the shape of Checks::today (kind and check "rollout", site_id 0) plus the
+     * version and how many sites are held. Held since = the earliest moment a held site would otherwise have been allowed
+     * (the console first saw the release + the delay of the site's ring). Pure apart from the dictionaries.
+     *
+     * @param array{version: string, security: bool, first_seen: int, sites: list<array<string, mixed>>, rings: array<string, array<string, int>>, next: array<string, ?int>} $overview overview()
+     * @param array{pilot: int, normal: int, careful: int} $delays hours
+     * @return array<string, mixed>|null
+     */
+    public static function heldItem(array $overview, array $delays, int $now): ?array
+    {
+        if ($overview['first_seen'] <= 0 || $overview['security']) {
+            return null;
+        }
+        $since = null;
+        $held = 0;
+        foreach ($overview['sites'] as $site) {
+            if ($site['state'] !== 'blocked') {
+                continue;
+            }
+            $ring = self::ring($site['ring'] ?? '');
+            $at = $overview['first_seen'] + max(0, min(self::MAX_HOURS, (int) ($delays[$ring] ?? self::DEFAULT_HOURS[$ring]))) * 3600;
+            $since = $since === null ? $at : min($since, $at);
+            $held++;
+        }
+        if ($since === null || $now - $since <= self::HELD_DAYS * 86400) {
+            return null;
+        }
+
+        return ['kind' => 'rollout', 'site_id' => 0, 'site' => '', 'url' => '', 'customer_id' => null, 'check' => 'rollout', 'label' => t('Update rollout held back'), 'state' => 'warn',
+            'detail' => t('Version %s – sites held back by the pilot sites: %s', $overview['version'], format_count($held)), 'path' => self::HELD_PATH, 'link' => self::HELD_PATH,
+            'weight' => self::HELD_WEIGHT, 'since' => $since, 'version' => $overview['version'], 'held' => $held];
     }
 }
