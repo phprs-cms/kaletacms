@@ -236,6 +236,13 @@ trait MigrationTools
                 'problems' => array_map(fn (string $p): array => ['code' => $p, 'severity' => MigrationReport::PROBLEMS[$p] ?? 'info', 'message' => MigrationReport::describe($p)], $row['problemy']),
                 'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']], array_slice($rows, $offset, 100)),
             'more_problems' => max(0, count($rows) - $offset - 100),
+            // 3.33 (M5, M6): additive – the old site answered at all; old addresses on untouched sample pages (never "ok");
+            // a form on most old pages, reported once; the page titles that changed
+            'old_site_reachable' => !isset($state['hledani']['nedostupny']),
+            'on_sample_pages' => (int) ($s['vzor'] ?? 0),
+            'site_wide_forms' => array_map(fn (string $fields, int $pages): array => ['fields' => $fields, 'old_pages' => $pages], array_keys($r['formulare_webu']), array_values($r['formulare_webu'])),
+            'title_changes' => array_slice(array_values(array_map(fn (array $row): array => ['old' => $row['stara'], 'old_title' => $row['titulek_stary'], 'new_title' => $row['titulek_novy']],
+                array_filter($r['radky'], fn (array $row): bool => in_array('title_changed', $row['problemy'], true)))), 0, 100),
             'notes' => $r['poznamky'], // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
             'site_checks' => array_map(fn (array $c): array => ['message' => $c['zprava'], 'fix_in' => $this->app->request->origin() . $this->app->url($c['uprava'])], $r['web']),
             'next' => $state['faze'] !== 'hotovo' ? 'Call again with the same report_id until the phase is done.'

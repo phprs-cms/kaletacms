@@ -7508,4 +7508,12 @@ return [
     '%s old addresses could not be kept as they were – they redirect to the new ones' => '%s starých adres nešlo zachovat beze změny – přesměrují se na nové',
     '%s → %s (shortened: an address has at most %s characters)' => '%s → %s (zkráceno: adresa má nejvýš %s znaků)',
     '%s → %s (at its last part: the address was too long or begins with a word the system uses)' => '%s → %s (jen poslední část: adresa byla příliš dlouhá nebo začíná slovem, které používá systém)',
+    'The old site did not answer.' => 'Starý web neodpověděl.',
+    'The old site could not be reached (%s) – nothing was found because nothing could be read, not because the site is empty. Check the address and that the site is online and reachable from this server.' => 'Na starý web se nepodařilo dostat (%s) – nic se nenašlo proto, že nešlo nic přečíst, ne proto, že by byl web prázdný. Zkontrolujte adresu a že web běží a je z tohoto serveru dostupný.',
+    'None of the old pages could be read, so only the addresses were checked – the old site may be down or refuse this server.' => 'Žádnou ze starých stránek nešlo přečíst, zkontrolovaly se jen adresy – starý web možná neběží nebo tento server odmítá.',
+    'A form is on %s of the old pages (a pop-up or the footer, fields: %s) and nothing here has one: add it once – a Form element in the footer (Site parts) or a pop-up.' => 'Formulář je na %s starých stránkách (pop-up okno nebo patička, pole: %s) a tady ho nic nemá: přidejte ho jednou – prvek Formulář do patičky (Části webu) nebo do pop-up okna.',
+    'The address leads to a sample page of the installation that nobody has changed – visitors would see sample text. Import the old page over it or replace its content.' => 'Adresa vede na ukázkovou stránku z instalace, kterou nikdo nezměnil – návštěvníci by viděli ukázkový text. Naimportujte přes ni starou stránku nebo nahraďte její obsah.',
+    'The page title changed – check that the new one is what search engines should show.' => 'Titulek stránky se změnil – zkontrolujte, že nový je ten, který mají ukazovat vyhledávače.',
+    'On a sample page' => 'Na ukázkové stránce',
+    'Site-wide form: on %s old pages (fields: %s) – a pop-up or the footer. It is checked once for the whole site, not on each page.' => 'Formulář celého webu: na %s starých stránkách (pole: %s) – pop-up okno nebo patička. Kontroluje se jednou za celý web, ne na každé stránce.',
 ];

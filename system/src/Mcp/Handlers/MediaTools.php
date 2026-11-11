@@ -83,6 +83,7 @@ trait MediaTools
             'result' => ['new_pages' => $r['stranky'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
             'failures' => $state['chyby'],
             'notes' => \Kaleta\Core\WebImport::notes($state), // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
+            'old_site_reachable' => !isset($state['nedostupny']), // 3.33 (M6): found nothing because nothing answered – the notes say why
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
         ] + ($state['faze'] === 'nahled'
             // 3.33 (M2): the starter pages the import replaces (replace: true) or keeps (why: kept | edited) – keep_starter_pages declines one

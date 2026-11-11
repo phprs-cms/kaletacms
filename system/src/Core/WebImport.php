@@ -75,6 +75,10 @@ final class WebImport
 
     private float $end = 0.0;
 
+    /** Requests to the old site that answered in this batch, and why the last one did not (3.33, M6: an unreachable site). */
+    private int $answered = 0;
+    private string $lastFailure = '';
+
     /** When the state was last handed to the checkpoint of this batch. */
     private float $saved = 0.0;
 
@@ -228,6 +232,10 @@ final class WebImport
     public static function notes(array $state): array
     {
         $notes = [];
+        if (isset($state['nedostupny'])) {
+            // 3.33 (M6): said plainly – an unreachable old site must not look like an empty one
+            $notes[] = t('The old site could not be reached (%s) – nothing was found because nothing could be read, not because the site is empty. Check the address and that the site is online and reachable from this server.', t((string) $state['nedostupny']));
+        }
         $robots = is_array($state['robots'] ?? null) ? $state['robots'] : [];
         if (!empty($robots['omezeno'])) {
             $notes[] = t('The robots.txt of the old site is very long: only its first %s KB and %s rules for Kaleta were read.', self::ROBOTS_BYTES >> 10, self::ROBOTS_RULES);
@@ -256,6 +264,8 @@ final class WebImport
         $this->end = microtime(true) + self::SECONDS;
         $this->saved = microtime(true);
         $this->checkpoint = $checkpoint;
+        $this->answered = 0;
+        $this->lastFailure = '';
         match ($state['faze']) {
             'hledani' => $this->discover($state),
             'import' => $this->import($state),
@@ -340,7 +350,15 @@ final class WebImport
             }
             $this->checkpoint($state);
         }
+        // 3.33 (M6): whether the old site answered at all – nothing found because nothing could be read is not an empty site
+        $state['odpovedi'] = (int) ($state['odpovedi'] ?? 0) + $this->answered;
+        if ($this->lastFailure !== '') {
+            $state['posledni_chyba'] = mb_substr($this->lastFailure, 0, 200);
+        }
         if ($state['mapy_hotovo'] && (($state['fronta'] === [] && $state['odkazy'] === []) || count($state['adresy']) >= self::MAX_PAGES)) {
+            if ($state['odpovedi'] === 0) {
+                $state['nedostupny'] = (string) ($state['posledni_chyba'] ?? '') !== '' ? (string) $state['posledni_chyba'] : 'The old site did not answer.';
+            }
             $state['faze'] = 'nahled';
             $state['fronta'] = [];
             $state['odkazy'] = [];
@@ -626,9 +644,17 @@ final class WebImport
     {
         try {
             $data = self::politeDownload($this->downloader, $url, $robots, false, $checkRobots, $readAtMost);
-        } catch (\RuntimeException) {
+        } catch (\RuntimeException $e) {
+            // a page that does not exist is an answer too: only a site that never answers is unreachable (3.33, M6)
+            if ($e->getCode() >= 400) {
+                $this->answered++;
+            } else {
+                $this->lastFailure = $e->getMessage();
+            }
+
             return null;
         }
+        $this->answered++;
 
         return $data !== '' && strlen($data) < 5_000_000 ? $data : null;
     }

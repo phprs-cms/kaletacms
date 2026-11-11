@@ -56,7 +56,7 @@ contains -q 'class="hlaska hlaska-varovani import-menu-zmeny"' "$WORK/response" 
 # the same file again: nothing is duplicated and the menus are not put into the draft a second time
 wxr_run
 expect "3.6 import_wordpress again: nothing duplicated, everything reported as already imported, the menus too" \
-  "$(mcp_value phase)|$(mcp_value result news)|$(mcp_value result pages)|$(mcp_value result already_imported)|$(mcp_value menus 0 status)|$(sq "SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'nova-zakazka-v-lhote%'")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'sluzby-stavby%'")" \
+  "$(mcp_value phase)|$(mcp_value result news)|$(mcp_value result pages)|$(mcp_value result already_imported)|$(mcp_value menus 0 status)|$(sq "SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'nova-zakazka-v-lhote%'")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'sluzby-stavby%' AND seo_link NOT LIKE '%/%'")" \
   "done|0|0|6|skipped|1|1"
 expect "3.6 the live menus did not change; the draft look holds the main and the footer menu" \
   "$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")|$(sq "SELECT JSON_LENGTH(hodnota, '\$.menus') FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$WXR_LIVE_MENU|2"

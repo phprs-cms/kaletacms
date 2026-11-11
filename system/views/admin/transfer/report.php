@@ -36,7 +36,13 @@ $severityClass = ['error' => 'stitek stitek-chyba', 'warning' => 'stitek stitek-
 	<div class="dlazdice-polozka"><strong><?= $s['presmerovano'] ?></strong><span><?= e(t('Redirected')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= $s['skryto'] ?></strong><span><?= e(t('Not published yet')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= $s['chybi'] ?></strong><span><?= e(t('Missing')) ?></span></div>
+<?php if (($s['vzor'] ?? 0) > 0): // 3.33 (M5) ?>
+	<div class="dlazdice-polozka"><strong><?= (int) $s['vzor'] ?></strong><span><?= e(t('On a sample page')) ?></span></div>
+<?php endif ?>
 </div>
+<?php foreach ($result['formulare_webu'] ?? [] as $fields => $pages): // 3.33 (M5): reported once, not on every page ?>
+<p class="hlaska"><?= e(t('Site-wide form: on %s old pages (fields: %s) – a pop-up or the footer. It is checked once for the whole site, not on each page.', $pages, $fields !== '' ? $fields : '–')) ?></p>
+<?php endforeach ?>
 <?php if ($result['web'] !== []): ?>
 <h2><?= e(t('The whole site')) ?></h2>
 <ul>

@@ -19,7 +19,7 @@ s3_install() { # $1 = the starter choice (move | firemni)
   curl -s -c "$S3_JAR" -b "$S3_JAR" -o "$WORK/response" "$S3/admin.php"
   curl -s -b "$S3_JAR" -c "$S3_JAR" -o /dev/null -X POST "$S3/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
 }
-s3_field() { php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "{}", true); foreach (array_slice($argv, 2) as $k) { $r = is_array($r) ? ($r[$k] ?? null) : null; } echo is_scalar($r) ? $r : json_encode($r, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$WORK/response" "$@"; }
+s3_field() { php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "{}", true); foreach (array_slice($argv, 2) as $k) { $r = is_array($r) ? ($r[$k] ?? null) : null; } echo is_bool($r) ? ($r ? "true" : "false") : (is_scalar($r) ? $r : json_encode($r, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));' "$WORK/response" "$@"; }
 s3_record() { s3q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'starter_pages'" | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo is_array($r) ? implode(",", array_keys($r)) : "none";'; }
 mkdir "$WORK/web333" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web333")
 mkdir -p "$WORK/web333/media" "$WORK/web333/storage/log" "$WORK/web333/storage/cache"
