@@ -22,6 +22,9 @@
 		<?= e(t('If nobody can sign in, add %s to config.php – it switches every “passkey only” off.', "define('" . Kaleta\Core\SignInPolicy::ESCAPE_HATCH . "', true);")) ?></span>
 	</div>
 </div>
+<?php if (($proof ?? null) !== null): // 3.35 review L2: the two-factor rule and turning "passkeys only" off need a fresh proof ?>
+<?php $proofHint = t('Needed only to change the two-factor rule or to turn “passkeys only” off.'); $proofId = 'security'; require __DIR__ . '/proof.php'; ?>
+<?php endif ?>
 <?php $autoSuspend = explode(',', $values['auto_suspend'] ?? ''); ?>
 <div class="radek" id="auto_suspend">
 	<span class="popisek"><?= e(t('Suspend automatically')) ?></span>

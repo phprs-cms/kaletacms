@@ -483,7 +483,8 @@ class Settings extends Module
     }
 
     /**
-     * 3.35 review M3: which of the posted changes that decide how people sign in may not be saved now, and why. A new site
+     * 3.35 review M3, L2: which of the posted changes that decide how people sign in may not be saved now, and why. Turning
+     * "passkeys only" for the site off, or changing the two-factor rule (require_2fa), needs a fresh proof. A new site
      * address on another host (another domain, www added or taken away) while passkeys exist or the site requires them:
      * passkeys are bound to the host, so those registered for the old one stop working (their accounts sign in with the
      * password and the second step again – SignInPolicy::keysForHost) – it needs the ticked confirmation and a fresh
@@ -504,6 +505,13 @@ class Settings extends Module
                 return [['site_url'], self::HOST_CHANGE_CONFIRM];
             }
             $sensitive[] = 'site_url';
+        }
+        // 3.35 review L2: turning "passkeys only" off and changing the two-factor rule weaken every account's sign-in
+        if (isset($fields['signin_passkey_only']) && $settings->get('signin_passkey_only') === '1' && !$this->request->postBool('signin_passkey_only')) {
+            $sensitive[] = 'signin_passkey_only';
+        }
+        if (isset($fields['require_2fa']) && array_key_exists('require_2fa', $_POST) && $this->request->post('require_2fa') !== $settings->get('require_2fa')) {
+            $sensitive[] = 'require_2fa';
         }
         if ($sensitive === []) {
             return [[], ''];
