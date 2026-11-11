@@ -17,6 +17,7 @@
  * @var string $mcpUrl
  * @var bool $teamExists the site has a people collection – the My e-mail signature tab (3.14)
  * @var bool $fresh  a passkey or backup-code step a few minutes ago – passkey changes need no password (3.35)
+ * @var bool $renewCodes  a passkey and no authenticator app – "New backup codes" is offered (3.35)
  * @var bool $passkeyOnly  the account signs in with a passkey only (its choice or the site's, Core\SignInPolicy)
  * @var bool $sitePasskeyOnly  the site requires passkeys of accounts that have one
  * @var bool $workingPasskey  the account has a passkey that signs in without a password
@@ -24,6 +25,7 @@
  * @var bool $codesFromPasskey  the backup codes shown came with the first passkey
  */
 $fresh ??= false;
+$renewCodes ??= false;
 $passkeyOnly ??= false;
 $sitePasskeyOnly ??= false;
 $workingPasskey ??= false;
@@ -35,7 +37,9 @@ $action = e($app->url('admin.php?action=account'));
 <?php endif ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
-<?php if (!empty($codesFromPasskey)): ?>
+<?php if (!empty($codesRenewed)): ?>
+	<p><strong><?= e(t('Your new backup codes')) ?></strong> <?= e(t('The old codes no longer work. Save these somewhere safe – each works once after your password when you do not have your passkey. They will not be shown again.')) ?></p>
+<?php elseif (!empty($codesFromPasskey)): ?>
 	<p><strong><?= e(t('Your backup codes')) ?></strong> <?= e(t('Save them somewhere safe – each works once after your password when you do not have your passkey. They will not be shown again.')) ?></p>
 <?php else: ?>
 	<p><strong><?= e(t('Two-factor sign-in is on.')) ?></strong> <?= e(t('Save your backup codes – each works once when you do not have your phone. They will not be shown again.')) ?></p>
@@ -194,6 +198,18 @@ foreach ($keys as $k): ?>
 </fieldset>
 </form>
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php if ($renewCodes): // 3.35: new backup codes for an account with a passkey and without the app ?>
+<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
+<?= $csrf ?><input type="hidden" name="co" value="backup_codes_new">
+<fieldset id="backup-codes"><legend><?= e(t('Backup codes')) ?></legend>
+<p><?= e(t('Backup codes left: %d.', $codesLeft)) ?> <?= e(t('Lost them or used most of them? New codes replace them all – the old ones stop working at once. The new codes are shown only once.')) ?></p>
+<?php if (!$fresh): ?>
+<div class="radek"><label for="kody-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="kody-heslo" name="soucasne" size="30" autocomplete="current-password"><span class="napoveda"><?= e(t('Needed to create new backup codes – or sign in again with your passkey and do it within a few minutes.')) ?></span></div></div>
+<?php endif ?>
+<p class="tlacitka"><button class="navigace" type="submit" data-potvrdit="<?= e(t('Create new backup codes? The old ones will stop working.')) ?>"><?= e(t('New backup codes')) ?></button></p>
+</fieldset>
+</form>
+<?php endif ?>
 <?php if ($workingPasskey): ?>
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="co" value="passkey_only">

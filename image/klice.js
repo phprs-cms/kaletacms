@@ -38,7 +38,7 @@
 	document.querySelectorAll('form[data-klice]').forEach(function (formEl) {
 		var address = formEl.getAttribute('data-klice');
 		var error = formEl.querySelector('[data-klic-chyba]');
-		var buttons = formEl.querySelectorAll('[data-klic-pridat], [data-klic-prihlasit], [data-klic-bezhesla]');
+		var buttons = formEl.querySelectorAll('[data-klic-pridat], [data-klic-prihlasit], [data-klic-bezhesla], [data-klic-potvrdit]');
 		if (!buttons.length) { return; }
 
 		if (!supported) {
@@ -110,6 +110,18 @@
 				buttons.forEach(function (b) { b.disabled = true; });
 				busy = true;
 				var stopped = stopConditional(); // one WebAuthn request at a time: the modal one replaces the autofill
+
+				// 3.35: "Confirm with your passkey" – the signed-in account's own passkey as the fresh proof (the OAuth consent)
+				if (button.hasAttribute('data-klic-potvrdit')) {
+					deliver({ krok: 'passkey_confirm_options' }).then(function (m) {
+						return navigator.credentials.get({ publicKey: getOptions(m) });
+					}).then(function (k) {
+						return deliver({ krok: 'passkey_confirm', odpoved: JSON.stringify(assertion(k)) });
+					}).then(done).catch(function (e) {
+						showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+					});
+					return;
+				}
 
 				if (withoutPassword) {
 					stopped.then(function () {

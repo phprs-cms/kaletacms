@@ -587,6 +587,65 @@ final class Auth
     }
 
     /**
+     * A passkey confirmation of the person already signed in (3.35), part 1: a challenge for the account's own passkeys –
+     * the way an account that signs in with a passkey only proves itself again where others type the current password
+     * (the OAuth consent of a full connection). null = no one signed in or no passkey.
+     *
+     * @return array<string, mixed>|null options for navigator.credentials.get()
+     */
+    public function confirmChallenge(string $siteUrl): ?array
+    {
+        $keys = $this->id() > 0 ? $this->accountKeys($this->id()) : [];
+        if ($keys === []) {
+            return null;
+        }
+        $challenge = Passkey::challenge();
+        $this->session->set('passkey_confirm', ['challenge' => $challenge, 'at' => time()]);
+
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['id_klice'], $keys), true);
+    }
+
+    /**
+     * A passkey confirmation (3.35), part 2: the signature of one of the signed-in account's passkeys, with user
+     * verification, over the challenge of part 1 (used once, PASSKEY_CHALLENGE_LIFETIME). Success is a strong fresh proof
+     * (markVerified(true)); a failure counts like a wrong current password (the sign-in's counter and lock, the limit per
+     * address) and ends nothing – the sign-in stays, as with confirmPassword.
+     *
+     * @param array<string, mixed> $response
+     * @return 'ok'|'wrong'|'locked'
+     */
+    public function confirmWithPasskey(array $response, string $siteUrl, string $address): string
+    {
+        $pending = $this->session->get('passkey_confirm');
+        $this->session->remove('passkey_confirm'); // the challenge is valid for one attempt
+        $id = $this->id();
+        $user = $id > 0 ? $this->db->one('SELECT idu, password, pocet_chyb, zamceno_do FROM {uzivatele} WHERE idu = ?', [$id]) : null;
+        if ($user === null) {
+            return 'wrong';
+        }
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > ?", [Antispam::hash($address), Clock::at('-15 minutes')]);
+        if (self::isLocked($user) || $attempts >= 10) {
+            return 'locked';
+        }
+        $challenge = is_array($pending) && time() - (int) ($pending['at'] ?? 0) < self::PASSKEY_CHALLENGE_LIFETIME ? (string) ($pending['challenge'] ?? '') : '';
+        $key = $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$id, hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
+        try {
+            if ($key === null || $challenge === '') {
+                throw new \RuntimeException('refused');
+            }
+            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['verejny'], (int) $key['pocitadlo'], true);
+        } catch (\RuntimeException) {
+            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+
+            return $this->countError($user) ? 'locked' : 'wrong';
+        }
+        $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+        $this->markVerified(true); // 3.35: a passkey confirmation is a strong fresh proof
+
+        return 'ok';
+    }
+
+    /**
      * Whether this sign-in proved itself with a passkey or a backup code within VERIFIED_WINDOW (the strong proof – see
      * VERIFIED_KEY) – then adding or removing a passkey needs no password (3.35).
      */

@@ -20,11 +20,11 @@ check('3.35 B1: every completed sign-in and a right current password set the mar
     str_contains($i335aAuth, "['idu', 'otisk', 'login_at', 'last_seen', self::VERIFIED_KEY]"),
 ], [true, true, true]);
 check('3.35 B1: the consent asks for the password only for full access, through confirmPassword, and keeps the request on a refusal', [
-    str_contains($i335aKernel, "\$passwordError = \$access === 'full' ? self::fullAccessRefusal(\$app->auth()) : null;"),
+    str_contains($i335aKernel, "\$passwordError = \$access === 'full' ? self::fullAccessRefusal(\$app->auth(), self::passkeyConfirmOnly(\$app, \$siteUrl)) : null;"), // 3.35: + the passkey confirmation
     (bool) preg_match('/function fullAccessRefusal\(.*?recentlyVerified\(\).*?confirmPassword\(/s', $i335aKernel),
     // the request is forgotten only when the consent is denied or a code is issued
     substr_count($i335aKernel, 'OAuth::forgetRequest($app->session, $nonce)'),
-    str_contains($i335aView, 'id="oauth-heslo" name="soucasne"'), str_contains($i335aView, '<?php if (!$verified):'),
+    str_contains($i335aView, 'id="oauth-heslo" name="soucasne"'), str_contains($i335aView, '<?php if (!$verified && !$passkeyOnly):'),
 ], [true, true, 2, true, true]);
 check('3.35 B1: the refusal and the hint are translated', array_map(fn (string $code): array => Kaleta\Core\Language::runWith($code, fn (): array => [
     t(Kaleta\Admin\Kernel::FULL_ACCESS_PASSWORD) !== Kaleta\Admin\Kernel::FULL_ACCESS_PASSWORD, t('Needed only for “Can also publish”. Drafts and reading need no password.') !== 'Needed only for “Can also publish”. Drafts and reading need no password.',

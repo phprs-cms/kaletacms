@@ -671,6 +671,24 @@ final class Kernel
     {
         $app = $this->app;
         $isPost = $app->request->isPost();
+        $siteUrl = $app->settings()->get('site_url') ?: $app->request->origin();
+        // 3.35: "Confirm with your passkey" (image/klice.js, data-klic-potvrdit) – the fresh proof of an account that signs
+        // in with a passkey: a challenge for the account's own passkeys, then their signature (Auth::confirmWithPasskey,
+        // markVerified). The page then reloads with the proof and full access asks for nothing more.
+        if ($isPost && in_array($app->request->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)) {
+            if ($app->request->post('krok') === 'passkey_confirm_options') {
+                $options = $app->auth()->confirmChallenge($siteUrl);
+
+                return Response::json($options ?? ['chyba' => t('This account has no passkey.')], $options === null ? 400 : 200);
+            }
+            $result = $app->auth()->confirmWithPasskey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $siteUrl, \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings()));
+            if ($result === 'ok') {
+                ChangeLog::write($app, 'ucet', 'passkey_confirm');
+            }
+            $back = $app->url('admin.php?action=oauth' . (preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $app->request->get('request')) === 1 ? '&request=' . $app->request->get('request') : ''));
+
+            return Response::json($result === 'ok' ? ['ok' => true, 'kam' => $back] : ['chyba' => t($result === 'locked' ? self::PASSKEY_CONFIRM_LOCKED : self::PASSKEY_CONFIRM_FAILED)], $result === 'ok' ? 200 : 401);
+        }
         // a GET without a nonce (the page after sign-in) shows the newest request; the consent itself needs the nonce
         $found = \Kaleta\Front\OAuth::pendingRequest($app->session, $isPost ? $app->request->post('request') : $app->request->get('request'));
         if ($found === null || ($isPost && $app->request->post('request') === '')) {
@@ -692,7 +710,7 @@ final class Kernel
             // proof: the current password typed here, or a sign-in or confirmed password within Auth::VERIFIED_WINDOW (an
             // account that signs in without a password signs in again). Drafts and read stay one click. The request waits
             // in the session for another try; nothing is issued until the proof is there.
-            $passwordError = $access === 'full' ? self::fullAccessRefusal($app->auth()) : null;
+            $passwordError = $access === 'full' ? self::fullAccessRefusal($app->auth(), self::passkeyConfirmOnly($app, $siteUrl)) : null;
             if ($passwordError === null) {
                 \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
                 ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
@@ -712,6 +730,10 @@ final class Kernel
             'selected' => 'drafts',
             // 3.35: why full access was refused just now (the view keeps full chosen), and whether a fresh proof is there
             'passwordError' => $passwordError, 'verified' => $app->auth()->recentlyVerified(),
+            // 3.35: an account with a passkey may confirm with it (on the site's own host); one that signs in with a passkey
+            // only is offered nothing else
+            'passkeyConfirm' => $app->auth()->accountKeys($app->auth()->id()) !== [] && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl),
+            'passkeyOnly' => self::passkeyConfirmOnly($app, $siteUrl),
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
             'toolSet' => 'essentials',
         ])]));
@@ -727,10 +749,13 @@ final class Kernel
      * Auth::VERIFIED_WINDOW or typed the right current password into the consent form (Auth::confirmPassword: the
      * sign-in's counter and lock).
      */
-    private static function fullAccessRefusal(\Kaleta\Core\Auth $auth): ?string
+    private static function fullAccessRefusal(\Kaleta\Core\Auth $auth, bool $passkeyOnly = false): ?string
     {
         if ($auth->recentlyVerified()) {
             return null;
+        }
+        if ($passkeyOnly) {
+            return self::FULL_ACCESS_PASSKEY; // 3.35: an account that signs in with a passkey only confirms with it, never with a password
         }
 
         return match ($auth->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '')) {
@@ -739,6 +764,26 @@ final class Kernel
             default => self::FULL_ACCESS_PASSWORD,
         };
     }
+
+    /**
+     * 3.35: does the signed-in account confirm the consent with its passkey only – it signs in with a passkey only
+     * (SignInPolicy::passkeyOnly: its own choice or the site's) and the page is on the site's own host, where the passkey works?
+     */
+    private static function passkeyConfirmOnly(\Kaleta\Core\App $app, string $siteUrl): bool
+    {
+        $user = $app->auth()->user();
+
+        return $user !== null && \Kaleta\Core\SignInPolicy::passkeyOnly($user, $app->auth()->accountKeys((int) $user['idu']), $app->settings())
+            && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl);
+    }
+
+    /** 3.35: the answer when an account that signs in with a passkey only approves full access without a fresh proof. */
+    public const string FULL_ACCESS_PASSKEY = '“Can also publish” lets the application publish and delete with your account – confirm with your passkey to allow it, or choose “Drafts only”.';
+
+    /** 3.35: the answers of a passkey confirmation that did not succeed. */
+    public const string PASSKEY_CONFIRM_FAILED = 'The passkey did not confirm it. Try again, or choose “Drafts only”.';
+
+    public const string PASSKEY_CONFIRM_LOCKED = 'Too many failed attempts in a row – confirming is locked for 15 minutes. You stay signed in; nothing was changed.';
 
     /** 3.35: the answer when full access is approved without a fresh proof. */
     public const string FULL_ACCESS_PASSWORD = '“Can also publish” lets the application publish and delete with your account – enter your current password to allow it, or choose “Drafts only”. An account without a password signs in again and then starts connecting again in the application.';

@@ -206,6 +206,23 @@ final class Account
                     ChangeLog::write($app, 'ucet', $on ? 'passkey_only_on' : 'passkey_only_off');
                     $message = ['ok', $on ? 'Done – you sign in with your passkey only. A backup code after the password stays your way back if you lose it.' : 'Done – you can sign in with your password and the second step again.'];
                     break;
+                case 'backup_codes_new':
+                    // 3.35 (owner decision 11 Nov 2026): an account with a passkey and without the authenticator app gets new
+                    // backup codes here – a fresh confirmation first (a passkey or backup-code step a few minutes ago, or the
+                    // current password); the new codes replace all the old ones and are shown once (no redirect). An account
+                    // with the app gets new codes by turning the app off and on again, as before.
+                    if (!self::mayRenewBackupCodes($user, $app->auth()->accountKeys((int) $user['idu']))) {
+                        $message = ['chyba', self::RENEW_CODES_REFUSAL];
+                        break;
+                    }
+                    if (($message = $this->freshnessRefused('Enter your current password to create new backup codes. Nothing was changed.')) !== null) {
+                        break;
+                    }
+                    [$codes, $json] = Totp::backupCodes();
+                    $db->update('uzivatele', ['totp_zalozni' => $json], ['idu' => $user['idu']]);
+                    ChangeLog::write($app, 'ucet', 'backup_codes_new');
+
+                    return $this->page(['backupCodes' => $codes, 'codesFromPasskey' => true, 'codesRenewed' => true] + $data);
                 case 'totp_vypni':
                     if (($message = $this->passwordRefused('Enter the correct password to turn it off.')) !== null) {
                         break;
@@ -238,6 +255,20 @@ final class Account
         }
 
         return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+    }
+
+    /** 3.35: why new backup codes are refused – the account has no passkey, or it has the authenticator app. */
+    public const string RENEW_CODES_REFUSAL = 'New backup codes are made here for an account with a passkey and without an authenticator app. With the app, turn two-factor sign-in off and on again.';
+
+    /**
+     * 3.35: may the account create new backup codes in My account – it has a passkey and no authenticator app? Pure.
+     *
+     * @param array<string, mixed> $user
+     * @param list<array<string, mixed>> $keys
+     */
+    public static function mayRenewBackupCodes(array $user, array $keys): bool
+    {
+        return $keys !== [] && (string) ($user['totp_tajemstvi'] ?? '') === '';
     }
 
     /**
@@ -423,6 +454,7 @@ final class Account
             'passkeyOnly' => SignInPolicy::passkeyOnly($user, $keys, $app->settings()),
             'sitePasskeyOnly' => $app->settings()->get('signin_passkey_only') === '1' && !SignInPolicy::escapeHatch(),
             'workingPasskey' => SignInPolicy::hasWorkingPasskey($keys),
+            'renewCodes' => self::mayRenewBackupCodes($user, $keys), // 3.35: "New backup codes"
             'passkeyHost' => SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $app->settings()->get('site_url') ?: $app->request->origin()),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token

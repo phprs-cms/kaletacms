@@ -74,5 +74,5 @@ check('3.3.3 (N56): a new e-mail and a new passkey need the current password; th
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/klice.js'), "soucasne: password ? password.value : ''"),
     array_values(array_filter(['Enter your current password to change the e-mail address. Nothing was saved.', 'Enter your current password to add a passkey.', 'The e-mail address of your account was changed'],
         fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))],
-    [8, true, true, []]);
+    [9, true, true, []]); // 3.35: + new backup codes (freshnessRefused)
 
