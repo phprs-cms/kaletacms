@@ -31,5 +31,6 @@ expect "3.34 second review N9: the restored enquiry's CV downloads from the encr
   "$(cat "$WORK/n9-cv")|$([ -f "$N9_COPY" ] && echo kept || echo gone)" "CV of Ota N9|kept"
 sq "DELETE FROM ka_poptavky WHERE idp = $N9_E" > /dev/null
 t334_php 'Kaleta\Core\Applications::sweepOrphans($app);' > /dev/null
-expect "3.34 second review N9: once nothing names it, the old copy goes" "$([ -f "$N9_COPY" ] && echo kept || echo gone)" "gone"
+expect "3.34 second review N9: once nothing names it, the old copy goes (set aside first – 3.34 third review F1)" "$([ -f "$N9_COPY" ] && echo kept || echo gone)" "gone"
+rm -f "$N9_COPY.orphan"
 r334_off

@@ -984,8 +984,10 @@ final class Applications
                     continue;
                 }
                 foreach ($files as $file) {
-                    if (is_file($file)) {
-                        @unlink($file);
+                    foreach ([$file, $file . self::ORPHAN_SUFFIX] as $one) { // F1: also a copy the sweep set aside
+                        if (is_file($one)) {
+                            @unlink($one);
+                        }
                     }
                 }
                 $rows[] = (int) $row['id'];
@@ -1034,6 +1036,13 @@ final class Applications
 
     /** Days an encrypted file no application lists stays before the daily clean-up removes it (an interrupted run, a restored backup). */
     public const int ORPHAN_DAYS = 7;
+
+    /**
+     * The suffix of an encrypted file the sweep set aside (3.34 third review F1): an old file no row lists is renamed to it
+     * and its time set to now – it goes only ORPHAN_DAYS after that, and comes back the moment a row lists it again
+     * (sweepOrphans()) or something opens it (openSealed()). A restored backup never costs a CV its seven days.
+     */
+    public const string ORPHAN_SUFFIX = '.orphan';
 
     /**
      * Encrypts a file into FOLDER under a new random key and returns where it is and the key (base64). 3.34 second review
@@ -1158,6 +1167,9 @@ final class Applications
      */
     public static function openSealed(Settings $s, string $file, ?string $key): ?string
     {
+        if (!is_file($file) && is_file($file . self::ORPHAN_SUFFIX)) {
+            @rename($file . self::ORPHAN_SUFFIX, $file); // F1: set aside by the sweep, wanted again (a newer backup restored)
+        }
         $raw = is_file($file) ? @file_get_contents($file) : false;
         if (!is_string($raw)) {
             return null;
@@ -1571,18 +1583,23 @@ final class Applications
 
     /**
      * Encrypted files no application lists (3.34 second review N1 – a run killed after writing a copy, a move back killed
-     * before it removed the sealed copy, an upload whose row was never stored), and half-written ones (.part), older than
-     * ORPHAN_DAYS: removed. What a row lists is read from attachment_paths (always readable) – while a row without it has a
-     * list that cannot be opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget() would give a CV still waiting
-     * in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it back) – counts as listed.
-     * Returns how many files went.
+     * before it removed the sealed copy, an upload whose row was never stored, a database restored from an older backup),
+     * and half-written ones (.part). 3.34 third review F1: age alone never removes a CV – an unlisted .bin older than
+     * ORPHAN_DAYS is set aside (renamed to ORPHAN_SUFFIX, its time set to now) and removed only once it has stayed unlisted
+     * for ORPHAN_DAYS more; a set-aside file a row lists again is put back. A .part older than ORPHAN_DAYS goes at once.
+     * What a row lists is read from attachment_paths (always readable) – while a row without it has a list that cannot be
+     * opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget()
+     * would give a CV still waiting in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it
+     * back) – counts as listed. Returns how many files went.
      */
     public static function sweepOrphans(App $app): int
     {
         $s = $app->settings();
         $cutoff = time() - self::ORPHAN_DAYS * 86400;
-        $old = array_filter(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [], fn (string $f): bool => is_file($f) && (int) @filemtime($f) < $cutoff);
-        if ($old === []) {
+        $files = array_filter(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [], 'is_file');
+        $aside = array_filter($files, fn (string $f): bool => str_ends_with($f, '.bin' . self::ORPHAN_SUFFIX));
+        $old = array_filter($files, fn (string $f): bool => (str_ends_with($f, '.bin') || str_ends_with($f, '.part')) && (int) @filemtime($f) < $cutoff);
+        if ($old === [] && $aside === []) {
             return 0;
         }
         $listed = [];
@@ -1614,9 +1631,19 @@ final class Applications
             return 0;
         }
         $removed = 0;
+        foreach ($aside as $file) {
+            $original = substr($file, 0, -strlen(self::ORPHAN_SUFFIX));
+            if (isset($listed[$original])) {
+                is_file($original) ? @unlink($file) : @rename($file, $original); // listed again (a newer backup restored): back
+            } elseif ((int) @filemtime($file) < $cutoff && (!$unknown || self::headerKey($s, $file) !== null)) {
+                $removed += @unlink($file) ? 1 : 0; // unlisted for ORPHAN_DAYS since it was set aside
+            }
+        }
         foreach ($old as $file) {
-            if (str_ends_with($file, '.part') || (str_ends_with($file, '.bin') && !isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null))) {
+            if (str_ends_with($file, '.part')) {
                 $removed += @unlink($file) ? 1 : 0;
+            } elseif (!isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null) && @rename($file, $file . self::ORPHAN_SUFFIX)) {
+                @touch($file . self::ORPHAN_SUFFIX); // F1: the seven days count from now, not from when the file was written
             }
         }
 
