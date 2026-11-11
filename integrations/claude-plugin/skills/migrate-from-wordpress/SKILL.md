@@ -119,7 +119,10 @@ found. Rebuild each page in the Kaleta builder, page by page (`list_pages` shows
 3. Write semantic HTML (`section`, `h1`–`h3`, `p`, `ul`, `a`, `img`, `figure`, `blockquote`, `details`) and one
    `<style>` block with rules of one class each and the tokens `var(--ka-…)`; breakpoints from desktop down:
    `@media (max-width: 1023px)` and `@media (max-width: 767px)`. Keep the texts, images, buttons and links;
-   leave out the builder's wrappers, class names, scripts and shortcodes.
+   leave out the builder's wrappers, class names, scripts and shortcodes. An accordion (`details`, or a
+   button with `aria-controls` and its panel), tabs (`role="tab"` and `role="tabpanel"`), a map or video
+   `iframe`, a `form` and a number with `data-counter` become the FAQ, Tabs, Map, Video, Form and Counter
+   elements.
 4. Call `build_from_html` with the `id` of the imported page (`mode` replace, or append to add sections in
    parts; `overwrite_classes` only when the user wants the site's classes replaced). Fix what it could not
    convert with `edit_build`, or `get_build` and `save_build`.

@@ -408,6 +408,25 @@ final class HtmlConverter
      */
     private function widget(string $kind, Element $el): ?array
     {
+        $element = $this->widgetElement($kind, $el);
+        if ($element !== null && !in_array($kind, ['form', 'unreadable_form'], true)) {
+            // 3.33 (X4): build_from_html says what it recognised, so Claude knows what not to rebuild by hand
+            $this->messages[] = match ($kind) {
+                'accordion' => 'An accordion became an FAQ element (' . count($element['obsah']['polozky']) . ' questions; switch faq off in its content when they are not questions).',
+                'tabs' => 'Tabs became a Tabs element (' . count($element['obsah']['karty']) . ' tabs).',
+                'map' => 'A map became a Map element (' . $element['obsah']['adresa'] . ') – it loads Google Maps only after a click.',
+                'video' => 'A video became a Video element – the player loads only after a click.',
+                'embed' => 'An embedded page became an Embed element.',
+                default => 'A counter became a Counter element (' . $element['obsah']['cislo'] . ').',
+            };
+        }
+
+        return $element;
+    }
+
+    /** The element of a widget kind (widget() adds the note). */
+    private function widgetElement(string $kind, Element $el): ?array
+    {
         return match ($kind) {
             'form' => $this->form($el),
             'unreadable_form' => $this->formPlaceholder(),
