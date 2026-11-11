@@ -110,6 +110,7 @@ final class Settings
         'applications_seal_after' => '0', // 3.34 review M1: the id cursor of Core\Applications::sealPending (the moved CVs are sealed in daily batches)
         'applications_move_until' => '', // 3.34 review M3: migration 0120 moves the job enquiries up to this id; '' = not moving (Core\Applications::movingCondition)
         'applications_move_deferred' => '', // 3.34 second review N5: '1' = an older release's update request wrote the state of migration 0120, the 3.34 code moves
+        'applications_probe_seen' => '', // 3.34 third review F3: sha256 of an update probe without update_probe_at (an older release's updater)|unix time 0120 first saw it
         'applications_swept_on' => '', // 3.34 third review F2: the day the clean-up last swept storage/applications for orphans (once a day)
         'applications_files_since' => '', // 3.34 second review N9: unix time of the first sealed CV or move of applications – the restore screen warns about older backups
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
@@ -178,6 +179,7 @@ final class Settings
         'firewall_rate' => '0',        // requests per minute from one address (0 = no limit)
         'firewall_probes' => '1',      // block for a day an address probing for other systems
         'update_probe' => '',          // one-time code while an update checks that the new version runs (internal, 2.8)
+        'update_probe_at' => '',       // unix time the probe above was set (3.34 third review F3: a stale one no longer holds migration 0120 back)
         'site_key_secret' => '',       // this site's Ed25519 key (2.9, Fleet\Keys) – internal, never exported or shown
         'fleet_console_url' => '',     // the fleet console this site reports to (2.9, Fleet\Link)
         'fleet_console_key' => '',     // its public key: the console's answers must be signed by it
