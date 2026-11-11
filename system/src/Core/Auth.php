@@ -221,10 +221,43 @@ final class Auth
             return 'wrong'; // nothing typed is not a guess – it is not counted
         }
         if (self::matchingPassword($typed, (string) $user['password']) !== null) {
+            $this->markVerified(); // 3.35: a right current password is a fresh proof, as a sign-in is
             return 'ok';
         }
 
         return $this->countError($user) ? 'locked' : 'wrong';
+    }
+
+    /**
+     * 3.35: the session key of the last strong proof of who is signed in – a Unix time. Every completed sign-in sets it
+     * (password, password and code, password and passkey – startSignIn – and the passkey-first sign-in of 3.35 sets the
+     * same key), and so does confirmPassword() when the password is right. recentlyVerified() reads it for a step that
+     * needs a fresh proof: approving a new Claude connection with full access (Admin\Kernel::handleOAuthConsent). An
+     * account that signs in without a password proves itself again by signing in.
+     */
+    public const string VERIFIED_KEY = 'verified_at';
+
+    /** 3.35: how long a sign-in or a confirmed password counts as a fresh proof (recentlyVerified), in seconds. */
+    public const int VERIFIED_WINDOW = 10 * 60;
+
+    /** 3.35: records that the signed-in person has just proved who they are (VERIFIED_KEY). */
+    public function markVerified(): void
+    {
+        $this->session->set(self::VERIFIED_KEY, time());
+    }
+
+    /** 3.35: has the signed-in person proved who they are within VERIFIED_WINDOW (a sign-in or a right current password)? */
+    public function recentlyVerified(): bool
+    {
+        $at = $this->session->get(self::VERIFIED_KEY);
+
+        return $this->id() > 0 && self::verifiedWithin(is_int($at) ? $at : null, time());
+    }
+
+    /** 3.35: is a proof made at $at (null = none) still fresh at $now? A time in the future is not. Pure. */
+    public static function verifiedWithin(?int $at, int $now, int $window = self::VERIFIED_WINDOW): bool
+    {
+        return $at !== null && $at <= $now && $now - $at < $window;
     }
 
     /**
@@ -237,6 +270,7 @@ final class Auth
         $this->session->set('otisk', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
+        $this->markVerified(); // 3.35: a completed sign-in is a fresh proof (recentlyVerified)
         $this->user = false;
     }
 
@@ -454,7 +488,7 @@ final class Auth
                 if (!is_int($loginAt) || !is_int($lastSeen)) {
                     $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
                 } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
-                    foreach (['idu', 'otisk', 'login_at', 'last_seen'] as $key) {
+                    foreach (['idu', 'otisk', 'login_at', 'last_seen', self::VERIFIED_KEY] as $key) {
                         $this->session->remove($key);
                     }
                     $this->user = null;

@@ -12,7 +12,7 @@ NONCE_310=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redire
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_310"
 contains -q 'Kolik toho má Claude načíst hned na začátku?' "$WORK/response" && contains -q 'name="tool_set" value="essentials" checked' "$WORK/response" && ! contains -q 'value="all" checked' "$WORK/response" \
   && echo "  ok     3.10: the consent screen offers the essentials (preselected) or all tools" || { echo "  CHYBA  3.10: the tool set on the consent screen"; ERRORS=$((ERRORS+1)); }
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$NONCE_310" -d povolit=1 -d access=full -d tool_set=essentials)
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$NONCE_310" -d povolit=1 -d access=full -d tool_set=essentials --data-urlencode "soucasne=$PASSWORD")
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
 ESS_ACCESS=$(token_of access_token); ESS_REFRESH=$(token_of refresh_token)
 expect "3.10: the essentials chosen at consent are on the access and the refresh token" "$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', tool_set) ORDER BY druh) FROM ka_api_tokeny WHERE otisk IN (SHA2('$ESS_ACCESS', 256), SHA2('$ESS_REFRESH', 256))")" "obnova:essentials,pristup:essentials"
@@ -111,7 +111,7 @@ sq "DELETE FROM ka_api_tokeny WHERE nazev IN ('Claude essentials', 'other 310', 
 sq "ALTER TABLE ka_api_tokeny DROP COLUMN tool_set; ALTER TABLE ka_oauth_kody DROP COLUMN tool_set" > /dev/null
 NONCE_310=$(oauth_nonce "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' "$B/oauth/authorize?response_type=code&client_id=$CLIENT&redirect_uri=$REDIRECT_URI&code_challenge=$CHALLENGE&code_challenge_method=S256&state=n3109")")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&request=$NONCE_310"
-REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$NONCE_310" -d povolit=1 -d access=full -d tool_set=essentials)
+REDIRECT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$NONCE_310" -d povolit=1 -d access=full -d tool_set=essentials --data-urlencode "soucasne=$PASSWORD")
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=authorization_code -d "code=$(printf %s "$REDIRECT" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)" -d "redirect_uri=$REDIRECT_URI" -d "client_id=$CLIENT" -d "code_verifier=$VERIFIER"
 curl -s -o "$WORK/response" -X POST "$B/oauth/token" -d grant_type=refresh_token -d "refresh_token=$(token_of refresh_token)" -d "client_id=$CLIENT"
 expect "3.10 N310-9: without the tool_set column MCP and OAuth keep working with all tools" "$(mcp_list "$API_TOKEN")|$(mcp_list "$(token_of access_token)" | cut -d'|' -f2)" "$ALL_BEFORE|none"

@@ -14,6 +14,8 @@
  * @var bool $approved whether someone on this site has allowed this app before
  * @var string $selected the access chosen in advance
  * @var string $toolSet the tool set chosen in advance (3.10)
+ * @var string|null $passwordError why full access was refused just now (3.35); null = not refused
+ * @var bool $verified the person signed in or confirmed the password within Auth::VERIFIED_WINDOW – full access asks for nothing more (3.35)
  */
 $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 ?>
@@ -30,7 +32,14 @@ $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>">
 		<?= $csrf ?>
 		<input type="hidden" name="request" value="<?= e($nonce) ?>">
-		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet, 'recommended' => 'drafts']) ?>
+<?php if ($passwordError !== null): ?>
+		<p class="hlaska hlaska-chyba" role="alert"><?= e(t($passwordError)) ?></p>
+<?php endif ?>
+		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $passwordError !== null ? 'full' : $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet, 'recommended' => 'drafts']) ?>
+<?php if (!$verified): // 3.35: full access needs a fresh proof – the current password, or a sign-in within the last minutes ?>
+		<div class="radek oauth-heslo"><label for="oauth-heslo"><?= e(t('Your current password')) ?></label><div><input class="textpole" type="password" id="oauth-heslo" name="soucasne" size="30" autocomplete="current-password">
+		<span class="napoveda"><?= e(t('Needed only for “Can also publish”. Drafts and reading need no password.')) ?></span></div></div>
+<?php endif ?>
 		<p class="napoveda"><?= e(t('You can revoke the connection at any time in My account → Connected applications.')) ?></p>
 		<div class="tlacitka">
 		<button class="tl" type="submit" name="povolit" value="1"><?= e(t('Allow access')) ?></button>

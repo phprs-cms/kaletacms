@@ -4589,6 +4589,49 @@ await step('3.33 B: the list of pages labels an imported page whose layout waits
   }
 });
 
+// 3.35 B1 (owner decision 11 Nov 2026): without a fresh proof (a sign-in or a confirmed password in the last 10 minutes –
+// the session marker verified_at) the consent asks for the current password; "Can also publish" without it is refused on
+// the same page with why and the choice kept, at 1440 and 390 px in light and dark without sideways scroll, axe clean.
+await step('3.35 B1 OAuth consent: full access asks for the current password when the sign-in is not fresh (1440 and 390 px, light/dark, axe)', async () => {
+  const sessions = execFileSync('php', ['-r', 'echo session_save_path() ?: sys_get_temp_dir();'], { encoding: 'utf8' }).trim();
+  const redirect = 'https://claude.ai/api/mcp/auth_callback';
+  const client = await (await fetch(`${BASE}/oauth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: 'Claude 335', redirect_uris: [redirect], token_endpoint_auth_method: 'none' }) })).json();
+  const challenge = createHash('sha256').update('b'.repeat(50)).digest('base64url');
+  for (const scheme of ['light', 'dark']) {
+    for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+      const ctx = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, bypassCSP: true, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+      const p = await ctx.newPage(); watch(p);
+      try {
+        await p.goto(`${BASE}/admin.php`, { waitUntil: 'networkidle' });
+        await p.fill('input[name="user"]', 'admin');
+        await p.fill('input[name="password"]', PASSWORD);
+        await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
+        // the proof of this sign-in is pushed back to 1970 in the PHP session file, as if it were hours old
+        const id = (await ctx.cookies()).find((c) => c.name === 'kaleta')?.value || '';
+        const file = `${sessions}/sess_${id}`;
+        execFileSync('php', ['-r', '$f = $argv[1]; file_put_contents($f, preg_replace("/verified_at\\|i:\\d+;/", "verified_at|i:1;", (string) file_get_contents($f)));', file]);
+        await p.goto(`${BASE}/oauth/authorize?response_type=code&client_id=${client.client_id}&redirect_uri=${encodeURIComponent(redirect)}&code_challenge=${challenge}&code_challenge_method=S256&state=b335&scope=mcp`, { waitUntil: 'networkidle' });
+        if ((await p.locator('#oauth-heslo').count()) !== 1) { throw new Error(`no password field on the consent (${label}, ${scheme})`); }
+        await p.locator('.oauth-souhlas input[name="access"][value="full"]').check({ force: true });
+        await Promise.all([p.waitForNavigation(), p.locator('.oauth-souhlas button[name="povolit"][value="1"]').click()]);
+        if ((await p.locator('.oauth-souhlas .hlaska-chyba').count()) !== 1 || !(await p.locator('.oauth-souhlas input[name="access"][value="full"]').isChecked())) {
+          throw new Error(`full access without the password was not refused on the page with the choice kept (${label}, ${scheme})`);
+        }
+        const wide = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label}, ${scheme})`); }
+        if (SHOTS) { await p.screenshot({ path: `${SHOTS}/335b-consent-${label}-${scheme}.png`, fullPage: true }); }
+        if (label === 'desktop') {
+          const found = await axeViolations(p, `consent ${scheme}`);
+          if (found.length) { throw new Error(found.join('; ')); }
+        }
+      } finally {
+        await ctx.close();
+      }
+    }
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
