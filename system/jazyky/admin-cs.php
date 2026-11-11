@@ -7699,4 +7699,5 @@ return [
     'Check the retention and save: applications moved from Enquiries are not deleted until an administrator saves these settings.' => 'Zkontrolujte dobu uchování a uložte: žádosti přesunuté z poptávek se nesmažou, dokud správce tato nastavení neuloží.',
     'Job applications are still moving here from Enquiries: %s left. The move goes on with the next pages that open.' => 'Žádosti o místo se sem z poptávek ještě přesouvají: zbývá %s. Přesun pokračuje s dalšími otevřenými stránkami.',
     '%s CV(s) moved from Enquiries still wait to be encrypted into storage/applications; the daily clean-up encrypts up to %d a day.' => 'Životopisy přesunuté z poptávek, které ještě čekají na zašifrování do storage/applications: %s; denní úklid jich zašifruje až %d denně.',
+    '%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.' => 'Žádosti, které zůstávají tady (%d): jejich životopisy nešlo otevřít ani zapsat zpět (šifrovací klíč, disk) – nic z nich se nepřesunulo ani nesmazalo.',
 ];

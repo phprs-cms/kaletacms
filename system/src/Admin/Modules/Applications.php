@@ -380,7 +380,9 @@ final class Applications extends Module
         if ($this->request->post('direction') === 'back') {
             $result = \Kaleta\Core\ApplicationMove::toEnquiries($this->app, $form['form'], $form['source']);
 
-            return $this->back(t('Moved back to Enquiries: %d. Left of this form: %d.', $result['moved'], $result['left']), 'move');
+            return $this->back(t('Moved back to Enquiries: %d. Left of this form: %d.', $result['moved'], $result['left'])
+                . ($result['skipped'] > 0 ? ' ' . t('%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.', $result['skipped']) : ''),
+                'move', [], $result['skipped'] > 0 ? 'chyba' : 'ok');
         }
         $result = \Kaleta\Core\ApplicationMove::toApplications($this->app, $form['form'], $form['source']);
 

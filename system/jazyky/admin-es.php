@@ -8126,4 +8126,5 @@ return [
     'Check the retention and save: applications moved from Enquiries are not deleted until an administrator saves these settings.' => 'Revise el plazo de conservación y guarde: las solicitudes trasladadas desde las consultas no se borran hasta que un administrador guarde esta configuración.',
     'Job applications are still moving here from Enquiries: %s left. The move goes on with the next pages that open.' => 'Las solicitudes de empleo todavía se están trasladando aquí desde las consultas: quedan %s. El traslado continúa con las próximas páginas que se abran.',
     '%s CV(s) moved from Enquiries still wait to be encrypted into storage/applications; the daily clean-up encrypts up to %d a day.' => '%s CV trasladado(s) desde las consultas todavía esperan a cifrarse en storage/applications; la limpieza diaria cifra hasta %d al día.',
+    '%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.' => '%d solicitud(es) se quedan aquí: sus CV no se pudieron abrir ni volver a escribir (clave de cifrado, disco) – no se ha trasladado ni borrado nada de ellas.',
 ];

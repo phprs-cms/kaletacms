@@ -1014,10 +1014,25 @@ final class Applications
         if (!is_string($stored) || $stored === '') {
             return [];
         }
-        $json = str_starts_with($stored, '[') ? $stored : Vault::openFor($s, self::SECTION, $stored);
+        $json = str_starts_with($stored, '[') ? $stored : self::openList($s, $stored);
         $list = $json !== null ? json_decode($json, true) : null;
 
         return is_array($list) ? array_values(array_filter($list, 'is_array')) : [];
+    }
+
+    /** The JSON of a sealed attachment list, null when it cannot be opened. */
+    private static function openList(Settings $s, string $stored): ?string
+    {
+        return Vault::openFor($s, self::SECTION, $stored);
+    }
+
+    /**
+     * An attachment list is stored but cannot be opened – the encryption key (Vault) is not the one it was sealed with
+     * (3.34 review M2, M5): never "no attachments", and nothing may move or delete as if there were none.
+     */
+    public static function attachmentsLocked(Settings $s, mixed $stored): bool
+    {
+        return is_string($stored) && $stored !== '' && !str_starts_with($stored, '[') && self::openList($s, $stored) === null;
     }
 
     /**

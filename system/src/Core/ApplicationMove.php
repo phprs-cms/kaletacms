@@ -198,9 +198,13 @@ final class ApplicationMove
     }
 
     /**
-     * Moves up to BATCH applications of one form back to enquiries.
+     * Moves up to BATCH applications of one form back to enquiries. 3.34 review M2: nothing of an application is lost on the
+     * way – each sealed CV is decrypted into storage/prilohy and read back before anything goes; an application whose
+     * attachment list cannot be opened (the Vault key) or one of whose files cannot be decrypted, written or verified is
+     * skipped and counted (skipped) and stays an application; a transaction that rolls back removes the plain copies it
+     * wrote; the application row and its sealed files go only once the enquiry with everything of it is stored.
      *
-     * @return array{moved: int, left: int}
+     * @return array{moved: int, left: int, skipped: int}
      */
     public static function toEnquiries(App $app, string $form, string $source): array
     {
@@ -208,31 +212,90 @@ final class ApplicationMove
         $s = $app->settings();
         $now = Clock::now();
         $moved = 0;
-        foreach ($db->all('SELECT * FROM {applications} WHERE form = ? AND source = ? ORDER BY id LIMIT ' . self::BATCH, [$form, $source]) as $row) {
-            $a = Applications::decode($s, $row);
-            $id = $a['id'];
-            $data = array_values(array_filter($a['data'], fn (mixed $f): bool => is_array($f) && is_scalar($f[0] ?? null) && is_scalar($f[1] ?? null)));
-            $data = array_map(fn (array $f): array => [(string) $f[0], (string) $f[1]], $data);
-            $sealedFiles = [];
-            foreach (Applications::attachments($s, $row['attachments'] ?? null) as $i => $raw) {
-                $field = (int) ($raw['field'] ?? -1);
-                if (!isset($data[$field])) {
-                    continue;
-                }
-                if (empty($raw['sealed'])) {
-                    $data[$field][2] = (string) ($raw['path'] ?? ''); // still in storage/prilohy (moved from an enquiry, not sealed yet)
-                    continue;
-                }
-                $file = Applications::attachment($app, $id, (int) $i);
-                $extension = preg_match('/^[a-z0-9]{2,5}$/D', (string) ($raw['ext'] ?? '')) === 1 ? (string) $raw['ext'] : 'bin';
-                $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
-                $target = Applications::OLD_FOLDER . '/' . $path;
-                if ($file !== null && (is_dir(dirname($target)) || @mkdir(dirname($target), 0770, true)) && @file_put_contents($target, $file['content'], LOCK_EX) !== false) {
-                    $data[$field][2] = $path;
-                }
-                $sealedFiles[] = Applications::filePath($raw);
+        $skipped = 0;
+        $after = 0;
+        while ($moved < self::BATCH) {
+            $rows = $db->all('SELECT * FROM {applications} WHERE form = ? AND source = ? AND id > ? ORDER BY id LIMIT ' . self::BATCH, [$form, $source, $after]);
+            if ($rows === []) {
+                break;
             }
-            $db->transaction(function () use ($db, $a, $id, $data, $now, &$moved): void {
+            foreach ($rows as $row) {
+                $after = (int) $row['id'];
+                if ($moved >= self::BATCH) {
+                    break 2;
+                }
+                if (self::moveBack($app, $s, $row, $now)) {
+                    $moved++;
+                } else {
+                    $skipped++;
+                }
+            }
+        }
+        $left = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE form = ? AND source = ?', [$form, $source]);
+        if ($moved > 0) {
+            self::record($app, 'to enquiries', $moved, [], 0);
+        }
+        if ($skipped > 0) {
+            Events::record($db, 'applications.move_failed', 'warning', mb_substr(sprintf('%d application(s) could not be moved back to Enquiries – their CVs cannot be opened or written; they stay in Applications', $skipped), 0, 255),
+                ['skipped' => $skipped, 'direction' => 'to enquiries']);
+        }
+
+        return ['moved' => $moved, 'left' => $left, 'skipped' => $skipped];
+    }
+
+    /**
+     * One application back to an enquiry (toEnquiries); false when it stays an application.
+     *
+     * @param array<string, mixed> $row a whole row of ka_applications
+     */
+    private static function moveBack(App $app, Settings $s, array $row, string $now): bool
+    {
+        $db = $app->db();
+        $a = Applications::decode($s, $row);
+        $id = $a['id'];
+        if (Applications::attachmentsLocked($s, $row['attachments'] ?? null)) {
+            return false; // the list of CVs cannot be opened (the encryption key) – moving would lose them
+        }
+        $data = array_values(array_filter($a['data'], fn (mixed $f): bool => is_array($f) && is_scalar($f[0] ?? null) && is_scalar($f[1] ?? null)));
+        $data = array_map(fn (array $f): array => [(string) $f[0], (string) $f[1]], $data);
+        $written = [];
+        $sealedFiles = [];
+        $forget = static function () use (&$written): void {
+            foreach ($written as $file) {
+                @unlink($file); // the plain copies of an application that stays
+            }
+        };
+        foreach (Applications::attachments($s, $row['attachments'] ?? null) as $i => $raw) {
+            $field = (int) ($raw['field'] ?? -1);
+            if (!isset($data[$field])) {
+                $data[] = [(string) ($raw['name'] ?? 'CV'), (string) ($raw['name'] ?? '')]; // a file without its field keeps a field of its own
+                $field = count($data) - 1;
+            }
+            if (empty($raw['sealed'])) {
+                $data[$field][2] = (string) ($raw['path'] ?? ''); // still in storage/prilohy (moved from an enquiry, not sealed yet)
+                continue;
+            }
+            $file = Applications::attachment($app, $id, (int) $i);
+            $extension = preg_match('/^[a-z0-9]{2,5}$/D', (string) ($raw['ext'] ?? '')) === 1 ? (string) $raw['ext'] : 'bin';
+            $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
+            $target = Applications::OLD_FOLDER . '/' . $path;
+            if ($file === null || (!is_dir(dirname($target)) && !@mkdir(dirname($target), 0770, true)) || @file_put_contents($target, $file['content'], LOCK_EX) === false) {
+                $forget();
+
+                return false;
+            }
+            $written[] = $target;
+            $check = @file_get_contents($target);
+            if (!is_string($check) || !hash_equals(hash('sha256', $file['content']), hash('sha256', $check))) {
+                $forget();
+
+                return false;
+            }
+            $data[$field][2] = $path;
+            $sealedFiles[] = Applications::filePath($raw);
+        }
+        try {
+            $db->transaction(function () use ($db, $a, $id, $data, $now): void {
                 $idp = $db->insert('poptavky', [
                     'datum' => (string) $a['received_at'], 'formular' => (string) $a['form'], 'zdroj' => (string) $a['source'], 'prvek' => (string) $a['element'], 'stranka' => (string) $a['page'],
                     'tema' => mb_substr((string) $a['job_title'], 0, 255), 'email' => (string) $a['email'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -244,21 +307,22 @@ final class ApplicationMove
                 }
                 $db->insert('comments', ['target' => Comments::enquiry($idp), 'kind' => 'note', 'author_id' => null, 'author_name' => 'Kaleta', 'via' => 'admin', 'created_at' => $now,
                     'text' => 'Moved back from Applications (application #' . $id . ', status ' . $a['status'] . ($a['job_title'] !== '' ? ', position ' . mb_substr((string) $a['job_title'], 0, 200) : '') . ').']);
-                $db->delete('applications', ['id' => $id]);
-                $moved++;
-            });
-            foreach ($sealedFiles as $path) {
-                if ($path !== null && is_file($path)) {
-                    @unlink($path); // the sealed copy – the enquiry has its own now
+                if ($db->run('DELETE FROM {applications} WHERE id = ?', [$id])->rowCount() !== 1) {
+                    throw new \RuntimeException('The application changed meanwhile.');
                 }
+            });
+        } catch (\Throwable) {
+            $forget();
+
+            return false;
+        }
+        foreach ($sealedFiles as $path) {
+            if ($path !== null && is_file($path)) {
+                @unlink($path); // the sealed copy – the enquiry has its own now
             }
         }
-        $left = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE form = ? AND source = ?', [$form, $source]);
-        if ($moved > 0) {
-            self::record($app, 'to enquiries', $moved, [], 0);
-        }
 
-        return ['moved' => $moved, 'left' => $left];
+        return true;
     }
 
     /**
