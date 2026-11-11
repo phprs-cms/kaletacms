@@ -710,7 +710,7 @@ final class Kernel
             // proof: the current password typed here, or a sign-in or confirmed password within Auth::VERIFIED_WINDOW (an
             // account that signs in without a password signs in again). Drafts and read stay one click. The request waits
             // in the session for another try; nothing is issued until the proof is there.
-            $passwordError = $access === 'full' ? self::fullAccessRefusal($app->auth(), self::passkeyConfirmOnly($app, $siteUrl)) : null;
+            $passwordError = $access === 'full' ? self::fullAccessRefusal($app->auth()) : null;
             if ($passwordError === null) {
                 \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
                 ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
@@ -729,11 +729,11 @@ final class Kernel
             // approve" the installer and the site promise; publishing is one click away. Connections that exist keep their access.
             'selected' => 'drafts',
             // 3.35: why full access was refused just now (the view keeps full chosen), and whether a fresh proof is there
-            'passwordError' => $passwordError, 'verified' => $app->auth()->recentlyVerified(),
+            'passwordError' => $passwordError, 'verified' => $app->auth()->isPasskeyOnly() ? $app->auth()->isFreshlyVerified() : $app->auth()->recentlyVerified(),
             // 3.35: an account with a passkey may confirm with it (on the site's own host); one that signs in with a passkey
             // only is offered nothing else
             'passkeyConfirm' => $app->auth()->accountKeys($app->auth()->id()) !== [] && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl),
-            'passkeyOnly' => self::passkeyConfirmOnly($app, $siteUrl),
+            'passkeyOnly' => $app->auth()->isPasskeyOnly(), // 3.35 review M2: on every host – the password is no proof for it anywhere
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
             'toolSet' => 'essentials',
         ])]));
@@ -749,32 +749,17 @@ final class Kernel
      * Auth::VERIFIED_WINDOW or typed the right current password into the consent form (Auth::confirmPassword: the
      * sign-in's counter and lock).
      */
-    private static function fullAccessRefusal(\Kaleta\Core\Auth $auth, bool $passkeyOnly = false): ?string
+    private static function fullAccessRefusal(\Kaleta\Core\Auth $auth): ?string
     {
-        if ($auth->recentlyVerified()) {
-            return null;
-        }
-        if ($passkeyOnly) {
-            return self::FULL_ACCESS_PASSKEY; // 3.35: an account that signs in with a passkey only confirms with it, never with a password
-        }
-
-        return match ($auth->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '')) {
+        // 3.35 review M2: Auth::freshProof – any proof within the window or the current password; an account that signs in
+        // with a passkey only needs the strong proof (a passkey or backup-code step, or "Confirm with your passkey") on
+        // every host – a right password typed elsewhere (verified_at) does not count for it
+        return match ($auth->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '', 'recent')) {
             'ok' => null,
+            'passkey' => self::FULL_ACCESS_PASSKEY, // an account that signs in with a passkey only confirms with it, never with a password
             'locked' => \Kaleta\Core\Auth::CONFIRM_LOCKED,
             default => self::FULL_ACCESS_PASSWORD,
         };
-    }
-
-    /**
-     * 3.35: does the signed-in account confirm the consent with its passkey only – it signs in with a passkey only
-     * (SignInPolicy::passkeyOnly: its own choice or the site's) and the page is on the site's own host, where the passkey works?
-     */
-    private static function passkeyConfirmOnly(\Kaleta\Core\App $app, string $siteUrl): bool
-    {
-        $user = $app->auth()->user();
-
-        return $user !== null && \Kaleta\Core\SignInPolicy::passkeyOnly($user, $app->auth()->accountKeys((int) $user['idu']), $app->settings())
-            && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl);
     }
 
     /** 3.35: the answer when an account that signs in with a passkey only approves full access without a fresh proof. */

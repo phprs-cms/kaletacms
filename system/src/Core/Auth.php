@@ -651,6 +651,44 @@ final class Auth
     }
 
     /**
+     * 3.35 review M2: does the signed-in account sign in with a passkey only (SignInPolicy::passkeyOnly – its own choice, or
+     * the site's rule once it has a working passkey)? Then its password is no proof of who is at the keyboard.
+     */
+    public function isPasskeyOnly(): bool
+    {
+        $user = $this->user();
+
+        return $user !== null && SignInPolicy::passkeyOnly($user, $this->accountKeys((int) $user['idu']), $this->siteSettings());
+    }
+
+    /**
+     * 3.35 review M2: the ONE check of a fresh proof before a sensitive change (My account, the OAuth consent of a full
+     * connection, Settings, Users). $accepts says what counts besides the current password typed in the form
+     * (confirmPassword – the sign-in's counter and lock): 'password' nothing else, 'strong' a passkey or backup-code step
+     * within VERIFIED_WINDOW (isFreshlyVerified), 'recent' any proof within it (recentlyVerified). An account that signs in
+     * with a passkey only never proves itself with its password – a stolen password and session must not undo its
+     * passkeys: only the strong proof counts (a passkey or backup-code step, or "Confirm with your passkey" –
+     * confirmWithPasskey), whatever $accepts says, and the typed password is not even checked ('passkey').
+     *
+     * @param 'password'|'strong'|'recent' $accepts
+     * @return 'ok'|'wrong'|'locked'|'passkey'
+     */
+    public function freshProof(string $typed, string $accepts = 'password'): string
+    {
+        if ($this->isPasskeyOnly()) {
+            return $this->isFreshlyVerified() ? 'ok' : 'passkey';
+        }
+        if (($accepts === 'strong' && $this->isFreshlyVerified()) || ($accepts === 'recent' && $this->recentlyVerified())) {
+            return 'ok';
+        }
+
+        return $this->confirmPassword($typed);
+    }
+
+    /** 3.35 review M2: the answer when a passkey-only account offers its password where the strong proof is needed. */
+    public const string PASSKEY_PROOF = 'You sign in with a passkey only, so your password does not confirm this. Confirm with your passkey first (or sign in again with your passkey or a backup code), then do it within 10 minutes. Nothing was changed.';
+
+    /**
      * Whether this sign-in proved itself with a passkey or a backup code within VERIFIED_WINDOW (the strong proof – see
      * VERIFIED_KEY) – then adding or removing a passkey needs no password (3.35).
      */

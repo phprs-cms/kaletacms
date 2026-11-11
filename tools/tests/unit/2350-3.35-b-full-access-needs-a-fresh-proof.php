@@ -20,8 +20,8 @@ check('3.35 B1: every completed sign-in and a right current password set the mar
     str_contains($i335aAuth, "['idu', 'otisk', 'login_at', 'last_seen', self::VERIFIED_KEY]"),
 ], [true, true, true]);
 check('3.35 B1: the consent asks for the password only for full access, through confirmPassword, and keeps the request on a refusal', [
-    str_contains($i335aKernel, "\$passwordError = \$access === 'full' ? self::fullAccessRefusal(\$app->auth(), self::passkeyConfirmOnly(\$app, \$siteUrl)) : null;"), // 3.35: + the passkey confirmation
-    (bool) preg_match('/function fullAccessRefusal\(.*?recentlyVerified\(\).*?confirmPassword\(/s', $i335aKernel),
+    str_contains($i335aKernel, "\$passwordError = \$access === 'full' ? self::fullAccessRefusal(\$app->auth()) : null;"), // 3.35 review M2: one rule, Auth::freshProof
+    (bool) preg_match("/function fullAccessRefusal\\(.*?->freshProof\\(.*?, 'recent'\\)/s", $i335aKernel) && (bool) preg_match('/function freshProof\(.*?recentlyVerified\(\).*?confirmPassword\(/s', $i335aAuth),
     // the request is forgotten only when the consent is denied or a code is issued
     substr_count($i335aKernel, 'OAuth::forgetRequest($app->session, $nonce)'),
     str_contains($i335aView, 'id="oauth-heslo" name="soucasne"'), str_contains($i335aView, '<?php if (!$verified && !$passkeyOnly):'),

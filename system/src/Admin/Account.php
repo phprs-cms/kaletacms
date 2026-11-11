@@ -31,6 +31,9 @@ final class Account
         $user = $app->auth()->user();
         $data = ['backupCodes' => [], 'newSecret' => '', 'newToken' => ''];
 
+        if ($r->isPost() && in_array($r->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)) {
+            return $this->confirmWithPasskey();
+        }
         if ($r->isPost()) {
             $message = null;
             switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('co')))) {
@@ -280,7 +283,7 @@ final class Account
      */
     private function freshnessRefused(string $wrong): ?array
     {
-        return $this->kernel->app->auth()->isFreshlyVerified() ? null : $this->passwordRefused($wrong);
+        return $this->proofRefused($wrong, 'strong');
     }
 
     /**
@@ -291,12 +294,52 @@ final class Account
      */
     private function passwordRefused(string $wrong): ?array
     {
-        return match ($this->kernel->app->auth()->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '')) {
+        return $this->proofRefused($wrong, 'password');
+    }
+
+    /**
+     * 3.35 review M2: both checks above go through Auth::freshProof – an account that signs in with a passkey only
+     * (SignInPolicy::passkeyOnly) is never confirmed by its password here: only by a strong proof (a passkey or
+     * backup-code step a few minutes ago, or "Confirm with your passkey"), the same rule as the OAuth consent.
+     *
+     * @param 'password'|'strong' $accepts
+     * @return array{0: string, 1: string}|null
+     */
+    private function proofRefused(string $wrong, string $accepts): ?array
+    {
+        return match ($this->kernel->app->auth()->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '', $accepts)) {
             'ok' => null,
             'locked' => ['chyba', \Kaleta\Core\Auth::CONFIRM_LOCKED],
+            'passkey' => ['chyba', \Kaleta\Core\Auth::PASSKEY_PROOF],
             default => ['chyba', $wrong],
         };
     }
+
+    /**
+     * 3.35 review M2: "Confirm with your passkey" (image/klice.js, data-klic-potvrdit) – the strong fresh proof of an
+     * account that signs in with a passkey only, for My account and for the forms of Settings and Users that point here:
+     * a challenge for the account's own passkeys, then their signature (Auth::confirmWithPasskey – the sign-in's counter,
+     * markVerified(true)). The page the button is on reloads with the proof.
+     */
+    private function confirmWithPasskey(): Response
+    {
+        $app = $this->kernel->app;
+        $siteUrl = $app->settings()->get('site_url') ?: $app->request->origin();
+        if ($app->request->post('krok') === 'passkey_confirm_options') {
+            $options = $app->auth()->confirmChallenge($siteUrl);
+
+            return Response::json($options ?? ['chyba' => t('This account has no passkey.')], $options === null ? 400 : 200);
+        }
+        $result = $app->auth()->confirmWithPasskey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $siteUrl, \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings()));
+        if ($result === 'ok') {
+            ChangeLog::write($app, 'ucet', 'passkey_confirm');
+        }
+
+        return Response::json($result === 'ok' ? ['ok' => true] : ['chyba' => t($result === 'locked' ? Kernel::PASSKEY_CONFIRM_LOCKED : self::PASSKEY_CONFIRM_FAILED)], $result === 'ok' ? 200 : 401);
+    }
+
+    /** 3.35 review M2: the answer of a passkey confirmation in My account that did not succeed. */
+    public const string PASSKEY_CONFIRM_FAILED = 'The passkey did not confirm it. Try again, or sign in again with your passkey.';
 
     /**
      * Whether a password change keeps the account's personal tokens (3.31.2, N101): only when the form explicitly says so –
