@@ -1624,6 +1624,73 @@ the row status `sample`; `site_audit` – `move`; `list_pages` – `layout_not_r
    pages), sample pages left, redirects, lost and site-wide forms, whether the newest report is clean – counts and links
    only, nothing new stored. A site without imported pages or a report never sees it.
 
+## 3.34 – job applications apart from enquiries (11 November 2026)
+
+Applications to job openings leave the enquiries and get a section of their own. Migration 0119 creates
+`ka_applications` (no foreign keys; `source_enquiry_id` unique, so a move never runs twice); data migration 0120 (the
+highest number of the release) switches the feature `applications` on for a site with a Job openings collection,
+starts `applications_months` at `job_applications_months` when that was set, and moves every enquiry from a jobs
+collection (`zdroj = kolekce:<idk>`) into an application – fields without file paths, CVs listed for sealing, position,
+status, replies, responsible person, the old note as an internal note, comments, tasks and notifications – then deletes
+the enquiry row and a customer record created only from moved applications; a deal made from one keeps going without
+the link. `KALETA_DB_VERSION` 120. New settings `applications_months` (6), `applications_pool_months` (12),
+`applications_notify_full` (off), `applications_claude` (on) and `application_templates`. New MCP tools
+`list_applications`, `get_application`, `update_application` and `reply_to_application` (extension `applications`, the
+work set, never the essentials; English on both sides of the Translator). Additive keys: `site_info` – `features`
+(`applications`: `enabled`, `claude`, `can_open`); `list_enquiries` – `applications_hint` on rows of kind job while the
+feature is on; `my_work` – `applications_assigned`, `applications_unassigned`; the target `application` for `add_comment`,
+`list_comments`, `save_task`, `list_tasks` and `assign`; the Form fields `purpose` and `pool_consent` in the builder
+vocabulary. No setting key, POST field, MCP tool, parameter or Czech alias renamed.
+
+1. **What an application is** (`Core\Applications`): a submission of a Form on a job's item page (the item template of a
+   jobs collection, the rule of 2.11) or of a Form whose new property Purpose is "Job application" – only while the
+   feature is on. It is stored in `ka_applications`, never in the enquiries: no customer record, no deal, no triage, no
+   webhook and no "enquiry received" event. The position is looked up on the server – the job of the page the form came
+   back to, or on a general form a field labelled like a position matched to an open job; nothing posted is trusted. A
+   form imported by 3.33 stays an enquiry form (no Purpose, a page source) until it sits on a job page or gets the Purpose.
+2. **The section and who gets it**: Applications in the Workspace group is granted explicitly (`Module::GRANTED_EXPLICITLY`)
+   – nobody but administrators has it after the update, and the screen tells an administrator to choose. The ready-made
+   role HR (Roles) gives Applications, Collections (the job openings) and Requests, and nothing of enquiries or customers.
+3. **CVs**: a narrow list of types (PDF, Word, ODT, RTF, text, JPEG, PNG; at most three files); the detected content must
+   fit the extension and is never HTML, PHP, a script or a program. Each file is encrypted with its own random key into
+   `storage/applications/`, outside the web root; the keys, names and sizes are sealed with the Vault key of the purpose
+   `applications` (`Vault::SEALED` – moved and resealed with the other secrets). A file is downloaded only by a person with
+   the section; MCP lists a CV by name and size and never passes its content to Claude.
+4. **Statuses, responsibility, notes and tasks**: six fixed statuses – New, Reviewed, Interview, Offer, Hired, Rejected
+   (with a reason) – any may follow any, every change in the history; a list with tabs (Open, Waiting = new without a
+   reply for over a week, each status, All), filters and "with selected". A responsible person, internal notes, tasks and
+   notifications use the target `application:<id>` (`Handover::KINDS`, `Assignment::KINDS`); a leaver's undecided
+   applications go only to someone who may open Applications. Colleagues' notifications name an application only by its
+   number and position.
+5. **Replies with templates**: the enquiry reply machinery (SMTP only, Reply-To the sender, the signature, the history with
+   its delivery state) with three templates – received, invitation, rejection – in every visitor language, rewritable per
+   site language (`application_templates`). A form without a confirmation of its own now sends the applicant the
+   "received" template. The mail log keeps "Reply to application #N: <site>", never a name or the position; the e-mail
+   to the form's recipients carries the position and a link only unless `applications_notify_full` is on.
+6. **Retention and future openings**: a decided application goes `applications_months` after the decision, an undecided
+   one after that long without any activity (the responsible person is told 7 days before); an optional consent checkbox
+   on the form (`pool_consent`) keeps an application for `applications_pool_months`; a withdrawn consent is recorded by a
+   person. Deletion removes the sealed files first, then the row, its notes, tasks and notifications.
+7. **Personal data**: a personal data request finds the applications sent from or naming an address and erases them with
+   their files; applications are never journalled for undo, never in the site export, blueprints or the fleet heartbeat,
+   never sent to the site's AI assistant, and Claude reads them only through the connection of a user with the section
+   while `applications_claude` is on. The privacy text says so.
+8. **The update on a site with career forms**: migration 0120 moves the enquiries of the jobs collections (see above);
+   their old CV files stay in `storage/prilohy` until the daily clean-up seals them in batches. Retention is not prolonged –
+   rows past the period go with the first clean-up. The move is recorded as counts (the change log and the event
+   `applications.moved`), never a person.
+9. **Move by form and one by one**: for a career form that is not on a job page, administrators move the enquiries of one
+   form (name + source) to Applications and back in Applications → Move by form (`Core\ApplicationMove`, batches of 200,
+   safe to run again; the way back decrypts the CVs into `storage/prilohy`). A person with both sections moves a single
+   enquiry with "Move to Applications" on its detail – the same steps for one row.
+10. **Across the admin**: My work lists the undecided applications one is responsible for and the new ones nobody is;
+    Ctrl K finds an application by number, name or position (only with the section); the items list of a jobs
+    collection shows Applications (new / all) per job; the builder fills a choice field with the open jobs.
+11. **JobPosting**: an identifier, `directApply` when the job page holds a form, remote work from the new preset field
+    Workplace (TELECOMMUTE with the company's country), the full address in the company's own town.
+12. **Monthly report**: recruitment counts per status and position – never a person; in the month applications left the
+    enquiries the enquiry tile says "counting changed" instead of showing a drop.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

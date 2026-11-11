@@ -171,6 +171,21 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   s osobou (upozornění z formuláře: jméno nebo firma, nikdy e-mail) jde jen do e-mailu – `Mail::send(…, $logSubject)` drží v `ka_posta.predmet`
   a `mail.failed` jen „<formulář>: <web>“. Mé práce: nepřiřazená nezodpovězená poptávka jen nová nebo do `MyWork::UNASSIGNED_DAYS` (30).
   Kdo nevidí žádnou sekci obsahu, přistane na Mé práci (`Admin\Kernel::landsOnMyWork`); lišta vzhledu jen na nástěnce a ve Vzhledu.
+- **Žádosti o místo (3.34, `Core\Applications`, tabulka `ka_applications`, migrace 0119 + datová 0120, rozšíření a sekce `applications`
+  ve skupině Workspace):** žádost není druh poptávky – žádný zákazník, obchod, triáž, webhook ani událost poptávky. Formulář je uchazečský,
+  když je zapnuté rozšíření a leží v šabloně položky kolekce pracovních míst (`Jobs::sources`) nebo má vlastnost Účel `ucel = uchazec`
+  (`Applications::PURPOSE`, `isApplicationForm`); pozici hledá server (`position()`), importovaný formulář zůstává poptávkový. Sekce má
+  `Module::GRANTED_EXPLICITLY` – po aktualizaci ji má jen správce, dál ji dává v Uživatelích nebo hotová role HR (Applications, Collections,
+  Requests). Životopisy: úzký seznam typů s kontrolou obsahu (`checkUpload`), každý soubor šifrovaný vlastním klíčem do `storage/applications/`
+  mimo web, seznam klíčů zapečetěný klíčem `Vault` účelu `applications` (`Vault::SEALED`); stahuje jen člověk se sekcí, MCP soubor nikdy
+  nedostane. Odpovědi jdou strojem poptávek (`EnquiryReply`: jen SMTP, podpis, historie) se šablonami received/interview/rejection
+  (`application_templates`); formulář bez vlastního potvrzení pošle uchazeči „received“. `ka_posta.predmet` a log drží jen
+  „Reply to application #N: <web>“, upozornění kolegům jen číslo a pozici – nikdy jméno. Přesun poptávek formuláře tam a zpět a jedné poptávky
+  („Přesunout do žádostí o místo“ pro toho, kdo má obě sekce) jen přes `Core\ApplicationMove` (opakovatelné díky `source_enquiry_id`).
+  MCP `list_applications`, `get_application`, `update_application`, `reply_to_application` (mimo ESSENTIALS) jen pro uživatele se sekcí
+  a se zapnutým `applications_claude`. Cíl `application:<id>` pro komentáře, úkoly, upozornění a odpovědnost (`Assignment::KINDS`,
+  `Handover::KINDS`). Retence `applications_months` (od rozhodnutí, nerozhodnutá od poslední aktivity), souhlas pro budoucí místa
+  `applications_pool_months`, `applications_notify_full`. Žádosti se nikdy nežurnálují pro undo a nejdou do exportu webu ani heartbeatu.
 - **Záchranná síť (3.32):** zastaralá funkce PHP se loguje, nehází (`App::handleError`; `Core\ErrorLog` je jediný zapisovatel `chyby.log`;
   testy definují `KALETA_STRICT_DEPRECATIONS`; rotace pod zámkem s novou kontrolou souboru). Žádné mazání při GET – úklid patří do úlohy
   Scheduleru (`trash`, `cleanup`; Stav systému varuje, když `cleanup` neuspěl přes 2 dny – `Scheduler::cleanupStale`). Nová migrace
