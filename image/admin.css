@@ -1991,3 +1991,6 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 .uchazeci-hromadne-krok select { min-width: 0; max-width: 100%; }
 .uchazec-sablona { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
 .uchazec-sablona select { flex: 0 1 18em; min-width: 0; max-width: 100%; }
+.uchazec-sablony { margin: 0 0 16px; padding: 8px 14px; border: 1px solid var(--linka); border-radius: var(--radius); }
+.uchazec-sablona-polozka { margin: 4px 0; }
+.uchazec-sablona-polozka > summary { min-height: 32px; padding: 6px 0; cursor: pointer; }
