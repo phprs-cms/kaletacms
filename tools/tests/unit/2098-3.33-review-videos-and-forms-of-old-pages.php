@@ -16,3 +16,24 @@ check('3.33 review L1: foreign and old-site video files are left out with an att
     '/about – the video /files/intro.webm could not be downloaded: add it in the builder.',
 ]]);
 check('3.33 review L1: HTML without a video is returned as it is', WebImport::localVideosOnly('<p>No <b>video</b></p>', 'https://old.example/', $i333vState), '<p>No <b>video</b></p>');
+
+/* ---------- 3.33 review L2: a hero or background video stays as Custom HTML for an administrator ---------- */
+$i333vHero = '<video autoplay muted loop playsinline src="media/hero-1a2b3c.mp4"></video>';
+$i333vTypes = function (array $c): array {
+    $types = [];
+    $walk = function (array $nodes) use (&$walk, &$types): void {
+        foreach ($nodes as $n) {
+            if (in_array($n['typ'], ['html', 'video'], true)) {
+                $types[] = $n['typ'] . ($n['typ'] === 'html' && str_contains((string) ($n['obsah']['kod'] ?? ''), 'autoplay') ? ':autoplay' : '');
+            }
+            $walk($n['deti'] ?? []);
+        }
+    };
+    $walk($c['stavba']['deti']);
+
+    return $types;
+};
+check('3.33 review L2: build_from_html keeps an autoplay/loop/muted <video> as Custom HTML for an administrator, a Video element otherwise', [
+    $i333vTypes(Kaleta\Builder\HtmlConverter::convert($i333vHero, true)), $i333vTypes(Kaleta\Builder\HtmlConverter::convert($i333vHero, false)),
+    $i333vTypes(Kaleta\Builder\HtmlConverter::convert('<video controls src="media/tour-1a2b3c.mp4"></video>', true)),
+], [['html:autoplay'], ['video'], ['video']]);

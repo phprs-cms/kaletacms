@@ -408,6 +408,14 @@ final class HtmlConverter
      */
     private function widget(string $kind, Element $el): ?array
     {
+        // 3.33 review L2: a hero or background video (autoplay, loop or muted <video>) plays by itself – the Video element
+        // would turn it into a player behind a click, so for an administrator it stays as Custom HTML
+        if ($kind === 'video' && $this->admin && strtolower($el->localName) === 'video'
+            && ($el->hasAttribute('autoplay') || $el->hasAttribute('loop') || $el->hasAttribute('muted'))) {
+            $this->messages[] = 'A background video (autoplay, loop or muted) stayed as Custom HTML, so it keeps playing by itself.';
+
+            return $this->customHtml($el);
+        }
         $element = $this->widgetElement($kind, $el);
         if ($element !== null && !in_array($kind, ['form', 'unreadable_form'], true)) {
             // 3.33 (X4): build_from_html says what it recognised, so Claude knows what not to rebuild by hand
