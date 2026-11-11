@@ -8,7 +8,9 @@ for b333_page in $B333_PAGES; do mkdir -p "$B333_DIR/$b333_page"; cp "$ROOT/tool
 php -r '$i = imagecreatetruecolor(1200, 630); imagefill($i, 0, 0, imagecolorallocate($i, 31, 78, 61)); imagepng($i, $argv[1]);' "$B333_DIR/img/share.png"
 for b333_pdf in files/price-list.pdf files/aftercare.pdf files/brochure.pdf files/process.pdf _files/ugd/timetable.pdf; do
   printf '%%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%%%EOF\n' > "$B333_DIR/$b333_pdf"; done
-head -c 4096 /dev/urandom > "$B333_DIR/files/clinic-tour.mp4"
+# an MP4 header (ftyp isom) and zeros: random bytes looked like a Windows executable to finfo about once in a hundred runs,
+# and the importer rightly refused the file as content that does not match its extension
+{ printf '\000\000\000\030ftypisom\000\000\002\000isomiso2mp41'; head -c 4072 /dev/zero; } > "$B333_DIR/files/clinic-tour.mp4"
 printf 'User-agent: *\nCrawl-delay: 0\nSitemap: %s/sitemap.xml\n' "$B333" > "$B333_DIR/robots.txt"
 { printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'; for b333_page in $B333_PAGES; do printf '<url><loc>%s/%s/</loc></url>' "$B333" "$b333_page"; done; printf '</urlset>'; } > "$B333_DIR/sitemap.xml"
 (cd "$B333_DIR" && exec php -S "127.0.0.1:$B333_PORT" > /dev/null 2>&1) & B333_PID=$!
