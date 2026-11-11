@@ -243,6 +243,7 @@ final class Auth
             return 'wrong'; // nothing typed is not a guess – it is not counted
         }
         if (self::matchingPassword($typed, (string) $user['password']) !== null) {
+            $this->session->set('verified_at', time()); // 3.35: a right current password is a fresh proof (the OAuth consent of B1 reads it)
             return 'ok';
         }
 
@@ -260,6 +261,7 @@ final class Auth
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
         $this->session->remove('strong_at'); // a fresh confirmation belongs to the sign-in that made it (markFresh after this)
+        $this->session->set('verified_at', time()); // 3.35: every completed sign-in – password, + code, + backup code, + passkey, passkey alone – is a fresh proof (B1: Auth::VERIFIED_KEY)
         $this->user = false;
     }
 

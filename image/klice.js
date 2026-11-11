@@ -68,18 +68,18 @@
 
 		// 3.35: the user-name field offers the site's passkeys as it is focused (conditional UI) where the browser can; the
 		// request waits in the background and is renewed before its challenge expires on the server (5 minutes)
-		var conditional = null, renew = null;
+		var conditional = null, renew = null, settled = Promise.resolve(), busy = false;
 		var passwordless = formEl.querySelector('[data-klic-bezhesla]');
 		function startConditional() {
 			if (!passwordless || !document.querySelector('input[autocomplete~="webauthn"]') || !PublicKeyCredential.isConditionalMediationAvailable) { return; }
 			PublicKeyCredential.isConditionalMediationAvailable().then(function (available) {
-				if (!available) { return; }
+				if (!available || busy) { return; } // a modal request started meanwhile
 				stopConditional();
 				var controller = new AbortController();
 				conditional = controller;
 				renew = window.setTimeout(startConditional, 240000);
 				var chosen = false;
-				deliver({ krok: 'passkey_options' }).then(function (m) {
+				settled = deliver({ krok: 'passkey_options' }).then(function (m) {
 					if (controller.signal.aborted) { return null; }
 					return navigator.credentials.get({ publicKey: getOptions(m), mediation: 'conditional', signal: controller.signal });
 				}).then(function (k) {
@@ -90,12 +90,14 @@
 					if (controller.signal.aborted || (e && e.name === 'AbortError')) { return; }
 					showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
 					if (chosen) { startConditional(); } // a refused passkey: the autofill is offered again (never in a loop of failing requests)
-				});
+				}).then(function () { return null; });
 			});
 		}
+		// resolves once the aborted autofill request has really ended – the browser allows one WebAuthn request at a time
 		function stopConditional() {
 			if (renew) { window.clearTimeout(renew); renew = null; }
 			if (conditional) { conditional.abort(); conditional = null; }
+			return settled;
 		}
 		startConditional();
 
@@ -106,15 +108,19 @@
 				buttons.forEach(function (b) { b.disabled = true; });
 				showError('');
 				buttons.forEach(function (b) { b.disabled = true; });
-				stopConditional(); // one WebAuthn request at a time: the modal one replaces the autofill
+				busy = true;
+				var stopped = stopConditional(); // one WebAuthn request at a time: the modal one replaces the autofill
 
 				if (withoutPassword) {
-					deliver({ krok: 'passkey_options' }).then(function (m) {
+					stopped.then(function () {
+						return deliver({ krok: 'passkey_options' });
+					}).then(function (m) {
 						return navigator.credentials.get({ publicKey: getOptions(m) });
 					}).then(function (k) {
 						return deliver({ krok: 'passkey', odpoved: JSON.stringify(assertion(k)) });
 					}).then(done).catch(function (e) {
 						showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+						busy = false;
 						startConditional();
 					});
 					return;
