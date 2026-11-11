@@ -58,16 +58,20 @@ final class Passkey
     /** The domain the keys are bound to (rpId), from the site URL: https://www.web.cz:8443/x -> www.web.cz */
     public static function rpId(string $siteUrl): string
     {
-        return strtolower((string) parse_url($siteUrl, PHP_URL_HOST));
+        return rtrim(strtolower((string) parse_url($siteUrl, PHP_URL_HOST)), '.'); // 3.35 review L6: "example.com." is example.com
     }
 
-    /** The origin the browser states in the response (scheme://host[:port]), from the site URL. */
+    /**
+     * The origin the browser states in the response (scheme://host[:port]), from the site URL. 3.35 review L6: a default
+     * port (https :443, http :80) and a trailing dot of the host are left out – the browser never states them.
+     */
     public static function origin(string $siteUrl): string
     {
         $c = parse_url($siteUrl);
-        $port = isset($c['port']) ? ':' . $c['port'] : '';
+        $scheme = strtolower($c['scheme'] ?? 'https');
+        $port = isset($c['port']) && !(($scheme === 'https' && (int) $c['port'] === 443) || ($scheme === 'http' && (int) $c['port'] === 80)) ? ':' . $c['port'] : '';
 
-        return strtolower(($c['scheme'] ?? 'https') . '://' . ($c['host'] ?? '')) . $port;
+        return $scheme . '://' . self::rpId($siteUrl) . $port;
     }
 
     /**

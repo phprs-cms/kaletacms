@@ -201,7 +201,7 @@ final class Account
                     if (($message = $this->freshnessRefused('Enter your current password to change how you sign in. Nothing was changed.')) !== null) {
                         break;
                     }
-                    if ($on && !SignInPolicy::hasWorkingPasskey($app->auth()->accountKeys((int) $user['idu']))) {
+                    if ($on && !SignInPolicy::hasWorkingPasskey($app->auth()->workingKeys((int) $user['idu']))) {
                         $message = ['chyba', 'Register a passkey that signs in without a password first.'];
                         break;
                     }
@@ -435,10 +435,11 @@ final class Account
             $name = (string) $replaced['nazev'];
         }
         $firstCodes = SignInPolicy::backupCodesLeft($user) === 0 ? Totp::backupCodes() : null;
-        $db->transaction(function () use ($db, $user, $name, $hash, $new, $replaced, $firstCodes): void {
+        $db->transaction(function () use ($db, $user, $name, $hash, $new, $replaced, $firstCodes, $url): void {
             $db->insert('uzivatele_klice', [
                 'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Passkey'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
                 'verejny' => $new['klic'], 'alg' => $new['alg'], 'pocitadlo' => $new['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'), 'discoverable' => 1,
+                'rp_id' => Passkey::rpId($url), // 3.35 review M3: the host the passkey is bound to (SignInPolicy::keysForHost)
             ]);
             if ($replaced !== null) {
                 $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ?', [$replaced['idk']]);
@@ -485,6 +486,7 @@ final class Account
         $app = $this->kernel->app;
         $user = (array) $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
         $keys = $app->auth()->accountKeys((int) $user['idu']);
+        $working = $app->auth()->workingKeys((int) $user['idu']); // 3.35 review M3: only the passkeys of this host count
 
         return $this->kernel->page('My account', $app->view->render('admin/account', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
@@ -494,9 +496,10 @@ final class Account
             'keys' => $keys,
             // 3.35: passkeys and how the account signs in (Core\SignInPolicy)
             'fresh' => $app->auth()->isFreshlyVerified(),
-            'passkeyOnly' => SignInPolicy::passkeyOnly($user, $keys, $app->settings()),
+            'passkeyOnly' => SignInPolicy::passkeyOnly($user, $working, $app->settings()),
             'sitePasskeyOnly' => $app->settings()->get('signin_passkey_only') === '1' && !SignInPolicy::escapeHatch(),
-            'workingPasskey' => SignInPolicy::hasWorkingPasskey($keys),
+            'workingPasskey' => SignInPolicy::hasWorkingPasskey($working),
+            'siteRpId' => SignInPolicy::siteRpId($app->settings()), // 3.35 review M3: a passkey of another host is marked in the list
             'renewCodes' => self::mayRenewBackupCodes($user, $keys), // 3.35: "New backup codes"
             'passkeyHost' => SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $app->settings()->get('site_url') ?: $app->request->origin()),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),

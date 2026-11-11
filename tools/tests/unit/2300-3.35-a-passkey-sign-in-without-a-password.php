@@ -115,7 +115,7 @@ check('3.35 A: an empty app secret is never checked (its codes are public); the 
     str_contains($p335Auth, "hash_equals(Passkey::fromB64((string) \$user['passkey_handle']), Passkey::fromB64(\$handle))"),
     strpos($p335Auth, "\$this->session->remove('passkey_signin');") < strpos($p335Auth, "Passkey::verifySignIn(\$response, \$challenge, Passkey::origin(\$siteUrl), Passkey::rpId(\$siteUrl), (string) \$key['verejny'], (int) \$key['pocitadlo'], true)"),
     substr_count($p335Auth, 'return t(self::PASSKEY_FAILED);'),
-    str_contains($p335Auth, '$secondStep = SignInPolicy::needsSecondStep($user, $this->accountKeys((int) $user[\'idu\']));'),
+    str_contains($p335Auth, '$secondStep = SignInPolicy::needsSecondStep($user, $this->workingKeys((int) $user[\'idu\']));'), // 3.35 review M3: the passkeys of this host
 ], [true, true, true, true, true, 1, true]);
 check('3.35 A: registration needs a fresh confirmation and requires UV; removing too; the old TOTP precondition is gone; the script offers conditional UI and the button', [
     str_contains($p335Account, "\$this->freshnessRefused('Enter your current password to add a passkey.')"),

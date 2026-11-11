@@ -297,6 +297,7 @@ class Settings extends Module
             'update' => $tab === 'backups' ? (new Updater($settings))->state() : null,
             'major' => in_array($tab, ['backups', 'health'], true) ? Updater::nextMajor($settings) : null, // 3.15: Kaleta 4.0 on its own update source
             'siteUrl' => $this->app->request->origin() . $this->app->url(''),
+            'proof' => in_array($tab, ['general', 'security'], true) ? $this->proofState() : null, // 3.35 review M3
             'shareImages' => \Kaleta\Front\ShareImage::available(), // the SEO tab says when the server cannot draw them (2.12)
             'firewall' => $tab === 'firewall' ? [
                 'blocks' => $this->db->all('SELECT ip, until, reason FROM {firewall_blocks} WHERE until > ? ORDER BY until DESC LIMIT 100', [\Kaleta\Core\Clock::now()]),
@@ -348,7 +349,17 @@ class Settings extends Module
                 $fields += $this->fields($part);
             }
         }
+        // 3.35 review M3: the changes that decide how people sign in need a confirmation and a fresh proof first; without
+        // them those fields are not saved (the others are) and the reason says what is missing
+        [$refused, $refusedReason] = $this->signInChangeRefusal($fields);
+        $urlBefore = $settings->get('site_url');
         foreach ($fields as $key => $type) {
+            if (in_array($key, $refused, true)) {
+                $errors[] = $key;
+                $given[$key] = mb_substr($this->request->post($key), 0, 2000);
+                $reason = $refusedReason;
+                continue;
+            }
             if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksSetting($key, $type)) {
                 continue; // the public demo keeps code fields, secret keys and the site e-mail as they are
             }
@@ -359,6 +370,9 @@ class Settings extends Module
             }
             // "kod" is not trimmed or modified in any other way - it is HTML/JS inserted by the administrator
             $value = $type === 'kod' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
+            if ($key === 'site_url') {
+                $value = \Kaleta\Core\SignInPolicy::normaliseSiteUrl($value); // 3.35 review L6: no default port, no trailing dot or slash
+            }
             if ($key === 'claude_protected_pages' && is_array($_POST[$key] ?? null)) {
                 // the page picker of Claude settings (3.12) sends the ticked pages; the setting keeps its "12, 15" form
                 $value = implode(', ', array_unique(array_filter(array_map('intval', $this->request->postList($key)))));
@@ -412,6 +426,11 @@ class Settings extends Module
             }
             $settings->set($key, $clean);
         }
+        if (\Kaleta\Core\SignInPolicy::hostChanges($urlBefore, $settings->get('site_url')) && (int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0) {
+            // 3.35 review M3: the passkeys of the old host no longer work – said at once, and in System status until they are replaced
+            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'site_host_change', \Kaleta\Core\Passkey::rpId($urlBefore) . ' → ' . \Kaleta\Core\Passkey::rpId($settings->get('site_url')));
+            $this->app->session->flash('info', t('The site moved to another host name: the passkeys registered for the old one no longer work. Their accounts sign in with the password and the second step until they add new passkeys in My account – add yours now.'));
+        }
         \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'));
         // 3.9: a mail service chosen without JavaScript (or switched from another one) gets its server, port and encryption;
         // a server that already is the service's stays as it is – the user name and the password are never touched
@@ -464,12 +483,71 @@ class Settings extends Module
     }
 
     /**
+     * 3.35 review M3: which of the posted changes that decide how people sign in may not be saved now, and why. A new site
+     * address on another host (another domain, www added or taken away) while passkeys exist or the site requires them:
+     * passkeys are bound to the host, so those registered for the old one stop working (their accounts sign in with the
+     * password and the second step again – SignInPolicy::keysForHost) – it needs the ticked confirmation and a fresh
+     * proof of the administrator (Auth::freshProof: a proof within the window or the current password; the strong proof
+     * for an administrator who signs in with a passkey only).
+     *
+     * @param array<string, string> $fields the fields of the form being saved
+     * @return array{0: list<string>, 1: string} the refused keys, the reason
+     */
+    private function signInChangeRefusal(array $fields): array
+    {
+        $settings = $this->app->settings();
+        $sensitive = [];
+        if (isset($fields['site_url']) && array_key_exists('site_url', $_POST)
+            && \Kaleta\Core\SignInPolicy::hostChanges($settings->get('site_url'), \Kaleta\Core\SignInPolicy::normaliseSiteUrl($this->request->post('site_url')))
+            && ((int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0 || $settings->get('signin_passkey_only') === '1')) {
+            if (!$this->request->postBool('site_url_confirm')) {
+                return [['site_url'], self::HOST_CHANGE_CONFIRM];
+            }
+            $sensitive[] = 'site_url';
+        }
+        if ($sensitive === []) {
+            return [[], ''];
+        }
+
+        return match ($this->app->auth()->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '', 'recent')) {
+            'ok' => [[], ''],
+            'passkey' => [$sensitive, self::PROOF_PASSKEY],
+            'locked' => [$sensitive, \Kaleta\Core\Auth::CONFIRM_LOCKED],
+            default => [$sensitive, self::PROOF_PASSWORD],
+        };
+    }
+
+    /** 3.35 review M3: a new site address on another host was posted without the confirmation. */
+    public const string HOST_CHANGE_CONFIRM = 'The new site address has another host name. Passkeys work only on the host they were registered on: those of the old address stop working, and their accounts sign in with the password and the second step until they add new ones. Tick the confirmation under the address and save again.';
+
+    /** 3.35 review M3: the answers when a change of how people sign in comes without a fresh proof. */
+    public const string PROOF_PASSWORD = 'Enter your current password under the field to save this change.';
+
+    public const string PROOF_PASSKEY = 'You sign in with a passkey only: confirm with your passkey (the button under the field), then save again within 10 minutes.';
+
+    /**
+     * 3.35 review M3: the fresh proof a change of how people sign in needs, for the forms of General and Security – the
+     * administrator signs in with a passkey only (the passkey confirmation instead of the password field), and whether a
+     * proof within the window is there already (nothing to type).
+     *
+     * @return array{passkeysExist: bool, passkeyOnly: bool, fresh: bool, passkeyRequired: bool}
+     */
+    private function proofState(): array
+    {
+        $auth = $this->app->auth();
+        $passkeyOnly = $auth->isPasskeyOnly();
+
+        return ['passkeysExist' => (int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0, 'passkeyOnly' => $passkeyOnly,
+            'fresh' => $passkeyOnly ? $auth->isFreshlyVerified() : $auth->recentlyVerified(), 'passkeyRequired' => $this->app->settings()->get('signin_passkey_only') === '1'];
+    }
+
+    /**
      * May the signed-in administrator require passkeys of the whole site (3.35)? Only with a working passkey of their own
      * that has signed in at least once (Core\SignInPolicy::hasUsedWorkingPasskey) – a passkey that works on this host.
      */
     private function canRequirePasskeys(): bool
     {
-        $keys = $this->app->auth()->accountKeys($this->app->auth()->id());
+        $keys = $this->app->auth()->workingKeys($this->app->auth()->id()); // 3.35 review M3: a passkey of this host
 
         return $this->app->auth()->isAdmin() && \Kaleta\Core\SignInPolicy::hasUsedWorkingPasskey($keys);
     }

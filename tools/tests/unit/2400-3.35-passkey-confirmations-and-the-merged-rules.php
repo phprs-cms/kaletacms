@@ -17,7 +17,7 @@ check('3.35: one fresh-proof concept – one window, two strengths; markVerified
     (bool) preg_match('/function isFreshlyVerified\(.*?self::STRONG_KEY.*?verifiedWithin\(/s', $i340Auth),
 ], ['verified_at', 'strong_at', 600, false, false, 0, 4, true, true, true]);
 check('3.35: a passkey confirmation – the account\'s own passkeys with user verification, one challenge per attempt, counted like a wrong password', [
-    (bool) preg_match('/function confirmChallenge\(.*?accountKeys\(\$this->id\(\)\).*?signInOptions\(.*?, true\);/s', $i340Auth),
+    (bool) preg_match('/function confirmChallenge\(.*?workingKeys\(\$this->id\(\)\).*?signInOptions\(.*?, true\);/s', $i340Auth),
     (bool) preg_match('/function confirmWithPasskey\(.*?->session->remove\(\'passkey_confirm\'\).*?WHERE idu = \? AND otisk_id = \?.*?verifySignIn\(.*?, true\);.*?countError\(\$user\).*?markVerified\(true\)/s', $i340Auth),
 ], [true, true]);
 

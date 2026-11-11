@@ -10,6 +10,16 @@
 <?php
 $field('site_name', 'Site name', 'text', '', 'maxlength="150" required');
 $field('site_url', 'Site address', 'url', 'For example https://www.example.com, without a trailing slash. Links in e-mails, RSS, the sitemap and notifications are built from it. Change it after moving to another domain.', 'required placeholder="https://"');
+?>
+<?php if (($proof ?? null) !== null && ($proof['passkeysExist'] || $proof['passkeyRequired'])): // 3.35 review M3: passkeys are bound to the host of the address ?>
+<div class="radek" id="site_url_confirm">
+	<span class="popisek"><?= e(t('Passkeys')) ?></span>
+	<div class="volby"><p class="hlaska hlaska-varovani"><?= e(t('Passkeys work only on the host name of this address. If you move the site to another host name (another domain, or with or without www), the passkeys registered so far stop working: their accounts sign in with the password and the second step until they add new ones in My account.')) ?></p>
+		<label><input type="checkbox" name="site_url_confirm" value="1"> <?= e(t('I am changing the host name – the passkeys of the old address will stop working')) ?></label></div>
+</div>
+<?php $proofHint = t('Needed only when the host name of the site address changes.'); $proofId = 'general'; require __DIR__ . '/proof.php'; ?>
+<?php endif ?>
+<?php
 $field('site_description', 'Site description', 'radky', 'One or two sentences – a motto, a description for search engines and RSS.');
 $field('site_email', 'Site email', 'email', 'System notifications are sent to it.');
 ?>

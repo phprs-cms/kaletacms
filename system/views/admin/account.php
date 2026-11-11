@@ -30,6 +30,9 @@ $passkeyOnly ??= false;
 $sitePasskeyOnly ??= false;
 $workingPasskey ??= false;
 $passkeyHost ??= true;
+$siteRpId ??= '';
+// 3.35 review M3: a passkey registered for another host of the site (before the site address moved) works nowhere here
+$elsewhere = static fn (array $k): bool => $siteRpId !== '' && (string) ($k['rp_id'] ?? '') !== '' && (string) $k['rp_id'] !== $siteRpId;
 $action = e($app->url('admin.php?action=account'));
 // 3.35 review M2: an account that signs in with a passkey only is never confirmed by its password (Auth::freshProof) –
 // its forms show no password field, only this note; the strong proof comes from "Confirm with your passkey" below
@@ -192,6 +195,9 @@ foreach ($keys as $k): ?>
 <?php if ($sitePasskeyOnly && !$workingPasskey): ?>
 <p class="hlaska hlaska-varovani"><?= e(t('This site asks everyone to sign in with a passkey. Add one for this device below – until then you sign in as before.')) ?></p>
 <?php endif ?>
+<?php if (array_filter($keys, $elsewhere) !== []): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('Some of your passkeys were registered for another address of the site and do not work here – the site address has changed since. Remove them and add a passkey from this device again.')) ?></p>
+<?php endif ?>
 <?php if ($oldKeys !== []): ?>
 <p class="hlaska hlaska-varovani"><?= e(t('A passkey marked “second step only” was added before passkeys could sign in on their own. To sign in with it without a password, register it again on that device – the button in its row replaces it.')) ?></p>
 <?php endif ?>
@@ -206,7 +212,7 @@ foreach ($keys as $k): ?>
 	<td><input class="textpole" type="text" name="nazev" form="klic-prejmenuj-<?= $kid ?>" value="<?= e($k['nazev']) ?>" maxlength="80" size="18" aria-label="<?= e(t('Name of the passkey %s', (string) $k['nazev'])) ?>"> <button class="navigace" type="submit" form="klic-prejmenuj-<?= $kid ?>"><?= e(t('Rename')) ?></button></td>
 	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
 	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
-	<td><?= !empty($k['discoverable']) ? '<span class="stitek stitek-vydano">' . e(t('without a password')) . '</span>' : '<span class="stitek">' . e(t('second step only')) . '</span>' ?></td>
+	<td><?= $elsewhere($k) ? '<span class="stitek">' . e(t('another address: %s', (string) $k['rp_id'])) . '</span>' : (!empty($k['discoverable']) ? '<span class="stitek stitek-vydano">' . e(t('without a password')) . '</span>' : '<span class="stitek">' . e(t('second step only')) . '</span>') ?></td>
 	<td class="akce"><?php if (empty($k['discoverable'])): ?><button class="navigace" type="button" data-klic-pridat data-nahradit="<?= $kid ?>"><?= e(t('Register again')) ?></button> <?php endif ?><button class="navigace nebezpecne" type="submit" name="idk" value="<?= $kid ?>" data-potvrdit="<?= e(t('Remove this passkey? It will no longer sign you in.')) ?>"><?= e(t('Smazat')) ?></button></td>
 </tr>
 <?php endforeach ?>

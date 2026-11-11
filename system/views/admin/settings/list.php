@@ -72,7 +72,8 @@ $movedFields = $tab === 'general' ? array_map(fn (string $to): string => $module
 	<noscript><button class="navigace" type="submit"><?= e(t('Show')) ?></button></noscript>
 </form>
 <?php endif ?>
-<form class="formular" method="post" action="<?= e($module->url('save')) ?>">
+<?php $proof ??= null; $proofPasskey = $proof !== null && $proof['passkeyOnly'] && !$proof['fresh']; // 3.35 review M3: "Confirm with your passkey" (views/admin/settings/proof.php) ?>
+<form class="formular" method="post" action="<?= e($module->url('save')) ?>"<?= $proofPasskey ? ' data-klice="' . e($app->url('admin.php?action=account')) . '"' : '' ?>>
 <?php /* the first submit button in the form determines what Enter does: save the settings (not a backup, an update check or a test e-mail) */ ?>
 <button type="submit" class="vychozi-odeslani" tabindex="-1" aria-hidden="true"><?= e(t('Save settings')) ?></button>
 <?= $csrf ?>
@@ -83,3 +84,6 @@ $movedFields = $tab === 'general' ? array_map(fn (string $to): string => $module
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 <?php endif ?>
 </form>
+<?php if ($proofPasskey): ?>
+<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php endif ?>

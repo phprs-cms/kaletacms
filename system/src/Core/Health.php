@@ -132,6 +132,16 @@ final class Health
         if ($waiting['count'] > 0 && $waiting['since'] !== null && $waiting['since'] < Clock::at('-' . Applications::UNCONFIRMED_DAYS . ' days')) {
             $add(t('Operation'), t('Retention of job applications'), 'varovani', t('%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Applications → Settings.', $waiting['count'], Applications::UNCONFIRMED_DAYS));
         }
+        // 3.35 review M3: passkeys bound to another host of the site (the site address moved) – they sign in nowhere here
+        $passkeyHost = SignInPolicy::siteRpId($siteSettings);
+        try {
+            $passkeysElsewhere = $passkeyHost === '' ? 0 : (int) $db->value("SELECT COUNT(*) FROM {uzivatele_klice} WHERE rp_id <> '' AND rp_id <> ?", [$passkeyHost]);
+        } catch (\PDOException) {
+            $passkeysElsewhere = 0; // before migration 0121
+        }
+        if ($passkeysElsewhere > 0) {
+            $add(t('Bezpečnost'), t('Passkeys of another address'), 'varovani', t('%d passkey(s) were registered for another host name of the site and do not work at %s – their accounts sign in with the password and the second step until they add new passkeys in My account.', $passkeysElsewhere, $passkeyHost));
+        }
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
 

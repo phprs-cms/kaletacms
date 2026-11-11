@@ -653,7 +653,7 @@ final class Kernel
         if ($user === null) {
             return;
         }
-        $keys = $app->auth()->accountKeys((int) $user['idu']);
+        $keys = $app->auth()->workingKeys((int) $user['idu']); // 3.35 review M3: the passkeys of this host
         if ($app->settings()->get('signin_passkey_only') === '1' && !\Kaleta\Core\SignInPolicy::escapeHatch() && !\Kaleta\Core\SignInPolicy::hasWorkingPasskey($keys)) {
             $app->session->flash('info', t('This site asks everyone to sign in with a passkey. Add one for this device in My account – until then you sign in as before.'));
         } elseif ($keys !== [] && $app->auth()->isFreshlyVerified() && $app->request->post('krok') === 'kod') {
@@ -732,7 +732,7 @@ final class Kernel
             'passwordError' => $passwordError, 'verified' => $app->auth()->isPasskeyOnly() ? $app->auth()->isFreshlyVerified() : $app->auth()->recentlyVerified(),
             // 3.35: an account with a passkey may confirm with it (on the site's own host); one that signs in with a passkey
             // only is offered nothing else
-            'passkeyConfirm' => $app->auth()->accountKeys($app->auth()->id()) !== [] && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl),
+            'passkeyConfirm' => $app->auth()->workingKeys($app->auth()->id()) !== [] && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl),
             'passkeyOnly' => $app->auth()->isPasskeyOnly(), // 3.35 review M2: on every host – the password is no proof for it anywhere
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
             'toolSet' => 'essentials',

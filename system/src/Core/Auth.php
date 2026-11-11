@@ -140,7 +140,7 @@ final class Auth
 
         // 3.35: an account with two-factor sign-in or with a passkey always needs a second step after the password (the
         // code from the app, the passkey or a backup code – Core\SignInPolicy); a password alone never signs it in
-        $secondStep = SignInPolicy::needsSecondStep($user, $this->accountKeys((int) $user['idu']));
+        $secondStep = SignInPolicy::needsSecondStep($user, $this->workingKeys((int) $user['idu']));
         // the form token changes where the sign-in completes (N75): here without a second step, otherwise after the code or passkey
         $this->session->regenerate(newFormToken: !$secondStep);
         if ($secondStep) {
@@ -351,7 +351,7 @@ final class Auth
         $user = $this->isAwaitingCode() ? $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [(int) $this->session->get('idu_ceka')['idu']]) : null;
 
         return $user === null ? ['code' => false, 'backup' => false, 'passkey' => false]
-            : SignInPolicy::secondSteps($user, $this->accountKeys((int) $user['idu']), $this->siteSettings());
+            : SignInPolicy::secondSteps($user, $this->workingKeys((int) $user['idu']), $this->siteSettings());
     }
 
     /**
@@ -375,7 +375,7 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
-        $appCode = $user !== null && SignInPolicy::secondSteps($user, $this->accountKeys((int) $user['idu']), $this->siteSettings())['code'];
+        $appCode = $user !== null && SignInPolicy::secondSteps($user, $this->workingKeys((int) $user['idu']), $this->siteSettings())['code'];
         $step = $appCode && (string) $user['totp_tajemstvi'] !== '' ? Totp::step($user['totp_tajemstvi'], $code) : null;
         if ($step !== null && $user !== null && !$this->claimCodeStep((int) $user['idu'], $step)) {
             $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
@@ -430,13 +430,32 @@ final class Auth
     /** Does the account waiting for the second step have registered passkeys? */
     public function isAwaitingKey(): bool
     {
-        return $this->isAwaitingCode() && $this->accountKeys((int) $this->session->get('idu_ceka')['idu']) !== [];
+        return $this->isAwaitingCode() && $this->workingKeys((int) $this->session->get('idu_ceka')['idu']) !== [];
     }
 
-    /** @return list<array<string, mixed>> passkeys of the account */
+    /** @return list<array<string, mixed>> passkeys of the account (all of them – for the rules, workingKeys) */
     public function accountKeys(int $idu): array
     {
         return $this->db->all('SELECT * FROM {uzivatele_klice} WHERE idu = ? ORDER BY idk', [$idu]);
+    }
+
+    /**
+     * 3.35 review M3: the account's passkeys that work on this site's host (SignInPolicy::keysForHost) – the only ones the
+     * sign-in rules, the second step, the confirmation and "passkey only" count.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function workingKeys(int $idu): array
+    {
+        return SignInPolicy::keysForHost($this->accountKeys($idu), SignInPolicy::siteRpId($this->siteSettings()));
+    }
+
+    /** 3.35 review M3: a passkey with no host recorded yet (registered before the column was filled) gets the host it just worked on. */
+    private function rememberHost(array $key, string $siteUrl): void
+    {
+        if ((string) ($key['rp_id'] ?? '') === '' && Passkey::rpId($siteUrl) !== '') {
+            $this->db->run("UPDATE {uzivatele_klice} SET rp_id = ? WHERE idk = ? AND rp_id = ''", [Passkey::rpId($siteUrl), $key['idk']]);
+        }
     }
 
     /**
@@ -452,7 +471,7 @@ final class Auth
         $challenge = Passkey::challenge();
         $this->session->set('klic_vyzva', $challenge);
 
-        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['id_klice'], $this->accountKeys((int) $this->session->get('idu_ceka')['idu'])));
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), array_map(static fn (array $k): string => (string) $k['id_klice'], $this->workingKeys((int) $this->session->get('idu_ceka')['idu'])));
     }
 
     /**
@@ -490,6 +509,7 @@ final class Auth
             return t($e->getMessage());
         }
         $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+        $this->rememberHost($key, $siteUrl);
         $this->recordSignIn((int) $user['idu']);
         $this->session->remove('idu_ceka');
         $this->session->regenerate(newFormToken: true);
@@ -573,6 +593,7 @@ final class Auth
             return t(self::PASSKEY_FAILED);
         }
         $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+        $this->rememberHost($key, $siteUrl);
         $this->recordSignIn((int) $user['idu']);
         $this->session->remove('idu_ceka');
         $this->session->regenerate(newFormToken: true);
@@ -597,7 +618,7 @@ final class Auth
      */
     public function confirmChallenge(string $siteUrl): ?array
     {
-        $keys = $this->id() > 0 ? $this->accountKeys($this->id()) : [];
+        $keys = $this->id() > 0 ? $this->workingKeys($this->id()) : [];
         if ($keys === []) {
             return null;
         }
@@ -642,6 +663,7 @@ final class Auth
             return $this->countError($user) ? 'locked' : 'wrong';
         }
         $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+        $this->rememberHost($key, $siteUrl);
         if (self::isLocked($user)) {
             $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null], ['idu' => $id]); // 3.35 review M1: the owner's passkey ends the lock
         }
@@ -658,7 +680,7 @@ final class Auth
     {
         $user = $this->user();
 
-        return $user !== null && SignInPolicy::passkeyOnly($user, $this->accountKeys((int) $user['idu']), $this->siteSettings());
+        return $user !== null && SignInPolicy::passkeyOnly($user, $this->workingKeys((int) $user['idu']), $this->siteSettings());
     }
 
     /**
@@ -821,7 +843,7 @@ final class Auth
 
         // 3.35: a passkey counts – an account with one always needs a second step after the password (SignInPolicy)
         return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === ''
-            && $this->accountKeys((int) $user['idu']) === [];
+            && $this->workingKeys((int) $user['idu']) === [];
     }
 
     public function canPublish(): bool

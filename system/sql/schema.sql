@@ -462,6 +462,7 @@ CREATE TABLE ka_uzivatele_klice (
     vytvoreno  DATETIME     NOT NULL,
     pouzito    DATETIME     NULL,
     discoverable BOOL NOT NULL DEFAULT 0,                 -- 3.35: a discoverable passkey with user verification – signs in without a password; 0 = second step only
+    rp_id      VARCHAR(255) NOT NULL DEFAULT '',          -- 3.35 review M3: the host the passkey is bound to (WebAuthn rpId); '' = not recorded, counts as the site's host
     PRIMARY KEY (idk),
     UNIQUE KEY uq_klice_otisk (otisk_id),
     KEY ix_klice_user (idu),

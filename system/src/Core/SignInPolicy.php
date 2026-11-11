@@ -131,6 +131,55 @@ final class SignInPolicy
     }
 
     /**
+     * 3.35 review M3: the passkeys of the account that work on this site – WebAuthn binds a passkey to the host it was
+     * registered on (ka_uzivatele_klice.rp_id), so after the site address moves to another host (another domain, www or
+     * no www) the older ones can neither sign in nor be the second step. Only these count anywhere in the rules: an
+     * account whose passkeys are all of another host is an account without a passkey (the password, and the code from the
+     * app or a backup code where it has them) – never a dead end. A passkey with no host recorded ('' – before the column
+     * was filled) counts, as does every passkey while the site address is not known yet ($rpId ''). Pure.
+     *
+     * @param list<array<string, mixed>> $keys
+     * @return list<array<string, mixed>>
+     */
+    public static function keysForHost(array $keys, string $rpId): array
+    {
+        return $rpId === '' ? $keys : array_values(array_filter($keys, static fn (array $k): bool => in_array((string) ($k['rp_id'] ?? ''), ['', $rpId], true)));
+    }
+
+    /** 3.35 review M3: the host passkeys are bound to on this site – the host of site_url ('' while it is not set). */
+    public static function siteRpId(Settings $settings): string
+    {
+        return Passkey::rpId($settings->get('site_url'));
+    }
+
+    /**
+     * 3.35 review M3: does a new site address move the passkeys to another host (another domain, or www added or taken
+     * away)? A first address (none before) moves nothing. Pure.
+     */
+    public static function hostChanges(string $oldUrl, string $newUrl): bool
+    {
+        return Passkey::rpId($oldUrl) !== '' && Passkey::rpId($oldUrl) !== Passkey::rpId($newUrl);
+    }
+
+    /**
+     * 3.35 review L6: the site address as WebAuthn and the browser see it – the scheme and host in lower case, without a
+     * trailing dot of the host, an explicit default port (https :443, http :80) or a trailing slash. Anything that is not
+     * an http(s) address comes back as typed, for the form's own check. Pure.
+     */
+    public static function normaliseSiteUrl(string $url): string
+    {
+        $url = trim($url);
+        $c = parse_url($url);
+        if (!is_array($c) || !isset($c['scheme'], $c['host']) || !in_array(strtolower($c['scheme']), ['http', 'https'], true) || isset($c['user']) || isset($c['query']) || isset($c['fragment']) || !in_array($c['path'] ?? '', ['', '/'], true)) {
+            return $url;
+        }
+        $scheme = strtolower($c['scheme']);
+        $default = ($scheme === 'https' && ($c['port'] ?? 0) === 443) || ($scheme === 'http' && ($c['port'] ?? 0) === 80);
+
+        return $scheme . '://' . rtrim(strtolower($c['host']), '.') . (isset($c['port']) && !$default ? ':' . $c['port'] : '');
+    }
+
+    /**
      * Whether the host the request came to may use passkeys at all: WebAuthn binds them to the site's canonical host (the
      * host of the site URL in Settings). Another host name of the same site (an alias domain, www vs. no www, the IP)
      * cannot, nor can a page without HTTPS other than localhost – the browser refuses there.
