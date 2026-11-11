@@ -916,6 +916,7 @@ final class Updater
             return null;
         }
         $code = bin2hex(random_bytes(12));
+        $this->settings->set('update_probe_at', (string) time()); // 3.34 third review F3: a probe a killed request leaves behind is known as stale
         $this->settings->set('update_probe', $code);
         // the web server must run the new files, not the cached old ones (a mix of both can fail where nothing is broken)
         $reset = function_exists('opcache_reset') && @opcache_reset();
@@ -925,6 +926,7 @@ final class Updater
                 sleep(min(10, max(0, (int) ini_get('opcache.revalidate_freq'))) + 1);
             } elseif (!$reset) {
                 $this->settings->set('update_probe', '');
+                $this->settings->set('update_probe_at', '');
 
                 return null; // files are never checked again and the cache cannot be cleared – the answers would say nothing
             }
@@ -960,6 +962,7 @@ final class Updater
             ];
         } finally {
             $this->settings->set('update_probe', '');
+            $this->settings->set('update_probe_at', '');
         }
 
         return self::probeVerdict($answers, $version, $this->settings->bool('maintenance'));

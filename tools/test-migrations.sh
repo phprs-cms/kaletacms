@@ -357,9 +357,29 @@ expect_sql_value "3.34 second review N5 (0120): under an older release's code �
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', 'n5probe')"
 migrate > /dev/null
 expect_sql_value "3.34 second review N5 (0120): while the update checks itself nothing moves either" "$(n5_state)" "0|9349,9350|1|0120-applications-move|9350||1"
-"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', '')"
+# 3.34 third review F3: a probe with its time (the Updater of 3.34) holds the move back for 10 minutes only – a check killed
+# before it cleared the probe no longer blocks the move for ever
+"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe_at', UNIX_TIMESTAMP() - 60)"
 migrate > /dev/null
-expect_sql_value "3.34 second review N5 (0120): the first request of the 3.34 code moves both – the one that arrived in between too – and the lone customer record goes" "$(n5_state)" "2|-|0||||1"
-"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_kolekce WHERE idk = 9349"
+expect_sql_value "3.34 third review F3 (0120): a probe set a minute ago still holds the move back" "$(n5_state)" "0|9349,9350|1|0120-applications-move|9350||1"
+"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe_at', UNIX_TIMESTAMP() - 700)"
+migrate > /dev/null
+expect_sql_value "3.34 second review N5 / third review F3 (0120): a probe older than 10 minutes is stale – the 3.34 code moves both, the one that arrived in between too, and the lone customer record goes" "$(n5_state)" "2|-|0||||1"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_kolekce WHERE idk = 9349; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', ''), ('update_probe_at', '')"
+
+# 3.34 third review F3: a probe without its time (an older release's updater wrote it, then its request was killed) counts from
+# when 0120 first saw it – the move waits 10 minutes from then, not for ever
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9351, 'Jobs', 'jobs-351', '[]', 'jobs');
+  INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (9351, '$(site_time '-2 days')', 'Job application', 'kolekce:9351', '/jobs-351/x', '', 'f3@example.com', '[]', 0);
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', ''), ('applications_move_until', ''), ('applications_move_deferred', ''), ('update_probe', 'f3probe'), ('update_probe_at', ''), ('applications_probe_seen', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'"
+f3_state() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = 9351), (SELECT COUNT(*) FROM ka_poptavky WHERE idp = 9351),
+  (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), (SELECT SUBSTRING_INDEX(hodnota, '|', 1) = SHA2('f3probe', 256) FROM ka_nastaveni WHERE promenna = 'applications_probe_seen'))"; }
+migrate > /dev/null; migrate > /dev/null
+expect_sql_value "3.34 third review F3 (0120): a probe without its time – nothing moves, the first sight of it is noted" "$(f3_state)" "0|1|0120-applications-move|1"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = CONCAT(SUBSTRING_INDEX(hodnota, '|', 1), '|', UNIX_TIMESTAMP() - 700) WHERE promenna = 'applications_probe_seen'"
+migrate > /dev/null
+expect_sql_value "3.34 third review F3 (0120): ten minutes after it was first seen the probe is stale and the move goes on" "$(f3_state)" "1|0||1"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_kolekce WHERE idk = 9351; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', ''), ('applications_probe_seen', '')"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
