@@ -1,4 +1,8 @@
 echo "== 3.34 review H1: moved applications are not purged before an administrator confirms the retention"
+# the review sections (2210–2249) switch the feature on for themselves and put the site's choice back at their end
+r334_on() { R334_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'"); sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$R334_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$R334_EXT"),applications')" > /dev/null; }
+r334_off() { sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R334_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null; }
+r334_on
 # an application moved from an enquiry and an ordinary one, both quiet for two years; the retention 6 months, not confirmed yet
 sq "UPDATE ka_applications SET source_enquiry_id = NULL WHERE source_enquiry_id = 92101; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_months', '6'), ('applications_retention_confirmed', '')" > /dev/null
 H1_MOVED=$(sq "INSERT INTO ka_applications (received_at, form, data, status, status_at, last_activity_at, source_enquiry_id) VALUES ('$(site_time '-24 months')', 'H1 moved', '[]', 'reviewed', '$(site_time '-24 months')', '$(site_time '-24 months')', 92101); SELECT LAST_INSERT_ID();")
@@ -20,3 +24,4 @@ t334_php 'Kaleta\Core\ApplicationMove::toApplications($app, "Kariera H1", "stran
 expect "3.34 review H1: a move by form on a site that keeps enquiries keeps the applications too (0), and the confirmation is asked again" \
   "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_months'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_retention_confirmed'")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = $H1_E")" "0||1"
 sq "DELETE FROM ka_applications WHERE source_enquiry_id = $H1_E; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_months', '6'), ('enquiries_months', '24'), ('applications_retention_confirmed', '1')" > /dev/null
+r334_off

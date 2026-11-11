@@ -1,4 +1,5 @@
 echo "== 3.34 review M2: moving applications back to Enquiries loses nothing – an unreadable list or CV keeps the application"
+r334_on
 # one application whose list was sealed with another key, one whose sealed CV is gone from the disk, one that moves
 M2_IDS=$(t334_php '$s = $app->settings(); $db = $app->db(); $now = Kaleta\Core\Clock::now(); $ids = [];
   $row = ["received_at" => $now, "form" => "M2 back", "source" => "stranka:1", "data" => json_encode([["CV", "cv.pdf"]]), "status" => "reviewed", "status_at" => $now, "last_activity_at" => $now];
@@ -20,3 +21,4 @@ expect "3.34 review M2: no plain copy is left behind for the ones that stayed (o
 expect "3.34 review M2: the event names the count only" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'applications.move_failed' AND message LIKE '2 application(s) could not be moved back%'")" "1"
 sq "DELETE FROM ka_comments WHERE target = 'enquiry:$M2_E'; DELETE FROM ka_poptavky WHERE idp = $M2_E" > /dev/null
 t334_php 'Kaleta\Core\Applications::delete($app, ['"$M2_IDS"'], false);' > /dev/null
+r334_off

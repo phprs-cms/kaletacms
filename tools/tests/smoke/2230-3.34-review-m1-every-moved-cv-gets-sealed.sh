@@ -1,4 +1,5 @@
 echo "== 3.34 review M1: the moved CVs are sealed with an id cursor – 500 rows whose files are gone do not hold the next one back"
+r334_on
 M1_DIR="$WORK/web/storage/prilohy/2026/10"; mkdir -p "$M1_DIR"
 M1_HEX=$(php -r 'echo bin2hex(random_bytes(12));'); printf 'CV of M1' > "$M1_DIR/$M1_HEX.pdf"
 M1_GONE='[{"field":0,"name":"cv.pdf","size":1,"ext":"pdf","path":"2026/10/000000000000000000000000.pdf","sealed":false}]'
@@ -18,3 +19,4 @@ expect "3.34 review M1: the CV after 500 rows with gone files is sealed in the f
 expect "3.34 review M1: the cursor started over at the end" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_seal_after'")" "0"
 sq "DELETE FROM ka_applications WHERE source_enquiry_id BETWEEN 930001 AND 930501" > /dev/null
 t334_php 'Kaleta\Core\Applications::delete($app, ['"$M1_ID"'], false);' > /dev/null
+r334_off
