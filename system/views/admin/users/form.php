@@ -83,11 +83,11 @@ $role = [
 	</div>
 </div>
 <?php endif ?>
-<?php if ($author['idu'] && !$isSelf): // 3.31.2: a new password or a turned-off second factor of someone else needs the administrator's own password ?>
+<?php if ($author['idu'] && !$isSelf): // 3.31.2: a new password or a turned-off second factor of someone else needs the administrator's own password; 3.35: a changed e-mail too ?>
 <div class="radek">
 	<label for="soucasne"><?= e(t('Your current password')) ?></label>
 	<div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password"><?= $error('soucasne') ?>
-	<span class="napoveda"><?= e(t('Needed only to set a new password for this user or to turn off their two-factor sign-in.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Needed only to change this user\'s e-mail, set a new password for them or turn off their two-factor sign-in.')) ?></span></div>
 </div>
 <?php endif ?>
 
