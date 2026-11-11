@@ -101,6 +101,7 @@ trait ApplicationTools
         if (isset($a['add_note']) && (!is_string($a['add_note']) || Comments::clean($a['add_note']) === '')) {
             throw new \InvalidArgumentException('add_note must be the text of the note.');
         }
+        /** @var list<string> $changed filled by reference inside the closure below (PHPStan does not follow it) */
         $changed = [];
         try {
             Language::runWith('en', function () use ($a, $id, $auth, $db, &$changed): void {

@@ -199,7 +199,7 @@ final class Applications
      * The value of the first field labelled like a position (POSITION_LABEL) – a select of the open jobs on a general
      * form, or the hidden "Job opening" field of the jobs template. Pure.
      *
-     * @param list<array{0: string, 1: string}> $data
+     * @param list<mixed> $data fields as [label, value] (what a form or an old enquiry row holds – checked here)
      */
     public static function positionValue(array $data): string
     {
@@ -1002,7 +1002,7 @@ final class Applications
      */
     public static function encodeAttachments(Settings $s, array $list): ?string
     {
-        return $list === [] ? null : Vault::seal(Vault::key($s, self::SECTION), (string) json_encode(array_values($list), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        return $list === [] ? null : Vault::seal(Vault::key($s, self::SECTION), (string) json_encode($list, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     /**
