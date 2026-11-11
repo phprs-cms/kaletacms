@@ -102,7 +102,7 @@ final class ApplicationMove
     {
         $db = $app->db();
         $rows = $db->all('SELECT * FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp) ORDER BY idp LIMIT ' . self::BATCH, [$form, $source]);
-        $result = self::moveRows($app, $rows);
+        $result = self::locked($db, fn (): array => self::moveRows($app, $rows));
         $left = (int) $db->value('SELECT COUNT(*) FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$form, $source]);
 
         return ['moved' => $result['moved'], 'left' => $left, 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
@@ -117,7 +117,7 @@ final class ApplicationMove
     public static function enquiryToApplication(App $app, int $idp): ?array
     {
         $rows = $app->db()->all('SELECT * FROM {poptavky} p WHERE idp = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$idp]);
-        $result = self::moveRows($app, $rows);
+        $result = self::locked($app->db(), fn (): array => self::moveRows($app, $rows));
 
         return $result['ids'] === [] ? null : ['id' => $result['ids'][0], 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
     }
@@ -258,6 +258,39 @@ final class ApplicationMove
      */
     public static function toEnquiries(App $app, string $form, string $source, bool $includeKept = false): array
     {
+        return self::locked($app->db(), fn (): array => self::toEnquiriesLocked($app, $form, $source, $includeKept));
+    }
+
+    /**
+     * Runs a move under the lock of the file work (3.34 second review N4 – never at the same time as sealPending() or
+     * another move); \DomainException when another holds it longer than LOCK_WAIT seconds.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    private static function locked(Db $db, callable $work): mixed
+    {
+        if (!Applications::lockFiles($db, self::LOCK_WAIT)) {
+            throw new \DomainException('Another move or the encryption of CVs is running right now – try again in a minute.');
+        }
+        try {
+            return $work();
+        } finally {
+            Applications::unlockFiles($db);
+        }
+    }
+
+    /** How long a move waits for the lock of the file work (seconds). */
+    public const int LOCK_WAIT = 10;
+
+    /**
+     * toEnquiries() under the lock.
+     *
+     * @return array{moved: int, left: int, skipped: int, expired: int, kept: int}
+     */
+    private static function toEnquiriesLocked(App $app, string $form, string $source, bool $includeKept): array
+    {
         $db = $app->db();
         $s = $app->settings();
         $now = Clock::now();
@@ -347,9 +380,12 @@ final class ApplicationMove
             }
             $data[$field][2] = $path;
             $sealedFiles[] = Applications::filePath($raw);
+            if (is_string($raw['from'] ?? null) && $raw['from'] !== '') {
+                $sealedFiles[] = Applications::filePath(['path' => $raw['from'], 'sealed' => false]); // a plain file an interrupted sealing left (N1)
+            }
         }
         try {
-            $db->transaction(function () use ($db, $a, $id, $data, $now): void {
+            $db->transaction(function () use ($db, $a, $id, $data, $now, $row): void {
                 $idp = $db->insert('poptavky', [
                     'datum' => (string) $a['received_at'], 'formular' => (string) $a['form'], 'zdroj' => (string) $a['source'], 'prvek' => (string) $a['element'], 'stranka' => (string) $a['page'],
                     'tema' => mb_substr((string) $a['job_title'], 0, 255), 'email' => (string) $a['email'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -361,7 +397,8 @@ final class ApplicationMove
                 }
                 $db->insert('comments', ['target' => Comments::enquiry($idp), 'kind' => 'note', 'author_id' => null, 'author_name' => 'Kaleta', 'via' => 'admin', 'created_at' => $now,
                     'text' => 'Moved back from Applications (application #' . $id . ', status ' . $a['status'] . ($a['job_title'] !== '' ? ', position ' . mb_substr((string) $a['job_title'], 0, 200) : '') . ').']);
-                if ($db->run('DELETE FROM {applications} WHERE id = ?', [$id])->rowCount() !== 1) {
+                // N4: only the application as it was read – a list sealed or changed meanwhile rolls back and the row stays
+                if ($db->run('DELETE FROM {applications} WHERE id = ? AND attachments <=> ?', [$id, $row['attachments']])->rowCount() !== 1) {
                     throw new \RuntimeException('The application changed meanwhile.');
                 }
             });
@@ -372,7 +409,7 @@ final class ApplicationMove
         }
         foreach ($sealedFiles as $path) {
             if ($path !== null && is_file($path)) {
-                @unlink($path); // the sealed copy – the enquiry has its own now
+                @unlink($path); // the sealed copy – the enquiry has its own now (and a plain file an interrupted sealing left)
             }
         }
 

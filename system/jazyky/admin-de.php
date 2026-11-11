@@ -8123,4 +8123,5 @@ return [
     'Enquiries have no consent for future openings, no status and no history of statuses: these are dropped (the status goes into an internal note). The fields, CVs, replies, notes, tasks and the responsible person move along.' => 'Anfragen haben keine Einwilligung für künftige Stellen, keinen Status und keinen Statusverlauf: Diese entfallen (der Status wird als interne Notiz festgehalten). Felder, Lebensläufe, Antworten, Notizen, Aufgaben und die verantwortliche Person werden mitverschoben.',
     'Move the hired ones and those kept for future openings too (%d would move)' => 'Auch eingestellte und für künftige Stellen aufbewahrte Bewerbungen verschieben (%d würden verschoben)',
     'Review the move back' => 'Verschieben zurück prüfen',
+    'Another move or the encryption of CVs is running right now – try again in a minute.' => 'Gerade läuft eine andere Verschiebung oder die Verschlüsselung der Lebensläufe – versuchen Sie es in einer Minute erneut.',
 ];

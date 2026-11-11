@@ -7716,4 +7716,5 @@ return [
     'Enquiries have no consent for future openings, no status and no history of statuses: these are dropped (the status goes into an internal note). The fields, CVs, replies, notes, tasks and the responsible person move along.' => 'Poptávky nemají souhlas pro budoucí místa, stav ani historii stavů – ty se zahodí (stav se zapíše do interní poznámky). Pole, životopisy, odpovědi, poznámky, úkoly a odpovědná osoba se přesunou s nimi.',
     'Move the hired ones and those kept for future openings too (%d would move)' => 'Přesunout i přijaté uchazeče a žádosti uchovávané pro budoucí místa (přesunulo by se: %d)',
     'Review the move back' => 'Zkontrolovat přesun zpět',
+    'Another move or the encryption of CVs is running right now – try again in a minute.' => 'Právě běží jiný přesun nebo šifrování životopisů – zkuste to za minutu znovu.',
 ];

@@ -8143,4 +8143,5 @@ return [
     'Enquiries have no consent for future openings, no status and no history of statuses: these are dropped (the status goes into an internal note). The fields, CVs, replies, notes, tasks and the responsible person move along.' => 'Las consultas no tienen consentimiento para futuras vacantes, ni estado, ni historial de estados: se descartan (el estado se anota en una nota interna). Los campos, los CV, las respuestas, las notas, las tareas y la persona responsable se mueven con ellas.',
     'Move the hired ones and those kept for future openings too (%d would move)' => 'Mover también las contratadas y las conservadas para futuras vacantes (se moverían %d)',
     'Review the move back' => 'Revisar la vuelta a Consultas',
+    'Another move or the encryption of CVs is running right now – try again in a minute.' => 'Ahora mismo se está ejecutando otro traslado o el cifrado de los CV – inténtelo de nuevo en un minuto.',
 ];

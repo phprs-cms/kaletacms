@@ -384,6 +384,20 @@ final class Applications extends Module
         if (!$this->request->isPost() || $form === null) {
             return $this->back('Choose a form.', 'move', [], 'chyba');
         }
+        try {
+            return $this->moveBatch($form);
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'move', [], 'chyba'); // N4: another move or the encryption of CVs is running
+        }
+    }
+
+    /**
+     * One batch of a move (actionMoveRun).
+     *
+     * @param array{form: string, source: string} $form
+     */
+    private function moveBatch(array $form): Response
+    {
         if ($this->request->post('direction') === 'back') {
             if (!$this->request->postBool('confirmed')) {
                 // N3: never without the review of what moves and what stays

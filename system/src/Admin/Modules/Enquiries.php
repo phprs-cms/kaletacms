@@ -394,7 +394,11 @@ final class Enquiries extends Module
         if (!$this->request->isPost() || !isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])) {
             return $this->back('You cannot open Applications.', 'detail', ['id' => $idp], 'chyba');
         }
-        $result = \Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp);
+        try {
+            $result = \Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp);
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'detail', ['id' => $idp], 'chyba'); // 3.34 second review N4: another move runs
+        }
         if ($result === null) {
             return $this->back('The enquiry does not exist.', '', [], 'chyba');
         }

@@ -1306,14 +1306,47 @@ final class Applications
     }
 
     /**
+     * The database lock the file work of applications takes (3.34 second review N4): sealPending() and a move of
+     * applications either way never run at the same time. $wait seconds; false when another holds it.
+     */
+    public static function lockFiles(Db $db, int $wait): bool
+    {
+        return (int) $db->value('SELECT GET_LOCK(?, ' . max(0, $wait) . ')', ['kaleta_cv_' . $db->prefix]) === 1;
+    }
+
+    public static function unlockFiles(Db $db): void
+    {
+        $db->run('SELECT RELEASE_LOCK(?)', ['kaleta_cv_' . $db->prefix]);
+    }
+
+    /**
      * Seals the files of applications moved from enquiries (migration 0120, the move by form: still in storage/prilohy,
      * sealed false) – at most $limit files per run, from the daily clean-up. 3.34 review M1: the rows are walked with an
      * id cursor (the setting applications_seal_after), so a row whose file is gone or cannot be sealed does not hold the
      * others back; at the end the cursor starts over. A file that is gone stays listed (the download says it no longer
      * exists). 3.34 second review N1: every file goes through sealEntry() – crash-safe, an interrupted run is finished by
-     * the next one – and the run ends with sweepOrphans(). Returns how many files were sealed.
+     * the next one – and the run ends with sweepOrphans(); N4: under lockFiles(), never while a move runs. Returns how many
+     * files were sealed.
      */
     public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
+    {
+        $db = $app->db();
+        try {
+            if (!self::lockFiles($db, 0)) {
+                return 0; // N4: a move runs – the next clean-up seals
+            }
+        } catch (\PDOException) {
+            return 0;
+        }
+        try {
+            return self::sealPendingLocked($app, $limit);
+        } finally {
+            self::unlockFiles($db);
+        }
+    }
+
+    /** sealPending() under the lock. */
+    private static function sealPendingLocked(App $app, int $limit): int
     {
         $db = $app->db();
         $s = $app->settings();
