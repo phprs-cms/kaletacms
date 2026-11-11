@@ -952,6 +952,7 @@
             "language": "string",
             "news": "boolean",
             "redirects": "boolean",
+            "replace_starter_pages": "array",
             "url": "string"
         },
         "required": [],
@@ -980,6 +981,7 @@
             "menus": "boolean",
             "pages": "boolean",
             "redirects": "boolean",
+            "replace_starter_pages": "array",
             "url": "string"
         },
         "required": [],

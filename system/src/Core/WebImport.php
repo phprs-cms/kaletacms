@@ -135,7 +135,8 @@ final class WebImport
             'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'pozice' => 0,
             'volby' => ['jazyk' => (string) ($options['jazyk'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
                 'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true),
-                'ponechat_vzory' => []], // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
+                'ponechat_vzory' => [], // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
+                'nahradit_vzory' => []], // 3.33 review H1: pages recognised only by the legacy rule the person chose to replace
             'vysledek' => ['stranky' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
             'vzory' => ['nahrazeno' => [], 'ponechano' => []], // 3.33 (M2): the starter pages replaced and kept (StarterPages::makeRoom)
@@ -150,7 +151,7 @@ final class WebImport
      * the person keeps or someone edited (StarterPages::choices).
      *
      * @param array<string, mixed> $state
-     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}>
      */
     public static function starterChoices(Db $db, Settings $settings, array $state): array
     {
@@ -166,7 +167,7 @@ final class WebImport
             }
         };
 
-        return StarterPages::choices($db, $settings, $targets(), self::keptStarters($state));
+        return StarterPages::choices($db, $settings, $targets(), self::keptStarters($state), self::replacedStarters($state));
     }
 
     /**
@@ -176,6 +177,17 @@ final class WebImport
     public static function keptStarters(array $state): array
     {
         return array_values(array_map('intval', array_filter((array) ($state['volby']['ponechat_vzory'] ?? []), is_numeric(...))));
+    }
+
+    /**
+     * The pages recognised only by the legacy rule that the person chose to replace (3.33 review H1).
+     *
+     * @param array<string, mixed> $state
+     * @return list<int>
+     */
+    public static function replacedStarters(array $state): array
+    {
+        return array_values(array_map('intval', array_filter((array) ($state['volby']['nahradit_vzory'] ?? []), is_numeric(...))));
     }
 
     /**
@@ -529,7 +541,7 @@ final class WebImport
             $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
             // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath)
             $target = ImportPath::target($this->db, $old, self::leafSlug($old, $page['titulek']), $language, (string) $state['volby']['jazyk']);
-            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory']);
+            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory'], self::replacedStarters($state));
             $ids = $this->createPage($page, $target, $language, $build, $seo);
             if ($starter !== null && $starter['home']) {
                 $this->settings->set('home_page', (string) $ids);

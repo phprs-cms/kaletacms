@@ -4,7 +4,7 @@
  * choice to replace it (ticked) or keep it, a page someone edited only as information; after the import what it replaced
  * and what it kept. Shared by the website import and the WordPress import.
  *
- * @var list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>|null $choices  the preview (inside its form)
+ * @var list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}>|null $choices  the preview (inside its form)
  * @var array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>}|null $result  after the import
  * @var array<mixed>|null $changed  after the import: old paths that could not be kept as they were (3.33, M3 – [old, new, shortened | flattened])
  */
@@ -20,7 +20,10 @@ $changed ??= null;
 <?php if ($c['why'] === 'edited'): ?>
 	<p><?= e(t('%s → %s stays: %s has been edited, the imported page gets a number.', $c['old'], $c['address'], $c['title'])) ?></p>
 <?php else: ?>
-	<label><input type="checkbox" name="nahradit_vzory[]" value="<?= (int) $c['page_id'] ?>"<?= $c['replace'] ? ' checked' : '' ?>> <?= e(t('Replace the sample page %s (%s) with the old page %s', $c['title'], $c['address'], $c['old'])) ?></label><br>
+	<label><input type="checkbox" name="nahradit_vzory[]" value="<?= (int) $c['page_id'] ?>"<?= $c['replace'] ? ' checked' : '' ?>> <?= e(t('Replace the sample page %s (%s) with the old page %s', $c['title'], $c['address'], $c['old'])) ?></label>
+<?php if (($c['how'] ?? '') === Kaleta\Core\StarterPages::LEGACY): // 3.33 review H1: recognised only by the titles of an older installation – unticked by default ?>
+	<span class="napoveda" data-starter-legacy><?= e(t('Only its title and address suggest a sample page of an installation before 3.33, so it is not replaced unless you tick it. Check it first.')) ?></span>
+<?php endif ?><br>
 <?php endif ?>
 <?php endforeach ?>
 </fieldset>

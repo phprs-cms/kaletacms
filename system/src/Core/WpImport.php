@@ -56,7 +56,8 @@ final class WpImport
      */
     public const array DEFAULT_OPTIONS = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0, 'kolekce' => true,
         'menu' => true, 'menu_umisteni' => [], 'autori' => [], 'skryte' => false, 'obrazky' => false, 'jazyky_pridat' => false,
-        'ponechat_vzory' => []]; // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
+        'ponechat_vzory' => [], // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
+        'nahradit_vzory' => []]; // 3.33 review H1: pages recognised only by the legacy rule the person chose to replace
 
     /** At most this many menu items are kept from one file (Core\Menu takes 80 per menu). */
     public const int MAX_MENU_ITEMS = 500;
@@ -473,7 +474,7 @@ final class WpImport
      * The starter pages of this site the import's pages would land on, for the preview (3.33, M2).
      *
      * @param array<string, mixed> $state
-     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}>
      */
     public static function starterChoices(Db $db, Settings $settings, array $state): array
     {
@@ -483,7 +484,8 @@ final class WpImport
             $targets[] = ['old' => (string) $t[0], 'slug' => (string) $t[1], 'language' => (string) $t[2] !== '' ? Language::column($settings, (string) $t[2]) : $fallback, 'home' => (bool) $t[3]];
         }
 
-        return StarterPages::choices($db, $settings, $targets, array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))));
+        return StarterPages::choices($db, $settings, $targets, array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))),
+            array_values(array_map('intval', (array) ($state['volby']['nahradit_vzory'] ?? []))));
     }
 
     /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
@@ -706,7 +708,7 @@ final class WpImport
         // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath); the parent page is linked now or at the end
         $target = ImportPath::target($this->db, self::pagePath((string) $p['odkaz']), self::plannedSlug($p), $language, (string) self::itemLanguage($p, $state)[0]);
         $starter = StarterPages::makeRoom($this->db, $this->settings, self::oldPath((string) $p['odkaz']), $target['slug'], $language, self::isHomeLink((string) $p['odkaz']),
-            array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))), $state['vzory']);
+            array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))), $state['vzory'], array_values(array_map('intval', (array) ($state['volby']['nahradit_vzory'] ?? []))));
         // a page directly under the site root must not take a slug the system uses (Pages::slugReserved; a nested one never collides)
         $seo = $this->freeSlug('stranky', $target['slug'], $language, '', $state, 120);
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
@@ -1768,6 +1770,7 @@ final class WpImport
         $options['menu_umisteni'] = $locations;
         $options['autori'] = $authors;
         $options['ponechat_vzory'] = array_values(array_unique(array_map('intval', array_filter(is_array($input['ponechat_vzory'] ?? null) ? $input['ponechat_vzory'] : [], is_numeric(...)))));
+        $options['nahradit_vzory'] = array_values(array_unique(array_map('intval', array_filter(is_array($input['nahradit_vzory'] ?? null) ? $input['nahradit_vzory'] : [], is_numeric(...)))));
 
         return $options;
     }

@@ -63,7 +63,10 @@ trait MigrationTools
         $created = WpImport::created($state); // the records this call creates count against the hourly change limit (3.7, N37-26)
         $start = function (array &$state) use ($a, $db, $settings): void {
             // 3.33 (M2): keep_starter_pages names old addresses of the preview's starter choices (["*"] = all)
-            $input = $this->wordpressOptions($a) + ['ponechat_vzory' => \Kaleta\Core\StarterPages::keepFromAddresses(WpImport::starterChoices($db, $settings, $state), $a['keep_starter_pages'] ?? [])];
+            // 3.33 review H1: a page recognised only by the titles of an older installation only when named in replace_starter_pages
+            $choices = WpImport::starterChoices($db, $settings, $state);
+            $input = $this->wordpressOptions($a) + ['ponechat_vzory' => \Kaleta\Core\StarterPages::keepFromAddresses($choices, $a['keep_starter_pages'] ?? []),
+                'nahradit_vzory' => \Kaleta\Core\StarterPages::replaceFromAddresses($choices, $a['replace_starter_pages'] ?? [])];
             WpImport::run($state, WpImport::options($input, $db, $settings));
             WpImport::saveState($state);
         };
@@ -182,7 +185,7 @@ trait MigrationTools
         $out['next'] = match (true) {
             $error !== null => 'The import stopped – tell the user the error. A damaged file: export it from WordPress again and start with the new file.',
             $state['faze'] === 'analyza' => 'Call again with the same import until the phase is "preview".',
-            $state['faze'] === 'nahled' => 'Show the user what was found, what will be skipped and which starter pages of this site the import replaces (starter_pages). On their instruction call again with import and confirm: true, with the options you agreed (drafts, pages, builder, redirects, collections, menus, menu_locations, authors, images, language, default_category, keep_starter_pages). Everything arrives hidden.',
+            $state['faze'] === 'nahled' => 'Show the user what was found, what will be skipped and which starter pages of this site the import replaces (starter_pages). On their instruction call again with import and confirm: true, with the options you agreed (drafts, pages, builder, redirects, collections, menus, menu_locations, authors, images, language, default_category, keep_starter_pages, replace_starter_pages – a starter page with why "legacy" is replaced only when named there). Everything arrives hidden.',
             $state['faze'] === 'import' => 'Call again with the same import until the phase is "done".',
             $state['faze'] === 'obrazky' => 'Images are being downloaded into Media – call again with the same import until the phase is "done".',
             default => 'Done – nothing is public yet: news are drafts, pages and items hidden, menus in the draft look. Next: (1) run migration_report with the old site\'s address and fix what it finds as drafts; '

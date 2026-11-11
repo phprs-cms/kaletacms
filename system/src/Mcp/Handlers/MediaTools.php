@@ -63,6 +63,11 @@ trait MediaTools
             $state['volby']['ponechat_vzory'] = \Kaleta\Core\StarterPages::keepFromAddresses(
                 \Kaleta\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), ['volby' => ['ponechat_vzory' => []] + $state['volby']] + $state), $a['ponechat_vzory']);
         }
+        if (array_key_exists('nahradit_vzory', $a) && $state['faze'] === 'nahled') {
+            // 3.33 review H1: a page recognised only by the titles of an older installation is replaced only when named here
+            $state['volby']['nahradit_vzory'] = \Kaleta\Core\StarterPages::replaceFromAddresses(
+                \Kaleta\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), $state), $a['nahradit_vzory']);
+        }
         if (($a['potvrdit'] ?? false) === true && $state['faze'] === 'nahled') {
             $state['faze'] = 'import';
             $state['pozice'] = 0;
@@ -96,7 +101,7 @@ trait MediaTools
                 'addresses_changed' => \Kaleta\Core\ImportPath::summary((array) ($state['zmenene_adresy'] ?? []))]) + [
             'next' => match ($state['faze']) {
                 'hledani', 'import' => 'Call again with the same import id.',
-                'nahled' => 'Show the user what was found and which starter pages of this site the import replaces (starter_pages); on their instruction call again with confirm: true (keep_starter_pages: ["/old-address"] keeps a starter page, ["*"] all of them).',
+                'nahled' => 'Show the user what was found and which starter pages of this site the import replaces (starter_pages); on their instruction call again with confirm: true (keep_starter_pages: ["/old-address"] keeps a starter page, ["*"] all of them; a starter page with why "legacy" is kept unless replace_starter_pages: ["/old-address"] names it).',
                 default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.'
                     . ' Fix what attention lists (a placeholder marks a form whose fields could not be read). read_old_page returns an old page as section HTML with its colours and fonts, to rebuild its layout.',
             }];

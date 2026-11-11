@@ -102,7 +102,9 @@ final class Prompts
                   replaces each untouched sample page (Home, About us, Services, Contact) whose address an old page asks for –
                   the old home page replaces Home and becomes the home page. The preview lists them (starter_pages);
                   `keep_starter_pages` (old addresses, ["*"] = all) keeps one, and a sample page someone edited is never
-                  replaced (the imported page gets a number). Sample pages no old page lands on: `trash_page`.
+                  replaced (the imported page gets a number). On a site installed before 3.33 a sample page is recognised
+                  only by its title (why "legacy") and stays unless `replace_starter_pages` names its old address – ask
+                  the user first. Sample pages no old page lands on: `trash_page`.
                 - **Time zone.** Scheduled news and dates arrive in the site's time zone. If the old site used another one, an
                   administrator sets it in Settings → General before the import; a later change offers to convert the saved
                   dates.

@@ -360,6 +360,9 @@ final class SiteImport
                 $this->db->run('DELETE FROM {' . $table . '}');
             }
             $this->db->run('SET FOREIGN_KEY_CHECKS = 1');
+            // 3.33 review H1: the site has no sample pages any more – an empty record, so the imported pages (which keep
+            // their titles and addresses but never a zmenil) are never taken for untouched starter pages by the legacy rule
+            $this->settings->set(StarterPages::SETTING, '{}');
             $state['vyprazdneno'] = true;
             // 3.9: an export where two language versions share a slug (/kontakt, /en/kontakt) needs slugs per language here
             // too, before the first row – otherwise the global unique key refuses the second one (Core\Slug)
@@ -1136,6 +1139,7 @@ final class SiteImport
             }
         }
         $this->settings->set('look_draft', '');
+        $this->settings->set(StarterPages::SETTING, '{}'); // 3.33 review H1: an export's pages are never sample pages
         // an export from before 3.2 knew Bookings as part of the core: a site that brings its booking set-up keeps the
         // feature switched on (as migration 0073 does for an updated site)
         if (version_compare($fromVersion, '3.2.0', '<') && $this->db->value('SELECT 1 FROM {booking_services} LIMIT 1') !== null) {

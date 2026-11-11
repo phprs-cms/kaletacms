@@ -7545,4 +7545,9 @@ return [
     'layout not rebuilt yet' => 'rozložení zatím nepřestavěné',
     'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Importovaná stránka: její stavba je pořád importovaný text. Přestavte rozložení v builderu nebo požádejte Clauda – štítek zmizí s první změnou.',
     'Layout not rebuilt' => 'Nepřestavěné rozložení',
+    'Kept, because only their titles suggest a sample page of an older installation – check them and delete them in Pages if they are: %s.' => 'Ponechány, protože na ukázkovou stránku starší instalace ukazují jen jejich titulky – zkontrolujte je, a pokud jimi jsou, smažte je ve Stránkách: %s.',
+    'Only its title and address suggest a sample page of an installation before 3.33, so it is not replaced unless you tick it. Check it first.' => 'Na ukázkovou stránku instalace před 3.33 ukazuje jen její titulek a adresa, proto se nenahradí, dokud ji nezaškrtnete. Nejdřív ji zkontrolujte.',
+    'recognised only by its title and address (an installation before 3.33) – it is published, so it stays; an import replaces it only when you tick it' => 'poznaná jen podle titulku a adresy (instalace před 3.33) – je zveřejněná, proto zůstává; import ji nahradí, jen když ji zaškrtnete',
+    'recognised only by its title and address (an installation before 3.33), hidden' => 'poznaná jen podle titulku a adresy (instalace před 3.33), skrytá',
+    'recorded by the installer and unchanged since' => 'zapsaná instalátorem a od té doby nezměněná',
 ];

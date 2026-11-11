@@ -20,7 +20,7 @@
  * @var array<string, class-string<Kaleta\Import\Source&Kaleta\Import\Remote>> $remoteSources  those fetched from the site's API (Joomla, Drupal)
  * @var bool $canFetch  the server has curl, so it can read a site's API
  * @var list<array{soubor:string, zdroj:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
- * @var array<int, array{ids: int, seo_link: string, jazyk: string, titulek: string, home: bool}> $samplePages  the untouched starter pages (3.33, Core\StarterPages)
+ * @var array<int, array{ids: int, seo_link: string, jazyk: string, titulek: string, home: bool, how: string, visible: bool}> $samplePages  the untouched starter pages (3.33, Core\StarterPages)
  */
 $phase = [
     'stahovani' => 'being fetched from the site', 'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
@@ -31,6 +31,14 @@ $phase = [
 <details class="panel-sbaleny" id="sample-pages" open>
 <summary><h2><?= e(t('Sample pages')) ?></h2></summary>
 <p><?= e(t('This site still has the sample pages of the installation, untouched: %s. Moving a site here? An import replaces a sample page at the same address (the preview lets you keep it); you can also move them all to the trash now – the Home page stays until the import of the old home page replaces it.', implode(', ', array_map(fn (array $p): string => $p['titulek'] . ' (/' . $p['seo_link'] . ')', $removable)))) ?></p>
+<?php /* 3.33 review H1: how each page was recognised */ ?>
+<ul id="sample-pages-how">
+<?php foreach ($removable as $p): ?>
+	<li><?= e($p['titulek'] . ' (/' . $p['seo_link'] . ')') ?> – <?= e($p['how'] === Kaleta\Core\StarterPages::LEGACY
+        ? ($p['visible'] ? t('recognised only by its title and address (an installation before 3.33) – it is published, so it stays; an import replaces it only when you tick it') : t('recognised only by its title and address (an installation before 3.33), hidden'))
+        : t('recorded by the installer and unchanged since')) ?></li>
+<?php endforeach ?>
+</ul>
 <form method="post" action="<?= e($module->url('starter_remove')) ?>"><?= $csrf ?>
 	<p class="tlacitka"><button class="tl" type="submit" data-potvrdit="<?= e(t('Move the untouched sample pages to the trash? You can restore them for 30 days.')) ?>"><?= e(t('Move the sample pages to the trash')) ?></button></p></form>
 </details>

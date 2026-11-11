@@ -7971,4 +7971,9 @@ return [
     'layout not rebuilt yet' => 'diseño aún no reconstruido',
     'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Una página importada: su construcción sigue siendo el texto importado. Reconstruya su diseño en el builder o pídaselo a Claude; la etiqueta desaparece con el primer cambio.',
     'Layout not rebuilt' => 'Diseño sin reconstruir',
+    'Kept, because only their titles suggest a sample page of an older installation – check them and delete them in Pages if they are: %s.' => 'Se conservan porque solo sus títulos sugieren una página de ejemplo de una instalación anterior: compruébelas y elimínelas en Páginas si lo son: %s.',
+    'Only its title and address suggest a sample page of an installation before 3.33, so it is not replaced unless you tick it. Check it first.' => 'Solo su título y su dirección sugieren una página de ejemplo de una instalación anterior a 3.33, así que no se sustituye a menos que la marque. Compruébela primero.',
+    'recognised only by its title and address (an installation before 3.33) – it is published, so it stays; an import replaces it only when you tick it' => 'reconocida solo por su título y su dirección (una instalación anterior a 3.33): está publicada, así que se queda; una importación la sustituye solo si la marca',
+    'recognised only by its title and address (an installation before 3.33), hidden' => 'reconocida solo por su título y su dirección (una instalación anterior a 3.33), oculta',
+    'recorded by the installer and unchanged since' => 'registrada por el instalador y sin cambios desde entonces',
 ];

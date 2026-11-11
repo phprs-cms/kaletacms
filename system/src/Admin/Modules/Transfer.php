@@ -79,12 +79,14 @@ final class Transfer extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        $removed = \Kaleta\Core\StarterPages::removeSamples($this->db, $this->app->settings());
-        if ($removed !== []) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'sample pages to the trash', implode(', ', $removed));
+        $result = \Kaleta\Core\StarterPages::removeSamples($this->db, $this->app->settings());
+        if ($result['removed'] !== []) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'sample pages to the trash', implode(', ', $result['removed']));
         }
+        // 3.33 review H1: a visible page recognised only by the titles of an older installation stays – the person checks it
+        $kept = $result['kept'] === [] ? '' : ' ' . t('Kept, because only their titles suggest a sample page of an older installation – check them and delete them in Pages if they are: %s.', implode(', ', $result['kept']));
 
-        return $this->back($removed === [] ? 'No untouched sample pages are left.' : t('Moved to the trash: %s. You can restore them for 30 days.', implode(', ', $removed)));
+        return $this->back(($result['removed'] === [] ? t('No untouched sample pages are left.') : t('Moved to the trash: %s. You can restore them for 30 days.', implode(', ', $result['removed']))) . $kept);
     }
 
     /* ---------- import from a website (2.6) ---------- */
@@ -142,7 +144,9 @@ final class Transfer extends Module
             return $this->back();
         }
         // 3.33 (M2): an unticked sample page of the preview stays (Core\StarterPages)
-        $state['volby']['ponechat_vzory'] = $this->keptStarters(WebImport::starterChoices($this->db, $this->app->settings(), $state));
+        $choices = WebImport::starterChoices($this->db, $this->app->settings(), $state);
+        $state['volby']['ponechat_vzory'] = $this->keptStarters($choices);
+        $state['volby']['nahradit_vzory'] = $this->replacedStarters($choices); // 3.33 review H1: a ticked page of an older installation
         $state['faze'] = 'import';
         $state['pozice'] = 0;
         WebImport::save($state);
@@ -153,7 +157,7 @@ final class Transfer extends Module
     /**
      * The sample pages the preview's form keeps (3.33, M2): every replaceable one whose box was not ticked.
      *
-     * @param list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}> $choices
+     * @param list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}> $choices
      * @return list<int>
      */
     private function keptStarters(array $choices): array
@@ -161,6 +165,19 @@ final class Transfer extends Module
         $ticked = array_map('intval', $this->request->postList('nahradit_vzory'));
 
         return array_values(array_map(fn (array $c): int => $c['page_id'], array_filter($choices, fn (array $c): bool => $c['why'] !== 'edited' && !in_array($c['page_id'], $ticked, true))));
+    }
+
+    /**
+     * The pages recognised only by the legacy rule whose box the person ticked (3.33 review H1 – unticked by default).
+     *
+     * @param list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}> $choices
+     * @return list<int>
+     */
+    private function replacedStarters(array $choices): array
+    {
+        $ticked = array_map('intval', $this->request->postList('nahradit_vzory'));
+
+        return array_values(array_map(fn (array $c): int => $c['page_id'], array_filter($choices, fn (array $c): bool => $c['how'] === \Kaleta\Core\StarterPages::LEGACY && $c['why'] !== 'edited' && in_array($c['page_id'], $ticked, true))));
     }
 
     /** Removes the record of an import; the imported pages stay. */
@@ -377,7 +394,8 @@ final class Transfer extends Module
             'jazyk' => $language, 'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
             'menu' => $r->postBool('menu'), 'skryte' => $r->postBool('skryte'), 'jazyky_pridat' => $r->postBool('jazyky_pridat'),
-            'ponechat_vzory' => $this->keptStarters(WpImport::starterChoices($this->db, $this->app->settings(), $state)), // 3.33 (M2)
+            'ponechat_vzory' => $this->keptStarters($choices = WpImport::starterChoices($this->db, $this->app->settings(), $state)), // 3.33 (M2)
+            'nahradit_vzory' => $this->replacedStarters($choices), // 3.33 review H1
         ], $this->db, $this->app->settings()));
         if ($added !== '') {
             $state['jazyky']['pridano'] = array_values(array_unique([...(array) $state['jazyky']['pridano'], $added])); // the result names it

@@ -275,7 +275,9 @@ final class Installer
                 // "Start from an export" (1.8): an empty site – the content, look and settings come with the import (Import and export)
                 $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                     'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions),
-                    'slugs_per_language' => '1']; // 3.19: schema.sql has no global slug keys – the same address once in each language version
+                    'slugs_per_language' => '1', // 3.19: schema.sql has no global slug keys – the same address once in each language version
+                    // 3.33 review H1: an empty record – the pages an export brings are never sample pages (no legacy rule)
+                    \Kaleta\Core\StarterPages::SETTING => '{}'];
                 foreach ($settings as $key => $value) {
                     $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
                 }
