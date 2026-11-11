@@ -472,12 +472,9 @@ final class Auth
         }
         $challenge = (string) $this->session->get('klic_vyzva', '');
         $this->session->remove('klic_vyzva'); // the challenge is valid for one attempt
+        // 3.35 review M1: a lock after wrong passwords or codes does not stop the passkey step – a valid passkey signs in and
+        // clears the lock (recordSignIn), a wrong one counts on as before; the code step (verifyCode) stays locked
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
-        if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
-            $this->session->remove('idu_ceka');
-
-            return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
-        }
         $key = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         try {
             if ($key === null) {
@@ -520,7 +517,8 @@ final class Auth
      * Sign-in without a password (3.35), part 2: the server finds the account from the passkey (its id, and the opaque user
      * handle the device returns must be the account's), the device must have verified the user (UV), the counter is
      * checked as at the second step. The limits are those of the password: at most 10 failures per address in 15 minutes,
-     * ten failures in a row lock the account for 15 minutes, a locked or blocked account never signs in – and every
+     * ten failures in a row lock the account for 15 minutes for the password, a blocked account never signs in (3.35
+     * review M1: a locked one does with a valid passkey, which ends the lock) – and every
      * failure gets the same answer (PASSKEY_FAILED). A passkey registered as the second step before 3.35 is not
      * discoverable: after a valid signature its owner hears that it has to be registered again.
      *
@@ -539,7 +537,11 @@ final class Auth
         $challenge = is_array($pending) && time() - (int) ($pending['at'] ?? 0) < self::PASSKEY_CHALLENGE_LIFETIME ? (string) ($pending['challenge'] ?? '') : '';
         $key = $this->db->one('SELECT * FROM {uzivatele_klice} WHERE otisk_id = ?', [hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         $user = $key === null ? null : $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$key['idu']]);
-        $closed = $user !== null && (!empty($user['blokovat']) || self::isLocked($user));
+        // 3.35 review M1: only a BLOCKED account is closed here. A lock after wrong passwords (isLocked) must not shut out
+        // the owner's passkey – an attacker guessing the password could otherwise keep the real owner out for good. The
+        // assertion of a locked account is verified as any other: a valid one with user verification signs in and clears
+        // the lock (recordSignIn), an invalid one counts on the same counters; the answer is the same in every case.
+        $closed = $user !== null && !empty($user['blokovat']);
         $this->passkeyAccount = $user !== null ? (string) $user['user'] : '';
         $counter = null;
         $oldKey = false;
@@ -624,8 +626,8 @@ final class Auth
             return 'wrong';
         }
         $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > ?", [Antispam::hash($address), Clock::at('-15 minutes')]);
-        if (self::isLocked($user) || $attempts >= 10) {
-            return 'locked';
+        if ($attempts >= 10) {
+            return 'locked'; // 3.35 review M1: the limit per address only – a lock after wrong passwords does not stop the passkey
         }
         $challenge = is_array($pending) && time() - (int) ($pending['at'] ?? 0) < self::PASSKEY_CHALLENGE_LIFETIME ? (string) ($pending['challenge'] ?? '') : '';
         $key = $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$id, hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
@@ -640,6 +642,9 @@ final class Auth
             return $this->countError($user) ? 'locked' : 'wrong';
         }
         $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+        if (self::isLocked($user)) {
+            $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null], ['idu' => $id]); // 3.35 review M1: the owner's passkey ends the lock
+        }
         $this->markVerified(true); // 3.35: a passkey confirmation is a strong fresh proof
 
         return 'ok';
@@ -662,7 +667,8 @@ final class Auth
      */
     private function recordSignIn(int $idu): void
     {
-        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $idu]);
+        // 3.35 review M1: a completed sign-in also ends a lock – only a passkey completes one on a locked account
+        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $idu]);
     }
 
     public function logout(): void

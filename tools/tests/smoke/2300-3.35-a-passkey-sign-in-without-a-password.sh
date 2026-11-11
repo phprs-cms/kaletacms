@@ -100,8 +100,10 @@ expect "3.35 A: a counter that does not grow (a copied key) is refused" "$(p335_
 # the lock and the limits of the password sign-in
 sq "UPDATE ka_uzivatele SET pocet_chyb = 9 WHERE idu = $P335_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
 p335_passkey "$J3" "$WORK/pk335-a" 1 5 > /dev/null
-expect "3.35 A: the tenth failure in a row locks the account; then even a valid passkey gets the one answer" \
-  "$(sq "SELECT zamceno_do IS NOT NULL FROM ka_uzivatele WHERE idu = $P335_USER")|$(p335_passkey "$J3" "$WORK/pk335-a" 5 6)|$([ "$(p335_message)" = "$P335_FAILED" ] && echo same)|$(p335_signed_in "$J3")" "1|401|same|0"
+# 3.35 review M1: the lock is for the password – a valid passkey still signs in and ends it (smoke 2410 has the rest)
+expect "3.35 A: the tenth failure in a row locks the account; a valid passkey still signs in and ends the lock" \
+  "$(sq "SELECT zamceno_do IS NOT NULL FROM ka_uzivatele WHERE idu = $P335_USER")|$(p335_passkey "$J3" "$WORK/pk335-a" 5 6)|$(p335_signed_in "$J3")|$(sq "SELECT CONCAT(zamceno_do IS NULL, '/', pocet_chyb) FROM ka_uzivatele WHERE idu = $P335_USER")" "1|200|1|1/0"
+rm -f "$J3"
 sq "UPDATE ka_uzivatele SET zamceno_do = NULL, pocet_chyb = 0 WHERE idu = $P335_USER; UPDATE ka_uzivatele SET blokovat = 1 WHERE idu = $P335_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
 expect "3.35 A: a blocked account never signs in with its passkey" "$(p335_passkey "$J3" "$WORK/pk335-a" 5 7)|$([ "$(p335_message)" = "$P335_FAILED" ] && echo same)" "401|same"
 sq "UPDATE ka_uzivatele SET blokovat = 0 WHERE idu = $P335_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
