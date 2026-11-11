@@ -143,7 +143,9 @@ final class Prompts
                 **Any other platform, or WordPress without an export.** Call `import_website` with `url`, then again with
                 `import_id`. In the phase "preview", show the user what was found and send `confirm` true only on their
                 instruction. Keep calling until the phase is "done". Options: `images`, `redirects`, `news`, `language`. The
-                header, footer, menus, cookie bars and forms of the old site are left out.
+                header, footer, menus and cookie bars of the old site are left out; forms, accordions, tabs, counters, videos and
+                maps become their elements, linked files go into Media, and the old title and share image into the page's SEO
+                fields. A form drawn by a script gets a placeholder – `attention` in the answer lists what needs you.
 
                 ## 4. The look
 
@@ -161,13 +163,17 @@ final class Prompts
                 An export carries only the text of a page made with a page builder; the import preview names the builders it
                 found. Rebuild each page in the Kaleta builder, page by page (`list_pages` shows the imported ones):
 
-                1. Look at the live old page – its rendered HTML or the element tree through the old site's connection – and
+                1. Look at the live old page – `read_old_page` with its address returns it section by section as cleaned HTML
+                   with the colours and fonts each section uses (or the element tree through the old site's connection) – and
                    list its sections: hero, benefits, services, references, call to action, contact.
                 2. Call `builder_schema` once and reuse the site's classes, components and saved sections.
                 3. Write semantic HTML (`section`, `h1`–`h3`, `p`, `ul`, `a`, `img`, `figure`, `blockquote`, `details`) and one
                    `<style>` block with rules of one class each and the tokens `var(--ka-…)`; breakpoints from desktop down:
                    `@media (max-width: 1023px)` and `@media (max-width: 767px)`. Keep the texts, images, buttons and links;
-                   leave out the builder's wrappers, class names, scripts and shortcodes.
+                   leave out the builder's wrappers, class names, scripts and shortcodes. An accordion (`details`, or a
+                   button with `aria-controls` and its panel), tabs (`role="tab"` and `role="tabpanel"`), a map or video
+                   `iframe`, a `form` and a number with `data-counter` become the FAQ, Tabs, Map, Video, Form and Counter
+                   elements.
                 4. Call `build_from_html` with the `id` of the imported page (`mode` replace, or append to add sections in
                    parts; `overwrite_classes` only when the user wants the site's classes replaced). Fix what it could not
                    convert with `edit_build`, or `get_build` and `save_build`.

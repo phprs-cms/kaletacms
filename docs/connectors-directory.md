@@ -127,7 +127,7 @@ By feature: 109 core tools, 11 News, 7 Enquiries, 2 Redirects, 5 Newsletter, 2 F
 - `idempotentHint: true` on 41 write tools verified in the code (setters that overwrite, deletes, booking decisions
   that hold for one status only) – `Mcp\Catalog::IDEMPOTENT`.
 - `openWorldHint: true` on 11 tools: downloads from an address the caller gives (`upload_file` with a URL,
-  `import_website`, `migration_report`, `import_wordpress`, `save_collection_items` with media URLs) and e-mails to people
+  `import_website`, `migration_report`, `read_old_page`, `import_wordpress`, `save_collection_items` with media URLs) and e-mails to people
   outside the site's users (`send_newsletter`, `request_testimonial`, `confirm_booking`, `decline_booking`,
   `cancel_booking`, `propose_booking_times`) – `Mcp\Catalog::OPEN_WORLD`.
 - Prompts and resources (the site owner's instructions, an overview) are offered too; the portal syncs them with the

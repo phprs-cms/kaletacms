@@ -4540,6 +4540,50 @@ await step('3.33 move: the Move block of Site audit and the sample pages of Impo
   }
 });
 
+// 3.33 part B: an imported page whose build is still the imported text is labelled "layout not rebuilt yet" in the list of
+// pages (the work queue of a move); the label fits 1440 and 390 px in light and dark without sideways scroll, axe clean
+await step('3.33 B: the list of pages labels an imported page whose layout waits to be rebuilt (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const build = '{"v":1,"deti":[{"id":"b333a","typ":"sekce","znacka":"section","obsah":{"sirka":"uzka"},"styl":{},"tridy":[],"deti":[{"id":"b333b","typ":"text","znacka":"div","obsah":{"html":"<p>Imported text B333</p>"},"styl":{},"tridy":[],"deti":[]}]}]}';
+  const ids = Number(sql(`INSERT INTO ka_stranky (seo_link, titulek, text, stavba, zobrazit, v_menu) VALUES ('b333-imported', 'Imported B333', '<p>Imported text B333</p>', '${build}', 0, 0); SELECT LAST_INSERT_ID();`).trim());
+  sql(`INSERT INTO ka_import_mapa (zdroj, typ, cizi_id, nase_id) SELECT 'layout', 'stranka', CONCAT(ids, ':', SHA2(stavba, 256)), ids FROM ka_stranky WHERE ids = ${ids}`);
+  try {
+    await visit('/admin.php?module=pages');
+    const label = page.locator(`[data-layout-not-rebuilt="${ids}"]`);
+    if ((await label.count()) !== 1 || !/layout not rebuilt yet/.test(await label.innerText())) { throw new Error('the imported page has no "layout not rebuilt yet" label'); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label2, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=pages`, { waitUntil: 'networkidle' });
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label2}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/333b-pages-${label2}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + '/admin.php?module=pages', { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['table.vypis'], WCAG]);
+        if (found.violations.length) { throw new Error(`axe pages (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    sql(`DELETE FROM ka_import_mapa WHERE zdroj = 'layout' AND nase_id = ${ids}; DELETE FROM ka_stranky WHERE ids = ${ids}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

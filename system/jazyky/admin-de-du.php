@@ -1262,4 +1262,9 @@ return [
     'The address leads to a sample page of the installation that nobody has changed – visitors would see sample text. Import the old page over it or replace its content.' => 'Die Adresse führt auf eine Beispielseite der Installation, die niemand geändert hat – Besucher würden Beispieltext sehen. Importiere die alte Seite darüber oder ersetze ihren Inhalt.',
     'The page title changed – check that the new one is what search engines should show.' => 'Der Seitentitel hat sich geändert – prüfe, ob der neue der ist, den Suchmaschinen zeigen sollen.',
     'Where the move of the old site stands. Point the domain here once every row is done.' => 'Wo der Umzug der alten Website steht. Leite die Domain hierher um, sobald jede Zeile erledigt ist.',
+    'its fields could not be read. Add a Form element with the same fields in its place.' => 'seine Felder konnten nicht gelesen werden. Füge an seiner Stelle ein Formular-Element mit denselben Feldern ein.',
+    '/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.' => '/%s – ein Formular, dessen Felder ein Skript zeichnet, konnte nicht gelesen werden: Ein Platzhalter markiert seine Stelle, füge ein Formular-Element mit denselben Feldern ein.',
+    '/%s – the video %s could not be downloaded: add it in the builder.' => '/%s – das Video %s konnte nicht heruntergeladen werden: Füge es im Builder ein.',
+    '%s things need your attention' => '%s Punkte brauchen deine Aufmerksamkeit',
+    'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Eine importierte Seite: ihr Aufbau ist noch der importierte Text. Baue das Layout im Builder neu auf oder bitte Claude darum – das Etikett verschwindet mit der ersten Änderung.',
 ];

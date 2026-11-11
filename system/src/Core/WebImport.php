@@ -20,10 +20,14 @@ use Kaleta\Admin\Modules\Redirects;
  *    disallows for Kaleta-import (or for every robot) is never downloaded, its Crawl-delay is kept (at most MAX_DELAY
  *    seconds), and without one there is DEFAULT_DELAY between two requests.
  *  - Each page is downloaded through Core\ImageDownloader (public addresses only, no redirects elsewhere, limits), its
- *    main content is taken out (main, article, the usual content containers; never the header, footer, navigation,
- *    cookie bars or forms) and turned into a builder page by Builder\HtmlConverter. Images – also from the site's CDN –
+ *    main content is taken out (main, article, the usual content containers; never the header, footer, navigation or
+ *    cookie bars) and turned into a builder page by Builder\HtmlConverter. Images – also from the site's CDN –
  *    go into Media through Core\Images. Addresses that look like articles (/blog/, /news/, a date in the path, a
  *    publication date in the page) become news items when the News extension is on.
+ *  - 3.33: the widgets of the old page (Builder\HtmlWidgets – forms, accordions and FAQ, tabs, video and map frames,
+ *    embedded booking pages, counters) are taken out before the page is sanitized and become their elements; a form
+ *    whose fields a script draws gets a placeholder and a line in the result. Files the page links to (PDF, documents,
+ *    videos) go into Media within the download limits, and the old <title> and og:image into the page's SEO fields.
  *  - Pages are created hidden and outside the menu, so nothing changes for visitors until the administrator looks at
  *    them; old addresses redirect to the new ones.
  *  - The work runs in batches of SECONDS (shared hosting), the state is a file in storage/import, and ka_import_mapa
@@ -36,6 +40,18 @@ final class WebImport
     public const int MAX_PAGES = 3000;
     private const float SECONDS = 15.0;
     private const int IMAGES_PER_PAGE = 40;
+
+    /** Files one page may bring into Media (3.33): a price list, a brochure, a video – a page with more links them to the old site. */
+    private const int FILES_PER_PAGE = 10;
+
+    /** Widgets taken out of one page (3.33); the rest stays in the page as its text. */
+    private const int WIDGETS_PER_PAGE = 60;
+
+    /** Linked files that are downloaded into Media (3.33) – documents and media, the extensions Core\Files takes. */
+    private const array FILE_LINKS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'csv', 'zip', 'epub', 'ics', 'gpx', 'mp3', 'm4a', 'ogg', 'wav', 'mp4', 'webm'];
+
+    /** File hosts of the builders besides the old site's own domain (Wix, Squarespace, Webflow keep the files there). */
+    private const string FILE_HOSTS = '/(^|\.)(wixstatic\.com|usrfiles\.com|filesusr\.com|squarespace\.com|squarespace-cdn\.com|website-files\.com|webflow\.com)$/i';
     private const int MAX_SITEMAPS = 100;
 
     /**
@@ -71,7 +87,14 @@ final class WebImport
     private const string NOISE = 'script, style, noscript, template, iframe, form, nav, header, footer, aside, svg, button, dialog, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-hidden="true"]';
 
     /** Classes and ids of cookie bars, pop-ups, sharing and comment blocks. */
-    private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|widget|skip-link|screen-reader/i';
+    private const string NOISE_NAMES = '/cookie|consent|gdpr|popup|modal|newsletter|share|sharing|social|breadcrumb|comment|related|sidebar|(?<![\w-])widget|skip-link|screen-reader/i';
+
+    /**
+     * Elements that are noise wherever they are (NOISE without the widget tags – a form or a frame is taken out as a widget
+     * first, 3.33). "widget" counts only as the start of a class (WordPress sidebars: widget, widget_text), never inside
+     * one – every block of Elementor is an elementor-widget.
+     */
+    private const string NOISE_BLOCKS = 'nav, header, footer, aside, dialog, svg, script, style, noscript, template, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-hidden="true"]';
 
     private float $end = 0.0;
 
@@ -117,6 +140,8 @@ final class WebImport
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
             'vzory' => ['nahrazeno' => [], 'ponechano' => []], // 3.33 (M2): the starter pages replaced and kept (StarterPages::makeRoom)
             'zmenene_adresy' => [], // 3.33 (M3): [old, new, shortened | flattened] – an old path that could not be kept as it was
+            // 3.33: what the pages kept (forms, FAQ, videos…, files, SEO titles) and what needs a person (an unreadable form)
+            'zachovano' => [], 'pozor' => [],
         ];
     }
 
@@ -219,7 +244,8 @@ final class WebImport
     {
         $v = is_array($state['vysledek'] ?? null) ? $state['vysledek'] : [];
 
-        return intval($v['stranky'] ?? 0) + intval($v['clanky'] ?? 0) + intval($v['obrazky'] ?? 0) + intval($v['presmerovani'] ?? 0);
+        return intval($v['stranky'] ?? 0) + intval($v['clanky'] ?? 0) + intval($v['obrazky'] ?? 0) + intval($v['presmerovani'] ?? 0)
+            + intval($state['zachovano']['soubory'] ?? 0); // 3.33: the linked files brought into Media
     }
 
     /**
@@ -461,36 +487,59 @@ final class WebImport
             throw new \RuntimeException('The page could not be downloaded.');
         }
         $page = self::extract($html, $url);
-        if (trim(strip_tags($page['obsah'], '<img>')) === '') {
+        $widgets = $page['prvky'];
+        if (trim(strip_tags($page['obsah'], '<img>')) === '' && $widgets === []) {
             throw new \RuntimeException('The page has no content to import.');
         }
+        $old = self::path($url);
+        $seo = ['seo_titulek' => $page['seo_titulek'], 'obrazek' => ''];
         if ($state['volby']['obrazky']) {
-            $page['obsah'] = HtmlLimits::guard(function () use ($page, &$state): string {
-                return $this->images($page['obsah'], $state);
+            // images and linked files into Media – in the page and in its widgets (an image in an accordion answer, a video file)
+            $page['obsah'] = HtmlLimits::guard(function () use ($page, $url, &$state): string {
+                return $this->files($this->images($page['obsah'], $state), $url, $state);
             });
+            foreach ($widgets as $i => $widget) {
+                $widgets[$i]['html'] = HtmlLimits::guard(function () use ($widget, $url, &$state): string {
+                    return $this->files($this->images($widget['html'], $state), $url, $state);
+                });
+            }
+            // the old page's share image (og:image) becomes the page's own
+            $share = $page['obrazek'] !== '' ? $this->image($page['obrazek'], $page['titulek'], $state) : null;
+            $seo['obrazek'] = $share !== null ? (string) $share['obr_poloha'] : '';
+        }
+        foreach ($widgets as $widget) {
+            if ($widget['kind'] === 'unreadable_form') {
+                self::attention($state, t('/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.', $old));
+            }
         }
         // sanitized once more as the very last step before it is stored; over a limit of HtmlLimits the page is skipped
-        // with the reason (HtmlTooLarge, recorded by import())
-        $page['obsah'] = HtmlLimits::guard(fn (): string => self::safeContent($page['obsah']));
+        // with the reason (HtmlTooLarge, recorded by import()); the text of the widgets takes their place in the text
+        $content = $page['obsah'];
+        $page['obsah'] = HtmlLimits::guard(fn (): string => self::safeContent(self::widgetText($content, $widgets)));
         $language = Language::column($this->settings, (string) $state['volby']['jazyk']);
         $article = $state['volby']['novinky'] && $page['clanek'] && Extensions::isEnabled($this->settings, 'novinky');
-        $old = self::path($url);
         if ($article) {
-            $idc = $this->createArticle($page, $language);
+            $idc = $this->createArticle($page, $language, $seo);
             $this->map($source, 'clanek', $key, $idc);
             $state['vysledek']['clanky']++;
             $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$idc]);
         } else {
+            $build = $this->build($page['titulek'], HtmlLimits::guard(fn (): string => self::safeContent($content)), $widgets);
             // 3.33 (M2): an untouched starter page at the address (or the starter home page for the old home page) makes room
             $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
             // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath)
             $target = ImportPath::target($this->db, $old, self::leafSlug($old, $page['titulek']), $language, (string) $state['volby']['jazyk']);
             $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory']);
-            $ids = $this->createPage($page, $target, $language);
+            $ids = $this->createPage($page, $target, $language, $build, $seo);
             if ($starter !== null && $starter['home']) {
                 $this->settings->set('home_page', (string) $ids);
             }
             $this->map($source, 'stranka', $key, $ids);
+            ImportLayout::remember($this->db, $ids, $build); // "layout not rebuilt yet" until the build is edited
+            $kept = self::keptElements(\Kaleta\Builder\Build::fromJson($build) ?? []);
+            foreach ($kept + ['seo' => $seo['seo_titulek'] !== '' || $seo['obrazek'] !== '' ? 1 : 0] as $type => $count) {
+                $state['zachovano'][$type] = intval($state['zachovano'][$type] ?? 0) + $count;
+            }
             $state['vysledek']['stranky']++;
             $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
             if ($target['note'] !== '' && count($state['zmenene_adresy'] ?? []) < 200) {
@@ -506,23 +555,27 @@ final class WebImport
     /**
      * @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page
      * @param array{slug: string, parent: ?int, note: string} $target where it lands (Core\ImportPath::target)
+     * @param array{seo_titulek: string, obrazek: string} $seo the old <title> and the share image in Media (3.33)
      */
-    private function createPage(array $page, array $target, string $language): int
+    private function createPage(array $page, array $target, string $language, ?string $build, array $seo): int
     {
-        $seo = Pages::freeSlug($this->db, $target['slug'], language: $language);
-        $build = $this->build($page['titulek'], $page['obsah']);
+        $slug = Pages::freeSlug($this->db, $target['slug'], language: $language);
 
         return $this->db->insert('stranky', [
-            'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 200), 'text' => $page['obsah'], 'stavba' => $build,
-            'popis' => mb_substr($page['popis'], 0, 300),
+            'seo_link' => $slug, 'titulek' => mb_substr($page['titulek'], 0, 200), 'text' => $page['obsah'], 'stavba' => $build,
+            'popis' => mb_substr($page['popis'], 0, 300), 'seo_titulek' => mb_substr($seo['seo_titulek'], 0, 200), 'obrazek' => mb_substr($seo['obrazek'], 0, 255),
             'zobrazit' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
             'nadrazena' => $target['parent'],
         ]);
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
-    private function createArticle(array $page, string $language): int
+    /**
+     * @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page
+     * @param array{seo_titulek: string, obrazek: string} $seoFields the old <title> and the share image (3.33): the share image
+     *        is the article's featured image unless the text already shows it
+     */
+    private function createArticle(array $page, string $language, array $seoFields): int
     {
         $category = (int) $this->db->value('SELECT idt FROM {kategorie} WHERE jazyk = ? ORDER BY idt LIMIT 1', [$language]);
         if ($category === 0) {
@@ -535,6 +588,8 @@ final class WebImport
         $idc = $this->db->insert('novinky', [
             'seo_link' => $seo, 'titulek' => mb_substr($page['titulek'], 0, 255), 'uvod' => $page['popis'] !== '' ? '<p>' . e($page['popis']) . '</p>' : '',
             'text' => $page['obsah'], 'tema' => $category, 'jazyk' => $language, 'autor' => $this->author,
+            'seo_titulek' => mb_substr($seoFields['seo_titulek'], 0, 255),
+            'obrazek' => $seoFields['obrazek'] !== '' && !str_contains($page['obsah'], $seoFields['obrazek']) ? mb_substr($seoFields['obrazek'], 0, 255) : '',
             'datum' => $page['datum'] !== '' ? $page['datum'] : $now, 'visible' => 0, 'zmeneno' => $now, 'oznameno' => $now, // never announced (webhook, IndexNow)
         ]);
         Search::index($this->db, $idc);
@@ -543,11 +598,16 @@ final class WebImport
         return $idc;
     }
 
-    /** The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section. */
-    private function build(string $title, string $html): ?string
+    /**
+     * The page's HTML as a build, the same way as pages from WordPress: a heading and the content in a narrow section.
+     * 3.33: the widgets taken out of the page (<kaleta-widget> in $html) become their elements.
+     *
+     * @param list<array{html: string, kind: string}> $widgets
+     */
+    private function build(string $title, string $html, array $widgets = []): ?string
     {
         // the non-administrator converter: whatever site is imported never decides what goes into Custom HTML
-        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false);
+        $conversion = \Kaleta\Builder\HtmlConverter::convert('<h1>' . e($title) . '</h1>' . $html, false, $widgets);
         $build = \Kaleta\Builder\HtmlConverter::withoutClasses($conversion['stavba'], array_column($this->db->all('SELECT nazev FROM {tridy}'), 'nazev'));
         foreach ($build['deti'] as &$section) {
             if ($section['typ'] === 'sekce' && !isset($section['kotva'])) {
@@ -558,6 +618,162 @@ final class WebImport
         [$clean] = \Kaleta\Builder\Build::sanitize($build, false);
 
         return $clean['deti'] === [] ? null : \Kaleta\Builder\Build::toJson($clean);
+    }
+
+    /**
+     * The page's text with each widget's text in place of its marker (the text column feeds search, llms.txt and going back
+     * to text): the content of the element the widget becomes (Build::asText) – questions and answers, tab contents, a
+     * video link; a form has none.
+     *
+     * @param list<array{html: string, kind: string}> $widgets
+     */
+    public static function widgetText(string $html, array $widgets): string
+    {
+        return (string) preg_replace_callback('#<kaleta-widget title="(\d+)"></kaleta-widget>#', function (array $m) use ($widgets): string {
+            $widget = $widgets[(int) $m[1]] ?? null;
+            if ($widget === null || $widget['kind'] === 'unreadable_form') {
+                return '';
+            }
+
+            return \Kaleta\Builder\Build::asText(\Kaleta\Builder\HtmlConverter::convert($widget['html'], false)['stavba']);
+        }, $html);
+    }
+
+    /**
+     * What the import kept, in English for MCP (3.33): forms, FAQ, tabs, videos, maps, embedded pages, counters, files in
+     * Media and pages with the old SEO title or share image.
+     *
+     * @param array<string, mixed> $state
+     * @return array<string, int>
+     */
+    public static function keptSummary(array $state): array
+    {
+        $kept = is_array($state['zachovano'] ?? null) ? $state['zachovano'] : [];
+        $names = ['formulare' => 'forms', 'faq' => 'faq', 'zalozky' => 'tabs', 'videa' => 'videos', 'mapy' => 'maps', 'vlozeni' => 'embeds',
+            'pocitadla' => 'counters', 'soubory' => 'files', 'seo' => 'pages_with_seo_fields'];
+
+        return array_filter(array_combine(array_values($names), array_map(fn (string $key): int => intval($kept[$key] ?? 0), array_keys($names))));
+    }
+
+    /**
+     * How many elements of each kept kind a build has (3.33): forms, FAQ, tabs, videos, maps, embedded pages, counters.
+     *
+     * @param array<string, mixed> $build
+     * @return array<string, int>
+     */
+    public static function keptElements(array $build): array
+    {
+        $kinds = ['formular' => 'formulare', 'faq' => 'faq', 'zalozky' => 'zalozky', 'video' => 'videa', 'mapa' => 'mapy', 'vlozeni' => 'vlozeni', 'pocitadlo' => 'pocitadla'];
+        $count = [];
+        $walk = function (array $children) use (&$walk, &$count, $kinds): void {
+            foreach ($children as $p) {
+                if (is_array($p) && isset($kinds[$p['typ'] ?? ''])) {
+                    $count[$kinds[$p['typ']]] = ($count[$kinds[$p['typ']]] ?? 0) + 1;
+                }
+                if (is_array($p) && is_array($p['deti'] ?? null)) {
+                    $walk($p['deti']);
+                }
+            }
+        };
+        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+
+        return $count;
+    }
+
+    /**
+     * A line about what needs a person after the import (3.33): an unreadable form, a file that could not be downloaded.
+     * The last 30 are kept.
+     *
+     * @param array<string, mixed> $state
+     */
+    private static function attention(array &$state, string $line): void
+    {
+        $state['pozor'] = array_slice([...(is_array($state['pozor'] ?? null) ? $state['pozor'] : []), mb_substr($line, 0, 300)], -30);
+    }
+
+    /**
+     * Files the page links to – a price list, a brochure, a video – are downloaded into Media and the page points at them
+     * (3.33): documents and media of the extensions Core\Files takes, from the old site's domain or its builder's file host,
+     * at most FILES_PER_PAGE per page, each within the download limits of Core\ImageDownloader. A file that cannot be
+     * downloaded keeps its link (a video is left out) and the result says so.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function files(string $html, string $pageUrl, array &$state): string
+    {
+        if (!preg_match('/\b(href|src)=/i', $html)) {
+            return $html;
+        }
+        $count = 0;
+        $changed = false;
+        $output = Html::transform($html, function (\Dom\HTMLElement $body) use (&$count, &$changed, &$state, $pageUrl): void {
+            foreach (iterator_to_array($body->querySelectorAll('a[href], video[src], source[src]')) as $element) {
+                if (!$body->contains($element)) {
+                    continue; // a <source> of a video left out before
+                }
+                $attribute = strtolower($element->localName) === 'a' ? 'href' : 'src';
+                $url = self::absolute(html_entity_decode(trim((string) $element->getAttribute($attribute)), ENT_QUOTES | ENT_HTML5, 'UTF-8'), $pageUrl);
+                $extension = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
+                if ($url === '' || !in_array($extension, self::FILE_LINKS, true)
+                    || (ImageDownloader::domainFromUrl($url) !== $state['domena'] && !preg_match(self::FILE_HOSTS, (string) parse_url($url, PHP_URL_HOST)))) {
+                    continue;
+                }
+                $file = ++$count <= self::FILES_PER_PAGE ? $this->linkedFile($url, $state) : null;
+                $changed = true;
+                if ($file !== null) {
+                    $element->setAttribute($attribute, (string) $file['obr_poloha']);
+                    continue;
+                }
+                $old = '/' . self::path($url);
+                $video = $element->closest('video');
+                if ($video !== null) {
+                    $video->remove(); // a page never plays a video from the old site
+                    self::attention($state, t('/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $old));
+                    continue;
+                }
+                // a link within the old site becomes a path, as the other links do (the domain moves here)
+                if (ImageDownloader::domainFromUrl($url) === $state['domena']) {
+                    $element->setAttribute($attribute, $old);
+                }
+                self::attention($state, t('/%s – the file %s could not be downloaded into Media: it still links to the old site.', self::path($pageUrl), $old));
+            }
+        });
+
+        return $changed ? $output : $html;
+    }
+
+    /**
+     * A linked file in Media (3.33): once per address (ka_import_mapa, type soubor), through the polite and IP-pinned
+     * download, saved by Core\Files (allowed extensions, the content checked against them).
+     *
+     * @param array<string, mixed> $state
+     * @return array<string, mixed>|null a ka_media row
+     */
+    private function linkedFile(string $url, array &$state): ?array
+    {
+        $source = 'web:' . mb_substr((string) $state['domena'], 0, 36);
+        $key = sha1($url);
+        $ido = $this->db->value("SELECT nase_id FROM {import_mapa} WHERE zdroj = ? AND typ = 'soubor' AND cizi_id = ?", [$source, $key]);
+        if ($ido !== null) {
+            return (int) $ido === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
+        }
+        $name = rawurldecode(basename((string) parse_url($url, PHP_URL_PATH)));
+        $temporary = WpFile::folder() . '/web-soubor-' . bin2hex(random_bytes(6)) . '.tmp';
+        try {
+            file_put_contents($temporary, self::politeDownload($this->downloader, $url, (array) ($state['robots'] ?? []), false, false));
+            $saved = Files::saveFile($temporary, $name);
+            $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
+            $this->map($source, 'soubor', $key, (int) $saved['ido']);
+            $state['zachovano']['soubory'] = intval($state['zachovano']['soubory'] ?? 0) + 1;
+
+            return $saved;
+        } catch (\RuntimeException) {
+            $this->map($source, 'soubor', $key, 0);
+
+            return null;
+        } finally {
+            @unlink($temporary);
+        }
     }
 
     /**
@@ -941,9 +1157,11 @@ final class WebImport
 
     /**
      * The content of a page: title, description, publication date, whether it is an article, and the main content as
-     * clean HTML with absolute image addresses.
+     * clean HTML with absolute image addresses. 3.33: also the widgets taken out of the content before it was cleaned
+     * (prvky – <kaleta-widget title="N"> in obsah stands for the N-th; Builder\HtmlConverter turns them into elements),
+     * the page's <title> when it says more than the heading (seo_titulek) and its share image (obrazek, og:image).
      *
-     * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool}
+     * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool, prvky: list<array{html: string, kind: string}>, seo_titulek: string, obrazek: string}
      * @throws HtmlTooLarge when the page or its content is over a limit of HtmlLimits
      */
     public static function extract(string $html, string $url): array
@@ -954,13 +1172,21 @@ final class WebImport
         };
         $h1 = $doc->querySelector('h1');
         $title = trim((string) preg_replace('/\s+/u', ' ', (string) $h1?->textContent));
+        $documentTitle = trim((string) preg_replace('/\s+/u', ' ', (string) $doc->querySelector('title')?->textContent));
         if ($title === '') {
-            $title = $meta('meta[property="og:title"]') ?: trim((string) $doc->querySelector('title')?->textContent);
+            $title = $meta('meta[property="og:title"]') ?: $documentTitle;
             $title = trim((string) preg_split('/\s+[|–—-]\s+/u', $title)[0]);
         }
         $description = $meta('meta[name="description"]') ?: $meta('meta[property="og:description"]');
         $date = $meta('meta[property="article:published_time"]') ?: trim((string) $doc->querySelector('article time[datetime], time[datetime]')?->getAttribute('datetime'));
         $timestamp = $date !== '' ? strtotime($date) : false;
+        $shareImage = $meta('meta[property="og:image"]') ?: $meta('meta[property="og:image:url"]') ?: $meta('meta[name="twitter:image"]');
+        $shareImage = $shareImage !== '' && !str_starts_with($shareImage, 'data:') ? self::absolute($shareImage, $url) : '';
+        $seo = [
+            // the old <title> is kept when it says more than the page heading ("Bespoke kitchens – Northwind Joinery")
+            'seo_titulek' => $documentTitle !== '' && mb_strtolower($documentTitle) !== mb_strtolower($title) ? mb_substr($documentTitle, 0, 200) : '',
+            'obrazek' => preg_match('#^https?://#i', $shareImage) ? $shareImage : '',
+        ];
 
         $root = null;
         foreach (self::CONTENT as $selector) {
@@ -972,21 +1198,9 @@ final class WebImport
         }
         $root ??= $doc->body;
         if ($root === null) {
-            return ['titulek' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'clanek' => false];
+            return ['titulek' => $title, 'popis' => $description, 'obsah' => '', 'datum' => '', 'clanek' => false, 'prvky' => []] + $seo;
         }
-        // an element inside one removed earlier is already gone with it
-        foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
-            if ($root->contains($node)) {
-                $node->remove();
-            }
-        }
-        foreach (iterator_to_array($root->querySelectorAll('[class], [id]')) as $node) {
-            if ($root->contains($node) && preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
-                $node->remove();
-            }
-        }
-        // the title becomes the page heading; lazy-loaded images get their real address
-        $root->querySelector('h1')?->remove();
+        // lazy-loaded images get their real address, links and media absolute ones – also inside the widgets taken out below
         foreach (iterator_to_array($root->querySelectorAll('img')) as $img) {
             $src = $img->getAttribute('data-src') ?: $img->getAttribute('data-lazy-src') ?: $img->getAttribute('src') ?: '';
             if ($src === '' || str_starts_with($src, 'data:')) {
@@ -999,14 +1213,38 @@ final class WebImport
             }
             $img->setAttribute('src', self::absolute($src, $url));
         }
+        foreach (iterator_to_array($root->querySelectorAll('video[src], source[src]')) as $media) {
+            $media->setAttribute('src', self::absolute((string) $media->getAttribute('src'), $url));
+        }
         foreach (iterator_to_array($root->querySelectorAll('a[href]')) as $a) {
             $href = $a->getAttribute('href') ?? '';
+            if (str_starts_with($href, '#')) {
+                continue; // a link within the page stays as it is (3.33: tabs point at their panels this way)
+            }
             $absolute = self::absolute($href, $url);
-            // links within the old site become paths; its pages are redirected to the new addresses after the import
-            if ($absolute !== '' && ImageDownloader::domainFromUrl($absolute) === ImageDownloader::domainFromUrl($url)) {
+            // links within the old site become paths; its pages are redirected to the new addresses after the import. A link
+            // to a file stays whole: the import downloads the file into Media (3.33)
+            if ($absolute !== '' && ImageDownloader::domainFromUrl($absolute) === ImageDownloader::domainFromUrl($url)
+                && !in_array(strtolower(pathinfo((string) parse_url($absolute, PHP_URL_PATH), PATHINFO_EXTENSION)), self::FILE_LINKS, true)) {
                 $a->setAttribute('href', '/' . self::path($absolute));
             }
         }
+        // 3.33: the widgets come out before the noise goes – a closed accordion panel is aria-hidden, a question a <button>,
+        // a map an <iframe>, a form a <form>; the sanitizer would drop each of them
+        $widgets = self::takeWidgets($root);
+        // an element inside one removed earlier is already gone with it
+        foreach (iterator_to_array($root->querySelectorAll(self::NOISE)) as $node) {
+            if ($root->contains($node)) {
+                $node->remove();
+            }
+        }
+        foreach (iterator_to_array($root->querySelectorAll('[class], [id]')) as $node) {
+            if ($root->contains($node) && preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
+                $node->remove();
+            }
+        }
+        // the title becomes the page heading
+        $root->querySelector('h1')?->remove();
         $content = trim((string) preg_replace('/\s+/u', ' ', $root->innerHTML));
         $article = ($timestamp !== false && $doc->querySelector('article') !== null) || preg_match(self::ARTICLE, (string) parse_url($url, PHP_URL_PATH)) === 1;
 
@@ -1016,6 +1254,49 @@ final class WebImport
             'obsah' => HtmlLimits::guard(fn (): string => self::safeContent($content)),
             'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'clanek' => $article,
-        ];
+            'prvky' => $widgets,
+        ] + $seo;
+    }
+
+    /**
+     * Takes the widgets out of the content (3.33, Builder\HtmlWidgets): each becomes <kaleta-widget title="N"> and its HTML,
+     * as the old site wrote it, goes into the list for Builder\HtmlConverter. Top-down, so an element that holds nothing but
+     * the widget is taken whole; never inside the noise (navigation, header, footer, cookie bars, pop-ups, newsletter boxes).
+     * A form whose fields cannot be read is marked unreadable_form. A <kaleta-widget> the old page wrote itself is dropped.
+     *
+     * @return list<array{html: string, kind: string}>
+     */
+    private static function takeWidgets(\Dom\Element $root): array
+    {
+        foreach (iterator_to_array($root->querySelectorAll('kaleta-widget')) as $foreign) {
+            if ($root->contains($foreign)) {
+                $foreign->remove();
+            }
+        }
+        $widgets = [];
+        $walk = function (\Dom\Element $parent) use (&$walk, &$widgets): void {
+            foreach (iterator_to_array($parent->childNodes) as $node) {
+                if (!$node instanceof \Dom\Element || count($widgets) >= self::WIDGETS_PER_PAGE || $node->matches(self::NOISE_BLOCKS)
+                    || preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
+                    continue; // the noise goes with the rest below
+                }
+                $kind = \Kaleta\Builder\HtmlWidgets::kind($node);
+                if ($kind === 'form' && \Kaleta\Builder\HtmlWidgets::formFields($node) === 0) {
+                    $kind = 'unreadable_form';
+                }
+                $document = $node->ownerDocument;
+                if ($kind === null || $document === null) {
+                    $walk($node);
+                    continue;
+                }
+                $widgets[] = ['html' => Html::outer($node), 'kind' => $kind];
+                $marker = $document->createElement('kaleta-widget');
+                $marker->setAttribute('title', (string) (count($widgets) - 1));
+                $node->replaceWith($marker);
+            }
+        };
+        $walk($root);
+
+        return $widgets;
     }
 }

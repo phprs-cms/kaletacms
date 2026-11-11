@@ -74,13 +74,16 @@ trait PageTools
         $siteSettings = $this->app->settings();
 
         $home = $siteSettings->int('home_page');
+        $waiting = \Kaleta\Core\ImportLayout::pending($db); // 3.33: imported pages whose build is still the imported text
 
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
         return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
             . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . ((int) $r['ids'] === $home || ($home > 0 && (int) $r['preklad_z'] === $home) ? '' : $r['seo_link'])),
             'uvodni' => (int) $r['ids'] === $home, 'zobrazena' => (bool) $r['zobrazit'], 'v_menu' => (bool) $r['v_menu'], 'jazyk' => $r['jazyk']]
             // 3.24: the responsible person ({id, name}; a removed account is "(former user)"), only when one is set
-            + ($r['owner_id'] !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : []),
+            + ($r['owner_id'] !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : [])
+            // 3.33: the work queue of a move – an imported page whose layout waits to be rebuilt (clears with the first edit of its build)
+            + (isset($waiting[(int) $r['ids']]) ? ['layout_not_rebuilt' => true] : []),
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
             $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z, owner_id FROM {stranky} WHERE smazano IS NULL' . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek')));
     }

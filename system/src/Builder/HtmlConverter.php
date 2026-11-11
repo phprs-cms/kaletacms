@@ -11,6 +11,8 @@ use Dom\Node;
  * Converting HTML to a build: the language model (or an import) writes ordinary semantic HTML with a <style> block and a clean
  * build results from it – one element per tag, the appearance in shared classes; <form> becomes a Form element. What cannot be
  * converted (scripts, inline styles, complex selectors) is left out and reported, so that the author knows what to add in the builder.
+ * 3.33: the widgets of page builders (Builder\HtmlWidgets) become their elements – an accordion an FAQ, tabs Tabs, a video or
+ * map frame Video or Map, a booking page or form frame Embed, a number that counts up a Counter.
  *
  * The class is pure (no database): it returns the build, the classes from <style> and the messages. The caller does saving and permission checks.
  */
@@ -34,18 +36,24 @@ final class HtmlConverter
     /** @var array<string, array<string, array<string, string>>> class => state (tablet, mobil, hover…) => style properties */
     private array $classStyles = [];
 
+    /** @var list<array{html: string, kind: string}> widgets an import took out of the page, in place of <kaleta-widget title="N"> */
+    private array $widgets = [];
+
     private function __construct(private readonly bool $admin)
     {
     }
 
     /**
      * @param bool $admin a Custom HTML element may be created (for SVG and embedded maps)
+     * @param list<array{html: string, kind: string}> $widgets the widgets an import took out of the page before it was
+     *        sanitized (Core\WebImport): <kaleta-widget title="N"> in $html stands for the N-th; kind unreadable_form = a placeholder
      * @return array{stavba: array<string, mixed>, tridy: array<string, string>, tridy_styl: array<string, array<string, array<string, string>>>, hlaseni: list<string>}
      * @throws \Kaleta\Core\HtmlTooLarge when the HTML is over a limit of Core\HtmlLimits (nothing is converted)
      */
-    public static function convert(string $html, bool $admin = false): array
+    public static function convert(string $html, bool $admin = false, array $widgets = []): array
     {
         $conversion = new self($admin);
+        $conversion->widgets = $widgets;
         $document = \Kaleta\Core\HtmlLimits::fragmentOrFail($html, null);
         foreach ($document->querySelectorAll('style') as $style) {
             $conversion->styles($style->textContent);
@@ -176,7 +184,8 @@ final class HtmlConverter
                 continue;
             }
             // a paragraph without a class joins the continuous text; with a class it is a separate element, so that the class has a place
-            if (in_array($htmlTag, self::TEXT_TAGS, true) && $this->classesOf($node) === [] && !$this->hasBlocks($node)) {
+            // (3.33: a widget too – a paragraph with data-counter is a Counter)
+            if (in_array($htmlTag, self::TEXT_TAGS, true) && $this->classesOf($node) === [] && !$this->hasBlocks($node) && HtmlWidgets::kind($node) === null) {
                 if ($questions !== []) {
                     $flushFlow();
                 }
@@ -200,6 +209,9 @@ final class HtmlConverter
         if (in_array($htmlTag, self::UNWRAP, true)) {
             return $this->children($el, $depth);
         }
+        if ($htmlTag === 'kaleta-widget') {
+            return $this->importedWidget($el, $depth);
+        }
         if (in_array($htmlTag, self::SKIP, true)) {
             if ($htmlTag !== 'style') {
                 $this->messages[] = 'Značka <' . $htmlTag . '> mimo formulář nemá ve stavbě obdobu – vynechána.';
@@ -216,7 +228,12 @@ final class HtmlConverter
             return [Build::fresh('text', ['html' => self::html($el)])];
         }
 
-        $p = match (true) {
+        $kind = HtmlWidgets::kind($el);
+        if ($kind === null && in_array($htmlTag, self::TEXT_TAGS, true) && !in_array($htmlTag, ['ul', 'ol'], true) && $el->querySelector('iframe, video, form, kaleta-widget') !== null) {
+            return $this->children($el, $depth); // <p><iframe …></p>: the frame is the element, the paragraph only wraps it
+        }
+        $p = $kind !== null ? $this->widget($kind, $el) : null;
+        $p ??= match (true) {
             in_array($htmlTag, ['section', 'header', 'footer', 'aside', 'article', 'nav', 'div', 'li'], true) => $this->wrapper($el, $htmlTag, $depth),
             (bool) preg_match('/^h[1-6]$/', $htmlTag) => ['znacka' => $htmlTag] + Build::fresh('nadpis', ['text' => trim($el->innerHTML)]),
             in_array($htmlTag, self::TEXT_TAGS, true) => $this->textOrWrapper($el, $htmlTag, $depth),
@@ -226,7 +243,6 @@ final class HtmlConverter
             $htmlTag === 'blockquote' => $this->quote($el),
             $htmlTag === 'hr' => Build::fresh('oddelovac'),
             $htmlTag === 'form' => $this->form($el),
-            in_array($htmlTag, ['iframe', 'video'], true) && ($video = $this->video($el)) !== null => $video,
             in_array($htmlTag, ['svg', 'iframe', 'video', 'picture', 'audio'], true) => $this->customHtml($el),
             default => Build::fresh('text', ['html' => '<p>' . trim($el->innerHTML) . '</p>']),
         };
@@ -386,17 +402,75 @@ final class HtmlConverter
         return Build::fresh('citat', ['text' => $text, 'autor' => ltrim($author, "—–- \t")]);
     }
 
-    private function video(Element $el): ?array
+    /**
+     * The element of a recognised widget (Builder\HtmlWidgets): FAQ, Tabs, Video, Map, Embed, Counter, Form – or a placeholder
+     * for a form whose fields a script draws. null = after a closer look it is not one (the caller converts it as usual).
+     */
+    private function widget(string $kind, Element $el): ?array
     {
-        $src = $el->getAttribute('src') ?? $el->querySelector('source')?->getAttribute('src') ?? '';
-        if (preg_match('#(youtube\.com/embed/|youtube-nocookie\.com/embed/)([\w-]{6,})#', $src, $m)) {
-            return Build::fresh('video', ['url' => 'https://www.youtube.com/watch?v=' . $m[2], 'titulek' => $el->getAttribute('title') ?? '']);
-        }
-        if (preg_match('#player\.vimeo\.com/video/(\d+)#', $src, $m)) {
-            return Build::fresh('video', ['url' => 'https://vimeo.com/' . $m[1], 'titulek' => $el->getAttribute('title') ?? '']);
+        $element = $this->widgetElement($kind, $el);
+        if ($element !== null && !in_array($kind, ['form', 'unreadable_form'], true)) {
+            // 3.33 (X4): build_from_html says what it recognised, so Claude knows what not to rebuild by hand
+            $this->messages[] = match ($kind) {
+                'accordion' => 'An accordion became an FAQ element (' . count($element['obsah']['polozky']) . ' questions; switch faq off in its content when they are not questions).',
+                'tabs' => 'Tabs became a Tabs element (' . count($element['obsah']['karty']) . ' tabs).',
+                'map' => 'A map became a Map element (' . $element['obsah']['adresa'] . ') – it loads Google Maps only after a click.',
+                'video' => 'A video became a Video element – the player loads only after a click.',
+                'embed' => 'An embedded page became an Embed element.',
+                default => 'A counter became a Counter element (' . $element['obsah']['cislo'] . ').',
+            };
         }
 
-        return null;
+        return $element;
+    }
+
+    /** The element of a widget kind (widget() adds the note). */
+    private function widgetElement(string $kind, Element $el): ?array
+    {
+        return match ($kind) {
+            'form' => $this->form($el),
+            'unreadable_form' => $this->formPlaceholder(),
+            'accordion' => ($items = HtmlWidgets::accordion($el)) !== null
+                ? Build::fresh('faq', ['polozky' => array_map(fn (array $i): array => ['otazka' => $i[0], 'odpoved' => $i[1]], $items)]) : null,
+            'tabs' => ($tabs = HtmlWidgets::tabs($el)) !== null
+                ? Build::fresh('zalozky', ['karty' => array_map(fn (array $t): array => ['nazev' => $t[0], 'obsah' => $t[1]], $tabs)]) : null,
+            'video' => ($video = HtmlWidgets::video($el)) !== null ? Build::fresh('video', ['url' => $video[0], 'titulek' => mb_substr($video[1], 0, 200)]) : null,
+            'map' => ($map = HtmlWidgets::mapOfUrl(HtmlWidgets::frameSource($el)) ?? HtmlWidgets::mapOfData($el)) !== null
+                ? Build::fresh('mapa', ['adresa' => $map[0], 'priblizeni' => $map[1]]) : null,
+            'embed' => ($url = strtolower($el->localName) === 'iframe' ? HtmlWidgets::frameSource($el) : HtmlWidgets::embedOfData($el)) !== null && $url !== ''
+                ? Build::fresh('vlozeni', ['adresa' => mb_substr($url, 0, 500), 'titulek' => mb_substr(trim((string) $el->getAttribute('title')), 0, 120)]) : null,
+            'counter' => ($counter = HtmlWidgets::counter($el)) !== null ? Build::fresh('pocitadlo', $counter) : null,
+            default => null,
+        };
+    }
+
+    /** A form whose fields a script draws in the browser: a visible placeholder and a note, never an invented form. */
+    private function formPlaceholder(): array
+    {
+        $this->messages[] = 'A form whose fields are drawn by a script could not be read – a placeholder marks its place: add a Form element with the same fields there.';
+
+        return Build::fresh('text', ['html' => '<p><strong>' . e(t('Form from the old site')) . '</strong> – ' . e(t('its fields could not be read. Add a Form element with the same fields in its place.')) . '</p>']);
+    }
+
+    /** <kaleta-widget title="N">: the N-th widget an import took out of the page, converted in its place. */
+    private function importedWidget(Element $el, int $depth): array
+    {
+        $title = (string) $el->getAttribute('title');
+        $widget = ctype_digit($title) ? ($this->widgets[(int) $title] ?? null) : null;
+        if ($widget === null) {
+            return [];
+        }
+        if ($widget['kind'] === 'unreadable_form') {
+            return [$this->formPlaceholder()];
+        }
+        $document = \Kaleta\Core\HtmlLimits::fragmentOrFail($widget['html']); // kept in a variable while its nodes are converted
+        $widgets = $this->widgets;
+        $this->widgets = []; // a widget never stands for another one
+        try {
+            return $document->body !== null ? $this->children($document->body, $depth) : [];
+        } finally {
+            $this->widgets = $widgets;
+        }
     }
 
     private function customHtml(Element $el): ?array
@@ -413,7 +487,7 @@ final class HtmlConverter
     /** Does the element contain block tags (then it is not plain text but structure)? */
     private function hasBlocks(Element $el): bool
     {
-        return $el->querySelector('div, section, article, header, footer, aside, nav, h1, h2, h3, h4, h5, h6, figure, img, blockquote, details, a.btn, a.button, a[class*="tlacitko"]') !== null;
+        return $el->querySelector('div, section, article, header, footer, aside, nav, h1, h2, h3, h4, h5, h6, figure, img, blockquote, details, a.btn, a.button, a[class*="tlacitko"], iframe, video, form, kaleta-widget') !== null;
     }
 
     /** @return list<string> classes in a form the build accepts */

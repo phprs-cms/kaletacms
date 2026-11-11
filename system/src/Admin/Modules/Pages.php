@@ -148,6 +148,7 @@ final class Pages extends Module
             'trash' => $trash, 'status' => $status, 'counts' => $counts, 'editors' => $names, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'drafts' => $trash ? [] : \Kaleta\Core\DraftAttribution::forPages($this->db, $pages), // 3.24 (N-U6): who made each draft and when
             'comments' => $trash ? [] : \Kaleta\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
+            'waiting' => $trash ? [] : \Kaleta\Core\ImportLayout::pending($this->db), // 3.33: imported pages whose layout waits to be rebuilt
             'inTrash' => $counts['kos'] ?? 0,
         ]);
     }

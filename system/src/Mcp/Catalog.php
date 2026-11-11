@@ -127,6 +127,9 @@ final class Catalog
         // nothing on the site – its outbound fetches are IP-pinned reads of the old public site (ImageDownloader, OPEN_WORLD
         // sends it through run_destructive_tool) and its state files hold only the report; administrators only
         'migration_report' => ['read', ''],
+        // 3.33: an old page as section HTML with its colours and fonts – changes nothing here (IP-pinned reads of the old public
+        // site, like migration_report); administrators whose connection may use import_website (Handlers\MigrationTools)
+        'read_old_page' => ['read', ''],
         // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
         // records and redirects, so it is not for a drafts-only connection
         'import_wordpress' => ['write', ''],
@@ -324,6 +327,7 @@ final class Catalog
         'list_changes' => 'List the change log',
         'get_stats' => 'Get visitor statistics',
         'migration_report' => 'Report on a site migration',
+        'read_old_page' => 'Read an old page with its look',
         'import_wordpress' => 'Import a WordPress export',
         'get_health' => 'Get site health',
         'list_events' => 'List site events',
@@ -401,14 +405,14 @@ final class Catalog
 
     /**
      * Tools that reach outside the site during the call (3.8, MCP openWorldHint), by their English names. Verified in the
-     * code: a download from an address the caller gives (upload_file with url, import_website, migration_report,
+     * code: a download from an address the caller gives (upload_file with url, import_website, migration_report, read_old_page,
      * import_wordpress with url and its images, save_collection_items with media by URL – Core\ImageDownloader), and an
      * e-mail to people outside the site's users (subscribers, customers of an enquiry or a booking). Not on the list:
      * deliveries the site owner set up that run later in the background (webhooks, IndexNow, the Business Profile and CRM
      * integrations – Core\Connectors queue), the link check (a background job; list_broken_links reads its results),
      * list_connectors (status from the database) and e-mails to the site's own users (update_request, send_test_newsletter).
      */
-    public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report', 'import_wordpress', 'save_collection_items', 'send_newsletter',
+    public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report', 'read_old_page', 'import_wordpress', 'save_collection_items', 'send_newsletter',
         'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times'];
 
     /**
