@@ -28,7 +28,8 @@ $role = [
 <?php if (($summary ?? '') !== ''): ?>
 <p class="hlaska"><strong><?= e(t('What this user may do now:')) ?></strong> <?= e($summary) ?></p>
 <?php endif ?>
-<form class="formular" method="post" action="<?= e($module->url('save')) ?>" autocomplete="off">
+<?php $proofPasskey = !$isSelf && ($passkeyOnly ?? false) && !($fresh ?? false); // 3.35 review L7: "Confirm with your passkey" posts to My account ?>
+<form class="formular" method="post" action="<?= e($module->url('save')) ?>" autocomplete="off"<?= $proofPasskey ? ' data-klice="' . e($app->url('admin.php?action=account')) . '"' : '' ?>>
 <?= $csrf ?>
 <input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>">
 <div class="radek">
@@ -83,11 +84,19 @@ $role = [
 	</div>
 </div>
 <?php endif ?>
-<?php if ($author['idu'] && !$isSelf): // 3.31.2: a new password or a turned-off second factor of someone else needs the administrator's own password; 3.35: a changed e-mail too ?>
+<?php if (!$isSelf && ($passkeyOnly ?? false)): // 3.35 review L7, M2: an administrator who signs in with a passkey only confirms with it ?>
+<div class="radek">
+	<span class="popisek"><?= e(t('Your passkey')) ?></span>
+	<div><?php if ($fresh ?? false): ?><span class="napoveda"><?= e(t('You confirmed it with your passkey a moment ago – no password is needed for the next few minutes.')) ?></span><?php else: ?><button class="navigace" type="button" data-klic-potvrdit><?= e(t('Confirm with your passkey')) ?></button><?= $error('soucasne') ?>
+	<span class="napoveda"><?= e(t('Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.')) ?> <?= e(t('Confirm first – the page reloads – then make the change and save within 10 minutes.')) ?></span>
+	<p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
+	<p class="napoveda" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p><?php endif ?></div>
+</div>
+<?php elseif (!$isSelf): // 3.31.2: a new password or a turned-off second factor of someone else needs the administrator's own password; 3.35: a changed e-mail too; 3.35 review L7: a new administrator too ?>
 <div class="radek">
 	<label for="soucasne"><?= e(t('Your current password')) ?></label>
 	<div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password"><?= $error('soucasne') ?>
-	<span class="napoveda"><?= e(t('Needed only to change this user\'s e-mail, set a new password for them or turn off their two-factor sign-in.')) ?></span></div>
+	<span class="napoveda"><?= e(t('Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.')) ?></span></div>
 </div>
 <?php endif ?>
 
@@ -161,6 +170,9 @@ $role = [
 </details>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($author['idu'] ? 'Uložit' : 'Add user')) ?>"></p>
 </form>
+<?php if ($proofPasskey): ?>
+<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php endif ?>
 <?php if ($author['idu'] && ($connections ?? []) !== []): ?>
 <fieldset id="napojeni">
 <legend><?= e(t('Claude connections')) ?></legend>

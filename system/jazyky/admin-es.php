@@ -8254,4 +8254,6 @@ return [
     'Passkey sign-in rules' => 'Reglas de inicio de sesión con llave',
     'switched off by %s in config.php – passwords sign in without passkeys, administrators too. Remove the line once you can sign in again.' => 'desactivadas por %s en config.php: las contraseñas inician sesión sin llaves, también las de los administradores. Elimina la línea en cuanto puedas volver a iniciar sesión.',
     'Needed only to change the two-factor rule or to turn “passkeys only” off.' => 'Solo hace falta para cambiar la regla del inicio de sesión en dos pasos o para desactivar «solo con llave».',
+    'Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.' => 'Solo hace falta para cambiar el correo de este usuario, ponerle una contraseña nueva, desactivar su inicio de sesión en dos pasos o hacerlo administrador.',
+    'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Introduce tu contraseña actual para hacer administrador a este usuario o darle todas las secciones. No se ha guardado nada.',
 ];

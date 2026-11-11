@@ -7827,4 +7827,6 @@ return [
     'Passkey sign-in rules' => 'Pravidla přihlášení klíčem',
     'switched off by %s in config.php – passwords sign in without passkeys, administrators too. Remove the line once you can sign in again.' => 'vypnutá řádkem %s v config.php – hesla přihlašují bez klíčů, i správce. Jakmile se zase přihlásíte, řádek smažte.',
     'Needed only to change the two-factor rule or to turn “passkeys only” off.' => 'Potřeba jen pro změnu pravidla dvoufázového přihlášení nebo pro vypnutí „jen klíčem“.',
+    'Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.' => 'Potřeba jen pro změnu e-mailu tohoto uživatele, nastavení nového hesla, vypnutí jeho dvoufázového přihlášení nebo když z něj děláte správce.',
+    'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Zadejte své současné heslo, abyste z tohoto uživatele udělali správce nebo mu dali všechny sekce. Nic se neuložilo.',
 ];

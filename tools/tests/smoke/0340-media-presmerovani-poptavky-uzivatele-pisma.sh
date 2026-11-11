@@ -23,7 +23,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/akce-leto"); expect "dočasné přesměrování 302" "$code" "302"
 check "hledání v přesměrováních" 200 "/admin.php?module=redirects&search=akce-leto" "akce-leto"
 check "protokol s filtrem" 200 "/admin.php?module=changelog&area=stranky" "Protokol"
-IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1)
+IDU2=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d idu=0 -d user=pozvany --data-urlencode email=pozvany@example.cz -d admin=2 -d pozvat=1 --data-urlencode "soucasne=$PASSWORD")
 expect "pozvaný uživatel má odkaz na heslo s delší platností" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT obnova_otisk <> '' AND obnova_cas > '$(site_time)' FROM ka_uzivatele WHERE user = 'pozvany'")" "1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 -d nazev=Obchodník -d uroven=0 -d 'moduly[]=enquiries' -d 'moduly[]=collections'
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT MAX(idr) FROM ka_role")

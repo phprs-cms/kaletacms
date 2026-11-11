@@ -140,10 +140,22 @@ final class Users extends Module
         // counter and lock). 3.35: so does a changed e-mail. A new account, and every other change, needs no password.
         // Recovery stays: an administrator resets another user's factor and password this way; a locked-out sole
         // administrator has the password-reset e-mail and the backup codes.
-        if ($errors === [] && $id > 0 && ($password !== '' || $totpReset || $emailChanged)) {
-            $check = $this->app->auth()->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '');
+        // 3.35 review L7: so does a new administrator – a new account at the administrator level, raising an account to it, or
+        // giving a user every section by hand: an administrator's power without the acting administrator's proof would be
+        // one stolen session away. 3.35 review M2: Auth::freshProof – an administrator who signs in with a passkey only
+        // confirms with the passkey ("Confirm with your passkey"), never with the password.
+        $elevates = !$isSelf && self::elevates($id === 0 ? null : (int) $this->db->value('SELECT admin FROM {uzivatele} WHERE idu = ?', [$id]), (int) $data['admin'],
+            $data['role'] === null && $r->postBool('rucne') ? $r->postList('moduly') : null,
+            $id > 0 ? array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu') : [],
+            array_keys(Roles::configurable())); // every section a user can be given (the Appearance area too)
+        if ($errors === [] && (($id > 0 && ($password !== '' || $totpReset || $emailChanged)) || $elevates)) {
+            $check = $this->app->auth()->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '');
             if ($check !== 'ok') {
-                $errors['soucasne'] = $check === 'locked' ? Auth::CONFIRM_LOCKED : self::PASSWORD_NEEDED;
+                $errors['soucasne'] = match ($check) {
+                    'locked' => Auth::CONFIRM_LOCKED,
+                    'passkey' => Auth::PASSKEY_PROOF,
+                    default => $elevates && !($id > 0 && ($password !== '' || $totpReset || $emailChanged)) ? self::ELEVATION_NEEDS_PASSWORD : self::PASSWORD_NEEDED,
+                };
             }
         }
         if ($errors !== []) {
@@ -210,6 +222,27 @@ final class Users extends Module
 
     /** 3.35: the answer when a change that takes another account over comes without the administrator's own password. */
     public const string PASSWORD_NEEDED = 'Enter your own current password to change this user\'s e-mail, set their password or turn off their two-factor sign-in. Nothing was saved.';
+
+    /** 3.35 review L7: the answer when a new administrator (or every section) comes without the acting administrator's proof. */
+    public const string ELEVATION_NEEDS_PASSWORD = 'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.';
+
+    /**
+     * 3.35 review L7: does saving the form give an account an administrator's power – the administrator level for a new
+     * account ($before null) or one that was not an administrator, or every section ticked by hand ($manual, null = the
+     * sections follow the role) for an account that did not have them all? Pure.
+     *
+     * @param list<string>|null $manual
+     * @param array<mixed> $had the sections the account had
+     * @param list<string> $all every section
+     */
+    public static function elevates(?int $before, int $level, ?array $manual, array $had, array $all): bool
+    {
+        if ($level === Auth::ADMIN) {
+            return $before !== Auth::ADMIN;
+        }
+
+        return $manual !== null && array_diff($all, $manual) === [] && ($before === null || array_diff($all, $had) !== []);
+    }
 
     /**
      * 3.35: does saving the form change the account's e-mail address? Letter case and surrounding spaces are the same
@@ -448,6 +481,8 @@ final class Users extends Module
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more
             'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['idu'] === $id)) : [],
             'isSelf' => $id === $this->app->auth()->id(),
+            // 3.35 review L7, M2: the acting administrator's proof – "Confirm with your passkey" instead of the password field
+            'passkeyOnly' => $this->app->auth()->isPasskeyOnly(), 'fresh' => $this->app->auth()->isFreshlyVerified(),
             // 3.14: the records an account can be linked to, and the one it is linked to now (by the choice or the e-mail)
             'teamChoices' => \Kaleta\Builder\TeamRecord::choices($this->db),
             'teamRecord' => $id > 0 ? \Kaleta\Builder\TeamRecord::forUser($this->db, $author) : null,

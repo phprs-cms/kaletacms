@@ -9,12 +9,12 @@ check('3.31.2: Users ignores one\'s own e-mail, password and two-factor reset; f
     str_contains($s3312Users, "\$data['email'] = (string) \$this->db->value('SELECT email FROM {uzivatele} WHERE idu = ?', [\$id]);"),
     str_contains($s3312Users, "\$password = !\$isSelf && is_string(\$_POST['password'] ?? null)"),
     str_contains($s3312Users, "\$totpReset = \$id > 0 && !\$isSelf && \$r->postBool('totp_reset');"),
-    str_contains($s3312Users, "if (\$errors === [] && \$id > 0 && (\$password !== '' || \$totpReset || \$emailChanged)) {"),
-    strpos($s3312Users, '->confirmPassword(') < strpos($s3312Users, "\$data['totp_tajemstvi'] = '';"),
-    strpos($s3312Users, '->confirmPassword(') < strpos($s3312Users, 'DELETE FROM {uzivatele_klice}'),
+    str_contains($s3312Users, "if (\$errors === [] && ((\$id > 0 && (\$password !== '' || \$totpReset || \$emailChanged)) || \$elevates)) {"), // 3.35 review L7
+    strpos($s3312Users, '->freshProof(') < strpos($s3312Users, "\$data['totp_tajemstvi'] = '';"), // 3.35 review M2: Auth::freshProof calls confirmPassword
+    strpos($s3312Users, '->freshProof(') < strpos($s3312Users, 'DELETE FROM {uzivatele_klice}'),
     strpos($s3312Users, 'DELETE FROM {uzivatele_klice}') > strpos($s3312Users, '$this->db->transaction('),
     substr_count($s3312Form, 'name="soucasne"'), str_contains($s3312Form, "<?php if ((!empty(\$author['totp_tajemstvi']) || !empty(\$passkeys)) && !\$isSelf): ?>"), // 3.35: passkeys too
-    str_contains($s3312Form, "<?php if (\$author['idu'] && !\$isSelf):")],
+    str_contains($s3312Form, "<?php elseif (!\$isSelf):")], // 3.35 review L7: a new account too (a new administrator)
     [true, true, true, true, true, true, true, 1, true, true]);
 $s3312Texts = ["Enter your own current password to set this user's password or turn off their two-factor sign-in. Nothing was saved.",
     'Change your own e-mail address, password and two-factor sign-in in My account – it asks for your current password.', 'Your current password',

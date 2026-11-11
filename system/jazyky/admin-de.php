@@ -8234,4 +8234,6 @@ return [
     'Passkey sign-in rules' => 'Regeln der Passkey-Anmeldung',
     'switched off by %s in config.php – passwords sign in without passkeys, administrators too. Remove the line once you can sign in again.' => 'ausgeschaltet durch %s in config.php – Passwörter melden ohne Passkeys an, auch Administratoren. Entfernen Sie die Zeile, sobald Sie sich wieder anmelden können.',
     'Needed only to change the two-factor rule or to turn “passkeys only” off.' => 'Nur nötig, um die Regel der Zwei-Faktor-Anmeldung zu ändern oder „nur mit Passkey“ auszuschalten.',
+    'Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.' => 'Nur nötig, um die E-Mail dieses Benutzers zu ändern, ein neues Passwort für ihn festzulegen, seine Zwei-Faktor-Anmeldung auszuschalten oder ihn zum Administrator zu machen.',
+    'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Geben Sie Ihr eigenes aktuelles Passwort ein, um diesen Benutzer zum Administrator zu machen oder ihm alle Bereiche zu geben. Es wurde nichts gespeichert.',
 ];

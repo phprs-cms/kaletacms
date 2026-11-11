@@ -93,7 +93,7 @@ expect "whistleblowing: the handler's first answer acknowledges the receipt" "$(
 curl -s -o "$WORK/response" -X POST "$B/_report/follow" -d "number=$WB_NUMBER" --data-urlencode "code=$WB_CODE"
 grep -q 'data-stav="acknowledged"' "$WORK/response" && grep -q 'prošetřujeme' "$WORK/response" && echo "  ok     whistleblowing: the reporter sees the new status and the handler's answer" || { echo "  CHYBA  whistleblowing reporter view"; ERRORS=$((ERRORS+1)); }
 # another administrator is not a reader: the list with numbers and dates, no detail
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$(wb_csrf)" -d idu=0 -d jmeno=Druhy -d user=druhy-spravce --data-urlencode "password=$PASSWORD" -d admin=2
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$(wb_csrf)" -d idu=0 -d jmeno=Druhy -d user=druhy-spravce --data-urlencode "password=$PASSWORD" -d admin=2 --data-urlencode "soucasne=$PASSWORD" # 3.35 review L7: a new administrator needs the acting one's password
 JAR_WB="$WORK/cookies-wb.txt"; curl -s -c "$JAR_WB" -o "$WORK/response" "$B/admin.php"
 curl -s -b "$JAR_WB" -c "$JAR_WB" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=druhy-spravce --data-urlencode "password=$PASSWORD"
 WB_LIST=$(curl -s -b "$JAR_WB" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=whistleblowing"); WB_SEEN=$(grep -c "$WB_NUMBER" "$WORK/response" || true); WB_LINK=$(grep -c "action=detail&amp;id=$WB_ID" "$WORK/response" || true)
