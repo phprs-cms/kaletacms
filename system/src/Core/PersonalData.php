@@ -39,9 +39,19 @@ final class PersonalData
     /** The address as stored: trimmed, lower case; null when it is not an e-mail address. */
     public static function normalise(string $email): ?string
     {
-        $email = mb_strtolower(trim($email));
+        $email = self::cleanAddress($email);
 
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? $email : null;
+    }
+
+    /**
+     * 3.35 review L5: an address as it is compared – without any space (also the no-break space, the narrow and the
+     * zero-width ones and the other Unicode spaces, which an address never has but a pasted value often does) and in
+     * lower case. Pure.
+     */
+    public static function cleanAddress(string $value): string
+    {
+        return mb_strtolower((string) preg_replace('/[\s\p{Z}\x{180E}\x{200B}-\x{200D}\x{2060}\x{FEFF}]+/u', '', $value));
     }
 
     /** j***@example.com – enough to recognise a request in the log, not enough to read the address. */
@@ -63,12 +73,12 @@ final class PersonalData
         if ($email === '') {
             return false;
         }
-        if (mb_strtolower(trim($sender)) === $email) {
+        if (self::cleanAddress($sender) === $email) { // 3.35 review L5: Unicode spaces and case aside
             return true;
         }
         foreach ((array) (json_decode($dataJson, true) ?: []) as $field) {
             $value = is_array($field) ? ($field[1] ?? null) : null;
-            if (is_string($value) && mb_strtolower(trim($value)) === $email) {
+            if (is_string($value) && self::cleanAddress($value) === $email) {
                 return true;
             }
         }
@@ -93,11 +103,11 @@ final class PersonalData
 
         // 3.35 (N94): the LIKE only narrows the rows – an enquiry is the person's when it came from the address or one of its
         // fields holds exactly the address (ofEnquiry), never because a longer address or a message contains it
-        $enquiries = array_values(array_filter($db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like]),
+        $enquiries = array_values(array_filter($db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(email) LIKE ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like, $like]),
             fn (array $r): bool => self::ofEnquiry((string) $r['email'], (string) $r['data'], $email)));
         // 3.28: the customer records of the address and of what was found (Core\Contacts) – an enquiry that only mentions the
         // address in a field is not the person's own, so only those sent from it count
-        $contactIds = Contacts::ofPerson($db, $email, array_map('intval', array_column(array_filter($enquiries, fn (array $r): bool => mb_strtolower((string) $r['email']) === $email), 'idp')),
+        $contactIds = Contacts::ofPerson($db, $email, array_map('intval', array_column(array_filter($enquiries, fn (array $r): bool => self::cleanAddress((string) $r['email']) === $email), 'idp')),
             array_map('intval', array_column($bookings, 'id')), $subscriber !== null ? (int) $subscriber['ido'] : null);
 
         return [

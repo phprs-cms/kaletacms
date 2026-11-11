@@ -12,3 +12,7 @@ ALTER TABLE ka_uzivatele ADD COLUMN passkey_only BOOL NOT NULL DEFAULT 0;
 ALTER TABLE ka_uzivatele_klice ADD COLUMN discoverable BOOL NOT NULL DEFAULT 0;
 ALTER TABLE ka_uzivatele_klice ADD COLUMN rp_id VARCHAR(255) NOT NULL DEFAULT '';
 UPDATE ka_uzivatele_klice SET rp_id = COALESCE((SELECT TRIM(TRAILING '.' FROM LOWER(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(n.hodnota, '://', -1), '/', 1), ':', 1))) FROM ka_nastaveni n WHERE n.promenna = 'site_url'), '') WHERE rp_id = '';
+-- 3.35 review L5: merged_email is the stable marker of the note a merge of two customers writes (Core\Contacts::merge) – the
+-- normalised address merged in; a personal-data request finds the note by it in any language. Older notes keep being
+-- recognised by their wording (Contacts::mergeNoteNames).
+ALTER TABLE ka_contact_activities ADD COLUMN merged_email VARCHAR(190) NOT NULL DEFAULT '';

@@ -704,6 +704,7 @@ CREATE TABLE ka_contact_activities (
     author_name VARCHAR(100) NOT NULL DEFAULT '',
     happened_at DATETIME NOT NULL,
     created_at  DATETIME NOT NULL,
+    merged_email VARCHAR(190) NOT NULL DEFAULT '',          -- 3.35 review L5: the normalised address a merge note names (Contacts::merge); '' = not a merge note, or an older one
     PRIMARY KEY (id),
     KEY ix_contact_activities_contact (contact_id, happened_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

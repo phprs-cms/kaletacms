@@ -411,6 +411,11 @@ final class Contacts
             $done += $db->run("UPDATE {contacts} SET email = '', email_norm = NULL, name = '', phone = '', company_id = NULL, summary = NULL, anonymised_at = ?, updated_at = ? WHERE id IN (" . $in . ')',
                 [$now, $now])->rowCount();
             $db->run("UPDATE {contact_activities} SET text = '' WHERE contact_id IN (" . $in . ')');
+            try {
+                $db->run("UPDATE {contact_activities} SET merged_email = '' WHERE contact_id IN (" . $in . ") AND merged_email <> ''"); // 3.35 review L5: the marker too
+            } catch (\PDOException) {
+                // before migration 0121 (a background job of the new code before the database update) – there is no marker
+            }
             Comments::anonymiseTargets($db, array_map(Comments::contact(...), $chunk));
             self::unlink($db, $chunk);
         }
@@ -661,7 +666,11 @@ final class Contacts
             $db->update('contacts', $fill + ['updated_at' => Clock::now()], ['id' => $a['id']]);
             self::touch($db, $a['id'], $b['last_activity_at'], $b['first_seen_at']);
             $what = $b['email'] !== '' ? $b['email'] : ($b['name'] !== '' ? $b['name'] : '#' . $b['id']);
-            self::insertActivity($db, $a['id'], 'note', t('Merged with the contact #%d (%s).', $b['id'], $what), $user, Clock::now());
+            $note = self::insertActivity($db, $a['id'], 'note', t('Merged with the contact #%d (%s).', $b['id'], $what), $user, Clock::now());
+            if (($merged = self::normalise((string) $b['email'])) !== null) {
+                // 3.35 review L5: the stable marker of a merge note – a personal-data request finds it in any language
+                $db->run('UPDATE {contact_activities} SET merged_email = ? WHERE id = ?', [$merged, $note]);
+            }
 
             return $moved;
         });
@@ -1204,8 +1213,15 @@ final class Contacts
             $norm = self::normalise($email);
             if ($norm !== null) {
                 $ids = array_map('intval', array_column($db->all('SELECT id FROM {contacts} WHERE email_norm = ?', [$norm]), 'id'));
-                // the LIKE only narrows the rows; mergeNoteNames decides on the whole address in a merge note
-                foreach ($db->all("SELECT contact_id, text FROM {contact_activities} WHERE kind = 'note' AND LOWER(text) LIKE ?", ['%' . addcslashes($norm, '%_\\') . '%']) as $row) {
+                // 3.35 review L5: a merge note since then carries the merged address as its marker (merged_email); the older
+                // notes are still recognised by their wording – the LIKE only narrows the rows, mergeNoteNames decides
+                try {
+                    $ids = [...$ids, ...array_map('intval', array_column($db->all('SELECT contact_id FROM {contact_activities} WHERE merged_email = ?', [$norm]), 'contact_id'))];
+                    $legacy = " AND merged_email = ''";
+                } catch (\PDOException) {
+                    $legacy = ''; // before migration 0121
+                }
+                foreach ($db->all("SELECT contact_id, text FROM {contact_activities} WHERE kind = 'note'" . $legacy . ' AND LOWER(text) LIKE ?', ['%' . addcslashes($norm, '%_\\') . '%']) as $row) {
                     if (self::mergeNoteNames((string) $row['text'], $norm)) {
                         $ids[] = (int) $row['contact_id'];
                     }
@@ -1242,7 +1258,7 @@ final class Contacts
             $patterns = array_values(array_unique($patterns));
         }
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, trim($text), $m) === 1 && mb_strtolower(trim($m[1])) === $norm) {
+            if (preg_match($pattern, trim((string) preg_replace('/[\s\p{Z}]+/u', ' ', $text)), $m) === 1 && PersonalData::cleanAddress($m[1]) === $norm) { // 3.35 review L5
                 return true;
             }
         }
