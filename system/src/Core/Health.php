@@ -132,6 +132,10 @@ final class Health
         if ($waiting['count'] > 0 && $waiting['since'] !== null && $waiting['since'] < Clock::at('-' . Applications::UNCONFIRMED_DAYS . ' days')) {
             $add(t('Operation'), t('Retention of job applications'), 'varovani', t('%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Applications → Settings.', $waiting['count'], Applications::UNCONFIRMED_DAYS));
         }
+        if (SignInPolicy::escapeHatch()) {
+            // 3.35 review L1: the escape hatch switches every passkey rule off, for administrators too
+            $add(t('Bezpečnost'), t('Passkey sign-in rules'), 'varovani', t('switched off by %s in config.php – passwords sign in without passkeys, administrators too. Remove the line once you can sign in again.', SignInPolicy::ESCAPE_HATCH));
+        }
         // 3.35 review M3: passkeys bound to another host of the site (the site address moved) – they sign in nowhere here
         $passkeyHost = SignInPolicy::siteRpId($siteSettings);
         try {

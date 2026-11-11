@@ -32,6 +32,12 @@ nastavuje – e-mail webu, SMTP server, přes který už prošla zpráva (pošle
 nebo passkey, nepoužívané přístupy, vlastní účet klienta (role Klient nebo role s oblastí Vzhled), měsíční zpráva pro
 klienta, uložené mantinely v Nastavení Clauda, váš kontakt, rozhodnutí v Zápisníku a úlohy na pozadí.
 
+**Nemůžete se přihlásit?** Zapomenuté heslo: **Zapomenuté heslo?** na přihlašovací stránce (mění jen heslo). Ztracený
+telefon nebo klíč: záložní kód po hesle, nebo účet resetuje jiný správce v **Uživatelích**. Jediný správce bez klíče
+a záložních kódů doplní do `config.php` řádek `define('KALETA_PASSKEY_ONLY_OFF', true);`: všechna pravidla „jen klíčem“
+se vypnou a správce, jehož jediným druhým krokem je klíč, se přihlásí samotným heslem. Administrace na to upozorňuje na
+každé stránce, dokud řádek nezmizí – v **Mém účtu** si znovu zaregistrujte klíč a řádek smažte.
+
 ## 2. Builder stránek
 
 Builder otevřete v **Stránky → Builder** (nebo odkazem „Upravit zde“ na webu). Uprostřed je **plátno – skutečná stránka

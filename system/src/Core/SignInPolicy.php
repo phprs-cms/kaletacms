@@ -19,6 +19,9 @@ namespace Kaleta\Core;
  *    with their own password). A password-reset e-mail changes only the password – the steps above stay.
  *  - The escape hatch: define('KALETA_PASSKEY_ONLY_OFF', true); in config.php switches every "passkey only" off (the
  *    account's and the site's) for a site whose administrators cannot sign in – the password and the second step work again.
+ *    3.35 review L1: it also switches the passkey requirement off for administrators – an administrator account whose only
+ *    second step is a passkey (no app, no backup codes left) signs in with the password alone; every admin page warns
+ *    until the constant is removed (Admin\Kernel, System status).
  */
 final class SignInPolicy
 {
@@ -86,7 +89,14 @@ final class SignInPolicy
      */
     public static function needsSecondStep(array $user, array $keys): bool
     {
-        return (string) ($user['totp_tajemstvi'] ?? '') !== '' || $keys !== [];
+        if ((string) ($user['totp_tajemstvi'] ?? '') !== '') {
+            return true;
+        }
+
+        // 3.35 review L1: with the escape hatch an administrator whose only second step would be a passkey (no app, no
+        // backup codes left) signs in with the password alone – the way back for an owner who lost the passkey; the admin
+        // then shows a warning on every page until the constant is removed. Without the constant nothing changes.
+        return $keys !== [] && !(self::escapeHatch() && (int) ($user['admin'] ?? -1) === Auth::ADMIN && self::backupCodesLeft($user) === 0);
     }
 
     /**

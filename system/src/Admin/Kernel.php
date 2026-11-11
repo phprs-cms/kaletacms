@@ -254,6 +254,10 @@ final class Kernel
 
             return Response::redirect($app->url('admin.php?action=account'));
         }
+        if (\Kaleta\Core\SignInPolicy::escapeHatch() && $app->auth()->isAdmin() && !$request->isPost()) {
+            // 3.35 review L1: the escape hatch takes the passkey rules away for administrators too – said on every page
+            $app->session->flash('chyba', t(self::ESCAPE_HATCH_WARNING, "define('" . \Kaleta\Core\SignInPolicy::ESCAPE_HATCH . "', true);"));
+        }
         if ($action === 'token') {
             // after a new sign-in in another tab, the editor takes the valid form token here and continues saving
             return Response::json(['csrf' => $app->session->csrfToken()]);
@@ -761,6 +765,9 @@ final class Kernel
             default => self::FULL_ACCESS_PASSWORD,
         };
     }
+
+    /** 3.35 review L1: the warning on every admin page while the escape hatch is in config.php. */
+    public const string ESCAPE_HATCH_WARNING = 'Passkey sign-in rules are switched off: %s is in config.php, so passwords sign in without passkeys – administrators too. Register a passkey again in My account and then remove the line from config.php.';
 
     /** 3.35: the answer when an account that signs in with a passkey only approves full access without a fresh proof. */
     public const string FULL_ACCESS_PASSKEY = '“Can also publish” lets the application publish and delete with your account – confirm with your passkey to allow it, or choose “Drafts only”.';

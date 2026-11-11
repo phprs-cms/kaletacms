@@ -35,6 +35,12 @@ without two-step sign-in or a passkey, unused access, the client's own account (
 Appearance area), the monthly report going to the client, Claude's guardrails saved in Claude settings, your contact,
 the decisions in the Notebook and background tasks.
 
+**Locked out?** A lost password: **Forgotten your password?** on the sign-in page (it changes only the password). A lost phone
+or passkey: a backup code after the password, or another administrator resets the account in **Users**. The only
+administrator without a passkey and backup codes adds `define('KALETA_PASSKEY_ONLY_OFF', true);` to `config.php`: every
+“passkey only” rule is off and an administrator whose only second step is a passkey signs in with the password alone. The
+admin warns on every page until the line is removed – register a passkey again in **My account**, then remove it.
+
 ## 2. Page builder
 
 Open the builder from **Pages → Builder** (or the “Edit here” link on the site). The middle is the **canvas – the real

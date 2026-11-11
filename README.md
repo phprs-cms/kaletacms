@@ -71,6 +71,17 @@ content and free stock photos ([all 18](docs/screenshots/examples), one on each 
 Later versions are downloaded and installed by the site itself (Settings → Backups and updates); packages are signed by the publisher.
 Nginx does not read `.htaccess` – use the example in `system/nginx.example.conf`. The user guide is in [docs/guide.md](docs/guide.md).
 
+### Locked out of the admin
+
+- A lost password: **Forgotten your password?** on the sign-in page sends a link to the account's e-mail (it changes only the
+  password – a second step the account has stays).
+- A lost phone or passkey: a **backup code** after the password; or another administrator resets the account's second
+  factor and passkeys in **Users**.
+- The only administrator lost the passkey and has no backup codes: add `define('KALETA_PASSKEY_ONLY_OFF', true);` to
+  `config.php` (see `config.sample.php`). Every "passkey only" rule is switched off and an administrator whose only second
+  step is a passkey signs in with the password alone. The admin shows a warning on every page until the line is removed –
+  register a passkey again in **My account**, then remove it.
+
 ## Development
 
 ```bash
