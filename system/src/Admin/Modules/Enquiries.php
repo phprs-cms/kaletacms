@@ -362,12 +362,16 @@ final class Enquiries extends Module
         $p = $this->findVisible($this->request->getInt('id'), 'data');
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
-        if ($path === null || !is_file($path)) {
+        // 3.34 second review N9: a CV sealed for Applications and then restored as an enquiry (a backup older than the move) opens
+        // from its encrypted copy – the key of its header
+        $content = $path !== null && is_file($path) ? (string) file_get_contents($path)
+            : ($path !== null ? \Kaleta\Core\Applications::openSealed($this->app->settings(), \Kaleta\Core\Applications::FOLDER . '/' . \Kaleta\Core\Applications::sealedTarget((string) $item[2]), null) : null);
+        if ($path === null || $content === null) {
             return $this->error('The attachment no longer exists.', 404);
         }
         $displayName = preg_replace('/ \([^)]*\)$/', '', (string) $item[1]) ?: basename($path);
 
-        return new Response((string) file_get_contents($path), 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff',
+        return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($displayName)]);
     }
 

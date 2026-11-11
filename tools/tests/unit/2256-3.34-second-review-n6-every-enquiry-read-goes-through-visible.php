@@ -29,6 +29,7 @@ $n6Exempt = [
         'SELECT idp, data FROM {poptavky} WHERE idp = ?' => 'the files of an enquiry findVisible() found',
         'SELECT idp, data FROM {poptavky} WHERE datum < ?\' . $keep' => 'the retention: $keep carries visible()'],
     'src/Mcp/Handlers/EnquiryAndPopupTools.php' => ['FROM {poptavky} WHERE \' . implode(\' AND \', $whereParts)' => 'list_enquiries: $whereParts carries visible()'],
+    'src/Core/Applications.php' => ['SELECT idp, data FROM {poptavky} WHERE idp > ?' => 'which CV paths enquiries still name – the sweep keeps their encrypted copies (N9)'],
     'src/Core/ApplicationMove.php' => ['SELECT * FROM {poptavky} p WHERE' => 'the move to Applications itself (people with both sections; an enquiry with an application twin is left out by its own NOT EXISTS)'],
     'src/Fleet/Heartbeat.php' => ['SELECT datum, replies FROM {poptavky}' => 'the median hours to a first reply – numbers only'],
 ];

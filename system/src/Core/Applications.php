@@ -1082,8 +1082,36 @@ final class Applications
             return null;
         }
         self::protectFolder();
+        self::markFilesSince($s);
 
         return base64_encode($key);
+    }
+
+    /** Since when CVs of job applications are kept encrypted here (unix time; the first sealed file or move – 3.34 second review N9). */
+    public const string FILES_SINCE = 'applications_files_since';
+
+    /**
+     * The first CV sealed or the first application moved from Enquiries (N9): from then on a database backup older than
+     * that misses what only the files on disk hold – the restore screen says so.
+     */
+    public static function markFilesSince(Settings $s): void
+    {
+        try {
+            if ($s->get(self::FILES_SINCE) === '') {
+                $s->set(self::FILES_SINCE, (string) time());
+            }
+        } catch (\PDOException) {
+            // a marker never fails the sealing of a CV
+        }
+    }
+
+    /**
+     * Restoring a backup made at $backupTime loses what only the disk holds (N9): the backup is older than the first sealed
+     * CV or move. Pure.
+     */
+    public static function backupMissesFiles(int $backupTime, string $filesSince): bool
+    {
+        return ctype_digit($filesSince) && (int) $filesSince > 0 && $backupTime < (int) $filesSince;
     }
 
     /** The key that wraps the per-file keys in the files' headers: the Vault key of the purpose, the key in the database while config.php has none (M5). */
@@ -1546,7 +1574,8 @@ final class Applications
      * before it removed the sealed copy, an upload whose row was never stored), and half-written ones (.part), older than
      * ORPHAN_DAYS: removed. What a row lists is read from attachment_paths (always readable) – a row without it whose list
      * cannot be opened stops the sweep (what it lists is unknown). The copy sealedTarget() would give a CV still waiting
-     * in storage/prilohy counts as listed (a restored backup takes it back). Returns how many files went.
+     * in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it back) – counts as listed.
+     * Returns how many files went.
      */
     public static function sweepOrphans(App $app): int
     {
@@ -1565,6 +1594,18 @@ final class Applications
                 $paths = $row['attachment_paths'] ?? self::paths(self::attachments($s, $row['attachments']));
                 foreach (self::pathFiles($paths) as $file) {
                     $listed[$file] = true;
+                }
+            }
+            // N9: an enquiry restored from a backup older than the sealing opens its CV from the copy (Enquiries::actionAttachment)
+            $after = 0;
+            while (($enquiries = $app->db()->all('SELECT idp, data FROM {poptavky} WHERE idp > ? ORDER BY idp LIMIT 500', [$after])) !== []) {
+                foreach ($enquiries as $e) {
+                    $after = (int) $e['idp'];
+                    foreach (json_decode((string) $e['data'], true) ?: [] as $field) {
+                        if (is_array($field) && is_string($field[2] ?? null) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', $field[2]) === 1) {
+                            $listed[self::FOLDER . '/' . self::sealedTarget($field[2])] = true;
+                        }
+                    }
                 }
             }
         } catch (\PDOException) {

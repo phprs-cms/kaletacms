@@ -295,6 +295,9 @@ return static function (Db $db, Settings $settings): void {
     }
 
     if ($moved > 0) {
+        if ($settings->get('applications_files_since') === '') {
+            $settings->set('applications_files_since', (string) time()); // N9: a backup older than this misses the move (the restore screen says so)
+        }
         // H1: the administrator confirms the retention before anything moved is purged – N8: the confirmation is the highest id
         // confirmed, and the rows moved now lie above it (lowered below the first of them when ids were used again)
         $confirmed = $settings->get('applications_retention_confirmed');

@@ -191,6 +191,7 @@ final class ApplicationMove
         Applications::keepToSection($db, $ids); // review low (a): no responsible person or bell entry outside the section
         $removed = self::forgetLoneContacts($db);
         if ($moved > 0) {
+            Applications::markFilesSince($app->settings()); // N9: a backup older than this misses the move
             Applications::adoptRetention($db, $app->settings(), $ids); // 3.34 review H1: never the default 6 months; N8: the rows moved now wait for an administrator's confirmation
             self::record($app, 'to applications', $moved, $deals, $removed);
         }
