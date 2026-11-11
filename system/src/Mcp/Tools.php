@@ -223,7 +223,7 @@ final class Tools
                 $s(['nastaveni' => ['type' => 'object', 'description' => '{"klic":"hodnota"}']])],
             ['seznam_poptavek', 'Poptávky z formulářů webu (rozšíření Formuláře a poptávky; jen s právem k Poptávkám), nejnovější první: datum, formulář, stránka, téma (about: položka kolekce, stránka nebo okno, kde formulář byl), kampaň (utm), e-mail, stav a vyplněná pole. Obsahují osobní údaje – používej je jen k tomu, oč uživatel žádá.',
                 $s(['stav' => $text('nove | prectene | vyrizene | vse (výchozí)'), 'hledat' => $text('text v e-mailu nebo obsahu (nepovinné)'), 'limit' => $number('1-50, výchozí 20'),
-                    'kategorie' => $text('sales | support | job | supplier | spam | other | unsorted (nepovinné; bez ní se spam vynechá)')])],
+                    'kategorie' => $text('sales | support | job | supplier | spam | other | unsorted (nepovinné; bez ní se spam vynechá). Když jsou zapnuté Žádosti o místo (site_info features.applications), najdeš je v list_applications')])],
             ['seznam_presmerovani', 'Přesměrování starých adres (rozšíření Přesměrování) a nejčastější adresy, které skončily chybou 404.', $s([])],
             ['uloz_presmerovani', 'Přidá nebo změní přesměrování (správce): ze staré cesty na webu na novou cestu nebo https adresu. Typ 301 = natrvalo (výchozí), 302 = dočasně.',
                 $s(['z' => $text('stará cesta, např. /docs nebo /o-nas'), 'na' => $text('nová cesta (/guide) nebo https://…'), 'typ' => $number('301 nebo 302'), 'smazat' => ['type' => 'boolean', 'description' => 'true = přesměrování ze staré cesty smazat']], ['z'])],

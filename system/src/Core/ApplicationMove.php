@@ -101,8 +101,38 @@ final class ApplicationMove
     public static function toApplications(App $app, string $form, string $source): array
     {
         $db = $app->db();
-        $now = Clock::now();
         $rows = $db->all('SELECT * FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp) ORDER BY idp LIMIT ' . self::BATCH, [$form, $source]);
+        $result = self::moveRows($app, $rows);
+        $left = (int) $db->value('SELECT COUNT(*) FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$form, $source]);
+
+        return ['moved' => $result['moved'], 'left' => $left, 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
+    }
+
+    /**
+     * Moves one enquiry to applications (3.34, "Move to Applications" on the detail of an enquiry, for a person with both
+     * sections) – the same steps as the move by form. Null when the enquiry does not exist (or moved already).
+     *
+     * @return array{id: int, deals: list<int>, contacts_deleted: int}|null
+     */
+    public static function enquiryToApplication(App $app, int $idp): ?array
+    {
+        $rows = $app->db()->all('SELECT * FROM {poptavky} p WHERE idp = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$idp]);
+        $result = self::moveRows($app, $rows);
+
+        return $result['ids'] === [] ? null : ['id' => $result['ids'][0], 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
+    }
+
+    /**
+     * The move of enquiry rows to applications, each in one transaction (the steps described above the class).
+     *
+     * @param list<array<string, mixed>> $rows whole rows of ka_poptavky
+     * @return array{moved: int, ids: list<int>, deals: list<int>, contacts_deleted: int}
+     */
+    private static function moveRows(App $app, array $rows): array
+    {
+        $db = $app->db();
+        $now = Clock::now();
+        $ids = [];
         $moved = 0;
         $deals = [];
         $contacts = [];
@@ -132,7 +162,7 @@ final class ApplicationMove
             }
             $lastComment = $db->value('SELECT MAX(created_at) FROM {comments} WHERE target = ?', ['enquiry:' . $idp]);
             $activity = is_string($lastComment) && $lastComment > $activity ? $lastComment : $activity;
-            $db->transaction(function () use ($app, $db, $e, $idp, $data, $files, $position, $email, $people, $activity, $now, &$moved, &$deals, &$contacts): void {
+            $db->transaction(function () use ($app, $db, $e, $idp, $data, $files, $position, $email, $people, $activity, $now, &$moved, &$ids, &$deals, &$contacts): void {
                 $id = $db->insert('applications', [
                     'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
                     'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
@@ -141,6 +171,7 @@ final class ApplicationMove
                     'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
                     'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
                 ]);
+                $ids[] = $id;
                 $target = Applications::target($id);
                 foreach (['comments', 'tasks', 'notifications'] as $table) {
                     $db->run('UPDATE {' . $table . '} SET target = ? WHERE target = ?', [$target, 'enquiry:' . $idp]);
@@ -161,12 +192,11 @@ final class ApplicationMove
             });
         }
         $removed = self::forgetLoneContacts($db, array_keys($contacts));
-        $left = (int) $db->value('SELECT COUNT(*) FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$form, $source]);
         if ($moved > 0) {
             self::record($app, 'to applications', $moved, $deals, $removed);
         }
 
-        return ['moved' => $moved, 'left' => $left, 'deals' => array_values(array_unique($deals)), 'contacts_deleted' => $removed];
+        return ['moved' => $moved, 'ids' => $ids, 'deals' => array_values(array_unique($deals)), 'contacts_deleted' => $removed];
     }
 
     /**

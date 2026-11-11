@@ -112,7 +112,8 @@ $parity = [
     'requests' => ['list' => 'list_requests', 'new' => $readOnly, 'save' => 'admin: a request is written by a person for Claude – Claude reads it with list_requests', 'detail' => 'list_requests',
         'reply' => 'admin: the requester answers Claude in the request; Claude answers with update_request', 'status' => 'update_request'],
     'enquiries' => ['list' => $readOnly, 'detail' => $readOnly, 'csv' => $readOnly, 'attachment' => $readOnly, 'note' => 'update_enquiry', 'status' => 'update_enquiry', 'triage' => 'update_enquiry', 'testimonial' => 'request_testimonial', 'reply' => 'reply_to_enquiry', 'personal' => 'erase_personal_data',
-        'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)',
+        'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept',
+        'to_application' => 'admin: moving an enquiry with its attachments into Applications (3.34) is a person’s decision about personal data – CVs never pass through Claude', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)',
         'comment' => 'admin: editing or deleting one’s own note (3.26) – notes are added with update_enquiry add_note',
         'task' => 'save_task'], // 3.27: the tasks and follow-ups of an enquiry
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's

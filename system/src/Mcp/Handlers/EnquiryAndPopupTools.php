@@ -62,6 +62,10 @@ trait EnquiryAndPopupTools
 
         $rows = $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data, prirazeno FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params);
         $notes = \Kaleta\Core\Comments::countEnquiries($db, array_map('intval', array_column($rows, 'idp'))); // 3.25
+        // 3.34: with Applications on, an enquiry sorted as a job application points there (additive key, only on those rows)
+        $applicationsHint = \Kaleta\Core\Applications::isOn($siteSettings)
+            ? 'Job applications live in Applications on this site (list_applications). A person moves this one there with "Move to Applications" on its detail; set the form\'s Purpose to "Job application" so the next ones arrive there.'
+            : null;
 
         // about (2.12): what the form was about – the collection item, page or pop-up it was on (Front\EnquiryTopic)
         return array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'datum' => substr((string) $p['datum'], 0, 16), 'formular' => $p['formular'], 'stranka' => $p['stranka'], 'about' => $p['tema'] !== '' ? $p['tema'] : null,
@@ -72,7 +76,8 @@ trait EnquiryAndPopupTools
             // 3.24: who handles it ({id, name}; a removed account is "(former user)"), only when someone does
             + ($p['prirazeno'] !== null ? ['assignee' => \Kaleta\Core\Handover::person($db, $p['prirazeno'])] : [])
             // 3.25: how many internal notes the team wrote on it (Core\Comments), only when there are some
-            + (($notes[(int) $p['idp']] ?? 0) > 0 ? ['notes_count' => $notes[(int) $p['idp']]] : []),
+            + (($notes[(int) $p['idp']] ?? 0) > 0 ? ['notes_count' => $notes[(int) $p['idp']]] : [])
+            + ($applicationsHint !== null && $p['kategorie'] === 'job' ? ['applications_hint' => $applicationsHint] : []),
             $rows);
     }
 

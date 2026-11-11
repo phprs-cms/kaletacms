@@ -7691,4 +7691,7 @@ return [
     'Job applications you are responsible for' => 'Žádosti o místo, za které odpovídáte',
     'New job applications nobody is responsible for' => 'Nové žádosti o místo, za které nikdo neodpovídá',
     'Workplace (on site / hybrid / remote)' => 'Pracoviště (na místě / hybridně / na dálku)',
+    'The enquiry was moved to Applications.' => 'Poptávka byla přesunuta do žádostí o místo.',
+    'You cannot open Applications.' => 'Nemáte přístup k žádostem o místo.',
+    'Move this enquiry to Applications? It leaves Enquiries with its notes, tasks and attachments; a deal made from it loses the link.' => 'Přesunout tuto poptávku do žádostí o místo? Odejde z Poptávek i s poznámkami, úkoly a přílohami; obchod z ní vytvořený ztratí odkaz.',
 ];

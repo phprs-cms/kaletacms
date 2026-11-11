@@ -53,6 +53,10 @@ trait PageTools
             'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
             // the whistleblowing channel (2.14): Claude learns only that it is on – no tool reads or lists its cases
             'whistleblowing' => \Kaleta\Core\Whistleblowing::isOn($siteSettings),
+            // 3.34: job applications – on, whether the site lets Claude read them (applications_claude) and whether this user
+            // may open them; list_applications works only with all three
+            'features' => ['applications' => ['enabled' => \Kaleta\Core\Applications::isOn($siteSettings), 'claude' => $siteSettings->bool('applications_claude'),
+                'can_open' => $auth->id() > 0 && \Kaleta\Core\Handover::mayOpen($db, $siteSettings, $auth->id(), \Kaleta\Core\Applications::SECTION)]],
             'notebook_count' => $notebook['count'], 'notebook_pinned' => $notebook['pinned'],
             // direction: rtl for Arabic – the site mirrors the layout itself, Claude writes the text in its natural order
             'languages' => ['german_address' => Language::visitorAddress($siteSettings), 'default' => Language::defaults($siteSettings), 'direction' => Language::dir(Language::defaults($siteSettings)),

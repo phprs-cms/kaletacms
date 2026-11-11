@@ -8098,4 +8098,7 @@ return [
     'Job applications you are responsible for' => 'Bewerbungen, für die Sie verantwortlich sind',
     'New job applications nobody is responsible for' => 'Neue Bewerbungen ohne verantwortliche Person',
     'Workplace (on site / hybrid / remote)' => 'Arbeitsort (vor Ort / hybrid / remote)',
+    'The enquiry was moved to Applications.' => 'Die Anfrage wurde zu den Bewerbungen verschoben.',
+    'You cannot open Applications.' => 'Sie können die Bewerbungen nicht öffnen.',
+    'Move this enquiry to Applications? It leaves Enquiries with its notes, tasks and attachments; a deal made from it loses the link.' => 'Diese Anfrage zu den Bewerbungen verschieben? Sie verlässt die Anfragen mit ihren Notizen, Aufgaben und Anhängen; ein daraus erstellter Deal verliert die Verknüpfung.',
 ];

@@ -129,7 +129,9 @@ final class Enquiries extends Module
             'contactBox' => Contacts::box($this->app, $this->kernel->modules(), 'enquiry', (int) $p['idp'], isset($p['contact_id']) ? (int) $p['contact_id'] : null,
                 ($p['anonymizovano'] ?? null) === null && \Kaleta\Core\Contacts::normalise((string) $p['email']) !== null),
             // 3.31: the deal the enquiry became, or "Create deal" (for whoever may open the Pipeline)
-            'dealBox' => Pipeline::enquiryBox($this->app, $this->kernel->modules(), (int) $p['idp'])]);
+            'dealBox' => Pipeline::enquiryBox($this->app, $this->kernel->modules(), (int) $p['idp']),
+            // 3.34: "Move to Applications" for a person who may open both sections (a job application sent through a general form)
+            'toApplication' => isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])]);
     }
 
     /** 3.27: was a reply to this enquiry just sent (actionReply)? Once – the detail offers the follow-up at its top. */
@@ -362,6 +364,26 @@ final class Enquiries extends Module
         }
 
         return $this->back($this->request->postInt('stav') === 2 ? 'The enquiry is resolved.' : 'The enquiry is open again.');
+    }
+
+    /**
+     * 3.34: "Move to Applications" on the detail – one enquiry that is really a job application goes to Applications
+     * (Core\ApplicationMove, the steps of the move by form), for a person who may open both sections.
+     */
+    protected function actionToApplication(): Response
+    {
+        $idp = $this->request->postInt('idp');
+        if (!$this->request->isPost() || !isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])) {
+            return $this->back('You cannot open Applications.', 'detail', ['id' => $idp], 'chyba');
+        }
+        $result = \Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp);
+        if ($result === null) {
+            return $this->back('The enquiry does not exist.', '', [], 'chyba');
+        }
+        $this->app->session->flash('ok', t('The enquiry was moved to Applications.')
+            . ($result['deals'] !== [] ? ' ' . t('Deals that lost their link to the enquiry: %s.', '#' . implode(', #', $result['deals'])) : ''));
+
+        return Response::redirect($this->app->url(\Kaleta\Core\Applications::adminPath($result['id'])));
     }
 
     protected function actionDelete(): Response

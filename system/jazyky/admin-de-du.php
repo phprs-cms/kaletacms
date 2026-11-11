@@ -1290,4 +1290,5 @@ return [
     'A form on a job page or with the Purpose “Job application” keeps sending applications – change it in the builder first.' => 'Ein Formular auf einer Stellenseite oder mit dem Zweck „Bewerbung“ sendet weiter Bewerbungen – ändere es zuerst im Builder.',
     'Choose a form.' => 'Wähle ein Formular.',
     'Job applications you are responsible for' => 'Bewerbungen, für die du verantwortlich bist',
+    'You cannot open Applications.' => 'Du kannst die Bewerbungen nicht öffnen.',
 ];

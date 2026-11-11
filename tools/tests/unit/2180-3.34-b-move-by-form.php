@@ -19,4 +19,4 @@ check('3.34 B move: repeatable (an enquiry moves once – source_enquiry_id), in
     substr_count($m338Source, 'NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)'), str_contains($m338Source, "ORDER BY idp LIMIT ' . self::BATCH"),
     str_contains($m338Source, 'Deals::forgetEnquiries($db, [$idp]);'), str_contains($m338Source, '@unlink($path); // the sealed copy'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Applications.php'), "return \$this->error('Only an administrator can move enquiries to applications.', 403);")],
-    [2, true, true, true, 2]);
+    [3, true, true, true, 2]); // 3.34: the third guard is the move of one enquiry (enquiryToApplication, "Move to Applications" on its detail)

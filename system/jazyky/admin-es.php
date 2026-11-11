@@ -8118,4 +8118,7 @@ return [
     'Job applications you are responsible for' => 'Candidaturas de las que eres responsable',
     'New job applications nobody is responsible for' => 'Candidaturas nuevas sin persona responsable',
     'Workplace (on site / hybrid / remote)' => 'Lugar de trabajo (presencial / híbrido / remoto)',
+    'The enquiry was moved to Applications.' => 'La consulta se ha movido a Candidaturas.',
+    'You cannot open Applications.' => 'No puede abrir Candidaturas.',
+    'Move this enquiry to Applications? It leaves Enquiries with its notes, tasks and attachments; a deal made from it loses the link.' => '¿Mover esta consulta a Candidaturas? Sale de Consultas con sus notas, tareas y adjuntos; un negocio creado a partir de ella pierde el vínculo.',
 ];

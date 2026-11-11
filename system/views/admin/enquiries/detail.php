@@ -18,6 +18,7 @@
  * @var list<array{id: int, at: string, by: string, by_id: int, text: string, via: string, kind: string, mentions: list<int>, edited: ?string, deleted: bool}> $notes internal notes, oldest first (3.25, Core\Comments; 3.26 with the deleted ones)
  * @var array<string, mixed> $tasks the enquiry's tasks and the follow-up buttons (3.27, Admin\TaskActions::taskPanel)
  * @var array<string, mixed>|null $contactBox the customer of the enquiry (3.28, Admin\Modules\Contacts::box); null without Customers
+ * @var bool $toApplication may move the enquiry to Applications (3.34: the person has both sections)
  * @var array<string, mixed>|null $dealBox the deal of the enquiry and "Create deal" (3.31, Admin\Modules\Pipeline::enquiryBox); null without the Pipeline
  * @var array<string, mixed> $thread the notes as a thread – names of the people mentioned, who may be mentioned, a refused text (3.26, Admin\CommentActions::commentThread)
  */
@@ -174,6 +175,9 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 	<form class="vradku" method="post" action="<?= e($module->url('status')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><input type="hidden" name="stav" value="<?= (int) $p['stav'] === 2 ? 1 : 2 ?>"><button class="tl<?= (int) $p['stav'] === 2 ? ' tl-vedlejsi' : '' ?>" type="submit"><?= e(t((int) $p['stav'] === 2 ? 'Reopen' : 'Označit jako vyřízenou')) ?></button></form>
 <?php if (($p['anonymizovano'] ?? null) === null): ?>
 	<form class="vradku" method="post" action="<?= e($module->url('anonymise')) ?>" data-potvrdit="<?= e(t('Blank the name, e-mail, phone, message and attachments of this enquiry? The row stays for statistics.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Anonymise')) ?></button></form>
+<?php endif ?>
+<?php if ($toApplication): /* 3.34: a job application that came through a general form */ ?>
+	<form class="vradku" method="post" action="<?= e($module->url('to_application')) ?>" data-to-application data-potvrdit="<?= e(t('Move this enquiry to Applications? It leaves Enquiries with its notes, tasks and attachments; a deal made from it loses the link.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Move to Applications')) ?></button></form>
 <?php endif ?>
 	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 </div>

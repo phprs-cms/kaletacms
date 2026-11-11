@@ -4678,6 +4678,40 @@ await step('3.34 B applications: reply template, settings, move by form – 1440
   }
 });
 
+// 3.34 (integration): "Move to Applications" on one enquiry – the button fits 390 px, the confirmation names what happens, the
+// application opens afterwards; axe on the enquiry detail
+await step('3.34 Move to Applications: one enquiry moves after the confirmation and its application opens (390 px, axe)', async () => {
+  const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications')`);
+  const idp = sql(`INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, email, data, stav, kategorie, triaged_by) VALUES (NOW(), 'Contact B340', 'stranka:1', 'x', '/contact', 'eva-b340@example.com', '[["Name","Eva B340"]]', 1, 'job', 'person'); SELECT LAST_INSERT_ID();`).trim();
+  try {
+    const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      await axePage.goto(`${BASE}/admin.php?module=enquiries&action=detail&id=${idp}`, { waitUntil: 'networkidle' });
+      await axePage.addScriptTag({ path: AXE });
+      const found = await axePage.evaluate((tags) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+      if (found.violations.length) { throw new Error('axe enquiry detail: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+    } finally {
+      await axeContext.close();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit(`/admin.php?module=enquiries&action=detail&id=${idp}`);
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) { throw new Error('the enquiry detail scrolls sideways at 390 px'); }
+    await page.locator('form[data-to-application] button').click();
+    const dialog = page.locator('dialog.potvrzeni[open]');
+    await dialog.waitFor();
+    if (!/Applications/.test(await dialog.textContent() || '')) { throw new Error('the confirmation does not say where the enquiry goes'); }
+    await Promise.all([page.waitForNavigation(), dialog.locator('[data-ano]').click()]);
+    if (!/module=applications&action=detail/.test(page.url()) || !(await page.locator('[data-application-card]').count())) { throw new Error(`the application did not open: ${page.url()}`); }
+    if (sql(`SELECT COUNT(*) FROM ka_poptavky WHERE idp = ${idp}`).trim() !== '0') { throw new Error('the enquiry is still in Enquiries'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_comments WHERE target IN (SELECT CONCAT('application:', id) FROM ka_applications WHERE email = 'eva-b340@example.com'); DELETE FROM ka_applications WHERE email = 'eva-b340@example.com'; DELETE FROM ka_poptavky WHERE idp = ${idp};
+      REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions}'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
