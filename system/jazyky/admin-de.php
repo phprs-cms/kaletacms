@@ -7912,4 +7912,7 @@ return [
     'Replace the sample page %s (%s) with the old page %s' => 'Beispielseite %s (%s) durch die alte Seite %s ersetzen',
     'Sample pages replaced (in the trash for 30 days): %s' => 'Ersetzte Beispielseiten (30 Tage im Papierkorb): %s',
     'Sample pages kept – the imported page got a number: %s' => 'Behaltene Beispielseiten – die importierte Seite hat eine Nummer bekommen: %s',
+    '%s old addresses could not be kept as they were – they redirect to the new ones' => '%s alte Adressen konnten nicht unverändert bleiben – sie leiten auf die neuen weiter',
+    '%s → %s (shortened: an address has at most %s characters)' => '%s → %s (gekürzt: eine Adresse hat höchstens %s Zeichen)',
+    '%s → %s (at its last part: the address was too long or begins with a word the system uses)' => '%s → %s (nur der letzte Teil: die Adresse war zu lang oder beginnt mit einem Wort, das das System verwendet)',
 ];

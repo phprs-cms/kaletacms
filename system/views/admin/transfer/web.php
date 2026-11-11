@@ -46,7 +46,7 @@ $urls = array_keys($state['adresy']);
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>
-<?= $app->view->render('admin/transfer/starters', ['result' => Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? []))]) ?>
+<?= $app->view->render('admin/transfer/starters', ['result' => Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? [])), 'changed' => (array) ($state['zmenene_adresy'] ?? [])]) ?>
 <?php if ($state['chyby'] !== []): ?>
 <details class="pokrocile"><summary><?= e(t('%s pages could not be imported', (int) $v['chyb'])) ?></summary><ul>
 <?php foreach ($state['chyby'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>

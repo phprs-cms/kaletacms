@@ -6,9 +6,11 @@
  *
  * @var list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>|null $choices  the preview (inside its form)
  * @var array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>}|null $result  after the import
+ * @var array<mixed>|null $changed  after the import: old paths that could not be kept as they were (3.33, M3 – [old, new, shortened | flattened])
  */
 $choices ??= null;
 $result ??= null;
+$changed ??= null;
 ?>
 <?php if ($choices !== null && $choices !== []): ?>
 <fieldset id="starter-pages">
@@ -32,4 +34,11 @@ $result ??= null;
 	<p><?= e(t('Sample pages kept – the imported page got a number: %s', implode(', ', array_map(fn (array $r): string => $r['title'] . ' (' . $r['address'] . ')', $result['kept'])))) ?></p>
 <?php endif ?>
 </div>
+<?php endif ?>
+<?php if ($changed !== null && $changed !== []): ?>
+<details class="pokrocile" id="addresses-changed"><summary><?= e(t('%s old addresses could not be kept as they were – they redirect to the new ones', count($changed))) ?></summary><ul>
+<?php foreach ($changed as $row): ?>
+	<li><?= e(t((string) ($row[2] ?? '') === 'shortened' ? '%s → %s (shortened: an address has at most %s characters)' : '%s → %s (at its last part: the address was too long or begins with a word the system uses)', (string) ($row[0] ?? ''), (string) ($row[1] ?? ''), Kaleta\Core\ImportPath::MAX)) ?></li>
+<?php endforeach ?>
+</ul></details>
 <?php endif ?>

@@ -87,7 +87,9 @@ trait MediaTools
         ] + ($state['faze'] === 'nahled'
             // 3.33 (M2): the starter pages the import replaces (replace: true) or keeps (why: kept | edited) – keep_starter_pages declines one
             ? ['starter_pages' => \Kaleta\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), $state)]
-            : ['starter_pages_result' => \Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? []))]) + [
+            : ['starter_pages_result' => \Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? [])),
+                // 3.33 (M3): old paths kept parents and all; the ones that could not be kept as they were (shortened, flattened)
+                'addresses_changed' => \Kaleta\Core\ImportPath::summary((array) ($state['zmenene_adresy'] ?? []))]) + [
             'next' => match ($state['faze']) {
                 'hledani', 'import' => 'Call again with the same import id.',
                 'nahled' => 'Show the user what was found and which starter pages of this site the import replaces (starter_pages); on their instruction call again with confirm: true (keep_starter_pages: ["/old-address"] keeps a starter page, ["*"] all of them).',

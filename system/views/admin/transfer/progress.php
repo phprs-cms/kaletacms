@@ -38,7 +38,7 @@ $running = in_array($state['faze'], ['analyza', 'import', 'obrazky'], true);
 </form>
 <?php else: ?>
 <p class="hlaska hlaska-ok"><?= e(t('The content import is finished.')) ?></p>
-<?= $app->view->render('admin/transfer/starters', ['result' => Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? []))]) ?>
+<?= $app->view->render('admin/transfer/starters', ['result' => Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? [])), 'changed' => (array) ($state['zmenene_adresy'] ?? [])]) ?>
 <div class="dlazdice">
 	<div class="dlazdice-polozka"><strong><?= (int) $v['clanky'] ?></strong><span><?= e(t('New news items')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['stranky'] ?></strong><span><?= e(t('New pages')) ?></span></div>

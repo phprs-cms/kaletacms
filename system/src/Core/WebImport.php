@@ -112,6 +112,7 @@ final class WebImport
             'vysledek' => ['stranky' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
             'vzory' => ['nahrazeno' => [], 'ponechano' => []], // 3.33 (M2): the starter pages replaced and kept (StarterPages::makeRoom)
+            'zmenene_adresy' => [], // 3.33 (M3): [old, new, shortened | flattened] – an old path that could not be kept as it was
         ];
     }
 
@@ -132,7 +133,7 @@ final class WebImport
                     continue; // an article becomes a news item, never a page
                 }
                 $old = self::path((string) $url);
-                yield ['old' => $old, 'slug' => self::plannedSlug($old, ''), 'language' => $language, 'home' => $old === ''];
+                yield ['old' => $old, 'slug' => self::plannedSlug($old, '', (string) ($state['volby']['jazyk'] ?? '')), 'language' => $language, 'home' => $old === ''];
             }
         };
 
@@ -148,8 +149,17 @@ final class WebImport
         return array_values(array_map('intval', array_filter((array) ($state['volby']['ponechat_vzory'] ?? []), is_numeric(...))));
     }
 
-    /** The address an old path asks for here, before a number makes it free (createPage). */
-    public static function plannedSlug(string $oldPath, string $title): string
+    /**
+     * The address an old path asks for here, before a number makes it free (createPage): 3.33 (M3) the whole old path,
+     * parents and all (Core\ImportPath).
+     */
+    public static function plannedSlug(string $oldPath, string $title, string $languageCode = ''): string
+    {
+        return ImportPath::plan($oldPath, self::leafSlug($oldPath, $title), $languageCode)[0];
+    }
+
+    /** The slug of the page itself: its last part without a file extension, else its title ('home' for the home page). */
+    public static function leafSlug(string $oldPath, string $title): string
     {
         $base = $oldPath !== '' ? basename($oldPath) : 'home';
 
@@ -410,6 +420,7 @@ final class WebImport
             $this->checkpoint($state);
         }
         if ($state['pozice'] >= count($urls)) {
+            ImportPath::linkParents($this->db); // 3.33 (M3): a child imported before its parent
             $state['faze'] = 'hotovo';
         }
     }
@@ -454,14 +465,19 @@ final class WebImport
         } else {
             // 3.33 (M2): an untouched starter page at the address (or the starter home page for the old home page) makes room
             $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
-            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, self::plannedSlug($old, $page['titulek']), $language, $old === '', self::keptStarters($state), $state['vzory']);
-            $ids = $this->createPage($page, $old, $language);
+            // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath)
+            $target = ImportPath::target($this->db, $old, self::leafSlug($old, $page['titulek']), $language, (string) $state['volby']['jazyk']);
+            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory']);
+            $ids = $this->createPage($page, $target, $language);
             if ($starter !== null && $starter['home']) {
                 $this->settings->set('home_page', (string) $ids);
             }
             $this->map($source, 'stranka', $key, $ids);
             $state['vysledek']['stranky']++;
             $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+            if ($target['note'] !== '' && count($state['zmenene_adresy'] ?? []) < 200) {
+                $state['zmenene_adresy'][] = ['/' . $old, '/' . $new, $target['note']]; // shortened or flattened – listed in the result
+            }
         }
         if ($state['volby']['presmerovani'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'presmerovani')) {
             Redirects::add($this->db, $old, $new);
@@ -469,10 +485,13 @@ final class WebImport
         }
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
-    private function createPage(array $page, string $oldPath, string $language): int
+    /**
+     * @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page
+     * @param array{slug: string, parent: ?int, note: string} $target where it lands (Core\ImportPath::target)
+     */
+    private function createPage(array $page, array $target, string $language): int
     {
-        $seo = Pages::freeSlug($this->db, self::plannedSlug($oldPath, $page['titulek']), language: $language);
+        $seo = Pages::freeSlug($this->db, $target['slug'], language: $language);
         $build = $this->build($page['titulek'], $page['obsah']);
 
         return $this->db->insert('stranky', [
@@ -480,6 +499,7 @@ final class WebImport
             'popis' => mb_substr($page['popis'], 0, 300),
             'zobrazit' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
+            'nadrazena' => $target['parent'],
         ]);
     }
 

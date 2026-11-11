@@ -802,7 +802,8 @@ final class Tools
         if (array_key_exists('adresa', $a) || $previous === null || $parentChanged) {
             $base = ($a['adresa'] ?? '') !== '' ? basename(str_replace('\\', '/', (string) $a['adresa']))
                 : ($previous !== null ? basename((string) $previous['seo_link']) : $data['titulek']);
-            $prefix = $parent !== null ? $parent['seo_link'] . '/' : '';
+            // 3.33 (M3): an imported nested page whose old parent never came over keeps its directory – unless the call removes a parent
+            $prefix = $parent !== null ? $parent['seo_link'] . '/' : ($parentChanged ? '' : \Kaleta\Core\ImportPath::keptPrefix($previous));
             $seo = $prefix . slugify($base, max(20, 118 - strlen($prefix)));
             if ($parent === null && $seo !== ($previous['seo_link'] ?? null) && Pages::slugReserved($seo, $db)) {
                 throw new \InvalidArgumentException('Adresu „' . $seo . '“ používá systém, zvol jinou.');

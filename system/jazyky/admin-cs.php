@@ -7505,4 +7505,7 @@ return [
     'Replace the sample page %s (%s) with the old page %s' => 'Nahradit ukázkovou stránku %s (%s) starou stránkou %s',
     'Sample pages replaced (in the trash for 30 days): %s' => 'Nahrazené ukázkové stránky (v koši 30 dní): %s',
     'Sample pages kept – the imported page got a number: %s' => 'Ponechané ukázkové stránky – importovaná stránka dostala číslo: %s',
+    '%s old addresses could not be kept as they were – they redirect to the new ones' => '%s starých adres nešlo zachovat beze změny – přesměrují se na nové',
+    '%s → %s (shortened: an address has at most %s characters)' => '%s → %s (zkráceno: adresa má nejvýš %s znaků)',
+    '%s → %s (at its last part: the address was too long or begins with a word the system uses)' => '%s → %s (jen poslední část: adresa byla příliš dlouhá nebo začíná slovem, které používá systém)',
 ];

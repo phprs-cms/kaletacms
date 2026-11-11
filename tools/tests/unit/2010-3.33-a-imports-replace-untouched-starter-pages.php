@@ -17,8 +17,8 @@ check('3.33 M2 keep_starter_pages: old addresses (with or without slashes), the 
     StarterPages::keepFromAddresses($i333Choices, true), StarterPages::keepFromAddresses($i333Choices, '/kontakt'), StarterPages::keepFromAddresses($i333Choices, ['/sluzby']),
 ], [[4], [1], [1, 4], [1, 4], [], []]);
 check('3.33 M2: the website import asks for the same address in the preview as when it creates the page', [
-    WebImport::plannedSlug('', 'Vítejte'), WebImport::plannedSlug('o-nas', 'O nás'), WebImport::plannedSlug('kontakt.html', 'x'), WebImport::plannedSlug('sluzby/kotle', 'x'),
-], ['home', 'o-nas', 'kontakt', 'kotle']);
+    WebImport::plannedSlug('', 'Vítejte'), WebImport::plannedSlug('o-nas', 'O nás'), WebImport::plannedSlug('kontakt.html', 'x'), WebImport::plannedSlug('sluzby/kotle', 'x'), WebImport::plannedSlug('de/sluzby/kotle.html', 'x', 'de'),
+], ['home', 'o-nas', 'kontakt', 'sluzby/kotle', 'sluzby/kotle']);
 check('3.33 M2: a WordPress page asks for its slug, else its title; the front page is the root link without ?page_id=', [
     WpImport::plannedSlug(['adresa' => 'kontakt', 'titulek' => 'Kontaktujte nás']), WpImport::plannedSlug(['adresa' => '', 'titulek' => 'Kontaktujte nás']),
     WpImport::isHomeLink('https://www.example.cz/'), WpImport::isHomeLink('https://www.example.cz'), WpImport::isHomeLink('https://www.example.cz/?page_id=5'),
