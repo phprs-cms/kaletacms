@@ -222,10 +222,11 @@ expect_sql "3.19 (N319-4): the split relinks to the existing English tag – one
 # 3.34 (0120): job applications move out of enquiries – a site as 3.33 left it: a jobs collection, an application (with a
 # note, a task, a deal made from it and a customer record only it made), an application whose customer has another enquiry,
 # and an ordinary enquiry; then the data migration runs again by name and once more – nothing moves twice
+T340_AT=$(site_time) # one moment for created_at and updated_at: a record whose updated_at is later counts as edited and stays
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9340, 'Jobs', 'jobs-340', '[]', 'jobs');
   INSERT INTO ka_kolekce_polozky (idp, idk, nazev, seo_link, data, datum) VALUES (9340, 9340, 'Welder', 'welder', '{}', '$(site_time)');
-  INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES (9340, 'lone@example.com', 'lone@example.com', 'Lone', 'enquiry', '$(site_time)', '$(site_time)'),
-    (9341, 'shared@example.com', 'shared@example.com', 'Shared', 'enquiry', '$(site_time)', '$(site_time)');
+  INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES (9340, 'lone@example.com', 'lone@example.com', 'Lone', 'enquiry', '$T340_AT', '$T340_AT'),
+    (9341, 'shared@example.com', 'shared@example.com', 'Shared', 'enquiry', '$T340_AT', '$T340_AT');
   INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, prirazeno, contact_id) VALUES
     (9340, '$(site_time '-3 days')', 'Job application', 'kolekce:9340', '/jobs-340/welder', 'Jobs – Welder', 'lone@example.com', '[[\"Full name\",\"Lone One\"]]', 1, NULL, 9340),
     (9341, '$(site_time '-2 days')', 'Job application', 'kolekce:9340', '/jobs-340/welder', 'Jobs – Welder', 'shared@example.com', '[]', 0, NULL, 9341),
@@ -279,8 +280,8 @@ migrate_one_row() {
 }
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_events WHERE type LIKE 'applications.move%';
   INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9344, 'Jobs', 'jobs-344', '[]', 'jobs');
-  INSERT INTO ka_contacts (id, email, email_norm, name, source, owner_id, created_at, updated_at) VALUES (9344, 'only@example.com', 'only@example.com', 'Only', 'enquiry', NULL, '$(site_time '-5 days')', '$(site_time '-5 days')'),
-    (9345, 'owned@example.com', 'owned@example.com', 'Owned', 'enquiry', 1, '$(site_time '-5 days')', '$(site_time '-5 days')');
+  INSERT INTO ka_contacts (id, email, email_norm, name, source, owner_id, created_at, updated_at) VALUES (9344, 'only@example.com', 'only@example.com', 'Only', 'enquiry', NULL, '$T340_AT', '$T340_AT'),
+    (9345, 'owned@example.com', 'owned@example.com', 'Owned', 'enquiry', 1, '$T340_AT', '$T340_AT');
   INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, contact_id) VALUES
     (9344, '$(site_time '-3 days')', 'Job application', 'kolekce:9344', '/jobs-344/x', '', 'only@example.com', '[]', 0, 9344),
     (9345, '$(site_time '-3 days')', 'Job application', 'kolekce:9344', '/jobs-344/x', '', 'owned@example.com', '[]', 0, 9345),
