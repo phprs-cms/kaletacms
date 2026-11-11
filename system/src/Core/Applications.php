@@ -963,6 +963,7 @@ final class Applications
      *
      * @param list<int> $ids
      * @param list<int>|null $kept
+     * @param-out list<int> $kept
      */
     public static function delete(App $app, array $ids, bool $log = true, ?array &$kept = null): int
     {
