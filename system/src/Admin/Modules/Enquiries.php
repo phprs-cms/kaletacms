@@ -37,7 +37,25 @@ final class Enquiries extends Module
     /** New enquiries as the list shows them (spam left out): the menu badge and the Dashboard. */
     public static function countNew(\Kaleta\Core\Db $db): int
     {
-        return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM);
+        return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM . self::stillMoving($db));
+    }
+
+    /**
+     * 3.34 review M3: while migration 0120 still moves job enquiries to Applications, " AND <condition>" that leaves out the
+     * ones still to move (Applications::movingCondition) – for the counts, and in the list and the detail for a person
+     * without Applications; '' otherwise.
+     */
+    public static function stillMoving(\Kaleta\Core\Db $db, ?\Kaleta\Core\Settings $settings = null): string
+    {
+        $condition = \Kaleta\Core\Applications::movingCondition($db, $settings ?? new \Kaleta\Core\Settings($db));
+
+        return $condition === null ? '' : ' AND ' . $condition;
+    }
+
+    /** The condition of stillMoving() for this person: nothing when they may open Applications. */
+    private function hiddenWhileMoving(): string
+    {
+        return isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]) ? '' : self::stillMoving($this->db, $this->app->settings());
     }
 
     /** 3.24: open enquiries (new or read) handled by the user, spam left out – the "Assigned to me" tile on the Dashboard. */
@@ -76,7 +94,7 @@ final class Enquiries extends Module
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
         }
-        $whereParts = 'WHERE ' . implode(' AND ', $conditions); // never empty: spam is left out unless asked for
+        $whereParts = 'WHERE ' . implode(' AND ', $conditions) . $this->hiddenWhileMoving(); // never empty: spam is left out unless asked for
         $pageNumber = max(1, $this->request->getInt('page', 1));
         $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, zdroj, email, stav, kategorie, priorita, data, prirazeno, anonymizovano FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
@@ -98,7 +116,7 @@ final class Enquiries extends Module
 
     protected function actionDetail(): Response
     {
-        $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
+        $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?' . $this->hiddenWhileMoving(), [$this->request->getInt('id')]);
         if ($p === null) {
             return $this->error('The enquiry does not exist.', 404);
         }

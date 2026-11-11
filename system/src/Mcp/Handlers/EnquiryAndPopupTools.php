@@ -57,6 +57,10 @@ trait EnquiryAndPopupTools
         } else {
             $whereParts[] = "kategorie <> 'spam'";
         }
+        // 3.34 review M3: the job enquiries migration 0120 has still to move stay out for a person without Applications
+        if (!$auth->hasModule(\Kaleta\Core\Applications::SECTION) && ($moving = \Kaleta\Core\Applications::movingCondition($db, $siteSettings)) !== null) {
+            $whereParts[] = $moving;
+        }
         $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
         $statusNames = array_flip($statuses);
 

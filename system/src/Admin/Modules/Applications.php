@@ -78,7 +78,8 @@ final class Applications extends Module
             // B-2: until somebody besides the administrators has the section, the administrators are told to choose
             'nobody' => $this->app->auth()->isAdmin() && $this->db->value('SELECT 1 FROM {uzivatele_prava} p JOIN {uzivatele} u ON u.idu = p.fk_id_user WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 LIMIT 1',
                 [Store::SECTION, Auth::ADMIN]) === null,
-            'admin' => $this->app->auth()->isAdmin(), 'awaiting' => Store::awaitingConfirmation($this->app)]);
+            'admin' => $this->app->auth()->isAdmin(), 'awaiting' => Store::awaitingConfirmation($this->app),
+            'moving' => Store::movingLeft($this->db, $this->app->settings())]);
     }
 
     /**

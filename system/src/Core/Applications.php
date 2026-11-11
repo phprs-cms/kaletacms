@@ -694,6 +694,31 @@ final class Applications
         return $out;
     }
 
+    /**
+     * While migration 0120 still moves job enquiries (3.34 review M3 – a large site moves over several requests): the SQL
+     * condition on ka_poptavky that leaves out the enquiries still to move (job sources, idp up to applications_move_until),
+     * so nobody without Applications reads them in Enquiries meanwhile; null when nothing is moving. The sources are numbers
+     * read from the database, written into the SQL as literals.
+     */
+    public static function movingCondition(Db $db, Settings $s): ?string
+    {
+        $until = $s->get('applications_move_until');
+        if (!ctype_digit($until) || (int) $until <= 0) {
+            return null;
+        }
+        $sources = Jobs::sources($db);
+
+        return $sources === [] ? null : "NOT (zdroj IN ('" . implode("','", $sources) . "') AND idp <= " . (int) $until . ')';
+    }
+
+    /** How many job enquiries migration 0120 has still to move (the notice on the list); 0 when nothing is moving. */
+    public static function movingLeft(Db $db, Settings $s): int
+    {
+        $condition = self::movingCondition($db, $s);
+
+        return $condition === null ? 0 : (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE NOT (' . $condition . ')');
+    }
+
     /** New applications nobody has looked at (the menu badge). */
     public static function newCount(Db $db): int
     {

@@ -19,7 +19,7 @@ use Kaleta\Admin\ChangeLog;
  * read → reviewed, resolved → reviewed with a note), the replies, the responsible person, the old single note as an internal
  * note, the latest of receipt, reply and note as its last activity; comments, tasks and notifications follow to
  * application:<id>; a deal made from it loses the link (Deals::forgetEnquiries); the enquiry goes; a customer record made
- * only by the moved enquiries is deleted.
+ * only by the moved enquiries is deleted (forgetLoneContacts – from the data, source_contact_id).
  *
  * Back to enquiries: the row with the fields, each CV decrypted back into storage/prilohy (the enquiries' place), the
  * status (new → new, hired or rejected → resolved, the rest → read), the replies, the responsible person, an internal note
@@ -135,7 +135,6 @@ final class ApplicationMove
         $ids = [];
         $moved = 0;
         $deals = [];
-        $contacts = [];
         foreach ($rows as $e) {
             $idp = (int) $e['idp'];
             $stored = json_decode((string) $e['data'], true);
@@ -162,7 +161,7 @@ final class ApplicationMove
             }
             $lastComment = $db->value('SELECT MAX(created_at) FROM {comments} WHERE target = ?', ['enquiry:' . $idp]);
             $activity = is_string($lastComment) && $lastComment > $activity ? $lastComment : $activity;
-            $db->transaction(function () use ($app, $db, $e, $idp, $data, $files, $position, $email, $people, $activity, $now, &$moved, &$ids, &$deals, &$contacts): void {
+            $db->transaction(function () use ($app, $db, $e, $idp, $data, $files, $position, $email, $people, $activity, $now, &$moved, &$ids, &$deals): void {
                 $id = $db->insert('applications', [
                     'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
                     'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
@@ -170,6 +169,7 @@ final class ApplicationMove
                     'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files),
                     'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
                     'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
+                    'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,
                 ]);
                 $ids[] = $id;
                 $target = Applications::target($id);
@@ -185,13 +185,10 @@ final class ApplicationMove
                 }
                 Deals::forgetEnquiries($db, [$idp]); // the deal stays, without the link and the person's words
                 $db->delete('poptavky', ['idp' => $idp]);
-                if ($e['contact_id'] !== null) {
-                    $contacts[(int) $e['contact_id']] = true;
-                }
                 $moved++;
             });
         }
-        $removed = self::forgetLoneContacts($db, array_keys($contacts));
+        $removed = self::forgetLoneContacts($db);
         if ($moved > 0) {
             Applications::adoptRetention($db, $app->settings()); // 3.34 review H1: never the default 6 months, and nothing moved is purged before an administrator confirms
             self::record($app, 'to applications', $moved, $deals, $removed);
@@ -265,24 +262,29 @@ final class ApplicationMove
     }
 
     /**
-     * Deletes the customer records only the moved enquiries made (the rule of migration 0120: source enquiry, nothing else
-     * of theirs – no enquiry, booking, subscription, activity, deal, comment or task –, no summary, no responsible person).
-     *
-     * @param list<int> $ids
+     * Deletes the customer records only moved enquiries made – from the data (3.34 review M3), the rule of migration 0120: an
+     * application keeps the record its enquiry had (source_contact_id); a record whose only source rows are such
+     * applications – source enquiry, never edited (updated_at = created_at), no other enquiry, booking, subscription, logged
+     * activity (a merge logs one), deal, comment or task, no summary, no responsible person – goes. Every record looked at
+     * loses the link, so a real customer who also applied is looked at once and kept. Returns how many went.
      */
-    private static function forgetLoneContacts(Db $db, array $ids): int
+    public static function forgetLoneContacts(Db $db): int
     {
         $removed = 0;
-        foreach ($ids as $contactId) {
-            $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL
+        foreach ($db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1000') as $r) {
+            $contactId = (int) $r['id'];
+            $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
                 AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
                 AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
                 AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
                 AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
-            if ($lone !== null) {
-                $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
-                $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
-            }
+            $db->transaction(function (Db $db) use ($contactId, $lone, &$removed): void {
+                if ($lone !== null) {
+                    $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
+                    $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
+                }
+                $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
+            });
         }
 
         return $removed;

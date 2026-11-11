@@ -19,6 +19,11 @@ namespace Kaleta\Core;
  * renamed they are written with the English names (statements(), $english), so a migration of this release that has not
  * run yet still finds its tables. A database that 4.0 migrated and that was rolled back to 3.15 has a higher db_version
  * than any file here: nothing runs again, nothing is undone.
+ *
+ * 3.34 (review M3): a data migration with long work (0120) moves in bounded runs: when time runs out it puts its name into
+ * the setting data_migrations_unfinished, and every request runs it again until it takes its name out – also after the
+ * update request of an older release marked it done. Such a continuation does not wait for the lock: a request that finds
+ * another run busy goes on at once.
  */
 final class Migration
 {
@@ -36,7 +41,21 @@ final class Migration
      */
     public static function pending(Settings $settings, ?int $latest = null): bool
     {
-        return $settings->int('db_version') < ($latest ?? KALETA_DB_VERSION) || array_diff(self::DATA, explode(',', $settings->get('data_migrations'))) !== [];
+        return $settings->int('db_version') < ($latest ?? KALETA_DB_VERSION) || array_diff(self::DATA, explode(',', $settings->get('data_migrations'))) !== []
+            || $settings->get('data_migrations_unfinished') !== '';
+    }
+
+    /**
+     * Only the continuation of an unfinished data migration is left (3.34 review M3): no lock wait, nothing else to apply.
+     * Read from the database, not through Settings – its cache must not be filled before the structure migrations run (an
+     * older data migration reads keys that an .sql migration renames).
+     */
+    public static function onlyUnfinished(Db $db): bool
+    {
+        $values = $db->pairs("SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN ('data_migrations_unfinished', 'db_version', 'data_migrations')");
+
+        return ($values['data_migrations_unfinished'] ?? '') !== '' && (int) ($values['db_version'] ?? 0) >= KALETA_DB_VERSION
+            && array_diff(self::DATA, explode(',', (string) ($values['data_migrations'] ?? ''))) === [];
     }
 
     /** @return array<int, string> number => file, ascending */
@@ -90,7 +109,7 @@ final class Migration
     {
         // lock: both the admin and the site run migrations, two concurrent requests must not apply the same change twice
         $lock = self::lockName($db);
-        if ((int) $db->value('SELECT GET_LOCK(?, 15)', [$lock]) !== 1) {
+        if ((int) $db->value('SELECT GET_LOCK(?, ' . (self::onlyUnfinished($db) ? 0 : 15) . ')', [$lock]) !== 1) {
             return [];
         }
         $applied = [];
@@ -121,13 +140,22 @@ final class Migration
             }
             // data migrations by name: one that an older release skipped runs now (a site from 1.9 straight to 2.2)
             $done = array_filter(explode(',', $settings->get('data_migrations')));
+            $unfinished = array_filter(explode(',', $settings->get('data_migrations_unfinished')));
             foreach (self::files() as $number => $file) {
-                if (str_ends_with($file, '.php') && !in_array(basename($file, '.php'), $done, true)) {
-                    (require $file)($db, $settings);
-                    $done[] = basename($file, '.php');
-                    $settings->set('data_migrations', implode(',', $done));
-                    $applied[] = basename($file, '.php');
+                $name = basename($file, '.php');
+                if (str_ends_with($file, '.php') && (!in_array($name, $done, true) || in_array($name, $unfinished, true))) {
+                    (require $file)($db, $settings); // an unfinished one runs again (3.34 review M3) – it keeps the list itself
+                    if (!in_array($name, $done, true)) {
+                        $done[] = $name;
+                        $settings->set('data_migrations', implode(',', $done));
+                        $applied[] = $name;
+                    }
                 }
+            }
+            // a name nobody ships any more must not keep every request running migrations
+            $known = array_map(fn (string $f): string => basename($f, '.php'), self::files());
+            if (($stale = array_diff($unfinished, $known)) !== []) {
+                $settings->set('data_migrations_unfinished', implode(',', array_diff(array_filter(explode(',', $settings->get('data_migrations_unfinished'))), $stale)));
             }
             // settings keys of 1.4.0 and older (verze_db…) written again by the release that ran the update, after migration
             // 0026 had renamed them – only once 0026 is in (older data migrations still read the old keys)

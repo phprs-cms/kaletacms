@@ -106,6 +106,8 @@ final class Settings
         'url_slash' => 'bez',         // bez (/path) | s (/path/) | html (/path.html) – the preferred form is canonical, the others redirect
         'llms_txt' => '1',
         'data_migrations' => '',       // PHP data migrations that have run, by name (Core\Migration, 2.2)
+        'data_migrations_unfinished' => '', // 3.34 review M3: data migrations that ran out of time and go on with the next request, by name (Core\Migration)
+        'applications_move_until' => '', // 3.34 review M3: migration 0120 moves the job enquiries up to this id; '' = not moving (Core\Applications::movingCondition)
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
         'agency_url' => '',
