@@ -127,6 +127,7 @@ return static function (Db $db, Settings $settings): void {
     // on the first request the 3.34 code serves (the name in data_migrations_unfinished brings it back)
     if (defined('KALETA_MIGRATION_AS_OLD_CODE') || !method_exists(\Kaleta\Core\Migration::class, 'onlyUnfinished')) {
         $settings->set('applications_move_deferred', '1');
+        $event('applications.move_deferred', 'info', 'The update request of an older release wrote the state of the move of job applications; the move starts on the next request of the new version.', []);
         $finish(true);
 
         return;
