@@ -7708,4 +7708,12 @@ return [
     'This application\'s list of CVs was sealed with an encryption key this config.php does not have. Put back the vault_key line from the original config.php; until then the CVs are kept and the clean-up does not delete the application.' => 'Seznam životopisů této žádosti byl zapečetěn šifrovacím klíčem, který tento config.php nemá. Vraťte řádek s vault_key z původního config.php; do té doby životopisy zůstávají a úklid žádost nesmaže.',
     'CVs of job applications' => 'Životopisy žádostí o místo',
     '%d application(s) have CVs that cannot be opened – encryption key: they were sealed with a key this config.php does not have. Put back the vault_key line from the original config.php (Settings → Backups and updates).' => 'Žádosti s životopisy, které nejdou otevřít (%d) – šifrovací klíč: byly zapečetěny klíčem, který tento config.php nemá. Vraťte řádek s vault_key z původního config.php (Nastavení → Zálohy a aktualizace).',
+    '%d stay here because the retention of enquiries would delete them at once.' => 'Žádosti, které zůstávají tady, protože by je retence poptávek hned smazala: %d.',
+    '%d stay here because they are hired or kept for future openings.' => 'Žádosti, které zůstávají tady, protože jde o přijaté uchazeče nebo o žádosti uchovávané pro budoucí místa: %d.',
+    '%d applications. %d will move back to Enquiries.' => 'Žádostí celkem: %d. Zpět do poptávek se přesune: %d.',
+    '%d stay here: they arrived more than %d months ago, and the retention of enquiries would delete them at once.' => 'Zůstává tady: %d – přišly před víc než %d měsíci a retence poptávek by je hned smazala.',
+    '%d stay here: they are hired or kept for future openings – tick the box below to move them too.' => 'Zůstává tady: %d – přijatí uchazeči a žádosti uchovávané pro budoucí místa. Chcete-li je přesunout také, zaškrtněte políčko níže.',
+    'Enquiries have no consent for future openings, no status and no history of statuses: these are dropped (the status goes into an internal note). The fields, CVs, replies, notes, tasks and the responsible person move along.' => 'Poptávky nemají souhlas pro budoucí místa, stav ani historii stavů – ty se zahodí (stav se zapíše do interní poznámky). Pole, životopisy, odpovědi, poznámky, úkoly a odpovědná osoba se přesunou s nimi.',
+    'Move the hired ones and those kept for future openings too (%d would move)' => 'Přesunout i přijaté uchazeče a žádosti uchovávané pro budoucí místa (přesunulo by se: %d)',
+    'Review the move back' => 'Zkontrolovat přesun zpět',
 ];

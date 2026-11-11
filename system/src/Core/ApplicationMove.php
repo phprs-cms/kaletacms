@@ -199,19 +199,69 @@ final class ApplicationMove
     }
 
     /**
+     * Why an application of a form stays when the form goes back to Enquiries (3.34 second review N3; null = it moves). An
+     * enquiry keeps the date it arrived, so one the retention of enquiries would delete at once – older than
+     * enquiries_months, or a job enquiry older than job_applications_months (Jobs::purgeApplications) – stays (expired);
+     * a hired application and one kept for future openings stay unless the administrator ticks that they go too (kept):
+     * Enquiries have no status, no history and no consent for future openings. Pure.
+     *
+     * @param array<string, mixed> $row received_at, source, status, pool_until
+     * @param list<string> $jobSources Jobs::sources()
+     * @return 'expired'|'kept'|null
+     */
+    public static function backReason(array $row, int $enquiryMonths, int $jobMonths, array $jobSources, string $now, bool $includeKept): ?string
+    {
+        $received = (string) ($row['received_at'] ?? '');
+        $before = static fn (int $months): string => (new \DateTimeImmutable($now))->modify('-' . $months . ' months')->format('Y-m-d H:i:s');
+        if (($enquiryMonths > 0 && $received < $before($enquiryMonths))
+            || ($jobMonths > 0 && in_array((string) ($row['source'] ?? ''), $jobSources, true) && $received < $before($jobMonths))) {
+            return 'expired';
+        }
+        $pool = is_string($row['pool_until'] ?? null) ? substr((string) $row['pool_until'], 0, 10) : '';
+
+        return !$includeKept && (($row['status'] ?? '') === 'hired' || ($pool !== '' && $pool >= substr($now, 0, 10))) ? 'kept' : null;
+    }
+
+    /**
+     * What going back would do to the applications of one form (N3 – the confirmation says it before anything moves):
+     * total, how many move, how many stay because the retention of enquiries would delete them at once (expired), and how
+     * many stay because they are hired or kept for future openings (kept; with $includeKept they move).
+     *
+     * @return array{total: int, move: int, expired: int, kept: int, months: int}
+     */
+    public static function backPreview(App $app, string $form, string $source, bool $includeKept): array
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        $sources = Jobs::sources($db);
+        $now = Clock::now();
+        $out = ['total' => 0, 'move' => 0, 'expired' => 0, 'kept' => 0, 'months' => $s->int('enquiries_months')];
+        foreach ($db->all('SELECT received_at, source, status, pool_until FROM {applications} WHERE form = ? AND source = ?', [$form, $source]) as $row) {
+            $out['total']++;
+            $reason = self::backReason($row, $s->int('enquiries_months'), $s->int('job_applications_months'), $sources, $now, $includeKept);
+            $out[$reason ?? 'move']++;
+        }
+
+        return $out;
+    }
+
+    /**
      * Moves up to BATCH applications of one form back to enquiries. 3.34 review M2: nothing of an application is lost on the
      * way – each sealed CV is decrypted into storage/prilohy and read back before anything goes; an application whose
      * attachment list cannot be opened (the Vault key) or one of whose files cannot be decrypted, written or verified is
      * skipped and counted (skipped) and stays an application; a transaction that rolls back removes the plain copies it
-     * wrote; the application row and its sealed files go only once the enquiry with everything of it is stored.
+     * wrote; the application row and its sealed files go only once the enquiry with everything of it is stored. 3.34
+     * second review N3: an application backReason() keeps stays (counted in expired and kept, for the whole form); left =
+     * how many of the form would still move.
      *
-     * @return array{moved: int, left: int, skipped: int}
+     * @return array{moved: int, left: int, skipped: int, expired: int, kept: int}
      */
-    public static function toEnquiries(App $app, string $form, string $source): array
+    public static function toEnquiries(App $app, string $form, string $source, bool $includeKept = false): array
     {
         $db = $app->db();
         $s = $app->settings();
         $now = Clock::now();
+        $sources = Jobs::sources($db);
         $moved = 0;
         $skipped = 0;
         $after = 0;
@@ -225,6 +275,9 @@ final class ApplicationMove
                 if ($moved >= self::BATCH) {
                     break 2;
                 }
+                if (self::backReason($row, $s->int('enquiries_months'), $s->int('job_applications_months'), $sources, $now, $includeKept) !== null) {
+                    continue; // N3: it stays (counted by backPreview below)
+                }
                 if (self::moveBack($app, $s, $row, $now)) {
                     $moved++;
                 } else {
@@ -232,7 +285,7 @@ final class ApplicationMove
                 }
             }
         }
-        $left = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE form = ? AND source = ?', [$form, $source]);
+        $preview = self::backPreview($app, $form, $source, $includeKept);
         if ($moved > 0) {
             self::record($app, 'to enquiries', $moved, [], 0);
         }
@@ -241,7 +294,7 @@ final class ApplicationMove
                 ['skipped' => $skipped, 'direction' => 'to enquiries']);
         }
 
-        return ['moved' => $moved, 'left' => $left, 'skipped' => $skipped];
+        return ['moved' => $moved, 'left' => $preview['move'], 'skipped' => $skipped, 'expired' => $preview['expired'], 'kept' => $preview['kept']];
     }
 
     /**

@@ -363,8 +363,15 @@ final class Applications extends Module
             return $this->error('Only an administrator can move enquiries to applications.', 403);
         }
 
+        // 3.34 second review N3: the way back is confirmed on a review of the chosen form – how many move, how many stay and why
+        $back = $this->request->has('back') ? \Kaleta\Core\ApplicationMove::parseKey($this->request->get('back')) : null;
+        $review = $back === null ? null : ['key' => \Kaleta\Core\ApplicationMove::key($back['form'], $back['source'])] + $back
+            + ['preview' => \Kaleta\Core\ApplicationMove::backPreview($this->app, $back['form'], $back['source'], false),
+                'all' => \Kaleta\Core\ApplicationMove::backPreview($this->app, $back['form'], $back['source'], true)];
+
         return $this->view('move', 'Applications', ['enquiryForms' => \Kaleta\Core\ApplicationMove::enquiryForms($this->db),
-            'applicationForms' => \Kaleta\Core\ApplicationMove::applicationForms($this->db), 'batch' => \Kaleta\Core\ApplicationMove::BATCH]);
+            'applicationForms' => \Kaleta\Core\ApplicationMove::applicationForms($this->db), 'batch' => \Kaleta\Core\ApplicationMove::BATCH,
+            'review' => $review !== null && $review['preview']['total'] > 0 ? $review : null]);
     }
 
     /** One batch of the chosen form, either way; safe to run again – it says how many are left. */
@@ -378,10 +385,16 @@ final class Applications extends Module
             return $this->back('Choose a form.', 'move', [], 'chyba');
         }
         if ($this->request->post('direction') === 'back') {
-            $result = \Kaleta\Core\ApplicationMove::toEnquiries($this->app, $form['form'], $form['source']);
+            if (!$this->request->postBool('confirmed')) {
+                // N3: never without the review of what moves and what stays
+                return $this->back('', 'move', ['back' => \Kaleta\Core\ApplicationMove::key($form['form'], $form['source'])]);
+            }
+            $result = \Kaleta\Core\ApplicationMove::toEnquiries($this->app, $form['form'], $form['source'], $this->request->postBool('include_kept'));
 
             return $this->back(t('Moved back to Enquiries: %d. Left of this form: %d.', $result['moved'], $result['left'])
-                . ($result['skipped'] > 0 ? ' ' . t('%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.', $result['skipped']) : ''),
+                . ($result['skipped'] > 0 ? ' ' . t('%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.', $result['skipped']) : '')
+                . ($result['expired'] > 0 ? ' ' . t('%d stay here because the retention of enquiries would delete them at once.', $result['expired']) : '')
+                . ($result['kept'] > 0 ? ' ' . t('%d stay here because they are hired or kept for future openings.', $result['kept']) : ''),
                 'move', [], $result['skipped'] > 0 ? 'chyba' : 'ok');
         }
         $result = \Kaleta\Core\ApplicationMove::toApplications($this->app, $form['form'], $form['source']);

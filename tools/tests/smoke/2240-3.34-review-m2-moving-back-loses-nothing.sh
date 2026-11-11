@@ -16,7 +16,7 @@ M2_E=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_poptavky WHERE formular = 'M2 back
 M2_NEW=$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '\$[0][2]')) FROM ka_poptavky WHERE idp = $M2_E")
 expect "3.34 review M2: the two that cannot be read whole stay applications, counted as skipped; the third is an enquiry with its CV readable" \
   "$M2_RESULT|$(sq "SELECT COUNT(*) FROM ka_applications WHERE id IN ($M2_IDS)")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'M2 back'")|$(cat "$WORK/web/storage/prilohy/$M2_NEW" 2>/dev/null)" \
-  '{"moved":1,"left":2,"skipped":2}|2|1|CV fine M2'
+  '{"moved":1,"left":2,"skipped":2,"expired":0,"kept":0}|2|1|CV fine M2'
 expect "3.34 review M2: no plain copy is left behind for the ones that stayed (only the moved CV is new in storage/prilohy)" "$(( $(find "$WORK/web/storage/prilohy" -type f | wc -l | tr -d ' ') - M2_PLAIN_BEFORE ))" "1"
 expect "3.34 review M2: the event names the count only" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'applications.move_failed' AND message LIKE '2 application(s) could not be moved back%'")" "1"
 sq "DELETE FROM ka_comments WHERE target = 'enquiry:$M2_E'; DELETE FROM ka_poptavky WHERE idp = $M2_E" > /dev/null
