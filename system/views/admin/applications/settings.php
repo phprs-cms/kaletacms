@@ -12,6 +12,8 @@
  * @var array<string, array<string, array{subject: string, text: string, own: bool}>> $templates code => key => template
  * @var list<array{id: int, name: string, admin: bool}> $people who may open applications
  * @var string|null $practice the usual retention where the company is (Core\Jobs::suggestedRetention)
+ * @var array{count: int, before: string, months: int}|null $awaiting moved applications past the retention, kept until this form is saved (3.34 review H1)
+ * @var bool $confirmed the retention has been confirmed since applications last moved in
  */
 use Kaleta\Core\Applications as Store;
 ?>
@@ -19,6 +21,11 @@ use Kaleta\Core\Applications as Store;
 <form method="post" action="<?= e($module->url('settings_save')) ?>" class="formular" data-applications-settings>
 	<?= $csrf ?>
 	<h2><?= e(t('Retention')) ?></h2>
+<?php if ($awaiting !== null): ?>
+	<p class="hlaska hlaska-varovani" data-applications-retention-pending><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you save these settings; then the daily clean-up deletes them with their CVs. Set 0 to keep them.', format_count($awaiting['count']), format_date($awaiting['before']), $awaiting['months'])) ?></p>
+<?php elseif (!$confirmed): ?>
+	<p class="napoveda" data-applications-retention-pending><?= e(t('Check the retention and save: applications moved from Enquiries are not deleted until an administrator saves these settings.')) ?></p>
+<?php endif ?>
 	<div class="radek"><label for="uchazeci-mesice"><?= e(t('Delete applications after (months)')) ?></label><div><input class="textpole kratke" type="number" id="uchazeci-mesice" name="applications_months" min="0" max="120" value="<?= (int) $values['months'] ?>">
 		<span class="napoveda"><?= e(t('A decided application (hired or rejected) is deleted this many months after the decision, an undecided one after this long without any activity – with its CVs, notes and tasks. 0 = keep.')) ?><?= $practice !== null ? ' ' . e($practice) : '' ?></span></div></div>
 	<div class="radek"><label for="uchazeci-zasoba"><?= e(t('Consent for future openings keeps an application (months)')) ?></label><div><input class="textpole kratke" type="number" id="uchazeci-zasoba" name="applications_pool_months" min="1" max="60" value="<?= (int) $values['pool'] ?>">

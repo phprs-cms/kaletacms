@@ -1291,4 +1291,6 @@ return [
     'Choose a form.' => 'Wähle ein Formular.',
     'Job applications you are responsible for' => 'Bewerbungen, für die du verantwortlich bist',
     'You cannot open Applications.' => 'Du kannst die Bewerbungen nicht öffnen.',
+    '%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you save these settings; then the daily clean-up deletes them with their CVs. Set 0 to keep them.' => '%s aus den Anfragen verschobene Bewerbung(en) ohne Aktivität seit vor dem %s – älter als die Aufbewahrungsfrist von %d Monaten. Nichts Verschobenes wird gelöscht, bevor du diese Einstellungen speicherst; danach löscht die tägliche Bereinigung sie samt Lebensläufen. Stelle 0 ein, um sie zu behalten.',
+    'Check the retention and save: applications moved from Enquiries are not deleted until an administrator saves these settings.' => 'Prüfe die Aufbewahrungsfrist und speichere: Aus den Anfragen verschobene Bewerbungen werden erst gelöscht, wenn ein Administrator diese Einstellungen speichert.',
 ];

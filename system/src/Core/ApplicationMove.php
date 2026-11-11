@@ -193,6 +193,7 @@ final class ApplicationMove
         }
         $removed = self::forgetLoneContacts($db, array_keys($contacts));
         if ($moved > 0) {
+            Applications::adoptRetention($db, $app->settings()); // 3.34 review H1: never the default 6 months, and nothing moved is purged before an administrator confirms
             self::record($app, 'to applications', $moved, $deals, $removed);
         }
 

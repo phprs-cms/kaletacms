@@ -5,7 +5,9 @@
  * On a site with a Job openings collection (ka_kolekce.preset = 'jobs'):
  *  1. the feature "applications" is switched on (written down as a list, the 0073 pattern – a site that never saved its
  *     choice gets the defaults it had, plus this one);
- *  2. applications_months starts at job_applications_months when that was set (otherwise the default of 6 applies);
+ *  2. applications_months starts at job_applications_months when that was set, otherwise at enquiries_months (an update never
+ *     shortens the retention; 0 = keep stays keep), and applications_retention_confirmed is cleared – the clean-up deletes
+ *     nothing moved until an administrator saved Applications → Settings (3.34 review H1);
  *  3. every enquiry whose source is a jobs collection (kolekce:<idk> – the certain rule Core\Jobs used since 2.11) becomes an
  *     application, each in one transaction: the row is inserted with source_enquiry_id (unique – a second run skips what
  *     moved; nothing is moved twice), the fields without file paths, the CVs listed as still in storage/prilohy (sealed
@@ -19,7 +21,8 @@
  * The counts and the ids of the deals that lost their link go to the event applications.moved and the change log.
  *
  * Nobody but administrators gets the section Applications (owner decision B-2): the screen tells administrators to choose.
- * Retention is not prolonged: the receipt date and the activity stay, so rows past the period go with the first clean-up.
+ * Retention is not prolonged: the receipt date and the activity stay, so rows past the period go with the first clean-up
+ * after the administrator confirmed the retention.
  *
  * Self-contained on purpose: the update request of 3.33 runs this file with its own classes already loaded, so only Db,
  * Settings and classes unchanged since 3.32 (Core\Deals::forgetEnquiries, Core\Vault::key/seal) are used, each guarded.
@@ -58,9 +61,12 @@ return static function (Db $db, Settings $settings): void {
         $settings->set('extensions', implode(',', $features));
     }
 
-    // --- 2. the retention
-    if ($db->value("SELECT 1 FROM {nastaveni} WHERE promenna = 'applications_months'") === null && (int) $settings->get('job_applications_months') > 0) {
-        $settings->set('applications_months', (string) min(120, (int) $settings->get('job_applications_months')));
+    // --- 2. the retention (3.34 review H1: an update never shortens it) – job_applications_months when it was set, otherwise the
+    // site's enquiries_months (0 = keep stays keep); the default 6 months is only for a site that switches the feature on by hand
+    // with nothing to move. Nothing moved is purged until an administrator saved Applications → Settings.
+    if ($db->value("SELECT 1 FROM {nastaveni} WHERE promenna = 'applications_months'") === null) {
+        $jobMonths = (int) $settings->get('job_applications_months');
+        $settings->set('applications_months', (string) max(0, min(120, $jobMonths > 0 ? $jobMonths : (int) $settings->get('enquiries_months'))));
     }
 
     // --- 3. the enquiries of the jobs collections
@@ -178,6 +184,7 @@ return static function (Db $db, Settings $settings): void {
     }
 
     if ($moved > 0) {
+        $settings->set('applications_retention_confirmed', ''); // H1: the administrator confirms the retention before anything moved is purged
         $message = $moved . ' job application(s) moved from Enquiries to Applications' . ($deals !== [] ? '; deals that lost their link: #' . implode(', #', array_unique($deals)) : '')
             . ($removed > 0 ? '; customer records made only by applications deleted: ' . $removed : '');
         try {

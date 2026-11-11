@@ -1048,6 +1048,64 @@ final class Applications
 
     /* ---------- retention ---------- */
 
+    /** The marker (a setting) an administrator sets by saving Applications → Settings: the moved applications may be purged. */
+    public const string RETENTION_CONFIRMED = 'applications_retention_confirmed';
+
+    /** Has an administrator confirmed the retention since applications last moved in from Enquiries (3.34 review H1)? */
+    public static function retentionConfirmed(Settings $s): bool
+    {
+        return $s->get(self::RETENTION_CONFIRMED) === '1';
+    }
+
+    /**
+     * The retention a site starts with when its job enquiries become applications (3.34 review H1 – an update never
+     * shortens it): job_applications_months when it was set, otherwise the site's enquiries_months (0 = keep stays keep).
+     * Pure.
+     */
+    public static function startingRetention(int $jobMonths, int $enquiryMonths): int
+    {
+        return max(0, min(120, $jobMonths > 0 ? $jobMonths : $enquiryMonths));
+    }
+
+    /**
+     * Applications are moving in from Enquiries (migration 0120 – it does the same itself –, the move by form, one enquiry):
+     * a site that never stored applications_months starts at startingRetention() instead of the default, and the
+     * administrator has to confirm the retention again before anything moved is purged.
+     */
+    public static function adoptRetention(Db $db, Settings $s): void
+    {
+        if ($db->value("SELECT 1 FROM {nastaveni} WHERE promenna = 'applications_months'") === null) {
+            $s->set('applications_months', (string) self::startingRetention($s->int('job_applications_months'), $s->int('enquiries_months')));
+        }
+        $s->set(self::RETENTION_CONFIRMED, '');
+    }
+
+    /**
+     * What waits for the confirmation (the notice on the settings tab and the list): how many applications moved from
+     * Enquiries the clean-up would delete today, and the day before which they had their last activity (or decision);
+     * null when the retention is confirmed, off, or nothing moved is past it.
+     *
+     * @return array{count: int, before: string, months: int}|null
+     */
+    public static function awaitingConfirmation(App $app): ?array
+    {
+        $s = $app->settings();
+        $months = $s->int('applications_months');
+        if ($months <= 0 || self::retentionConfirmed($s)) {
+            return null;
+        }
+        $today = Clock::today();
+        $before = (new \DateTimeImmutable($today))->modify('-' . $months . ' months')->format('Y-m-d');
+        try {
+            $rows = $app->db()->all('SELECT id, decided_at, last_activity_at, pool_until FROM {applications} WHERE source_enquiry_id IS NOT NULL AND COALESCE(decided_at, last_activity_at) < ?', [$before . ' 23:59:59']);
+        } catch (\PDOException) {
+            return null; // before migration 0119
+        }
+        $count = count(self::expired($rows, $months, $today));
+
+        return $count > 0 ? ['count' => $count, 'before' => $before, 'months' => $months] : null;
+    }
+
     /**
      * The day an application will be deleted (Y-m-d), null when the retention is off (0 months): a decided one
      * applications_months after its decision, an undecided one after that long without activity – and never before
@@ -1115,7 +1173,9 @@ final class Applications
      * The daily clean-up (Notifications::purgePersonalData): seals moved files, warns the responsible people of the
      * undecided applications that go within a week, deletes those past their retention with their files, comments, tasks
      * and notifications, and records the count (change log, event applications.purged – as before 3.34). Runs while the
-     * feature is off too: stored applications keep their retention. Returns how many were deleted.
+     * feature is off too: stored applications keep their retention. An application moved from Enquiries (source_enquiry_id)
+     * is neither warned about nor deleted until an administrator saved Applications → Settings (RETENTION_CONFIRMED).
+     * Returns how many were deleted.
      */
     public static function purge(App $app): int
     {
@@ -1131,7 +1191,9 @@ final class Applications
             return 0;
         }
         $today = Clock::today();
-        $rows = $db->all('SELECT id, decided_at, last_activity_at, pool_until, assignee_id FROM {applications} WHERE COALESCE(decided_at, last_activity_at) < ?',
+        // 3.34 review H1: what moved in from Enquiries waits until an administrator confirmed the retention (Settings tab)
+        $rows = $db->all('SELECT id, decided_at, last_activity_at, pool_until, assignee_id FROM {applications} WHERE COALESCE(decided_at, last_activity_at) < ?'
+            . (self::retentionConfirmed($app->settings()) ? '' : ' AND source_enquiry_id IS NULL'),
             [(new \DateTimeImmutable($today))->modify('-' . $months . ' months')->modify('+' . (self::WARN_DAYS + 1) . ' days')->format('Y-m-d')]);
         $warned = array_fill_keys(array_map(fn (array $r): int => (int) substr((string) $r['target'], 12), $db->all("SELECT target FROM {notifications} WHERE kind = 'deletion_due' AND target LIKE 'application:%'")), true);
         foreach (self::dueForWarning($rows, $months, $today, $warned) as $due) {

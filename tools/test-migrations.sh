@@ -247,4 +247,22 @@ M340_EXPECTED='9340:reviewed:Welder,9341:new:Welder|9342|1|1|none|9341|novinky,p
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_comments WHERE target LIKE 'application:%'; DELETE FROM ka_tasks WHERE target LIKE 'application:%'; DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp = 9342;
   DELETE FROM ka_contacts WHERE id IN (9340, 9341); DELETE FROM ka_deals WHERE id = 9340; DELETE FROM ka_kolekce_polozky WHERE idp = 9340; DELETE FROM ka_kolekce WHERE idk = 9340"
 
+# 3.34 review H1: the update never shortens the retention – applications_months starts at job_applications_months when it was
+# set, otherwise at enquiries_months (24 stays 24, 0 = keep stays keep); nothing moved is purged until the administrator confirms
+retention340() { # $1 job_applications_months ('' = never stored), $2 enquiries_months ('' = never stored)
+  "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_nastaveni WHERE promenna IN ('applications_months', 'job_applications_months', 'enquiries_months');
+    REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_retention_confirmed', '1');
+    $([ -n "$1" ] && echo "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('job_applications_months', '$1');") $([ -n "$2" ] && echo "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '$2');")
+    INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9343, 'Jobs', 'jobs-343', '[]', 'jobs');
+    INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (9343, '$(site_time '-3 days')', 'Job application', 'kolekce:9343', '/jobs-343/x', '', 'r@example.com', '[]', 0);
+    UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+  "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_months'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_retention_confirmed'), (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = 9343));
+    DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp = 9343; DELETE FROM ka_kolekce WHERE idk = 9343"
+}
+expect_sql_value() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: $2 (expected $3)"; ERRORS=$((ERRORS+1)); }; }
+expect_sql_value "3.34 review H1 (0120): enquiries kept 24 months – the applications keep 24, the confirmation is asked again" "$(retention340 '' 24)" "24||1"
+expect_sql_value "3.34 review H1 (0120): enquiries kept for good (0) – the applications are kept too" "$(retention340 '' 0)" "0||1"
+expect_sql_value "3.34 review H1 (0120): enquiries_months never stored – its default 24, not the 6 of applications" "$(retention340 0 '')" "24||1"
+expect_sql_value "3.34 review H1 (0120): job_applications_months set – that one" "$(retention340 5 24)" "5||1"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

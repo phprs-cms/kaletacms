@@ -19,6 +19,7 @@
  * @var int $me
  * @var bool $nobody nobody but administrators may open applications
  * @var bool $admin the signed-in person is an administrator (only they delete)
+ * @var array{count: int, before: string, months: int}|null $awaiting moved applications past the retention, kept until an administrator saves the settings (3.34 review H1)
  */
 use Kaleta\Admin\Modules\Applications;
 use Kaleta\Core\Applications as Store;
@@ -33,6 +34,9 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <?php endif ?>
 <?php if ($nobody): ?>
 <p class="hlaska hlaska-varovani" data-applications-nobody><?= $module->hint(t('Only administrators can open job applications now. Choose who else may: tick Applications for them in Administration → Users, or give them the ready-made role HR in Administration → Roles.')) ?> <a href="<?= e($module->url('settings')) ?>#uchazeci-kdo"><?= e(t('Settings')) ?></a></p>
+<?php endif ?>
+<?php if ($awaiting !== null): ?>
+<p class="hlaska hlaska-varovani" data-applications-retention-pending><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until an administrator saves the settings of Applications; then the daily clean-up deletes them with their CVs.', format_count($awaiting['count']), format_date($awaiting['before']), $awaiting['months'])) ?><?php if ($admin): ?> <a href="<?= e($module->url('settings')) ?>"><?= e(t('Settings')) ?></a><?php endif ?></p>
 <?php endif ?>
 <nav class="zalozky" aria-label="<?= e(t('Applications')) ?>" data-applications-tabs>
 <?php foreach (Applications::TABS as $status => $label): $n = $status === '' ? $counts['all'] : $counts[$status] ?? 0; ?>

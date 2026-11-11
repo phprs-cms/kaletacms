@@ -78,7 +78,7 @@ final class Applications extends Module
             // B-2: until somebody besides the administrators has the section, the administrators are told to choose
             'nobody' => $this->app->auth()->isAdmin() && $this->db->value('SELECT 1 FROM {uzivatele_prava} p JOIN {uzivatele} u ON u.idu = p.fk_id_user WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 LIMIT 1',
                 [Store::SECTION, Auth::ADMIN]) === null,
-            'admin' => $this->app->auth()->isAdmin()]);
+            'admin' => $this->app->auth()->isAdmin(), 'awaiting' => Store::awaitingConfirmation($this->app)]);
     }
 
     /**
@@ -279,7 +279,8 @@ final class Applications extends Module
             'values' => ['months' => $s->int('applications_months'), 'pool' => max(1, $s->int('applications_pool_months')), 'full' => $s->bool('applications_notify_full'), 'claude' => $s->bool('applications_claude')],
             'languages' => self::siteLanguages($s), 'templates' => $templates,
             'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates), $candidates),
-            'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null]);
+            'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null,
+            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::retentionConfirmed($s)]);
     }
 
     protected function actionSettingsSave(): Response
@@ -302,6 +303,7 @@ final class Applications extends Module
             }
         }
         $s->set('application_templates', self::templatesToStore($s, $posted));
+        $s->set(Store::RETENTION_CONFIRMED, '1'); // 3.34 review H1: an administrator saw the retention – the moved applications follow it from now on
         ChangeLog::write($this->app, Store::SECTION, 'settings', '');
 
         return $this->back('The settings of applications were saved.', 'settings');

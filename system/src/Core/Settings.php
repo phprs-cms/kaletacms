@@ -36,7 +36,8 @@ final class Settings
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete
         'triage_assistant' => '0',      // new enquiries are sorted by the AI assistant (2.12, Core\Triage) – off: the text goes to the AI provider
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries
-        'applications_months' => '6',   // 3.34 (Core\Applications): a decided application is deleted this many months after the decision, an undecided one after this long without activity; 0 = keep. Migration 0120 starts it at job_applications_months
+        'applications_months' => '6',   // 3.34 (Core\Applications): a decided application is deleted this many months after the decision, an undecided one after this long without activity; 0 = keep. Migration 0120 (and the first move by form) starts it at job_applications_months when set, otherwise at enquiries_months – an update never shortens the retention (3.34 review H1)
+        'applications_retention_confirmed' => '', // 3.34 review H1: '1' once an administrator saved Applications → Settings; until then the clean-up never deletes an application moved from Enquiries
         'applications_pool_months' => '12', // 3.34: how long the consent for future openings keeps an application (pool_until)
         'applications_notify_full' => '0', // 3.34: the e-mail about a new application carries the fields (otherwise the position and a link only)
         'applications_claude' => '1',   // 3.34: Claude may read applications through the connection of a user with the section (never the CVs)
