@@ -401,7 +401,14 @@ final class ApplicationMove
             }
         }
         try {
-            $db->transaction(function () use ($db, $a, $id, $data, $now, $row): void {
+            $db->transaction(function () use ($db, $s, $id, $data, $now, $row): void {
+                // 3.34 third review F7: the row again, locked – a reply, a status or a responsible person changed since it was
+                // read moves with it; a CV list changed meanwhile rolls back (N4)
+                $current = $db->one('SELECT * FROM {applications} WHERE id = ? FOR UPDATE', [$id]);
+                if ($current === null || $current['attachments'] !== $row['attachments']) {
+                    throw new \RuntimeException('The application changed meanwhile.');
+                }
+                $a = Applications::decode($s, $current);
                 $idp = $db->insert('poptavky', [
                     'datum' => (string) $a['received_at'], 'formular' => (string) $a['form'], 'zdroj' => (string) $a['source'], 'prvek' => (string) $a['element'], 'stranka' => (string) $a['page'],
                     'tema' => mb_substr((string) $a['job_title'], 0, 255), 'email' => (string) $a['email'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
