@@ -269,11 +269,15 @@ return static function (Db $db, Settings $settings): void {
                     } else {
                         $db->run('UPDATE {deals} SET source_enquiry_id = NULL WHERE source_enquiry_id = ?', [$idp]);
                     }
-                    $db->delete('poptavky', ['idp' => $idp]);
+                    if ($db->delete('poptavky', ['idp' => $idp]) !== 1) {
+                        throw new \UnexpectedValueException('gone'); // 3.34 third review F6: deleted meanwhile – no application from a stale row
+                    }
                 });
                 $moved++;
-            } catch (\Throwable) {
-                $failed[] = $idp; // stays an enquiry; its number only – the message may carry the person's data
+            } catch (\Throwable $error) {
+                if (!($error instanceof \UnexpectedValueException && $error->getMessage() === 'gone')) {
+                    $failed[] = $idp; // stays an enquiry; its number only – the message may carry the person's data
+                }
             }
         }
     }

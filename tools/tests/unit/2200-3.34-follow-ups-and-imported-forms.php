@@ -45,7 +45,7 @@ check('3.34: Move to Applications – the action needs the section Applications,
     str_contains($f340Enquiries, '\Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp)'),
     str_contains($f340Enquiries, "'toApplication' => isset(\$this->kernel->modules()[\\Kaleta\\Core\\Applications::SECTION])"),
     str_contains($f340Detail, "<?php if (\$toApplication):") && str_contains($f340Detail, "action=\"<?= e(\$module->url('to_application')) ?>\" data-to-application data-potvrdit="),
-    str_contains($f340Move, 'public static function enquiryToApplication(App $app, int $idp): ?array') && substr_count($f340Move, 'self::moveRows($app, $rows)') === 2],
+    str_contains($f340Move, 'public static function enquiryToApplication(App $app, int $idp): ?array') && substr_count($f340Move, 'fn (): array => self::moveRows($app, ') === 2], // 3.34 third review F6: the rows read under the lock
     [true, true, true, true, true, true]);
 check('3.34: Move to Applications never clears the page cache (Enquiries is a site-neutral section)', [
     Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'enquiries', 'action' => 'to_application'], ['idp' => '1'], ['REQUEST_METHOD' => 'POST']))], [false]);

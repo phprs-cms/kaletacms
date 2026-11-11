@@ -25,6 +25,6 @@ expect "3.34 second review N4: while the lock is held the clean-up seals nothing
 wait "$N4_HOLD" 2>/dev/null || true
 expect "3.34 second review N4: the lock released – the next clean-up seals it" "$(t334_php 'echo Kaleta\Core\Applications::sealPending($app) >= 1 ? "sealed" : "no";')|$([ -f "$N4_DIR/$N4_HEX2.pdf" ] && echo plain || echo gone)" "sealed|gone"
 expect "3.34 second review N4: both ways of the move take the same lock" \
-  "$(grep -c 'self::locked(\$db, fn (): array => self::moveRows(\$app, \$rows))\|self::locked(\$app->db(), fn (): array => self::moveRows(\$app, \$rows))\|self::locked(\$app->db(), fn (): array => self::toEnquiriesLocked(' "$WORK/web/system/src/Core/ApplicationMove.php")" "3"
+  "$(grep -c 'self::locked(\$db, fn (): array => self::moveRows(\$app, \$db->all(\|self::locked(\$app->db(), fn (): array => self::moveRows(\$app, // F6\|self::locked(\$app->db(), fn (): array => self::toEnquiriesLocked(' "$WORK/web/system/src/Core/ApplicationMove.php")" "3"
 t334_php 'Kaleta\Core\Applications::delete($app, ['"$N4_ID,$N4_ID2"'], false);' > /dev/null
 r334_off

@@ -148,7 +148,7 @@ $a334Move = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0120-applic
 $a334Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 check('3.34: migration 0120 moves only the enquiries of jobs collections, once each, with their comments, tasks and notifications; schema and 0119 agree', [
     str_contains($a334Move, "WHERE preset = 'jobs'"), str_contains($a334Move, 'NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)'),
-    str_contains($a334Move, "foreach (['comments', 'tasks', 'notifications'] as \$table)"), str_contains($a334Move, "\$db->delete('poptavky', ['idp' => \$idp]);"),
+    str_contains($a334Move, "foreach (['comments', 'tasks', 'notifications'] as \$table)"), str_contains($a334Move, "if (\$db->delete('poptavky', ['idp' => \$idp]) !== 1) {"), // 3.34 third review F6: a row deleted meanwhile rolls back
     str_contains($a334Move, 'Deals::forgetEnquiries'), str_contains($a334Move, "'sealed' => false"), str_contains($a334Schema, 'UNIQUE KEY ux_applications_enquiry (source_enquiry_id)'),
     substr($a334Schema, (int) strpos($a334Schema, 'CREATE TABLE ka_applications'), 3000) === substr((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0119-applications.sql'), (int) strpos((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0119-applications.sql'), 'CREATE TABLE ka_applications'), 3000)],
     [true, true, true, true, true, true, true, true]);
