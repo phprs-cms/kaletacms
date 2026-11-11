@@ -199,6 +199,125 @@ final class StarterPages
     }
 
     /**
+     * The recorded starter pages someone has edited, as rows: they keep their address, an import beside them gets a number.
+     *
+     * @return array<int, array{ids: int, seo_link: string, jazyk: string, titulek: string, home: bool}>
+     */
+    public static function editedPages(Db $db, Settings $settings): array
+    {
+        $ids = self::edited($db, $settings);
+        $home = $settings->int('home_page');
+        $out = [];
+        foreach ($ids === [] ? [] : $db->all('SELECT ids, seo_link, jazyk, titulek FROM {stranky} WHERE smazano IS NULL AND ids IN (' . implode(', ', $ids) . ')') as $r) {
+            $out[(int) $r['ids']] = ['ids' => (int) $r['ids'], 'seo_link' => (string) $r['seo_link'], 'jazyk' => (string) $r['jazyk'], 'titulek' => (string) $r['titulek'], 'home' => (int) $r['ids'] === $home];
+        }
+
+        return $out;
+    }
+
+    /**
+     * What an import will do with the starter pages, for its preview (3.33, M2 – "the choice shown in the preview"): for
+     * each starter page an imported page lands on, replace it (untouched, not declined), keep it (declined in $keep) or
+     * keep it because someone edited it. Each starter page once, at the first old address that lands on it.
+     *
+     * @param iterable<array{old: string, slug: string, language: string, home: bool}> $targets where the import's pages land
+     * @param list<int> $keep starter pages the person chose to keep
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}> why: '' | kept | edited
+     */
+    public static function choices(Db $db, Settings $settings, iterable $targets, array $keep): array
+    {
+        $untouched = self::untouched($db, $settings);
+        $edited = self::editedPages($db, $settings);
+        $out = [];
+        $seen = [];
+        foreach ($targets as $t) {
+            foreach ([$untouched, $edited] as $i => $pages) {
+                foreach ($pages as $id => $page) {
+                    if (isset($seen[$id]) || $page['jazyk'] !== $t['language'] || !(($t['home'] && $page['home']) || ($t['slug'] !== '' && $page['seo_link'] === $t['slug']))) {
+                        continue;
+                    }
+                    $seen[$id] = true;
+                    $kept = $i === 1 || in_array($id, $keep, true);
+                    $out[] = ['old' => '/' . $t['old'], 'page_id' => $id, 'title' => $page['titulek'], 'address' => '/' . ($page['jazyk'] !== '' ? $page['jazyk'] . '/' : '') . $page['seo_link'],
+                        'replace' => !$kept, 'why' => $i === 1 ? 'edited' : ($kept ? 'kept' : '')];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The choice of a preview as the starter pages to keep: from MCP a list of old addresses (["/contact"], ["*"] = all),
+     * from the admin the ids of the unticked rows. Only starter pages the choices name count.
+     *
+     * @param list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}> $choices
+     * @return list<int>
+     */
+    public static function keepFromAddresses(array $choices, mixed $addresses): array
+    {
+        if ($addresses === true) {
+            $addresses = ['*'];
+        }
+        $wanted = array_map(fn (mixed $a): string => '/' . trim(is_scalar($a) ? (string) $a : '', '/ '), is_array($addresses) ? $addresses : []);
+        $keep = [];
+        foreach ($choices as $c) {
+            if ($c['why'] !== 'edited' && (in_array('/*', $wanted, true) || in_array('/' . trim($c['old'], '/'), $wanted, true) || in_array('/' . trim($c['address'], '/'), $wanted, true))) {
+                $keep[] = $c['page_id'];
+            }
+        }
+
+        return $keep;
+    }
+
+    /**
+     * Before an import creates a page (both importers): the untouched starter page at its address is retired, unless the
+     * preview's choice kept it. Returns the retired page – when it was the home page, the caller points home_page at the
+     * imported one. What happened goes into $note (the import's state): nahrazeno = [old address, title, its address],
+     * ponechano = [old address, title, its address, kept | edited] – the imported page then gets a number, as before.
+     *
+     * @param list<int> $keep
+     * @param array<string, mixed> $note
+     * @return array{ids: int, seo_link: string, jazyk: string, titulek: string, home: bool}|null
+     */
+    public static function makeRoom(Db $db, Settings $settings, string $old, string $slug, string $language, bool $home, array $keep, array &$note): ?array
+    {
+        $note += ['nahrazeno' => [], 'ponechano' => []];
+        $page = self::at($db, $settings, $slug, $language, $home, $keep);
+        if ($page !== null) {
+            self::retire($db, $settings, $page['ids']);
+            if (count($note['nahrazeno']) < 200) {
+                $note['nahrazeno'][] = ['/' . $old, $page['titulek'], '/' . ($language !== '' ? $language . '/' : '') . $page['seo_link']];
+            }
+
+            return $page;
+        }
+        foreach (self::choices($db, $settings, [['old' => $old, 'slug' => $slug, 'language' => $language, 'home' => $home]], $keep) as $c) {
+            if (count($note['ponechano']) < 200) {
+                $note['ponechano'][] = [$c['old'], $c['title'], $c['address'], $c['why']];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * What an import did with the starter pages (its state's note) in English, for MCP and the result pages.
+     *
+     * @param array<string, mixed> $note
+     * @return array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>}
+     */
+    public static function summary(array $note): array
+    {
+        $why = ['kept' => 'kept as chosen in the preview – the imported page got a number', 'edited' => 'someone edited it, so it is never replaced – the imported page got a number'];
+
+        return [
+            'replaced' => array_map(fn (array $r): array => ['old' => (string) $r[0], 'title' => (string) $r[1], 'address' => (string) $r[2]], array_values((array) ($note['nahrazeno'] ?? []))),
+            'kept' => array_map(fn (array $r): array => ['old' => (string) $r[0], 'title' => (string) $r[1], 'address' => (string) $r[2], 'why' => $why[(string) ($r[3] ?? '')] ?? (string) ($r[3] ?? '')], array_values((array) ($note['ponechano'] ?? []))),
+        ];
+    }
+
+    /**
      * Retires an untouched starter page so an imported page can take its place: into the trash (restorable for 30 days, as
      * every deleted page) under a free address with RETIRED_SUFFIX, out of the record. A retired home page leaves the
      * setting home_page empty – the caller points it at the imported page.

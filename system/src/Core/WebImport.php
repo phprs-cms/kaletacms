@@ -107,10 +107,53 @@ final class WebImport
             'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domena' => ImageDownloader::domainFromUrl($origin), 'faze' => 'hledani',
             'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'pozice' => 0,
             'volby' => ['jazyk' => (string) ($options['jazyk'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
-                'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true)],
+                'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true),
+                'ponechat_vzory' => []], // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
             'vysledek' => ['stranky' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
+            'vzory' => ['nahrazeno' => [], 'ponechano' => []], // 3.33 (M2): the starter pages replaced and kept (StarterPages::makeRoom)
         ];
+    }
+
+    /**
+     * The starter pages the import's pages would land on, for the preview (3.33, M2): which ones it replaces, which ones
+     * the person keeps or someone edited (StarterPages::choices).
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>
+     */
+    public static function starterChoices(Db $db, Settings $settings, array $state): array
+    {
+        $language = Language::column($settings, (string) ($state['volby']['jazyk'] ?? ''));
+        $news = ($state['volby']['novinky'] ?? true) && Extensions::isEnabled($settings, 'novinky');
+        $targets = function () use ($state, $language, $news): \Generator {
+            foreach (array_keys((array) $state['adresy']) as $url) {
+                if ($news && preg_match(self::ARTICLE, (string) parse_url((string) $url, PHP_URL_PATH)) === 1) {
+                    continue; // an article becomes a news item, never a page
+                }
+                $old = self::path((string) $url);
+                yield ['old' => $old, 'slug' => self::plannedSlug($old, ''), 'language' => $language, 'home' => $old === ''];
+            }
+        };
+
+        return StarterPages::choices($db, $settings, $targets(), self::keptStarters($state));
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     * @return list<int>
+     */
+    public static function keptStarters(array $state): array
+    {
+        return array_values(array_map('intval', array_filter((array) ($state['volby']['ponechat_vzory'] ?? []), is_numeric(...))));
+    }
+
+    /** The address an old path asks for here, before a number makes it free (createPage). */
+    public static function plannedSlug(string $oldPath, string $title): string
+    {
+        $base = $oldPath !== '' ? basename($oldPath) : 'home';
+
+        return slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $title, 110);
     }
 
     /** Whether the address can be imported at all: http(s), a domain, no user name. */
@@ -409,7 +452,13 @@ final class WebImport
             $state['vysledek']['clanky']++;
             $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$idc]);
         } else {
+            // 3.33 (M2): an untouched starter page at the address (or the starter home page for the old home page) makes room
+            $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
+            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, self::plannedSlug($old, $page['titulek']), $language, $old === '', self::keptStarters($state), $state['vzory']);
             $ids = $this->createPage($page, $old, $language);
+            if ($starter !== null && $starter['home']) {
+                $this->settings->set('home_page', (string) $ids);
+            }
             $this->map($source, 'stranka', $key, $ids);
             $state['vysledek']['stranky']++;
             $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
@@ -423,8 +472,7 @@ final class WebImport
     /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
     private function createPage(array $page, string $oldPath, string $language): int
     {
-        $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110), language: $language);
+        $seo = Pages::freeSlug($this->db, self::plannedSlug($oldPath, $page['titulek']), language: $language);
         $build = $this->build($page['titulek'], $page['obsah']);
 
         return $this->db->insert('stranky', [

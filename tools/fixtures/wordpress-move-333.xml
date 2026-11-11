@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- A WordPress export (WXR 1.2) for the 3.33 move tests: a front page, pages at the addresses of the starter pages
+     (kontakt, o-nas), nested pages (a child listed before its parent) and a nested address over the length limit.
+     Made up from start to end; the .example domain does not exist. -->
+<rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+	<title>Topení Dub</title>
+	<link>https://www.topeni-dub.example</link>
+	<description>Kotle a topení</description>
+	<language>cs</language>
+	<wp:wxr_version>1.2</wp:wxr_version>
+	<wp:base_site_url>https://www.topeni-dub.example</wp:base_site_url>
+	<wp:base_blog_url>https://www.topeni-dub.example</wp:base_blog_url>
+	<wp:author><wp:author_id>1</wp:author_id><wp:author_login><![CDATA[dub]]></wp:author_login><wp:author_email><![CDATA[info@topeni-dub.example]]></wp:author_email><wp:author_display_name><![CDATA[Karel Dub]]></wp:author_display_name><wp:author_first_name><![CDATA[Karel]]></wp:author_first_name><wp:author_last_name><![CDATA[Dub]]></wp:author_last_name></wp:author>
+	<generator>https://wordpress.org/?v=6.6</generator>
+	<item>
+		<title><![CDATA[Domů]]></title>
+		<link>https://www.topeni-dub.example/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Kotle a topení od roku 1995, servis do 24 hodin v celém kraji.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>101</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[domu]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>0</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+	<item>
+		<title><![CDATA[Kontaktujte nás]]></title>
+		<link>https://www.topeni-dub.example/kontakt/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Volejte nebo pište, odpovíme do druhého dne.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>102</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[kontakt]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>1</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+	<item>
+		<title><![CDATA[O firmě]]></title>
+		<link>https://www.topeni-dub.example/o-nas/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Rodinná firma se třemi generacemi topenářů.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>103</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[o-nas]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>2</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+	<item>
+		<title><![CDATA[Služby]]></title>
+		<link>https://www.topeni-dub.example/sluzby-topeni/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Co pro vás děláme.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>110</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[sluzby-topeni]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>3</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+	<item>
+		<title><![CDATA[Kotle]]></title>
+		<link>https://www.topeni-dub.example/sluzby-topeni/topeni/kotle/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Plynové a elektrokotle.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>112</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[kotle]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>111</wp:post_parent>
+		<wp:menu_order>4</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+	<item>
+		<title><![CDATA[Topení]]></title>
+		<link>https://www.topeni-dub.example/sluzby-topeni/topeni/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Topení v rodinných domech.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>111</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[topeni]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>110</wp:post_parent>
+		<wp:menu_order>5</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+	<item>
+		<title><![CDATA[Dlouhá]]></title>
+		<link>https://www.topeni-dub.example/sluzby-topeni/velmi-dlouhy-nazev-kategorie-sluzeb-pro-rodinne-domy-a-byty/servis-plynovych-kotlu-vsech-znacek-v-celem-kraji-do-dvaceti-ctyr-hodin-od-zavolani/</link>
+		<dc:creator><![CDATA[dub]]></dc:creator>
+		<content:encoded><![CDATA[<p>Servis.</p>]]></content:encoded>
+		<excerpt:encoded><![CDATA[]]></excerpt:encoded>
+		<wp:post_id>113</wp:post_id>
+		<wp:post_date><![CDATA[2026-02-01 10:00:00]]></wp:post_date>
+		<wp:post_name><![CDATA[servis-plynovych-kotlu-vsech-znacek-v-celem-kraji-do-dvaceti-ctyr-hodin-od-zavolani]]></wp:post_name>
+		<wp:status><![CDATA[publish]]></wp:status>
+		<wp:post_parent>0</wp:post_parent>
+		<wp:menu_order>6</wp:menu_order>
+		<wp:post_type><![CDATA[page]]></wp:post_type>
+		<wp:post_password><![CDATA[]]></wp:post_password>
+	</item>
+</channel>
+</rss>

@@ -29,6 +29,7 @@ $urls = array_keys($state['adresy']);
 </tbody></table></div>
 <?php if (count($urls) > 40): ?><p class="smltxt"><?= e(t('… and %s more.', count($urls) - 40)) ?></p><?php endif ?>
 <form method="post" action="<?= e($module->url('web_run')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($state['id']) ?>">
+<?= $app->view->render('admin/transfer/starters', ['choices' => Kaleta\Core\WebImport::starterChoices($app->db(), $app->settings(), $state)]) ?>
 	<p><button class="tl" type="submit"><?= e(t('Import %s pages', count($urls))) ?></button></p></form>
 <?php endif ?>
 <?php elseif ($state['faze'] === 'import'): ?>
@@ -45,6 +46,7 @@ $urls = array_keys($state['adresy']);
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>
+<?= $app->view->render('admin/transfer/starters', ['result' => Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? []))]) ?>
 <?php if ($state['chyby'] !== []): ?>
 <details class="pokrocile"><summary><?= e(t('%s pages could not be imported', (int) $v['chyb'])) ?></summary><ul>
 <?php foreach ($state['chyby'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>

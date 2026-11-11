@@ -141,11 +141,26 @@ final class Transfer extends Module
         if (!$this->request->isPost() || $state === null || $state['faze'] !== 'nahled') {
             return $this->back();
         }
+        // 3.33 (M2): an unticked sample page of the preview stays (Core\StarterPages)
+        $state['volby']['ponechat_vzory'] = $this->keptStarters(WebImport::starterChoices($this->db, $this->app->settings(), $state));
         $state['faze'] = 'import';
         $state['pozice'] = 0;
         WebImport::save($state);
 
         return $this->back('', 'web_progress', ['id' => $state['id']]);
+    }
+
+    /**
+     * The sample pages the preview's form keeps (3.33, M2): every replaceable one whose box was not ticked.
+     *
+     * @param list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}> $choices
+     * @return list<int>
+     */
+    private function keptStarters(array $choices): array
+    {
+        $ticked = array_map('intval', $this->request->postList('nahradit_vzory'));
+
+        return array_values(array_map(fn (array $c): int => $c['page_id'], array_filter($choices, fn (array $c): bool => $c['why'] !== 'edited' && !in_array($c['page_id'], $ticked, true))));
     }
 
     /** Removes the record of an import; the imported pages stay. */
@@ -362,6 +377,7 @@ final class Transfer extends Module
             'jazyk' => $language, 'koncepty' => $r->postBool('koncepty'), 'stranky' => $r->postBool('stranky'), 'stavitel' => $r->postBool('stavitel'),
             'presmerovani' => $r->postBool('presmerovani'), 'rubrika' => $r->postInt('rubrika'), 'kolekce' => $r->postBool('kolekce'),
             'menu' => $r->postBool('menu'), 'skryte' => $r->postBool('skryte'), 'jazyky_pridat' => $r->postBool('jazyky_pridat'),
+            'ponechat_vzory' => $this->keptStarters(WpImport::starterChoices($this->db, $this->app->settings(), $state)), // 3.33 (M2)
         ], $this->db, $this->app->settings()));
         if ($added !== '') {
             $state['jazyky']['pridano'] = array_values(array_unique([...(array) $state['jazyky']['pridano'], $added])); // the result names it

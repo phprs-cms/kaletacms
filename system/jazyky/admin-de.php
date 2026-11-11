@@ -7906,4 +7906,10 @@ return [
     'Move the sample pages to the trash' => 'Beispielseiten in den Papierkorb verschieben',
     'No untouched sample pages are left.' => 'Es sind keine unveränderten Beispielseiten mehr übrig.',
     'Moved to the trash: %s. You can restore them for 30 days.' => 'In den Papierkorb verschoben: %s. Sie können sie 30 Tage lang wiederherstellen.',
+    'Sample pages of this site' => 'Beispielseiten dieser Website',
+    'These old addresses land on sample pages of the installation. A ticked sample page goes to the trash and the imported page takes its address; an unticked one stays and the imported page gets a number (/contact-2). A sample page someone has edited is never replaced.' => 'Diese alten Adressen führen auf Beispielseiten der Installation. Eine angekreuzte Beispielseite kommt in den Papierkorb und die importierte Seite übernimmt ihre Adresse; eine nicht angekreuzte bleibt und die importierte Seite bekommt eine Nummer (/kontakt-2). Eine Beispielseite, die jemand bearbeitet hat, wird nie ersetzt.',
+    '%s → %s stays: %s has been edited, the imported page gets a number.' => '%s → %s bleibt: %s wurde bearbeitet, die importierte Seite bekommt eine Nummer.',
+    'Replace the sample page %s (%s) with the old page %s' => 'Beispielseite %s (%s) durch die alte Seite %s ersetzen',
+    'Sample pages replaced (in the trash for 30 days): %s' => 'Ersetzte Beispielseiten (30 Tage im Papierkorb): %s',
+    'Sample pages kept – the imported page got a number: %s' => 'Behaltene Beispielseiten – die importierte Seite hat eine Nummer bekommen: %s',
 ];

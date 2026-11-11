@@ -62,7 +62,9 @@ trait MigrationTools
         $confirm = ($a['confirm'] ?? false) === true;
         $created = WpImport::created($state); // the records this call creates count against the hourly change limit (3.7, N37-26)
         $start = function (array &$state) use ($a, $db, $settings): void {
-            WpImport::run($state, WpImport::options($this->wordpressOptions($a), $db, $settings));
+            // 3.33 (M2): keep_starter_pages names old addresses of the preview's starter choices (["*"] = all)
+            $input = $this->wordpressOptions($a) + ['ponechat_vzory' => \Kaleta\Core\StarterPages::keepFromAddresses(WpImport::starterChoices($db, $settings, $state), $a['keep_starter_pages'] ?? [])];
+            WpImport::run($state, WpImport::options($input, $db, $settings));
             WpImport::saveState($state);
         };
         if ($confirm && $state['faze'] === 'nahled') {
@@ -172,13 +174,15 @@ trait MigrationTools
         $out['found'] = $summary['found'];
         if (in_array($state['faze'], ['nahled', 'analyza'], true)) {
             $out['will_be_skipped'] = array_values(array_filter($summary['skipped'], fn (array $s): bool => !in_array($s['what'], ['already_imported'], true)));
+            // 3.33 (M2): the starter pages of this site the import replaces (replace: true) or keeps (why: kept | edited)
+            $out['starter_pages'] = $state['faze'] === 'nahled' ? WpImport::starterChoices($this->app->db(), $this->app->settings(), $state) : [];
         } else {
             $out += array_diff_key($summary, ['found' => 1]);
         }
         $out['next'] = match (true) {
             $error !== null => 'The import stopped – tell the user the error. A damaged file: export it from WordPress again and start with the new file.',
             $state['faze'] === 'analyza' => 'Call again with the same import until the phase is "preview".',
-            $state['faze'] === 'nahled' => 'Show the user what was found and what will be skipped. On their instruction call again with import and confirm: true, with the options you agreed (drafts, pages, builder, redirects, collections, menus, menu_locations, authors, images, language, default_category). Everything arrives hidden.',
+            $state['faze'] === 'nahled' => 'Show the user what was found, what will be skipped and which starter pages of this site the import replaces (starter_pages). On their instruction call again with import and confirm: true, with the options you agreed (drafts, pages, builder, redirects, collections, menus, menu_locations, authors, images, language, default_category, keep_starter_pages). Everything arrives hidden.',
             $state['faze'] === 'import' => 'Call again with the same import until the phase is "done".',
             $state['faze'] === 'obrazky' => 'Images are being downloaded into Media – call again with the same import until the phase is "done".',
             default => 'Done – nothing is public yet: news are drafts, pages and items hidden, menus in the draft look. Next: (1) run migration_report with the old site\'s address and fix what it finds as drafts; '

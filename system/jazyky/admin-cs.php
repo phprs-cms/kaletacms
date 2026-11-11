@@ -7499,4 +7499,10 @@ return [
     'Move the sample pages to the trash' => 'Přesunout ukázkové stránky do koše',
     'No untouched sample pages are left.' => 'Žádné nedotčené ukázkové stránky už nezbyly.',
     'Moved to the trash: %s. You can restore them for 30 days.' => 'Přesunuto do koše: %s. Obnovit je můžete po 30 dní.',
+    'Sample pages of this site' => 'Ukázkové stránky tohoto webu',
+    'These old addresses land on sample pages of the installation. A ticked sample page goes to the trash and the imported page takes its address; an unticked one stays and the imported page gets a number (/contact-2). A sample page someone has edited is never replaced.' => 'Tyto staré adresy míří na ukázkové stránky z instalace. Zaškrtnutá ukázková stránka půjde do koše a importovaná stránka převezme její adresu; nezaškrtnutá zůstane a importovaná stránka dostane číslo (/kontakt-2). Ukázkovou stránku, kterou někdo upravil, import nikdy nenahradí.',
+    '%s → %s stays: %s has been edited, the imported page gets a number.' => '%s → %s zůstává: stránka %s je upravená, importovaná stránka dostane číslo.',
+    'Replace the sample page %s (%s) with the old page %s' => 'Nahradit ukázkovou stránku %s (%s) starou stránkou %s',
+    'Sample pages replaced (in the trash for 30 days): %s' => 'Nahrazené ukázkové stránky (v koši 30 dní): %s',
+    'Sample pages kept – the imported page got a number: %s' => 'Ponechané ukázkové stránky – importovaná stránka dostala číslo: %s',
 ];
