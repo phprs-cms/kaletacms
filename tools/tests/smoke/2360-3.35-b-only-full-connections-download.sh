@@ -16,8 +16,7 @@ S335C_CLOSED="https://127.0.0.1:$((PORT + 19))/n104"
 s335c_mcp "$S335C_DRAFTS" upload_file "{\"filename\":\"n104.png\",\"url\":\"$S335C_CLOSED/a.png\"}" > "$WORK/response"
 S335C_SVG=$(printf '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>' | openssl base64 -A)
 expect "3.35 B3 N104: upload_file with a url over a drafts connection is refused before any request; data still uploads (staged)" \
-  "$(grep -c 'This connection does not download addresses' "$WORK/response")|$(s335c_mcp "$S335C_DRAFTS" upload_file "{\"filename\":\"n104.svg\",\"data\":\"$S335C_SVG\"}" | tee "$WORK/s335c-svg" | grep -c '"staged":true')" "1|1"
-grep -q '"staged":true' "$WORK/s335c-svg" || { echo "         the answer: $(head -c 600 "$WORK/s335c-svg")"; echo "         the url answer: $(head -c 300 "$WORK/response")"; }
+  "$(grep -c 'This connection does not download addresses' "$WORK/response")|$(s335c_mcp "$S335C_DRAFTS" upload_file "{\"filename\":\"n104.svg\",\"data\":\"$S335C_SVG\"}" | grep -cE 'staged(\\)?":true')" "1|1" # the result is JSON inside the text: "staged" may come escaped
 expect "3.35 B3 N104: a full connection still downloads by url (a closed port fails as a download, not as the rule)" \
   "$(s335c_mcp "$S335C_FULL" upload_file "{\"filename\":\"n104.png\",\"url\":\"$S335C_CLOSED/a.png\"}" | grep -c 'could not be downloaded')|$(s335c_mcp "$S335C_FULL" upload_file "{\"filename\":\"n104.png\",\"url\":\"$S335C_CLOSED/a.png\"}" | grep -c 'does not download addresses')" "1|0"
 sq "INSERT INTO ka_kolekce (nazev, seo_link, pole, detail, zmeneno) VALUES ('N104', 's335c-n104', '[{\"klic\":\"foto\",\"popisek\":\"Photo\",\"typ\":\"obrazek\"}]', 0, '$(site_time)')" > /dev/null
