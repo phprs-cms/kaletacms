@@ -326,7 +326,7 @@ final class StarterPages
         $wanted = array_map(fn (mixed $a): string => '/' . trim(is_scalar($a) ? (string) $a : '', '/ '), is_array($addresses) ? $addresses : []);
         $replace = [];
         foreach ($choices as $c) {
-            if (($c['how'] ?? self::RECORDED) === self::LEGACY && $c['why'] !== 'edited'
+            if ($c['how'] === self::LEGACY && $c['why'] !== 'edited'
                 && (in_array('/' . trim($c['old'], '/'), $wanted, true) || in_array('/' . trim($c['address'], '/'), $wanted, true))) {
                 $replace[] = $c['page_id'];
             }
