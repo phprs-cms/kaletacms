@@ -188,6 +188,7 @@ final class ApplicationMove
                 $moved++;
             });
         }
+        Applications::keepToSection($db, $ids); // review low (a): no responsible person or bell entry outside the section
         $removed = self::forgetLoneContacts($db);
         if ($moved > 0) {
             Applications::adoptRetention($db, $app->settings()); // 3.34 review H1: never the default 6 months, and nothing moved is purged before an administrator confirms

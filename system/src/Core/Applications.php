@@ -830,6 +830,27 @@ final class Applications
     }
 
     /**
+     * After applications moved in from Enquiries (3.34 review low a – migration 0120 does the same in its own SQL): a
+     * responsible person who may not open Applications is cleared, and the bell entries about them (moved from the enquiry,
+     * with their excerpts) of people who may not open Applications go.
+     *
+     * @param list<int> $ids
+     */
+    public static function keepToSection(Db $db, array $ids): void
+    {
+        foreach ($ids === [] ? [] : $db->all('SELECT id, assignee_id FROM {applications} WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')') as $r) {
+            if ($r['assignee_id'] !== null && !Assignment::allowed($db, 'application', (int) $r['assignee_id'])) {
+                $db->update('applications', ['assignee_id' => null], ['id' => (int) $r['id']]);
+            }
+            foreach ($db->all('SELECT id, user_id FROM {notifications} WHERE target = ?', [self::target((int) $r['id'])]) as $n) {
+                if (!Assignment::allowed($db, 'application', (int) $n['user_id'])) {
+                    $db->delete('notifications', ['id' => (int) $n['id']]);
+                }
+            }
+        }
+    }
+
+    /**
      * Makes a person responsible (null = nobody): only a candidate (Assignment – an active administrator or someone with
      * the section) or the one stored already; the new person is notified (number and position only). Returns whether it
      * changed. Throws \DomainException when the application does not exist.
@@ -1371,7 +1392,9 @@ final class Applications
             [(new \DateTimeImmutable($today))->modify('-' . $months . ' months')->modify('+' . (self::WARN_DAYS + 1) . ' days')->format('Y-m-d')]);
         $warned = array_fill_keys(array_map(fn (array $r): int => (int) substr((string) $r['target'], 12), $db->all("SELECT target FROM {notifications} WHERE kind = 'deletion_due' AND target LIKE 'application:%'")), true);
         foreach (self::dueForWarning($rows, $months, $today, $warned) as $due) {
-            Inbox::notify($app, $due['assignee'], 'deletion_due', self::target($due['id']), null, format_date($due['day']));
+            if (Assignment::allowed($db, 'application', $due['assignee'])) { // review low (a): only someone who may open Applications
+                Inbox::notify($app, $due['assignee'], 'deletion_due', self::target($due['id']), null, format_date($due['day']));
+            }
         }
         $expired = self::expired($rows, $months, $today);
         if ($expired !== []) {

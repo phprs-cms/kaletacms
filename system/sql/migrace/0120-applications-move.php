@@ -14,7 +14,8 @@
  *     false – the daily clean-up seals them in batches, Core\Applications::sealPending), the position from the page it came
  *     from, the status (new → new, read → reviewed, resolved → reviewed with a note), the replies, the responsible person,
  *     the old single note as an internal note, and the latest of receipt, reply and note as its last activity; the
- *     comments, tasks and notifications of enquiry:<idp> move to application:<id>; a deal made from it loses the link
+ *     comments, tasks and notifications of enquiry:<idp> move to application:<id> – a responsible person and the bell entries
+ *     of anyone who may not open Applications (after the update: anyone but an administrator) do not follow (review low a); a deal made from it loses the link
  *     (Deals::forgetEnquiries, unchanged since 3.32); the enquiry row goes;
  *  4. a customer record created only from moved applications is deleted – derived from the data, not from memory: an
  *     application keeps the customer record its enquiry had (source_contact_id), and a record whose only source rows are
@@ -196,6 +197,12 @@ return static function (Db $db, Settings $settings): void {
                     foreach (['comments', 'tasks', 'notifications'] as $table) {
                         $db->run('UPDATE {' . $table . '} SET target = ? WHERE target = ?', [$target, 'enquiry:' . $idp]);
                     }
+                    // review low (a): only administrators have Applications after the update – the responsible person and the bell
+                    // entries (their excerpts) of anyone else do not follow
+                    $db->run('UPDATE {applications} a SET assignee_id = NULL WHERE a.id = ? AND a.assignee_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM {uzivatele} u WHERE u.idu = a.assignee_id AND u.blokovat = 0
+                        AND (u.admin = 2 OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = \'applications\')))', [$id]);
+                    $db->run('DELETE n FROM {notifications} n WHERE n.target = ? AND NOT EXISTS (SELECT 1 FROM {uzivatele} u WHERE u.idu = n.user_id AND u.blokovat = 0
+                        AND (u.admin = 2 OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = \'applications\')))', [$target]);
                     $db->run("UPDATE {comments} SET kind = 'note' WHERE target = ?", [$target]);
                     $note = trim((string) ($e['poznamka'] ?? ''));
                     foreach (array_filter([$note, (int) $e['stav'] === 2 ? 'Resolved as an enquiry before the move to Applications.' : '']) as $text) {
