@@ -44,8 +44,11 @@ expect "3.34: the CV is sealed in storage/applications (not readable as the orig
   "$([ -n "$T334_FILE" ] && echo stored)|$(grep -c 'secret-cv-t334' "$T334_FILE" 2>/dev/null || true)|$(sq "SELECT attachments LIKE '%CV Ivan%' OR attachments LIKE '[%' FROM ka_applications WHERE id = $T334_A")|$(curl -s -o /dev/null -w '%{http_code}' "$B/storage/applications/")" \
   "stored|0|0|403"
 expect "3.34: the event names the position and the form, never the sender; the notification e-mail names the position and the number only" \
-  "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(message LIKE '%Ivan%')) FROM ka_events WHERE type = 'application.received'")|$(sq "SELECT CONCAT(SUM(predmet LIKE '%Technician T334%'), '|', SUM(telo LIKE '%Ivan%' OR telo LIKE '%ivan-t334%' OR predmet LIKE '%Ivan%'), '|', SUM(telo LIKE '%action=detail&id=$T334_A%')) FROM ka_posta WHERE idp > $T334_P0")" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(message LIKE '%Ivan%')) FROM ka_events WHERE type = 'application.received'")|$(sq "SELECT CONCAT(SUM(predmet LIKE '%Technician T334%'), '|', SUM(telo LIKE '%Ivan%' OR telo LIKE '%ivan-t334%' OR predmet LIKE '%Ivan%'), '|', SUM(telo LIKE '%action=detail&id=$T334_A%')) FROM ka_posta WHERE idp > $T334_P0 AND komu <> 'ivan-t334@example.com'")" \
   "1|0|1|0|1"
+# 3.34 B: the form sends no confirmation of its own, so the applicant gets the "received" template – logged without a name or the position
+expect "3.34 B: the applicant gets the received confirmation; the mail log subject names nobody" \
+  "$(sq "SELECT CONCAT(COUNT(*), '|', SUM(predmet LIKE '%Ivan%' OR predmet LIKE '%Technician%'), '|', SUM(predmet LIKE 'Žádost přijata:%' OR predmet LIKE 'Application received:%')) FROM ka_posta WHERE idp > $T334_P0 AND komu = 'ivan-t334@example.com'")" "1|0|1"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user'); INSERT INTO ka_nastaveni SELECT * FROM ka_t334_mail; DROP TABLE ka_t334_mail; DELETE FROM ka_posta WHERE idp > $T334_P0" > /dev/null
 # a general form with the Purpose "job application": a spontaneous application, not an enquiry
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -sL -o "$WORK/formular.html" "$B/kontakt"; T334_PAGE=$(field_value zdroj | sed 's/^stranka://')
