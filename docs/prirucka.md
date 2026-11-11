@@ -431,7 +431,7 @@ Wix, Squarespace nebo Webflow: z formuláře je prvek Formulář se stejnými po
 zástupný text a výsledek řekne kde), rozbalovací bloky a FAQ si nechají otázky i odpovědi, záložky, počítadla, videa
 z YouTube, Vimea i soubory a mapy se stanou svými prvky, odkazované soubory (PDF a další dokumenty) jdou do Médií a původní
 titulek stránky a obrázek pro sdílení se stanou jejím SEO titulkem a obrázkem pro sdílení. Totéž umí Claude nástrojem
-`import_website` a pak sladí vzhled a upraví texty.
+`import_website`, starou stránku si přečte po sekcích s barvami a písmy (`read_old_page`) a pak sladí vzhled a upraví texty.
 
 **Správa → Import a export → WordPress:** nahrajte export z WordPressu (Nástroje → Export, soubor XML). Import převede
 příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých

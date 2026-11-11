@@ -1691,6 +1691,21 @@
             "openWorldHint": false
         }
     },
+    "read_old_page": {
+        "parameters": {
+            "section": "integer",
+            "url": "string"
+        },
+        "required": [
+            "url"
+        ],
+        "annotations": {
+            "title": "Read an old page with its look",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": true
+        }
+    },
     "remove_blueprint": {
         "parameters": {
             "key": "string"

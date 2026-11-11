@@ -4,7 +4,7 @@ description: "Move a site from WordPress (with WooCommerce, Polylang or WPML) or
 license: GPL-2.0-or-later
 metadata:
   kaleta-prompt: "migrate_site"
-  kaleta-tools: "site_info read_notebook site_audit upload_file import_wordpress import_website update_design_system builder_schema save_classes list_classes get_menu save_menu preview_link publish_look list_pages build_from_html edit_build get_build save_build apply_part_template save_popup list_collection_presets create_collection save_collection_items save_collection_category import_enquiries save_redirects list_redirects save_redirect migration_report list_media_without_alt update_media list_pending_review publish_build update_page update_settings write_notebook"
+  kaleta-tools: "site_info read_notebook site_audit upload_file import_wordpress import_website update_design_system builder_schema save_classes list_classes get_menu save_menu preview_link publish_look list_pages read_old_page build_from_html edit_build get_build save_build apply_part_template save_popup list_collection_presets create_collection save_collection_items save_collection_category import_enquiries save_redirects list_redirects save_redirect migration_report list_media_without_alt update_media list_pending_review publish_build update_page update_settings write_notebook"
   kaleta-terms: "media_deferred more_problems"
 ---
 
@@ -113,7 +113,8 @@ Import and export – `publish_look` would publish the colours and classes too.
 An export carries only the text of a page made with a page builder; the import preview names the builders it
 found. Rebuild each page in the Kaleta builder, page by page (`list_pages` shows the imported ones):
 
-1. Look at the live old page – its rendered HTML or the element tree through the old site's connection – and
+1. Look at the live old page – `read_old_page` with its address returns it section by section as cleaned HTML
+   with the colours and fonts each section uses (or the element tree through the old site's connection) – and
    list its sections: hero, benefits, services, references, call to action, contact.
 2. Call `builder_schema` once and reuse the site's classes, components and saved sections.
 3. Write semantic HTML (`section`, `h1`–`h3`, `p`, `ul`, `a`, `img`, `figure`, `blockquote`, `details`) and one
@@ -188,4 +189,4 @@ as a direct call:
 
 - run_read_tool (reads): list_classes, list_collection_presets, list_redirects, list_media_without_alt, list_pending_review
 - run_tool (drafts and changes): save_classes, apply_part_template, save_popup, create_collection, save_collection_category, import_enquiries, save_redirects, save_redirect, update_settings, write_notebook
-- run_destructive_tool (deleting, sending or reaching outside the site – confirm the exact action with the user first): import_wordpress, import_website, save_collection_items, migration_report
+- run_destructive_tool (deleting, sending or reaching outside the site – confirm the exact action with the user first): import_wordpress, import_website, read_old_page, save_collection_items, migration_report

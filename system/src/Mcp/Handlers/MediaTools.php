@@ -86,7 +86,7 @@ trait MediaTools
                 'hledani', 'import' => 'Call again with the same import id.',
                 'nahled' => 'Show the user what was found; on their instruction call again with confirm: true.',
                 default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.'
-                    . ' Fix what attention lists (a placeholder marks a form whose fields could not be read).',
+                    . ' Fix what attention lists (a placeholder marks a form whose fields could not be read). read_old_page returns an old page as section HTML with its colours and fonts, to rebuild its layout.',
             }];
     }
 

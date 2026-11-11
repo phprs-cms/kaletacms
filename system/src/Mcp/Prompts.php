@@ -157,7 +157,8 @@ final class Prompts
                 An export carries only the text of a page made with a page builder; the import preview names the builders it
                 found. Rebuild each page in the Kaleta builder, page by page (`list_pages` shows the imported ones):
 
-                1. Look at the live old page – its rendered HTML or the element tree through the old site's connection – and
+                1. Look at the live old page – `read_old_page` with its address returns it section by section as cleaned HTML
+                   with the colours and fonts each section uses (or the element tree through the old site's connection) – and
                    list its sections: hero, benefits, services, references, call to action, contact.
                 2. Call `builder_schema` once and reuse the site's classes, components and saved sections.
                 3. Write semantic HTML (`section`, `h1`–`h3`, `p`, `ul`, `a`, `img`, `figure`, `blockquote`, `details`) and one

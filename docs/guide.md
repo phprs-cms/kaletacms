@@ -495,7 +495,8 @@ Divi, WPBakery, Gutenberg, Breakdance, Wix, Squarespace or Webflow alike: a form
 fields (a form drawn by a script gets a placeholder, and the result says where), an accordion or FAQ keeps its questions
 and answers, tabs, counters, YouTube, Vimeo and video files, and maps become their elements, linked files (PDF and other
 documents) go into Media, and the old page title and share image become the page's SEO title and share image. Claude does
-the same with `import_website` and can then match the look and tidy the texts.
+the same with `import_website`, reads an old page section by section with its colours and fonts (`read_old_page`) and
+can then match the look and tidy the texts.
 
 **Large sites (3.7):** the import and the migration report (**Import and export → Check the move before going live**, Claude's
 `migration_report`) read the old site's sitemaps in batches and go through up to 3,000 addresses – a shop with a thousand
