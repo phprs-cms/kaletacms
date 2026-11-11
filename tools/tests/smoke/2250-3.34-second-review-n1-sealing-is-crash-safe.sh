@@ -53,10 +53,11 @@ N1_FRESH="$WORK/web/storage/applications/2026/09/$(php -r 'echo bin2hex(random_b
 N1_PART="$N1_FRESH.ab12cd34.part"; printf 'x' > "$N1_PART"
 N1_OLD_TIME=$(php -r 'echo date("YmdHi", strtotime("-8 days"));')
 touch -t "$N1_OLD_TIME" "$N1_ORPHAN" "$N1_PART" "$N1_D_BIN"
-expect "3.34 second review N1: the sweep removes the old orphan and the half-written file, keeps the listed copy and the recent orphan" \
-  "$(t334_php 'echo Kaleta\Core\Applications::sweepOrphans($app);')|$([ -f "$N1_ORPHAN" ] && echo kept || echo gone)|$([ -f "$N1_PART" ] && echo kept || echo gone)|$([ -f "$N1_D_BIN" ] && echo kept || echo gone)|$([ -f "$N1_FRESH" ] && echo kept || echo gone)" \
-  "2|gone|gone|kept|kept"
-rm -f "$N1_FRESH"
+# 3.34 third review F1: the old orphan is set aside (.orphan) for seven more days, not removed at once
+expect "3.34 second review N1: the sweep sets the old orphan aside and removes the half-written file, keeps the listed copy and the recent orphan" \
+  "$(t334_php 'echo Kaleta\Core\Applications::sweepOrphans($app);')|$([ -f "$N1_ORPHAN" ] && echo kept || echo gone)|$([ -f "$N1_ORPHAN.orphan" ] && echo aside || echo gone)|$([ -f "$N1_PART" ] && echo kept || echo gone)|$([ -f "$N1_D_BIN" ] && echo kept || echo gone)|$([ -f "$N1_FRESH" ] && echo kept || echo gone)" \
+  "1|gone|aside|gone|kept|kept"
+rm -f "$N1_FRESH" "$N1_ORPHAN.orphan"
 
 # a new upload: the row is stored before the upload goes (receive) – checked in the source, the smoke test of part A covers the way through
 expect "3.34 second review N1: receive() removes the uploads only after the row lists the sealed copies, and removes the copies when the row cannot be stored" \
