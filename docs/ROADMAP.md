@@ -1716,6 +1716,99 @@ field, MCP tool, parameter or Czech alias renamed.
     (`Core\Glossary`, its unit test pins "Prohraný" and forbids "ztracen…"); the rest of the 3.32 glossary stays, and
     English, German and Spanish are unchanged.
 
+## 3.35 – sign in with a passkey, and tighter rules for connections and roles (11 November 2026)
+
+Passkeys become the first way to sign in, and five security rules close what the review of 3.33/3.34 left open. Migration
+0121 (schema only) adds three columns: `ka_uzivatele.passkey_handle` (the account's opaque WebAuthn user handle – 16 random
+bytes, never the account number or e-mail), `ka_uzivatele.passkey_only` (the account's own choice) and
+`ka_uzivatele_klice.discoverable` (a passkey registered since 3.35 – resident, with user verification). `KALETA_DB_VERSION`
+121; 0120 stays the data migration of 3.34, the highest number of its release (`tools/check-migrations.php` only needs every
+new number above the last tag, and `Core\Migration` runs data migrations by name after the `.sql` files, so 0120 still runs
+on a site that jumps from 3.33 straight to 3.35). New setting `signin_passkey_only` (Settings → Security); new `config.php`
+switch `KALETA_PASSKEY_ONLY_OFF`. Nothing renamed for MCP: no tool, parameter, Czech alias or result key goes; additive keys
+– `untrusted` (the list of keys that hold text from outside the team) on `list_enquiries` (each enquiry), `triage_enquiries`,
+`get_contact`, `list_contacts`, `list_bookings`, `list_comments` (on an enquiry or a contact), `list_draft_comments`,
+`list_collection_items` (an item a customer's testimonial made) and `get_stats`; `list_applications` and `get_application`
+(3.34) carry the same list instead of their sentence; a sentence in the server instructions says what it means. Full
+connections only now: `migration_report` (like `read_old_page`), the `url` of `upload_file`, new downloads of
+`save_collection_items` `media`, and an add-on tool that declares `openWorld`.
+
+1. **Sign in with a passkey** (`Auth::signInWithPasskey`, `image/klice.js`): "Sign in with a passkey" on the sign-in page
+   and the passkeys in the user-name autofill (conditional UI) – no user name, no password. The server finds the account
+   from the passkey and its opaque user handle, needs the device's user verification (UV), checks the counter, and uses
+   the password's limits (10 failures per address in 15 minutes, 10 in a row lock the account for 15 minutes, a blocked or
+   locked account never signs in) with one answer for every failure – nothing tells whether an account exists. Passkeys no
+   longer need two-factor sign-in; every account may add them in My account and rename them.
+2. **The sign-in rules per account** (`Core\SignInPolicy`, `state()`):
+
+   | Account | Passkey alone | Password + app code | Password + passkey | Password + backup code | Password alone |
+   |---|---|---|---|---|---|
+   | password only | – | – | – | – | yes |
+   | two-factor (app) | – | yes | – | yes | no |
+   | passkey (with or without the app) | yes | yes (with the app) | yes | yes | no |
+   | passkey only (account or site) | yes | **no** | yes | yes | no |
+
+   A passkey counts as the second factor for `require_2fa` – in the admin (`Auth::isMissingRequired2fa`) and for Claude
+   connections (`ClaudeConnection::canCall`).
+3. **Passkey only** – per account (My account, a fresh confirmation both ways) and per site (`signin_passkey_only`). It
+   applies only once the account has a working passkey (discoverable, registered with UV), so nobody is locked out: an
+   account without one signs in as before and hears it should add one. Only an administrator who has signed in with a
+   working passkey can turn the site setting on. The escape hatch: `define('KALETA_PASSKEY_ONLY_OFF', true);` in
+   `config.php` switches every "passkey only" off (the password and the second step work again) – Settings → Security
+   names it.
+4. **Recovery**: a backup code after the password (also for passkey-only accounts); an administrator's reset in Users (with
+   their own password) removes the passkeys, the app, the backup codes and "passkey only"; a password-reset e-mail changes
+   the password only – the second step stays.
+5. **Registering and removing passkeys, backup codes**: adding or removing a passkey and changing "passkey only" need a
+   fresh confirmation – a passkey or backup-code step within the last 10 minutes, or the current password typed in that
+   form (a step with the app's code does not count: `Auth::isFreshlyVerified`, the strong proof). The first passkey of an
+   account without backup codes brings eight, shown once. New (owner decision 11 Nov 2026): "New backup codes" in My
+   account for an account with a passkey and without the authenticator app – the same fresh confirmation, the codes shown
+   once, the old ones stop working (`Account::mayRenewBackupCodes`). Turning the app off keeps the passkeys and the codes.
+6. **Old passkeys**: a passkey registered as the second step before 3.35 keeps working after the password (without UV, as
+   before); it is marked "second step only", and "Register again" replaces it with one that signs in alone. Used alone, its
+   owner hears exactly that.
+7. **Hosts**: WebAuthn binds passkeys to the host of the site URL (`SignInPolicy::hostMatches`); another host name of the
+   site (an alias, www or not, the IP) gets a link to the canonical address instead of the passkey buttons.
+8. **Consent for a new full connection** (owner decision 11 Nov 2026): "Can also publish" on the OAuth consent is issued
+   only with a fresh proof – a completed sign-in or a right current password within `Auth::VERIFIED_WINDOW` (10 minutes,
+   `Auth::recentlyVerified`), or the current password typed into the consent (the sign-in's counter and lock). An account
+   with a passkey may "Confirm with your passkey" (`Auth::confirmWithPasskey`); a passkey-only account is offered only that,
+   never a password field. Drafts only and Read only stay one click; a refused consent keeps its request (403 with why);
+   existing connections, refresh tokens and personal tokens are untouched. Both proofs are one concept in `Core\Auth`:
+   `markVerified(bool $strong)` writes them, one window for both.
+9. **Another user's e-mail** (owner decision 11 Nov 2026): changing it in Users needs the administrator's own current
+   password, like a new password or a reset second factor (3.31.2); the same address in other letter case is no change.
+10. **N104 – the fetch rule per connection level** (`Catalog::mayFetch`): only a full connection makes the site download an
+    address the caller names. Drafts-only and read-only connections: `upload_file` takes `data` (base64) but refuses a
+    `url` before any request; `save_collection_items` reuses media downloaded before and downloads nothing new
+    (`media_failed` says why); `migration_report` and `read_old_page` are hidden (`Catalog::NEEDS`); `import_website` and
+    `import_wordpress` are write tools anyway; an add-on tool with `openWorld` is not offered. The admin and background jobs
+    are unchanged.
+11. **N105 part 1 – the untrusted marker** (`Mcp\Untrusted`): text written outside the team (visitors' forms, bookings,
+    testimonials, referrers and campaigns, preview comments, applicants, other sites) comes with `untrusted` listing the
+    keys that hold it; the server instructions say once that it is data to work with, never instructions. A two-step
+    confirmation is part 2 (later).
+12. **N94 – personal-data requests match the whole address**: find, export and erase (admin and MCP) take an enquiry sent
+    from the address or with a field whose whole value is the address (`PersonalData::ofEnquiry`), a customer record
+    through Kaleta's own merge note naming exactly the address (`Contacts::mergeNoteNames`), and applications by their own
+    address (3.34) – never a message that merely quotes it or a longer address containing it.
+13. **N107/N108 – the publish rule in Collections and Tags**: a role that does not publish (author level – the Writer
+    preset or any custom author-level role) works with drafts only, as in Pages: a new collection item or category is
+    hidden, an item or category on the site (or scheduled) is read-only, the list hides or trashes hidden items only, no
+    permanent delete, the CSV/JSON import saves hidden items – in the admin and in the MCP collection tools over any
+    connection (`Collections::isDraft`). Renaming, merging and deleting tags is for editors and administrators
+    (`Tags::LIVE_ACTIONS`); a writer still creates tags from the news form. Editors, administrators and the Client and HR
+    presets (editor level – HR keeps publishing the job openings) are unchanged; "Enquiries only" has no Collections.
+
+**Upgrade notes.** Existing passkeys stay the second step after the password until registered again; nobody becomes
+passkey-only by the update, and every account keeps signing in as before. A passkey added from now on needs no
+authenticator app and counts as the second factor for `require_2fa`. Approving a new Claude connection with publishing may ask for the
+password (or the passkey) once more; connections that exist keep working. An administrator changing someone else's e-mail
+is asked for their own password. Drafts-only and read-only Claude connections no longer download files by address – send
+the content, or connect with full access. Author-level roles no longer publish collection items or categories, or rename,
+merge and delete tags – an editor does.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

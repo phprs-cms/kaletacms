@@ -238,7 +238,22 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   Zápis stavby vrací podepsaný náhled (`Core\Preview`, `?build=koncept&preview_key=`, HMAC `secret_key`, jen jeden cíl, omezená platnost). Nová novinka
   je koncept, nová stránka skrytá; vydat/zveřejnit jen na výslovný pokyn a s právem. **Hranice (bezpečí na prvním místě):** žádný nástroj nesmí zapisovat mimo obsah
   spouštět kód ani dotaz (statickou kontrolu PHP nejde udělat neprůstřelnou, proto MCP žádné PHP šablony nemění).
-- **Přihlášení:** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`, jen jako náhrada kódu u účtu s TOTP), obnova hesla `Admin\PasswordReset`.
+- **Přihlášení (3.35):** hesla `password_hash`, TOTP, passkeys (`Core\Passkey`) – přihlášení klíčem bez jména a hesla (`Auth::signInWithPasskey`,
+  tlačítko i automatické vyplnění, discoverable klíč s ověřením uživatele, neprůhledný `passkey_handle`, limity a zámek hesla, jedna odpověď
+  pro každé selhání). Pravidla jen v `Core\SignInPolicy`: účet s klíčem potřebuje po hesle vždy druhý krok (kód z aplikace, klíč, záložní kód);
+  „jen klíčem“ (účet `passkey_only`, web `signin_passkey_only`) platí až s funkčním klíčem a po hesle bere jen klíč nebo záložní kód;
+  `KALETA_PASSKEY_ONLY_OFF` v `config.php` ho vypne. Klíče jen na hostiteli `site_url` (`hostMatches`), starší klíč = „jen druhý krok“,
+  „Zaregistrovat znovu“. Klíč se počítá jako druhý faktor pro `require_2fa` (i MCP). Obnova: záložní kód, reset v Uživatelích, e-mail mění jen heslo.
+  Přidání/odebrání klíče, „jen klíčem“ a „Nové záložní kódy“ (účet s klíčem bez aplikace) chtějí čerstvé potvrzení (`Auth::isFreshlyVerified`
+  nebo současné heslo ve formuláři); obnova hesla `Admin\PasswordReset`.
+- **Bezpečnost 3.35:** čerstvý důkaz je jeden pojem v `Core\Auth` – zapisuje jen `markVerified(bool $strong)`, jedno okno `VERIFIED_WINDOW`
+  (10 min): `verified_at` = každé dokončené přihlášení, správné současné heslo, potvrzení klíčem (`recentlyVerified` – souhlas OAuth s plným
+  přístupem; jen-klíčový účet dostane „Potvrdit klíčem“, `confirmWithPasskey`); `strong_at` = jen krok klíčem nebo záložním kódem, nikdy kód
+  z aplikace (`isFreshlyVerified`). E-mail jiného účtu v Uživatelích chce heslo správce. `Catalog::mayFetch`: adresu stahuje jen plné spojení
+  (`upload_file` url, nová média `save_collection_items`, `migration_report` a `read_old_page` v `Catalog::NEEDS`, nástroj doplňku s `openWorld`).
+  Text zvenku jde do MCP s jedním `Mcp\Untrusted::mark([klíče])` – nový výsledek s textem návštěvníků, uchazečů či cizích webů ho musí nést.
+  `PersonalData` bere jen celou adresu (`ofEnquiry`, poznámka sloučení `Contacts::mergeNoteNames`, žádosti vlastní adresou). Role bez práva
+  vydávat pracuje v Kolekcích jen s koncepty (`Collections::isDraft`, i MCP přes každé spojení) a štítky nepřejmenuje ani nesmaže (`Tags::LIVE_ACTIONS`).
 
 ## Import z WordPressu a export
 
