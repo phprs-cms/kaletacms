@@ -190,8 +190,9 @@ BOOKINGS_PLANTED=0
 
 # 3.34 second review N5: a site with a jobs collection and a job enquiry – the update request of the old release only writes
 # the state of migration 0120 (event applications.move_deferred); the first request of the new version moves the enquiry
+# – only from a release without migration 0120 (before 3.34); from 3.34 on the old release moves applications itself
 JOBS_PLANTED=0
-if [ -n "$("${MYSQL[@]}" "$DB_NAME" -N -e "SHOW COLUMNS FROM ka_kolekce LIKE 'preset'" 2>/dev/null)" ]; then
+if [ "${FROM_DB:-0}" -lt 120 ] && [ -n "$("${MYSQL[@]}" "$DB_NAME" -N -e "SHOW COLUMNS FROM ka_kolekce LIKE 'preset'" 2>/dev/null)" ]; then
   "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9399, 'Jobs', 'jobs-upd', '[]', 'jobs');
     INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (93990, '$(php -r 'echo date("Y-m-d H:i:s", strtotime("-1 day"));')', 'Job application', 'kolekce:9399', '/jobs-upd/x', '', 'upd-job@example.com', '[]', 0)" && JOBS_PLANTED=1
 fi

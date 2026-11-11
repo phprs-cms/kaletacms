@@ -1170,7 +1170,9 @@ final class Updater
             return null;
         }
 
-        return intdiv($now - $published->getTimestamp(), 86400);
+        // calendar days in the site's time zone: counting seconds would add a day late in the evening across a change of
+        // summer time (a date published 70 days ago read as 71)
+        return (int) $published->diff((new \DateTimeImmutable('@' . $now))->setTimezone($published->getTimezone()))->days;
     }
 
     /**
