@@ -4500,6 +4500,46 @@ await step('3.32 (U35–U50): row buttons, My work edit and Take it, dashboard o
   }
 });
 
+await step('3.33 move: the Move block of Site audit and the sample pages of Import and export – at 1440 and 390 px, axe on both', async () => {
+  // an imported page (the import map), one untouched sample page kept as it is – the Move block shows, the sample pages panel too
+  const page333 = sql("SELECT ids FROM ka_stranky WHERE smazano IS NULL ORDER BY ids DESC LIMIT 1").trim();
+  sql(`INSERT IGNORE INTO ka_import_mapa (zdroj, typ, cizi_id, nase_id) VALUES ('web:b333.example', 'stranka', 'b333', ${page333})`);
+  try {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await visit('/admin.php?module=audit');
+      const move = await page.evaluate(() => {
+        const block = document.querySelector('#move');
+        return { rows: block ? block.querySelectorAll('[data-move-radek] a[href]').length : 0, overflow: document.documentElement.scrollWidth > window.innerWidth + 1 };
+      });
+      if (move.rows !== 6 || move.overflow) { throw new Error(`Move block at ${width} px: ${JSON.stringify(move)}`); }
+      await visit('/admin.php?module=transfer');
+      const panel = await page.evaluate(() => {
+        const p = document.querySelector('#sample-pages');
+        return { button: p ? Boolean(p.querySelector('button[data-potvrdit]')) : null, overflow: document.documentElement.scrollWidth > window.innerWidth + 1 };
+      });
+      if (panel.button === false || panel.overflow) { throw new Error(`sample pages panel at ${width} px: ${JSON.stringify(panel)}`); }
+    }
+    if (SHOTS) { await visit('/admin.php?module=audit'); await page.screenshot({ path: `${SHOTS}/move-333.png`, fullPage: true }); }
+    const state = await context.storageState();
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, sel] of [['/admin.php?module=audit', '#move'], ['/admin.php?module=transfer', 'main']]) {
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: [[inc]] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [sel, WCAG]);
+        if (found.violations.length) { throw new Error(`axe ${url}: ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql("DELETE FROM ka_import_mapa WHERE zdroj = 'web:b333.example'");
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

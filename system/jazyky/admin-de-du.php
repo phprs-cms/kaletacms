@@ -1261,4 +1261,5 @@ return [
     'A form is on %s of the old pages (a pop-up or the footer, fields: %s) and nothing here has one: add it once – a Form element in the footer (Site parts) or a pop-up.' => 'Ein Formular steht auf %s der alten Seiten (ein Pop-up oder die Fußzeile, Felder: %s) und hier hat es nichts: Füge es einmal hinzu – ein Formular-Element in der Fußzeile (Teile der Website) oder ein Pop-up.',
     'The address leads to a sample page of the installation that nobody has changed – visitors would see sample text. Import the old page over it or replace its content.' => 'Die Adresse führt auf eine Beispielseite der Installation, die niemand geändert hat – Besucher würden Beispieltext sehen. Importiere die alte Seite darüber oder ersetze ihren Inhalt.',
     'The page title changed – check that the new one is what search engines should show.' => 'Der Seitentitel hat sich geändert – prüfe, ob der neue der ist, den Suchmaschinen zeigen sollen.',
+    'Where the move of the old site stands. Point the domain here once every row is done.' => 'Wo der Umzug der alten Website steht. Leite die Domain hierher um, sobald jede Zeile erledigt ist.',
 ];

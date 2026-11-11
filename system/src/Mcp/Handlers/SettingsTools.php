@@ -287,10 +287,10 @@ trait SettingsTools
 
         $need($auth->isAdmin() || $auth->hasModule('pages'), 'The site audit is for administrators and editors of pages.');
         // the findings in English, as Site audit in an English administration
-        [$findings, $checklist] = \Kaleta\Core\Language::runWith('en', function (): array {
+        [$findings, $checklist, $move] = \Kaleta\Core\Language::runWith('en', function (): array {
             $audit = new \Kaleta\Core\Audit($this->app);
 
-            return [$audit->run(), $audit->handoverChecklist()];
+            return [$audit->run(), $audit->handoverChecklist(), \Kaleta\Core\MoveStatus::summary($this->app)];
         }, 'admin-');
         $kind = is_string($a['kind'] ?? null) ? $a['kind'] : '';
         if ($kind !== '') {
@@ -302,6 +302,11 @@ trait SettingsTools
             // 3.23 (C17, additive): the hand-over checklist with its progress – every row, done or not, and where it is set
             $out['handover_checklist'] = ['done' => $checklist['done'], 'total' => $checklist['total'], 'items' => array_map(fn (array $i): array => ['key' => $i['key'], 'label' => $i['label'], 'done' => $i['done'], 'edit' => $i['edit']]
                 + ($i['for_client'] ? ['for_client' => true] : []), $checklist['items'])];
+            if ($move !== null) {
+                // 3.33 (M7, additive): where a move to Kaleta stands – counts, the newest migration report and the rows with their links
+                $out['move'] = array_diff_key($move, ['rows' => 1]) + ['rows' => array_map(fn (array $r): array => ['key' => $r['key'], 'label' => $r['label'], 'done' => $r['done'],
+                    'edit' => $this->app->request->origin() . $this->app->url($r['edit'])], $move['rows'])];
+            }
         }
 
         return $out;
