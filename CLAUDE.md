@@ -231,12 +231,19 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `Menu::sanitize`, `Collections`, `Popups`, `DesignSystem`), nastavení jen ze `SiteExport::SETTINGS` (bez `site_url`). Kroky: příprava (rozdělení
   `obsah.json` po tabulkách do `storage/import/kaleta-<hash>/`), náhled, data (první dávka = záloha `predimportem` + vyprázdnění obsahu), média
   (`SiteImport::mediaTarget` – jen do `media/`, jen povolené typy, SVG přes `Svg::sanitize`). Dávky posílá formulář s `data-auto-odeslat` (image/admin.js).
-- **Ukázkové stránky (3.33, `Core\StarterPages`):** instalátor zapíše otisk každé ukázkové stránky do nastavení `starter_pages`
-  (web z 3.20–3.32 bez záznamu se pozná podle titulků a adres instalátoru); volba instalace „Prázdný web pro stěhování“ (`web=move`)
-  založí jen zástupnou Úvodní stránku a skryté zásady ochrany soukromí. Nedotčená ukázková stránka (bez `zmenil`, bez konceptu,
-  stejný otisk) na adrese importované stránky jde do koše pod adresou `-sample` (`makeRoom`, `retire`) a importovaná stránka převezme
-  adresu, stará úvodní se stane `home_page`; upravená se nikdy nenahrazuje. Volba v náhledu: zaškrtávátka v administraci,
-  MCP `keep_starter_pages` (`["*"]` = všechny), výsledek `starter_pages`/`starter_pages_result`.
+- **Ukázkové stránky (3.33, `Core\StarterPages`):** instalátor zapíše otisk každé ukázkové stránky do nastavení `starter_pages`;
+  „Začít z exportu“ a import exportu Kalety zapíšou prázdný záznam `{}` (žádné ukázkové stránky, nikdy starší pravidlo). Web z 3.20–3.32
+  bez záznamu má starší pravidlo (`legacyRows`), které musí dokázat řádek instalátoru: k-tá nejnižší stránka má k-tý titulek a adresu,
+  jedno společné `zmeneno` do 60 s po `potvrzeno` prvního účtu, bez popisu/SEO titulku/obrázku/noindex, bez verzí, překladu, řádku
+  v `ka_import_mapa` a importu exportu – v pochybnostech není ukázková. Volba instalace „Prázdný web pro stěhování“ (`web=move`)
+  založí jen zástupnou Úvodní stránku a skryté zásady ochrany soukromí. Nedotčená ukázková stránka (bez `zmenil`, bez konceptu
+  a překladu, stejný otisk) na adrese importované stránky jde do koše pod adresou `-sample` (`makeRoom`, `retire` – podstránky
+  odpojí, `linkParents` je napojí na importovanou) a importovaná stránka převezme adresu; upravená se nikdy nenahrazuje. Stránka
+  poznaná jen starším pravidlem (`how` = legacy) se ve výchozím stavu nenahrazuje: v administraci nezaškrtnutá, přes MCP jen
+  jmenovitě v `replace_starter_pages`; „Přesunout ukázkové stránky do koše“ zveřejněnou takovou nechá. Ukázková Úvodní se nahradí
+  (a `home_page` přepne) jen za viditelnou importovanou – importy přinášejí skryté, takže zůstává a výsledek nese `home_waiting`.
+  Volba v náhledu: zaškrtávátka v administraci, MCP `keep_starter_pages` (`["*"]` = všechny), výsledek `starter_pages`/
+  `starter_pages_result`. Import WordPressu analyzovaný před 3.33 (bez `cile_stranek`) nenahradí nic.
 - **Vnořené adresy (3.33, `Core\ImportPath`):** oba importy drží starou cestu i s rodiči (`target`, `plan`), nadřazenou stránku propojí
   i dodatečně (`linkParents`); přes 120 znaků se zkrátí poslední část (nejméně 20), první část, kterou používá systém, spadne na
   poslední část. Přesměrování jen při změně adresy, změněné adresy ve výsledku (`addresses_changed`, `zmenene_adresy`).
@@ -251,15 +258,20 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `HtmlConverter` z nich udělá prvky Formulář, FAQ, Záložky, Video, Mapa, Vložení a Počitadlo; formulář kreslený skriptem = viditelný
   zástupný text. Odkazované soubory do Médií (`files`), starý `<title>` → `seo_titulek`, `og:image` → `obrazek`. Výsledek `kept`
   a `attention` (`pozor` ve stavu drží anglickou šablonu + hodnoty, překládá `WebImport::attentionLines` až při zobrazení).
+  Odkazované soubory nejvýš 10 na stránku a 200 souborů / 300 MB na běh importu (`filesLeft`); `<video>`, jehož soubor není
+  v Médiích, se vynechá s upozorněním (`localVideosOnly`); pole honeypotu a captchy se do formuláře nepřevádějí (`HtmlWidgets::trapField`);
+  `<video>` s autoplay/loop/muted zůstane správci jako Vlastní HTML.
   `build_from_html` používá stejné rozpoznávače. Testy: `tools/fixtures/builder-pages/` (Elementor, Divi, WPBakery, Gutenberg,
   Breakdance, Squarespace, Webflow, Wix).
 - **MCP `read_old_page` (3.33, `Core\OldPage`):** stará stránka po sekcích (záhlaví, bloky obsahu, patička) jako vyčištěné HTML
   s pozadím, barvami a písmy a paletou celé stránky, pro přestavbu rozložení. Čte jako `import_website` (`ImageDownloader`,
-  robots.txt, rozestup), jen správce s právem importu; odpověď je nedůvěryhodná data (`untrusted`).
+  robots.txt, rozestup), jen správce s právem importu (`Catalog::NEEDS` – jiné spojení ho ani nevidí); odpověď je nedůvěryhodná
+  data (`untrusted`). CSS lineárně (`declarations`, tělo pravidla nad 20 KB se přeskočí), styly a rozestupy sdílí 20 s – pak `partial`.
 - **Fronta přestavby (3.33, `Core\ImportLayout`):** import si do `ka_import_mapa` (zdroj `layout`, `cizi_id` = „<ids>:<sha256 stavby>“,
   bez migrace) zapamatuje uloženou stavbu (`remember`, u druhého průchodu WordPressu `replaced`); `pending` = publikovaná stavba se
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
-  ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší.
+  ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
+  `cleanup` (`ImportLayout::prune`, nikdy při GET).
 - **Export stránky** (`kaleta-stranka` verze 2) nese sdílené třídy a komponenty (`Builder\PagePackage`); import doplní chybějící třídy (existující
   nepřepíše) a komponenty, stejnou komponentu (název, vlastnosti, stavba bez id) použije znovu.
 
