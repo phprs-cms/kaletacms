@@ -101,8 +101,9 @@ final class ApplicationMove
     public static function toApplications(App $app, string $form, string $source): array
     {
         $db = $app->db();
-        $rows = $db->all('SELECT * FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp) ORDER BY idp LIMIT ' . self::BATCH, [$form, $source]);
-        $result = self::locked($db, fn (): array => self::moveRows($app, $rows));
+        // 3.34 third review F6: the rows are read under the lock – not before a wait of up to LOCK_WAIT seconds
+        $result = self::locked($db, fn (): array => self::moveRows($app, $db->all('SELECT * FROM {poptavky} p WHERE formular = ? AND zdroj = ?'
+            . ' AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp) ORDER BY idp LIMIT ' . self::BATCH, [$form, $source])));
         $left = (int) $db->value('SELECT COUNT(*) FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$form, $source]);
 
         return ['moved' => $result['moved'], 'left' => $left, 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
@@ -116,8 +117,8 @@ final class ApplicationMove
      */
     public static function enquiryToApplication(App $app, int $idp): ?array
     {
-        $rows = $app->db()->all('SELECT * FROM {poptavky} p WHERE idp = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$idp]);
-        $result = self::locked($app->db(), fn (): array => self::moveRows($app, $rows));
+        $result = self::locked($app->db(), fn (): array => self::moveRows($app, // F6: read under the lock
+            $app->db()->all('SELECT * FROM {poptavky} p WHERE idp = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$idp])));
 
         return $result['ids'] === [] ? null : ['id' => $result['ids'][0], 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
     }
@@ -161,32 +162,43 @@ final class ApplicationMove
             }
             $lastComment = $db->value('SELECT MAX(created_at) FROM {comments} WHERE target = ?', ['enquiry:' . $idp]);
             $activity = is_string($lastComment) && $lastComment > $activity ? $lastComment : $activity;
-            $db->transaction(function () use ($app, $db, $e, $idp, $data, $files, $position, $email, $people, $activity, $now, &$moved, &$ids, &$deals): void {
-                $id = $db->insert('applications', [
-                    'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
-                    'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
-                    'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190), 'email_norm' => PersonalData::normalise($email), 'phone' => mb_substr($people['phone'], 0, 40),
-                    'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files), 'attachment_paths' => Applications::paths($files),
-                    'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
-                    'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
-                    'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
-                ]);
-                $ids[] = $id;
-                $target = Applications::target($id);
-                foreach (['comments', 'tasks', 'notifications'] as $table) {
-                    $db->run('UPDATE {' . $table . '} SET target = ? WHERE target = ?', [$target, 'enquiry:' . $idp]);
+            try {
+                /** @var array{int, list<int>} $done */
+                $done = $db->transaction(function () use ($app, $db, $e, $idp, $data, $files, $position, $email, $people, $activity, $now): array {
+                    $id = $db->insert('applications', [
+                        'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
+                        'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
+                        'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190), 'email_norm' => PersonalData::normalise($email), 'phone' => mb_substr($people['phone'], 0, 40),
+                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files), 'attachment_paths' => Applications::paths($files),
+                        'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
+                        'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
+                        'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
+                    ]);
+                    $target = Applications::target($id);
+                    foreach (['comments', 'tasks', 'notifications'] as $table) {
+                        $db->run('UPDATE {' . $table . '} SET target = ? WHERE target = ?', [$target, 'enquiry:' . $idp]);
+                    }
+                    $note = trim((string) ($e['poznamka'] ?? ''));
+                    foreach (array_filter([$note, (int) $e['stav'] === 2 ? 'Resolved as an enquiry before the move to Applications.' : '']) as $text) {
+                        $db->insert('comments', ['target' => $target, 'kind' => 'note', 'author_id' => null, 'author_name' => 'Kaleta', 'text' => mb_substr($text, 0, 5000), 'via' => 'admin', 'created_at' => $now]);
+                    }
+                    $dealIds = array_map('intval', array_column($db->all('SELECT id FROM {deals} WHERE source_enquiry_id = ?', [$idp]), 'id'));
+                    Deals::forgetEnquiries($db, [$idp]); // the deal stays, without the link and the person's words
+                    if ($db->delete('poptavky', ['idp' => $idp]) !== 1) {
+                        throw new \UnexpectedValueException(self::GONE); // F6: deleted meanwhile – no application from a stale row
+                    }
+
+                    return [$id, $dealIds];
+                });
+            } catch (\UnexpectedValueException $gone) {
+                if ($gone->getMessage() !== self::GONE) {
+                    throw $gone;
                 }
-                $note = trim((string) ($e['poznamka'] ?? ''));
-                foreach (array_filter([$note, (int) $e['stav'] === 2 ? 'Resolved as an enquiry before the move to Applications.' : '']) as $text) {
-                    $db->insert('comments', ['target' => $target, 'kind' => 'note', 'author_id' => null, 'author_name' => 'Kaleta', 'text' => mb_substr($text, 0, 5000), 'via' => 'admin', 'created_at' => $now]);
-                }
-                foreach ($db->all('SELECT id FROM {deals} WHERE source_enquiry_id = ?', [$idp]) as $deal) {
-                    $deals[] = (int) $deal['id'];
-                }
-                Deals::forgetEnquiries($db, [$idp]); // the deal stays, without the link and the person's words
-                $db->delete('poptavky', ['idp' => $idp]);
-                $moved++;
-            });
+                continue; // rolled back: nothing of it stays
+            }
+            $ids[] = $done[0];
+            $deals = [...$deals, ...$done[1]];
+            $moved++;
         }
         Applications::keepToSection($db, $ids); // review low (a): no responsible person or bell entry outside the section
         $removed = self::forgetLoneContacts($db);
@@ -281,6 +293,9 @@ final class ApplicationMove
             Applications::unlockFiles($db);
         }
     }
+
+    /** The message of the exception that rolls back the move of an enquiry deleted while it waited (3.34 third review F6). */
+    private const string GONE = 'the enquiry went meanwhile';
 
     /** How long a move waits for the lock of the file work (seconds). */
     public const int LOCK_WAIT = 10;
