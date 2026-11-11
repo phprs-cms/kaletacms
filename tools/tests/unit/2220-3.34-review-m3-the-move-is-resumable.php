@@ -15,7 +15,7 @@ check('3.34 review M3: every row in its own try/catch and transaction, a failure
     [true, true, true, true, true, false]);
 check('3.34 review M3: the customer clean-up comes from the data (source_contact_id), never edited, merged (an activity) or owned records', [
     str_contains($m3Migration, "'source_contact_id' => \$e['contact_id'] !== null ? (int) \$e['contact_id'] : null"),
-    str_contains($m3Migration, 'SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL'),
+    str_contains($m3Migration, 'SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id > ? ORDER BY source_contact_id LIMIT '),
     str_contains($m3Migration, 'c.owner_id IS NULL AND c.updated_at <= c.created_at'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php'), 'public static function forgetLoneContacts(Db $db): int'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), 'source_contact_id INT UNSIGNED NULL'),

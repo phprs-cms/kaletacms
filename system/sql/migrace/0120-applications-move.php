@@ -73,6 +73,7 @@ return static function (Db $db, Settings $settings): void {
     // one run moves for at most this long (a web request – the next request goes on); the tests make it one row
     $seconds = defined('KALETA_MIGRATION_SECONDS') ? max(0.0, (float) constant('KALETA_MIGRATION_SECONDS')) : 15.0;
     $rowsAtMost = defined('KALETA_MIGRATION_ROWS') ? max(1, (int) constant('KALETA_MIGRATION_ROWS')) : PHP_INT_MAX;
+    $contactBatch = defined('KALETA_MIGRATION_CONTACTS') ? max(1, (int) constant('KALETA_MIGRATION_CONTACTS')) : 500; // the tests make the batches small
     $started = microtime(true);
     $now = date('Y-m-d H:i:s');
     $event = static function (string $type, string $severity, string $message, array $data) use ($db, $now): void {
@@ -227,23 +228,40 @@ return static function (Db $db, Settings $settings): void {
         }
     }
 
-    // --- 4. customer records that only moved applications made (from the data: a run cut short finishes it next time)
+    // --- 4. customer records that only moved applications made (from the data: a run cut short finishes it next time). 3.34
+    // second review N2: in batches by record id, within the same time as the move; the migration finishes only once no
+    // application names a record to look at any more
     $removed = 0;
     try {
-        foreach ($db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1000') as $r) {
-            $contactId = (int) $r['id'];
-            $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
-                AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
-                AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
-            $db->transaction(function () use ($db, $contactId, $lone, &$removed): void {
-                if ($lone !== null) {
-                    $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
-                    $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
+        $lastContact = 0;
+        while (true) {
+            $batch = $db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id > ? ORDER BY source_contact_id LIMIT ' . $contactBatch, [$lastContact]);
+            if ($batch === []) {
+                break;
+            }
+            foreach ($batch as $r) {
+                if (microtime(true) - $started > $seconds) {
+                    $left = true;
+                    break 2;
                 }
-                $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
-            });
+                $contactId = (int) $r['id'];
+                $lastContact = $contactId;
+                $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
+                    AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
+                    AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
+                    AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
+                    AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
+                $db->transaction(function () use ($db, $contactId, $lone, &$removed): void {
+                    if ($lone !== null) {
+                        $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
+                        $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
+                    }
+                    $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
+                });
+            }
+        }
+        if (!$left && $db->value('SELECT 1 FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1') !== null) {
+            $left = true; // named meanwhile – looked at on the next run
         }
     } catch (\Throwable) {
         $left = true; // looked at again on the next run

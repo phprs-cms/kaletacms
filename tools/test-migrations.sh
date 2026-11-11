@@ -306,4 +306,38 @@ migrate > /dev/null
 expect_sql_value "3.34 review M3 (0120): the next request finishes – the failed row stays an enquiry (its number in the event, no address), nothing left to hide, the customer with a responsible person stays" "$(resume344)" "3|9346|||9345|1|0"
 "${MYSQL[@]}" "$OLD" -e "DROP TRIGGER ka_t344; DELETE FROM ka_comments WHERE target LIKE 'application:%'; DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp BETWEEN 9344 AND 9347; DELETE FROM ka_contacts WHERE id IN (9344, 9345); DELETE FROM ka_kolekce WHERE idk = 9344"
 
+# 3.34 second review N2: the customer clean-up of 0120 goes in batches within the run's time – more than 1000 lone records all go
+# in one run, and a run out of time leaves the migration unfinished while an application still names a record to look at
+migrate_with() { # $1 PHP defines run before the bootstrap
+  php -r "$1"'
+    require $argv[1] . "/system/bootstrap.php";
+    $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]);
+    Kaleta\Core\Migration::apply($db, new Kaleta\Core\Settings($db));
+  ' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
+}
+N2_AT=$(site_time '-2 days')
+N2_CONTACTS=$(for i in $(seq 1 1003); do printf "%s(%d, 'n2-%d@example.com', 'n2-%d@example.com', 'N2', 'enquiry', '%s', '%s')" "$([ "$i" -gt 1 ] && echo ,)" $((934800 + i)) "$i" "$i" "$T340_AT" "$T340_AT"; done)
+N2_ENQUIRIES=$(for i in $(seq 1 1003); do printf "%s(%d, '%s', 'Job application', 'kolekce:9348', '/jobs-348/x', '', 'n2-%d@example.com', '[]', 0, %d)" "$([ "$i" -gt 1 ] && echo ,)" $((934800 + i)) "$N2_AT" "$i" $((934800 + i)); done)
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9348, 'Jobs', 'jobs-348', '[]', 'jobs');
+  INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES $N2_CONTACTS;
+  INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, contact_id) VALUES $N2_ENQUIRIES;
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', ''), ('applications_move_until', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'"
+migrate_with 'define("KALETA_MIGRATION_CONTACTS", 400);' > /dev/null
+n2_state() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id BETWEEN 934801 AND 935803), (SELECT COUNT(*) FROM ka_contacts WHERE id BETWEEN 934801 AND 935803),
+  (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id IS NOT NULL), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'))"; }
+expect_sql_value "3.34 second review N2 (0120): 1003 lone customer records in batches of 400 – all go in one run, nothing named any more, the migration is finished" "$(n2_state)" "1003|0|0|"
+# a run whose time is up before the clean-up: unfinished while an application still names a record, finished by the next run
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES (935900, 'n2-late@example.com', 'n2-late@example.com', 'N2', 'enquiry', '$T340_AT', '$T340_AT');
+  UPDATE ka_applications SET source_contact_id = 935900 WHERE source_enquiry_id = 934801;
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', '0120-applications-move'), ('applications_move_until', '935803')"
+migrate_with 'define("KALETA_MIGRATION_SECONDS", 0);' > /dev/null
+expect_sql_value "3.34 second review N2 (0120): out of time before the clean-up – still unfinished, the record still named" \
+  "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), (SELECT COUNT(*) FROM ka_contacts WHERE id = 935900), (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id = 935900))")" \
+  "0120-applications-move|1|1"
+migrate > /dev/null
+expect_sql_value "3.34 second review N2 (0120): the next run finishes the clean-up and the migration" \
+  "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), (SELECT COUNT(*) FROM ka_contacts WHERE id = 935900), (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id IS NOT NULL))")" "|0|0"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp BETWEEN 934801 AND 935803; DELETE FROM ka_contacts WHERE id BETWEEN 934801 AND 935900; DELETE FROM ka_kolekce WHERE idk = 9348"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
