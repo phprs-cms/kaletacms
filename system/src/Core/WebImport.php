@@ -43,6 +43,9 @@ final class WebImport
 
     /** Files one page may bring into Media (3.33): a price list, a brochure, a video – a page with more links them to the old site. */
     private const int FILES_PER_PAGE = 10;
+    /** 3.33 review L5: linked files one import run may bring into Media in all (admin and MCP), and their size together. */
+    public const int FILES_PER_IMPORT = 200;
+    public const int FILE_BYTES_PER_IMPORT = 300 * 1024 * 1024;
 
     /** Widgets taken out of one page (3.33); the rest stays in the page as its text. */
     private const int WIDGETS_PER_PAGE = 60;
@@ -765,13 +768,21 @@ final class WebImport
                     || (ImageDownloader::domainFromUrl($url) !== $state['domena'] && !preg_match(self::FILE_HOSTS, (string) parse_url($url, PHP_URL_HOST)))) {
                     continue;
                 }
-                $file = ++$count <= self::FILES_PER_PAGE ? $this->linkedFile($url, $state) : null;
+                $budget = self::filesLeft($state);
+                $file = ++$count <= self::FILES_PER_PAGE && $budget ? $this->linkedFile($url, $state) : null;
                 $changed = true;
                 if ($file !== null) {
                     $element->setAttribute($attribute, (string) $file['obr_poloha']);
                     continue;
                 }
                 $old = '/' . self::path($url);
+                if (!$budget && $element->closest('video') === null) {
+                    if (ImageDownloader::domainFromUrl($url) === $state['domena']) {
+                        $element->setAttribute($attribute, $old);
+                    }
+                    self::attention($state, '/%s – the file %s was not downloaded: the import reached its limit of %s linked files; it still links to the old site.', self::path($pageUrl), $old, (string) self::FILES_PER_IMPORT);
+                    continue;
+                }
                 $video = $element->closest('video');
                 if ($video !== null) {
                     $video->remove(); // a page never plays a video from the old site
@@ -787,6 +798,17 @@ final class WebImport
         });
 
         return $changed ? $output : $html;
+    }
+
+    /**
+     * Whether this import run may still download a linked file (3.33 review L5): at most FILES_PER_IMPORT files and
+     * FILE_BYTES_PER_IMPORT bytes in all – the per-page limit alone let a site of 500 pages bring 5,000 files.
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function filesLeft(array $state): bool
+    {
+        return intval($state['zachovano']['soubory'] ?? 0) < self::FILES_PER_IMPORT && intval($state['soubory_bajty'] ?? 0) < self::FILE_BYTES_PER_IMPORT;
     }
 
     /**
@@ -842,6 +864,7 @@ final class WebImport
         $temporary = WpFile::folder() . '/web-soubor-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, self::politeDownload($this->downloader, $url, (array) ($state['robots'] ?? []), false, false));
+            $state['soubory_bajty'] = intval($state['soubory_bajty'] ?? 0) + (int) filesize($temporary); // 3.33 review L5
             $saved = Files::saveFile($temporary, $name);
             $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
             $this->map($source, 'soubor', $key, (int) $saved['ido']);
