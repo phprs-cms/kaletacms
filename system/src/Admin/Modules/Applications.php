@@ -99,7 +99,9 @@ final class Applications extends Module
                 return $this->error('Only an administrator can delete applications – reject them instead; the retention deletes them.', 403);
             }
 
-            return $this->back(t('Applications deleted, with their CVs, notes and tasks: %d.', Store::delete($this->app, $ids)));
+            $deleted = Store::delete($this->app, $ids, true, $held);
+
+            return $this->back(t('Applications deleted, with their CVs, notes and tasks: %d.', $deleted) . self::heldText($held), '', [], $held !== [] ? 'chyba' : 'ok');
         }
         $changed = 0;
         foreach ($ids as $id) {
@@ -232,7 +234,21 @@ final class Applications extends Module
             return $this->error('Only an administrator can delete applications – reject them instead; the retention deletes them.', 403);
         }
 
-        return Store::delete($this->app, [$this->request->postInt('id')]) > 0 ? $this->back('The application was deleted, with its CVs, notes and tasks.') : $this->back();
+        if (Store::delete($this->app, [$this->request->postInt('id')], true, $held) > 0) {
+            return $this->back('The application was deleted, with its CVs, notes and tasks.');
+        }
+
+        return $held !== [] ? $this->back(ltrim(self::heldText($held)), 'detail', ['id' => $this->request->postInt('id')], 'chyba') : $this->back();
+    }
+
+    /**
+     * What a delete kept (3.34 second review N7): applications whose CV list cannot be opened and whose files cannot be located.
+     *
+     * @param list<int> $held
+     */
+    private static function heldText(array $held): string
+    {
+        return $held === [] ? '' : ' ' . t('%d application(s) were not deleted: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then delete again.', count($held));
     }
 
     /**

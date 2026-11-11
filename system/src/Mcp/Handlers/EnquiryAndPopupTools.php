@@ -205,7 +205,8 @@ trait EnquiryAndPopupTools
         }
         $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
 
-        return $result + ['note' => $result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : ''];
+        return $result + ['note' => trim(($result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : '')
+            . (($result['erased']['applications_held'] ?? 0) > 0 ? ' ' . $result['erased']['applications_held'] . ' job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located – tell the user to put the vault_key line back into config.php, then erase again.' : ''))];
     }
 
     private function personalDataEmail(array $a): string

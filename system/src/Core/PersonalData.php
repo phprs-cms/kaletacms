@@ -162,7 +162,8 @@ final class PersonalData
     {
         $db = $app->db();
         $found = self::find($db, $email, $app);
-        Applications::delete($app, array_map('intval', array_column($found['applications'], 'id'))); // 3.34: with their sealed CVs, notes and tasks
+        // 3.34: with their sealed CVs, notes and tasks; second review N7: one whose files cannot be located stays and is reported
+        Applications::delete($app, array_map('intval', array_column($found['applications'], 'id')), true, $heldApplications);
         foreach ($found['contacts'] as $contact) {
             Contacts::delete($app, (int) $contact['id']); // 3.28: with its log, comments and tasks – before the records it links go
         }
@@ -186,6 +187,10 @@ final class PersonalData
         }
         AgentJournal::forget($db, $email);
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
+        if ($heldApplications !== []) {
+            $erased['applications'] = max(0, ($erased['applications'] ?? 0) - count($heldApplications));
+            $erased['applications_held'] = count($heldApplications); // N7: additive – not erased, their files cannot be located
+        }
         $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
         \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);

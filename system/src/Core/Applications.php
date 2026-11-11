@@ -955,12 +955,18 @@ final class Applications
 
     /**
      * Deletes applications for good: the files first, then the rows, then the comments, tasks and notifications about
-     * them. Returns how many rows went. $log = false for the retention clean-up, which writes its own line.
+     * them. Returns how many rows went. $log = false for the retention clean-up, which writes its own line. 3.34 second
+     * review N7: the files are found from attachment_paths (and the list when it opens) – sealed copies, CVs still in
+     * storage/prilohy and the copy an interrupted sealing may have left – so a list the encryption key cannot open loses no
+     * plain CV and leaves no file behind; an application whose list cannot be opened and that has no attachment_paths is
+     * not deleted (its files cannot be located) and its id goes to $kept.
      *
      * @param list<int> $ids
+     * @param list<int>|null $kept
      */
-    public static function delete(App $app, array $ids, bool $log = true): int
+    public static function delete(App $app, array $ids, bool $log = true, ?array &$kept = null): int
     {
+        $kept = [];
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0)));
         if ($ids === []) {
             return 0;
@@ -968,24 +974,57 @@ final class Applications
         $db = $app->db();
         $s = $app->settings();
         $deleted = 0;
+        $gone = [];
         foreach (array_chunk($ids, 200) as $chunk) {
-            foreach ($db->all('SELECT id, attachments FROM {applications} WHERE id IN (' . implode(',', $chunk) . ')') as $row) {
-                foreach (self::attachments($s, $row['attachments'] ?? null) as $a) {
-                    $path = self::filePath($a);
-                    if ($path !== null && is_file($path)) {
-                        @unlink($path);
+            $rows = [];
+            foreach ($db->all('SELECT id, attachments, attachment_paths FROM {applications} WHERE id IN (' . implode(',', $chunk) . ')') as $row) {
+                $files = self::rowFiles($s, $row);
+                if ($files === null) {
+                    $kept[] = (int) $row['id'];
+                    continue;
+                }
+                foreach ($files as $file) {
+                    if (is_file($file)) {
+                        @unlink($file);
                     }
                 }
+                $rows[] = (int) $row['id'];
             }
-            $deleted += $db->run('DELETE FROM {applications} WHERE id IN (' . implode(',', $chunk) . ')')->rowCount();
+            if ($rows !== []) {
+                $deleted += $db->run('DELETE FROM {applications} WHERE id IN (' . implode(',', $rows) . ')')->rowCount();
+                $gone = [...$gone, ...$rows];
+            }
         }
-        Comments::forget($db, array_map(self::target(...), $ids)); // with the notifications and tasks about them
-        Tasks::forgetTargets($db, array_map(self::target(...), $ids));
+        if ($gone !== []) {
+            Comments::forget($db, array_map(self::target(...), $gone)); // with the notifications and tasks about them
+            Tasks::forgetTargets($db, array_map(self::target(...), $gone));
+        }
+        if ($kept !== []) {
+            Events::record($db, 'applications.delete_held', 'warning', mb_substr(sprintf('%d application(s) were not deleted: their CV list cannot be opened (encryption key) and their files cannot be located – put the vault_key line back into config.php, then delete again: #%s', count($kept), implode(', #', array_slice($kept, 0, 20))), 0, 255),
+                ['applications' => array_slice($kept, 0, 200)]);
+        }
         if ($log && $deleted > 0) {
-            ChangeLog::write($app, self::SECTION, 'delete', $deleted === 1 ? '#' . $ids[0] : (string) $deleted);
+            ChangeLog::write($app, self::SECTION, 'delete', $deleted === 1 ? '#' . $gone[0] : (string) $deleted);
         }
 
         return $deleted;
+    }
+
+    /**
+     * The files of an application row on disk (N7): what attachment_paths names, and what the list names when it opens;
+     * null when the list cannot be opened and the row has no attachment_paths – its files cannot be located.
+     *
+     * @param array<string, mixed> $row attachments, attachment_paths
+     * @return list<string>|null
+     */
+    private static function rowFiles(Settings $s, array $row): ?array
+    {
+        $locked = self::attachmentsLocked($s, $row['attachments'] ?? null);
+        if ($locked && ($row['attachment_paths'] ?? null) === null) {
+            return null;
+        }
+
+        return array_values(array_unique([...self::pathFiles($row['attachment_paths'] ?? null), ...($locked ? [] : self::pathFiles(self::paths(self::attachments($s, $row['attachments'] ?? null))))]));
     }
 
     /* ---------- files ---------- */

@@ -8124,4 +8124,6 @@ return [
     'Move the hired ones and those kept for future openings too (%d would move)' => 'Auch eingestellte und für künftige Stellen aufbewahrte Bewerbungen verschieben (%d würden verschoben)',
     'Review the move back' => 'Verschieben zurück prüfen',
     'Another move or the encryption of CVs is running right now – try again in a minute.' => 'Gerade läuft eine andere Verschiebung oder die Verschlüsselung der Lebensläufe – versuchen Sie es in einer Minute erneut.',
+    '%d job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then erase again.' => '%d Bewerbung(en) wurden nicht gelöscht: ihre Liste der Lebensläufe lässt sich nicht öffnen (Schlüssel), und ihre Dateien lassen sich nicht finden. Fügen Sie die Zeile mit vault_key wieder in config.php ein und löschen Sie dann erneut.',
+    '%d application(s) were not deleted: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then delete again.' => '%d Bewerbung(en) wurden nicht gelöscht: ihre Liste der Lebensläufe lässt sich nicht öffnen (Schlüssel), und ihre Dateien lassen sich nicht finden. Fügen Sie die Zeile mit vault_key wieder in config.php ein und löschen Sie dann erneut.',
 ];

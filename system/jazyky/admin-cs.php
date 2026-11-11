@@ -7717,4 +7717,6 @@ return [
     'Move the hired ones and those kept for future openings too (%d would move)' => 'Přesunout i přijaté uchazeče a žádosti uchovávané pro budoucí místa (přesunulo by se: %d)',
     'Review the move back' => 'Zkontrolovat přesun zpět',
     'Another move or the encryption of CVs is running right now – try again in a minute.' => 'Právě běží jiný přesun nebo šifrování životopisů – zkuste to za minutu znovu.',
+    '%d job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then erase again.' => 'Žádosti o místo, které se nevymazaly (%d): jejich seznam životopisů nejde otevřít (šifrovací klíč) a jejich soubory nejde najít. Vraťte do config.php řádek s vault_key a vymažte je znovu.',
+    '%d application(s) were not deleted: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then delete again.' => 'Žádosti, které se nesmazaly (%d): jejich seznam životopisů nejde otevřít (šifrovací klíč) a jejich soubory nejde najít. Vraťte do config.php řádek s vault_key a smažte je znovu.',
 ];

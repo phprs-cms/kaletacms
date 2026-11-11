@@ -511,7 +511,8 @@ final class Enquiries extends Module
             }
             $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials'])
-                . (($result['erased']['applications'] ?? 0) > 0 ? ' ' . t('Job applications erased: %d.', $result['erased']['applications']) : ''); // 3.34
+                . (($result['erased']['applications'] ?? 0) > 0 ? ' ' . t('Job applications erased: %d.', $result['erased']['applications']) : '') // 3.34
+                . (($result['erased']['applications_held'] ?? 0) > 0 ? ' ' . t('%d job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then erase again.', $result['erased']['applications_held']) : '');
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
