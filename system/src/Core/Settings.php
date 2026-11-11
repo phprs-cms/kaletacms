@@ -109,6 +109,7 @@ final class Settings
         'data_migrations_unfinished' => '', // 3.34 review M3: data migrations that ran out of time and go on with the next request, by name (Core\Migration)
         'applications_seal_after' => '0', // 3.34 review M1: the id cursor of Core\Applications::sealPending (the moved CVs are sealed in daily batches)
         'applications_move_until' => '', // 3.34 review M3: migration 0120 moves the job enquiries up to this id; '' = not moving (Core\Applications::movingCondition)
+        'applications_move_deferred' => '', // 3.34 second review N5: '1' = an older release's update request wrote the state of migration 0120, the 3.34 code moves
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
         'agency_url' => '',

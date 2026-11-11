@@ -30,14 +30,18 @@
  * stay hidden in Enquiries from people without Applications (Core\Applications::movingCondition), and the migration puts its
  * name into data_migrations_unfinished – Core\Migration runs it again on the next request (a visit or the administration)
  * until nothing is left. The update request of 3.33 marks it done after its first run; the name in
- * data_migrations_unfinished brings it back with the new code all the same.
+ * data_migrations_unfinished brings it back with the new code all the same. 3.34 second review N5: run by the code of an
+ * older release (the update request), it only writes the feature, the retention and what is to move – nothing moves and no
+ * customer record goes until the 3.34 code serves a request, and not while an update checks itself (update_probe); that
+ * first run takes the job enquiries that arrived in between too.
  *
  * Nobody but administrators gets the section Applications (owner decision B-2): the screen tells administrators to choose.
  * Retention is not prolonged: the receipt date and the activity stay, so rows past the period go with the first clean-up
  * after the administrator confirmed the retention.
  *
- * Self-contained on purpose: the update request of 3.33 runs this file with its own classes already loaded, so only Db,
- * Settings and classes unchanged since 3.32 (Core\Deals::forgetEnquiries, Core\Vault::key/seal) are used, each guarded.
+ * Self-contained on purpose: the update request of 3.33 runs this file with its own classes already loaded (it stops after
+ * the state, N5), so only Db, Settings and classes unchanged since 3.32 (Core\Deals::forgetEnquiries, Core\Vault::key/seal)
+ * are used, each guarded.
  * Safe to run again.
  */
 
@@ -113,6 +117,26 @@ return static function (Db $db, Settings $settings): void {
 
         // --- the enquiries this move takes: what is there now (a job enquiry that arrives later is an application already)
         $settings->set('applications_move_until', (string) (int) $db->value('SELECT MAX(idp) FROM {poptavky} WHERE zdroj IN (' . $placeholders . ')', $sources));
+    }
+    // 3.34 second review N5: under the code of an older release (the update request of 3.33 or older runs this file with its
+    // own classes) only the state above is written – the feature, the retention, what is to move. Nothing moves and no
+    // customer record goes inside the update request, so an update that is rolled back strands nothing; the move starts
+    // on the first request the 3.34 code serves (the name in data_migrations_unfinished brings it back)
+    if (defined('KALETA_MIGRATION_AS_OLD_CODE') || !method_exists(\Kaleta\Core\Migration::class, 'onlyUnfinished')) {
+        $settings->set('applications_move_deferred', '1');
+        $finish(true);
+
+        return;
+    }
+    if ($settings->get('applications_move_deferred') === '1') {
+        // the first run of the 3.34 code after an older release's update request: job enquiries that arrived in between move too
+        $settings->set('applications_move_until', (string) max((int) $settings->get('applications_move_until'), (int) $db->value('SELECT MAX(idp) FROM {poptavky} WHERE zdroj IN (' . $placeholders . ')', $sources)));
+        $settings->set('applications_move_deferred', '');
+    }
+    if ((string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe'") !== '') {
+        $finish(true); // an update is checking that the new version runs (and may still roll back) – the move waits for the next request
+
+        return;
     }
     $until = (int) $settings->get('applications_move_until');
 
