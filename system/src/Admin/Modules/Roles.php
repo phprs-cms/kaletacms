@@ -92,6 +92,18 @@ final class Roles extends Module
         if ($data['moduly'] === '') {
             $errors['moduly'] = 'Select at least one section.';
         }
+        // 3.35 re-review N2: a role that gets every section passes it to its members at once (applyToMembers) – the same
+        // power as every section ticked by hand in Users, so the same fresh proof of the acting administrator (Users::elevates)
+        if ($errors === [] && self::grantsEverySection($id > 0 ? (string) $this->db->value('SELECT moduly FROM {role} WHERE idr = ?', [$id]) : null, $data['moduly'], array_keys(self::configurable()))) {
+            $check = $this->app->auth()->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '');
+            if ($check !== 'ok') {
+                $errors['soucasne'] = match ($check) {
+                    'locked' => Auth::CONFIRM_LOCKED,
+                    'passkey' => Auth::PASSKEY_PROOF,
+                    default => self::EVERY_SECTION_NEEDS_PASSWORD,
+                };
+            }
+        }
         if ($errors !== []) {
             return $this->form(['idr' => $id] + $data, $errors);
         }
@@ -105,6 +117,24 @@ final class Roles extends Module
         });
 
         return $this->back('The role has been saved.');
+    }
+
+    /** 3.35 re-review N2: the answer when a role would get every section without the acting administrator's proof. */
+    public const string EVERY_SECTION_NEEDS_PASSWORD = 'Enter your own current password to give this role every section. Nothing was saved.';
+
+    /**
+     * 3.35 re-review N2: does saving give the role every section – a new role ($before null) or one that lacked one? Pure.
+     *
+     * @param list<string> $all every section a role can have
+     */
+    public static function grantsEverySection(?string $before, string $after, array $all): bool
+    {
+        $now = array_filter(explode(',', $after));
+        if (array_diff($all, $now) !== []) {
+            return false;
+        }
+
+        return $before === null || array_diff($all, array_filter(explode(',', $before))) !== [];
     }
 
     protected function actionDelete(): Response
@@ -161,8 +191,11 @@ final class Roles extends Module
      */
     private function form(array $role, array $errors = []): Response
     {
+        $auth = $this->app->auth();
+
         return $this->view('form', (int) $role['idr'] > 0 ? 'Edit role' : 'New role', [
             'role' => $role, 'errors' => $errors, 'section' => self::configurable(),
+            'passkeyOnly' => $auth->isPasskeyOnly(), 'fresh' => $auth->isFreshlyVerified(), // 3.35 re-review N2: the proof for every section
             'selected' => array_filter(explode(',', (string) $role['moduly'])),
             'members' => (int) $role['idr'] > 0 ? $this->db->all('SELECT idu, user, jmeno FROM {uzivatele} WHERE role = ? ORDER BY ' . $this->db->sortText('jmeno') . ', user', [(int) $role['idr']]) : [],
         ]);

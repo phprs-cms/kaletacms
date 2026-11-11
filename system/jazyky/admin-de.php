@@ -8236,4 +8236,6 @@ return [
     'Needed only to change the two-factor rule or to turn “passkeys only” off.' => 'Nur nötig, um die Regel der Zwei-Faktor-Anmeldung zu ändern oder „nur mit Passkey“ auszuschalten.',
     'Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.' => 'Nur nötig, um die E-Mail dieses Benutzers zu ändern, ein neues Passwort für ihn festzulegen, seine Zwei-Faktor-Anmeldung auszuschalten oder ihn zum Administrator zu machen.',
     'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Geben Sie Ihr eigenes aktuelles Passwort ein, um diesen Benutzer zum Administrator zu machen oder ihm alle Bereiche zu geben. Es wurde nichts gespeichert.',
+    'Enter your own current password to give this role every section. Nothing was saved.' => 'Geben Sie Ihr eigenes aktuelles Passwort ein, um dieser Rolle alle Bereiche zu geben. Es wurde nichts gespeichert.',
+    'Needed only to give the role every section.' => 'Nur nötig, um der Rolle alle Bereiche zu geben.',
 ];

@@ -1365,4 +1365,6 @@ return [
     'Passkey sign-in rules are switched off: %s is in config.php, so passwords sign in without passkeys – administrators too. Register a passkey again in My account and then remove the line from config.php.' => 'Die Regeln der Passkey-Anmeldung sind ausgeschaltet: %s steht in config.php, daher melden Passwörter ohne Passkeys an – auch Administratoren. Registriere unter Mein Konto erneut einen Passkey und entferne dann die Zeile aus config.php.',
     'switched off by %s in config.php – passwords sign in without passkeys, administrators too. Remove the line once you can sign in again.' => 'ausgeschaltet durch %s in config.php – Passwörter melden ohne Passkeys an, auch Administratoren. Entferne die Zeile, sobald du dich wieder anmelden kannst.',
     'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Gib dein eigenes aktuelles Passwort ein, um diesen Benutzer zum Administrator zu machen oder ihm alle Bereiche zu geben. Es wurde nichts gespeichert.',
+    'Enter your own current password to give this role every section. Nothing was saved.' => 'Gib dein eigenes aktuelles Passwort ein, um dieser Rolle alle Bereiche zu geben. Es wurde nichts gespeichert.',
+    'Needed only to give the role every section.' => 'Nur nötig, um der Rolle alle Bereiche zu geben.',
 ];

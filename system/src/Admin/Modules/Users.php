@@ -145,7 +145,8 @@ final class Users extends Module
         // one stolen session away. 3.35 review M2: Auth::freshProof – an administrator who signs in with a passkey only
         // confirms with the passkey ("Confirm with your passkey"), never with the password.
         $elevates = !$isSelf && self::elevates($id === 0 ? null : (int) $this->db->value('SELECT admin FROM {uzivatele} WHERE idu = ?', [$id]), (int) $data['admin'],
-            $data['role'] === null && $r->postBool('rucne') ? $r->postList('moduly') : null,
+            // 3.35 re-review N2: the sections a custom role gives count like those ticked by hand
+            match (true) { $custom !== null && $data['role'] !== null => array_values(array_filter(explode(',', (string) $custom['moduly']))), $r->postBool('rucne') => $r->postList('moduly'), default => null },
             $id > 0 ? array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu') : [],
             array_keys(Roles::configurable())); // every section a user can be given (the Appearance area too)
         if ($errors === [] && (($id > 0 && ($password !== '' || $totpReset || $emailChanged)) || $elevates)) {
@@ -228,8 +229,9 @@ final class Users extends Module
 
     /**
      * 3.35 review L7: does saving the form give an account an administrator's power – the administrator level for a new
-     * account ($before null) or one that was not an administrator, or every section ticked by hand ($manual, null = the
-     * sections follow the role) for an account that did not have them all? Pure.
+     * account ($before null) or one that was not an administrator, or every section ticked by hand or given by a custom role
+     * ($manual, null = the defaults of the level; 3.35 re-review N2: the role's sections) for an account that did not have
+     * them all? Pure.
      *
      * @param list<string>|null $manual
      * @param array<mixed> $had the sections the account had

@@ -7829,4 +7829,6 @@ return [
     'Needed only to change the two-factor rule or to turn “passkeys only” off.' => 'Potřeba jen pro změnu pravidla dvoufázového přihlášení nebo pro vypnutí „jen klíčem“.',
     'Needed only to change this user\'s e-mail, set a new password for them, turn off their two-factor sign-in or make them an administrator.' => 'Potřeba jen pro změnu e-mailu tohoto uživatele, nastavení nového hesla, vypnutí jeho dvoufázového přihlášení nebo když z něj děláte správce.',
     'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Zadejte své současné heslo, abyste z tohoto uživatele udělali správce nebo mu dali všechny sekce. Nic se neuložilo.',
+    'Enter your own current password to give this role every section. Nothing was saved.' => 'Zadejte své současné heslo, abyste této roli dali všechny sekce. Nic se neuložilo.',
+    'Needed only to give the role every section.' => 'Potřeba jen k tomu, abyste roli dali všechny sekce.',
 ];
