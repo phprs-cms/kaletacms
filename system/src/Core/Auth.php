@@ -62,8 +62,27 @@ final class Auth
     /** @var list<string>|null */
     private ?array $modules = null;
 
-    public function __construct(private readonly Db $db, private readonly Session $session)
+    /**
+     * The answer to every failed sign-in without a password (3.35): an unknown passkey, a wrong signature, a device that did
+     * not verify the user, a locked or a blocked account – the passkey endpoints never tell which, so they reveal nothing
+     * about the accounts.
+     */
+    public const string PASSKEY_FAILED = 'Signing in with the passkey did not succeed, or the account is temporarily locked after a series of failed attempts. Try again in a moment, or sign in with your user name and password.';
+
+    /** How long a challenge for the sign-in without a password is valid (seconds); it is used once. */
+    private const int PASSKEY_CHALLENGE_LIFETIME = 300;
+
+    /** The user name of the account the last sign-in with a passkey was for ('' = unknown passkey) – the change log names it. */
+    private string $passkeyAccount = '';
+
+    public function __construct(private readonly Db $db, private readonly Session $session, private readonly ?Settings $settings = null)
     {
+    }
+
+    /** The site settings ("passkey only", 3.35); an Auth made without them (tests) reads them from the database. */
+    private function siteSettings(): Settings
+    {
+        return $this->settings ?? new Settings($this->db);
     }
 
     /**
@@ -119,10 +138,13 @@ final class Auth
         // the failure counter is reset only by a completed sign-in (recordSignIn): with two-factor sign-in a correct password
         // must not wipe the wrong codes counted so far, or the per-account lock would never be reached (3.3.2, N7)
 
+        // 3.35: an account with two-factor sign-in or with a passkey always needs a second step after the password (the
+        // code from the app, the passkey or a backup code – Core\SignInPolicy); a password alone never signs it in
+        $secondStep = SignInPolicy::needsSecondStep($user, $this->accountKeys((int) $user['idu']));
         // the form token changes where the sign-in completes (N75): here without a second step, otherwise after the code or passkey
-        $this->session->regenerate(newFormToken: $user['totp_tajemstvi'] === '');
-        if ($user['totp_tajemstvi'] !== '') {
-            // the password matches, but the account has two-factor sign-in: only the code from the app completes the sign-in
+        $this->session->regenerate(newFormToken: !$secondStep);
+        if ($secondStep) {
+            // the password matches, but only the second step completes the sign-in
             $this->session->set('idu_ceka', ['idu' => (int) $user['idu'], 'cas' => time()]);
 
             return null;
@@ -229,24 +251,36 @@ final class Auth
     }
 
     /**
-     * 3.35: the session key of the last strong proof of who is signed in – a Unix time. Every completed sign-in sets it
-     * (password, password and code, password and passkey – startSignIn – and the passkey-first sign-in of 3.35 sets the
-     * same key), and so does confirmPassword() when the password is right. recentlyVerified() reads it for a step that
-     * needs a fresh proof: approving a new Claude connection with full access (Admin\Kernel::handleOAuthConsent). An
-     * account that signs in without a password proves itself again by signing in.
+     * 3.35: fresh proofs of who is signed in – ONE concept with one window (VERIFIED_WINDOW) and two strengths, each a
+     * Unix time in the session:
+     * - VERIFIED_KEY: any proof – every completed sign-in (password, password and code, password and backup code, password
+     *   and passkey, passkey alone – startSignIn), a right current password (confirmPassword) and a passkey confirmation
+     *   (Admin\Kernel, the OAuth consent of an account without a password). recentlyVerified() reads it: approving a new
+     *   Claude connection with full access (Admin\Kernel::handleOAuthConsent).
+     * - STRONG_KEY: only a step that a stolen password and authenticator code cannot make – a passkey (the second step,
+     *   the passkey-first sign-in, a passkey confirmation) or a backup code. A step with the code from the app does NOT
+     *   count, nor does the password sign-in alone. isFreshlyVerified() reads it: adding or removing a passkey and changing
+     *   how the account signs in need it, otherwise the current password typed in that form (Admin\Account::freshnessRefused).
+     * markVerified(true) sets both; a new sign-in drops the strong proof of the one before.
      */
     public const string VERIFIED_KEY = 'verified_at';
 
-    /** 3.35: how long a sign-in or a confirmed password counts as a fresh proof (recentlyVerified), in seconds. */
+    /** 3.35: the session key of the last strong proof (a passkey or a backup code) – see VERIFIED_KEY. */
+    public const string STRONG_KEY = 'strong_at';
+
+    /** 3.35: how long a proof counts as fresh – both recentlyVerified and isFreshlyVerified – in seconds. */
     public const int VERIFIED_WINDOW = 10 * 60;
 
-    /** 3.35: records that the signed-in person has just proved who they are (VERIFIED_KEY). */
-    public function markVerified(): void
+    /** 3.35: records that the signed-in person has just proved who they are; $strong = with a passkey or a backup code. */
+    public function markVerified(bool $strong = false): void
     {
         $this->session->set(self::VERIFIED_KEY, time());
+        if ($strong) {
+            $this->session->set(self::STRONG_KEY, time());
+        }
     }
 
-    /** 3.35: has the signed-in person proved who they are within VERIFIED_WINDOW (a sign-in or a right current password)? */
+    /** 3.35: has the signed-in person proved who they are within VERIFIED_WINDOW (any proof – see VERIFIED_KEY)? */
     public function recentlyVerified(): bool
     {
         $at = $this->session->get(self::VERIFIED_KEY);
@@ -270,7 +304,8 @@ final class Auth
         $this->session->set('otisk', self::passwordHash($passwordHash));
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
-        $this->markVerified(); // 3.35: a completed sign-in is a fresh proof (recentlyVerified)
+        $this->session->remove(self::STRONG_KEY); // a strong proof belongs to the sign-in that made it (markVerified(true) after this)
+        $this->markVerified(); // 3.35: every completed sign-in – password, + code, + backup code, + passkey, passkey alone – is a fresh proof (recentlyVerified)
         $this->user = false;
     }
 
@@ -305,7 +340,25 @@ final class Auth
         return is_array($pending) && time() - (int) $pending['cas'] < 300;
     }
 
-    /** Second step of the sign-in: a code from the app, or a one-time backup code. @return string|null error text */
+    /**
+     * The second steps the account waiting after its password may complete the sign-in with (3.35, SignInPolicy): the code
+     * from the app (not for "passkey only"), a backup code, the passkey. All false when nothing waits.
+     *
+     * @return array{code: bool, backup: bool, passkey: bool}
+     */
+    public function awaitingSteps(): array
+    {
+        $user = $this->isAwaitingCode() ? $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [(int) $this->session->get('idu_ceka')['idu']]) : null;
+
+        return $user === null ? ['code' => false, 'backup' => false, 'passkey' => false]
+            : SignInPolicy::secondSteps($user, $this->accountKeys((int) $user['idu']), $this->siteSettings());
+    }
+
+    /**
+     * Second step of the sign-in: a code from the app, or a one-time backup code. 3.35: the code from the app only where
+     * two-factor sign-in is on and the account is not "passkey only" (an empty secret is never checked – its codes are
+     * public); a backup code also for an account with a passkey and no app. @return string|null error text
+     */
     public function verifyCode(string $code, string $ip): ?string
     {
         if (!$this->isAwaitingCode()) {
@@ -322,7 +375,8 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
-        $step = $user === null ? null : Totp::step($user['totp_tajemstvi'], $code);
+        $appCode = $user !== null && SignInPolicy::secondSteps($user, $this->accountKeys((int) $user['idu']), $this->siteSettings())['code'];
+        $step = $appCode && (string) $user['totp_tajemstvi'] !== '' ? Totp::step($user['totp_tajemstvi'], $code) : null;
         if ($step !== null && $user !== null && !$this->claimCodeStep((int) $user['idu'], $step)) {
             $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
         }
@@ -336,12 +390,16 @@ final class Auth
             return t('The code is not correct.');
         }
         $this->recordSignIn((int) $user['idu']);
-        if ($backupCodes !== null) {
+        $usedBackupCode = $step === null && $backupCodes !== null;
+        if ($usedBackupCode) {
             $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
         }
         $this->session->remove('idu_ceka');
         $this->session->regenerate(newFormToken: true);
         $this->startSignIn((int) $user['idu'], (string) $user['password']);
+        if ($usedBackupCode) {
+            $this->markVerified(true); // 3.35: a backup code is the recovery step – a new passkey may be registered right after it
+        }
 
         return null;
     }
@@ -439,8 +497,104 @@ final class Auth
         $this->session->remove('idu_ceka');
         $this->session->regenerate(newFormToken: true);
         $this->startSignIn((int) $user['idu'], (string) $user['password']);
+        $this->markVerified(true); // 3.35: a passkey step is a strong proof
 
         return null;
+    }
+
+    /**
+     * Sign-in without a password (3.35), part 1: a challenge for any discoverable passkey of the site. The same answer for
+     * everyone – nothing about accounts. The challenge lives in this session for PASSKEY_CHALLENGE_LIFETIME and is used once.
+     *
+     * @return array<string, mixed> options for navigator.credentials.get()
+     */
+    public function passkeyChallenge(string $siteUrl): array
+    {
+        $challenge = Passkey::challenge();
+        $this->session->set('passkey_signin', ['challenge' => $challenge, 'at' => time()]);
+
+        return Passkey::signInOptions($challenge, Passkey::rpId($siteUrl), [], true);
+    }
+
+    /**
+     * Sign-in without a password (3.35), part 2: the server finds the account from the passkey (its id, and the opaque user
+     * handle the device returns must be the account's), the device must have verified the user (UV), the counter is
+     * checked as at the second step. The limits are those of the password: at most 10 failures per address in 15 minutes,
+     * ten failures in a row lock the account for 15 minutes, a locked or blocked account never signs in – and every
+     * failure gets the same answer (PASSKEY_FAILED). A passkey registered as the second step before 3.35 is not
+     * discoverable: after a valid signature its owner hears that it has to be registered again.
+     *
+     * @param array<string, mixed> $response id, clientDataJSON, authenticatorData, signature, userHandle – base64url
+     * @return string|null error text, null = signed in
+     */
+    public function signInWithPasskey(array $response, string $siteUrl, string $address): ?string
+    {
+        $this->passkeyAccount = '';
+        $pending = $this->session->get('passkey_signin');
+        $this->session->remove('passkey_signin'); // the challenge is valid for one attempt
+        $attempts = (int) $this->db->value("SELECT COUNT(*) FROM {kontrola_ip} WHERE typ = 'login' AND ip_adresa = ? AND cas > ?", [Antispam::hash($address), Clock::at('-15 minutes')]);
+        if ($attempts >= 10) {
+            return t('Too many sign-in attempts. Try again in 15 minutes.');
+        }
+        $challenge = is_array($pending) && time() - (int) ($pending['at'] ?? 0) < self::PASSKEY_CHALLENGE_LIFETIME ? (string) ($pending['challenge'] ?? '') : '';
+        $key = $this->db->one('SELECT * FROM {uzivatele_klice} WHERE otisk_id = ?', [hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
+        $user = $key === null ? null : $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$key['idu']]);
+        $closed = $user !== null && (!empty($user['blokovat']) || self::isLocked($user));
+        $this->passkeyAccount = $user !== null ? (string) $user['user'] : '';
+        $counter = null;
+        $oldKey = false;
+        try {
+            if ($key === null || $user === null || $closed || $challenge === '') {
+                throw new \RuntimeException('refused');
+            }
+            $counter = Passkey::verifySignIn($response, $challenge, Passkey::origin($siteUrl), Passkey::rpId($siteUrl), (string) $key['verejny'], (int) $key['pocitadlo'], true);
+            if (empty($key['discoverable'])) {
+                $oldKey = true;
+                throw new \RuntimeException('second step only');
+            }
+            $handle = (string) ($response['userHandle'] ?? '');
+            if ((string) $user['passkey_handle'] === '' || $handle === '' || !hash_equals(Passkey::fromB64((string) $user['passkey_handle']), Passkey::fromB64($handle))) {
+                throw new \RuntimeException('user handle');
+            }
+        } catch (\RuntimeException) {
+            if ($oldKey && $user !== null) {
+                // the owner's own device signed: not a guess – nothing is counted, the counter moves on
+                $this->db->update('uzivatele_klice', ['pocitadlo' => (int) $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+
+                return t('This passkey was set up as the second step only. Sign in with your user name and password, then register the passkey again in My account to sign in without a password.');
+            }
+            $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
+            if ($user !== null && !$closed && $challenge !== '') {
+                $this->countError($user); // a passkey of the account that did not verify counts like a wrong password
+            }
+
+            return t(self::PASSKEY_FAILED);
+        }
+        $this->db->update('uzivatele_klice', ['pocitadlo' => $counter, 'pouzito' => date('Y-m-d H:i:s')], ['idk' => $key['idk']]);
+        $this->recordSignIn((int) $user['idu']);
+        $this->session->remove('idu_ceka');
+        $this->session->regenerate(newFormToken: true);
+        $this->startSignIn((int) $user['idu'], (string) $user['password']);
+        $this->markVerified(true); // 3.35: a passkey step is a strong proof
+
+        return null;
+    }
+
+    /** The user name of the account the last sign-in with a passkey was for – '' when the passkey is unknown. */
+    public function passkeyAccount(): string
+    {
+        return $this->passkeyAccount;
+    }
+
+    /**
+     * Whether this sign-in proved itself with a passkey or a backup code within VERIFIED_WINDOW (the strong proof – see
+     * VERIFIED_KEY) – then adding or removing a passkey needs no password (3.35).
+     */
+    public function isFreshlyVerified(): bool
+    {
+        $at = $this->session->get(self::STRONG_KEY);
+
+        return $this->user() !== null && self::verifiedWithin(is_int($at) ? $at : null, time());
     }
 
     /**
@@ -491,6 +645,7 @@ final class Auth
                     foreach (['idu', 'otisk', 'login_at', 'last_seen', self::VERIFIED_KEY] as $key) {
                         $this->session->remove($key);
                     }
+                    $this->session->remove(self::STRONG_KEY);
                     $this->user = null;
 
                     return null;
@@ -561,7 +716,9 @@ final class Auth
         $required = $siteSettings->get('require_2fa');
         $user = $this->user();
 
-        return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === '';
+        // 3.35: a passkey counts – an account with one always needs a second step after the password (SignInPolicy)
+        return $user !== null && ($required === 'vsichni' || ($required === 'spravci' && $this->isAdmin())) && (string) ($user['totp_tajemstvi'] ?? '') === ''
+            && $this->accountKeys((int) $user['idu']) === [];
     }
 
     public function canPublish(): bool

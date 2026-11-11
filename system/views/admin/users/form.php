@@ -131,10 +131,10 @@ $role = [
 		<span class="napoveda"><?= e(t('An author usually has only News, an editor all content sections, an administrator everything. With a custom role, the role\'s sections apply.')) ?> <?= e(t('Appearance is never given by default – tick it for someone who keeps the menu, the header and footer, the pop-ups and the components up to date.')) ?></span>
 	</div>
 </div>
-<?php if (!empty($author['totp_tajemstvi']) && !$isSelf): ?>
+<?php if ((!empty($author['totp_tajemstvi']) || !empty($passkeys)) && !$isSelf): ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Two-factor sign-in')) ?></span>
-	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t('turn off (the user lost both their phone and backup codes)')) ?></label></div>
+	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?= !empty($passkeys) ? ' <span class="stitek">' . e(t('passkeys: %d', (int) $passkeys)) . '</span>' : '' ?> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t(!empty($passkeys) ? 'reset the second factor and the passkeys (the user lost their devices and backup codes)' : 'turn off (the user lost both their phone and backup codes)')) ?></label></div>
 </div>
 <?php endif ?>
 <?php if (!$isSelf): ?>

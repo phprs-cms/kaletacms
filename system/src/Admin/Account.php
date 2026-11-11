@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Admin;
 
 use Kaleta\Core\Passkey;
+use Kaleta\Core\SignInPolicy;
 use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 use Kaleta\Core\Totp;
@@ -172,18 +173,49 @@ final class Account
                 case 'klic_uloz':
                     return $this->key($r->post('co') === 'klic_uloz', $user);
                 case 'klic_smaz':
+                    // 3.35: removing a passkey needs a fresh confirmation, like adding one – the password, or a passkey or
+                    // backup-code step a few minutes ago – so a stolen session cannot strip the owner's passkeys
+                    if (($message = $this->freshnessRefused('Enter your current password to remove a passkey. Nothing was removed.')) !== null) {
+                        break;
+                    }
+                    $name = (string) $db->value('SELECT nazev FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
-                    ChangeLog::write($app, 'ucet', 'passkey_remove');
+                    ChangeLog::write($app, 'ucet', 'passkey_remove', $name);
                     $message = ['ok', 'The passkey has been removed.'];
+                    break;
+                case 'klic_prejmenuj':
+                    // 3.35: a name is only a label for the owner – renaming needs no password
+                    $name = mb_substr(trim($r->post('nazev')), 0, 80);
+                    if ($name !== '') {
+                        $db->run('UPDATE {uzivatele_klice} SET nazev = ? WHERE idk = ? AND idu = ?', [$name, $r->postInt('idk'), $user['idu']]);
+                    }
+                    $message = ['ok', 'The passkey has been renamed.'];
+                    break;
+                case 'passkey_only':
+                    // 3.35: the account's own "passkey only" – both ways need a fresh confirmation; it applies once the account
+                    // has a working passkey (Core\SignInPolicy), so it can be ticked only then
+                    $on = $r->postBool('passkey_only');
+                    if (($message = $this->freshnessRefused('Enter your current password to change how you sign in. Nothing was changed.')) !== null) {
+                        break;
+                    }
+                    if ($on && !SignInPolicy::hasWorkingPasskey($app->auth()->accountKeys((int) $user['idu']))) {
+                        $message = ['chyba', 'Register a passkey that signs in without a password first.'];
+                        break;
+                    }
+                    $db->update('uzivatele', ['passkey_only' => $on ? 1 : 0], ['idu' => $user['idu']]);
+                    ChangeLog::write($app, 'ucet', $on ? 'passkey_only_on' : 'passkey_only_off');
+                    $message = ['ok', $on ? 'Done – you sign in with your passkey only. A backup code after the password stays your way back if you lose it.' : 'Done – you can sign in with your password and the second step again.'];
                     break;
                 case 'totp_vypni':
                     if (($message = $this->passwordRefused('Enter the correct password to turn it off.')) !== null) {
                         break;
                     }
-                    $db->update('uzivatele', ['totp_tajemstvi' => '', 'totp_zalozni' => null], ['idu' => $user['idu']]);
-                    $db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$user['idu']]); // keys replace the code from the app - without it they make no sense
+                    // 3.35: passkeys no longer depend on the app – they stay, and with them the backup codes (the way back
+                    // when a passkey is lost); an account without passkeys loses the codes with the app, as before
+                    $keepsCodes = $app->auth()->accountKeys((int) $user['idu']) !== [];
+                    $db->update('uzivatele', ['totp_tajemstvi' => ''] + ($keepsCodes ? [] : ['totp_zalozni' => null]), ['idu' => $user['idu']]);
                     ChangeLog::write($app, 'ucet', 'two_factor_off');
-                    $message = ['ok', 'Two-factor sign-in is turned off.'];
+                    $message = ['ok', $keepsCodes ? 'Two-factor sign-in with the app is turned off. Your passkeys and backup codes stay.' : 'Two-factor sign-in is turned off.'];
                     break;
             }
             if ($message !== null) {
@@ -197,7 +229,27 @@ final class Account
             return $this->signature();
         }
 
+        // 3.35: backup codes created with the first passkey are shown once, on the page the registration returns to
+        $shown = $app->session->get('backup_codes_show');
+        $app->session->remove('backup_codes_show');
+        if (is_array($shown) && $shown !== []) {
+            $data['backupCodes'] = array_values(array_map('strval', $shown));
+            $data['codesFromPasskey'] = true;
+        }
+
         return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+    }
+
+    /**
+     * A fresh confirmation for changes of passkeys and of how the account signs in (3.35): a passkey or backup-code step in
+     * the last few minutes (Auth::isFreshlyVerified), otherwise the current password (passwordRefused – the sign-in's
+     * counter and lock). null = confirmed.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function freshnessRefused(string $wrong): ?array
+    {
+        return $this->kernel->app->auth()->isFreshlyVerified() ? null : $this->passwordRefused($wrong);
     }
 
     /**
@@ -247,52 +299,85 @@ final class Account
 
     /**
      * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/klice.js.
-     * A key can be added only to an account with two-factor sign-in enabled: it is a more convenient replacement of the
-     * code from the app, the code and the backup codes remain as a fallback in case the device is lost.
-     * The challenge is issued only to whoever types the current password (3.3.3, N56): a stolen session alone must not add
-     * the attacker's own key. Saving needs that challenge, so it needs the password too.
+     * 3.35: any account may add one (two-factor sign-in is no longer a precondition). Every new passkey is discoverable and
+     * verifies the user, so it signs in without a password and is the second step after the password; its user handle
+     * is the account's opaque passkey_handle. The first passkey of an account without backup codes brings eight of them
+     * (shown once) – the way back when the device is lost.
+     * The challenge is issued only after a fresh confirmation (3.3.3, N56; 3.35): the current password, or a passkey or
+     * backup-code step a few minutes ago – a stolen session alone must not add the attacker's own key. Saving needs that
+     * challenge, so it needs the confirmation too. "Register again" ($_POST nahradit) replaces a passkey of the account
+     * registered as the second step before 3.35 by the new one.
      *
      * @param array<string, mixed> $user
      */
     private function key(bool $save, array $user): Response
     {
         $app = $this->kernel->app;
-        if ((string) $user['totp_tajemstvi'] === '') {
-            return Response::json(['chyba' => t('Turn on two-factor sign-in first.')], 400);
-        }
+        $db = $app->db();
         $url = $app->settings()->get('site_url') ?: $app->request->origin();
         if (!$save) {
-            if (($refused = $this->passwordRefused('Enter your current password to add a passkey.')) !== null) {
+            if (($refused = $this->freshnessRefused('Enter your current password to add a passkey.')) !== null) {
                 return Response::json(['chyba' => t($refused[1])], 403);
             }
+            $handle = (string) $user['passkey_handle'];
+            if ($handle === '') {
+                $handle = Passkey::newUserHandle();
+                $db->update('uzivatele', ['passkey_handle' => $handle], ['idu' => $user['idu']]);
+            }
             $challenge = Passkey::challenge();
-            $app->session->set('klic_registrace', $challenge);
+            $app->session->set('klic_registrace', ['challenge' => $challenge, 'at' => time()]);
+            // only passkeys that already sign in without a password are excluded: the device that holds an older second-step
+            // passkey of the account may register again
+            $existing = array_values(array_filter($app->auth()->accountKeys((int) $user['idu']), static fn (array $k): bool => !empty($k['discoverable'])));
 
             return Response::json(Passkey::registrationOptions(
-                $challenge, Passkey::rpId($url), $app->settings()->get('site_name'),
-                Passkey::b64(substr(hash('sha256', 'kaleta-klic|' . $url . '|' . $user['idu'], true), 0, 16)),
+                $challenge, Passkey::rpId($url), $app->settings()->get('site_name'), $handle,
                 (string) $user['user'], (string) $user['jmeno'],
-                array_map(static fn (array $k): string => (string) $k['id_klice'], $app->auth()->accountKeys((int) $user['idu'])),
-            ));
+                array_map(static fn (array $k): string => (string) $k['id_klice'], $existing),
+            ) + ['extensions' => ['credProps' => true]]);
         }
-        $challenge = (string) $app->session->get('klic_registrace', '');
+        $pending = $app->session->get('klic_registrace');
         $app->session->remove('klic_registrace');
+        // a challenge of the old form (a string, a page opened before 3.35) or one older than 5 minutes is not valid
+        $challenge = is_array($pending) && time() - (int) ($pending['at'] ?? 0) < 300 ? (string) ($pending['challenge'] ?? '') : '';
+        $response = (array) json_decode((string) ($_POST['odpoved'] ?? ''), true);
         try {
-            $new = Passkey::verifyRegistration((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $challenge, Passkey::origin($url), Passkey::rpId($url));
+            $new = Passkey::verifyRegistration($response, $challenge, Passkey::origin($url), Passkey::rpId($url), true);
         } catch (\RuntimeException $e) {
             return Response::json(['chyba' => t($e->getMessage())], 400);
         }
+        if (($response['rk'] ?? '') === '0') {
+            // the browser said the device did not keep the passkey (credProps): it could not sign in without a password
+            return Response::json(['chyba' => t('This device cannot keep a passkey that signs in without a password. Try another device or a password manager with passkeys.')], 400);
+        }
         $hash = hash('sha256', Passkey::fromB64($new['id']));
-        if ($app->db()->value('SELECT idk FROM {uzivatele_klice} WHERE otisk_id = ?', [$hash]) !== null) {
+        if ($db->value('SELECT idk FROM {uzivatele_klice} WHERE otisk_id = ?', [$hash]) !== null) {
             return Response::json(['chyba' => t('This key is already registered.')], 400);
         }
         $name = mb_substr(trim($app->request->post('nazev')), 0, 80);
-        $app->db()->insert('uzivatele_klice', [
-            'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Passkey'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
-            'verejny' => $new['klic'], 'alg' => $new['alg'], 'pocitadlo' => $new['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'),
-        ]);
-        ChangeLog::write($app, 'ucet', 'passkey_add', $name);
-        $app->session->flash('ok', 'The passkey has been added. Next time you sign in you can use it instead of the code from the app.');
+        $replaced = $app->request->postInt('nahradit') > 0
+            ? $db->one('SELECT idk, nazev FROM {uzivatele_klice} WHERE idk = ? AND idu = ? AND discoverable = 0', [$app->request->postInt('nahradit'), $user['idu']]) : null;
+        if ($name === '' && $replaced !== null) {
+            $name = (string) $replaced['nazev'];
+        }
+        $firstCodes = SignInPolicy::backupCodesLeft($user) === 0 ? Totp::backupCodes() : null;
+        $db->transaction(function () use ($db, $user, $name, $hash, $new, $replaced, $firstCodes): void {
+            $db->insert('uzivatele_klice', [
+                'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Passkey'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
+                'verejny' => $new['klic'], 'alg' => $new['alg'], 'pocitadlo' => $new['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'), 'discoverable' => 1,
+            ]);
+            if ($replaced !== null) {
+                $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ?', [$replaced['idk']]);
+            }
+            if ($firstCodes !== null) {
+                $db->update('uzivatele', ['totp_zalozni' => $firstCodes[1]], ['idu' => $user['idu']]);
+            }
+        });
+        ChangeLog::write($app, 'ucet', 'passkey_add', $name . ($replaced !== null ? ' (' . t('registered again') . ')' : ''));
+        if ($firstCodes !== null) {
+            $app->session->set('backup_codes_show', $firstCodes[0]);
+        }
+        $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone – without your user name and password – and it is the second step after your password.');
 
         return Response::json(['ok' => true]);
     }
@@ -324,14 +409,21 @@ final class Account
     private function page(array $data): Response
     {
         $app = $this->kernel->app;
-        $user = $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
+        $user = (array) $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
+        $keys = $app->auth()->accountKeys((int) $user['idu']);
 
         return $this->kernel->page('My account', $app->view->render('admin/account', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
             'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('site_name')) : '',
             'codesLeft' => count((array) json_decode((string) $user['totp_zalozni'], true)),
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
-            'keys' => $app->auth()->accountKeys((int) $user['idu']),
+            'keys' => $keys,
+            // 3.35: passkeys and how the account signs in (Core\SignInPolicy)
+            'fresh' => $app->auth()->isFreshlyVerified(),
+            'passkeyOnly' => SignInPolicy::passkeyOnly($user, $keys, $app->settings()),
+            'sitePasskeyOnly' => $app->settings()->get('signin_passkey_only') === '1' && !SignInPolicy::escapeHatch(),
+            'workingPasskey' => SignInPolicy::hasWorkingPasskey($keys),
+            'passkeyHost' => SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $app->settings()->get('site_url') ?: $app->request->origin()),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
             // the tool set of an application is the one of its newest token (3.10; a new consent may have chosen another)

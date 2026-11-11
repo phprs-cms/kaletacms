@@ -132,9 +132,12 @@ final class ClaudeConnection
      */
     public static function canCall(Settings $settings): string
     {
+        // 3.35: a passkey counts as the second factor, as in Auth::isMissingRequired2fa
+        $second = "(u.totp_tajemstvi <> '' OR EXISTS (SELECT 1 FROM {uzivatele_klice} k2 WHERE k2.idu = u.idu))";
+
         return 'u.blokovat = 0' . match ($settings->get('require_2fa')) {
-            'vsichni' => " AND u.totp_tajemstvi <> ''",
-            'spravci' => ' AND (u.admin <> ' . Auth::ADMIN . " OR u.totp_tajemstvi <> '')",
+            'vsichni' => ' AND ' . $second,
+            'spravci' => ' AND (u.admin <> ' . Auth::ADMIN . ' OR ' . $second . ')',
             default => '',
         };
     }

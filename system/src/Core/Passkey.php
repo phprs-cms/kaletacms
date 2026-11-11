@@ -18,6 +18,8 @@ namespace Kaleta\Core;
  *  - the challenge - the response belongs to THIS attempt (against replaying an old response),
  *  - the origin and the domain hash (rpIdHash) - the response was created on our site, not on a forged page,
  *  - the user presence flag (UP) - someone really touched the device,
+ *  - the user verification flag (UV) where the caller requires it (3.35: registration and the sign-in without a password) -
+ *    the device checked the fingerprint, face or PIN itself, so the passkey alone is two factors,
  *  - the signature over the authenticator data and the hash of the client data,
  *  - the signature counter - if the device keeps one, it must grow (reveals a copied key).
  *
@@ -34,12 +36,23 @@ final class Passkey
     public const array ALGORITHMS = [-7, -257];
 
     private const int FLAG_UP = 0x01; // the user was present
+    private const int FLAG_UV = 0x04; // the device verified the user (fingerprint, face, PIN)
     private const int FLAG_AT = 0x40; // the data contains a newly created key (only on registration)
 
     /** Random challenge for one attempt (base64url). The caller stores it in the session and discards it after use. */
     public static function challenge(): string
     {
         return self::b64(random_bytes(32));
+    }
+
+    /**
+     * A new opaque user handle for an account (3.35): 16 random bytes, base64url. The device stores it with a discoverable
+     * passkey and returns it at the sign-in without a password; it says nothing about the account (not its number, name
+     * or e-mail), so a device or a list of passkeys does not give the account away.
+     */
+    public static function newUserHandle(): string
+    {
+        return self::b64(random_bytes(16));
     }
 
     /** The domain the keys are bound to (rpId), from the site URL: https://www.web.cz:8443/x -> www.web.cz */
@@ -58,7 +71,10 @@ final class Passkey
     }
 
     /**
-     * Options for navigator.credentials.create().
+     * Options for navigator.credentials.create(). Since 3.35 every new passkey is discoverable (residentKey required) and
+     * verifies the user (userVerification required): the same passkey then signs in without a user name and a password,
+     * and still serves as the second step after a password. $userId is the account's opaque handle (never its number or
+     * e-mail) - the device gives it back at the sign-in without a password.
      *
      * @param list<string> $existing ids of the account's already registered keys (base64url) - a device is not registered twice
      * @return array<string, mixed>
@@ -72,24 +88,26 @@ final class Passkey
             'pubKeyCredParams' => array_map(static fn (int $alg): array => ['type' => 'public-key', 'alg' => $alg], self::ALGORITHMS),
             'timeout' => 120000,
             'attestation' => 'none',
-            'authenticatorSelection' => ['residentKey' => 'discouraged', 'userVerification' => 'preferred'],
+            'authenticatorSelection' => ['residentKey' => 'required', 'requireResidentKey' => true, 'userVerification' => 'required'],
             'excludeCredentials' => array_map(static fn (string $id): array => ['type' => 'public-key', 'id' => $id], $existing),
         ];
     }
 
     /**
-     * Options for navigator.credentials.get().
+     * Options for navigator.credentials.get(). The second step names the account's keys and prefers user verification
+     * (the password was the first factor); the sign-in without a password (3.35) names none - the device offers its
+     * passkeys for this domain - and requires it.
      *
-     * @param list<string> $allowed ids of the account's keys (base64url)
+     * @param list<string> $allowed ids of the account's keys (base64url); [] = any discoverable passkey of the site
      * @return array<string, mixed>
      */
-    public static function signInOptions(string $challenge, string $rpId, array $allowed): array
+    public static function signInOptions(string $challenge, string $rpId, array $allowed, bool $requireVerification = false): array
     {
         return [
             'challenge' => $challenge,
             'rpId' => $rpId,
             'timeout' => 120000,
-            'userVerification' => 'preferred',
+            'userVerification' => $requireVerification ? 'required' : 'preferred',
             'allowCredentials' => array_map(static fn (string $id): array => ['type' => 'public-key', 'id' => $id], $allowed),
         ];
     }
@@ -101,11 +119,11 @@ final class Passkey
      * @return array{id:string, klic:string, alg:int, pocitadlo:int} key id (base64url), public key (PEM), algorithm, counter
      * @throws \RuntimeException with the reason for rejection
      */
-    public static function verifyRegistration(array $response, string $challenge, string $origin, string $rpId): array
+    public static function verifyRegistration(array $response, string $challenge, string $origin, string $rpId, bool $requireVerification = false): array
     {
         self::verifyClient((string) ($response['clientDataJSON'] ?? ''), 'webauthn.create', $challenge, $origin);
         $data = self::fromB64((string) ($response['authenticatorData'] ?? ''));
-        $flags = self::verifyData($data, $rpId);
+        $flags = self::verifyData($data, $rpId, $requireVerification);
         if (($flags & self::FLAG_AT) === 0 || strlen($data) < 55) {
             throw new \RuntimeException('The response does not contain a new key.');
         }
@@ -142,16 +160,17 @@ final class Passkey
     }
 
     /**
-     * Verifies a login response. Returns the new signature counter to store.
+     * Verifies a login response. Returns the new signature counter to store. $requireVerification (3.35, the sign-in
+     * without a password): the UV flag must be set, otherwise the response is refused.
      *
      * @param array<string, mixed> $response clientDataJSON, authenticatorData, signature - all base64url
      * @throws \RuntimeException with the reason for rejection
      */
-    public static function verifySignIn(array $response, string $challenge, string $origin, string $rpId, string $publicKeyPem, int $storedCounter): int
+    public static function verifySignIn(array $response, string $challenge, string $origin, string $rpId, string $publicKeyPem, int $storedCounter, bool $requireVerification = false): int
     {
         $client = self::verifyClient((string) ($response['clientDataJSON'] ?? ''), 'webauthn.get', $challenge, $origin);
         $data = self::fromB64((string) ($response['authenticatorData'] ?? ''));
-        self::verifyData($data, $rpId);
+        self::verifyData($data, $rpId, $requireVerification);
 
         $signature = self::fromB64((string) ($response['signature'] ?? ''));
         $key = openssl_pkey_get_public($publicKeyPem);
@@ -189,8 +208,8 @@ final class Passkey
         return $json;
     }
 
-    /** Authenticator data: domain hash and the user presence flag. Returns the flags byte. */
-    private static function verifyData(string $data, string $rpId): int
+    /** Authenticator data: domain hash, the user presence flag and, when required, the user verification flag. Returns the flags byte. */
+    private static function verifyData(string $data, string $rpId, bool $requireVerification = false): int
     {
         if (strlen($data) < 37) {
             throw new \RuntimeException('The data from the device is incomplete.');
@@ -201,6 +220,9 @@ final class Passkey
         $flags = ord($data[32]);
         if (($flags & self::FLAG_UP) === 0) {
             throw new \RuntimeException('The device did not confirm that a user was present.');
+        }
+        if ($requireVerification && ($flags & self::FLAG_UV) === 0) {
+            throw new \RuntimeException('The device did not verify you (fingerprint, face or PIN). Set up a screen lock on the device and try again.');
         }
 
         return $flags;

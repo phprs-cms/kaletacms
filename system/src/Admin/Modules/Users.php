@@ -153,8 +153,11 @@ final class Users extends Module
             return $this->form(['idu' => $id] + $data + ($id > 0 ? (array) $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$id]) : []), $errors);
         }
         if ($totpReset) {
+            // 3.35: the reset is the way back for passkeys too – the app, the backup codes, the passkeys (below) and the
+            // account's "passkey only" go; the user signs in with the password and sets up a new passkey
             $data['totp_tajemstvi'] = '';
             $data['totp_zalozni'] = null;
+            $data['passkey_only'] = 0;
         }
 
         // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
@@ -169,7 +172,7 @@ final class Users extends Module
             if ($id > 0) {
                 $this->db->update('uzivatele', $data, ['idu' => $id]);
                 if ($totpReset) {
-                    $this->db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // passkeys depend on two-factor sign-in
+                    $this->db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // the lost passkeys go with the second factor
                 }
                 if (isset($data['password'])) {
                     \Kaleta\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections (N39-1)
@@ -441,6 +444,7 @@ final class Users extends Module
             'customRoles' => $this->db->all('SELECT idr, nazev, popis FROM {role} ORDER BY ' . $this->db->sortText('nazev')),
             'summary' => $summary,
             'errors' => $errors,
+            'passkeys' => $id > 0 ? (int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice} WHERE idu = ?', [$id]) : 0, // 3.35: the reset row shows for passkeys too
             // the user's Claude connections (Core\SecurityHygiene): the administrator revokes what is not needed any more
             'connections' => $id > 0 ? array_values(array_filter(\Kaleta\Core\SecurityHygiene::connections($this->db), fn (array $c): bool => (int) $c['idu'] === $id)) : [],
             'isSelf' => $id === $this->app->auth()->id(),

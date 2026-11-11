@@ -120,8 +120,8 @@ check('3.34: the section Applications is never a default of a level; the ready-m
     Kaleta\Admin\Modules\Applications::GRANTED_EXPLICITLY, Kaleta\Admin\Modules\Applications::EXTENSION, Kaleta\Admin\Modules\Applications::GROUP,
     Kaleta\Admin\Modules\Roles::PRESETS['hr'][3] ?? null, isset(Kaleta\Admin\Modules\Roles::configurable()['applications']),
     in_array('applications', Kaleta\Admin\Kernel::SITE_NEUTRAL_MODULES, true), Kaleta\Core\Extensions::CATALOG['applications'][2] ?? null,
-    in_array('0120-applications-move', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION],
-    [false, true, true, 'applications', 'Workspace', ['applications', 'collections', 'requests'], true, true, false, true, 120]);
+    in_array('0120-applications-move', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION >= 120], // 3.35: later releases add migrations of their own
+    [false, true, true, 'applications', 'Workspace', ['applications', 'collections', 'requests'], true, true, false, true, true]);
 // the form side: an application never reaches the enquiry path (no triage, customer record, webhook or enquiry event), the CV check runs
 $a334Forms = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php');
 $a334Branch = substr($a334Forms, (int) strpos($a334Forms, 'if ($application) {'), 900);

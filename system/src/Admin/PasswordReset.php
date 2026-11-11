@@ -17,7 +17,8 @@ use Kaleta\Core\Response;
  * - The response to a request is always the same, whether the account exists or not - the page does not reveal who manages the site.
  *   The e-mail is queued and sent after the response (3.3.3), so the time of the answer does not reveal it either.
  * - The database holds only a hash of the token; the link is valid for an hour and can be used once.
- * - The reset does NOT DISABLE two-factor sign-in: whoever gains access to the e-mail still cannot sign in without the code from the app.
+ * - The reset does NOT DISABLE two-factor sign-in or passkeys (3.35): whoever gains access to the e-mail still cannot sign in
+ *   without the code from the app, the passkey or a backup code – "passkey only" stays too (Core\SignInPolicy).
  * - A password change ends all other sign-ins of the account (the password hash in the session stops matching).
  */
 final class PasswordReset

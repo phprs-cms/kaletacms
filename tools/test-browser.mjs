@@ -4755,6 +4755,77 @@ await step('3.35 B1 OAuth consent: full access asks for the current password whe
   }
 });
 
+// 3.35 A: passkeys through Chrome's virtual authenticator (the CDP WebAuthn domain) – registration in My account, the sign-in
+// without a user name and password from the button, and the conditional UI (the user-name autofill) waiting on the sign-in page.
+// WebAuthn needs a domain, not an IP: this step runs on http://localhost:<port> with site_url pointed there, and restores it.
+await step('3.35 A: passkey registration, passwordless sign-in and conditional UI (virtual authenticator)', async () => {
+  const local = BASE.replace('127.0.0.1', 'localhost');
+  const siteUrl = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'").trim();
+  const adminId = sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim();
+  const codesBefore = sql(`SELECT IFNULL(totp_zalozni, '') FROM ka_uzivatele WHERE idu = ${adminId}`).trim();
+  sql(`UPDATE ka_nastaveni SET hodnota = '${local}' WHERE promenna = 'site_url'`);
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+  try {
+    const p = await ctx.newPage();
+    watch(p);
+    const cdp = await ctx.newCDPSession(p);
+    await cdp.send('WebAuthn.enable');
+    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
+      protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+    await p.goto(local + '/admin.php', { waitUntil: 'networkidle' });
+    await p.fill('input[name="user"]', 'admin');
+    await p.fill('input[name="password"]', PASSWORD);
+    await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
+    await p.goto(local + '/admin.php?action=account', { waitUntil: 'networkidle' });
+    await p.fill('#klic-nazev', 'Virtual authenticator');
+    await p.fill('#klic-heslo', PASSWORD);
+    await Promise.all([p.waitForNavigation(), p.click('#passkeys [data-klic-pridat]:not([data-nahradit])')]);
+    const codes = await p.locator('.zalozni-kody').textContent();
+    if (!/^([0-9a-f]{5}-[0-9a-f]{5}\W*){8}$/.test((codes || '').trim())) { throw new Error(`backup codes with the first passkey: ${codes}`); }
+    const stored = await cdp.send('WebAuthn.getCredentials', { authenticatorId });
+    if (stored.credentials.length !== 1 || !stored.credentials[0].isResidentCredential) { throw new Error('the passkey is not a discoverable (resident) credential'); }
+    const row = sql(`SELECT CONCAT(COUNT(*), '/', SUM(discoverable)) FROM ka_uzivatele_klice WHERE idu = ${adminId}`).trim();
+    if (row !== '1/1') { throw new Error(`stored passkeys: ${row}`); }
+    if (Buffer.from(stored.credentials[0].userHandle, 'base64').toString('base64url') !== sql(`SELECT passkey_handle FROM ka_uzivatele WHERE idu = ${adminId}`).trim()) {
+      throw new Error('the user handle on the device is not the account\'s opaque handle');
+    }
+    const rowName = p.locator('#passkeys input[form^="klic-prejmenuj-"]');
+    if ((await rowName.inputValue()) !== 'Virtual authenticator' || !(await rowName.getAttribute('aria-label'))) { throw new Error('the passkey row: name field with a label'); }
+    // signing out lands on the sign-in page, which offers the passkeys in the user-name autofill (conditional UI): the virtual
+    // authenticator answers the waiting request at once, so the page signs in by itself – no name, no password, no click
+    const logged = () => Number(sql(`SELECT COUNT(*) FROM ka_protokol WHERE kdo = ${adminId} AND akce = 'login' AND popis = 'with a passkey, without a password'`).trim());
+    const optionsRequest = p.waitForRequest((r) => r.method() === 'POST' && (r.postData() || '').includes('passkey_options'));
+    await p.click('.menu-logout button');
+    await optionsRequest;
+    await p.waitForSelector('.menu-logout button', { timeout: 15000 });
+    if (logged() < 1) { throw new Error('the autofill (conditional UI) did not sign in'); }
+    // the button, from the keyboard, in a browser without the autofill: the modal request signs in the same way
+    await p.addInitScript(() => { window.PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false); });
+    await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
+    await p.waitForLoadState('networkidle');
+    if ((await p.getAttribute('input[name="user"]', 'autocomplete')) !== 'username webauthn') { throw new Error('the user-name field does not offer passkeys (autocomplete webauthn)'); }
+    const before = logged();
+    await p.getByRole('button', { name: 'Sign in with a passkey' }).focus();
+    await Promise.all([p.waitForNavigation(), p.keyboard.press('Enter')]);
+    if (await p.locator('input[name="user"]').count()) { throw new Error('the passkey button did not sign in'); }
+    if (logged() !== before + 1) { throw new Error(`change log of the sign-in with the button: ${logged()} after ${before}`); }
+    if (SHOTS) { await p.goto(local + '/admin.php?action=account', { waitUntil: 'networkidle' }); await p.locator('#passkeys').screenshot({ path: `${SHOTS}/335a-passkeys.png` }); }
+    // the password of an account with a passkey needs the second step – the page offers the passkey (and a backup code)
+    await p.goto(local + '/admin.php', { waitUntil: 'networkidle' });
+    await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
+    await p.fill('input[name="user"]', 'admin');
+    await p.fill('input[name="password"]', PASSWORD);
+    await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
+    if (!(await p.locator('[data-klic-prihlasit]').count()) || !(await p.locator('input[name="kod"]').count())) { throw new Error('the second step after the password is missing'); }
+    await Promise.all([p.waitForNavigation(), p.click('[data-klic-prihlasit]')]);
+    if (await p.locator('input[name="user"], input[name="kod"]').count()) { throw new Error('the passkey as the second step did not sign in'); }
+  } finally {
+    await ctx.close();
+    sql(`UPDATE ka_nastaveni SET hodnota = '${siteUrl}' WHERE promenna = 'site_url'; DELETE FROM ka_uzivatele_klice WHERE idu = ${adminId};
+      UPDATE ka_uzivatele SET totp_zalozni = ${codesBefore === '' ? 'NULL' : `'${codesBefore}'`}, passkey_handle = '' WHERE idu = ${adminId}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));
