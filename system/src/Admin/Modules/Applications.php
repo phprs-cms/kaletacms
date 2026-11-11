@@ -297,7 +297,7 @@ final class Applications extends Module
             'languages' => self::siteLanguages($s), 'templates' => $templates,
             'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates), $candidates),
             'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null,
-            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::retentionConfirmed($s), 'unsealed' => Store::unsealedCount($this->app)]);
+            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::unconfirmed($this->app)['count'] === 0, 'unsealed' => Store::unsealedCount($this->app)]);
     }
 
     protected function actionSettingsSave(): Response
@@ -320,7 +320,7 @@ final class Applications extends Module
             }
         }
         $s->set('application_templates', self::templatesToStore($s, $posted));
-        $s->set(Store::RETENTION_CONFIRMED, '1'); // 3.34 review H1: an administrator saw the retention – the moved applications follow it from now on
+        Store::confirmRetention($this->app); // 3.34 review H1: an administrator saw the retention – N8: the applications there now follow it
         ChangeLog::write($this->app, Store::SECTION, 'settings', '');
 
         return $this->back('The settings of applications were saved.', 'settings');

@@ -6,8 +6,9 @@
  *  1. the feature "applications" is switched on (written down as a list, the 0073 pattern – a site that never saved its
  *     choice gets the defaults it had, plus this one);
  *  2. applications_months starts at job_applications_months when that was set, otherwise at enquiries_months (an update never
- *     shortens the retention; 0 = keep stays keep), and applications_retention_confirmed is cleared – the clean-up deletes
- *     nothing moved until an administrator saved Applications → Settings (3.34 review H1);
+ *     shortens the retention; 0 = keep stays keep); the clean-up deletes nothing moved until an administrator saved
+ *     Applications → Settings after it moved (3.34 review H1; second review N8: applications_retention_confirmed holds the
+ *     highest application id confirmed, the moved rows lie above it);
  *  3. every enquiry whose source is a jobs collection (kolekce:<idk> – the certain rule Core\Jobs used since 2.11) becomes an
  *     application, each in one transaction: the row is inserted with source_enquiry_id (unique – a second run skips what
  *     moved; nothing is moved twice), the fields without file paths, the CVs listed as still in storage/prilohy (sealed
@@ -153,6 +154,7 @@ return static function (Db $db, Settings $settings): void {
         }
     };
     $moved = 0;
+    $firstMoved = null;
     $failed = [];
     $deals = [];
     $comments = 0;
@@ -208,7 +210,7 @@ return static function (Db $db, Settings $settings): void {
                 $lastComment = $db->value("SELECT MAX(created_at) FROM {comments} WHERE target = ?", ['enquiry:' . $idp]);
                 $activity = is_string($lastComment) && $lastComment > $activity ? $lastComment : $activity;
                 $status = (int) $e['stav'] === 0 ? 'new' : 'reviewed';
-                $db->transaction(function () use ($db, $e, $idp, $data, $files, $seal, $item, $idk, $title, $email, $normal, $people, $activity, $status, $now, &$deals, &$comments): void {
+                $db->transaction(function () use ($db, $e, $idp, $data, $files, $seal, $item, $idk, $title, $email, $normal, $people, $activity, $status, $now, &$deals, &$comments, &$firstMoved): void {
                     $id = $db->insert('applications', [
                         'received_at' => (string) $e['datum'], 'job_collection_id' => $item !== null ? $idk : null, 'job_item_id' => $item !== null ? (int) $item['idp'] : null,
                         'job_title' => mb_substr($title, 0, 200), 'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'],
@@ -217,8 +219,9 @@ return static function (Db $db, Settings $settings): void {
                         'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => $seal($files),
                         'attachment_paths' => $files === [] ? null : (string) json_encode(['bin' => [], 'old' => array_column($files, 'path')], JSON_UNESCAPED_SLASHES), 'status' => $status, 'status_at' => (string) $e['datum'],
                         'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null, 'replies' => $e['replies'], 'late' => 0, 'last_activity_at' => $activity,
-                        'source_enquiry_id' => $idp, 'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,
+                        'source_enquiry_id' => $idp, 'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
                     ]);
+                    $firstMoved = $firstMoved === null ? $id : min($firstMoved, $id);
                     $target = 'application:' . $id;
                     foreach (['comments', 'tasks', 'notifications'] as $table) {
                         $db->run('UPDATE {' . $table . '} SET target = ? WHERE target = ?', [$target, 'enquiry:' . $idp]);
@@ -292,7 +295,12 @@ return static function (Db $db, Settings $settings): void {
     }
 
     if ($moved > 0) {
-        $settings->set('applications_retention_confirmed', ''); // H1: the administrator confirms the retention before anything moved is purged
+        // H1: the administrator confirms the retention before anything moved is purged – N8: the confirmation is the highest id
+        // confirmed, and the rows moved now lie above it (lowered below the first of them when ids were used again)
+        $confirmed = $settings->get('applications_retention_confirmed');
+        if ($firstMoved !== null && ctype_digit($confirmed) && (int) $confirmed >= $firstMoved) {
+            $settings->set('applications_retention_confirmed', (string) max(0, $firstMoved - 1));
+        }
         $message = $moved . ' job application(s) moved from Enquiries to Applications' . ($deals !== [] ? '; deals that lost their link: #' . implode(', #', array_unique($deals)) : '')
             . ($removed > 0 ? '; customer records made only by applications deleted: ' . $removed : '') . ($left ? '; the rest follows on the next requests' : '');
         $event('applications.moved', 'info', $message, ['moved' => $moved, 'deals' => array_values(array_unique($deals)), 'contacts_deleted' => $removed, 'notes' => $comments, 'left' => $left]);

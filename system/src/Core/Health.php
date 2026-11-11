@@ -127,6 +127,11 @@ final class Health
         if (($lockedCvs = Applications::lockedCount($app)) > 0) {
             $add(t('Bezpečnost'), t('CVs of job applications'), 'chyba', t('%d application(s) have CVs that cannot be opened – encryption key: they were sealed with a key this config.php does not have. Put back the vault_key line from the original config.php (Settings → Backups and updates).', $lockedCvs));
         }
+        // 3.34 second review N8: moved applications that have waited long for an administrator to confirm their retention
+        $waiting = $siteSettings->int('applications_months') > 0 ? Applications::unconfirmed($app) : ['count' => 0, 'since' => null];
+        if ($waiting['count'] > 0 && $waiting['since'] !== null && $waiting['since'] < Clock::at('-' . Applications::UNCONFIRMED_DAYS . ' days')) {
+            $add(t('Operation'), t('Retention of job applications'), 'varovani', t('%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Applications → Settings.', $waiting['count'], Applications::UNCONFIRMED_DAYS));
+        }
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
 

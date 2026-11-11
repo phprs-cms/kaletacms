@@ -84,7 +84,7 @@ final class TimeZoneConversion
         'contact_activities' => ['happened_at', 'created_at'],
         'deals' => ['closed_at', 'created_at', 'updated_at'], // 3.31
         'deal_stage_history' => ['at'],
-        'applications' => ['received_at', 'status_at', 'decided_at', 'pool_consent_at', 'last_activity_at'], // 3.34
+        'applications' => ['received_at', 'status_at', 'decided_at', 'pool_consent_at', 'last_activity_at', 'moved_at'], // 3.34
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],
         'kolekce_sablony' => ['zmeneno'],

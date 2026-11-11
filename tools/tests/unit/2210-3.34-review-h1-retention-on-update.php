@@ -13,13 +13,13 @@ $h1Store = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Applications.ph
 $h1Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Applications.php');
 check('3.34 review H1: migration 0120 takes enquiries_months when job_applications_months is 0 and clears the confirmation when something moved', [
     str_contains($h1Migration, "\$jobMonths > 0 ? \$jobMonths : (int) \$settings->get('enquiries_months')"),
-    str_contains($h1Migration, "\$settings->set('applications_retention_confirmed', '');"),
+    str_contains($h1Migration, "\$settings->set('applications_retention_confirmed', (string) max(0, \$firstMoved - 1));"),
     str_contains($h1Migration, "&& (int) \$settings->get('job_applications_months') > 0) {")],
     [true, true, false]);
 check('3.34 review H1: the clean-up leaves moved applications alone until confirmed; saving the settings confirms; a move by form asks again', [
-    str_contains($h1Store, "(self::retentionConfirmed(\$app->settings()) ? '' : ' AND source_enquiry_id IS NULL')"),
-    str_contains($h1Module, "\$s->set(Store::RETENTION_CONFIRMED, '1');"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php'), 'Applications::adoptRetention($db, $app->settings());'),
+    str_contains($h1Store, "' AND (source_enquiry_id IS NULL OR id <= ' . self::confirmedUpTo(\$app->settings()) . ')'"),
+    str_contains($h1Module, "Store::confirmRetention(\$this->app);"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php'), 'Applications::adoptRetention($db, $app->settings(), $ids);'),
     array_key_exists(Applications::RETENTION_CONFIRMED, Kaleta\Core\Settings::DEFAULTS) && Kaleta\Core\Settings::DEFAULTS[Applications::RETENTION_CONFIRMED] === ''],
     [true, true, true, true]);
 check('3.34 review H1: the settings tab and the list say how many moved applications wait and since when', [

@@ -37,6 +37,7 @@ CREATE TABLE ka_applications (
     last_activity_at  DATETIME NOT NULL,                      -- receipt, reply, status change, note, task
     source_enquiry_id INT UNSIGNED NULL,                      -- moved from this enquiry (migration 0120); makes the move repeatable
     source_contact_id INT UNSIGNED NULL,                      -- the customer record its enquiry had: the move deletes one only applications made (3.34 review M3)
+    moved_at          DATETIME NULL,                          -- when it moved in from Enquiries (System status: waiting for the confirmation of the retention, N8)
     PRIMARY KEY (id),
     UNIQUE KEY ux_applications_enquiry (source_enquiry_id),
     KEY ix_applications_status (status, id),

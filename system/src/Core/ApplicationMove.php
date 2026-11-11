@@ -169,7 +169,7 @@ final class ApplicationMove
                     'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files), 'attachment_paths' => Applications::paths($files),
                     'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
                     'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
-                    'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,
+                    'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
                 ]);
                 $ids[] = $id;
                 $target = Applications::target($id);
@@ -191,7 +191,7 @@ final class ApplicationMove
         Applications::keepToSection($db, $ids); // review low (a): no responsible person or bell entry outside the section
         $removed = self::forgetLoneContacts($db);
         if ($moved > 0) {
-            Applications::adoptRetention($db, $app->settings()); // 3.34 review H1: never the default 6 months, and nothing moved is purged before an administrator confirms
+            Applications::adoptRetention($db, $app->settings(), $ids); // 3.34 review H1: never the default 6 months; N8: the rows moved now wait for an administrator's confirmation
             self::record($app, 'to applications', $moved, $deals, $removed);
         }
 
