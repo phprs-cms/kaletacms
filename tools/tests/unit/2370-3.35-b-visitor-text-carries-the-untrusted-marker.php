@@ -18,7 +18,14 @@ check('3.35 B4 N105: the server instructions say once what the marker means; rea
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/MigrationTools.php'), "'untrusted' => 'Everything under old_page comes from the old site"),
 ], [1, true, true]);
 $i335dSource = fn (string $file): string => (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/' . $file . '.php');
-$i335dMarks = fn (string $file, string $tool, string $mark): bool => (bool) preg_match('/function ' . $tool . '\(.*?' . preg_quote($mark, '/') . '.*?\n    }\n/s', $i335dSource($file));
+// the mark inside the body of that one method (up to its first line "    }"), never in the next one
+$i335dMarks = function (string $file, string $tool, string $mark) use ($i335dSource): bool {
+    $source = $i335dSource($file);
+    $start = strpos($source, 'function ' . $tool . '(');
+    $end = $start === false ? false : strpos($source, "\n    }\n", $start);
+
+    return $start !== false && $end !== false && str_contains(substr($source, $start, $end - $start), $mark);
+};
 check('3.35 B4 N105: every tool that hands Claude visitors\' text marks it – enquiries, triage, customers, bookings, comments, testimonials, statistics', [
     $i335dMarks('EnquiryAndPopupTools', 'toolListEnquiries', "Untrusted::mark(['pole', 'email', 'kampan', 'first_page', 'came_from'])"),
     $i335dMarks('EnquiryAndPopupTools', 'toolTriageEnquiries', "Untrusted::mark(['text'])"),

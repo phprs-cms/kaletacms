@@ -28,6 +28,12 @@ final class Tags extends Module
     public const string PARENT = 'news';
 
     /**
+     * 3.35 (N108): renaming, merging and deleting a tag changes topic pages and the news of other authors at once – only
+     * people who may publish (Module::LIVE_ACTIONS). The ready-made Writer role still creates tags from the news form.
+     */
+    public const array LIVE_ACTIONS = ['save', 'delete'];
+
+    /**
      * The tag a news item of the language version $language gets for $name: an existing one with the same slug (in that
      * version when slugs are per language, otherwise in any – the one of that version first), or a new one in that version.
      * Admin, MCP and the importers. Returns [ids, created].

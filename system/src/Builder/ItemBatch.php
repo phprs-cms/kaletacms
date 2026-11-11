@@ -26,7 +26,7 @@ use Kaleta\Core\WpFile;
  *    so importing the same file again updates it;
  *  - an item in the trash is not changed (saving would put it back on the site);
  *  - a drafts-only connection creates hidden items and changes hidden ones only (Auth::draftsOnly, 3.2) – never a visible
- *    or scheduled item, never visible: true;
+ *    or scheduled item, never visible: true; 3.35 (N107): so does a user whose role does not publish (option drafts_only);
  *  - a notice of an official notice board cannot be hidden (Core\Notices), a change of an item keeps the previous version.
  * Every item is checked and saved on its own: one invalid item never blocks the others. plan() only says what would happen.
  *
@@ -66,7 +66,7 @@ final class ItemBatch
     private const int MAX_ORDER = 9999;
 
     /** Why a drafts-only connection cannot change an item that is on the site. */
-    private const string DRAFTS_ONLY_VISIBLE = 'This connection can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.';
+    private const string DRAFTS_ONLY_VISIBLE = 'Only hidden items are saved here (a drafts-only connection, or a role that does not publish), and this item is on the site (or scheduled to be published), so it cannot be changed here.';
 
     /**
      * One row from MCP (English keys) as a Row; what is wrong with its shape goes into `error`.
@@ -194,7 +194,7 @@ final class ItemBatch
                 continue;
             }
             if ($draftsOnly && $previous !== null && $row['visible'] === true) {
-                $refuse('This connection can only save drafts: it cannot make an item visible.');
+                $refuse('Only hidden items are saved here (a drafts-only connection, or a role that does not publish): it cannot make an item visible.');
                 continue;
             }
             $name = mb_substr(trim((string) ($row['name'] ?? $previous['nazev'] ?? '')), 0, 200);

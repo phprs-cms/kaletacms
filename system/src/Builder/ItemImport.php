@@ -368,7 +368,7 @@ final class ItemImport
     {
         [$rows] = self::toRows($collection, self::rows((string) $state['id'])['rows'], (array) $state['mapovani'], (string) $state['jazyk']);
 
-        return ItemBatch::plan($app, $collection, $rows, ['slug_from_name' => true, 'new_visible' => (bool) $state['zobrazit']]);
+        return ItemBatch::plan($app, $collection, $rows, ['slug_from_name' => true, 'new_visible' => (bool) $state['zobrazit'], 'drafts_only' => !$app->auth()->canPublish()]); // 3.35 (N107)
     }
 
     /**
@@ -407,7 +407,7 @@ final class ItemImport
                     $rows[$duplicate - $from]['error'] = ItemBatch::DUPLICATE;
                 }
             }
-            $saved = ItemBatch::save($app, $collection, $rows, ['slug_from_name' => true, 'new_visible' => (bool) $state['zobrazit']]);
+            $saved = ItemBatch::save($app, $collection, $rows, ['slug_from_name' => true, 'new_visible' => (bool) $state['zobrazit'], 'drafts_only' => !$app->auth()->canPublish()]); // 3.35 (N107): a role that does not publish imports hidden items
             $ids = [];
             foreach ($saved as $p) {
                 $state['pocty'][$p['status']]++;

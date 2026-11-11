@@ -19,7 +19,13 @@ use Kaleta\Core\Language;
 
 $languages = Language::additional($app->settings());
 $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (string) $p['jazyk'])); // an item of a right-to-left version (Arabic)
+// 3.35 (N107): a role that does not publish prepares hidden items; one on the site (or scheduled) it only reads
+$mayPublish = $app->auth()->canPublish();
+$readOnly = !$mayPublish && $p['idp'] > 0 && !Kaleta\Admin\Modules\Collections::isDraft($p);
 ?>
+<?php if ($readOnly): ?>
+<p class="hlaska hlaska-info"><?= e(t('This item is on the site (or scheduled to be published) – only an editor or administrator changes it.')) ?></p>
+<?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save_item')) ?>">
 <?= $csrf ?>
 <input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
@@ -75,8 +81,12 @@ $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (stri
 <input type="hidden" name="seo_link" value="<?= e($p['seo_link']) ?>">
 <?php endif ?>
 <div class="radek"><label for="poradi"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $p['poradi'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
+<?php if ($mayPublish): ?>
 <div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="zobrazit" value="1"<?= $p['zobrazit'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label><br>
 	<span class="napoveda" data-aktivni-kdyz="zobrazit="><label for="zverejnit_od"><?= e(t('Publish the hidden item automatically at:')) ?></label> <input class="textpole" type="datetime-local" id="zverejnit_od" name="zverejnit_od" value="<?= e(($p['zverejnit_od'] ?? null) ? date('Y-m-d\TH:i', strtotime($p['zverejnit_od'])) : '') ?>"></span></div></div>
+<?php else: ?>
+<div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div><span class="napoveda"><?= e(t('The item stays hidden until an editor or administrator publishes it.')) ?></span></div></div>
+<?php endif ?>
 <div class="radek">
 	<label for="valid_until"><?= e(t('Visible until')) ?></label>
 	<div><input class="textpole" type="date" id="valid_until" name="valid_until" value="<?= e((string) ($p['valid_until'] ?? '')) ?>">
@@ -97,7 +107,7 @@ $contentDir = Language::dirAttribute(Language::ofContent($app->settings(), (stri
 <?php endif ?>
 </details>
 <?= $app->view->render('admin/owner_field', ['owners' => $owners, 'owner' => $p['owner_id'] ?? null]) /* 3.24 */ ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['idp'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
+<p class="tlacitka"><?php if (!$readOnly): ?><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <?php endif ?><a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['idp'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
 	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['idk'], 'item' => (int) $p['idp']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
 <?php if (($thread ?? null) !== null): ?>

@@ -8,7 +8,11 @@
  */
 ?>
 <p class="smltxt"><?= e(t('Tags are created automatically as you write news. When you add a description to a tag, its page becomes a topic – an introduction to a field or project with all its news in one place.')) ?></p>
-<?php if ($edit !== null): ?>
+<?php $mayPublish = $app->auth()->canPublish(); // 3.35 (N108): renaming, merging and deleting tags is for editors and administrators ?>
+<?php if (!$mayPublish): ?>
+<p class="hlaska hlaska-info"><?= e(t('Tags change the topic pages and other authors\' news at once – an editor or administrator renames, merges and deletes them. New tags come from the Tags field of your news.')) ?></p>
+<?php endif ?>
+<?php if ($edit !== null && $mayPublish): ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" id="uprav">
 <?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $edit['ids'] ?>">
 <fieldset>
@@ -41,8 +45,8 @@
 	<td><a href="<?= e($app->newsItemUrl('stitek/' . $s['seo_link'], (string) ($s['jazyk'] ?? ''))) ?>" target="_blank" rel="noopener">#<?= e($s['nazev']) ?></a><?= ($s['jazyk'] ?? '') !== '' ? ' <span class="stitek">' . e(strtoupper($s['jazyk'])) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $s['pocet'] ?></td>
 	<td><?= trim((string) $s['popis']) !== '' ? '<span class="stitek stitek-vydano">' . e(t('has an intro')) . '</span>' : '' ?></td>
-	<td class="akce"><a href="<?= e($module->url('', ['edit' => $s['ids']])) ?>#uprav"><?= e(t('Edit')) ?></a>
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the tag? The news items stay, they just lose this tag.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+	<td class="akce"><?php if ($mayPublish): ?><a href="<?= e($module->url('', ['edit' => $s['ids']])) ?>#uprav"><?= e(t('Edit')) ?></a>
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the tag? The news items stay, they just lose this tag.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
