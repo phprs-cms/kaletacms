@@ -4540,6 +4540,55 @@ await step('3.34 applications: the list and the detail – 1440 and 390 px, ligh
   }
 });
 
+// 3.34 (B): the detail with a template in the reply, the settings and the move by form – 1440 and 390 px, light/dark, axe;
+// the reason of a rejection shows only with Rejected chosen (CSS :has, no script)
+await step('3.34 B applications: reply template, settings, move by form – 1440 and 390 px, light/dark, axe; the reason follows Rejected', async () => {
+  const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
+  sql(`DROP TABLE IF EXISTS ka_b335_mail; CREATE TABLE ka_b335_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host');
+    REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications'), ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1');
+    INSERT INTO ka_applications (received_at, job_title, form, name, email, phone, data, status, status_at, last_activity_at)
+    VALUES (NOW(), 'Painter B335', 'Job application', 'Rita B335', 'rita-b335@example.com', '', '[["Full name","Rita B335"]]', 'new', NOW(), NOW())`);
+  const id = sql("SELECT MAX(id) FROM ka_applications WHERE email = 'rita-b335@example.com'").trim();
+  const urls = [`/admin.php?module=applications&action=detail&id=${id}&template=interview`, '/admin.php?module=applications&action=settings', '/admin.php?module=applications&action=move'];
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(urls[0]);
+    if (!(await page.locator('[data-reply-form]').count())) { throw new Error('the reply form is not offered'); }
+    if ((await page.locator('#uchazec-predmet').inputValue()) !== 'Invitation to an interview – Painter B335') { throw new Error('the template did not fill the subject'); }
+    if (await page.locator('#uchazec-duvod').isVisible()) { throw new Error('the reason shows before Rejected is chosen'); }
+    await page.locator('#uchazec-stav').selectOption('rejected');
+    if (!(await page.locator('#uchazec-duvod').isVisible())) { throw new Error('the reason does not show with Rejected'); }
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height] of [[1440, 900], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        for (const url of urls) {
+          await visit(url);
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) { throw new Error(`${url} scrolls sideways at ${width} px (${scheme})`); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/applications-335-${url.match(/action=(\w+)/)[1]}-${width}-${scheme}.png`, fullPage: true }); }
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const url of urls) {
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate((tags) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+        if (found.violations.length) { throw new Error(`axe ${url}: ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_applications WHERE email = 'rita-b335@example.com'; DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host'); INSERT INTO ka_nastaveni SELECT * FROM ka_b335_mail; DROP TABLE ka_b335_mail;
+      REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions}'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

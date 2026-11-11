@@ -79,7 +79,7 @@ trait WorkTools
         if ($kind === 'application') {
             return $this->assignApplication($a); // 3.34 B: the section Applications and the switch applications_claude
         }
-        $section = Handover::KINDS[$kind][0] ?? throw new \InvalidArgumentException('target must be page, item, enquiry or application.');
+        $section = Handover::KINDS[$kind][0] ?? throw new \InvalidArgumentException('target must be page, item or enquiry (or application).');
         if (!isset((new \Kaleta\Admin\Kernel($this->app))->modules()[$section])) {
             throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries'][$section] . ' can change who is responsible there.');
         }

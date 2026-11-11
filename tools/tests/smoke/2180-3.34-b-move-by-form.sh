@@ -23,5 +23,5 @@ expect "3.34 B move back: an enquiry again (read, kind job), the CV readable in 
   "$(sq "SELECT CONCAT(stav, '|', kategorie, '|', email) FROM ka_poptavky WHERE idp = $T338_E")|$(cat "$WORK/web/storage/prilohy/$T338_NEW" 2>/dev/null)|$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'enquiry:$T338_E'")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE form = 'Kariera T338'")|$([ -n "$T338_SEALED" ] && [ ! -f "$T338_SEALED" ] && echo gone || echo kept)" \
   "1|job|karel-t338@example.com|CV of Karel T338|3|0|gone"
 expect "3.34 B move: both ways are in the change log and the events – counts only" \
-  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'applications' AND akce = 'move' AND popis NOT LIKE '%karel%'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'applications.moved' AND message LIKE '% moved to %' AND message NOT LIKE '%Karel%'")" "2|2"
+  "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'applications' AND akce = 'move' AND popis LIKE '% moved to %' AND popis NOT LIKE '%karel%'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'applications.moved' AND message LIKE '% moved to %' AND message NOT LIKE '%Karel%'")" "2|2"
 sq "DELETE FROM ka_comments WHERE target = 'enquiry:$T338_E'; DELETE FROM ka_poptavky WHERE idp = $T338_E" > /dev/null

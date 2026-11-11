@@ -273,11 +273,12 @@ final class Applications extends Module
         }
         $suggestion = \Kaleta\Core\Jobs::suggestedRetention($s->get('company_country'), $s->get('site_language'));
         $admins = array_flip(array_map('intval', array_column($this->db->all('SELECT idu FROM {uzivatele} WHERE admin = ? AND blokovat = 0', [Auth::ADMIN]), 'idu')));
+        $candidates = Assignment::candidates($this->db, 'application');
 
         return $this->view('settings', 'Applications', [
             'values' => ['months' => $s->int('applications_months'), 'pool' => max(1, $s->int('applications_pool_months')), 'full' => $s->bool('applications_notify_full'), 'claude' => $s->bool('applications_claude')],
             'languages' => self::siteLanguages($s), 'templates' => $templates,
-            'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates = Assignment::candidates($this->db, 'application')), $candidates),
+            'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates), $candidates),
             'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null]);
     }
 

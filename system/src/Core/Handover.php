@@ -114,7 +114,7 @@ final class Handover
      */
     public static function assign(App $app, string $kind, int $id, ?int $userId): array
     {
-        [$section, , $table, $idColumn, $column] = self::KINDS[$kind] ?? throw new \InvalidArgumentException('target must be page, item, enquiry or application.');
+        [$section, , $table, $idColumn, $column] = self::KINDS[$kind] ?? throw new \InvalidArgumentException('target must be page, item or enquiry (or application).');
         $db = $app->db();
         $row = $db->one('SELECT ' . $column . ' AS person FROM {' . $table . '} WHERE ' . $idColumn . ' = ?' . (in_array($kind, ['enquiry', 'application'], true) ? '' : ' AND smazano IS NULL'), [$id])
             ?? throw new \InvalidArgumentException(['page' => 'The page does not exist. Use list_pages.', 'item' => 'The collection item does not exist. Use list_collection_items.', 'enquiry' => 'The enquiry does not exist. Use list_enquiries.',
