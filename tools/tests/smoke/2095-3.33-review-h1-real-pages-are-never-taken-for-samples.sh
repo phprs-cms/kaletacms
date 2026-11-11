@@ -1,7 +1,7 @@
 echo "== 3.33 review H1: real pages are never taken for untouched sample pages"
 # The second site of 2000–2040 (web333, its helpers s3_install, s3q, s3mcp, s3_field) once more: a fresh 3.33 install, a site
 # from 3.20–3.32 (no record), a site a Kaleta export was imported into and a 3.32 site whose first pages were imported.
-s3php() { (cd "$WORK/web333" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); '"$1"); }
+s3php() { (cd "$WORK/web333" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); '"$1" -- "${@:2}"); }
 s3_untouched() { s3php 'echo implode(",", array_map(fn ($p) => $p["seo_link"] . ":" . $p["how"], Kaleta\Core\StarterPages::untouched($app->db(), $app->settings())));'; }
 
 # a fresh 3.33 install: the recorded starter pages, as before

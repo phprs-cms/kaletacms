@@ -37,3 +37,27 @@ check('3.33 review L2: build_from_html keeps an autoplay/loop/muted <video> as C
     $i333vTypes(Kaleta\Builder\HtmlConverter::convert($i333vHero, true)), $i333vTypes(Kaleta\Builder\HtmlConverter::convert($i333vHero, false)),
     $i333vTypes(Kaleta\Builder\HtmlConverter::convert('<video controls src="media/tour-1a2b3c.mp4"></video>', true)),
 ], [['html:autoplay'], ['video'], ['video']]);
+
+/* ---------- 3.33 review L6: imported forms skip honeypot and captcha fields ---------- */
+$i333fForm = '<form action="/send"><label for="n">Name</label><input id="n" name="name" required><label>E-mail <input type="email" name="email"></label>'
+    . '<div style="display: none"><label>Leave empty <input name="website_url"></label></div><p class="wpforms-field-hp"><input name="wpforms[hp]"></p>'
+    . '<input name="nickname" tabindex="-1" autocomplete="off"><div aria-hidden="true"><input name="trap"></div><input name="hidden_one" hidden>'
+    . '<textarea name="g-recaptcha-response"></textarea><textarea name="message">Message</textarea><button>Send</button></form>';
+$i333fFields = function (array $c): array {
+    $found = [];
+    $walk = function (array $nodes) use (&$walk, &$found): void {
+        foreach ($nodes as $n) {
+            if ($n['typ'] === 'formular') {
+                $found = array_column($n['obsah']['pole'] ?? [], 'popisek');
+            }
+            $walk($n['deti'] ?? []);
+        }
+    };
+    $walk($c['stavba']['deti']);
+
+    return $found;
+};
+check('3.33 review L6: hidden, aria-hidden, tabindex=-1, honeypot-class and captcha fields are left out of an imported form; the real fields stay', [
+    $i333fFields(Kaleta\Builder\HtmlConverter::convert($i333fForm, true)),
+    Kaleta\Builder\HtmlWidgets::formFields(Kaleta\Core\HtmlLimits::fragmentOrFail($i333fForm)->querySelector('form') ?? throw new RuntimeException('no form')),
+], [['Name', 'E-mail', 'message'], 3]);

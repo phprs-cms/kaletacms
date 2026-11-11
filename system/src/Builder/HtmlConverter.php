@@ -343,6 +343,9 @@ final class HtmlConverter
                 }
                 continue;
             }
+            if (HtmlWidgets::trapField($input, $el)) {
+                continue; // 3.33 review L6: a honeypot or a captcha's answer – the Form element has its own protection
+            }
             $labelText = $this->fieldLabel($el, $input);
             $required = $input->hasAttribute('required');
             if ($type === 'radio') {

@@ -112,10 +112,37 @@ final class HtmlWidgets
         $count = 0;
         foreach ($form->querySelectorAll('input, select, textarea') as $input) {
             $type = strtolower((string) ($input->getAttribute('type') ?? 'text'));
-            $count += in_array($type, ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'password'], true) ? 0 : 1;
+            $count += in_array($type, ['hidden', 'submit', 'button', 'reset', 'image', 'file', 'password'], true) || self::trapField($input, $form) ? 0 : 1;
         }
 
         return $count;
+    }
+
+    /** Field names of captchas and honeypots (3.33 review L6) – never a question for a visitor. */
+    private const string TRAP_NAMES = '/^(g-recaptcha-response|h-captcha-response|cf-turnstile-response|frc-captcha-solution|_gotcha|honeypot|hp|_hp|ak_hp_textarea|_wpcf7.*|wpforms\[hp\].*|fax_only)$/i';
+    /** Classes of the wrappers page builders and form plugins give a honeypot. */
+    private const string TRAP_CLASSES = '/(^|[\s_-])(honeypot|hp|wpforms-field-hp|gform_validation_container|ak_hp|nf-field-hp)($|[\s_-])/i';
+
+    /**
+     * A field a person never sees or fills in (3.33 review L6): a captcha's answer or a honeypot – hidden by an inline
+     * display:none or visibility:hidden, the hidden or aria-hidden="true" attribute (on it or a wrapper inside the form),
+     * tabindex="-1" on the field itself, a known name or a honeypot class. An imported form leaves it out.
+     */
+    public static function trapField(Element $input, Element $form): bool
+    {
+        if (preg_match(self::TRAP_NAMES, trim((string) $input->getAttribute('name'))) || trim((string) $input->getAttribute('tabindex')) === '-1') {
+            return true;
+        }
+        for ($node = $input; $node instanceof Element && $node !== $form; $node = $node->parentElement) {
+            $style = strtolower((string) preg_replace('/\s+/', '', (string) $node->getAttribute('style')));
+            if ($node->hasAttribute('hidden') || strtolower(trim((string) $node->getAttribute('aria-hidden'))) === 'true'
+                || str_contains($style, 'display:none') || str_contains($style, 'visibility:hidden')
+                || preg_match(self::TRAP_CLASSES, (string) $node->getAttribute('class'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /* ---------- frames: video, map, embedded pages ---------- */
