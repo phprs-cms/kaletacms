@@ -708,7 +708,8 @@ final class WpImport
         // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath); the parent page is linked now or at the end
         $target = ImportPath::target($this->db, self::pagePath((string) $p['odkaz']), self::plannedSlug($p), $language, (string) self::itemLanguage($p, $state)[0]);
         $starter = StarterPages::makeRoom($this->db, $this->settings, self::oldPath((string) $p['odkaz']), $target['slug'], $language, self::isHomeLink((string) $p['odkaz']),
-            array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))), $state['vzory'], array_values(array_map('intval', (array) ($state['volby']['nahradit_vzory'] ?? []))));
+            array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))), $state['vzory'], array_values(array_map('intval', (array) ($state['volby']['nahradit_vzory'] ?? []))),
+            (bool) $articleStatus['visible']); // 3.33 review M2: a hidden imported front page leaves the starter home page in place
         // a page directly under the site root must not take a slug the system uses (Pages::slugReserved; a nested one never collides)
         $seo = $this->freeSlug('stranky', $target['slug'], $language, '', $state, 120);
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
@@ -726,6 +727,10 @@ final class WpImport
         $seo = Slug::fromId($this->db, 'stranky', $ids); // a title with nothing to transliterate: page-<id>, not n-a
         if ($starter !== null && $starter['home']) {
             $this->settings->set('home_page', (string) $ids);
+        }
+        if (self::isHomeLink((string) $p['odkaz']) && isset($state['vzory']['domov']) && is_array($state['vzory']['domov'])) {
+            $state['vzory']['domov'][3] = $ids;
+            $state['vzory']['domov'][4] = '/' . ($language !== '' ? $language . '/' : '') . $seo;
         }
         if ($target['note'] !== '' && count($state['zmenene_adresy'] ?? []) < self::MAX_LISTED) {
             $state['zmenene_adresy'][] = ['/' . self::oldPath((string) $p['odkaz']), '/' . ($language !== '' ? $language . '/' : '') . $seo, $target['note']]; // shortened or flattened

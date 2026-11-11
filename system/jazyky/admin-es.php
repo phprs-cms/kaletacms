@@ -7976,4 +7976,7 @@ return [
     'recognised only by its title and address (an installation before 3.33) – it is published, so it stays; an import replaces it only when you tick it' => 'reconocida solo por su título y su dirección (una instalación anterior a 3.33): está publicada, así que se queda; una importación la sustituye solo si la marca',
     'recognised only by its title and address (an installation before 3.33), hidden' => 'reconocida solo por su título y su dirección (una instalación anterior a 3.33), oculta',
     'recorded by the installer and unchanged since' => 'registrada por el instalador y sin cambios desde entonces',
+    'The old home page arrives hidden: %s stays the home page until you publish the imported page and choose it as the home page in Settings → General.' => 'La página de inicio antigua llega oculta: %s sigue siendo la página de inicio hasta que publique la página importada y la elija como página de inicio en Ajustes → General.',
+    '%s is published now: after the import, %s shows the imported page only once you publish it.' => '%s está publicada ahora: tras la importación, %s mostrará la página importada solo cuando la publique.',
+    'The old home page arrived hidden (%s), so %s stays the home page. Publish the imported page, choose it as the home page in Settings → General and then move %s to the trash.' => 'La página de inicio antigua llegó oculta (%s), así que %s sigue siendo la página de inicio. Publique la página importada, elíjala como página de inicio en Ajustes → General y después mueva %s a la papelera.',
 ];

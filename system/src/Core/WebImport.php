@@ -541,10 +541,15 @@ final class WebImport
             $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
             // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath)
             $target = ImportPath::target($this->db, $old, self::leafSlug($old, $page['titulek']), $language, (string) $state['volby']['jazyk']);
-            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory'], self::replacedStarters($state));
+            // the imported page arrives hidden: the starter home page stays the home page until it is published (3.33 review M2)
+            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory'], self::replacedStarters($state), false);
             $ids = $this->createPage($page, $target, $language, $build, $seo);
             if ($starter !== null && $starter['home']) {
                 $this->settings->set('home_page', (string) $ids);
+            }
+            if ($old === '' && isset($state['vzory']['domov']) && is_array($state['vzory']['domov'])) {
+                $state['vzory']['domov'][3] = $ids;
+                $state['vzory']['domov'][4] = '/' . ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
             }
             $this->map($source, 'stranka', $key, $ids);
             ImportLayout::remember($this->db, $ids, $build); // "layout not rebuilt yet" until the build is edited

@@ -191,6 +191,7 @@ trait MigrationTools
             default => 'Done – nothing is public yet: news are drafts, pages and items hidden, menus in the draft look. Next: (1) run migration_report with the old site\'s address and fix what it finds as drafts; '
                 . '(2) check the menus with get_menu and preview_link site: true, and publish_look only when the user asks; (3) rebuild the pages whose layout came from a page builder (skipped "layout:…") with build_from_html from the live page; '
                 . '(4) publish pages and news (update_page visible, update_news publish) only on the user\'s instruction.'
+                . (\Kaleta\Core\StarterPages::homeWaiting((array) ($state['vzory'] ?? [])) !== null ? ' The old front page arrived hidden, so the sample home page stays the home page: after the user publishes the imported one, set it with update_settings home_page (starter_pages.home_waiting).' : '') // 3.33 review M2
                 . (($state['volby']['obrazky'] ?? false) && !$canDownload ? ' Images were not downloaded: this server cannot download them or the file does not name the old site – move them with upload_file.' : ''),
         };
 

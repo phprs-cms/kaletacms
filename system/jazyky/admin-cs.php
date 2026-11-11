@@ -7550,4 +7550,7 @@ return [
     'recognised only by its title and address (an installation before 3.33) – it is published, so it stays; an import replaces it only when you tick it' => 'poznaná jen podle titulku a adresy (instalace před 3.33) – je zveřejněná, proto zůstává; import ji nahradí, jen když ji zaškrtnete',
     'recognised only by its title and address (an installation before 3.33), hidden' => 'poznaná jen podle titulku a adresy (instalace před 3.33), skrytá',
     'recorded by the installer and unchanged since' => 'zapsaná instalátorem a od té doby nezměněná',
+    'The old home page arrives hidden: %s stays the home page until you publish the imported page and choose it as the home page in Settings → General.' => 'Stará úvodní stránka přijde skrytá: %s zůstane úvodní stránkou, dokud importovanou stránku nezveřejníte a nevyberete ji jako úvodní v Nastavení → Obecné.',
+    '%s is published now: after the import, %s shows the imported page only once you publish it.' => '%s je teď zveřejněná: po importu ukáže %s importovanou stránku, až ji zveřejníte.',
+    'The old home page arrived hidden (%s), so %s stays the home page. Publish the imported page, choose it as the home page in Settings → General and then move %s to the trash.' => 'Stará úvodní stránka přišla skrytá (%s), proto %s zůstává úvodní stránkou. Zveřejněte importovanou stránku, vyberte ji jako úvodní v Nastavení → Obecné a %s pak přesuňte do koše.',
 ];

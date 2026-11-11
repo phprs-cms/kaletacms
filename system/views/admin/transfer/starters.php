@@ -4,8 +4,8 @@
  * choice to replace it (ticked) or keep it, a page someone edited only as information; after the import what it replaced
  * and what it kept. Shared by the website import and the WordPress import.
  *
- * @var list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}>|null $choices  the preview (inside its form)
- * @var array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>}|null $result  after the import
+ * @var list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string, visible?: bool, home?: bool}>|null $choices  the preview (inside its form)
+ * @var array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>, home_waiting?: array{title: string, address: string, page_id: int, imported_address: string, what_to_do: string}}|null $result  after the import
  * @var array<mixed>|null $changed  after the import: old paths that could not be kept as they were (3.33, M3 – [old, new, shortened | flattened])
  */
 $choices ??= null;
@@ -23,18 +23,26 @@ $changed ??= null;
 	<label><input type="checkbox" name="nahradit_vzory[]" value="<?= (int) $c['page_id'] ?>"<?= $c['replace'] ? ' checked' : '' ?>> <?= e(t('Replace the sample page %s (%s) with the old page %s', $c['title'], $c['address'], $c['old'])) ?></label>
 <?php if (($c['how'] ?? '') === Kaleta\Core\StarterPages::LEGACY): // 3.33 review H1: recognised only by the titles of an older installation – unticked by default ?>
 	<span class="napoveda" data-starter-legacy><?= e(t('Only its title and address suggest a sample page of an installation before 3.33, so it is not replaced unless you tick it. Check it first.')) ?></span>
+<?php endif ?>
+<?php if (($c['home'] ?? false) && $c['why'] !== 'edited'): // 3.33 review M2: / never goes 404 because of an import ?>
+	<span class="napoveda"><?= e(t('The old home page arrives hidden: %s stays the home page until you publish the imported page and choose it as the home page in Settings → General.', $c['title'])) ?></span>
+<?php elseif (($c['visible'] ?? false) && $c['replace']): ?>
+	<span class="napoveda"><?= e(t('%s is published now: after the import, %s shows the imported page only once you publish it.', $c['title'], $c['address'])) ?></span>
 <?php endif ?><br>
 <?php endif ?>
 <?php endforeach ?>
 </fieldset>
 <?php endif ?>
-<?php if ($result !== null && ($result['replaced'] !== [] || $result['kept'] !== [])): ?>
+<?php if ($result !== null && ($result['replaced'] !== [] || $result['kept'] !== [] || isset($result['home_waiting']))): ?>
 <div class="hlaska" id="starter-pages-result">
 <?php if ($result['replaced'] !== []): ?>
 	<p><?= e(t('Sample pages replaced (in the trash for 30 days): %s', implode(', ', array_map(fn (array $r): string => $r['title'] . ' ← ' . $r['old'], $result['replaced'])))) ?></p>
 <?php endif ?>
 <?php if ($result['kept'] !== []): ?>
 	<p><?= e(t('Sample pages kept – the imported page got a number: %s', implode(', ', array_map(fn (array $r): string => $r['title'] . ' (' . $r['address'] . ')', $result['kept'])))) ?></p>
+<?php endif ?>
+<?php if (isset($result['home_waiting'])): $w = $result['home_waiting']; ?>
+	<p id="starter-home-waiting"><?= e(t('The old home page arrived hidden (%s), so %s stays the home page. Publish the imported page, choose it as the home page in Settings → General and then move %s to the trash.', $w['imported_address'], $w['title'], $w['title'])) ?></p>
 <?php endif ?>
 </div>
 <?php endif ?>

@@ -31,9 +31,10 @@ s3mcp import_website "{\"import_id\":\"$S3_IMPORT\",\"confirm\":true}" > "$WORK/
 for i in $(seq 1 20); do [ "$(s3_field phase)" = importing ] || break; s3mcp import_website "{\"import_id\":\"$S3_IMPORT\"}" > "$WORK/response"; done
 s3mcp update_page "{\"id\":$(s3q "SELECT ids FROM ka_stranky WHERE seo_link = 'reference' AND smazano IS NULL"),\"title\":\"Naše zakázky\",\"seo_title\":\"Naše zakázky\"}" > /dev/null # the import kept the old <title> as the SEO title (3.33 B) – change both
 s3_report "$OLD333"
-expect "3.33 M5 migration_report after the import: no address on a sample page, all five not published yet, the changed title listed" \
+# 3.33 review M2: the old home page arrived hidden, so / still shows the sample Home (counted as a sample page) until it is published
+expect "3.33 M5 migration_report after the import: only / on the sample Home that stays until the imported home page is published, four not published yet, the changed title listed" \
   "$(s3_field on_sample_pages)|$(s3_field summary not_published)|$(s3_field title_changes)" \
-  '0|5|[{"old":"/reference","old_title":"Reference – Topení Dub","new_title":"Naše zakázky"}]'
+  '1|4|[{"old":"/reference","old_title":"Reference – Topení Dub","new_title":"Naše zakázky"}]'
 kill "$OLD333_PID" 2>/dev/null || true; OLD333_PID=
 
 # an old site that does not answer: said plainly, never an empty site

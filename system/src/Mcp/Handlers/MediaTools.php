@@ -101,9 +101,11 @@ trait MediaTools
                 'addresses_changed' => \Kaleta\Core\ImportPath::summary((array) ($state['zmenene_adresy'] ?? []))]) + [
             'next' => match ($state['faze']) {
                 'hledani', 'import' => 'Call again with the same import id.',
-                'nahled' => 'Show the user what was found and which starter pages of this site the import replaces (starter_pages); on their instruction call again with confirm: true (keep_starter_pages: ["/old-address"] keeps a starter page, ["*"] all of them; a starter page with why "legacy" is kept unless replace_starter_pages: ["/old-address"] names it).',
+                'nahled' => 'Show the user what was found and which starter pages of this site the import replaces (starter_pages); on their instruction call again with confirm: true (keep_starter_pages: ["/old-address"] keeps a starter page, ["*"] all of them; a starter page with why "legacy" is kept unless replace_starter_pages: ["/old-address"] names it). The pages arrive hidden, so the sample home page stays the home page until the imported one is published and set as home_page.',
                 default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.'
-                    . ' Fix what attention lists (a placeholder marks a form whose fields could not be read). read_old_page returns an old page as section HTML with its colours and fonts, to rebuild its layout.',
+                    . ' Fix what attention lists (a placeholder marks a form whose fields could not be read). read_old_page returns an old page as section HTML with its colours and fonts, to rebuild its layout.'
+                    // 3.33 review M2: the starter home page stays until the imported home page is published
+                    . (\Kaleta\Core\StarterPages::homeWaiting((array) ($state['vzory'] ?? [])) !== null ? ' The old home page arrived hidden, so the sample home page stays the home page: after the user publishes the imported one, set it with update_settings home_page (starter_pages_result.home_waiting).' : ''),
             }];
     }
 

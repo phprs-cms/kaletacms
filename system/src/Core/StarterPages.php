@@ -259,7 +259,7 @@ final class StarterPages
      * @param iterable<array{old: string, slug: string, language: string, home: bool}> $targets where the import's pages land
      * @param list<int> $keep starter pages the person chose to keep
      * @param list<int> $replace pages recognised by the legacy rule the person chose to replace
-     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string}> why: '' | kept | edited | legacy
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string, how: string, visible: bool, home: bool}> why: '' | kept | edited | legacy
      */
     public static function choices(Db $db, Settings $settings, iterable $targets, array $keep, array $replace = []): array
     {
@@ -277,7 +277,8 @@ final class StarterPages
                     $legacy = $i === 0 && $page['how'] === self::LEGACY && !in_array($id, $replace, true);
                     $kept = $i === 1 || in_array($id, $keep, true) || $legacy;
                     $out[] = ['old' => '/' . $t['old'], 'page_id' => $id, 'title' => $page['titulek'], 'address' => '/' . ($page['jazyk'] !== '' ? $page['jazyk'] . '/' : '') . $page['seo_link'],
-                        'replace' => !$kept, 'why' => $i === 1 ? 'edited' : (in_array($id, $keep, true) ? 'kept' : ($legacy ? 'legacy' : '')), 'how' => $page['how']];
+                        'replace' => !$kept, 'why' => $i === 1 ? 'edited' : (in_array($id, $keep, true) ? 'kept' : ($legacy ? 'legacy' : '')), 'how' => $page['how'],
+                        'visible' => $page['visible'], 'home' => $page['home']]; // 3.33 review M2: the preview says what a published sample page means
                 }
             }
         }
@@ -339,12 +340,20 @@ final class StarterPages
      * @param list<int> $keep
      * @param array<string, mixed> $note
      * @param list<int> $replace pages recognised by the legacy rule the person chose to replace
+     * @param bool $visible the imported page will be visible – the starter home page is replaced only then (3.33 review M2:
+     *                      / never goes 404 or to the news list because of an import); otherwise it stays the home page and
+     *                      $note['domov'] = [old address, title, its address] tells the person what to do (homeWaiting)
      * @return array{ids: int, seo_link: string, jazyk: string, titulek: string, home: bool, how: string, visible: bool}|null
      */
-    public static function makeRoom(Db $db, Settings $settings, string $old, string $slug, string $language, bool $home, array $keep, array &$note, array $replace = []): ?array
+    public static function makeRoom(Db $db, Settings $settings, string $old, string $slug, string $language, bool $home, array $keep, array &$note, array $replace = [], bool $visible = true): ?array
     {
         $note += ['nahrazeno' => [], 'ponechano' => []];
         $page = self::at($db, $settings, $slug, $language, $home, $keep, $replace);
+        if ($page !== null && $page['home'] && !$visible) {
+            $note['domov'] = ['/' . $old, $page['titulek'], '/' . ($language !== '' ? $language . '/' : '') . $page['seo_link']];
+
+            return null;
+        }
         if ($page !== null) {
             self::retire($db, $settings, $page['ids']);
             if (count($note['nahrazeno']) < 200) {
@@ -366,17 +375,36 @@ final class StarterPages
      * What an import did with the starter pages (its state's note) in English, for MCP and the result pages.
      *
      * @param array<string, mixed> $note
-     * @return array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>}
+     * home_waiting (3.33 review M2): the old home page arrived hidden, so the starter home page stays the home page until
+     * the imported page (page_id, address) is published and chosen as the home page.
+     *
+     * @return array{replaced: list<array{old: string, title: string, address: string}>, kept: list<array{old: string, title: string, address: string, why: string}>, home_waiting?: array{title: string, address: string, page_id: int, imported_address: string, what_to_do: string}}
      */
     public static function summary(array $note): array
     {
+        $waiting = self::homeWaiting($note);
         $why = ['kept' => 'kept as chosen in the preview – the imported page got a number', 'edited' => 'someone edited it, so it is never replaced – the imported page got a number',
             'legacy' => 'recognised only by the titles of an older installation, so it is replaced only when chosen (replace_starter_pages) – the imported page got a number'];
 
         return [
             'replaced' => array_map(fn (array $r): array => ['old' => (string) $r[0], 'title' => (string) $r[1], 'address' => (string) $r[2]], array_values((array) ($note['nahrazeno'] ?? []))),
             'kept' => array_map(fn (array $r): array => ['old' => (string) $r[0], 'title' => (string) $r[1], 'address' => (string) $r[2], 'why' => $why[(string) ($r[3] ?? '')] ?? (string) ($r[3] ?? '')], array_values((array) ($note['ponechano'] ?? []))),
-        ];
+        ] + ($waiting === null ? [] : ['home_waiting' => $waiting + ['what_to_do' => 'The old home page arrived hidden, so the sample home page stays the home page – / keeps working. '
+            . 'After the user checks and publishes the imported page, set it as the home page (update_settings home_page = page_id) and move the sample home page to the trash (trash_page).']]);
+    }
+
+    /**
+     * The starter home page an import left in place because the imported home page arrived hidden (3.33 review M2): its
+     * title and address and the imported page (page_id, imported_address); null = none.
+     *
+     * @param array<string, mixed> $note
+     * @return array{title: string, address: string, page_id: int, imported_address: string}|null
+     */
+    public static function homeWaiting(array $note): ?array
+    {
+        $r = $note['domov'] ?? null;
+
+        return is_array($r) && isset($r[1], $r[2]) ? ['title' => (string) $r[1], 'address' => (string) $r[2], 'page_id' => (int) ($r[3] ?? 0), 'imported_address' => (string) ($r[4] ?? '')] : null;
     }
 
     /**

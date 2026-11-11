@@ -26,13 +26,17 @@ for i in $(seq 1 20); do [ "$(s3_field phase)" = importing ] || break; s3mcp imp
 expect "3.33 M2 import_website: Contact replaced at its own address, the starter in the trash as kontakt-sample; About us kept and the import got o-nas-2; the edited Služby kept (sluzby-2)" \
   "$(s3q "SELECT GROUP_CONCAT(CONCAT(seo_link, ':', titulek, ':', smazano IS NOT NULL) ORDER BY seo_link) FROM ka_stranky WHERE seo_link REGEXP '^(kontakt|o-nas|sluzby)'")" \
   "kontakt:Kontaktujte nás:0,kontakt-sample:Kontakt:1,o-nas:O nás:0,o-nas-2:O firmě:0,sluzby:Služby:0,sluzby-2:Naše služby:0"
-expect "3.33 M2 import_website: the old home page replaced the starter home page – home_page points at it (hidden, like every import)" \
-  "$(s3q "SELECT CONCAT(titulek, ':', zobrazit) FROM ka_stranky WHERE ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page')")|$(s3q "SELECT smazano IS NOT NULL FROM ka_stranky WHERE seo_link = 'uvod-sample'")" "Vítejte u Dubu:0|1"
-expect "3.33 M2 import_website result: what was replaced and what was kept, and why" \
-  "$(s3_field starter_pages_result | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo count($r["replaced"]), "/", implode(",", array_map(fn ($k) => $k["old"] . ":" . (str_contains($k["why"], "edited") ? "edited" : "kept"), $r["kept"]));')" "2//o-nas:kept,/sluzby:edited"
+# 3.33 review M2: the old home page arrived hidden – the starter home page stays the home page, / never goes 404
+expect "3.33 review M2 import_website: a hidden imported home page leaves the starter home page in place (home_page unchanged, nothing in the trash)" \
+  "$(s3q "SELECT CONCAT(titulek, ':', zobrazit) FROM ka_stranky WHERE ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page')")|$(s3q "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'uvod-sample'")" "Úvod:1|0"
+expect "3.33 M2 import_website result: what was replaced and what was kept, and why; the waiting home page with what to do" \
+  "$(s3_field starter_pages_result | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo count($r["replaced"]), "/", implode(",", array_map(fn ($k) => $k["old"] . ":" . (str_contains($k["why"], "edited") ? "edited" : "kept"), $r["kept"])), "/", $r["home_waiting"]["title"] ?? "", ":", $r["home_waiting"]["imported_address"] ?? "", ":", str_contains($r["home_waiting"]["what_to_do"] ?? "", "update_settings") ? "how" : "";')" \
+  "1//o-nas:kept,/sluzby:edited/Úvod:/home:how"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$S3/")" = 200 ] && echo "  ok     3.33 review M2: / still answers after the import" || { echo "  CHYBA  3.33 review M2: / after the import"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$S3_JAR" -o "$WORK/response" "$S3/admin.php?module=transfer&action=web_progress&id=$S3_IMPORT"
 contains -q 'id="starter-pages-result"' "$WORK/response" && contains -q 'Kontakt ← /kontakt' "$WORK/response" \
-  && echo "  ok     3.33 M2: the admin result of the website import names the replaced and kept sample pages" || { echo "  CHYBA  3.33 M2: admin web import result"; ERRORS=$((ERRORS+1)); }
+  && contains -q 'id="starter-home-waiting"' "$WORK/response" \
+  && echo "  ok     3.33 M2: the admin result of the website import names the replaced and kept sample pages and the waiting home page" || { echo "  CHYBA  3.33 M2: admin web import result"; ERRORS=$((ERRORS+1)); }
 
 # the WordPress import: the front page and /kontakt replace the starter pages; in the admin preview a box unticked keeps one
 s3_install firemni
@@ -50,9 +54,9 @@ TOKEN=$(csrf); S3_HOME=$(s3q "SELECT ids FROM ka_stranky WHERE seo_link = 'uvod'
 curl -s -b "$S3_JAR" -c "$S3_JAR" -o /dev/null -X POST "$S3/admin.php?module=transfer&action=run" -d "_csrf=$TOKEN" -d "soubor=$S3_WXR" -d stranky=1 -d skryte=1 -d presmerovani=1 \
   -d "nahradit_vzory[]=$S3_HOME" -d "nahradit_vzory[]=$S3_ABOUT"
 for _ in 1 2 3 4 5; do s3mcp import_wordpress "{\"import\":\"$S3_WXR\"}" > "$WORK/response"; [ "$(s3_field phase)" = done ] && break; done
-expect "3.33 M2 import_wordpress: the front page is the new home page, O nás replaced, Kontakt kept as chosen (the import got kontakt-2)" \
+expect "3.33 M2 import_wordpress: the hidden front page leaves Úvod as the home page (review M2), O nás replaced, Kontakt kept as chosen (the import got kontakt-2)" \
   "$(s3q "SELECT titulek FROM ka_stranky WHERE ids = (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page')")|$(s3q "SELECT GROUP_CONCAT(CONCAT(seo_link, ':', titulek, ':', smazano IS NOT NULL) ORDER BY seo_link) FROM ka_stranky WHERE seo_link REGEXP '^(kontakt|o-nas)'")" \
-  "Domů|kontakt:Kontakt:0,kontakt-2:Kontaktujte nás:0,o-nas:O firmě:0,o-nas-sample:O nás:1"
+  "Úvod|kontakt:Kontakt:0,kontakt-2:Kontaktujte nás:0,o-nas:O firmě:0,o-nas-sample:O nás:1"
 expect "3.33 M2 import_wordpress result lists the replaced and the kept starter pages" \
-  "$(s3_field starter_pages | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo count($r["replaced"] ?? []), "/", count($r["kept"] ?? []);')" "2/1"
+  "$(s3_field starter_pages | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo count($r["replaced"] ?? []), "/", count($r["kept"] ?? []), "/", $r["home_waiting"]["title"] ?? "";')" "1/1/Úvod"
 kill "$OLD333_PID" 2>/dev/null || true; OLD333_PID=
