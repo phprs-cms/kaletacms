@@ -24,6 +24,10 @@ final class OldPage
     public const int TOTAL_BYTES = 100_000;
     public const int STYLESHEETS = 6;
     public const int STYLESHEET_BYTES = 400 * 1024;
+    /** 3.33 review M3: read() stops fetching stylesheets after this many seconds and answers with what it has (partial). */
+    public const float SECONDS = 20.0;
+    /** A rule body longer than this is skipped (a data URI or a minified blob, never a declaration Claude needs). */
+    public const int RULE_BYTES = 20_000;
 
     /** Attributes the cleaned HTML keeps – what tells Claude what an element is, where it links and how it is laid out. */
     private const array ATTRIBUTES = ['class', 'id', 'href', 'src', 'alt', 'title', 'role', 'aria-label', 'type', 'name', 'placeholder', 'for', 'colspan', 'rowspan',
@@ -44,8 +48,9 @@ final class OldPage
      * @throws \RuntimeException why the page cannot be read
      * @throws HtmlTooLarge when the page is over a limit of HtmlLimits
      */
-    public function read(string $url, ?int $section = null): array
+    public function read(string $url, ?int $section = null, float $seconds = self::SECONDS): array
     {
+        $start = microtime(true);
         $c = parse_url($url);
         $origin = strtolower((string) ($c['scheme'] ?? '')) . '://' . strtolower((string) ($c['host'] ?? '')) . (isset($c['port']) ? ':' . $c['port'] : '');
         try {
@@ -56,9 +61,16 @@ final class OldPage
         $html = WebImport::politeDownload($this->downloader, $url, $robots, false, true, 5_000_000);
         $css = [];
         $skipped = 0;
+        $late = false;
         foreach (array_slice(self::stylesheetLinks($html, $url), 0, self::STYLESHEETS + 20) as $link) {
             if (count($css) >= self::STYLESHEETS || str_contains($link, 'fonts.googleapis.com')) {
                 $skipped += str_contains($link, 'fonts.googleapis.com') ? 0 : 1; // the font names are in the address itself
+                continue;
+            }
+            // 3.33 review M3: the stylesheets and the gaps between the requests share one time budget – then a partial answer
+            if (!self::withinBudget($start, $seconds, WebImport::nextWait($robots))) {
+                $late = true;
+                $skipped++;
                 continue;
             }
             try {
@@ -68,7 +80,15 @@ final class OldPage
             }
         }
 
-        return HtmlLimits::guard(fn (): array => self::analyse($html, $url, $css, $skipped, $section));
+        $out = HtmlLimits::guard(fn (): array => self::analyse($html, $url, $css, $skipped, $section));
+
+        return $late ? ['partial' => true] + $out + ['stylesheets_note' => 'The time budget of ' . (int) $seconds . ' s was used up – stylesheets.not_read were not read; colours and fonts may be incomplete.'] : $out;
+    }
+
+    /** Whether another request still fits: the time spent plus the gap before it, with a few seconds left for the analysis. */
+    public static function withinBudget(float $start, float $seconds, float $wait): bool
+    {
+        return microtime(true) - $start + $wait + 3.0 < $seconds;
     }
 
     /**
@@ -285,8 +305,11 @@ final class OldPage
         $rules = [];
         if (preg_match_all('/([^{}@;]+)\{([^{}]*)\}/', $css, $m, PREG_SET_ORDER)) {
             foreach (array_slice($m, 0, 20_000) as [, $selector, $body]) {
+                if (strlen($body) > self::RULE_BYTES) {
+                    continue; // 3.33 review M3: a data URI or a blob, never worth the time
+                }
                 $declarations = [];
-                foreach (preg_split('/;(?![^(]*\))/', $body) ?: [] as $d) {
+                foreach (self::declarations($body) as $d) {
                     if (str_contains($d, ':')) {
                         [$property, $value] = array_map('trim', explode(':', $d, 2));
                         if ($property !== '' && $value !== '') {
@@ -301,6 +324,34 @@ final class OldPage
         }
 
         return $rules;
+    }
+
+    /**
+     * The declarations of a rule body split at the semicolons outside parentheses – one linear pass (3.33 review M3: the
+     * former look-ahead split was quadratic on a long body without parentheses).
+     *
+     * @return list<string>
+     */
+    public static function declarations(string $body): array
+    {
+        $out = [];
+        $depth = 0;
+        $from = 0;
+        $length = strlen($body);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $body[$i];
+            if ($char === '(') {
+                $depth++;
+            } elseif ($char === ')') {
+                $depth = max(0, $depth - 1);
+            } elseif ($char === ';' && $depth === 0) {
+                $out[] = substr($body, $from, $i - $from);
+                $from = $i + 1;
+            }
+        }
+        $out[] = substr($body, $from);
+
+        return $out;
     }
 
     /**

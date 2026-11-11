@@ -940,6 +940,12 @@ final class WebImport
         }
     }
 
+    /** How long politeDownload() would wait before the next request (3.33 review M3: OldPage keeps a time budget). */
+    public static function nextWait(array $robots): float
+    {
+        return max(0.0, min(self::$lastRequest + self::delay($robots) - microtime(true), self::MAX_DELAY));
+    }
+
     /* ---------- robots.txt (3.7) ---------- */
 
     /**
