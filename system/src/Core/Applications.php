@@ -1405,7 +1405,7 @@ final class Applications
      * id cursor (the setting applications_seal_after), so a row whose file is gone or cannot be sealed does not hold the
      * others back; at the end the cursor starts over. A file that is gone stays listed (the download says it no longer
      * exists). 3.34 second review N1: every file goes through sealEntry() – crash-safe, an interrupted run is finished by
-     * the next one – and the run ends with sweepOrphans(); N4: under lockFiles(), never while a move runs. Returns how many
+     * the next one – and the run ends with sweepOrphans() (third review F2: once a day); N4: under lockFiles(), never while a move runs. Returns how many
      * files were sealed.
      */
     public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
@@ -1458,7 +1458,10 @@ final class Applications
             }
             $s->set('applications_seal_after', (string) $after);
         }
-        self::sweepOrphans($app);
+        if ($s->get('applications_swept_on') !== Clock::today()) { // 3.34 third review F2: the sweep reads every row – once a day, not on every cron run
+            $s->set('applications_swept_on', Clock::today());
+            self::sweepOrphans($app);
+        }
 
         return $sealed;
     }
@@ -1590,7 +1593,8 @@ final class Applications
      * What a row lists is read from attachment_paths (always readable) – while a row without it has a list that cannot be
      * opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget()
      * would give a CV still waiting in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it
-     * back) – counts as listed. Returns how many files went.
+     * back) – counts as listed; F2: the enquiries are read only when a file is still unlisted after the applications. Returns
+     * how many files went.
      */
     public static function sweepOrphans(App $app): int
     {
@@ -1615,9 +1619,12 @@ final class Applications
                     $listed[$file] = true;
                 }
             }
+            // F2: the enquiries are read only for a file the applications leave unlisted
+            $candidates = array_filter([...$old, ...array_map(fn (string $f): string => substr($f, 0, -strlen(self::ORPHAN_SUFFIX)), $aside)],
+                fn (string $f): bool => str_ends_with($f, '.bin') && !isset($listed[$f]));
             // N9: an enquiry restored from a backup older than the sealing opens its CV from the copy (Enquiries::actionAttachment)
             $after = 0;
-            while (($enquiries = $app->db()->all('SELECT idp, data FROM {poptavky} WHERE idp > ? ORDER BY idp LIMIT 500', [$after])) !== []) {
+            while ($candidates !== [] && ($enquiries = $app->db()->all('SELECT idp, data FROM {poptavky} WHERE idp > ? ORDER BY idp LIMIT 500', [$after])) !== []) {
                 foreach ($enquiries as $e) {
                     $after = (int) $e['idp'];
                     foreach (json_decode((string) $e['data'], true) ?: [] as $field) {

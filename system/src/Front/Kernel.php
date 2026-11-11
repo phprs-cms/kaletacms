@@ -81,6 +81,9 @@ final class Kernel
         // after a system update (automatic too) the database is updated right on the first visit, not only after the
         // administrator signs in
         if (\Kaleta\Core\Migration::pending($app->settings())) {
+            if (!in_array($app->request->path(), ['/tasks', '/ulohy'], true)) {
+                \Kaleta\Core\Migration::$seconds = \Kaleta\Core\Migration::VISITOR_SECONDS; // 3.34 third review F2: a visitor waits ~2 s at most, cron does the rest
+            }
             // a failed migration must not bring down the whole site: it is logged and the site keeps running (database
             // changes are additive only); the administrator sees it in the administration and can install a fix
             \Kaleta\Core\Migration::safe($app->db(), $app->settings());

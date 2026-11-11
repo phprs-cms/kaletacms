@@ -29,7 +29,7 @@
  *
  * Resumable (3.34 review M3): each enquiry moves in its own small transaction inside a try/catch – a row that fails stays an
  * enquiry, is counted and named by its number only in the event applications.move_failed, and the move goes on. A run stops
- * after MOVE_SECONDS (a web request's time limit); the enquiries still to move (job sources, idp <= applications_move_until)
+ * after Core\Migration::$seconds (15 s from cron and the administration, 2 s inside a visitor's page request – third review F2); the enquiries still to move (job sources, idp <= applications_move_until)
  * stay hidden in Enquiries from people without Applications (Core\Applications::movingCondition), and the migration puts its
  * name into data_migrations_unfinished – Core\Migration runs it again on the next request (a visit or the administration)
  * until nothing is left. The update request of 3.33 marks it done after its first run; the name in
@@ -77,8 +77,10 @@ return static function (Db $db, Settings $settings): void {
     if ((int) ini_get('max_execution_time') > 0) {
         @set_time_limit(300);
     }
-    // one run moves for at most this long (a web request – the next request goes on); the tests make it one row
-    $seconds = defined('KALETA_MIGRATION_SECONDS') ? max(0.0, (float) constant('KALETA_MIGRATION_SECONDS')) : 15.0;
+    // one run moves for at most this long (a web request – the next request goes on); the tests make it one row. 3.34 third
+    // review F2: Core\Migration::$seconds – 15 s from cron and the administration, 2 s inside a visitor's page request
+    $budget = property_exists(\Kaleta\Core\Migration::class, 'seconds') ? (float) \Kaleta\Core\Migration::$seconds : 15.0;
+    $seconds = defined('KALETA_MIGRATION_SECONDS') ? max(0.0, (float) constant('KALETA_MIGRATION_SECONDS')) : $budget;
     $rowsAtMost = defined('KALETA_MIGRATION_ROWS') ? max(1, (int) constant('KALETA_MIGRATION_ROWS')) : PHP_INT_MAX;
     $contactBatch = defined('KALETA_MIGRATION_CONTACTS') ? max(1, (int) constant('KALETA_MIGRATION_CONTACTS')) : 500; // the tests make the batches small
     $started = microtime(true);
