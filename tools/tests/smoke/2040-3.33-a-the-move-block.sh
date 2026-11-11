@@ -6,10 +6,11 @@ s3_report "$OLD333"
 s3mcp site_audit '{"kind":"handover"}' > "$WORK/response"
 expect "3.33 M7 site_audit move: pages imported and published, not reworked, sample pages left, the newest report – counts only" \
   "$(s3_field move pages_imported)|$(s3_field move pages_published)|$(s3_field move pages_not_reworked)|$(s3_field move sample_pages)|$(s3_field move report forms_missing)|$(s3_field move report site_wide_forms)|$(s3_field move report clean)" \
-  "5|0|5|0|0|1|true" # no imported page rebuilt yet (a new title is no new layout); the contact form came over as a Form element (3.33 B), the newsletter is the site-wide one
+  "5|0|5|0|0|1|false" # no imported page rebuilt yet (a new title is no new layout); the contact form came over as a Form element (3.33 B), the newsletter is the site-wide one
+# 3.33 review M2: the old home page arrived hidden, so / still shows the sample Home – the report keeps that error until it is published
 expect "3.33 M7 site_audit move rows: done and not done, each with its link" \
   "$(s3_field move rows | php -r 'echo implode(",", array_map(fn ($r) => $r["key"] . ":" . ($r["done"] ? 1 : 0) . (str_contains($r["edit"], "admin.php?module=") ? "" : ":nolink"), json_decode(stream_get_contents(STDIN), true)));')" \
-  "move_imported:1,move_layouts:0,move_samples:1,move_redirects:1,move_forms:1,move_report:1"
+  "move_imported:1,move_layouts:0,move_samples:1,move_redirects:1,move_forms:1,move_report:0"
 # 3.33 A+B: "not reworked" is the layout flag of the list of pages (Core\ImportLayout::pending) – the Move block, the Pages tab
 # "Layout not rebuilt (n)" and the database agree; a builder draft on one waiting page takes it out of all three
 s3_pending() { s3q "SELECT COUNT(*) FROM ka_import_mapa m JOIN ka_stranky s ON s.ids = m.nase_id WHERE m.zdroj = 'layout' AND s.smazano IS NULL AND s.stavba_koncept IS NULL AND s.stavba IS NOT NULL AND m.cizi_id = CONCAT(s.ids, ':', SHA2(s.stavba, 256))"; }

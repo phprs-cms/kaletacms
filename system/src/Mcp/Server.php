@@ -191,9 +191,9 @@ final class Server
         $czech = Translator::czech($name);
         $isEnglish = $czech !== null || !in_array($name, $tools->names(), true);
         if (Catalog::english($name) !== null && !Catalog::allows($this->access(), $name)) {
-            return ['content' => [['type' => 'text', 'text' => $this->access() === 'read'
+            return ['content' => [['type' => 'text', 'text' => isset(Catalog::NEEDS_REFUSAL[Catalog::english($name)]) ? Catalog::NEEDS_REFUSAL[Catalog::english($name)] : ($this->access() === 'read'
                 ? 'This connection can only read the site. Changes need a connection with more access – the user sets it when connecting Claude, or under My account.'
-                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.']], 'isError' => true];
+                : 'This connection can only save drafts: builds, hidden pages and collection items, news drafts, the draft look, proposed exceptions to the opening hours, enquiry triage and notebook notes. This tool changes the live site – the user can do it in the admin, or connect Claude with full access.')]], 'isError' => true];
         }
         try {
             $items = $czech !== null ? Translator::listAll($tools->listAll()) : $tools->listAll();

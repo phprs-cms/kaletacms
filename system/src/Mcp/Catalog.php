@@ -579,6 +579,9 @@ final class Catalog
      */
     public const array NEEDS = ['read_old_page' => 'import_website'];
 
+    /** What a connection hears when it calls a tool of NEEDS it may not run (the same words as the tool's own refusal). */
+    public const array NEEDS_REFUSAL = ['read_old_page' => 'Old pages are read by an administrator whose connection may import a website (full access).'];
+
     /** May a connection with this access run the tool? */
     public static function allows(string $connectionAccess, string $name): bool
     {
