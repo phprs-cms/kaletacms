@@ -561,7 +561,7 @@ final class OldPage
                     }
                     $out[] = '#' . substr($hex, 0, 6);
                 } elseif (($c[2] ?? '') !== '') {
-                    if (isset($c[5]) && $c[5] !== '' && (float) $c[5] === 0.0) {
+                    if (isset($c[5]) && (float) $c[5] === 0.0) { // a matched alpha is never empty
                         continue; // fully transparent
                     }
                     $out[] = sprintf('#%02x%02x%02x', min(255, (int) $c[2]), min(255, (int) $c[3]), min(255, (int) $c[4]));

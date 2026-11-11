@@ -321,6 +321,7 @@ final class HtmlWidgets
             return null;
         }
         $items = [];
+        /** @var list<Element> $taken */
         $taken = [];
         $inside = function (Element $node) use (&$taken): bool { // by reference: the parts found so far
             return array_filter($taken, fn (Element $t): bool => $t === $node || $t->contains($node) || $node->contains($t)) !== [];
@@ -451,7 +452,7 @@ final class HtmlWidgets
             }
         }
 
-        return count($tabs) >= 2 && !self::contentOutside($container, array_values(array_filter($taken))) ? array_slice($tabs, 0, 12) : null;
+        return count($tabs) >= 2 && !self::contentOutside($container, $taken) ? array_slice($tabs, 0, 12) : null;
     }
 
     /**
