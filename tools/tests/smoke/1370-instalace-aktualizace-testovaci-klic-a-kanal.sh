@@ -83,7 +83,7 @@ $replay = [
     'novy' => $signed('3.99.10', 'latest'),
     'starsi' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.9', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 7 * 86400)] + $m, $sk),
     'v1' => array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]),
-    'stary-datum' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 70 * 86400)] + $m, $sk),
+    'stary-datum' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', strtotime('-70 days'))] + $m, $sk),
 ];
 foreach ($replay as $name => $manifest) {
     file_put_contents(dirname($site) . '/kanal/replay-' . $name . '.json', json_encode($manifest));
