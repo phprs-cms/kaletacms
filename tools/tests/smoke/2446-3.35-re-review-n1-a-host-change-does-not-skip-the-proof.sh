@@ -17,8 +17,10 @@ expect "3.35 re-review N1: the legacy form is posted without the split marker" "
 expect "3.35 re-review N1: a new host without confirmation and without the proof – the address, passkeys only and the two-factor rule all stay" \
   "$(r446_save "&site_url=https%3A%2F%2Fother-host-446.example&require_2fa=vsichni")|$(r426_set)|$([ "$(r446_url)" = "$R446_URL" ] && echo kept)" "302|/1|kept"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=general"
-expect "3.35 re-review N1: the refusal names the missing confirmation and the missing password" \
-  "$(grep -c 'Tick the confirmation under the address' "$WORK/response")|$(grep -c 'Enter your current password under the field' "$WORK/response")" "1|1"
+r446_t() { php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Core\Language::runWith($argv[2], fn (): string => t($argv[3]), "admin-");' "$ROOT" "$R446_LANG" "$1"; }
+R446_LANG=$(sq "SELECT IF(jazyk = '', 'cs', jazyk) FROM ka_uzivatele WHERE user = 'admin'") # the admin pages come in the administrator's language
+expect "3.35 re-review N1: the refusal names the three fields and says what is missing – the confirmation and the password" \
+  "$(grep -cF "„$(r446_t 'Two-factor sign-in')“" "$WORK/response")|$(grep -cF "„$(r446_t 'Passkeys')“" "$WORK/response")|$(grep -cF "$(r446_t "$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Admin\Modules\Settings::HOST_CHANGE_CONFIRM;' "$ROOT")")" "$WORK/response")|$(grep -cF "$(r446_t 'Enter your current password under the field to save this change.')" "$WORK/response")" "1|1|1|1"
 expect "3.35 re-review N1: with the password the two rules are saved, the new host still waits for its confirmation" \
   "$(r446_save "&site_url=https%3A%2F%2Fother-host-446.example&require_2fa=vsichni&soucasne=$PASSWORD")|$(r426_set)|$([ "$(r446_url)" = "$R446_URL" ] && echo kept)" "302|vsichni/0|kept"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('require_2fa', 'signin_passkey_only'); UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'" > /dev/null

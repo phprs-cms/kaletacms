@@ -227,7 +227,10 @@ class Settings extends Module
         foreach ($tab === 'general' ? ['general', ...self::SPLIT_FROM_GENERAL] : [$tab] as $view) { // the single General form of 3.22 (actionSave)
             $template .= (string) @file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $view . '.php');
         }
-        $names = array_map(fn (string $key): string => preg_match('/\$(?:pole|field)\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m) ? '„' . t($m[1]) . '“' : $key, $errors);
+        // the label of a $field() row, or (3.35 re-review N1) of a row written by hand – <label for="key"> or the row id="key" with its caption
+        $names = array_map(fn (string $key): string => preg_match('/\$(?:pole|field)\(\s*\'' . preg_quote($key, '/') . '\',\s*\'([^\']+)\'/', $template, $m)
+            || preg_match('/(?:<label for="' . preg_quote($key, '/') . '">|id="' . preg_quote($key, '/') . '">\s*<span class="popisek">)<\?= e\(t\(\'([^\']+)\'\)\) \?>/', $template, $m)
+            ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
         \Kaleta\Admin\ChangeLog::changedAnyway(); // the other settings are saved: the save is logged (3.23.1)
 
