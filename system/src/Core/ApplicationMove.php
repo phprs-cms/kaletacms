@@ -102,7 +102,7 @@ final class ApplicationMove
     {
         $db = $app->db();
         $rows = $db->all('SELECT * FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp) ORDER BY idp LIMIT ' . self::BATCH, [$form, $source]);
-        $result = self::moveRows($app, $rows);
+        $result = self::locked($db, fn (): array => self::moveRows($app, $rows));
         $left = (int) $db->value('SELECT COUNT(*) FROM {poptavky} p WHERE formular = ? AND zdroj = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$form, $source]);
 
         return ['moved' => $result['moved'], 'left' => $left, 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
@@ -117,7 +117,7 @@ final class ApplicationMove
     public static function enquiryToApplication(App $app, int $idp): ?array
     {
         $rows = $app->db()->all('SELECT * FROM {poptavky} p WHERE idp = ? AND NOT EXISTS (SELECT 1 FROM {applications} a WHERE a.source_enquiry_id = p.idp)', [$idp]);
-        $result = self::moveRows($app, $rows);
+        $result = self::locked($app->db(), fn (): array => self::moveRows($app, $rows));
 
         return $result['ids'] === [] ? null : ['id' => $result['ids'][0], 'deals' => $result['deals'], 'contacts_deleted' => $result['contacts_deleted']];
     }
@@ -166,10 +166,10 @@ final class ApplicationMove
                     'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
                     'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
                     'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190), 'email_norm' => PersonalData::normalise($email), 'phone' => mb_substr($people['phone'], 0, 40),
-                    'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files),
+                    'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files), 'attachment_paths' => Applications::paths($files),
                     'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
                     'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
-                    'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,
+                    'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
                 ]);
                 $ids[] = $id;
                 $target = Applications::target($id);
@@ -191,7 +191,8 @@ final class ApplicationMove
         Applications::keepToSection($db, $ids); // review low (a): no responsible person or bell entry outside the section
         $removed = self::forgetLoneContacts($db);
         if ($moved > 0) {
-            Applications::adoptRetention($db, $app->settings()); // 3.34 review H1: never the default 6 months, and nothing moved is purged before an administrator confirms
+            Applications::markFilesSince($app->settings()); // N9: a backup older than this misses the move
+            Applications::adoptRetention($db, $app->settings(), $ids); // 3.34 review H1: never the default 6 months; N8: the rows moved now wait for an administrator's confirmation
             self::record($app, 'to applications', $moved, $deals, $removed);
         }
 
@@ -199,19 +200,102 @@ final class ApplicationMove
     }
 
     /**
+     * Why an application of a form stays when the form goes back to Enquiries (3.34 second review N3; null = it moves). An
+     * enquiry keeps the date it arrived, so one the retention of enquiries would delete at once – older than
+     * enquiries_months, or a job enquiry older than job_applications_months (Jobs::purgeApplications) – stays (expired);
+     * a hired application and one kept for future openings stay unless the administrator ticks that they go too (kept):
+     * Enquiries have no status, no history and no consent for future openings. Pure.
+     *
+     * @param array<string, mixed> $row received_at, source, status, pool_until
+     * @param list<string> $jobSources Jobs::sources()
+     * @return 'expired'|'kept'|null
+     */
+    public static function backReason(array $row, int $enquiryMonths, int $jobMonths, array $jobSources, string $now, bool $includeKept): ?string
+    {
+        $received = (string) ($row['received_at'] ?? '');
+        $before = static fn (int $months): string => (new \DateTimeImmutable($now))->modify('-' . $months . ' months')->format('Y-m-d H:i:s');
+        if (($enquiryMonths > 0 && $received < $before($enquiryMonths))
+            || ($jobMonths > 0 && in_array((string) ($row['source'] ?? ''), $jobSources, true) && $received < $before($jobMonths))) {
+            return 'expired';
+        }
+        $pool = is_string($row['pool_until'] ?? null) ? substr((string) $row['pool_until'], 0, 10) : '';
+
+        return !$includeKept && (($row['status'] ?? '') === 'hired' || ($pool !== '' && $pool >= substr($now, 0, 10))) ? 'kept' : null;
+    }
+
+    /**
+     * What going back would do to the applications of one form (N3 – the confirmation says it before anything moves):
+     * total, how many move, how many stay because the retention of enquiries would delete them at once (expired), and how
+     * many stay because they are hired or kept for future openings (kept; with $includeKept they move).
+     *
+     * @return array{total: int, move: int, expired: int, kept: int, months: int}
+     */
+    public static function backPreview(App $app, string $form, string $source, bool $includeKept): array
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        $sources = Jobs::sources($db);
+        $now = Clock::now();
+        $out = ['total' => 0, 'move' => 0, 'expired' => 0, 'kept' => 0, 'months' => $s->int('enquiries_months')];
+        foreach ($db->all('SELECT received_at, source, status, pool_until FROM {applications} WHERE form = ? AND source = ?', [$form, $source]) as $row) {
+            $out['total']++;
+            $reason = self::backReason($row, $s->int('enquiries_months'), $s->int('job_applications_months'), $sources, $now, $includeKept);
+            $out[$reason ?? 'move']++;
+        }
+
+        return $out;
+    }
+
+    /**
      * Moves up to BATCH applications of one form back to enquiries. 3.34 review M2: nothing of an application is lost on the
      * way – each sealed CV is decrypted into storage/prilohy and read back before anything goes; an application whose
      * attachment list cannot be opened (the Vault key) or one of whose files cannot be decrypted, written or verified is
      * skipped and counted (skipped) and stays an application; a transaction that rolls back removes the plain copies it
-     * wrote; the application row and its sealed files go only once the enquiry with everything of it is stored.
+     * wrote; the application row and its sealed files go only once the enquiry with everything of it is stored. 3.34
+     * second review N3: an application backReason() keeps stays (counted in expired and kept, for the whole form); left =
+     * how many of the form would still move.
      *
-     * @return array{moved: int, left: int, skipped: int}
+     * @return array{moved: int, left: int, skipped: int, expired: int, kept: int}
      */
-    public static function toEnquiries(App $app, string $form, string $source): array
+    public static function toEnquiries(App $app, string $form, string $source, bool $includeKept = false): array
+    {
+        return self::locked($app->db(), fn (): array => self::toEnquiriesLocked($app, $form, $source, $includeKept));
+    }
+
+    /**
+     * Runs a move under the lock of the file work (3.34 second review N4 – never at the same time as sealPending() or
+     * another move); \DomainException when another holds it longer than LOCK_WAIT seconds.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    private static function locked(Db $db, callable $work): mixed
+    {
+        if (!Applications::lockFiles($db, self::LOCK_WAIT)) {
+            throw new \DomainException('Another move or the encryption of CVs is running right now – try again in a minute.');
+        }
+        try {
+            return $work();
+        } finally {
+            Applications::unlockFiles($db);
+        }
+    }
+
+    /** How long a move waits for the lock of the file work (seconds). */
+    public const int LOCK_WAIT = 10;
+
+    /**
+     * toEnquiries() under the lock.
+     *
+     * @return array{moved: int, left: int, skipped: int, expired: int, kept: int}
+     */
+    private static function toEnquiriesLocked(App $app, string $form, string $source, bool $includeKept): array
     {
         $db = $app->db();
         $s = $app->settings();
         $now = Clock::now();
+        $sources = Jobs::sources($db);
         $moved = 0;
         $skipped = 0;
         $after = 0;
@@ -225,6 +309,9 @@ final class ApplicationMove
                 if ($moved >= self::BATCH) {
                     break 2;
                 }
+                if (self::backReason($row, $s->int('enquiries_months'), $s->int('job_applications_months'), $sources, $now, $includeKept) !== null) {
+                    continue; // N3: it stays (counted by backPreview below)
+                }
                 if (self::moveBack($app, $s, $row, $now)) {
                     $moved++;
                 } else {
@@ -232,7 +319,7 @@ final class ApplicationMove
                 }
             }
         }
-        $left = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE form = ? AND source = ?', [$form, $source]);
+        $preview = self::backPreview($app, $form, $source, $includeKept);
         if ($moved > 0) {
             self::record($app, 'to enquiries', $moved, [], 0);
         }
@@ -241,7 +328,7 @@ final class ApplicationMove
                 ['skipped' => $skipped, 'direction' => 'to enquiries']);
         }
 
-        return ['moved' => $moved, 'left' => $left, 'skipped' => $skipped];
+        return ['moved' => $moved, 'left' => $preview['move'], 'skipped' => $skipped, 'expired' => $preview['expired'], 'kept' => $preview['kept']];
     }
 
     /**
@@ -294,9 +381,12 @@ final class ApplicationMove
             }
             $data[$field][2] = $path;
             $sealedFiles[] = Applications::filePath($raw);
+            if (is_string($raw['from'] ?? null) && $raw['from'] !== '') {
+                $sealedFiles[] = Applications::filePath(['path' => $raw['from'], 'sealed' => false]); // a plain file an interrupted sealing left (N1)
+            }
         }
         try {
-            $db->transaction(function () use ($db, $a, $id, $data, $now): void {
+            $db->transaction(function () use ($db, $a, $id, $data, $now, $row): void {
                 $idp = $db->insert('poptavky', [
                     'datum' => (string) $a['received_at'], 'formular' => (string) $a['form'], 'zdroj' => (string) $a['source'], 'prvek' => (string) $a['element'], 'stranka' => (string) $a['page'],
                     'tema' => mb_substr((string) $a['job_title'], 0, 255), 'email' => (string) $a['email'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
@@ -308,7 +398,8 @@ final class ApplicationMove
                 }
                 $db->insert('comments', ['target' => Comments::enquiry($idp), 'kind' => 'note', 'author_id' => null, 'author_name' => 'Kaleta', 'via' => 'admin', 'created_at' => $now,
                     'text' => 'Moved back from Applications (application #' . $id . ', status ' . $a['status'] . ($a['job_title'] !== '' ? ', position ' . mb_substr((string) $a['job_title'], 0, 200) : '') . ').']);
-                if ($db->run('DELETE FROM {applications} WHERE id = ?', [$id])->rowCount() !== 1) {
+                // N4: only the application as it was read – a list sealed or changed meanwhile rolls back and the row stays
+                if ($db->run('DELETE FROM {applications} WHERE id = ? AND attachments <=> ?', [$id, $row['attachments']])->rowCount() !== 1) {
                     throw new \RuntimeException('The application changed meanwhile.');
                 }
             });
@@ -319,7 +410,7 @@ final class ApplicationMove
         }
         foreach ($sealedFiles as $path) {
             if ($path !== null && is_file($path)) {
-                @unlink($path); // the sealed copy – the enquiry has its own now
+                @unlink($path); // the sealed copy – the enquiry has its own now (and a plain file an interrupted sealing left)
             }
         }
 
@@ -331,29 +422,42 @@ final class ApplicationMove
      * application keeps the record its enquiry had (source_contact_id); a record whose only source rows are such
      * applications – source enquiry, never edited (updated_at = created_at), no other enquiry, booking, subscription, logged
      * activity (a merge logs one), deal, comment or task, no summary, no responsible person – goes. Every record looked at
-     * loses the link, so a real customer who also applied is looked at once and kept. Returns how many went.
+     * loses the link, so a real customer who also applied is looked at once and kept. 3.34 second review N10: the check is
+     * the DELETE itself (LONE_DELETE), in the transaction that unlinks it – an enquiry linked meanwhile keeps the record. A
+     * record whose only other enquiry has already expired (deleted by the retention of enquiries) counts as lone and goes –
+     * the retention had already ended its other reason to exist. All records named are looked at (in batches). Returns how
+     * many went.
      */
     public static function forgetLoneContacts(Db $db): int
     {
         $removed = 0;
-        foreach ($db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1000') as $r) {
-            $contactId = (int) $r['id'];
-            $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
-                AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
-                AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
-            $db->transaction(function (Db $db) use ($contactId, $lone, &$removed): void {
-                if ($lone !== null) {
-                    $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
-                    $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
-                }
-                $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
-            });
+        $last = 0;
+        while (($batch = $db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id > ? ORDER BY source_contact_id LIMIT 500', [$last])) !== []) {
+            foreach ($batch as $r) {
+                $contactId = (int) $r['id'];
+                $last = $contactId;
+                $db->transaction(function (Db $db) use ($contactId, &$removed): void {
+                    if ($db->run(self::LONE_DELETE, [$contactId, $contactId, $contactId, $contactId, $contactId, $contactId, 'contact:' . $contactId, 'contact:' . $contactId])->rowCount() === 1) {
+                        $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
+                        $removed++;
+                    }
+                    $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
+                });
+            }
         }
 
         return $removed;
     }
+
+    /**
+     * The customer record only moved applications made, deleted in one statement – the check and the delete cannot be told
+     * apart by anything that links the record meanwhile (N10; migration 0120 has its own copy). Parameters: the record's id
+     * six times, then "contact:<id>" twice.
+     */
+    public const string LONE_DELETE = "DELETE FROM {contacts} WHERE id = ? AND source = 'enquiry' AND (summary IS NULL OR summary = '') AND owner_id IS NULL AND updated_at <= created_at
+        AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = ?) AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = ?)";
 
     /**
      * The change log and the event applications.moved – counts and deal numbers, never a person.

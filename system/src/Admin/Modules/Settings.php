@@ -764,8 +764,12 @@ class Settings extends Module
         }
         $result = \Kaleta\Core\SigningKey::rotate($this->app);
         if ($result['status'] !== 'rotated') {
-            return $this->back($result['status'] === 'vault' ? \Kaleta\Core\Vault::describe(\Kaleta\Core\Vault::state($this->app->settings())) . ' ' . t('Until then a new signing key cannot be made.')
-                : t('A new signing key could not be made and nothing has changed: %s', (string) ($result['error'] ?? '')), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(match ($result['status']) {
+                'vault' => \Kaleta\Core\Vault::describe(\Kaleta\Core\Vault::state($this->app->settings())) . ' ' . t('Until then a new signing key cannot be made.'),
+                // 3.34 second review N10: CV lists held under the key in the database would not open after a new key
+                'held' => t('Some CVs of job applications are still encrypted with the key in the database (sealed while the key of config.php was missing) and could not be encrypted again – a new signing key would make them unreadable. Nothing has changed.'),
+                default => t('A new signing key could not be made and nothing has changed: %s', (string) ($result['error'] ?? '')),
+            }, '', ['tab' => 'backups'], 'chyba');
         }
 
         return $this->back(t('A new signing key is in place. Every shared preview link and every other link signed with the old key has stopped working.'), '', ['tab' => 'backups']);

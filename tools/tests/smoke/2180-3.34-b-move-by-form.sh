@@ -16,7 +16,7 @@ expect "3.34 B move: run again – nothing moves twice" "$(t338_run -d direction
 # sealed by the clean-up, then back: the CV is decrypted to the enquiries' place again, the notes follow, the sealed copy goes
 t334_php 'echo Kaleta\Core\Applications::sealPending($app);' > /dev/null
 T338_SEALED=$(t334_php '$a = Kaleta\Core\Applications::attachments($app->settings(), $app->db()->value("SELECT attachments FROM {applications} WHERE id = '"$T338_A"'")); echo ($a[0]["sealed"] ?? false) ? Kaleta\Core\Applications::filePath($a[0]) : "";')
-t338_run -d direction=back > /dev/null
+t338_run -d direction=back -d confirmed=1 > /dev/null
 T338_E=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_poptavky WHERE formular = 'Kariera T338'")
 T338_NEW=$(sq "SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '\$[1][2]')) FROM ka_poptavky WHERE idp = $T338_E")
 expect "3.34 B move back: an enquiry again (read, kind job), the CV readable in storage/prilohy, the notes and a note of the move follow, the application and its sealed file are gone" \

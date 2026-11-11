@@ -112,7 +112,8 @@ final class Triage
         $db = $app->db();
         $done = 0;
         $failed = '';
-        foreach ($db->all("SELECT * FROM {poptavky} WHERE triaged_by = '' AND datum > ? ORDER BY idp LIMIT " . self::PER_RUN, [Clock::at('-7 days')]) as $enquiry) {
+        // 3.34 second review N6: a job enquiry still moving to Applications never goes to the assistant
+        foreach ($db->all("SELECT * FROM {poptavky} WHERE triaged_by = '' AND datum > ? AND " . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false) . ' ORDER BY idp LIMIT ' . self::PER_RUN, [Clock::at('-7 days')]) as $enquiry) {
             try {
                 $result = $assistant->triage(self::text($enquiry), (string) $settings->get('site_name'));
             } catch (\RuntimeException $e) {

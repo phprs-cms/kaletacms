@@ -57,10 +57,9 @@ trait EnquiryAndPopupTools
         } else {
             $whereParts[] = "kategorie <> 'spam'";
         }
-        // 3.34 review M3: the job enquiries migration 0120 has still to move stay out for a person without Applications
-        if (!$auth->hasModule(\Kaleta\Core\Applications::SECTION) && ($moving = \Kaleta\Core\Applications::movingCondition($db, $siteSettings)) !== null) {
-            $whereParts[] = $moving;
-        }
+        // 3.34 review M3, second review N6: the job enquiries migration 0120 has still to move stay out for a person without
+        // Applications, a moved twin for everyone
+        $whereParts[] = \Kaleta\Admin\Modules\Enquiries::visible($db, $siteSettings, $auth->hasModule(\Kaleta\Core\Applications::SECTION));
         $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
         $statusNames = array_flip($statuses);
 
@@ -100,9 +99,11 @@ trait EnquiryAndPopupTools
         };
 
         $need($auth->hasModule('enquiries'), 'Enquiries can be changed only by users with the Enquiries section.');
-        $enquiry = $db->one('SELECT idp, data FROM {poptavky} WHERE idp = ?', [$id]) ?? throw new \InvalidArgumentException('The enquiry does not exist. Use list_enquiries.');
+        // 3.34 second review N6: nothing still moving to Applications for a person without them, never a moved twin
+        $enquiry = $db->one('SELECT idp, data FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $this->app->settings(), $auth->hasModule(\Kaleta\Core\Applications::SECTION)), [$id])
+            ?? throw new \InvalidArgumentException('The enquiry does not exist. Use list_enquiries.');
         if ($name === 'delete_enquiry') {
-            \Kaleta\Admin\Modules\Enquiries::deleteAttachments([$enquiry]);
+            \Kaleta\Admin\Modules\Enquiries::deleteAttachments([$enquiry], $db);
             \Kaleta\Core\Deals::forgetEnquiries($db, [$id]); // N331-2: a deal from it stays, without the link and (3.32) the person's words – before the row goes
             $db->delete('poptavky', ['idp' => $id]);
             \Kaleta\Core\Comments::forgetEnquiries($db, [$id]); // 3.25: its internal notes too
@@ -206,7 +207,8 @@ trait EnquiryAndPopupTools
         }
         $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
 
-        return $result + ['note' => $result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : ''];
+        return $result + ['note' => trim(($result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : '')
+            . (($result['erased']['applications_held'] ?? 0) > 0 ? ' ' . $result['erased']['applications_held'] . ' job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located – tell the user to put the vault_key line back into config.php, then erase again.' : ''))];
     }
 
     private function personalDataEmail(array $a): string
@@ -229,7 +231,8 @@ trait EnquiryAndPopupTools
             throw new \DomainException('Enquiries can be read only by users with the Enquiries section.');
         }
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
-        $rows = $this->app->db()->all("SELECT * FROM {poptavky} WHERE kategorie = '' ORDER BY idp DESC LIMIT " . $limit);
+        $rows = $this->app->db()->all("SELECT * FROM {poptavky} WHERE kategorie = '' AND " . \Kaleta\Admin\Modules\Enquiries::visible($this->app->db(), $this->app->settings(), $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION))
+            . ' ORDER BY idp DESC LIMIT ' . $limit);
 
         return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'date' => substr((string) $p['datum'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)] + \Kaleta\Mcp\Untrusted::mark(['text']), $rows),
             'categories' => array_keys(\Kaleta\Core\Triage::CATEGORIES), 'priorities' => ['high', 'normal', 'low'],

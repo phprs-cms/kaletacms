@@ -99,7 +99,9 @@ final class Applications extends Module
                 return $this->error('Only an administrator can delete applications – reject them instead; the retention deletes them.', 403);
             }
 
-            return $this->back(t('Applications deleted, with their CVs, notes and tasks: %d.', Store::delete($this->app, $ids)));
+            $deleted = Store::delete($this->app, $ids, true, $held);
+
+            return $this->back(t('Applications deleted, with their CVs, notes and tasks: %d.', $deleted) . self::heldText($held), '', [], $held !== [] ? 'chyba' : 'ok');
         }
         $changed = 0;
         foreach ($ids as $id) {
@@ -232,7 +234,21 @@ final class Applications extends Module
             return $this->error('Only an administrator can delete applications – reject them instead; the retention deletes them.', 403);
         }
 
-        return Store::delete($this->app, [$this->request->postInt('id')]) > 0 ? $this->back('The application was deleted, with its CVs, notes and tasks.') : $this->back();
+        if (Store::delete($this->app, [$this->request->postInt('id')], true, $held) > 0) {
+            return $this->back('The application was deleted, with its CVs, notes and tasks.');
+        }
+
+        return $held !== [] ? $this->back(ltrim(self::heldText($held)), 'detail', ['id' => $this->request->postInt('id')], 'chyba') : $this->back();
+    }
+
+    /**
+     * What a delete kept (3.34 second review N7): applications whose CV list cannot be opened and whose files cannot be located.
+     *
+     * @param list<int> $held
+     */
+    private static function heldText(array $held): string
+    {
+        return $held === [] ? '' : ' ' . t('%d application(s) were not deleted: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then delete again.', count($held));
     }
 
     /**
@@ -281,7 +297,7 @@ final class Applications extends Module
             'languages' => self::siteLanguages($s), 'templates' => $templates,
             'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates), $candidates),
             'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null,
-            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::retentionConfirmed($s), 'unsealed' => Store::unsealedCount($this->app)]);
+            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::unconfirmed($this->app)['count'] === 0, 'unsealed' => Store::unsealedCount($this->app)]);
     }
 
     protected function actionSettingsSave(): Response
@@ -304,7 +320,7 @@ final class Applications extends Module
             }
         }
         $s->set('application_templates', self::templatesToStore($s, $posted));
-        $s->set(Store::RETENTION_CONFIRMED, '1'); // 3.34 review H1: an administrator saw the retention – the moved applications follow it from now on
+        Store::confirmRetention($this->app); // 3.34 review H1: an administrator saw the retention – N8: the applications there now follow it
         ChangeLog::write($this->app, Store::SECTION, 'settings', '');
 
         return $this->back('The settings of applications were saved.', 'settings');
@@ -363,8 +379,15 @@ final class Applications extends Module
             return $this->error('Only an administrator can move enquiries to applications.', 403);
         }
 
+        // 3.34 second review N3: the way back is confirmed on a review of the chosen form – how many move, how many stay and why
+        $back = $this->request->has('back') ? \Kaleta\Core\ApplicationMove::parseKey($this->request->get('back')) : null;
+        $review = $back === null ? null : ['key' => \Kaleta\Core\ApplicationMove::key($back['form'], $back['source'])] + $back
+            + ['preview' => \Kaleta\Core\ApplicationMove::backPreview($this->app, $back['form'], $back['source'], false),
+                'all' => \Kaleta\Core\ApplicationMove::backPreview($this->app, $back['form'], $back['source'], true)];
+
         return $this->view('move', 'Applications', ['enquiryForms' => \Kaleta\Core\ApplicationMove::enquiryForms($this->db),
-            'applicationForms' => \Kaleta\Core\ApplicationMove::applicationForms($this->db), 'batch' => \Kaleta\Core\ApplicationMove::BATCH]);
+            'applicationForms' => \Kaleta\Core\ApplicationMove::applicationForms($this->db), 'batch' => \Kaleta\Core\ApplicationMove::BATCH,
+            'review' => $review !== null && $review['preview']['total'] > 0 ? $review : null]);
     }
 
     /** One batch of the chosen form, either way; safe to run again – it says how many are left. */
@@ -377,11 +400,31 @@ final class Applications extends Module
         if (!$this->request->isPost() || $form === null) {
             return $this->back('Choose a form.', 'move', [], 'chyba');
         }
+        try {
+            return $this->moveBatch($form);
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'move', [], 'chyba'); // N4: another move or the encryption of CVs is running
+        }
+    }
+
+    /**
+     * One batch of a move (actionMoveRun).
+     *
+     * @param array{form: string, source: string} $form
+     */
+    private function moveBatch(array $form): Response
+    {
         if ($this->request->post('direction') === 'back') {
-            $result = \Kaleta\Core\ApplicationMove::toEnquiries($this->app, $form['form'], $form['source']);
+            if (!$this->request->postBool('confirmed')) {
+                // N3: never without the review of what moves and what stays
+                return $this->back('', 'move', ['back' => \Kaleta\Core\ApplicationMove::key($form['form'], $form['source'])]);
+            }
+            $result = \Kaleta\Core\ApplicationMove::toEnquiries($this->app, $form['form'], $form['source'], $this->request->postBool('include_kept'));
 
             return $this->back(t('Moved back to Enquiries: %d. Left of this form: %d.', $result['moved'], $result['left'])
-                . ($result['skipped'] > 0 ? ' ' . t('%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.', $result['skipped']) : ''),
+                . ($result['skipped'] > 0 ? ' ' . t('%d application(s) stay here: their CVs could not be opened or written back (encryption key, disk) – nothing of them was moved or deleted.', $result['skipped']) : '')
+                . ($result['expired'] > 0 ? ' ' . t('%d stay here because the retention of enquiries would delete them at once.', $result['expired']) : '')
+                . ($result['kept'] > 0 ? ' ' . t('%d stay here because they are hired or kept for future openings.', $result['kept']) : ''),
                 'move', [], $result['skipped'] > 0 ? 'chyba' : 'ok');
         }
         $result = \Kaleta\Core\ApplicationMove::toApplications($this->app, $form['form'], $form['source']);

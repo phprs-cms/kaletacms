@@ -6,8 +6,9 @@
  *  1. the feature "applications" is switched on (written down as a list, the 0073 pattern – a site that never saved its
  *     choice gets the defaults it had, plus this one);
  *  2. applications_months starts at job_applications_months when that was set, otherwise at enquiries_months (an update never
- *     shortens the retention; 0 = keep stays keep), and applications_retention_confirmed is cleared – the clean-up deletes
- *     nothing moved until an administrator saved Applications → Settings (3.34 review H1);
+ *     shortens the retention; 0 = keep stays keep); the clean-up deletes nothing moved until an administrator saved
+ *     Applications → Settings after it moved (3.34 review H1; second review N8: applications_retention_confirmed holds the
+ *     highest application id confirmed, the moved rows lie above it);
  *  3. every enquiry whose source is a jobs collection (kolekce:<idk> – the certain rule Core\Jobs used since 2.11) becomes an
  *     application, each in one transaction: the row is inserted with source_enquiry_id (unique – a second run skips what
  *     moved; nothing is moved twice), the fields without file paths, the CVs listed as still in storage/prilohy (sealed
@@ -21,7 +22,9 @@
  *     application keeps the customer record its enquiry had (source_contact_id), and a record whose only source rows are
  *     such applications (source enquiry, never edited – updated_at = created_at –, no other enquiry, booking, subscription,
  *     logged activity – a merge logs one –, deal, comment or task, no summary, no responsible person) goes; any other keeps
- *     its record, so a real customer who also applied is never deleted. Each record looked at loses the link.
+ *     its record, so a real customer who also applied is never deleted. Each record looked at loses the link. 3.34 second
+ *     review N10: the check is the DELETE itself, inside the transaction that unlinks it; a record whose only other enquiry
+ *     has already expired (the retention of enquiries) counts as lone and goes.
  * The counts and the ids of the deals that lost their link go to the event applications.moved and the change log.
  *
  * Resumable (3.34 review M3): each enquiry moves in its own small transaction inside a try/catch – a row that fails stays an
@@ -30,14 +33,18 @@
  * stay hidden in Enquiries from people without Applications (Core\Applications::movingCondition), and the migration puts its
  * name into data_migrations_unfinished – Core\Migration runs it again on the next request (a visit or the administration)
  * until nothing is left. The update request of 3.33 marks it done after its first run; the name in
- * data_migrations_unfinished brings it back with the new code all the same.
+ * data_migrations_unfinished brings it back with the new code all the same. 3.34 second review N5: run by the code of an
+ * older release (the update request), it only writes the feature, the retention and what is to move – nothing moves and no
+ * customer record goes until the 3.34 code serves a request, and not while an update checks itself (update_probe); that
+ * first run takes the job enquiries that arrived in between too.
  *
  * Nobody but administrators gets the section Applications (owner decision B-2): the screen tells administrators to choose.
  * Retention is not prolonged: the receipt date and the activity stay, so rows past the period go with the first clean-up
  * after the administrator confirmed the retention.
  *
- * Self-contained on purpose: the update request of 3.33 runs this file with its own classes already loaded, so only Db,
- * Settings and classes unchanged since 3.32 (Core\Deals::forgetEnquiries, Core\Vault::key/seal) are used, each guarded.
+ * Self-contained on purpose: the update request of 3.33 runs this file with its own classes already loaded (it stops after
+ * the state, N5), so only Db, Settings and classes unchanged since 3.32 (Core\Deals::forgetEnquiries, Core\Vault::key/seal)
+ * are used, each guarded.
  * Safe to run again.
  */
 
@@ -73,6 +80,7 @@ return static function (Db $db, Settings $settings): void {
     // one run moves for at most this long (a web request – the next request goes on); the tests make it one row
     $seconds = defined('KALETA_MIGRATION_SECONDS') ? max(0.0, (float) constant('KALETA_MIGRATION_SECONDS')) : 15.0;
     $rowsAtMost = defined('KALETA_MIGRATION_ROWS') ? max(1, (int) constant('KALETA_MIGRATION_ROWS')) : PHP_INT_MAX;
+    $contactBatch = defined('KALETA_MIGRATION_CONTACTS') ? max(1, (int) constant('KALETA_MIGRATION_CONTACTS')) : 500; // the tests make the batches small
     $started = microtime(true);
     $now = date('Y-m-d H:i:s');
     $event = static function (string $type, string $severity, string $message, array $data) use ($db, $now): void {
@@ -113,6 +121,27 @@ return static function (Db $db, Settings $settings): void {
         // --- the enquiries this move takes: what is there now (a job enquiry that arrives later is an application already)
         $settings->set('applications_move_until', (string) (int) $db->value('SELECT MAX(idp) FROM {poptavky} WHERE zdroj IN (' . $placeholders . ')', $sources));
     }
+    // 3.34 second review N5: under the code of an older release (the update request of 3.33 or older runs this file with its
+    // own classes) only the state above is written – the feature, the retention, what is to move. Nothing moves and no
+    // customer record goes inside the update request, so an update that is rolled back strands nothing; the move starts
+    // on the first request the 3.34 code serves (the name in data_migrations_unfinished brings it back)
+    if (defined('KALETA_MIGRATION_AS_OLD_CODE') || !method_exists(\Kaleta\Core\Migration::class, 'onlyUnfinished')) {
+        $settings->set('applications_move_deferred', '1');
+        $event('applications.move_deferred', 'info', 'The update request of an older release wrote the state of the move of job applications; the move starts on the next request of the new version.', []);
+        $finish(true);
+
+        return;
+    }
+    if ($settings->get('applications_move_deferred') === '1') {
+        // the first run of the 3.34 code after an older release's update request: job enquiries that arrived in between move too
+        $settings->set('applications_move_until', (string) max((int) $settings->get('applications_move_until'), (int) $db->value('SELECT MAX(idp) FROM {poptavky} WHERE zdroj IN (' . $placeholders . ')', $sources)));
+        $settings->set('applications_move_deferred', '');
+    }
+    if ((string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe'") !== '') {
+        $finish(true); // an update is checking that the new version runs (and may still roll back) – the move waits for the next request
+
+        return;
+    }
     $until = (int) $settings->get('applications_move_until');
 
     // --- 3. the enquiries of the jobs collections, in batches; each row in its own transaction
@@ -128,6 +157,7 @@ return static function (Db $db, Settings $settings): void {
         }
     };
     $moved = 0;
+    $firstMoved = null;
     $failed = [];
     $deals = [];
     $comments = 0;
@@ -183,16 +213,18 @@ return static function (Db $db, Settings $settings): void {
                 $lastComment = $db->value("SELECT MAX(created_at) FROM {comments} WHERE target = ?", ['enquiry:' . $idp]);
                 $activity = is_string($lastComment) && $lastComment > $activity ? $lastComment : $activity;
                 $status = (int) $e['stav'] === 0 ? 'new' : 'reviewed';
-                $db->transaction(function () use ($db, $e, $idp, $data, $files, $seal, $item, $idk, $title, $email, $normal, $people, $activity, $status, $now, &$deals, &$comments): void {
+                $db->transaction(function () use ($db, $e, $idp, $data, $files, $seal, $item, $idk, $title, $email, $normal, $people, $activity, $status, $now, &$deals, &$comments, &$firstMoved): void {
                     $id = $db->insert('applications', [
                         'received_at' => (string) $e['datum'], 'job_collection_id' => $item !== null ? $idk : null, 'job_item_id' => $item !== null ? (int) $item['idp'] : null,
                         'job_title' => mb_substr($title, 0, 200), 'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'],
                         'page' => (string) $e['stranka'], 'language' => '', 'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190),
                         'email_norm' => filter_var($normal, FILTER_VALIDATE_EMAIL) !== false ? $normal : null, 'phone' => mb_substr($people['phone'], 0, 40),
-                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => $seal($files), 'status' => $status, 'status_at' => (string) $e['datum'],
+                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => $seal($files),
+                        'attachment_paths' => $files === [] ? null : (string) json_encode(['bin' => [], 'old' => array_column($files, 'path')], JSON_UNESCAPED_SLASHES), 'status' => $status, 'status_at' => (string) $e['datum'],
                         'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null, 'replies' => $e['replies'], 'late' => 0, 'last_activity_at' => $activity,
-                        'source_enquiry_id' => $idp, 'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,
+                        'source_enquiry_id' => $idp, 'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
                     ]);
+                    $firstMoved = $firstMoved === null ? $id : min($firstMoved, $id);
                     $target = 'application:' . $id;
                     foreach (['comments', 'tasks', 'notifications'] as $table) {
                         $db->run('UPDATE {' . $table . '} SET target = ? WHERE target = ?', [$target, 'enquiry:' . $idp]);
@@ -226,30 +258,57 @@ return static function (Db $db, Settings $settings): void {
         }
     }
 
-    // --- 4. customer records that only moved applications made (from the data: a run cut short finishes it next time)
+    // --- 4. customer records that only moved applications made (from the data: a run cut short finishes it next time). 3.34
+    // second review N2: in batches by record id, within the same time as the move; the migration finishes only once no
+    // application names a record to look at any more
     $removed = 0;
     try {
-        foreach ($db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1000') as $r) {
-            $contactId = (int) $r['id'];
-            $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
-                AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
-                AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
-            $db->transaction(function () use ($db, $contactId, $lone, &$removed): void {
-                if ($lone !== null) {
-                    $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
-                    $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
+        $lastContact = 0;
+        while (true) {
+            $batch = $db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id > ? ORDER BY source_contact_id LIMIT ' . $contactBatch, [$lastContact]);
+            if ($batch === []) {
+                break;
+            }
+            foreach ($batch as $r) {
+                if (microtime(true) - $started > $seconds) {
+                    $left = true;
+                    break 2;
                 }
-                $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
-            });
+                $contactId = (int) $r['id'];
+                $lastContact = $contactId;
+                // N10: the check is the DELETE itself, in the transaction that unlinks the record – an enquiry, booking, deal…
+                // linked meanwhile keeps it. A record whose only other enquiry already expired counts as lone (the retention
+                // of enquiries had ended its other reason to exist)
+                $db->transaction(function () use ($db, $contactId, &$removed): void {
+                    if ($db->run("DELETE FROM {contacts} WHERE id = ? AND source = 'enquiry' AND (summary IS NULL OR summary = '') AND owner_id IS NULL AND updated_at <= created_at
+                        AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = ?)
+                        AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = ?)
+                        AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = ?) AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = ?)",
+                        [$contactId, $contactId, $contactId, $contactId, $contactId, $contactId, 'contact:' . $contactId, 'contact:' . $contactId])->rowCount() === 1) {
+                        $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
+                        $removed++;
+                    }
+                    $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
+                });
+            }
+        }
+        if (!$left && $db->value('SELECT 1 FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1') !== null) {
+            $left = true; // named meanwhile – looked at on the next run
         }
     } catch (\Throwable) {
         $left = true; // looked at again on the next run
     }
 
     if ($moved > 0) {
-        $settings->set('applications_retention_confirmed', ''); // H1: the administrator confirms the retention before anything moved is purged
+        if ($settings->get('applications_files_since') === '') {
+            $settings->set('applications_files_since', (string) time()); // N9: a backup older than this misses the move (the restore screen says so)
+        }
+        // H1: the administrator confirms the retention before anything moved is purged – N8: the confirmation is the highest id
+        // confirmed, and the rows moved now lie above it (lowered below the first of them when ids were used again)
+        $confirmed = $settings->get('applications_retention_confirmed');
+        if ($firstMoved !== null && ctype_digit($confirmed) && (int) $confirmed >= $firstMoved) {
+            $settings->set('applications_retention_confirmed', (string) max(0, $firstMoved - 1));
+        }
         $message = $moved . ' job application(s) moved from Enquiries to Applications' . ($deals !== [] ? '; deals that lost their link: #' . implode(', #', array_unique($deals)) : '')
             . ($removed > 0 ? '; customer records made only by applications deleted: ' . $removed : '') . ($left ? '; the rest follows on the next requests' : '');
         $event('applications.moved', 'info', $message, ['moved' => $moved, 'deals' => array_values(array_unique($deals)), 'contacts_deleted' => $removed, 'notes' => $comments, 'left' => $left]);

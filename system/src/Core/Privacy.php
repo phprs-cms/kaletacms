@@ -345,7 +345,7 @@ final class Privacy
         }
         $rows = $db->all('SELECT idp, data, replies FROM {poptavky} WHERE anonymizovano IS NULL AND idp IN (' . implode(',', $ids) . ')');
         Deals::forgetEnquiryWords($db, array_map('intval', array_column($rows, 'idp'))); // 3.32: a deal from one keeps its link, not the person's words – before they go
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows);
+        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows, $db);
         foreach ($rows as $r) {
             $db->update('poptavky', ['data' => (string) json_encode(self::anonymiseData(json_decode((string) $r['data'], true) ?: []), JSON_UNESCAPED_UNICODE),
                 'email' => '', 'navrh_odpovedi' => null, 'poznamka' => null, 'vstup' => '', 'odkud' => '', 'anonymizovano' => date('Y-m-d H:i:s'),

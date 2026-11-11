@@ -15,8 +15,8 @@ check('3.34 review M3: every row in its own try/catch and transaction, a failure
     [true, true, true, true, true, false]);
 check('3.34 review M3: the customer clean-up comes from the data (source_contact_id), never edited, merged (an activity) or owned records', [
     str_contains($m3Migration, "'source_contact_id' => \$e['contact_id'] !== null ? (int) \$e['contact_id'] : null"),
-    str_contains($m3Migration, 'SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL'),
-    str_contains($m3Migration, 'c.owner_id IS NULL AND c.updated_at <= c.created_at'),
+    str_contains($m3Migration, 'SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id > ? ORDER BY source_contact_id LIMIT '),
+    str_contains($m3Migration, 'owner_id IS NULL AND updated_at <= created_at'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php'), 'public static function forgetLoneContacts(Db $db): int'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), 'source_contact_id INT UNSIGNED NULL'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0119-applications.sql'), 'source_contact_id INT UNSIGNED NULL')],
@@ -28,10 +28,10 @@ check('3.34 review M3: Core\Migration runs an unfinished data migration again on
     array_key_exists('data_migrations_unfinished', Kaleta\Core\Settings::DEFAULTS), array_key_exists('applications_move_until', Kaleta\Core\Settings::DEFAULTS)],
     [true, true, true, true, true]);
 check('3.34 review M3: while moving, the enquiries still to move stay out of Enquiries (list, detail, counts, the dashboard, MCP) for a person without Applications', [
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$whereParts = 'WHERE ' . implode(' AND ', \$conditions) . \$this->hiddenWhileMoving();"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'SELECT * FROM {poptavky} WHERE idp = ?' . \$this->hiddenWhileMoving()"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$whereParts = 'WHERE ' . implode(' AND ', \$conditions) . ' AND ' . \$this->visibleHere();"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$p = \$this->findVisible(\$this->request->getInt('id'), '*');"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "self::NOT_SPAM . self::stillMoving(\$db)"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), 'Modules\Enquiries::stillMoving($db, $this->app->settings())'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php'), '\Kaleta\Core\Applications::movingCondition($db, $siteSettings)'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), 'Modules\Enquiries::visible($db, $this->app->settings(), isset($modules[\Kaleta\Core\Applications::SECTION]))'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php'), '$whereParts[] = \Kaleta\Admin\Modules\Enquiries::visible($db, $siteSettings, $auth->hasModule(\Kaleta\Core\Applications::SECTION));'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/applications/list.php'), 'data-applications-moving')],
     [true, true, true, true, true, true]);

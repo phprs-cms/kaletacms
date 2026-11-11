@@ -188,6 +188,14 @@ FROM_DB=$(git -C "$ROOT" show "$FROM:system/bootstrap.php" | sed -n "s/.*KALETA_
 BOOKINGS_PLANTED=0
 [ "${FROM_DB:-0}" -lt 73 ] && "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (name) VALUES ('Update test')" 2>/dev/null && BOOKINGS_PLANTED=1
 
+# 3.34 second review N5: a site with a jobs collection and a job enquiry – the update request of the old release only writes
+# the state of migration 0120 (event applications.move_deferred); the first request of the new version moves the enquiry
+JOBS_PLANTED=0
+if [ -n "$("${MYSQL[@]}" "$DB_NAME" -N -e "SHOW COLUMNS FROM ka_kolekce LIKE 'preset'" 2>/dev/null)" ]; then
+  "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9399, 'Jobs', 'jobs-upd', '[]', 'jobs');
+    INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (93990, '$(php -r 'echo date("Y-m-d H:i:s", strtotime("-1 day"));')', 'Job application', 'kolekce:9399', '/jobs-upd/x', '', 'upd-job@example.com', '[]', 0)" && JOBS_PLANTED=1
+fi
+
 echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
 [ "$FROM_1X" = 1 ] && OLD_KEY="('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), " || OLD_KEY=""
@@ -244,6 +252,10 @@ fi
 # every admin module of the new version, with all extensions on
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet,applications') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
+if [ "$JOBS_PLANTED" = 1 ]; then
+  expect "3.34 second review N5: the update request of $FROM only wrote the state of the move, the new version moved the job enquiry" \
+    "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_events WHERE type = 'applications.move_deferred'), '|', (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = 93990), '|', (SELECT COUNT(*) FROM ka_poptavky WHERE idp = 93990), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'))")" "1|1|0|"
+fi
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
 # 3.9.2 (N67): an update never overwrites media/, migration 0084 brings the newer media/.htaccess to the site

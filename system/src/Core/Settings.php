@@ -37,7 +37,7 @@ final class Settings
         'triage_assistant' => '0',      // new enquiries are sorted by the AI assistant (2.12, Core\Triage) – off: the text goes to the AI provider
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries
         'applications_months' => '6',   // 3.34 (Core\Applications): a decided application is deleted this many months after the decision, an undecided one after this long without activity; 0 = keep. Migration 0120 (and the first move by form) starts it at job_applications_months when set, otherwise at enquiries_months – an update never shortens the retention (3.34 review H1)
-        'applications_retention_confirmed' => '', // 3.34 review H1: '1' once an administrator saved Applications → Settings; until then the clean-up never deletes an application moved from Enquiries
+        'applications_retention_confirmed' => '', // 3.34 review H1, second review N8: the highest application id an administrator confirmed by saving Applications → Settings; moved ones above it are never deleted (Core\Applications::confirmedUpTo)
         'applications_pool_months' => '12', // 3.34: how long the consent for future openings keeps an application (pool_until)
         'applications_notify_full' => '0', // 3.34: the e-mail about a new application carries the fields (otherwise the position and a link only)
         'applications_claude' => '1',   // 3.34: Claude may read applications through the connection of a user with the section (never the CVs)
@@ -110,6 +110,8 @@ final class Settings
         'data_migrations_unfinished' => '', // 3.34 review M3: data migrations that ran out of time and go on with the next request, by name (Core\Migration)
         'applications_seal_after' => '0', // 3.34 review M1: the id cursor of Core\Applications::sealPending (the moved CVs are sealed in daily batches)
         'applications_move_until' => '', // 3.34 review M3: migration 0120 moves the job enquiries up to this id; '' = not moving (Core\Applications::movingCondition)
+        'applications_move_deferred' => '', // 3.34 second review N5: '1' = an older release's update request wrote the state of migration 0120, the 3.34 code moves
+        'applications_files_since' => '', // 3.34 second review N9: unix time of the first sealed CV or move of applications – the restore screen warns about older backups
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
         'agency_name' => '',           // who built the site and looks after it – on the sign-in screen and in the admin (2.4)
         'agency_url' => '',

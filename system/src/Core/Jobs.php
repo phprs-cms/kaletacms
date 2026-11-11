@@ -83,11 +83,12 @@ final class Jobs
             return 0;
         }
         $db = $app->db();
-        $expired = self::expiredApplications($db->all('SELECT idp, zdroj, datum, data FROM {poptavky} WHERE datum < ?', [Clock::monthsAgo($months)]), self::sources($db), $months, date('Y-m-d H:i:s'));
+        // 3.34 second review N6: never a job enquiry migration 0120 is still to move, never a moved twin
+        $expired = self::expiredApplications($db->all('SELECT idp, zdroj, datum, data FROM {poptavky} WHERE datum < ? AND ' . Enquiries::visible($db, $app->settings(), false), [Clock::monthsAgo($months)]), self::sources($db), $months, date('Y-m-d H:i:s'));
         if ($expired === []) {
             return 0;
         }
-        Enquiries::deleteAttachments($expired);
+        Enquiries::deleteAttachments($expired, $db);
         Deals::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // N331-2: a deal from one stays, without the link and (3.32) the person's words – before the rows go
         $db->run('DELETE FROM {poptavky} WHERE idp IN (' . implode(',', array_map(fn (array $r): int => (int) $r['idp'], $expired)) . ')');
         Comments::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // 3.25: their internal notes too

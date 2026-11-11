@@ -4638,7 +4638,9 @@ await step('3.34 B applications: reply template, settings, move by form – 1440
     INSERT INTO ka_applications (received_at, job_title, form, name, email, phone, data, status, status_at, last_activity_at)
     VALUES (NOW(), 'Painter B335', 'Job application', 'Rita B335', 'rita-b335@example.com', '', '[["Full name","Rita B335"]]', 'new', NOW(), NOW())`);
   const id = sql("SELECT MAX(id) FROM ka_applications WHERE email = 'rita-b335@example.com'").trim();
-  const urls = [`/admin.php?module=applications&action=detail&id=${id}&template=interview`, '/admin.php?module=applications&action=settings', '/admin.php?module=applications&action=move'];
+  // 3.34 second review N3: the review of the way back (how many move, how many stay and why) – at both widths and through axe
+  const urls = [`/admin.php?module=applications&action=detail&id=${id}&template=interview`, '/admin.php?module=applications&action=settings', '/admin.php?module=applications&action=move',
+    `/admin.php?module=applications&action=move&back=${encodeURIComponent('|Job application')}`];
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit(urls[0]);
@@ -4647,6 +4649,8 @@ await step('3.34 B applications: reply template, settings, move by form – 1440
     if (await page.locator('#uchazec-duvod').isVisible()) { throw new Error('the reason shows before Rejected is chosen'); }
     await page.locator('#uchazec-stav').selectOption('rejected');
     if (!(await page.locator('#uchazec-duvod').isVisible())) { throw new Error('the reason does not show with Rejected'); }
+    await visit(urls[3]);
+    if (!(await page.locator('[data-move-back-review][data-move-back-review^="1|1|"]').count())) { throw new Error('the review of the way back does not say what moves'); }
     for (const scheme of ['light', 'dark']) {
       await page.emulateMedia({ colorScheme: scheme });
       for (const [width, height] of [[1440, 900], [390, 844]]) {
@@ -4654,7 +4658,7 @@ await step('3.34 B applications: reply template, settings, move by form – 1440
         for (const url of urls) {
           await visit(url);
           if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) { throw new Error(`${url} scrolls sideways at ${width} px (${scheme})`); }
-          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/applications-335-${url.match(/action=(\w+)/)[1]}-${width}-${scheme}.png`, fullPage: true }); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/applications-335-${url.match(/action=(\w+)/)[1]}${url.includes('back=') ? '-review' : ''}-${width}-${scheme}.png`, fullPage: true }); }
         }
       }
     }

@@ -133,7 +133,9 @@ final class MyWork
                 // 3.32 (R1): "nobody handles it yet" = nobody assigned and not answered (UNANSWERED), whatever the read state –
                 // opening an enquiry is not handling it – while it is new or arrived within UNASSIGNED_DAYS (3.32 review)
                 $where = ($list === 'assigned' ? 'prirazeno = ? AND stav < 2' : 'prirazeno IS NULL AND ' . self::UNANSWERED . ' AND (stav = 0 OR datum >= ?)') . ' AND ' . \Kaleta\Admin\Modules\Enquiries::NOT_SPAM;
-                $rows = $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav, priorita FROM {poptavky} WHERE ' . $where . ' ORDER BY idp DESC' . $limit,
+                // 3.34 second review N6: not the job enquiries still moving to Applications for a person without them, never a moved twin
+                $rows = $db->all('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav, priorita FROM {poptavky} WHERE ' . $where
+                    . ' AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)) . ' ORDER BY idp DESC' . $limit,
                     $list === 'assigned' ? [$userId] : [Clock::at('-' . self::UNASSIGNED_DAYS . ' days')]);
 
                 // 3.32: name = who and what (RecordTitle::enquiry) for the screen; the MCP tool my_work keeps title (the form) and leaves name out

@@ -252,19 +252,19 @@ M340_EXPECTED='9340:reviewed:Welder,9341:new:Welder|9342|1|1|none|9341|novinky,p
 # set, otherwise at enquiries_months (24 stays 24, 0 = keep stays keep); nothing moved is purged until the administrator confirms
 retention340() { # $1 job_applications_months ('' = never stored), $2 enquiries_months ('' = never stored)
   "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_nastaveni WHERE promenna IN ('applications_months', 'job_applications_months', 'enquiries_months');
-    REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_retention_confirmed', '1');
+    REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_retention_confirmed', '999999999');
     $([ -n "$1" ] && echo "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('job_applications_months', '$1');") $([ -n "$2" ] && echo "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '$2');")
     INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9343, 'Jobs', 'jobs-343', '[]', 'jobs');
     INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (9343, '$(site_time '-3 days')', 'Job application', 'kolekce:9343', '/jobs-343/x', '', 'r@example.com', '[]', 0);
     UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
-  "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_months'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_retention_confirmed'), (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = 9343));
+  "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_months'), (SELECT CAST(hodnota AS UNSIGNED) < (SELECT MIN(id) FROM ka_applications WHERE source_enquiry_id = 9343) FROM ka_nastaveni WHERE promenna = 'applications_retention_confirmed'), (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = 9343));
     DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp = 9343; DELETE FROM ka_kolekce WHERE idk = 9343"
 }
 expect_sql_value() { [ "$2" = "$3" ] && echo "  ok     $1" || { echo "  CHYBA  $1: $2 (expected $3)"; ERRORS=$((ERRORS+1)); }; }
-expect_sql_value "3.34 review H1 (0120): enquiries kept 24 months – the applications keep 24, the confirmation is asked again" "$(retention340 '' 24)" "24||1"
-expect_sql_value "3.34 review H1 (0120): enquiries kept for good (0) – the applications are kept too" "$(retention340 '' 0)" "0||1"
-expect_sql_value "3.34 review H1 (0120): enquiries_months never stored – its default 24, not the 6 of applications" "$(retention340 0 '')" "24||1"
-expect_sql_value "3.34 review H1 (0120): job_applications_months set – that one" "$(retention340 5 24)" "5||1"
+expect_sql_value "3.34 review H1 (0120): enquiries kept 24 months – the applications keep 24, the moved one waits for the confirmation (N8: the confirmed id lies below it)" "$(retention340 '' 24)" "24|1|1"
+expect_sql_value "3.34 review H1 (0120): enquiries kept for good (0) – the applications are kept too" "$(retention340 '' 0)" "0|1|1"
+expect_sql_value "3.34 review H1 (0120): enquiries_months never stored – its default 24, not the 6 of applications" "$(retention340 0 '')" "24|1|1"
+expect_sql_value "3.34 review H1 (0120): job_applications_months set – that one" "$(retention340 5 24)" "5|1|1"
 
 # 3.34 review M3: the move is resumable – a run that stops after one row (as a web request out of time) leaves its name in
 # data_migrations_unfinished and the rest hidden from Enquiries; the next request finishes it. A row that fails stays an
@@ -305,5 +305,61 @@ expect_sql_value "3.34 review M3 (0120): the next request runs it again; meanwhi
 migrate > /dev/null
 expect_sql_value "3.34 review M3 (0120): the next request finishes – the failed row stays an enquiry (its number in the event, no address), nothing left to hide, the customer with a responsible person stays" "$(resume344)" "3|9346|||9345|1|0"
 "${MYSQL[@]}" "$OLD" -e "DROP TRIGGER ka_t344; DELETE FROM ka_comments WHERE target LIKE 'application:%'; DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp BETWEEN 9344 AND 9347; DELETE FROM ka_contacts WHERE id IN (9344, 9345); DELETE FROM ka_kolekce WHERE idk = 9344"
+
+# 3.34 second review N2: the customer clean-up of 0120 goes in batches within the run's time – more than 1000 lone records all go
+# in one run, and a run out of time leaves the migration unfinished while an application still names a record to look at
+migrate_with() { # $1 PHP defines run before the bootstrap
+  php -r "$1"'
+    require $argv[1] . "/system/bootstrap.php";
+    $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]);
+    Kaleta\Core\Migration::apply($db, new Kaleta\Core\Settings($db));
+  ' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
+}
+N2_AT=$(site_time '-2 days')
+N2_CONTACTS=$(for i in $(seq 1 1003); do printf "%s(%d, 'n2-%d@example.com', 'n2-%d@example.com', 'N2', 'enquiry', '%s', '%s')" "$([ "$i" -gt 1 ] && echo ,)" $((934800 + i)) "$i" "$i" "$T340_AT" "$T340_AT"; done)
+N2_ENQUIRIES=$(for i in $(seq 1 1003); do printf "%s(%d, '%s', 'Job application', 'kolekce:9348', '/jobs-348/x', '', 'n2-%d@example.com', '[]', 0, %d)" "$([ "$i" -gt 1 ] && echo ,)" $((934800 + i)) "$N2_AT" "$i" $((934800 + i)); done)
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9348, 'Jobs', 'jobs-348', '[]', 'jobs');
+  INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES $N2_CONTACTS;
+  INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, contact_id) VALUES $N2_ENQUIRIES;
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', ''), ('applications_move_until', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'"
+migrate_with 'define("KALETA_MIGRATION_CONTACTS", 400);' > /dev/null
+n2_state() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id BETWEEN 934801 AND 935803), (SELECT COUNT(*) FROM ka_contacts WHERE id BETWEEN 934801 AND 935803),
+  (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id IS NOT NULL), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'))"; }
+expect_sql_value "3.34 second review N2 (0120): 1003 lone customer records in batches of 400 – all go in one run, nothing named any more, the migration is finished" "$(n2_state)" "1003|0|0|"
+# a run whose time is up before the clean-up: unfinished while an application still names a record, finished by the next run
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES (935900, 'n2-late@example.com', 'n2-late@example.com', 'N2', 'enquiry', '$T340_AT', '$T340_AT');
+  UPDATE ka_applications SET source_contact_id = 935900 WHERE source_enquiry_id = 934801;
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', '0120-applications-move'), ('applications_move_until', '935803')"
+migrate_with 'define("KALETA_MIGRATION_SECONDS", 0);' > /dev/null
+expect_sql_value "3.34 second review N2 (0120): out of time before the clean-up – still unfinished, the record still named" \
+  "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), (SELECT COUNT(*) FROM ka_contacts WHERE id = 935900), (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id = 935900))")" \
+  "0120-applications-move|1|1"
+migrate > /dev/null
+expect_sql_value "3.34 second review N2 (0120): the next run finishes the clean-up and the migration" \
+  "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), (SELECT COUNT(*) FROM ka_contacts WHERE id = 935900), (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id IS NOT NULL))")" "|0|0"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp BETWEEN 934801 AND 935803; DELETE FROM ka_contacts WHERE id BETWEEN 934801 AND 935900; DELETE FROM ka_kolekce WHERE idk = 9348"
+
+# 3.34 second review N5: run by an older release's update request (KALETA_MIGRATION_AS_OLD_CODE plays it), 0120 only writes the
+# state – nothing moves, no customer record goes; nothing moves while an update checks itself (update_probe); the first run of
+# the 3.34 code moves everything, the job enquiry that arrived in between too
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9349, 'Jobs', 'jobs-349', '[]', 'jobs');
+  INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES (9349, 'n5@example.com', 'n5@example.com', 'N5', 'enquiry', '$T340_AT', '$T340_AT');
+  INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, contact_id) VALUES (9349, '$(site_time '-3 days')', 'Job application', 'kolekce:9349', '/jobs-349/x', '', 'n5@example.com', '[]', 0, 9349);
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', ''), ('applications_move_until', ''), ('applications_move_deferred', ''), ('extensions', 'novinky,poptavky');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'"
+migrate_with 'define("KALETA_MIGRATION_AS_OLD_CODE", true);' > /dev/null
+n5_state() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id IN (9349, 9350)), (SELECT IFNULL(GROUP_CONCAT(idp ORDER BY idp), '-') FROM ka_poptavky WHERE idp IN (9349, 9350)),
+  (SELECT COUNT(*) FROM ka_contacts WHERE id = 9349), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_move_until'),
+  (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_move_deferred'), (SELECT hodnota LIKE '%applications%' FROM ka_nastaveni WHERE promenna = 'extensions'))"; }
+expect_sql_value "3.34 second review N5 (0120): under an older release's code – the feature on and what is to move written, nothing moved, the customer record kept, unfinished" "$(n5_state)" "0|9349|1|0120-applications-move|9349|1|1"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (9350, '$(site_time '-1 hour')', 'Job application', 'kolekce:9349', '/jobs-349/x', '', 'n5-later@example.com', '[]', 0);
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', 'n5probe')"
+migrate > /dev/null
+expect_sql_value "3.34 second review N5 (0120): while the update checks itself nothing moves either" "$(n5_state)" "0|9349,9350|1|0120-applications-move|9350||1"
+"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', '')"
+migrate > /dev/null
+expect_sql_value "3.34 second review N5 (0120): the first request of the 3.34 code moves both – the one that arrived in between too – and the lone customer record goes" "$(n5_state)" "2|-|0||||1"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_kolekce WHERE idk = 9349"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

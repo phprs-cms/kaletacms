@@ -748,12 +748,14 @@ final class Contacts
      *
      * @return list<array<string, mixed>>
      */
-    public static function timeline(Db $db, int $id, int $limit = self::TIMELINE): array
+    public static function timeline(Db $db, int $id, int $limit = self::TIMELINE, bool $withApplications = false): array
     {
         $limit = max(1, min(self::TIMELINE_MAX, $limit));
         $out = [];
         try {
-            foreach ($db->all('SELECT idp, datum, formular, tema, stav, replies, anonymizovano FROM {poptavky} WHERE contact_id = ? ORDER BY datum DESC, idp DESC LIMIT ' . $limit, [$id]) as $r) {
+            // 3.34 second review N6: $withApplications – the viewer may open Applications (the job enquiries still moving there are theirs)
+            foreach ($db->all('SELECT idp, datum, formular, tema, stav, replies, anonymizovano FROM {poptavky} WHERE contact_id = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, null, $withApplications)
+                . ' ORDER BY datum DESC, idp DESC LIMIT ' . $limit, [$id]) as $r) {
                 $path = 'admin.php?module=enquiries&action=detail&id=' . (int) $r['idp'];
                 $out[] = ['at' => (string) $r['datum'], 'kind' => 'enquiry', 'title' => (string) $r['formular'], 'text' => (string) $r['tema'],
                     'status' => ['new', 'read', 'resolved'][(int) $r['stav']] ?? 'new', 'ref' => 'enquiry:' . (int) $r['idp'], 'path' => $path];
@@ -1261,7 +1263,8 @@ final class Contacts
             return null;
         }
         if ($kind === 'enquiry') {
-            $r = $db->one('SELECT idp, datum, zdroj, stranka, email, data, contact_id, anonymizovano FROM {poptavky} WHERE idp = ?', [$id]);
+            // 3.34 second review N6: a job enquiry still moving to Applications never makes a customer record, nor a moved twin
+            $r = $db->one('SELECT idp, datum, zdroj, stranka, email, data, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, null, false), [$id]);
             if ($r === null || $r['anonymizovano'] !== null) {
                 return null;
             }

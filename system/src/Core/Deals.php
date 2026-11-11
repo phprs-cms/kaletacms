@@ -630,7 +630,8 @@ final class Deals
     public static function enquiryDefaults(App $app, int $idp, int $byUserId): ?array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, formular, tema, zdroj, email, data, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $db->one('SELECT idp, formular, tema, zdroj, email, data, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND '
+            . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp]); // 3.34 second review N6
         if ($enquiry === null) {
             return null;
         }
@@ -664,7 +665,8 @@ final class Deals
     public static function createFromEnquiry(App $app, int $idp, int $byUserId, array $fields = []): int
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, contact_id, anonymizovano FROM {poptavky} WHERE idp = ?', [$idp]) ?? throw new \DomainException(t('The enquiry does not exist.'));
+        $enquiry = $db->one('SELECT idp, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp])
+            ?? throw new \DomainException(t('The enquiry does not exist.')); // 3.34 second review N6
         $open = self::openForEnquiry($db, $idp);
         if ($open !== null) {
             throw new \DomainException(t('The enquiry already has an open deal (#%d).', $open));

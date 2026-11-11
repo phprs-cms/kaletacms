@@ -178,7 +178,7 @@ final class Contacts extends Module
         return $this->view('detail', Customers::displayName($contact), ['c' => $contact,
             'company' => $contact['company_id'] !== null ? Customers::findCompany($this->db, $contact['company_id']) : null,
             'counts' => Customers::linkCounts($this->db, [$id])[$id] ?? ['enquiries' => 0, 'bookings' => 0, 'subscribed' => false],
-            'timeline' => $this->dealsShown(Customers::timeline($this->db, $id)), 'authors' => $byIds,
+            'timeline' => $this->dealsShown(Customers::timeline($this->db, $id, Customers::TIMELINE, isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]))), 'authors' => $byIds,
             'suggestion' => $contact['company_id'] === null && $contact['anonymised_at'] === null ? Customers::suggestCompany($this->db, $contact['email']) : null,
             'people' => Assignment::candidates($this->db, 'contact', (int) $contact['owner_id']),
             'companies' => Customers::companies($this->db, [], 1, 500)['rows'],
@@ -395,7 +395,7 @@ final class Contacts extends Module
         // the timeline of its contacts, merged and bounded: the latest entries of each, newest first
         $timeline = [];
         foreach (array_slice($contacts['rows'], 0, 30) as $c) {
-            foreach (Customers::timeline($this->db, $c['id'], 20) as $entry) {
+            foreach (Customers::timeline($this->db, $c['id'], 20, isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])) as $entry) {
                 $timeline[] = $entry + ['contact' => Customers::displayName($c), 'contact_id' => $c['id']];
             }
         }

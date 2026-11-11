@@ -21,7 +21,8 @@ CREATE TABLE ka_applications (
     email_norm        VARCHAR(190) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,   -- PersonalData::normalise(email)
     phone             VARCHAR(40) NOT NULL DEFAULT '',
     data              MEDIUMTEXT NOT NULL,                    -- JSON list of [label, value], as ka_poptavky.data (never a file path)
-    attachments       TEXT NULL,                              -- sealed (Core\Vault, purpose applications) JSON [{field, name, size, path, key, sealed}]
+    attachments       TEXT NULL,                              -- sealed (Core\Vault, purpose applications) JSON [{field, name, size, path, key, sealed, from}]
+    attachment_paths  TEXT NULL,                              -- JSON {bin: [...], old: [...]} – where the files are (random names only), readable whatever happens to the key
     status            VARCHAR(10) CHARACTER SET ascii NOT NULL DEFAULT 'new',   -- new | reviewed | interview | offer | hired | rejected
     status_at         DATETIME NOT NULL,
     decided_at        DATETIME NULL,                          -- set by hired and rejected, cleared when reopened
@@ -36,6 +37,7 @@ CREATE TABLE ka_applications (
     last_activity_at  DATETIME NOT NULL,                      -- receipt, reply, status change, note, task
     source_enquiry_id INT UNSIGNED NULL,                      -- moved from this enquiry (migration 0120); makes the move repeatable
     source_contact_id INT UNSIGNED NULL,                      -- the customer record its enquiry had: the move deletes one only applications made (3.34 review M3)
+    moved_at          DATETIME NULL,                          -- when it moved in from Enquiries (System status: waiting for the confirmation of the retention, N8)
     PRIMARY KEY (id),
     UNIQUE KEY ux_applications_enquiry (source_enquiry_id),
     KEY ix_applications_status (status, id),

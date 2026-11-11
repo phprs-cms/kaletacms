@@ -42,20 +42,46 @@ final class Enquiries extends Module
 
     /**
      * 3.34 review M3: while migration 0120 still moves job enquiries to Applications, " AND <condition>" that leaves out the
-     * ones still to move (Applications::movingCondition) – for the counts, and in the list and the detail for a person
-     * without Applications; '' otherwise.
+     * ones still to move – for the counts everyone sees; with visible() (N6) for a person without Applications.
      */
     public static function stillMoving(\Kaleta\Core\Db $db, ?\Kaleta\Core\Settings $settings = null): string
     {
-        $condition = \Kaleta\Core\Applications::movingCondition($db, $settings ?? new \Kaleta\Core\Settings($db));
-
-        return $condition === null ? '' : ' AND ' . $condition;
+        return ' AND ' . self::visible($db, $settings, false);
     }
 
-    /** The condition of stillMoving() for this person: nothing when they may open Applications. */
-    private function hiddenWhileMoving(): string
+    /**
+     * The one condition every read of enquiry rows uses (3.34 second review N6; a unit test lists every query on ka_poptavky
+     * that returns rows and fails on one without it or an explicit exemption) – never empty:
+     *  - an enquiry with an application twin (an application whose source_enquiry_id and received_at are its idp and date –
+     *    a database restored from a backup taken around the move, N9) has moved: shown to nobody, and acted on by nobody;
+     *  - while migration 0120 still moves, the job enquiries still to move (Applications::movingCondition) – for a person
+     *    without Applications ($withApplications false), the retention and anything automatic.
+     * $table: the name or alias the query gives ka_poptavky.
+     */
+    public static function visible(\Kaleta\Core\Db $db, ?\Kaleta\Core\Settings $settings, bool $withApplications, string $table = '{poptavky}'): string
     {
-        return isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]) ? '' : self::stillMoving($this->db, $this->app->settings());
+        $settings ??= new \Kaleta\Core\Settings($db);
+        $parts = [];
+        if ($settings->int('db_version') >= 119) {
+            $parts[] = 'NOT EXISTS (SELECT 1 FROM {applications} twin WHERE twin.source_enquiry_id = ' . $table . '.idp AND twin.received_at = ' . $table . '.datum)';
+        }
+        if (!$withApplications && ($moving = \Kaleta\Core\Applications::movingCondition($db, $settings, $table)) !== null) {
+            $parts[] = $moving;
+        }
+
+        return $parts === [] ? '1 = 1' : implode(' AND ', $parts);
+    }
+
+    /** visible() for the signed-in person: the job enquiries still moving only when they may open Applications. */
+    private function visibleHere(): string
+    {
+        return self::visible($this->db, $this->app->settings(), isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]));
+    }
+
+    /** One enquiry the signed-in person may see and act on (visibleHere()), with the columns asked for; null otherwise. */
+    private function findVisible(int $idp, string $columns): ?array
+    {
+        return $this->db->one('SELECT ' . $columns . ' FROM {poptavky} WHERE idp = ? AND ' . $this->visibleHere(), [$idp]);
     }
 
     /** 3.24: open enquiries (new or read) handled by the user, spam left out – the "Assigned to me" tile on the Dashboard. */
@@ -94,7 +120,7 @@ final class Enquiries extends Module
             $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
             array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
         }
-        $whereParts = 'WHERE ' . implode(' AND ', $conditions) . $this->hiddenWhileMoving(); // never empty: spam is left out unless asked for
+        $whereParts = 'WHERE ' . implode(' AND ', $conditions) . ' AND ' . $this->visibleHere(); // never empty: spam is left out unless asked for
         $pageNumber = max(1, $this->request->getInt('page', 1));
         $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, zdroj, email, stav, kategorie, priorita, data, prirazeno, anonymizovano FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
@@ -104,7 +130,7 @@ final class Enquiries extends Module
             'enquiries' => $rows,
             'deals' => $deals, 'stages' => $deals !== [] ? \Kaleta\Core\Deals::stages($this->app->settings()) : [],
             'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
-            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam'"), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
+            'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam' AND " . $this->visibleHere()), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY " . $this->db->sortText("IF(jmeno = '', user, jmeno)")),
             'months' => $this->app->settings()->int('enquiries_months'),
             'expiry' => $this->app->settings()->get('enquiries_expiry') === 'anonymise' ? 'anonymise' : 'delete',
@@ -116,7 +142,7 @@ final class Enquiries extends Module
 
     protected function actionDetail(): Response
     {
-        $p = $this->db->one('SELECT * FROM {poptavky} WHERE idp = ?' . $this->hiddenWhileMoving(), [$this->request->getInt('id')]);
+        $p = $this->findVisible($this->request->getInt('id'), '*');
         if ($p === null) {
             return $this->error('The enquiry does not exist.', 404);
         }
@@ -264,7 +290,7 @@ final class Enquiries extends Module
     protected function actionTriage(): Response
     {
         $id = $this->request->postInt('id');
-        if ($this->request->isPost() && $this->db->value('SELECT 1 FROM {poptavky} WHERE idp = ?', [$id]) !== null) {
+        if ($this->request->isPost() && $this->findVisible($id, 'idp') !== null) {
             $user = $this->app->auth()->user();
             \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priorita'), $this->request->post('navrh_odpovedi')),
                 (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['user'] ?? 'admin'));
@@ -281,7 +307,7 @@ final class Enquiries extends Module
     {
         $idp = $this->request->postInt('idp');
         if ($this->request->isPost() && $this->request->hasPost('add_note')) {
-            if ($this->db->value('SELECT 1 FROM {poptavky} WHERE idp = ?', [$idp]) === null) {
+            if ($this->findVisible($idp, 'idp') === null) {
                 return $this->error('The enquiry does not exist.', 404);
             }
             try {
@@ -297,8 +323,12 @@ final class Enquiries extends Module
             return $this->back('The note was added.', 'detail', ['id' => $idp]);
         }
         if ($this->request->isPost() && $this->request->hasPost('poznamka')) {
+            $found = $this->findVisible($idp, 'prirazeno');
+            if ($found === null) {
+                return $this->error('The enquiry does not exist.', 404);
+            }
             $who = $this->request->postInt('prirazeno');
-            $before = $this->db->value('SELECT prirazeno FROM {poptavky} WHERE idp = ?', [$idp]);
+            $before = $found['prirazeno'];
             $after = $who > 0 && isset($this->listAssignees((int) $before)[$who]) ? $who : null;
             $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000), 'prirazeno' => $after], ['idp' => $idp]);
             if ($after !== null && $after !== ($before === null ? null : (int) $before)) {
@@ -313,7 +343,7 @@ final class Enquiries extends Module
     /** 3.26: the enquiry whose notes a form edits or deletes (the composer posts to actionNote). */
     protected function commentTarget(): ?array
     {
-        $enquiry = $this->db->one('SELECT idp, formular FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]);
+        $enquiry = $this->db->one('SELECT idp, formular FROM {poptavky} WHERE idp = ? AND ' . $this->visibleHere(), [$this->request->postInt('idp')]); // N6
 
         return $enquiry === null ? null : ['target' => \Kaleta\Core\Comments::enquiry((int) $enquiry['idp']), 'back' => ['detail', ['id' => (int) $enquiry['idp']]], 'title' => (string) $enquiry['formular']];
     }
@@ -329,15 +359,19 @@ final class Enquiries extends Module
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
     protected function actionAttachment(): Response
     {
-        $p = $this->db->one('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->getInt('id')]);
+        $p = $this->findVisible($this->request->getInt('id'), 'data');
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
-        if ($path === null || !is_file($path)) {
+        // 3.34 second review N9: a CV sealed for Applications and then restored as an enquiry (a backup older than the move) opens
+        // from its encrypted copy – the key of its header
+        $content = $path !== null && is_file($path) ? (string) file_get_contents($path)
+            : ($path !== null ? \Kaleta\Core\Applications::openSealed($this->app->settings(), \Kaleta\Core\Applications::FOLDER . '/' . \Kaleta\Core\Applications::sealedTarget((string) $item[2]), null) : null);
+        if ($path === null || $content === null) {
             return $this->error('The attachment no longer exists.', 404);
         }
         $displayName = preg_replace('/ \([^)]*\)$/', '', (string) $item[1]) ?: basename($path);
 
-        return new Response((string) file_get_contents($path), 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff',
+        return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($displayName)]);
     }
 
@@ -345,12 +379,14 @@ final class Enquiries extends Module
     protected function actionBulk(): Response
     {
         $ids = array_map('intval', $this->request->postList('oznacene'));
+        // N6: only the enquiries this person may see
+        $ids = $ids === [] ? [] : array_map('intval', array_column($this->db->all('SELECT idp FROM {poptavky} WHERE idp IN (' . implode(',', $ids) . ') AND ' . $this->visibleHere()), 'idp'));
         if (!$this->request->isPost() || $ids === []) {
             return $this->back();
         }
         $v = implode(',', $ids);
         if ($this->request->post('provest') === 'smazat') {
-            self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp IN (' . $v . ')'));
+            self::deleteAttachments($this->db->all('SELECT idp, data FROM {poptavky} WHERE idp IN (' . $v . ')'), $this->db);
             \Kaleta\Core\Deals::forgetEnquiries($this->db, $ids); // N331-2: a deal from one stays, without the link and (3.32) the person's words – before the rows go
             $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
             \Kaleta\Core\Comments::forgetEnquiries($this->db, $ids);
@@ -362,21 +398,59 @@ final class Enquiries extends Module
         return $this->back(t('Enquiries resolved: %d.', count($ids)));
     }
 
-    /** @param list<array{data: string}> $rows */
-    public static function deleteAttachments(array $rows): void
+    /**
+     * The files of enquiries that go. 3.34 second review N9: a file an application still lists (attachment_paths – an
+     * enquiry restored next to its application twin, a CV not sealed yet) is never removed.
+     *
+     * @param list<array<string, mixed>> $rows each with data (and idp)
+     */
+    public static function deleteAttachments(array $rows, \Kaleta\Core\Db $db): void
     {
+        $paths = [];
         foreach ($rows as $r) {
             foreach (json_decode((string) $r['data'], true) ?: [] as $item) {
                 if (is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? ''))) {
-                    @unlink(KALETA_ROOT . '/storage/prilohy/' . $item[2]);
+                    $paths[] = (string) $item[2];
                 }
             }
         }
+        foreach (array_diff($paths, self::listedByApplications($db, $paths)) as $path) {
+            @unlink(KALETA_ROOT . '/storage/prilohy/' . $path);
+        }
+    }
+
+    /**
+     * Which of these storage/prilohy paths an application still lists (attachment_paths, old); [] before migration 0119.
+     *
+     * @param list<string> $paths
+     * @return list<string>
+     */
+    private static function listedByApplications(\Kaleta\Core\Db $db, array $paths): array
+    {
+        if ($paths === []) {
+            return [];
+        }
+        $listed = [];
+        try {
+            foreach (array_chunk(array_values(array_unique($paths)), 50) as $chunk) {
+                $like = implode(' OR ', array_fill(0, count($chunk), 'attachment_paths LIKE ?'));
+                foreach ($db->all('SELECT attachment_paths FROM {applications} WHERE ' . $like, array_map(fn (string $p): string => '%' . addcslashes($p, '%_\\') . '%', $chunk)) as $r) {
+                    $old = json_decode((string) $r['attachment_paths'], true);
+                    foreach (is_array($old) && is_array($old['old'] ?? null) ? $old['old'] : [] as $path) {
+                        $listed[] = (string) $path;
+                    }
+                }
+            }
+        } catch (\PDOException) {
+            return [];
+        }
+
+        return array_values(array_intersect($paths, $listed));
     }
 
     protected function actionStatus(): Response
     {
-        if ($this->request->isPost()) {
+        if ($this->request->isPost() && $this->findVisible($this->request->postInt('idp'), 'idp') !== null) {
             $state = $this->request->postInt('stav');
             $this->db->update('poptavky', ['stav' => isset(self::STATUSES[$state]) ? $state : 1], ['idp' => $this->request->postInt('idp')]);
         }
@@ -394,7 +468,11 @@ final class Enquiries extends Module
         if (!$this->request->isPost() || !isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])) {
             return $this->back('You cannot open Applications.', 'detail', ['id' => $idp], 'chyba');
         }
-        $result = \Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp);
+        try {
+            $result = \Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp);
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'detail', ['id' => $idp], 'chyba'); // 3.34 second review N4: another move runs
+        }
         if ($result === null) {
             return $this->back('The enquiry does not exist.', '', [], 'chyba');
         }
@@ -406,8 +484,8 @@ final class Enquiries extends Module
 
     protected function actionDelete(): Response
     {
-        if ($this->request->isPost()) {
-            self::deleteAttachments($this->db->all('SELECT data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]));
+        if ($this->request->isPost() && $this->findVisible($this->request->postInt('idp'), 'idp') !== null) {
+            self::deleteAttachments($this->db->all('SELECT idp, data FROM {poptavky} WHERE idp = ?', [$this->request->postInt('idp')]), $this->db);
             \Kaleta\Core\Deals::forgetEnquiries($this->db, [$this->request->postInt('idp')]); // N331-2: a deal from it stays, without the link and (3.32) the person's words – before the row goes
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
             \Kaleta\Core\Comments::forgetEnquiries($this->db, [$this->request->postInt('idp')]);
@@ -437,7 +515,8 @@ final class Enquiries extends Module
             }
             $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials'])
-                . (($result['erased']['applications'] ?? 0) > 0 ? ' ' . t('Job applications erased: %d.', $result['erased']['applications']) : ''); // 3.34
+                . (($result['erased']['applications'] ?? 0) > 0 ? ' ' . t('Job applications erased: %d.', $result['erased']['applications']) : '') // 3.34
+                . (($result['erased']['applications_held'] ?? 0) > 0 ? ' ' . t('%d job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located. Put the vault_key line back into config.php, then erase again.', $result['erased']['applications_held']) : '');
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
@@ -474,7 +553,7 @@ final class Enquiries extends Module
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, [t('Number'), t('Date'), t('Form'), t('Status'), t('Email'), t('Page'), t('Campaign'), t('Content')], ';', '"', '');
-        foreach ($this->db->all('SELECT * FROM {poptavky} ORDER BY idp') as $p) {
+        foreach ($this->db->all('SELECT * FROM {poptavky} WHERE ' . $this->visibleHere() . ' ORDER BY idp') as $p) {
             $content = implode("\n", array_map(fn (array $d): string => $d[0] . ': ' . $d[1], json_decode((string) $p['data'], true) ?: []));
             // a cell starting with = + - @ would run as a formula in a spreadsheet
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
@@ -504,9 +583,11 @@ final class Enquiries extends Module
         // after it closed (Contacts::heldByDeals → Core\Deals::heldEnquiries)
         $before = \Kaleta\Core\Clock::monthsAgo($months);
         $anonymise = $siteSettings->get('enquiries_expiry') === 'anonymise';
-        $expired = array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE datum < ?' . ($anonymise ? ' AND anonymizovano IS NULL' : ''), [$before]), 'idp'));
+        // N6: never a job enquiry migration 0120 is still to move (it becomes an application with its own retention), never a moved twin
+        $visible = ' AND ' . self::visible($db, $siteSettings, false);
+        $expired = array_map('intval', array_column($db->all('SELECT idp FROM {poptavky} WHERE datum < ?' . ($anonymise ? ' AND anonymizovano IS NULL' : '') . $visible, [$before]), 'idp'));
         $held = \Kaleta\Core\Contacts::heldByDeals($db, $expired, $months);
-        $keep = $held !== [] ? ' AND idp NOT IN (' . implode(',', $held) . ')' : '';
+        $keep = ($held !== [] ? ' AND idp NOT IN (' . implode(',', $held) . ')' : '') . $visible;
         $expired = array_values(array_diff($expired, $held));
         \Kaleta\Core\Contacts::enquiriesExpiring($db, $siteSettings, $expired); // 3.28: the customer keeps "first contact on … through …"
         if ($anonymise) {
@@ -514,7 +595,7 @@ final class Enquiries extends Module
 
             return;
         }
-        self::deleteAttachments($db->all('SELECT data FROM {poptavky} WHERE datum < ?' . $keep, [$before]));
+        self::deleteAttachments($db->all('SELECT idp, data FROM {poptavky} WHERE datum < ?' . $keep, [$before]), $db);
         \Kaleta\Core\Deals::forgetEnquiries($db, $expired); // 3.31: a deal from it stays, without the link and (3.32) the person's words – before the rows go
         $db->run('DELETE FROM {poptavky} WHERE datum < ?' . $keep, [$before]);
         \Kaleta\Core\Comments::forgetEnquiries($db, $expired); // 3.25: the notes go with their enquiry
