@@ -13,7 +13,8 @@ namespace Kaleta\Core;
  * "Untouched" is decided from the data, never from a flag a person could forget:
  *  - the installer records each starter page with a fingerprint of what it wrote (the setting starter_pages, JSON
  *    {"<ids>": "<sha1>"}); the page is untouched while it is not in the trash, nobody's edit is stamped on it (zmenil –
- *    every save by a person or a Claude connection stamps it, Modules\Pages::edited), it has no builder draft and its
+ *    every save by a person or a Claude connection stamps it, Modules\Pages::edited), it has no builder draft, no
+ *    translation (3.33 review L3: a translated page is edited – its translation would lose its original) and its
  *    title, address, text, build, description, SEO title, image and visibility still give the same fingerprint;
  *  - a site installed before 3.33 (3.20–3.32: the installer stamped zmeneno, never zmenil) has no record: there the
  *    legacy rule (legacyRows) has to prove that a page is the installer's own row – when in doubt it is NOT a sample;
@@ -146,8 +147,10 @@ final class StarterPages
         if ($recorded === []) {
             return [];
         }
-        $rows = $db->all('SELECT ids, ' . implode(', ', self::COLUMNS) . ' FROM {stranky} WHERE ids IN (' . implode(', ', array_keys($recorded)) . ')
-            AND smazano IS NULL AND zmenil IS NULL AND stavba_koncept IS NULL ORDER BY ids');
+        // 3.33 review L3: a starter page with a translation (preklad_z) counts as edited – replacing it would orphan the translation
+        $rows = $db->all('SELECT s.ids, s.' . implode(', s.', self::COLUMNS) . ' FROM {stranky} s WHERE s.ids IN (' . implode(', ', array_keys($recorded)) . ')
+            AND s.smazano IS NULL AND s.zmenil IS NULL AND s.stavba_koncept IS NULL
+            AND NOT EXISTS (SELECT 1 FROM {stranky} t WHERE t.preklad_z = s.ids) ORDER BY s.ids');
 
         return array_values(array_filter($rows, fn (array $r): bool => hash_equals($recorded[(int) $r['ids']] ?? '', self::fingerprint($r))));
     }
@@ -186,6 +189,7 @@ final class StarterPages
             AND COALESCE(s.popis, '') = '' AND COALESCE(s.seo_titulek, '') = '' AND COALESCE(s.obrazek, '') = '' AND s.noindex = 0
             AND NOT EXISTS (SELECT 1 FROM {stavba_revize} r WHERE r.ids = s.ids)
             AND NOT EXISTS (SELECT 1 FROM {stranky_revize} v WHERE v.ids = s.ids)
+            AND NOT EXISTS (SELECT 1 FROM {stranky} t WHERE t.preklad_z = s.ids)
             AND NOT EXISTS (SELECT 1 FROM {import_mapa} m WHERE m.typ = 'stranka' AND m.nase_id = s.ids) ORDER BY s.ids", [$created, $until]);
         $rows = array_values(array_filter($rows, function (array $r) use ($titles, $position): bool {
             $title = $titles[$position[(int) $r['ids']] ?? -1] ?? null;

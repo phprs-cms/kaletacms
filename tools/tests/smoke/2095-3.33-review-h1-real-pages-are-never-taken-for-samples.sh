@@ -7,6 +7,11 @@ s3_untouched() { s3php 'echo implode(",", array_map(fn ($p) => $p["seo_link"] . 
 # a fresh 3.33 install: the recorded starter pages, as before
 s3_install firemni
 expect "3.33 review H1: a fresh 3.33 install – the four starter pages are recorded (replaced by default, as before)" "$(s3_untouched)" "uvod:recorded,o-nas:recorded,sluzby:recorded,kontakt:recorded"
+# 3.33 review L3: a starter page with a translation counts as edited (never replaced – its translation would lose its original)
+s3q "INSERT INTO ka_stranky (titulek, seo_link, text, jazyk, preklad_z, zmeneno) SELECT 'Services', 'services', '<p>x</p>', 'en', ids, NOW() FROM ka_stranky WHERE seo_link = 'sluzby' AND jazyk = ''"
+expect "3.33 review L3: a translated starter page is no longer untouched, it is listed as edited" \
+  "$(s3_untouched)|$(s3php 'echo implode(",", Kaleta\Core\StarterPages::edited($app->db(), $app->settings()));')" "uvod:recorded,o-nas:recorded,kontakt:recorded|$(s3q "SELECT ids FROM ka_stranky WHERE seo_link = 'sluzby'")"
+s3q "DELETE FROM ka_stranky WHERE seo_link = 'services' AND jazyk = 'en'"
 
 # a site from 3.20–3.32: the same pages without the record – still recognised (legacy), but never replaced by default
 s3q "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'starter_pages'"

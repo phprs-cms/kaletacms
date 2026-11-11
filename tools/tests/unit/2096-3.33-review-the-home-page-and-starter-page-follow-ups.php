@@ -14,3 +14,7 @@ check('3.33 review M2: both importers pass the visibility of the imported page â
     str_contains((string) file_get_contents(KALETA_ROOT . '/system/src/Core/WebImport.php'), 'self::keptStarters($state), $state[\'vzory\'], self::replacedStarters($state), false);'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/system/src/Core/WpImport.php'), '(bool) $articleStatus[\'visible\']); // 3.33 review M2'),
 ], [true, true]);
+
+/* ---------- 3.33 review L3: a starter page that has translations counts as edited ---------- */
+check('3.33 review L3: both rules leave out a starter page with a translation', substr_count((string) file_get_contents(KALETA_ROOT . '/system/src/Core/StarterPages.php'),
+    'NOT EXISTS (SELECT 1 FROM {stranky} t WHERE t.preklad_z = s.ids)'), 2);
