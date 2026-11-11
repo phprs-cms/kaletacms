@@ -24,7 +24,7 @@ namespace Kaleta\Core;
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
  *    names it so the administrator can remove it too.
- *  - 3.34: job applications (Core\Applications) sent from the address or naming it in a field – with the replies, the
+ *  - 3.34: job applications (Core\Applications) sent from the address (their own e-mail field only) – with the replies, the
  *    team's notes and tasks, the status history and the CVs by name and size (never the file); erasing deletes them with
  *    their sealed files. Personal data requests are for administrators, who may open applications anyway (B-3).
  *  - The change log and the event keep only a masked address and the counts, never the address itself.

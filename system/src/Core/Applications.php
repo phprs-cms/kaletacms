@@ -1425,7 +1425,7 @@ final class Applications
     /* ---------- personal data, reports ---------- */
 
     /**
-     * The applications of an address (Core\PersonalData): sent from it, or naming it in a field – with the replies, the
+     * The applications of an address (Core\PersonalData): sent from it (their own e-mail field, review low e) – with the replies, the
      * team's notes and tasks, the attachments by name and size (never the file), the status history.
      *
      * @return list<array<string, mixed>>
@@ -1434,7 +1434,9 @@ final class Applications
     {
         $db = $app->db();
         try {
-            $rows = $db->all('SELECT * FROM {applications} WHERE email_norm = ? OR LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY id', [$email, $email, '%' . addcslashes($email, '%_\\') . '%']);
+            // review low (e): the application's own address only – an application that merely names it (a referee, a colleague)
+            // belongs to its applicant and is neither exported to nor erased for someone else
+            $rows = $db->all('SELECT * FROM {applications} WHERE email_norm = ? OR LOWER(email) = ? ORDER BY id', [PersonalData::normalise($email) ?? $email, mb_strtolower($email)]);
         } catch (\PDOException) {
             return []; // before migration 0119
         }
