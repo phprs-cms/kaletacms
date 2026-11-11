@@ -136,9 +136,12 @@ expect "3.23.1 review (N3231-1): Settings saved with an invalid field – the fi
 TABS3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /tab=([a-z_]+)"/g) if /<nav class="zalozky"[^>]*>(.*?)<\/nav>/s')
 SELECT3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /<option value="([a-z_]+)"/g) if /<select id="zalozka-vyber"[^>]*>(.*?)<\/select>/s')
 expect "3.23.1 (N-C12): the phone select of Settings offers the same tabs as the row, 13 of them" "$SELECT3231|$(echo "$TABS3231" | wc -w | tr -d ' ')" "$TABS3231|13"
-# pass 1 may only add the default of a key never saved before (a fresh secret too); pass 2 must change nothing at all
+# pass 1 may only add the default of a key never saved before (a fresh secret too); pass 2 must change nothing at all.
+# The clocks of the throttled background jobs (they run after an admin response, at most once a minute / five minutes –
+# Notifications, Links) are no form fields: a job that comes due during the round wrote them, not the save (3.35 re-review)
+JOBS3231="'link_check_time', 'notification_check', 'media_sync_check', 'tasks_last_run'"
 diff3231() { sq "SELECT IFNULL(GROUP_CONCAT(promenna ORDER BY promenna), 'none') FROM (SELECT k.promenna FROM ka_nastaveni k $1 JOIN nastaveni3231 n USING (promenna) WHERE NOT (k.hodnota <=> n.hodnota)
-    UNION SELECT n.promenna FROM nastaveni3231 n LEFT JOIN ka_nastaveni k USING (promenna) WHERE k.promenna IS NULL) d"; }
+    UNION SELECT n.promenna FROM nastaveni3231 n LEFT JOIN ka_nastaveni k USING (promenna) WHERE k.promenna IS NULL) d WHERE promenna NOT IN ($JOBS3231)"; }
 save3231() { for t in $TABS3231; do settings_form "$t" "$WORK/tab3231.post"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/tab3231.post"; done; }
 sq "DROP TABLE IF EXISTS nastaveni3231; CREATE TABLE nastaveni3231 AS SELECT * FROM ka_nastaveni" > /dev/null; save3231; PASS1_3231=$(diff3231 "")
 sq "DROP TABLE nastaveni3231; CREATE TABLE nastaveni3231 AS SELECT * FROM ka_nastaveni" > /dev/null; save3231
