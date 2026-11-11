@@ -88,13 +88,15 @@ final class ImportPath
     }
 
     /**
-     * After an import: nested pages without a parent get the page at their parent address, if one exists now (a child
-     * imported before its parent). Returns how many were linked.
+     * After an import: nested pages without a parent – or whose parent is in the trash (a retired sample page, 3.33 review
+     * M1) – get the page at their parent address, if one exists now (a child imported before its parent). Returns how many
+     * were linked.
      */
     public static function linkParents(Db $db): int
     {
         $linked = 0;
-        foreach ($db->all("SELECT ids, seo_link, jazyk FROM {stranky} WHERE nadrazena IS NULL AND smazano IS NULL AND seo_link LIKE '%/%'") as $page) {
+        foreach ($db->all("SELECT s.ids, s.seo_link, s.jazyk, s.nadrazena FROM {stranky} s LEFT JOIN {stranky} p ON p.ids = s.nadrazena
+            WHERE s.smazano IS NULL AND s.seo_link LIKE '%/%' AND (s.nadrazena IS NULL OR p.ids IS NULL OR p.smazano IS NOT NULL)") as $page) {
             $parent = self::parentOf($db, (string) $page['seo_link'], (string) $page['jazyk']);
             if ($parent !== null && $parent !== (int) $page['ids']) {
                 $db->update('stranky', ['nadrazena' => $parent], ['ids' => (int) $page['ids']]);
@@ -108,17 +110,30 @@ final class ImportPath
     /**
      * The address prefix a page keeps when it is saved without a parent (the page form, update_page): a nested page
      * whose old parent never came over keeps its directory; a page with a parent, or one that had a parent removed, does not.
+     * A parent in the trash (or gone) counts as none when $db is given (3.33 review M1): its address is never built on.
      *
      * @param array<string, mixed>|null $stored the page as stored (seo_link, nadrazena); null = a new page
      */
-    public static function keptPrefix(?array $stored): string
+    public static function keptPrefix(?array $stored, ?Db $db = null): string
     {
-        if ($stored === null || ($stored['nadrazena'] ?? null) !== null) {
+        if ($stored === null || (($stored['nadrazena'] ?? null) !== null && ($db === null || self::liveParent($db, (int) $stored['nadrazena']) !== null))) {
             return '';
         }
         $slug = (string) ($stored['seo_link'] ?? '');
 
         return str_contains($slug, '/') ? substr($slug, 0, (int) strrpos($slug, '/') + 1) : '';
+    }
+
+    /**
+     * The parent page if it is still on the site (not in the trash): ids and seo_link; null = none (3.33 review M1).
+     *
+     * @return array{ids: int, seo_link: string}|null
+     */
+    public static function liveParent(Db $db, int $ids): ?array
+    {
+        $row = $ids > 0 ? $db->one('SELECT ids, seo_link FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$ids]) : null;
+
+        return $row !== null ? ['ids' => (int) $row['ids'], 'seo_link' => (string) $row['seo_link']] : null;
     }
 
     /**

@@ -334,7 +334,7 @@ final class Pages extends Module
             $parent = null;
         }
         // 3.33 (M3): an imported nested page whose old parent never came over keeps its directory (Core\ImportPath)
-        $prefix = $parent !== null ? $parent['seo_link'] . '/' : ($id > 0 ? \Kaleta\Core\ImportPath::keptPrefix($this->db->one('SELECT seo_link, nadrazena FROM {stranky} WHERE ids = ?', [$id])) : '');
+        $prefix = $parent !== null ? $parent['seo_link'] . '/' : ($id > 0 ? \Kaleta\Core\ImportPath::keptPrefix($this->db->one('SELECT seo_link, nadrazena FROM {stranky} WHERE ids = ?', [$id]), $this->db) : '');
         $slug = slugify($r->post('seo_link') !== '' ? basename(str_replace('\\', '/', $r->post('seo_link'))) : $r->post('titulek'), max(20, 118 - strlen($prefix)));
         // 3.24 (N-U3): how a new page starts – builder (an empty builder page), layout (a ready-made layout) or text (a text
         // page); '' is a form or a script from before 3.24, which keeps the template select and "Save and open in the builder"

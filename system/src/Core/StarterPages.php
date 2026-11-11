@@ -394,6 +394,9 @@ final class StarterPages
         $free = Slug::makeUnique(mb_substr((string) $page['seo_link'], 0, 120 - strlen(self::RETIRED_SUFFIX) - 4) . self::RETIRED_SUFFIX,
             fn (string $a): bool => Slug::taken($db, 'stranky', $a, $language, $ids), 120);
         $db->update('stranky', ['seo_link' => $free, 'smazano' => Clock::now(), 'zobrazit' => 0, 'show_on_publish' => 0, 'v_menu' => 0], ['ids' => $ids]);
+        // 3.33 review M1: its subpages lose the parent in the trash – ImportPath::linkParents links them to the imported page
+        // at the same address (their own addresses stay)
+        $db->update('stranky', ['nadrazena' => null], ['nadrazena' => $ids]);
         if ($settings->int('home_page') === $ids) {
             $settings->set('home_page', '0');
         }
