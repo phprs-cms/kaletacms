@@ -205,7 +205,7 @@ final class Tools
             ['seznam_medii', 'Naposledy nahrané obrázky a soubory s adresami a rozměry.', $s(['limit' => $number('1-50, výchozí 20'), 'hledat' => $text('text v názvu (nepovinné)')])],
             ['nahraj_soubor', 'Nahraje soubor do Médií: obrázek (JPG, PNG, WebP, GIF – zmenší se a dostane WebP/AVIF varianty), SVG (vyčistí se), písmo WOFF2 pro design system nebo přílohu (PDF…). '
                 . 'Zadej url veřejného souboru (https – obrázek, písmo, PDF; u větších souborů vždy url), nebo data v base64 (nejvýš ' . (self::MAX_UPLOAD >> 20) . ' MB). Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
-                $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa souboru ke stažení (místo data)'),
+                $s(['nazev' => $text('název souboru s příponou, např. tym-praha.jpg'), 'data' => $text('obsah souboru v base64'), 'url' => $text('https adresa souboru ke stažení (místo data; jen plný přístup)'),
                     'popis' => $text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
             ['importuj_web', 'Import webu z jiné platformy podle adresy (správce, 2.6): stránky se najdou v sitemapě nebo po odkazech, stanou se z nich skryté stránky v builderu (články jako novinky), obrázky jdou do Médií a staré adresy se přesměrují. '
                 . 'Jedno volání = jedna dávka (asi 15 s). Začni s adresa, pak volej znovu s import (id) – nejdřív se hledají stránky; ve fázi nahled ukaž uživateli, co se našlo, a teprve na jeho pokyn pošli potvrdit: true. Pokračuj, dokud faze není hotovo.',
@@ -299,7 +299,7 @@ final class Tools
             ['save_collection_items', 'Saves many collection items at once (3.7, editors and administrators) – the products, references or people of a site being moved. Up to ' . \Kaleta\Builder\ItemBatch::MAX_ITEMS . ' items per call; send more in further calls. '
                 . 'Each item is {"name":"…","slug":"…","values":{"field key":"value"},"language":"en","visible":false} with the optional id, order, seo_title, description, share_image, noindex and media. An item with id changes that item; with a slug it changes the item with that slug in its language, or creates it; without either a new item is created. '
                 . 'The rules are those of save_collection_item: values by the field keys of list_collections (fields left out keep their value), a new item stays hidden unless visible is true (only when the user asks), and a drafts-only connection creates hidden items and changes hidden ones only. '
-                . 'media fills image and file fields from https addresses: {"photo":"https://old-site.example/img/a.jpg"} – the file is downloaded into Media (images JPEG, PNG, GIF or WebP; never SVG), at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call (the rest is reported as media_deferred – send those items again), and a file downloaded before is reused. '
+                . 'media fills image and file fields from https addresses: {"photo":"https://old-site.example/img/a.jpg"} – the file is downloaded into Media (images JPEG, PNG, GIF or WebP; never SVG), at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call (the rest is reported as media_deferred – send those items again), and a file downloaded before is reused; only a full connection downloads. '
                 . 'Every item is checked and saved on its own: the result says per item (index in your list) added, changed, unchanged or refused with the reason, and lists invalid_fields, unknown_keys (keys in values that are no field), unknown_item_keys (keys of the item this tool does not know – they are ignored) and media_failed. dry_run: true only checks and saves nothing – use it first to show the user what would change.',
                 $s(['collection' => $text('collection slug'), 'items' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"name":"Oak table","slug":"oak-table","values":{"price":"1200"},"media":{"photo":"https://old.example/oak.jpg"}},{"id":12,"values":{"price":"990"}}]'],
                     'dry_run' => ['type' => 'boolean', 'description' => 'true = only check the items and say what would happen, save nothing']], ['collection', 'items'])],
@@ -1385,6 +1385,9 @@ final class Tools
             throw new \InvalidArgumentException('Název souboru musí mít příponu (např. foto.jpg, logo.svg, pismo.woff2).');
         }
         if (is_string($a['url'] ?? null) && $a['url'] !== '') {
+            if (!\Kaleta\Mcp\Catalog::mayFetch($this->app->auth()->connection())) {
+                throw new \DomainException(\Kaleta\Mcp\Catalog::FETCH_REFUSAL); // 3.35 (N104): only a full connection downloads
+            }
             $url = trim($a['url']);
             if (!str_starts_with(strtolower($url), 'https://')) {
                 throw new \InvalidArgumentException('Stahovat jde jen z https adresy.');

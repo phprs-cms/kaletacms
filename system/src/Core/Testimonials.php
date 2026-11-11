@@ -154,6 +154,26 @@ final class Testimonials
             || \Kaleta\Builder\CollectionCategories::slugIsCategory($db, $idk, $s), 160); // never a category's address (3.7, N37-8)
     }
 
+    /**
+     * 3.35 (N105): which of these collection items a customer's answer made (save) – their name and words are the
+     * customer's text, which MCP results mark as untrusted (Mcp\Untrusted). An item edited later keeps the mark.
+     *
+     * @param list<int> $itemIds
+     * @return list<int>
+     */
+    public static function itemsFromAnswers(Db $db, array $itemIds): array
+    {
+        $itemIds = array_values(array_filter($itemIds, fn (int $id): bool => $id > 0));
+        if ($itemIds === []) {
+            return [];
+        }
+        try {
+            return array_map('intval', array_column($db->all('SELECT DISTINCT item_id FROM {testimonial_requests} WHERE item_id IN (' . implode(',', $itemIds) . ')'), 'item_id'));
+        } catch (\PDOException) {
+            return []; // before the testimonial requests existed
+        }
+    }
+
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */
     public static function ofEnquiry(Db $db, int $idp): array
     {

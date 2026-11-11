@@ -132,15 +132,18 @@ final class Users extends Module
         if ($handOver === null) {
             $errors['hand_over_to'] = 'This person cannot take the work over – choose someone who may open those sections.';
         }
+        // 3.35 (owner decision 11 Nov 2026): another account's e-mail is where its password-reset and invitation links go –
+        // changing it takes the account over as surely as a new password (a reset link to the new address follows)
+        $emailChanged = $id > 0 && !$isSelf && self::emailChanges((string) $this->db->value('SELECT email FROM {uzivatele} WHERE idu = ?', [$id]), $data['email']);
         // 3.31.2: a new password or a turned-off second factor of an existing account takes it over as surely as a sign-in –
         // the acting administrator confirms it with their own current password (Auth::confirmPassword: the sign-in's
-        // counter and lock). A new account, and every other change, needs no password. Recovery stays: an administrator
-        // resets another user's factor and password this way; a locked-out sole administrator has the password-reset
-        // e-mail and the backup codes.
-        if ($errors === [] && $id > 0 && ($password !== '' || $totpReset)) {
+        // counter and lock). 3.35: so does a changed e-mail. A new account, and every other change, needs no password.
+        // Recovery stays: an administrator resets another user's factor and password this way; a locked-out sole
+        // administrator has the password-reset e-mail and the backup codes.
+        if ($errors === [] && $id > 0 && ($password !== '' || $totpReset || $emailChanged)) {
             $check = $this->app->auth()->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '');
             if ($check !== 'ok') {
-                $errors['soucasne'] = $check === 'locked' ? Auth::CONFIRM_LOCKED : 'Enter your own current password to set this user\'s password or turn off their two-factor sign-in. Nothing was saved.';
+                $errors['soucasne'] = $check === 'locked' ? Auth::CONFIRM_LOCKED : self::PASSWORD_NEEDED;
             }
         }
         if ($errors !== []) {
@@ -200,6 +203,18 @@ final class Users extends Module
         }
 
         return $this->back('User saved.');
+    }
+
+    /** 3.35: the answer when a change that takes another account over comes without the administrator's own password. */
+    public const string PASSWORD_NEEDED = 'Enter your own current password to change this user\'s e-mail, set their password or turn off their two-factor sign-in. Nothing was saved.';
+
+    /**
+     * 3.35: does saving the form change the account's e-mail address? Letter case and surrounding spaces are the same
+     * address (sign-in and the reset compare them so); anything else, a removed address included, is a change. Pure.
+     */
+    public static function emailChanges(string $stored, string $posted): bool
+    {
+        return mb_strtolower(trim($stored)) !== mb_strtolower(trim($posted));
     }
 
     /** The administrator sends the user a link to set a new password (valid for 3 days). */

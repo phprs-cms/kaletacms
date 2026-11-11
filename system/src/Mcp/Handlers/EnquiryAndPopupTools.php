@@ -81,6 +81,8 @@ trait EnquiryAndPopupTools
             + ($p['prirazeno'] !== null ? ['assignee' => \Kaleta\Core\Handover::person($db, $p['prirazeno'])] : [])
             // 3.25: how many internal notes the team wrote on it (Core\Comments), only when there are some
             + (($notes[(int) $p['idp']] ?? 0) > 0 ? ['notes_count' => $notes[(int) $p['idp']]] : [])
+            // 3.35 (N105): what the visitor typed or brought in the address
+            + \Kaleta\Mcp\Untrusted::mark(['pole', 'email', 'kampan', 'first_page', 'came_from'])
             + ($applicationsHint !== null && $p['kategorie'] === 'job' ? ['applications_hint' => $applicationsHint] : []),
             $rows);
     }
@@ -229,7 +231,7 @@ trait EnquiryAndPopupTools
         $limit = max(1, min(20, (int) ($a['limit'] ?? 10)));
         $rows = $this->app->db()->all("SELECT * FROM {poptavky} WHERE kategorie = '' ORDER BY idp DESC LIMIT " . $limit);
 
-        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'date' => substr((string) $p['datum'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)], $rows),
+        return ['enquiries' => array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'date' => substr((string) $p['datum'], 0, 16), 'text' => \Kaleta\Core\Triage::text($p)] + \Kaleta\Mcp\Untrusted::mark(['text']), $rows),
             'categories' => array_keys(\Kaleta\Core\Triage::CATEGORIES), 'priorities' => ['high', 'normal', 'low'],
             'next' => $rows === [] ? 'Every enquiry is sorted.' : 'For each: update_enquiry {id, category, priority, draft_reply}. Spam gets no reply. Never promise prices, dates or facts the site does not state; the user checks and sends every reply.'];
     }

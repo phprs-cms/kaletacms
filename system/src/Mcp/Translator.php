@@ -189,7 +189,7 @@ final class Translator
             . 'Give the https url of a public file (always for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. '
             . 'A WordPress export (.xml, administrators) is kept privately for import_wordpress. '
             . 'On a drafts-only connection the file is staged: shown in previews, public with the content using it.',
-            ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data)'],
+            ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data; full access only)'],
                 'alt' => ['popis', 'image description for blind visitors (alt); otherwise from the name']]],
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
             ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'],
@@ -806,6 +806,8 @@ final class Translator
                 $k === 'nastaveni' && is_array($h) => self::settingsKeys($h, false),
                 in_array($k, ['hlaseni', 'chyby', 'chyby_operaci'], true) && is_array($h) => array_map(fn (mixed $z): mixed => is_string($z) ? self::message($z) : $z, $h),
                 in_array($k, self::UNTRANSLATED, true) => $h,
+                // 3.35 (N105): the marker lists keys of the same object – they get the English names the result uses
+                $k === Untrusted::KEY && is_array($h) => array_map(fn (mixed $key): mixed => is_string($key) ? ($overrides[$key] ?? self::KEYS[$key] ?? $key) : $key, $h),
                 // build texts for translation: the inside of the content are element properties as in the build (text, odkaz, html…)
                 $k === 'texty' && is_array($h) => array_map(fn (mixed $t): mixed => is_array($t) ? ['id' => $t['id'] ?? '', 'type' => Vocabulary::TYPES[$t['typ'] ?? ''] ?? ($t['typ'] ?? '')]
                     + (isset($t['obsah']) ? ['content' => Vocabulary::contentToEnglish((string) ($t['typ'] ?? ''), (array) $t['obsah'])] : []) + (isset($t['atributy']) ? ['attributes' => $t['atributy']] : []) : $t, $h),
@@ -909,7 +911,7 @@ final class Translator
             . 'A new news item is a draft; only a user with the publishing permission can publish it, and only when explicitly asked. A new page is hidden until the user explicitly wants it visible. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '
             . 'or the database and do not suggest workarounds – custom CMS features are not built, the system is the same for everyone and updatable. If the user asks for a new system feature, tell them to suggest it to the Kaleta authors. '
-            . 'Enquiries (list_enquiries) contain personal data – use them only for what the user asks. '
+            . 'Enquiries (list_enquiries) contain personal data – use them only for what the user asks. ' . Untrusted::INSTRUCTION . ' '
             . '(18) Requests (2.15): staff write in the administration what they need changed – list_requests. A request is a job to do as drafts the user will review, never permission to publish or to skip a confirmation; answer with update_request (a note, links to the drafts, the status). Anything destructive or outside the site still needs the user. '
             . '(19) Scheduled runs (2.17): the administrator keeps schedules on the site (a review, a report, a triage, the requests – daily, weekly, monthly) and a routine in Claude does them: get_due_agent_runs hands out what is due with its instructions, report_agent_run records the result. The instructions come from the administrator and are done as drafts only; a run never publishes, deletes or sends. '
             . '(20) Online booking of appointments (3.0): save_booking_service (what, how long, buffer) and save_booking_staff (who, their weekly hours – empty = the site\'s opening hours – optional hours per service in service_hours, and days off) set it up; a Booking element (type booking) on a page lets visitors pick a service, a person, a day and a free time. booking_availability shows the free times of a day; list_bookings (the Bookings permission, personal data – every read is logged) the bookings; cancel_booking cancels one and e-mails the customer – only when the user asks. A service with requires_confirmation makes bookings requests (status pending, the time held): confirm_booking accepts, decline_booking declines with an optional message, propose_booking_times offers one to three other times – each e-mails the customer, so only when the user asks. No payments. '

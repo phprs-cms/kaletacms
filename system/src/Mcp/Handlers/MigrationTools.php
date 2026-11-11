@@ -200,12 +200,16 @@ trait MigrationTools
 
     /**
      * migration_report – a 'read' tool on purpose (3.15, N315-9, see Catalog): it reads the old public site through the
-     * IP-pinned ImageDownloader and keeps its progress in a state file, but changes nothing on this site.
+     * IP-pinned ImageDownloader and keeps its progress in a state file, but changes nothing on this site. 3.35 (N104): it
+     * reads the network, so only over a full connection (Catalog::NEEDS, mayFetch).
      */
     private function toolMigrationReport(string $name, array $a): mixed
     {
         if (!$this->app->auth()->isAdmin()) {
             throw new \DomainException('The migration report is for administrators.');
+        }
+        if (!\Kaleta\Mcp\Catalog::mayFetch($this->app->auth()->connection())) {
+            throw new \DomainException(\Kaleta\Mcp\Catalog::NEEDS_REFUSAL['migration_report']); // 3.35 (N104), as Catalog::NEEDS
         }
         $id = trim((string) ($a['report_id'] ?? ''));
         if ($id === '') {

@@ -788,11 +788,13 @@ check('3.10 N310-8: find_tools refuses a query over 200 characters or 20 words a
 // a read-only connection finds only reads: find_tools respects the connection's access like tools/list; a runner the
 // connection does not list is a "direct call"
 $readOnly310 = $for310('read');
-check('3.10: find_tools on a read-only connection offers only reads, names a write tool as not available, and an open-world read as a direct call', [
+// 3.35 (N104): an open-world read (migration_report) reads the network – a read-only connection no longer has it
+check('3.10: find_tools on a read-only connection offers only reads, names a write tool as not available, and (3.35) an open-world read as not available', [
     array_values(array_unique(array_column(Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, [])['tools'], 'access'))),
     Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, ['names' => ['create_news']])['not_available'],
-    array_column(Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, ['names' => ['migration_report', 'list_news']], Kaleta\Mcp\Discovery::runners($readOnly310, 'read'))['tools'], 'runner')],
-    [['read'], ['create_news'], ['direct call', 'run_read_tool']]);
+    array_column(Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, ['names' => ['migration_report', 'list_news']], Kaleta\Mcp\Discovery::runners($readOnly310, 'read'))['tools'], 'runner'),
+    Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, ['names' => ['migration_report', 'list_news']], Kaleta\Mcp\Discovery::runners($readOnly310, 'read'))['not_available'] ?? []],
+    [['read'], ['create_news'], ['run_read_tool'], ['migration_report']]);
 $server310 = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php');
 check('3.10: the server instructions of an essentials connection name the runners; a runner checks the class before the call of a direct call; a missing tool_set column falls back to all (N310-9)', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), "=== 'essentials'") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'run_destructive_tool for deleting, sending or reaching outside the site'),

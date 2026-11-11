@@ -9,7 +9,7 @@ check('3.31.2: Users ignores one\'s own e-mail, password and two-factor reset; f
     str_contains($s3312Users, "\$data['email'] = (string) \$this->db->value('SELECT email FROM {uzivatele} WHERE idu = ?', [\$id]);"),
     str_contains($s3312Users, "\$password = !\$isSelf && is_string(\$_POST['password'] ?? null)"),
     str_contains($s3312Users, "\$totpReset = \$id > 0 && !\$isSelf && \$r->postBool('totp_reset');"),
-    str_contains($s3312Users, "if (\$errors === [] && \$id > 0 && (\$password !== '' || \$totpReset)) {"),
+    str_contains($s3312Users, "if (\$errors === [] && \$id > 0 && (\$password !== '' || \$totpReset || \$emailChanged)) {"),
     strpos($s3312Users, '->confirmPassword(') < strpos($s3312Users, "\$data['totp_tajemstvi'] = '';"),
     strpos($s3312Users, '->confirmPassword(') < strpos($s3312Users, 'DELETE FROM {uzivatele_klice}'),
     strpos($s3312Users, 'DELETE FROM {uzivatele_klice}') > strpos($s3312Users, '$this->db->transaction('),

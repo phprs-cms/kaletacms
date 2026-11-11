@@ -46,6 +46,7 @@ trait BookingTools
             'id' => (int) $b['id'], 'service' => $b['service'], 'staff' => $b['staff'], 'starts_at' => substr((string) $b['starts_at'], 0, 16), 'ends_at' => substr((string) $b['ends_at'], 0, 16), 'status' => $b['status'],
             'hold_until' => $b['hold_until'] === null ? null : substr((string) $b['hold_until'], 0, 16), 'name' => $b['name'], 'email' => $b['email'], 'phone' => $b['phone'], 'note' => $b['note'], 'source' => $b['source'], 'created_at' => substr((string) $b['created_at'], 0, 16),
             'reminded' => $b['reminded_at'] !== null, 'anonymised' => $b['anonymised_at'] !== null], $rows),
+            'untrusted' => ['bookings'], // 3.35 (N105, Mcp\Untrusted): the customer's name, contact and note
             'note' => 'Personal data – use them only for what the user asks. cancel_booking cancels one (the customer is e-mailed); a pending one (a request) is answered with confirm_booking, decline_booking or propose_booking_times; done and no-show are marked in the administration.'];
     }
 

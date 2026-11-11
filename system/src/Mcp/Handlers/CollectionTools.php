@@ -254,12 +254,20 @@ trait CollectionTools
         $documentOutput = fn (array $r): array => $downloads === null ? [] : ['downloads' => ['last_30_days' => $downloads[(int) $r['idp']][0] ?? 0, 'total' => $downloads[(int) $r['idp']][1] ?? 0]]
             + ($collection['detail'] ? ['latest_url' => $this->app->request->origin() . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . $collection['seo_link'] . '/' . $r['seo_link'] . '/latest')] : []);
 
+        // 3.35 (N105): an item made from a testimonial a customer wrote (Core\Testimonials) carries the customer's words
+        $shownRows = array_slice($rows, ($pageNumber - 1) * 50, 50);
+        $testimonials = \Kaleta\Core\Testimonials::itemsFromAnswers($db, array_map(fn (array $r): int => (int) $r['idp'], $shownRows));
+
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
             + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'canonical_url' => (string) ($r['canonical_url'] ?? ''), 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
             + ($withCategories ? ['kategorie' => CollectionCategories::slugsOfItem($db, (int) $r['idp'], (string) $r['jazyk'], !$allCategories)] : [])
-            + (($r['owner_id'] ?? null) !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : []), array_slice($rows, ($pageNumber - 1) * 50, 50))]; // 3.24: the responsible person
+            + (($r['owner_id'] ?? null) !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : []) // 3.24: the responsible person
+            + (in_array((int) $r['idp'], $testimonials, true) ? \Kaleta\Mcp\Untrusted::mark(['nazev', 'data']) : []), $shownRows)];
     }
+
+    /** 3.35 (N107): the way on for a user whose role does not publish. */
+    private const string ROLE_HIDDEN_ONLY = 'Save new items and categories hidden and change hidden ones; an editor or administrator publishes them (Collections, or Waiting for you on the dashboard).';
 
     /** save_collection_item (uloz_polozku_kolekce) */
     private function toolSaveCollectionItem(string $name, array $a): mixed
@@ -280,20 +288,24 @@ trait CollectionTools
             // saving would put it back on the site while it still waits in the trash to be deleted
             throw new \InvalidArgumentException('The item is in the trash. Bring it back with restore_from_trash first.');
         }
-        // a drafts-only connection (3.2) creates hidden items and changes hidden ones – what visitors see stays a person's call
+        // a drafts-only connection (3.2) creates hidden items and changes hidden ones – what visitors see stays a person's call;
+        // 3.35 (N107): so does a user whose role does not publish (an author-level role), over any connection
         $draftsOnly = $auth->draftsOnly();
-        if ($draftsOnly) {
-            $proposeInstead = ' Write the change you propose (the item and its values) into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.';
+        if (!$auth->canPublish()) {
+            $proposeInstead = $draftsOnly ? ' Write the change you propose (the item and its values) into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.'
+                : ' ' . self::ROLE_HIDDEN_ONLY;
+            $who = $draftsOnly ? 'This connection can only save drafts' : 'This user\'s role does not publish';
             if ($previous !== null && ((int) $previous['zobrazit'] === 1 || $previous['zverejnit_od'] !== null)) {
-                throw new \DomainException('This connection can only save drafts, and this item is on the site (or scheduled to be published), so it cannot be changed here.' . $proposeInstead);
+                throw new \DomainException($who . ', and this item is on the site (or scheduled to be published), so it cannot be changed here.' . $proposeInstead);
             }
             if ($previous !== null && !empty($a['zobrazit'])) {
-                throw new \DomainException('This connection can only save drafts: it cannot make an item visible.' . $proposeInstead);
+                throw new \DomainException($who . ': it cannot make an item visible.' . $proposeInstead);
             }
             if (is_string($a['zverejnit_od'] ?? null) && trim($a['zverejnit_od']) !== '') {
-                throw new \DomainException('This connection can only save drafts: it cannot schedule an item to be published.' . $proposeInstead);
+                throw new \DomainException($who . ': it cannot schedule an item to be published.' . $proposeInstead);
             }
             unset($a['zobrazit']); // a new item stays hidden whatever visible says
+            $draftsOnly = true; // from here on the same as a drafts-only connection: saved hidden, said so
         }
         // on update the name is optional – the current one stays
         $itemName = mb_substr(trim((string) ($a['nazev'] ?? $previous['nazev'] ?? '')), 0, 200);
@@ -400,7 +412,7 @@ trait CollectionTools
         }
         $rows = array_map(\Kaleta\Builder\ItemBatch::fromMcp(...), $items);
         $dryRun = !empty($a['dry_run']);
-        $options = ['drafts_only' => $auth->draftsOnly()];
+        $options = ['drafts_only' => !$auth->canPublish()]; // 3.2 drafts-only connections; 3.35 (N107) roles that do not publish
         $shown = ['shown' => [], 'waiting' => []];
         $plan = $dryRun ? \Kaleta\Builder\ItemBatch::plan($this->app, $collection, $rows, $options) : \Kaleta\Builder\ItemBatch::save($this->app, $collection, $rows, $options, $shown);
         $counts = array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
@@ -421,7 +433,7 @@ trait CollectionTools
         return ['dry_run' => $dryRun, 'collection' => $collection['seo_link'], 'added' => $counts['added'], 'changed' => $counts['changed'], 'unchanged' => $counts['unchanged'], 'refused' => $counts['refused']]
             + ($media !== [] ? ['media' => $media] : []) + ['results' => $results] + self::categoriesShown($shown)
             + (($media['deferred'] ?? 0) > 0 ? ['next' => 'Some media were not downloaded in this call (at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call): send those items again (by id or slug) with media only to download the rest.'] : [])
-            + ($auth->draftsOnly() && !$dryRun && $counts['added'] + $counts['changed'] > 0 ? ['note' => 'Saved hidden: a person reviews the items and makes them visible (Collections, or Waiting for you on the dashboard).'] : []);
+            + (!$auth->canPublish() && !$dryRun && $counts['added'] + $counts['changed'] > 0 ? ['note' => 'Saved hidden: a person reviews the items and makes them visible (Collections, or Waiting for you on the dashboard).'] : []);
     }
 
     /**
@@ -456,6 +468,9 @@ trait CollectionTools
         $k = $collection();
         // the permanent archive of an official notice board (2.11, Core\Notices)
         $need(!Notices::isNotices($k), Notices::REFUSAL_DELETE . ' (save_collection_item with values {"taken_down": "YYYY-MM-DD"}; the notice then moves to the archive.)');
+        // 3.35 (N107): a user whose role does not publish moves only hidden items to the trash
+        $stored = $db->one('SELECT zobrazit, zverejnit_od FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$id, $k['idk']]);
+        $need($auth->canPublish() || $stored === null || \Kaleta\Admin\Modules\Collections::isDraft($stored), 'This user\'s role does not publish, and this item is on the site (or scheduled to be published), so it cannot be deleted here. ' . self::ROLE_HIDDEN_ONLY);
         if (!\Kaleta\Admin\Modules\Collections::trashItem($db, $id, (int) $k['idk'])) {
             throw new \InvalidArgumentException('The item is not in this collection (or it is already in the trash). Use list_collection_items.');
         }
@@ -485,6 +500,8 @@ trait CollectionTools
             return ['versions' => array_map(fn (array $v): array => ['id' => (int) $v['idr'], 'saved' => substr((string) $v['datum'], 0, 16), 'by' => (string) ($v['kdo'] ?? '')],
                 \Kaleta\Builder\Publisher::listAll($db, ['cast' => 'polozka:' . $id]))];
         }
+        // 3.35 (N107): an item on the site changes only with the permission to publish
+        $need($auth->canPublish() || \Kaleta\Admin\Modules\Collections::isDraft($item), 'This user\'s role does not publish, and this item is on the site (or scheduled to be published), so an earlier version cannot be restored here. ' . self::ROLE_HIDDEN_ONLY);
         $version = \Kaleta\Builder\Collections::loadVersion($db, $id, (int) ($a['version'] ?? 0)) ?? throw new \InvalidArgumentException('The version does not exist. Use list_item_versions.');
         $kept = null;
         if (isset($version['seo_link']) && !CollectionCategories::itemSlugFree($db, (int) $k['idk'], (string) $item['jazyk'], (string) $version['seo_link'], $id, (string) $item['seo_link'])) {
@@ -602,16 +619,20 @@ trait CollectionTools
         if ($id !== null && ($previous === null || $previous['idk'] !== (int) $k['idk'])) {
             throw new \InvalidArgumentException('The category is not in this collection. Use list_collection_categories.');
         }
-        // a drafts-only connection (3.2) creates hidden categories and changes hidden ones – a category page is public
+        // a drafts-only connection (3.2) creates hidden categories and changes hidden ones – a category page is public;
+        // 3.35 (N107): so does a user whose role does not publish
         $draftsOnly = $auth->draftsOnly();
-        if ($draftsOnly) {
-            $proposeInstead = ' Write the change you propose into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.';
+        if (!$auth->canPublish()) {
+            $proposeInstead = $draftsOnly ? ' Write the change you propose into the note of the request or the summary of the run for a person to apply – or the user connects Claude with full access.'
+                : ' ' . self::ROLE_HIDDEN_ONLY;
+            $who = $draftsOnly ? 'This connection can only save drafts' : 'This user\'s role does not publish';
             if ($previous !== null && $previous['visible']) {
-                throw new \DomainException('This connection can only save drafts, and this category is on the site, so it cannot be changed here.' . $proposeInstead);
+                throw new \DomainException($who . ', and this category is on the site, so it cannot be changed here.' . $proposeInstead);
             }
             if (!empty($a['visible'])) {
-                throw new \DomainException('This connection can only save drafts: it cannot make a category visible.' . $proposeInstead);
+                throw new \DomainException($who . ': it cannot make a category visible.' . $proposeInstead);
             }
+            $draftsOnly = true;
         }
         $input = [];
         foreach (['name' => 'name', 'slug' => 'slug', 'description' => 'description', 'seo_title' => 'seo_title', 'seo_description' => 'seo_description', 'image' => 'image', 'order' => 'sort_order', 'visible' => 'visible'] as $from => $to) {
@@ -651,6 +672,10 @@ trait CollectionTools
         }
         $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         $id = (int) ($a['id'] ?? 0);
+        // 3.35 (N107): a user whose role does not publish deletes only hidden categories (a category page is public)
+        if (!$this->app->auth()->canPublish() && (CollectionCategories::byId($db, $id)['visible'] ?? false)) {
+            throw new \DomainException('This user\'s role does not publish, and this category is on the site, so it cannot be deleted here. ' . self::ROLE_HIDDEN_ONLY);
+        }
         $language = array_key_exists('language', $a) && (string) $a['language'] !== '' ? $this->categoryLanguage($a) : null;
         Language::runWith('en', function () use ($db, $k, $id, $language): void {
             if ($language !== null && $language !== '') {

@@ -10,11 +10,14 @@ namespace Kaleta\Core;
  * access and portability) or erase it (the right to erasure) – instead of searching enquiries, subscribers and queues
  * one by one on each site.
  *
- *  - Found: enquiries with the address as the sender or anywhere in their fields, the subscription and its pending
+ *  - Found: enquiries with the address as the sender or as the whole value of one of their fields (3.35, N94: exact
+ *    match – an enquiry of someone else that merely mentions the address, or a longer address containing it, is not the
+ *    person's and is never exported or erased with it), the subscription and its pending
  *    sync to the mailing service, e-mails still in the outgoing queue, testimonial requests, bookings of appointments
  *    (3.0, Core\Booking), and an account of the administration (shown only – accounts are removed in Users, never here).
  *  - 3.28: the customer records (Core\Contacts) of the address, of the enquiries, bookings and subscription found and of a
- *    log entry naming the address (a merge's note keeps the address merged in – N328-6) – with
+ *    merge note naming exactly the address (a merge's note keeps the address merged in – N328-6; 3.35, N94: Kaleta's own
+ *    merge note only, Contacts::mergeNoteNames) – with
  *    the company they work for (its name only: a company is not a person's data and is never erased here), the team's log
  *    of calls, meetings, e-mails and notes, and the team's comments and tasks about the contact. Erasing deletes them all.
  *    3.31: the file lists the deals with the customer (Core\Deals) with the team's comments and tasks on each; erasing
@@ -50,6 +53,30 @@ final class PersonalData
     }
 
     /**
+     * 3.35 (N94): is an enquiry the person's – sent from the address, or with a field whose whole value is the address (a
+     * colleague's e-mail field)? Letter case and surrounding spaces aside; a value that only contains it is not. Pure.
+     *
+     * @param string $dataJson the enquiry's fields as stored: [[label, value], …]
+     */
+    public static function ofEnquiry(string $sender, string $dataJson, string $email): bool
+    {
+        if ($email === '') {
+            return false;
+        }
+        if (mb_strtolower(trim($sender)) === $email) {
+            return true;
+        }
+        foreach ((array) (json_decode($dataJson, true) ?: []) as $field) {
+            $value = is_array($field) ? ($field[1] ?? null) : null;
+            if (is_string($value) && mb_strtolower(trim($value)) === $email) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Everything the site keeps about the address.
      *
      * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>, applications: list<array<string, mixed>>}
@@ -64,7 +91,10 @@ final class PersonalData
             $bookings = []; // before the 3.0 migration
         }
 
-        $enquiries = $db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like]);
+        // 3.35 (N94): the LIKE only narrows the rows – an enquiry is the person's when it came from the address or one of its
+        // fields holds exactly the address (ofEnquiry), never because a longer address or a message contains it
+        $enquiries = array_values(array_filter($db->all('SELECT idp, datum, formular, stranka, tema, email, data, kampan, vstup, odkud, replies FROM {poptavky} WHERE LOWER(email) = ? OR LOWER(data) LIKE ? ORDER BY idp', [$email, $like]),
+            fn (array $r): bool => self::ofEnquiry((string) $r['email'], (string) $r['data'], $email)));
         // 3.28: the customer records of the address and of what was found (Core\Contacts) – an enquiry that only mentions the
         // address in a field is not the person's own, so only those sent from it count
         $contactIds = Contacts::ofPerson($db, $email, array_map('intval', array_column(array_filter($enquiries, fn (array $r): bool => mb_strtolower((string) $r['email']) === $email), 'idp')),

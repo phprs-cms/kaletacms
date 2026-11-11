@@ -634,17 +634,27 @@ final class Kernel
         }
         [$nonce, $pending] = $found;
         $oauth = new \Kaleta\Front\OAuth($app);
+        $passwordError = null;
         if ($isPost) {
-            \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
             if (!$app->request->postBool('povolit')) {
+                \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
+
                 return Response::redirect($oauth->deny($pending));
             }
             $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page (3.11, N311-3)
             // 3.10: the tool set (essentials by default on the page); a consent page from before 3.10 sends none: all tools, as before
             $toolSet = \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set'));
-            ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
+            // 3.35 (owner decision 11 Nov 2026): full access – publishing and deleting with this account – needs a fresh
+            // proof: the current password typed here, or a sign-in or confirmed password within Auth::VERIFIED_WINDOW (an
+            // account that signs in without a password signs in again). Drafts and read stay one click. The request waits
+            // in the session for another try; nothing is issued until the proof is there.
+            $passwordError = $access === 'full' ? self::fullAccessRefusal($app->auth()) : null;
+            if ($passwordError === null) {
+                \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
+                ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
 
-            return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
+                return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
+            }
         }
 
         $host = \Kaleta\Front\OAuth::host((string) $pending['redirect_uri']);
@@ -656,6 +666,8 @@ final class Kernel
             // 3.11 (UX310-2, owner decision 11 Oct 2026): every new connection starts at drafts only – the "drafts you
             // approve" the installer and the site promise; publishing is one click away. Connections that exist keep their access.
             'selected' => 'drafts',
+            // 3.35: why full access was refused just now (the view keeps full chosen), and whether a fresh proof is there
+            'passwordError' => $passwordError, 'verified' => $app->auth()->recentlyVerified(),
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
             'toolSet' => 'essentials',
         ])]));
@@ -663,6 +675,27 @@ final class Kernel
         $target = parse_url((string) $pending['redirect_uri']);
         $origin = ($target['scheme'] ?? '') . '://' . ($target['host'] ?? '') . (isset($target['port']) ? ':' . $target['port'] : '');
 
-        return new Response($page->body, $page->status, $page->headers + ['X-Kaleta-Form-Action' => $origin]);
+        return new Response($page->body, $passwordError !== null ? 403 : $page->status, $page->headers + ['X-Kaleta-Form-Action' => $origin]);
     }
+
+    /**
+     * 3.35: why approving full access is refused now – null when the person proved who they are within
+     * Auth::VERIFIED_WINDOW or typed the right current password into the consent form (Auth::confirmPassword: the
+     * sign-in's counter and lock).
+     */
+    private static function fullAccessRefusal(\Kaleta\Core\Auth $auth): ?string
+    {
+        if ($auth->recentlyVerified()) {
+            return null;
+        }
+
+        return match ($auth->confirmPassword(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '')) {
+            'ok' => null,
+            'locked' => \Kaleta\Core\Auth::CONFIRM_LOCKED,
+            default => self::FULL_ACCESS_PASSWORD,
+        };
+    }
+
+    /** 3.35: the answer when full access is approved without a fresh proof. */
+    public const string FULL_ACCESS_PASSWORD = '“Can also publish” lets the application publish and delete with your account – enter your current password to allow it, or choose “Drafts only”. An account without a password signs in again and then starts connecting again in the application.';
 }

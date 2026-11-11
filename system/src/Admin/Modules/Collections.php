@@ -358,11 +358,20 @@ final class Collections extends Module
             }
             $row['canonical_url'] = $canonical;
         }
+        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
+        // 3.35 (N107): without the permission to publish (an author-level role) an item is prepared hidden – a new one stays
+        // hidden, one on the site (or scheduled) is not changed; an editor publishes it
+        if ($idp > 0 && ($refusal = $this->requirePublish($previous ?? ['zobrazit' => 1])) !== null) {
+            return $refusal;
+        }
+        if (!$this->app->auth()->canPublish()) {
+            $row['zobrazit'] = 0;
+            $row['zverejnit_od'] = null;
+        }
         // a notice that is (or was) on the board cannot be hidden (2.11, Core\Notices)
         if (Notices::refusesHiding($k, $data, (bool) $row['zobrazit'])) {
             return $this->back(t(Notices::REFUSAL_HIDE), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
-        $previous = $idp > 0 ? $this->db->one('SELECT * FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $k['idk']]) : null;
         // 3.24: the responsible person – only when the form has the field; a new item starts with nobody unless chosen
         $storedOwner = ($previous['owner_id'] ?? null) === null ? null : (int) $previous['owner_id'];
         if (array_key_exists('owner_id', $_POST)) {
@@ -409,10 +418,16 @@ final class Collections extends Module
         $done = 0;
         $skipped = 0;
         $published = [];
+        $mayPublish = $this->app->auth()->canPublish();
+        if (!$mayPublish && $action === 'zobrazit') {
+            return $this->back(self::LIVE_ITEM_REFUSAL, 'items', ['id' => $idk], 'chyba'); // 3.35 (N107)
+        }
         foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $idp) {
-            $p = $this->db->one('SELECT idp, nazev, seo_link, jazyk, zobrazit FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk]);
-            // the address is unique within a language: an item whose address the target language already has stays where it is
-            if ($p === null || ($action === 'jazyk' && $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $language, $p['seo_link'], $idp]) !== null)) {
+            $p = $this->db->one('SELECT idp, nazev, seo_link, jazyk, zobrazit, zverejnit_od FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$idp, $idk]);
+            // the address is unique within a language: an item whose address the target language already has stays where it is;
+            // 3.35 (N107): without the permission to publish only hidden items are touched
+            if ($p === null || (!$mayPublish && !self::isDraft($p))
+                || ($action === 'jazyk' && $this->db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND seo_link = ? AND idp <> ?', [$idk, $language, $p['seo_link'], $idp]) !== null)) {
                 $skipped++;
                 continue;
             }
@@ -438,7 +453,9 @@ final class Collections extends Module
             'jazyk' => t('Items moved to the language version: %d.', $done), default => t('Items moved to the trash: %d.', $done),
         };
 
-        return $this->back(trim($message . ($skipped > 0 ? ' ' . t('Skipped: %d (the address is taken in that language).', $skipped) : '') . ' ' . CategoryTree::shownMessage($shown)), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
+        $skippedText = $mayPublish ? t('Skipped: %d (the address is taken in that language).', $skipped) : t('Skipped: %d (on the site – only an editor changes it – or the address is taken in that language).', $skipped);
+
+        return $this->back(trim($message . ($skipped > 0 ? ' ' . $skippedText : '') . ' ' . CategoryTree::shownMessage($shown)), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
     }
 
     /* ---------- CSV/JSON import of items (3.7, Builder\ItemImport) ---------- */
@@ -622,11 +639,17 @@ final class Collections extends Module
         }
         $id = $r->postInt('id');
         $language = in_array($r->post('jazyk'), Language::additional($this->app->settings()), true) ? $r->post('jazyk') : '';
+        // 3.35 (N107): a category page is public – without the permission to publish a category is prepared hidden and only
+        // hidden ones are changed
+        $mayPublish = $this->app->auth()->canPublish();
+        if (!$mayPublish && $id > 0 && (CategoryTree::byId($this->db, $id)['visible'] ?? true)) {
+            return $this->back(self::LIVE_CATEGORY_REFUSAL, 'categories', ['id' => $k['idk']], 'chyba');
+        }
         try {
             $id = CategoryTree::save($this->db, (int) $k['idk'], $id > 0 ? $id : null, $language, [
                 'name' => $r->post('name'), 'slug' => $r->post('slug'), 'description' => $r->post('description'), 'seo_title' => $r->post('seo_title'),
                 'seo_description' => $r->post('seo_description'), 'image' => $r->post('image'), 'sort_order' => $r->postInt('sort_order'),
-                'parent_id' => $r->postInt('parent_id'), 'visible' => $r->postBool('visible'),
+                'parent_id' => $r->postInt('parent_id'), 'visible' => $mayPublish && $r->postBool('visible'),
             ]);
         } catch (\InvalidArgumentException $e) {
             return $this->back($e->getMessage(), 'category', ['id' => $k['idk']] + ($id > 0 ? ['category' => $id] : []) + ($language !== '' ? ['language' => $language] : []), 'chyba');
@@ -646,6 +669,9 @@ final class Collections extends Module
             return $this->back();
         }
         $language = $r->post('jazyk');
+        if (!$this->app->auth()->canPublish() && (CategoryTree::byId($this->db, $r->postInt('id'))['visible'] ?? true)) {
+            return $this->back(self::LIVE_CATEGORY_REFUSAL, 'categories', ['id' => $k['idk']], 'chyba'); // 3.35 (N107)
+        }
         try {
             if ($language !== '' && in_array($language, Language::additional($this->app->settings()), true)) {
                 CategoryTree::deleteLanguage($this->db, (int) $k['idk'], $r->postInt('id'), $language); // only that language version
@@ -705,6 +731,9 @@ final class Collections extends Module
         if ($version === null) {
             return $this->back('The version does not exist.', 'items', ['id' => $idk], 'chyba');
         }
+        if (($refusal = $this->requirePublish($item)) !== null) {
+            return $refusal; // 3.35 (N107): an item on the site changes only with the permission to publish
+        }
         // the address of a restored version may be taken by another item or a category in the meantime (3.7, N37-8): the item keeps its current one
         $kept = '';
         if (isset($version['seo_link']) && !CategoryTree::itemSlugFree($this->db, $idk, (string) $item['jazyk'], (string) $version['seo_link'], $idp, (string) $item['seo_link'])) {
@@ -726,6 +755,11 @@ final class Collections extends Module
         if ($this->request->isPost()) {
             if ($this->isNoticeBoard($idk)) {
                 return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk], 'chyba'); // the permanent archive (2.11)
+            }
+            // 3.35 (N107): without the permission to publish only a hidden item goes to the trash
+            $item = $this->db->one('SELECT zobrazit, zverejnit_od FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NULL', [$this->request->postInt('idp'), $idk]);
+            if (($refusal = $this->requirePublish($item ?? ['zobrazit' => 1])) !== null) {
+                return $refusal;
             }
             self::trashItem($this->db, $this->request->postInt('idp'), $idk);
         }
@@ -773,12 +807,38 @@ final class Collections extends Module
             if ($this->isNoticeBoard($idk)) {
                 return $this->back(t(Notices::REFUSAL_DELETE), 'items', ['id' => $idk, 'status' => 'kos'], 'chyba');
             }
+            if (!$this->app->auth()->canPublish()) {
+                return $this->back(self::LIVE_ITEM_REFUSAL, 'items', ['id' => $idk, 'status' => 'kos'], 'chyba'); // 3.35 (N107): never undone – as for pages
+            }
             if ($this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk])->rowCount() > 0) {
                 \Kaleta\Core\Comments::forget($this->db, [\Kaleta\Core\Comments::item($this->request->postInt('idp'))]); // 3.26: its thread goes with it
             }
         }
 
         return $this->back('The item was deleted permanently.', 'items', ['id' => $idk, 'status' => 'kos']);
+    }
+
+    /** 3.35 (N107): what a person without the permission to publish hears when an item on the site would change. */
+    public const string LIVE_ITEM_REFUSAL = 'Only an editor or administrator publishes, changes and deletes collection items on the site. You can prepare a new hidden item and change hidden ones.';
+
+    /** 3.35 (N107): the same for a category of a collection (its page is public). */
+    public const string LIVE_CATEGORY_REFUSAL = 'Only an editor or administrator changes and deletes categories on the site. You can prepare a new hidden category and change hidden ones.';
+
+    /** 3.35 (N107): is the item a draft – hidden and not scheduled to be published? Pure. @param array<string, mixed> $item */
+    public static function isDraft(array $item): bool
+    {
+        return (int) ($item['zobrazit'] ?? 1) === 0 && ($item['zverejnit_od'] ?? null) === null;
+    }
+
+    /**
+     * 3.35 (N107), as Pages: an author-level role (also a custom one without the permission to publish) prepares items, but
+     * never publishes them, changes one on the site or deletes it. The refusal, or null when allowed.
+     *
+     * @param array<string, mixed> $item the stored item (zobrazit, zverejnit_od)
+     */
+    private function requirePublish(array $item): ?Response
+    {
+        return $this->app->auth()->canPublish() || self::isDraft($item) ? null : $this->back(self::LIVE_ITEM_REFUSAL, 'items', ['id' => $this->request->postInt('idk')], 'chyba');
     }
 
     /** Moves an item to the trash (admin and MCP); returns whether it was there to move. */

@@ -14,7 +14,7 @@ check('3.33 review L7: a 3.33 analysis always records where the pages land; an o
 ], [true, false, false, true]);
 
 /* ---------- 3.33 review L8: read_old_page is listed only for connections that may call it ---------- */
-check('3.33 review L8: read_old_page needs what import_website needs – a full connection sees it, drafts-only and read-only do not', [
+check('3.33 review L8: read_old_page needs what import_website needs – a full connection sees it, drafts-only and read-only do not (3.35 N104: migration_report too)', [
     Kaleta\Mcp\Catalog::allows('full', 'read_old_page'), Kaleta\Mcp\Catalog::allows('drafts', 'read_old_page'), Kaleta\Mcp\Catalog::allows('read', 'read_old_page'),
     Kaleta\Mcp\Catalog::allows('read', 'migration_report'), Kaleta\Mcp\Catalog::allows('drafts', 'list_pages'),
-], [true, false, false, true, true]);
+], [true, false, false, false, true]);

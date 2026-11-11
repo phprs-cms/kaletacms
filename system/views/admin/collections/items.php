@@ -78,7 +78,9 @@
 	<td class="cislo"><?= e(format_date((string) $p['smazano'], true)) ?></td>
 	<td class="akce">
 		<form class="vradku" method="post" action="<?= e($module->url('restore_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Restore')) ?></button></form> ·
+<?php if ($app->auth()->canPublish()): // 3.35 (N107): never undone – an editor or administrator ?>
 		<form class="vradku" method="post" action="<?= e($module->url('delete_item_permanently')) ?>" data-potvrdit="<?= e(t('Delete the item permanently? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete permanently')) ?></button></form>
+<?php endif ?>
 	</td>
 </tr>
 <?php endforeach ?>
@@ -149,6 +151,7 @@
 </table>
 </div>
 <?= $app->view->render('admin/bulk_actions', ['csrf' => $csrf, 'action' => $module->url('bulk_items'), 'siteLanguages' => $siteLanguages, 'hidden' => ['idk' => (string) (int) $k['idk']],
-    'actions' => ['zobrazit' => t('Publish'), 'skryt' => t('Hide')] + (empty($noticeBoard) ? ['kos' => t('Move to trash')] : [])]) ?>
+    // 3.35 (N107): a role that does not publish only hides and trashes its hidden items
+    'actions' => ($app->auth()->canPublish() ? ['zobrazit' => t('Publish')] : []) + ['skryt' => t('Hide')] + (empty($noticeBoard) ? ['kos' => t('Move to trash')] : [])]) ?>
 <?php endif ?>
 <?php endif ?>
