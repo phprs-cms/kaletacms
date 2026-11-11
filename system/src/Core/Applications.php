@@ -993,6 +993,7 @@ final class Applications
                 $rows[] = (int) $row['id'];
             }
             if ($rows !== []) {
+                self::forgetTwins($app, $rows); // F4: an enquiry twin a restored backup brought back would surface once its application went
                 $deleted += $db->run('DELETE FROM {applications} WHERE id IN (' . implode(',', $rows) . ')')->rowCount();
                 $gone = [...$gone, ...$rows];
             }
@@ -1010,6 +1011,39 @@ final class Applications
         }
 
         return $deleted;
+    }
+
+    /**
+     * Enquiries an application has a twin of (3.34 third review F4): a backup restored around the move brought the moved
+     * enquiry back next to its application – the same idp as source_enquiry_id and the same date. Enquiries::visible() hides
+     * it only while the application exists, so it goes for good – with its files (a CV an application still lists stays,
+     * Enquiries::deleteAttachments), the link of a deal and its notes, tasks and notifications – before the application is
+     * deleted, and in the daily clean-up. $ids: the twins of these applications only; null = every twin. Returns how many.
+     *
+     * @param list<int>|null $ids
+     */
+    public static function forgetTwins(App $app, ?array $ids = null): int
+    {
+        $db = $app->db();
+        if ($ids === []) {
+            return 0;
+        }
+        try {
+            $rows = $db->all('SELECT p.idp, p.data FROM {poptavky} p JOIN {applications} a ON a.source_enquiry_id = p.idp AND a.received_at = p.datum'
+                . ($ids !== null ? ' WHERE a.id IN (' . implode(',', array_map('intval', $ids)) . ')' : ''));
+        } catch (\PDOException) {
+            return 0; // before migration 0119
+        }
+        if ($rows === []) {
+            return 0;
+        }
+        $idps = array_map('intval', array_column($rows, 'idp'));
+        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows, $db);
+        Deals::forgetEnquiries($db, $idps);
+        $count = $db->run('DELETE FROM {poptavky} WHERE idp IN (' . implode(',', $idps) . ')')->rowCount();
+        Comments::forgetEnquiries($db, $idps);
+
+        return $count;
     }
 
     /**
@@ -1898,6 +1932,7 @@ final class Applications
         }
         self::sealPending($app);
         self::resealHeld($app); // M5: lists held under the database key while the Vault key was missing
+        self::forgetTwins($app); // F4: enquiry twins a restored backup brought back go, before a deleted application lets one surface
         $months = $app->settings()->int('applications_months');
         if ($months <= 0) {
             return 0;
