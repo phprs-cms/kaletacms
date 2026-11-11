@@ -34,21 +34,27 @@ foreach ($a334Files as $name => $content) {
 }
 check('3.34: checkUpload – a real PDF and a plain text pass; HTML or PHP behind .pdf/.txt, SVG behind .png and a ZIP are refused', array_map(fn (string $name): ?string => Applications::checkUpload($a334Dir . '/' . $name, $name), array_keys($a334Files)),
     ['pdf', null, null, null, 'txt', null, null]);
-// sealing: the stored file is not the original, opens with its own key only, the source goes
+// sealing: the stored file is not the original, opens with its own key (or the Vault key of its header – 3.34 second review N9),
+// and the source stays until the caller removes it (N1: only once the row lists the sealed copy)
+$a334SealSettings = new Kaleta\Core\Settings(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''));
+(new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($a334SealSettings, ['secret_key' => bin2hex(random_bytes(32)), 'vault_check' => '']);
 $a334Plain = 'CV of Jana – ' . bin2hex(random_bytes(8));
 file_put_contents($a334Dir . '/seal.pdf', $a334Plain);
-$a334Sealed = Applications::sealFile($a334Dir . '/seal.pdf');
+$a334Sealed = Applications::sealFile($a334SealSettings, $a334Dir . '/seal.pdf');
 $a334Raw = $a334Sealed !== null ? (string) file_get_contents(Applications::FOLDER . '/' . $a334Sealed['path']) : '';
+$a334Body = substr($a334Raw, 6 + (int) (unpack('n', substr($a334Raw, 4, 2)) ?: [1 => 0])[1]);
 $a334Key = $a334Sealed !== null ? (string) base64_decode($a334Sealed['key'], true) : '';
-check('3.34: a CV is sealed at rest – a random .bin in storage/applications, not readable as the original, opened only with its own key, the upload removed', [
+check('3.34: a CV is sealed at rest – a random .bin in storage/applications, not readable as the original, opened with its own key or the Vault key of its header, the source kept for the caller', [
     $a334Sealed !== null && preg_match('#^\d{4}/\d{2}/[a-f0-9]{32}\.bin$#D', $a334Sealed['path']) === 1, str_contains($a334Raw, $a334Plain), is_file($a334Dir . '/seal.pdf'),
-    strlen($a334Key) === SODIUM_CRYPTO_SECRETBOX_KEYBYTES ? sodium_crypto_secretbox_open(substr($a334Raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($a334Raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $a334Key) : false,
-    sodium_crypto_secretbox_open(substr($a334Raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($a334Raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), sodium_crypto_secretbox_keygen()),
+    strlen($a334Key) === SODIUM_CRYPTO_SECRETBOX_KEYBYTES ? sodium_crypto_secretbox_open(substr($a334Body, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($a334Body, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $a334Key) : false,
+    sodium_crypto_secretbox_open(substr($a334Body, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($a334Body, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), sodium_crypto_secretbox_keygen()),
     Applications::filePath(['path' => $a334Sealed['path'] ?? '', 'sealed' => true]) === Applications::FOLDER . '/' . ($a334Sealed['path'] ?? ''),
     Applications::filePath(['path' => '../../config.php', 'sealed' => true]), Applications::filePath(['path' => '2026/11/../../x.bin', 'sealed' => true]),
     Applications::filePath(['path' => '2026/11/' . str_repeat('a', 24) . '.pdf', 'sealed' => false]) === Applications::OLD_FOLDER . '/2026/11/' . str_repeat('a', 24) . '.pdf',
-    is_file(Applications::FOLDER . '/.htaccess')],
-    [true, false, false, $a334Plain, false, true, null, null, true, true]);
+    is_file(Applications::FOLDER . '/.htaccess'), str_starts_with($a334Raw, Applications::FILE_MAGIC),
+    Applications::openSealed($a334SealSettings, Applications::FOLDER . '/' . ($a334Sealed['path'] ?? 'x'), $a334Sealed['key'] ?? null),
+    Applications::openSealed($a334SealSettings, Applications::FOLDER . '/' . ($a334Sealed['path'] ?? 'x'), null)],
+    [true, false, true, $a334Plain, false, true, null, null, true, true, true, $a334Plain, $a334Plain]);
 if ($a334Sealed !== null) {
     @unlink(Applications::FOLDER . '/' . $a334Sealed['path']);
 }

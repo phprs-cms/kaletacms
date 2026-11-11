@@ -189,7 +189,8 @@ return static function (Db $db, Settings $settings): void {
                         'job_title' => mb_substr($title, 0, 200), 'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'],
                         'page' => (string) $e['stranka'], 'language' => '', 'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190),
                         'email_norm' => filter_var($normal, FILTER_VALIDATE_EMAIL) !== false ? $normal : null, 'phone' => mb_substr($people['phone'], 0, 40),
-                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => $seal($files), 'status' => $status, 'status_at' => (string) $e['datum'],
+                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => $seal($files),
+                        'attachment_paths' => $files === [] ? null : (string) json_encode(['bin' => [], 'old' => array_column($files, 'path')], JSON_UNESCAPED_SLASHES), 'status' => $status, 'status_at' => (string) $e['datum'],
                         'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null, 'replies' => $e['replies'], 'late' => 0, 'last_activity_at' => $activity,
                         'source_enquiry_id' => $idp, 'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,
                     ]);

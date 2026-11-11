@@ -166,7 +166,7 @@ final class ApplicationMove
                     'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
                     'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
                     'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190), 'email_norm' => PersonalData::normalise($email), 'phone' => mb_substr($people['phone'], 0, 40),
-                    'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files),
+                    'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files), 'attachment_paths' => Applications::paths($files),
                     'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
                     'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
                     'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null,

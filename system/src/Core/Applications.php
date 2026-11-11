@@ -236,32 +236,44 @@ final class Applications
         $position = self::position($db, $source, $back, $data);
         $people = Contacts::fromFields($data, $email);
         $attachments = [];
+        $forget = static function (array $done): void {
+            foreach ($done as $a) {
+                $path = self::filePath($a);
+                if ($path !== null) {
+                    @unlink($path);
+                }
+            }
+        };
         foreach (array_slice($files, 0, self::MAX_FILES, true) as $index => [$tmp, $extension, $original, $size]) {
-            $stored = self::sealFile($tmp);
+            $stored = self::sealFile($s, $tmp);
             if ($stored === null) {
                 // review low (c): a CV that cannot be stored fails the submission – never a silent OK without it
-                foreach ($attachments as $done) {
-                    $path = self::filePath($done);
-                    if ($path !== null) {
-                        @unlink($path);
-                    }
-                }
+                $forget($attachments);
                 throw new \RuntimeException('A CV could not be stored.');
             }
             $attachments[] = ['field' => (int) $index, 'name' => mb_substr($original, 0, 120), 'size' => $size, 'ext' => $extension] + $stored + ['sealed' => true];
         }
         $consentText = trim(is_string($content['souhlas_uchovani'] ?? null) ? $content['souhlas_uchovani'] : '');
         $poolMonths = max(1, $s->int('applications_pool_months'));
-        $id = $db->insert('applications', [
-            'received_at' => $now, 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
-            'form' => mb_substr((string) ($content['nazev'] ?? ''), 0, 120), 'source' => mb_substr($source, 0, 40), 'element' => mb_substr((string) ($element['id'] ?? ''), 0, 16),
-            'page' => mb_substr($back, 0, 255), 'language' => Language::siteColumn(), 'name' => $people['name'], 'email' => mb_substr($email, 0, 190),
-            'email_norm' => PersonalData::normalise($email), 'phone' => $people['phone'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
-            'attachments' => self::encodeAttachments($s, $attachments), 'status' => 'new', 'status_at' => $now, 'late' => $position['late'] ? 1 : 0,
-            'pool_consent_at' => $poolConsent && $consentText !== '' ? $now : null, 'pool_consent_text' => $poolConsent && $consentText !== '' ? mb_substr($consentText, 0, 500) : null,
-            'pool_until' => $poolConsent && $consentText !== '' ? Clock::day('+' . $poolMonths . ' months') : null,
-            'last_activity_at' => $now,
-        ]);
+        try {
+            $id = $db->insert('applications', [
+                'received_at' => $now, 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
+                'form' => mb_substr((string) ($content['nazev'] ?? ''), 0, 120), 'source' => mb_substr($source, 0, 40), 'element' => mb_substr((string) ($element['id'] ?? ''), 0, 16),
+                'page' => mb_substr($back, 0, 255), 'language' => Language::siteColumn(), 'name' => $people['name'], 'email' => mb_substr($email, 0, 190),
+                'email_norm' => PersonalData::normalise($email), 'phone' => $people['phone'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
+                'attachments' => self::encodeAttachments($s, $attachments), 'attachment_paths' => self::paths($attachments), 'status' => 'new', 'status_at' => $now, 'late' => $position['late'] ? 1 : 0,
+                'pool_consent_at' => $poolConsent && $consentText !== '' ? $now : null, 'pool_consent_text' => $poolConsent && $consentText !== '' ? mb_substr($consentText, 0, 500) : null,
+                'pool_until' => $poolConsent && $consentText !== '' ? Clock::day('+' . $poolMonths . ' months') : null,
+                'last_activity_at' => $now,
+            ]);
+        } catch (\Throwable $e) {
+            $forget($attachments); // N1: no row lists them – the sealed copies go, the applicant is told
+            throw new \RuntimeException('The application could not be stored.', 0, $e);
+        }
+        // N1: the uploads go only once the row lists their sealed copies (PHP removes them at the end of the request anyway)
+        foreach (array_slice($files, 0, self::MAX_FILES, true) as [$tmp]) {
+            @unlink($tmp);
+        }
         if ($attachments !== [] && Vault::state($s) === 'missing') {
             // M5: kept and readable (DB_SEALED), but the administrator must put the key back – never lost silently
             Events::record($db, 'applications.vault_missing', 'warning', sprintf('Application #%d: the encryption key of config.php is missing, so its CVs were sealed with the key in the database – put the vault_key line back into config.php (System status).', $id), ['application' => $id]);
@@ -977,31 +989,139 @@ final class Applications
 
     /* ---------- files ---------- */
 
+    /** The first bytes of a sealed CV (3.34 second review N1/N9): the length of the wrapped key, the key wrapped with the Vault key, then the file. */
+    public const string FILE_MAGIC = 'KCV1';
+
+    /** Days an encrypted file no application lists stays before the daily clean-up removes it (an interrupted run, a restored backup). */
+    public const int ORPHAN_DAYS = 7;
+
     /**
-     * Encrypts a file into FOLDER under a new random key and returns where it is and the key (base64); the source is
-     * removed once the sealed copy is written (an upload the caller checked, or a file moved from storage/prilohy). Null
-     * when it cannot be read or written.
+     * Encrypts a file into FOLDER under a new random key and returns where it is and the key (base64). 3.34 second review
+     * N1: the source is never removed here – the caller removes it once the row lists the sealed copy (receive(), and
+     * sealEntry() only after the copy opened with the key the row holds). $target: the place under FOLDER – sealedTarget()
+     * for a CV moved from storage/prilohy, so an interrupted run finds its copy again; a random one otherwise. Null when
+     * the source cannot be read or the copy cannot be written (writeSealed()).
      *
      * @return array{path: string, key: string}|null
      */
-    public static function sealFile(string $source): ?array
+    public static function sealFile(Settings $s, string $source, ?string $target = null): ?array
     {
         $plain = @file_get_contents($source);
         if (!is_string($plain)) {
             return null;
         }
+        $path = $target ?? date('Y/m') . '/' . bin2hex(random_bytes(16)) . '.bin';
+        $key = self::writeSealed($s, $plain, $path);
+        sodium_memzero($plain);
+
+        return $key === null ? null : ['path' => $path, 'key' => $key];
+    }
+
+    /**
+     * Writes a sealed file at $path under FOLDER (3.34 second review N1/N9): FILE_MAGIC, the length of the wrapped key (2
+     * bytes), the per-file key wrapped with the Vault key of the purpose (wrapKey()), the nonce and the secretbox – written
+     * next to its place and renamed, so the name never holds half a file. The wrapped key makes a sealed file openable with
+     * the Vault key alone when its row lost the key (a restored backup older than the sealing, an interrupted run). Returns
+     * the per-file key (base64), null when it cannot be written.
+     */
+    public static function writeSealed(Settings $s, string $plain, string $path): ?string
+    {
+        if (preg_match('#^\d{4}/\d{2}/[a-f0-9]{32}\.bin$#D', $path) !== 1) {
+            return null;
+        }
         $key = sodium_crypto_secretbox_keygen();
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-        $path = date('Y/m') . '/' . bin2hex(random_bytes(16)) . '.bin';
+        $wrapped = Vault::seal(self::wrapKey($s), $key);
+        $blob = self::FILE_MAGIC . pack('n', strlen($wrapped)) . $wrapped . $nonce . sodium_crypto_secretbox($plain, $nonce, $key);
         $target = self::FOLDER . '/' . $path;
-        if ((!is_dir(dirname($target)) && !@mkdir(dirname($target), 0770, true)) || @file_put_contents($target, $nonce . sodium_crypto_secretbox($plain, $nonce, $key), LOCK_EX) === false) {
+        $temporary = $target . '.' . bin2hex(random_bytes(4)) . '.part';
+        if ((!is_dir(dirname($target)) && !@mkdir(dirname($target), 0770, true) && !is_dir(dirname($target)))
+            || @file_put_contents($temporary, $blob, LOCK_EX) !== strlen($blob) || !@rename($temporary, $target)) {
+            @unlink($temporary);
+
             return null;
         }
         self::protectFolder();
-        @unlink($source);
-        sodium_memzero($plain);
 
-        return ['path' => $path, 'key' => base64_encode($key)];
+        return base64_encode($key);
+    }
+
+    /** The key that wraps the per-file keys in the files' headers: the Vault key of the purpose, the key in the database while config.php has none (M5). */
+    private static function wrapKey(Settings $s): string
+    {
+        return Vault::state($s) === 'missing' ? Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION) : Vault::key($s, self::SECTION);
+    }
+
+    /**
+     * The per-file key of a sealed file from its header (N9): unwrapped with the Vault key, the key in the database or the
+     * previous signing key; null when none opens it or the file has no header.
+     */
+    public static function headerKey(Settings $s, string $file): ?string
+    {
+        $raw = @file_get_contents($file, false, null, 0, 600);
+        $length = is_string($raw) ? self::headerLength($raw) : null;
+        if ($length === null) {
+            return null;
+        }
+        $wrapped = substr((string) $raw, 6, $length);
+        [$previous] = Vault::previousKey($s);
+        foreach (array_unique(array_filter([Vault::key($s, self::SECTION), Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION),
+            $previous !== null ? Vault::derive($previous, self::SECTION) : null])) as $candidate) {
+            $key = Vault::open($candidate, $wrapped);
+            if ($key !== null && strlen($key) === SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+                return base64_encode($key);
+            }
+        }
+
+        return null;
+    }
+
+    /** The length of the wrapped key in a sealed file's header, null when the file has no header. Pure. */
+    private static function headerLength(string $raw): ?int
+    {
+        $length = str_starts_with($raw, self::FILE_MAGIC) && strlen($raw) > 6 ? unpack('n', substr($raw, 4, 2)) : false;
+
+        return is_array($length) && is_int($length[1] ?? null) ? $length[1] : null;
+    }
+
+    /**
+     * The content of a sealed file: with the key the row holds (base64), otherwise with the key of its header (headerKey());
+     * null when it is gone or neither opens it. A file without the header (sealed before it) opens with the row's key only.
+     */
+    public static function openSealed(Settings $s, string $file, ?string $key): ?string
+    {
+        $raw = is_file($file) ? @file_get_contents($file) : false;
+        if (!is_string($raw)) {
+            return null;
+        }
+        $length = self::headerLength($raw);
+        $body = $length !== null ? substr($raw, 6 + $length) : $raw;
+        if (strlen($body) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
+            return null;
+        }
+        foreach ([$key, null] as $try) {
+            $candidate = $try ?? self::headerKey($s, $file);
+            $raw64 = $candidate !== null ? base64_decode($candidate, true) : false;
+            if ($raw64 === false || strlen($raw64) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+                continue;
+            }
+            $plain = sodium_crypto_secretbox_open(substr($body, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($body, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $raw64);
+            if ($plain !== false) {
+                return $plain;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Where the sealed copy of a CV moved from storage/prilohy goes (N1/N9): the same month folder and a name derived from
+     * its old path – a run that stopped after writing it, and a database restored from a backup older than the sealing,
+     * find the copy again. Pure.
+     */
+    public static function sealedTarget(string $oldPath): string
+    {
+        return substr($oldPath, 0, 7) . '/' . substr(hash('sha256', 'kaleta-cv|' . $oldPath), 0, 32) . '.bin';
     }
 
     /** A deny-all .htaccess in the folder (storage/ has one too – a second line of defence on a misconfigured host). */
@@ -1028,31 +1148,79 @@ final class Applications
     }
 
     /**
+     * Where the files of an attachment list are, in plain words (3.34 second review N7 – the column attachment_paths): the
+     * sealed copies (bin) and the CVs still in storage/prilohy (old – unsealed ones, and the old place a sealed one came
+     * from). Random names only, nothing of the person: whatever happens to the sealed list (the encryption key), the files
+     * can always be found and removed. Null when there are none. Pure.
+     *
+     * @param list<array<string, mixed>> $list raw entries
+     */
+    public static function paths(array $list): ?string
+    {
+        $out = ['bin' => [], 'old' => []];
+        foreach ($list as $a) {
+            $path = (string) ($a['path'] ?? '');
+            if (!empty($a['sealed'])) {
+                $out['bin'][] = $path;
+                if (is_string($a['from'] ?? null) && $a['from'] !== '') {
+                    $out['old'][] = $a['from'];
+                }
+            } elseif ($path !== '') {
+                $out['old'][] = $path;
+            }
+        }
+
+        return $out['bin'] === [] && $out['old'] === [] ? null : (string) json_encode($out, JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * The files on disk a row's attachment_paths names (validated as filePath() does): the sealed copies, the CVs in
+     * storage/prilohy and the copy an interrupted run may have written for them (sealedTarget()). Pure apart from nothing.
+     *
+     * @return list<string>
+     */
+    public static function pathFiles(mixed $paths): array
+    {
+        $list = is_string($paths) ? json_decode($paths, true) : null;
+        $files = [];
+        foreach (is_array($list) && is_array($list['bin'] ?? null) ? $list['bin'] : [] as $path) {
+            $files[] = self::filePath(['path' => (string) $path, 'sealed' => true]);
+        }
+        foreach (is_array($list) && is_array($list['old'] ?? null) ? $list['old'] : [] as $path) {
+            $files[] = self::filePath(['path' => (string) $path, 'sealed' => false]);
+            $files[] = preg_match('#^\d{4}/\d{2}/#', (string) $path) === 1 ? self::filePath(['path' => self::sealedTarget((string) $path), 'sealed' => true]) : null;
+        }
+
+        return array_values(array_unique(array_filter($files, 'is_string')));
+    }
+
+    /**
      * The content of the attachment number $index of an application, decrypted in memory, with its original name; null
      * when there is none or its file is gone or cannot be opened. Only for the admin download of a person with the
-     * section – never for MCP or a public address.
+     * section – never for MCP or a public address. N9: a sealed file opens with the key of its header when the row's key
+     * does not open it; a CV still waiting in storage/prilohy whose plain file is gone opens from the copy an earlier run
+     * sealed (sealedTarget()).
      *
      * @return array{name: string, content: string}|null
      */
     public static function attachment(App $app, int $id, int $index): ?array
     {
+        $s = $app->settings();
         $row = $app->db()->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
-        $a = $row !== null ? (self::attachments($app->settings(), $row['attachments'] ?? null)[$index] ?? null) : null;
+        $a = $row !== null ? (self::attachments($s, $row['attachments'] ?? null)[$index] ?? null) : null;
         $path = $a !== null ? self::filePath($a) : null;
-        if ($a === null || $path === null || !is_file($path)) {
+        if ($a === null || $path === null) {
             return null;
         }
-        $raw = (string) file_get_contents($path);
         if (empty($a['sealed'])) {
-            return ['name' => (string) $a['name'], 'content' => $raw];
-        }
-        $key = base64_decode((string) ($a['key'] ?? ''), true);
-        if ($key === false || strlen($key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            return null;
-        }
-        $plain = sodium_crypto_secretbox_open(substr($raw, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($raw, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $key);
+            $raw = is_file($path) ? @file_get_contents($path) : false;
+            $raw = is_string($raw) ? $raw : self::openSealed($s, self::FOLDER . '/' . self::sealedTarget((string) $a['path']), null);
 
-        return $plain === false ? null : ['name' => (string) $a['name'], 'content' => $plain];
+            return $raw === null ? null : ['name' => (string) $a['name'], 'content' => $raw];
+        }
+        $plain = self::openSealed($s, $path, is_string($a['key'] ?? null) ? $a['key'] : null);
+
+        return $plain === null ? null : ['name' => (string) $a['name'], 'content' => $plain];
     }
 
     /**
@@ -1142,7 +1310,8 @@ final class Applications
      * sealed false) – at most $limit files per run, from the daily clean-up. 3.34 review M1: the rows are walked with an
      * id cursor (the setting applications_seal_after), so a row whose file is gone or cannot be sealed does not hold the
      * others back; at the end the cursor starts over. A file that is gone stays listed (the download says it no longer
-     * exists). Returns how many files were sealed.
+     * exists). 3.34 second review N1: every file goes through sealEntry() – crash-safe, an interrupted run is finished by
+     * the next one – and the run ends with sweepOrphans(). Returns how many files were sealed.
      */
     public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
     {
@@ -1162,41 +1331,180 @@ final class Applications
             }
             foreach ($rows as $row) {
                 $list = self::attachments($s, $row['attachments']);
-                if ($list === [] && !str_starts_with((string) $row['attachments'], '[')) {
-                    $after = (int) $row['id']; // a sealed list that cannot be opened (Vault) – nothing to do here
-                    continue;
-                }
-                $changed = false;
-                $full = false;
-                foreach ($list as $i => $a) {
-                    if (!empty($a['sealed'])) {
-                        continue;
-                    }
-                    if ($sealed >= $limit) {
-                        $full = true;
-                        break;
-                    }
-                    $path = self::filePath($a);
-                    $stored = $path !== null && is_file($path) ? self::sealFile($path) : null;
-                    if ($stored !== null) {
-                        $list[$i] = $stored + ['sealed' => true] + $a;
-                        $sealed++;
-                        $changed = true;
-                    }
-                }
-                if ($changed || str_starts_with((string) $row['attachments'], '[')) {
-                    $db->update('applications', ['attachments' => self::encodeAttachments($s, $list)], ['id' => (int) $row['id']]);
-                }
-                if ($full) {
-                    $s->set('applications_seal_after', (string) $after); // this row again next time
+                // unsealed ones, and sealed ones whose plain file an interrupted run left in storage/prilohy
+                $waiting = array_keys(array_filter($list, fn (array $a): bool => empty($a['sealed'])
+                    || (is_string($a['from'] ?? null) && $a['from'] !== '' && is_file((string) self::filePath(['path' => $a['from'], 'sealed' => false])))));
+                if ($sealed > 0 && count(array_filter($waiting, fn (int $i): bool => empty($list[$i]['sealed']))) > $limit - $sealed) {
+                    $s->set('applications_seal_after', (string) $after); // this row whole next time
                     break 2;
+                }
+                foreach ($waiting as $i) {
+                    $sealed += in_array(self::sealEntry($app, (int) $row['id'], $i), ['sealed', 'recovered'], true) ? 1 : 0;
                 }
                 $after = (int) $row['id'];
             }
             $s->set('applications_seal_after', (string) $after);
         }
+        self::sweepOrphans($app);
 
         return $sealed;
+    }
+
+    /**
+     * One file of an application sealed, crash-safe (3.34 second review N1). The steps, each one safe to be the last a
+     * killed request ran:
+     *  1. the sealed copy is written at sealedTarget() of its old path (written next to it and renamed) – a copy an earlier
+     *     run left there is taken when it opens to the same content;
+     *  2. the row's list names the copy with its key and the old path (from) – only when the list is still the one this run
+     *     read (N4: a move back or a delete meanwhile wins, a copy written for nothing goes);
+     *  3. the copy is opened with the key the row now holds and compared with the original;
+     *  4. only then the plain file in storage/prilohy goes.
+     * A plain file that is gone is taken back from a copy an earlier run sealed (a database restored from a backup older
+     * than the sealing – the key from the copy's header); an entry sealed already whose plain file is still there (a run
+     * killed after step 2 or 3) is checked and the plain file removed, or – when the copy does not open to it – listed
+     * plain again. $steps (tests): the run stops after this step, as a killed request would.
+     *
+     * @return 'sealed'|'recovered'|'cleaned'|'reverted'|'gone'|'failed'|'changed'|'skip'|'stopped'
+     */
+    public static function sealEntry(App $app, int $id, int $index, int $steps = 4): string
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        $row = $db->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
+        if ($row === null || self::attachmentsLocked($s, $row['attachments'])) {
+            return 'skip';
+        }
+        $list = self::attachments($s, $row['attachments']);
+        $a = $list[$index] ?? null;
+        if ($a === null) {
+            return 'skip';
+        }
+        if (!empty($a['sealed'])) {
+            return self::cleanLeftover($app, $id, $index, $list, (string) $row['attachments']);
+        }
+        $oldFile = self::filePath($a);
+        if ($oldFile === null) {
+            return 'skip';
+        }
+        $target = self::sealedTarget((string) $a['path']);
+        $targetFile = self::FOLDER . '/' . $target;
+        $plain = is_file($oldFile) ? @file_get_contents($oldFile) : false;
+        $wrote = false;
+        if (!is_string($plain)) {
+            // gone from storage/prilohy: a copy sealed by an earlier run (a restored backup) is taken back
+            $key = is_file($targetFile) ? self::headerKey($s, $targetFile) : null;
+            if ($key === null || self::openSealed($s, $targetFile, $key) === null) {
+                return 'gone';
+            }
+            $plain = null;
+        } else {
+            $key = is_file($targetFile) ? self::headerKey($s, $targetFile) : null; // a copy an interrupted run left
+            $existing = $key !== null ? self::openSealed($s, $targetFile, $key) : null;
+            if ($existing === null || !hash_equals(hash('sha256', $plain), hash('sha256', $existing))) {
+                $key = self::writeSealed($s, $plain, $target);
+                $wrote = true;
+                if ($key === null) {
+                    return 'failed';
+                }
+            }
+        }
+        if ($steps < 2) {
+            return 'stopped';
+        }
+        $list[$index] = ['path' => $target, 'key' => $key, 'sealed' => true, 'from' => (string) $a['path']] + $a;
+        if ($db->run('UPDATE {applications} SET attachments = ?, attachment_paths = ? WHERE id = ? AND attachments = ?',
+            [self::encodeAttachments($s, $list), self::paths($list), $id, (string) $row['attachments']])->rowCount() !== 1) {
+            if ($wrote && $db->value('SELECT 1 FROM {applications} WHERE id = ?', [$id]) === null) {
+                @unlink($targetFile); // the application went meanwhile – nobody lists the copy
+            }
+
+            return 'changed';
+        }
+        if ($steps < 3) {
+            return 'stopped';
+        }
+        $now = $db->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
+        $stored = $now !== null ? (self::attachments($s, $now['attachments'])[$index] ?? null) : null;
+        $check = $stored !== null && ($stored['path'] ?? '') === $target ? self::openSealed($s, $targetFile, is_string($stored['key'] ?? null) ? $stored['key'] : null) : null;
+        if ($check === null || ($plain !== null && !hash_equals(hash('sha256', $plain), hash('sha256', $check)))) {
+            return 'failed'; // the plain file stays; the next run lists it plain again (cleanLeftover)
+        }
+        if ($steps < 4 || $plain === null) {
+            return $plain === null ? 'recovered' : 'stopped';
+        }
+        @unlink($oldFile);
+
+        return 'sealed';
+    }
+
+    /**
+     * A sealed entry whose old plain file is still in storage/prilohy (a run killed between steps 2 and 4 of sealEntry()):
+     * the plain file goes when the sealed copy opens to the same content; otherwise the entry is listed plain again, so
+     * nothing depends on a copy that does not open.
+     *
+     * @param list<array<string, mixed>> $list
+     * @return 'cleaned'|'reverted'|'changed'|'skip'
+     */
+    private static function cleanLeftover(App $app, int $id, int $index, array $list, string $stored): string
+    {
+        $s = $app->settings();
+        $a = $list[$index];
+        $from = is_string($a['from'] ?? null) ? $a['from'] : '';
+        $oldFile = $from !== '' ? self::filePath(['path' => $from, 'sealed' => false]) : null;
+        $plain = $oldFile !== null && is_file($oldFile) ? @file_get_contents($oldFile) : false;
+        if (!is_string($plain)) {
+            return 'skip';
+        }
+        $file = self::filePath($a);
+        $sealed = $file !== null ? self::openSealed($s, $file, is_string($a['key'] ?? null) ? $a['key'] : null) : null;
+        if ($sealed !== null && hash_equals(hash('sha256', $plain), hash('sha256', $sealed))) {
+            @unlink((string) $oldFile);
+
+            return 'cleaned';
+        }
+        $list[$index] = ['field' => $a['field'] ?? -1, 'name' => $a['name'] ?? '', 'size' => $a['size'] ?? 0, 'ext' => $a['ext'] ?? '', 'path' => $from, 'sealed' => false];
+
+        return $app->db()->run('UPDATE {applications} SET attachments = ?, attachment_paths = ? WHERE id = ? AND attachments = ?',
+            [self::encodeAttachments($s, $list), self::paths($list), $id, $stored])->rowCount() === 1 ? 'reverted' : 'changed';
+    }
+
+    /**
+     * Encrypted files no application lists (3.34 second review N1 – a run killed after writing a copy, a move back killed
+     * before it removed the sealed copy, an upload whose row was never stored), and half-written ones (.part), older than
+     * ORPHAN_DAYS: removed. What a row lists is read from attachment_paths (always readable) – a row without it whose list
+     * cannot be opened stops the sweep (what it lists is unknown). The copy sealedTarget() would give a CV still waiting
+     * in storage/prilohy counts as listed (a restored backup takes it back). Returns how many files went.
+     */
+    public static function sweepOrphans(App $app): int
+    {
+        $s = $app->settings();
+        $cutoff = time() - self::ORPHAN_DAYS * 86400;
+        $old = array_filter(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [], fn (string $f): bool => is_file($f) && (int) @filemtime($f) < $cutoff);
+        if ($old === []) {
+            return 0;
+        }
+        $listed = [];
+        try {
+            foreach ($app->db()->all('SELECT attachments, attachment_paths FROM {applications} WHERE attachments IS NOT NULL OR attachment_paths IS NOT NULL') as $row) {
+                if ($row['attachment_paths'] === null && self::attachmentsLocked($s, $row['attachments'])) {
+                    return 0;
+                }
+                $paths = $row['attachment_paths'] ?? self::paths(self::attachments($s, $row['attachments']));
+                foreach (self::pathFiles($paths) as $file) {
+                    $listed[$file] = true;
+                }
+            }
+        } catch (\PDOException) {
+            return 0;
+        }
+        $removed = 0;
+        foreach ($old as $file) {
+            if (str_ends_with($file, '.part') || (str_ends_with($file, '.bin') && !isset($listed[$file]))) {
+                $removed += @unlink($file) ? 1 : 0;
+            }
+        }
+
+        return $removed;
     }
 
     /**

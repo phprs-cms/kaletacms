@@ -766,7 +766,8 @@ CREATE TABLE ka_applications (
     email_norm        VARCHAR(190) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,   -- PersonalData::normalise(email)
     phone             VARCHAR(40) NOT NULL DEFAULT '',
     data              MEDIUMTEXT NOT NULL,                    -- JSON list of [label, value], as ka_poptavky.data (never a file path)
-    attachments       TEXT NULL,                              -- sealed (Core\Vault, purpose applications) JSON [{field, name, size, path, key, sealed}]
+    attachments       TEXT NULL,                              -- sealed (Core\Vault, purpose applications) JSON [{field, name, size, path, key, sealed, from}]
+    attachment_paths  TEXT NULL,                              -- JSON {bin: [...], old: [...]} – where the files are (random names only), readable whatever happens to the key
     status            VARCHAR(10) CHARACTER SET ascii NOT NULL DEFAULT 'new',   -- new | reviewed | interview | offer | hired | rejected
     status_at         DATETIME NOT NULL,
     decided_at        DATETIME NULL,                          -- set by hired and rejected, cleared when reopened

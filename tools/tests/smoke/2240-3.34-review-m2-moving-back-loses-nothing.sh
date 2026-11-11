@@ -4,10 +4,10 @@ r334_on
 M2_IDS=$(t334_php '$s = $app->settings(); $db = $app->db(); $now = Kaleta\Core\Clock::now(); $ids = [];
   $row = ["received_at" => $now, "form" => "M2 back", "source" => "stranka:1", "data" => json_encode([["CV", "cv.pdf"]]), "status" => "reviewed", "status_at" => $now, "last_activity_at" => $now];
   $ids[] = $db->insert("applications", $row + ["attachments" => Kaleta\Core\Vault::seal(Kaleta\Core\Vault::derive(str_repeat("ab", 32), "applications"), "[]")]);
-  $tmp = tempnam(sys_get_temp_dir(), "m2"); file_put_contents($tmp, "CV gone M2"); $gone = Kaleta\Core\Applications::sealFile($tmp);
+  $tmp = tempnam(sys_get_temp_dir(), "m2"); file_put_contents($tmp, "CV gone M2"); $gone = Kaleta\Core\Applications::sealFile($s, $tmp);
   $ids[] = $db->insert("applications", $row + ["attachments" => Kaleta\Core\Applications::encodeAttachments($s, [["field" => 0, "name" => "cv.pdf", "size" => 10, "ext" => "pdf", "sealed" => true] + $gone])]);
   unlink(Kaleta\Core\Applications::FOLDER . "/" . $gone["path"]);
-  $tmp = tempnam(sys_get_temp_dir(), "m2"); file_put_contents($tmp, "CV fine M2"); $fine = Kaleta\Core\Applications::sealFile($tmp);
+  $tmp = tempnam(sys_get_temp_dir(), "m2"); file_put_contents($tmp, "CV fine M2"); $fine = Kaleta\Core\Applications::sealFile($s, $tmp);
   $ids[] = $db->insert("applications", $row + ["attachments" => Kaleta\Core\Applications::encodeAttachments($s, [["field" => 0, "name" => "cv.pdf", "size" => 10, "ext" => "pdf", "sealed" => true] + $fine])]);
   echo implode(",", $ids);')
 M2_PLAIN_BEFORE=$(find "$WORK/web/storage/prilohy" -type f 2>/dev/null | wc -l | tr -d ' ')
