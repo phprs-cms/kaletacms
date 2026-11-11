@@ -28,7 +28,7 @@ S3312_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 's3312'")
 S3312_JAR="$WORK/jar-s3312"; rm -f "$S3312_JAR"
 curl -s -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php"; curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=s3312 --data-urlencode "password=$PASSWORD"
 s3312_account() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=account" -d "_csrf=$S3312_CSRF" "$@"; }
-s3312_totp() { sq "SELECT CONCAT(totp_tajemstvi, '/', IFNULL(JSON_LENGTH(totp_zalozni), 0)) FROM ka_uzivatele WHERE idu = $S3312_USER"; }
+s3312_totp() { sq "SELECT CONCAT(totp_tajemstvi, '/', IFNULL(IFNULL(JSON_LENGTH(totp_zalozni, '\$.codes'), JSON_LENGTH(totp_zalozni)), 0)) FROM ka_uzivatele WHERE idu = $S3312_USER"; } # 3.35 review L4: {"codes": […]} or the older list
 s3312_code() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30));' "$ROOT" "$1"; }
 curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
 s3312_account -d co=totp_start > /dev/null

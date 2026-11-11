@@ -167,7 +167,7 @@ final class Account
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
-                    $db->update('uzivatele', ['totp_tajemstvi' => $secret, 'totp_zalozni' => $json], ['idu' => $user['idu']]);
+                    $app->auth()->replaceBackupCodes((int) $user['idu'], $json, false, ['totp_tajemstvi' => $secret]); // 3.35 review L4: compare-and-swap
                     $app->session->remove('totp_nove');
                     ChangeLog::write($app, 'ucet', 'two_factor_on');
                     // the backup codes are shown only now - hence no redirect
@@ -222,7 +222,7 @@ final class Account
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
-                    $db->update('uzivatele', ['totp_zalozni' => $json], ['idu' => $user['idu']]);
+                    $app->auth()->replaceBackupCodes((int) $user['idu'], $json); // 3.35 review L4: compare-and-swap of the stored list
                     ChangeLog::write($app, 'ucet', 'backup_codes_new');
 
                     return $this->page(['backupCodes' => $codes, 'codesFromPasskey' => true, 'codesRenewed' => true] + $data);
@@ -437,7 +437,7 @@ final class Account
             $name = (string) $replaced['nazev'];
         }
         $firstCodes = SignInPolicy::backupCodesLeft($user) === 0 ? Totp::backupCodes() : null;
-        $db->transaction(function () use ($db, $user, $name, $hash, $new, $replaced, $firstCodes, $url): void {
+        $db->transaction(function () use ($db, $app, $user, $name, $hash, $new, $replaced, &$firstCodes, $url): void {
             $db->insert('uzivatele_klice', [
                 'idu' => $user['idu'], 'nazev' => $name !== '' ? $name : t('Passkey'), 'otisk_id' => $hash, 'id_klice' => $new['id'],
                 'verejny' => $new['klic'], 'alg' => $new['alg'], 'pocitadlo' => $new['pocitadlo'], 'vytvoreno' => date('Y-m-d H:i:s'), 'discoverable' => 1,
@@ -446,8 +446,8 @@ final class Account
             if ($replaced !== null) {
                 $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ?', [$replaced['idk']]);
             }
-            if ($firstCodes !== null) {
-                $db->update('uzivatele', ['totp_zalozni' => $firstCodes[1]], ['idu' => $user['idu']]);
+            if ($firstCodes !== null && !$app->auth()->replaceBackupCodes((int) $user['idu'], $firstCodes[1], true)) {
+                $firstCodes = null; // 3.35 review L4: codes made meanwhile (another tab) stay – nothing new to show
             }
         });
         ChangeLog::write($app, 'ucet', 'passkey_add', $name . ($replaced !== null ? ' (' . t('registered again') . ')' : ''));
@@ -493,7 +493,7 @@ final class Account
         return $this->kernel->page('My account', $app->view->render('admin/account', $data + [
             'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
             'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('site_name')) : '',
-            'codesLeft' => count((array) json_decode((string) $user['totp_zalozni'], true)),
+            'codesLeft' => \Kaleta\Core\BackupCodes::count($user['totp_zalozni'] !== null ? (string) $user['totp_zalozni'] : null), // 3.35 review L4: both formats
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
             'keys' => $keys,
             // 3.35: passkeys and how the account signs in (Core\SignInPolicy)

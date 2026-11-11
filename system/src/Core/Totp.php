@@ -64,30 +64,19 @@ final class Totp
     }
 
     /**
-     * Eight one-time backup codes in case the phone is lost.
+     * New backup codes (3.35 review L4: Core\BackupCodes – 64 random bits each, stored under a salt of the list).
      *
-     * @return array{0: list<string>, 1: string} readable codes and the JSON of hashes to store
+     * @return array{0: list<string>, 1: string} the codes to show once, what is stored
      */
     public static function backupCodes(): array
     {
-        $codes = [];
-        for ($i = 0; $i < 8; $i++) {
-            $codes[] = substr(bin2hex(random_bytes(5)), 0, 5) . '-' . substr(bin2hex(random_bytes(5)), 0, 5);
-        }
-
-        return [$codes, (string) json_encode(array_map(fn (string $k): string => hash('sha256', $k), $codes))];
+        return BackupCodes::generate();
     }
 
-    /** Consumes a backup code; returns the new JSON of hashes, or null when the code is not valid. */
+    /** Consumes a backup code; returns the new stored list, or null when the code is not valid (Core\BackupCodes). */
     public static function useBackupCode(?string $json, string $code): ?string
     {
-        $hashes = json_decode((string) $json, true);
-        $needle = hash('sha256', strtolower(trim($code)));
-        if (!is_array($hashes) || !in_array($needle, $hashes, true)) {
-            return null;
-        }
-
-        return (string) json_encode(array_values(array_diff($hashes, [$needle])));
+        return BackupCodes::consume($json, $code);
     }
 
     private static function base32(string $text): string

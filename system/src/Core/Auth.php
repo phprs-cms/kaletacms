@@ -374,13 +374,15 @@ final class Auth
 
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
-        $backupCodes = $user === null ? null : Totp::useBackupCode($user['totp_zalozni'], $code);
         $appCode = $user !== null && SignInPolicy::secondSteps($user, $this->workingKeys((int) $user['idu']), $this->siteSettings())['code'];
         $step = $appCode && (string) $user['totp_tajemstvi'] !== '' ? Totp::step($user['totp_tajemstvi'], $code) : null;
         if ($step !== null && $user !== null && !$this->claimCodeStep((int) $user['idu'], $step)) {
             $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
         }
-        if ($user === null || ($step === null && $backupCodes === null)) {
+        // 3.35 review L4: a backup code is used up by a compare-and-swap of the stored list – the same code twice at once,
+        // or two codes at once, never brings a used code back
+        $usedBackupCode = $step === null && $user !== null && $this->consumeBackupCode((int) $user['idu'], $code);
+        if ($user === null || ($step === null && !$usedBackupCode)) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
@@ -390,10 +392,6 @@ final class Auth
             return t('The code is not correct.');
         }
         $this->recordSignIn((int) $user['idu']);
-        $usedBackupCode = $step === null && $backupCodes !== null;
-        if ($usedBackupCode) {
-            $this->db->update('uzivatele', ['totp_zalozni' => $backupCodes], ['idu' => $user['idu']]);
-        }
         $this->session->remove('idu_ceka');
         $this->session->regenerate(newFormToken: true);
         $this->startSignIn((int) $user['idu'], (string) $user['password']);
@@ -402,6 +400,51 @@ final class Auth
         }
 
         return null;
+    }
+
+    /**
+     * 3.35 review L4: uses up a backup code of the account – the stored list is read, the code taken out
+     * (Core\BackupCodes::consume) and the shorter list written only if the stored one is still the one read
+     * (compare-and-swap); a list changed meanwhile (another code used, new codes made) is read again, a few times at most.
+     */
+    private function consumeBackupCode(int $idu, string $code): bool
+    {
+        for ($try = 0; $try < 3; $try++) {
+            $stored = $this->db->value('SELECT totp_zalozni FROM {uzivatele} WHERE idu = ?', [$idu]);
+            $left = BackupCodes::consume(is_string($stored) ? $stored : null, $code);
+            if ($left === null || !is_string($stored)) {
+                return false;
+            }
+            if ($this->db->run('UPDATE {uzivatele} SET totp_zalozni = ? WHERE idu = ? AND totp_zalozni = ?', [$left, $idu, $stored])->rowCount() === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 3.35 review L4: replaces the account's backup codes (new codes in My account, with the first passkey, with the app)
+     * by a compare-and-swap of the stored list, so that a code used at the same moment can never write the old list
+     * back over the new one. $onlyIfNone: only while the account has no codes left (the first passkey) – false when it
+     * got some meanwhile. $alsoSet: other columns written in the same statement.
+     *
+     * @param array<string, mixed> $alsoSet
+     */
+    public function replaceBackupCodes(int $idu, string $stored, bool $onlyIfNone = false, array $alsoSet = []): bool
+    {
+        for ($try = 0; $try < 5; $try++) {
+            $old = $this->db->value('SELECT totp_zalozni FROM {uzivatele} WHERE idu = ?', [$idu]);
+            if ($onlyIfNone && BackupCodes::count(is_string($old) ? $old : null) > 0) {
+                return false;
+            }
+            $set = implode(', ', array_map(static fn (string $column): string => $column . ' = ?', ['totp_zalozni', ...array_keys($alsoSet)]));
+            if ($this->db->run('UPDATE {uzivatele} SET ' . $set . ' WHERE idu = ? AND totp_zalozni <=> ?', [$stored, ...array_values($alsoSet), $idu, $old])->rowCount() === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

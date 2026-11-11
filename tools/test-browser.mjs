@@ -4785,7 +4785,7 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
     await p.fill('#klic-heslo', PASSWORD);
     await Promise.all([p.waitForNavigation(), p.click('#passkeys [data-klic-pridat]:not([data-nahradit])')]);
     const codes = await p.locator('.zalozni-kody').textContent();
-    if (!/^([0-9a-f]{5}-[0-9a-f]{5}\W*){8}$/.test((codes || '').trim())) { throw new Error(`backup codes with the first passkey: ${codes}`); }
+    if (!/^([0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}\W*){8}$/.test((codes || '').trim())) { throw new Error(`backup codes with the first passkey: ${codes}`); }
     const stored = await cdp.send('WebAuthn.getCredentials', { authenticatorId });
     if (stored.credentials.length !== 1 || !stored.credentials[0].isResidentCredential) { throw new Error('the passkey is not a discoverable (resident) credential'); }
     const row = sql(`SELECT CONCAT(COUNT(*), '/', SUM(discoverable)) FROM ka_uzivatele_klice WHERE idu = ${adminId}`).trim();

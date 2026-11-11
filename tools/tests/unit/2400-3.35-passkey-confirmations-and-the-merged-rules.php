@@ -28,7 +28,7 @@ check('3.35: “New backup codes” only for an account with a passkey and witho
 ], [true, false, false, true]);
 $i340Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 check('3.35: new backup codes need the fresh confirmation, replace all the old ones and are shown once (no redirect)', [
-    (bool) preg_match("/case 'backup_codes_new':.*?mayRenewBackupCodes\(.*?freshnessRefused\(.*?Totp::backupCodes\(\);\s*\\\$db->update\('uzivatele', \['totp_zalozni' => \\\$json\].*?return \\\$this->page\(\['backupCodes' => \\\$codes/s", $i340Account),
+    (bool) preg_match("/case 'backup_codes_new':.*?mayRenewBackupCodes\(.*?freshnessRefused\(.*?Totp::backupCodes\(\);\s*\\\$app->auth\(\)->replaceBackupCodes\(\(int\) \\\$user\['idu'\], \\\$json\);.*?return \\\$this->page\(\['backupCodes' => \\\$codes/s", $i340Account),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php'), '<input type="hidden" name="co" value="backup_codes_new">'),
 ], [true, true]);
 

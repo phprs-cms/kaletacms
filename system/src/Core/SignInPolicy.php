@@ -118,9 +118,7 @@ final class SignInPolicy
     /** @param array<string, mixed> $user */
     public static function backupCodesLeft(array $user): int
     {
-        $codes = json_decode((string) ($user['totp_zalozni'] ?? ''), true);
-
-        return is_array($codes) ? count($codes) : 0;
+        return BackupCodes::count(isset($user['totp_zalozni']) ? (string) $user['totp_zalozni'] : null); // 3.35 review L4: both formats
     }
 
     /**
