@@ -51,9 +51,11 @@ sleep 1.5; sq "UPDATE ka_kolekce_polozky SET zobrazit = 1, data = JSON_SET(data,
 N21_A="$(mcp_value results 0 status)|$(mcp_value results 0 unknown_item_keys)|$(sq "SELECT CONCAT(zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.price')), ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.note')), ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.photo')) LIKE 'media/%') FROM ka_kolekce_polozky WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-a'")"
 mcp_as "$DRAFT_TOKEN" save_collection_items "{\"collection\":\"race-37\",\"items\":[{\"slug\":\"race-b\",\"values\":{\"price\":\"3\"},\"media\":{\"photo\":\"$BIG/slow/b.png\"}}]}" > "$WORK/response" & RACE_B=$!
 sleep 1.5; sq "UPDATE ka_kolekce_polozky SET zobrazit = 1 WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-b'"; wait "$RACE_B" || true
-expect "3.7 N37-21 save_collection_items: an item published and edited during the downloads stays published with the edit; a drafts-only batch is refused then (N37-28: unknown item keys reported)" \
-  "$N21_A|$(mcp_value results 0 status)|$(sq "SELECT CONCAT(zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.price'))) FROM ka_kolekce_polozky WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-b'")" \
-  'changed|["publish_at"]|1:2:new:1|refused|1:1'
+# 3.35 (N104): a drafts-only connection downloads nothing, so its batch has no download window – it saves the hidden item
+# at once (the medium reported as not downloaded) and the person publishes it afterwards
+expect "3.7 N37-21 save_collection_items: an item published and edited during the downloads stays published with the edit; a drafts-only batch downloads nothing and saves at once (3.35 N104) (N37-28: unknown item keys reported)" \
+  "$N21_A|$(mcp_value results 0 status)|$(grep -c 'only a connection with full access downloads addresses' "$WORK/response")|$(sq "SELECT CONCAT(zobrazit, ':', JSON_UNQUOTE(JSON_EXTRACT(data, '$.price'))) FROM ka_kolekce_polozky WHERE idk = ${RACE_IDK:-0} AND seo_link = 'race-b'")" \
+  'changed|["publish_at"]|1:2:new:1|changed|1|1:3'
 # Collections → Import: a Windows-1250 CSV from Excel, the columns paired by themselves, the preview, saving in batches,
 # the image downloaded afterwards; an empty cell leaves a value as it is
 IDK37=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'produkty-37'")

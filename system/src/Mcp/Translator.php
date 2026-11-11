@@ -189,7 +189,7 @@ final class Translator
             . 'Give the https url of a public file (always for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. '
             . 'A WordPress export (.xml, administrators) is kept privately for import_wordpress. '
             . 'On a drafts-only connection the file is staged: shown in previews, public with the content using it.',
-            ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data)'],
+            ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data; full access only)'],
                 'alt' => ['popis', 'image description for blind visitors (alt); otherwise from the name']]],
         'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
             ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'],

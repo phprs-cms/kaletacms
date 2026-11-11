@@ -403,6 +403,9 @@ final class ItemBatch
         return $path === null ? null : [(string) $path, ''];
     }
 
+    /** 3.35 (N104): why a medium of a drafts-only connection was not downloaded (a file downloaded before is still reused). */
+    public const string NO_DOWNLOAD = 'Not downloaded: only a connection with full access downloads addresses. Upload the file with upload_file (data) and put its media path into the field.';
+
     /**
      * Downloads one file for an image field (JPEG, PNG, GIF or WebP only) or a file field (the attachment types of
      * Core\Files) into Media, the same way upload_file does with a url. Never SVG.
@@ -414,6 +417,9 @@ final class ItemBatch
         $reused = self::mediaFromMap($app, $url);
         if ($reused !== null) {
             return $reused;
+        }
+        if (!\Kaleta\Mcp\Catalog::mayFetch($app->auth()->connection())) {
+            return [null, self::NO_DOWNLOAD]; // 3.35 (N104): a drafts-only connection reuses media, it downloads nothing new
         }
         if (!self::downloadable($url)) {
             return [null, 'Only https addresses are downloaded.'];

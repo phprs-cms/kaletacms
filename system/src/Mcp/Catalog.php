@@ -577,10 +577,32 @@ final class Catalog
      * 3.33 review L8: a tool that a connection may run (and sees in tools/list) only when it may run another one too –
      * read_old_page reads an old site the way import_website does, so a drafts-only or read-only connection never sees it.
      */
-    public const array NEEDS = ['read_old_page' => 'import_website'];
+    public const array NEEDS = ['read_old_page' => 'import_website', 'migration_report' => 'import_website'];
 
-    /** What a connection hears when it calls a tool of NEEDS it may not run (the same words as the tool's own refusal). */
-    public const array NEEDS_REFUSAL = ['read_old_page' => 'Old pages are read by an administrator whose connection may import a website (full access).'];
+    /**
+     * What a connection hears when it calls a tool of NEEDS it may not run (the same words as the tool's own refusal).
+     * 3.35 (N104): migration_report reads the old site like read_old_page, so it is for full connections too.
+     */
+    public const array NEEDS_REFUSAL = ['read_old_page' => 'Old pages are read by an administrator whose connection may import a website (full access).',
+        'migration_report' => 'The migration report reads the old site, so it runs only over a connection with full access.'];
+
+    /**
+     * 3.35 (N104): the network rule per connection level – only a full connection makes the site download an address the
+     * caller gives. A drafts-only or read-only connection never does: upload_file takes the file content (data) but no
+     * url, save_collection_items reuses media downloaded before but downloads nothing new, migration_report and
+     * read_old_page are hidden (NEEDS), import_website and import_wordpress are write tools anyway, and an add-on's tool
+     * that declares openWorld is not offered to it (allows()). Without a connection (the admin, a background job) the
+     * site downloads as before.
+     *
+     * @param array{access: string}|null $connection Auth::connection()
+     */
+    public static function mayFetch(?array $connection): bool
+    {
+        return ($connection['access'] ?? 'full') === 'full';
+    }
+
+    /** 3.35 (N104): what a drafts-only or read-only connection hears when it asks the site to download an address. */
+    public const string FETCH_REFUSAL = 'This connection does not download addresses – only a connection with full access does. Send the file content in base64 (data) instead, or ask the user to connect Claude with full access.';
 
     /** May a connection with this access run the tool? */
     public static function allows(string $connectionAccess, string $name): bool
@@ -589,6 +611,10 @@ final class Catalog
             if (($name === $tool || $name === Translator::czech($tool)) && !self::allows($connectionAccess, $needed)) {
                 return false;
             }
+        }
+        // 3.35 (N104): an add-on's tool that reaches outside the site may download an address – full connections only
+        if ($connectionAccess !== 'full' && !isset(self::META[$name]) && (\Kaleta\Extension\Registry::get()->tool($name)['openWorld'] ?? false)) {
+            return false;
         }
 
         return in_array(self::access($name), self::CONNECTION_ACCESS[$connectionAccess] ?? self::CONNECTION_ACCESS['read'], true);
