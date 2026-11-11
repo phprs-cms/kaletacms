@@ -125,7 +125,9 @@ expect "3.34 retention: the decided and the idle one are deleted, the consented 
   "busy-t334@example.com,pool-t334@example.com|2|1"
 
 # the move of the applications that were enquiries (migration 0120, run again by itself): certain ones only, once each
-sq "INSERT INTO ka_contacts (email, email_norm, name, source, created_at, updated_at) VALUES ('lone-t334@example.com', 'lone-t334@example.com', 'Lone', 'enquiry', '$(site_time)', '$(site_time)');
+# one moment for both columns: two clock reads a second apart would make the record look edited (updated_at > created_at)
+T334_NOW=$(site_time)
+sq "INSERT INTO ka_contacts (email, email_norm, name, source, created_at, updated_at) VALUES ('lone-t334@example.com', 'lone-t334@example.com', 'Lone', 'enquiry', '$T334_NOW', '$T334_NOW');
   INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, tema, email, data, stav, poznamka, contact_id) VALUES
     ('$(site_time '-2 days')', 'Job application', 'kolekce:${T334_IDK:-0}', 'x', '/$T334_SLUG/technician-t334', 'Jobs T334 – Technician T334', 'lone-t334@example.com', '[[\"Full name\",\"Lone Applicant\"],[\"CV\",\"cv.pdf (1 kB)\",\"2026/11/aaaaaaaaaaaaaaaaaaaaaaaa.pdf\"]]', 2, 'Called once', LAST_INSERT_ID()),
     ('$(site_time '-2 days')', 'Kontakt', 'stranka:${T334_PAGE:-0}', 'x', '/kontakt', '', 'stay-t334@example.com', '[]', 0, NULL, NULL)" > /dev/null
