@@ -14,12 +14,16 @@
  * @var string|null $practice the usual retention where the company is (Core\Jobs::suggestedRetention)
  * @var array{count: int, before: string, months: int}|null $awaiting moved applications past the retention, kept until this form is saved (3.34 review H1)
  * @var bool $confirmed the retention has been confirmed since applications last moved in
+ * @var int $unsealed CVs moved from Enquiries still waiting to be sealed (3.34 review M1)
  */
 use Kaleta\Core\Applications as Store;
 ?>
 <?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'settings']) ?>
 <form method="post" action="<?= e($module->url('settings_save')) ?>" class="formular" data-applications-settings>
 	<?= $csrf ?>
+<?php if ($unsealed > 0): ?>
+	<p class="hlaska" data-applications-unsealed><?= e(t('%s CV(s) moved from Enquiries still wait to be encrypted into storage/applications; the daily clean-up encrypts up to %d a day.', format_count($unsealed), Store::SEAL_BATCH)) ?></p>
+<?php endif ?>
 	<h2><?= e(t('Retention')) ?></h2>
 <?php if ($awaiting !== null): ?>
 	<p class="hlaska hlaska-varovani" data-applications-retention-pending><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you save these settings; then the daily clean-up deletes them with their CVs. Set 0 to keep them.', format_count($awaiting['count']), format_date($awaiting['before']), $awaiting['months'])) ?></p>

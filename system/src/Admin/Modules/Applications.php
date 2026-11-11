@@ -281,7 +281,7 @@ final class Applications extends Module
             'languages' => self::siteLanguages($s), 'templates' => $templates,
             'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates), $candidates),
             'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null,
-            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::retentionConfirmed($s)]);
+            'awaiting' => Store::awaitingConfirmation($this->app), 'confirmed' => Store::retentionConfirmed($s), 'unsealed' => Store::unsealedCount($this->app)]);
     }
 
     protected function actionSettingsSave(): Response

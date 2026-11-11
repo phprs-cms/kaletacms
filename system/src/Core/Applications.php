@@ -92,8 +92,8 @@ final class Applications
     /** Days before an undecided application is deleted when its responsible person is told (once). */
     public const int WARN_DAYS = 7;
 
-    /** Files sealPending() seals per run. */
-    public const int SEAL_BATCH = 50;
+    /** Files sealPending() seals per run (the daily clean-up). */
+    public const int SEAL_BATCH = 200;
 
     /** A field whose label names the position on a general form ("Position", "Pozice", "Stelle"…). */
     public const string POSITION_LABEL = '/(position|pozice|pracovn[ií] m[ií]sto|job|stelle|puesto|vacan|nab[ií]dk)/iu';
@@ -1031,44 +1031,87 @@ final class Applications
     }
 
     /**
-     * Seals the files of applications moved from enquiries (migration 0120: still in storage/prilohy, sealed false) – at
-     * most SEAL_BATCH files per run, from the daily clean-up. A file that is gone stays listed (the download says it no
-     * longer exists). Returns how many files were sealed.
+     * Seals the files of applications moved from enquiries (migration 0120, the move by form: still in storage/prilohy,
+     * sealed false) – at most $limit files per run, from the daily clean-up. 3.34 review M1: the rows are walked with an
+     * id cursor (the setting applications_seal_after), so a row whose file is gone or cannot be sealed does not hold the
+     * others back; at the end the cursor starts over. A file that is gone stays listed (the download says it no longer
+     * exists). Returns how many files were sealed.
      */
     public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
     {
         $db = $app->db();
         $s = $app->settings();
         $sealed = 0;
-        try {
-            $rows = $db->all('SELECT id, attachments FROM {applications} WHERE source_enquiry_id IS NOT NULL AND attachments IS NOT NULL ORDER BY id LIMIT 500');
-        } catch (\PDOException) {
-            return 0;
-        }
-        foreach ($rows as $row) {
-            $list = self::attachments($s, $row['attachments']);
-            $changed = false;
-            foreach ($list as $i => $a) {
-                if (!empty($a['sealed']) || $sealed >= $limit) {
-                    continue;
-                }
-                $path = self::filePath($a);
-                $stored = $path !== null && is_file($path) ? self::sealFile($path) : null;
-                if ($stored !== null) {
-                    $list[$i] = $stored + ['sealed' => true] + $a;
-                    $sealed++;
-                    $changed = true;
-                }
+        $after = $s->int('applications_seal_after');
+        while (true) {
+            try {
+                $rows = $db->all('SELECT id, attachments FROM {applications} WHERE source_enquiry_id IS NOT NULL AND attachments IS NOT NULL AND id > ? ORDER BY id LIMIT 200', [$after]);
+            } catch (\PDOException) {
+                return 0;
             }
-            if ($changed || str_starts_with((string) $row['attachments'], '[')) {
-                $db->update('applications', ['attachments' => self::encodeAttachments($s, $list)], ['id' => (int) $row['id']]);
-            }
-            if ($sealed >= $limit) {
+            if ($rows === []) {
+                $s->set('applications_seal_after', '0'); // the end: the next run starts over (rows moved since)
                 break;
             }
+            foreach ($rows as $row) {
+                $list = self::attachments($s, $row['attachments']);
+                if ($list === [] && !str_starts_with((string) $row['attachments'], '[')) {
+                    $after = (int) $row['id']; // a sealed list that cannot be opened (Vault) – nothing to do here
+                    continue;
+                }
+                $changed = false;
+                $full = false;
+                foreach ($list as $i => $a) {
+                    if (!empty($a['sealed'])) {
+                        continue;
+                    }
+                    if ($sealed >= $limit) {
+                        $full = true;
+                        break;
+                    }
+                    $path = self::filePath($a);
+                    $stored = $path !== null && is_file($path) ? self::sealFile($path) : null;
+                    if ($stored !== null) {
+                        $list[$i] = $stored + ['sealed' => true] + $a;
+                        $sealed++;
+                        $changed = true;
+                    }
+                }
+                if ($changed || str_starts_with((string) $row['attachments'], '[')) {
+                    $db->update('applications', ['attachments' => self::encodeAttachments($s, $list)], ['id' => (int) $row['id']]);
+                }
+                if ($full) {
+                    $s->set('applications_seal_after', (string) $after); // this row again next time
+                    break 2;
+                }
+                $after = (int) $row['id'];
+            }
+            $s->set('applications_seal_after', (string) $after);
         }
 
         return $sealed;
+    }
+
+    /**
+     * How many CVs moved from enquiries still wait in storage/prilohy to be sealed (3.34 review M1 – the settings tab says
+     * so): unsealed entries whose file is still there.
+     */
+    public static function unsealedCount(App $app): int
+    {
+        $s = $app->settings();
+        $count = 0;
+        try {
+            foreach ($app->db()->all('SELECT attachments FROM {applications} WHERE source_enquiry_id IS NOT NULL AND attachments IS NOT NULL') as $row) {
+                foreach (self::attachments($s, $row['attachments']) as $a) {
+                    $path = empty($a['sealed']) ? self::filePath($a) : null;
+                    $count += $path !== null && is_file($path) ? 1 : 0;
+                }
+            }
+        } catch (\PDOException) {
+            return 0; // before migration 0119
+        }
+
+        return $count;
     }
 
     /* ---------- retention ---------- */
