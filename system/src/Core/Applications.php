@@ -1649,6 +1649,16 @@ final class Applications
         return $done;
     }
 
+    /** CV lists still held under the key in the database (DB_SEALED – 3.34 second review N10: SigningKey::rotate refuses while any is left). */
+    public static function heldCount(Db $db): int
+    {
+        try {
+            return (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE attachments LIKE 'db:%'");
+        } catch (\PDOException) {
+            return 0;
+        }
+    }
+
     /**
      * How many CVs moved from enquiries still wait in storage/prilohy to be sealed (3.34 review M1 – the settings tab says
      * so): unsealed entries whose file is still there.

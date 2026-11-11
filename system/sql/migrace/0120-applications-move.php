@@ -22,7 +22,9 @@
  *     application keeps the customer record its enquiry had (source_contact_id), and a record whose only source rows are
  *     such applications (source enquiry, never edited – updated_at = created_at –, no other enquiry, booking, subscription,
  *     logged activity – a merge logs one –, deal, comment or task, no summary, no responsible person) goes; any other keeps
- *     its record, so a real customer who also applied is never deleted. Each record looked at loses the link.
+ *     its record, so a real customer who also applied is never deleted. Each record looked at loses the link. 3.34 second
+ *     review N10: the check is the DELETE itself, inside the transaction that unlinks it; a record whose only other enquiry
+ *     has already expired (the retention of enquiries) counts as lone and goes.
  * The counts and the ids of the deals that lost their link go to the event applications.moved and the change log.
  *
  * Resumable (3.34 review M3): each enquiry moves in its own small transaction inside a try/catch – a row that fails stays an
@@ -273,15 +275,17 @@ return static function (Db $db, Settings $settings): void {
                 }
                 $contactId = (int) $r['id'];
                 $lastContact = $contactId;
-                $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
-                    AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
-                    AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
-                    AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
-                    AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
-                $db->transaction(function () use ($db, $contactId, $lone, &$removed): void {
-                    if ($lone !== null) {
+                // N10: the check is the DELETE itself, in the transaction that unlinks the record – an enquiry, booking, deal…
+                // linked meanwhile keeps it. A record whose only other enquiry already expired counts as lone (the retention
+                // of enquiries had ended its other reason to exist)
+                $db->transaction(function () use ($db, $contactId, &$removed): void {
+                    if ($db->run("DELETE FROM {contacts} WHERE id = ? AND source = 'enquiry' AND (summary IS NULL OR summary = '') AND owner_id IS NULL AND updated_at <= created_at
+                        AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = ?)
+                        AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = ?)
+                        AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = ?) AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = ?)",
+                        [$contactId, $contactId, $contactId, $contactId, $contactId, $contactId, 'contact:' . $contactId, 'contact:' . $contactId])->rowCount() === 1) {
                         $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
-                        $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
+                        $removed++;
                     }
                     $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
                 });

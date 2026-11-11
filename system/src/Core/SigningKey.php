@@ -35,13 +35,22 @@ final class SigningKey
     /** What the confirmation adds below the list (N3191-11). */
     public const string NOTE = 'Restoring a backup made before the new key brings the old key back. Claude connections are not affected – their tokens do not depend on this key.';
 
-    /** @return array{status: 'rotated'|'vault'|'error', count?: int, error?: string} vault = the encryption key is half moved or missing */
+    /** @return array{status: 'rotated'|'vault'|'held'|'error', count?: int, error?: string} vault = the encryption key is half moved or missing; held = CV lists still held under the key in the database (N10) */
     public static function rotate(App $app): array
     {
         $settings = $app->settings();
         $state = Vault::state($settings);
         if ($state === 'pending' || $state === 'missing') {
             return ['status' => 'vault'];
+        }
+        // 3.34 second review N10: CV lists held under the key in the database while the encryption key was missing (Core\Applications,
+        // 'db:') would not open after a new signing key – they are sealed again with the proper key first, and a rotation that would
+        // still leave one behind is refused
+        while (Applications::heldCount($app->db()) > 0 && Applications::resealHeld($app) > 0) {
+            // resealed in batches until none is left or none more can be opened
+        }
+        if (Applications::heldCount($app->db()) > 0) {
+            return ['status' => 'held'];
         }
         (new Antispam($app->db(), $settings))->key(); // a site that never signed anything gets its first key now
         $new = Vault::newKey();

@@ -422,29 +422,42 @@ final class ApplicationMove
      * application keeps the record its enquiry had (source_contact_id); a record whose only source rows are such
      * applications – source enquiry, never edited (updated_at = created_at), no other enquiry, booking, subscription, logged
      * activity (a merge logs one), deal, comment or task, no summary, no responsible person – goes. Every record looked at
-     * loses the link, so a real customer who also applied is looked at once and kept. Returns how many went.
+     * loses the link, so a real customer who also applied is looked at once and kept. 3.34 second review N10: the check is
+     * the DELETE itself (LONE_DELETE), in the transaction that unlinks it – an enquiry linked meanwhile keeps the record. A
+     * record whose only other enquiry has already expired (deleted by the retention of enquiries) counts as lone and goes –
+     * the retention had already ended its other reason to exist. All records named are looked at (in batches). Returns how
+     * many went.
      */
     public static function forgetLoneContacts(Db $db): int
     {
         $removed = 0;
-        foreach ($db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id IS NOT NULL LIMIT 1000') as $r) {
-            $contactId = (int) $r['id'];
-            $lone = $db->value("SELECT 1 FROM {contacts} c WHERE c.id = ? AND c.source = 'enquiry' AND (c.summary IS NULL OR c.summary = '') AND c.owner_id IS NULL AND c.updated_at <= c.created_at
-                AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = c.id)
-                AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = c.id) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = CONCAT('contact:', c.id))
-                AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = CONCAT('contact:', c.id))", [$contactId]);
-            $db->transaction(function (Db $db) use ($contactId, $lone, &$removed): void {
-                if ($lone !== null) {
-                    $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
-                    $removed += $db->run('DELETE FROM {contacts} WHERE id = ?', [$contactId])->rowCount();
-                }
-                $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
-            });
+        $last = 0;
+        while (($batch = $db->all('SELECT DISTINCT source_contact_id AS id FROM {applications} WHERE source_contact_id > ? ORDER BY source_contact_id LIMIT 500', [$last])) !== []) {
+            foreach ($batch as $r) {
+                $contactId = (int) $r['id'];
+                $last = $contactId;
+                $db->transaction(function (Db $db) use ($contactId, &$removed): void {
+                    if ($db->run(self::LONE_DELETE, [$contactId, $contactId, $contactId, $contactId, $contactId, $contactId, 'contact:' . $contactId, 'contact:' . $contactId])->rowCount() === 1) {
+                        $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
+                        $removed++;
+                    }
+                    $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);
+                });
+            }
         }
 
         return $removed;
     }
+
+    /**
+     * The customer record only moved applications made, deleted in one statement – the check and the delete cannot be told
+     * apart by anything that links the record meanwhile (N10; migration 0120 has its own copy). Parameters: the record's id
+     * six times, then "contact:<id>" twice.
+     */
+    public const string LONE_DELETE = "DELETE FROM {contacts} WHERE id = ? AND source = 'enquiry' AND (summary IS NULL OR summary = '') AND owner_id IS NULL AND updated_at <= created_at
+        AND NOT EXISTS (SELECT 1 FROM {poptavky} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {bookings} WHERE contact_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM {odberatele} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {contact_activities} WHERE contact_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM {deals} WHERE contact_id = ?) AND NOT EXISTS (SELECT 1 FROM {comments} WHERE target = ?) AND NOT EXISTS (SELECT 1 FROM {tasks} WHERE target = ?)";
 
     /**
      * The change log and the event applications.moved – counts and deal numbers, never a person.
