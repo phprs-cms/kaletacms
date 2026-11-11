@@ -242,7 +242,7 @@ if [ "$BOOKINGS_PLANTED" = 1 ]; then
   expect "the hidden module answers 403, the shown one 200" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")" "403|200"
 fi
 # every admin module of the new version, with all extensions on
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet,applications') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
 # releases before 1.1 migrate on the first admin load after the update, later ones during the update itself
 expect "database migrated to $LAST_MIGRATION" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$LAST_MIGRATION"
