@@ -4625,20 +4625,24 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
     }
     const rowName = p.locator('#passkeys input[form^="klic-prejmenuj-"]');
     if ((await rowName.inputValue()) !== 'Virtual authenticator' || !(await rowName.getAttribute('aria-label'))) { throw new Error('the passkey row: name field with a label'); }
-    await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
-
-    // the sign-in page: the conditional UI asks for a challenge as it loads; the button signs in with the passkey alone
+    // signing out lands on the sign-in page, which offers the passkeys in the user-name autofill (conditional UI): the virtual
+    // authenticator answers the waiting request at once, so the page signs in by itself – no name, no password, no click
+    const logged = () => Number(sql(`SELECT COUNT(*) FROM ka_protokol WHERE kdo = ${adminId} AND akce = 'login' AND popis = 'with a passkey, without a password'`).trim());
     const optionsRequest = p.waitForRequest((r) => r.method() === 'POST' && (r.postData() || '').includes('passkey_options'));
-    await p.goto(local + '/admin.php', { waitUntil: 'networkidle' });
+    await p.click('.menu-logout button');
     await optionsRequest;
+    await p.waitForSelector('.menu-logout button', { timeout: 15000 });
+    if (logged() < 1) { throw new Error('the autofill (conditional UI) did not sign in'); }
+    // the button, from the keyboard, in a browser without the autofill: the modal request signs in the same way
+    await p.addInitScript(() => { window.PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false); });
+    await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
+    await p.waitForLoadState('networkidle');
     if ((await p.getAttribute('input[name="user"]', 'autocomplete')) !== 'username webauthn') { throw new Error('the user-name field does not offer passkeys (autocomplete webauthn)'); }
-    if (!(await p.evaluate(() => window.PublicKeyCredential.isConditionalMediationAvailable()))) { throw new Error('conditional mediation is not available'); }
-    const button = p.getByRole('button', { name: 'Sign in with a passkey' });
-    await button.focus();
+    const before = logged();
+    await p.getByRole('button', { name: 'Sign in with a passkey' }).focus();
     await Promise.all([p.waitForNavigation(), p.keyboard.press('Enter')]);
-    if (await p.locator('input[name="user"]').count()) { throw new Error('the passkey did not sign in'); }
-    const logged = sql(`SELECT COUNT(*) FROM ka_protokol WHERE kdo = ${adminId} AND akce = 'login' AND popis = 'with a passkey, without a password'`).trim();
-    if (logged !== '1') { throw new Error(`change log of the passkey sign-in: ${logged}`); }
+    if (await p.locator('input[name="user"]').count()) { throw new Error('the passkey button did not sign in'); }
+    if (logged() !== before + 1) { throw new Error(`change log of the sign-in with the button: ${logged()} after ${before}`); }
     if (SHOTS) { await p.goto(local + '/admin.php?action=account', { waitUntil: 'networkidle' }); await p.locator('#passkeys').screenshot({ path: `${SHOTS}/335a-passkeys.png` }); }
     // the password of an account with a passkey needs the second step – the page offers the passkey (and a backup code)
     await p.goto(local + '/admin.php', { waitUntil: 'networkidle' });
