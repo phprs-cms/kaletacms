@@ -1638,14 +1638,16 @@ tasks and notifications – then deletes the enquiry row and a customer record c
 move is resumable: each row in its own transaction, a run of at most 15 seconds, the rest on the next requests
 (`data_migrations_unfinished`, `Core\Migration`). `KALETA_DB_VERSION` 120. New settings `applications_months` (6),
 `applications_pool_months` (12), `applications_notify_full` (off), `applications_claude` (on), `application_templates`,
-and the internal `applications_retention_confirmed`, `applications_seal_after`, `applications_move_until` and
-`data_migrations_unfinished`. New MCP tools
+and the internal `applications_retention_confirmed` (the highest application id confirmed), `applications_seal_after`,
+`applications_move_until`, `applications_move_deferred`, `applications_files_since` and `data_migrations_unfinished`;
+`ka_applications` carries `attachment_paths` (where the files are, random names only) and `moved_at`. New MCP tools
 `list_applications`, `get_application`, `update_application` and `reply_to_application` (extension `applications`, the
 work set, never the essentials; English on both sides of the Translator). Additive keys: `site_info` – `features`
 (`applications`: `enabled`, `claude`, `can_open`); `list_enquiries` – `applications_hint` on rows of kind job while the
 feature is on; `my_work` – `applications_assigned`, `applications_unassigned`; the target `application` for `add_comment`,
 `list_comments`, `save_task`, `list_tasks` and `assign`; the Form fields `purpose` and `pool_consent` in the builder
-vocabulary; `get_application` – `attachments_locked`; `builder_schema` – `read_only` on a field. No setting key, POST
+vocabulary; `get_application` – `attachments_locked`; `builder_schema` – `read_only` on a field; `erase_personal_data` –
+`erased.applications_held`. No setting key, POST
 field, MCP tool, parameter or Czech alias renamed.
 
 1. **What an application is** (`Core\Applications`): a submission of a Form on a job's item page (the item template of a
@@ -1668,7 +1670,14 @@ field, MCP tool, parameter or Czech alias renamed.
    cannot open is shown as "CVs cannot be opened – encryption key" (detail, list, System status, MCP), is never purged
    while locked, and while the Vault is `missing` a new list is sealed with the database key (`db:`) and resealed once the
    key is back. A file is downloaded only by a person with the section; MCP lists a CV by name and size and never passes
-   its content to Claude.
+   its content to Claude. Every sealed file also carries its own key wrapped with the Vault key (header `KCV1`), is
+   written next to its place and renamed, and the plain column `attachment_paths` names where the files are, so the
+   files can always be found. Sealing a moved CV is crash-safe (`sealEntry`): the copy is written to a name derived from
+   the old path, the row's list names it, the copy is opened with the stored key and compared, and only then the plain
+   file goes – an interrupted run is finished by the next one (a leftover plain file is checked and removed, a copy that
+   does not open is listed plain again). A new upload goes only once its row is stored; encrypted files no row lists
+   and half-written ones are removed after 7 days (`sweepOrphans`). Sealing and the moves either way take one database
+   lock (`Applications::lockFiles`); a move back deletes the application only while its list is the one it read.
 4. **Statuses, responsibility, notes and tasks**: six fixed statuses – New, Reviewed, Interview, Offer, Hired, Rejected
    (with a reason) – any may follow any, every change in the history; a list with tabs (Open, Waiting = new without a
    reply for over a week, each status, All), filters and "with selected". A responsible person, internal notes, tasks and
@@ -1687,23 +1696,39 @@ field, MCP tool, parameter or Czech alias renamed.
    on the form (`pool_consent`) keeps an application for `applications_pool_months`; a withdrawn consent is recorded by a
    person. Deletion removes the sealed files first, then the row, its notes, tasks and notifications.
 7. **Personal data**: a personal data request finds the applications sent from an address (their own e-mail field – not one
-   that merely names it) and erases them with their files; applications are never journalled for undo, never in the site export, blueprints or the fleet heartbeat,
+   that merely names it) and erases them with their files – also when the CV list cannot be opened (the files are found
+   from `attachment_paths`); one whose list cannot be opened and that has no `attachment_paths` stays and is reported
+   (`applications_held`, the event `applications.delete_held`); the same for an administrator's delete; applications are never journalled for undo, never in the site export, blueprints or the fleet heartbeat,
    never sent to the site's AI assistant, and Claude reads them only through the connection of a user with the section
    while `applications_claude` is on – on every task path too (`list_tasks`, `complete_task`, `save_task`). The privacy
    text says so.
 8. **The update on a site with career forms**: migration 0120 moves the enquiries of the jobs collections (see above);
    their old CV files stay in `storage/prilohy` until the daily clean-up seals them (an id cursor, 200 a day; the
    settings tab counts the CVs still waiting). Nothing moved – by 0120 or by the move by form – is purged until an
-   administrator has opened and saved Applications → Settings once (`applications_retention_confirmed`); until then the
-   settings tab and the list say how many applications would go and since when. A large site moves over several
-   requests: the enquiries still to move stay out of Enquiries for people without Applications and the list says how
-   many are left; a row that fails stays an enquiry and is named by number only in the event `applications.move_failed`.
-   The move is recorded as counts (the change log and the event `applications.moved`), never a person.
+   administrator has saved Applications → Settings after it moved: `applications_retention_confirmed` is the highest
+   application id confirmed then, so a later move (by anyone) gates only the rows it moved; until then the settings tab
+   and the list say how many applications would go and since when, and System status notes moved applications that have
+   waited more than 30 days (`moved_at`). A large site moves over several requests: the enquiries still to move stay out
+   of everything people without Applications see – the list and detail, the CSV export, downloads and actions by id, My
+   work, the customer's timeline, the dashboard, deals and testimonials from an enquiry, bell entries and MCP – and out of
+   both retentions and the assistant's triage (`Enquiries::visible`, one condition; a unit test lists every query on the
+   enquiries); a row that fails stays an enquiry and is named by number only in the event `applications.move_failed`. The
+   customer clean-up runs in batches within the same time and the migration finishes only when no record is left to look
+   at; the check is the delete itself, inside the transaction that unlinks the record (a record whose only other enquiry
+   has already expired counts as lone and goes). Run by the update request of an older release, 0120 only switches the
+   feature, the retention and what is to move on – nothing moves and no customer record goes until the 3.34 code serves
+   a request (and not while the update checks itself), so a rolled-back update strands nothing; that first run also takes
+   the job enquiries that arrived in between. The move is recorded as counts (the change log and the event
+   `applications.moved`), never a person.
 9. **Move by form and one by one**: for a career form that is not on a job page, administrators move the enquiries of one
    form (name + source) to Applications and back in Applications → Move by form (`Core\ApplicationMove`, batches of 200,
    safe to run again; the way back decrypts the CVs into `storage/prilohy` and reads them back before anything goes – an
-   application whose CVs cannot be opened or written stays an application and is reported). A person with both sections moves a single
-   enquiry with "Move to Applications" on its detail – the same steps for one row.
+   application whose CVs cannot be opened or written stays an application and is reported). The way back is confirmed on
+   a review of the chosen form that says how many move and how many stay and why: an application the retention of
+   enquiries (or of job enquiries) would delete at once stays, and so do hired ones and those kept for future openings
+   unless the administrator ticks that they go too; the consent, the status and its history do not exist in Enquiries.
+   A person with both sections moves a single enquiry with "Move to Applications" on its detail – the same steps for one
+   row.
 10. **Across the admin**: My work lists the undecided applications one is responsible for and the new ones nobody is;
     Ctrl K finds an application by number, name or position (only with the section); the items list of a jobs
     collection shows Applications (new / all) per job; the builder fills a choice field with the open jobs.
@@ -1715,6 +1740,13 @@ field, MCP tool, parameter or Czech alias renamed.
     for a lost deal or stage goes back to "prohraná / prohry / prohrané" in the Czech admin, reports and e-mails
     (`Core\Glossary`, its unit test pins "Prohraný" and forbids "ztracen…"); the rest of the 3.32 glossary stays, and
     English, German and Spanish are unchanged.
+14. **Backups and keys**: backups hold the database only. The restore screen marks a backup older than the first encrypted
+    CV or move (`applications_files_since`) and its confirmation says what is lost: applications received after it, and
+    that moved ones come back as enquiries. A job enquiry restored next to its application twin stays moved for everyone,
+    and deleting it never removes a CV an application lists; a CV sealed after the backup opens from its encrypted copy
+    with the key of its header (the download of a restored enquiry, the sealing taking it back for a restored
+    application) while the Vault key is the same (or the previous signing key). A new signing key first seals again the CV
+    lists held under the key in the database (`db:`) and is refused while one is left.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
