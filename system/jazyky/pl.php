@@ -2061,4 +2061,11 @@ return [
     'open in a new window' => 'otwórz w nowym oknie',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Jeśli strona tej witryny pokazuje wyszukiwarkę oddziałów, która od razu wczytuje mapę, Twoja przeglądarka łączy się z OpenStreetMap (OpenStreetMap Foundation) zaraz po otwarciu strony – zanim wyrazisz zgodę w banerze cookies – i przesyła Twój adres IP, aby wczytać mapę; w przeciwnym razie mapa wczytuje się dopiero po kliknięciu.',
     'Choose the date and time in the Content panel.' => 'Wybierz datę i godzinę w panelu Treść.',
+    'Application #%d for “%s” from the form “%s”' => 'Aplikacja nr %d na „%s” z formularza „%s”',
+    'no position' => 'bez stanowiska',
+    'New application for %s: %s' => 'Nowa aplikacja na %s: %s',
+    'New application: %s' => 'Nowa aplikacja: %s',
+    'A new application #%d for the position “%s” arrived.' => 'Wpłynęła nowa aplikacja nr %d na stanowisko „%s”.',
+    'A new application #%d arrived (no position).' => 'Wpłynęła nowa aplikacja nr %d (bez stanowiska).',
+    'Open it in the administration (Applications): %s' => 'Otwórz ją w administracji (Aplikacje): %s',
 ];

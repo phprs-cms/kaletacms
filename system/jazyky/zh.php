@@ -2088,4 +2088,11 @@ The link works for %d days.
     'open in a new window' => '在新窗口中打开',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => '如果本网站的某个页面显示了设置为立即加载地图的门店查询，则页面一打开（在您于 Cookie 横幅中表示同意之前），您的浏览器就会连接 OpenStreetMap（OpenStreetMap 基金会），并向其发送您的 IP 地址以加载地图；否则，地图只会在您点击后加载。',
     'Choose the date and time in the Content panel.' => '请在“内容”面板中选择日期和时间。',
+    'Application #%d for “%s” from the form “%s”' => '来自表单“%3$s”的职位“%2$s”第 %1$d 号求职申请',
+    'no position' => '无职位',
+    'New application for %s: %s' => '%s 的新求职申请：%s',
+    'New application: %s' => '新求职申请：%s',
+    'A new application #%d for the position “%s” arrived.' => '收到职位“%2$s”的新求职申请第 %1$d 号。',
+    'A new application #%d arrived (no position).' => '收到新求职申请第 %d 号（无职位）。',
+    'Open it in the administration (Applications): %s' => '在管理后台打开（求职申请）：%s',
 ];

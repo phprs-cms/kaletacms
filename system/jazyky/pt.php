@@ -2088,4 +2088,11 @@ O link funciona por %d dias.
     'open in a new window' => 'abrir numa nova janela',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Se uma página deste site mostra um localizador de lojas que carrega o mapa imediatamente, seu navegador se conecta ao OpenStreetMap (OpenStreetMap Foundation) assim que a página abre – antes de você dar seu consentimento na barra de cookies – e envia seu endereço IP para carregar o mapa; caso contrário, o mapa só é carregado após um clique.',
     'Choose the date and time in the Content panel.' => 'Escolha a data e a hora no painel Conteúdo.',
+    'Application #%d for “%s” from the form “%s”' => 'Candidatura n.º %d para «%s» do formulário «%s»',
+    'no position' => 'sem vaga',
+    'New application for %s: %s' => 'Nova candidatura para %s: %s',
+    'New application: %s' => 'Nova candidatura: %s',
+    'A new application #%d for the position “%s” arrived.' => 'Chegou uma nova candidatura n.º %d para a vaga «%s».',
+    'A new application #%d arrived (no position).' => 'Chegou uma nova candidatura n.º %d (sem vaga).',
+    'Open it in the administration (Applications): %s' => 'Abra-a na administração (Candidaturas): %s',
 ];

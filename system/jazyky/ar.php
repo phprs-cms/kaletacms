@@ -2088,4 +2088,11 @@ The link works for %d days.
     'open in a new window' => 'فتح في نافذة جديدة',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'إذا كانت إحدى صفحات هذا الموقع تعرض أداة للبحث عن الفروع تحمّل خريطتها فورًا، فإن متصفحك يتصل بـ OpenStreetMap (مؤسسة OpenStreetMap) بمجرد فتح الصفحة – قبل أن تمنح موافقتك في شريط ملفات تعريف الارتباط – ويرسل إليه عنوان IP الخاص بك لتحميل الخريطة؛ وإلا فلا تُحمَّل الخريطة إلا بعد النقر عليها.',
     'Choose the date and time in the Content panel.' => 'اختر التاريخ والوقت في لوحة المحتوى.',
+    'Application #%d for “%s” from the form “%s”' => 'طلب التوظيف رقم %d لوظيفة «%s» من النموذج «%s»',
+    'no position' => 'بدون وظيفة',
+    'New application for %s: %s' => 'طلب توظيف جديد لوظيفة %s: %s',
+    'New application: %s' => 'طلب توظيف جديد: %s',
+    'A new application #%d for the position “%s” arrived.' => 'وصل طلب توظيف جديد رقم %d لوظيفة «%s».',
+    'A new application #%d arrived (no position).' => 'وصل طلب توظيف جديد رقم %d (بدون وظيفة).',
+    'Open it in the administration (Applications): %s' => 'افتحه في الإدارة (طلبات التوظيف): %s',
 ];

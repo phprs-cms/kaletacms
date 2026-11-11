@@ -4500,6 +4500,46 @@ await step('3.32 (U35–U50): row buttons, My work edit and Take it, dashboard o
   }
 });
 
+// 3.34 (A): job applications – the list and the detail at 1440 and 390 px, light and dark, axe; no sideways scroll on a phone
+await step('3.34 applications: the list and the detail – 1440 and 390 px, light/dark, axe', async () => {
+  const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
+    INSERT INTO ka_applications (received_at, job_title, form, name, email, phone, data, status, status_at, last_activity_at, pool_consent_at, pool_until, history)
+    VALUES (NOW(), 'Technician B334', 'Job application', 'Ivan B334', 'ivan-b334@example.com', '777334', '[["Full name","Ivan B334"],["A few words about you","I would like to join your team."]]', 'interview', NOW(), NOW(), NOW(), CURDATE() + INTERVAL 1 YEAR,
+      '[{"at":"2026-11-10 10:00:00","by":null,"from":"new","to":"interview"}]')`);
+  const id = sql("SELECT MAX(id) FROM ka_applications WHERE email = 'ivan-b334@example.com'").trim();
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height] of [[1440, 900], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        for (const url of ['/admin.php?module=applications', `/admin.php?module=applications&action=detail&id=${id}`]) {
+          await visit(url);
+          if (!(await page.locator(url.includes('detail') ? '[data-application-card]' : '[data-applications-list]').count())) { throw new Error(`${url}: the application is not shown`); }
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) { throw new Error(`${url} scrolls sideways at ${width} px (${scheme})`); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/applications-334-${url.includes('detail') ? 'detail' : 'list'}-${width}-${scheme}.png`, fullPage: true }); }
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const url of ['/admin.php?module=applications', `/admin.php?module=applications&action=detail&id=${id}`]) {
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate((tags) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+        if (found.violations.length) { throw new Error(`axe ${url}: ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_applications WHERE email = 'ivan-b334@example.com'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions}'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

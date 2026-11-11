@@ -2088,4 +2088,11 @@ A hivatkozás %d napig érvényes.
     'open in a new window' => 'megnyitás új ablakban',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Ha a weboldal valamelyik oldala olyan üzletkeresőt mutat, amely azonnal betölti a térképet, az Ön böngészője az oldal megnyitásakor – még mielőtt a sütisávban hozzájárulását adná – kapcsolatba lép az OpenStreetMappel (OpenStreetMap Foundation), és elküldi neki az Ön IP-címét a térkép betöltéséhez; egyébként a térkép csak kattintás után töltődik be.',
     'Choose the date and time in the Content panel.' => 'Válassza ki a dátumot és az időt a Tartalom panelen.',
+    'Application #%d for “%s” from the form “%s”' => '%d. számú jelentkezés a(z) „%s” pozícióra a(z) „%s” űrlapról',
+    'no position' => 'pozíció nélkül',
+    'New application for %s: %s' => 'Új jelentkezés a(z) %s pozícióra: %s',
+    'New application: %s' => 'Új jelentkezés: %s',
+    'A new application #%d for the position “%s” arrived.' => 'Új, %d. számú jelentkezés érkezett a(z) „%s” pozícióra.',
+    'A new application #%d arrived (no position).' => 'Új, %d. számú jelentkezés érkezett (pozíció nélkül).',
+    'Open it in the administration (Applications): %s' => 'Nyissa meg az adminisztrációban (Jelentkezések): %s',
 ];
