@@ -29,6 +29,15 @@ final class Migration
 {
     private const string FOLDER = KALETA_SYSTEM . '/sql/migrace';
 
+    /**
+     * How long one run of a resumable data migration may work (0120 reads it): the full budget from cron and the
+     * administration, VISITOR_SECONDS when a visitor's page request carries it (3.34 third review F2 – Front\Kernel).
+     */
+    public static float $seconds = 15.0;
+
+    /** The budget of a data migration's continuation inside a visitor's page request. */
+    public const float VISITOR_SECONDS = 2.0;
+
     /** MySQL errors that mean "this change is already in the database": a table, column, index or foreign key exists, a dropped column or index is missing. */
     private const array ALREADY_APPLIED = [1050, 1060, 1061, 1022, 1826, 1091];
 

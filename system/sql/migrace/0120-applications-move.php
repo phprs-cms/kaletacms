@@ -29,13 +29,14 @@
  *
  * Resumable (3.34 review M3): each enquiry moves in its own small transaction inside a try/catch – a row that fails stays an
  * enquiry, is counted and named by its number only in the event applications.move_failed, and the move goes on. A run stops
- * after MOVE_SECONDS (a web request's time limit); the enquiries still to move (job sources, idp <= applications_move_until)
+ * after Core\Migration::$seconds (15 s from cron and the administration, 2 s inside a visitor's page request – third review F2); the enquiries still to move (job sources, idp <= applications_move_until)
  * stay hidden in Enquiries from people without Applications (Core\Applications::movingCondition), and the migration puts its
  * name into data_migrations_unfinished – Core\Migration runs it again on the next request (a visit or the administration)
  * until nothing is left. The update request of 3.33 marks it done after its first run; the name in
  * data_migrations_unfinished brings it back with the new code all the same. 3.34 second review N5: run by the code of an
  * older release (the update request), it only writes the feature, the retention and what is to move – nothing moves and no
- * customer record goes until the 3.34 code serves a request, and not while an update checks itself (update_probe); that
+ * customer record goes until the 3.34 code serves a request, and not while an update checks itself (update_probe – at most
+ * 10 minutes, third review F3: a probe a killed request left behind is stale); that
  * first run takes the job enquiries that arrived in between too.
  *
  * Nobody but administrators gets the section Applications (owner decision B-2): the screen tells administrators to choose.
@@ -77,8 +78,10 @@ return static function (Db $db, Settings $settings): void {
     if ((int) ini_get('max_execution_time') > 0) {
         @set_time_limit(300);
     }
-    // one run moves for at most this long (a web request – the next request goes on); the tests make it one row
-    $seconds = defined('KALETA_MIGRATION_SECONDS') ? max(0.0, (float) constant('KALETA_MIGRATION_SECONDS')) : 15.0;
+    // one run moves for at most this long (a web request – the next request goes on); the tests make it one row. 3.34 third
+    // review F2: Core\Migration::$seconds – 15 s from cron and the administration, 2 s inside a visitor's page request
+    $budget = property_exists(\Kaleta\Core\Migration::class, 'seconds') ? (float) \Kaleta\Core\Migration::$seconds : 15.0;
+    $seconds = defined('KALETA_MIGRATION_SECONDS') ? max(0.0, (float) constant('KALETA_MIGRATION_SECONDS')) : $budget;
     $rowsAtMost = defined('KALETA_MIGRATION_ROWS') ? max(1, (int) constant('KALETA_MIGRATION_ROWS')) : PHP_INT_MAX;
     $contactBatch = defined('KALETA_MIGRATION_CONTACTS') ? max(1, (int) constant('KALETA_MIGRATION_CONTACTS')) : 500; // the tests make the batches small
     $started = microtime(true);
@@ -137,10 +140,27 @@ return static function (Db $db, Settings $settings): void {
         $settings->set('applications_move_until', (string) max((int) $settings->get('applications_move_until'), (int) $db->value('SELECT MAX(idp) FROM {poptavky} WHERE zdroj IN (' . $placeholders . ')', $sources)));
         $settings->set('applications_move_deferred', '');
     }
-    if ((string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe'") !== '') {
-        $finish(true); // an update is checking that the new version runs (and may still roll back) – the move waits for the next request
+    $probe = (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe'");
+    if ($probe !== '') {
+        // an update is checking that the new version runs (and may still roll back) – the move waits for the next request.
+        // 3.34 third review F3: only for PROBE_STALE seconds – a request killed during the check never clears the probe. Its
+        // age is update_probe_at (the Updater of 3.34 writes it); a probe an older release's updater wrote counts from when
+        // this migration first saw it (applications_probe_seen)
+        $probeAt = (int) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe_at'");
+        if ($probeAt <= 0) {
+            [$seenHash, $seenAt] = array_pad(explode('|', $settings->get('applications_probe_seen'), 2), 2, '');
+            $probeAt = hash_equals($seenHash, hash('sha256', $probe)) ? (int) $seenAt : 0;
+            if ($probeAt <= 0) {
+                $probeAt = time();
+                $settings->set('applications_probe_seen', hash('sha256', $probe) . '|' . $probeAt);
+            }
+        }
+        $stale = defined('KALETA_MIGRATION_PROBE_STALE') ? (int) constant('KALETA_MIGRATION_PROBE_STALE') : 600;
+        if (time() - $probeAt < $stale) {
+            $finish(true);
 
-        return;
+            return;
+        }
     }
     $until = (int) $settings->get('applications_move_until');
 
@@ -249,11 +269,15 @@ return static function (Db $db, Settings $settings): void {
                     } else {
                         $db->run('UPDATE {deals} SET source_enquiry_id = NULL WHERE source_enquiry_id = ?', [$idp]);
                     }
-                    $db->delete('poptavky', ['idp' => $idp]);
+                    if ($db->delete('poptavky', ['idp' => $idp]) !== 1) {
+                        throw new \UnexpectedValueException('gone'); // 3.34 third review F6: deleted meanwhile – no application from a stale row
+                    }
                 });
                 $moved++;
-            } catch (\Throwable) {
-                $failed[] = $idp; // stays an enquiry; its number only – the message may carry the person's data
+            } catch (\Throwable $error) {
+                if (!($error instanceof \UnexpectedValueException && $error->getMessage() === 'gone')) {
+                    $failed[] = $idp; // stays an enquiry; its number only – the message may carry the person's data
+                }
             }
         }
     }

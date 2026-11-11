@@ -6,7 +6,7 @@ declare(strict_types=1);
 $m3Migration = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0120-applications-move.php');
 $m3Runner = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Migration.php');
 check('3.34 review M3: every row in its own try/catch and transaction, a failure counted by number only; the run stops after its time and says so', [
-    str_contains($m3Migration, "} catch (\\Throwable) {\n                \$failed[] = \$idp;"),
+    str_contains($m3Migration, "} catch (\\Throwable \$error) {\n                if (!(\$error instanceof \\UnexpectedValueException && \$error->getMessage() === 'gone')) {\n                    \$failed[] = \$idp;"), // F6: a row deleted meanwhile is no failure
     str_contains($m3Migration, "\$db->transaction(function () use (\$db, \$e, \$idp,"),
     str_contains($m3Migration, "microtime(true) - \$started > \$seconds"),
     str_contains($m3Migration, "'applications.move_failed', 'warning'"),

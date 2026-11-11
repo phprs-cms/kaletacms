@@ -790,6 +790,7 @@ CREATE TABLE ka_applications (
     moved_at          DATETIME NULL,                          -- when it moved in from Enquiries (System status: waiting for the confirmation of the retention, N8)
     PRIMARY KEY (id),
     UNIQUE KEY ux_applications_enquiry (source_enquiry_id),
+    KEY ix_applications_contact (source_contact_id),
     KEY ix_applications_status (status, id),
     KEY ix_applications_job (job_item_id, status),
     KEY ix_applications_assignee (assignee_id, status),

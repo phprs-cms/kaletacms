@@ -18,13 +18,13 @@ N4_HEX2=$(php -r 'echo bin2hex(random_bytes(12));'); printf 'CV of N4 two' > "$N
 sq "UPDATE ka_applications SET source_enquiry_id = NULL WHERE source_enquiry_id = 925402" > /dev/null
 N4_ID2=$(sq "INSERT INTO ka_applications (received_at, form, source, data, attachments, status, status_at, last_activity_at, source_enquiry_id) VALUES ('$(site_time '-1 day')', 'N4 lock', 'stranka:1', '[]',
   '[{\"field\":0,\"name\":\"cv.pdf\",\"size\":12,\"ext\":\"pdf\",\"path\":\"2026/08/$N4_HEX2.pdf\",\"sealed\":false}]', 'reviewed', '$(site_time)', '$(site_time)', 925402); SELECT LAST_INSERT_ID();")
-( "${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GET_LOCK('kaleta_cv_ka_', 0), SLEEP(6)" > /dev/null 2>&1 ) & N4_HOLD=$!
+( "${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GET_LOCK(CONCAT('kaleta_cv_', LEFT(SHA2(CONCAT(DATABASE(), '|', 'ka_'), 256), 40)), 0), SLEEP(6)" > /dev/null 2>&1 ) & N4_HOLD=$!
 sleep 1
 expect "3.34 second review N4: while the lock is held the clean-up seals nothing and returns at once" \
   "$(t334_php 'echo Kaleta\Core\Applications::sealPending($app);')|$([ -f "$N4_DIR/$N4_HEX2.pdf" ] && echo plain || echo sealed)" "0|plain"
 wait "$N4_HOLD" 2>/dev/null || true
 expect "3.34 second review N4: the lock released – the next clean-up seals it" "$(t334_php 'echo Kaleta\Core\Applications::sealPending($app) >= 1 ? "sealed" : "no";')|$([ -f "$N4_DIR/$N4_HEX2.pdf" ] && echo plain || echo gone)" "sealed|gone"
 expect "3.34 second review N4: both ways of the move take the same lock" \
-  "$(grep -c 'self::locked(\$db, fn (): array => self::moveRows(\$app, \$rows))\|self::locked(\$app->db(), fn (): array => self::moveRows(\$app, \$rows))\|self::locked(\$app->db(), fn (): array => self::toEnquiriesLocked(' "$WORK/web/system/src/Core/ApplicationMove.php")" "3"
+  "$(grep -c 'self::locked(\$db, fn (): array => self::moveRows(\$app, \$db->all(\|self::locked(\$app->db(), fn (): array => self::moveRows(\$app, // F6\|self::locked(\$app->db(), fn (): array => self::toEnquiriesLocked(' "$WORK/web/system/src/Core/ApplicationMove.php")" "3"
 t334_php 'Kaleta\Core\Applications::delete($app, ['"$N4_ID,$N4_ID2"'], false);' > /dev/null
 r334_off

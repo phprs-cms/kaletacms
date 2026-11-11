@@ -1675,8 +1675,9 @@ field, MCP tool, parameter or Czech alias renamed.
    files can always be found. Sealing a moved CV is crash-safe (`sealEntry`): the copy is written to a name derived from
    the old path, the row's list names it, the copy is opened with the stored key and compared, and only then the plain
    file goes – an interrupted run is finished by the next one (a leftover plain file is checked and removed, a copy that
-   does not open is listed plain again). A new upload goes only once its row is stored; encrypted files no row lists
-   and half-written ones are removed after 7 days (`sweepOrphans`). Sealing and the moves either way take one database
+   does not open is listed plain again). A new upload goes only once its row is stored; half-written files
+   are removed after 7 days; an old encrypted file no row lists is set aside (`.orphan`) and removed only after it stayed
+   unlisted 7 more days – listed again (a newer backup restored) or opened, it comes back (`sweepOrphans`, once a day). Sealing and the moves either way take one database
    lock (`Applications::lockFiles`); a move back deletes the application only while its list is the one it read.
 4. **Statuses, responsibility, notes and tasks**: six fixed statuses – New, Reviewed, Interview, Offer, Hired, Rejected
    (with a reason) – any may follow any, every change in the history; a list with tabs (Open, Waiting = new without a
@@ -1708,7 +1709,7 @@ field, MCP tool, parameter or Czech alias renamed.
    administrator has saved Applications → Settings after it moved: `applications_retention_confirmed` is the highest
    application id confirmed then, so a later move (by anyone) gates only the rows it moved; until then the settings tab
    and the list say how many applications would go and since when, and System status notes moved applications that have
-   waited more than 30 days (`moved_at`). A large site moves over several requests: the enquiries still to move stay out
+   waited more than 30 days (`moved_at`). A large site moves over several requests (2 s inside a visitor's page, 15 s from cron and the administration): the enquiries still to move stay out
    of everything people without Applications see – the list and detail, the CSV export, downloads and actions by id, My
    work, the customer's timeline, the dashboard, deals and testimonials from an enquiry, bell entries and MCP – and out of
    both retentions and the assistant's triage (`Enquiries::visible`, one condition; a unit test lists every query on the
@@ -1717,7 +1718,7 @@ field, MCP tool, parameter or Czech alias renamed.
    at; the check is the delete itself, inside the transaction that unlinks the record (a record whose only other enquiry
    has already expired counts as lone and goes). Run by the update request of an older release, 0120 only switches the
    feature, the retention and what is to move on – nothing moves and no customer record goes until the 3.34 code serves
-   a request (and not while the update checks itself), so a rolled-back update strands nothing; that first run also takes
+   a request (and not while the update checks itself – a probe older than 10 minutes is stale), so a rolled-back update strands nothing; that first run also takes
    the job enquiries that arrived in between. The move is recorded as counts (the change log and the event
    `applications.moved`), never a person.
 9. **Move by form and one by one**: for a career form that is not on a job page, administrators move the enquiries of one
@@ -1743,7 +1744,7 @@ field, MCP tool, parameter or Czech alias renamed.
 14. **Backups and keys**: backups hold the database only. The restore screen marks a backup older than the first encrypted
     CV or move (`applications_files_since`) and its confirmation says what is lost: applications received after it, and
     that moved ones come back as enquiries. A job enquiry restored next to its application twin stays moved for everyone,
-    and deleting it never removes a CV an application lists; a CV sealed after the backup opens from its encrypted copy
+    goes with its application and in the daily clean-up, and deleting it never removes a CV an application lists; a CV sealed after the backup opens from its encrypted copy
     with the key of its header (the download of a restored enquiry, the sealing taking it back for a restored
     application) while the Vault key is the same (or the previous signing key). A new signing key first seals again the CV
     lists held under the key in the database (`db:`) and is refused while one is left.

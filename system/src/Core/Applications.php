@@ -963,6 +963,7 @@ final class Applications
      *
      * @param list<int> $ids
      * @param list<int>|null $kept
+     * @param-out list<int> $kept
      */
     public static function delete(App $app, array $ids, bool $log = true, ?array &$kept = null): int
     {
@@ -984,13 +985,16 @@ final class Applications
                     continue;
                 }
                 foreach ($files as $file) {
-                    if (is_file($file)) {
-                        @unlink($file);
+                    foreach ([$file, $file . self::ORPHAN_SUFFIX] as $one) { // F1: also a copy the sweep set aside
+                        if (is_file($one)) {
+                            @unlink($one);
+                        }
                     }
                 }
                 $rows[] = (int) $row['id'];
             }
             if ($rows !== []) {
+                self::forgetTwins($app, $rows); // F4: an enquiry twin a restored backup brought back would surface once its application went
                 $deleted += $db->run('DELETE FROM {applications} WHERE id IN (' . implode(',', $rows) . ')')->rowCount();
                 $gone = [...$gone, ...$rows];
             }
@@ -1008,6 +1012,39 @@ final class Applications
         }
 
         return $deleted;
+    }
+
+    /**
+     * Enquiries an application has a twin of (3.34 third review F4): a backup restored around the move brought the moved
+     * enquiry back next to its application – the same idp as source_enquiry_id and the same date. Enquiries::visible() hides
+     * it only while the application exists, so it goes for good – with its files (a CV an application still lists stays,
+     * Enquiries::deleteAttachments), the link of a deal and its notes, tasks and notifications – before the application is
+     * deleted, and in the daily clean-up. $ids: the twins of these applications only; null = every twin. Returns how many.
+     *
+     * @param list<int>|null $ids
+     */
+    public static function forgetTwins(App $app, ?array $ids = null): int
+    {
+        $db = $app->db();
+        if ($ids === []) {
+            return 0;
+        }
+        try {
+            $rows = $db->all('SELECT p.idp, p.data FROM {poptavky} p JOIN {applications} a ON a.source_enquiry_id = p.idp AND a.received_at = p.datum'
+                . ($ids !== null ? ' WHERE a.id IN (' . implode(',', array_map('intval', $ids)) . ')' : ''));
+        } catch (\PDOException) {
+            return 0; // before migration 0119
+        }
+        if ($rows === []) {
+            return 0;
+        }
+        $idps = array_map('intval', array_column($rows, 'idp'));
+        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows, $db);
+        Deals::forgetEnquiries($db, $idps);
+        $count = $db->run('DELETE FROM {poptavky} WHERE idp IN (' . implode(',', $idps) . ')')->rowCount();
+        Comments::forgetEnquiries($db, $idps);
+
+        return $count;
     }
 
     /**
@@ -1034,6 +1071,13 @@ final class Applications
 
     /** Days an encrypted file no application lists stays before the daily clean-up removes it (an interrupted run, a restored backup). */
     public const int ORPHAN_DAYS = 7;
+
+    /**
+     * The suffix of an encrypted file the sweep set aside (3.34 third review F1): an old file no row lists is renamed to it
+     * and its time set to now – it goes only ORPHAN_DAYS after that, and comes back the moment a row lists it again
+     * (sweepOrphans()) or something opens it (openSealed()). A restored backup never costs a CV its seven days.
+     */
+    public const string ORPHAN_SUFFIX = '.orphan';
 
     /**
      * Encrypts a file into FOLDER under a new random key and returns where it is and the key (base64). 3.34 second review
@@ -1158,6 +1202,9 @@ final class Applications
      */
     public static function openSealed(Settings $s, string $file, ?string $key): ?string
     {
+        if (!is_file($file) && is_file($file . self::ORPHAN_SUFFIX)) {
+            @rename($file . self::ORPHAN_SUFFIX, $file); // F1: set aside by the sweep, wanted again (a newer backup restored)
+        }
         $raw = is_file($file) ? @file_get_contents($file) : false;
         if (!is_string($raw)) {
             return null;
@@ -1379,13 +1426,19 @@ final class Applications
      */
     public static function lockFiles(Db $db, int $wait): bool
     {
-        return (int) $db->value('SELECT GET_LOCK(?, ' . max(0, $wait) . ')', ['kaleta_cv_' . $db->prefix]) === 1;
+        return (int) $db->value('SELECT GET_LOCK(' . self::LOCK_NAME . ', ' . max(0, $wait) . ')', [$db->prefix]) === 1;
     }
 
     public static function unlockFiles(Db $db): void
     {
-        $db->run('SELECT RELEASE_LOCK(?)', ['kaleta_cv_' . $db->prefix]);
+        $db->run('SELECT RELEASE_LOCK(' . self::LOCK_NAME . ')', [$db->prefix]);
     }
+
+    /**
+     * The name of that lock (3.34 third review F8): MySQL locks are server-wide, so it carries the database and the table
+     * prefix – two sites on one server with the same prefix never wait for each other. Hashed: at most 64 characters.
+     */
+    private const string LOCK_NAME = "CONCAT('kaleta_cv_', LEFT(SHA2(CONCAT(IFNULL(DATABASE(), ''), '|', ?), 256), 40))"; // SHA2: newer MySQL has no SHA1
 
     /**
      * Seals the files of applications moved from enquiries (migration 0120, the move by form: still in storage/prilohy,
@@ -1393,7 +1446,7 @@ final class Applications
      * id cursor (the setting applications_seal_after), so a row whose file is gone or cannot be sealed does not hold the
      * others back; at the end the cursor starts over. A file that is gone stays listed (the download says it no longer
      * exists). 3.34 second review N1: every file goes through sealEntry() – crash-safe, an interrupted run is finished by
-     * the next one – and the run ends with sweepOrphans(); N4: under lockFiles(), never while a move runs. Returns how many
+     * the next one – and the run ends with sweepOrphans() (third review F2: once a day); N4: under lockFiles(), never while a move runs. Returns how many
      * files were sealed.
      */
     public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
@@ -1446,7 +1499,10 @@ final class Applications
             }
             $s->set('applications_seal_after', (string) $after);
         }
-        self::sweepOrphans($app);
+        if ($s->get('applications_swept_on') !== Clock::today()) { // 3.34 third review F2: the sweep reads every row – once a day, not on every cron run
+            $s->set('applications_swept_on', Clock::today());
+            self::sweepOrphans($app);
+        }
 
         return $sealed;
     }
@@ -1571,18 +1627,24 @@ final class Applications
 
     /**
      * Encrypted files no application lists (3.34 second review N1 – a run killed after writing a copy, a move back killed
-     * before it removed the sealed copy, an upload whose row was never stored), and half-written ones (.part), older than
-     * ORPHAN_DAYS: removed. What a row lists is read from attachment_paths (always readable) – while a row without it has a
-     * list that cannot be opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget() would give a CV still waiting
-     * in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it back) – counts as listed.
-     * Returns how many files went.
+     * before it removed the sealed copy, an upload whose row was never stored, a database restored from an older backup),
+     * and half-written ones (.part). 3.34 third review F1: age alone never removes a CV – an unlisted .bin older than
+     * ORPHAN_DAYS is set aside (renamed to ORPHAN_SUFFIX, its time set to now) and removed only once it has stayed unlisted
+     * for ORPHAN_DAYS more; a set-aside file a row lists again is put back. A .part older than ORPHAN_DAYS goes at once.
+     * What a row lists is read from attachment_paths (always readable) – while a row without it has a list that cannot be
+     * opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget()
+     * would give a CV still waiting in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it
+     * back) – counts as listed; F2: the enquiries are read only when a file is still unlisted after the applications. Returns
+     * how many files went.
      */
     public static function sweepOrphans(App $app): int
     {
         $s = $app->settings();
         $cutoff = time() - self::ORPHAN_DAYS * 86400;
-        $old = array_filter(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [], fn (string $f): bool => is_file($f) && (int) @filemtime($f) < $cutoff);
-        if ($old === []) {
+        $files = array_filter(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [], 'is_file');
+        $aside = array_filter($files, fn (string $f): bool => str_ends_with($f, '.bin' . self::ORPHAN_SUFFIX));
+        $old = array_filter($files, fn (string $f): bool => (str_ends_with($f, '.bin') || str_ends_with($f, '.part')) && (int) @filemtime($f) < $cutoff);
+        if ($old === [] && $aside === []) {
             return 0;
         }
         $listed = [];
@@ -1598,9 +1660,12 @@ final class Applications
                     $listed[$file] = true;
                 }
             }
+            // F2: the enquiries are read only for a file the applications leave unlisted
+            $candidates = array_filter([...$old, ...array_map(fn (string $f): string => substr($f, 0, -strlen(self::ORPHAN_SUFFIX)), $aside)],
+                fn (string $f): bool => str_ends_with($f, '.bin') && !isset($listed[$f]));
             // N9: an enquiry restored from a backup older than the sealing opens its CV from the copy (Enquiries::actionAttachment)
             $after = 0;
-            while (($enquiries = $app->db()->all('SELECT idp, data FROM {poptavky} WHERE idp > ? ORDER BY idp LIMIT 500', [$after])) !== []) {
+            while ($candidates !== [] && ($enquiries = $app->db()->all('SELECT idp, data FROM {poptavky} WHERE idp > ? ORDER BY idp LIMIT 500', [$after])) !== []) {
                 foreach ($enquiries as $e) {
                     $after = (int) $e['idp'];
                     foreach (json_decode((string) $e['data'], true) ?: [] as $field) {
@@ -1614,9 +1679,19 @@ final class Applications
             return 0;
         }
         $removed = 0;
+        foreach ($aside as $file) {
+            $original = substr($file, 0, -strlen(self::ORPHAN_SUFFIX));
+            if (isset($listed[$original])) {
+                is_file($original) ? @unlink($file) : @rename($file, $original); // listed again (a newer backup restored): back
+            } elseif ((int) @filemtime($file) < $cutoff && (!$unknown || self::headerKey($s, $file) !== null)) {
+                $removed += @unlink($file) ? 1 : 0; // unlisted for ORPHAN_DAYS since it was set aside
+            }
+        }
         foreach ($old as $file) {
-            if (str_ends_with($file, '.part') || (str_ends_with($file, '.bin') && !isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null))) {
+            if (str_ends_with($file, '.part')) {
                 $removed += @unlink($file) ? 1 : 0;
+            } elseif (!isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null) && @rename($file, $file . self::ORPHAN_SUFFIX)) {
+                @touch($file . self::ORPHAN_SUFFIX); // F1: the seven days count from now, not from when the file was written
             }
         }
 
@@ -1864,6 +1939,7 @@ final class Applications
         }
         self::sealPending($app);
         self::resealHeld($app); // M5: lists held under the database key while the Vault key was missing
+        self::forgetTwins($app); // F4: enquiry twins a restored backup brought back go, before a deleted application lets one surface
         $months = $app->settings()->int('applications_months');
         if ($months <= 0) {
             return 0;
@@ -1882,9 +1958,10 @@ final class Applications
         }
         $expired = self::expired($rows, $months, $today);
         if ($expired !== []) {
-            // M5: an application whose CV list cannot be opened (the encryption key) waits – deleting it would orphan its CVs
-            $locked = array_map('intval', array_column(array_filter($db->all('SELECT id, attachments FROM {applications} WHERE id IN (' . implode(',', $expired) . ')'),
-                fn (array $r): bool => self::attachmentsLocked($app->settings(), $r['attachments'])), 'id'));
+            // M5: an application whose CV list cannot be opened (the encryption key) and whose files cannot be located waits –
+            // deleting it would orphan its CVs; 3.34 third review F5: one with attachment_paths goes (delete() finds its files, N7)
+            $locked = array_map('intval', array_column(array_filter($db->all('SELECT id, attachments, attachment_paths FROM {applications} WHERE id IN (' . implode(',', $expired) . ')'),
+                fn (array $r): bool => self::rowFiles($app->settings(), $r) === null), 'id'));
             $expired = array_values(array_diff($expired, $locked));
         }
         if ($expired === []) {
