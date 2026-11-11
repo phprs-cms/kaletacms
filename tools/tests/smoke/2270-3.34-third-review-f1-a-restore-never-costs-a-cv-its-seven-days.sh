@@ -15,7 +15,7 @@ expect "3.34 third review F1: the first sweep after the restore removes nothing 
   "0|aside|aside|aside|fresh"
 expect "3.34 third review F1: a second sweep the same week still removes nothing" "$(t334_php 'echo Kaleta\Core\Applications::sweepOrphans($app);')|$(f1_where "$F1_A")" "0|aside"
 # B: a newer backup restored – a row lists it again; the sweep puts it back
-F1_B_REL=${F1_B#"$WORK/web/storage/applications/"}
+F1_B_REL="2026/08/$(basename "$F1_B")"
 F1_B_ID=$(sq "INSERT INTO ka_applications (received_at, form, data, attachment_paths, status, status_at, last_activity_at) VALUES ('$(site_time)', 'F1', '[]', '{\"bin\":[\"$F1_B_REL\"],\"old\":[]}', 'new', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
 t334_php 'Kaleta\Core\Applications::sweepOrphans($app);' > /dev/null
 expect "3.34 third review F1: listed again, the set-aside file is put back under its name" "$(f1_where "$F1_B")" "here"

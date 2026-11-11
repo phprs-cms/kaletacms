@@ -22,8 +22,9 @@ expect "3.34 third review F4: deleting the application deletes its twin, the twi
 # the daily clean-up removes a twin while its application stays, and keeps the CV the application lists
 F4_B=$(f4_twin 'f4-cleanup@example.com' 'CV of F4b'); F4_B_E=${F4_B%%|*}; F4_B_REST=${F4_B#*|}; F4_B_ID=${F4_B_REST%%|*}; F4_B_CV=${F4_B_REST#*|}
 t334_php 'Kaleta\Core\Applications::purge($app);' > /dev/null
+# (the clean-up may seal the CV meanwhile – the plain file then goes, the application's CV still opens)
 expect "3.34 third review F4: the clean-up deletes the twin and its note, the application and its CV stay" \
-  "$(f4_state "$F4_B_E" "$F4_B_ID")|$([ -f "$F4_B_CV" ] && echo kept || echo gone)" "0|1|0|kept"
+  "$(f4_state "$F4_B_E" "$F4_B_ID")|$(t334_php 'echo Kaleta\Core\Applications::attachment($app, '"$F4_B_ID"', 0)["content"] ?? "lost";')" "0|1|0|CV of F4b"
 t334_php 'Kaleta\Core\Applications::delete($app, ['"$F4_B_ID"'], false);' > /dev/null
 expect "3.34 third review F4: an enquiry with the same number but another date is no twin – it stays" \
   "$(F4_C=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time '-1 day')', 'F4 other', 'stranka:1', '/kontakt', 'f4-other@example.com', '[]', 0); SELECT LAST_INSERT_ID();");
