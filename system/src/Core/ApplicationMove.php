@@ -261,8 +261,8 @@ final class ApplicationMove
         $data = array_map(fn (array $f): array => [(string) $f[0], (string) $f[1]], $data);
         $written = [];
         $sealedFiles = [];
-        $forget = static function () use (&$written): void {
-            foreach ($written as $file) {
+        $forget = static function (array $files): void {
+            foreach ($files as $file) {
                 @unlink($file); // the plain copies of an application that stays
             }
         };
@@ -281,14 +281,14 @@ final class ApplicationMove
             $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
             $target = Applications::OLD_FOLDER . '/' . $path;
             if ($file === null || (!is_dir(dirname($target)) && !@mkdir(dirname($target), 0770, true)) || @file_put_contents($target, $file['content'], LOCK_EX) === false) {
-                $forget();
+                $forget($written);
 
                 return false;
             }
             $written[] = $target;
             $check = @file_get_contents($target);
             if (!is_string($check) || !hash_equals(hash('sha256', $file['content']), hash('sha256', $check))) {
-                $forget();
+                $forget($written);
 
                 return false;
             }
@@ -313,7 +313,7 @@ final class ApplicationMove
                 }
             });
         } catch (\Throwable) {
-            $forget();
+            $forget($written);
 
             return false;
         }
