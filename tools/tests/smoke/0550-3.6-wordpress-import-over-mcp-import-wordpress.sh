@@ -25,11 +25,13 @@ expect "3.6 import_wordpress: done in batches, counts per type, everything that 
 mcp_text; contains -q '"what":"status","count":1' "$WORK/text" && contains -q '"what":"layout:Breakdance","count":1' "$WORK/text" && contains -q 'migration_report' "$WORK/text" \
   && echo "  ok     3.6 import_wordpress: what was skipped and why (a private page, a Breakdance layout) and the next steps" || { echo "  CHYBA  3.6 import_wordpress skipped/next"; head -c 600 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 expect "3.6 nothing is public: news drafts, pages hidden, the private page not imported" \
-  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link IN ('nova-zakazka-v-lhote', 'rozepsany-clanek-o-strechach') AND visible = 0), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link IN ('sluzby-stavby', 'rekonstrukce-bytu', 'kontakt-stavby-2', 'o-firme-novak') AND zobrazit = 0), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'interni-cenik'))")" "2/4/0"
+  "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_novinky WHERE seo_link IN ('nova-zakazka-v-lhote', 'rozepsany-clanek-o-strechach') AND visible = 0), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link IN ('sluzby-stavby', 'sluzby-stavby/rekonstrukce-bytu', 'kontakt-stavby-2', 'o-firme-novak') AND zobrazit = 0), '/', (SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'interni-cenik'))")" "2/4/0"
 expect "3.6 authors: Jan's news belongs to the user with his e-mail, Petra's to the importer, no account is created" \
   "$(sq "SELECT CONCAT((SELECT autor FROM ka_novinky WHERE seo_link = 'nova-zakazka-v-lhote') = $WXR_JAN, '/', (SELECT autor FROM ka_novinky WHERE seo_link = 'rozepsany-clanek-o-strechach') = (SELECT idu FROM ka_uzivatele WHERE user = 'admin'), '/', (SELECT COUNT(*) FROM ka_uzivatele WHERE email LIKE '%stavby-novak%'))")|$(mcp_value authors 0 why)" \
   "1/1/1|a user here has the same e-mail"
-code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$B/sluzby-stavby/rekonstrukce-bytu/"); expect "3.6 an old WordPress address redirects to the new one" "$code" "301 $B/rekonstrukce-bytu"
+# 3.33 (M3): a child page keeps its old nested address – no redirect is needed; the old ?p= address still redirects to it
+expect "3.6/3.33 a nested WordPress page keeps its old address (no redirect), its ?p= address redirects to it" \
+  "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'sluzby-stavby/rekonstrukce-bytu'")|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE '?p=%' AND na_adresu = 'sluzby-stavby/rekonstrukce-bytu'")" "0|1"
 expect "3.6 an old address that is a page here is not taken over by a redirect (links to it stay), and the answer says so" \
   "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy = 'kontakt-stavby'")|$(mcp_value redirects not_created 0 from)|$(curl -s -o /dev/null -w '%{http_code}' "$B/kontakt-stavby")" "0|/kontakt-stavby|404"
 expect "3.6 the menus: main and footer into the draft look, the third one handed back for save_menu" \
@@ -40,7 +42,7 @@ wxr_menu() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), t
   echo ($v["look_draft"] ?? "") !== "" ? "draft:" : "live:", $f($v["items"] ?? []);' "$WORK/response"; }
 mcp get_menu '{"location":"main"}' > "$WORK/response"
 expect "3.6 the main menu draft: links to the new addresses, hierarchy kept, a third level moved up, a page that was not imported left out" "$(wxr_menu)" \
-  "draft:Domů=/,=page[Byty=page,Postup=/rekonstrukce-bytu#postup],Aktuality stavby=/novinky/kategorie/aktuality-stavby[Zakázka=/novinky/nova-zakazka-v-lhote],Kontakt=page"
+  "draft:Domů=/,=page[Byty=page,Postup=/sluzby-stavby/rekonstrukce-bytu#postup],Aktuality stavby=/novinky/kategorie/aktuality-stavby[Zakázka=/novinky/nova-zakazka-v-lhote],Kontakt=page"
 mcp get_menu '{"location":"footer"}' > "$WORK/response"
 expect "3.6 the footer menu draft: custom links stay, a path of the old site stays a path" "$(wxr_menu)" "draft:Facebook=https://facebook.example/stavbynovak*,Ochrana údajů=/ochrana-udaju"
 # 3.12 (UX310-17): the look bar says what each draft menu changes for visitors and Publish asks first; the import result offers
@@ -54,7 +56,7 @@ contains -q 'class="hlaska hlaska-varovani import-menu-zmeny"' "$WORK/response" 
 # the same file again: nothing is duplicated and the menus are not put into the draft a second time
 wxr_run
 expect "3.6 import_wordpress again: nothing duplicated, everything reported as already imported, the menus too" \
-  "$(mcp_value phase)|$(mcp_value result news)|$(mcp_value result pages)|$(mcp_value result already_imported)|$(mcp_value menus 0 status)|$(sq "SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'nova-zakazka-v-lhote%'")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'sluzby-stavby%'")" \
+  "$(mcp_value phase)|$(mcp_value result news)|$(mcp_value result pages)|$(mcp_value result already_imported)|$(mcp_value menus 0 status)|$(sq "SELECT COUNT(*) FROM ka_novinky WHERE seo_link LIKE 'nova-zakazka-v-lhote%'")|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link LIKE 'sluzby-stavby%' AND seo_link NOT LIKE '%/%'")" \
   "done|0|0|6|skipped|1|1"
 expect "3.6 the live menus did not change; the draft look holds the main and the footer menu" \
   "$(sq "SELECT COALESCE(SHA2(GROUP_CONCAT(umisteni, jazyk, polozky ORDER BY umisteni, jazyk), 256), '-') FROM ka_menu")|$(sq "SELECT JSON_LENGTH(hodnota, '\$.menus') FROM ka_nastaveni WHERE promenna = 'look_draft'")" "$WXR_LIVE_MENU|2"

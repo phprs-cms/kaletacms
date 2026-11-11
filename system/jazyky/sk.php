@@ -2035,4 +2035,5 @@ return [
     'open in a new window' => 'otvoriť v novom okne',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Ak stránka tohto webu zobrazuje vyhľadávač pobočiek, ktorý načíta mapu hneď, váš prehliadač sa pri otvorení stránky – ešte pred udelením súhlasu v lište cookies – spojí s OpenStreetMap (OpenStreetMap Foundation) a pošle mu vašu IP adresu, aby mapu načítal; inak sa mapa načíta až po kliknutí.',
     'Choose the date and time in the Content panel.' => 'Dátum a čas vyberte v paneli Obsah.',
+    'This site is being moved here. The pages of the old site arrive with the import.' => 'Web sa sem práve sťahuje. Stránky starého webu prídu s importom.',
 ];

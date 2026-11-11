@@ -2061,4 +2061,5 @@ return [
     'open in a new window' => 'otwórz w nowym oknie',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Jeśli strona tej witryny pokazuje wyszukiwarkę oddziałów, która od razu wczytuje mapę, Twoja przeglądarka łączy się z OpenStreetMap (OpenStreetMap Foundation) zaraz po otwarciu strony – zanim wyrazisz zgodę w banerze cookies – i przesyła Twój adres IP, aby wczytać mapę; w przeciwnym razie mapa wczytuje się dopiero po kliknięciu.',
     'Choose the date and time in the Content panel.' => 'Wybierz datę i godzinę w panelu Treść.',
+    'This site is being moved here. The pages of the old site arrive with the import.' => 'Ta strona jest właśnie przenoszona. Strony starej witryny pojawią się wraz z importem.',
 ];

@@ -58,6 +58,11 @@ trait MediaTools
         } else {
             $state = \Kaleta\Core\WebImport::load($id) ?? throw new \InvalidArgumentException('The import does not exist; start a new one with the url.');
         }
+        if (array_key_exists('ponechat_vzory', $a) && $state['faze'] === 'nahled') {
+            // 3.33 (M2): the starter pages to keep – old addresses (["/contact"], ["*"] or true = all) of the preview's choices
+            $state['volby']['ponechat_vzory'] = \Kaleta\Core\StarterPages::keepFromAddresses(
+                \Kaleta\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), ['volby' => ['ponechat_vzory' => []] + $state['volby']] + $state), $a['ponechat_vzory']);
+        }
         if (($a['potvrdit'] ?? false) === true && $state['faze'] === 'nahled') {
             $state['faze'] = 'import';
             $state['pozice'] = 0;
@@ -78,10 +83,17 @@ trait MediaTools
             'result' => ['new_pages' => $r['stranky'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
             'failures' => $state['chyby'],
             'notes' => \Kaleta\Core\WebImport::notes($state), // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
+            'old_site_reachable' => !isset($state['nedostupny']), // 3.33 (M6): found nothing because nothing answered – the notes say why
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
+        ] + ($state['faze'] === 'nahled'
+            // 3.33 (M2): the starter pages the import replaces (replace: true) or keeps (why: kept | edited) – keep_starter_pages declines one
+            ? ['starter_pages' => \Kaleta\Core\WebImport::starterChoices($this->app->db(), $this->app->settings(), $state)]
+            : ['starter_pages_result' => \Kaleta\Core\StarterPages::summary((array) ($state['vzory'] ?? [])),
+                // 3.33 (M3): old paths kept parents and all; the ones that could not be kept as they were (shortened, flattened)
+                'addresses_changed' => \Kaleta\Core\ImportPath::summary((array) ($state['zmenene_adresy'] ?? []))]) + [
             'next' => match ($state['faze']) {
                 'hledani', 'import' => 'Call again with the same import id.',
-                'nahled' => 'Show the user what was found; on their instruction call again with confirm: true.',
+                'nahled' => 'Show the user what was found and which starter pages of this site the import replaces (starter_pages); on their instruction call again with confirm: true (keep_starter_pages: ["/old-address"] keeps a starter page, ["*"] all of them).',
                 default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.',
             }];
     }

@@ -29,6 +29,9 @@ final class Installer
         $this->view = new View([KALETA_SYSTEM . '/views']);
     }
 
+    /** The choice "Empty site for a move" (3.33, M2): the home page placeholder and the privacy policy skeleton, no sample pages. */
+    public const string MOVE = 'move';
+
     /** Installation languages (= admin languages) and the default time zone we offer for them. */
     private const array TIME_ZONES = ['cs' => 'Europe/Prague', 'en' => 'Europe/London', 'de' => 'Europe/Berlin', 'es' => 'Europe/Madrid'];
 
@@ -100,7 +103,7 @@ final class Installer
             $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
-                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export',
+                return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export', 'forMove' => $data['web'] === self::MOVE,
                     'mcp' => in_array('claude', $extensions, true) ? $this->request->origin() . $this->request->basePath() . '/mcp' : null,
                     'cron' => '*/5 * * * * curl -s "' . $this->request->origin() . $this->request->basePath() . '/' . $this->cronPath . '?token=' . $this->tasksToken . '" > /dev/null',
                     'userIni' => $this->userIni === 'written' ? \Kaleta\Core\UploadLimit::fileName() : null]);
@@ -280,8 +283,12 @@ final class Installer
                 return;
             }
             $x = fn (string $text): string => \Kaleta\Core\Language::runWith($siteLanguage, fn (): string => t($text));
+            // 3.33 (M2): "Empty site for a move" – only what a site needs to run: the home page as a placeholder (the import of
+            // the old home page replaces it), the privacy policy skeleton (hidden, linked from the footer and the cookie bar)
+            // and the settings with the default look; no About us, Services, Contact, no news category and no welcome news
+            $move = $d['web'] === self::MOVE;
             // skeleton of a typical company site: home, about us, services, contact – the texts are only a guide to what belongs on the page
-            $pages = [
+            $pages = $move ? [[$x('Úvod'), slugify($x('Úvod')), 0, '<p>' . e($x('This site is being moved here. The pages of the old site arrive with the import.')) . '</p>']] : [
                 [$x('Úvod'), slugify($x('Úvod')), 0, '<h1>' . e($d['nazev_webu']) . '</h1><p>' . e($x('In one sentence: what you do and for whom. Edit this page in the administration under Pages.')) . '</p>'],
                 [$x('About us'), slugify($x('About us')), 1, '<p>' . e($x('Who you are, how long you have been doing it and why customers trust you.')) . '</p>'],
                 [$x('Services'), slugify($x('Services')), 1, '<p>' . e($x('What you offer – each service briefly and clearly.')) . '</p>'],
@@ -293,15 +300,17 @@ final class Installer
             // 3.20 (C11): the starters carry the time of the installation, so the dashboard's "Recently edited" and the Edited
             // column are not empty on a fresh site; zmenil stays NULL – nobody edited them, First steps count a person's edit
             $installed = date('Y-m-d H:i:s');
+            $starters = [];
             foreach ($pages as $i => [$title, $url, $inMenu, $text]) {
                 $row = ['titulek' => $title, 'seo_link' => $url, 'text' => $text, 'v_menu' => $inMenu, 'poradi' => ($i + 1) * 10, 'zmeneno' => $installed];
-                if (($siteSettings['stranky'][$i] ?? []) !== []) {
+                if (!$move && ($siteSettings['stranky'][$i] ?? []) !== []) {
                     // sections with elements of disabled extensions (news list, form) are not put on the initial pages, neither are empty images
                     $build = Library::page($db, $siteSettings['stranky'][$i], $title, $siteLanguage, Build::disabledTypes($extensions), true);
                     $row['stavba'] = Build::toJson($build);
                     $row['text'] = Build::asText($build);
                 }
                 $id = $db->insert('stranky', $row);
+                $starters[] = $id;
                 $home = $home ?: $id;
             }
 
@@ -317,13 +326,15 @@ final class Installer
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy),
-                'slugs_per_language' => '1']; // 3.19: schema.sql has no global slug keys – the same address once in each language version
+                'slugs_per_language' => '1', // 3.19: schema.sql has no global slug keys – the same address once in each language version
+                // 3.33 (M2): what the installer wrote on each starter page – an import replaces an untouched one (Core\StarterPages)
+                \Kaleta\Core\StarterPages::SETTING => \Kaleta\Core\StarterPages::record($db, $starters)];
             foreach ($settings as $key => $value) {
                 $db->insert('nastaveni', ['promenna' => $key, 'hodnota' => $value]);
             }
 
-            if (!in_array('novinky', $extensions, true)) {
-                return; // without news and without the welcome news item
+            if ($move || !in_array('novinky', $extensions, true)) {
+                return; // without news (or a move: the old site's news arrive with the import) – no welcome news item
             }
             $category = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
             $db->insert('novinky', [

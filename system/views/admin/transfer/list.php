@@ -20,12 +20,21 @@
  * @var array<string, class-string<Kaleta\Import\Source&Kaleta\Import\Remote>> $remoteSources  those fetched from the site's API (Joomla, Drupal)
  * @var bool $canFetch  the server has curl, so it can read a site's API
  * @var list<array{soubor:string, zdroj:string, velikost:int, cas:int, stav:array<string,mixed>|null}> $sourceFiles  their exports in storage/import/sources/
+ * @var array<int, array{ids: int, seo_link: string, jazyk: string, titulek: string, home: bool}> $samplePages  the untouched starter pages (3.33, Core\StarterPages)
  */
 $phase = [
     'stahovani' => 'being fetched from the site', 'analyza' => 'being read', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported',
     'obrazky' => 'downloading images', 'obrazky-hotovo' => 'imported including images',
 ];
 ?>
+<?php $removable = array_filter($samplePages, fn (array $p): bool => !$p['home']); if ($removable !== []): // 3.33 (M2): the sample pages of the installer ?>
+<details class="panel-sbaleny" id="sample-pages" open>
+<summary><h2><?= e(t('Sample pages')) ?></h2></summary>
+<p><?= e(t('This site still has the sample pages of the installation, untouched: %s. Moving a site here? An import replaces a sample page at the same address (the preview lets you keep it); you can also move them all to the trash now – the Home page stays until the import of the old home page replaces it.', implode(', ', array_map(fn (array $p): string => $p['titulek'] . ' (/' . $p['seo_link'] . ')', $removable)))) ?></p>
+<form method="post" action="<?= e($module->url('starter_remove')) ?>"><?= $csrf ?>
+	<p class="tlacitka"><button class="tl" type="submit" data-potvrdit="<?= e(t('Move the untouched sample pages to the trash? You can restore them for 30 days.')) ?>"><?= e(t('Move the sample pages to the trash')) ?></button></p></form>
+</details>
+<?php endif ?>
 <?php /* 3.2: one panel per task, folded until it is opened or has work in progress – the screen no longer stacks seven forms */ ?>
 <details class="panel-sbaleny"<?= $webImports !== [] ? ' open' : '' ?>>
 <summary><h2><?= e(t('Import from a website')) ?></h2></summary>

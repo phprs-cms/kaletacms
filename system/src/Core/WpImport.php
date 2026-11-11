@@ -55,7 +55,8 @@ final class WpImport
      * obrazky = images are downloaded right after the content (MCP; the admin has its own button for it).
      */
     public const array DEFAULT_OPTIONS = ['jazyk' => '', 'koncepty' => true, 'stranky' => true, 'stavitel' => true, 'presmerovani' => true, 'rubrika' => 0, 'kolekce' => true,
-        'menu' => true, 'menu_umisteni' => [], 'autori' => [], 'skryte' => false, 'obrazky' => false, 'jazyky_pridat' => false];
+        'menu' => true, 'menu_umisteni' => [], 'autori' => [], 'skryte' => false, 'obrazky' => false, 'jazyky_pridat' => false,
+        'ponechat_vzory' => []]; // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
 
     /** At most this many menu items are kept from one file (Core\Menu takes 80 per menu). */
     public const int MAX_MENU_ITEMS = 500;
@@ -226,6 +227,11 @@ final class WpImport
             self::tallyLinks($state, '<a href="' . e((string) ($p['meta']['_menu_item_url'] ?? '')) . '">');
         } elseif ($p['typ'] === 'post' || $p['typ'] === 'page') {
             $destination = $p['typ'] === 'post' ? 'clanky' : 'stranky';
+            if ($p['typ'] === 'page' && self::articleStatus($p['stav']) !== null && count($overview['cile_stranek'] ?? []) < 5000) {
+                // 3.33 (M2): where the page will land – the preview shows the starter pages of this site it replaces
+                $code = (string) self::itemLanguage($p, $state)[0];
+                $overview['cile_stranek'][] = [self::oldPath((string) $p['odkaz']), ImportPath::plan(self::pagePath((string) $p['odkaz']), self::plannedSlug($p), $code)[0], $code, self::isHomeLink((string) $p['odkaz'])];
+            }
             $overview[$destination][$p['stav']] = ($overview[$destination][$p['stav']] ?? 0) + 1;
             if ($p['typ'] === 'post' && $p['autor'] !== '' && self::articleStatus($p['stav']) !== null) {
                 $overview['prispevky_autoru'][$p['autor']] = ($overview['prispevky_autoru'][$p['autor']] ?? 0) + 1;
@@ -438,6 +444,48 @@ final class WpImport
         return Slug::makeUnique($base, $isTaken, 120);
     }
 
+    /**
+     * The address a WordPress page asks for here, before a number makes it free (3.33: shared with the preview).
+     *
+     * @param array<string, mixed> $p a post from WpFile::item()
+     */
+    public static function plannedSlug(array $p): string
+    {
+        $slug = rawurldecode((string) ($p['adresa'] ?? ''));
+        $title = (string) ($p['titulek'] ?? '');
+
+        return slugify($slug !== '' ? $slug : mb_substr($title !== '' ? $title : t('(untitled)'), 0, 200), 110);
+    }
+
+    /** The old path of a page's link for its address here: '' for a link with a query (?page_id= of an unpublished page). */
+    public static function pagePath(string $link): string
+    {
+        return parse_url($link, PHP_URL_QUERY) === null ? self::oldPath($link) : '';
+    }
+
+    /** Is the link of a WordPress page the site's front page (the root address, no ?page_id=)? (3.33) */
+    public static function isHomeLink(string $link): bool
+    {
+        return $link !== '' && self::oldPath($link) === '' && parse_url($link, PHP_URL_QUERY) === null && parse_url($link, PHP_URL_HOST) !== null;
+    }
+
+    /**
+     * The starter pages of this site the import's pages would land on, for the preview (3.33, M2).
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>
+     */
+    public static function starterChoices(Db $db, Settings $settings, array $state): array
+    {
+        $fallback = Language::column($settings, (string) ($state['volby']['jazyk'] ?? ''));
+        $targets = [];
+        foreach ((array) ($state['prehled']['cile_stranek'] ?? []) as $t) {
+            $targets[] = ['old' => (string) $t[0], 'slug' => (string) $t[1], 'language' => (string) $t[2] !== '' ? Language::column($settings, (string) $t[2]) : $fallback, 'home' => (bool) $t[3]];
+        }
+
+        return StarterPages::choices($db, $settings, $targets, array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))));
+    }
+
     /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
     public static function oldPath(string $link): string
     {
@@ -518,6 +566,7 @@ final class WpImport
         }
         // the translations are linked once every language version is in (an original may come after its translation)
         $this->linkTranslations($state);
+        ImportPath::linkParents($this->db); // 3.33 (M3): a child page listed before its parent
         // the menus last: now every page and post they point to has its new address
         $state['menu_vysledek'] =($state['volby']['menu'] ?? true) ? $this->menus($state) : [];
         $state['faze'] = 'hotovo';
@@ -652,8 +701,14 @@ final class WpImport
         }
         $articleStatus = self::hidden($articleStatus, $state);
         $title = mb_substr($p['titulek'] !== '' ? $p['titulek'] : t('(untitled)'), 0, 200);
-        // a page has its slug directly under the site root, so it must not take a slug the system uses
-        $seo = $this->freeSlug('stranky', slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110), $language, '', $state, 120);
+        // 3.33 (M2): an untouched starter page at the address (or the starter home page for the old front page) makes room
+        $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
+        // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath); the parent page is linked now or at the end
+        $target = ImportPath::target($this->db, self::pagePath((string) $p['odkaz']), self::plannedSlug($p), $language, (string) self::itemLanguage($p, $state)[0]);
+        $starter = StarterPages::makeRoom($this->db, $this->settings, self::oldPath((string) $p['odkaz']), $target['slug'], $language, self::isHomeLink((string) $p['odkaz']),
+            array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))), $state['vzory']);
+        // a page directly under the site root must not take a slug the system uses (Pages::slugReserved; a nested one never collides)
+        $seo = $this->freeSlug('stranky', $target['slug'], $language, '', $state, 120);
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
         $plugin = $this->seo($p, '', 200, 300, $state);
         $ids = $this->db->insert('stranky', [
@@ -663,9 +718,15 @@ final class WpImport
             'seo_titulek' => $plugin['title'], 'noindex' => $plugin['noindex'], 'canonical_url' => $plugin['canonical'],
             'zobrazit' => $articleStatus['visible'],
             'v_menu' => 0, // dozens of old pages would flood the navigation; the administrator adds them to the menu themselves
-            'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
+            'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language, 'nadrazena' => $target['parent'],
         ]);
         $seo = Slug::fromId($this->db, 'stranky', $ids); // a title with nothing to transliterate: page-<id>, not n-a
+        if ($starter !== null && $starter['home']) {
+            $this->settings->set('home_page', (string) $ids);
+        }
+        if ($target['note'] !== '' && count($state['zmenene_adresy'] ?? []) < self::MAX_LISTED) {
+            $state['zmenene_adresy'][] = ['/' . self::oldPath((string) $p['odkaz']), '/' . ($language !== '' ? $language . '/' : '') . $seo, $target['note']]; // shortened or flattened
+        }
         $this->writeMap('stranka', (string) $p['id'], $ids);
         $state['vysledek']['stranky']++;
         if ($state['volby']['presmerovani']) {
@@ -1700,6 +1761,7 @@ final class WpImport
         }
         $options['menu_umisteni'] = $locations;
         $options['autori'] = $authors;
+        $options['ponechat_vzory'] = array_values(array_unique(array_map('intval', array_filter(is_array($input['ponechat_vzory'] ?? null) ? $input['ponechat_vzory'] : [], is_numeric(...)))));
 
         return $options;
     }
@@ -1716,6 +1778,8 @@ final class WpImport
         $state['volby'] = $options;
         $state['faze'] = 'import';
         $state['pozice'] = 0;
+        $state['vzory'] = ['nahrazeno' => [], 'ponechano' => []]; // 3.33 (M2)
+        $state['zmenene_adresy'] = []; // 3.33 (M3): [old, new, shortened | flattened]
         foreach (['vysledek', 'vynechano', 'presmerovani', 'menu_vysledek', 'autori_vysledek', 'kolize'] as $key) {
             $state[$key] = $fresh[$key];
         }
@@ -1901,6 +1965,8 @@ final class WpImport
                 'why' => ['volba' => 'chosen in the options', 'email' => 'a user here has the same e-mail', 'import' => 'no user here has the author\'s e-mail – the user who runs the import'][$a['jak']] ?? $a['jak']],
                 array_map('strval', array_keys($state['autori_vysledek'])), array_values($state['autori_vysledek'])),
             'images' => ['downloaded' => (int) $state['obr']['stazeno'], 'failed' => (int) $state['obr']['chyb'], 'recent_failures' => $state['obr']['chyby']],
+            'starter_pages' => StarterPages::summary((array) ($state['vzory'] ?? [])), // 3.33 (M2): the starter pages replaced and kept
+            'addresses_changed' => ImportPath::summary((array) ($state['zmenene_adresy'] ?? [])), // 3.33 (M3): old paths that could not be kept as they were
         ] + (($state['prilis_velke'] ?? []) !== [] ? ['too_large' => self::tooLarge($state, HtmlLimits::english(...))] : [])
             + (($p['typy'][WpWooCommerce::TYPE]['woo'] ?? false) ? ['woocommerce' => [
                 'products' => (int) $p['typy'][WpWooCommerce::TYPE]['pocet'], 'product_categories' => count((array) ($p['typy'][WpWooCommerce::TYPE]['kategorie'] ?? [])),

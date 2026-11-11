@@ -2088,4 +2088,5 @@ The link works for %d days.
     'open in a new window' => 'فتح في نافذة جديدة',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'إذا كانت إحدى صفحات هذا الموقع تعرض أداة للبحث عن الفروع تحمّل خريطتها فورًا، فإن متصفحك يتصل بـ OpenStreetMap (مؤسسة OpenStreetMap) بمجرد فتح الصفحة – قبل أن تمنح موافقتك في شريط ملفات تعريف الارتباط – ويرسل إليه عنوان IP الخاص بك لتحميل الخريطة؛ وإلا فلا تُحمَّل الخريطة إلا بعد النقر عليها.',
     'Choose the date and time in the Content panel.' => 'اختر التاريخ والوقت في لوحة المحتوى.',
+    'This site is being moved here. The pages of the old site arrive with the import.' => 'يجري نقل هذا الموقع إلى هنا. تصل صفحات الموقع القديم مع الاستيراد.',
 ];

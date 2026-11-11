@@ -33,7 +33,16 @@ final class MigrationReport
         'missing' => 'error', 'form_missing' => 'error', 'hidden' => 'warning', 'chain' => 'warning',
         'no_description' => 'warning', 'fewer_images' => 'warning', 'not_read' => 'info', 'redirect_out' => 'info', 'robots' => 'info',
         'too_large' => 'info',
+        // 3.33 (M5): the address lands on an untouched sample page of the installation; the page title changed on the way
+        'sample_page' => 'error', 'title_changed' => 'info',
     ];
+
+    /** A form found on at least this share of the old pages read (and on SITE_WIDE_MIN of them) is the site's own – a pop-up or the footer (3.33, M5). */
+    public const float SITE_WIDE_SHARE = 0.5;
+    public const int SITE_WIDE_MIN = 3;
+
+    /** @var array<int, true>|null the untouched starter pages of this site (Core\StarterPages), read once per batch */
+    private ?array $samples = null;
 
     private float $end = 0.0;
 
@@ -119,7 +128,7 @@ final class MigrationReport
                 $state['adresy'] = array_keys($discovery['adresy']);
                 $state['robots'] = $discovery['robots'] ?? [];
                 // what the result says about how the old site was read (WebImport::notes) stays with the report
-                $state['hledani'] = ['adresy' => count($state['adresy'])] + array_intersect_key($discovery, ['mapy_cizi' => 1, 'mapy_navic' => 1]);
+                $state['hledani'] = ['adresy' => count($state['adresy'])] + array_intersect_key($discovery, ['mapy_cizi' => 1, 'mapy_navic' => 1, 'nedostupny' => 1]);
                 $state['faze'] = 'kontrola';
             }
         }
@@ -154,6 +163,9 @@ final class MigrationReport
         if (in_array($status, ['missing', 'hidden', 'chain', 'redirect_out'], true)) {
             $problems[] = $status;
         }
+        if ($status === 'sample') {
+            $problems[] = 'sample_page'; // 3.33 (M5): never "ok" – the visitor would see the installer's sample text
+        }
         $old = null;
         $html = WebImport::robotsAllow($robots, $url) ? $this->fetch($url, $robots) : null;
         if ($html !== null) {
@@ -175,15 +187,21 @@ final class MigrationReport
             if ($old['obrazky'] >= 3 && $target['obrazky'] * 2 < $old['obrazky']) {
                 $problems[] = 'fewer_images';
             }
+            if (in_array($target['typ'], ['page', 'news', 'item', 'category'], true) && $status !== 'sample' && !self::sameTitle($old['titulek'], $target['titulek'])) {
+                $problems[] = 'title_changed';
+            }
         }
 
+        // formulare: the old page's forms by their fields – a form on most old pages is reported once (result(), 3.33 M5)
         return ['stara' => '/' . $path, 'nova' => $target['adresa'], 'stav' => $status, 'problemy' => $problems,
-            'titulek_stary' => $old['titulek'] ?? '', 'titulek_novy' => $target['titulek']];
+            'titulek_stary' => $old['titulek'] ?? '', 'titulek_novy' => $target['titulek'], 'formulare' => $old['formulare'] ?? []];
     }
 
     /**
      * Where a path leads on this site: ok (published content), redirect (one hop to published content), chain (more hops),
      * redirect_out (to another site), hidden (content that is not published) or missing.
+     *
+     * 3.33 (M5): sample = an untouched sample page of the installation (Core\StarterPages), never "ok".
      *
      * @return array{stav: string, adresa: string, typ: string, titulek: string, popis: string, formular: bool, obrazky: int}
      */
@@ -194,7 +212,11 @@ final class MigrationReport
         $db = $this->app->db();
         $content = $this->content($path);
         if ($content !== null) {
-            return $content + ['adresa' => '/' . $path, 'stav' => $content['zobrazeno'] ? ($hops === 0 ? 'ok' : ($hops === 1 ? 'redirect' : 'chain')) : 'hidden'];
+            $this->samples ??= array_fill_keys(array_keys(StarterPages::untouched($db, $this->app->settings())), true);
+            $sample = ($content['ids'] ?? 0) > 0 && isset($this->samples[$content['ids']]);
+            unset($content['ids']);
+
+            return $content + ['adresa' => '/' . $path, 'stav' => $sample ? 'sample' : ($content['zobrazeno'] ? ($hops === 0 ? 'ok' : ($hops === 1 ? 'redirect' : 'chain')) : 'hidden')];
         }
         $rule = RedirectRules::isPattern($path) ? null : $db->one('SELECT na_adresu, typ FROM {presmerovani} WHERE source_norm = ? ORDER BY idp LIMIT 1', [RedirectSources::normalize($path)]); // 3.19: the exact address
         if ($rule === null) {
@@ -224,7 +246,7 @@ final class MigrationReport
     /**
      * Published or hidden content at a path, without redirects.
      *
-     * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool}|null
+     * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool, ids?: int}|null
      */
     private function content(string $path): ?array
     {
@@ -240,7 +262,7 @@ final class MigrationReport
         $column = Language::column($settings, $language); // 3.9: with slugs per language the version of the address wins (/en/kontakt)
         if ($s === []) {
             $home = (int) $settings->get('home_page');
-            $page = $home > 0 ? $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$home]) : null;
+            $page = $home > 0 ? $db->one('SELECT ids, titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$home]) : null;
 
             return $page !== null ? self::page($page, $db) : ['typ' => 'home', 'titulek' => (string) $settings->get('site_name'), 'popis' => (string) $settings->get('site_description'), 'formular' => false, 'obrazky' => 0, 'zobrazeno' => true];
         }
@@ -263,7 +285,7 @@ final class MigrationReport
                 'popis' => trim((string) ($n['seo_popis'] ?: strip_tags((string) $n['uvod']))), 'formular' => false,
                 'obrazky' => substr_count(strtolower((string) $n['text']), '<img'), 'zobrazeno' => (bool) $n['visible']];
         }
-        $page = $db->one('SELECT titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [implode('/', $s), $column]);
+        $page = $db->one('SELECT ids, titulek, seo_titulek, popis, zobrazit, stavba, stavba_koncept, text FROM {stranky} WHERE seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1', [implode('/', $s), $column]);
         if ($page !== null) {
             return self::page($page, $db);
         }
@@ -291,7 +313,7 @@ final class MigrationReport
 
     /**
      * @param array<string, mixed> $p a row of ka_stranky
-     * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool}
+     * @return array{typ: string, titulek: string, popis: string, formular: bool, obrazky: int, zobrazeno: bool, ids: int}
      */
     private static function page(array $p, ?Db $db = null): array
     {
@@ -304,7 +326,7 @@ final class MigrationReport
         }
 
         return ['typ' => 'page', 'titulek' => (string) ($p['seo_titulek'] ?: $p['titulek']), 'popis' => trim((string) $p['popis']),
-            'formular' => $forms > 0, 'obrazky' => $images, 'zobrazeno' => (bool) $p['zobrazit']];
+            'formular' => $forms > 0, 'obrazky' => $images, 'zobrazeno' => (bool) $p['zobrazit'], 'ids' => (int) ($p['ids'] ?? 0)];
     }
 
     /**
@@ -364,7 +386,7 @@ final class MigrationReport
      * What the old page had: its full title, the search engine description, a form (not just a search box) and the
      * number of images in the main content.
      *
-     * @return array{titulek: string, popis: string, formular: bool, obrazky: int}
+     * @return array{titulek: string, popis: string, formular: bool, obrazky: int, formulare: list<string>}
      * @throws HtmlTooLarge when the page is over a limit of HtmlLimits
      */
     public static function analyse(string $html, string $url): array
@@ -373,18 +395,28 @@ final class MigrationReport
         $title = trim((string) preg_replace('/\s+/u', ' ', (string) $doc->querySelector('title')?->textContent));
         $description = trim((string) $doc->querySelector('meta[name="description"]')?->getAttribute('content'));
         $form = false;
+        $signatures = [];
         foreach ($doc->querySelectorAll('form') as $f) {
             $role = strtolower($f->getAttribute('role') ?? '');
             $fields = $f->querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="search"]), textarea, select');
             if ($role !== 'search' && $fields->length > 0 && !preg_match('/search|hledat|suche/i', ($f->getAttribute('class') ?? '') . ' ' . ($f->getAttribute('action') ?? ''))) {
                 $form = true;
-                break;
+                // 3.33 (M5): the form by its fields (names, else types), so the same newsletter form on every page is one form
+                $names = [];
+                foreach ($fields as $field) {
+                    $names[] = mb_substr(strtolower(trim((string) ($field->getAttribute('name') ?: $field->getAttribute('type') ?: $field->localName))), 0, 40);
+                }
+                sort($names);
+                $signatures[] = implode(',', array_slice(array_values(array_unique($names)), 0, 12));
+                if (count($signatures) >= 5) {
+                    break;
+                }
             }
         }
         $main = WebImport::extract($html, $url);
 
         return ['titulek' => mb_substr($title, 0, 200), 'popis' => mb_substr($description, 0, 320), 'formular' => $form,
-            'obrazky' => substr_count(strtolower($main['obsah']), '<img')];
+            'obrazky' => substr_count(strtolower($main['obsah']), '<img'), 'formulare' => array_values(array_unique($signatures))];
     }
 
     /* ---------- the result ---------- */
@@ -393,16 +425,21 @@ final class MigrationReport
      * Counts, the rows with a problem first, and the checks of the whole site.
      *
      * @param array<string, mixed> $state
-     * @return array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>, poznamky: list<string>}
+     * @return array{souhrn: array<string, int>, radky: list<array<string, mixed>>, web: list<array{zprava: string, uprava: string}>, poznamky: list<string>, formulare_webu: array<string, int>}
      */
     public function result(array $state): array
     {
-        $summary = ['adres' => count($state['adresy']), 'zkontrolovano' => count($state['radky']), 'ok' => 0, 'presmerovano' => 0, 'skryto' => 0, 'chybi' => 0, 'chyb' => 0, 'varovani' => 0];
-        foreach ($state['radky'] as $r) {
+        $summary = ['adres' => count($state['adresy']), 'zkontrolovano' => count($state['radky']), 'ok' => 0, 'presmerovano' => 0, 'skryto' => 0, 'chybi' => 0, 'chyb' => 0, 'varovani' => 0,
+            'vzor' => 0]; // 3.33 (M5): old addresses on an untouched sample page
+        // 3.33 (M5): a form on most old pages (a newsletter pop-up, a form in the footer) is reported once, not on every page
+        $siteWide = self::siteWideForms($state['radky']);
+        $rows = array_map(fn (array $r): array => self::withoutSiteWideForm($r, array_keys($siteWide)), $state['radky']);
+        foreach ($rows as $r) {
             match ($r['stav']) {
                 'ok' => $summary['ok']++,
                 'redirect', 'chain', 'redirect_out' => $summary['presmerovano']++,
                 'hidden' => $summary['skryto']++,
+                'sample' => $summary['vzor']++,
                 default => $summary['chybi']++,
             };
             foreach ($r['problemy'] as $p) {
@@ -414,12 +451,17 @@ final class MigrationReport
             }
         }
         $rank = fn (array $r): int => min(array_map(fn (string $p): int => ['error' => 0, 'warning' => 1, 'info' => 2][self::PROBLEMS[$p] ?? 'info'], $r['problemy'] ?: ['ok'])) + ($r['problemy'] === [] ? 3 : 0);
-        $rows = $state['radky'];
         usort($rows, fn (array $a, array $b): int => $rank($a) <=> $rank($b));
 
         $site = [];
         if (!Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
             $site[] = ['zprava' => t('The Redirects feature is off: no redirect from an old address works.'), 'uprava' => 'admin.php?module=extensions'];
+        }
+        if ($siteWide !== [] && !$this->siteHasSharedForm()) {
+            foreach ($siteWide as $fields => $pages) {
+                $site[] = ['zprava' => t('A form is on %s of the old pages (a pop-up or the footer, fields: %s) and nothing here has one: add it once – a Form element in the footer (Site parts) or a pop-up.', $pages, $fields !== '' ? $fields : '–'),
+                    'uprava' => 'admin.php?module=parts'];
+            }
         }
         if ($state['faze'] === 'hotovo') {
             foreach ((new Audit($this->app))->handoverFindings() as $f) {
@@ -430,7 +472,90 @@ final class MigrationReport
         // how the old site was read: a robots.txt that was cut, sitemaps on other hosts that were skipped (3.7, N37-23, N37-24)
         $notes = WebImport::notes(['robots' => $state['robots'] ?? ($state['hledani']['robots'] ?? [])] + (is_array($state['hledani'] ?? null) ? $state['hledani'] : []));
 
-        return ['souhrn' => $summary, 'radky' => $rows, 'web' => $site, 'poznamky' => $notes];
+        $read = array_filter($state['radky'], fn (array $r): bool => !in_array('robots', $r['problemy'], true));
+        if ($state['faze'] === 'hotovo' && $read !== [] && array_filter($read, fn (array $r): bool => !in_array('not_read', $r['problemy'], true) && !in_array('too_large', $r['problemy'], true)) === []) {
+            // 3.33 (M6): every old page failed to download – said plainly, the comparison could not be made
+            $notes[] = t('None of the old pages could be read, so only the addresses were checked – the old site may be down or refuse this server.');
+        }
+
+        return ['souhrn' => $summary, 'radky' => $rows, 'web' => $site, 'poznamky' => $notes, 'formulare_webu' => $siteWide];
+    }
+
+    /**
+     * The forms found on most old pages read (SITE_WIDE_SHARE, at least SITE_WIDE_MIN pages): fields => on how many pages.
+     *
+     * @param list<array<string, mixed>> $rows
+     * @return array<string, int>
+     */
+    public static function siteWideForms(array $rows): array
+    {
+        $read = 0;
+        $counts = [];
+        foreach ($rows as $r) {
+            $problems = (array) ($r['problemy'] ?? []);
+            if (in_array('not_read', $problems, true) || in_array('robots', $problems, true) || in_array('too_large', $problems, true)) {
+                continue;
+            }
+            $read++;
+            foreach (array_unique(array_map('strval', (array) ($r['formulare'] ?? []))) as $signature) {
+                $counts[$signature] = ($counts[$signature] ?? 0) + 1;
+            }
+        }
+        $threshold = max(self::SITE_WIDE_MIN, (int) ceil($read * self::SITE_WIDE_SHARE));
+
+        return array_filter($counts, fn (int $n): bool => $n >= $threshold);
+    }
+
+    /**
+     * A row without form_missing when every form of its old page is a site-wide one (reported once, siteWideForms).
+     *
+     * @param array<string, mixed> $row
+     * @param list<string> $siteWide
+     * @return array<string, mixed>
+     */
+    public static function withoutSiteWideForm(array $row, array $siteWide): array
+    {
+        $forms = array_map('strval', (array) ($row['formulare'] ?? []));
+        if ($siteWide !== [] && $forms !== [] && array_diff($forms, $siteWide) === [] && in_array('form_missing', (array) $row['problemy'], true)) {
+            $row['problemy'] = array_values(array_diff((array) $row['problemy'], ['form_missing']));
+        }
+
+        return $row;
+    }
+
+    /** Has this site a form every page shares – in a site part (header, footer…) or a pop-up, published or draft? */
+    private function siteHasSharedForm(): bool
+    {
+        $db = $this->app->db();
+        foreach ([...$db->all('SELECT stavba, stavba_koncept FROM {casti}'), ...$db->all('SELECT stavba, NULL AS stavba_koncept FROM {popupy}')] as $row) {
+            foreach ([$row['stavba'], $row['stavba_koncept']] as $json) {
+                $build = $json !== null ? Build::fromJson((string) $json) : null;
+                if ($build !== null && self::countElements($build['deti'] ?? [], $db)[0] > 0) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Is the new title the old one? The old <title> usually carries the site name ("Kitchens | Northwind"), so each part
+     * between the usual separators counts; letter case and spacing do not. An empty title compares as the same.
+     */
+    public static function sameTitle(string $old, string $new): bool
+    {
+        if (trim($old) === '' || trim($new) === '') {
+            return true;
+        }
+        $parts = function (string $title): array {
+            $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $all = [$title, ...(preg_split('/\s+[|–—\-:·»]\s+/u', $title) ?: [])];
+
+            return array_filter(array_map(fn (string $t): string => mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $t))), $all), fn (string $t): bool => $t !== '');
+        };
+
+        return array_intersect($parts($old), $parts($new)) !== [];
     }
 
     /** A problem code in words, for the admin and for Claude. */
@@ -447,6 +572,8 @@ final class MigrationReport
             'not_read' => t('The old page could not be read, so only the address was checked.'),
             'robots' => t('The robots.txt of the old site asks robots not to read this page, so only the address was checked.'),
             'too_large' => t('The old page is over a safety limit for HTML (too large or nested too deeply), so only the address was checked.'),
+            'sample_page' => t('The address leads to a sample page of the installation that nobody has changed – visitors would see sample text. Import the old page over it or replace its content.'),
+            'title_changed' => t('The page title changed – check that the new one is what search engines should show.'),
             default => $code,
         };
     }

@@ -71,7 +71,7 @@ final class Prompts
         'migrate_site' => ['title' => 'Move a site to Kaleta', 'description' => 'Move a site from WordPress (with WooCommerce, Polylang or WPML) or any other platform to this Kaleta site, as drafts, with a check before it goes live.',
             'arguments' => ['old_url' => ['Address of the old site, e.g. https://www.example.com', true, '%s', 'the address the user gives'],
                 'platform' => ['What it runs on, e.g. WordPress with Breakdance (optional)', false, ' (%s)', '']],
-            'terms' => ['media_deferred', 'more_problems'],
+            'terms' => ['media_deferred', 'more_problems', 'starter_pages'],
             'text' => <<<'MD'
                 Task: move the old site {old_url}{platform} to this Kaleta site. The goal: the old site's content, look and
                 addresses here, every page a draft or hidden, every old address still working, and a clean migration report.
@@ -97,6 +97,12 @@ final class Prompts
 
                 ## 2. Before the import
 
+                - **Sample pages.** A site for a move is best installed as "Empty site for a move": only a Home placeholder,
+                  the hidden privacy policy template and the default look. On a site installed with a starter site, an import
+                  replaces each untouched sample page (Home, About us, Services, Contact) whose address an old page asks for –
+                  the old home page replaces Home and becomes the home page. The preview lists them (starter_pages);
+                  `keep_starter_pages` (old addresses, ["*"] = all) keeps one, and a sample page someone edited is never
+                  replaced (the imported page gets a number). Sample pages no old page lands on: `trash_page`.
                 - **Time zone.** Scheduled news and dates arrive in the site's time zone. If the old site used another one, an
                   administrator sets it in Settings → General before the import; a later change offers to convert the saved
                   dates.

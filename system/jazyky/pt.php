@@ -2088,4 +2088,5 @@ O link funciona por %d dias.
     'open in a new window' => 'abrir numa nova janela',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Se uma página deste site mostra um localizador de lojas que carrega o mapa imediatamente, seu navegador se conecta ao OpenStreetMap (OpenStreetMap Foundation) assim que a página abre – antes de você dar seu consentimento na barra de cookies – e envia seu endereço IP para carregar o mapa; caso contrário, o mapa só é carregado após um clique.',
     'Choose the date and time in the Content panel.' => 'Escolha a data e a hora no painel Conteúdo.',
+    'This site is being moved here. The pages of the old site arrive with the import.' => 'Este site está a ser mudado para aqui. As páginas do site antigo chegam com a importação.',
 ];

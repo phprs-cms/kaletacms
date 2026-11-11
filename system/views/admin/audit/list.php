@@ -6,6 +6,7 @@
  * @var array<string, list<array<string, mixed>>> $groups
  * @var int $total
  * @var array{done: int, total: int, items: list<array{key: string, label: string, done: bool, edit: string, for_client: bool, findings: list<array{message: string, edit: string, target: array<string, int|string>}>}>} $checklist  Core\Audit::handoverChecklist
+ * @var array<string, mixed>|null $move  Core\MoveStatus::summary (3.33, M7)
  */
 use Kaleta\Core\Audit;
 
@@ -26,6 +27,18 @@ $table = function (array $rows): string {
 <h2><?= e(t($name)) ?> <span class="stitek"><?= count($groups[$kind]) ?></span></h2>
 <?= $table($groups[$kind]) ?>
 <?php endforeach ?>
+<?php if (!empty($move)): // 3.33 (M7): where the move stands – counts and links only, from the importers and the newest migration report ?>
+<section class="predani" id="move" aria-labelledby="move-nadpis">
+<h2 id="move-nadpis"><?= e(t('Move to Kaleta')) ?> <span class="stitek"><?= e(t('%d of %d done', count(array_filter($move['rows'], fn (array $r): bool => $r['done'])), count($move['rows']))) ?></span></h2>
+<p class="smltxt"><?= e(t('Where the move of the old site stands. Point the domain here once every row is done.')) ?></p>
+<ul class="kontrola-seznam predani-seznam">
+<?php foreach ($move['rows'] as $row): ?>
+	<li class="<?= $row['done'] ? 'ok' : 'varovani' ?>" data-move-radek="<?= e($row['key']) ?>"><span aria-hidden="true"><?= $row['done'] ? '✓' : '!' ?></span>
+		<a href="<?= e($app->url($row['edit'])) ?>"><?= e($row['label']) ?></a> <span class="navod-skryte"><?= e($row['done'] ? t('(done)') : t('(not done yet)')) ?></span></li>
+<?php endforeach ?>
+</ul>
+</section>
+<?php endif ?>
 <?php /* 3.23 (C17): "Before handing over" and "Building this for a client?" are one checklist – what is done stays in it, ticked */ ?>
 <section class="predani" aria-labelledby="predani-nadpis">
 <h2 id="predani-nadpis"><?= e(t(Audit::KINDS['handover'])) ?> <span class="stitek"><?= e(t('%d of %d done', $checklist['done'], $checklist['total'])) ?></span></h2>

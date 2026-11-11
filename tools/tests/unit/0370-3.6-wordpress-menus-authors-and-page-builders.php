@@ -37,7 +37,7 @@ check('3.6 WpImport::fitMenuDepth: deeper WordPress levels move up into the subm
 $migSkipped = array_column(Kaleta\Core\WpImport::summary($migState)['skipped'], 'count', 'what');
 check('3.6 WpImport::summary: the page builder layout, author names and comments are reported as skipped with a reason', [
     $migSkipped['layout:Breakdance'] ?? null, $migSkipped['author_names'] ?? null, array_key_exists('comments', $migSkipped),
-    array_keys(Kaleta\Core\WpImport::summary($migState))], [1, 2, true, ['found', 'result', 'skipped', 'redirects', 'menus', 'authors', 'images']]);
+    array_keys(Kaleta\Core\WpImport::summary($migState))], [1, 2, true, ['found', 'result', 'skipped', 'redirects', 'menus', 'authors', 'images', 'starter_pages', 'addresses_changed']]); // 3.33: starter_pages and addresses_changed added
 check('3.6 WpImport::options: unknown values fall back, menu places only main/footer/skip, skryte and obrazky are booleans', (function (): array {
     $o = Kaleta\Core\WpImport::DEFAULT_OPTIONS;
 

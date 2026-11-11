@@ -75,6 +75,10 @@ final class WebImport
 
     private float $end = 0.0;
 
+    /** Requests to the old site that answered in this batch, and why the last one did not (3.33, M6: an unreachable site). */
+    private int $answered = 0;
+    private string $lastFailure = '';
+
     /** When the state was last handed to the checkpoint of this batch. */
     private float $saved = 0.0;
 
@@ -107,10 +111,63 @@ final class WebImport
             'id' => substr(sha1($origin . microtime()), 0, 16), 'web' => $origin, 'domena' => ImageDownloader::domainFromUrl($origin), 'faze' => 'hledani',
             'fronta' => [$origin . '/'], 'mapy' => [], 'mapy_hotovo' => false, 'adresy' => [], 'pozice' => 0,
             'volby' => ['jazyk' => (string) ($options['jazyk'] ?? ''), 'obrazky' => (bool) ($options['obrazky'] ?? true),
-                'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true)],
+                'presmerovani' => (bool) ($options['presmerovani'] ?? true), 'novinky' => (bool) ($options['novinky'] ?? true),
+                'ponechat_vzory' => []], // 3.33 (M2): the starter pages the preview's choice keeps (Core\StarterPages)
             'vysledek' => ['stranky' => 0, 'clanky' => 0, 'obrazky' => 0, 'presmerovani' => 0, 'preskoceno' => 0, 'chyb' => 0],
             'chyby' => [], 'zalozeno' => date('Y-m-d H:i:s'),
+            'vzory' => ['nahrazeno' => [], 'ponechano' => []], // 3.33 (M2): the starter pages replaced and kept (StarterPages::makeRoom)
+            'zmenene_adresy' => [], // 3.33 (M3): [old, new, shortened | flattened] – an old path that could not be kept as it was
         ];
+    }
+
+    /**
+     * The starter pages the import's pages would land on, for the preview (3.33, M2): which ones it replaces, which ones
+     * the person keeps or someone edited (StarterPages::choices).
+     *
+     * @param array<string, mixed> $state
+     * @return list<array{old: string, page_id: int, title: string, address: string, replace: bool, why: string}>
+     */
+    public static function starterChoices(Db $db, Settings $settings, array $state): array
+    {
+        $language = Language::column($settings, (string) ($state['volby']['jazyk'] ?? ''));
+        $news = ($state['volby']['novinky'] ?? true) && Extensions::isEnabled($settings, 'novinky');
+        $targets = function () use ($state, $language, $news): \Generator {
+            foreach (array_keys((array) $state['adresy']) as $url) {
+                if ($news && preg_match(self::ARTICLE, (string) parse_url((string) $url, PHP_URL_PATH)) === 1) {
+                    continue; // an article becomes a news item, never a page
+                }
+                $old = self::path((string) $url);
+                yield ['old' => $old, 'slug' => self::plannedSlug($old, '', (string) ($state['volby']['jazyk'] ?? '')), 'language' => $language, 'home' => $old === ''];
+            }
+        };
+
+        return StarterPages::choices($db, $settings, $targets(), self::keptStarters($state));
+    }
+
+    /**
+     * @param array<string, mixed> $state
+     * @return list<int>
+     */
+    public static function keptStarters(array $state): array
+    {
+        return array_values(array_map('intval', array_filter((array) ($state['volby']['ponechat_vzory'] ?? []), is_numeric(...))));
+    }
+
+    /**
+     * The address an old path asks for here, before a number makes it free (createPage): 3.33 (M3) the whole old path,
+     * parents and all (Core\ImportPath).
+     */
+    public static function plannedSlug(string $oldPath, string $title, string $languageCode = ''): string
+    {
+        return ImportPath::plan($oldPath, self::leafSlug($oldPath, $title), $languageCode)[0];
+    }
+
+    /** The slug of the page itself: its last part without a file extension, else its title ('home' for the home page). */
+    public static function leafSlug(string $oldPath, string $title): string
+    {
+        $base = $oldPath !== '' ? basename($oldPath) : 'home';
+
+        return slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $title, 110);
     }
 
     /** Whether the address can be imported at all: http(s), a domain, no user name. */
@@ -175,6 +232,10 @@ final class WebImport
     public static function notes(array $state): array
     {
         $notes = [];
+        if (isset($state['nedostupny'])) {
+            // 3.33 (M6): said plainly – an unreachable old site must not look like an empty one
+            $notes[] = t('The old site could not be reached (%s) – nothing was found because nothing could be read, not because the site is empty. Check the address and that the site is online and reachable from this server.', t((string) $state['nedostupny']));
+        }
         $robots = is_array($state['robots'] ?? null) ? $state['robots'] : [];
         if (!empty($robots['omezeno'])) {
             $notes[] = t('The robots.txt of the old site is very long: only its first %s KB and %s rules for Kaleta were read.', self::ROBOTS_BYTES >> 10, self::ROBOTS_RULES);
@@ -203,6 +264,8 @@ final class WebImport
         $this->end = microtime(true) + self::SECONDS;
         $this->saved = microtime(true);
         $this->checkpoint = $checkpoint;
+        $this->answered = 0;
+        $this->lastFailure = '';
         match ($state['faze']) {
             'hledani' => $this->discover($state),
             'import' => $this->import($state),
@@ -287,7 +350,15 @@ final class WebImport
             }
             $this->checkpoint($state);
         }
+        // 3.33 (M6): whether the old site answered at all – nothing found because nothing could be read is not an empty site
+        $state['odpovedi'] = (int) ($state['odpovedi'] ?? 0) + $this->answered;
+        if ($this->lastFailure !== '') {
+            $state['posledni_chyba'] = mb_substr($this->lastFailure, 0, 200);
+        }
         if ($state['mapy_hotovo'] && (($state['fronta'] === [] && $state['odkazy'] === []) || count($state['adresy']) >= self::MAX_PAGES)) {
+            if ($state['odpovedi'] === 0) {
+                $state['nedostupny'] = (string) ($state['posledni_chyba'] ?? '') !== '' ? (string) $state['posledni_chyba'] : 'The old site did not answer.';
+            }
             $state['faze'] = 'nahled';
             $state['fronta'] = [];
             $state['odkazy'] = [];
@@ -367,6 +438,7 @@ final class WebImport
             $this->checkpoint($state);
         }
         if ($state['pozice'] >= count($urls)) {
+            ImportPath::linkParents($this->db); // 3.33 (M3): a child imported before its parent
             $state['faze'] = 'hotovo';
         }
     }
@@ -409,10 +481,21 @@ final class WebImport
             $state['vysledek']['clanky']++;
             $new = ($language !== '' ? $language . '/' : '') . 'novinky/' . (string) $this->db->value('SELECT seo_link FROM {novinky} WHERE idc = ?', [$idc]);
         } else {
-            $ids = $this->createPage($page, $old, $language);
+            // 3.33 (M2): an untouched starter page at the address (or the starter home page for the old home page) makes room
+            $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
+            // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath)
+            $target = ImportPath::target($this->db, $old, self::leafSlug($old, $page['titulek']), $language, (string) $state['volby']['jazyk']);
+            $starter = StarterPages::makeRoom($this->db, $this->settings, $old, $target['slug'], $language, $old === '', self::keptStarters($state), $state['vzory']);
+            $ids = $this->createPage($page, $target, $language);
+            if ($starter !== null && $starter['home']) {
+                $this->settings->set('home_page', (string) $ids);
+            }
             $this->map($source, 'stranka', $key, $ids);
             $state['vysledek']['stranky']++;
             $new = ($language !== '' ? $language . '/' : '') . (string) $this->db->value('SELECT seo_link FROM {stranky} WHERE ids = ?', [$ids]);
+            if ($target['note'] !== '' && count($state['zmenene_adresy'] ?? []) < 200) {
+                $state['zmenene_adresy'][] = ['/' . $old, '/' . $new, $target['note']]; // shortened or flattened – listed in the result
+            }
         }
         if ($state['volby']['presmerovani'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'presmerovani')) {
             Redirects::add($this->db, $old, $new);
@@ -420,11 +503,13 @@ final class WebImport
         }
     }
 
-    /** @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page */
-    private function createPage(array $page, string $oldPath, string $language): int
+    /**
+     * @param array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool} $page
+     * @param array{slug: string, parent: ?int, note: string} $target where it lands (Core\ImportPath::target)
+     */
+    private function createPage(array $page, array $target, string $language): int
     {
-        $base = $oldPath !== '' ? basename($oldPath) : 'home';
-        $seo = Pages::freeSlug($this->db, slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', $base) ?: $page['titulek'], 110), language: $language);
+        $seo = Pages::freeSlug($this->db, $target['slug'], language: $language);
         $build = $this->build($page['titulek'], $page['obsah']);
 
         return $this->db->insert('stranky', [
@@ -432,6 +517,7 @@ final class WebImport
             'popis' => mb_substr($page['popis'], 0, 300),
             'zobrazit' => 0, // hidden until the administrator checks it – nothing changes for visitors
             'v_menu' => 0, 'zmeneno' => date('Y-m-d H:i:s'), 'jazyk' => $language,
+            'nadrazena' => $target['parent'],
         ]);
     }
 
@@ -558,9 +644,17 @@ final class WebImport
     {
         try {
             $data = self::politeDownload($this->downloader, $url, $robots, false, $checkRobots, $readAtMost);
-        } catch (\RuntimeException) {
+        } catch (\RuntimeException $e) {
+            // a page that does not exist is an answer too: only a site that never answers is unreachable (3.33, M6)
+            if ($e->getCode() >= 400) {
+                $this->answered++;
+            } else {
+                $this->lastFailure = $e->getMessage();
+            }
+
             return null;
         }
+        $this->answered++;
 
         return $data !== '' && strlen($data) < 5_000_000 ? $data : null;
     }
