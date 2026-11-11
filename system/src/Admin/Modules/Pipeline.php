@@ -221,7 +221,8 @@ final class Pipeline extends Module
         $target = Comments::deal($id);
         $enquiry = null;
         if ($deal['source_enquiry_id'] !== null && isset($modules['enquiries'])) {
-            $enquiry = $this->db->one('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano FROM {poptavky} WHERE idp = ?', [$deal['source_enquiry_id']]);
+            $enquiry = $this->db->one('SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano FROM {poptavky} WHERE idp = ? AND '
+                . Enquiries::visible($this->db, $this->app->settings(), isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])), [$deal['source_enquiry_id']]); // 3.34 second review N6
         }
 
         return $this->view('detail', $deal['title'], ['d' => $deal, 'stages' => $stages, 'stage' => Deals::stage($this->app->settings(), $deal['stage']),

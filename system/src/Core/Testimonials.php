@@ -38,7 +38,7 @@ final class Testimonials
     public static function request(App $app, int $idp, bool $send): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, email FROM {poptavky} WHERE idp = ?', [$idp]);
+        $enquiry = $db->one('SELECT idp, email FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp]); // 3.34 second review N6
         if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }

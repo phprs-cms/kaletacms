@@ -270,7 +270,9 @@ final class Inbox
         $out = [];
         if (isset($ids['enquiry'])) {
             // 3.32: 'name' = who and what (RecordTitle::enquiry) – shown only on screens of people with Enquiries, never e-mailed
-            foreach ($db->all('SELECT idp, formular, tema, zdroj, email, data, anonymizovano FROM {poptavky} WHERE idp IN (' . implode(',', array_unique($ids['enquiry'])) . ')') as $r) {
+            // 3.34 second review N6: a job enquiry still moving to Applications (its entries follow it there) and a moved twin have no place
+            foreach ($db->all('SELECT idp, formular, tema, zdroj, email, data, anonymizovano FROM {poptavky} WHERE idp IN (' . implode(',', array_unique($ids['enquiry'])) . ') AND '
+                . \Kaleta\Admin\Modules\Enquiries::visible($db, null, false)) as $r) {
                 $out['enquiry:' . (int) $r['idp']] = ['kind' => 'enquiry', 'id' => (int) $r['idp'], 'title' => (string) $r['formular'], 'name' => RecordTitle::enquiry($r),
                     'path' => 'admin.php?module=enquiries&action=detail&id=' . (int) $r['idp']];
             }

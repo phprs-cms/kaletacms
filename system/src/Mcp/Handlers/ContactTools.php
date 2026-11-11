@@ -60,7 +60,7 @@ trait ContactTools
         $counts = Contacts::linkCounts($db, [$contact['id']])[$contact['id']] ?? ['enquiries' => 0, 'bookings' => 0, 'subscribed' => false];
         $company = $contact['company_id'] !== null ? Contacts::findCompany($db, $contact['company_id']) : null;
         $origin = $this->app->request->origin();
-        $timeline = $limit > 0 ? Contacts::timeline($db, $contact['id'], $limit) : [];
+        $timeline = $limit > 0 ? Contacts::timeline($db, $contact['id'], $limit, $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION)) : [];
         if ($timeline !== [] && !\Kaleta\Core\Deals::mayOpen($db, $this->app->settings(), $this->app->auth()->id())) {
             $timeline = \Kaleta\Core\Deals::neutralTimeline($timeline); // 3.31.1: without the pipeline a deal is only "a deal"
         }

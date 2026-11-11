@@ -28,10 +28,10 @@ check('3.34 review M3: Core\Migration runs an unfinished data migration again on
     array_key_exists('data_migrations_unfinished', Kaleta\Core\Settings::DEFAULTS), array_key_exists('applications_move_until', Kaleta\Core\Settings::DEFAULTS)],
     [true, true, true, true, true]);
 check('3.34 review M3: while moving, the enquiries still to move stay out of Enquiries (list, detail, counts, the dashboard, MCP) for a person without Applications', [
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$whereParts = 'WHERE ' . implode(' AND ', \$conditions) . \$this->hiddenWhileMoving();"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'SELECT * FROM {poptavky} WHERE idp = ?' . \$this->hiddenWhileMoving()"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$whereParts = 'WHERE ' . implode(' AND ', \$conditions) . ' AND ' . \$this->visibleHere();"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$p = \$this->findVisible(\$this->request->getInt('id'), '*');"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "self::NOT_SPAM . self::stillMoving(\$db)"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), 'Modules\Enquiries::stillMoving($db, $this->app->settings())'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php'), '\Kaleta\Core\Applications::movingCondition($db, $siteSettings)'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), 'Modules\Enquiries::visible($db, $this->app->settings(), isset($modules[\Kaleta\Core\Applications::SECTION]))'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php'), '$whereParts[] = \Kaleta\Admin\Modules\Enquiries::visible($db, $siteSettings, $auth->hasModule(\Kaleta\Core\Applications::SECTION));'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/applications/list.php'), 'data-applications-moving')],
     [true, true, true, true, true, true]);

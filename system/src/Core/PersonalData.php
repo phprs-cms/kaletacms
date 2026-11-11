@@ -166,7 +166,7 @@ final class PersonalData
         foreach ($found['contacts'] as $contact) {
             Contacts::delete($app, (int) $contact['id']); // 3.28: with its log, comments and tasks – before the records it links go
         }
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT data FROM {poptavky} WHERE idp IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'idp'))) . ')'));
+        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($found['enquiries'] === [] ? [] : $db->all('SELECT idp, data FROM {poptavky} WHERE idp IN (' . implode(',', array_map('intval', array_column($found['enquiries'], 'idp'))) . ')'), $db);
         Deals::forgetEnquiries($db, array_map('intval', array_column($found['enquiries'], 'idp'))); // 3.31: a deal from one stays, without the link and (3.32) the person's words – before the rows go
         foreach (array_column($found['enquiries'], 'idp') as $idp) {
             $db->delete('poptavky', ['idp' => (int) $idp]);
