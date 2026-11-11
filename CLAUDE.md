@@ -185,7 +185,8 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   vedle a přejmenování) a sloupec `attachment_paths` říká, kde soubory jsou (jen náhodná jména) – smazání a výmaz je najdou i u zamčeného
   seznamu, žádost bez něj zůstane a hlásí se (`applications_held`). Přesunutý životopis se pečetí po krocích (`sealEntry`: kopie pod jménem
   odvozeným ze staré cesty, zápis do seznamu, ověření uloženým klíčem, teprve pak smazání prostého souboru; přerušený běh dokončí další),
-  šifrované soubory bez řádku a `.part` maže úklid po 7 dnech (`sweepOrphans`); pečetění i přesuny drží jeden zámek (`lockFiles`);
+  `.part` maže úklid po 7 dnech, starý šifrovaný soubor bez řádku jen odloží (`.orphan`, čas = teď) a smaže ho, až 7 dní
+  zůstane bez řádku – obnova starší zálohy tak životopis nesmaže hned; řádek, který ho zase uvádí, nebo otevření ho vrátí (`sweepOrphans`, jednou denně); pečetění i přesuny drží jeden zámek (`lockFiles`);
   životopis, který nejde uložit, formulář odmítne s hlášením (`ulozeni`, víc než `MAX_FILES` = `soubory`). Stahuje jen člověk se sekcí,
   MCP soubor nikdy nedostane. Odpovědi jdou strojem poptávek (`EnquiryReply`: jen SMTP, podpis, historie) se šablonami received/interview/rejection
   (`application_templates`); formulář bez vlastního potvrzení pošle uchazeči „received“ bez textu návštěvníka (jméno jen přes `safeName`). `ka_posta.predmet` a log drží jen
@@ -193,10 +194,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   („Přesunout do žádostí o místo“ pro toho, kdo má obě sekce) jen přes `Core\ApplicationMove` (opakovatelné díky `source_enquiry_id`;
   zpět jen po ověřené kopii životopisu a jen se stejným seznamem, jaký se přečetl, jinak žádost zůstane; zpět nikdy to, co by retence
   poptávek hned smazala, přijaté a se souhlasem pro budoucí místa jen po zaškrtnutí – `backReason`, potvrzení s počty předem). Migrace 0120
-  běží po dávkách (řádek = vlastní transakce, nejvýš 15 s, zbytek další požadavky přes `data_migrations_unfinished` v `Core\Migration`;
-  starý kód aktualizace jen zapíše stav a nic nepřesune – `applications_move_deferred`, ani během kontroly aktualizace); dosud nepřesunuté
+  běží po dávkách (řádek = vlastní transakce, nejvýš `Migration::$seconds` – 15 s z cronu a administrace, 2 s při návštěvě webu, zbytek další požadavky přes `data_migrations_unfinished` v `Core\Migration`;
+  starý kód aktualizace jen zapíše stav a nic nepřesune – `applications_move_deferred`, ani během kontroly aktualizace – `update_probe` starší 10 minut se nebere); dosud nepřesunuté
   skryje lidem bez sekce, retencím i asistentovi `Enquiries::visible` – jediná podmínka každého čtení řádků poptávek (i dvojčete žádosti
-  po obnově zálohy; unit test hlídá každý dotaz); zákazníka jen z žádostí maže podle dat (`source_contact_id`) po dávkách, kontrolou je
+  po obnově zálohy – smaže ho `Applications::forgetTwins` se žádostí i v denním úklidu; unit test hlídá každý dotaz); zákazníka jen z žádostí maže podle dat (`source_contact_id`) po dávkách, kontrolou je
   sám DELETE v transakci (záznam, jehož jiná poptávka už prošla retencí, se smaže).
   MCP `list_applications`, `get_application`, `update_application`, `reply_to_application` (mimo ESSENTIALS) jen pro uživatele se sekcí
   a se zapnutým `applications_claude`. Cíl `application:<id>` pro komentáře, úkoly, upozornění a odpovědnost (`Assignment::KINDS`,
