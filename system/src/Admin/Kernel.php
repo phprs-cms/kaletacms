@@ -574,9 +574,26 @@ final class Kernel
         $error = null;
         // the sign-in limits count the visitor's address behind the configured proxy, an IPv6 address by its /64 (3.3.3, N54)
         $address = \Kaleta\Core\Firewall::visitorKey($app->request, $app->settings());
+        $url = $app->settings()->get('site_url') ?: $app->request->origin();
+        // 3.35: the sign-in without a password – the button and the user-name autofill (conditional UI) of image/klice.js
+        // ask for a challenge (the same for everyone) and send the passkey's signature; the server finds the account
+        if ($app->request->isPost() && in_array($app->request->post('krok'), ['passkey_options', 'passkey'], true)) {
+            if ($app->request->post('krok') === 'passkey_options') {
+                return Response::json($app->auth()->passkeyChallenge($url));
+            }
+            $error = $app->auth()->signInWithPasskey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $address);
+            if ($error === null) {
+                ChangeLog::write($app, 'prihlaseni', 'login', t('with a passkey, without a password'));
+                $this->noticesAfterSignIn();
+            } else {
+                $account = $app->auth()->passkeyAccount();
+                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'passkey' . ($account !== '' ? ', account: ' . mb_substr($account, 0, 40) : ''));
+            }
+
+            return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['chyba' => $error], $error === null ? 200 : 401);
+        }
         // second step with a passkey (fingerprint, Face ID): the script image/klice.js asks for a challenge and sends the device signature
         if ($app->request->isPost() && in_array($app->request->post('krok'), ['klic_moznosti', 'klic'], true)) {
-            $url = $app->settings()->get('site_url') ?: $app->request->origin();
             if ($app->request->post('krok') === 'klic_moznosti') {
                 $options = $app->auth()->keyChallenge($url);
 
@@ -585,6 +602,7 @@ final class Kernel
             $error = $app->auth()->verifyKey((array) json_decode((string) ($_POST['odpoved'] ?? ''), true), $url, $address);
             if ($error === null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', t('with a passkey'));
+                $this->noticesAfterSignIn();
             }
 
             return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['chyba' => $error], $error === null ? 200 : 401);
@@ -597,6 +615,7 @@ final class Kernel
                 : $app->auth()->login($app->request->post('user'), is_string($_POST['password'] ?? null) ? $_POST['password'] : '', $address);
             if ($error === null && $app->auth()->user() !== null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', $secondStep ? t('two-factor') : '');
+                $this->noticesAfterSignIn();
 
                 return Response::redirect($this->resolveAfterSignIn());
             }
@@ -605,13 +624,38 @@ final class Kernel
             }
         }
 
+        $steps = $app->auth()->awaitingSteps();
+
         return Response::html($app->view->render('admin/login', [
             'app' => $app,
             'error' => $error,
             'login' => $app->request->post('user'),
             'code' => $app->auth()->isAwaitingCode(),
-            'keys' => $app->auth()->isAwaitingKey(),
+            'keys' => $steps['passkey'],
+            'steps' => $steps,
+            // 3.35: passkeys are bound to the site's canonical host – another host name of the site gets a link there instead
+            'passkeyHost' => \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $url),
+            'canonicalAdmin' => rtrim($url, '/') . $app->url('admin.php'),
         ]), $error === null ? 200 : 401);
+    }
+
+    /**
+     * After a completed sign-in (3.35): a site that requires passkeys tells an account without a working one to add it;
+     * an account that has just used a backup code instead of its passkey is sent to register a new passkey.
+     */
+    private function noticesAfterSignIn(): void
+    {
+        $app = $this->app;
+        $user = $app->auth()->user();
+        if ($user === null) {
+            return;
+        }
+        $keys = $app->auth()->accountKeys((int) $user['idu']);
+        if ($app->settings()->get('signin_passkey_only') === '1' && !\Kaleta\Core\SignInPolicy::escapeHatch() && !\Kaleta\Core\SignInPolicy::hasWorkingPasskey($keys)) {
+            $app->session->flash('info', t('This site asks everyone to sign in with a passkey. Add one for this device in My account – until then you sign in as before.'));
+        } elseif ($keys !== [] && $app->auth()->isFreshlyVerified() && $app->request->post('krok') === 'kod') {
+            $app->session->flash('info', t('You signed in with a backup code. If you lost your passkey, remove it in My account and register a new one now – no password is needed for the next few minutes.'));
+        }
     }
 
     /**

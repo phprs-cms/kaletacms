@@ -9,7 +9,9 @@ use Kaleta\Core\Migration;
 check('3.18 N318-1 ClaudeConnection::canCall – blocked accounts never, 2FA required of everyone or of administrators narrows it', [
     Kaleta\Core\ClaudeConnection::canCall($reportSettings([])), Kaleta\Core\ClaudeConnection::canCall($reportSettings(['require_2fa' => 'vsichni'])),
     Kaleta\Core\ClaudeConnection::canCall($reportSettings(['require_2fa' => 'spravci']))],
-    ['u.blokovat = 0', "u.blokovat = 0 AND u.totp_tajemstvi <> ''", "u.blokovat = 0 AND (u.admin <> 2 OR u.totp_tajemstvi <> '')"]);
+    // 3.35: a passkey counts as the second factor (Auth::isMissingRequired2fa)
+    ['u.blokovat = 0', "u.blokovat = 0 AND (u.totp_tajemstvi <> '' OR EXISTS (SELECT 1 FROM {uzivatele_klice} k2 WHERE k2.idu = u.idu))",
+        "u.blokovat = 0 AND (u.admin <> 2 OR (u.totp_tajemstvi <> '' OR EXISTS (SELECT 1 FROM {uzivatele_klice} k2 WHERE k2.idu = u.idu)))"]);
 // the MCP server records a call only after every refusal: the stamp is not in user() and comes after the 2FA check
 $server318 = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php');
 $user318 = substr($server318, (int) strpos($server318, 'private function user()'), (int) strpos($server318, 'private function served(') - (int) strpos($server318, 'private function user()'));

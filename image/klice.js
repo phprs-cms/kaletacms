@@ -1,4 +1,5 @@
-// Kaleta - passkeys (WebAuthn): registration in "Můj účet" (My account) and the second sign-in step.
+// Kaleta - passkeys (WebAuthn): registration in "Můj účet" (My account), the second sign-in step, and since 3.35 the sign-in
+// without a user name and password - a button and the autofill of the user-name field (conditional UI).
 // A form with the data-klice attribute carries the URL it posts to; the server creates the challenge and verifies it (Core\Passkey).
 (function () {
 	'use strict';
@@ -17,14 +18,31 @@
 		return btoa(chars).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 	}
 
+	var supported = !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
+
+	// the response of navigator.credentials.get() as the server reads it
+	function assertion(k) {
+		var o = k.response;
+		return {
+			id: toText(k.rawId), clientDataJSON: toText(o.clientDataJSON), authenticatorData: toText(o.authenticatorData),
+			signature: toText(o.signature), userHandle: o.userHandle ? toText(o.userHandle) : ''
+		};
+	}
+
+	function getOptions(m) {
+		m.challenge = toBytes(m.challenge);
+		(m.allowCredentials || []).forEach(function (c) { c.id = toBytes(c.id); });
+		return m;
+	}
+
 	document.querySelectorAll('form[data-klice]').forEach(function (formEl) {
 		var address = formEl.getAttribute('data-klice');
 		var error = formEl.querySelector('[data-klic-chyba]');
-		var button = formEl.querySelector('[data-klic-pridat], [data-klic-prihlasit]');
-		if (!button) { return; }
+		var buttons = formEl.querySelectorAll('[data-klic-pridat], [data-klic-prihlasit], [data-klic-bezhesla]');
+		if (!buttons.length) { return; }
 
-		if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
-			button.disabled = true;
+		if (!supported) {
+			buttons.forEach(function (b) { b.disabled = true; });
 			var unsupported = formEl.querySelector('[data-klic-nepodporuje]');
 			if (unsupported) { unsupported.hidden = false; }
 			return;
@@ -32,7 +50,7 @@
 
 		function showError(text) {
 			if (error) { error.textContent = text; error.hidden = !text; }
-			button.disabled = false;
+			buttons.forEach(function (b) { b.disabled = false; });
 		}
 
 		function deliver(field) {
@@ -44,40 +62,92 @@
 				.then(function (j) { if (j && j.chyba) { throw new Error(j.chyba); } return j; });
 		}
 
-		button.addEventListener('click', function () {
-			var register = button.hasAttribute('data-klic-pridat');
-			button.disabled = true;
-			showError('');
-			button.disabled = true;
+		function done(j) {
+			window.location.href = (j && j.kam) || window.location.href.split('#')[0];
+		}
 
-			// adding a passkey needs the current password (3.3.3): the server issues the challenge only with it
-			var password = formEl.querySelector('[data-klic-heslo]');
-			deliver(register ? { co: 'klic_moznosti', soucasne: password ? password.value : '' } : { krok: 'klic_moznosti' }).then(function (m) {
-				m.challenge = toBytes(m.challenge);
-				if (register) {
-					m.user.id = toBytes(m.user.id);
-					(m.excludeCredentials || []).forEach(function (c) { c.id = toBytes(c.id); });
-					return navigator.credentials.create({ publicKey: m });
+		// 3.35: the user-name field offers the site's passkeys as it is focused (conditional UI) where the browser can; the
+		// request waits in the background and is renewed before its challenge expires on the server (5 minutes)
+		var conditional = null, renew = null;
+		var passwordless = formEl.querySelector('[data-klic-bezhesla]');
+		function startConditional() {
+			if (!passwordless || !document.querySelector('input[autocomplete~="webauthn"]') || !PublicKeyCredential.isConditionalMediationAvailable) { return; }
+			PublicKeyCredential.isConditionalMediationAvailable().then(function (available) {
+				if (!available) { return; }
+				stopConditional();
+				var controller = new AbortController();
+				conditional = controller;
+				renew = window.setTimeout(startConditional, 240000);
+				var chosen = false;
+				deliver({ krok: 'passkey_options' }).then(function (m) {
+					if (controller.signal.aborted) { return null; }
+					return navigator.credentials.get({ publicKey: getOptions(m), mediation: 'conditional', signal: controller.signal });
+				}).then(function (k) {
+					if (!k) { return null; }
+					chosen = true;
+					return deliver({ krok: 'passkey', odpoved: JSON.stringify(assertion(k)) }).then(done);
+				}).catch(function (e) {
+					if (controller.signal.aborted || (e && e.name === 'AbortError')) { return; }
+					showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+					if (chosen) { startConditional(); } // a refused passkey: the autofill is offered again (never in a loop of failing requests)
+				});
+			});
+		}
+		function stopConditional() {
+			if (renew) { window.clearTimeout(renew); renew = null; }
+			if (conditional) { conditional.abort(); conditional = null; }
+		}
+		startConditional();
+
+		buttons.forEach(function (button) {
+			button.addEventListener('click', function () {
+				var register = button.hasAttribute('data-klic-pridat');
+				var withoutPassword = button.hasAttribute('data-klic-bezhesla');
+				buttons.forEach(function (b) { b.disabled = true; });
+				showError('');
+				buttons.forEach(function (b) { b.disabled = true; });
+				stopConditional(); // one WebAuthn request at a time: the modal one replaces the autofill
+
+				if (withoutPassword) {
+					deliver({ krok: 'passkey_options' }).then(function (m) {
+						return navigator.credentials.get({ publicKey: getOptions(m) });
+					}).then(function (k) {
+						return deliver({ krok: 'passkey', odpoved: JSON.stringify(assertion(k)) });
+					}).then(done).catch(function (e) {
+						showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+						startConditional();
+					});
+					return;
 				}
-				(m.allowCredentials || []).forEach(function (c) { c.id = toBytes(c.id); });
-				return navigator.credentials.get({ publicKey: m });
-			}).then(function (k) {
-				var o = k.response, response = { id: toText(k.rawId), clientDataJSON: toText(o.clientDataJSON) };
-				if (register) {
-					if (!o.getPublicKey || !o.getAuthenticatorData) { throw new Error(formEl.querySelector('[data-klic-nepodporuje]').textContent); }
-					response.authenticatorData = toText(o.getAuthenticatorData());
-					response.publicKey = toText(o.getPublicKey());
-					response.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
-					return deliver({ co: 'klic_uloz', odpoved: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]').value });
-				}
-				response.authenticatorData = toText(o.authenticatorData);
-				response.signature = toText(o.signature);
-				return deliver({ krok: 'klic', odpoved: JSON.stringify(response) });
-			}).then(function (j) {
-				window.location.href = (j && j.kam) || window.location.href.split('#')[0];
-			}).catch(function (e) {
-				// the user cancelling the dialog is not an error worth reporting
-				showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+
+				// adding a passkey needs the current password (3.3.3) or a passkey/backup-code step a few minutes ago (3.35):
+				// the server issues the challenge only then; "register again" (3.35) names the older passkey it replaces
+				var password = formEl.querySelector('[data-klic-heslo]');
+				var replaces = button.getAttribute('data-nahradit') || '';
+				deliver(register ? { co: 'klic_moznosti', soucasne: password ? password.value : '', nahradit: replaces } : { krok: 'klic_moznosti' }).then(function (m) {
+					if (register) {
+						m.challenge = toBytes(m.challenge);
+						m.user.id = toBytes(m.user.id);
+						(m.excludeCredentials || []).forEach(function (c) { c.id = toBytes(c.id); });
+						return navigator.credentials.create({ publicKey: m });
+					}
+					return navigator.credentials.get({ publicKey: getOptions(m) });
+				}).then(function (k) {
+					var o = k.response, response = { id: toText(k.rawId), clientDataJSON: toText(o.clientDataJSON) };
+					if (register) {
+						if (!o.getPublicKey || !o.getAuthenticatorData) { throw new Error(formEl.querySelector('[data-klic-nepodporuje]').textContent); }
+						response.authenticatorData = toText(o.getAuthenticatorData());
+						response.publicKey = toText(o.getPublicKey());
+						response.publicKeyAlgorithm = o.getPublicKeyAlgorithm();
+						var props = (k.getClientExtensionResults && k.getClientExtensionResults().credProps) || {};
+						response.rk = props.rk === false ? '0' : (props.rk === true ? '1' : '');
+						return deliver({ co: 'klic_uloz', odpoved: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]:not([form])').value, nahradit: replaces });
+					}
+					return deliver({ krok: 'klic', odpoved: JSON.stringify(assertion(k)) });
+				}).then(done).catch(function (e) {
+					// the user cancelling the dialog is not an error worth reporting
+					showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+				});
 			});
 		});
 	});

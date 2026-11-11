@@ -6,7 +6,14 @@
  * @var string|null $error
  * @var string $login
  * @var bool $code  second step: the password is already correct, waiting for the code from the authenticator app
+ * @var bool $keys  the second step may be the passkey
+ * @var array{code: bool, backup: bool, passkey: bool} $steps  the second steps the account may use (3.35, Core\SignInPolicy)
+ * @var bool $passkeyHost  this host is the site's canonical one – passkeys work here (3.35)
+ * @var string $canonicalAdmin  the administration at the canonical host
  */
+$steps ??= ['code' => true, 'backup' => true, 'passkey' => !empty($keys)];
+$passkeyHost ??= true;
+$canonicalAdmin ??= '';
 ?>
 <!doctype html>
 <html lang="<?= e(Kaleta\Core\Language::code()) ?>">
@@ -36,17 +43,37 @@
 <?php endif ?>
 <form method="post" action="<?= e($app->url('admin.php')) ?>">
 <?= $app->session->csrfField() ?>
-<?php if ($code): ?>
+<?php if ($code && ($steps['code'] || $steps['backup'])): ?>
 <input type="hidden" name="krok" value="kod">
+<?php if ($steps['code']): ?>
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
 <div class="login-pole"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
-<?php else: ?>
-<div class="login-pole"><label for="user"><?= e(t('User name or e-mail')) ?></label> <input class="textpole" type="text" id="user" name="user" value="<?= e($demo !== null && $login === '' ? $demo['user'] : $login) ?>" size="20" maxlength="190" autocomplete="username" required autofocus></div>
-<div class="login-pole"><label for="password"><?= e(t('Password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
+<?php else: // 3.35: an account with a passkey and no app (or "passkey only") – the passkey below, or a backup code ?>
+<p><?= e(t('Your account signs in with a passkey. Confirm with it below – or, if you lost it, enter one of your backup codes.')) ?></p>
+<div class="login-pole"><label for="kod"><?= e(t('Backup code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" autocomplete="one-time-code" required></div>
 <?php endif ?>
-<p><input class="tl" type="submit" value="<?= e(t($code ? 'Verify code' : 'Přihlásit se')) ?>"></p>
+<p><input class="tl" type="submit" value="<?= e(t('Verify code')) ?>"></p>
+<?php elseif ($code): ?>
+<p><?= e(t('Your account signs in with a passkey. Confirm the sign-in with it below. Lost it and have no backup codes? Ask an administrator of the site to reset your passkeys.')) ?></p>
+<?php else: ?>
+<div class="login-pole"><label for="user"><?= e(t('User name or e-mail')) ?></label> <input class="textpole" type="text" id="user" name="user" value="<?= e($demo !== null && $login === '' ? $demo['user'] : $login) ?>" size="20" maxlength="190" autocomplete="<?= $passkeyHost ? 'username webauthn' : 'username' ?>" required autofocus></div>
+<div class="login-pole"><label for="password"><?= e(t('Password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" autocomplete="current-password" required<?= $demo !== null ? ' value="' . e($demo['password']) . '"' : '' ?>></div>
+<p><input class="tl" type="submit" value="<?= e(t('Přihlásit se')) ?>"></p>
+<?php endif ?>
 </form>
-<?php if ($code && !empty($keys)): ?>
+<?php if (!$code && $passkeyHost && $demo === null): // 3.35: the sign-in without a user name and password ?>
+<form method="post" action="<?= e($app->url('admin.php')) ?>" data-klice="<?= e($app->url('admin.php')) ?>">
+<?= $app->session->csrfField() ?>
+<p class="login-nebo"><?= e(t('or')) ?></p>
+<p><button class="tl" type="button" data-klic-bezhesla><?= e(t('Sign in with a passkey')) ?></button></p>
+<p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
+<p class="smltxt" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
+</form>
+<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php elseif (!$passkeyHost && $canonicalAdmin !== '' && (!$code || !empty($keys))): ?>
+<p class="smltxt"><?= e(t('Passkeys work only at the main address of the site:')) ?> <a href="<?= e($canonicalAdmin) ?>"><?= e($canonicalAdmin) ?></a></p>
+<?php endif ?>
+<?php if ($code && !empty($keys) && $passkeyHost): ?>
 <form method="post" action="<?= e($app->url('admin.php')) ?>" data-klice="<?= e($app->url('admin.php')) ?>">
 <?= $app->session->csrfField() ?>
 <p class="login-nebo"><?= e(t('or')) ?></p>

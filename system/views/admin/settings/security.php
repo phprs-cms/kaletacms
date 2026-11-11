@@ -14,6 +14,14 @@
 <?php endforeach ?>
 	</select><span class="napoveda"><?= e(t('Anyone who must have it and has not turned it on yet can only reach My account after signing in until they set it up.')) ?></span></div>
 </div>
+<div class="radek" id="signin_passkey_only">
+	<span class="popisek"><?= e(t('Passkeys')) ?></span>
+	<div class="volby">
+		<label><input type="checkbox" name="signin_passkey_only" value="1"<?= ($values['signin_passkey_only'] ?? '') === '1' ? ' checked' : '' ?> aria-describedby="signin_passkey_only_napoveda"> <?= e(t('accounts with a passkey sign in with it only')) ?></label>
+		<span class="napoveda" id="signin_passkey_only_napoveda"><?= e(t('It applies to an account only once the account has a working passkey; until then the user signs in as before and sees a notice to add one in My account. With the password, such an account can then finish signing in only with its passkey or a backup code. You can turn this on once you have signed in with your own passkey.')) ?>
+		<?= e(t('If nobody can sign in, add %s to config.php – it switches every “passkey only” off.', "define('" . Kaleta\Core\SignInPolicy::ESCAPE_HATCH . "', true);")) ?></span>
+	</div>
+</div>
 <?php $autoSuspend = explode(',', $values['auto_suspend'] ?? ''); ?>
 <div class="radek" id="auto_suspend">
 	<span class="popisek"><?= e(t('Suspend automatically')) ?></span>

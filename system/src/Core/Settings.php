@@ -73,6 +73,7 @@ final class Settings
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Kaleta-Signature), shown only to administrators
         'require_2fa' => '',          // '' | spravci (administrators) | vsichni (everyone) – mandatory two-factor login
+        'signin_passkey_only' => '',  // 3.35: '1' = accounts with a working passkey sign in with it only (Core\SignInPolicy; config.php KALETA_PASSKEY_ONLY_OFF switches it off)
         'auto_suspend' => '',         // automatic suspension (2.8, Core\SecurityHygiene), a list: ucty = block accounts unused for 90 days, napojeni = revoke Claude connections unused for 60 days
         'page_cache' => '1',       // full-page cache for visitors who are not logged in (5 minutes)
         'link_check' => '1',     // look for broken links in news, page builds and collection items in the background

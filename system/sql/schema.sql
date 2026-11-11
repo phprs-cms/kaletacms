@@ -38,6 +38,8 @@ CREATE TABLE ka_uzivatele (
     bio            TEXT NULL,                             -- a few sentences about the author
     team_item_id   INT UNSIGNED NULL,                     -- the person's record in the Team collection (3.14, Builder\TeamRecord); NULL = by the e-mail
     notify_email   VARCHAR(10) CHARACTER SET ascii NOT NULL DEFAULT 'instant', -- e-mail for notifications: instant | daily | off (3.26, migration 0112)
+    passkey_handle VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '', -- opaque WebAuthn user handle (base64url, 3.35, migration 0121); '' = none yet
+    passkey_only   BOOL NOT NULL DEFAULT 0,                -- the account signs in with a passkey only (applies once it has a working passkey; 3.35)
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -447,7 +449,7 @@ CREATE TABLE ka_api_tokeny (
     CONSTRAINT fk_tokeny_user FOREIGN KEY (idu) REFERENCES ka_uzivatele (idu) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
--- Passkeys (WebAuthn) as the second sign-in step. Only the device's public key is stored.
+-- Passkeys (WebAuthn): the sign-in without a password, or the second step after it (3.35). Only the device's public key is stored.
 CREATE TABLE ka_uzivatele_klice (
     idk        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     idu        INT UNSIGNED NOT NULL,
@@ -459,6 +461,7 @@ CREATE TABLE ka_uzivatele_klice (
     pocitadlo  INT UNSIGNED NOT NULL DEFAULT 0,           -- signature counter; if the device keeps one, it must increase
     vytvoreno  DATETIME     NOT NULL,
     pouzito    DATETIME     NULL,
+    discoverable BOOL NOT NULL DEFAULT 0,                 -- 3.35: a discoverable passkey with user verification – signs in without a password; 0 = second step only
     PRIMARY KEY (idk),
     UNIQUE KEY uq_klice_otisk (otisk_id),
     KEY ix_klice_user (idu),

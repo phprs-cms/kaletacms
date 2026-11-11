@@ -13,7 +13,7 @@ check('3.31.2: Users ignores one\'s own e-mail, password and two-factor reset; f
     strpos($s3312Users, '->confirmPassword(') < strpos($s3312Users, "\$data['totp_tajemstvi'] = '';"),
     strpos($s3312Users, '->confirmPassword(') < strpos($s3312Users, 'DELETE FROM {uzivatele_klice}'),
     strpos($s3312Users, 'DELETE FROM {uzivatele_klice}') > strpos($s3312Users, '$this->db->transaction('),
-    substr_count($s3312Form, 'name="soucasne"'), str_contains($s3312Form, "<?php if (!empty(\$author['totp_tajemstvi']) && !\$isSelf): ?>"),
+    substr_count($s3312Form, 'name="soucasne"'), str_contains($s3312Form, "<?php if ((!empty(\$author['totp_tajemstvi']) || !empty(\$passkeys)) && !\$isSelf): ?>"), // 3.35: passkeys too
     str_contains($s3312Form, "<?php if (\$author['idu'] && !\$isSelf):")],
     [true, true, true, true, true, true, true, 1, true, true]);
 $s3312Texts = ["Enter your own current password to set this user's password or turn off their two-factor sign-in. Nothing was saved.",

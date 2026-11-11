@@ -71,6 +71,7 @@ class Settings extends Module
         ],
         'security' => [
             'require_2fa' => 'vyber:|spravci|vsichni',
+            'signin_passkey_only' => 'ano', // 3.35: turned on only by an administrator with a working passkey (actionSave)
             'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
         ],
         'agency' => [
@@ -377,6 +378,14 @@ class Settings extends Module
                 continue;
             }
             $clean = self::sanitize($type, $value, $this->request->postBool($key));
+            if ($key === 'signin_passkey_only' && $clean === '1' && $settings->get($key) !== '1' && !$this->canRequirePasskeys()) {
+                // 3.35: whoever requires passkeys of the site proves first that one works here for them – so the setting
+                // never starts with an administrator who could not sign in with it (it applies to an account only once
+                // the account has a working passkey; KALETA_PASSKEY_ONLY_OFF in config.php is the escape hatch)
+                $errors[] = $key;
+                $reason = t('Register a passkey for your own account in My account and sign in with it once before you require passkeys for the whole site.');
+                continue;
+            }
             if ($key === 'time_zone' && $clean !== null && $clean !== $zoneBefore) {
                 $newZone = $clean; // saved only after the administrator chooses what happens to the dates already saved
                 continue;
@@ -452,6 +461,17 @@ class Settings extends Module
         return $errors === []
             ? $this->back('Settings saved.', '', static::IDENT === 'settings' ? ['tab' => $tab] : [])
             : $this->rejectInvalid($tab, $errors, $given, $reason);
+    }
+
+    /**
+     * May the signed-in administrator require passkeys of the whole site (3.35)? Only with a working passkey of their own
+     * that has signed in at least once (Core\SignInPolicy::hasUsedWorkingPasskey) – a passkey that works on this host.
+     */
+    private function canRequirePasskeys(): bool
+    {
+        $keys = $this->app->auth()->accountKeys($this->app->auth()->id());
+
+        return $this->app->auth()->isAdmin() && \Kaleta\Core\SignInPolicy::hasUsedWorkingPasskey($keys);
     }
 
     /**

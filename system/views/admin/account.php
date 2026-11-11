@@ -16,7 +16,18 @@
  * @var string $newToken  token just created (shown only once)
  * @var string $mcpUrl
  * @var bool $teamExists the site has a people collection – the My e-mail signature tab (3.14)
+ * @var bool $fresh  a passkey or backup-code step a few minutes ago – passkey changes need no password (3.35)
+ * @var bool $passkeyOnly  the account signs in with a passkey only (its choice or the site's, Core\SignInPolicy)
+ * @var bool $sitePasskeyOnly  the site requires passkeys of accounts that have one
+ * @var bool $workingPasskey  the account has a passkey that signs in without a password
+ * @var bool $passkeyHost  this host is the site's canonical one – passkeys work here
+ * @var bool $codesFromPasskey  the backup codes shown came with the first passkey
  */
+$fresh ??= false;
+$passkeyOnly ??= false;
+$sitePasskeyOnly ??= false;
+$workingPasskey ??= false;
+$passkeyHost ??= true;
 $action = e($app->url('admin.php?action=account'));
 ?>
 <?php if ($teamExists ?? false): ?>
@@ -24,7 +35,11 @@ $action = e($app->url('admin.php?action=account'));
 <?php endif ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
+<?php if (!empty($codesFromPasskey)): ?>
+	<p><strong><?= e(t('Your backup codes')) ?></strong> <?= e(t('Save them somewhere safe – each works once after your password when you do not have your passkey. They will not be shown again.')) ?></p>
+<?php else: ?>
 	<p><strong><?= e(t('Two-factor sign-in is on.')) ?></strong> <?= e(t('Save your backup codes – each works once when you do not have your phone. They will not be shown again.')) ?></p>
+<?php endif ?>
 	<p class="zalozni-kody"><?= implode(' &nbsp; ', array_map(e(...), $backupCodes)) ?></p>
 </div>
 <?php endif ?>
@@ -126,37 +141,75 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 </fieldset>
 </form>
 
-<?php if ($user['totp_tajemstvi'] !== ''): ?>
+<?php
+// 3.35: passkeys for every account – the sign-in without a password, and the second step after the password. The rename
+// forms stand outside the main form (no nesting): each row's field and button belong to theirs through the form attribute.
+$oldKeys = array_values(array_filter($keys, static fn (array $k): bool => empty($k['discoverable'])));
+foreach ($keys as $k): ?>
+<form id="klic-prejmenuj-<?= (int) $k['idk'] ?>" method="post" action="<?= $action ?>"><?= $csrf ?><input type="hidden" name="co" value="klic_prejmenuj"><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"></form>
+<?php endforeach ?>
 <form class="formular" method="post" action="<?= $action ?>" data-klice="<?= $action ?>">
 <?= $csrf ?>
-<fieldset><legend><?= e(t('Passkeys')) ?></legend>
-<p><?= e(t('Fingerprint, Face ID, Windows Hello or a security key instead of typing the code from the app. The code and the backup codes keep working – in case you do not have the device with you.')) ?></p>
+<fieldset id="passkeys"><legend><?= e(t('Passkeys')) ?></legend>
+<p><?= e(t('Sign in with your fingerprint, face, screen lock or a security key – without a user name and password. With your password, a passkey is the second step: once you have one, a password alone never signs you in.')) ?></p>
+<?php if (!$passkeyHost): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('Passkeys work only at the main address of the site:')) ?> <a href="<?= e(rtrim($app->settings()->get('site_url'), '/') . $app->url('admin.php?action=account')) ?>"><?= e(rtrim($app->settings()->get('site_url'), '/')) ?></a></p>
+<?php endif ?>
+<?php if ($sitePasskeyOnly && !$workingPasskey): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('This site asks everyone to sign in with a passkey. Add one for this device below – until then you sign in as before.')) ?></p>
+<?php endif ?>
+<?php if ($oldKeys !== []): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('A passkey marked “second step only” was added before passkeys could sign in on their own. To sign in with it without a password, register it again on that device – the button in its row replaces it.')) ?></p>
+<?php endif ?>
 <?php if ($keys !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Zařízení')) ?></th><th scope="col"><?= e(t('Added')) ?></th><th scope="col"><?= e(t('Last used')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<caption class="navod-skryte"><?= e(t('Your passkeys')) ?></caption>
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Added')) ?></th><th scope="col"><?= e(t('Last used')) ?></th><th scope="col"><?= e(t('Signs in')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php foreach ($keys as $k): ?>
+<?php foreach ($keys as $k): $kid = (int) $k['idk']; ?>
 <tr>
-	<td><?= e($k['nazev']) ?></td>
+	<td><input class="textpole" type="text" name="nazev" form="klic-prejmenuj-<?= $kid ?>" value="<?= e($k['nazev']) ?>" maxlength="80" size="18" aria-label="<?= e(t('Name of the passkey %s', (string) $k['nazev'])) ?>"> <button class="navigace" type="submit" form="klic-prejmenuj-<?= $kid ?>"><?= e(t('Rename')) ?></button></td>
 	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
 	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
-	<td class="akce"><button class="navigace nebezpecne" type="submit" name="idk" value="<?= (int) $k['idk'] ?>" data-potvrdit="<?= e(t('Remove this passkey? You can still sign in with the code from the app.')) ?>"><?= e(t('Smazat')) ?></button></td>
+	<td><?= !empty($k['discoverable']) ? '<span class="stitek stitek-vydano">' . e(t('without a password')) . '</span>' : '<span class="stitek">' . e(t('second step only')) . '</span>' ?></td>
+	<td class="akce"><?php if (empty($k['discoverable'])): ?><button class="navigace" type="button" data-klic-pridat data-nahradit="<?= $kid ?>"><?= e(t('Register again')) ?></button> <?php endif ?><button class="navigace nebezpecne" type="submit" name="idk" value="<?= $kid ?>" data-potvrdit="<?= e(t('Remove this passkey? It will no longer sign you in.')) ?>"><?= e(t('Smazat')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
 <input type="hidden" name="co" value="klic_smaz">
+<p class="napoveda"><?= e(t('Backup codes left: %d. Each works once after your password when you do not have your passkey.', $codesLeft)) ?></p>
 <?php endif ?>
 <div class="radek"><label for="klic-nazev"><?= e(t('Device name')) ?></label><div><input class="textpole" type="text" id="klic-nazev" name="nazev" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
-<div class="radek"><label for="klic-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="klic-heslo" name="soucasne" size="30" autocomplete="current-password" data-klic-heslo><span class="napoveda"><?= e(t('Needed to add a passkey.')) ?></span></div></div>
+<?php if ($fresh): ?>
+<p class="napoveda"><?= e(t('You confirmed your sign-in with a passkey or a backup code a moment ago – no password is needed to add or remove a passkey for the next few minutes.')) ?></p>
+<?php else: ?>
+<div class="radek"><label for="klic-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="klic-heslo" name="soucasne" size="30" autocomplete="current-password" data-klic-heslo><span class="napoveda"><?= e(t('Needed to add or remove a passkey – or sign in again with your passkey and do it within a few minutes.')) ?></span></div></div>
+<?php endif ?>
 <p class="tlacitka"><button class="navigace" type="button" data-klic-pridat><?= e(t('Add a passkey from this device')) ?></button></p>
 <p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
 <p class="napoveda" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
 </fieldset>
 </form>
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php if ($workingPasskey): ?>
+<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
+<?= $csrf ?><input type="hidden" name="co" value="passkey_only">
+<fieldset id="passkey-only"><legend><?= e(t('Passkey only')) ?></legend>
+<?php if ($sitePasskeyOnly): ?>
+<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('This site requires it: you sign in with your passkey. After your password only the passkey or a backup code finishes the sign-in.')) ?></p>
+<?php else: ?>
+<div class="radek"><span class="popisek"><?= e(t('Sign-in')) ?></span><div class="volby"><input type="hidden" name="passkey_only" value="0"><label><input type="checkbox" name="passkey_only" value="1"<?= $passkeyOnly ? ' checked' : '' ?> aria-describedby="passkey-only-napoveda"> <?= e(t('sign in with a passkey only')) ?></label>
+	<span class="napoveda" id="passkey-only-napoveda"><?= e(t('Your password then never signs you in with the code from the app: after it only your passkey or a backup code finishes the sign-in. You can still change or reset the password. Lost your passkey and the backup codes? An administrator can reset your passkeys.')) ?></span></div></div>
+<?php if (!$fresh): ?>
+<div class="radek"><label for="passkey-only-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="passkey-only-heslo" name="soucasne" size="30" autocomplete="current-password"></div></div>
+<?php endif ?>
+<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save the choice')) ?></button></p>
+<?php endif ?>
+</fieldset>
+</form>
 <?php endif ?>
 
 <?php if ($claude): ?>

@@ -27,7 +27,7 @@ check('3.23 (C12): General, Languages, Security and Agency – each field in the
     array_keys($fields323['languages']), array_keys($fields323['security']), array_keys($fields323['agency']),
     // MCP update_settings and the import validate them as before (the type is looked up in every tab)
     [S323::verifyValue('require_2fa', 'spravci'), S323::verifyValue('agency_email', 'x'), S323::verifyValue('site_language', 'de'), S323::verifyValue('screen_mode', 'true'), S323::checkable('agency_name')],
-], [[], [], ['site_language', 'german_register', 'additional_languages', 'slugs_per_language'], ['require_2fa', 'auto_suspend'],
+], [[], [], ['site_language', 'german_register', 'additional_languages', 'slugs_per_language'], ['require_2fa', 'signin_passkey_only', 'auto_suspend'],
     ['agency_name', 'agency_url', 'agency_email', 'agency_phone', 'agency_logo'], ['spravci', null, 'de', '1', true]]);
 check('3.23 (C12): the old single General form (no marker) still saves every field it showed; the split form sends the marker; old links move on', [
     (bool) preg_match("/tab === 'general'.*!\\\$this->request->postBool\('general_split'\).*SPLIT_FROM_GENERAL/s", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php')),

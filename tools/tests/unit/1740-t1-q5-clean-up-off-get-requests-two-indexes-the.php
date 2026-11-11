@@ -16,6 +16,6 @@ check('T1 Q5: the Enquiries list, the Pages list and the admin kernel delete not
     [false, false, false, 86400, 'any', true, true, true]);
 check('T1 Q5: migration 0118 and the schema add ix_poptavky_datum and ix_notifications_target; the customers sort by activity without a filesort term', [
     str_contains($t5Schema, 'KEY ix_poptavky_datum (datum)'), str_contains($t5Schema, 'KEY ix_notifications_target (target)'),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0118-cleanup-indexes.sql'), 'ADD KEY'), KALETA_DB_VERSION, Kaleta\Core\Contacts::SORTS['activity']],
-    [true, true, 2, 118, 'c.last_activity_at DESC, c.id DESC']);
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0118-cleanup-indexes.sql'), 'ADD KEY'), KALETA_DB_VERSION >= 118, Kaleta\Core\Contacts::SORTS['activity']],
+    [true, true, 2, true, 'c.last_activity_at DESC, c.id DESC']);
 
