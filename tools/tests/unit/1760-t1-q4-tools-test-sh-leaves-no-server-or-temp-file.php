@@ -61,7 +61,7 @@ check('3.32 (R4): a new deal without a responsible person gets its creator (when
     [true, true, true, true, [[], [], []]]);
 
 // 3.32 (U38, U39): one glossary – every language calls each term as Core\Glossary says, no screen uses a retired key, and in
-// Czech an enquiry kind is never "Obchod" (a deal) and a lost stage is never "prohraná"
+// Czech an enquiry kind is never "Obchod" (a deal); a lost deal or stage is "prohraná" again since 3.34 (owner decision), never "ztracená"
 $a332Dicts = array_map(fn (string $code): array => require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php', array_combine(Kaleta\Core\Glossary::LANGUAGES, Kaleta\Core\Glossary::LANGUAGES));
 $a332Glossary = [ // English key => [cs, de, es]
     'Responsible person' => ['Odpovědná osoba', 'Verantwortliche Person', 'Persona responsable'],
@@ -74,7 +74,7 @@ $a332Glossary = [ // English key => [cs, de, es]
     'Deals' => ['Obchody', 'Deals', 'Oportunidades'],
     'Sales' => ['Prodej', 'Vertrieb', 'Ventas'],
     'Won' => ['Vyhraný', 'Gewonnen', 'Ganado'],
-    'Lost' => ['Ztracený', 'Verloren', 'Perdido'],
+    'Lost' => ['Prohraný', 'Verloren', 'Perdido'],
     '%s made you responsible' => ['%s vás určil(a) jako odpovědnou osobu', '%s hat Sie als verantwortliche Person eingetragen', '%s te ha nombrado persona responsable'],
 ];
 $a332Wrong = array_values(array_diff(Kaleta\Core\Glossary::TERMS, array_keys($a332Glossary)));
@@ -98,9 +98,10 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
         }
     }
 }
-check('3.32 (U38/U39): the glossary – the terms in cs, de and es, no retired key on a screen, Czech "Prodej" for the Sales kind (a deal is "Obchod"), no "prohraná" for a lost stage', [
+check('3.32 (U38/U39): the glossary – the terms in cs, de and es, no retired key on a screen, Czech "Prodej" for the Sales kind (a deal is "Obchod"), "prohraná" for a lost deal or stage, never "ztracen…" (3.34)', [
     $a332Wrong, $a332Retired, array_values(array_filter(Kaleta\Core\Triage::CATEGORIES, fn (string $label): bool => ($a332Dicts['cs'][$label] ?? '') === $a332Dicts['cs']['Deal'])),
-    array_values(array_filter(array_keys($a332Dicts['cs']), fn (string $k): bool => str_contains($a332Dicts['cs'][$k], 'prohr'))),
+    array_values(array_filter(array_keys($a332Dicts['cs']), fn (string $k): bool => preg_match('/ztracen/iu', $a332Dicts['cs'][$k]) === 1)),
+    array_values(array_filter(['lost', 'Deals lost', 'Say why the deal was lost: %s.', 'Lost – “%s” is closed.'], fn (string $k): bool => !str_contains(mb_strtolower($a332Dicts['cs'][$k] ?? ''), 'prohran'))),
     array_map(fn (string $code): array => array_values(array_diff(array_values(Kaleta\Core\Glossary::RETIRED), array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
-    [[], [], [], [], [[], [], []]]);
+    [[], [], [], [], [], [[], [], []]]);
 

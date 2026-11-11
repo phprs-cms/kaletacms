@@ -25,8 +25,8 @@ check('3.31: the stages – the defaults (labels translated in the UI language),
         $d331::parseStages('[{"key":"new","label":"","kind":"open"},{"key":"demo","label":"Demo booked","kind":"open"},{"key":"won","label":"Signed","kind":"won"},{"key":"lost","label":"","kind":"lost"}]')), 'admin-'),
     array_column($d331::parseStages('{broken'), 'key'), array_column($d331::parseStages('[{"key":"a","label":"A","kind":"open"},{"key":"b","label":"B","kind":"open"},{"key":"c","label":"C","kind":"lost"}]'), 'key'),
     $d331::DEFAULT_STAGES['won'][1], Kaleta\Core\Settings::DEFAULTS['pipeline_stages'] ?? null,
-], [['new:open:New', 'qualified:open:Qualified', 'proposal:open:Proposal', 'won:won:Won', 'lost:lost:Lost'], ['Nový', 'Kvalifikovaný', 'Nabídka', 'Vyhraný', 'Ztracený'],
-    ['new:Nový:0', 'demo:Demo booked:1', 'won:Signed:1', 'lost:Ztracený:0'], ['new', 'qualified', 'proposal', 'won', 'lost'], ['new', 'qualified', 'proposal', 'won', 'lost'], 'won', '']);
+], [['new:open:New', 'qualified:open:Qualified', 'proposal:open:Proposal', 'won:won:Won', 'lost:lost:Lost'], ['Nový', 'Kvalifikovaný', 'Nabídka', 'Vyhraný', 'Prohraný'],
+    ['new:Nový:0', 'demo:Demo booked:1', 'won:Signed:1', 'lost:Prohraný:0'], ['new', 'qualified', 'proposal', 'won', 'lost'], ['new', 'qualified', 'proposal', 'won', 'lost'], 'won', '']);
 $d331Refuse = function (callable $fn): string {
     try {
         return (string) json_encode($fn());

@@ -12,7 +12,8 @@ namespace Kaleta\Core;
  *  - The person who takes care of a record is the "responsible person" everywhere: a page, an item, a customer, a deal, an
  *    enquiry (it was "Handled by") and a task (it was "For"); a notification says "… made you responsible".
  *  - The people of the CRM are "Customers" (the menu, the list, "New customer"); the list's tabs are "People" and "Companies".
- *  - A deal is "Obchod" in Czech, so the enquiry kind Sales is "Prodej"; a lost stage is "ztracená" in every Czech sentence.
+ *  - A deal is "Obchod" in Czech, so the enquiry kind Sales is "Prodej"; a lost deal or stage is "prohraná" (prohraný, prohra,
+ *    prohrané) in every Czech sentence – 3.34 (owner decision) brought it back from the "ztracená" of 3.32.
  */
 final class Glossary
 {

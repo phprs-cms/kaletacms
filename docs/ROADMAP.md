@@ -1690,6 +1690,10 @@ vocabulary. No setting key, POST field, MCP tool, parameter or Czech alias renam
     Workplace (TELECOMMUTE with the company's country), the full address in the company's own town.
 12. **Monthly report**: recruitment counts per status and position – never a person; in the month applications left the
     enquiries the enquiry tile says "counting changed" instead of showing a drop.
+13. **Czech: a lost deal is "prohraná" again** (owner decision): the 3.32 glossary word "ztracená / ztráty / ztracené"
+    for a lost deal or stage goes back to "prohraná / prohry / prohrané" in the Czech admin, reports and e-mails
+    (`Core\Glossary`, its unit test pins "Prohraný" and forbids "ztracen…"); the rest of the 3.32 glossary stays, and
+    English, German and Spanish are unchanged.
 
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
