@@ -2979,5 +2979,6 @@ window.KALETA_PREKLAD = {
 	"Table": "Tabulka",
 	"job application": "žádost o místo",
 	"Position": "Pozice",
-	"Fill with the open jobs": "Doplnit otevřená pracovní místa"
+	"Fill with the open jobs": "Doplnit otevřená pracovní místa",
+	"Only someone who may open Applications can change this.": "Změnit to může jen ten, kdo smí otevřít Žádosti o místo."
 };

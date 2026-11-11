@@ -3095,5 +3095,6 @@ window.KALETA_PREKLAD = {
 	"Table": "Tabla",
 	"job application": "candidatura",
 	"Position": "Puesto",
-	"Fill with the open jobs": "Rellenar con los empleos abiertos"
+	"Fill with the open jobs": "Rellenar con los empleos abiertos",
+	"Only someone who may open Applications can change this.": "Solo puede cambiarlo quien puede abrir Solicitudes."
 };

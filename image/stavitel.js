@@ -2286,7 +2286,11 @@
 				return el('label', { class: 'st-zaskrt' }, el('input', { type: 'checkbox', checked: !!value, onchange: (e) => change(e.target.checked) }), description);
 			case 'vyber':
 				// a stored true / false (the image loading of builds before 3.5) means '1' / '' – the select shows that, not its first option
-				inputEl = el('select', { onchange: (e) => change(e.target.value) }, Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === (value === true ? '1' : value === false ? '' : String(value ?? def.vychozi ?? '')) }, T(v))));
+				inputEl = el('select', { disabled: !!def.jen_cteni, onchange: (e) => change(e.target.value) }, Object.entries(def.moznosti).map(([k, v]) => el('option', { value: k, selected: k === (value === true ? '1' : value === false ? '' : String(value ?? def.vychozi ?? '')) }, T(v))));
+				if (def.jen_cteni) { // 3.34 review low (f): the Purpose of a form, shown read-only to someone without Applications
+					wrapper.append(inputEl, el('small', {}, T('Only someone who may open Applications can change this.')));
+					return wrapper;
+				}
 				break;
 			case 'cislo':
 				inputEl = el('input', { type: 'number', min: def.min ?? 0, max: def.max ?? 100, value: value, oninput: (e) => change(parseInt(e.target.value, 10) || 0) });

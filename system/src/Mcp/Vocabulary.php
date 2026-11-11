@@ -464,6 +464,9 @@ final class Vocabulary
             if (isset($v['moznosti']) && is_array($v['moznosti'])) {
                 $field['options'] = array_values(array_map(fn (string|int $o): string => (string) (self::VALUES[$key][(string) $o] ?? $o), array_is_list($v['moznosti']) ? $v['moznosti'] : array_keys($v['moznosti'])));
             }
+            if (!empty($v['jen_cteni'])) {
+                $field['read_only'] = true; // 3.34 review low (f): the Purpose of a form for someone without Applications – additive
+            }
             if (isset($v['pole']) && is_array($v['pole'])) {
                 $item = [];
                 foreach ($v['pole'] as $k => $f) {

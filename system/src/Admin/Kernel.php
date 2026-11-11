@@ -240,6 +240,8 @@ final class Kernel
         }
         // T1 (Q5): the trash (30 days) is emptied by the daily background job 'trash' (Core\Scheduler), not on every admin request
 
+        // 3.34 review low (f): only someone who may open Applications changes a Form's Purpose (Builder\Build::sanitize, the schema)
+        \Kaleta\Builder\Build::$purposeAllowed = $app->auth()->hasModule(\Kaleta\Core\Applications::SECTION);
         $ident = $request->get('module');
         if (\Kaleta\Core\Demo::active() && \Kaleta\Core\Demo::blocksAdmin($ident, $action, $request->post('tab') ?: $request->get('tab'), $request->isPost())) {
             $app->session->flash('chyba', \Kaleta\Core\Demo::refusal());

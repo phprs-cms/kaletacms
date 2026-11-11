@@ -50,6 +50,7 @@ final class Server
         }
         $this->app->auth()->signInAs($user);
         $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
+        \Kaleta\Builder\Build::$purposeAllowed = $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION); // 3.34 review low (f): the Purpose of a form
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
             return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
         }

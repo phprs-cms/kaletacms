@@ -545,6 +545,7 @@ final class Translator
         '/^Operace musí být objekt\.$/su' => 'An operation must be an object.',
         '/^Prvek „(.*)“ nemůže obsahovat další prvky – vynechány\.$/su' => 'The “$1” element cannot contain other elements – left out.',
         '/^Prvek „(.*)“ smí vložit jen správce webu – vynechán\.$/su' => 'Only the site administrator can add the “$1” element – left out.',
+        '/^Účel formuláře \(žádost o místo\) smí měnit jen uživatel se sekcí Žádosti o místo – ponechán\.$/su' => 'Only a user who may open Applications can change the Purpose of a form (job application) – kept as it was.', // 3.34 review low (f)
         '/^Příliš hluboké vnoření – vnořené prvky vynechány\.$/su' => 'Nesting too deep – the nested elements were left out.',
         '/^Stavba musí být objekt \{"v": 1, "deti": \[\.\.\.\]\}\.$/su' => 'The build must be an object {"v": 1, "deti": [...]}.',
         '/^Stavba má víc než (\d+) prvků – zbytek vynechán\.$/su' => 'The build has more than $1 elements – the rest was left out.',

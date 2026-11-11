@@ -98,8 +98,21 @@ final class Build
      * @param array<string, mixed>|null $previous the existing build (because of ADMIN_ONLY elements)
      * @return array{0: array<string, mixed>, 1: array<string, string>} [build, errors path => text]
      */
+    /**
+     * 3.34 review low (f): may the person who saves change a Form's Purpose (job application or enquiry)? Only someone who
+     * may open Applications – set per request by Admin\Kernel and Mcp\Server; null = no person (imports, the CLI). When
+     * false, sanitize() keeps the Purpose a form had in $previous (a new form gets none) and the schema shows it read-only.
+     */
+    public static ?bool $purposeAllowed = null;
+
+    /** @var array<string, string> the Purpose of each form of the previous build while sanitize() runs (purposeAllowed false) */
+    private static array $previousPurposes = [];
+
     public static function sanitize(mixed $input, bool $admin = true, ?array $previous = null): array
     {
+        self::$previousPurposes = self::$purposeAllowed === false && $previous !== null
+            ? array_map(fn (array $p): string => (string) ($p['obsah']['ucel'] ?? ''), self::elementsOfType($previous, fn (string $className): bool => $className::TYPE === 'formular'))
+            : [];
         $errors = [];
         $used = [];
         $count = 0;
@@ -139,6 +152,13 @@ final class Build
             }
             $htmlTag = in_array($p['znacka'] ?? null, $className::HTML_TAGS, true) ? $p['znacka'] : $className::HTML_TAGS[0];
             $clean = ['id' => $id, 'typ' => $className::TYPE, 'znacka' => $htmlTag, 'obsah' => self::sanitizeContent($className::properties(), is_array($p['obsah'] ?? null) ? $p['obsah'] : [], $place . '.obsah', $errors)];
+            if ($className::TYPE === 'formular' && self::$purposeAllowed === false && ($clean['obsah']['ucel'] ?? '') !== (self::$previousPurposes[$id] ?? '')) {
+                $clean['obsah']['ucel'] = self::$previousPurposes[$id] ?? ''; // review low (f): the Purpose needs the section Applications
+                if ($clean['obsah']['ucel'] === '') {
+                    unset($clean['obsah']['ucel']);
+                }
+                $errors[$place . '.obsah.ucel'] = 'Účel formuláře (žádost o místo) smí měnit jen uživatel se sekcí Žádosti o místo – ponechán.';
+            }
             $style = Style::sanitize($p['styl'] ?? [], $place . '.styl', $errors);
             if ($style !== []) {
                 $clean['styl'] = $style;
@@ -1048,6 +1068,9 @@ final class Build
             $properties = $className::properties();
             if ($className::TYPE === 'formular' && $extensions !== null && !in_array(\Kaleta\Core\Applications::EXTENSION, $extensions, true)) {
                 unset($properties['ucel'], $properties['souhlas_uchovani']); // 3.34 B: Purpose and the pool consent only while job applications are on
+            }
+            if ($className::TYPE === 'formular' && isset($properties['ucel']) && self::$purposeAllowed === false) {
+                $properties['ucel']['jen_cteni'] = true; // review low (f): shown, not changed, without the section Applications
             }
             $elements[] = [
                 'typ' => $className::TYPE, 'nazev' => $className::NAME, 'popis' => $className::DESCRIPTION, 'ikona' => $className::ICON, 'skupina' => $className::GROUP,
