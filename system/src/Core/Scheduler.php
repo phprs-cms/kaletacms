@@ -131,6 +131,7 @@ final class Scheduler
                 Notifications::purgePersonalData($app, $source === 'cron'); // from cron on every run, on visits once a day
                 Events::prune($app->db());
                 Firewall::cleanUp($app->db());
+                ImportLayout::prune($app->db()); // 3.33 review L4: a rebuilt page is never hashed again
 
                 return 'ok';
             },

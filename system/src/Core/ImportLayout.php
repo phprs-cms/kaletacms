@@ -37,6 +37,27 @@ final class ImportLayout
     }
 
     /**
+     * The fingerprints that can never match again (3.33 review L4, from the Scheduler's cleanup job – never on a GET): the
+     * page has a different published build and no draft (it was rebuilt), has no build any more, or is gone for good.
+     * A page in the trash or with a draft keeps its row – restoring it or discarding the draft brings the flag back.
+     * Returns how many rows were removed.
+     */
+    public static function prune(Db $db): int
+    {
+        $gone = 0;
+        foreach ($db->all("SELECT m.cizi_id, s.ids, s.stavba IS NULL AS unbuilt, s.smazano IS NOT NULL AS trashed, s.stavba_koncept IS NOT NULL AS draft,
+            m.cizi_id = CONCAT(s.ids, ':', SHA2(COALESCE(s.stavba, ''), 256)) AS same
+            FROM {import_mapa} m LEFT JOIN {stranky} s ON s.ids = m.nase_id WHERE m.zdroj = ? AND m.typ = 'stranka' LIMIT 5000", [self::SOURCE]) as $r) {
+            $stale = $r['ids'] === null || (!(int) $r['trashed'] && !(int) $r['draft'] && ((int) $r['unbuilt'] || !(int) $r['same']));
+            if ($stale) {
+                $gone += $db->run("DELETE FROM {import_mapa} WHERE zdroj = ? AND typ = 'stranka' AND cizi_id = ?", [self::SOURCE, (string) $r['cizi_id']])->rowCount();
+            }
+        }
+
+        return $gone;
+    }
+
+    /**
      * The pages whose layout waits to be rebuilt, outside the trash – one query, the fingerprint compared in the database.
      *
      * @return array<int, true> page id => true

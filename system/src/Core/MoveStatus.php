@@ -57,8 +57,13 @@ final class MoveStatus
      */
     public static function latestReport(): ?array
     {
-        foreach (MigrationReport::listAll() as $state) {
-            if (($state['faze'] ?? '') === 'hotovo') {
+        // 3.33 review L4: the newest file first, decoded one at a time until a finished report – never all of them
+        $files = glob(WpFile::folder() . '/parita-*.json') ?: [];
+        $times = array_map(fn (string $f): int => (int) @filemtime($f), $files);
+        array_multisort($times, SORT_DESC, $files);
+        foreach (array_slice($files, 0, 50) as $file) {
+            $state = MigrationReport::load(substr(basename($file, '.json'), 7));
+            if ($state !== null && ($state['faze'] ?? '') === 'hotovo') {
                 return ['id' => (string) $state['id'], 'checked_at' => (string) ($state['dokonceno'] ?? $state['zalozeno'] ?? '')] + self::counts((array) ($state['radky'] ?? []));
             }
         }
