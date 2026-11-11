@@ -2063,4 +2063,11 @@ return [
     'A new application #%d for the position “%s” arrived.' => 'Une nouvelle candidature n° %d pour le poste « %s » est arrivée.',
     'A new application #%d arrived (no position).' => 'Une nouvelle candidature n° %d est arrivée (sans poste).',
     'Open it in the administration (Applications): %s' => 'Ouvrez-la dans l’administration (Candidatures) : %s',
+    'We have received your application' => 'Nous avons bien reçu votre candidature',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "Bonjour {{name}},\n\nmerci pour votre candidature pour {{position}}. Nous l’avons bien reçue et reviendrons vers vous dès que nous l’aurons examinée.\n\nCordialement,\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'Invitation à un entretien – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Bonjour {{name}},\n\nmerci pour votre candidature pour {{position}}. Nous souhaitons vous inviter à un entretien. Merci de répondre à cet e-mail en nous indiquant quelques créneaux qui vous conviennent.\n\nCordialement,\n{{company}}",
+    'Your application – {{position}}' => 'Votre candidature – {{position}}',
+    'a position with us' => 'un poste chez nous',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Bonjour {{name}},\n\nmerci de votre intérêt et de votre candidature pour {{position}}. Après un examen attentif, nous avons décidé de ne pas donner suite à votre candidature cette fois-ci. Nous vous souhaitons beaucoup de succès.\n\nCordialement,\n{{company}}",
 ];

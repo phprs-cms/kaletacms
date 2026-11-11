@@ -2095,4 +2095,11 @@ The link works for %d days.
     'A new application #%d for the position “%s” arrived.' => '收到職位「%2$s」的新求職申請第 %1$d 號。',
     'A new application #%d arrived (no position).' => '收到新求職申請第 %d 號（無職位）。',
     'Open it in the administration (Applications): %s' => '在管理後台開啟（求職申請）：%s',
+    'We have received your application' => '我們已收到您的求職申請',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感謝您申請{{position}}。我們已收到您的申請，審閱後會盡快與您聯繫。\n\n敬祝順利\n{{company}}",
+    'Invitation to an interview – {{position}}' => '面試邀請 – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感謝您申請{{position}}。我們誠摯邀請您參加面試。請回覆此郵件，告知幾個您方便的時間。\n\n敬祝順利\n{{company}}",
+    'Your application – {{position}}' => '您的求職申請 – {{position}}',
+    'a position with us' => '我們的職位',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感謝您對{{position}}的關注與申請。經過審慎考慮，我們決定這次不再繼續推進您的申請。祝您一切順利。\n\n敬祝順利\n{{company}}",
 ];

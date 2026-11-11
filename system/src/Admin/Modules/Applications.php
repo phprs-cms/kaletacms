@@ -19,14 +19,20 @@ use Kaleta\Core\Response;
  * tells them so until somebody else has it (the ready-made role HR in Roles). Nothing here ever changes the public site
  * (Kernel::SITE_NEUTRAL_MODULES).
  *
- *  - list: tabs by status with their counts (open = not decided, the default; every status; all), the position, the
- *    responsible person ("Mine", nobody, a person), "kept for future openings" and a word (name, e-mail, text); the
- *    number, received, name, position, status, responsible person and the day it will be deleted; paging.
+ *  - list: tabs by status with their counts (open = not decided, the default; waiting = new without a reply for more
+ *    than a week; every status; all), the position, the responsible person ("Mine", nobody, a person), "kept for future
+ *    openings" and a word (name, e-mail, text); the number, received, name, position, status, responsible person and the
+ *    day it will be deleted; paging; with selected: a status, a responsible person, delete (administrators).
+ *  - bulk: the selected applications at once.
  *  - detail: the fields, the CVs (Download), the status (rejected asks for a reason), the responsible person, the consent
  *    for future openings (withdraw), the day it will be deleted, the replies sent, the status history, the team's notes
  *    and tasks (target application:N), Delete.
  *  - attachment: the decrypted CV as a download (application/octet-stream, nosniff) – one change-log line each.
  *  - status, assign, consent, delete: the changes (Core\Applications writes the change log of status and assign).
+ *  - settings, settings_save (3.34 B, administrators): the retention, the pool period, the notification and Claude
+ *    switches, the reply templates per language, who may open the section.
+ *  - reply (3.34 B): an e-mail to the applicant from a template (received, invitation, rejection – Settings tab) or not,
+ *    with the sender's signature, moving the status with it.
  *
  * The polished screens of part B build on these actions: reply with templates, bulk actions, the settings tab and the
  * move from enquiries by form.
@@ -47,7 +53,7 @@ final class Applications extends Module
     public const int PAGE = 50;
 
     /** The tabs of the list: the status filter => label ('' = all). */
-    public const array TABS = ['open' => 'Open', 'new' => 'New', 'reviewed' => 'Reviewed', 'interview' => 'Interview', 'offer' => 'Offer', 'hired' => 'Hired', 'rejected' => 'Rejected', '' => 'All'];
+    public const array TABS = ['open' => 'Open', 'waiting' => 'Waiting', 'new' => 'New', 'reviewed' => 'Reviewed', 'interview' => 'Interview', 'offer' => 'Offer', 'hired' => 'Hired', 'rejected' => 'Rejected', '' => 'All'];
 
     /** New applications (the number next to the menu item). */
     public static function badge(App $app): int
@@ -69,7 +75,43 @@ final class Applications extends Module
             'names' => Assignment::labels($this->db, $assignees), 'me' => $me,
             // B-2: until somebody besides the administrators has the section, the administrators are told to choose
             'nobody' => $this->app->auth()->isAdmin() && $this->db->value('SELECT 1 FROM {uzivatele_prava} p JOIN {uzivatele} u ON u.idu = p.fk_id_user WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 LIMIT 1',
-                [Store::SECTION, Auth::ADMIN]) === null]);
+                [Store::SECTION, Auth::ADMIN]) === null,
+            'admin' => $this->app->auth()->isAdmin()]);
+    }
+
+    /**
+     * The selected applications at once (3.34 B): a status (rejected with its reason), a responsible person, or – for
+     * administrators only – deletion for good (HR rejects; the retention deletes).
+     */
+    protected function actionBulk(): Response
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $this->request->postList('ids')), fn (int $id): bool => $id > 0)));
+        if (!$this->request->isPost() || $ids === []) {
+            return $this->back('Select at least one application.', '', [], 'chyba');
+        }
+        $me = $this->app->auth()->id();
+        $do = $this->request->post('do');
+        if ($do === 'delete') {
+            if (!$this->app->auth()->isAdmin()) {
+                return $this->error('Only an administrator can delete applications – reject them instead; the retention deletes them.', 403);
+            }
+
+            return $this->back(t('Applications deleted, with their CVs, notes and tasks: %d.', Store::delete($this->app, $ids)));
+        }
+        $changed = 0;
+        foreach ($ids as $id) {
+            try {
+                $changed += (int) match ($do) {
+                    'status' => Store::setStatus($this->app, $id, $this->request->post('status'), $this->request->post('reject_reason'), $me),
+                    'assign' => Store::assign($this->app, $id, $this->request->postInt('assignee_id'), $me),
+                    default => false,
+                };
+            } catch (\DomainException) {
+                continue; // an application deleted meanwhile, or an unknown status – the others still change
+            }
+        }
+
+        return $this->back(t('Applications changed: %d.', $changed));
     }
 
     protected function actionDetail(): Response
@@ -80,12 +122,48 @@ final class Applications extends Module
         }
         $target = Store::target($a['id']);
         $people = Assignment::candidates($this->db, 'application', (int) $a['assignee_id']);
+        // 3.34 B: the reply – a refused one comes back as written, a chosen template fills the form (?template=…, no script)
+        $draft = $this->app->session->get('application_reply_draft');
+        $this->app->session->set('application_reply_draft', null);
+        $template = $this->request->get('template');
+        $reply = is_array($draft) && (int) ($draft['id'] ?? 0) === $a['id'] ? ['subject' => (string) $draft['subject'], 'text' => (string) $draft['text'], 'template' => (string) ($draft['template'] ?? '')]
+            : (isset(Store::TEMPLATES[$template]) ? Store::compose($this->app->settings(), $a, $template) + ['template' => $template] : ['subject' => '', 'text' => '', 'template' => '']);
+        $user = $this->app->auth()->user() ?? [];
 
         return $this->view('detail', t('Application #%s', (string) $a['id']), ['a' => $a, 'people' => $people,
             'names' => Assignment::labels($this->db, array_values(array_filter([$a['assignee_id'], ...array_column($a['history'], 'by')]))),
             'deletesOn' => Store::deletionDate($a, $this->app->settings()->int('applications_months')),
             'thread' => $this->commentThread($target, ['id' => $a['id']]), 'tasks' => $this->taskPanel($target, ['id' => $a['id']]),
-            'me' => $this->app->auth()->id()]);
+            'others' => Store::others($this->db, $a['id'], is_string($a['email_norm'] ?? null) ? $a['email_norm'] : null), // 3.34 B: other applications from this address
+            'me' => $this->app->auth()->id(), 'admin' => $this->app->auth()->isAdmin(),
+            'reply' => $reply, 'replies' => \Kaleta\Core\EnquiryReply::history($this->db, ['replies' => (string) json_encode($a['replies'])]), 'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()), 'replyTo' => (string) ($user['email'] ?? ''),
+            'hasSignature' => $user !== [] && \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null]);
+    }
+
+    /**
+     * A reply to the applicant (3.34 B, Core\Applications::reply): the text as written – from a template or not –, the
+     * signature, and the status it moves the application to. What a refused reply carried is shown again.
+     */
+    protected function actionReply(): Response
+    {
+        $id = $this->request->postInt('id');
+        if (!$this->request->isPost()) {
+            return $this->back('', 'detail', ['id' => $id]);
+        }
+        $setStatus = $this->request->post('status'); // '' = keep it (a new one becomes reviewed)
+        try {
+            $result = Store::reply($this->app, $id, $this->request->post('subject'), $this->request->post('text'), $setStatus !== '' ? $setStatus : null, $this->request->post('reject_reason'));
+        } catch (\DomainException $e) {
+            $this->app->session->set('application_reply_draft', ['id' => $id, 'subject' => mb_substr($this->request->post('subject'), 0, \Kaleta\Core\EnquiryReply::MAX_SUBJECT),
+                'text' => mb_substr($this->request->post('text'), 0, \Kaleta\Core\EnquiryReply::MAX_TEXT), 'template' => mb_substr($this->request->post('template'), 0, 20)]);
+
+            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+        }
+        if ($result['status'] === 'sent') {
+            return $this->back(t('The reply was sent to %s.', $result['to']), 'detail', ['id' => $id]);
+        }
+
+        return $this->back(t('The reply could not be sent right now (%s). It waits in the mail queue and the site tries again in a few minutes – the history below shows when it goes out.', $result['error']), 'detail', ['id' => $id], 'chyba');
     }
 
     /** The CV, decrypted in memory and sent as a download – never inline, never cached; one change-log line. */
@@ -141,13 +219,111 @@ final class Applications extends Module
             ? $this->back('The consent was withdrawn – the application follows the normal retention.', 'detail', ['id' => $id]) : $this->back('', 'detail', ['id' => $id]);
     }
 
+    /** Deleting for good is an administrator's (3.34 B): HR rejects an application, the retention deletes it. */
     protected function actionDelete(): Response
     {
         if (!$this->request->isPost()) {
             return $this->back();
         }
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can delete applications – reject them instead; the retention deletes them.', 403);
+        }
 
         return Store::delete($this->app, [$this->request->postInt('id')]) > 0 ? $this->back('The application was deleted, with its CVs, notes and tasks.') : $this->back();
+    }
+
+    /* ---------- settings (3.34 B, administrators) ---------- */
+
+    /**
+     * The settings tab: the retention, the pool period, the notification switch, the Claude switch, the reply templates per
+     * language and who may open the section. Administrators only (Admin\Kernel: the section is site-neutral).
+     */
+    protected function actionSettings(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can change the settings of applications.', 403);
+        }
+        $s = $this->app->settings();
+        $templates = [];
+        foreach (self::siteLanguages($s) as $code => $_) {
+            foreach (Store::TEMPLATES as $key => $_t) {
+                $templates[$code][$key] = Store::template($s, $key, $code);
+            }
+        }
+        $suggestion = \Kaleta\Core\Jobs::suggestedRetention($s->get('company_country'), $s->get('site_language'));
+        $admins = array_flip(array_map('intval', array_column($this->db->all('SELECT idu FROM {uzivatele} WHERE admin = ? AND blokovat = 0', [Auth::ADMIN]), 'idu')));
+
+        return $this->view('settings', 'Applications', [
+            'values' => ['months' => $s->int('applications_months'), 'pool' => max(1, $s->int('applications_pool_months')), 'full' => $s->bool('applications_notify_full'), 'claude' => $s->bool('applications_claude')],
+            'languages' => self::siteLanguages($s), 'templates' => $templates,
+            'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates = Assignment::candidates($this->db, 'application')), $candidates),
+            'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null]);
+    }
+
+    protected function actionSettingsSave(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can change the settings of applications.', 403);
+        }
+        if (!$this->request->isPost()) {
+            return $this->back('', 'settings');
+        }
+        $s = $this->app->settings();
+        $s->set('applications_months', (string) max(0, min(120, $this->request->postInt('applications_months'))));
+        $s->set('applications_pool_months', (string) max(1, min(60, $this->request->postInt('applications_pool_months'))));
+        $s->set('applications_notify_full', $this->request->postBool('applications_notify_full') ? '1' : '0');
+        $s->set('applications_claude', $this->request->postBool('applications_claude') ? '1' : '0');
+        $posted = [];
+        foreach (self::siteLanguages($s) as $code => $_) {
+            foreach (Store::TEMPLATES as $key => $_t) {
+                $posted[$code][$key] = ['subject' => $this->request->post('tpl_' . $code . '_' . $key . '_subject'), 'text' => $this->request->post('tpl_' . $code . '_' . $key . '_text')];
+            }
+        }
+        $s->set('application_templates', self::templatesToStore($s, $posted));
+        ChangeLog::write($this->app, Store::SECTION, 'settings', '');
+
+        return $this->back('The settings of applications were saved.', 'settings');
+    }
+
+    /**
+     * The templates as stored: per language of the site and template, only a text that differs from the built-in one (an
+     * empty text = the built-in one again).
+     *
+     * @param array<string, array<string, array{subject: string, text: string}>> $posted code => key => the fields tpl_<code>_<key>_subject|text
+     */
+    private static function templatesToStore(\Kaleta\Core\Settings $s, array $posted): string
+    {
+        $out = [];
+        foreach (self::siteLanguages($s) as $code => $_) {
+            foreach (Store::TEMPLATES as $key => [$subject, $text]) {
+                $row = $posted[$code][$key] ?? null;
+                if ($row === null || trim($row['text']) === '') {
+                    continue;
+                }
+                $mine = ['subject' => trim($row['subject']), 'text' => trim(str_replace("\r\n", "\n", $row['text']))];
+                $builtIn = \Kaleta\Core\Language::runWith($code, fn (): array => ['subject' => t($subject), 'text' => t($text)]);
+                if ($mine !== $builtIn) {
+                    $out[$code][$key] = $mine;
+                }
+            }
+        }
+
+        return $out === [] ? '' : (string) json_encode(Store::storedTemplates((string) json_encode($out)), JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * The languages of the site: code => name, the default language first.
+     *
+     * @return array<string, string>
+     */
+    private static function siteLanguages(\Kaleta\Core\Settings $s): array
+    {
+        $out = [];
+        foreach ([\Kaleta\Core\Language::defaults($s), ...\Kaleta\Core\Language::additional($s)] as $code) {
+            $out[$code] = \Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code;
+        }
+
+        return $out;
     }
 
     /* ---------- comments and tasks (Admin\CommentActions, Admin\TaskActions) ---------- */

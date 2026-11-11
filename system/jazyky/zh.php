@@ -2095,4 +2095,11 @@ The link works for %d days.
     'A new application #%d for the position “%s” arrived.' => '收到职位“%2$s”的新求职申请第 %1$d 号。',
     'A new application #%d arrived (no position).' => '收到新求职申请第 %d 号（无职位）。',
     'Open it in the administration (Applications): %s' => '在管理后台打开（求职申请）：%s',
+    'We have received your application' => '我们已收到您的求职申请',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感谢您申请{{position}}。我们已收到您的申请，审阅后会尽快与您联系。\n\n此致\n{{company}}",
+    'Invitation to an interview – {{position}}' => '面试邀请 – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感谢您申请{{position}}。我们诚邀您参加面试。请回复此邮件，告知几个您方便的时间。\n\n此致\n{{company}}",
+    'Your application – {{position}}' => '您的求职申请 – {{position}}',
+    'a position with us' => '我们的职位',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感谢您对{{position}}的关注与申请。经过慎重考虑，我们决定这次不再继续推进您的申请。祝您一切顺利。\n\n此致\n{{company}}",
 ];

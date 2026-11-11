@@ -240,6 +240,7 @@ final class Applications
         Events::record($db, 'application.received', 'info', t('Application #%d for “%s” from the form “%s”', $id, $position['title'] !== '' ? $position['title'] : t('no position'), mb_substr((string) ($content['nazev'] ?? ''), 0, 80)),
             ['application' => $id, 'job' => $position['item'], 'form' => (string) ($element['id'] ?? ''), 'source' => $source]);
         self::notifyRecipients($app, $id, $content, $position['title'], $data, $email);
+        self::confirmReceipt($app, $content, $id, $email); // 3.34 B: when the form sends no confirmation of its own
 
         return $id;
     }
@@ -281,6 +282,196 @@ final class Applications
         return [$subject, $text];
     }
 
+    /* ---------- replies and templates (3.34 B) ---------- */
+
+    /**
+     * The reply templates (owner request B: a "received" confirmation, an invitation and a rejection), English source texts
+     * of the visitor dictionaries – each language of the site has them in its own words (system/jazyky/<code>.php). The
+     * administrator may rewrite them per language (application_templates, the Settings tab); a language without its own text
+     * uses these. Placeholders: {{name}}, {{position}}, {{company}}.
+     */
+    public const array TEMPLATES = [
+        'received' => ['We have received your application', "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}"],
+        'interview' => ['Invitation to an interview – {{position}}', "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}"],
+        'rejection' => ['Your application – {{position}}', "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}"],
+    ];
+
+    /** template key => its label in the administration. */
+    public const array TEMPLATE_LABELS = ['received' => 'Application received', 'interview' => 'Invitation to an interview', 'rejection' => 'Rejection'];
+
+    /** The longest template text and subject an administrator may store. */
+    public const int TEMPLATE_MAX = 5000;
+
+    /**
+     * The stored templates (application_templates): language code => template key => {subject, text}; anything that is not
+     * a known language code, key or a pair of strings is dropped. Pure.
+     *
+     * @return array<string, array<string, array{subject: string, text: string}>>
+     */
+    public static function storedTemplates(string $json): array
+    {
+        $list = json_decode($json, true);
+        $out = [];
+        foreach (is_array($list) ? $list : [] as $language => $templates) {
+            if (!is_string($language) || preg_match('/^' . Language::TAG . '$/D', $language) !== 1 || !is_array($templates)) {
+                continue;
+            }
+            foreach (self::TEMPLATES as $key => $_) {
+                $t = $templates[$key] ?? null;
+                if (is_array($t) && is_string($t['subject'] ?? null) && is_string($t['text'] ?? null) && trim($t['text']) !== '') {
+                    $out[$language][$key] = ['subject' => mb_substr(trim($t['subject']), 0, EnquiryReply::MAX_SUBJECT), 'text' => mb_substr(str_replace("\r\n", "\n", $t['text']), 0, self::TEMPLATE_MAX)];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * One template in a language (a code of the site's languages): the administrator's own text, otherwise the built-in one
+     * in that language. Placeholders stay unfilled (fill()).
+     *
+     * @return array{subject: string, text: string, own: bool}
+     */
+    public static function template(Settings $s, string $key, string $language): array
+    {
+        $own = self::storedTemplates($s->get('application_templates'))[$language][$key] ?? null;
+        if ($own !== null) {
+            return $own + ['own' => true];
+        }
+        [$subject, $text] = self::TEMPLATES[$key] ?? self::TEMPLATES['received'];
+
+        return Language::runWith($language, fn (): array => ['subject' => t($subject), 'text' => t($text), 'own' => false]);
+    }
+
+    /**
+     * A template with its placeholders filled: {{name}} (an empty name takes its comma or space with it – "Hello," not
+     * "Hello ,"), {{position}} and {{company}}. Pure.
+     *
+     * @param array{name: string, position: string, company: string} $vars
+     */
+    public static function fill(string $text, array $vars): string
+    {
+        if (trim($vars['name']) === '') {
+            $text = str_replace([', {{name}}', ' {{name}}', '{{name}}'], '', $text);
+        }
+
+        return str_replace(['{{name}}', '{{position}}', '{{company}}'], [trim($vars['name']), $vars['position'], $vars['company']], $text);
+    }
+
+    /** The language an application was sent in (its site version), as a code: '' = the default language of the site. */
+    public static function languageOf(Settings $s, array $application): string
+    {
+        $language = (string) ($application['language'] ?? '');
+
+        return $language !== '' && preg_match('/^' . Language::TAG . '$/D', $language) === 1 ? $language : Language::defaults($s);
+    }
+
+    /**
+     * A template ready for one application: in its language, with its name, position (or "a position with us") and the
+     * company (Business details, else the site name).
+     *
+     * @param array<string, mixed> $application a row (name, job_title, language)
+     * @return array{subject: string, text: string}
+     */
+    public static function compose(Settings $s, array $application, string $key): array
+    {
+        $language = self::languageOf($s, $application);
+        $template = self::template($s, $key, $language);
+        $vars = ['name' => (string) ($application['name'] ?? ''),
+            'position' => (string) ($application['job_title'] ?? '') !== '' ? (string) $application['job_title'] : Language::runWith($language, fn (): string => t('a position with us')),
+            'company' => $s->get('company_name') !== '' ? $s->get('company_name') : $s->get('site_name')];
+
+        return ['subject' => self::fill($template['subject'], $vars), 'text' => self::fill($template['text'], $vars)];
+    }
+
+    /**
+     * The "received" confirmation to the applicant (3.34 B) – only when the form sends no confirmation of its own (its
+     * property potvrzeni, sent by Front\Forms) and the address is valid. The mail log keeps "Application received: <site>",
+     * never a name or the position (the rule of 3.32's form notifications). Never fails the submission.
+     *
+     * @param array<string, mixed> $content the Form element's content
+     */
+    public static function confirmReceipt(App $app, array $content, int $id, string $email): bool
+    {
+        $to = Mail::addresses($email);
+        if (!empty($content['potvrzeni']) || count($to) !== 1) {
+            return false;
+        }
+        $s = $app->settings();
+        $row = $app->db()->one('SELECT name, job_title, language FROM {applications} WHERE id = ?', [$id]);
+        if ($row === null) {
+            return false;
+        }
+        $mail = self::compose($s, $row, 'received');
+        $from = $s->get('site_email');
+
+        return Mail::send($s, $to[0], $mail['subject'], $mail['text'], '', Mail::addresses($from) !== [] ? ['Reply-To' => Mail::addresses($from)[0]] : [], true,
+            Language::runWith(Language::defaults($s), fn (): string => t('Application received: %s', $s->get('site_name')), 'admin-')); // the log is read in the administration
+    }
+
+    /**
+     * Sends a reply to the applicant's own address as the signed-in user (an administration user with the section, or the
+     * user of an MCP connection) – the machinery of enquiry replies (Core\EnquiryReply): SMTP only, From = the site, Reply-To =
+     * the user, their e-mail signature below the text, the reply kept on the application (replies). $setStatus moves the
+     * application with it (rejected with $reason); without one a new application becomes reviewed. Nobody responsible yet =
+     * the person who answered, when they may be. The mail log and the events never name the applicant: the log subject is
+     * "Reply to application #N: <site>". Throws \DomainException with a message for the person when it cannot be sent.
+     *
+     * @param 'admin'|'mcp' $via
+     * @return array{status: 'sent'|'queued', error: string, to: string, status_set: ?string}
+     */
+    public static function reply(App $app, int $id, string $subject, string $text, ?string $setStatus, string $reason, string $via = 'admin'): array
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        $row = $db->one('SELECT id, email, name, job_title, language, status, assignee_id, replies FROM {applications} WHERE id = ?', [$id]) ?? throw new \DomainException('The application does not exist.');
+        if ($setStatus !== null && $setStatus !== '' && !in_array($setStatus, self::STATUSES, true)) {
+            throw new \DomainException('Unknown status.');
+        }
+        $to = Mail::addresses((string) $row['email']);
+        if (count($to) !== 1) {
+            throw new \DomainException('This application has no e-mail address to reply to – call the applicant, and note it in the internal note.');
+        }
+        $blocked = EnquiryReply::unavailable($s);
+        if ($blocked !== null) {
+            throw new \DomainException($blocked);
+        }
+        $text = trim(mb_substr(str_replace("\r\n", "\n", $text), 0, EnquiryReply::MAX_TEXT));
+        if (mb_strlen($text) < 2) {
+            throw new \DomainException('Write the reply first.');
+        }
+        $subject = trim(mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $subject), 0, EnquiryReply::MAX_SUBJECT));
+        $subject = $subject !== '' ? $subject : self::compose($s, $row, 'received')['subject'];
+
+        $user = $app->auth()->user() ?? [];
+        $name = trim((string) ($user['jmeno'] ?? '')) !== '' ? trim((string) $user['jmeno']) : (string) ($user['user'] ?? 'admin');
+        $replyTo = Mail::addresses((string) ($user['email'] ?? ''));
+        $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
+        $signature = EnquiryReply::signature($app, $user);
+        $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '');
+        $html = $signature !== null ? EnquiryReply::html($text, $signature['html']) : '';
+        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Reply to application #%d: %s', $id, $s->get('site_name')));
+        $error = $ok ? '' : Mail::$error;
+        $now = Clock::now();
+        $entry = ['at' => $now, 'by' => mb_substr($name, 0, 100), 'by_id' => (int) ($user['idu'] ?? 0), 'to' => $to[0], 'reply_to' => $headers['Reply-To'] ?? '',
+            'subject' => $subject, 'text' => $text, 'mail' => (int) (Mail::$lastId ?? 0), 'status' => $ok ? 'sent' : 'queued', 'error' => mb_substr($error, 0, 255), 'via' => $via];
+        $replies = array_slice([...EnquiryReply::decode($row['replies']), $entry], -EnquiryReply::KEEP);
+        $changes = ['replies' => (string) json_encode($replies, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), 'last_activity_at' => $now];
+        $me = (int) ($user['idu'] ?? 0);
+        if ($row['assignee_id'] === null && $me > 0 && Assignment::allowed($db, 'application', $me)) {
+            $changes['assignee_id'] = $me; // who answered handles it, unless someone already does
+        }
+        $db->update('applications', $changes, ['id' => $id]);
+        $target = $setStatus !== null && $setStatus !== '' ? $setStatus : ($row['status'] === 'new' ? 'reviewed' : null);
+        $statusSet = $target !== null && self::setStatus($app, $id, $target, $reason, $me) ? $target : null;
+        ChangeLog::write($app, self::SECTION, 'reply', '#' . $id . ($ok ? '' : ' (queued)'));
+        // the application and who sent it – never the address, the name or the text
+        Events::record($db, 'application.replied', $ok ? 'info' : 'warning', mb_substr(t('%s replied to application #%d.', $name, $id), 0, 255), ['application' => $id, 'via' => $via]);
+
+        return ['status' => $ok ? 'sent' : 'queued', 'error' => $error, 'to' => $to[0], 'status_set' => $statusSet];
+    }
+
     /* ---------- reading ---------- */
 
     /**
@@ -319,8 +510,8 @@ final class Applications
     }
 
     /**
-     * Filters of the list as given (the admin query, MCP arguments), checked: status (a status, 'open' = not decided, ''
-     * = all), job (an item id, 'none' = spontaneous, '' = all), assignee (a user id, 'none', '' = all), pool ('1' = kept
+     * Filters of the list as given (the admin query, MCP arguments), checked: status (a status, 'open' = not decided,
+     * 'waiting' = new and without a reply for more than WAITING_DAYS (3.34 B), '' = all), job (an item id, 'none' = spontaneous, '' = all), assignee (a user id, 'none', '' = all), pool ('1' = kept
      * for future openings), search (name, e-mail or text). Pure.
      *
      * @param array<string, mixed> $q
@@ -333,7 +524,7 @@ final class Applications
         $job = $str('job');
         $assignee = $str('assignee');
 
-        return ['status' => in_array($status, self::STATUSES, true) || $status === 'open' ? $status : '',
+        return ['status' => in_array($status, self::STATUSES, true) || $status === 'open' || $status === 'waiting' ? $status : '',
             'job' => ctype_digit($job) && (int) $job > 0 || $job === 'none' ? $job : '',
             'assignee' => ctype_digit($assignee) && (int) $assignee > 0 || $assignee === 'none' ? $assignee : '',
             'pool' => $str('pool') === '1', 'search' => mb_substr($str('search'), 0, 100)];
@@ -351,6 +542,9 @@ final class Applications
         $params = [];
         if ($filter['status'] === 'open') {
             $where[] = "status NOT IN ('hired', 'rejected')";
+        } elseif ($filter['status'] === 'waiting') {
+            $where[] = "status = 'new' AND replies IS NULL AND received_at < ?";
+            $params[] = self::waitingBefore($today);
         } elseif ($filter['status'] !== '') {
             $where[] = 'status = ?';
             $params[] = $filter['status'];
@@ -419,7 +613,7 @@ final class Applications
                     $out[$status] = (int) $n;
                 }
             }
-            $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [Clock::at('-' . self::WAITING_DAYS . ' days')]);
+            $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [self::waitingBefore(Clock::today())]);
         } catch (\PDOException) {
             $waiting = 0; // before migration 0119
         }
@@ -429,6 +623,28 @@ final class Applications
 
     /** "Waiting more than 7 days without a reply" (B10). */
     public const int WAITING_DAYS = 7;
+
+    /** The moment before which a new application without a reply counts as waiting (the start of the day WAITING_DAYS ago). Pure. */
+    public static function waitingBefore(string $today): string
+    {
+        return (new \DateTimeImmutable($today))->modify('-' . self::WAITING_DAYS . ' days')->format('Y-m-d') . ' 00:00:00';
+    }
+
+    /**
+     * The other applications from the same address (3.34 B, the detail): id, job_title, status, received_at – newest first,
+     * at most 10; only inside the module.
+     *
+     * @return list<array{id: int, job_title: string, status: string, received_at: string}>
+     */
+    public static function others(Db $db, int $id, ?string $emailNorm): array
+    {
+        if ($emailNorm === null || $emailNorm === '') {
+            return [];
+        }
+
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'job_title' => (string) $r['job_title'], 'status' => (string) $r['status'], 'received_at' => (string) $r['received_at']],
+            $db->all('SELECT id, job_title, status, received_at FROM {applications} WHERE email_norm = ? AND id <> ? ORDER BY id DESC LIMIT 10', [$emailNorm, $id]));
+    }
 
     /**
      * Applications per position, the open positions first: job_item_id (null = spontaneous), job_title, open, all.

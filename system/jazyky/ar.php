@@ -2095,4 +2095,11 @@ The link works for %d days.
     'A new application #%d for the position “%s” arrived.' => 'وصل طلب توظيف جديد رقم %d لوظيفة «%s».',
     'A new application #%d arrived (no position).' => 'وصل طلب توظيف جديد رقم %d (بدون وظيفة).',
     'Open it in the administration (Applications): %s' => 'افتحه في الإدارة (طلبات التوظيف): %s',
+    'We have received your application' => 'تلقّينا طلب التوظيف الخاص بك',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "مرحبًا {{name}}،\n\nشكرًا لتقدّمك إلى {{position}}. لقد تلقّينا طلبك وسنتواصل معك فور مراجعته.\n\nمع أطيب التحيات\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'دعوة إلى مقابلة – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "مرحبًا {{name}}،\n\nشكرًا لتقدّمك إلى {{position}}. يسعدنا دعوتك إلى مقابلة. يُرجى الرد على هذه الرسالة مع بعض المواعيد التي تناسبك.\n\nمع أطيب التحيات\n{{company}}",
+    'Your application – {{position}}' => 'طلبك للتوظيف – {{position}}',
+    'a position with us' => 'وظيفة لدينا',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "مرحبًا {{name}}،\n\nشكرًا لاهتمامك وتقدّمك إلى {{position}}. بعد دراسة متأنية قرّرنا عدم المضي قدمًا في طلبك هذه المرة. نتمنى لك كل التوفيق.\n\nمع أطيب التحيات\n{{company}}",
 ];

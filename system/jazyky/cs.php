@@ -3232,4 +3232,11 @@ return [
     'A new application #%d for the position “%s” arrived.' => 'Přišla nová žádost #%d na pozici „%s“.',
     'A new application #%d arrived (no position).' => 'Přišla nová žádost #%d (bez pozice).',
     'Open it in the administration (Applications): %s' => 'Otevřete ji v administraci (Žádosti o místo): %s',
+    'We have received your application' => 'Vaši žádost o místo jsme přijali',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "Dobrý den, {{name}},\n\nděkujeme za vaši žádost o místo {{position}}. Přijali jsme ji a ozveme se vám, jakmile ji projdeme.\n\nS pozdravem\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'Pozvánka na pohovor – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Dobrý den, {{name}},\n\nděkujeme za vaši žádost o místo {{position}}. Rádi bychom vás pozvali na pohovor. Odpovězte prosím na tento e-mail a napište nám několik termínů, které vám vyhovují.\n\nS pozdravem\n{{company}}",
+    'Your application – {{position}}' => 'Vaše žádost o místo – {{position}}',
+    'a position with us' => 'u nás',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Dobrý den, {{name}},\n\nděkujeme za váš zájem a za žádost o místo {{position}}. Po pečlivém zvážení jsme se rozhodli ve výběrovém řízení s vámi tentokrát nepokračovat. Přejeme vám hodně úspěchů.\n\nS pozdravem\n{{company}}",
 ];

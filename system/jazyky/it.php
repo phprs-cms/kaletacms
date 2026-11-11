@@ -2068,4 +2068,11 @@ return [
     'A new application #%d for the position “%s” arrived.' => 'È arrivata una nuova candidatura n. %d per la posizione «%s».',
     'A new application #%d arrived (no position).' => 'È arrivata una nuova candidatura n. %d (senza posizione).',
     'Open it in the administration (Applications): %s' => 'Aprila nell’amministrazione (Candidature): %s',
+    'We have received your application' => 'Abbiamo ricevuto la tua candidatura',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "Ciao {{name}},\n\ngrazie per la tua candidatura per {{position}}. L’abbiamo ricevuta e ti risponderemo appena l’avremo esaminata.\n\nCordiali saluti\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'Invito a un colloquio – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Ciao {{name}},\n\ngrazie per la tua candidatura per {{position}}. Vorremmo invitarti a un colloquio. Rispondi a questa e-mail indicandoci alcuni orari che ti vanno bene.\n\nCordiali saluti\n{{company}}",
+    'Your application – {{position}}' => 'La tua candidatura – {{position}}',
+    'a position with us' => 'una posizione da noi',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Ciao {{name}},\n\ngrazie per il tuo interesse e per la tua candidatura per {{position}}. Dopo un’attenta valutazione abbiamo deciso di non proseguire con la tua candidatura questa volta. Ti auguriamo ogni successo.\n\nCordiali saluti\n{{company}}",
 ];

@@ -2068,4 +2068,11 @@ return [
     'A new application #%d for the position “%s” arrived.' => 'Wpłynęła nowa aplikacja nr %d na stanowisko „%s”.',
     'A new application #%d arrived (no position).' => 'Wpłynęła nowa aplikacja nr %d (bez stanowiska).',
     'Open it in the administration (Applications): %s' => 'Otwórz ją w administracji (Aplikacje): %s',
+    'We have received your application' => 'Otrzymaliśmy Twoją aplikację',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "Dzień dobry {{name}},\n\ndziękujemy za Twoją aplikację na stanowisko {{position}}. Otrzymaliśmy ją i odezwiemy się, gdy tylko ją przejrzymy.\n\nPozdrawiamy\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'Zaproszenie na rozmowę – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Dzień dobry {{name}},\n\ndziękujemy za Twoją aplikację na stanowisko {{position}}. Chcielibyśmy zaprosić Cię na rozmowę. Odpowiedz proszę na tę wiadomość, podając kilka terminów, które Ci odpowiadają.\n\nPozdrawiamy\n{{company}}",
+    'Your application – {{position}}' => 'Twoja aplikacja – {{position}}',
+    'a position with us' => 'u nas',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Dzień dobry {{name}},\n\ndziękujemy za zainteresowanie i aplikację na stanowisko {{position}}. Po dokładnym rozważeniu zdecydowaliśmy, że tym razem nie będziemy kontynuować rekrutacji z Twoim udziałem. Życzymy powodzenia.\n\nPozdrawiamy\n{{company}}",
 ];

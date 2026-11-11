@@ -3,9 +3,12 @@
  * Job applications (3.34, Core\Applications::list): tabs by status with their counts, the filter (position, responsible
  * person, kept for future openings, a word), the number, received, name, position, status, responsible person and the day
  * it will be deleted; paging. A card per application on a phone. Administrators are told when nobody else has the section.
+ * 3.34 B: the tab Waiting (new, no reply for more than a week) and the selected rows at once – a status (rejected with its
+ * reason), a responsible person, Delete for administrators.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Applications $module
+ * @var string $csrf
  * @var array{rows: list<array<string, mixed>>, total: int, filter: array{status: string, job: string, assignee: string, pool: bool, search: string}} $result
  * @var int $page
  * @var int $pages
@@ -15,6 +18,7 @@
  * @var array<int, string> $names the responsible people of the rows
  * @var int $me
  * @var bool $nobody nobody but administrators may open applications
+ * @var bool $admin the signed-in person is an administrator (only they delete)
  */
 use Kaleta\Admin\Modules\Applications;
 use Kaleta\Core\Applications as Store;
@@ -24,16 +28,19 @@ $query = array_filter(['status' => $filter['status'], 'job' => $filter['job'], '
 $query['status'] = $filter['status'];
 $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool'] || $filter['search'] !== '';
 ?>
+<?php if ($admin): /* 3.34 B: the settings and the move by form are an administrator's */ ?>
+<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'list']) ?>
+<?php endif ?>
 <?php if ($nobody): ?>
-<p class="hlaska hlaska-varovani" data-applications-nobody><?= $module->hint(t('Only administrators can open job applications now. Choose who else may: tick Applications for them in Administration → Users, or give them the ready-made role HR in Administration → Roles.')) ?></p>
+<p class="hlaska hlaska-varovani" data-applications-nobody><?= $module->hint(t('Only administrators can open job applications now. Choose who else may: tick Applications for them in Administration → Users, or give them the ready-made role HR in Administration → Roles.')) ?> <a href="<?= e($module->url('settings')) ?>#uchazeci-kdo"><?= e(t('Settings')) ?></a></p>
 <?php endif ?>
 <nav class="zalozky" aria-label="<?= e(t('Applications')) ?>" data-applications-tabs>
 <?php foreach (Applications::TABS as $status => $label): $n = $status === '' ? $counts['all'] : $counts[$status] ?? 0; ?>
 	<a href="<?= e($module->url('', ['status' => $status] + array_diff_key($query, ['status' => 1]))) ?>"<?= $filter['status'] === $status ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($label)) ?> <small><?= format_count($n) ?></small></a>
 <?php endforeach ?>
 </nav>
-<?php if ($counts['waiting'] > 0): ?>
-<p class="napoveda" data-applications-waiting><?= e(t('Waiting more than %d days without a reply: %s', Store::WAITING_DAYS, format_count($counts['waiting']))) ?></p>
+<?php if ($counts['waiting'] > 0 && $filter['status'] !== 'waiting'): ?>
+<p class="napoveda" data-applications-waiting><a href="<?= e($module->url('', ['status' => 'waiting'])) ?>"><?= e(t('Waiting more than %d days without a reply: %s', Store::WAITING_DAYS, format_count($counts['waiting']))) ?></a></p>
 <?php endif ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="zakaznici-filtr" data-applications-filter>
 	<input type="hidden" name="module" value="<?= e(Store::SECTION) ?>"><input type="hidden" name="status" value="<?= e($filter['status']) ?>">
@@ -65,11 +72,12 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <p class="napoveda" data-applications-total><?= e(t('Applications: %s', format_count($result['total']))) ?></p>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-applications-list>
-<thead><tr><th scope="col"><?= e(t('Number')) ?></th><th scope="col"><?= e(t('Received')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Position')) ?></th>
+<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="uchazeci-hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Number')) ?></th><th scope="col"><?= e(t('Received')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Position')) ?></th>
 	<th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th><th scope="col"><?= e(t('Will be deleted')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($result['rows'] as $r): ?>
 <tr data-application="<?= (int) $r['id'] ?>">
+	<td class="stred"><input type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="uchazeci-hromadne" aria-label="<?= e(t('Select')) ?>: #<?= (int) $r['id'] ?>"></td>
 	<td><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>">#<?= (int) $r['id'] ?></a></td>
 	<td data-popisek="<?= e(t('Received')) ?>"><?= e(format_date((string) $r['received_at'])) ?></td>
 	<td data-popisek="<?= e(t('Name')) ?>"><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>"><?= bdi((string) $r['name'] !== '' ? (string) $r['name'] : (string) $r['email']) ?></a></td>
@@ -82,6 +90,38 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 </tbody>
 </table>
 </div>
+<form class="uchazeci-hromadne" id="uchazeci-hromadne" method="post" action="<?= e($module->url('bulk')) ?>" data-applications-bulk>
+	<?= $csrf ?>
+	<fieldset><legend><?= e(t('With selected:')) ?></legend>
+	<span class="uchazeci-hromadne-krok">
+		<label for="hromadne-stav"><?= e(t('Status')) ?></label>
+		<select id="hromadne-stav" name="status">
+<?php foreach (Store::STATUSES as $status): ?>
+			<option value="<?= e($status) ?>"><?= e(t(Store::STATUS_LABELS[$status])) ?></option>
+<?php endforeach ?>
+		</select>
+		<label for="hromadne-duvod"><?= e(t('Reason when rejected')) ?></label>
+		<select id="hromadne-duvod" name="reject_reason">
+<?php foreach (Store::REJECT_REASONS as $key => $reason): ?>
+			<option value="<?= e($key) ?>"><?= e(t($reason)) ?></option>
+<?php endforeach ?>
+		</select>
+		<button class="navigace" type="submit" name="do" value="status"><?= e(t('Change status')) ?></button>
+	</span>
+	<span class="uchazeci-hromadne-krok">
+		<label for="hromadne-odpovedny"><?= e(t('Responsible person')) ?></label>
+		<select id="hromadne-odpovedny" name="assignee_id"><option value="0">—</option>
+<?php foreach ($people as $id => $name): ?>
+			<option value="<?= (int) $id ?>"><?= e((int) $id === $me ? t('Me (%s)', $name) : $name) ?></option>
+<?php endforeach ?>
+		</select>
+		<button class="navigace" type="submit" name="do" value="assign"><?= e(t('Save')) ?></button>
+	</span>
+<?php if ($admin): ?>
+	<span class="uchazeci-hromadne-krok"><button class="navigace nebezpecne" type="submit" name="do" value="delete" data-potvrdit="<?= e(t('Delete the selected applications for good, with their CVs, notes and tasks? This cannot be undone.')) ?>"><?= e(t('Delete')) ?></button></span>
+<?php endif ?>
+	</fieldset>
+</form>
 <?php if ($pages > 1): ?>
 <p class="strankovani">
 <?php for ($s = 1; $s <= $pages; $s++): ?>

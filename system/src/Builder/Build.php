@@ -1043,9 +1043,13 @@ final class Build
             if (($className::ADMIN_ONLY && !$admin) || ($className::PARTS_ONLY && !$parts) || in_array($className::TYPE, $disabled, true)) {
                 continue;
             }
+            $properties = $className::properties();
+            if ($className::TYPE === 'formular' && $extensions !== null && !in_array(\Kaleta\Core\Applications::EXTENSION, $extensions, true)) {
+                unset($properties['ucel'], $properties['souhlas_uchovani']); // 3.34 B: Purpose and the pool consent only while job applications are on
+            }
             $elements[] = [
                 'typ' => $className::TYPE, 'nazev' => $className::NAME, 'popis' => $className::DESCRIPTION, 'ikona' => $className::ICON, 'skupina' => $className::GROUP,
-                'kontejner' => $className::CONTAINER, 'znacky' => $className::HTML_TAGS, 'vlastnosti' => $className::properties(), 'vychozi_styl' => $className::defaultStyle() ?: new \stdClass(),
+                'kontejner' => $className::CONTAINER, 'znacky' => $className::HTML_TAGS, 'vlastnosti' => $properties, 'vychozi_styl' => $className::defaultStyle() ?: new \stdClass(),
                 'vychozi_deti' => $className::defaultChildren(),
             ];
         }

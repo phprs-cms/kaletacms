@@ -40,6 +40,7 @@ final class Settings
         'applications_pool_months' => '12', // 3.34: how long the consent for future openings keeps an application (pool_until)
         'applications_notify_full' => '0', // 3.34: the e-mail about a new application carries the fields (otherwise the position and a link only)
         'applications_claude' => '1',   // 3.34: Claude may read applications through the connection of a user with the section (never the CVs)
+        'application_templates' => '',  // 3.34 B: the reply templates rewritten per language – JSON {code: {received|interview|rejection: {subject, text}}}; '' = the built-in ones (Core\Applications::TEMPLATES)
         'contacts_months' => '24',      // 3.28 (Core\Contacts): a contact with no activity for this many months is anonymised by the clean-up; 0 = keep. Migration 0114 starts it at enquiries_months
         'whistleblowing_enabled' => '0',  // the whistleblowing channel at /_report (2.14, Core\Whistleblowing)
         'whistleblowing_readers' => '',   // ids of the users who may open reports (comma-separated); nobody else sees their content

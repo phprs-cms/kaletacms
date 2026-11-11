@@ -2095,4 +2095,11 @@ O link funciona por %d dias.
     'A new application #%d for the position “%s” arrived.' => 'Chegou uma nova candidatura n.º %d para a vaga «%s».',
     'A new application #%d arrived (no position).' => 'Chegou uma nova candidatura n.º %d (sem vaga).',
     'Open it in the administration (Applications): %s' => 'Abra-a na administração (Candidaturas): %s',
+    'We have received your application' => 'Recebemos a sua candidatura',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "Olá {{name}},\n\nobrigado pela sua candidatura para {{position}}. Recebemo-la e entraremos em contacto assim que a tivermos analisado.\n\nCom os melhores cumprimentos,\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'Convite para uma entrevista – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Olá {{name}},\n\nobrigado pela sua candidatura para {{position}}. Gostaríamos de o convidar para uma entrevista. Responda a este e-mail com alguns horários que lhe sejam convenientes.\n\nCom os melhores cumprimentos,\n{{company}}",
+    'Your application – {{position}}' => 'A sua candidatura – {{position}}',
+    'a position with us' => 'uma vaga connosco',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Olá {{name}},\n\nobrigado pelo seu interesse e pela sua candidatura para {{position}}. Após uma análise cuidada, decidimos não avançar com a sua candidatura desta vez. Desejamos-lhe muito sucesso.\n\nCom os melhores cumprimentos,\n{{company}}",
 ];

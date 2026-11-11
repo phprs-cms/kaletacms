@@ -2095,4 +2095,11 @@ A hivatkozás %d napig érvényes.
     'A new application #%d for the position “%s” arrived.' => 'Új, %d. számú jelentkezés érkezett a(z) „%s” pozícióra.',
     'A new application #%d arrived (no position).' => 'Új, %d. számú jelentkezés érkezett (pozíció nélkül).',
     'Open it in the administration (Applications): %s' => 'Nyissa meg az adminisztrációban (Jelentkezések): %s',
+    'We have received your application' => 'Megkaptuk a jelentkezését',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}" => "Kedves {{name}}!\n\nKöszönjük jelentkezését erre: {{position}}. Megkaptuk, és jelentkezünk, amint átnéztük.\n\nÜdvözlettel:\n{{company}}",
+    'Invitation to an interview – {{position}}' => 'Meghívás állásinterjúra – {{position}}',
+    "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Kedves {{name}}!\n\nKöszönjük jelentkezését erre: {{position}}. Szeretnénk meghívni egy állásinterjúra. Kérjük, válaszoljon erre az e-mailre néhány Önnek megfelelő időponttal.\n\nÜdvözlettel:\n{{company}}",
+    'Your application – {{position}}' => 'Az Ön jelentkezése – {{position}}',
+    'a position with us' => 'egy nálunk meghirdetett pozíció',
+    "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Kedves {{name}}!\n\nKöszönjük érdeklődését és jelentkezését erre: {{position}}. Alapos mérlegelés után úgy döntöttünk, hogy ezúttal nem folytatjuk a kiválasztást az Ön jelentkezésével. Sok sikert kívánunk.\n\nÜdvözlettel:\n{{company}}",
 ];
