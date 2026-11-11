@@ -59,6 +59,8 @@ trait TaskTools
         } else {
             throw new \InvalidArgumentException('filter must be mine, overdue, assignee:<user>, assignee:none or target:<enquiry|page|item>:<id>.');
         }
+        // 3.34 review low (b): with applications_claude off no task about an application reaches Claude, on any filter
+        $rows = $this->applicationsShut() ? array_values(array_filter($rows, fn (array $t): bool => !str_starts_with((string) ($t['target'] ?? ''), 'application:'))) : $rows;
         $labels = Tasks::labels($db, array_column($rows, 'target'));
 
         return ['filter' => $filter, 'status' => $status, 'tasks' => array_map(fn (array $t): array => $this->taskOut($t, $labels), $rows), 'total' => count($rows),
@@ -93,6 +95,9 @@ trait TaskTools
             }
         }
         $created = $id <= 0;
+        if (!$created) {
+            $this->taskNotShut($id); // 3.34 review low (b)
+        }
         try {
             Language::runWith('en', function () use (&$id, $fields, $self, $created): void {
                 if ($created) {
@@ -114,6 +119,7 @@ trait TaskTools
     {
         $id = (int) ($a['id'] ?? 0);
         $done = !array_key_exists('done', $a) || filter_var($a['done'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== false;
+        $this->taskNotShut($id); // 3.34 review low (b)
         try {
             Language::runWith('en', fn () => Tasks::complete($this->app, $id, $this->app->auth()->id(), $done), 'admin-');
         } catch (\DomainException $e) {
@@ -166,6 +172,21 @@ trait TaskTools
 
         return Handover::resolve($this->app->db(), $text === '' ? 'me' : $value, $self)
             ?? throw new \InvalidArgumentException('A task needs a person: a user id, the e-mail or sign-in name of an active account, or "me".');
+    }
+
+    /** Claude may not read job applications on this site (applications_claude off – 3.34 review low b). */
+    private function applicationsShut(): bool
+    {
+        return !$this->app->settings()->bool('applications_claude');
+    }
+
+    /** A task about an application is refused while applications_claude is off (complete_task, save_task with an id). */
+    private function taskNotShut(int $id): void
+    {
+        $task = $id > 0 ? Tasks::find($this->app->db(), $id) : null;
+        if ($task !== null && $this->applicationsShut() && str_starts_with((string) ($task['target'] ?? ''), 'application:')) {
+            throw new \DomainException('Claude may not read job applications on this site (Applications settings). Nothing changed.');
+        }
     }
 
     /** The connected user must be able to open the record (its section, an active account) – otherwise an error says why. */
