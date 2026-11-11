@@ -18,6 +18,10 @@ namespace Kaleta\Core;
 final class OldPage
 {
     public const int MAX_SECTIONS = 40;
+    /** The section HTML as the page wrote it, cleaned (3.33, the default). */
+    public const string LOOK = 'look';
+    /** 3.36: the section HTML as clean semantic HTML for build_from_html (Core\SemanticHtml) – any builder's wrappers gone. */
+    public const string SEMANTIC = 'semantic';
     public const int SECTION_BYTES = 12_000;
     /** One section asked for by its number gets this much. */
     public const int ONE_SECTION_BYTES = 60_000;
@@ -48,7 +52,7 @@ final class OldPage
      * @throws \RuntimeException why the page cannot be read
      * @throws HtmlTooLarge when the page is over a limit of HtmlLimits
      */
-    public function read(string $url, ?int $section = null, float $seconds = self::SECONDS): array
+    public function read(string $url, ?int $section = null, float $seconds = self::SECONDS, string $format = self::LOOK): array
     {
         $start = microtime(true);
         $c = parse_url($url);
@@ -80,7 +84,7 @@ final class OldPage
             }
         }
 
-        $out = HtmlLimits::guard(fn (): array => self::analyse($html, $url, $css, $skipped, $section));
+        $out = HtmlLimits::guard(fn (): array => self::analyse($html, $url, $css, $skipped, $section, $format));
 
         return $late ? ['partial' => true] + $out + ['stylesheets_note' => 'The time budget of ' . (int) $seconds . ' s was used up – stylesheets.not_read were not read; colours and fonts may be incomplete.'] : $out;
     }
@@ -117,7 +121,7 @@ final class OldPage
      * @param array<string, string> $stylesheets address => CSS
      * @return array<string, mixed>
      */
-    public static function analyse(string $html, string $url, array $stylesheets = [], int $skipped = 0, ?int $only = null): array
+    public static function analyse(string $html, string $url, array $stylesheets = [], int $skipped = 0, ?int $only = null, string $format = self::LOOK): array
     {
         $doc = HtmlLimits::document($html);
         $css = implode("\n", array_map(fn (\Dom\Element $s): string => $s->textContent, iterator_to_array($doc->querySelectorAll('style')))) . "\n" . implode("\n", $stylesheets);
@@ -141,7 +145,13 @@ final class OldPage
             /** @var \Dom\Element $el */
             $el = $s['element'];
             $limit = $only !== null ? self::ONE_SECTION_BYTES : self::SECTION_BYTES;
-            $clean = self::clean($el, $url);
+            $widgets = [];
+            if ($format === self::SEMANTIC) {
+                // 3.36: clean semantic HTML for build_from_html (Core\SemanticHtml) instead of the page's own markup
+                ['html' => $clean, 'widgets' => $widgets] = SemanticHtml::section($el, $url, in_array($s['role'], ['header', 'footer'], true) ? $s['role'] : 'section');
+            } else {
+                $clean = self::clean($el, $url);
+            }
             $cut = strlen($clean) > $limit || ($only === null && $total + strlen($clean) > self::TOTAL_BYTES);
             if ($cut) {
                 $clean = self::cut($clean, $only === null ? max(0, min($limit, self::TOTAL_BYTES - $total)) : $limit);
@@ -149,11 +159,11 @@ final class OldPage
             $total += strlen($clean);
             $look = self::look($el, $index, $variables, $url);
             $out[] = array_filter(['index' => $i, 'role' => $s['role'], 'tag' => strtolower($el->localName), 'classes' => mb_substr(trim((string) $el->getAttribute('class')), 0, 200),
-                'heading' => mb_substr($text($el->querySelector('h1, h2, h3')), 0, 160), 'html' => $clean, 'truncated' => $cut] + $look,
+                'heading' => mb_substr($text($el->querySelector('h1, h2, h3')), 0, 160), 'html' => $clean, 'truncated' => $cut, 'widgets' => $widgets] + $look,
                 fn (mixed $v): bool => $v !== '' && $v !== [] && $v !== false && $v !== null);
         }
 
-        return [
+        return ($format === self::SEMANTIC ? ['format' => self::SEMANTIC] : []) + [
             'url' => $url,
             'title' => mb_substr($text($doc->querySelector('title')), 0, 200),
             'description' => mb_substr($meta('meta[name="description"]'), 0, 320),

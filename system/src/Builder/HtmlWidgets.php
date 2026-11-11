@@ -272,11 +272,30 @@ final class HtmlWidgets
         if (preg_match('/(^|\.)mapy\.(cz|com)$/', $host) && is_numeric($q['y'] ?? '') && is_numeric($q['x'] ?? '')) {
             return [self::point($q['y'], $q['x']), $zoom($q['z'] ?? 15)];
         }
+        // 3.36: the Mapy.com embed of today (/fnc/v1/showmap?center=lng,lat&zoom=…)
+        if (preg_match('/(^|\.)mapy\.(cz|com)$/', $host) && preg_match('/^(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)$/', $q['center'] ?? '', $m)) {
+            return [self::point($m[2], $m[1]), $zoom($q['zoom'] ?? 15)];
+        }
         if (preg_match('/(^|\.)bing\.com$/', $host) && preg_match('/^(-?\d{1,3}\.\d+)~(-?\d{1,3}\.\d+)$/', $q['cp'] ?? '', $m)) {
             return [self::point($m[1], $m[2]), $zoom($q['lvl'] ?? 15)];
         }
 
         return null;
+    }
+
+    /**
+     * Is the address a map service's frame (3.36) – also one whose place cannot be read (a Mapy.cz short link, a Google
+     * "My Maps" frame)? Then the conversion says to add a Map element with the address instead of a generic note.
+     */
+    public static function isMapFrame(string $url): bool
+    {
+        $c = parse_url($url);
+        $host = is_array($c) ? strtolower((string) ($c['host'] ?? '')) : '';
+        $path = is_array($c) ? (string) ($c['path'] ?? '') : '';
+
+        return $host !== '' && (preg_match('/(^|\.)(openstreetmap\.org|mapy\.(cz|com)|waze\.com|maps\.apple\.com|here\.com|umap\.openstreetmap\.fr)$/', $host) === 1
+            || (preg_match('/(^|\.)google\.[a-z.]+$/', $host) === 1 && (str_starts_with($path, '/maps') || str_starts_with($host, 'maps.')))
+            || (preg_match('/(^|\.)bing\.com$/', $host) === 1 && str_starts_with($path, '/maps')));
     }
 
     /** A map drawn by a script from data attributes (Divi data-center-lat, data-lat and data-lng, data-address) on a map element. */
@@ -344,7 +363,7 @@ final class HtmlWidgets
     public static function accordion(Element $container): ?array
     {
         if (!in_array(strtolower($container->localName), self::CONTAINERS, true)
-            || $container->querySelector('details, [aria-controls], [class*="accordion"], [class*="toggle"], [class*="faq"], [class*="collaps"], [class*="vc_tta-panel"], [class*="qa-"]') === null) {
+            || (strtolower($container->localName) !== 'dl' && $container->querySelector('details, dl, [aria-controls], [aria-expanded], [class*="accordion"], [class*="toggle"], [class*="faq"], [class*="collaps"], [class*="vc_tta-panel"], [class*="qa-"]') === null)) {
             return null;
         }
         $items = [];
@@ -384,6 +403,35 @@ final class HtmlWidgets
             $taken[] = $panel;
             $items[] = [$question, trim(self::clean($panel)->innerHTML)];
         }
+        // 3.36: a button with aria-expanded but no aria-controls opens the element right after it (or after the heading that
+        // holds only the button) – never a menu: nothing inside a navigation, no aria-haspopup, no panel made of links only
+        foreach ($container->querySelectorAll('[aria-expanded]') as $trigger) {
+            if ($inside($trigger) || $trigger->hasAttribute('aria-controls') || $trigger->hasAttribute('aria-haspopup')
+                || $trigger->closest('nav, header, [role="navigation"], [role="menubar"], [role="menu"]') !== null) {
+                continue;
+            }
+            $panel = self::followingPanel($trigger, $container);
+            $question = self::label($trigger);
+            if ($panel === null || $question === '' || $inside($panel) || self::linksOnly($panel)) {
+                continue;
+            }
+            $taken[] = $trigger;
+            $taken[] = $panel;
+            $items[] = [$question, trim(self::clean($panel)->innerHTML)];
+        }
+        // 3.36: a definition list of questions (<dt>) and answers (<dd>) – when it says it is an FAQ (class or id) or every term asks
+        foreach (strtolower($container->localName) === 'dl' ? [$container] : iterator_to_array($container->querySelectorAll('dl')) as $list) {
+            if ($inside($list)) {
+                continue;
+            }
+            $pairs = self::definitionPairs($list);
+            $hint = preg_match('/faq|question|accordion|otazk|q-?a(?:$|[\s_-])/i', (string) $list->getAttribute('class') . ' ' . (string) $list->getAttribute('id') . ' ' . (string) $container->getAttribute('class') . ' ' . (string) $container->getAttribute('id')) === 1;
+            if ($pairs === [] || (!$hint && array_filter($pairs, fn (array $p): bool => !str_ends_with($p[0], '?')) !== [])) {
+                continue;
+            }
+            $taken[] = $list;
+            array_push($items, ...$pairs);
+        }
         foreach ([$container, ...iterator_to_array($container->querySelectorAll('[class]'))] as $item) { // the element may be one item itself
             if (!self::hasToken($item, self::ITEM) || $inside($item)) {
                 continue;
@@ -414,6 +462,59 @@ final class HtmlWidgets
         $items = array_values(array_filter($items, fn (array $i): bool => $i[0] !== ''));
 
         return $items !== [] && !self::contentOutside($container, $taken) ? array_slice($items, 0, 30) : null;
+    }
+
+    /**
+     * The panel an aria-expanded button opens when it does not name it (3.36): the next element after the button, or after
+     * the wrapper that holds only the button (<h3><button …>Question</button></h3><div>Answer</div>), with some text in it.
+     */
+    private static function followingPanel(Element $trigger, Element $container): ?Element
+    {
+        $node = $trigger;
+        while ($node->nextElementSibling === null && ($parent = $node->parentElement) !== null && $parent !== $container && $container->contains($parent)
+            && self::normalize($parent->textContent) === self::normalize($node->textContent)) {
+            $node = $parent;
+        }
+        $panel = $node->nextElementSibling;
+
+        return $panel !== null && !$panel->contains($trigger) && self::normalize($panel->textContent) !== '' ? $panel : null;
+    }
+
+    /** Is the element only links (a submenu, a list of pages) – then it is not an answer? */
+    private static function linksOnly(Element $el): bool
+    {
+        $links = iterator_to_array($el->querySelectorAll('a[href]'));
+
+        $bare = fn (string $text): string => (string) preg_replace('/[\s\x{A0}]+/u', '', $text);
+
+        return count($links) >= 2 && $bare(implode('', array_map(fn (Element $a): string => $a->textContent, $links))) === $bare($el->textContent);
+    }
+
+    /**
+     * The question and answer pairs of a definition list (3.36): each <dt> of this list (also inside the <div> rows HTML
+     * allows) with the <dd> elements after it.
+     *
+     * @return list<array{0: string, 1: string}>
+     */
+    private static function definitionPairs(Element $list): array
+    {
+        $pairs = [];
+        foreach ($list->querySelectorAll('dt') as $term) {
+            if ($term->closest('dl') !== $list) {
+                continue;
+            }
+            $answer = '';
+            for ($next = $term->nextElementSibling; $next !== null && strtolower($next->localName) === 'dd'; $next = $next->nextElementSibling) {
+                $inner = trim(self::clean($next)->innerHTML);
+                $answer .= $next->querySelector('p, ul, ol, div, table') !== null ? $inner : '<p>' . $inner . '</p>';
+            }
+            $question = self::label($term);
+            if ($question !== '' && $answer !== '') {
+                $pairs[] = [$question, $answer];
+            }
+        }
+
+        return $pairs;
     }
 
     /**
@@ -652,8 +753,17 @@ final class HtmlWidgets
             }
         }
 
-        return $el->firstElementChild === null && preg_match('/(?:^|[\s_-])(?:counter|count-?up|countup|odometer|purecounter|stat-number|counter-number)(?:$|[\s_-])/i', (string) $el->getAttribute('class'))
-            && preg_match('/^\D{0,3}\d[\d\s.,]*\D{0,6}$/u', self::normalize($el->textContent)) === 1;
+        if ($el->firstElementChild !== null || preg_match('/^\D{0,3}\d[\d\s.,]*\D{0,6}$/u', self::normalize($el->textContent)) !== 1) {
+            return false;
+        }
+        if (preg_match('/(?:^|[\s_-])(?:counter|count-?up|countup|odometer|purecounter|stat-number|counter-number)(?:$|[\s_-])/i', (string) $el->getAttribute('class'))) {
+            return true;
+        }
+        // 3.36: a plain figure block – the number alone in an element whose class (or its parent's) says number, stat, kpi…
+        // ("<div class="stat"><strong>250+</strong><span>projects</span></div>"); never a phone number, a price or a date
+        $classes = (string) $el->getAttribute('class') . ' ' . (string) $el->parentElement?->getAttribute('class');
+
+        return $hint && preg_match_all('/\d/', $el->textContent) <= 7 && !preg_match('/phone|tel(?:$|[\s_-])|fax|zip|postal|post-?code|price|cost|amount|date|time|clock|rating|ico|vat/i', $classes);
     }
 
     /** The number of a counter's number element: its data attribute (the page may show 0 until it counts), else the digits of its text. */

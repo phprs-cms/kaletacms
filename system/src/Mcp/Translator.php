@@ -257,6 +257,7 @@ final class Translator
         'delete_newsletter' => ['delete_newsletter', '', []],
         'migration_report' => ['migration_report', '', []],
         'read_old_page' => ['read_old_page', '', []],
+        'layout_queue' => ['layout_queue', '', []], // 3.36: English only
         'import_enquiries' => ['import_enquiries', '', []],
         'import_wordpress' => ['import_wordpress', '', []],
         'get_health' => ['get_health', '', []],

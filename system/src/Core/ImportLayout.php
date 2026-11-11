@@ -58,6 +58,53 @@ final class ImportLayout
     }
 
     /**
+     * Done by hand (3.36): a person (Pages → "Layout done") or Claude (MCP layout_queue with done) says the page's layout is
+     * fine as it is – the import kept it well enough, or it was rebuilt elsewhere. The fingerprint goes, so the page leaves
+     * the queue for good (nothing on the page changes). Returns whether the page had one.
+     */
+    public static function markRebuilt(Db $db, int $page): bool
+    {
+        return $db->run("DELETE FROM {import_mapa} WHERE zdroj = ? AND typ = 'stranka' AND nase_id = ?", [self::SOURCE, $page])->rowCount() > 0;
+    }
+
+    /**
+     * The work queue with what Claude needs to take the next page (3.36, MCP layout_queue): the page and where it stood on
+     * the old site – the domain the import recorded (web:<domain>, wp:<domain>) and the old path (the source of a redirect
+     * to the page when its address changed, else its own address, which the imports keep). The old address is a hint for
+     * read_old_page; '' when the import recorded no domain.
+     *
+     * @return list<array{id: int, title: string, slug: string, visible: bool, old_url: string}>
+     */
+    public static function queue(Db $db, int $home = 0): array
+    {
+        $waiting = self::pending($db);
+        if ($waiting === []) {
+            return [];
+        }
+        $ids = implode(', ', array_keys($waiting));
+        $domains = [];
+        foreach ($db->all("SELECT nase_id, zdroj FROM {import_mapa} WHERE typ = 'stranka' AND nase_id IN ($ids) AND (zdroj LIKE 'web:%' OR zdroj LIKE 'wp:%') ORDER BY zdroj") as $r) {
+            $domain = substr((string) $r['zdroj'], (int) strpos((string) $r['zdroj'], ':') + 1);
+            if (preg_match('/^[a-z0-9.-]+(?::\d{1,5})?$/iD', $domain)) {
+                $domains[(int) $r['nase_id']] ??= strtolower($domain);
+            }
+        }
+        $out = [];
+        foreach ($db->all("SELECT ids, titulek, seo_link, zobrazit FROM {stranky} WHERE ids IN ($ids) ORDER BY jazyk, poradi, ids") as $r) {
+            $id = (int) $r['ids'];
+            $slug = (string) $r['seo_link'];
+            $old = '';
+            if (isset($domains[$id])) {
+                $from = $id === $home ? '' : (string) ($db->value("SELECT z_adresy FROM {presmerovani} WHERE na_adresu IN (?, ?) AND z_adresy NOT LIKE '%*%' AND typ IN (301, 302) ORDER BY idp LIMIT 1", [$slug, '/' . $slug]) ?? $slug);
+                $old = 'https://' . $domains[$id] . '/' . ltrim($from, '/');
+            }
+            $out[] = ['id' => $id, 'title' => (string) $r['titulek'], 'slug' => $slug, 'visible' => (bool) $r['zobrazit'], 'old_url' => $old];
+        }
+
+        return $out;
+    }
+
+    /**
      * The pages whose layout waits to be rebuilt, outside the trash – one query, the fingerprint compared in the database.
      *
      * @return array<int, true> page id => true

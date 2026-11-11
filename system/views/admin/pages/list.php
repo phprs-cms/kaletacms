@@ -95,6 +95,9 @@ if ($tabs !== []): ?>
 	<td class="akce"><a href="<?= e($module->url('builder', ['id' => $s['ids']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $s['ids']])) ?>"><?= e(t('Nastavení')) ?></a> ·
 		<a href="<?= e($module->url('new', ['parent' => $s['ids']])) ?>" title="<?= e(t('New page under this one')) ?>"><?= e(t('Subpage')) ?></a> ·
 		<form class="vradku" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form>
+<?php if (isset($waiting[(int) $s['ids']])): // 3.36: the layout is fine as it is – off the queue of a move, nothing on the page changes ?> ·
+		<form class="vradku" method="post" action="<?= e($module->url('bulk')) ?>"><?= $csrf ?><input type="hidden" name="provest" value="<?= e($module::REBUILT) ?>"><input type="hidden" name="oznacene[]" value="<?= (int) $s['ids'] ?>"><button class="navigace" type="submit" data-layout-done="<?= (int) $s['ids'] ?>" title="<?= e(t('Takes the page off the list of layouts to rebuild – nothing on the page changes.')) ?>"><?= e(t('Layout done')) ?></button></form>
+<?php endif ?>
 <?php if ((int) $s['ids'] !== $home): ?> ·
 		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
 <?php endif ?></td>
@@ -104,5 +107,5 @@ if ($tabs !== []): ?>
 </table>
 </div>
 <?= $app->view->render('admin/bulk_actions', ['csrf' => $csrf, 'action' => $module->url('bulk'), 'siteLanguages' => $siteLanguages, 'actions' => [
-    'zobrazit' => t('Publish'), 'skryt' => t('Hide'), 'kos' => t('Move to trash')]]) ?>
+    'zobrazit' => t('Publish'), 'skryt' => t('Hide'), 'kos' => t('Move to trash')] + ($waiting !== [] ? [$module::REBUILT => t('Layout done')] : [])]) ?>
 <?php endif ?>

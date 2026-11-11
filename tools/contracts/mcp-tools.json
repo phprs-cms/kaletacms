@@ -1027,6 +1027,19 @@
             "openWorldHint": false
         }
     },
+    "layout_queue": {
+        "parameters": {
+            "done": "array"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List and tick off layouts to rebuild",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+        }
+    },
     "list_agent_sessions": {
         "parameters": {
             "limit": "integer"
@@ -1729,6 +1742,7 @@
     },
     "read_old_page": {
         "parameters": {
+            "format": "string",
             "section": "integer",
             "url": "string"
         },

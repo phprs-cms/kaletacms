@@ -8239,4 +8239,7 @@ return [
     'Enter your own current password to give this role every section. Nothing was saved.' => 'Geben Sie Ihr eigenes aktuelles Passwort ein, um dieser Rolle alle Bereiche zu geben. Es wurde nichts gespeichert.',
     'Needed only to give the role every section.' => 'Nur nötig, um der Rolle alle Bereiche zu geben.',
     'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.' => 'Die Backup-Codes konnten nicht gespeichert werden, weil Ihr Konto im selben Moment geändert wurde. Es wurde nichts geändert – bitte versuchen Sie es erneut.',
+    'Layout done' => 'Layout fertig',
+    'Takes the page off the list of layouts to rebuild – nothing on the page changes.' => 'Nimmt die Seite von der Liste der neu aufzubauenden Layouts – an der Seite ändert sich nichts.',
+    'Pages taken off the list of layouts to rebuild: %d.' => 'Von der Liste der neu aufzubauenden Layouts genommene Seiten: %d.',
 ];

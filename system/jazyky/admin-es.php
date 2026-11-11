@@ -8259,4 +8259,7 @@ return [
     'Enter your own current password to give this role every section. Nothing was saved.' => 'Introduce tu contraseña actual para dar a este rol todas las secciones. No se ha guardado nada.',
     'Needed only to give the role every section.' => 'Solo es necesario para dar al rol todas las secciones.',
     'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.' => 'No se han podido guardar los códigos de respaldo porque tu cuenta se estaba modificando en ese mismo momento. No se ha cambiado nada; inténtalo de nuevo.',
+    'Layout done' => 'Diseño listo',
+    'Takes the page off the list of layouts to rebuild – nothing on the page changes.' => 'Quita la página de la lista de diseños por reconstruir; en la página no cambia nada.',
+    'Pages taken off the list of layouts to rebuild: %d.' => 'Páginas quitadas de la lista de diseños por reconstruir: %d.',
 ];
