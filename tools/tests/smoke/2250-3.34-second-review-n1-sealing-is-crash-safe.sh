@@ -48,7 +48,7 @@ expect "3.34 second review N9: restored to the plain listing, the plain CV gone 
   "$(n1_state "$N1_E_ID" "$N1_E_OLD")|$(t334_php 'echo Kaleta\Core\Applications::sealEntry($app, '"$N1_E_ID"', 0);')|$(n1_state "$N1_E_ID" "$N1_E_OLD")" "plain|gone|5|CV of N1e|recovered|sealed|gone|5|CV of N1e"
 
 # the sweep: an encrypted file no row lists and a half-written one, older than a week, go; a listed one and a recent orphan stay
-N1_ORPHAN="$WORK/web/storage/applications/2026/09/$(php -r 'echo bin2hex(random_bytes(16));').bin"; printf 'x' > "$N1_ORPHAN"
+N1_ORPHAN=$(t334_php '$p = "2026/09/" . bin2hex(random_bytes(16)) . ".bin"; Kaleta\Core\Applications::writeSealed($app->settings(), "orphan", $p); echo Kaleta\Core\Applications::FOLDER, "/", $p;')
 N1_FRESH="$WORK/web/storage/applications/2026/09/$(php -r 'echo bin2hex(random_bytes(16));').bin"; printf 'x' > "$N1_FRESH"
 N1_PART="$N1_FRESH.ab12cd34.part"; printf 'x' > "$N1_PART"
 N1_OLD_TIME=$(php -r 'echo date("YmdHi", strtotime("-8 days"));')

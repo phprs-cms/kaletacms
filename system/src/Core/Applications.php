@@ -1572,8 +1572,8 @@ final class Applications
     /**
      * Encrypted files no application lists (3.34 second review N1 – a run killed after writing a copy, a move back killed
      * before it removed the sealed copy, an upload whose row was never stored), and half-written ones (.part), older than
-     * ORPHAN_DAYS: removed. What a row lists is read from attachment_paths (always readable) – a row without it whose list
-     * cannot be opened stops the sweep (what it lists is unknown). The copy sealedTarget() would give a CV still waiting
+     * ORPHAN_DAYS: removed. What a row lists is read from attachment_paths (always readable) – while a row without it has a
+     * list that cannot be opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget() would give a CV still waiting
      * in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it back) – counts as listed.
      * Returns how many files went.
      */
@@ -1586,10 +1586,12 @@ final class Applications
             return 0;
         }
         $listed = [];
+        $unknown = false;
         try {
             foreach ($app->db()->all('SELECT attachments, attachment_paths FROM {applications} WHERE attachments IS NOT NULL OR attachment_paths IS NOT NULL') as $row) {
                 if ($row['attachment_paths'] === null && self::attachmentsLocked($s, $row['attachments'])) {
-                    return 0;
+                    $unknown = true; // what it lists is unknown – only files this site's key opens can be orphans then
+                    continue;
                 }
                 $paths = $row['attachment_paths'] ?? self::paths(self::attachments($s, $row['attachments']));
                 foreach (self::pathFiles($paths) as $file) {
@@ -1613,7 +1615,7 @@ final class Applications
         }
         $removed = 0;
         foreach ($old as $file) {
-            if (str_ends_with($file, '.part') || (str_ends_with($file, '.bin') && !isset($listed[$file]))) {
+            if (str_ends_with($file, '.part') || (str_ends_with($file, '.bin') && !isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null))) {
                 $removed += @unlink($file) ? 1 : 0;
             }
         }

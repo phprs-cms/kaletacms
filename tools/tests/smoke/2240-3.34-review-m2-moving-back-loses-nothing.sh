@@ -21,4 +21,5 @@ expect "3.34 review M2: no plain copy is left behind for the ones that stayed (o
 expect "3.34 review M2: the event names the count only" "$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'applications.move_failed' AND message LIKE '2 application(s) could not be moved back%'")" "1"
 sq "DELETE FROM ka_comments WHERE target = 'enquiry:$M2_E'; DELETE FROM ka_poptavky WHERE idp = $M2_E" > /dev/null
 t334_php 'Kaleta\Core\Applications::delete($app, ['"$M2_IDS"'], false);' > /dev/null
+sq "DELETE FROM ka_applications WHERE id IN ($M2_IDS)" > /dev/null # the one whose list another key sealed has no attachment_paths – delete() keeps it (second review N7)
 r334_off
