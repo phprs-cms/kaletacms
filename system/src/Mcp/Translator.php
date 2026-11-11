@@ -73,7 +73,7 @@ final class Translator
      */
     private const array TOOLS = [
         'site_info' => ['info_o_webu', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions.', []],
-        'list_pages' => ['seznam_stranek', 'Pages of the site (Home, About, Services, Contact…) with their addresses.', []],
+        'list_pages' => ['seznam_stranek', 'Pages of the site (Home, About, Services, Contact…) with their addresses. layout_not_rebuilt: an imported page whose build is still the imported text.', []],
         'get_page' => ['nacti_stranku', 'The whole page including its HTML content.', ['id' => ['id', 'Page ID']]],
         'create_page' => ['vytvor_stranku', 'Creates a page (editors and administrators). Without "visible": true it stays hidden.', ['*stranka']],
         'update_page' => ['uprav_stranku', 'Changes the given fields of a page; the others stay.', ['id' => ['id', 'Page ID'], '*stranka']],

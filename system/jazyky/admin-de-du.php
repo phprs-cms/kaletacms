@@ -1258,4 +1258,5 @@ return [
     '/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.' => '/%s – ein Formular, dessen Felder ein Skript zeichnet, konnte nicht gelesen werden: Ein Platzhalter markiert seine Stelle, füge ein Formular-Element mit denselben Feldern ein.',
     '/%s – the video %s could not be downloaded: add it in the builder.' => '/%s – das Video %s konnte nicht heruntergeladen werden: Füge es im Builder ein.',
     '%s things need your attention' => '%s Punkte brauchen deine Aufmerksamkeit',
+    'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Eine importierte Seite: ihr Aufbau ist noch der importierte Text. Baue das Layout im Builder neu auf oder bitte Claude darum – das Etikett verschwindet mit der ersten Änderung.',
 ];

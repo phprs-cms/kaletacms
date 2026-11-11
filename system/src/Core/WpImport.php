@@ -656,9 +656,10 @@ final class WpImport
         $seo = $this->freeSlug('stranky', slugify(rawurldecode($p['adresa']) !== '' ? rawurldecode($p['adresa']) : $title, 110), $language, '', $state, 120);
         $text = WpContent::sanitize($p['obsah'], $state['prilohy']);
         $plugin = $this->seo($p, '', 200, 300, $state);
+        $build = ($state['volby']['stavitel'] ?? false) ? self::pageBuild($this->db, $title, $text) : null;
         $ids = $this->db->insert('stranky', [
             'seo_link' => $seo, 'titulek' => $title, 'text' => $text,
-            'stavba' => ($state['volby']['stavitel'] ?? false) ? self::pageBuild($this->db, $title, $text) : null,
+            'stavba' => $build,
             'popis' => $plugin['description'] !== '' ? $plugin['description'] : mb_substr(trim(html_entity_decode(strip_tags($p['perex']), ENT_QUOTES | ENT_HTML5, 'UTF-8')), 0, 300),
             'seo_titulek' => $plugin['title'], 'noindex' => $plugin['noindex'], 'canonical_url' => $plugin['canonical'],
             'zobrazit' => $articleStatus['visible'],
@@ -667,6 +668,7 @@ final class WpImport
         ]);
         $seo = Slug::fromId($this->db, 'stranky', $ids); // a title with nothing to transliterate: page-<id>, not n-a
         $this->writeMap('stranka', (string) $p['id'], $ids);
+        ImportLayout::remember($this->db, $ids, $build); // 3.33: "layout not rebuilt yet" until the build is edited
         $state['vysledek']['stranky']++;
         if ($state['volby']['presmerovani']) {
             $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo, $state);
@@ -1477,9 +1479,13 @@ final class WpImport
             Media::recordUsage($this->db, $id, $newItems['obrazek'], $newItems['uvod'], $newItems['text']);
         } elseif ($type === 'stranka' && $newItems['text'] !== $record['text']) {
             // the images are already in Media: the build of the imported page is converted again so that it refers to them
-            $build = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]) !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
+            $before = $this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$id]);
+            $build = $before !== null && $this->db->value('SELECT stavba_koncept FROM {stranky} WHERE ids = ?', [$id]) === null
                 ? ['stavba' => self::pageBuild($this->db, (string) $record['titulek'], $newItems['text'])] : [];
             $this->db->update('stranky', ['text' => $newItems['text']] + $build, ['ids' => $id]);
+            if ($build !== []) {
+                ImportLayout::replaced($this->db, $id, (string) $before, $build['stavba']); // 3.33: the waiting page keeps waiting
+            }
         }
 
         return $complete;

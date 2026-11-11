@@ -7509,4 +7509,6 @@ return [
     'files in Media' => 'soubory v Médiích',
     'pages with the old SEO title or share image' => 'stránky s původním SEO titulkem nebo obrázkem pro sdílení',
     '%s things need your attention' => 'Na co se podívat: %s',
+    'layout not rebuilt yet' => 'rozložení zatím nepřestavěné',
+    'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Importovaná stránka: její stavba je pořád importovaný text. Přestavte rozložení v builderu nebo požádejte Clauda – štítek zmizí s první změnou.',
 ];

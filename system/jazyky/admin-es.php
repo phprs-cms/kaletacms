@@ -7935,4 +7935,6 @@ return [
     'files in Media' => 'archivos en Medios',
     'pages with the old SEO title or share image' => 'páginas con el título SEO o la imagen para compartir antiguos',
     '%s things need your attention' => '%s cosas requieren su atención',
+    'layout not rebuilt yet' => 'diseño aún no reconstruido',
+    'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Una página importada: su construcción sigue siendo el texto importado. Reconstruya su diseño en el builder o pídaselo a Claude; la etiqueta desaparece con el primer cambio.',
 ];

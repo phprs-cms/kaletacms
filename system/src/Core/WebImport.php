@@ -455,6 +455,7 @@ final class WebImport
             $build = $this->build($page['titulek'], HtmlLimits::guard(fn (): string => self::safeContent($content)), $widgets);
             $ids = $this->createPage($page, $old, $language, $build, $seo);
             $this->map($source, 'stranka', $key, $ids);
+            ImportLayout::remember($this->db, $ids, $build); // "layout not rebuilt yet" until the build is edited
             $kept = self::keptElements(\Kaleta\Builder\Build::fromJson($build) ?? []);
             foreach ($kept + ['seo' => $seo['seo_titulek'] !== '' || $seo['obrazek'] !== '' ? 1 : 0] as $type => $count) {
                 $state['zachovano'][$type] = intval($state['zachovano'][$type] ?? 0) + $count;
