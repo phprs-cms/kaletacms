@@ -2104,4 +2104,6 @@ The link works for %d days.
     'a position with us' => '我们的职位',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感谢您对{{position}}的关注与申请。经过慎重考虑，我们决定这次不再继续推进您的申请。祝您一切顺利。\n\n此致\n{{company}}",
     'Workplace (on site, hybrid, remote)' => '工作方式（现场、混合、远程）',
+    'Your CV could not be stored, so nothing was sent. Please try again later.' => '无法保存您的简历，因此未发送任何内容。请稍后再试。',
+    'Please attach at most %d files.' => '请最多附加 %d 个文件。',
 ];

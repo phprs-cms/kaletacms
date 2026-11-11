@@ -386,4 +386,6 @@ Der Link gilt %d Tage.
     "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}" => "Hallo {{name}},\n\nvielen Dank für deine Bewerbung für {{position}}. Wir möchten dich gern zu einem Vorstellungsgespräch einladen. Bitte antworte auf diese E-Mail mit einigen Terminen, die dir passen.\n\nViele Grüße\n{{company}}",
     'Your application – {{position}}' => 'Deine Bewerbung – {{position}}',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Hallo {{name}},\n\nvielen Dank für dein Interesse und deine Bewerbung für {{position}}. Nach sorgfältiger Prüfung haben wir uns entschieden, deine Bewerbung diesmal nicht weiterzuverfolgen. Wir wünschen dir viel Erfolg.\n\nViele Grüße\n{{company}}",
+    'Your CV could not be stored, so nothing was sent. Please try again later.' => 'Dein Lebenslauf konnte nicht gespeichert werden, daher wurde nichts gesendet. Bitte versuche es später erneut.',
+    'Please attach at most %d files.' => 'Bitte hänge höchstens %d Dateien an.',
 ];

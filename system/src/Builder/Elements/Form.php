@@ -192,6 +192,8 @@ final class Form extends Element
             'captcha' => t('Please confirm that you are not a robot and send the form again.'),
             'plno' => t('This event is fully booked.'),
             'uzavreno' => t('Registration is closed.'),
+            'soubory' => t('Please attach at most %d files.', \Kaleta\Core\Applications::MAX_FILES), // 3.34 review low (c): an application form
+            'ulozeni' => t('Your CV could not be stored, so nothing was sent. Please try again later.'),
             default => t('The message could not be sent. Please try again.'),
         };
     }

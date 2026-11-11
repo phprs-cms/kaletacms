@@ -2072,4 +2072,6 @@ return [
     'a position with us' => 'un poste chez nous',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Bonjour {{name}},\n\nmerci de votre intérêt et de votre candidature pour {{position}}. Après un examen attentif, nous avons décidé de ne pas donner suite à votre candidature cette fois-ci. Nous vous souhaitons beaucoup de succès.\n\nCordialement,\n{{company}}",
     'Workplace (on site, hybrid, remote)' => 'Lieu de travail (sur site, hybride, à distance)',
+    'Your CV could not be stored, so nothing was sent. Please try again later.' => 'Votre CV n’a pas pu être enregistré, rien n’a donc été envoyé. Veuillez réessayer plus tard.',
+    'Please attach at most %d files.' => 'Veuillez joindre au maximum %d fichiers.',
 ];

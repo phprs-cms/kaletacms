@@ -16,7 +16,7 @@ use Kaleta\Builder\Build;
 /**
  * Submission of a builder form (POST /form, or /formular from pages cached before 3.7). Fields and recipient are taken from the PUBLISHED build by source and
  * element id – the visitor cannot add a field or change the recipient. Result: an enquiry in ka_poptavky, an e-mail
- * notification and a return to the page with a result code (?form=<id>&result=ok|pole|limit|rychle|overeni).
+ * notification and a return to the page with a result code (?form=<id>&result=ok|pole|limit|rychle|overeni|soubory|ulozeni).
  */
 final class Forms
 {
@@ -182,9 +182,17 @@ final class Forms
             $data[] = [t('File sent by e-mail'), \Kaleta\Core\Documents::fileName($gatedFile)];
             $types[] = 'info';
         }
+        if ($application && count($attachments) > \Kaleta\Core\Applications::MAX_FILES) {
+            return $redirectUri('soubory'); // review low (c): more CVs than an application keeps – refused with a message, nothing stored
+        }
         if ($application) {
-            // 3.34: Applications – sealed CVs, no customer record, no deal, no triage, no webhook, no "enquiry received"
-            \Kaleta\Core\Applications::receive($this->app, $element, $source, $back, $data, $email, $attachments, $r->post('ka_pool') === '1');
+            // 3.34: Applications – sealed CVs, no customer record, no deal, no triage, no webhook, no "enquiry received"; a CV that
+            // cannot be stored fails the submission with a message (review low c)
+            try {
+                \Kaleta\Core\Applications::receive($this->app, $element, $source, $back, $data, $email, $attachments, $r->post('ka_pool') === '1');
+            } catch (\RuntimeException) {
+                return $redirectUri('ulozeni');
+            }
             \Kaleta\Core\EnquiryDelivery::enquiryReceived($this->app, 0, $source, (string) $element['obsah']['nazev'], '', $email, $back, \Kaleta\Core\EnquiryDelivery::fields($data, $types), true);
 
             return $this->finish($element, $email, $redirectUri);

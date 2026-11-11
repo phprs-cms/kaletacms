@@ -2104,4 +2104,6 @@ O link funciona por %d dias.
     'a position with us' => 'uma vaga connosco',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Olá {{name}},\n\nobrigado pelo seu interesse e pela sua candidatura para {{position}}. Após uma análise cuidada, decidimos não avançar com a sua candidatura desta vez. Desejamos-lhe muito sucesso.\n\nCom os melhores cumprimentos,\n{{company}}",
     'Workplace (on site, hybrid, remote)' => 'Local de trabalho (presencial, híbrido, remoto)',
+    'Your CV could not be stored, so nothing was sent. Please try again later.' => 'Não foi possível guardar o seu CV, por isso nada foi enviado. Tente novamente mais tarde.',
+    'Please attach at most %d files.' => 'Anexe no máximo %d ficheiros.',
 ];

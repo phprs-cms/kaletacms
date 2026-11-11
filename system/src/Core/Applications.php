@@ -218,7 +218,8 @@ final class Applications
     /**
      * Stores an application from a form submission (Front\Forms, after anti-spam, validation and the file checks) and
      * returns its id. $files: [index in $data => [temporary path, extension, original name, size]] of uploads that passed
-     * checkUpload(); at most MAX_FILES are stored. $poolConsent: the applicant ticked the consent for future openings
+     * checkUpload(); at most MAX_FILES are stored (Front\Forms refuses more). Throws \RuntimeException when a CV cannot be
+     * stored – nothing is kept then and the applicant is told (review low c). $poolConsent: the applicant ticked the consent for future openings
      * (its wording is the form's own, pool_consent). Then the event, the notification of the form's recipients and – when
      * the form sends one – the confirmation to the applicant.
      *
@@ -237,9 +238,17 @@ final class Applications
         $attachments = [];
         foreach (array_slice($files, 0, self::MAX_FILES, true) as $index => [$tmp, $extension, $original, $size]) {
             $stored = self::sealFile($tmp);
-            if ($stored !== null) {
-                $attachments[] = ['field' => (int) $index, 'name' => mb_substr($original, 0, 120), 'size' => $size, 'ext' => $extension] + $stored + ['sealed' => true];
+            if ($stored === null) {
+                // review low (c): a CV that cannot be stored fails the submission – never a silent OK without it
+                foreach ($attachments as $done) {
+                    $path = self::filePath($done);
+                    if ($path !== null) {
+                        @unlink($path);
+                    }
+                }
+                throw new \RuntimeException('A CV could not be stored.');
             }
+            $attachments[] = ['field' => (int) $index, 'name' => mb_substr($original, 0, 120), 'size' => $size, 'ext' => $extension] + $stored + ['sealed' => true];
         }
         $consentText = trim(is_string($content['souhlas_uchovani'] ?? null) ? $content['souhlas_uchovani'] : '');
         $poolMonths = max(1, $s->int('applications_pool_months'));

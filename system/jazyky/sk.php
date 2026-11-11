@@ -2051,4 +2051,6 @@ return [
     'a position with us' => 'u nás',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Dobrý deň, {{name}},\n\nďakujeme za váš záujem a za žiadosť o miesto {{position}}. Po starostlivom zvážení sme sa rozhodli vo výberovom konaní s vami tentoraz nepokračovať. Prajeme vám veľa úspechov.\n\nS pozdravom\n{{company}}",
     'Workplace (on site, hybrid, remote)' => 'Pracovisko (na mieste, hybridne, na diaľku)',
+    'Your CV could not be stored, so nothing was sent. Please try again later.' => 'Váš životopis sa nepodarilo uložiť, preto sa nič neodoslalo. Skúste to prosím neskôr.',
+    'Please attach at most %d files.' => 'Priložte prosím najviac %d súbory.',
 ];

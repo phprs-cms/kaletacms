@@ -2104,4 +2104,6 @@ The link works for %d days.
     'a position with us' => 'وظيفة لدينا',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "مرحبًا {{name}}،\n\nشكرًا لاهتمامك وتقدّمك إلى {{position}}. بعد دراسة متأنية قرّرنا عدم المضي قدمًا في طلبك هذه المرة. نتمنى لك كل التوفيق.\n\nمع أطيب التحيات\n{{company}}",
     'Workplace (on site, hybrid, remote)' => 'مكان العمل (في الموقع، هجين، عن بُعد)',
+    'Your CV could not be stored, so nothing was sent. Please try again later.' => 'تعذّر حفظ سيرتك الذاتية، لذلك لم يُرسل أي شيء. يُرجى المحاولة لاحقًا.',
+    'Please attach at most %d files.' => 'يُرجى إرفاق %d ملفات كحد أقصى.',
 ];
