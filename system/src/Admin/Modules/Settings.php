@@ -489,7 +489,8 @@ class Settings extends Module
      * passkeys are bound to the host, so those registered for the old one stop working (their accounts sign in with the
      * password and the second step again – SignInPolicy::keysForHost) – it needs the ticked confirmation and a fresh
      * proof of the administrator (Auth::freshProof: a proof within the window or the current password; the strong proof
-     * for an administrator who signs in with a passkey only).
+     * for an administrator who signs in with a passkey only). 3.35 re-review N1: a host change without the confirmation is
+     * refused on top of that, never instead of it – the old single General form posts the security fields with the address.
      *
      * @param array<string, string> $fields the fields of the form being saved
      * @return array{0: list<string>, 1: string} the refused keys, the reason
@@ -498,13 +499,15 @@ class Settings extends Module
     {
         $settings = $this->app->settings();
         $sensitive = [];
+        $unconfirmed = []; // 3.35 re-review N1: refused on top of the proof, never instead of checking the other fields
         if (isset($fields['site_url']) && array_key_exists('site_url', $_POST)
             && \Kaleta\Core\SignInPolicy::hostChanges($settings->get('site_url'), \Kaleta\Core\SignInPolicy::normaliseSiteUrl($this->request->post('site_url')))
             && ((int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0 || $settings->get('signin_passkey_only') === '1')) {
-            if (!$this->request->postBool('site_url_confirm')) {
-                return [['site_url'], self::HOST_CHANGE_CONFIRM];
+            if ($this->request->postBool('site_url_confirm')) {
+                $sensitive[] = 'site_url';
+            } else {
+                $unconfirmed[] = 'site_url';
             }
-            $sensitive[] = 'site_url';
         }
         // 3.35 review L2: turning "passkeys only" off and changing the two-factor rule weaken every account's sign-in
         if (isset($fields['signin_passkey_only']) && $settings->get('signin_passkey_only') === '1' && !$this->request->postBool('signin_passkey_only')) {
@@ -513,16 +516,21 @@ class Settings extends Module
         if (isset($fields['require_2fa']) && array_key_exists('require_2fa', $_POST) && $this->request->post('require_2fa') !== $settings->get('require_2fa')) {
             $sensitive[] = 'require_2fa';
         }
+        $confirmReason = $unconfirmed !== [] ? self::HOST_CHANGE_CONFIRM : '';
         if ($sensitive === []) {
-            return [[], ''];
+            return [$unconfirmed, $confirmReason];
+        }
+        $proofReason = match ($this->app->auth()->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '', 'recent')) {
+            'ok' => '',
+            'passkey' => self::PROOF_PASSKEY,
+            'locked' => \Kaleta\Core\Auth::CONFIRM_LOCKED,
+            default => self::PROOF_PASSWORD,
+        };
+        if ($proofReason === '') {
+            return [$unconfirmed, $confirmReason];
         }
 
-        return match ($this->app->auth()->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '', 'recent')) {
-            'ok' => [[], ''],
-            'passkey' => [$sensitive, self::PROOF_PASSKEY],
-            'locked' => [$sensitive, \Kaleta\Core\Auth::CONFIRM_LOCKED],
-            default => [$sensitive, self::PROOF_PASSWORD],
-        };
+        return [[...$unconfirmed, ...$sensitive], $confirmReason !== '' ? t($confirmReason) . ' ' . t($proofReason) : $proofReason];
     }
 
     /** 3.35 review M3: a new site address on another host was posted without the confirmation. */
