@@ -75,7 +75,7 @@ q340_confirm() { # <jar> <nonce> <flags> <counter> → HTTP code of the passkey 
 expect "3.35: a confirmation without user verification is refused and counted like a wrong password" \
   "$(q340_confirm "$Q4" "$Q340_N2" 1 3)|$(sq "SELECT pocet_chyb FROM ka_uzivatele WHERE idu = $Q340_USER")|$(q340_consent "$Q4" "$Q340_N2" -d access=full | cut -c1-3)" "401|1|403"
 expect "3.35: the challenge names the account's own passkey; the confirmation with it returns to this consent" \
-  "$(q340_confirm "$Q4" "$Q340_N2" 5 4)|$(grep -c "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["id"];' "$WORK/pk340-a")" "$WORK/q340-options")|$(grep -c "\"kam\":\"[^\"]*request=$Q340_N2\"" "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE kdo = $Q340_USER AND akce = 'passkey_confirm'")" "200|1|1|1"
+  "$(q340_confirm "$Q4" "$Q340_N2" 5 4)|$(grep -cF -e "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["id"];' "$WORK/pk340-a")" "$WORK/q340-options")|$(grep -c "\"kam\":\"[^\"]*request=$Q340_N2\"" "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE kdo = $Q340_USER AND akce = 'passkey_confirm'")" "200|1|1|1"
 expect "3.35: after the passkey confirmation full access is allowed; the request waited for it" \
   "$(q340_consent "$Q4" "$Q340_N2" -d access=full | grep -c '^302 https://claude.ai/api/mcp/auth_callback?code=.*state=aged340')" "1"
 expect "3.35: the same assertion again is refused – the challenge was used once" \
