@@ -1367,4 +1367,5 @@ return [
     'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Gib dein eigenes aktuelles Passwort ein, um diesen Benutzer zum Administrator zu machen oder ihm alle Bereiche zu geben. Es wurde nichts gespeichert.',
     'Enter your own current password to give this role every section. Nothing was saved.' => 'Gib dein eigenes aktuelles Passwort ein, um dieser Rolle alle Bereiche zu geben. Es wurde nichts gespeichert.',
     'Needed only to give the role every section.' => 'Nur nötig, um der Rolle alle Bereiche zu geben.',
+    'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.' => 'Die Backup-Codes konnten nicht gespeichert werden, weil dein Konto im selben Moment geändert wurde. Es wurde nichts geändert – bitte versuch es erneut.',
 ];

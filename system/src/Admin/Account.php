@@ -167,7 +167,11 @@ final class Account
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
-                    $app->auth()->replaceBackupCodes((int) $user['idu'], $json, false, ['totp_tajemstvi' => $secret]); // 3.35 review L4: compare-and-swap
+                    if (!$app->auth()->replaceBackupCodes((int) $user['idu'], $json, false, ['totp_tajemstvi' => $secret])) { // 3.35 review L4: compare-and-swap
+                        // 3.35 re-review N3: nothing was stored (the list kept changing) – no codes to show, nothing logged
+                        $message = ['chyba', self::CODES_NOT_SAVED];
+                        break;
+                    }
                     $app->session->remove('totp_nove');
                     ChangeLog::write($app, 'ucet', 'two_factor_on');
                     // the backup codes are shown only now - hence no redirect
@@ -222,7 +226,10 @@ final class Account
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
-                    $app->auth()->replaceBackupCodes((int) $user['idu'], $json); // 3.35 review L4: compare-and-swap of the stored list
+                    if (!$app->auth()->replaceBackupCodes((int) $user['idu'], $json)) { // 3.35 review L4: compare-and-swap of the stored list
+                        $message = ['chyba', self::CODES_NOT_SAVED]; // 3.35 re-review N3: nothing stored, nothing shown or logged
+                        break;
+                    }
                     ChangeLog::write($app, 'ucet', 'backup_codes_new');
 
                     return $this->page(['backupCodes' => $codes, 'codesFromPasskey' => true, 'codesRenewed' => true] + $data);
@@ -261,6 +268,9 @@ final class Account
     }
 
     /** 3.35: why new backup codes are refused – the account has no passkey, or it has the authenticator app. */
+    /** 3.35 re-review N3: the backup codes could not be stored (the stored list kept changing under the compare-and-swap). */
+    public const string CODES_NOT_SAVED = 'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.';
+
     public const string RENEW_CODES_REFUSAL = 'New backup codes are made here for an account with a passkey and without an authenticator app. With the app, turn two-factor sign-in off and on again.';
 
     /**

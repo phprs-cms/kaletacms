@@ -8258,4 +8258,5 @@ return [
     'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Introduce tu contraseña actual para hacer administrador a este usuario o darle todas las secciones. No se ha guardado nada.',
     'Enter your own current password to give this role every section. Nothing was saved.' => 'Introduce tu contraseña actual para dar a este rol todas las secciones. No se ha guardado nada.',
     'Needed only to give the role every section.' => 'Solo es necesario para dar al rol todas las secciones.',
+    'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.' => 'No se han podido guardar los códigos de respaldo porque tu cuenta se estaba modificando en ese mismo momento. No se ha cambiado nada; inténtalo de nuevo.',
 ];

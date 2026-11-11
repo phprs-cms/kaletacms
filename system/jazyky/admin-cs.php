@@ -7831,4 +7831,5 @@ return [
     'Enter your own current password to make this user an administrator or to give them every section. Nothing was saved.' => 'Zadejte své současné heslo, abyste z tohoto uživatele udělali správce nebo mu dali všechny sekce. Nic se neuložilo.',
     'Enter your own current password to give this role every section. Nothing was saved.' => 'Zadejte své současné heslo, abyste této roli dali všechny sekce. Nic se neuložilo.',
     'Needed only to give the role every section.' => 'Potřeba jen k tomu, abyste roli dali všechny sekce.',
+    'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.' => 'Záložní kódy se nepodařilo uložit, protože se váš účet ve stejnou chvíli měnil. Nic se nezměnilo – zkuste to prosím znovu.',
 ];
