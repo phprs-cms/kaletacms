@@ -1425,13 +1425,19 @@ final class Applications
      */
     public static function lockFiles(Db $db, int $wait): bool
     {
-        return (int) $db->value('SELECT GET_LOCK(?, ' . max(0, $wait) . ')', ['kaleta_cv_' . $db->prefix]) === 1;
+        return (int) $db->value('SELECT GET_LOCK(' . self::LOCK_NAME . ', ' . max(0, $wait) . ')', [$db->prefix]) === 1;
     }
 
     public static function unlockFiles(Db $db): void
     {
-        $db->run('SELECT RELEASE_LOCK(?)', ['kaleta_cv_' . $db->prefix]);
+        $db->run('SELECT RELEASE_LOCK(' . self::LOCK_NAME . ')', [$db->prefix]);
     }
+
+    /**
+     * The name of that lock (3.34 third review F8): MySQL locks are server-wide, so it carries the database and the table
+     * prefix – two sites on one server with the same prefix never wait for each other. Hashed: at most 64 characters.
+     */
+    private const string LOCK_NAME = "CONCAT('kaleta_cv_', LEFT(SHA2(CONCAT(IFNULL(DATABASE(), ''), '|', ?), 256), 40))"; // SHA2: newer MySQL has no SHA1
 
     /**
      * Seals the files of applications moved from enquiries (migration 0120, the move by form: still in storage/prilohy,
