@@ -1683,15 +1683,17 @@ final class Applications
             $original = substr($file, 0, -strlen(self::ORPHAN_SUFFIX));
             if (isset($listed[$original])) {
                 is_file($original) ? @unlink($file) : @rename($file, $original); // listed again (a newer backup restored): back
-            } elseif ((int) @filemtime($file) < $cutoff && (!$unknown || self::headerKey($s, $file) !== null)) {
+            } elseif (($mtime = (int) @filemtime($file)) > 0 && $mtime < $cutoff && (!$unknown || self::headerKey($s, $file) !== null)) {
                 $removed += @unlink($file) ? 1 : 0; // unlisted for ORPHAN_DAYS since it was set aside
             }
         }
         foreach ($old as $file) {
             if (str_ends_with($file, '.part')) {
                 $removed += @unlink($file) ? 1 : 0;
-            } elseif (!isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null) && @rename($file, $file . self::ORPHAN_SUFFIX)) {
-                @touch($file . self::ORPHAN_SUFFIX); // F1: the seven days count from now, not from when the file was written
+            } elseif (!isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null) && @touch($file)) {
+                // F1: the seven days count from now, not from when the file was written. Touch first and only then set
+                // the file aside, so a set-aside file never keeps its old time (a failed touch leaves it where it is).
+                @rename($file, $file . self::ORPHAN_SUFFIX);
             }
         }
 

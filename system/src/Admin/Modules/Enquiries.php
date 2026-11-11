@@ -441,8 +441,10 @@ final class Enquiries extends Module
                     }
                 }
             }
-        } catch (\PDOException) {
-            return [];
+        } catch (\PDOException $e) {
+            // Before migration 0119 (no table or column) nothing is listed. Any other error must not read as
+            // "nothing listed": then every path counts as listed, so no file an application may still need is deleted.
+            return in_array((string) $e->getCode(), ['42S02', '42S22'], true) ? [] : array_values(array_unique($paths));
         }
 
         return array_values(array_intersect($paths, $listed));
