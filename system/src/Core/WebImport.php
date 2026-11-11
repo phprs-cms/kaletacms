@@ -519,6 +519,11 @@ final class WebImport
             $share = $page['obrazek'] !== '' ? $this->image($page['obrazek'], $page['titulek'], $state) : null;
             $seo['obrazek'] = $share !== null ? (string) $share['obr_poloha'] : '';
         }
+        // 3.33 review L1: a video file that did not come into Media (another host, or images off) never plays from there
+        $page['obsah'] = HtmlLimits::guard(fn (): string => self::localVideosOnly($page['obsah'], $url, $state));
+        foreach ($widgets as $i => $widget) {
+            $widgets[$i]['html'] = HtmlLimits::guard(fn (): string => self::localVideosOnly($widget['html'], $url, $state));
+        }
         foreach ($widgets as $widget) {
             if ($widget['kind'] === 'unreadable_form') {
                 self::attention($state, '/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.', $old);
@@ -778,6 +783,40 @@ final class WebImport
                     $element->setAttribute($attribute, $old);
                 }
                 self::attention($state, '/%s – the file %s could not be downloaded into Media: it still links to the old site.', self::path($pageUrl), $old);
+            }
+        });
+
+        return $changed ? $output : $html;
+    }
+
+    /**
+     * A <video> whose file is not in Media (3.33 review L1: on another host, or the import ran without images) is left out
+     * with an attention line – a page never hotlinks a video file from someone else's server. A video of YouTube or Vimeo
+     * is an iframe or a player, never a <video>, and stays.
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function localVideosOnly(string $html, string $pageUrl, array &$state): string
+    {
+        if (stripos($html, '<video') === false) {
+            return $html;
+        }
+        $changed = false;
+        $output = Html::transform($html, function (\Dom\HTMLElement $body) use (&$changed, &$state, $pageUrl): void {
+            foreach (iterator_to_array($body->querySelectorAll('video')) as $video) {
+                $sources = [(string) $video->getAttribute('src')];
+                foreach (iterator_to_array($video->querySelectorAll('source[src]')) as $source) {
+                    $sources[] = (string) $source->getAttribute('src');
+                }
+                $sources = array_values(array_filter($sources, fn (string $s): bool => trim($s) !== ''));
+                if ($sources === [] || array_filter($sources, fn (string $s): bool => preg_match('#^/?media/#', trim($s)) === 1) !== []) {
+                    continue;
+                }
+                $video->remove();
+                $changed = true;
+                $address = self::absolute(trim($sources[0]), $pageUrl);
+                $shown = ImageDownloader::domainFromUrl($address) === ($state['domena'] ?? '') ? '/' . self::path($address) : mb_substr($address, 0, 200);
+                self::attention($state, '/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $shown);
             }
         });
 
