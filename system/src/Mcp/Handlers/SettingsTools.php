@@ -329,6 +329,7 @@ trait SettingsTools
         $last = (string) ($report['days'][count($report['days']) - 1]['day'] ?? '');
 
         return $report + ['statistics_on' => \Kaleta\Front\Stats::enabled($this->app->settings()), 'counting' => 'browser_confirmed']
+            + \Kaleta\Mcp\Untrusted::mark(['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries']) // 3.35 (N105): addresses and campaign names come from visitors' links
             + ($since !== null ? ['confirmed_since' => $since] : [])
             + (\Kaleta\Front\Stats::spansSwitch($since, $first, $last) ? ['counting_note' => 'Counting changed on ' . $since . ': from that day only visits confirmed by a visitor\'s browser count, the days before include some bots, link previews and the team\'s own visits. Fewer visits after it are fewer bots, not fewer people – do not report it as a decline.'] : []);
     }

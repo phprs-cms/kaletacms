@@ -254,11 +254,16 @@ trait CollectionTools
         $documentOutput = fn (array $r): array => $downloads === null ? [] : ['downloads' => ['last_30_days' => $downloads[(int) $r['idp']][0] ?? 0, 'total' => $downloads[(int) $r['idp']][1] ?? 0]]
             + ($collection['detail'] ? ['latest_url' => $this->app->request->origin() . $this->app->url(($r['jazyk'] !== '' ? $r['jazyk'] . '/' : '') . $collection['seo_link'] . '/' . $r['seo_link'] . '/latest')] : []);
 
+        // 3.35 (N105): an item made from a testimonial a customer wrote (Core\Testimonials) carries the customer's words
+        $shownRows = array_slice($rows, ($pageNumber - 1) * 50, 50);
+        $testimonials = \Kaleta\Core\Testimonials::itemsFromAnswers($db, array_map(fn (array $r): int => (int) $r['idp'], $shownRows));
+
         return ['celkem' => count($rows), 'strana' => $pageNumber, 'stran' => max(1, (int) ceil(count($rows) / 50)), 'polozky' => array_map(fn (array $r): array => ['id' => (int) $r['idp'], 'nazev' => $r['nazev'], 'seo_link' => $r['seo_link'], 'poradi' => (int) $r['poradi'], 'zobrazit' => (bool) $r['zobrazit'],
             'jazyk' => $r['jazyk'], 'data' => json_decode((string) $r['data'], true) ?: new \stdClass()]
             + array_filter(['seo_titulek' => $r['seo_titulek'], 'popis' => $r['popis'], 'obrazek' => $r['obrazek'], 'noindex' => (bool) $r['noindex'], 'canonical_url' => (string) ($r['canonical_url'] ?? ''), 'zverejnit_od' => $r['zverejnit_od']]) + self::validityOutput($r) + $registration($r) + $documentOutput($r)
             + ($withCategories ? ['kategorie' => CollectionCategories::slugsOfItem($db, (int) $r['idp'], (string) $r['jazyk'], !$allCategories)] : [])
-            + (($r['owner_id'] ?? null) !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : []), array_slice($rows, ($pageNumber - 1) * 50, 50))]; // 3.24: the responsible person
+            + (($r['owner_id'] ?? null) !== null ? ['owner' => \Kaleta\Core\Handover::person($db, $r['owner_id'])] : []) // 3.24: the responsible person
+            + (in_array((int) $r['idp'], $testimonials, true) ? \Kaleta\Mcp\Untrusted::mark(['nazev', 'data']) : []), $shownRows)];
     }
 
     /** save_collection_item (uloz_polozku_kolekce) */

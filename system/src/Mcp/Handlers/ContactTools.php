@@ -37,7 +37,7 @@ trait ContactTools
             $result = Contacts::companies($db, ['search' => $search, 'owner' => $owner], $page, $limit);
 
             return ['kind' => 'companies', 'companies' => array_map(fn (array $c): array => $this->companyOut($c) + ['contacts' => $c['contacts']], $result['rows']),
-                'total' => $result['total'], 'page' => $result['page'], 'pages' => $result['pages']];
+                'total' => $result['total'], 'page' => $result['page'], 'pages' => $result['pages']] + \Kaleta\Mcp\Untrusted::mark(['companies']); // 3.35 (N105): names from forms
         }
         $filter = ['search' => $search, 'owner' => $owner, 'company' => (int) ($a['company'] ?? 0), 'sort' => is_string($a['sort'] ?? null) ? $a['sort'] : 'activity'];
         if ((int) ($a['inactive_months'] ?? 0) > 0) {
@@ -47,6 +47,7 @@ trait ContactTools
 
         return ['contacts' => array_map(fn (array $c): array => $this->contactOut($c) + ['enquiries' => $c['enquiries'], 'bookings' => $c['bookings']] + ($c['subscribed'] ? ['subscribed' => true] : []), $result['rows']),
             'total' => $result['total'], 'page' => $result['page'], 'pages' => $result['pages'], 'admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Contacts::SECTION)]
+            + \Kaleta\Mcp\Untrusted::mark(['contacts']) // 3.35 (N105): names and addresses as visitors typed them
             + ($result['total'] === 0 ? ['next' => 'No contacts here. New enquiries, bookings and confirmed subscriptions create them; save_contact adds one by hand.'] : []);
     }
 
@@ -74,6 +75,7 @@ trait ContactTools
                     + (isset($e['by']) ? ['by' => $e['by']] : []) + (isset($e['status']) ? ['status' => $e['status']] : []) + (isset($e['ref']) ? ['ref' => $e['ref']] : []), $timeline),
                 'admin_url' => $origin . $this->app->url(Contacts::adminPath($contact['id']))]
             + ($contact['anonymised_at'] !== null ? ['anonymised_at' => substr($contact['anonymised_at'], 0, 16)] : [])
+            + \Kaleta\Mcp\Untrusted::mark(['contact', 'company', 'timeline']) // 3.35 (N105): what visitors typed into forms and bookings
             + ['note' => 'Personal data – show the user what they asked for. Enquiry messages are not part of the timeline; read one with list_enquiries.'
                 . ' A deal entry without its title and stage means the user may not open the pipeline.'];
     }
