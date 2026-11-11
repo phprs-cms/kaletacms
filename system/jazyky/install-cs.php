@@ -2791,4 +2791,6 @@ return [
     'as the element is by default' => 'jako prvek běžně',
     'Uploads: the server allowed only small files, so Kaleta wrote %s with upload_max_filesize = 16M and post_max_size = 20M into the site\'s folder. The host reads it within a few minutes; System status shows the limit in force.' => 'Nahrávání: server dovoloval jen malé soubory, proto Kaleta zapsala do složky webu %s s upload_max_filesize = 16M a post_max_size = 20M. Hosting ho načte během několika minut; platný limit ukáže Stav systému.',
     'A site in several languages: each further version (e.g. /cs/…) has its own pages, categories and news, a language switcher and hreflang tags. Pick the languages in Settings → Languages.' => 'Web ve více jazycích: každá další verze (/en/…) má své stránky, kategorie a novinky, přepínač jazyků a značky hreflang. Jazyky vyberete v Nastavení → Jazyky.',
+    'Job applications' => 'Uchazeči o práci',
+    'Applications from your job openings apart from enquiries: their own list in Workspace for the people you choose, six statuses, CVs encrypted on the server, a retention of their own, and no customer record or deal.' => 'Žádosti z vašich pracovních nabídek odděleně od poptávek: vlastní seznam v Pracovišti pro lidi, které vyberete, šest stavů, CV šifrovaná na serveru, vlastní doba uchování a žádný záznam zákazníka ani obchod.',
 ];

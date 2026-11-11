@@ -37,13 +37,15 @@ final class EnquiryDelivery
      *
      * @param list<array{0: string, 1: string, 2: string}> $fields label, value, field type (fields())
      */
-    public static function enquiryReceived(App $app, int $idp, string $source, string $form, string $topic, string $email, string $page, array $fields): int
+    public static function enquiryReceived(App $app, int $idp, string $source, string $form, string $topic, string $email, string $page, array $fields, bool $application = false): int
     {
         if (Demo::active()) {
             return 0; // the public demo calls no other servers
         }
         $db = $app->db();
-        $application = in_array($source, Jobs::sources($db), true);
+        // a job application (3.34: also a form with the Purpose "job application", stored in Applications – $idp is 0) goes
+        // out only where the owner ticked "Include job applications"
+        $application = $application || in_array($source, Jobs::sources($db), true);
         $queued = 0;
         foreach (Connectors::SERVICES as $class) {
             $config = Connectors::config($db, $class::KEY);

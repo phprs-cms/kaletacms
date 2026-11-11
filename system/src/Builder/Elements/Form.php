@@ -107,6 +107,11 @@ final class Form extends Element
             'dalsi_kroky' => ['typ' => 'radky', 'popisek' => 'What happens next (one step per line, shown with the thank-you)', 'vychozi' => '', 'max' => 2000],
             'odpovime_do' => ['typ' => 'cislo', 'popisek' => 'We reply within (working hours by the opening hours in Business details; 0 = not shown)', 'vychozi' => 0, 'min' => 0, 'max' => \Kaleta\Front\NextSteps::MAX_HOURS],
             'odpovida' => ['typ' => 'text', 'popisek' => 'Who replies (e.g. “Jana from the office”)', 'vychozi' => '', 'max' => 120],
+            // 3.34 (Core\Applications): a job application goes to Applications instead of Enquiries – a form on a job's item
+            // page is one already; the purpose makes a general "Work with us" form one too (only while the feature is on)
+            'ucel' => ['typ' => 'vyber', 'popisek' => 'Purpose', 'vychozi' => '', 'moznosti' => ['' => 'Enquiry', \Kaleta\Core\Applications::PURPOSE => 'Job application']],
+            // when filled: one more optional checkbox with this text – the consent to keep the application for future openings
+            'souhlas_uchovani' => ['typ' => 'text', 'popisek' => 'Consent to keep the application for future openings (empty = not offered)', 'vychozi' => '', 'max' => 500],
         ];
     }
 
@@ -255,8 +260,22 @@ final class Form extends Element
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
             . $html
+            . self::poolConsent($o, $p['id'])
             . (empty($o['bez_captcha']) ? self::captcha($k) : '')
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
+    }
+
+    /**
+     * The optional consent to keep a job application for future openings (3.34, Core\Applications::receive): one checkbox
+     * with the form's own text, never required; '' when the form has no text for it.
+     *
+     * @param array<string, mixed> $content
+     */
+    private static function poolConsent(array $content, string $element): string
+    {
+        $text = trim(is_string($content['souhlas_uchovani'] ?? null) ? $content['souhlas_uchovani'] : '');
+
+        return $text === '' ? '' : '<p class="ka-pole ka-pole-souhlas"><label for="f-' . e($element) . '-pool"><input type="checkbox" id="f-' . e($element) . '-pool" name="ka_pool" value="1"> <span>' . e($text) . '</span></label></p>';
     }
 
     /**

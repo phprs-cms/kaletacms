@@ -1254,4 +1254,10 @@ return [
     '%s made you responsible for %s' => '%s hat dich als verantwortliche Person eingetragen: %s',
     'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei dir.',
     'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'zuletzt erfolgreich %s – Anfragen und andere personenbezogene Daten nach Ablauf der Aufbewahrungsfrist werden nicht gelöscht; richte Cron ein, die Adresse findest du weiter unten auf dieser Seite',
+    'Take what belongs in the personnel file before the application is deleted.' => 'Übernimm, was in die Personalakte gehört, bevor die Bewerbung gelöscht wird.',
+    'Only administrators can open job applications now. Choose who else may: tick Applications for them in Administration → Users, or give them the ready-made role HR in Administration → Roles.' => 'Bewerbungen können jetzt nur Administratoren öffnen. Wähle, wer noch darf: Hake in Verwaltung → Benutzer „Bewerbungen“ an oder gib die fertige Rolle HR in Verwaltung → Rollen.',
+    'Applications come from the forms on your job pages and from forms whose Purpose is “Job application”. They never become customers or deals.' => 'Bewerbungen kommen aus den Formularen deiner Stellenseiten und aus Formularen mit dem Zweck „Bewerbung“. Sie werden nie zu Kunden oder Deals.',
+    '%s made you the responsible person for the application #%s%s.' => '%s hat dich als verantwortliche Person für die Bewerbung #%s%s eingetragen.',
+    'Retention: not limited – set it with the applications.' => 'Aufbewahrung: nicht begrenzt – stell sie bei den Bewerbungen ein.',
+    'Applications from your job openings apart from enquiries: their own list in Workspace for the people you choose, six statuses, CVs encrypted on the server, a retention of their own, and no customer record or deal.' => 'Bewerbungen auf deine Stellenangebote getrennt von Anfragen: eine eigene Liste im Arbeitsbereich für die Personen, die du wählst, sechs Status, auf dem Server verschlüsselte Lebensläufe, eine eigene Aufbewahrung und kein Kundendatensatz oder Deal.',
 ];

@@ -264,6 +264,9 @@ final class Handover
 
     private static function sectionOn(Settings $siteSettings, string $section): bool
     {
+        if ($section === Applications::SECTION) {
+            return Applications::isOn($siteSettings); // 3.34: the section of a feature that is not one of KINDS
+        }
         foreach (self::KINDS as [$ident, $extension]) {
             if ($ident === $section) {
                 return Extensions::isEnabled($siteSettings, $extension);

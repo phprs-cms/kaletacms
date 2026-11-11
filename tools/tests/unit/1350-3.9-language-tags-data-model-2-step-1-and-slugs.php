@@ -46,12 +46,13 @@ preg_match_all('/ALTER TABLE (\w+) MODIFY (\w+) VARCHAR\(35\) CHARACTER SET asci
 $widened39 = array_map(fn (array $m): string => $m[1] . '.' . $m[2], $widened39);
 $widened39[] = 'ka_stitky.jazyk'; // 3.14: migration 0095 adds the tags' language column in the same type
 $widened39[] = 'ka_contacts.language'; // 3.28: migration 0114 creates the contacts' language column in the same type
+$widened39[] = 'ka_applications.language'; // 3.34: migration 0119 creates the applications' language column in the same type
 sort($widened39);
 $schemaLanguageColumns39 = array_keys($languageColumns39);
 sort($schemaLanguageColumns39);
-check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (16 of them with the tags\' of 3.14 and the contacts\' of 3.28) and migrations 0083, 0095 and 0114 make the same ones', [
+check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (17 of them with the tags\' of 3.14, the contacts\' of 3.28 and the applications\' of 3.34) and migrations 0083, 0095, 0114 and 0119 make the same ones', [
     array_unique(array_values($languageColumns39)), count($languageColumns39), $widened39 === $schemaLanguageColumns39, str_contains($schema39, 'CHAR(2)')],
-    [['VARCHAR(35) CHARACTER SET ascii'], 16, true, false]);
+    [['VARCHAR(35) CHARACTER SET ascii'], 17, true, false]);
 $slugMigrations39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql') . (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0095-tag-language.sql');
 // 3.19: schema.sql has no global key any more (migration 0106 drops it on every site that can switch), only the per-language
 // one and a plain key on seo_link for the lookups in any version (migration 0105)

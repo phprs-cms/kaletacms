@@ -37,7 +37,9 @@
         "potvrzeni_text",
         "prijemce",
         "skryta_kopie",
-        "tlacitko"
+        "souhlas_uchovani",
+        "tlacitko",
+        "ucel"
     ],
     "galerie": [
         "fotky",

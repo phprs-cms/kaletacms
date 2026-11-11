@@ -86,6 +86,10 @@ final class Forms
         $data = [];
         $email = '';
         $attachments = [];
+        // 3.34: a job application (Core\Applications) – on a job's item page or with the Purpose "job application" while the
+        // feature is on: CVs only of the narrow types with a content check, and it goes to Applications instead of Enquiries
+        $application = \Kaleta\Core\Applications::isOn($this->app->settings())
+            && \Kaleta\Core\Applications::isApplicationForm($element['obsah'], $source, \Kaleta\Core\Jobs::sources($this->app->db()));
         // multi-step forms and calculators (2.12): a field whose condition is not met is neither checked nor sent, and the
         // estimate is computed here from the answers – never taken from the browser
         $fields = $element['obsah']['pole'];
@@ -114,12 +118,15 @@ final class Forms
                 if ($tooLarge || ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::attachmentLimit($element['obsah'])))) {
                     return $redirectUri('pole', $i);
                 }
+                if ($uploaded && $application && \Kaleta\Core\Applications::checkUpload((string) $file['tmp_name'], (string) $file['name']) === null) {
+                    return $redirectUri('pole', $i); // 3.34: "This file type is not accepted" – nothing is stored
+                }
                 if (!$uploaded && $field['povinne']) {
                     return $redirectUri('pole', $i);
                 }
                 $data[] = [$field['popisek'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Kaleta\Core\Files::size((int) $file['size']) . ')' : ''];
                 if ($uploaded) {
-                    $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension];
+                    $attachments[count($data) - 1] = [(string) $file['tmp_name'], $extension, mb_substr(basename((string) $file['name']), 0, 120), (int) $file['size']];
                 }
                 continue;
             }
@@ -175,6 +182,13 @@ final class Forms
             $data[] = [t('File sent by e-mail'), \Kaleta\Core\Documents::fileName($gatedFile)];
             $types[] = 'info';
         }
+        if ($application) {
+            // 3.34: Applications – sealed CVs, no customer record, no deal, no triage, no webhook, no "enquiry received"
+            \Kaleta\Core\Applications::receive($this->app, $element, $source, $back, $data, $email, $attachments, $r->post('ka_pool') === '1');
+            \Kaleta\Core\EnquiryDelivery::enquiryReceived($this->app, 0, $source, (string) $element['obsah']['nazev'], '', $email, $back, \Kaleta\Core\EnquiryDelivery::fields($data, $types), true);
+
+            return $this->finish($element, $email, $redirectUri);
+        }
         // attachments outside public folders (storage/ is not reachable from the web); only a signed-in user can download
         // them in Enquiries
         foreach ($attachments as $index => [$tmp, $extension]) {
@@ -206,6 +220,20 @@ final class Forms
         if ($gatedFile !== '') {
             \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
         }
+
+        return $this->finish($element, $email, $redirectUri);
+    }
+
+    /**
+     * After a stored enquiry or application: the confirmation to the sender when the form sends one, then the thank-you
+     * page or the thank-you in place of the form.
+     *
+     * @param array<string, mixed> $element
+     * @param callable(string): Response $redirectUri
+     */
+    private function finish(array $element, string $email, callable $redirectUri): Response
+    {
+        $r = $this->app->request;
         if (!empty($element['obsah']['potvrzeni']) && $email !== '') {
             // confirmation to the sender: the form's own text, or the thank-you text with the next steps (2.12) – never the
             // message content, so the form cannot be abused to send out other people's texts

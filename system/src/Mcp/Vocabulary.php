@@ -64,6 +64,8 @@ final class Vocabulary
         // 3.7: a Collection list of categories, Previous / next item, the attachment limit of a form
         'zdroj' => 'source', 'podle' => 'order_by', 'stejna_kategorie' => 'same_category', 'popisek_predchozi' => 'previous_label', 'popisek_dalsi' => 'next_label',
         'nahledy' => 'thumbnails', 'pole_obrazku' => 'image_field', 'max_priloha' => 'max_attachment_mb',
+        // 3.34: a form's purpose (a job application goes to Applications) and the consent for future openings
+        'ucel' => 'purpose', 'souhlas_uchovani' => 'pool_consent',
     ];
 
     /** A field that means something else in one element. */
@@ -100,6 +102,7 @@ final class Vocabulary
         'podle' => ['poradi' => 'order', 'datum' => 'date'],
         'menu' => ['hlavni' => 'main', 'paticka' => 'footer'],
         'zvyrazneni' => ['pozadi' => 'background', 'podtrzeni' => 'underline'],
+        'ucel' => ['' => 'enquiry', 'uchazec' => 'application'], // 3.34 (Core\Applications::PURPOSE)
         'smer' => ['nahoru' => 'up', 'dolu' => 'down'],
         'priorita' => ['' => 'auto', '1' => 'high', '0' => 'lazy'], // the image's loading (3.5); true and false of older builds pass as they are
         'pri_rolovani' => ['pruhledna' => 'transparent', 'zmensit' => 'shrink', 'pruhledna-zmensit' => 'transparent_shrink'],

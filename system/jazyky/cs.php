@@ -3225,4 +3225,11 @@ return [
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => 'Pokud stránka tohoto webu ukazuje vyhledávač poboček, který načítá mapu hned, váš prohlížeč se při otevření stránky – ještě před udělením souhlasu v cookie liště – spojí s OpenStreetMap (OpenStreetMap Foundation) a pošle mu vaši IP adresu, aby mapu načetl; jinak se mapa načte až po kliknutí.',
     'Choose the date and time in the Content panel.' => 'Datum a čas vyberte v panelu Obsah.',
     'as the element is by default' => 'jako prvek běžně',
+    'Application #%d for “%s” from the form “%s”' => 'Žádost #%d na pozici „%s“ z formuláře „%s“',
+    'no position' => 'bez pozice',
+    'New application for %s: %s' => 'Nová žádost na pozici %s: %s',
+    'New application: %s' => 'Nová žádost o místo: %s',
+    'A new application #%d for the position “%s” arrived.' => 'Přišla nová žádost #%d na pozici „%s“.',
+    'A new application #%d arrived (no position).' => 'Přišla nová žádost #%d (bez pozice).',
+    'Open it in the administration (Applications): %s' => 'Otevřete ji v administraci (Žádosti o místo): %s',
 ];

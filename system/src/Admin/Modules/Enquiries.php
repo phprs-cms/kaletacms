@@ -396,7 +396,8 @@ final class Enquiries extends Module
                 return $this->back('Tick that you want to erase the data.', 'personal', [], 'chyba');
             }
             $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
-            $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials']);
+            $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials'])
+                . (($result['erased']['applications'] ?? 0) > 0 ? ' ' . t('Job applications erased: %d.', $result['erased']['applications']) : ''); // 3.34
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
@@ -407,7 +408,7 @@ final class Enquiries extends Module
             return $this->back('Enter a valid e-mail address.', 'personal', [], 'chyba');
         }
 
-        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email) : null]);
+        return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email, $this->app) : null]);
     }
 
     /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */

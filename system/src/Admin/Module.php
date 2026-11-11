@@ -42,6 +42,13 @@ abstract class Module
     public const bool FOR_ALL_USERS = false;
 
     /**
+     * The section is never a default of a level (3.34, Applications): Users::defaultModules leaves it out, so an editor
+     * gets it only when an administrator ticks it for them or their role – job applications are not for everyone with
+     * the content sections.
+     */
+    public const bool GRANTED_EXPLICITLY = false;
+
+    /**
      * A screen of a hub shares the hub's permission (3.2): Facts open for whoever may open Business details, so a role
      * has one checkbox for the hub, not one per screen. Empty = the module's own permission.
      */

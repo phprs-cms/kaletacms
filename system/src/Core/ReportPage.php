@@ -278,6 +278,17 @@ final class ReportPage
             ]);
         }
 
+        // 3.34: recruitment – counts and position titles only
+        $recruitment = is_array($data['recruitment'] ?? null) ? $data['recruitment'] : null;
+        if ($recruitment !== null) {
+            $add('recruitment', t('Recruitment'), [
+                $pairs([[t('Applications received'), $n($recruitment['received'] ?? 0)], [t('Invited to an interview'), $n($recruitment['interview'] ?? 0)], [t('Hired'), $n($recruitment['hired'] ?? 0)],
+                    [t('Rejected'), $n($recruitment['rejected'] ?? 0)], [t('Waiting for the first reply'), $n($recruitment['waiting'] ?? 0)]]),
+                $table(t('Applications by position'), [t('Position'), t('Applications')], array_map(static fn (array $x): array => [(string) ($x['title'] ?? ''), $n($x['n'] ?? 0)],
+                    array_values(array_filter((array) ($recruitment['positions'] ?? []), 'is_array'))), [1]),
+            ]);
+        }
+
         // newsletter
         $newsletter = is_array($data['newsletter'] ?? null) ? $data['newsletter'] : null;
         if ($newsletter !== null) {

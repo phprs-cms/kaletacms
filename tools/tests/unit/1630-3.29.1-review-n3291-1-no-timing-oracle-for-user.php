@@ -313,7 +313,7 @@ check('3.31: every target kind parses, is a task target, is swept, has an assign
         || !isset(Kaleta\Core\Assignment::KINDS[$k]) || !str_contains($m331Sweep, "'" . $k . "' => ['")
         || ($k !== 'item' && array_filter($m331Views, fn (string $v): bool => !str_contains($v, "    '" . $k . "' => t(")) !== []))),
     Kaleta\Core\Assignment::KINDS['deal'], Kaleta\Core\Assignment::ADMIN_SECTIONS],
-    [['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal'], [], 'pipeline', ['fleet']]);
+    [['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal', 'application'], [], 'pipeline', ['fleet']]); // 3.34: job applications
 
 // 3.31: comments on the deals of an erased or anonymised customer follow the rule of the comments on the customer itself
 $p331Contacts = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');

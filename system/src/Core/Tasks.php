@@ -463,13 +463,13 @@ final class Tasks
 
     /**
      * A target as stored: 'enquiry:<id>', 'page:<id>', 'item:<id>', 'contact:<id>' or 'company:<id>' (3.28), 'fleet_site:<id>'
-     * or 'fleet_customer:<id>' (3.30, a console), 'deal:<id>' (3.31); null for anything else (an empty one too). Pure.
+     * or 'fleet_customer:<id>' (3.30, a console), 'deal:<id>' (3.31), 'application:<id>' (3.34); null for anything else (an empty one too). Pure.
      */
     public static function cleanTarget(mixed $target): ?string
     {
         $target = is_string($target) ? trim($target) : '';
 
-        return preg_match('/^(enquiry|page|item|contact|company|fleet_site|fleet_customer|deal):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
+        return preg_match('/^(enquiry|page|item|contact|company|fleet_site|fleet_customer|deal|application):[1-9]\d{0,9}$/D', $target) === 1 ? $target : null;
     }
 
     /** What a person is responsible for in tasks: their open ones (Core\Handover). */
@@ -599,12 +599,12 @@ final class Tasks
         }
         $gone = [];
         foreach (['enquiry' => ['poptavky', 'idp'], 'page' => ['stranky', 'ids'], 'item' => ['kolekce_polozky', 'idp'], 'contact' => ['contacts', 'id'], 'company' => ['companies', 'id'],
-            'fleet_site' => ['fleet_sites', 'id'], 'fleet_customer' => ['fleet_customers', 'id'], 'deal' => ['deals', 'id']] as $kind => [$table, $key]) {
+            'fleet_site' => ['fleet_sites', 'id'], 'fleet_customer' => ['fleet_customers', 'id'], 'deal' => ['deals', 'id'], 'application' => ['applications', 'id']] as $kind => [$table, $key]) {
             foreach (array_chunk(array_values(array_unique(array_filter($byKind[$kind] ?? []))), 500) as $chunk) {
                 try {
                     $existing = array_flip(array_map('intval', array_column($db->all('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' IN (' . implode(',', $chunk) . ')'), $key)));
                 } catch (\PDOException) {
-                    continue; // the contacts tables before migration 0114, the deals before 0117
+                    continue; // the contacts tables before migration 0114, the deals before 0117, the applications before 0119
                 }
                 foreach ($chunk as $id) {
                     if (!isset($existing[$id])) {
@@ -755,10 +755,11 @@ final class Tasks
         }
     }
 
-    /** Is a task about a person (an enquiry, or a contact since 3.28, a deal since 3.31 – it points to one)? Its changes never enter the undo journal. Pure. */
+    /** Is a task about a person (an enquiry, or a contact since 3.28, a deal since 3.31, a job application since 3.34 – it points to one)? Its changes never enter the undo journal. Pure. */
     public static function personal(?string $target): bool
     {
-        return str_starts_with((string) $target, 'enquiry:') || str_starts_with((string) $target, 'contact:') || str_starts_with((string) $target, 'deal:');
+        return str_starts_with((string) $target, 'enquiry:') || str_starts_with((string) $target, 'contact:') || str_starts_with((string) $target, 'deal:')
+            || str_starts_with((string) $target, 'application:');
     }
 
     /**

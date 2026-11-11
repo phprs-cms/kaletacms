@@ -138,6 +138,12 @@ $parity = [
         'delete' => 'admin: deleting a deal for good is an administrator\'s decision', 'stages_save' => 'admin: the stages of the pipeline are the administrator\'s set-up',
         'comment' => 'admin: the team’s thread on a deal – a person writes it; Claude gets the comments over MCP with the work tools',
         'task' => 'save_task'],
+    // 3.34: job applications (Core\Applications) – the MCP tools (list_applications, get_application, update_application,
+    // reply_to_application) come with part B; until then the screens are the way, and the file, deletion and consent stay admin
+    'applications' => ['list' => $readOnly, 'detail' => $readOnly, 'attachment' => 'admin: a CV is downloaded by a person with the section, never passed to Claude',
+        'status' => 'admin: until update_application (part B of 3.34)', 'assign' => 'admin: until update_application (part B of 3.34)',
+        'consent' => 'admin: the applicant withdrew the consent for future openings – a person records it', 'delete' => 'admin: deleting an application for good is a person\'s decision',
+        'comment' => 'admin: the team’s notes on an application – a person writes them; Claude gets the comments over MCP with the work tools', 'task' => 'save_task'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],
