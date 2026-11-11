@@ -395,8 +395,10 @@ final class Account
             }
             $handle = (string) $user['passkey_handle'];
             if ($handle === '') {
-                $handle = Passkey::newUserHandle();
-                $db->update('uzivatele', ['passkey_handle' => $handle], ['idu' => $user['idu']]);
+                // 3.35 review L3: written only while the account still has none, then read back – two option requests at
+                // the same moment (two tabs, two devices) end with one handle, never a passkey with a handle the account lost
+                $db->run("UPDATE {uzivatele} SET passkey_handle = ? WHERE idu = ? AND passkey_handle = ''", [Passkey::newUserHandle(), $user['idu']]);
+                $handle = (string) $db->value('SELECT passkey_handle FROM {uzivatele} WHERE idu = ?', [$user['idu']]);
             }
             $challenge = Passkey::challenge();
             $app->session->set('klic_registrace', ['challenge' => $challenge, 'at' => time()]);
