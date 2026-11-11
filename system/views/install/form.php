@@ -87,6 +87,9 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 				<span class="vzorky"><i style="background:<?= e($colors['primarni']) ?>"></i><i style="background:<?= e($colors['sekundarni']) ?>"></i><i style="background:<?= e($colors['plocha']) ?>"></i></span>
 				<strong><?= e(t($w['nazev'])) ?></strong><small><?= e(t($w['popis'])) ?></small></label>
 <?php endforeach ?>
+			<label class="web"><input type="radio" name="web" value="<?= e(Kaleta\Install\Installer::MOVE) ?>"<?= $data['web'] === Kaleta\Install\Installer::MOVE ? ' checked' : '' ?>>
+				<span class="vzorky"><i></i><i></i><i></i></span>
+				<strong><?= e(t('Empty site for a move')) ?></strong><small><?= e(t('For moving a site from WordPress or any other platform: no sample pages – only a Home placeholder (the import of the old home page replaces it), a hidden privacy policy template and the default look. Then import the old site with Claude or in Import and export.')) ?></small></label>
 			<label class="web"><input type="radio" name="web" value="export"<?= $data['web'] === 'export' ? ' checked' : '' ?>>
 				<span class="vzorky"><i></i><i></i><i></i></span>
 				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.')) ?></small></label>

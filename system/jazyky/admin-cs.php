@@ -7493,4 +7493,10 @@ return [
     'The customer’s company' => 'Firma zákazníka',
     'Personal data clean-up' => 'Úklid osobních údajů',
     'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'naposledy úspěšně %s – poptávky a další osobní údaje po době uchování se nemažou; nastavte cron, adresu najdete níže na této stránce',
+    'Sample pages' => 'Ukázkové stránky',
+    'This site still has the sample pages of the installation, untouched: %s. Moving a site here? An import replaces a sample page at the same address (the preview lets you keep it); you can also move them all to the trash now – the Home page stays until the import of the old home page replaces it.' => 'Web má pořád nedotčené ukázkové stránky z instalace: %s. Stěhujete sem web? Import nahradí ukázkovou stránku na stejné adrese (v náhledu ji můžete ponechat); všechny je také můžete přesunout do koše hned – úvodní stránka zůstane, dokud ji nenahradí import staré úvodní stránky.',
+    'Move the untouched sample pages to the trash? You can restore them for 30 days.' => 'Přesunout nedotčené ukázkové stránky do koše? Obnovit je můžete po 30 dní.',
+    'Move the sample pages to the trash' => 'Přesunout ukázkové stránky do koše',
+    'No untouched sample pages are left.' => 'Žádné nedotčené ukázkové stránky už nezbyly.',
+    'Moved to the trash: %s. You can restore them for 30 days.' => 'Přesunuto do koše: %s. Obnovit je můžete po 30 dní.',
 ];

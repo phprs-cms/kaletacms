@@ -246,6 +246,7 @@ final class Settings
         'smtp_last_ok' => '',            // when the SMTP server last accepted a message and which one ("Y-m-d H:i:s|host", Core\Mail, 3.23) – Site audit's hand-over checklist
         'stats_confirmed_since' => '', // 3.29 (Front\Stats::hit): the day the counting of page views confirmed by a visitor's browser started; '' = no beacon yet – internal
         'inbox_digest_day' => '',      // the day the daily summary of notifications last went out (3.26, Core\Inbox::run) – internal
+        'starter_pages' => '',         // 3.33 (M2, Core\StarterPages): the installer's record of its starter pages as JSON {ids: fingerprint}; '' = a site from before 3.33 – internal
         'cleaned_version' => '',       // the version after whose deployment the one-time cleanup of removed files has already run
         'db_version' => '1',            // number of the last applied migration (system/sql/migrace)
     ];

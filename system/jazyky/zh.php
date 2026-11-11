@@ -2088,4 +2088,5 @@ The link works for %d days.
     'open in a new window' => '在新窗口中打开',
     'If a page of this website shows a store locator that loads its map at once, your browser contacts OpenStreetMap (OpenStreetMap Foundation) as soon as the page opens – before you give your consent in the cookie bar – and sends it your IP address to load the map; otherwise the map loads only after you click it.' => '如果本网站的某个页面显示了设置为立即加载地图的门店查询，则页面一打开（在您于 Cookie 横幅中表示同意之前），您的浏览器就会连接 OpenStreetMap（OpenStreetMap 基金会），并向其发送您的 IP 地址以加载地图；否则，地图只会在您点击后加载。',
     'Choose the date and time in the Content panel.' => '请在“内容”面板中选择日期和时间。',
+    'This site is being moved here. The pages of the old site arrive with the import.' => '本网站正在迁移到这里。旧网站的页面将随导入一起到来。',
 ];

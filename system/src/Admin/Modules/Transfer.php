@@ -66,7 +66,25 @@ final class Transfer extends Module
             'remoteSources' => Sources::remote(),
             'canFetch' => function_exists('curl_init'),
             'sourceFiles' => array_map(fn (array $s): array => $s + ['stav' => Batch::loadState($s['soubor'])], Batch::listAll()),
+            'samplePages' => \Kaleta\Core\StarterPages::untouched($this->db, $this->app->settings()),
         ]);
+    }
+
+    /**
+     * 3.33 (M2): a site installed with sample pages becomes a move – the untouched ones (Core\StarterPages) go to the trash,
+     * the Home page stays until the import of the old home page replaces it. Claude does the same with trash_page.
+     */
+    protected function actionStarterRemove(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $removed = \Kaleta\Core\StarterPages::removeSamples($this->db, $this->app->settings());
+        if ($removed !== []) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'sample pages to the trash', implode(', ', $removed));
+        }
+
+        return $this->back($removed === [] ? 'No untouched sample pages are left.' : t('Moved to the trash: %s. You can restore them for 30 days.', implode(', ', $removed)));
     }
 
     /* ---------- import from a website (2.6) ---------- */

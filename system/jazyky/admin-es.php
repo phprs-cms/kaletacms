@@ -7919,4 +7919,10 @@ return [
     'The customer’s company' => 'Empresa del cliente',
     'Personal data clean-up' => 'Limpieza de datos personales',
     'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'último éxito %s – las consultas y otros datos personales con el plazo de conservación vencido no se están eliminando; configura cron, encontrarás la dirección más abajo en esta página',
+    'Sample pages' => 'Páginas de ejemplo',
+    'This site still has the sample pages of the installation, untouched: %s. Moving a site here? An import replaces a sample page at the same address (the preview lets you keep it); you can also move them all to the trash now – the Home page stays until the import of the old home page replaces it.' => 'Este sitio aún tiene las páginas de ejemplo de la instalación, sin tocar: %s. ¿Traslada aquí un sitio? Una importación sustituye una página de ejemplo con la misma dirección (en la vista previa puede conservarla); también puede moverlas todas a la papelera ahora – la página de inicio se queda hasta que la sustituya la importación de la antigua página de inicio.',
+    'Move the untouched sample pages to the trash? You can restore them for 30 days.' => '¿Mover a la papelera las páginas de ejemplo sin tocar? Puede restaurarlas durante 30 días.',
+    'Move the sample pages to the trash' => 'Mover las páginas de ejemplo a la papelera',
+    'No untouched sample pages are left.' => 'No queda ninguna página de ejemplo sin tocar.',
+    'Moved to the trash: %s. You can restore them for 30 days.' => 'Movidas a la papelera: %s. Puede restaurarlas durante 30 días.',
 ];

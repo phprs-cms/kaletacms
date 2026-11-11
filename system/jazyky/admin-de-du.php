@@ -1254,4 +1254,7 @@ return [
     '%s made you responsible for %s' => '%s hat dich als verantwortliche Person eingetragen: %s',
     'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei dir.',
     'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'zuletzt erfolgreich %s – Anfragen und andere personenbezogene Daten nach Ablauf der Aufbewahrungsfrist werden nicht gelöscht; richte Cron ein, die Adresse findest du weiter unten auf dieser Seite',
+    'This site still has the sample pages of the installation, untouched: %s. Moving a site here? An import replaces a sample page at the same address (the preview lets you keep it); you can also move them all to the trash now – the Home page stays until the import of the old home page replaces it.' => 'Diese Website hat noch die unveränderten Beispielseiten der Installation: %s. Ziehst du eine Website hierher um? Ein Import ersetzt eine Beispielseite unter derselben Adresse (in der Vorschau kannst du sie behalten); du kannst auch alle jetzt in den Papierkorb verschieben – die Startseite bleibt, bis der Import der alten Startseite sie ersetzt.',
+    'Move the untouched sample pages to the trash? You can restore them for 30 days.' => 'Die unveränderten Beispielseiten in den Papierkorb verschieben? Du kannst sie 30 Tage lang wiederherstellen.',
+    'Moved to the trash: %s. You can restore them for 30 days.' => 'In den Papierkorb verschoben: %s. Du kannst sie 30 Tage lang wiederherstellen.',
 ];

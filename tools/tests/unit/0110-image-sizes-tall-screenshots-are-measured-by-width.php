@@ -170,6 +170,7 @@ $parity = [
         'kaleta_run' => 'admin: moving a whole site into a new installation', 'kaleta_delete' => 'admin: moving a whole site into a new installation',
         'web_start' => 'import_website', 'web_progress' => 'import_website', 'web_run' => 'import_website', 'web_delete' => 'admin: removing the record of an import',
         'report_start' => 'migration_report', 'report' => 'migration_report', 'report_delete' => 'admin: removing a saved report',
+        'starter_remove' => 'trash_page', // 3.33 (M2): the untouched sample pages to the trash – Claude trashes each one
         'source_upload' => 'admin: structured import (3.0) – the export file comes through the admin, not over MCP', 'source_select' => 'admin: structured import (3.0)',
         'source_preview' => $readOnly, 'source_run' => 'admin: structured import (3.0)', 'source_progress' => 'admin: structured import (3.0)',
         'source_images' => 'admin: structured import (3.0)', 'source_delete' => 'admin: structured import (3.0)',
