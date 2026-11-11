@@ -31,6 +31,7 @@ use Kaleta\Core\Response;
  *  - status, assign, consent, delete: the changes (Core\Applications writes the change log of status and assign).
  *  - settings, settings_save (3.34 B, administrators): the retention, the pool period, the notification and Claude
  *    switches, the reply templates per language, who may open the section.
+ *  - search_json (3.34 B): the command palette finds applications by number, name or position.
  *  - move, move_run (3.34 B, administrators): enquiries of a chosen form to applications and back, in batches.
  *  - reply (3.34 B): an e-mail to the applicant from a template (received, invitation, rejection – Settings tab) or not,
  *    with the sender's signature, moving the status with it.
@@ -231,6 +232,25 @@ final class Applications extends Module
         }
 
         return Store::delete($this->app, [$this->request->postInt('id')]) > 0 ? $this->back('The application was deleted, with its CVs, notes and tasks.') : $this->back();
+    }
+
+    /**
+     * The command palette (Ctrl K, 3.34 B): applications by number, name or position – only for people with the section
+     * (the palette asks only when the module is theirs); never by e-mail or the fields.
+     */
+    protected function actionSearchJson(): Response
+    {
+        $q = mb_substr(trim($this->request->get('q')), 0, 80);
+        if (mb_strlen($q) < 2) {
+            return Response::json(['applications' => []]);
+        }
+        $number = preg_match('/^#?(\d{1,9})$/D', $q, $m) === 1 ? (int) $m[1] : 0;
+        $like = '%' . addcslashes($q, '%_\\') . '%';
+        $rows = $this->db->all('SELECT id, name, job_title, status FROM {applications} WHERE id = ? OR name LIKE ? OR job_title LIKE ? ORDER BY id = ? DESC, id DESC LIMIT 6', [$number, $like, $like, $number]);
+
+        return Response::json(['applications' => array_map(fn (array $r): array => ['name' => (string) $r['name'] !== '' ? (string) $r['name'] : t('Application #%s', (string) $r['id']),
+            'note' => implode(' · ', array_filter(['#' . (int) $r['id'], (string) $r['job_title'], t(Store::STATUS_LABELS[(string) $r['status']] ?? (string) $r['status'])])),
+            'url' => $this->url('detail', ['id' => (int) $r['id']])], $rows)]);
     }
 
     /* ---------- settings (3.34 B, administrators) ---------- */

@@ -113,6 +113,12 @@ final class MonthlyReport
                 // 3.26.1: the month before, for the change on the headline tile
                 'previous_total' => $count('SELECT COUNT(*) FROM {poptavky} WHERE datum >= ? AND datum < ?', [$monthStart->modify('first day of last month')->format('Y-m-d H:i:s'), $from]),
             ];
+            // 3.34 B: job applications left the enquiries in this month or the one it is compared with – the comparison says
+            // "counting changed" instead of a drop (the rule of 3.29.1 for visits; an additive key of the stored data)
+            $changed = Applications::isOn($s) ? Applications::countingChanged($db, $monthStart->modify('first day of last month')->format('Y-m-d H:i:s'), $to) : null;
+            if ($changed !== null) {
+                $enquiries['counting_changed'] = $changed;
+            }
         }
         $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1 AND datum >= ? AND datum < ?', [$from, $to]) : null;
 

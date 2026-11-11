@@ -2102,4 +2102,5 @@ The link works for %d days.
     'Your application – {{position}}' => '您的求职申请 – {{position}}',
     'a position with us' => '我们的职位',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "{{name}}您好：\n\n感谢您对{{position}}的关注与申请。经过慎重考虑，我们决定这次不再继续推进您的申请。祝您一切顺利。\n\n此致\n{{company}}",
+    'Workplace (on site, hybrid, remote)' => '工作方式（现场、混合、远程）',
 ];

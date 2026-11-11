@@ -21,6 +21,7 @@ final class Handover
         'page' => ['pages', '', 'stranky', 'ids', 'owner_id'],
         'item' => ['collections', '', 'kolekce_polozky', 'idp', 'owner_id'],
         'enquiry' => ['enquiries', 'poptavky', 'poptavky', 'idp', 'prirazeno'],
+        'application' => ['applications', 'applications', 'applications', 'id', 'assignee_id'], // 3.34 B: a job application (Core\Applications) – given only explicitly
     ];
 
     /** Forgets the names read in this request (after an account was renamed, blocked or deleted – Assignment::forget). */
@@ -113,12 +114,13 @@ final class Handover
      */
     public static function assign(App $app, string $kind, int $id, ?int $userId): array
     {
-        [$section, , $table, $idColumn, $column] = self::KINDS[$kind] ?? throw new \InvalidArgumentException('target must be page, item or enquiry.');
+        [$section, , $table, $idColumn, $column] = self::KINDS[$kind] ?? throw new \InvalidArgumentException('target must be page, item, enquiry or application.');
         $db = $app->db();
-        $row = $db->one('SELECT ' . $column . ' AS person FROM {' . $table . '} WHERE ' . $idColumn . ' = ?' . ($kind === 'enquiry' ? '' : ' AND smazano IS NULL'), [$id])
-            ?? throw new \InvalidArgumentException(['page' => 'The page does not exist. Use list_pages.', 'item' => 'The collection item does not exist. Use list_collection_items.', 'enquiry' => 'The enquiry does not exist. Use list_enquiries.'][$kind]);
+        $row = $db->one('SELECT ' . $column . ' AS person FROM {' . $table . '} WHERE ' . $idColumn . ' = ?' . (in_array($kind, ['enquiry', 'application'], true) ? '' : ' AND smazano IS NULL'), [$id])
+            ?? throw new \InvalidArgumentException(['page' => 'The page does not exist. Use list_pages.', 'item' => 'The collection item does not exist. Use list_collection_items.', 'enquiry' => 'The enquiry does not exist. Use list_enquiries.',
+                'application' => 'The application does not exist. Use list_applications.'][$kind]);
         if ($userId !== null && !self::mayOpen($db, $app->settings(), $userId, $section)) {
-            throw new \DomainException('This user cannot open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries'][$section]
+            throw new \DomainException('This user cannot open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'applications' => 'Applications'][$section]
                 . ' (or the account is blocked) – give the work to someone who can, or ask an administrator to give them the section.');
         }
         $previous = $row['person'] !== null ? (int) $row['person'] : null;
@@ -150,9 +152,10 @@ final class Handover
 
     /**
      * What a user is responsible for now: pages and collection items (not in the trash), open enquiries (new or read),
-     * (3.27) open tasks, (3.28) customers and companies (Core\Contacts) and (3.31) open deals (Core\Deals).
+     * (3.27) open tasks, (3.28) customers and companies (Core\Contacts), (3.31) open deals (Core\Deals) and (3.34 B)
+     * undecided job applications (Core\Applications).
      *
-     * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int}
+     * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int, application: int}
      */
     public static function owned(Db $db, int $userId): array
     {
@@ -161,17 +164,17 @@ final class Handover
             'item' => (int) $db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE owner_id = ? AND smazano IS NULL', [$userId]),
             'enquiry' => (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE prirazeno = ? AND stav < 2', [$userId]),
             'task' => Tasks::openCount($db, $userId),
-        ] + Contacts::owned($db, $userId) + ['deal' => Deals::owned($db, $userId)]; // 3.31: open deals
+        ] + Contacts::owned($db, $userId) + ['deal' => Deals::owned($db, $userId), 'application' => Applications::owned($db, $userId)]; // 3.31: open deals; 3.34 B: undecided applications
     }
 
     /**
      * The same for every account at once (the Users list): idu => counts, only accounts that own something.
      *
-     * @return array<int, array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int}>
+     * @return array<int, array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int, application: int}>
      */
     public static function ownedByAll(Db $db): array
     {
-        $none = ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0, 'contact' => 0, 'company' => 0, 'deal' => 0];
+        $none = ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0, 'contact' => 0, 'company' => 0, 'deal' => 0, 'application' => 0];
         $out = [];
         foreach (Tasks::openByAll($db) as $idu => $n) {
             $out[$idu] = ['task' => $n] + $none; // 3.27: open tasks
@@ -181,6 +184,9 @@ final class Handover
         }
         foreach (Deals::ownedByAll($db) as $idu => $n) {
             $out[$idu] = ['deal' => $n] + ($out[$idu] ?? $none); // 3.31: open deals
+        }
+        foreach (Applications::ownedByAll($db) as $idu => $n) {
+            $out[$idu] = ['application' => $n] + ($out[$idu] ?? $none); // 3.34 B: undecided job applications
         }
         foreach ([
             'page' => 'SELECT owner_id AS idu, COUNT(*) AS n FROM {stranky} WHERE owner_id IS NOT NULL AND smazano IS NULL GROUP BY owner_id',
@@ -200,7 +206,7 @@ final class Handover
      * The sections a recipient of this work must be able to open (Module::IDENT), by what there is. Tasks need no section of
      * their own (sectionsToTake adds those of their records); customers and companies need Customers (3.28).
      *
-     * @param array{page: int, item: int, enquiry: int, task?: int, contact?: int, company?: int, deal?: int} $owned
+     * @param array{page: int, item: int, enquiry: int, task?: int, contact?: int, company?: int, deal?: int, application?: int} $owned
      * @return list<string>
      */
     public static function sectionsOf(array $owned): array
@@ -221,6 +227,7 @@ final class Handover
             'page' => (int) ($db->value('SELECT 1 FROM {stranky} WHERE owner_id = ? LIMIT 1', [$userId]) !== null),
             'item' => (int) ($db->value('SELECT 1 FROM {kolekce_polozky} WHERE owner_id = ? LIMIT 1', [$userId]) !== null),
             'enquiry' => (int) ($db->value('SELECT 1 FROM {poptavky} WHERE prirazeno = ? AND stav < 2 LIMIT 1', [$userId]) !== null),
+            'application' => Applications::owned($db, $userId), // 3.34 B: only to someone who may open Applications
         ] + Contacts::owned($db, $userId) + ['deal' => (int) Deals::ownsAny($db, $userId)]), ...Tasks::sectionsOf($db, $userId)])); // 3.27: the records of their open tasks too; 3.28 customers; 3.31 deals
     }
 
@@ -231,7 +238,9 @@ final class Handover
      * "nobody" in the Team tab of My work); done tasks keep who did them. 3.28: their customers and companies go too (an
      * anonymised contact too, so no leaver's id is left behind). Returns how many of each moved.
      *
-     * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int}
+     * 3.34 B: their undecided job applications too; a decided one keeps who handled it.
+     *
+     * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int, application: int}
      */
     public static function handOver(Db $db, int $from, ?int $to): array
     {
@@ -240,20 +249,20 @@ final class Handover
             'item' => $db->run('UPDATE {kolekce_polozky} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount(),
             'enquiry' => $db->run('UPDATE {poptavky} SET prirazeno = ? WHERE prirazeno = ? AND stav < 2', [$to, $from])->rowCount(),
             'task' => Tasks::handOver($db, $from, $to),
-        ] + Contacts::handOver($db, $from, $to) + ['deal' => Deals::handOver($db, $from, $to)]; // 3.31: their deals, open and closed
+        ] + Contacts::handOver($db, $from, $to) + ['deal' => Deals::handOver($db, $from, $to), 'application' => Applications::handOver($db, $from, $to)]; // 3.31: their deals, open and closed; 3.34 B
     }
 
     /**
      * "pages: 2, collection items: 1, open enquiries: 3, open tasks: 4" – the parts that are not zero, translated (counted
      * labels, so no language needs plural forms).
      *
-     * @param array{page: int, item: int, enquiry: int, task?: int, contact?: int, company?: int, deal?: int} $counts
+     * @param array{page: int, item: int, enquiry: int, task?: int, contact?: int, company?: int, deal?: int, application?: int} $counts
      */
     public static function describe(array $counts): string
     {
         $parts = [];
         foreach (['page' => 'pages: %d', 'item' => 'collection items: %d', 'enquiry' => 'open enquiries: %d', 'task' => 'open tasks: %d', 'contact' => 'customers: %d', 'company' => 'companies: %d',
-            'deal' => 'deals: %d'] as $kind => $label) {
+            'deal' => 'deals: %d', 'application' => 'open job applications: %d'] as $kind => $label) {
             if (($counts[$kind] ?? 0) > 0) {
                 $parts[] = t($label, $counts[$kind]);
             }

@@ -8051,4 +8051,10 @@ return [
     'Customer records made only by these enquiries were deleted: %d.' => 'Registros de cliente creados solo por estas consultas que se borraron: %d.',
     'Only an administrator can move enquiries to applications.' => 'Solo un administrador puede mover consultas a candidaturas.',
     'Choose a form.' => 'Elige un formulario.',
+    'Application' => 'Candidatura',
+    'Applications (new / all)' => 'Candidaturas (nuevas / todas)',
+    'open job applications: %d' => 'candidaturas abiertas: %d',
+    'Job applications you are responsible for' => 'Candidaturas de las que eres responsable',
+    'New job applications nobody is responsible for' => 'Candidaturas nuevas sin persona responsable',
+    'Workplace (on site / hybrid / remote)' => 'Lugar de trabajo (presencial / híbrido / remoto)',
 ];

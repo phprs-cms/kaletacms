@@ -480,6 +480,7 @@
 		var popupNews = [];
 		var popupContacts = []; // 3.28: customers found on the server (Customers → search_json)
 		var popupDeals = []; // 3.31: deals found on the server (Pipeline → search_json)
+		var popupApplications = []; // 3.34 B: job applications found on the server (Applications → search_json, only with the section)
 		var popupSelected = 0;
 		var popupTimer = null;
 		var removeDiacritics = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
@@ -491,7 +492,7 @@
 				var whereParts = removeDiacritics(p.n + ' ' + p.s);
 				return words.every(function (s) { return whereParts.indexOf(s) !== -1; });
 			});
-			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupContacts, q === '' ? [] : popupDeals, q === '' ? [] : popupNews);
+			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupContacts, q === '' ? [] : popupDeals, q === '' ? [] : popupApplications, q === '' ? [] : popupNews);
 		};
 		var popupRender = function () {
 			var items = popupItems();
@@ -526,6 +527,7 @@
 			popupNews = [];
 			popupContacts = [];
 			popupDeals = [];
+			popupApplications = [];
 			popupSelected = 0;
 			popupRender();
 			palette.showModal();
@@ -550,7 +552,8 @@
 			var address = palette.getAttribute('data-clanky');
 			var customers = palette.getAttribute('data-contacts');
 			var deals = palette.getAttribute('data-deals');
-			if (q.length < 2) { popupNews = []; popupContacts = []; popupDeals = []; return; }
+			var applications = palette.getAttribute('data-applications');
+			if (q.length < 2) { popupNews = []; popupContacts = []; popupDeals = []; popupApplications = []; return; }
 			popupTimer = setTimeout(function () {
 				if (address) {
 					fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
@@ -570,6 +573,13 @@
 					fetch(deals + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
 						if (popupFields.value.trim() !== q) { return; }
 						popupDeals = (d.deals || []).map(function (c) { return { n: c.name, u: c.url, s: T('deal') + (c.note ? ' · ' + c.note : '') }; });
+						popupRender();
+					}).catch(function () {});
+				}
+				if (applications) {
+					fetch(applications + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+						if (popupFields.value.trim() !== q) { return; }
+						popupApplications = (d.applications || []).map(function (c) { return { n: c.name, u: c.url, s: T('job application') + (c.note ? ' · ' + c.note : '') }; });
 						popupRender();
 					}).catch(function () {});
 				}

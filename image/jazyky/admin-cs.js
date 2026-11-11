@@ -2976,5 +2976,8 @@ window.KALETA_PREKLAD = {
 	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "Zvednuto „%s“ ve fázi %s. Šipkami vyberte fázi, mezerník ho položí, Esc ruší.",
 	"Over %s.": "Nad fází %s.",
 	"Cancelled – “%s” stays where it was.": "Zrušeno – „%s“ zůstává, kde byl.",
-	"Table": "Tabulka"
+	"Table": "Tabulka",
+	"job application": "žádost o místo",
+	"Position": "Pozice",
+	"Fill with the open jobs": "Doplnit otevřená pracovní místa"
 };

@@ -3239,4 +3239,5 @@ return [
     'Your application – {{position}}' => 'Vaše žádost o místo – {{position}}',
     'a position with us' => 'u nás',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Dobrý den, {{name}},\n\nděkujeme za váš zájem a za žádost o místo {{position}}. Po pečlivém zvážení jsme se rozhodli ve výběrovém řízení s vámi tentokrát nepokračovat. Přejeme vám hodně úspěchů.\n\nS pozdravem\n{{company}}",
+    'Workplace (on site, hybrid, remote)' => 'Pracoviště (na místě, hybridně, na dálku)',
 ];

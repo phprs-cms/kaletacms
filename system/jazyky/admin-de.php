@@ -8031,4 +8031,10 @@ return [
     'Customer records made only by these enquiries were deleted: %d.' => 'Gelöschte Kundendatensätze, die nur durch diese Anfragen entstanden waren: %d.',
     'Only an administrator can move enquiries to applications.' => 'Anfragen zu Bewerbungen darf nur ein Administrator verschieben.',
     'Choose a form.' => 'Wählen Sie ein Formular.',
+    'Application' => 'Bewerbung',
+    'Applications (new / all)' => 'Bewerbungen (neu / alle)',
+    'open job applications: %d' => 'offene Bewerbungen: %d',
+    'Job applications you are responsible for' => 'Bewerbungen, für die Sie verantwortlich sind',
+    'New job applications nobody is responsible for' => 'Neue Bewerbungen ohne verantwortliche Person',
+    'Workplace (on site / hybrid / remote)' => 'Arbeitsort (vor Ort / hybrid / remote)',
 ];

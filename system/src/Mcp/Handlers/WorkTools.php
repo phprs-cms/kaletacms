@@ -37,7 +37,17 @@ trait WorkTools
         // 3.27: the open tasks as list_tasks shows them (only additive keys: tasks)
         $tasks = $lists['tasks'] ?? [];
         unset($lists['tasks']);
-        $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests', 'deals' => 'deals'];
+        $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests', 'deals' => 'deals',
+            'applications' => 'applications_assigned', 'applications_new' => 'applications_unassigned']; // 3.34 B: additive keys
+        // 3.34 B: job applications only while the site lets Claude read them; by number, position and status – never the name
+        if (!$this->app->settings()->bool('applications_claude')) {
+            unset($lists['applications'], $lists['applications_new']);
+        }
+        foreach (['applications', 'applications_new'] as $applicationList) {
+            if (isset($lists[$applicationList])) {
+                $lists[$applicationList] = array_map(fn (array $r): array => ['id' => $r['id'], 'title' => $r['title'] !== '' ? $r['title'] : 'no position', 'status' => $r['status'], 'date' => $r['date'], 'url' => $r['url']], $lists[$applicationList]);
+            }
+        }
         $out = ['user' => Handover::person($this->app->db(), $userId)];
         // 3.31: the open deals the user is responsible for (additive key deals) – the stage and expected close, no customer
         $deals = $lists['deals'] ?? null;

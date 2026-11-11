@@ -2075,4 +2075,5 @@ return [
     'Your application – {{position}}' => 'La tua candidatura – {{position}}',
     'a position with us' => 'una posizione da noi',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Ciao {{name}},\n\ngrazie per il tuo interesse e per la tua candidatura per {{position}}. Dopo un’attenta valutazione abbiamo deciso di non proseguire con la tua candidatura questa volta. Ti auguriamo ogni successo.\n\nCordiali saluti\n{{company}}",
+    'Workplace (on site, hybrid, remote)' => 'Luogo di lavoro (in sede, ibrido, da remoto)',
 ];

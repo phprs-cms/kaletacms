@@ -2411,6 +2411,16 @@
 			group('').forEach(([k, d]) => box.append(control(k, d)));
 			const choices = group('moznosti');
 			if (choices.length) { box.append(el('div', { class: 'st-polozka-skupina', role: 'group', 'aria-label': T('Options') }, choices.map(([k, d]) => control(k, d)))); }
+			// 3.34 B: a choice field of a form can take the open jobs as its options – the server matches the chosen title to the job
+			const positions = (D.volby || {}).pozice;
+			if (options && options.klic === 'pole' && item.typ === 'vyber' && Array.isArray(positions) && positions.length) {
+				box.append(el('button', { type: 'button', class: 'st-tl', 'data-pozice': '', onclick: () => {
+					item.moznosti = positions.join('\n');
+					if (!String(item.popisek || '').trim()) { item.popisek = T('Position'); }
+					save();
+					redrawRight();
+				} }, T('Fill with the open jobs')));
+			}
 			const estimate = group('odhad');
 			if (estimate.length) {
 				// the price estimate: the estimate field's own settings are open, a number's price per unit is folded until set

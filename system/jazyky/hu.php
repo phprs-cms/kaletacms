@@ -2102,4 +2102,5 @@ A hivatkozás %d napig érvényes.
     'Your application – {{position}}' => 'Az Ön jelentkezése – {{position}}',
     'a position with us' => 'egy nálunk meghirdetett pozíció',
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Kedves {{name}}!\n\nKöszönjük érdeklődését és jelentkezését erre: {{position}}. Alapos mérlegelés után úgy döntöttünk, hogy ezúttal nem folytatjuk a kiválasztást az Ön jelentkezésével. Sok sikert kívánunk.\n\nÜdvözlettel:\n{{company}}",
+    'Workplace (on site, hybrid, remote)' => 'Munkavégzés helye (helyben, hibrid, távmunka)',
 ];

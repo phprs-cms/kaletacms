@@ -21,6 +21,8 @@ $headings = [
     'items' => 'Collection items you are responsible for',
     'requests' => 'Your requests Claude answered',
     'deals' => 'Deals you are responsible for', // 3.31
+    'applications' => 'Job applications you are responsible for', // 3.34 B
+    'applications_new' => 'New job applications nobody is responsible for',
 ];
 $reason = fn (string $code, array $row): string => match ($code) {
     'overdue' => t('Review overdue since %s', format_date((string) $row['review_by'])),
@@ -134,6 +136,17 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
 	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi($r['title']) ?></a><?= ($r['contact'] ?? null) !== null ? '<br><span class="smltxt">' . bdi((string) $r['contact']) . '</span>' : '' ?></td>
 	<td><span class="stitek"><?= e($r['stage_label']) ?></span></td>
 	<td class="cislo"><?= $r['expected_close'] === null ? '<span class="smltxt">' . e(t('no date')) . '</span>' : ($r['overdue'] ? '<span class="stitek stitek-chyba">' . e(t('overdue since %s', format_date($r['expected_close']))) . '</span>' : e(format_date($r['expected_close']))) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+<?php elseif ($list === 'applications' || $list === 'applications_new'): /* 3.34 B: the number and the position, the name for whoever has the section (only they get these lists) */ ?>
+<thead><tr><th scope="col"><?= e(t('Application')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Received')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($rows as $r): ?>
+<tr data-application="<?= (int) $r['id'] ?>">
+	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi((string) $r['name'] !== '' ? (string) $r['name'] : t('Application #%s', (string) $r['id'])) ?></a><br><span class="smltxt"><?= e(t('Application #%s · %s', (string) $r['id'], $r['title'] !== '' ? $r['title'] : t('no position'))) ?></span></td>
+	<td><span class="stitek<?= $r['status'] === 'new' ? ' stitek-koncept' : '' ?>"><?= e(t(Kaleta\Core\Applications::STATUS_LABELS[$r['status']] ?? $r['status'])) ?></span></td>
+	<td class="cislo"><?= e(format_date($r['date'], true)) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

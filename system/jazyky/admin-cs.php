@@ -7624,4 +7624,10 @@ return [
     'Customer records made only by these enquiries were deleted: %d.' => 'Smazané záznamy zákazníků, které vznikly jen z těchto poptávek: %d.',
     'Only an administrator can move enquiries to applications.' => 'Poptávky do žádostí smí přesouvat jen správce.',
     'Choose a form.' => 'Vyberte formulář.',
+    'Application' => 'Žádost o místo',
+    'Applications (new / all)' => 'Žádosti (nové / všechny)',
+    'open job applications: %d' => 'otevřené žádosti o místo: %d',
+    'Job applications you are responsible for' => 'Žádosti o místo, za které odpovídáte',
+    'New job applications nobody is responsible for' => 'Nové žádosti o místo, za které nikdo neodpovídá',
+    'Workplace (on site / hybrid / remote)' => 'Pracoviště (na místě / hybridně / na dálku)',
 ];

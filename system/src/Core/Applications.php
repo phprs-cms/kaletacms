@@ -179,6 +179,23 @@ final class Applications
     }
 
     /**
+     * The titles of the open jobs of the jobs collections in a language column ('' = the default language), A–Z: visible,
+     * not in the trash, not past their closing date (3.34 B – the builder fills a form's Position choice with them; the
+     * submission matches the chosen title back, position()). At most 100.
+     *
+     * @return list<string>
+     */
+    public static function openPositions(Db $db, string $language): array
+    {
+        try {
+            return array_values(array_unique(array_map('strval', array_column($db->all("SELECT p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.preset = ? AND p.zobrazit = 1
+                AND p.smazano IS NULL AND (p.valid_until IS NULL OR p.valid_until >= ?) AND p.jazyk = ? ORDER BY p.nazev LIMIT 100", [Jobs::PRESET, Clock::today(), $language]), 'nazev'))));
+        } catch (\PDOException) {
+            return [];
+        }
+    }
+
+    /**
      * The value of the first field labelled like a position (POSITION_LABEL) – a select of the open jobs on a general
      * form, or the hidden "Job opening" field of the jobs template. Pure.
      *
@@ -658,6 +675,25 @@ final class Applications
             $db->all("SELECT job_item_id, MAX(job_title) AS job_title, SUM(status NOT IN ('hired', 'rejected')) AS open, COUNT(*) AS n FROM {applications} GROUP BY job_item_id ORDER BY open DESC, n DESC LIMIT 100"));
     }
 
+    /**
+     * Applications per job of one collection (3.34 B, the items list of a jobs collection): item id => [new, all].
+     *
+     * @return array<int, array{0: int, 1: int}>
+     */
+    public static function countsByItem(Db $db, int $collectionId): array
+    {
+        $out = [];
+        try {
+            foreach ($db->all("SELECT job_item_id, SUM(status = 'new') AS fresh, COUNT(*) AS n FROM {applications} WHERE job_collection_id = ? AND job_item_id IS NOT NULL GROUP BY job_item_id", [$collectionId]) as $r) {
+                $out[(int) $r['job_item_id']] = [(int) $r['fresh'], (int) $r['n']];
+            }
+        } catch (\PDOException) {
+            // before migration 0119
+        }
+
+        return $out;
+    }
+
     /** New applications nobody has looked at (the menu badge). */
     public static function newCount(Db $db): int
     {
@@ -766,6 +802,40 @@ final class Applications
         }
 
         return true;
+    }
+
+    /** How many undecided applications a person is responsible for (Core\Handover::owned); 0 before migration 0119. */
+    public static function owned(Db $db, int $userId): int
+    {
+        try {
+            return (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE assignee_id = ? AND status NOT IN ('hired', 'rejected')", [$userId]);
+        } catch (\PDOException) {
+            return 0;
+        }
+    }
+
+    /**
+     * The same for every account (the Users list): idu => count.
+     *
+     * @return array<int, int>
+     */
+    public static function ownedByAll(Db $db): array
+    {
+        try {
+            return array_map('intval', $db->pairs("SELECT assignee_id, COUNT(*) FROM {applications} WHERE assignee_id IS NOT NULL AND status NOT IN ('hired', 'rejected') GROUP BY assignee_id"));
+        } catch (\PDOException) {
+            return [];
+        }
+    }
+
+    /** A leaver's undecided applications go to another person (null = nobody, Core\Handover::handOver); a decided one keeps who handled it. */
+    public static function handOver(Db $db, int $from, ?int $to): int
+    {
+        try {
+            return $db->run("UPDATE {applications} SET assignee_id = ? WHERE assignee_id = ? AND status NOT IN ('hired', 'rejected')", [$to, $from])->rowCount();
+        } catch (\PDOException) {
+            return 0;
+        }
     }
 
     /** Something happened on the application (a reply, a note, a task): it counts for the retention. */
@@ -1138,6 +1208,24 @@ final class Applications
         }
 
         return ['received' => $received, 'positions' => $positions] + $moves + ['waiting' => $waiting];
+    }
+
+    /**
+     * The day job applications started to be counted apart from enquiries (3.34 B), when it falls between $from and $to –
+     * the first move of applications out of the enquiries (event applications.moved) or the first application that came
+     * straight in, whichever is earlier; null otherwise (the monthly report then compares enquiries as before).
+     */
+    public static function countingChanged(Db $db, string $from, string $to): ?string
+    {
+        try {
+            $moved = $db->value("SELECT MIN(created_at) FROM {events} WHERE type = 'applications.moved'");
+            $first = $db->value('SELECT MIN(received_at) FROM {applications} WHERE source_enquiry_id IS NULL');
+        } catch (\PDOException) {
+            return null;
+        }
+        $start = min(array_filter([is_string($moved) ? $moved : null, is_string($first) ? $first : null]) ?: ['']);
+
+        return $start !== '' && $start >= $from && $start < $to ? substr($start, 0, 10) : null;
     }
 
     /**

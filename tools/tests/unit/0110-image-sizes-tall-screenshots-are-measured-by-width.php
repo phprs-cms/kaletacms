@@ -145,7 +145,7 @@ $parity = [
         'consent' => 'admin: the applicant withdrew the consent for future openings – a person records it', 'delete' => 'admin: deleting an application for good is an administrator\'s decision',
         'comment' => 'admin: the team’s notes on an application – a person writes them; Claude adds one with update_application add_note', 'task' => 'save_task',
         'settings' => $readOnly, 'settings_save' => 'admin: the retention, the templates and the switches of applications are the administrator\'s set-up',
-        'move' => $readOnly, 'move_run' => 'admin: moving enquiries of a form to applications or back is the administrator\'s decision about personal data'],
+        'search_json' => $readOnly, 'move' => $readOnly, 'move_run' => 'admin: moving enquiries of a form to applications or back is the administrator\'s decision about personal data'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],
