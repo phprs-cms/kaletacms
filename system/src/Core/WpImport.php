@@ -108,7 +108,8 @@ final class WpImport
         return [
             'soubor' => $file, 'otisk' => '', 'faze' => 'analyza', 'pozice' => 0, 'celkem' => 0, 'web' => ['nazev' => '', 'adresa' => ''],
             'prehled' => ['clanky' => [], 'stranky' => [], 'rubriky' => 0, 'stitky' => 0, 'autori' => 0, 'prilohy' => 0, 'obrazky' => 0, 'jine' => [], 'zkratky' => [], 'seo' => [], 'typy' => [],
-                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => [], 'stavitele_nazvy' => [], 'odkazy' => []],
+                'menu' => [], 'menu_bez' => 0, 'prispevky_autoru' => [], 'stavitele' => [], 'stavitele_nazvy' => [], 'odkazy' => [],
+                'cile_stranek' => []], // 3.33: where the pages land (always there since 3.33 – its absence marks an older analysis, review L7)
             'prilohy' => [], 'volby' => self::DEFAULT_OPTIONS, 'nahledy' => [],
             'menu' => [], // items of the navigation menus (tallyMenuItem), built after the content (menus())
             // 3.9: the languages of a multilingual export (Polylang, WPML – Core\WpLanguages): the plugin, Polylang slug => our code
@@ -488,6 +489,17 @@ final class WpImport
             array_values(array_map('intval', (array) ($state['volby']['nahradit_vzory'] ?? []))));
     }
 
+    /**
+     * Whether the preview of this import could show the starter pages (3.33 review L7): an export analysed by 3.32 or older
+     * has no cile_stranek, its preview listed none, so confirming it on 3.33 replaces no starter page.
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function previewedStarters(array $state): bool
+    {
+        return is_array($state['prehled'] ?? null) && array_key_exists('cile_stranek', $state['prehled']);
+    }
+
     /** Path of the old URL for a redirect (without the domain and the slashes at the ends); empty = nothing to redirect. */
     public static function oldPath(string $link): string
     {
@@ -707,7 +719,8 @@ final class WpImport
         $state['vzory'] = is_array($state['vzory'] ?? null) ? $state['vzory'] : [];
         // 3.33 (M3): the old path is kept, parents and all (Core\ImportPath); the parent page is linked now or at the end
         $target = ImportPath::target($this->db, self::pagePath((string) $p['odkaz']), self::plannedSlug($p), $language, (string) self::itemLanguage($p, $state)[0]);
-        $starter = StarterPages::makeRoom($this->db, $this->settings, self::oldPath((string) $p['odkaz']), $target['slug'], $language, self::isHomeLink((string) $p['odkaz']),
+        // 3.33 review L7: an export analysed before 3.33 showed no starter pages in its preview – it replaces none
+        $starter = !self::previewedStarters($state) ? null : StarterPages::makeRoom($this->db, $this->settings, self::oldPath((string) $p['odkaz']), $target['slug'], $language, self::isHomeLink((string) $p['odkaz']),
             array_values(array_map('intval', (array) ($state['volby']['ponechat_vzory'] ?? []))), $state['vzory'], array_values(array_map('intval', (array) ($state['volby']['nahradit_vzory'] ?? []))),
             (bool) $articleStatus['visible']); // 3.33 review M2: a hidden imported front page leaves the starter home page in place
         // a page directly under the site root must not take a slug the system uses (Pages::slugReserved; a nested one never collides)
