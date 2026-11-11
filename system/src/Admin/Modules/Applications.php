@@ -31,6 +31,7 @@ use Kaleta\Core\Response;
  *  - status, assign, consent, delete: the changes (Core\Applications writes the change log of status and assign).
  *  - settings, settings_save (3.34 B, administrators): the retention, the pool period, the notification and Claude
  *    switches, the reply templates per language, who may open the section.
+ *  - move, move_run (3.34 B, administrators): enquiries of a chosen form to applications and back, in batches.
  *  - reply (3.34 B): an e-mail to the applicant from a template (received, invitation, rejection – Settings tab) or not,
  *    with the sender's signature, moving the status with it.
  *
@@ -324,6 +325,44 @@ final class Applications extends Module
         }
 
         return $out;
+    }
+
+    /* ---------- move by form (3.34 B, administrators) ---------- */
+
+    /**
+     * The forms of the enquiries (those that look like applications first) with Move to Applications, and the forms of the
+     * applications with Move back to Enquiries – for a career form that is not on a job's item page (Core\ApplicationMove).
+     */
+    protected function actionMove(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can move enquiries to applications.', 403);
+        }
+
+        return $this->view('move', 'Applications', ['enquiryForms' => \Kaleta\Core\ApplicationMove::enquiryForms($this->db),
+            'applicationForms' => \Kaleta\Core\ApplicationMove::applicationForms($this->db), 'batch' => \Kaleta\Core\ApplicationMove::BATCH]);
+    }
+
+    /** One batch of the chosen form, either way; safe to run again – it says how many are left. */
+    protected function actionMoveRun(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can move enquiries to applications.', 403);
+        }
+        $form = \Kaleta\Core\ApplicationMove::parseKey($this->request->post('form'));
+        if (!$this->request->isPost() || $form === null) {
+            return $this->back('Choose a form.', 'move', [], 'chyba');
+        }
+        if ($this->request->post('direction') === 'back') {
+            $result = \Kaleta\Core\ApplicationMove::toEnquiries($this->app, $form['form'], $form['source']);
+
+            return $this->back(t('Moved back to Enquiries: %d. Left of this form: %d.', $result['moved'], $result['left']), 'move');
+        }
+        $result = \Kaleta\Core\ApplicationMove::toApplications($this->app, $form['form'], $form['source']);
+
+        return $this->back(t('Moved to Applications: %d. Left of this form: %d.', $result['moved'], $result['left'])
+            . ($result['deals'] !== [] ? ' ' . t('Deals that lost their link to the enquiry: %s.', '#' . implode(', #', $result['deals'])) : '')
+            . ($result['contacts_deleted'] > 0 ? ' ' . t('Customer records made only by these enquiries were deleted: %d.', $result['contacts_deleted']) : ''), 'move');
     }
 
     /* ---------- comments and tasks (Admin\CommentActions, Admin\TaskActions) ---------- */
