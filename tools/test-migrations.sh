@@ -318,12 +318,14 @@ migrate_with() { # $1 PHP defines run before the bootstrap
 N2_AT=$(site_time '-2 days')
 N2_CONTACTS=$(for i in $(seq 1 1003); do printf "%s(%d, 'n2-%d@example.com', 'n2-%d@example.com', 'N2', 'enquiry', '%s', '%s')" "$([ "$i" -gt 1 ] && echo ,)" $((934800 + i)) "$i" "$i" "$T340_AT" "$T340_AT"; done)
 N2_ENQUIRIES=$(for i in $(seq 1 1003); do printf "%s(%d, '%s', 'Job application', 'kolekce:9348', '/jobs-348/x', '', 'n2-%d@example.com', '[]', 0, %d)" "$([ "$i" -gt 1 ] && echo ,)" $((934800 + i)) "$N2_AT" "$i" $((934800 + i)); done)
-"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9348, 'Jobs', 'jobs-348', '[]', 'jobs');
+"${MYSQL[@]}" "$OLD" <<SQL # through stdin: 1003 rows are longer than one argument may be on Linux
+DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9348, 'Jobs', 'jobs-348', '[]', 'jobs');
   INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES $N2_CONTACTS;
   INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, contact_id) VALUES $N2_ENQUIRIES;
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', ''), ('applications_move_until', '');
-  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'"
-migrate_with 'define("KALETA_MIGRATION_CONTACTS", 400);' > /dev/null
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations';
+SQL
+migrate_with 'define("KALETA_MIGRATION_CONTACTS", 400); define("KALETA_MIGRATION_SECONDS", 600);' > /dev/null # the batches are the point, not the time a loaded server takes
 n2_state() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id BETWEEN 934801 AND 935803), (SELECT COUNT(*) FROM ka_contacts WHERE id BETWEEN 934801 AND 935803),
   (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id IS NOT NULL), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'))"; }
 expect_sql_value "3.34 second review N2 (0120): 1003 lone customer records in batches of 400 – all go in one run, nothing named any more, the migration is finished" "$(n2_state)" "1003|0|0|"
