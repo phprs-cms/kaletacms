@@ -225,6 +225,12 @@ final class Catalog
         'save_deal' => ['write', ''],
         'move_deal' => ['write', ''],
         'pipeline_summary' => ['read', ''],
+        // Job applications (3.34, Core\Applications): personal data of applicants for people with the section Applications, only
+        // while the site lets Claude read them (applications_claude); a CV is never passed; never journaled for undo
+        'list_applications' => ['read', 'applications'],
+        'get_application' => ['read', 'applications'],
+        'update_application' => ['draft', 'applications'],
+        'reply_to_application' => ['destructive', 'applications'],
     ];
 
     /**
@@ -397,6 +403,10 @@ final class Catalog
         'save_deal' => 'Create or change a deal',
         'move_deal' => 'Move a deal to another stage',
         'pipeline_summary' => 'Get the pipeline summary',
+        'list_applications' => 'List job applications',
+        'get_application' => 'Get a job application',
+        'update_application' => 'Update a job application',
+        'reply_to_application' => 'Send a reply to a job applicant',
     ];
 
     /**
@@ -409,7 +419,7 @@ final class Catalog
      * list_connectors (status from the database) and e-mails to the site's own users (update_request, send_test_newsletter).
      */
     public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report', 'import_wordpress', 'save_collection_items', 'send_newsletter',
-        'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times'];
+        'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'reply_to_application'];
 
     /**
      * Write tools that a repeated call with the same arguments changes nothing more (3.8, MCP idempotentHint), verified in
@@ -424,7 +434,7 @@ final class Catalog
         'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
         'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
-        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal'];
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal', 'update_application'];
 
     /**
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
@@ -437,7 +447,7 @@ final class Catalog
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
-        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal'];
+        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application'];
 
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool
@@ -474,7 +484,7 @@ final class Catalog
     public const array WORK = ['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'triage_enquiries', 'reply_to_enquiry', 'list_comments', 'add_comment',
         'assign', 'get_email_signature', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
         'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task', 'list_contacts', 'get_contact', 'save_contact',
-        'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary'];
+        'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary', 'list_applications', 'get_application', 'update_application', 'reply_to_application'];
 
     /**
      * The tools a tool set lists before the META tools: null = every tool (all).
