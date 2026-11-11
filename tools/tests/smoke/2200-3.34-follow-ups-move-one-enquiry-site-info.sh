@@ -6,14 +6,14 @@ T340=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, emai
 sq "INSERT INTO ka_comments (target, kind, author_name, text, via, created_at) VALUES ('enquiry:$T340', 'note', 'Admin', 'Strong profile T340', 'admin', '$(site_time)')" > /dev/null
 # Olga has Enquiries but not Applications: no button, and the action refuses
 curl -s -b "$T334_JO" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$T340"
-T340_OLGA_BUTTON=$(grep -c 'data-to-application' "$WORK/response")
+T340_OLGA_BUTTON=$(grep -c 'data-to-application' "$WORK/response" || true)
 curl -s -b "$T334_JO" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=to_application" -d "_csrf=$(csrf)" -d "idp=$T340"
 expect "3.34 follow-up: without Applications no Move to Applications – no button, the action leaves the enquiry where it is" \
   "$T340_OLGA_BUTTON|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = $T340")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = $T340")" "0|1|0"
 # the administrator (both sections) moves it: the detail of the new application opens, the note follows, the enquiry is gone
 T340_LOG=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'applications' AND akce = 'move' AND popis = '1 moved to applications'")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$T340"
-T340_BUTTON=$(grep -c 'data-to-application' "$WORK/response")
+T340_BUTTON=$(grep -c 'data-to-application' "$WORK/response" || true)
 T340_TO=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=enquiries&action=to_application" -d "_csrf=$(csrf)" -d "idp=$T340")
 T340_A=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_applications WHERE source_enquiry_id = $T340")
 expect "3.34 follow-up: Move to Applications – the button, the redirect to the application, reviewed with the name, the note follows, the enquiry is gone" \
