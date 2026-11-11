@@ -573,9 +573,21 @@ final class Catalog
     /** Connection access levels (2.2) => the tool access they allow. */
     public const array CONNECTION_ACCESS = ['full' => ['read', 'draft', 'write', 'destructive'], 'drafts' => ['read', 'draft'], 'read' => ['read']];
 
+    /**
+     * 3.33 review L8: a tool that a connection may run (and sees in tools/list) only when it may run another one too –
+     * read_old_page reads an old site the way import_website does, so a drafts-only or read-only connection never sees it.
+     */
+    public const array NEEDS = ['read_old_page' => 'import_website'];
+
     /** May a connection with this access run the tool? */
     public static function allows(string $connectionAccess, string $name): bool
     {
+        foreach (self::NEEDS as $tool => $needed) {
+            if (($name === $tool || $name === Translator::czech($tool)) && !self::allows($connectionAccess, $needed)) {
+                return false;
+            }
+        }
+
         return in_array(self::access($name), self::CONNECTION_ACCESS[$connectionAccess] ?? self::CONNECTION_ACCESS['read'], true);
     }
 
