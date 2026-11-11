@@ -231,6 +231,35 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `Menu::sanitize`, `Collections`, `Popups`, `DesignSystem`), nastavení jen ze `SiteExport::SETTINGS` (bez `site_url`). Kroky: příprava (rozdělení
   `obsah.json` po tabulkách do `storage/import/kaleta-<hash>/`), náhled, data (první dávka = záloha `predimportem` + vyprázdnění obsahu), média
   (`SiteImport::mediaTarget` – jen do `media/`, jen povolené typy, SVG přes `Svg::sanitize`). Dávky posílá formulář s `data-auto-odeslat` (image/admin.js).
+- **Ukázkové stránky (3.33, `Core\StarterPages`):** instalátor zapíše otisk každé ukázkové stránky do nastavení `starter_pages`
+  (web z 3.20–3.32 bez záznamu se pozná podle titulků a adres instalátoru); volba instalace „Prázdný web pro stěhování“ (`web=move`)
+  založí jen zástupnou Úvodní stránku a skryté zásady ochrany soukromí. Nedotčená ukázková stránka (bez `zmenil`, bez konceptu,
+  stejný otisk) na adrese importované stránky jde do koše pod adresou `-sample` (`makeRoom`, `retire`) a importovaná stránka převezme
+  adresu, stará úvodní se stane `home_page`; upravená se nikdy nenahrazuje. Volba v náhledu: zaškrtávátka v administraci,
+  MCP `keep_starter_pages` (`["*"]` = všechny), výsledek `starter_pages`/`starter_pages_result`.
+- **Vnořené adresy (3.33, `Core\ImportPath`):** oba importy drží starou cestu i s rodiči (`target`, `plan`), nadřazenou stránku propojí
+  i dodatečně (`linkParents`); přes 120 znaků se zkrátí poslední část (nejméně 20), první část, kterou používá systém, spadne na
+  poslední část. Přesměrování jen při změně adresy, změněné adresy ve výsledku (`addresses_changed`, `zmenene_adresy`).
+- **Kontrola přesunu a blok Stěhování (3.33):** `MigrationReport` hlásí adresu na nedotčené ukázkové stránce jako chybu `sample_page`
+  (stav `sample`), formulář na většině starých stránek jednou jako formulář celého webu (`siteWideForms`), změnu titulku jako
+  poznámku a nedostupný starý web otevřeně (`old_site_reachable`). `Core\MoveStatus` skládá blok Stěhování v Auditu webu a MCP
+  `site_audit` (`move`) jen z toho, co už vědí importy a poslední kontrola – počty a odkazy, nic nového se neukládá; „nepřestavěné“
+  stránky počítá `ImportLayout::pending`.
+- **Widgety starých stránek (3.33, `Builder\HtmlWidgets`):** rozpoznává se obecně podle struktury a významu (ARIA tlačítko
+  s `aria-controls` a panel, `role=tab`/`tabpanel`, `<details>`, adresy rámců map a videí, přehrávače kreslené skriptem, počitadla
+  v data atributech) – žádný builder nemá vlastní cestu kódu. `WebImport` je vyjme před čištěním (značky `<kaleta-widget>`),
+  `HtmlConverter` z nich udělá prvky Formulář, FAQ, Záložky, Video, Mapa, Vložení a Počitadlo; formulář kreslený skriptem = viditelný
+  zástupný text. Odkazované soubory do Médií (`files`), starý `<title>` → `seo_titulek`, `og:image` → `obrazek`. Výsledek `kept`
+  a `attention` (`pozor` ve stavu drží anglickou šablonu + hodnoty, překládá `WebImport::attentionLines` až při zobrazení).
+  `build_from_html` používá stejné rozpoznávače. Testy: `tools/fixtures/builder-pages/` (Elementor, Divi, WPBakery, Gutenberg,
+  Breakdance, Squarespace, Webflow, Wix).
+- **MCP `read_old_page` (3.33, `Core\OldPage`):** stará stránka po sekcích (záhlaví, bloky obsahu, patička) jako vyčištěné HTML
+  s pozadím, barvami a písmy a paletou celé stránky, pro přestavbu rozložení. Čte jako `import_website` (`ImageDownloader`,
+  robots.txt, rozestup), jen správce s právem importu; odpověď je nedůvěryhodná data (`untrusted`).
+- **Fronta přestavby (3.33, `Core\ImportLayout`):** import si do `ka_import_mapa` (zdroj `layout`, `cizi_id` = „<ids>:<sha256 stavby>“,
+  bez migrace) zapamatuje uloženou stavbu (`remember`, u druhého průchodu WordPressu `replaced`); `pending` = publikovaná stavba se
+  stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
+  ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší.
 - **Export stránky** (`kaleta-stranka` verze 2) nese sdílené třídy a komponenty (`Builder\PagePackage`); import doplní chybějící třídy (existující
   nepřepíše) a komponenty, stejnou komponentu (název, vlastnosti, stavba bez id) použije znovu.
 

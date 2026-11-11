@@ -7970,4 +7970,5 @@ return [
     '%s things need your attention' => '%s cosas requieren su atención',
     'layout not rebuilt yet' => 'diseño aún no reconstruido',
     'An imported page: its build is still the imported text. Rebuild its layout in the builder or ask Claude – the label goes with the first change.' => 'Una página importada: su construcción sigue siendo el texto importado. Reconstruya su diseño en el builder o pídaselo a Claude; la etiqueta desaparece con el primer cambio.',
+    'Layout not rebuilt' => 'Diseño sin reconstruir',
 ];

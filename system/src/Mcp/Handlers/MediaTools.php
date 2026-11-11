@@ -84,7 +84,7 @@ trait MediaTools
             'failures' => $state['chyby'],
             // 3.33: what the pages kept of the old site's widgets, files and SEO fields, and what needs a person
             'kept' => \Kaleta\Core\WebImport::keptSummary($state),
-            'attention' => array_values(is_array($state['pozor'] ?? null) ? $state['pozor'] : []),
+            'attention' => \Kaleta\Core\WebImport::attentionLines($state, false), // English templates, whoever started the import
             'notes' => \Kaleta\Core\WebImport::notes($state), // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
             'old_site_reachable' => !isset($state['nedostupny']), // 3.33 (M6): found nothing because nothing answered – the notes say why
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],

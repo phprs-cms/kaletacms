@@ -51,6 +51,9 @@ final class Pages extends Module
     /** 3.24: the tab of the pages the signed-in person is responsible for (owner_id) – query status=mine, beside STATUSES. */
     public const string MINE = 'mine';
 
+    /** 3.33: the tab of the imported pages whose layout waits to be rebuilt (Core\ImportLayout::pending) – query status=layout. */
+    public const string LAYOUT = 'layout';
+
     /** The WHERE of a status tab; '' and an unknown value are "All" – every page that is not in the trash. */
     public static function statusCondition(string $status): string
     {
@@ -108,13 +111,18 @@ final class Pages extends Module
         // T1 (Q5): the threads of pages and items some other path deleted for good are swept by the daily job 'trash', not on this GET
         // status tab (3.20, C1): published | hidden | draft (unpublished changes) | kos (trash); anything else is All
         $status = $this->request->get('status');
-        $status = isset(self::STATUSES[$status]) || $status === self::MINE ? $status : '';
+        $status = isset(self::STATUSES[$status]) || $status === self::MINE || $status === self::LAYOUT ? $status : '';
         $trash = $status === 'kos';
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $me = $this->app->auth()->id();
         // 3.24: Mine = the pages I am the responsible person for (owner_id), outside the trash
-        $where = [$status === self::MINE ? 'owner_id = ' . $me . ' AND smazano IS NULL' : self::statusCondition($status)];
+        $waiting = $trash ? [] : \Kaleta\Core\ImportLayout::pending($this->db); // 3.33: imported pages whose layout waits to be rebuilt
+        $where = [match ($status) {
+            self::MINE => 'owner_id = ' . $me . ' AND smazano IS NULL',
+            self::LAYOUT => $waiting === [] ? '0 = 1' : 'ids IN (' . implode(', ', array_keys($waiting)) . ')', // pending() already leaves out the trash
+            default => self::statusCondition($status),
+        }];
         $params = [];
         if ($column !== null) {
             $where[] = 'jazyk = ?';
@@ -138,7 +146,7 @@ final class Pages extends Module
         $names = $editors === [] ? [] : array_column($this->db->all('SELECT idu, IF(jmeno = \'\', user, jmeno) AS jmeno FROM {uzivatele} WHERE idu IN (' . implode(', ', array_fill(0, count($editors), '?')) . ')', $editors), 'jmeno', 'idu');
         // the count of every tab, in one query (the whole site, not the language or search filter – the tiles on the dashboard count the same way)
         $row = $this->db->one('SELECT SUM(smazano IS NULL) AS all_pages, SUM(owner_id = ' . $me . ' AND smazano IS NULL) AS mine, ' . implode(', ', array_map(fn (string $condition, string $key): string => 'SUM(' . $condition . ') AS `' . $key . '`', self::STATUSES, array_keys(self::STATUSES))) . ' FROM {stranky}') ?? [];
-        $counts = ['' => (int) ($row['all_pages'] ?? 0), self::MINE => (int) ($row['mine'] ?? 0)];
+        $counts = ['' => (int) ($row['all_pages'] ?? 0), self::MINE => (int) ($row['mine'] ?? 0), self::LAYOUT => count($trash ? \Kaleta\Core\ImportLayout::pending($this->db) : $waiting)];
         foreach (array_keys(self::STATUSES) as $key) {
             $counts[$key] = (int) ($row[$key] ?? 0);
         }
@@ -148,7 +156,7 @@ final class Pages extends Module
             'trash' => $trash, 'status' => $status, 'counts' => $counts, 'editors' => $names, 'search' => $search, 'siteLanguages' => $siteLanguages, 'language' => $language,
             'drafts' => $trash ? [] : \Kaleta\Core\DraftAttribution::forPages($this->db, $pages), // 3.24 (N-U6): who made each draft and when
             'comments' => $trash ? [] : \Kaleta\Core\DraftComments::unresolvedCounts($this->db), // unresolved comments from shared previews (2.15)
-            'waiting' => $trash ? [] : \Kaleta\Core\ImportLayout::pending($this->db), // 3.33: imported pages whose layout waits to be rebuilt
+            'waiting' => $waiting,
             'inTrash' => $counts['kos'] ?? 0,
         ]);
     }

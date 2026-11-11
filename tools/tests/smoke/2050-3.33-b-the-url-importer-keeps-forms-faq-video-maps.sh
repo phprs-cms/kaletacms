@@ -35,6 +35,6 @@ expect "3.33 M4: MCP – kept counts the forms, accordions, maps, files and SEO 
 expect "3.33 M4: a form drawn by a script is a visible placeholder in the build, never an invented form" \
   "$(sq "SELECT stavba LIKE '%Formulář ze starého webu%' OR stavba LIKE '%Form from the old site%' FROM ka_stranky WHERE seo_link = 'squarespace' AND smazano IS NULL")" "1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer&action=web_progress&id=$B333_ID"
-expect "3.33 M4: the import's result page in the admin says what was kept and what needs attention" \
-  "$(grep -c 'data-import-kept' "$WORK/response")|$(grep -c 'Ze starých stránek zůstalo' "$WORK/response")|$(grep -c '/squarespace – a form' "$WORK/response")" "1|1|1"
+expect "3.33 M4: the import's result page in the admin says what was kept and what needs attention – an import started over MCP reads in the admin's language" \
+  "$(grep -c 'data-import-kept' "$WORK/response")|$(grep -c 'Ze starých stránek zůstalo' "$WORK/response")|$(grep -c '/squarespace – formulář, jehož pole kreslí skript' "$WORK/response")|$(grep -c '/squarespace – a form' "$WORK/response" || true)" "1|1|1|0"
 kill "$B333_PID" 2>/dev/null; wait "$B333_PID" 2>/dev/null || true; B333_PID=

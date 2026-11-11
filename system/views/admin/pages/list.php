@@ -5,7 +5,7 @@
  * @var string $csrf
  * @var list<array<string, mixed>> $pages
  * @var bool $trash     the trash is shown
- * @var string $status  the status tab (3.20, C1): '' = all, published, hidden, draft (unpublished changes), kos (trash)
+ * @var string $status  the status tab (3.20, C1): '' = all, mine, published, hidden, draft (unpublished changes), layout (3.33: layout not rebuilt), kos (trash)
  * @var array<string, int> $counts  pages per tab, '' = all pages outside the trash
  * @var array<int, string> $editors  names of the people who edited last, by user id (3.20, C11)
  * @var string $search
@@ -28,7 +28,7 @@ $url = fn (array $s): string => ($s['jazyk'] !== '' ? $s['jazyk'] . '/' : '') . 
 <?php
 // status tabs (3.20, C1) like the News list: a tab only when it has rows or is open – "Všechny" (All) on its own makes no sense
 // 3.24: Mine – the pages the signed-in person is responsible for
-$tabs = array_filter(['mine' => 'Mine'] + ['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'kos' => 'Trash'], fn (string $key): bool => ($counts[$key] ?? 0) > 0 || $status === $key, ARRAY_FILTER_USE_KEY);
+$tabs = array_filter(['mine' => 'Mine'] + ['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'layout' => 'Layout not rebuilt' /* 3.33 */, 'kos' => 'Trash'], fn (string $key): bool => ($counts[$key] ?? 0) > 0 || $status === $key, ARRAY_FILTER_USE_KEY);
 if ($tabs !== []): ?>
 <nav class="zalozky" aria-label="<?= e(t('Pages')) ?>">
 <?php foreach (['' => 'Všechny'] + $tabs as $key => $name): ?>

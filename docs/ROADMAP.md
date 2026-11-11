@@ -1553,6 +1553,60 @@ raw numbers for deal values and keeps the form and number for enquiries (no `nam
    `KALETA_DB_VERSION`, shipped migrations untouched), `node --check` on every script, a PHPStan checksum and pinned
    browser test packages. `tools/test.sh` stops every background server it started on exit.
 
+## 3.33 – import you can trust (11 November 2026)
+
+A move to Kaleta that says what it did: the import lands where the old pages were, keeps what the old pages had and tells
+what still needs a person. No migration (`KALETA_DB_VERSION` stays 118). New setting `starter_pages` (the installer's
+record of its sample pages). New MCP tool `read_old_page` (read-only, non-essential, open world). New parameter
+`keep_starter_pages` on `import_website` and `import_wordpress`. No setting key, POST field, MCP tool, parameter or Czech
+alias renamed; output keys are additive: `import_website` – `starter_pages` (preview), `starter_pages_result`,
+`addresses_changed`, `old_site_reachable`, `kept`, `attention`; `import_wordpress` – `starter_pages` (preview and summary),
+`addresses_changed`; `migration_report` – `on_sample_pages`, `site_wide_forms`, `title_changes`, `old_site_reachable` and
+the row status `sample`; `site_audit` – `move`; `list_pages` – `layout_not_rebuilt`.
+
+1. **Empty install for a move**: the installer offers "Empty site for a move" (`web=move`) – only a Home placeholder, the
+   hidden privacy policy template and the default look; no About us, Services, Contact, news category or welcome news.
+   Every install records its sample pages with a fingerprint of what it wrote (`Core\StarterPages`, setting
+   `starter_pages`); a site from 3.20–3.32 is recognised by the installer's titles and addresses.
+2. **Starter pages replaced**: when an import would create a page at the address of an untouched sample page (no edit
+   stamp, no draft, the same fingerprint) – or the old home page meets the sample Home – the sample page goes to the trash
+   under a free `-sample` address and the imported page takes the address; the old home page becomes the home page. An
+   edited sample page is never replaced. The preview offers the choice per page (a ticked box in the admin,
+   `keep_starter_pages` over MCP, `["*"]` = all) and the result lists what was replaced and kept. Import and export lists
+   the untouched sample pages of an existing site and moves them to the trash in one step (Home stays).
+3. **Nested addresses** (`Core\ImportPath`): both importers keep the old path, parents and all (`/services/heating/boilers`),
+   instead of flattening it with a 301; the parent page is linked (also when it is imported after the child). Over 120
+   characters the last part is shortened (never below 20); a first part the system uses lands at the last part as before.
+   Redirects only where the address changed; every changed address is listed.
+4. **What the URL importer keeps** (`Builder\HtmlWidgets`): page-builder widgets are recognised generically, by structure
+   and meaning – the ARIA pattern (a button with `aria-controls` and its panel, `role=tab`/`tabpanel`), `<details>`, the
+   addresses of map and video frames, players drawn by a script, counters in data attributes – with no code path per
+   builder. They become Form, FAQ, Tabs, Video, Map, Embed and Counter elements; a form whose fields a script draws becomes
+   a visible placeholder and an attention line. Linked files (PDFs, documents, videos) go into Media within the download
+   limits, the old `<title>` becomes the SEO title and `og:image` the share image. Tested with fixture pages of Elementor,
+   Divi, WPBakery, Gutenberg, Breakdance, Squarespace, Webflow and Wix.
+5. **build_from_html** shares the recognisers: map and video frames, embedded booking pages and forms, `data-counter`
+   numbers, accordions and tabs become their elements (also for an administrator, whose other frames stay Custom HTML);
+   the notes say what was recognised.
+6. **read_old_page** (`Core\OldPage`): an old page cut into header, top-level content blocks and footer as cleaned HTML,
+   each with its background, colours and fonts, plus the page's palette, fonts, CSS custom properties and base look – so
+   Claude rebuilds a layout without a second connection. It reads the old site like `import_website` (public addresses,
+   pinned connection, limits, robots.txt, politeness gap), only for administrators whose connection may import; the answer
+   marks the page as untrusted data.
+7. **Layout queue** (`Core\ImportLayout`): both importers remember a fingerprint of the build they stored (in
+   `ka_import_mapa`, no migration); a page whose published build still has it and that has no draft is "layout not rebuilt
+   yet" – a label and the tab "Layout not rebuilt (n)" in the admin list of pages, `layout_not_rebuilt` in `list_pages`.
+   Any edit of the build clears it; discarding the draft of an untouched page brings it back.
+8. **Honest migration report**: an old address that lands on an untouched sample page is an error (`sample_page`), not
+   "ok"; a form on most old pages (a newsletter pop-up, a footer form) is reported once as a site-wide form with one site
+   check, `form_missing` stays on pages with a form of their own; a changed title is a note; an old site that never
+   answered is said plainly (also in `import_website`). Attention lines of an import are stored in English and shown in
+   the reader's language – the same over MCP and in the admin.
+9. **Move block** (`Core\MoveStatus`): Site audit (above the hand-over checklist) and `site_audit` (`move`) show where a
+   move stands – pages and news imported, imported pages whose layout is not rebuilt yet (the same flag as the list of
+   pages), sample pages left, redirects, lost and site-wide forms, whether the newest report is clean – counts and links
+   only, nothing new stored. A site without imported pages or a report never sees it.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |

@@ -509,7 +509,7 @@ final class WebImport
         }
         foreach ($widgets as $widget) {
             if ($widget['kind'] === 'unreadable_form') {
-                self::attention($state, t('/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.', $old));
+                self::attention($state, '/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.', $old);
             }
         }
         // sanitized once more as the very last step before it is stored; over a limit of HtmlLimits the page is skipped
@@ -682,13 +682,38 @@ final class WebImport
 
     /**
      * A line about what needs a person after the import (3.33): an unreadable form, a file that could not be downloaded.
-     * The last 30 are kept.
+     * The last 30 are kept – as the English template and its values, translated when shown (attentionLines): an import
+     * started in the admin reads the same over MCP and the other way round.
      *
      * @param array<string, mixed> $state
      */
-    private static function attention(array &$state, string $line): void
+    private static function attention(array &$state, string $template, string ...$values): void
     {
-        $state['pozor'] = array_slice([...(is_array($state['pozor'] ?? null) ? $state['pozor'] : []), mb_substr($line, 0, 300)], -30);
+        $line = [$template, ...array_map(fn (string $v): string => mb_substr($v, 0, 200), $values)];
+        $state['pozor'] = array_slice([...(is_array($state['pozor'] ?? null) ? $state['pozor'] : []), $line], -30);
+    }
+
+    /**
+     * The attention lines of an import (3.33): translated for the admin ($translate), in English for MCP. A line stored
+     * as text (an import state from before the templates) is shown as it is.
+     *
+     * @param array<string, mixed> $state
+     * @return list<string>
+     */
+    public static function attentionLines(array $state, bool $translate): array
+    {
+        $lines = [];
+        foreach (is_array($state['pozor'] ?? null) ? $state['pozor'] : [] as $row) {
+            if (is_array($row) && is_string($row[0] ?? null)) {
+                $values = array_map('strval', array_slice($row, 1));
+                $row = $translate ? t($row[0], ...$values) : vsprintf($row[0], $values);
+            }
+            if (is_string($row)) {
+                $lines[] = mb_substr($row, 0, 300);
+            }
+        }
+
+        return $lines;
     }
 
     /**
@@ -728,14 +753,14 @@ final class WebImport
                 $video = $element->closest('video');
                 if ($video !== null) {
                     $video->remove(); // a page never plays a video from the old site
-                    self::attention($state, t('/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $old));
+                    self::attention($state, '/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $old);
                     continue;
                 }
                 // a link within the old site becomes a path, as the other links do (the domain moves here)
                 if (ImageDownloader::domainFromUrl($url) === $state['domena']) {
                     $element->setAttribute($attribute, $old);
                 }
-                self::attention($state, t('/%s – the file %s could not be downloaded into Media: it still links to the old site.', self::path($pageUrl), $old));
+                self::attention($state, '/%s – the file %s could not be downloaded into Media: it still links to the old site.', self::path($pageUrl), $old);
             }
         });
 

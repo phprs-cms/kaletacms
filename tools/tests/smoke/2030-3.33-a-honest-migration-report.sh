@@ -29,7 +29,7 @@ s3mcp import_website "{\"url\":\"$OLD333\",\"images\":false}" > "$WORK/response"
 for i in $(seq 1 20); do [ "$(s3_field phase)" = finding ] || break; s3mcp import_website "{\"import_id\":\"$S3_IMPORT\"}" > "$WORK/response"; done
 s3mcp import_website "{\"import_id\":\"$S3_IMPORT\",\"confirm\":true}" > "$WORK/response"
 for i in $(seq 1 20); do [ "$(s3_field phase)" = importing ] || break; s3mcp import_website "{\"import_id\":\"$S3_IMPORT\"}" > "$WORK/response"; done
-s3mcp update_page "{\"id\":$(s3q "SELECT ids FROM ka_stranky WHERE seo_link = 'reference' AND smazano IS NULL"),\"title\":\"Naše zakázky\"}" > /dev/null
+s3mcp update_page "{\"id\":$(s3q "SELECT ids FROM ka_stranky WHERE seo_link = 'reference' AND smazano IS NULL"),\"title\":\"Naše zakázky\",\"seo_title\":\"Naše zakázky\"}" > /dev/null # the import kept the old <title> as the SEO title (3.33 B) – change both
 s3_report "$OLD333"
 expect "3.33 M5 migration_report after the import: no address on a sample page, all five not published yet, the changed title listed" \
   "$(s3_field on_sample_pages)|$(s3_field summary not_published)|$(s3_field title_changes)" \

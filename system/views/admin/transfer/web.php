@@ -54,9 +54,10 @@ $keptNames = ['forms' => 'forms', 'faq' => 'FAQ and accordions', 'tabs' => 'tabs
 if ($kept !== []): ?>
 <p data-import-kept><?= e(t('Kept from the old pages:')) ?> <?= e(implode(', ', array_map(fn (string $key, int $count): string => $count . ' ' . t($keptNames[$key] ?? $key), array_keys($kept), $kept))) ?></p>
 <?php endif ?>
-<?php if (!empty($state['pozor'])): ?>
-<details class="pokrocile" open><summary><?= e(t('%s things need your attention', count($state['pozor']))) ?></summary><ul>
-<?php foreach ($state['pozor'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>
+<?php $attention = Kaleta\Core\WebImport::attentionLines($state, true); // stored as English templates, translated here
+if ($attention !== []): ?>
+<details class="pokrocile" open><summary><?= e(t('%s things need your attention', count($attention))) ?></summary><ul>
+<?php foreach ($attention as $row): ?><li><?= e($row) ?></li><?php endforeach ?>
 </ul></details>
 <?php endif ?>
 <?php if ($state['chyby'] !== []): ?>

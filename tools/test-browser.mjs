@@ -4551,6 +4551,11 @@ await step('3.33 B: the list of pages labels an imported page whose layout waits
     await visit('/admin.php?module=pages');
     const label = page.locator(`[data-layout-not-rebuilt="${ids}"]`);
     if ((await label.count()) !== 1 || !/layout not rebuilt yet/.test(await label.innerText())) { throw new Error('the imported page has no "layout not rebuilt yet" label'); }
+    // the tab "Layout not rebuilt (n)" lists exactly the waiting pages (3.33, A and B together)
+    const tab = page.locator('nav.zalozky a[href*="status=layout"]');
+    if ((await tab.count()) !== 1 || !/Layout not rebuilt \(\d+\)/.test(await tab.innerText())) { throw new Error('the list of pages has no "Layout not rebuilt (n)" tab'); }
+    await visit('/admin.php?module=pages&status=layout');
+    if ((await page.locator(`[data-layout-not-rebuilt="${ids}"]`).count()) !== 1 || (await page.locator('table.vypis tbody tr').count()) !== (await page.locator('table.vypis [data-layout-not-rebuilt]').count())) { throw new Error('the tab "Layout not rebuilt" lists other pages too'); }
     const state = await context.storageState();
     for (const scheme of ['light', 'dark']) {
       for (const [label2, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {

@@ -34,7 +34,7 @@ check('3.20 (C11): a page edit stamps who along with when everywhere (the form, 
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Presets.php'), "+ \\Kaleta\\Admin\\Modules\\Pages::edited(")], [0, 0, 1, 1, 1, 1]);
 $pagesList320 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pages/list.php');
 check('3.20 (C1, C11) pages list: the tabs carry the count and the search keeps the tab; Edited always, Language only with language versions', [
-    str_contains($pagesList320, "['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'kos' => 'Trash']"),
+    str_contains($pagesList320, "['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'layout' => 'Layout not rebuilt' /* 3.33 */, 'kos' => 'Trash']"),
     str_contains($pagesList320, '<input type="hidden" name="status" value="<?= e($status) ?>">'), substr_count($pagesList320, "e(t('Edited'))"),
     str_contains($pagesList320, "\$siteLanguages !== [] ? '<th scope=\"col\">' . e(t('Language')) . '</th>' : ''"), str_contains($pagesList320, "'heading' => t('No page matches this filter.')")],
     [true, true, 1, true, true]);

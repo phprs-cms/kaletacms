@@ -10,7 +10,8 @@ namespace Kaleta\Core;
  * stored. It shows once the site has imported pages or a migration report; a site built from scratch never sees it.
  *
  * The rows: pages imported (and how many are published), imported pages nobody has reworked yet (their layout is still
- * the importer's plain conversion – rebuild it from the live old page), sample pages of the installation still there,
+ * the importer's plain conversion – Core\ImportLayout::pending, the same flag as "layout not rebuilt yet" in the list of
+ * pages and MCP list_pages – rebuild it from the live old page), sample pages of the installation still there,
  * redirects from old addresses, and from the newest finished migration report its forms and whether it is clean.
  */
 final class MoveStatus
@@ -23,7 +24,7 @@ final class MoveStatus
     public static function summary(App $app): ?array
     {
         $db = $app->db();
-        $pages = $db->one("SELECT COUNT(*) AS n, COALESCE(SUM(s.zobrazit = 1), 0) AS published, COALESCE(SUM(s.zmenil IS NULL AND s.stavba_koncept IS NULL), 0) AS untouched
+        $pages = $db->one("SELECT COUNT(*) AS n, COALESCE(SUM(s.zobrazit = 1), 0) AS published
             FROM {stranky} s WHERE s.smazano IS NULL AND EXISTS (SELECT 1 FROM {import_mapa} m WHERE m.typ = 'stranka' AND m.nase_id = s.ids AND m.zdroj NOT LIKE 'form:%')") ?? [];
         $news = (int) $db->value("SELECT COUNT(*) FROM {novinky} n WHERE n.smazano IS NULL AND EXISTS (SELECT 1 FROM {import_mapa} m WHERE m.typ = 'clanek' AND m.nase_id = n.idc AND m.zdroj NOT LIKE 'form:%')");
         $report = self::latestReport();
@@ -32,12 +33,12 @@ final class MoveStatus
         }
         $samples = count(array_filter(StarterPages::untouched($db, $app->settings()), fn (array $p): bool => !$p['home']));
         $redirects = (int) $db->value('SELECT COUNT(*) FROM {presmerovani}');
-        $out = ['pages_imported' => (int) ($pages['n'] ?? 0), 'pages_published' => (int) ($pages['published'] ?? 0), 'pages_not_reworked' => (int) ($pages['untouched'] ?? 0),
+        $out = ['pages_imported' => (int) ($pages['n'] ?? 0), 'pages_published' => (int) ($pages['published'] ?? 0), 'pages_not_reworked' => count(ImportLayout::pending($db)),
             'news_imported' => $news, 'sample_pages' => $samples, 'redirects' => $redirects, 'report' => $report];
         $reportLink = $report !== null ? 'admin.php?module=transfer&action=report&id=' . $report['id'] : 'admin.php?module=transfer';
         $out['rows'] = [
             ['key' => 'move_imported', 'label' => t('Pages imported: %s (published: %s), news items: %s', $out['pages_imported'], $out['pages_published'], $news), 'done' => $out['pages_imported'] + $news > 0, 'edit' => 'admin.php?module=pages'],
-            ['key' => 'move_layouts', 'label' => t('Imported pages nobody has reworked yet (layout to rebuild from the old page): %s', $out['pages_not_reworked']), 'done' => $out['pages_not_reworked'] === 0, 'edit' => 'admin.php?module=pages'],
+            ['key' => 'move_layouts', 'label' => t('Imported pages nobody has reworked yet (layout to rebuild from the old page): %s', $out['pages_not_reworked']), 'done' => $out['pages_not_reworked'] === 0, 'edit' => 'admin.php?module=pages&status=layout'],
             ['key' => 'move_samples', 'label' => t('Sample pages of the installation left: %s', $samples), 'done' => $samples === 0, 'edit' => 'admin.php?module=transfer#sample-pages'],
             ['key' => 'move_redirects', 'label' => t('Redirects from old addresses: %s', $redirects), 'done' => Extensions::isEnabled($app->settings(), 'presmerovani'), 'edit' => 'admin.php?module=redirects'], // a kept address needs none; the feature must be on
             ['key' => 'move_forms', 'label' => $report === null ? t('Forms: run the migration report to compare them') : t('Old pages that lost their form: %s; site-wide forms: %s', $report['forms_missing'], $report['site_wide_forms']),
