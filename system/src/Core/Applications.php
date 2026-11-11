@@ -1951,9 +1951,10 @@ final class Applications
         }
         $expired = self::expired($rows, $months, $today);
         if ($expired !== []) {
-            // M5: an application whose CV list cannot be opened (the encryption key) waits – deleting it would orphan its CVs
-            $locked = array_map('intval', array_column(array_filter($db->all('SELECT id, attachments FROM {applications} WHERE id IN (' . implode(',', $expired) . ')'),
-                fn (array $r): bool => self::attachmentsLocked($app->settings(), $r['attachments'])), 'id'));
+            // M5: an application whose CV list cannot be opened (the encryption key) and whose files cannot be located waits –
+            // deleting it would orphan its CVs; 3.34 third review F5: one with attachment_paths goes (delete() finds its files, N7)
+            $locked = array_map('intval', array_column(array_filter($db->all('SELECT id, attachments, attachment_paths FROM {applications} WHERE id IN (' . implode(',', $expired) . ')'),
+                fn (array $r): bool => self::rowFiles($app->settings(), $r) === null), 'id'));
             $expired = array_values(array_diff($expired, $locked));
         }
         if ($expired === []) {
