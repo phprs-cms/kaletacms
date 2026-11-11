@@ -388,24 +388,42 @@ final class Applications
      * A template ready for one application: in its language, with its name, position (or "a position with us") and the
      * company (Business details, else the site name).
      *
+     * $automatic (3.34 review M4): the text goes out without a person reading it first (the "received" confirmation) – the
+     * name only when it passes safeName(), otherwise none; the position is always the job's own title from the server.
+     *
      * @param array<string, mixed> $application a row (name, job_title, language)
      * @return array{subject: string, text: string}
      */
-    public static function compose(Settings $s, array $application, string $key): array
+    public static function compose(Settings $s, array $application, string $key, bool $automatic = false): array
     {
         $language = self::languageOf($s, $application);
         $template = self::template($s, $key, $language);
-        $vars = ['name' => (string) ($application['name'] ?? ''),
+        $vars = ['name' => $automatic ? self::safeName((string) ($application['name'] ?? '')) : (string) ($application['name'] ?? ''),
             'position' => (string) ($application['job_title'] ?? '') !== '' ? (string) $application['job_title'] : Language::runWith($language, fn (): string => t('a position with us')),
             'company' => $s->get('company_name') !== '' ? $s->get('company_name') : $s->get('site_name')];
 
         return ['subject' => self::fill($template['subject'], $vars), 'text' => self::fill($template['text'], $vars)];
     }
 
+    /** The longest name an automatic e-mail carries (safeName). */
+    public const int SAFE_NAME_MAX = 60;
+
+    /**
+     * A name an automatic e-mail may carry (3.34 review M4 – the form could otherwise send any text to any address): letters,
+     * spaces, hyphens and apostrophes only, at most SAFE_NAME_MAX characters; anything else gives ''. Pure.
+     */
+    public static function safeName(string $name): string
+    {
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+
+        return $name !== '' && mb_strlen($name) <= self::SAFE_NAME_MAX && preg_match("/^\\p{L}[\\p{L}\\p{M} '’-]*$/uD", $name) === 1 ? $name : '';
+    }
+
     /**
      * The "received" confirmation to the applicant (3.34 B) – only when the form sends no confirmation of its own (its
      * property potvrzeni, sent by Front\Forms) and the address is valid. The mail log keeps "Application received: <site>",
-     * never a name or the position (the rule of 3.32's form notifications). Never fails the submission.
+     * never a name or the position (the rule of 3.32's form notifications). Never fails the submission. 3.34 review M4: it
+     * carries no text the visitor typed – the name only when safeName() lets it through, the position is the job's title.
      *
      * @param array<string, mixed> $content the Form element's content
      */
@@ -420,7 +438,7 @@ final class Applications
         if ($row === null) {
             return false;
         }
-        $mail = self::compose($s, $row, 'received');
+        $mail = self::compose($s, $row, 'received', true); // M4: no visitor text but a plain name
         $from = $s->get('site_email');
 
         return Mail::send($s, $to[0], $mail['subject'], $mail['text'], '', Mail::addresses($from) !== [] ? ['Reply-To' => Mail::addresses($from)[0]] : [], true,
