@@ -844,6 +844,8 @@ final class Build
                         ? "<{$p['znacka']}>" . implode('', array_map(fn (string $r): string => '<li>' . e($r) . '</li>', $rows)) . "</{$p['znacka']}>\n" : '',
                     'citat' => '<blockquote><p>' . ($o['text'] ?? '') . '</p>' . (($o['autor'] ?? '') !== '' ? '<p>– ' . e($o['autor']) . (($o['pozice'] ?? '') !== '' ? ', ' . e($o['pozice']) : '') . '</p>' : '') . "</blockquote>\n",
                     'faq' => implode('', array_map(fn (array $f): string => '<h3>' . e($f['otazka'] ?? '') . '</h3>' . ($f['odpoved'] ?? '') . "\n", $o['polozky'] ?? [])),
+                    // 3.33: the content of tabs is page content too (an import keeps it, search sees it)
+                    'zalozky' => implode('', array_map(fn (array $t): string => '<h3>' . e($t['nazev'] ?? '') . '</h3>' . ($t['obsah'] ?? '') . "\n", $o['karty'] ?? [])),
                     'video' => ($o['url'] ?? '') !== '' ? '<p><a href="' . e($o['url']) . '">' . e(($o['titulek'] ?? '') !== '' ? $o['titulek'] : $o['url']) . "</a></p>\n" : '',
                     'oddelovac' => "<hr>\n",
                     // the counter states a number (or a fact token, 2.10) with its label – content, so facts see it too

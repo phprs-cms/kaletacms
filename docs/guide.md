@@ -489,9 +489,13 @@ tasks; you do not need it when your site is connected.
 **Administration → Import and export → Import from a website** (2.6): enter the address of a site on any platform – Wix,
 Webnode, Jimdo, Squarespace, Joomla, Drupal or WordPress without an export. Kaleta reads its sitemap (or follows its links),
 shows what it found, and on confirmation turns each page into a hidden builder page with its images in Media; blog posts
-become news, and old addresses redirect to the new ones. The header, footer, menus, cookie bars and forms of the old site
-are left out and the look comes from your design system. Claude does the same with `import_website` and can then match
-the look and tidy the texts.
+become news, and old addresses redirect to the new ones. The header, footer, menus and cookie bars of the old site are
+left out and the look comes from your design system. Since 3.33 the page keeps what its builder made of it – Elementor,
+Divi, WPBakery, Gutenberg, Breakdance, Wix, Squarespace or Webflow alike: a form becomes a Form element with the same
+fields (a form drawn by a script gets a placeholder, and the result says where), an accordion or FAQ keeps its questions
+and answers, tabs, counters, YouTube, Vimeo and video files, and maps become their elements, linked files (PDF and other
+documents) go into Media, and the old page title and share image become the page's SEO title and share image. Claude does
+the same with `import_website` and can then match the look and tidy the texts.
 
 **Large sites (3.7):** the import and the migration report (**Import and export → Check the move before going live**, Claude's
 `migration_report`) read the old site's sitemaps in batches and go through up to 3,000 addresses – a shop with a thousand

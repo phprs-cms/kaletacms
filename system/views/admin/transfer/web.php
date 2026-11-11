@@ -45,6 +45,18 @@ $urls = array_keys($state['adresy']);
 	<div class="dlazdice-polozka"><strong><?= (int) $v['presmerovani'] ?></strong><span><?= e(t('Redirects from old addresses')) ?></span></div>
 	<div class="dlazdice-polozka"><strong><?= (int) $v['preskoceno'] ?></strong><span><?= e(t('Skipped (already imported earlier)')) ?></span></div>
 </div>
+<?php // 3.33: what the pages kept of the old site's forms, accordions, videos, maps, files and SEO fields
+$kept = Kaleta\Core\WebImport::keptSummary($state);
+$keptNames = ['forms' => 'forms', 'faq' => 'FAQ and accordions', 'tabs' => 'tabs', 'videos' => 'videos', 'maps' => 'maps', 'embeds' => 'embedded pages',
+    'counters' => 'counters', 'files' => 'files in Media', 'pages_with_seo_fields' => 'pages with the old SEO title or share image'];
+if ($kept !== []): ?>
+<p data-import-kept><?= e(t('Kept from the old pages:')) ?> <?= e(implode(', ', array_map(fn (string $key, int $count): string => $count . ' ' . t($keptNames[$key] ?? $key), array_keys($kept), $kept))) ?></p>
+<?php endif ?>
+<?php if (!empty($state['pozor'])): ?>
+<details class="pokrocile" open><summary><?= e(t('%s things need your attention', count($state['pozor']))) ?></summary><ul>
+<?php foreach ($state['pozor'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <?php if ($state['chyby'] !== []): ?>
 <details class="pokrocile"><summary><?= e(t('%s pages could not be imported', (int) $v['chyb'])) ?></summary><ul>
 <?php foreach ($state['chyby'] as $row): ?><li><?= e($row) ?></li><?php endforeach ?>

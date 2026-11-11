@@ -425,8 +425,13 @@ Volitelný plugin „Kaleta for Claude“ pro Claude Code nese pět z těchto po
 **Správa → Import a export → Import z webu** (2.6): zadejte adresu webu na jakékoli platformě – Wix, Webnode, Jimdo,
 Squarespace, Joomla, Drupal nebo WordPress bez exportu. Kaleta přečte mapu webu (nebo projde odkazy), ukáže, co našla, a po
 potvrzení z každé stránky udělá skrytou stránku v builderu s obrázky v Médiích; články blogu se stanou novinkami a staré
-adresy se přesměrují na nové. Hlavička, patička, menu, cookie lišty a formuláře starého webu se vynechají a vzhled převezme
-design systém. Totéž umí Claude nástrojem `import_website` a pak sladí vzhled a upraví texty.
+adresy se přesměrují na nové. Hlavička, patička, menu a cookie lišty starého webu se vynechají a vzhled převezme design
+systém. Od 3.33 si stránka nechá, co z ní udělal její builder – ať je to Elementor, Divi, WPBakery, Gutenberg, Breakdance,
+Wix, Squarespace nebo Webflow: z formuláře je prvek Formulář se stejnými poli (formulář, který kreslí skript, dostane
+zástupný text a výsledek řekne kde), rozbalovací bloky a FAQ si nechají otázky i odpovědi, záložky, počítadla, videa
+z YouTube, Vimea i soubory a mapy se stanou svými prvky, odkazované soubory (PDF a další dokumenty) jdou do Médií a původní
+titulek stránky a obrázek pro sdílení se stanou jejím SEO titulkem a obrázkem pro sdílení. Totéž umí Claude nástrojem
+`import_website` a pak sladí vzhled a upraví texty.
 
 **Správa → Import a export → WordPress:** nahrajte export z WordPressu (Nástroje → Export, soubor XML). Import převede
 příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých

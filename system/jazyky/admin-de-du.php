@@ -1254,4 +1254,8 @@ return [
     '%s made you responsible for %s' => '%s hat dich als verantwortliche Person eingetragen: %s',
     'The enquiry is yours now.' => 'Die Anfrage liegt jetzt bei dir.',
     'last succeeded %s – enquiries and other personal data past their retention are not being deleted; set up cron, you will find the address further down this page' => 'zuletzt erfolgreich %s – Anfragen und andere personenbezogene Daten nach Ablauf der Aufbewahrungsfrist werden nicht gelöscht; richte Cron ein, die Adresse findest du weiter unten auf dieser Seite',
+    'its fields could not be read. Add a Form element with the same fields in its place.' => 'seine Felder konnten nicht gelesen werden. Füge an seiner Stelle ein Formular-Element mit denselben Feldern ein.',
+    '/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.' => '/%s – ein Formular, dessen Felder ein Skript zeichnet, konnte nicht gelesen werden: Ein Platzhalter markiert seine Stelle, füge ein Formular-Element mit denselben Feldern ein.',
+    '/%s – the video %s could not be downloaded: add it in the builder.' => '/%s – das Video %s konnte nicht heruntergeladen werden: Füge es im Builder ein.',
+    '%s things need your attention' => '%s Punkte brauchen deine Aufmerksamkeit',
 ];

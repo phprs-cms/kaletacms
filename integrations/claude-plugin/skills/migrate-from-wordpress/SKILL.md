@@ -93,7 +93,9 @@ first published item.
 **Any other platform, or WordPress without an export.** Call `import_website` with `url`, then again with
 `import_id`. In the phase "preview", show the user what was found and send `confirm` true only on their
 instruction. Keep calling until the phase is "done". Options: `images`, `redirects`, `news`, `language`. The
-header, footer, menus, cookie bars and forms of the old site are left out.
+header, footer, menus and cookie bars of the old site are left out; forms, accordions, tabs, counters, videos and
+maps become their elements, linked files go into Media, and the old title and share image into the page's SEO
+fields. A form drawn by a script gets a placeholder – `attention` in the answer lists what needs you.
 
 ## 4. The look
 

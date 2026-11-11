@@ -77,12 +77,16 @@ trait MediaTools
             'found' => count($urls), 'processed' => (int) $state['pozice'],
             'result' => ['new_pages' => $r['stranky'], 'new_news' => $r['clanky'], 'images' => $r['obrazky'], 'redirects' => $r['presmerovani'], 'skipped' => $r['preskoceno'], 'failed' => $r['chyb']],
             'failures' => $state['chyby'],
+            // 3.33: what the pages kept of the old site's widgets, files and SEO fields, and what needs a person
+            'kept' => \Kaleta\Core\WebImport::keptSummary($state),
+            'attention' => array_values(is_array($state['pozor'] ?? null) ? $state['pozor'] : []),
             'notes' => \Kaleta\Core\WebImport::notes($state), // a robots.txt that was cut, sitemaps on other hosts that were not read (3.7)
             'addresses' => $state['faze'] === 'nahled' ? array_map(fn (string $u): string => '/' . \Kaleta\Core\WebImport::path($u), array_slice($urls, 0, 50)) : [],
             'next' => match ($state['faze']) {
                 'hledani', 'import' => 'Call again with the same import id.',
                 'nahled' => 'Show the user what was found; on their instruction call again with confirm: true.',
-                default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.',
+                default => 'Done: the pages are hidden – check them with list_pages, put the ones to keep in the menu and publish them on the user\'s instruction.'
+                    . ' Fix what attention lists (a placeholder marks a form whose fields could not be read).',
             }];
     }
 
