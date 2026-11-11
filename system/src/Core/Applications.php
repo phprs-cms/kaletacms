@@ -253,6 +253,10 @@ final class Applications
             'pool_until' => $poolConsent && $consentText !== '' ? Clock::day('+' . $poolMonths . ' months') : null,
             'last_activity_at' => $now,
         ]);
+        if ($attachments !== [] && Vault::state($s) === 'missing') {
+            // M5: kept and readable (DB_SEALED), but the administrator must put the key back – never lost silently
+            Events::record($db, 'applications.vault_missing', 'warning', sprintf('Application #%d: the encryption key of config.php is missing, so its CVs were sealed with the key in the database – put the vault_key line back into config.php (System status).', $id), ['application' => $id]);
+        }
         // the position and the form, never the sender (as enquiry.received)
         Events::record($db, 'application.received', 'info', t('Application #%d for “%s” from the form “%s”', $id, $position['title'] !== '' ? $position['title'] : t('no position'), mb_substr((string) ($content['nazev'] ?? ''), 0, 80)),
             ['application' => $id, 'job' => $position['item'], 'form' => (string) ($element['id'] ?? ''), 'source' => $source]);
@@ -540,6 +544,7 @@ final class Applications
             'data' => is_array($data) ? array_values(array_filter($data, 'is_array')) : [],
             'attachments' => array_map(fn (array $a): array => ['field' => (int) ($a['field'] ?? -1), 'name' => (string) ($a['name'] ?? ''), 'size' => (int) ($a['size'] ?? 0),
                 'ext' => (string) ($a['ext'] ?? ''), 'sealed' => (bool) ($a['sealed'] ?? false)], self::attachments($s, $row['attachments'] ?? null)),
+            'attachments_locked' => self::attachmentsLocked($s, $row['attachments'] ?? null), // M5: never shown as "no attachments"
             'replies' => EnquiryReply::decode($row['replies'] ?? null),
             'history' => is_array($history) ? array_values(array_filter($history, 'is_array')) : []] + $row;
     }
@@ -624,13 +629,13 @@ final class Applications
         [$where, $params] = self::where($filter, Clock::today());
         $perPage = max(1, min(200, $perPage));
         $total = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE ' . $where, $params);
-        $rows = $db->all('SELECT id, received_at, name, email, job_item_id, job_title, status, status_at, decided_at, assignee_id, pool_until, late, last_activity_at, source_enquiry_id FROM {applications} WHERE '
+        $rows = $db->all('SELECT id, received_at, name, email, job_item_id, job_title, status, status_at, decided_at, assignee_id, pool_until, late, last_activity_at, source_enquiry_id, attachments FROM {applications} WHERE '
             . $where . ' ORDER BY id DESC LIMIT ' . $perPage . ' OFFSET ' . (max(1, $page) - 1) * $perPage, $params);
         $months = $s->int('applications_months');
 
         return ['rows' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'job_item_id' => $r['job_item_id'] !== null ? (int) $r['job_item_id'] : null,
             'assignee_id' => $r['assignee_id'] !== null ? (int) $r['assignee_id'] : null, 'late' => (int) $r['late'] === 1,
-            'deletes_on' => self::deletionDate($r, $months)] + $r, $rows), 'total' => $total, 'filter' => $filter];
+            'deletes_on' => self::deletionDate($r, $months), 'attachments_locked' => self::attachmentsLocked($s, $r['attachments']), 'attachments' => null] + $r, $rows), 'total' => $total, 'filter' => $filter];
     }
 
     /**
@@ -1038,9 +1043,16 @@ final class Applications
         return is_array($list) ? array_values(array_filter($list, 'is_array')) : [];
     }
 
-    /** The JSON of a sealed attachment list, null when it cannot be opened. */
+    /** The JSON of a sealed attachment list, null when it cannot be opened (a DB_SEALED one with the key kept in the database). */
     private static function openList(Settings $s, string $stored): ?string
     {
+        if (str_starts_with($stored, self::DB_SEALED)) {
+            $sealed = substr($stored, strlen(self::DB_SEALED));
+            [$previous] = Vault::previousKey($s);
+
+            return Vault::open(Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION), $sealed) ?? ($previous !== null ? Vault::open(Vault::derive($previous, self::SECTION), $sealed) : null);
+        }
+
         return Vault::openFor($s, self::SECTION, $stored);
     }
 
@@ -1060,7 +1072,39 @@ final class Applications
      */
     public static function encodeAttachments(Settings $s, array $list): ?string
     {
-        return $list === [] ? null : Vault::seal(Vault::key($s, self::SECTION), (string) json_encode($list, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if ($list === []) {
+            return null;
+        }
+        $json = (string) json_encode($list, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (Vault::state($s) === 'missing') {
+            // M5: the data belongs to a key config.php does not have – a list sealed now would be lost once the key is put back.
+            // It is sealed with the key kept in the database instead, marked (DB_SEALED), and sealPending() reseals it once the
+            // key is back; the event says so (receive()).
+            return self::DB_SEALED . Vault::seal(Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION), $json);
+        }
+
+        return Vault::seal(Vault::key($s, self::SECTION), $json);
+    }
+
+    /** The mark of a list sealed with the database key while the Vault key was missing (encodeAttachments). */
+    public const string DB_SEALED = 'db:';
+
+    /**
+     * Applications whose attachment list cannot be opened (3.34 review M5 – System status): how many; 0 before 0119.
+     */
+    public static function lockedCount(App $app): int
+    {
+        $s = $app->settings();
+        $count = 0;
+        try {
+            foreach ($app->db()->all('SELECT attachments FROM {applications} WHERE attachments IS NOT NULL') as $row) {
+                $count += self::attachmentsLocked($s, $row['attachments']) ? 1 : 0;
+            }
+        } catch (\PDOException) {
+            return 0;
+        }
+
+        return $count;
     }
 
     /**
@@ -1123,6 +1167,34 @@ final class Applications
         }
 
         return $sealed;
+    }
+
+    /**
+     * Lists sealed with the database key while the Vault key was missing (DB_SEALED) are sealed again with the proper key
+     * once it is back (3.34 review M5 – the daily clean-up). Returns how many.
+     */
+    public static function resealHeld(App $app): int
+    {
+        $s = $app->settings();
+        if (Vault::state($s) === 'missing') {
+            return 0;
+        }
+        $done = 0;
+        try {
+            $rows = $app->db()->all("SELECT id, attachments FROM {applications} WHERE attachments LIKE 'db:%' LIMIT 500");
+        } catch (\PDOException) {
+            return 0;
+        }
+        foreach ($rows as $row) {
+            $json = self::openList($s, (string) $row['attachments']);
+            $list = $json !== null ? json_decode($json, true) : null;
+            if (is_array($list)) {
+                $app->db()->update('applications', ['attachments' => self::encodeAttachments($s, array_values(array_filter($list, 'is_array')))], ['id' => (int) $row['id']]);
+                $done++;
+            }
+        }
+
+        return $done;
     }
 
     /**
@@ -1287,6 +1359,7 @@ final class Applications
             return 0; // before migration 0119
         }
         self::sealPending($app);
+        self::resealHeld($app); // M5: lists held under the database key while the Vault key was missing
         $months = $app->settings()->int('applications_months');
         if ($months <= 0) {
             return 0;
@@ -1301,6 +1374,12 @@ final class Applications
             Inbox::notify($app, $due['assignee'], 'deletion_due', self::target($due['id']), null, format_date($due['day']));
         }
         $expired = self::expired($rows, $months, $today);
+        if ($expired !== []) {
+            // M5: an application whose CV list cannot be opened (the encryption key) waits – deleting it would orphan its CVs
+            $locked = array_map('intval', array_column(array_filter($db->all('SELECT id, attachments FROM {applications} WHERE id IN (' . implode(',', $expired) . ')'),
+                fn (array $r): bool => self::attachmentsLocked($app->settings(), $r['attachments'])), 'id'));
+            $expired = array_values(array_diff($expired, $locked));
+        }
         if ($expired === []) {
             return 0;
         }

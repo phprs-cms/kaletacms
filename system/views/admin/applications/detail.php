@@ -52,6 +52,9 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 		<li><a class="navigace" href="<?= e($module->url('attachment', ['id' => $id, 'index' => $i])) ?>" data-application-file="<?= (int) $i ?>"><?= e(t('Download')) ?>: <?= bdi($file['name']) ?></a> <small><?= e(Kaleta\Core\Files::size($file['size'])) ?></small></li>
 	<?php endforeach ?></ul></dd>
 <?php endif ?>
+<?php if ($a['attachments_locked']): /* 3.34 review M5: never "no attachments" */ ?>
+	<dt><?= e(t('CV and attachments')) ?></dt><dd class="hlaska hlaska-chyba" data-application-files-locked><?= e(t('CVs cannot be opened – encryption key')) ?>. <?= e(t('This application\'s list of CVs was sealed with an encryption key this config.php does not have. Put back the vault_key line from the original config.php; until then the CVs are kept and the clean-up does not delete the application.')) ?></dd>
+<?php endif ?>
 <?php if ($a['source_enquiry_id'] !== null): ?>
 	<dt><?= e(t('Came from')) ?></dt><dd><?= e(t('Moved from the enquiry #%s', (string) $a['source_enquiry_id'])) ?></dd>
 <?php endif ?>

@@ -89,7 +89,7 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 	<td><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>">#<?= (int) $r['id'] ?></a></td>
 	<td data-popisek="<?= e(t('Received')) ?>"><?= e(format_date((string) $r['received_at'])) ?></td>
 	<td data-popisek="<?= e(t('Name')) ?>"><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>"><?= bdi((string) $r['name'] !== '' ? (string) $r['name'] : (string) $r['email']) ?></a></td>
-	<td data-popisek="<?= e(t('Position')) ?>"><?= (string) $r['job_title'] !== '' ? bdi((string) $r['job_title']) : '<span class="napoveda">' . e(t('No position')) . '</span>' ?><?= $r['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></td>
+	<td data-popisek="<?= e(t('Position')) ?>"><?= (string) $r['job_title'] !== '' ? bdi((string) $r['job_title']) : '<span class="napoveda">' . e(t('No position')) . '</span>' ?><?= !empty($r['attachments_locked']) ? ' <span class="stitek stitek-chyba" data-application-locked>' . e(t('CVs cannot be opened – encryption key')) . '</span>' : '' ?><?= $r['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></td>
 	<td data-popisek="<?= e(t('Status')) ?>"><span class="stitek<?= $r['status'] === 'hired' ? ' stitek-vydano' : ($r['status'] === 'rejected' ? ' stitek-chyba' : ($r['status'] === 'new' ? ' stitek-koncept' : '')) ?>"><?= e(t(Store::STATUS_LABELS[$r['status']] ?? (string) $r['status'])) ?></span></td>
 	<td data-popisek="<?= e(t('Responsible person')) ?>"><?= $r['assignee_id'] !== null ? e($names[$r['assignee_id']] ?? '') : '' ?></td>
 	<td data-popisek="<?= e(t('Will be deleted')) ?>"><?= $r['deletes_on'] !== null ? e(format_date($r['deletes_on'])) : '' ?></td>

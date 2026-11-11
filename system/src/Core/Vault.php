@@ -70,10 +70,10 @@ final class Vault
     public static function describe(string $state): string
     {
         return match ($state) {
-            'config' => t('Connector secrets and whistleblowing reports are encrypted with a key that is in config.php, not in the database – a stolen database or backup alone cannot be read.'),
-            'pending' => t('The encryption key is already in config.php, but the stored secrets and reports are still encrypted with the old key in the database. Finish the move in Settings → Backups and updates.'),
-            'missing' => t('The stored secrets and reports belong to an encryption key that this config.php does not have, so they cannot be read. Put back the line with vault_key from the config.php of the site this database comes from.'),
-            default => t('Connector secrets and whistleblowing reports are encrypted with a key kept in the database, so every database backup holds both the data and its key. Move the key to config.php in Settings → Backups and updates.'),
+            'config' => t('Connector secrets, whistleblowing reports and the keys of job applicants’ CVs are encrypted with a key that is in config.php, not in the database – a stolen database or backup alone cannot be read.'),
+            'pending' => t('The encryption key is already in config.php, but the stored secrets, reports and CV keys are still encrypted with the old key in the database. Finish the move in Settings → Backups and updates.'),
+            'missing' => t('The stored secrets, reports and the keys of job applicants’ CVs belong to an encryption key that this config.php does not have, so they cannot be read – the CVs cannot be opened. Put back the line with vault_key from the config.php of the site this database comes from.'),
+            default => t('Connector secrets, whistleblowing reports and the keys of job applicants’ CVs are encrypted with a key kept in the database, so every database backup holds both the data and its key. Move the key to config.php in Settings → Backups and updates.'),
         };
     }
 
@@ -173,7 +173,7 @@ final class Vault
     /** The line for config.php (inside the returned array). */
     public static function configLine(string $baseKey): string
     {
-        return "'vault_key' => '" . $baseKey . "', // encrypts connector secrets and whistleblowing reports – keep it with your backups";
+        return "'vault_key' => '" . $baseKey . "', // encrypts connector secrets, whistleblowing reports and the keys of job applicants’ CVs – keep it with your backups";
     }
 
     /**

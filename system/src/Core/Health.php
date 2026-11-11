@@ -123,6 +123,10 @@ final class Health
             // 3.9.2 (N67), 3.15 (N72): migrations 0084 and 0098 keep a customised media/.htaccess and put Kaleta's newer one next to it
             $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.'));
         }
+        // 3.34 review M5: job applications whose CV list the encryption key of this config.php cannot open
+        if (($lockedCvs = Applications::lockedCount($app)) > 0) {
+            $add(t('Bezpečnost'), t('CVs of job applications'), 'chyba', t('%d application(s) have CVs that cannot be opened – encryption key: they were sealed with a key this config.php does not have. Put back the vault_key line from the original config.php (Settings → Backups and updates).', $lockedCvs));
+        }
         $core = Integrity::check();
         $add(t('Bezpečnost'), t('Core files'), $core['stav'], $core['info']);
 

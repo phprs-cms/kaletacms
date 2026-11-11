@@ -121,7 +121,7 @@ check('3.15 N42: Vault – the derivation of 3.14 (kaleta-<purpose>|base), re-en
     Kaleta\Core\Vault::derive($n42Key, 'connectors') !== Kaleta\Core\Vault::derive($n42Key, 'whistleblowing'), strlen(Kaleta\Core\Vault::check($n42Key)), str_contains(Kaleta\Core\Vault::check($n42Key), substr($n42Key, 0, 8))],
     [true, 'client-secret', null, null, true, 32, false]);
 check('3.15 N42: the line for config.php and every state text never show more than the line itself', [
-    Kaleta\Core\Vault::configLine($n42Key) === "'vault_key' => '" . $n42Key . "', // encrypts connector secrets and whistleblowing reports – keep it with your backups",
+    Kaleta\Core\Vault::configLine($n42Key) === "'vault_key' => '" . $n42Key . "', // encrypts connector secrets, whistleblowing reports and the keys of job applicants’ CVs – keep it with your backups", // 3.34 review M5: CVs named
     count(array_unique(array_map(Kaleta\Core\Vault::describe(...), ['config', 'database', 'pending', 'missing'])))], [true, 4]);
 // N44: the change log keeps both texts within its 255 characters
 check('3.15 N44: ClaudeInstructions::logText – both texts, whitespace folded, long ones shortened to fit the change log', [

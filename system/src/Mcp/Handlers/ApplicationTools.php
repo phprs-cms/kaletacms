@@ -73,6 +73,7 @@ trait ApplicationTools
             + ['fields' => array_map(fn (array $f): array => ['label' => (string) ($f[0] ?? ''), 'value' => (string) ($f[1] ?? '')], array_values(array_filter($application['data'], fn (array $f): bool => is_scalar($f[0] ?? null) && is_scalar($f[1] ?? null)))),
                 // a CV by its name and size only – never its content (owner decision B-5)
                 'attachments' => array_map(fn (array $f): array => ['name' => $f['name'], 'size' => $f['size']], $application['attachments']),
+            ] + ($application['attachments_locked'] ? ['attachments_locked' => true] /* 3.34 review M5: the CV list cannot be opened – encryption key */ : []) + [
                 'replies' => array_map(fn (array $r): array => ['at' => substr($r['at'], 0, 16), 'by' => $r['by'], 'subject' => $r['subject'], 'text' => $r['text'], 'via' => $r['via']], $application['replies']),
                 'notes' => array_map(fn (array $n): array => ['id' => $n['id'], 'at' => substr((string) $n['at'], 0, 16), 'by' => (string) $n['by'], 'text' => (string) $n['text']], Comments::of($db, $target)),
                 'tasks' => array_map(fn (array $t): array => ['id' => $t['id'], 'title' => $t['title']] + ($t['due_at'] !== null ? ['due' => substr((string) $t['due_at'], 0, 16)] : []) + ['done' => $t['done_at'] !== null],
