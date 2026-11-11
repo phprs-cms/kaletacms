@@ -35,6 +35,7 @@ final class Guide
         'enquiries' => 'forms#enquiries',
         'contacts' => 'customers', // 3.28: Customers (own guide article since 3.31.1)
         'pipeline' => 'pipeline', // 3.31: Pipeline (own guide article since 3.31.1)
+        'applications' => 'forms#enquiries', // 3.34: job applications – until the guide has its own article
         'bookings' => 'bookings',
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
         'subscribers' => 'newsletter',

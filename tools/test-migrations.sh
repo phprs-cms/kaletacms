@@ -60,7 +60,7 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 # 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
 # structure check above compares the type, not the character set), and a site's language values stay as they were
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
-[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 16 ] && echo "  ok     3.9 (0083), 3.14 (0095) and 3.28 (0114): the 16 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 17 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114) and 3.34 (0119): the 17 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
 # 3.19 (0105, 0106): the global keys are gone after the upgrade (the empty site could switch), the per-language ones stay
 expect_sql "3.9 (0083), 3.19 (0106): pages, news and categories keep the per-language slug key, the global one is gone" \
@@ -96,7 +96,7 @@ expect_sql "3.10 (0085): an existing connection and code keep all tools and thei
 tokencols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', IS_NULLABLE, ':', COALESCE(COLUMN_DEFAULT, 'NULL')) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLLATION_NAME = 'utf8mb4_bin'"; }
 # 3.14 (0094) adds the 21st: ka_presmerovani.source_norm, the normalised old address of a redirect; 3.28 (0114) the 22nd:
 # ka_contacts.email_norm, the normalised address a contact is keyed by
-[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 22 ] && tokencols "$OLD" | grep -q 'ka_presmerovani.source_norm:varchar(255):YES:NULL' && tokencols "$OLD" | grep -q 'ka_contacts.email_norm:varchar(190):YES:NULL' && echo "  ok     3.12 (0092), 3.14 (0094), 3.28 (0114): the 20 token and hash columns, the redirect source_norm and the contacts' email_norm are utf8mb4_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 23 ] && tokencols "$OLD" | grep -q 'ka_presmerovani.source_norm:varchar(255):YES:NULL' && tokencols "$OLD" | grep -q 'ka_contacts.email_norm:varchar(190):YES:NULL' && tokencols "$OLD" | grep -q 'ka_applications.email_norm:varchar(190):YES:NULL' && echo "  ok     3.12 (0092), 3.14 (0094), 3.28 (0114), 3.34 (0119): the 20 token and hash columns, the redirect source_norm and the contacts' and applications' email_norm are utf8mb4_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren) VALUES (9092, 'Claude', REPEAT('a', 32), 'token', REPEAT('9', 64), '$(site_time)'); SET FOREIGN_KEY_CHECKS = 1"
 expect_sql "3.12 (0092): a token reads back by its hash and the client id compares exactly (no case folding)" "SELECT CONCAT((SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = REPEAT('9', 64)), (SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = 9092 AND klient = REPEAT('A', 32)))" "10"
 # the traditional EXPLAIN names the key: MySQL takes FORMAT=TRADITIONAL (its default may be the tree), MariaDB knows only the plain one
@@ -218,5 +218,33 @@ expect_sql "3.19 (N319-1): … once fixed the next run adds the key, drops the g
 expect_sql "3.19 (N319-4): the split relinks to the existing English tag – one link per news item, the Czech one stays" \
   "SELECT GROUP_CONCAT(CONCAT(ns.idc, ':', t.jazyk) ORDER BY ns.idc, t.jazyk) FROM ka_novinky_stitky ns JOIN ka_stitky t ON t.ids = ns.ids WHERE ns.idc BETWEEN 9196 AND 9198" "9196:,9197:en,9198:en"
 "${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; DELETE FROM ka_novinky_stitky WHERE idc BETWEEN 9196 AND 9198; DELETE FROM ka_stitky WHERE ids IN (9196, 9197); DELETE FROM ka_novinky WHERE idc BETWEEN 9196 AND 9198; DELETE FROM ka_kategorie WHERE idt IN (9196, 9197); SET FOREIGN_KEY_CHECKS = 1"
+
+# 3.34 (0120): job applications move out of enquiries – a site as 3.33 left it: a jobs collection, an application (with a
+# note, a task, a deal made from it and a customer record only it made), an application whose customer has another enquiry,
+# and an ordinary enquiry; then the data migration runs again by name and once more – nothing moves twice
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9340, 'Jobs', 'jobs-340', '[]', 'jobs');
+  INSERT INTO ka_kolekce_polozky (idp, idk, nazev, seo_link, data, datum) VALUES (9340, 9340, 'Welder', 'welder', '{}', '$(site_time)');
+  INSERT INTO ka_contacts (id, email, email_norm, name, source, created_at, updated_at) VALUES (9340, 'lone@example.com', 'lone@example.com', 'Lone', 'enquiry', '$(site_time)', '$(site_time)'),
+    (9341, 'shared@example.com', 'shared@example.com', 'Shared', 'enquiry', '$(site_time)', '$(site_time)');
+  INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav, prirazeno, contact_id) VALUES
+    (9340, '$(site_time '-3 days')', 'Job application', 'kolekce:9340', '/jobs-340/welder', 'Jobs – Welder', 'lone@example.com', '[[\"Full name\",\"Lone One\"]]', 1, NULL, 9340),
+    (9341, '$(site_time '-2 days')', 'Job application', 'kolekce:9340', '/jobs-340/welder', 'Jobs – Welder', 'shared@example.com', '[]', 0, NULL, 9341),
+    (9342, '$(site_time '-2 days')', 'Kontakt', 'stranka:1', '/kontakt', '', 'shared@example.com', '[]', 0, NULL, 9341);
+  INSERT INTO ka_comments (target, kind, author_name, text, via, created_at) VALUES ('enquiry:9340', 'note', 'Hana', 'note 340', 'admin', '$(site_time)');
+  INSERT INTO ka_tasks (title, target, created_at, updated_at) VALUES ('task 340', 'enquiry:9340', '$(site_time)', '$(site_time)');
+  INSERT INTO ka_deals (id, title, stage, source_enquiry_id, created_at, updated_at) VALUES (9340, 'Lone One – job', 'new', 9340, '$(site_time)', '$(site_time)');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', 'novinky,poptavky,claude'), ('job_applications_months', '4');
+  DELETE FROM ka_nastaveni WHERE promenna = 'applications_months';
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+moved340() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT GROUP_CONCAT(CONCAT(source_enquiry_id, ':', status, ':', job_title) ORDER BY source_enquiry_id) FROM ka_applications),
+  (SELECT GROUP_CONCAT(idp ORDER BY idp) FROM ka_poptavky WHERE idp BETWEEN 9340 AND 9342), (SELECT COUNT(*) FROM ka_comments c JOIN ka_applications a ON c.target = CONCAT('application:', a.id) WHERE a.source_enquiry_id = 9340),
+  (SELECT COUNT(*) FROM ka_tasks t JOIN ka_applications a ON t.target = CONCAT('application:', a.id) WHERE a.source_enquiry_id = 9340), (SELECT IFNULL(source_enquiry_id, 'none') FROM ka_deals WHERE id = 9340),
+  (SELECT GROUP_CONCAT(id ORDER BY id) FROM ka_contacts WHERE id IN (9340, 9341)), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'), (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'applications_months'))"; }
+M340_EXPECTED='9340:reviewed:Welder,9341:new:Welder|9342|1|1|none|9341|novinky,poptavky,claude,applications|4'
+[ "$(moved340)" = "$M340_EXPECTED" ] && echo "  ok     3.34 (0120): the job enquiries became applications with their note and task, the deal lost the link, the lone customer went, the shared one stayed; the feature is on and the retention taken over" || { echo "  CHYBA  0120: $(moved340)"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0120-applications-move,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+[ "$(moved340)" = "$M340_EXPECTED" ] && echo "  ok     3.34 (0120): run again, nothing moves twice" || { echo "  CHYBA  0120 run again: $(moved340)"; ERRORS=$((ERRORS+1)); }
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_comments WHERE target LIKE 'application:%'; DELETE FROM ka_tasks WHERE target LIKE 'application:%'; DELETE FROM ka_applications; DELETE FROM ka_poptavky WHERE idp = 9342;
+  DELETE FROM ka_contacts WHERE id IN (9340, 9341); DELETE FROM ka_deals WHERE id = 9340; DELETE FROM ka_kolekce_polozky WHERE idp = 9340; DELETE FROM ka_kolekce WHERE idk = 9340"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

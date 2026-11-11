@@ -37,7 +37,17 @@ trait WorkTools
         // 3.27: the open tasks as list_tasks shows them (only additive keys: tasks)
         $tasks = $lists['tasks'] ?? [];
         unset($lists['tasks']);
-        $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests', 'deals' => 'deals'];
+        $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests', 'deals' => 'deals',
+            'applications' => 'applications_assigned', 'applications_new' => 'applications_unassigned']; // 3.34 B: additive keys
+        // 3.34 B: job applications only while the site lets Claude read them; by number, position and status – never the name
+        if (!$this->app->settings()->bool('applications_claude')) {
+            unset($lists['applications'], $lists['applications_new']);
+        }
+        foreach (['applications', 'applications_new'] as $applicationList) {
+            if (isset($lists[$applicationList])) {
+                $lists[$applicationList] = array_map(fn (array $r): array => ['id' => $r['id'], 'title' => $r['title'] !== '' ? $r['title'] : 'no position', 'status' => $r['status'], 'date' => $r['date'], 'url' => $r['url']], $lists[$applicationList]);
+            }
+        }
         $out = ['user' => Handover::person($this->app->db(), $userId)];
         // 3.31: the open deals the user is responsible for (additive key deals) – the stage and expected close, no customer
         $deals = $lists['deals'] ?? null;
@@ -66,7 +76,10 @@ trait WorkTools
     private function toolAssign(string $name, array $a): mixed
     {
         $kind = (string) ($a['target'] ?? '');
-        $section = Handover::KINDS[$kind][0] ?? throw new \InvalidArgumentException('target must be page, item or enquiry.');
+        if ($kind === 'application') {
+            return $this->assignApplication($a); // 3.34 B: the section Applications and the switch applications_claude
+        }
+        $section = Handover::KINDS[$kind][0] ?? throw new \InvalidArgumentException('target must be page, item or enquiry (or application).');
         if (!isset((new \Kaleta\Admin\Kernel($this->app))->modules()[$section])) {
             throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries'][$section] . ' can change who is responsible there.');
         }
@@ -79,5 +92,30 @@ trait WorkTools
 
         return ['target' => $kind, 'id' => $id, ($kind === 'enquiry' ? 'assignee' : 'owner') => Handover::person($this->app->db(), $userId), 'changed' => $result['changed'],
             'previous' => Handover::person($this->app->db(), $result['previous'])];
+    }
+
+    /**
+     * assign with target application (3.34 B, Core\Applications::assign): the connected user and the person must be able to
+     * open Applications, and the site must let Claude read applications; the person is notified by number and position.
+     */
+    private function assignApplication(array $a): array
+    {
+        $this->applicationsOpen();
+        if (!array_key_exists('user', $a)) {
+            throw new \InvalidArgumentException('user is required: a user id, the e-mail of an active account, "me" or "none".');
+        }
+        $db = $this->app->db();
+        $id = (int) ($a['id'] ?? 0);
+        $previous = $db->value('SELECT assignee_id FROM {applications} WHERE id = ?', [$id]);
+        if ($db->value('SELECT 1 FROM {applications} WHERE id = ?', [$id]) === null) {
+            throw new \InvalidArgumentException('The application does not exist. Use list_applications.');
+        }
+        $userId = Handover::resolve($db, $a['user'], $this->app->auth()->id());
+        if ($userId !== null && !Handover::mayOpen($db, $this->app->settings(), $userId, \Kaleta\Core\Applications::SECTION)) {
+            throw new \DomainException('This user cannot open Applications (or the account is blocked) – give the work to someone who can, or ask an administrator to give them the section.');
+        }
+        $changed = \Kaleta\Core\Language::runWith('en', fn (): bool => \Kaleta\Core\Applications::assign($this->app, $id, $userId, $this->app->auth()->id()), 'admin-');
+
+        return ['target' => 'application', 'id' => $id, 'assignee' => Handover::person($db, $userId), 'changed' => $changed, 'previous' => Handover::person($db, $previous)];
     }
 }

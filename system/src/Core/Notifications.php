@@ -72,6 +72,7 @@ final class Notifications
         }
         $s->set('data_cleanup', (string) time());
         Jobs::purgeApplications($app); // applications to job openings first: they usually have a shorter retention (2.11)
+        Applications::purge($app); // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
         \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
         Booking::purge($app); // bookings follow the same retention (3.0)
         Contacts::purge($app); // 3.28: customers with no activity for contacts_months are anonymised

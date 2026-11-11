@@ -79,7 +79,10 @@ trait TaskTools
         if (array_key_exists('target', $a)) {
             $raw = is_scalar($a['target']) ? trim((string) $a['target']) : '';
             $fields['target'] = in_array(strtolower($raw), ['', 'none', 'null'], true) ? null
-                : (Tasks::cleanTarget($raw) ?? throw new \InvalidArgumentException('target must be enquiry:<id>, page:<id>, item:<id>, contact:<id>, company:<id>, deal:<id>, fleet_site:<id>, fleet_customer:<id> or "none".'));
+                : (Tasks::cleanTarget($raw) ?? throw new \InvalidArgumentException('target must be enquiry:<id>, page:<id>, item:<id>, contact:<id>, company:<id>, deal:<id>, application:<id>, fleet_site:<id>, fleet_customer:<id> or "none".'));
+            if ($fields['target'] !== null && str_starts_with($fields['target'], 'application:')) {
+                $this->taskTargetOpen($fields['target']); // 3.34 B: the section Applications and the switch applications_claude
+            }
         }
         if (array_key_exists('assignee', $a)) {
             $fields['assignee_id'] = $this->taskPerson($a['assignee'], $self);
@@ -169,8 +172,12 @@ trait TaskTools
     private function taskTargetOpen(string $target): void
     {
         $section = \Kaleta\Core\Assignment::KINDS[explode(':', $target)[0]];
+        if ($section === \Kaleta\Core\Applications::SECTION && !$this->app->settings()->bool('applications_claude')) {
+            throw new \DomainException('Claude may not read job applications on this site (Applications settings).'); // 3.34 B
+        }
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
-            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'fleet' => 'the fleet console', 'pipeline' => 'Pipeline'][$section] . ' can see the tasks about it.');
+            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'fleet' => 'the fleet console', 'pipeline' => 'Pipeline',
+                'applications' => 'Applications'][$section] . ' can see the tasks about it.');
         }
     }
 }

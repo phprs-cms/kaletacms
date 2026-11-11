@@ -199,7 +199,7 @@ trait BuilderActions
      *
      * @param list<string> $modules identifiers of the modules the person may open (Admin\Kernel::modules)
      * @param string $language the language column of the target – '' for the default language, not its code (N323-2)
-     * @return array{kategorie: array<string, list<array{adresa: string, nazev: string}>>, kategorieNovinek: ?list<array{adresa: string, nazev: string}>, sluzby: ?list<array{id: int, nazev: string}>, osoby: ?list<array{id: int, nazev: string}>, pobocky: ?string}
+     * @return array{kategorie: array<string, list<array{adresa: string, nazev: string}>>, kategorieNovinek: ?list<array{adresa: string, nazev: string}>, sluzby: ?list<array{id: int, nazev: string}>, osoby: ?list<array{id: int, nazev: string}>, pobocky: ?string, pozice: list<string>}
      */
     public static function builderChoices(\Kaleta\Core\Db $db, array $modules, string $language): array
     {
@@ -233,6 +233,8 @@ trait BuilderActions
             'sluzby' => $bookings ? array_map(fn (array $s): array => ['id' => $s['id'], 'nazev' => $inactive(['nazev' => $s['name'], 'active' => $s['active']])], \Kaleta\Core\Booking::services($db, false)) : null,
             'osoby' => $bookings ? array_map(fn (array $m): array => ['id' => $m['id'], 'nazev' => $inactive(['nazev' => $m['name'], 'active' => $m['active']])], \Kaleta\Core\Booking::staff($db, false)) : null,
             'pobocky' => \Kaleta\Builder\Elements\StoreLocator::defaultCollection($db)['seo_link'] ?? null,
+            // 3.34 B: the titles of the open jobs (public on the site anyway) for a form's Position choice; [] = none
+            'pozice' => \Kaleta\Core\Applications::openPositions($db, $language),
         ];
     }
 

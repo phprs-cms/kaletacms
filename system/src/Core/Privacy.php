@@ -413,7 +413,19 @@ final class Privacy
             t('Deals with customers: %d. A deal names the customer, the enquiry it came from, a responsible person, a value and its stage. A customer with an open deal is not anonymised; the enquiries of a deal are kept while it is open and for the enquiries’ retention after it closes. Erasing a customer keeps their deals without the person.', $dealCount),
             t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
         ]];
-        if (Jobs::sources($db) !== []) {
+        if (Applications::isOn($s)) {
+            // 3.34: applications apart from enquiries (Core\Applications)
+            $applicationMonths = $s->int('applications_months');
+            $sections[] = ['heading' => t('Job applications'), 'lines' => [
+                t('Applications: %d. They arrive from the job pages and from forms meant for job applications, apart from enquiries – no customer record, no deal.', (int) $db->value('SELECT COUNT(*) FROM {applications}')),
+                $applicationMonths > 0 ? t('Retention: deleted %d months after the decision, or after %d months without any activity, including the CVs.', $applicationMonths, $applicationMonths)
+                    : t('Retention: not limited – set it with the applications.'),
+                t('With the applicant’s consent an application is kept for future openings for %d months.', max(1, $s->int('applications_pool_months'))),
+                t('Legal basis: steps before a contract (Art. 6(1)(b)) for the selection; consent (Art. 6(1)(a)) only for keeping the application for future openings.'),
+                t('Recipients: the people with access to Applications in the administration. The CVs are stored encrypted and are never part of the site export.'),
+                ...($s->bool('applications_claude') ? [t('The fields of an application (never the CV) pass to Claude through the connection of a user with access to Applications.')] : []),
+            ]];
+        } elseif (Jobs::sources($db) !== []) {
             $jobMonths = $s->int('job_applications_months');
             $sections[] = ['heading' => t('Job applications'), 'lines' => [
                 t('Applications to job openings arrive as enquiries from the job pages, with CVs as attachments.'),

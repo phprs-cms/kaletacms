@@ -1971,3 +1971,26 @@ table.flotila-okruhy th.cislo, table.flotila-okruhy thead th { white-space: norm
 table.vypis-stav tr.stav-chyba td:first-child { box-shadow: inset 3px 0 0 var(--chyba); }
 table.vypis-stav tr.stav-varovani td:first-child { box-shadow: inset 3px 0 0 var(--varovani); }
 table.vypis-stav tr:target { background: var(--akcent-svetly); }
+
+/* 3.34 B: a job application – two columns on a wide screen (the record and its conversation; status, responsibility,
+   tasks, history), one on a phone; the reason of a rejection shows only with Rejected chosen; the selected rows at once */
+.uchazec-detail { display: grid; gap: 0 24px; }
+.uchazec-hlavni, .uchazec-bok { min-width: 0; }
+@media (min-width: 1100px) { .uchazec-detail { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; } }
+.uchazec-detail h2 { overflow-wrap: anywhere; }
+.uchazec-stav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.uchazec-stav > label, .uchazec-duvod label { flex: 1 1 100%; font-weight: 600; }
+.uchazec-stav select { flex: 1 1 10em; min-width: 0; max-width: 100%; }
+.uchazec-duvod { display: none; }
+.uchazec-stav:has(select[name="status"] option[value="rejected"]:checked) .uchazec-duvod { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 6px; }
+.uchazec-soubory { margin: 0; padding: 0; list-style: none; }
+.uchazec-soubory li { margin: 0 0 4px; overflow-wrap: anywhere; }
+.uchazeci-hromadne fieldset { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0; padding: 12px 14px; border: 1px solid var(--linka); border-radius: var(--radius); }
+.uchazeci-hromadne legend { padding: 0 4px; font-weight: 600; }
+.uchazeci-hromadne-krok { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.uchazeci-hromadne-krok select { min-width: 0; max-width: 100%; }
+.uchazec-sablona { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.uchazec-sablona select { flex: 0 1 18em; min-width: 0; max-width: 100%; }
+.uchazec-sablony { margin: 0 0 16px; padding: 8px 14px; border: 1px solid var(--linka); border-radius: var(--radius); }
+.uchazec-sablona-polozka { margin: 4px 0; }
+.uchazec-sablona-polozka > summary { min-height: 32px; padding: 6px 0; cursor: pointer; }

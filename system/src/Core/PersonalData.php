@@ -24,6 +24,9 @@ namespace Kaleta\Core;
  *    e-mails and the testimonial requests; when a mailing service is connected, the address is also removed there
  *    through the usual queue. A published testimonial stays – it is content the person agreed to publish; the result
  *    names it so the administrator can remove it too.
+ *  - 3.34: job applications (Core\Applications) sent from the address or naming it in a field – with the replies, the
+ *    team's notes and tasks, the status history and the CVs by name and size (never the file); erasing deletes them with
+ *    their sealed files. Personal data requests are for administrators, who may open applications anyway (B-3).
  *  - The change log and the event keep only a masked address and the counts, never the address itself.
  *  - The undo journal of Claude sessions (Core\AgentJournal) does not journal these tables; entries an older release
  *    journaled are redacted on erasure (3.3.2), so undoing a session never brings erased data back.
@@ -49,9 +52,9 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>, applications: list<array<string, mixed>>}
      */
-    public static function find(Db $db, string $email): array
+    public static function find(Db $db, string $email, ?App $app = null): array
     {
         $like = '%' . addcslashes($email, '%_\\') . '%';
         $subscriber = $db->one('SELECT ido, email, stav, zdroj, kampan, vstup, datum, potvrzeno, sync FROM {odberatele} WHERE LOWER(email) = ?', [$email]);
@@ -85,6 +88,8 @@ final class PersonalData
             'bookings' => $bookings,
             'account' => $db->one('SELECT idu, jmeno, email FROM {uzivatele} WHERE LOWER(email) = ?', [$email]),
             'contacts' => self::contacts($db, $contactIds),
+            // 3.34: the job applications (their attachment list is sealed – opening it needs the settings of the App)
+            'applications' => $app !== null ? Applications::ofEmail($app, $email) : [],
         ];
     }
 
@@ -132,13 +137,14 @@ final class PersonalData
             'bookings' => count($found['bookings']),
             'account' => $found['account'] !== null ? 1 : 0,
             'contacts' => count($found['contacts'] ?? []), // 3.28
+            'applications' => count($found['applications'] ?? []), // 3.34
         ];
     }
 
     /** The file for the person: what was found, readable JSON, with the date and the site. */
     public static function export(App $app, string $email): string
     {
-        $found = self::find($app->db(), $email);
+        $found = self::find($app->db(), $email, $app);
         unset($found['account']['idu']);
         \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
 
@@ -155,7 +161,8 @@ final class PersonalData
     public static function erase(App $app, string $email): array
     {
         $db = $app->db();
-        $found = self::find($db, $email);
+        $found = self::find($db, $email, $app);
+        Applications::delete($app, array_map('intval', array_column($found['applications'], 'id'))); // 3.34: with their sealed CVs, notes and tasks
         foreach ($found['contacts'] as $contact) {
             Contacts::delete($app, (int) $contact['id']); // 3.28: with its log, comments and tasks – before the records it links go
         }

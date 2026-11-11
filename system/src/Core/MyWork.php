@@ -19,6 +19,8 @@ namespace Kaleta\Core;
  *    no section needed. The tile and the badge count the overdue ones and today's (counts()).
  *  - (3.31) the open deals they are responsible for (Core\Deals::forOwner), by expected close – with the pipeline section;
  *    the tile counts only those whose expected close has passed (an open deal is not work due every day).
+ *  - (3.34 B) with the section Applications: the undecided job applications they are responsible for, and the new ones
+ *    nobody is responsible for yet – by number and position (the name only on the screen, never in the MCP result).
  *
  * Every query starts from an indexed column (prirazeno + stav, owner_id, requests of one author) and is capped by LIMIT.
  */
@@ -50,7 +52,8 @@ final class MyWork
     public const int UNASSIGNED_DAYS = 30;
 
     /** The lists and the section (Module::IDENT) each needs. */
-    public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests', 'deals' => 'pipeline'];
+    public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests', 'deals' => 'pipeline',
+        'applications' => 'applications', 'applications_new' => 'applications']; // 3.34 B: the undecided job applications one is responsible for, and the new ones nobody is
 
     /**
      * The lists of one person. Only the lists of sections in $modules are present; each row has id, title, url (relative
@@ -170,6 +173,15 @@ final class MyWork
                     'url' => 'admin.php?module=collections&action=item&id=' . (int) $r['idk'] . '&item=' . (int) $r['idp']], $rows));
             case 'deals':
                 return Deals::forOwner($app, $userId, self::LIMIT); // 3.31: kind deal, stage, stage_label, expected_close, overdue, contact, url
+            case 'applications':
+            case 'applications_new':
+                // 3.34 B: the key ix_applications_assignee (assignee_id, status) serves both
+                $rows = $list === 'applications'
+                    ? $db->all("SELECT id, name, job_title, status, received_at FROM {applications} WHERE assignee_id = ? AND status NOT IN ('hired', 'rejected') ORDER BY id DESC" . $limit, [$userId])
+                    : $db->all("SELECT id, name, job_title, status, received_at FROM {applications} WHERE assignee_id IS NULL AND status = 'new' ORDER BY id DESC" . $limit);
+
+                return array_map(fn (array $r): array => ['kind' => 'application', 'id' => (int) $r['id'], 'title' => (string) $r['job_title'], 'name' => (string) $r['name'],
+                    'status' => (string) $r['status'], 'date' => (string) $r['received_at'], 'url' => Applications::adminPath((int) $r['id'])], $rows);
             case 'requests':
                 // the person's own requests where the last message is Claude's; a finished or declined one only for REQUEST_DAYS
                 $rows = $db->all("SELECT r.id, r.title, r.status, r.updated_at FROM {requests} r WHERE r.author_id = ? AND (r.status IN ('new', 'in_progress') OR r.done_at >= ?)"

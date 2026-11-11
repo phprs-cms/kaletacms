@@ -79,19 +79,26 @@ trait CommentTools
      * or an item not in the trash) – otherwise an error says why and nothing is read or written.
      *
      * @param array<string, mixed> $a
-     * @return array{0: 'enquiry'|'page'|'item'|'contact'|'company'|'deal', 1: int, 2: string}
+     * @return array{0: 'enquiry'|'page'|'item'|'contact'|'company'|'deal'|'application', 1: int, 2: string}
      */
     private function commentThread(array $a): array
     {
         $parsed = Comments::parseTarget(trim(is_scalar($a['target'] ?? null) ? (string) $a['target'] : ''))
             ?? throw new \InvalidArgumentException('target must be "enquiry:<id>", "page:<id>", "item:<id>", "contact:<id>", "company:<id>" or "deal:<id>" – e.g. "page:12" (ids from list_enquiries, list_pages, list_collection_items, list_contacts, list_deals).');
         ['type' => $type, 'id' => $id] = $parsed;
+        // 3.34: a job application (Core\Applications) – the section Applications and the switch applications_claude
+        if ($type === 'application' && !$this->app->settings()->bool('applications_claude')) {
+            throw new \DomainException('Claude may not read job applications on this site (Applications settings).');
+        }
         // 3.28: a customer or a company (Core\Contacts) – the section Customers
         // 3.31: a deal (Core\Deals) – the section Pipeline
-        [$section, , $table, $idColumn] = Handover::KINDS[$type] ?? ($type === 'deal' ? [\Kaleta\Core\Deals::SECTION, '', 'deals', 'id']
-            : [\Kaleta\Core\Contacts::SECTION, '', $type === 'contact' ? 'contacts' : 'companies', 'id']);
+        [$section, , $table, $idColumn] = Handover::KINDS[$type] ?? match ($type) {
+            'deal' => [\Kaleta\Core\Deals::SECTION, '', 'deals', 'id'],
+            'application' => [\Kaleta\Core\Applications::SECTION, '', 'applications', 'id'],
+            default => [\Kaleta\Core\Contacts::SECTION, '', $type === 'contact' ? 'contacts' : 'companies', 'id'],
+        };
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
-            throw new \DomainException('Only a user who may open ' . ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections', 'contact' => 'Customers', 'company' => 'Customers', 'deal' => 'Pipeline'][$type] . ' can read and write its comments.');
+            throw new \DomainException('Only a user who may open ' . ['enquiry' => 'Enquiries', 'page' => 'Pages', 'item' => 'Collections', 'contact' => 'Customers', 'company' => 'Customers', 'deal' => 'Pipeline', 'application' => 'Applications'][$type] . ' can read and write its comments.');
         }
         $where = match ($type) {
             'page', 'item' => ' AND smazano IS NULL',
@@ -101,7 +108,7 @@ trait CommentTools
         if ($this->app->db()->value('SELECT 1 FROM {' . $table . '} WHERE ' . $idColumn . ' = ?' . $where, [$id]) === null) {
             throw new \InvalidArgumentException(['page' => 'The page does not exist (or is in the trash). Use list_pages.', 'item' => 'The collection item does not exist (or is in the trash). Use list_collection_items.',
                 'enquiry' => 'The enquiry does not exist. Use list_enquiries.', 'contact' => 'The contact does not exist (or was anonymised). Use list_contacts.',
-                'company' => 'The company does not exist. Use list_contacts with kind companies.', 'deal' => 'The deal does not exist.'][$type]);
+                'company' => 'The company does not exist. Use list_contacts with kind companies.', 'deal' => 'The deal does not exist.', 'application' => 'The application does not exist.'][$type]);
         }
 
         return [$type, $id, $type . ':' . $id];
@@ -131,6 +138,7 @@ trait CommentTools
             'contact' => \Kaleta\Core\Contacts::adminPath($id), // 3.28
             'company' => \Kaleta\Core\Contacts::companyAdminPath($id),
             'deal' => \Kaleta\Core\Deals::adminPath($id), // 3.31
+            'application' => \Kaleta\Core\Applications::adminPath($id), // 3.34
             default => 'admin.php?module=collections&action=item&id=' . (int) $this->app->db()->value('SELECT idk FROM {kolekce_polozky} WHERE idp = ?', [$id]) . '&item=' . $id,
         };
 

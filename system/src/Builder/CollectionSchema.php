@@ -23,7 +23,8 @@ final class CollectionSchema
         'FAQPage' => ['Question and answer', ['answer' => 'Answer']],
         // 2.11: validThrough comes from the item's "true until", the hiring organization from Business details (Core\Jobs)
         'JobPosting' => ['Job opening', ['description' => 'Description', 'employmentType' => 'Employment type', 'jobLocation' => 'Location (town)',
-            'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)']],
+            'baseSalary' => 'Salary from', 'baseSalaryMax' => 'Salary to', 'salaryUnit' => 'Salary unit (per month / per hour)',
+            'jobLocationType' => 'Workplace (on site / hybrid / remote)']], // 3.34 B: remote work
         // a branch or store: the geo comes from a location field, the hours from a text written like the company hours
         'LocalBusiness' => ['Local business (branch, store)', ['address' => 'Address', 'telephone' => 'Phone', 'email' => 'E-mail', 'geo' => 'Location (latitude, longitude)', 'openingHours' => 'Opening hours']],
     ];
@@ -45,6 +46,9 @@ final class CollectionSchema
         'MONTH' => '/month|mesic|mesac|monat|miesi|mois|\bmes\b|mensual|mese\b|mensil/',
         'YEAR' => '/year|\brok\b|rocn|jahr|rocz|\ban\b|annee|annuel|\bano\b|anual|anno|annu|\bp\.\s?a\./',
     ];
+
+    /** Words of a workplace field that mean the job is done remotely (3.34 B) – several languages, no diacritics. */
+    private const string REMOTE = '/remote|telecommut|home ?office|from home|na dalku|z domova|vzdalen|fern|mobiles arbeiten|zdaln|remoto|teletrabajo|a distance|teletravail|smart working/';
 
     /**
      * The setting from a form or from Claude, checked against the collection's fields; null = no structured data.
@@ -101,7 +105,8 @@ final class CollectionSchema
         };
         $name = (string) $item['nazev'];
         if ($schema['typ'] === 'JobPosting') {
-            return self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer);
+            // 3.34 B: directApply when the item page carries a form (the template of the collection), the item number as identifier
+            return self::jobPosting($schema, $item, $value, $url, $description, $image, $issuer, str_contains((string) ($collection['stavba'] ?? ''), '"typ":"formular"'));
         }
         if ($schema['typ'] === 'FAQPage') {
             $answer = $value('answer');
@@ -154,7 +159,10 @@ final class CollectionSchema
      * A job posting (2.11) as Google reads it: title, datePosted, validThrough (the item's "true until" – without it search
      * engines cannot tell an open job from an expired one, so the site audit asks for it), the hiring organization from
      * Business details, the place from the location field and the company country, the salary as a MonetaryAmount with the
-     * collection currency. Whatever is missing is left out – nothing is guessed.
+     * collection currency. Whatever is missing is left out – nothing is guessed. 3.34 B: identifier (the organisation's
+     * name and the item number), directApply when the item page holds an application form, remote work from the workplace
+     * field (jobLocationType TELECOMMUTE and the company's country as the applicants' location), and the full postal
+     * address of Business details when the job's town is the company's.
      *
      * @param array{typ: string, pole: array<string, string>, mena: string} $schema
      * @param array<string, mixed> $item the item row
@@ -162,11 +170,18 @@ final class CollectionSchema
      * @param array<string, mixed> $issuer the company node (Front\Company::schema)
      * @return array<string, mixed>
      */
-    private static function jobPosting(array $schema, array $item, callable $value, string $url, string $description, string $image, array $issuer): array
+    private static function jobPosting(array $schema, array $item, callable $value, string $url, string $description, string $image, array $issuer, bool $directApply = false): array
     {
         $organization = array_filter(['@type' => 'Organization', 'name' => (string) ($issuer['legalName'] ?? $issuer['name'] ?? ''), 'sameAs' => (string) ($issuer['url'] ?? ''), 'logo' => (string) ($issuer['logo'] ?? '')]);
         $locality = $value('jobLocation');
-        $country = (string) ($issuer['address']['addressCountry'] ?? '');
+        $address = is_array($issuer['address'] ?? null) ? $issuer['address'] : [];
+        $country = (string) ($address['addressCountry'] ?? '');
+        $remote = preg_match(self::REMOTE, mb_strtolower(remove_diacritics($value('jobLocationType')))) === 1;
+        // the company's own town: its whole address; any other town: the town and the country as before
+        $sameTown = $locality !== '' && mb_strtolower(trim($locality)) === mb_strtolower(trim((string) ($address['addressLocality'] ?? '')));
+        $postal = array_filter(['@type' => 'PostalAddress', 'streetAddress' => $sameTown ? (string) ($address['streetAddress'] ?? '') : '', 'addressLocality' => $locality,
+            'postalCode' => $sameTown ? (string) ($address['postalCode'] ?? '') : '', 'addressRegion' => $sameTown ? (string) ($address['addressRegion'] ?? '') : '', 'addressCountry' => $country]);
+        $id = (int) ($item['idp'] ?? 0);
         $min = self::number($value('baseSalary'));
         $max = self::number($value('baseSalaryMax'));
         $salary = null;
@@ -186,7 +201,11 @@ final class CollectionSchema
             'validThrough' => self::date((string) ($item['valid_until'] ?? '')),
             'employmentType' => self::employmentType($value('employmentType')),
             'hiringOrganization' => isset($organization['name']) ? $organization : null,
-            'jobLocation' => $locality !== '' ? ['@type' => 'Place', 'address' => array_filter(['@type' => 'PostalAddress', 'addressLocality' => $locality, 'addressCountry' => $country])] : null,
+            'identifier' => isset($organization['name']) && $id > 0 ? ['@type' => 'PropertyValue', 'name' => $organization['name'], 'value' => (string) $id] : null,
+            'directApply' => $directApply ? true : null,
+            'jobLocation' => $locality !== '' ? ['@type' => 'Place', 'address' => $postal] : null,
+            'jobLocationType' => $remote ? 'TELECOMMUTE' : null,
+            'applicantLocationRequirements' => $remote && $country !== '' ? ['@type' => 'Country', 'name' => $country] : null,
             'baseSalary' => $salary,
         ], fn (mixed $v): bool => $v !== '' && $v !== null);
     }

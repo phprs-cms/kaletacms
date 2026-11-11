@@ -113,7 +113,7 @@ check('3.24 (B): the assignment e-mail – English by the site, Czech and German
 $a324App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor(); // never reaches the database: refused before it
 check('3.24 (B): no assignment e-mail to oneself, to nobody, or for an unknown kind', [
     Kaleta\Core\Assignment::notify($a324App, 'enquiry', 1, 5, 5), Kaleta\Core\Assignment::notify($a324App, 'page', 1, 0, 5), Kaleta\Core\Assignment::notify($a324App, 'news', 1, 6, 5),
-    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts', 'fleet', 'fleet', 'pipeline']]); // 3.28: customers and companies; 3.30: the console's sites and customers (tasks only); 3.31: deals
+    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal', 'application'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts', 'fleet', 'fleet', 'pipeline', 'applications']]); // 3.28: customers and companies; 3.30: the console's sites and customers (tasks only); 3.31: deals; 3.34: job applications
 // the review reminder: one e-mail per person and day at most, an item once per review date; people without an owner never
 $r324 = [['kind' => 'page', 'id' => 1, 'review_by' => '2026-11-01', 'owner_id' => 3], ['kind' => 'collection_item', 'id' => 1, 'review_by' => '2026-11-02', 'owner_id' => 3],
     ['kind' => 'page', 'id' => 2, 'review_by' => '2026-11-02', 'owner_id' => 4], ['kind' => 'page', 'id' => 5, 'review_by' => '2026-11-02', 'owner_id' => null]];
@@ -183,7 +183,7 @@ check('3.24 T1: every admin section is classified once – changing the site or 
     array_values(array_diff(Kaleta\Admin\Kernel::SITE_NEUTRAL_TABS, array_keys(Kaleta\Admin\Modules\Settings::TABS))),
 ], [[], [], [], true, [], [], ['newsletters'], []]);
 check('3.24 T1: the site-neutral admin sections – the team\'s work that never reaches the site',
-    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts', 'pipeline']); // 3.28: Customers; 3.31: Pipeline
+    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts', 'pipeline', 'applications']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications
 $t324Post = fn (string $module, string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => $module, 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
 check('3.24 T1: Kernel::clearsPageCache – enquiries, notes, requests, the notebook, roles and drafts keep the cache; content, the look, Settings tabs visitors see, a new signing key, updates, the author box and anything unknown clear it', [
     $t324Post('enquiries', 'note'), $t324Post('enquiries', 'reply'), $t324Post('enquiries', 'triage'), $t324Post('enquiries', 'bulk'), $t324Post('requests', 'save'),
@@ -350,7 +350,7 @@ check('3.25 (C): the menu groups of an administrator with every feature on – c
 ], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
 check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
     'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
-    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'bookings'], // 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers
+    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'applications', 'bookings'], // 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers; 3.34: Applications
     'Appearance' => ['appearance', 'parts', 'menu', 'components', 'popups'],
     'Claude' => ['requests', 'claude_settings'],
     'Site care' => ['audit', 'stats', 'redirects', 'broken_links', 'changelog', 'status'],
@@ -364,7 +364,7 @@ check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged)
     Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'collections', 'media', 'business', 'enquiries', 'parts']))),
     Kaleta\Admin\MenuGroups::key('Site care'),
 ], [[['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], 'newsletters', 'newsletter', 'newsletter', 'Newsletter', [['subscribers'], ['stats']],
-    32, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline
+    33, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications
 $c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
 check('3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
@@ -422,7 +422,7 @@ check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, strin
     Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
     Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
     ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
-    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry
+    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due
 Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
 check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
@@ -507,7 +507,7 @@ check('3.26 (A): targets of a thread – an enquiry, a page or an item with a po
     $a326::page(12), $a326::item(3), $a326::parseTarget('page:12'), $a326::parseTarget('item:7'), $a326::parseTarget('enquiry:4'), $a326::parseTarget('page:0'), $a326::parseTarget('item:3x'),
     $a326::parseTarget('stranka:3'), $a326::parseTarget('page:12345678901'), $a326::KINDS,
 ], ['page:12', 'item:3', ['type' => 'page', 'id' => 12], ['type' => 'item', 'id' => 7], ['type' => 'enquiry', 'id' => 4], null, null, null, null,
-    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment', 'deal' => 'comment']]); // 3.28: customers and companies; 3.31: deals
+    ['enquiry' => 'note', 'page' => 'comment', 'item' => 'comment', 'contact' => 'comment', 'company' => 'comment', 'deal' => 'comment', 'application' => 'note']]); // 3.28: customers and companies; 3.31: deals; 3.34: job applications
 check('3.26 (A): "@" and a sign-in name is a mention – once each, not inside a word or an e-mail address, not a single letter', [
     $a326::mentionTokens('Hi @jana and @Petr.Novak, mail x@y.cz or @jana again, @a, a@b, (@petr)'), $a326::mentionTokens('no mention'), $a326::mentionTokens("line\n@eva-k: ok"),
 ], [['jana', 'Petr.Novak', 'petr'], [], ['eva-k']]);

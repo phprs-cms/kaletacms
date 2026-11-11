@@ -21,9 +21,10 @@ return [
         ['we_offer', 'We offer', 'html'],
         ['contact', 'Contact', 'polozka', ['preset' => 'people']],
         ['start_date', 'Start date', 'datum'],
+        ['workplace', 'Workplace (on site, hybrid, remote)', 'text'], // 3.34 B: "remote" prints jobLocationType TELECOMMUTE
     ],
     'schema' => ['typ' => 'JobPosting', 'pole' => ['description' => 'description', 'employmentType' => 'employment_type', 'jobLocation' => 'location',
-        'baseSalary' => 'salary_min', 'baseSalaryMax' => 'salary_max', 'salaryUnit' => 'salary_unit']],
+        'baseSalary' => 'salary_min', 'baseSalaryMax' => 'salary_max', 'salaryUnit' => 'salary_unit', 'jobLocationType' => 'workplace']],
     'claude' => 'One item per job. ALWAYS set valid_until to the closing date (the application deadline): after it the job hides itself, its address leads to the jobs page, '
         . 'and search engines get validThrough – without it the site audit lists the job (kind job). A Collection list of it on the jobs page (newest first); the item page '
         . 'carries the job text and a "Job application" form with a CV, whose submissions are in Enquiries. employment_type as text (full-time, part-time, contract, temporary, internship – recognised for structured data); '

@@ -180,7 +180,7 @@ trait EnquiryAndPopupTools
     private function toolFindPersonalData(string $name, array $a): mixed
     {
         $email = $this->personalDataEmail($a);
-        $found = \Kaleta\Core\PersonalData::find($this->app->db(), $email);
+        $found = \Kaleta\Core\PersonalData::find($this->app->db(), $email, $this->app);
 
         return ['email' => $email, 'found' => \Kaleta\Core\PersonalData::counts($found), 'enquiry_ids' => array_map('intval', array_column($found['enquiries'], 'idp')),
             'next' => 'Tell the user what was found. The file for the person: Enquiries → Personal data request in the administration. Erase only when the user asks: erase_personal_data.'];

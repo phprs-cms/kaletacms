@@ -227,8 +227,8 @@ final class EnquiryReply
         return $record !== null ? \Kaleta\Builder\EmailSignature::forItem($app, $record['collection'], $record['item']) : null;
     }
 
-    /** The HTML part when a signature goes with the reply: the text as written (line breaks kept), the signature table below. */
-    private static function html(string $text, string $signatureHtml, string $quote = ''): string
+    /** The HTML part when a signature goes with the reply: the text as written (line breaks kept), the signature table below (3.34: a reply to a job application too). */
+    public static function html(string $text, string $signatureHtml, string $quote = ''): string
     {
         $dir = Language::isRtl(Language::code()) ? ' dir="rtl"' : '';
         // the quote: its first line (who wrote it and when) as it is, the quoted lines without "> " in a blockquote

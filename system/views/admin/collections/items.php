@@ -22,6 +22,7 @@
  * @var int $mineCount items the signed-in person is responsible for, outside the trash
  * @var bool $staffSignatures a people collection with at least one user linked to a record (3.14)
  * @var array<int, array{0: int, 1: int}>|null $downloads  document library (2.11): idp => [downloads in 30 days, total]; null = not a library
+ * @var array<int, array{0: int, 1: int}>|null $applicationCounts  a jobs collection (3.34 B): idp => [new applications, all]; null = not shown
  * @var array{id: int, title: string, path: string, url: string, visible: bool, in_menu: ?bool}|null $listingPage the page that lists the collection (3.20, C5); null = none, or no right to pages
  */
 ?>
@@ -124,7 +125,7 @@
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><?php if ($applicationCounts !== null): ?><th scope="col"><?= e(t('Applications (new / all)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr<?= $p['zobrazit'] ? '' : ' class="nevydany"' ?>>
@@ -133,6 +134,9 @@
 	<td><?= (int) $p['poradi'] ?></td>
 <?php if ($downloads !== null): ?>
 	<td class="cislo stazeni"><?= (int) ($downloads[(int) $p['idp']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['idp']][1] ?? 0) ?></td>
+<?php endif ?>
+<?php if ($applicationCounts !== null): $jobCounts = $applicationCounts[(int) $p['idp']] ?? [0, 0]; ?>
+	<td class="cislo" data-job-applications="<?= (int) $p['idp'] ?>"><?= $jobCounts[1] > 0 ? '<a href="' . e($app->url('admin.php?module=applications&status=&job=' . (int) $p['idp'])) . '">' . format_count($jobCounts[0]) . ' / ' . format_count($jobCounts[1]) . '</a>' : '0' ?></td>
 <?php endif ?>
 	<td><span class="stitek stitek-<?= $p['zobrazit'] ? 'vydano' : 'koncept' ?>"><?= e(t($p['zobrazit'] ? 'zveřejněná' : 'skrytá')) ?></span></td>
 	<td class="akce"><?php if ($k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>

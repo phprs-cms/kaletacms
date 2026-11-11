@@ -84,6 +84,7 @@ final class TimeZoneConversion
         'contact_activities' => ['happened_at', 'created_at'],
         'deals' => ['closed_at', 'created_at', 'updated_at'], // 3.31
         'deal_stage_history' => ['at'],
+        'applications' => ['received_at', 'status_at', 'decided_at', 'pool_consent_at', 'last_activity_at'], // 3.34
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],
         'kolekce_sablony' => ['zmeneno'],
@@ -153,6 +154,7 @@ final class TimeZoneConversion
         'kolekce_polozky' => ['valid_until', 'review_by'],
         'popupy' => ['valid_until', 'review_by'],
         'deals' => ['expected_close'], // 3.31: the day a deal is expected to close
+        'applications' => ['pool_until'], // 3.34: the last day the consent for future openings keeps an application
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
         'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
         'fleet_expiry_reminders' => ['expires'], // 3.30: the day a certificate or domain ends, as the site reported it

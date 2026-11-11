@@ -737,6 +737,20 @@
             "openWorldHint": false
         }
     },
+    "get_application": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "title": "Get a job application",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_blueprint": {
         "parameters": [],
         "required": [],
@@ -1020,6 +1034,24 @@
         "required": [],
         "annotations": {
             "title": "List Claude sessions",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_applications": {
+        "parameters": {
+            "assignee": "string",
+            "job": "string",
+            "limit": "integer",
+            "page": "integer",
+            "pool": "boolean",
+            "search": "string",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List job applications",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
@@ -1723,6 +1755,27 @@
             "destructiveHint": true,
             "idempotentHint": true,
             "openWorldHint": false
+        }
+    },
+    "reply_to_application": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer",
+            "reject_reason": "string",
+            "set_status": "string",
+            "subject": "string",
+            "template": "string",
+            "text": "string"
+        },
+        "required": [
+            "id",
+            "confirm"
+        ],
+        "annotations": {
+            "title": "Send a reply to a job applicant",
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
         }
     },
     "reply_to_enquiry": {
@@ -2440,6 +2493,25 @@
             "title": "Undo a Claude session",
             "readOnlyHint": false,
             "destructiveHint": true,
+            "openWorldHint": false
+        }
+    },
+    "update_application": {
+        "parameters": {
+            "add_note": "string",
+            "assignee": "string",
+            "id": "integer",
+            "reject_reason": "string",
+            "status": "string"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "title": "Update a job application",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false
         }
     },

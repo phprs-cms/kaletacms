@@ -151,7 +151,9 @@ final class ReportSummary
         $enquiries = is_array($data['enquiries'] ?? null) ? $data['enquiries'] : null;
         if ($enquiries !== null) {
             $before = $enquiries['previous_total'] ?? $previous['enquiries']['total'] ?? null;
-            $tiles[] = ['label' => t('Enquiries'), 'value' => format_count((int) ($enquiries['total'] ?? 0))] + self::change((int) ($enquiries['total'] ?? 0), is_numeric($before) ? (int) $before : null);
+            // 3.34 B: job applications left the enquiries – a drop across that is no drop (counting_changed, as visits since 3.29.1)
+            $changed = is_string($enquiries['counting_changed'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $enquiries['counting_changed']) === 1 ? $enquiries['counting_changed'] : null;
+            $tiles[] = ['label' => t('Enquiries'), 'value' => format_count((int) ($enquiries['total'] ?? 0))] + self::visitsChange((int) ($enquiries['total'] ?? 0), is_numeric($before) ? (int) $before : null, $changed);
         }
         $uptime = self::uptimePercent($data);
         if ($uptime !== null) {

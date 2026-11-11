@@ -20,10 +20,11 @@ final class Assignment
     /**
      * kind => the admin section (Module::IDENT) a person needs to be chosen for it; 3.28: a customer and a company need Customers
      * (Core\Contacts::SECTION); 3.30: a site and a customer of a fleet console need the console (only tasks are about them –
-     * Fleet\ConsoleTasks; nothing on the console has a responsible person); 3.31: a deal the pipeline (Core\Deals::SECTION)
+     * Fleet\ConsoleTasks; nothing on the console has a responsible person); 3.31: a deal the pipeline (Core\Deals::SECTION);
+     * 3.34: a job application the section Applications (Core\Applications::SECTION – given only explicitly)
      */
     public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts',
-        'fleet_site' => 'fleet', 'fleet_customer' => 'fleet', 'deal' => 'pipeline'];
+        'fleet_site' => 'fleet', 'fleet_customer' => 'fleet', 'deal' => 'pipeline', 'application' => 'applications'];
 
     /**
      * Sections only administrators open (Module::ADMIN_ONLY – the fleet console, N330-4): a stale or forged section right
@@ -185,6 +186,9 @@ final class Assignment
                 // 3.31: a deal is named by its number only – its title may name a customer
                 'deal' => [t('You are responsible for the deal #%s', (string) $target['id']),
                     t('%s made you the responsible person for the deal #%s.', $by, (string) $target['id']) . ' ' . t('It is listed in My work and under Mine in the pipeline. It does not change who may open it.')],
+                // 3.34: an application is named by its number and position only – never the applicant
+                'application' => [t('You are responsible for the application #%s', (string) $target['id']),
+                    t('%s made you the responsible person for the application #%s%s.', $by, (string) $target['id'], $target['title'] !== '' ? ' (' . $target['title'] . ')' : '') . ' ' . t('It is listed in My work and under Mine in Applications. It does not change who may open it.')],
                 'company' => [t('You are responsible for the company “%s”', $target['title']),
                     t('%s made you the responsible person for the company “%s”.', $by, $target['title']) . ' ' . t('It is listed under Mine in Customers. It does not change who may open it.')],
                 default => [t('You are responsible for “%s” in %s', $target['title'], (string) ($target['collection'] ?? '')),
@@ -213,6 +217,11 @@ final class Assignment
             $exists = $db->value('SELECT 1 FROM {deals} WHERE id = ?', [$id]);
 
             return $exists === null ? null : ['id' => $id, 'title' => '#' . $id, 'path' => Deals::adminPath($id)];
+        }
+        if ($kind === 'application') {
+            $position = $db->one('SELECT job_title FROM {applications} WHERE id = ?', [$id]); // 3.34: the position, never the applicant
+
+            return $position === null ? null : ['id' => $id, 'title' => (string) $position['job_title'], 'path' => Applications::adminPath($id)];
         }
         if ($kind === 'company') {
             $name = $db->value('SELECT name FROM {companies} WHERE id = ?', [$id]);

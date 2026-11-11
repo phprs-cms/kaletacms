@@ -26,7 +26,8 @@ final class Inbox
 {
     /** What a notification can be about. */
     public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due',
-        'fleet_expiry']; // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
+        'fleet_expiry', // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
+        'deletion_due']; // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -43,9 +44,9 @@ final class Inbox
     /** Notifications per screen. */
     public const int PAGE = 50;
 
-    /** Prefixes of a target string ("enquiry:12", "page:5", "item:9", 3.28 "contact:3", "company:2", 3.30 "fleet_site:4", "fleet_customer:2", 3.31 "deal:7") => the kind of Core\Assignment that opens it. */
+    /** Prefixes of a target string ("enquiry:12", "page:5", "item:9", 3.28 "contact:3", "company:2", 3.30 "fleet_site:4", "fleet_customer:2", 3.31 "deal:7", 3.34 "application:5") => the kind of Core\Assignment that opens it. */
     public const array TARGETS = ['enquiry' => 'enquiry', 'page' => 'page', 'item' => 'item', 'contact' => 'contact', 'company' => 'company',
-        'fleet_site' => 'fleet_site', 'fleet_customer' => 'fleet_customer', 'deal' => 'deal'];
+        'fleet_site' => 'fleet_site', 'fleet_customer' => 'fleet_customer', 'deal' => 'deal', 'application' => 'application'];
 
     /**
      * Notifies a user: records the notification and, when they chose "instant", sends one e-mail now (queued, sent after
@@ -292,6 +293,9 @@ final class Inbox
         if (isset($ids['deal'])) {
             $out += Deals::places($db, $ids['deal']); // 3.31: a deal, named by its number
         }
+        if (isset($ids['application'])) {
+            $out += Applications::places($db, $ids['application']); // 3.34: a job application, by its number and position only
+        }
         if (isset($ids['fleet_site']) || isset($ids['fleet_customer'])) {
             $out += \Kaleta\Fleet\ConsoleTasks::places($db, $ids['fleet_site'] ?? [], $ids['fleet_customer'] ?? []); // 3.30: a site, a customer of a fleet console
         }
@@ -311,13 +315,13 @@ final class Inbox
 
     /**
      * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27), "contact:4", "company:2" (3.28),
-     * "fleet_site:4", "fleet_customer:2" (3.30: console tasks, calendar reminders), "deal:7" (3.31); null for anything else. Pure.
+     * "fleet_site:4", "fleet_customer:2" (3.30: console tasks, calendar reminders), "deal:7" (3.31), "application:5" (3.34); null for anything else. Pure.
      *
      * @return array{0: string, 1: int}|null
      */
     public static function parse(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item|task|contact|company|fleet_site|fleet_customer|deal):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|task|contact|company|fleet_site|fleet_customer|deal|application):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
     }
 
     /**
@@ -334,6 +338,7 @@ final class Inbox
             'review_due' => t('The review date has come'),
             'task_due' => t('A task is due'),
             'fleet_expiry' => t('A date of a site comes up'),
+            'deletion_due' => t('An application will be deleted soon'), // 3.34
             default => $kind,
         };
     }
@@ -356,6 +361,8 @@ final class Inbox
             'fleet_site' => t('Site “%s” in the fleet console', (string) $place['title']), // 3.30: console tasks, calendar reminders
             'fleet_customer' => t('Console customer “%s”', (string) $place['title']),
             'deal' => t('Deal #%s', (string) $place['id']), // 3.31: a number only – a deal's title may name a customer
+            // 3.34: the number and the position only – never the applicant
+            'application' => t('Application #%s · %s', (string) $place['id'], (string) $place['title'] !== '' ? (string) $place['title'] : t('no position')),
             default => t('(no longer available)'),
         };
     }
@@ -380,6 +387,7 @@ final class Inbox
                 'comment' => t('%s commented on %s', $actor, $where),
                 'assigned' => t('%s made you responsible for %s', $actor, $where),
                 'task_due' => t('Task due: %s', $note['excerpt'] !== '' ? $note['excerpt'] : $where),
+                'deletion_due' => t('Will be deleted on %s: %s', $note['excerpt'], $where), // 3.34: the excerpt is the day
                 default => t('Review by today: “%s”', (string) ($place['title'] ?? $where)),
             };
             $text = self::what($note['kind'], $note['actor_name']) . ': ' . $where . "\n";

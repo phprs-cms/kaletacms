@@ -28,6 +28,7 @@ final class Vault
         'connectors' => ['connectors', 'service', ['secret', 'access_token', 'refresh_token']],
         'whistleblowing_cases' => ['whistleblowing', 'id', ['text', 'contact', 'attachments']],
         'whistleblowing_messages' => ['whistleblowing', 'id', ['text']],
+        'applications' => ['applications', 'id', ['attachments']], // 3.34: the list of a job application's CVs with each file's own key (Core\Applications)
     ];
 
     /** App reads config.php: 'vault_key' => '…' (anything else than 64 hex characters is ignored). */

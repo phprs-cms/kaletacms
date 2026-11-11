@@ -302,7 +302,7 @@ final class Users extends Module
     {
         $modules = [];
         foreach (Kernel::MODULES as $class) {
-            if ($class::ADMIN_ONLY || $class::FOR_ALL_USERS || $class::SHARES_PERMISSION_OF !== '') {
+            if ($class::ADMIN_ONLY || $class::FOR_ALL_USERS || $class::SHARES_PERMISSION_OF !== '' || $class::GRANTED_EXPLICITLY) { // 3.34: Applications only when ticked
                 continue;
             }
             if ($role >= Auth::EDITOR || $class::IDENT === 'news') {

@@ -36,6 +36,11 @@ final class Settings
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete
         'triage_assistant' => '0',      // new enquiries are sorted by the AI assistant (2.12, Core\Triage) – off: the text goes to the AI provider
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries
+        'applications_months' => '6',   // 3.34 (Core\Applications): a decided application is deleted this many months after the decision, an undecided one after this long without activity; 0 = keep. Migration 0120 starts it at job_applications_months
+        'applications_pool_months' => '12', // 3.34: how long the consent for future openings keeps an application (pool_until)
+        'applications_notify_full' => '0', // 3.34: the e-mail about a new application carries the fields (otherwise the position and a link only)
+        'applications_claude' => '1',   // 3.34: Claude may read applications through the connection of a user with the section (never the CVs)
+        'application_templates' => '',  // 3.34 B: the reply templates rewritten per language – JSON {code: {received|interview|rejection: {subject, text}}}; '' = the built-in ones (Core\Applications::TEMPLATES)
         'contacts_months' => '24',      // 3.28 (Core\Contacts): a contact with no activity for this many months is anonymised by the clean-up; 0 = keep. Migration 0114 starts it at enquiries_months
         'whistleblowing_enabled' => '0',  // the whistleblowing channel at /_report (2.14, Core\Whistleblowing)
         'whistleblowing_readers' => '',   // ids of the users who may open reports (comma-separated); nobody else sees their content

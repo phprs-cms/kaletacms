@@ -31,6 +31,9 @@ namespace Kaleta\Core;
  *
  * 3.31: "pipeline" – new, won and lost deals and how many reached each stage (Core\Deals::monthCounts); counts only, never
  * values (D-W7), and none on a site without deals.
+ * 3.34: "recruitment" – job applications received (the top five positions by count), invited to an interview, hired,
+ * rejected and still waiting for the first reply (Core\Applications::monthCounts); counts and position titles only, with
+ * the feature on and when something happened.
  */
 final class MonthlyReport
 {
@@ -110,6 +113,12 @@ final class MonthlyReport
                 // 3.26.1: the month before, for the change on the headline tile
                 'previous_total' => $count('SELECT COUNT(*) FROM {poptavky} WHERE datum >= ? AND datum < ?', [$monthStart->modify('first day of last month')->format('Y-m-d H:i:s'), $from]),
             ];
+            // 3.34 B: job applications left the enquiries in this month or the one it is compared with – the comparison says
+            // "counting changed" instead of a drop (the rule of 3.29.1 for visits; an additive key of the stored data)
+            $changed = Applications::isOn($s) ? Applications::countingChanged($db, $monthStart->modify('first day of last month')->format('Y-m-d H:i:s'), $to) : null;
+            if ($changed !== null) {
+                $enquiries['counting_changed'] = $changed;
+            }
         }
         $signups = Extensions::isEnabled($s, 'newsletter') ? $count('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1 AND datum >= ? AND datum < ?', [$from, $to]) : null;
 
@@ -198,6 +207,8 @@ final class MonthlyReport
                     $db->all("SELECT subject, finished_at, sent_count FROM {newsletters} WHERE status = 'sent' AND finished_at >= ? AND finished_at < ? ORDER BY finished_at LIMIT 20", [$from, $to]))]) : null,
             // 3.31: the pipeline – counts only, never values (D-W7: a report is never money); null on a site without deals
             'pipeline' => $section(fn (): ?array => self::pipeline($app, $from, $to)),
+            // 3.34: recruitment – counts and position titles only; null with the feature off or nothing in the month
+            'recruitment' => Applications::isOn($s) ? $section(fn (): ?array => Applications::monthCounts($db, $from, $to)) : null,
             'open' => $section(fn (): array => self::open($app, $enquiries)),
             // 3.26.1: the month's uptime from the fleet console (Fleet\Uptime, drawn by Core\UptimeStrip) – null without a console
             'uptime' => $section(fn (): ?array => \Kaleta\Fleet\Uptime::month($s, $monthStart->format('Y-m'))),
@@ -701,6 +712,16 @@ final class MonthlyReport
             if ($pipeline !== null) {
                 $pairs = [[t('New deals'), $n($pipeline['new'] ?? 0)], [t('Deals won'), $n($pipeline['won'] ?? 0)], [t('Deals lost'), $n($pipeline['lost'] ?? 0)]];
                 $section(ReportVisual::title(t('Pipeline'), $p) . ReportVisual::pairs($pairs, $p), mb_strtoupper(t('Pipeline')) . "\n" . $plainPairs($pairs));
+            }
+
+            // 3.34: recruitment – counts and position titles only
+            $recruitment = is_array($data['recruitment'] ?? null) ? $data['recruitment'] : null;
+            if ($recruitment !== null) {
+                $pairs = [[t('Applications received'), $n($recruitment['received'] ?? 0)], [t('Invited to an interview'), $n($recruitment['interview'] ?? 0)],
+                    [t('Hired'), $n($recruitment['hired'] ?? 0)], [t('Rejected'), $n($recruitment['rejected'] ?? 0)], [t('Waiting for the first reply'), $n($recruitment['waiting'] ?? 0)]];
+                $positions = array_map(static fn (array $x): array => [(string) ($x['title'] ?? ''), $n($x['n'] ?? 0)], array_values(array_filter((array) ($recruitment['positions'] ?? []), 'is_array')));
+                $section(ReportVisual::title(t('Recruitment'), $p) . ReportVisual::pairs($pairs, $p) . ($positions !== [] ? ReportVisual::subtitle(t('Applications by position'), $p) . ReportVisual::pairs($positions, $p) : ''),
+                    mb_strtoupper(t('Recruitment')) . "\n" . $plainPairs($pairs));
             }
 
             // what is new on the site: pages and news published this month

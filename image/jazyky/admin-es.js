@@ -3092,5 +3092,8 @@ window.KALETA_PREKLAD = {
 	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "Has cogido «%s» en %s. Elige la etapa con las flechas; Espacio lo suelta, Esc cancela.",
 	"Over %s.": "Sobre %s.",
 	"Cancelled – “%s” stays where it was.": "Cancelado: «%s» se queda donde estaba.",
-	"Table": "Tabla"
+	"Table": "Tabla",
+	"job application": "candidatura",
+	"Position": "Puesto",
+	"Fill with the open jobs": "Rellenar con los empleos abiertos"
 };
