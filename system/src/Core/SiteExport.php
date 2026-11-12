@@ -166,7 +166,7 @@ final class SiteExport
         self::fields($f, $format, 'booking_off', $db->all('SELECT staff_id, off_from, off_to, note FROM {booking_off} WHERE off_to >= ? ORDER BY off_from', [Clock::now()]));
         self::fields($f, $format, 'blueprints', $db->all('SELECT bkey, nazev, manifest FROM {blueprints} ORDER BY applied_at'));
         // the agent notebook (2.15, Core\Notebook): what the next person working on the site should know moves with it
-        self::fields($f, $format, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, created_at, updated_at FROM {notebook} ORDER BY id'));
+        self::fields($f, $format, 'notebook', $db->all('SELECT id, topic, title, text, pinned, author, via, access, created_at, updated_at FROM {notebook} ORDER BY id'));
         // the audit trail of official notice boards (2.11, Core\Notices) moves with the notices it belongs to
         self::fields($f, $format, 'notice_log', self::streamRows($db, 'SELECT id, idp, action, `at`, `by`, fields FROM {notice_log} WHERE id > ? ORDER BY id LIMIT 1000', 'id'));
         // deliberately not here: whistleblowing cases and messages (2.14, Core\Whistleblowing) – reports to a company are not
@@ -316,7 +316,7 @@ final class SiteExport
             . "booking_services online booking (3.0): services – id, name, duration_min, buffer_min, price_text, description, active, requires_confirmation, sort_order\n"
             . "booking_staff    people who take bookings: id, name, email, active, sort_order; booking_staff_services links them (staff_id, service_id)\n"
             . "booking_hours    weekly hours of a person: staff_id, service_id (null = general hours, else only for that service), weekday (1–7), time_from, time_to; booking_off days off still to come (staff_id or null = everyone, off_from, off_to, note). The bookings themselves never travel – personal data.\n"            . "blueprints       industry blueprints applied: bkey, nazev, manifest (JSON: presets, facts, questions, audit, claude)\n"
-            . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author\n"
+            . "notebook         agent notebook (2.15): notes for whoever works on the site next – topic, title, text, pinned, author, via and access (3.39: the connection it was written through)\n"
             . "notice_log       audit trail of official notice boards (2.11): idp (= kolekce_polozky.idp), action, at, by, fields (JSON) – append-only\n"
             . "\nAddresses on the site: page /<seo_link>; other language versions have the prefix /<language>/.\n"
             . "\nNot in the export on purpose: user accounts and passwords, keys and tokens, mail and backup settings, enquiries,\n"

@@ -158,6 +158,9 @@ $role = [
 <div class="radek">
 	<span class="popisek"><?= e(t('Block account')) ?></span>
 	<div class="volby"><label><input type="checkbox" name="blokovat" value="1"<?= $author['blokovat'] ? ' checked' : '' ?>> <?= e(t('user cannot sign in')) ?></label>
+<?php if ($author['blokovat'] && ($connections ?? []) !== []): // 3.39 (N112): unblocking would revive them ?>
+	<input type="hidden" name="zrusit_pripojeni" value="0"><label style="font-weight:normal"><input type="checkbox" name="zrusit_pripojeni" value="1" checked> <?= e(t('when unblocking, revoke its Claude connections and personal tokens (%d) – otherwise they work again', count($connections))) ?></label>
+<?php endif ?>
 <?php if ($author['blokovat'] && !empty($author['blokovano_automaticky'])): ?>
 	<span class="napoveda"><?= e(t('Blocked automatically on %s – nobody had used the account for %d days. Untick the box and save to reactivate the account.', format_date($author['blokovano_automaticky']), Kaleta\Core\SecurityHygiene::ACCOUNT_DAYS)) ?></span>
 <?php endif ?>

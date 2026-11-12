@@ -49,7 +49,8 @@ final class Server
                 'WWW-Authenticate' => 'Bearer resource_metadata="' . (new \Kaleta\Front\OAuth($this->app))->metadataUrl() . '"']);
         }
         $this->app->auth()->signInAs($user);
-        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set']);
+        $this->app->auth()->useConnection((string) $user['connection_name'], (string) $user['connection_access'], (string) $user['connection_tool_set'],
+            (string) ($user['connection_client'] ?? '') !== '' ? 'client:' . $user['connection_client'] : 'token:' . $user['idt']);
         \Kaleta\Builder\Build::$purposeAllowed = $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION); // 3.34 review low (f): the Purpose of a form
         if ($this->app->auth()->isMissingRequired2fa($this->app->settings())) {
             return Response::json(['error' => 'The site requires two-factor sign-in. Turn it on in the admin under My account – the connection does not work until then.'], 403);
@@ -144,7 +145,25 @@ final class Server
     {
         $annotations = Tools::annotations((string) $tool['name']);
 
-        return ['name' => $tool['name'], 'title' => $annotations['title']] + self::withReason($tool) + ['annotations' => $annotations];
+        return ['name' => $tool['name'], 'title' => $annotations['title']] + self::withConfirmation(self::withReason($tool)) + ['annotations' => $annotations];
+    }
+
+    /**
+     * 3.39 (N105): the tools that e-mail people outside the team or erase for good take the code of the two-step
+     * confirmation (Mcp\Confirmation) – the first call that acts answers with it.
+     *
+     * @param array<string, mixed> $tool a tools/list item
+     * @return array<string, mixed>
+     */
+    public static function withConfirmation(array $tool): array
+    {
+        if (!isset(Confirmation::TOOLS[(string) $tool['name']]) || !is_array($tool['inputSchema'] ?? null)) {
+            return $tool;
+        }
+        $tool['inputSchema']['properties'] = (array) ($tool['inputSchema']['properties'] ?? []) + [Confirmation::PARAMETER => ['type' => 'string',
+            'description' => 'the code from the first call (confirmation_required) – only after the user said yes to exactly this action']];
+
+        return $tool;
     }
 
     /**
@@ -201,7 +220,9 @@ final class Server
             $arguments = self::extractJson($items, $name, $arguments);
             // why Claude makes the change (2.15): any write tool takes it; it goes to the change log, never to the tool
             $reason = \Kaleta\Core\Guardrails::reason($arguments['reason'] ?? null);
-            unset($arguments['reason']);
+            // 3.39 (N105): the code of the two-step confirmation is the server's, never the tool's
+            $confirmation = is_string($arguments[Confirmation::PARAMETER] ?? null) ? trim($arguments[Confirmation::PARAMETER]) : '';
+            unset($arguments['reason'], $arguments[Confirmation::PARAMETER]);
             $unknownParams = self::unknownParams($items, $name, $arguments);
             // a huge number would be cast to a wrong one by the tool (or stop it with an error page): a clear error instead (3.7, N37-27)
             $badNumber = self::badNumber($items, $name, $arguments);
@@ -212,6 +233,15 @@ final class Server
                 $arguments = Translator::arguments($name, $arguments);
             }
             $tool = $czech ?? $name;
+            // 3.39 (N105): a call that e-mails outside the team or erases for good runs only with the code of an earlier call
+            // with exactly these arguments on this connection – the first one answers with the code and does nothing
+            $english = Catalog::english($tool) ?? $name;
+            if (Confirmation::needed($english, $arguments)) {
+                $answer = $this->confirmationGate($english, $arguments, $confirmation);
+                if ($answer !== null) {
+                    return ['content' => [['type' => 'text', 'text' => json_encode($answer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
+                }
+            }
             $writes = $tools->isWriteTool($tool) && !Catalog::readsOnly($tool, $arguments); // L2: layout_queue without done only lists
             // the site owner's guardrails (2.15) hold for every connection, on top of its access; a write call gets its
             // change-log row before the tool runs, so parallel calls count each other against the hourly limit (3.7, N37-20)
@@ -262,6 +292,26 @@ final class Server
         } catch (\InvalidArgumentException | \DomainException $e) {
             return ['content' => [['type' => 'text', 'text' => $isEnglish ? Translator::message($e->getMessage()) : $e->getMessage()]], 'isError' => true];
         }
+    }
+
+    /**
+     * 3.39 (N105): null = the code fits this call and is used up now (the tool runs); otherwise the answer with a new code.
+     *
+     * @param array<string, mixed> $arguments the tool's arguments without the reason and the code
+     * @return array<string, mixed>|null
+     */
+    private function confirmationGate(string $tool, array $arguments, string $code): ?array
+    {
+        $auth = $this->app->auth();
+        $key = (new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings()))->key();
+        $user = $auth->id();
+        $connection = (string) ($auth->connection()['key'] ?? '');
+        $now = time();
+        if ($code !== '' && Confirmation::valid($key, $code, $tool, $user, $connection, $arguments, $now) && Confirmation::claim($this->app->db(), $code, $user)) {
+            return null;
+        }
+
+        return Confirmation::answer($tool, Confirmation::code($key, $tool, $user, $connection, $arguments, $now + Confirmation::MINUTES * 60), $code !== '');
     }
 
     /**

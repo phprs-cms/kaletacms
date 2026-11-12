@@ -36,7 +36,7 @@ use Kaleta\Core\Notebook;
 <tbody>
 <?php foreach ($notes as $n): ?>
 <tr>
-	<td><a href="<?= e($module->url('edit', ['id' => $n['id']])) ?>"><strong><?= e($n['title']) ?></strong></a><?= $n['pinned'] ? ' <span class="stitek stitek-vydano">' . e(t('pinned')) . '</span>' : '' ?><br><span class="smltxt"><?= e(mb_strimwidth((string) $n['text'], 0, 160, '…')) ?></span></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $n['id']])) ?>"><strong><?= e($n['title']) ?></strong></a><?= $n['pinned'] ? ' <span class="stitek stitek-vydano">' . e(t('pinned')) . '</span>' : '' ?><?= $n['proposal'] ? ' <span class="stitek" title="' . e(t('Written through the drafts-only connection %s – Claude treats it as a suggestion until you save or pin it.', $n['via'])) . '">' . e(t('proposal')) . '</span>' : '' // 3.39 (N110) ?><br><span class="smltxt"><?= e(mb_strimwidth((string) $n['text'], 0, 160, '…')) ?></span></td>
 	<td><?= e(t(Notebook::TOPICS[$n['topic']] ?? $n['topic'])) ?></td>
 	<td><?= e($n['author']) ?></td>
 	<td class="cislo"><?= e(format_date($n['updated_at'], true)) ?></td>

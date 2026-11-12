@@ -109,7 +109,7 @@ $p335Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.ph
 $p335Js = (string) file_get_contents(KALETA_ROOT . '/image/klice.js');
 $p335Login = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/login.php');
 check('[source-pin] 3.35 A: an empty app secret is never checked (its codes are public); the passwordless sign-in requires UV, the account\'s handle and a discoverable key, uses the sign-in limits and pops its challenge first', [
-    str_contains($p335Auth, "\$step = \$appCode && (string) \$user['totp_tajemstvi'] !== '' ? Totp::step("),
+    str_contains($p335Auth, "\$step = \$appCode && \$seed !== '' ? Totp::step("), // 3.39 (N106): the seed opened from its sealed form
     str_contains($p335Auth, "(string) \$key['verejny'], (int) \$key['pocitadlo'], true);"),
     str_contains($p335Auth, "if (empty(\$key['discoverable'])) {"),
     str_contains($p335Auth, "hash_equals(Passkey::fromB64((string) \$user['passkey_handle']), Passkey::fromB64(\$handle))"),

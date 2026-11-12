@@ -684,8 +684,10 @@ final class SiteImport
         }
         $date = fn (mixed $v): string => is_string($v) && strtotime($v) !== false ? date('Y-m-d H:i:s', (int) strtotime($v)) : date('Y-m-d H:i:s');
 
-        return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) ? 1 : 0,
-            'author' => self::text(trim(strip_tags((string) ($r['author'] ?? ''))), 100), 'created_at' => $date($r['created_at'] ?? null), 'updated_at' => $date($r['updated_at'] ?? null)];
+        return ['id' => (int) ($r['id'] ?? 0) > 0 ? (int) $r['id'] : null, 'topic' => Notebook::topic($r['topic'] ?? '') ?? 'other', 'title' => $title, 'text' => $text, 'pinned' => !empty($r['pinned']) && ($r['access'] ?? '') !== 'drafts' ? 1 : 0,
+            'author' => self::text(trim(strip_tags((string) ($r['author'] ?? ''))), 100), 'created_at' => $date($r['created_at'] ?? null), 'updated_at' => $date($r['updated_at'] ?? null),
+            // 3.39 (N110): a proposal of a drafts-only connection stays one (and unpinned) on the new site
+            'via' => self::text(trim(strip_tags((string) ($r['via'] ?? ''))), 100), 'access' => in_array($r['access'] ?? '', ['full', 'drafts'], true) ? (string) $r['access'] : ''];
     }
 
     /** @param array<string, mixed> $r */

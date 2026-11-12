@@ -381,7 +381,9 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $appCode = $user !== null && SignInPolicy::secondSteps($user, $this->workingKeys((int) $user['idu']), $this->siteSettings())['code'];
-        $step = $appCode && (string) $user['totp_tajemstvi'] !== '' ? Totp::step($user['totp_tajemstvi'], $code) : null;
+        // 3.39 (N106): the seed is sealed with the key in config.php; one this config.php cannot open gives '' – no code matches it
+        $seed = $user !== null ? Vault::openSecret($this->siteSettings(), 'totp', (string) $user['totp_tajemstvi']) : '';
+        $step = $appCode && $seed !== '' ? Totp::step($seed, $code) : null;
         if ($step !== null && $user !== null && !$this->claimCodeStep((int) $user['idu'], $step)) {
             $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
         }
@@ -850,7 +852,7 @@ final class Auth
         $this->modules = null;
     }
 
-    /** @var array{name: string, access: string, tool_set: string}|null the Claude connection of this request (MCP, 2.2) */
+    /** @var array{name: string, access: string, tool_set: string, key?: string}|null the Claude connection of this request (MCP, 2.2) */
     private ?array $connection = null;
 
     /**
@@ -858,12 +860,13 @@ final class Auth
      * or to reading never publishes, whatever the user's role (canPublish). The tool set (3.10) only decides what
      * tools/list shows (Mcp\Catalog::TOOL_SETS).
      */
-    public function useConnection(string $name, string $access, string $toolSet = 'all'): void
+    public function useConnection(string $name, string $access, string $toolSet = 'all', string $key = ''): void
     {
-        $this->connection = ['name' => $name, 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read', 'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet)];
+        // 3.39 (N105): key = which connection this is – the OAuth client, or the personal token – for the confirmation codes
+        $this->connection = ['name' => $name, 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read', 'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'key' => $key];
     }
 
-    /** @return array{name: string, access: string, tool_set: string}|null */
+    /** @return array{name: string, access: string, tool_set: string, key?: string}|null */
     public function connection(): ?array
     {
         return $this->connection;

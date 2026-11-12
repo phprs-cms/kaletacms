@@ -31,6 +31,20 @@ final class Vault
         'applications' => ['applications', 'id', ['attachments']], // 3.34: the list of a job application's CVs with each file's own key (Core\Applications)
     ];
 
+    /**
+     * 3.39 (N106): the settings that are secrets – passwords and keys a person types (SMTP, the off-site backup target, the AI
+     * provider, the mailing service, the CAPTCHA) and the keys the site makes for itself (the webhook signature, the fleet
+     * key pair). With the key in config.php (state 'config') Settings::set() seals them and Settings::get() opens them, so
+     * a database dump or a local backup holds only ciphertext. Without it they stay as they are (plain text) until the key
+     * moves (move() seals them in the same transaction); an older plain value is still read. secret_key is not here: it
+     * signs links and is the base key while the key is in the database (it keeps its value). The TOTP seeds of the
+     * accounts (ka_uzivatele.totp_tajemstvi) are sealed the same way under their own purpose (sealSecret 'totp').
+     */
+    public const array SECRET_SETTINGS = ['smtp_password', 'backup_password', 'ai_key', 'newsletter_key', 'captcha_secret', 'webhook_secret', 'site_key_secret'];
+
+    /** The marker in front of a sealed setting or TOTP seed – a stored value without it is an older plain one. */
+    public const string SEALED_PREFIX = 'kaleta-sealed:';
+
     /** App reads config.php: 'vault_key' => '…' (anything else than 64 hex characters is ignored). */
     public static function configure(mixed $key): void
     {
@@ -70,10 +84,10 @@ final class Vault
     public static function describe(string $state): string
     {
         return match ($state) {
-            'config' => t('Connector secrets, whistleblowing reports and the keys of job applicants’ CVs are encrypted with a key that is in config.php, not in the database – a stolen database or backup alone cannot be read.'),
-            'pending' => t('The encryption key is already in config.php, but the stored secrets, reports and CV keys are still encrypted with the old key in the database. Finish the move in Settings → Backups and updates.'),
-            'missing' => t('The stored secrets, reports and the keys of job applicants’ CVs belong to an encryption key that this config.php does not have, so they cannot be read – the CVs cannot be opened. Put back the line with vault_key from the config.php of the site this database comes from.'),
-            default => t('Connector secrets, whistleblowing reports and the keys of job applicants’ CVs are encrypted with a key kept in the database, so every database backup holds both the data and its key. Move the key to config.php in Settings → Backups and updates.'),
+            'config' => t('Connector secrets, whistleblowing reports, the keys of job applicants’ CVs, the passwords and keys in the settings and the sign-in app secrets are encrypted with a key that is in config.php, not in the database – a stolen database or local backup alone does not reveal them.'),
+            'pending' => t('The encryption key is already in config.php, but the stored secrets, reports and CV keys are still encrypted with the old key in the database, and the passwords and keys in the settings are in plain text. Finish the move in Settings → Backups and updates.'),
+            'missing' => t('The stored secrets, reports, the keys of job applicants’ CVs and the passwords in the settings belong to an encryption key that this config.php does not have, so they cannot be read – the CVs cannot be opened, and e-mail over SMTP, off-site backups and codes from a sign-in app stop working (backup codes still work). Put back the line with vault_key from the config.php of the site this database comes from.'),
+            default => t('Connector secrets, whistleblowing reports and the keys of job applicants’ CVs are encrypted with a key kept in the database, and the passwords and keys in the settings and the sign-in app secrets are in plain text – every database backup holds them. Move the key to config.php in Settings → Backups and updates.'),
         };
     }
 
@@ -168,6 +182,87 @@ final class Vault
         }
 
         return $count;
+    }
+
+    /** Is a stored setting or TOTP seed sealed (3.39, N106)? */
+    public static function isSealed(string $stored): bool
+    {
+        return str_starts_with($stored, self::SEALED_PREFIX);
+    }
+
+    /**
+     * A secret as it is stored (3.39, N106): sealed under the purpose's key when the key is in config.php, otherwise as it
+     * is – a key kept in the database would sit next to what it seals. An empty value stays empty.
+     */
+    public static function sealSecret(Settings $settings, string $purpose, string $plain): string
+    {
+        return $plain === '' || self::state($settings) !== 'config' ? $plain : self::SEALED_PREFIX . self::seal(self::key($settings, $purpose), $plain);
+    }
+
+    /**
+     * A stored secret opened (3.39, N106): an older plain value as it is; a sealed one with the key in config.php, or ''
+     * when this config.php does not have its key (state 'missing') or it is damaged – the site keeps working without it
+     * and System status says so (unreadableSecrets()).
+     */
+    public static function openSecret(Settings $settings, string $purpose, string $stored): string
+    {
+        if (!self::isSealed($stored)) {
+            return $stored;
+        }
+
+        return self::state($settings) === 'config' ? (self::open(self::key($settings, $purpose), substr($stored, strlen(self::SEALED_PREFIX))) ?? '') : '';
+    }
+
+    /**
+     * The secrets still in plain text sealed (3.39, N106) – the secret settings and the TOTP seeds – when the key is in
+     * config.php: migration 0126 and move(). Safe to run again; nothing happens while the key is in the database.
+     *
+     * @return int how many values were sealed
+     */
+    public static function sealStored(Db $db, Settings $settings): int
+    {
+        if (self::state($settings) !== 'config') {
+            return 0;
+        }
+        $count = 0;
+        foreach ($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(self::SECRET_SETTINGS), '?')) . ')', self::SECRET_SETTINGS) as $key => $value) {
+            if ((string) $value !== '' && !self::isSealed((string) $value)) {
+                $settings->set((string) $key, (string) $value); // Settings::set seals it
+                $count++;
+            }
+        }
+        foreach ($db->all("SELECT idu, totp_tajemstvi FROM {uzivatele} WHERE totp_tajemstvi <> '' AND totp_tajemstvi NOT LIKE 'kaleta-sealed:%'") as $row) {
+            $db->update('uzivatele', ['totp_tajemstvi' => self::sealSecret($settings, 'totp', (string) $row['totp_tajemstvi'])], ['idu' => $row['idu']]);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * What System status says about the stored secrets (3.39, N106): how many are sealed, how many are still plain text and
+     * how many sealed ones this config.php cannot open.
+     *
+     * @return array{sealed: int, plain: int, unreadable: int}
+     */
+    public static function secretsState(Db $db, Settings $settings): array
+    {
+        $values = array_map('strval', array_values($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(self::SECRET_SETTINGS), '?')) . ") AND hodnota <> ''", self::SECRET_SETTINGS)));
+        $seeds = array_map('strval', array_column($db->all("SELECT totp_tajemstvi FROM {uzivatele} WHERE totp_tajemstvi <> ''"), 'totp_tajemstvi'));
+        $out = ['sealed' => 0, 'plain' => 0, 'unreadable' => 0];
+        foreach ([['settings', $values], ['totp', $seeds]] as [$purpose, $list]) {
+            foreach ($list as $stored) {
+                if (!self::isSealed($stored)) {
+                    $out['plain']++;
+                } elseif (self::openSecret($settings, $purpose, $stored) === '') {
+                    $out['unreadable']++;
+                } else {
+                    $out['sealed']++;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /** The line for config.php (inside the returned array). */
@@ -483,6 +578,8 @@ final class Vault
             [$count, $unreadable] = $app->db()->transaction(function (Db $db) use ($settings, $from, $to): array {
                 $result = self::resealAll($db, $from, $to, self::previousKey($settings)[0]);
                 $settings->set('vault_check', self::check($to));
+                // 3.39 (N106): the secret settings and TOTP seeds, plain text so far, are sealed under the key now in config.php
+                $result[0] += self::sealStored($db, $settings);
 
                 return $result;
             });

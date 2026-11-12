@@ -24,7 +24,12 @@ if ($argv[2] === 'read') {
             }
         }
     }
+    // 3.39 (N106): a site before 3.15 kept the secret settings and TOTP seeds in plain text
+    $plain = array_map(fn (string $k): string => $s->get($k), array_combine(Kaleta\Core\Vault::SECRET_SETTINGS, Kaleta\Core\Vault::SECRET_SETTINGS));
+    $seeds = array_map(fn (array $u): array => [$u['idu'], Kaleta\Core\Vault::openSecret($s, 'totp', (string) $u['totp_tajemstvi'])], $db->all("SELECT idu, totp_tajemstvi FROM {uzivatele} WHERE totp_tajemstvi <> ''"));
     $s->set('vault_check', '');
+    foreach ($plain as $k => $v) { $s->set($k, $v); }
+    foreach ($seeds as [$idu, $seed]) { $db->update('uzivatele', ['totp_tajemstvi' => $seed], ['idu' => $idu]); }
     file_put_contents('config.php', preg_replace("/\n\s*'vault_key' => '[0-9a-f]{64}',[^\n]*/", '', (string) file_get_contents('config.php')));
 }
 PHP

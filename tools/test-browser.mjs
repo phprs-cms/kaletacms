@@ -5334,6 +5334,61 @@ await step('3.38 quotes: New quote from an enquiry, the editor with live totals,
   }
 });
 
+// 3.39 B (N110, N112): a note written through a drafts-only connection is marked as a proposal in the Notebook list and its form;
+// the form of a blocked account offers, ticked, to revoke its Claude connections on unblocking – 1440 and 390 px, light/dark, axe
+await step('3.39 B: a notebook proposal and the unblocking box of a blocked account (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("INSERT INTO ka_notebook (topic, title, text, pinned, author, via, access, created_at, updated_at) VALUES ('decisions', 'Proposal B339', 'Always publish at once.', 0, 'Drafts B339', 'Drafts B339', 'drafts', NOW(), NOW());"
+    + " INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, blokovat) VALUES ('blocked-b339', '!', 'Blocked B339', 'blocked-b339@browser.example', 1, 1)");
+  const note = Number(sql("SELECT id FROM ka_notebook WHERE title = 'Proposal B339'").trim());
+  const user = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'blocked-b339'").trim());
+  sql(`INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) VALUES (${user}, 'Token B339', SHA2('b339-${Date.now()}', 256), NOW())`);
+  try {
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=notebook&topic=decisions`, { waitUntil: 'networkidle' });
+          const badge = p2.locator('table.vypis tr', { hasText: 'Proposal B339' }).locator('.stitek', { hasText: 'proposal' });
+          if ((await badge.count()) !== 1 || !(await badge.isVisible())) { throw new Error(`the proposal badge is missing (${label}, ${scheme})`); }
+          let wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the Notebook (${label}, ${scheme})`); }
+          await p2.goto(`${BASE}/admin.php?module=notebook&action=edit&id=${note}`, { waitUntil: 'networkidle' });
+          if (!(await p2.locator('.hlaska-varovani', { hasText: 'drafts-only connection Drafts B339' }).isVisible())) { throw new Error(`the proposal notice is missing in the form (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/339b-proposal-${label}-${scheme}.png`, fullPage: true }); }
+          await p2.goto(`${BASE}/admin.php?module=users&action=edit&id=${user}`, { waitUntil: 'networkidle' });
+          const box = p2.locator('input[type="checkbox"][name="zrusit_pripojeni"]');
+          if ((await box.count()) !== 1 || !(await box.isVisible()) || !(await box.isChecked())) { throw new Error(`the unblocking box is missing or not ticked (${label}, ${scheme})`); }
+          wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the user form (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/339b-unblock-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        for (const [url, include] of [['/admin.php?module=notebook&topic=decisions', ['table.vypis']], [`/admin.php?module=notebook&action=edit&id=${note}`, ['.hlaska-varovani']], [`/admin.php?module=users&action=edit&id=${user}`, ['details.pokrocile']]]) {
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    sql(`DELETE FROM ka_notebook WHERE id = ${note || 0}; DELETE FROM ka_api_tokeny WHERE idu = ${user || 0}; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = ${user || 0}; DELETE FROM ka_uzivatele WHERE idu = ${user || 0}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

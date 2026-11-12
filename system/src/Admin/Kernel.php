@@ -218,7 +218,8 @@ final class Kernel
         }
 
         // after moving to a new version, clean up the known removed files once (see Updater::REMOVED_FILES)
-        if ($app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== KALETA_VERSION) {
+        $newVersion = $app->auth()->isAdmin() && $app->settings()->get('cleaned_version') !== KALETA_VERSION;
+        if ($newVersion) {
             \Kaleta\Core\Updater::cleanUpRemoved(KALETA_ROOT);
             $app->settings()->set('cleaned_version', KALETA_VERSION);
         }
@@ -234,6 +235,12 @@ final class Kernel
                 Migration::writeError($e);
                 $app->session->flash('chyba', t('The database update failed: %s. The site keeps running; install the fix in Settings → Backups and updates, or write to info@kaletacms.com.', $e->getMessage()));
             }
+        }
+
+        // 3.39 (N106): the first administrator request of a new version seals the secrets still in plain text (the daily
+        // security task does it too) – after the migrations, which widen the TOTP column (0126)
+        if ($newVersion && !Migration::pending($app->settings(), Migration::latest())) {
+            \Kaleta\Core\Vault::sealStored($app->db(), $app->settings());
         }
 
         if ($app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {

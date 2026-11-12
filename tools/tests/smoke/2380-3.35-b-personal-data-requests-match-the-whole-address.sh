@@ -5,7 +5,7 @@ echo "== 3.35 B5 (N94): personal-data requests find, export and erase only the p
 S335E_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 S335E_TOKEN="kaleta_$(openssl rand -hex 24)"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($S335E_ADMIN, 's335e full', 'full', 'all', SHA2('$S335E_TOKEN', 256), '$(site_time)')" > /dev/null
-s335e_mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $S335E_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+s335e_mcp() { mcp_call "$S335E_TOKEN" "$1" "$2"; }
 s335e_enquiry() { sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES ('$(site_time)', 'N94', '/kontakt', '$1', '$2', 0)"; sq "SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'N94'"; }
 s335e_contact() { sq "INSERT INTO ka_contacts (email, email_norm, name, source, created_at, updated_at) VALUES ('$1', NULLIF(LOWER('$1'), ''), '$2', 'manual', '$(site_time)', '$(site_time)')"; sq "SELECT MAX(id) FROM ka_contacts"; }
 s335e_note() { sq "INSERT INTO ka_contact_activities (contact_id, kind, text, author_name, happened_at, created_at) VALUES ($1, 'note', '$2', 'Admin', '$(site_time)', '$(site_time)')"; }

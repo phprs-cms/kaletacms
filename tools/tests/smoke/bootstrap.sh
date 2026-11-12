@@ -28,6 +28,22 @@ site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" 
 site_date() { site_time "$1" Y-m-d; }
 # run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
 run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' -- "$1"); }
+# setting_plain <key>: a setting as the site reads it – 3.39 (N106): a secret setting is stored sealed with the key in config.php
+# mcp_call <token> <tool> <arguments as JSON> [site]: one MCP tools/call. 3.39 (N105): a tool that e-mails outside the team or
+# erases for good first answers with a confirmation code – the call is repeated once with it, so a section tests what the
+# tool does; 3060-… tests the two-step confirmation itself
+mcp_call() {
+  local out code
+  out=$(curl -s -X POST "${4:-$B}/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$2\",\"arguments\":$3}}")
+  case "$out" in *confirmation_required*)
+    code=$(printf '%s' "$out" | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo json_decode((string) ($r["result"]["content"][0]["text"] ?? "{}"), true)["confirmation"] ?? "";')
+    [ -n "$code" ] && out=$(curl -s -X POST "${4:-$B}/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' --data-binary "$(php -r 'echo json_encode(["jsonrpc" => "2.0", "id" => 1, "method" => "tools/call", "params" => ["name" => $argv[1], "arguments" => ((array) json_decode($argv[2], true)) + ["confirmation" => $argv[3]]]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' -- "$2" "$3" "$code")") ;;
+  esac
+  printf '%s' "$out"
+}
+# totp_plain <idu>: the TOTP seed of an account as the sign-in reads it (3.39, N106: stored sealed)
+totp_plain() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); echo Kaleta\Core\Vault::openSecret($app->settings(), "totp", (string) $app->db()->value("SELECT totp_tajemstvi FROM {uzivatele} WHERE idu = ?", [(int) $argv[1]]));' -- "$1"); }
+setting_plain() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo (new Kaleta\Core\App(require "config.php"))->settings()->get($argv[1]);' -- "$1"); }
 
 # T4 (Q4): the light background jobs run after a response, at most once a minute (Notifications::runInBackground, the clock
 # notification_check) – a slow run gets one more pass than a fast one. A check that compares or counts what they would

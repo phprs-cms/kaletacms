@@ -30,4 +30,7 @@ $isNew = $note === null;
 </form>
 <?php if (!$isNew): ?>
 <p class="smltxt"><?= e(t('Written by %s, %s; last changed %s.', (string) $note['author'], format_date($note['created_at'], true), format_date($note['updated_at'], true))) ?></p>
+<?php if (!empty($note['proposal'])): // 3.39 (N110): written through a drafts-only connection ?>
+<p class="hlaska hlaska-varovani"><?= e(t('A proposal written through the drafts-only connection %s. Claude treats it as a suggestion, not a decision, until you save it here or pin it.', (string) $note['via'])) ?></p>
+<?php endif ?>
 <?php endif ?>
