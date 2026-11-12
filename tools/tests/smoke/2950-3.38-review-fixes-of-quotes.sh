@@ -76,6 +76,23 @@ expect "3.38 review M3: the address of an enquiry import_enquiries brought in is
 kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || true
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_poptavky WHERE idp = $R338_IMP; DELETE FROM ka_contacts WHERE id = $R338_FAKE" > /dev/null
 
+# L1: a random token per link – a link made twice in one second differs, a withdrawn one never comes back; the plain link only in the session that made it
+r338_php '$q = Kaleta\Core\Quotes::finalise($app, Kaleta\Core\Quotes::save($app, null, ["customer" => ["name" => "Odkaz 338r"], "lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100"]]], 0)["id"], 0)["id"];
+  $one = Kaleta\Core\QuoteDelivery::issueLink($app, $q, 0); $h1 = $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [$q]); $e1 = $db->value("SELECT token_expires_at FROM {quotes} WHERE id = ?", [$q]);
+  Kaleta\Core\QuoteDelivery::withdrawLink($app, $q, 0); $two = Kaleta\Core\QuoteDelivery::issueLink($app, $q, 0);
+  echo $q, " ", $one, " ", $two, " ", (int) ($h1 !== $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [$q])), " ", (int) ($e1 === $db->value("SELECT token_expires_at FROM {quotes} WHERE id = ?", [$q]));' > "$WORK/r338-links"
+read -r R338_QL R338_L1 R338_L2 R338_LDIFF R338_LSAME < "$WORK/r338-links" || true; R338_QL="${R338_QL:-0}"
+expect "3.38 review L1: a new link in the same second as the withdrawn one has another token – the withdrawn one stays the 404, the new one opens" \
+  "${R338_LDIFF:-}|${R338_LSAME:-}|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L1:-$B/quote/x}")|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L2:-$B/quote/x}")" "1|1|404|200"
+check "3.38 review L1: a link made elsewhere is not shown again – the detail says it is kept as a fingerprint and offers New link" 200 "/admin.php?module=quotes&action=detail&id=$R338_QL" 'data-quote-link-hidden'
+expect "3.38 review L1: neither the detail nor the send dialog prints a working link it did not make" \
+  "$(grep -c '/quote/[a-f0-9]\{64\}' "$WORK/response")|$(curl -s -b "$JAR" -c "$JAR" "$B/admin.php?module=quotes&action=send&id=$R338_QL" | grep -c 'data-quote-link-hidden')" "0|1"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&action=link" -d "_csrf=$(csrf)" -d "id=$R338_QL" -d back=detail
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=detail&id=$R338_QL"
+R338_L3=$(grep -o "$B/quote/[a-f0-9]\{64\}" "$WORK/response" | head -1)
+expect "3.38 review L1: New link shows the new link to copy in this session; it opens, the one before it is dead" \
+  "$([ -n "$R338_L3" ] && echo shown)|$(sq "SELECT token_hash = SHA2('${R338_L3##*/}', 256) FROM ka_quotes WHERE id = $R338_QL")|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L3:-$B/quote/x}")|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L2:-$B/quote/x}")" "shown|1|200|404"
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');

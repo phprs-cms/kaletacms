@@ -44,10 +44,11 @@ trait QuoteSending
         try {
             if ($this->request->post('mode') === 'finalise') {
                 $done = Quotes::finalise($this->app, $id, $this->app->auth()->id());
-                QuoteDelivery::issueLink($this->app, $id, $this->app->auth()->id());
+                QuoteDelivery::remember($this->app, $id, QuoteDelivery::issueLink($this->app, $id, $this->app->auth()->id())); // 3.38 review L1: shown in this session only
                 $this->app->session->flash('ok', t('Quote %s was finalised – hand over the link below or print the quote.', (string) $done['number']));
             } else {
                 $done = QuoteDelivery::send($this->app, $id, $this->request->post('subject'), $this->request->post('message'), $this->request->postBool('set_deal_value'));
+                QuoteDelivery::remember($this->app, $id, $done['link']);
                 $this->app->session->flash($done['status'] === 'sent' ? 'ok' : 'chyba', ($done['status'] === 'sent'
                     ? t('Quote %1$s was sent to %2$s.', $done['number'], $done['to'])
                     : t('Quote %1$s is sent, but the mail server refused the e-mail for now (%2$s) – the site tries again from its mail queue.', $done['number'], $done['error']))
@@ -78,7 +79,7 @@ trait QuoteSending
             return $this->back('', 'send', ['id' => $this->request->getInt('id')]);
         }
         try {
-            QuoteDelivery::issueLink($this->app, $id, $this->app->auth()->id());
+            QuoteDelivery::remember($this->app, $id, QuoteDelivery::issueLink($this->app, $id, $this->app->auth()->id()));
         } catch (\DomainException $e) {
             return $this->linkBack($id, $e->getMessage(), 'chyba');
         }

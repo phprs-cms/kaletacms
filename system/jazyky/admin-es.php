@@ -8610,4 +8610,5 @@ return [
     'The quote was deleted.' => 'El presupuesto se ha eliminado.',
     'Customer’s link made' => 'Enlace para el cliente creado',
     'Customer’s link withdrawn' => 'Enlace para el cliente retirado',
+    'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'El enlace se guarda solo como una huella, por eso no se puede volver a mostrar. «Nuevo enlace» crea uno para copiar; el enlace que tiene el cliente deja de funcionar.',
 ];

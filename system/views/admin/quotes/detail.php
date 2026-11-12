@@ -43,6 +43,7 @@ $actions = ['created' => 'Created', 'sent' => 'Sent', 'finalised' => 'Finalised 
     'link' => 'Customer’s link made', 'link_withdrawn' => 'Customer’s link withdrawn'];
 // the customer's link and its actions are part C's (Core\QuoteDelivery, Admin\QuoteSending: actions preview, link, link_withdraw)
 $link = $status !== 'draft' && class_exists(\Kaleta\Core\QuoteDelivery::class) ? \Kaleta\Core\QuoteDelivery::linkUrl($app, $q) : null;
+$working = $link !== null || ($status !== 'draft' && class_exists(\Kaleta\Core\QuoteDelivery::class) && \Kaleta\Core\QuoteDelivery::hasWorkingLink($q)); // 3.38 review L1: a link stored only as a hash
 $dealOpen = $deal !== null && $deal['closed_at'] === null;
 $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 ?>
@@ -77,7 +78,7 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 <?php if (in_array($status, ['sent', 'accepted'], true)): ?>
 		<form method="post" action="<?= e($module->url('link')) ?>" data-quote-link-new><?= $hidden ?><input type="hidden" name="back" value="detail"><button class="navigace" type="submit"><?= e(t('New link')) ?></button></form>
 <?php endif ?>
-<?php if ($link !== null): ?>
+<?php if ($working): ?>
 		<form method="post" action="<?= e($module->url('link_withdraw')) ?>" data-quote-link-withdraw data-potvrdit="<?= e(t('Withdraw the link? The customer will see “page not found”.')) ?>"><?= $hidden ?><input type="hidden" name="back" value="detail"><button class="navigace" type="submit"><?= e(t('Withdraw link')) ?></button></form>
 <?php endif ?>
 <?php if (in_array($status, ['accepted', 'declined'], true)): ?>
@@ -190,6 +191,13 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 <h2 id="nabidka-odkaz"><?= e(t('The customer’s link')) ?></h2>
 <p><code id="nabidka-odkaz-adresa"><?= e($link) ?></code></p>
 <p class="tlacitka"><button class="navigace" type="button" data-kopirovat="#nabidka-odkaz-adresa"><?= e(t('Copy link')) ?></button></p>
+<?php if ($q['token_expires_at'] !== null): ?><p class="napoveda"><?= e(t('Whoever has the link sees this one quote. It works until %s.', format_date($q['token_expires_at']))) ?></p><?php endif ?>
+</section>
+<?php elseif ($working): ?>
+<section class="zaznam-panel" aria-labelledby="nabidka-odkaz" data-quote-customer-link>
+<h2 id="nabidka-odkaz"><?= e(t('The customer’s link')) ?></h2>
+<p class="napoveda" data-quote-link-hidden><?= e(t('The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.')) ?></p>
+<form method="post" action="<?= e($module->url('link')) ?>"><?= $hidden ?><input type="hidden" name="back" value="detail"><p class="tlacitka"><button class="navigace" type="submit"><?= e(t('New link')) ?></button></p></form>
 <?php if ($q['token_expires_at'] !== null): ?><p class="napoveda"><?= e(t('Whoever has the link sees this one quote. It works until %s.', format_date($q['token_expires_at']))) ?></p><?php endif ?>
 </section>
 <?php endif ?>

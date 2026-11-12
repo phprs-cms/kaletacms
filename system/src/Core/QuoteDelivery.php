@@ -9,11 +9,12 @@ namespace Kaleta\Core;
  * Core\Quotes: the customer's link, sending, the expiry job, the retention and the personal data of a customer. One of
  * the few files that may name the quote tables (unit 2800, A4); the document itself is Front\QuotePage.
  *
- *  - The link (/quote/<token>): a bearer link to one sent quote. The token is an HMAC of the quote and the moment its link
- *    expires with the installation's secret key (the Core\Preview pattern), so it cannot be guessed and the admin can show
- *    it again ("Copy link") without storing it; the table keeps only its sha256 (token_hash) and token_expires_at
- *    (quote_link_days after the validity). Withdrawing blanks the hash; a new link gets a new expiry moment and so a new
- *    token – the old one never comes back. A wrong, withdrawn or expired token is the site's 404, never a detail.
+ *  - The link (/quote/<token>): a bearer link to one sent quote. The token is 32 random bytes per link (design A7, 3.38
+ *    review L1 – not derived from the quote or the secret key, so a withdrawn token never comes back and a leaked key
+ *    reveals nothing); the table keeps only its sha256 (token_hash) and token_expires_at (quote_link_days after the
+ *    validity). The plain link exists only in the response that made it and in the session of the person who made it
+ *    (remember/linkUrl: "Copy link" right after sending or New link); later the admin offers New link, which says the old
+ *    one stops working. Withdrawing blanks the hash. A wrong, withdrawn or expired token is the site's 404, never a detail.
  *  - Sending (send(), the admin dialog and MCP send_quote): only to the quote's customer e-mail through the site's SMTP
  *    (EnquiryReply::unavailable – the server's mail() lands in spam), Reply-To = the sender, their signature
  *    (Builder\UserSignature via EnquiryReply::signature). The quote gets its number first (Quotes::markSent), then the link,
@@ -77,16 +78,21 @@ final class QuoteDelivery
 
     /* ---------- the customer's link ---------- */
 
-    /** The token of a quote's link for the moment it expires: an HMAC with the installation's secret key. */
-    public static function token(Db $db, Settings $s, int $quoteId, string $expiresAt): string
+    /** The session key that holds the links this person made (quote id => token), so "Copy link" can show them again. */
+    private const string SESSION = 'quote_links';
+
+    /** How many just-made links one session keeps for "Copy link". */
+    private const int SESSION_LINKS = 20;
+
+    /** A new token: 32 random bytes as 64 hex characters (design A7) – only its sha256 is stored. */
+    public static function newToken(): string
     {
-        return hash_hmac('sha256', 'quote-link|' . $quoteId . '|' . $expiresAt, (new Antispam($db, $s))->key());
+        return bin2hex(random_bytes(32));
     }
 
     /**
      * When a new link of a quote stops working: quote_link_days after its validity (after today without one), at the time
-     * of day of now – a new link after a withdrawal thus gets another moment and another token. Null when that is not in
-     * the future (the link would be dead at once).
+     * of day of now. Null when that is not in the future (the link would be dead at once).
      */
     public static function linkExpiry(Settings $s, ?string $validUntil): ?string
     {
@@ -111,10 +117,7 @@ final class QuoteDelivery
             throw new \DomainException(t('Only a sent quote has a link for the customer.'));
         }
         $expires = self::linkExpiry($app->settings(), $row['valid_until'] === null ? null : (string) $row['valid_until']) ?? throw new \DomainException(t('The link would not work any more.'));
-        if ($row['token_expires_at'] !== null && (string) $row['token_expires_at'] === $expires) {
-            $expires = Clock::toDb((new \DateTimeImmutable($expires, Clock::zone()))->modify('+1 second')); // the same second twice: still a new token
-        }
-        $token = self::token($db, $app->settings(), $quoteId, $expires);
+        $token = self::newToken();
         $db->update('quotes', ['token_hash' => hash('sha256', $token), 'token_expires_at' => $expires,
             'history' => self::history($row['history'], ['at' => Clock::now(), 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'link'])], ['id' => $quoteId]);
 
@@ -122,8 +125,25 @@ final class QuoteDelivery
     }
 
     /**
-     * The working link of a quote again (the admin's "Copy link"), or null: none, withdrawn, expired, or made with another
-     * secret key (then the person makes a new one).
+     * Keeps a link this person just made (send, Finalise, New link) in their admin session, so "Copy link" can show it
+     * again in this session – the database has only its hash. Admin requests only (it starts the session).
+     */
+    public static function remember(App $app, int $quoteId, string $link): void
+    {
+        $token = substr($link, strrpos($link, '/') + 1);
+        if (preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) {
+            return;
+        }
+        $links = $app->session->get(self::SESSION, []);
+        $links = is_array($links) ? $links : [];
+        unset($links[$quoteId]);
+        $links[$quoteId] = $token;
+        $app->session->set(self::SESSION, array_slice($links, -self::SESSION_LINKS, null, true));
+    }
+
+    /**
+     * The working link of a quote again (the admin's "Copy link"), or null: none, withdrawn, expired, or not made in this
+     * person's session (the link is stored only as a hash – then they make a new one, see hasWorkingLink). Admin views only.
      *
      * @param array<string, mixed> $quote as Quotes::get returns it
      */
@@ -133,9 +153,16 @@ final class QuoteDelivery
         if ($row === null || $row['token_hash'] === null || $row['token_expires_at'] === null || (string) $row['token_expires_at'] <= Clock::now() || $row['anonymised_at'] !== null) {
             return null;
         }
-        $token = self::token($app->db(), $app->settings(), (int) $row['id'], (string) $row['token_expires_at']);
+        $links = $app->session->get(self::SESSION, []);
+        $token = is_array($links) && is_string($links[(int) $row['id']] ?? null) ? $links[(int) $row['id']] : '';
 
-        return hash_equals((string) $row['token_hash'], hash('sha256', $token)) ? self::absolute($app, $token) : null;
+        return $token !== '' && hash_equals((string) $row['token_hash'], hash('sha256', $token)) ? self::absolute($app, $token) : null;
+    }
+
+    /** Does the quote have a link that works now (shown or not)? @param array<string, mixed> $quote as Quotes::get returns it */
+    public static function hasWorkingLink(array $quote): bool
+    {
+        return $quote['has_link'] && $quote['token_expires_at'] !== null && (string) $quote['token_expires_at'] > Clock::now() && $quote['anonymised_at'] === null;
     }
 
     /** Withdraws the customer's link at once (the admin's "Withdraw link"); false when there was none. */

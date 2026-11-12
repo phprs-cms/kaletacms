@@ -9,7 +9,7 @@
  * @var string $csrf
  * @var array<string, mixed> $quote as Core\Quotes::get returns it
  * @var array{to: string, subject: string, message: string, refusal: ?string, smtp: ?string, deal: bool, set_deal_value: bool, language: string} $draft
- * @var string|null $link the customer's working link, or null
+ * @var string|null $link the customer's working link made in this session, or null (3.38 review L1: only its hash is stored)
  * @var bool $signature does the sender have an e-mail signature
  * @var string $replyTo the sender's e-mail
  */
@@ -28,6 +28,17 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 	<p class="mcp-adresa"><code id="nabidka-odkaz-adresa" data-quote-link><?= e($link) ?></code> <button class="navigace" type="button" data-kopirovat="#nabidka-odkaz-adresa"><?= e(t('Copy link')) ?></button></p>
 	<p class="napoveda"><?= e(t('Whoever has the link sees this one quote. It works until %s.', format_date((string) $quote['token_expires_at']))) ?></p>
 	<?php if ($mailto !== null): ?><p class="tlacitka"><a class="navigace" href="<?= e($mailto) ?>"><?= e(t('Send the link from your own mail program')) ?></a></p><?php endif ?>
+	<form method="post" action="<?= e($module->url('link_withdraw')) ?>" data-potvrdit="<?= e(t('Withdraw the link? The customer will see “page not found”.')) ?>">
+		<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
+		<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Withdraw link')) ?></button></p>
+	</form>
+<?php elseif (Kaleta\Core\QuoteDelivery::hasWorkingLink($quote)): ?>
+	<p class="napoveda" data-quote-link-hidden><?= e(t('The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.')) ?></p>
+	<p class="napoveda"><?= e(t('Whoever has the link sees this one quote. It works until %s.', format_date((string) $quote['token_expires_at']))) ?></p>
+	<form method="post" action="<?= e($module->url('link')) ?>">
+		<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
+		<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('New link')) ?></button></p>
+	</form>
 	<form method="post" action="<?= e($module->url('link_withdraw')) ?>" data-potvrdit="<?= e(t('Withdraw the link? The customer will see “page not found”.')) ?>">
 		<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
 		<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Withdraw link')) ?></button></p>

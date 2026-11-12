@@ -8183,4 +8183,5 @@ return [
     'The quote was deleted.' => 'Nabídka byla smazána.',
     'Customer’s link made' => 'Vytvořen odkaz pro zákazníka',
     'Customer’s link withdrawn' => 'Odkaz pro zákazníka zrušen',
+    'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'Odkaz je uložený jen jako otisk, proto ho nejde zobrazit znovu. Nový odkaz vytvoří jiný, který si zkopírujete – odkaz, který má zákazník, přestane fungovat.',
 ];

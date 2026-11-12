@@ -17,18 +17,14 @@ $c338Settings = static function (array $values): Kaleta\Core\Settings {
 $c338Db = (new ReflectionClass(Kaleta\Core\Db::class))->newInstanceWithoutConstructor(); // never reached: the secret key is in the settings
 $c338Key = str_repeat('k', 16) . 'quote' . str_repeat('3', 11); // built at run time (no key-shaped literal)
 
-// the link: an HMAC of the quote and the moment its link ends – not guessable, one per expiry, only its hash is stored
+// the link: when it ends; the token itself is random (3.38 review L1, unit 2950) and only its hash is stored
 Clock::freeze('2026-11-12 10:15:30');
 $c338S = $c338Settings(['secret_key' => $c338Key]);
 $c338Expiry = QuoteDelivery::linkExpiry($c338S, '2026-12-01');
-$c338Token = QuoteDelivery::token($c338Db, $c338S, 7, (string) $c338Expiry);
+$c338Token = QuoteDelivery::newToken(); // 3.38 review L1: 32 random bytes per link (unit 2950)
 check('3.38 C: a link ends quote_link_days after the validity at the time of day it was made; a past validity counts from today; a dead link is never made', [
     $c338Expiry, QuoteDelivery::linkExpiry($c338S, '2026-01-01'), QuoteDelivery::linkExpiry($c338S, null), QuoteDelivery::linkExpiry($c338Settings(['quote_link_days' => '0']), null)],
     ['2026-12-31 10:15:30', '2026-12-12 10:15:30', '2026-12-12 10:15:30', '2026-11-13 10:15:30']);
-check('3.38 C: the token is 64 hex characters, the same for the same quote and moment (the admin shows it again), another for another quote, moment or key', [
-    preg_match('/^[a-f0-9]{64}$/D', $c338Token), $c338Token === QuoteDelivery::token($c338Db, $c338S, 7, (string) $c338Expiry),
-    $c338Token === QuoteDelivery::token($c338Db, $c338S, 8, (string) $c338Expiry), $c338Token === QuoteDelivery::token($c338Db, $c338S, 7, '2026-12-31 10:15:31'),
-    $c338Token === QuoteDelivery::token($c338Db, $c338Settings(['secret_key' => strrev($c338Key)]), 7, (string) $c338Expiry)], [1, true, false, false, false]);
 check('3.38 C: what is not a token is refused before the database (a guess of another shape, upper case, a path)', [
     QuoteDelivery::byToken($c338Db, ''), QuoteDelivery::byToken($c338Db, strtoupper($c338Token)), QuoteDelivery::byToken($c338Db, substr($c338Token, 1)), QuoteDelivery::byToken($c338Db, '../' . substr($c338Token, 3))],
     [null, null, null, null]);
