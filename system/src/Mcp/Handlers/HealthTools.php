@@ -47,6 +47,9 @@ trait HealthTools
             // 3.18: whether Claude is connected (Core\ClaudeConnection): state off | none | idle | active, the last call, how
             // requests are picked up (automatic | manual | stalled), the earliest end of a connection
             'claude_connection' => \Kaleta\Core\ClaudeConnection::summary(\Kaleta\Core\ClaudeConnection::status($db, $this->app->settings())),
+            // 3.14–3.38 listed the checks of Ready for 4.0 here; 3.39 dropped them (the rename is not planned). The key stays
+            // so an existing connection that reads it is not broken – MCP output is additive only.
+            'ready_for_4_0' => ['planned' => false, 'note' => 'The English renaming of tables is not planned; there is nothing to prepare.'],
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',
         ];
     }
