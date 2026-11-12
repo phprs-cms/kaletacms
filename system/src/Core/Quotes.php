@@ -486,7 +486,7 @@ final class Quotes
             $quote = self::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
             if (!$app->settings()->bool('quote_vat_payer') && $quote['vat_mode'] !== 'none') {
                 self::withoutVat($db, [$id]); // 3.38 review L8: a draft saved while the firm was a VAT payer
-                $quote = self::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
+                $quote = self::get($db, $id);
             }
             $refusal = self::sendRefusal($quote, $action === 'sent');
             if ($refusal !== null) {
