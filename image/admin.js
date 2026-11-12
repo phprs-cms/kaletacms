@@ -977,4 +977,31 @@
 		});
 		board.addEventListener('focusout', function (e) { if (lifted && e.target.closest && e.target.closest('.obchod-uchyt') && !board.contains(e.relatedTarget)) { putDown(); } });
 	}
+
+	// 3.38 B: the quote editor asks the server for the totals as the lines change (Admin\Modules\Quotes::actionTotals) – the
+	// arithmetic lives only in Core\Money, never here; Save computes and stores them anyway
+	var quoteEditor = document.querySelector('[data-quote-totals]');
+	if (quoteEditor) {
+		var quoteTimer = null;
+		var quoteTotals = function () {
+			fetch(quoteEditor.getAttribute('data-quote-totals'), { method: 'POST', body: new FormData(quoteEditor), credentials: 'same-origin' })
+				.then(function (r) { return r.json(); })
+				.then(function (j) {
+					if (j.error || !j.lines) { return; }
+					[['[data-quote-sum-net]', j.net], ['[data-quote-sum-vat]', j.vat], ['[data-quote-sum-gross] strong', j.gross]].forEach(function (pair) {
+						var el = quoteEditor.querySelector(pair[0]);
+						if (el) { el.textContent = pair[1]; }
+					});
+					quoteEditor.querySelectorAll('[data-quote-line-net]').forEach(function (out, i) { out.textContent = j.lines[i] || ''; });
+				})
+				.catch(function () { /* the saved totals stay */ });
+		};
+		var quoteChanged = function (e) {
+			if (!e.target.closest || !e.target.closest('[data-quote-lines] tbody, [data-quote-conditions]')) { return; }
+			clearTimeout(quoteTimer);
+			quoteTimer = setTimeout(quoteTotals, 400);
+		};
+		quoteEditor.addEventListener('input', quoteChanged);
+		quoteEditor.addEventListener('change', quoteChanged);
+	}
 })();

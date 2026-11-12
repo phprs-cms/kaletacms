@@ -174,6 +174,8 @@ final class Enquiries extends Module
                 ($p['anonymizovano'] ?? null) === null && \Kaleta\Core\Contacts::normalise((string) $p['email']) !== null),
             // 3.31: the deal the enquiry became, or "Create deal" (for whoever may open the Pipeline)
             'dealBox' => Pipeline::enquiryBox($this->app, $this->kernel->modules(), (int) $p['idp']),
+            // 3.38 B: its quotes and "New quote" from the basket (for whoever may open Quotes)
+            'quoteBox' => Quotes::box($this->app, $this->kernel->modules(), 'enquiry', (int) $p['idp']),
             // 3.34: "Move to Applications" for a person who may open both sections (a job application sent through a general form)
             'toApplication' => isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])]);
     }

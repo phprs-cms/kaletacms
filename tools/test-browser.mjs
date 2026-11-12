@@ -5185,6 +5185,82 @@ await step('3.38 C the quote document: 1440 and 390 px, axe, print to A4 (one or
   }
 });
 
+// 3.38 (agent B): a quote from an enquiry's basket – the box on the enquiry, the editor (a line without a price in red, the
+// totals asked from the server as you type), Save, Finalise through the confirmation, Mark accepted; the editor and the
+// detail at 1440 and 390 px in light and dark without sideways scroll, axe on both
+await step('3.38 quotes: New quote from an enquiry, the editor with live totals, Finalise and Mark accepted; 1440 and 390 px (light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota);"
+    + " INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota);"
+    + " INSERT INTO ka_kolekce (nazev, seo_link, pole, detail, preset) VALUES ('Lasers C338', 'lasers-c338', '[{\"klic\":\"code\",\"popisek\":\"Code\",\"typ\":\"text\"}]', 1, 'products');"
+    + " INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) SELECT idk, 'Therapy laser C338', 'laser-c338', '{\"code\":\"LC338\"}', NOW(), 1 FROM ka_kolekce WHERE seo_link = 'lasers-c338';"
+    + " INSERT INTO ka_price_lists (name, currency, is_default, note, created_at, updated_at) SELECT 'Standard C338', 'EUR', 1, '', NOW(), NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_price_lists WHERE is_default = 1);"
+    + " INSERT INTO ka_prices (price_list_id, item_id, variant_code, code, label, unit_price, unit, note, updated_at) SELECT l.id, p.idp, '', 'LC338', '', 2500.00, 'pc', '', NOW() FROM ka_price_lists l, ka_kolekce_polozky p WHERE l.is_default = 1 AND p.seo_link = 'laser-c338';"
+    + " INSERT INTO ka_contacts (email, email_norm, name, source, created_at, updated_at) VALUES ('buyer-c338@example.com', 'buyer-c338@example.com', 'Beatrix Buyer', 'manual', NOW(), NOW());"
+    + " INSERT INTO ka_poptavky (datum, formular, tema, email, contact_id, stav, data) SELECT NOW(), 'Enquiry C338', 'Lasers', 'buyer-c338@example.com', id, 0, '[[\"Basket\",\"2 \\\\u00d7 Therapy laser C338 (LC338)\\\\n1 \\\\u00d7 A mystery box\"]]' FROM ka_contacts WHERE email = 'buyer-c338@example.com'");
+  const enq = sql("SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'Enquiry C338'").trim();
+  let id = 0;
+  try {
+    await visit(`/admin.php?module=enquiries&action=detail&id=${Number(enq)}`);
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quotes-box="enquiry"] [data-quote-new-here] button').click()]);
+    id = Number(new URL(page.url()).searchParams.get('id'));
+    if (!id || !(await page.locator('[data-quote-editor]').count())) { throw new Error('New quote did not open the editor'); }
+    if ((await page.locator('[data-quote-line]').count()) !== 2 || !(await page.locator('[data-quote-flag="unpriced"]').count())) { throw new Error('the basket did not become a priced line and a line without a price'); }
+    // the totals are the server's: a changed quantity updates the line and the sum without saving
+    await page.locator('[data-quote-line] input[name="line_quantity[]"]').first().fill('3');
+    await page.waitForFunction(() => /7,500|7\.500|7 500/.test(document.querySelector('[data-quote-line-net]')?.textContent || ''), null, { timeout: 5000 });
+    if (sql(`SELECT quantity FROM ka_quote_lines WHERE quote_id = ${id} ORDER BY position LIMIT 1`).trim() !== '2.000') { throw new Error('typing saved the quote'); }
+    await page.locator('[data-quote-line] input[name="line_price[]"]').nth(1).fill('99');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-save]').click()]);
+    if (sql(`SELECT total_net FROM ka_quotes WHERE id = ${id}`).trim() !== '7599.00') { throw new Error('Save did not store the lines and totals'); }
+    const state = await context.storageState();
+    for (const [what, url, root] of [['editor', `/admin.php?module=quotes&action=edit&id=${id}`, '[data-quote-editor]'], ['detail', `/admin.php?module=quotes&action=detail&id=${id}`, '[data-quote-document]']]) {
+      for (const scheme of ['light', 'dark']) {
+        for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+          const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+          const p2 = await other.newPage(); watch(p2);
+          try {
+            await p2.goto(BASE + url, { waitUntil: 'networkidle' });
+            if (!(await p2.locator(root).count())) { throw new Error(`the ${what} did not open (${label}, ${scheme})`); }
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the quote ${what} (${label}, ${scheme})`); }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/338b-quote-${what}-${label}-${scheme}.png`, fullPage: true }); }
+          } finally {
+            await other.close();
+          }
+        }
+      }
+      const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+      try {
+        const axePage = await axeContext.newPage();
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['[data-record-bar]', '.zaznam'], WCAG]);
+          if (found.violations.length) { throw new Error(`axe quote ${what} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      } finally {
+        await axeContext.close();
+      }
+    }
+    // Finalise asks first (the custom dialog), then the number; Mark accepted from the detail's bar
+    await visit(`/admin.php?module=quotes&action=edit&id=${id}`);
+    await page.locator('[data-quote-finalise]').click();
+    await Promise.all([page.waitForNavigation(), page.locator('dialog.potvrzeni [data-ano]').click()]);
+    if (!/^\d{4}-\d{4}$/.test(sql(`SELECT number FROM ka_quotes WHERE id = ${id} AND status = 'sent'`).trim())) { throw new Error('Finalise gave no number'); }
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-accept] button').click()]);
+    if (sql(`SELECT status FROM ka_quotes WHERE id = ${id}`).trim() !== 'accepted') { throw new Error('Mark accepted did not accept the quote'); }
+    await visit('/lasers-c338/laser-c338');
+    if (/2,500\.00|2500\.00|7599/.test(await page.content())) { throw new Error('a quote price is on the product page'); }
+  } finally {
+    sql(`DELETE FROM ka_quote_lines WHERE quote_id IN (SELECT id FROM ka_quotes WHERE enquiry_id = ${Number(enq) || 0}); DELETE FROM ka_quotes WHERE enquiry_id = ${Number(enq) || 0}; DELETE FROM ka_quote_counters;`
+      + ` DELETE FROM ka_prices WHERE code = 'LC338'; DELETE FROM ka_kolekce_polozky WHERE seo_link = 'laser-c338'; DELETE FROM ka_kolekce WHERE seo_link = 'lasers-c338'; DELETE FROM ka_poptavky WHERE formular = 'Enquiry C338';`
+      + ` DELETE FROM ka_contacts WHERE email = 'buyer-c338@example.com'; DELETE FROM ka_nastaveni WHERE promenna = 'quote_vat_rate';`
+      + ` UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

@@ -335,6 +335,10 @@ final class Translator
         'list_prices' => ['list_prices', '', []], // 3.38: English only
         'save_price' => ['save_price', '', []],
         'send_quote' => ['send_quote', '', []], // 3.38 C: English only
+        'list_quotes' => ['list_quotes', '', []], // 3.38 B: English only
+        'get_quote' => ['get_quote', '', []],
+        'save_quote' => ['save_quote', '', []],
+        'mark_quote' => ['mark_quote', '', []],
         'list_applications' => ['list_applications', '', []], // 3.34: English only
         'get_application' => ['get_application', '', []],
         'update_application' => ['update_application', '', []],

@@ -149,7 +149,9 @@ $parity = [
         'search_json' => $readOnly, 'move' => $readOnly, 'move_run' => 'admin: moving enquiries of a form to applications or back is the administrator\'s decision about personal data'],
     // 3.38: quotes and internal prices (Core\Prices, Core\Quotes) – Claude reads and saves prices with list_prices and save_price;
     // the CSV import, the price lists and the settings stay with people (the quote tools come with the quote screens)
-    'quotes' => ['list' => $readOnly, 'prices' => 'list_prices', 'prices_save' => 'save_price', 'item_prices_save' => 'save_price', 'prices_export' => 'list_prices',
+    'quotes' => ['list' => 'list_quotes', 'create' => 'save_quote', 'edit' => 'get_quote', 'save' => 'save_quote', 'detail' => 'get_quote', 'status' => 'mark_quote',
+        'revise' => 'admin: a revision is a person\'s decision to replace a quote the customer already has (design A8)', 'delete' => 'admin: deleting a quote stays in the administration (design A8)',
+        'totals' => $readOnly, 'prices' => 'list_prices', 'prices_save' => 'save_price', 'item_prices_save' => 'save_price', 'prices_export' => 'list_prices',
         'prices_import' => 'admin: a CSV file of prices is uploaded and checked by a person before it is written',
         'prices_import_run' => 'admin: writing a checked CSV import is the decision of the person who checked it',
         'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',

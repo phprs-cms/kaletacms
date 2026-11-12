@@ -884,6 +884,20 @@
             "openWorldHint": false
         }
     },
+    "get_quote": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "title": "Get a quote",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_site": {
         "parameters": {
             "id": "integer"
@@ -1523,6 +1537,26 @@
             "openWorldHint": false
         }
     },
+    "list_quotes": {
+        "parameters": {
+            "company": "integer",
+            "contact": "integer",
+            "deal": "integer",
+            "enquiry": "integer",
+            "limit": "integer",
+            "owner": "string",
+            "page": "integer",
+            "search": "string",
+            "status": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List quotes",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_redirects": {
         "parameters": [],
         "required": [],
@@ -1610,6 +1644,25 @@
             "title": "Log a call, meeting or note",
             "readOnlyHint": false,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "mark_quote": {
+        "parameters": {
+            "decline_reason": "string",
+            "id": "integer",
+            "status": "string",
+            "update_deal": "boolean"
+        },
+        "required": [
+            "id",
+            "status"
+        ],
+        "annotations": {
+            "title": "Mark a quote accepted or declined",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false
         }
     },
@@ -2361,6 +2414,34 @@
             "readOnlyHint": false,
             "destructiveHint": false,
             "idempotentHint": true,
+            "openWorldHint": false
+        }
+    },
+    "save_quote": {
+        "parameters": {
+            "company": "integer",
+            "contact": "integer",
+            "customer": "object",
+            "deal": "integer",
+            "discount_percent": "string",
+            "enquiry": "integer",
+            "id": "integer",
+            "intro": "string",
+            "language": "string",
+            "lines": "array",
+            "owner": "string",
+            "price_list": "string",
+            "terms": "string",
+            "title": "string",
+            "valid_days": "integer",
+            "valid_until": "string",
+            "vat_mode": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Create or change a draft quote",
+            "readOnlyHint": false,
+            "destructiveHint": false,
             "openWorldHint": false
         }
     },

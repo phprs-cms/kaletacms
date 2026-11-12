@@ -170,6 +170,69 @@ final class Quotes
             'valid_until' => $r['valid_until'] === null ? null : (string) $r['valid_until'], 'sent_at' => $r['sent_at'] === null ? null : (string) $r['sent_at'], 'updated_at' => (string) $r['updated_at']], $rows);
     }
 
+    /** 3.38 B: the filters of the quote list => what they keep (all, open = still in play, or one status). */
+    public const array LIST_STATUSES = ['all', 'open', 'draft', 'sent', 'accepted', 'declined', 'expired'];
+
+    /**
+     * 3.38 B: the quote list (Quotes → Quotes, MCP list_quotes): newest change first, filtered by status (LIST_STATUSES;
+     * open = draft or sent), the responsible person (owner: a user id, -1 = nobody), contact, company, deal, enquiry and a
+     * word in the number, title or customer block. Rows as of() returns them plus the customer's name, company and e-mail,
+     * the owner and revision_of.
+     *
+     * @param array{status?: string, owner?: int, contact?: int, company?: int, deal?: int, enquiry?: int, search?: string} $filter
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, pages: int}
+     */
+    public static function list(Db $db, array $filter, int $page = 1, int $limit = 30): array
+    {
+        $where = ['1 = 1'];
+        $params = [];
+        $status = $filter['status'] ?? 'all';
+        if ($status === 'open') {
+            $where[] = "status IN ('draft', 'sent')";
+        } elseif (in_array($status, self::STATUSES, true)) {
+            $where[] = 'status = ?';
+            $params[] = $status;
+        }
+        $owner = (int) ($filter['owner'] ?? 0);
+        if ($owner === -1) {
+            $where[] = 'owner_id IS NULL';
+        } elseif ($owner > 0) {
+            $where[] = 'owner_id = ?';
+            $params[] = $owner;
+        }
+        foreach (['contact' => 'contact_id', 'company' => 'company_id', 'deal' => 'deal_id', 'enquiry' => 'enquiry_id'] as $key => $column) {
+            if ((int) ($filter[$key] ?? 0) > 0) {
+                $where[] = $column . ' = ?';
+                $params[] = (int) $filter[$key];
+            }
+        }
+        $search = mb_substr(trim((string) ($filter['search'] ?? '')), 0, 100);
+        if ($search !== '') {
+            $like = '%' . addcslashes($search, '%_\\') . '%';
+            $where[] = '(number LIKE ? OR title LIKE ? OR customer_name LIKE ? OR customer_company LIKE ? OR customer_email LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
+        }
+        $limit = max(1, min(200, $limit));
+        $sql = ' FROM {quotes} WHERE ' . implode(' AND ', $where);
+        try {
+            $total = (int) $db->value('SELECT COUNT(*)' . $sql, $params);
+            $pages = max(1, (int) ceil($total / $limit));
+            $page = max(1, min($page, $pages));
+            $rows = $db->all('SELECT id, number, revision_of, title, status, currency, total_net, total_gross, valid_until, sent_at, updated_at, owner_id, customer_name, customer_company, customer_email'
+                . $sql . ' ORDER BY updated_at DESC, id DESC LIMIT ' . $limit . ' OFFSET ' . (($page - 1) * $limit), $params);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1]; // before migration 0123
+        }
+
+        return ['rows' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'number' => $r['number'] === null ? null : (string) $r['number'], 'label' => self::label($r['number'], (int) $r['id']),
+            'revision_of' => $r['revision_of'] === null ? null : (int) $r['revision_of'], 'title' => (string) $r['title'], 'status' => (string) $r['status'], 'currency' => (string) $r['currency'],
+            'total_net' => (string) $r['total_net'], 'total_gross' => (string) $r['total_gross'], 'valid_until' => $r['valid_until'] === null ? null : (string) $r['valid_until'],
+            'sent_at' => $r['sent_at'] === null ? null : (string) $r['sent_at'], 'updated_at' => (string) $r['updated_at'], 'owner_id' => $r['owner_id'] === null ? null : (int) $r['owner_id'],
+            'customer_name' => (string) $r['customer_name'], 'customer_company' => (string) $r['customer_company'], 'customer_email' => (string) $r['customer_email']], $rows),
+            'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
     /* ---------- totals ---------- */
 
     /**

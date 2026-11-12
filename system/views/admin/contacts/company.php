@@ -15,6 +15,7 @@
  * @var array<string, mixed> $thread
  * @var array<string, mixed> $tasks
  * @var array<string, mixed>|null $deals the company's deals (3.31, Admin\Modules\Pipeline::deals); null without the Pipeline
+ * @var array<string, mixed>|null $quoteBox the company's quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
  * @var bool $admin
  */
 ?>
@@ -48,6 +49,9 @@
 </section>
 <?php if ($deals !== null): ?>
 <?= $app->view->render('admin/pipeline/deals_box', ['box' => $deals]) ?>
+<?php endif ?>
+<?php if ($quoteBox !== null): /* 3.38 B */ ?>
+<?= $app->view->render('admin/quotes/box', ['csrf' => $csrf, 'box' => $quoteBox]) ?>
 <?php endif ?>
 
 <section id="company-contacts" data-company-contacts>

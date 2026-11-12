@@ -4,17 +4,26 @@ declare(strict_types=1);
 
 namespace Kaleta\Mcp\Handlers;
 
+use Kaleta\Core\Deals;
+use Kaleta\Core\Handover;
 use Kaleta\Core\Language;
 use Kaleta\Core\Prices;
+use Kaleta\Core\Quotes;
 
 /**
- * MCP tools of internal prices (3.38, Core\Prices; the quote tools of the next part join this trait): list_prices reads
+ * MCP tools of internal prices and quotes (3.38, Core\Prices and Core\Quotes): list_prices reads
  * the products of the products collections with their prices in a price list, save_price saves one price or a batch of up
  * to Prices::BATCH_MAX. Only for a user who may open Quotes (the feature "quotes" on – Catalog gates it – and the
  * section); save_price also needs the permission to change prices on a connection with full access (Auth::canEditPrices).
  * No other tool returns a price. Prices are business secrets: never journaled, so undo_agent_session cannot take a change
  * back – save_price returns the previous values of every row it changed so a wrong batch can be put back. The change log
  * names the item or the code, never an amount. Refusals in English (Language::runWith). Part of Mcp\Tools.
+ *
+ * 3.38 B – quotes: list_quotes and get_quote read, save_quote creates or changes a draft (a drafts-only connection may – a
+ * draft never leaves the site), mark_quote marks a sent quote accepted, declined (with a reason) or back to sent and, only
+ * when asked (update_deal), moves its deal to won or lost. Claude never guesses a price (Quotes::save with $fromClaude: a
+ * product without a list price keeps a line without a price, a different price is kept as a manual price with a warning,
+ * a discount above quote_max_discount is refused). Quotes hold customer data: never journaled, not undoable.
  *
  * @phpstan-ignore trait.unused
  */
@@ -135,6 +144,200 @@ trait QuoteTools
             return ['price_list' => $this->priceListOut($list)] + array_filter($counts) + ['prices' => $out,
                 'next' => 'Not undoable: the previous values are in before – save them back to undo a wrong change.'];
         }, 'admin-');
+    }
+
+    /** list_quotes */
+    private function toolListQuotes(string $name, array $a): mixed
+    {
+        $this->quotesOpen();
+        $db = $this->app->db();
+        $status = is_string($a['status'] ?? null) && trim($a['status']) !== '' ? strtolower(trim($a['status'])) : 'all';
+        if (!in_array($status, Quotes::LIST_STATUSES, true)) {
+            throw new \InvalidArgumentException('status must be ' . implode(' | ', Quotes::LIST_STATUSES) . '.');
+        }
+        $filter = ['status' => $status, 'search' => is_scalar($a['search'] ?? null) ? (string) $a['search'] : ''];
+        foreach (['contact', 'company', 'deal', 'enquiry'] as $key) {
+            $filter[$key] = (int) ($a[$key] ?? 0);
+        }
+        if (array_key_exists('owner', $a) && is_scalar($a['owner']) && trim((string) $a['owner']) !== '') {
+            $filter['owner'] = Handover::resolve($db, $a['owner'], $this->app->auth()->id()) ?? -1;
+        }
+        $result = Quotes::list($db, $filter, max(1, (int) ($a['page'] ?? 1)), max(1, min(100, (int) ($a['limit'] ?? 25))));
+
+        return ['quotes' => array_map(fn (array $q): array => array_filter(['id' => $q['id'], 'number' => $q['number'], 'status' => $q['status'], 'title' => $q['title'] !== '' ? $q['title'] : null,
+            'customer' => array_filter(['name' => $q['customer_name'], 'company' => $q['customer_company'], 'email' => $q['customer_email']]) ?: null,
+            'total_net' => $q['total_net'], 'total_gross' => $q['total_gross'], 'currency' => $q['currency'], 'valid_until' => $q['valid_until'], 'revision_of' => $q['revision_of'],
+            'owner' => Handover::person($db, $q['owner_id']), 'updated_at' => substr($q['updated_at'], 0, 16), 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))],
+            fn (mixed $v): bool => $v !== null), $result['rows']), 'total' => $result['total'], 'page' => $result['page'], 'pages' => $result['pages'],
+            'admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Quotes::SECTION)]
+            + ($result['total'] === 0 ? ['next' => 'No quotes here. save_quote creates a draft (with enquiry: from its basket and customer).'] : []);
+    }
+
+    /** get_quote */
+    private function toolGetQuote(string $name, array $a): mixed
+    {
+        $this->quotesOpen();
+        $quote = Quotes::get($this->app->db(), (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The quote does not exist. Use list_quotes.');
+
+        return $this->quoteOut($quote);
+    }
+
+    /** save_quote */
+    private function toolSaveQuote(string $name, array $a): mixed
+    {
+        $this->quotesOpen();
+        $db = $this->app->db();
+        $s = $this->app->settings();
+        $self = $this->app->auth()->id();
+        $id = (int) ($a['id'] ?? 0);
+        if ($id > 0 && Quotes::get($db, $id) === null) {
+            throw new \InvalidArgumentException('The quote does not exist. Use list_quotes.');
+        }
+        $fields = [];
+        foreach (['enquiry' => 'enquiry_id', 'deal' => 'deal_id', 'contact' => 'contact_id', 'company' => 'company_id'] as $param => $key) {
+            if (array_key_exists($param, $a)) {
+                $value = is_scalar($a[$param]) ? trim((string) $a[$param]) : '';
+                $fields[$key] = in_array(strtolower($value), ['none', 'null', ''], true) ? 0 : (int) $value;
+            }
+        }
+        if ($id > 0 && ($fields['enquiry_id'] ?? 0) > 0) {
+            throw new \InvalidArgumentException('enquiry starts a new quote from the enquiry – leave out id.');
+        }
+        foreach (['title', 'intro', 'terms', 'valid_until', 'valid_days', 'discount_percent', 'vat_mode', 'language'] as $key) {
+            if (array_key_exists($key, $a)) {
+                $fields[$key] = is_scalar($a[$key]) ? $a[$key] : null;
+            }
+        }
+        if (array_key_exists('owner', $a)) {
+            $fields['owner_id'] = Handover::resolve($db, $a['owner'], $self) ?? 0;
+        }
+        if (array_key_exists('customer', $a)) {
+            if (!is_array($a['customer'])) {
+                throw new \InvalidArgumentException('customer must be an object {name, company, address, reg_no, vat_id, email}.');
+            }
+            $fields['customer'] = array_intersect_key($a['customer'], Quotes::CUSTOMER);
+        }
+        if (array_key_exists('lines', $a)) {
+            if (!is_array($a['lines']) || !array_is_list($a['lines'])) {
+                throw new \InvalidArgumentException('lines must be a list of {item or code, variant, quantity, discount_percent, unit_price, name, description, unit, vat_rate} – it replaces all lines (keep a line by its id).');
+            }
+            $fields['lines'] = [];
+            foreach ($a['lines'] as $i => $line) {
+                if (!is_array($line)) {
+                    throw new \InvalidArgumentException('Line ' . ($i + 1) . ' is not an object.');
+                }
+                $out = [];
+                foreach (['id' => 'id', 'item' => 'item_id', 'code' => 'code', 'variant' => 'variant_code', 'quantity' => 'quantity', 'discount_percent' => 'discount_percent',
+                    'unit_price' => 'unit_price', 'name' => 'name', 'description' => 'description', 'unit' => 'unit', 'vat_rate' => 'vat_rate'] as $param => $key) {
+                    if (array_key_exists($param, $line)) {
+                        $out[$key] = $line[$param];
+                    }
+                }
+                $fields['lines'][] = $out;
+            }
+        }
+        try {
+            $saved = Language::runWith('en', function () use ($db, $s, $a, $fields, $id, $self): array {
+                if (array_key_exists('price_list', $a)) {
+                    $fields['price_list_id'] = Prices::resolveList($db, $s, $a['price_list'])['id'];
+                }
+
+                return Quotes::save($this->app, $id > 0 ? $id : null, $fields, $self, true);
+            }, 'admin-');
+        } catch (\DomainException $e) {
+            throw new \DomainException($e->getMessage() . ' Nothing was saved.');
+        }
+        $quote = Quotes::get($db, $saved['id']) ?? throw new \DomainException('The quote does not exist.');
+
+        return ['id' => $saved['id'], ($id > 0 ? 'updated' : 'created') => true] + ($saved['warnings'] !== [] ? ['warnings' => $saved['warnings']] : [])
+            + ['quote' => $this->quoteOut($quote),
+                'note' => 'A draft – nothing went to the customer. A person checks it in the admin and sends it (admin_url). Not undoable: quotes hold customer data and never enter the undo journal.'];
+    }
+
+    /** mark_quote */
+    private function toolMarkQuote(string $name, array $a): mixed
+    {
+        $this->quotesOpen();
+        $db = $this->app->db();
+        $self = $this->app->auth()->id();
+        $id = (int) ($a['id'] ?? 0);
+        $before = Quotes::get($db, $id) ?? throw new \InvalidArgumentException('The quote does not exist. Use list_quotes.');
+        $status = is_string($a['status'] ?? null) ? strtolower(trim($a['status'])) : '';
+        if (!in_array($status, ['accepted', 'declined', 'sent'], true)) {
+            throw new \InvalidArgumentException('status must be accepted | declined | sent (back from accepted or declined).');
+        }
+        $updateDeal = ($a['update_deal'] ?? false) === true;
+        if ($updateDeal && $status !== 'sent' && $before['deal_id'] !== null && !Deals::mayOpen($db, $this->app->settings(), $self)) {
+            throw new \DomainException('Only a user who may open the pipeline can move the deal – leave out update_deal. Nothing changed.');
+        }
+        // decline_reason, not reason: "reason" is every tool's own guardrail argument (Mcp\Server takes it away)
+        $reason = is_string($a['decline_reason'] ?? null) && trim($a['decline_reason']) !== '' ? trim($a['decline_reason']) : null;
+        try {
+            $changed = Language::runWith('en', fn (): bool => Quotes::setStatus($this->app, $id, $status, $self, $reason), 'admin-');
+        } catch (\DomainException $e) {
+            throw new \DomainException($e->getMessage() . ' Nothing changed.');
+        }
+        $out = ['id' => $id, 'changed' => $changed, 'from' => $before['status'], 'status' => $status];
+        if ($updateDeal && $status !== 'sent' && $before['deal_id'] !== null) {
+            $kind = $status === 'accepted' ? 'won' : 'lost';
+            $stage = array_values(array_filter(Deals::stages($this->app->settings()), fn (array $st): bool => $st['kind'] === $kind))[0] ?? null;
+            $deal = Deals::get($db, $before['deal_id']);
+            if ($stage !== null && $deal !== null && $deal['closed_at'] === null) {
+                try {
+                    Language::runWith('en', fn (): array => Deals::move($this->app, $deal['id'], $stage['key'], $self, $kind === 'lost' ? $reason : null), 'admin-');
+                    $out['deal'] = ['id' => $deal['id'], 'moved_to' => $stage['key']];
+                } catch (\DomainException $e) {
+                    $out['deal'] = ['id' => $deal['id'], 'not_moved' => $e->getMessage()];
+                }
+            } elseif ($deal !== null) {
+                $out['deal'] = ['id' => $deal['id'], 'not_moved' => $deal['closed_at'] !== null ? 'The deal is already closed.' : 'The pipeline has no ' . $kind . ' stage.'];
+            }
+        }
+        $quote = Quotes::get($db, $id) ?? throw new \DomainException('The quote does not exist.');
+
+        return $out + ['quote' => ['id' => $quote['id'], 'number' => $quote['number'], 'status' => $quote['status']] + ($quote['decline_reason'] !== null ? ['decline_reason' => $quote['decline_reason']] : []),
+            'note' => 'Not undoable through undo_agent_session; set it back with status sent.'];
+    }
+
+    /** The connected user must be able to open Quotes – otherwise an error says why. */
+    private function quotesOpen(): void
+    {
+        if (!Quotes::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id())) {
+            throw new \DomainException('Only a user who may open Quotes can read or change quotes – an administrator gives the section in Users.');
+        }
+    }
+
+    /**
+     * A quote as the tools show it: the customer block, the lines (manual = a price that differs from the price list;
+     * unit_price null = no price yet), the totals per VAT rate as decimal texts, the history, why a draft cannot go out yet
+     * (not_sendable) and the admin address. No default values.
+     *
+     * @param array<string, mixed> $q Quotes::get
+     * @return array<string, mixed>
+     */
+    private function quoteOut(array $q): array
+    {
+        $db = $this->app->db();
+        $list = Prices::priceList($db, $q['price_list_id']);
+        $refusal = $q['status'] === 'draft' ? Language::runWith('en', fn (): ?string => Quotes::sendRefusal($q), 'admin-') : null;
+
+        return array_filter(['id' => $q['id'], 'number' => $q['number'], 'status' => $q['status'], 'title' => $q['title'] !== '' ? $q['title'] : null,
+            'revision_of' => $q['revision_of'], 'customer' => array_filter($q['customer']) ?: null,
+            'contact' => $q['contact_id'], 'company' => $q['company_id'], 'enquiry' => $q['enquiry_id'], 'deal' => $q['deal_id'], 'owner' => Handover::person($db, $q['owner_id']),
+            'price_list' => $list !== null ? $this->priceListOut($list) : null, 'currency' => $q['currency'], 'language' => $q['language'] !== '' ? $q['language'] : null,
+            'valid_until' => $q['valid_until'], 'discount_percent' => $q['discount_percent'] !== '0.00' ? $q['discount_percent'] : null,
+            'vat_mode' => $q['vat_mode'] !== 'standard' ? $q['vat_mode'] : null, 'intro' => $q['intro'] !== '' ? $q['intro'] : null, 'terms' => $q['terms'] !== '' ? $q['terms'] : null,
+            'lines' => array_map(fn (array $l): array => array_filter(['id' => $l['id'], 'item' => $l['item_id'], 'variant' => $l['variant_code'] !== '' ? $l['variant_code'] : null,
+                'code' => $l['code'] !== '' ? $l['code'] : null, 'name' => $l['name'], 'description' => $l['description'] !== '' ? $l['description'] : null, 'quantity' => $l['quantity'],
+                'unit' => $l['unit'] !== '' ? $l['unit'] : null, 'unit_price' => $l['unit_price'], 'list_price' => $l['manual'] ? $l['list_price'] : null,
+                'discount_percent' => $l['discount_percent'] !== '0.00' ? $l['discount_percent'] : null, 'vat_rate' => $l['vat_rate'], 'line_net' => $l['line_net'],
+                'manual' => $l['manual'] ? true : null], fn (mixed $v): bool => $v !== null) + ($l['unit_price'] === null ? ['unit_price' => null] : []), $q['lines']),
+            'totals' => $q['totals']['unpriced'] > 0 ? $q['totals'] : array_diff_key($q['totals'], ['unpriced' => 0]),
+            'history' => array_map(fn (array $h): array => array_filter(['at' => substr((string) ($h['at'] ?? ''), 0, 16), 'action' => $h['action'] ?? null, 'from' => $h['from'] ?? null,
+                'to' => $h['to'] ?? null, 'note' => $h['note'] ?? null, 'by' => isset($h['by']) ? Handover::person($db, $h['by']) : null], fn (mixed $v): bool => $v !== null), $q['history']),
+            'not_sendable' => $refusal, 'sent_at' => $q['sent_at'] !== null ? substr($q['sent_at'], 0, 16) : null,
+            'decided_at' => $q['decided_at'] !== null ? substr($q['decided_at'], 0, 16) : null, 'decline_reason' => $q['decline_reason'],
+            'updated_at' => $q['updated_at'], 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))], fn (mixed $v): bool => $v !== null && $v !== []);
     }
 
     /**
