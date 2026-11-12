@@ -55,13 +55,13 @@ check('3.40 B: the bell of the customer\'s answer – two kinds, named in the ad
     [['quote_accepted', 'quote_declined'], ['The customer accepted a quote', 'The customer declined a quote'], 'Zákazník přijal nabídku']);
 
 // saved line sets: what a set inserts – products and own rows without a price (the quote's list prices them), free lines with theirs
-$b340Set = ['lines' => [
+$b340Set = ['currency' => 'CZK', 'lines' => [
     ['kind' => 'product', 'item_id' => 5, 'variant_code' => 'L-M', 'quantity' => '2.000', 'discount_percent' => '5.00'],
     ['kind' => 'product', 'item_id' => 6, 'variant_code' => '', 'quantity' => '1.000', 'discount_percent' => '0.00', 'name' => 'Laser – renamed', 'description' => 'with a stand'],
     ['kind' => 'own', 'code' => 'MONT', 'name' => 'Installation', 'quantity' => '3.000', 'discount_percent' => '0.00'],
     ['kind' => 'free', 'code' => '', 'name' => 'Transport', 'unit' => 'km', 'unit_price' => '12.50', 'vat_rate' => '21.00', 'quantity' => '40.000', 'discount_percent' => '0.00'],
     ['kind' => 'free', 'code' => 'X1', 'name' => 'To be priced', 'unit' => '', 'unit_price' => null, 'vat_rate' => '21.00', 'quantity' => '1.000', 'discount_percent' => '0.00']]];
-$b340Inputs = QuoteLineSets::inputs($b340Set);
+$b340Inputs = QuoteLineSets::inputs($b340Set, 'CZK'); // a quote in the set's currency (3.40 review M3)
 check('3.40 B: inserting a set – products by item and variant and own rows by code never carry a price; free lines keep theirs (or none)', [
     array_map(fn (array $l): bool => array_key_exists('unit_price', $l), $b340Inputs), array_column($b340Inputs, 'unit_price'),
     $b340Inputs[0], $b340Inputs[1]['name'] ?? null, $b340Inputs[2]['code'] ?? null, $b340Inputs[3]['unit'] ?? null],
