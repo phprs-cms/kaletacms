@@ -12,6 +12,7 @@
  * @var string $url  the host the app returns to after consent
  * @var bool $claudeHost whether that host belongs to Claude's own apps (Front\OAuth::CLAUDE_HOSTS)
  * @var bool $approved whether someone on this site has allowed this app before
+ * @var string $registered when the app registered with this site (3.41, N123; '' = unknown)
  * @var string $selected the access chosen in advance
  * @var string $toolSet the tool set chosen in advance (3.10)
  * @var string|null $passwordError why full access was refused just now (3.35); null = not refused
@@ -31,6 +32,11 @@ $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 	<p class="oauth-kdo"><strong><?= e($pending['nazev']) ?></strong> <?= e(t('wants to work with the website %s.', $app->settings()->get('site_name'))) ?><?php if (!$approved): ?> <span class="stitek stitek-koncept"><?= e(t('new, not verified')) ?></span><?php endif ?></p>
 <?php if (!$approved): ?>
 	<p class="napoveda"><?= e(t('This website has not connected this application before. An application chooses its name itself, so the name is not verified – check the address above.')) ?></p>
+<?php if ($claudeHost): // 3.41 (N123): a flow someone else started on a Claude address lands here too – say it for every app not approved yet ?>
+	<p class="hlaska hlaska-varovani" role="alert"><?= e(($registered ?? '') !== ''
+		? t('Allow access only if you started connecting this application yourself just now (it registered with this website on %s). If a link or someone else brought you here, choose Deny.', format_date((string) $registered, true))
+		: t('Allow access only if you started connecting this application yourself just now. If a link or someone else brought you here, choose Deny.')) ?></p>
+<?php endif ?>
 <?php endif ?>
 	<p><?= e(t('It will act with your account %s (%s) – never with more than your role allows.', (string) $user['user'], $role)) ?></p>
 	<form method="post" action="<?= e($app->url('admin.php?action=oauth')) ?>"<?= !$verified && $passkeyConfirm ? ' data-klice="' . e($app->url('admin.php?action=oauth&request=' . $nonce)) . '"' : '' ?>>

@@ -740,6 +740,7 @@ final class Kernel
         $page = Response::html($app->view->render('admin/bare', ['app' => $app, 'heading' => t('Connect an application'), 'content' => $app->view->render('admin/oauth', [
             'app' => $app, 'csrf' => $app->session->csrfField(), 'pending' => $pending, 'nonce' => $nonce, 'user' => $app->auth()->user(),
             'url' => $host, 'claudeHost' => $claudeHost, 'approved' => $oauth->isApprovedClient((string) $pending['client_id']),
+            'registered' => $oauth->registeredAt((string) $pending['client_id']), // 3.41 (N123)
             // 3.11 (UX310-2, owner decision 11 Oct 2026): every new connection starts at drafts only – the "drafts you
             // approve" the installer and the site promise; publishing is one click away. Connections that exist keep their access.
             'selected' => 'drafts',

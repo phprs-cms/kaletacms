@@ -290,6 +290,9 @@ final class OAuth
     public static function isClaudeHost(string $host): bool
     {
         $host = rtrim(strtolower($host), '.');
+        if (!self::isPlainHost($host)) {
+            return false; // 3.41 (N123): "evil.example%2f.claude.ai" ends with .claude.ai, but it is no host of Claude's
+        }
         foreach (self::CLAUDE_HOSTS as $known) {
             if ($host === $known || str_ends_with($host, '.' . $known)) {
                 return true;
@@ -297,6 +300,15 @@ final class OAuth
         }
 
         return false;
+    }
+
+    /**
+     * 3.41 (N123): a host name as DNS knows it – letters, digits, dots and hyphens – or the IPv6 loopback literal. A
+     * percent-encoded or otherwise escaped host (parse_url keeps "%2f" in it) is never a redirect target nor one of Claude's.
+     */
+    public static function isPlainHost(string $host): bool
+    {
+        return $host === '[::1]' || preg_match('/^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$/iD', $host) === 1;
     }
 
     /** The host of an address as the person should read it ('' when there is none). */
@@ -309,6 +321,12 @@ final class OAuth
     public function isApprovedClient(string $clientId): bool
     {
         return ($this->client($clientId)['approved'] ?? null) !== null;
+    }
+
+    /** 3.41 (N123): when the app registered with this site ('' when unknown) – the consent shows it for an app never approved. */
+    public function registeredAt(string $clientId): string
+    {
+        return (string) ($this->client($clientId)['vytvoren'] ?? '');
     }
 
     /**
@@ -642,7 +660,7 @@ final class OAuth
         }
         $parts = parse_url($url);
 
-        return is_array($parts) && isset($parts['host']) && (($parts['scheme'] ?? '') === 'https'
+        return is_array($parts) && isset($parts['host']) && self::isPlainHost($parts['host']) && (($parts['scheme'] ?? '') === 'https'
             || (($parts['scheme'] ?? '') === 'http' && in_array($parts['host'], ['localhost', '127.0.0.1', '[::1]'], true)));
     }
 

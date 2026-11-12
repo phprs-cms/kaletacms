@@ -8713,4 +8713,6 @@ return [
     '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d ya estaban rechazadas o contratadas – se dejaron sin cambios y no se les envió nada.',
     'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'El conjunto de líneas «%1$s» se guardó en %2$s y esta oferta está en %3$s – sus líneas libres llegaron sin precio; complétalas.',
     'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'El correo salió sin el PDF: el archivo es demasiado grande para un correo – el cliente tiene el enlace.',
+    'Allow access only if you started connecting this application yourself just now (it registered with this website on %s). If a link or someone else brought you here, choose Deny.' => 'Permite el acceso solo si acabas de iniciar tú la conexión de esta aplicación (se registró en este sitio el %s). Si te ha traído aquí un enlace u otra persona, elige Denegar.',
+    'Allow access only if you started connecting this application yourself just now. If a link or someone else brought you here, choose Deny.' => 'Permite el acceso solo si acabas de iniciar tú la conexión de esta aplicación. Si te ha traído aquí un enlace u otra persona, elige Denegar.',
 ];

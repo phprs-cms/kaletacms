@@ -8286,4 +8286,6 @@ return [
     '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d už bylo zamítnuto nebo přijato – nechali jsme je beze změny a nic jsme jim neposlali.',
     'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'Sada řádků „%1$s“ byla uložena v %2$s a tato nabídka je v %3$s – její volné řádky přišly bez ceny; doplňte je.',
     'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'E-mail odešel bez PDF: soubor je pro e-mail příliš velký – zákazník má odkaz.',
+    'Allow access only if you started connecting this application yourself just now (it registered with this website on %s). If a link or someone else brought you here, choose Deny.' => 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami (k tomuto webu se zaregistrovala %s). Pokud vás sem přivedl odkaz nebo někdo jiný, zvolte Nepovolit.',
+    'Allow access only if you started connecting this application yourself just now. If a link or someone else brought you here, choose Deny.' => 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami. Pokud vás sem přivedl odkaz nebo někdo jiný, zvolte Nepovolit.',
 ];
