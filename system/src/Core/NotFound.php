@@ -28,12 +28,12 @@ final class NotFound
 
     /**
      * Is the address one that must never be kept among the addresses not found (3.38 review L2)? Anything under /quote/
-     * (also behind a language prefix, in any case): a mangled customer's link still carries a working token, and the list
-     * of addresses not found is shown in Redirects.
+     * or /application-consent/ (3.40 review M1; also behind a language prefix, in any case): a mangled customer's or
+     * applicant's link still carries a working token, and the list of addresses not found is shown in Redirects.
      */
     public static function isPrivate(string $path): bool
     {
-        return preg_match('#^/*(?:[a-z]{2,3}(?:-[a-z0-9]{2,8})?/+)?quote/#i', $path) === 1;
+        return preg_match('#^/*(?:[a-z]{2,3}(?:-[a-z0-9]{2,8})?/+)?(?:quote|' . TalentPool::PATH . ')/#i', $path) === 1;
     }
 
     public static function isBot(string $path): bool
