@@ -251,7 +251,7 @@ if [ "$BOOKINGS_PLANTED" = 1 ]; then
   expect "the hidden module answers 403, the shown one 200" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")" "403|200"
 fi
 # every admin module of the new version, with all extensions on
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet,applications') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet,applications,quotes') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
 if [ "$JOBS_PLANTED" = 1 ]; then
   expect "3.34 second review N5: the update request of $FROM only wrote the state of the move, the new version moved the job enquiry" \
