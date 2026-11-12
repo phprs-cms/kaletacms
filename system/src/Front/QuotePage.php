@@ -61,7 +61,7 @@ final class QuotePage
 
             return $file !== null ? QuotePdf::response($file, QuotePdf::filename($quote['number'], $id)) : null;
         }
-        $pdfUrl = QuotePdf::render($app, $quote['snapshot'], $state) !== null ? $app->request->basePath() . '/quote/' . $token . '.pdf' : null;
+        $pdfUrl = QuotePdf::available($app, $quote['snapshot']) ? $app->request->basePath() . '/quote/' . $token . '.pdf' : null;
 
         // 3.40: the customer's Accept / Decline goes into the document
         return self::html(QuoteDecision::into($app, self::document($app, $quote['snapshot'], $state, $pdfUrl), $quote, $token));

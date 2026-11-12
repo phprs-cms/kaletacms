@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Kaleta\Front\QuotePdf;
+
 /* ---------- 3.40 review: the fixes of the security review of quote PDFs, quotes II and applications II ---------- */
 
 // M1: no address under /application-consent/ is ever kept among the addresses not found (a mangled link still carries its token)
@@ -25,3 +27,10 @@ check('3.40 review M3: the warning names the set and both currencies – only on
     Kaleta\Core\QuoteLineSets::currencyWarning(['lines' => array_slice($r340Set['lines'], 1)] + $r340Set, 'EUR'),
     Kaleta\Core\QuoteLineSets::inputs(['currency' => ''] + $r340Set, 'CZK')[0]['unit_price']],
     [null, true, true, null, null]);
+
+// L4: whether the customer's page offers the PDF is answered from the text – the same answer as drawing it, without drawing
+$r340Cases = [$u340Snapshot, ['language' => 'en'] + $u340Snapshot, ['language' => 'ar'] + $u340Snapshot, ['customer' => ['name' => 'Иван Петров'] + $u340Snapshot['customer']] + $u340Snapshot,
+    ['terms' => 'Délai : 4 semaines – Größe ½ – Łódź – Ő'] + $u340Snapshot, ['lines' => [['name' => '中文'] + $u340Lines[0]]] + $u340Snapshot];
+check('3.40 review L4: QuotePdf::available agrees with render for Czech, English, Arabic, Cyrillic, other European letters and Chinese', [
+    array_map(fn (array $snap): bool => QuotePdf::available($u340App, $snap), $r340Cases),
+    array_map(fn (array $snap): bool => QuotePdf::render($u340App, $snap, $u340Sent) !== null, $r340Cases)], [[true, true, false, false, true, false], [true, true, false, false, true, false]]);

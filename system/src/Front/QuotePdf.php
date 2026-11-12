@@ -21,7 +21,8 @@ use Kaleta\Core\Response;
  *
  *  - A quote in a right-to-left language, or one whose text the standard fonts cannot draw (Greek, Cyrillic, Chinese …,
  *    Core\Pdf::supports), gets no PDF: render() returns null, the page offers only "Print or save as PDF" and the e-mail
- *    goes with the link alone.
+ *    goes with the link alone. available() answers that from the text alone, without drawing (3.40 review L4: the
+ *    customer's page decides whether to show the PDF link on every view).
  *  - Never public otherwise: the customer downloads it with the same token rules as the page (/quote/<token>.pdf,
  *    Front\QuotePage), the admin from the quote (Admin\QuoteSending, action pdf); always Content-Disposition attachment,
  *    never cached, noindex.
@@ -60,13 +61,41 @@ final class QuotePdf
      */
     public static function render(App $app, array $snapshot, array $state): ?string
     {
+        if (!self::available($app, $snapshot)) {
+            return null;
+        }
+        $s = $app->settings();
+        $language = Language::ofContent($s, (string) ($snapshot['language'] ?? ''));
+
+        return Language::runWith($language, fn (): ?string => (new self($app, $snapshot, $language))->draw($app, $snapshot, $state), '', $s->get('german_register'));
+    }
+
+    /**
+     * Can the snapshot be drawn as a PDF – without drawing it (3.40 review L4)? No for a right-to-left language; otherwise
+     * every text of the snapshot, the site's name, an amount in its currency, a date and the labels in its language must
+     * be drawable with the standard fonts (Core\Pdf::supports).
+     *
+     * @param array<string, mixed> $snapshot
+     */
+    public static function available(App $app, array $snapshot): bool
+    {
         $s = $app->settings();
         $language = Language::ofContent($s, (string) ($snapshot['language'] ?? ''));
         if (Language::isRtl($language)) {
-            return null;
+            return false;
         }
 
-        return Language::runWith($language, fn (): ?string => (new self($app, $snapshot, $language))->draw($app, $snapshot, $state), '', $s->get('german_register'));
+        return Language::runWith($language, function () use ($s, $snapshot): bool {
+            $texts = [$s->get('site_name'), t('Quotation %s', '1'), t('Valid until'), t('Total including VAT'), t('Total without VAT'), t('Page %1$s of %2$s', '1', '2'), format_date('2026-12-31'),
+                str_replace('₹', 'INR ', QuoteDelivery::money('1234.50', (string) ($snapshot['currency'] ?? '')))];
+            array_walk_recursive($snapshot, function (mixed $v) use (&$texts): void {
+                if (is_string($v)) {
+                    $texts[] = $v;
+                }
+            });
+
+            return Pdf::supports(implode(' ', $texts));
+        }, '', $s->get('german_register'));
     }
 
     /**
