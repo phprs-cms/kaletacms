@@ -16,7 +16,7 @@ use Kaleta\Core\ApplicationMove;
 
 $name = fn (string $form, string $source): string => ($form !== '' ? $form : t('(no name)')) . ' · ' . $source;
 ?>
-<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'move']) ?>
+<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'move', 'admin' => true]) ?>
 <p class="napoveda"><?= e(t('Applications from the forms on your job pages come here by themselves. A career form elsewhere – on an ordinary page, in a pop-up – sent enquiries until its Purpose was set to “Job application”: move them here by form. The fields, replies, notes, tasks and the responsible person move along; a customer record made only by them is deleted; a deal keeps going without the link. At most %d at a time – run it again for the rest.', $batch)) ?></p>
 <section aria-labelledby="presun-k-uchazecum">
 <h2 id="presun-k-uchazecum"><?= e(t('Enquiries to Applications')) ?></h2>

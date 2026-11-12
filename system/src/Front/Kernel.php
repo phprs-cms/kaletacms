@@ -23,6 +23,7 @@ use Kaleta\Core\View;
  *   /<slug>                     page
  *   /screen/<secret>            screen mode for a TV in the reception (2.11, Front\Screen)
  *   /quote/<token>              the customer's quote, a print-ready document (3.38, Front\QuotePage)
+ *   /application-consent/<token> keep or delete an application kept for future openings (3.40, Front\ApplicationConsent)
  *   robots.txt, sitemap.xml, llms.txt, feed.json... see Seo
  */
 final class Kernel
@@ -350,6 +351,13 @@ final class Kernel
             [$heading, $content] = $subscription->link();
 
             return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+        }
+        // 3.40: the link of the talent pool's renewal e-mail (Front\ApplicationConsent) – it keeps working when the feature is
+        // switched off (an applicant may always ask for the deletion); never cached (noindex), private
+        if (preg_match('#^/' . \Kaleta\Core\TalentPool::PATH . '/([a-f0-9]{64})$#D', $path, $m) === 1) {
+            [$heading, $content] = ApplicationConsent::page($this->app, $m[1]);
+
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content, ['noindex' => true, 'soukroma' => true]);
         }
         if ($path === '/formular' && Extensions::isEnabled($this->app->settings(), 'poptavky')) {
             return (new Forms($this->app))->process();

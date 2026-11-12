@@ -38,6 +38,14 @@ use Kaleta\Core\Response;
  *
  * The polished screens of part B build on these actions: reply with templates, bulk actions, the settings tab and the
  * move from enquiries by form.
+ *
+ * 3.40 (applications II, design B15 "Release B2"):
+ *  - bulk "reject_reply": Reject and send the rejection template to each selected applicant (Applications::rejectWithTemplate).
+ *  - board: one position's applications in a column per status, each card moves with its own form (status, the reason of
+ *    a rejection) – keyboard and phone friendly without a script; status returns there (return=board).
+ *  - pool: the talent pool – applications kept for future openings, the soonest to lapse first, with the renewal e-mail.
+ *  - stats: twelve months of counts from ka_application_counts (Core\ApplicationCounts) – never a person.
+ *  - settings: also the optional webhook of new applications (webhook_applications, https only).
  */
 final class Applications extends Module
 {
@@ -103,6 +111,18 @@ final class Applications extends Module
 
             return $this->back(t('Applications deleted, with their CVs, notes and tasks: %d.', $deleted) . self::heldText($held), '', [], $held !== [] ? 'chyba' : 'ok');
         }
+        if ($do === 'reject_reply') {
+            // 3.40: each applicant gets the rejection template in their language, with the sender's signature
+            try {
+                $r = Store::rejectWithTemplate($this->app, $ids, $this->request->post('reply_reason'));
+            } catch (\DomainException $e) {
+                return $this->back($e->getMessage(), '', [], 'chyba');
+            }
+
+            return $this->back(t('Rejected with the rejection template: %d sent, %d waiting in the mail queue.', $r['sent'], $r['queued'])
+                . ($r['no_email'] > 0 ? ' ' . t('%d had no e-mail address – rejected without a reply.', $r['no_email']) : '')
+                . ($r['skipped'] > 0 ? ' ' . t('%d were already rejected – nothing was sent to them.', $r['skipped']) : ''), '', [], $r['queued'] > 0 ? 'chyba' : 'ok');
+        }
         $changed = 0;
         foreach ($ids as $id) {
             try {
@@ -139,7 +159,8 @@ final class Applications extends Module
             'names' => Assignment::labels($this->db, array_values(array_filter([$a['assignee_id'], ...array_column($a['history'], 'by')]))),
             'deletesOn' => Store::deletionDate($a, $this->app->settings()->int('applications_months')),
             'thread' => $this->commentThread($target, ['id' => $a['id']]), 'tasks' => $this->taskPanel($target, ['id' => $a['id']]),
-            'others' => Store::others($this->db, $a['id'], is_string($a['email_norm'] ?? null) ? $a['email_norm'] : null), // 3.34 B: other applications from this address
+            'others' => Store::others($this->db, $a['id'], is_string($a['email_norm'] ?? null) ? $a['email_norm'] : null, $this->app->settings()->int('applications_months')), // 3.34 B: other applications from this address
+            'othersCount' => Store::othersCount($this->db, $a['id'], is_string($a['email_norm'] ?? null) ? $a['email_norm'] : null),
             'me' => $this->app->auth()->id(), 'admin' => $this->app->auth()->isAdmin(),
             'reply' => $reply, 'replies' => \Kaleta\Core\EnquiryReply::history($this->db, ['replies' => (string) json_encode($a['replies'])]), 'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()), 'replyTo' => (string) ($user['email'] ?? ''),
             'hasSignature' => $user !== [] && \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null]);
@@ -191,10 +212,15 @@ final class Applications extends Module
         if (!$this->request->isPost()) {
             return $this->back();
         }
+        // 3.40: a card of the board returns to the board of its position
+        $board = $this->request->post('return') === 'board' ? ['job' => Store::filter(['job' => $this->request->post('job')])['job']] : null;
         try {
             $changed = Store::setStatus($this->app, $id, $this->request->post('status'), $this->request->post('reject_reason'), $this->app->auth()->id());
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+            return $board !== null ? $this->boardBack($e->getMessage(), $board['job'], $id, 'chyba') : $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+        }
+        if ($board !== null) {
+            return $this->boardBack($changed ? t('Application #%d: %s.', $id, t(Store::STATUS_LABELS[$this->request->post('status')] ?? '')) : '', $board['job'], $id);
         }
 
         return $this->back($changed ? 'The status was changed.' : '', 'detail', ['id' => $id]);
@@ -270,6 +296,62 @@ final class Applications extends Module
             'url' => $this->url('detail', ['id' => (int) $r['id']])], $rows)]);
     }
 
+    /** Back to the board of a position, at the card that moved (3.40). */
+    private function boardBack(string $message, string $job, int $id, string $type = 'ok'): Response
+    {
+        if ($message !== '') {
+            $this->app->session->flash($type, $message);
+        }
+
+        return Response::redirect($this->url('board', $job !== '' ? ['job' => $job] : []) . '#application-' . $id);
+    }
+
+    /**
+     * The board of one position (3.40): a column per status; without a chosen position the one with the most open
+     * applications. Every card moves with its own form (no script needed); on a phone the columns stack.
+     */
+    protected function actionBoard(): Response
+    {
+        $jobs = Store::byJob($this->db);
+        $job = Store::filter(['job' => $this->request->get('job')])['job'];
+        if ($job === '' && $jobs !== []) {
+            $job = $jobs[0]['job_item_id'] !== null ? (string) $jobs[0]['job_item_id'] : 'none';
+        }
+        $board = $job !== '' ? Store::board($this->db, $job, \Kaleta\Core\Clock::today()) : ['columns' => array_fill_keys(Store::STATUSES, []), 'more' => array_fill_keys(Store::STATUSES, 0)];
+        $assignees = [];
+        foreach ($board['columns'] as $cards) {
+            $assignees = [...$assignees, ...array_filter(array_column($cards, 'assignee_id'))];
+        }
+        $title = '';
+        foreach ($jobs as $j) {
+            if (($j['job_item_id'] !== null ? (string) $j['job_item_id'] : 'none') === $job) {
+                $title = $j['job_item_id'] !== null ? ($j['job_title'] !== '' ? $j['job_title'] : '#' . $j['job_item_id']) : t('No position');
+            }
+        }
+
+        return $this->view('board', 'Applications', ['jobs' => $jobs, 'job' => $job, 'title' => $title, 'board' => $board, 'names' => Assignment::labels($this->db, array_values(array_unique($assignees))),
+            'admin' => $this->app->auth()->isAdmin()]);
+    }
+
+    /** The talent pool (3.40, B8): the applications kept for future openings, the soonest to lapse first. */
+    protected function actionPool(): Response
+    {
+        $page = max(1, $this->request->getInt('page', 1));
+        $result = \Kaleta\Core\TalentPool::list($this->db, \Kaleta\Core\Clock::today(), $page, self::PAGE);
+
+        return $this->view('pool', 'Applications', ['result' => $result, 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / self::PAGE)),
+            'months' => max(1, $this->app->settings()->int('applications_pool_months')), 'admin' => $this->app->auth()->isAdmin()]);
+    }
+
+    /** The statistics (3.40, B10): twelve months of counts per month and per position – never a person. */
+    protected function actionStats(): Response
+    {
+        $today = \Kaleta\Core\Clock::today();
+
+        return $this->view('stats', 'Applications', ['months' => \Kaleta\Core\ApplicationCounts::lastMonths($this->db, $today), 'positions' => \Kaleta\Core\ApplicationCounts::byPosition($this->db, $today),
+            'admin' => $this->app->auth()->isAdmin()]);
+    }
+
     /* ---------- settings (3.34 B, administrators) ---------- */
 
     /**
@@ -293,7 +375,8 @@ final class Applications extends Module
         $candidates = Assignment::candidates($this->db, 'application');
 
         return $this->view('settings', 'Applications', [
-            'values' => ['months' => $s->int('applications_months'), 'pool' => max(1, $s->int('applications_pool_months')), 'full' => $s->bool('applications_notify_full'), 'claude' => $s->bool('applications_claude')],
+            'values' => ['months' => $s->int('applications_months'), 'pool' => max(1, $s->int('applications_pool_months')), 'full' => $s->bool('applications_notify_full'), 'claude' => $s->bool('applications_claude'),
+                'webhook' => $s->get(\Kaleta\Core\TalentPool::WEBHOOK_SETTING)],
             'languages' => self::siteLanguages($s), 'templates' => $templates,
             'people' => array_map(fn (int $id, string $name): array => ['id' => $id, 'name' => $name, 'admin' => isset($admins[$id])], array_keys($candidates), $candidates),
             'practice' => $suggestion !== null ? t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1]) : null,
@@ -309,6 +392,11 @@ final class Applications extends Module
             return $this->back('', 'settings');
         }
         $s = $this->app->settings();
+        $webhook = trim($this->request->post('webhook_applications'));
+        if ($webhook !== '' && (stripos($webhook, 'https://') !== 0 || filter_var($webhook, FILTER_VALIDATE_URL) === false || mb_strlen($webhook) > 500)) {
+            return $this->back('The webhook address must start with https:// – nothing was saved.', 'settings', [], 'chyba');
+        }
+        $s->set(\Kaleta\Core\TalentPool::WEBHOOK_SETTING, $webhook); // 3.40: the number and the position only
         $s->set('applications_months', (string) max(0, min(120, $this->request->postInt('applications_months'))));
         $s->set('applications_pool_months', (string) max(1, min(60, $this->request->postInt('applications_pool_months'))));
         $s->set('applications_notify_full', $this->request->postBool('applications_notify_full') ? '1' : '0');

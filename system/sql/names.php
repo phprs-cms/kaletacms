@@ -84,6 +84,7 @@ return [
     'deals' => ['deals', []], // 3.31
     'deal_stage_history' => ['deal_stage_history', []],
     'applications' => ['applications', []], // 3.34
+    'application_counts' => ['application_counts', []], // 3.40
     'price_lists' => ['price_lists', []], // 3.38
     'prices' => ['prices', []],
     'quotes' => ['quotes', []],

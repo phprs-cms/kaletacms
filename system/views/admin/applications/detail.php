@@ -15,7 +15,8 @@
  * @var string|null $deletesOn
  * @var array<string, mixed> $thread Admin\CommentActions::commentThread
  * @var array<string, mixed> $tasks Admin\TaskActions::taskPanel
- * @var list<array{id: int, job_title: string, status: string, received_at: string}> $others other applications from the same address
+ * @var list<array{id: int, job_title: string, status: string, received_at: string, deletes_on: ?string}> $others other applications from the same address
+ * @var int $othersCount all other applications from the same address (3.40)
  * @var int $me
  * @var bool $admin
  * @var array{subject: string, text: string, template: string} $reply the reply form: a chosen template filled in, or a refused reply again
@@ -155,15 +156,16 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 	<dt><?= e(t('Consent for future openings')) ?></dt><dd data-application-pool><?php if ($a['pool_until'] !== null): ?>
 		<?= e(t('Given %s – kept until %s', format_date((string) $a['pool_consent_at']), format_date((string) $a['pool_until']))) ?>
 		<?php if ((string) $a['pool_consent_text'] !== ''): ?><br><small><?= bdi((string) $a['pool_consent_text']) ?></small><?php endif ?>
+		<?php if (Kaleta\Core\TalentPool::renewalSent($a)): /* 3.40 */ ?><br><small data-application-pool-renewal><?= e(t('Renewal e-mail sent %s', format_date((string) $a['pool_renewal_sent_at']))) ?></small><?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('consent')) ?>" data-potvrdit="<?= e(t('The applicant withdrew the consent? The application then follows the normal retention.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace" type="submit"><?= e(t('Consent withdrawn')) ?></button></form>
 	<?php else: ?><span class="napoveda"><?= e(t('Not given')) ?></span><?php endif ?></dd>
 	<dt><?= e(t('Will be deleted')) ?></dt><dd data-application-deletes><?= $deletesOn !== null ? e(format_date($deletesOn)) : '<span class="napoveda">' . e(t('Not limited')) . '</span>' ?><?= $a['status'] === 'hired' ? '<br><small>' . e(t('Take what belongs in the personnel file before the application is deleted.')) . '</small>' : '' ?></dd>
 <?php if ($others !== []): ?>
 	<dt><?= e(t('Other applications from this address')) ?></dt><dd data-application-others><ul class="uchazec-soubory">
 <?php foreach ($others as $o): ?>
-		<li><a href="<?= e($module->url('detail', ['id' => $o['id']])) ?>">#<?= (int) $o['id'] ?></a> · <?= $o['job_title'] !== '' ? bdi($o['job_title']) : e(t('No position')) ?> · <span class="stitek<?= $tone($o['status']) ?>"><?= e($label($o['status'])) ?></span> <small><?= e(format_date($o['received_at'])) ?></small></li>
+		<li><a href="<?= e($module->url('detail', ['id' => $o['id']])) ?>">#<?= (int) $o['id'] ?></a> · <?= $o['job_title'] !== '' ? bdi($o['job_title']) : e(t('No position')) ?> · <span class="stitek<?= $tone($o['status']) ?>"><?= e($label($o['status'])) ?></span> <small><?= e(format_date($o['received_at'])) ?><?= $o['deletes_on'] !== null ? ' · ' . e(t('deleted on %s', format_date($o['deletes_on']))) : '' ?></small></li>
 <?php endforeach ?>
-	</ul></dd>
+	</ul><?php if ($othersCount > count($others)): ?><small data-application-others-more><a href="<?= e($module->url('', ['status' => '', 'search' => (string) $a['email']])) ?>"><?= e(t('All %d from this address', $othersCount)) ?></a></small><?php endif ?></dd>
 <?php endif ?>
 </dl>
 <?php if ($admin): ?>

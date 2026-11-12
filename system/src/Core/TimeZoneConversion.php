@@ -84,7 +84,7 @@ final class TimeZoneConversion
         'contact_activities' => ['happened_at', 'created_at'],
         'deals' => ['closed_at', 'created_at', 'updated_at'], // 3.31
         'deal_stage_history' => ['at'],
-        'applications' => ['received_at', 'status_at', 'decided_at', 'pool_consent_at', 'last_activity_at', 'moved_at'], // 3.34
+        'applications' => ['received_at', 'status_at', 'decided_at', 'pool_consent_at', 'last_activity_at', 'moved_at', 'pool_token_until', 'pool_renewal_sent_at'], // 3.34, 3.40
         'price_lists' => ['archived_at', 'created_at', 'updated_at'], // 3.38
         'prices' => ['updated_at'],
         'quotes' => ['token_expires_at', 'sent_at', 'decided_at', 'created_at', 'updated_at', 'anonymised_at', 'first_opened_at'], // 3.40: first_opened_at
@@ -159,7 +159,7 @@ final class TimeZoneConversion
         'kolekce_polozky' => ['valid_until', 'review_by'],
         'popupy' => ['valid_until', 'review_by'],
         'deals' => ['expected_close'], // 3.31: the day a deal is expected to close
-        'applications' => ['pool_until'], // 3.34: the last day the consent for future openings keeps an application
+        'applications' => ['pool_until', 'deletion_warned_on'], // 3.34: the last day the consent for future openings keeps an application; 3.40: the deletion day announced
         'quotes' => ['valid_until'], // 3.38: the last day a quote is valid
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
         'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],

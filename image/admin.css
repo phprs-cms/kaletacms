@@ -2135,3 +2135,9 @@ dl.nabidka-soucty { margin-top: 14px; }
 .nabidka-pripomenout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 16px 0; }
 .nabidka-pripomenout .napoveda { flex-basis: 100%; }
 .nabidka-duvod-zakaznika { display: block; margin-top: 4px; font-style: italic; overflow-wrap: anywhere; }
+
+/* 3.40: the board of one position in Applications (the board styles of the Pipeline): the reason of a rejection shows when
+   Rejected is chosen on a card that is not rejected yet */
+.obchod-presun .uchazec-duvod { flex: 1 1 100%; }
+.obchod-presun:has(select[name="status"] option[value="rejected"]:checked:not([data-current])) .uchazec-duvod { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.obchod-presun .uchazec-duvod select { flex: 1 1 8em; min-width: 0; max-width: 100%; }

@@ -77,6 +77,7 @@ final class Notifications
         self::runEach([
             fn () => Jobs::purgeApplications($app), // applications to job openings first: they usually have a shorter retention (2.11)
             fn () => Applications::purge($app), // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
+            fn () => TalentPool::sendRenewals($app), // 3.40: before the consent for future openings lapses, the applicant may keep or delete the application
             function () use ($app, $s): void {
                 \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
             },

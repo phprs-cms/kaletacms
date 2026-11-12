@@ -978,6 +978,27 @@
 		board.addEventListener('focusout', function (e) { if (lifted && e.target.closest && e.target.closest('.obchod-uchyt') && !board.contains(e.relatedTarget)) { putDown(); } });
 	}
 
+	// 3.40: the board of one position in Applications – every card moves with its own form (status, reason, Move), which works
+	// without a script, with the keyboard and on a phone; with a mouse the form folds behind ⋯ for a lighter card (3.37)
+	var applicationsBoard = document.querySelector('[data-applications-board]');
+	if (applicationsBoard && window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+		Array.prototype.forEach.call(applicationsBoard.querySelectorAll('[data-board-card]'), function (card) {
+			var form = card.querySelector('form[data-board-move]');
+			var row = card.querySelector('.obchod-udaje');
+			if (!form || !row) { return; }
+			var heading = card.querySelector('h3');
+			var fold = document.createElement('details');
+			fold.className = 'obchod-vice';
+			var summary = document.createElement('summary');
+			summary.textContent = '⋯';
+			summary.setAttribute('aria-label', T('Status and Move: “%s”').replace('%s', heading ? heading.textContent.trim() : ''));
+			summary.title = T('Status and Move');
+			fold.appendChild(summary);
+			row.appendChild(fold);
+			fold.appendChild(form);
+		});
+	}
+
 	// 3.38 B: the quote editor asks the server for the totals as the lines change (Admin\Modules\Quotes::actionTotals) – the
 	// arithmetic lives only in Core\Money, never here; Save computes and stores them anyway
 	var quoteEditor = document.querySelector('[data-quote-totals]');
