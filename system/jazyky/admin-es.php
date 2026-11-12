@@ -8627,4 +8627,7 @@ return [
     'The blueprint “%s” brought them – applied by %s through the Claude connection %s on %s.' => 'Las trajo la plantilla de sector «%s» – aplicada por %s mediante la conexión de Claude %s el %s.',
     'The blueprint “%s” brought them – applied by %s on %s.' => 'Las trajo la plantilla de sector «%s» – aplicada por %s el %s.',
     'The blueprint’s instructions now' => 'Las instrucciones de la plantilla de sector ahora',
+    'User saved. The account is unblocked; its Claude connections and personal tokens were revoked (%d) – Claude connects again only with the user\'s consent.' => 'Usuario guardado. La cuenta está desbloqueada; sus conexiones de Claude y sus tokens personales se han revocado (%d) – Claude solo vuelve a conectarse con el consentimiento del usuario.',
+    'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.' => 'La cuenta se ha reactivado – el usuario puede volver a iniciar sesión. Sus conexiones de Claude y sus tokens personales se han revocado (%d); para conservarlos, desmarca en su lugar la casilla en el formulario del usuario.',
+    'when unblocking, revoke its Claude connections and personal tokens (%d) – otherwise they work again' => 'al desbloquear, revocar sus conexiones de Claude y sus tokens personales (%d) – si no, vuelven a funcionar',
 ];

@@ -193,9 +193,16 @@ final class Users extends Module
         };
 
         $revokeTokens = !\Kaleta\Admin\Account::keepsTokens($r->post('zrusit_tokeny')); // 3.31.2 (N101): kept only when the box is unticked
-        $this->db->transaction(function () use (&$id, $data, $modules, $revokeTokens, $totpReset): void {
+        // 3.39 (N112): a block keeps the account's tokens (refused while blocked); unblocking revokes them unless the box is unticked
+        $unblocking = $id > 0 && !$data['blokovat'] && (int) $this->db->value('SELECT blokovat FROM {uzivatele} WHERE idu = ?', [$id]) === 1;
+        $revokeOnUnblock = $unblocking && !\Kaleta\Admin\Account::keepsTokens($r->post('zrusit_pripojeni'));
+        $revoked = 0;
+        $this->db->transaction(function () use (&$id, &$revoked, $data, $modules, $revokeTokens, $totpReset, $revokeOnUnblock): void {
             if ($id > 0) {
                 $this->db->update('uzivatele', $data, ['idu' => $id]);
+                if ($revokeOnUnblock) {
+                    $revoked = self::revokeAllConnections($this->db, $id);
+                }
                 if ($totpReset) {
                     $this->db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // the lost passkeys go with the second factor
                 }
@@ -224,13 +231,28 @@ final class Users extends Module
             return $this->back(t('User saved. Now responsible: %s – %s.', $handOver[1], Handover::describe($moved) ?: '0'));
         }
 
+        if ($revoked > 0) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'unblock_revoke', '#' . $id . ' ' . $data['user'] . ' – ' . $revoked);
+        }
+
         if ($invite) {
             (new \Kaleta\Admin\PasswordReset($this->app))->sendLink(['idu' => $id] + $data, 'pozvanka');
 
             return $this->back(t('The user has been created and the invitation sent to %s.', $data['email']));
         }
 
-        return $this->back('User saved.');
+        return $this->back($revoked > 0 ? t('User saved. The account is unblocked; its Claude connections and personal tokens were revoked (%d) – Claude connects again only with the user\'s consent.', $revoked) : 'User saved.');
+    }
+
+    /**
+     * 3.39 (N112): every Claude connection and personal token of an account – a blocked account's tokens are refused, but
+     * would work again on reactivation (a refresh token for a year, a personal token for ever). Returns how many rows went.
+     */
+    public static function revokeAllConnections(\Kaleta\Core\Db $db, int $userId): int
+    {
+        $count = \Kaleta\Front\OAuth::revokeConnections($db, $userId); // the OAuth rows and their rotation records
+
+        return $count + $db->delete('api_tokeny', ['idu' => $userId, 'druh' => 'token']);
     }
 
     /** 3.35: the answer when a change that takes another account over comes without the administrator's own password. */
@@ -293,9 +315,18 @@ final class Users extends Module
         if ($user === null || !$user['blokovat']) {
             return $this->back('The account is not blocked.', type: 'chyba');
         }
-        $this->db->update('uzivatele', ['blokovat' => 0, 'blokovano_automaticky' => null, 'pocet_chyb' => 0, 'zamceno_do' => null, 'potvrzeno' => date('Y-m-d H:i:s')], ['idu' => $id]);
+        // 3.39 (N112): the tokens it had before the block are revoked – one click never revives a forgotten connection
+        $revoked = (int) $this->db->transaction(function () use ($id): int {
+            $this->db->update('uzivatele', ['blokovat' => 0, 'blokovano_automaticky' => null, 'pocet_chyb' => 0, 'zamceno_do' => null, 'potvrzeno' => date('Y-m-d H:i:s')], ['idu' => $id]);
 
-        return $this->back('The account has been reactivated – the user can sign in again.');
+            return self::revokeAllConnections($this->db, $id);
+        });
+        if ($revoked > 0) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'unblock_revoke', '#' . $id . ' – ' . $revoked);
+        }
+
+        return $this->back($revoked > 0 ? t('The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.', $revoked)
+            : 'The account has been reactivated – the user can sign in again.');
     }
 
     /** Revokes one Claude connection of the user: a personal token (idt) or a connected application (klient). */

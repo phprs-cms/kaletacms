@@ -8607,4 +8607,7 @@ return [
     'The blueprint “%s” brought them – applied by %s through the Claude connection %s on %s.' => 'Die Branchenvorlage „%s“ hat sie mitgebracht – angewendet von %s über die Claude-Verbindung %s am %s.',
     'The blueprint “%s” brought them – applied by %s on %s.' => 'Die Branchenvorlage „%s“ hat sie mitgebracht – angewendet von %s am %s.',
     'The blueprint’s instructions now' => 'Die Anweisungen der Branchenvorlage jetzt',
+    'User saved. The account is unblocked; its Claude connections and personal tokens were revoked (%d) – Claude connects again only with the user\'s consent.' => 'Benutzer gespeichert. Das Konto ist entsperrt; seine Claude-Verbindungen und persönlichen Tokens wurden widerrufen (%d) – Claude verbindet sich erst wieder mit der Zustimmung des Benutzers.',
+    'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.' => 'Das Konto ist wieder aktiv – der Benutzer kann sich wieder anmelden. Seine Claude-Verbindungen und persönlichen Tokens wurden widerrufen (%d); um sie zu behalten, entfernen Sie stattdessen das Häkchen im Formular des Benutzers.',
+    'when unblocking, revoke its Claude connections and personal tokens (%d) – otherwise they work again' => 'beim Entsperren seine Claude-Verbindungen und persönlichen Tokens widerrufen (%d) – sonst funktionieren sie wieder',
 ];
