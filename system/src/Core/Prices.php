@@ -641,7 +641,7 @@ final class Prices
                 $hit = $index[mb_strtolower($code)] ?? null;
                 $target = $own !== null ? ['own' => $code] : $hit;
                 if ($target === null && trim($row['name'] ?? '') !== '') {
-                    $target = ['own' => $code, 'label' => trim($row['name'] ?? '')];
+                    $target = ['own' => $code, 'label' => trim($row['name'])];
                 }
             }
             $status = 'unknown';

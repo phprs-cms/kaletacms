@@ -493,7 +493,7 @@ final class Quotes
         });
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, $action === 'sent' ? 'send' : 'finalise', ($action === 'sent' ? t('Quote %s sent', $number) : t('Quote %s finalised', $number)));
 
-        return self::get($db, $id) ?? throw new \LogicException('The quote vanished.');
+        return self::get($db, $id); // PHPStan remembers the get() above as not null; the row is never deleted in between
     }
 
     /** Finalise without sending (a quote handed over on paper): the number and the frozen snapshot, status sent. @return array<string, mixed> */
@@ -803,8 +803,8 @@ final class Quotes
         $company = $companyId !== null && $companyId > 0 ? Contacts::findCompany($db, $companyId) : null;
         if ($company !== null) {
             $out['company'] = (string) $company['name'];
-            $out['reg_no'] = (string) ($company['registration_no'] ?? '');
-            $out['vat_id'] = (string) ($company['vat_id'] ?? '');
+            $out['reg_no'] = $company['registration_no'];
+            $out['vat_id'] = $company['vat_id'];
         }
 
         return $out;

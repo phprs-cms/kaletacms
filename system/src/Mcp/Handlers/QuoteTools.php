@@ -293,7 +293,7 @@ trait QuoteTools
                 $out['deal'] = ['id' => $deal['id'], 'not_moved' => $deal['closed_at'] !== null ? 'The deal is already closed.' : 'The pipeline has no ' . $kind . ' stage.'];
             }
         }
-        $quote = Quotes::get($db, $id) ?? throw new \DomainException('The quote does not exist.');
+        $quote = Quotes::get($db, $id); // not null: $before above, and setStatus never deletes
 
         return $out + ['quote' => ['id' => $quote['id'], 'number' => $quote['number'], 'status' => $quote['status']] + ($quote['decline_reason'] !== null ? ['decline_reason' => $quote['decline_reason']] : []),
             'note' => 'Not undoable through undo_agent_session; set it back with status sent.'];
