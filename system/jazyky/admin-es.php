@@ -8623,4 +8623,8 @@ return [
     'Written through the drafts-only connection %s – Claude treats it as a suggestion until you save or pin it.' => 'Escrita mediante la conexión solo de borradores %s – Claude la trata como una propuesta hasta que la guardes o la fijes.',
     'A proposal written through the drafts-only connection %s. Claude treats it as a suggestion, not a decision, until you save it here or pin it.' => 'Una propuesta escrita mediante la conexión solo de borradores %s. Claude la trata como una sugerencia, no como una decisión, hasta que la guardes aquí o la fijes.',
     'A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.' => 'Una conexión solo de borradores no puede cambiar una nota escrita por una persona o por una conexión con acceso completo – escribe en su lugar una nota nueva como propuesta.',
+    'The key %s belongs to a blueprint that ships with Kaleta – give your own blueprint another key.' => 'La clave %s pertenece a una plantilla de sector que viene con Kaleta – da otra clave a tu plantilla.',
+    'The blueprint “%s” brought them – applied by %s through the Claude connection %s on %s.' => 'Las trajo la plantilla de sector «%s» – aplicada por %s mediante la conexión de Claude %s el %s.',
+    'The blueprint “%s” brought them – applied by %s on %s.' => 'Las trajo la plantilla de sector «%s» – aplicada por %s el %s.',
+    'The blueprint’s instructions now' => 'Las instrucciones de la plantilla de sector ahora',
 ];

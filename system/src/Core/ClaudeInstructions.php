@@ -17,17 +17,20 @@ final class ClaudeInstructions
     /** The change log keeps 255 characters: this much of each text, the full texts stay in the notice. */
     private const int LOG_CHARS = 110;
 
-    /** Records a change of the instructions; nothing when the text stayed the same. */
-    public static function changed(App $app, string $old, string $new): void
+    /**
+     * Records a change of the instructions; nothing when the text stayed the same. $blueprint (3.39, N111): the name of the
+     * applied blueprint whose instructions for Claude changed – they reach every connection the same way.
+     */
+    public static function changed(App $app, string $old, string $new, string $blueprint = ''): void
     {
         if ($old === $new) {
             return;
         }
         $user = $app->auth()->user();
         $via = (string) ($app->auth()->connection()['name'] ?? '');
-        ChangeLog::write($app, 'claude_settings', 'instructions changed', self::logText($old, $new));
+        ChangeLog::write($app, 'claude_settings', $blueprint !== '' ? 'blueprint instructions changed' : 'instructions changed', ($blueprint !== '' ? mb_substr($blueprint, 0, 40) . ': ' : '') . self::logText($old, $new));
         $app->settings()->set('claude_instructions_notice', (string) json_encode(['at' => Clock::now(), 'by' => (string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''),
-            'via' => $via, 'old' => $old, 'new' => $new], JSON_UNESCAPED_UNICODE));
+            'via' => $via, 'old' => $old, 'new' => $new] + ($blueprint !== '' ? ['blueprint' => $blueprint] : []), JSON_UNESCAPED_UNICODE));
     }
 
     /** "before: «…» → now: «…»", each text shortened so both fit in a change log row. */
@@ -42,14 +45,15 @@ final class ClaudeInstructions
     /**
      * The change nobody has looked at yet, or null.
      *
-     * @return array{at: string, by: string, via: string, old: string, new: string}|null
+     * @return array{at: string, by: string, via: string, old: string, new: string, blueprint: string}|null
      */
     public static function notice(Settings $settings): ?array
     {
         $notice = json_decode($settings->get('claude_instructions_notice'), true);
 
         return is_array($notice) && is_string($notice['at'] ?? null)
-            ? ['at' => $notice['at'], 'by' => (string) ($notice['by'] ?? ''), 'via' => (string) ($notice['via'] ?? ''), 'old' => (string) ($notice['old'] ?? ''), 'new' => (string) ($notice['new'] ?? '')]
+            ? ['at' => $notice['at'], 'by' => (string) ($notice['by'] ?? ''), 'via' => (string) ($notice['via'] ?? ''), 'old' => (string) ($notice['old'] ?? ''), 'new' => (string) ($notice['new'] ?? ''),
+                'blueprint' => (string) ($notice['blueprint'] ?? '')]
             : null;
     }
 
@@ -64,6 +68,13 @@ final class ClaudeInstructions
     /** Who changed them and when, for the dashboard and Claude settings. */
     public static function who(array $notice): string
     {
+        if (($notice['blueprint'] ?? '') !== '') {
+            // 3.39 (N111): the instructions of an applied blueprint (Administration → Blueprints)
+            return $notice['via'] !== ''
+                ? t('The blueprint “%s” brought them – applied by %s through the Claude connection %s on %s.', $notice['blueprint'], $notice['by'] ?: '?', $notice['via'], format_date($notice['at'], true))
+                : t('The blueprint “%s” brought them – applied by %s on %s.', $notice['blueprint'], $notice['by'] ?: '?', format_date($notice['at'], true));
+        }
+
         return $notice['via'] !== ''
             ? t('Changed by %s through the Claude connection %s on %s.', $notice['by'] ?: '?', $notice['via'], format_date($notice['at'], true))
             : t('Changed by %s on %s.', $notice['by'] ?: '?', format_date($notice['at'], true));

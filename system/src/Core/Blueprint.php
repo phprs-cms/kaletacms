@@ -207,6 +207,12 @@ final class Blueprint
     {
         $db = $app->db();
         $created = ['collections' => [], 'facts' => []];
+        // 3.39 (N111): the blueprint's instructions for Claude reach every connection, like claude_instructions – a new or
+        // changed text raises the same notice for the administrators (the shipped text of a shipped blueprint is Kaleta's own)
+        [$before] = self::sanitize(json_decode((string) ($db->value('SELECT manifest FROM {blueprints} WHERE bkey = ?', [$manifest['key']]) ?? ''), true));
+        $oldText = (string) ($before['claude'] ?? '');
+        $newText = (string) $manifest['claude'];
+        $shipped = self::available()[$manifest['key']]['claude'] ?? null;
         foreach ($manifest['presets'] as $preset) {
             if ($db->value('SELECT 1 FROM {kolekce} WHERE preset = ?', [$preset]) === null && ($id = Presets::create($app, $preset)) !== null) {
                 $created['collections'][] = (string) $db->value('SELECT seo_link FROM {kolekce} WHERE idk = ?', [$id]);
@@ -225,8 +231,23 @@ final class Blueprint
             $db->insert('blueprints', ['bkey' => $manifest['key'], 'nazev' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
         }
         \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
+        if ($newText !== '' && $newText !== $oldText && $newText !== $shipped) {
+            ClaudeInstructions::changed($app, $oldText, $newText, self::text($manifest['name']));
+        }
 
         return $created;
+    }
+
+    /**
+     * Why a custom manifest (an upload, MCP apply_blueprint with manifest) is refused, or null (3.39, N111): its key must not
+     * be the key of a blueprint that ships with Kaleta – it would replace that blueprint's checks, questions and
+     * instructions for Claude under a name the administrator trusts.
+     *
+     * @param array<string, mixed> $manifest a sanitized manifest
+     */
+    public static function customRefusal(array $manifest): ?string
+    {
+        return isset(self::available()[$manifest['key']]) ? t('The key %s belongs to a blueprint that ships with Kaleta – give your own blueprint another key.', (string) $manifest['key']) : null;
     }
 
     /** Takes a blueprint off the site: its checks, questions and instructions; collections and facts stay. */

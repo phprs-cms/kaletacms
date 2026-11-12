@@ -8603,4 +8603,8 @@ return [
     'Written through the drafts-only connection %s – Claude treats it as a suggestion until you save or pin it.' => 'Über die Verbindung nur für Entwürfe %s geschrieben – Claude behandelt sie als Vorschlag, bis Sie sie speichern oder anheften.',
     'A proposal written through the drafts-only connection %s. Claude treats it as a suggestion, not a decision, until you save it here or pin it.' => 'Ein Vorschlag, geschrieben über die Verbindung nur für Entwürfe %s. Claude behandelt ihn als Vorschlag, nicht als Entscheidung, bis Sie ihn hier speichern oder anheften.',
     'A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.' => 'Eine Verbindung nur für Entwürfe kann keine Notiz ändern, die eine Person oder eine Verbindung mit vollem Zugriff geschrieben hat – schreiben Sie stattdessen eine neue Notiz als Vorschlag.',
+    'The key %s belongs to a blueprint that ships with Kaleta – give your own blueprint another key.' => 'Der Schlüssel %s gehört zu einer Branchenvorlage, die mit Kaleta ausgeliefert wird – geben Sie Ihrer Vorlage einen anderen Schlüssel.',
+    'The blueprint “%s” brought them – applied by %s through the Claude connection %s on %s.' => 'Die Branchenvorlage „%s“ hat sie mitgebracht – angewendet von %s über die Claude-Verbindung %s am %s.',
+    'The blueprint “%s” brought them – applied by %s on %s.' => 'Die Branchenvorlage „%s“ hat sie mitgebracht – angewendet von %s am %s.',
+    'The blueprint’s instructions now' => 'Die Anweisungen der Branchenvorlage jetzt',
 ];

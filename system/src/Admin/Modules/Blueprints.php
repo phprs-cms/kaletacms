@@ -43,6 +43,9 @@ final class Blueprints extends Module
             if ($manifest === null) {
                 return $this->back(t('The file is not a valid blueprint: %s', implode(' ', $errors)), '', [], 'chyba');
             }
+            if (($refusal = Blueprint::customRefusal($manifest)) !== null) {
+                return $this->back($refusal, '', [], 'chyba'); // 3.39 (N111)
+            }
         } else {
             $manifest = Blueprint::available()[$this->request->post('key')] ?? null;
             if ($manifest === null) {

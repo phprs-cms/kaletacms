@@ -23,7 +23,12 @@ $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\O
 <?= e(t('In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
 <?php if (!empty($instructionsChange)): // 3.15 (N44): the last change, shown once to the administrator who opens the settings ?>
 <div class="hlaska hlaska-varovani" id="zmena-pokynu"><p><?= e(t('The instructions for Claude changed – check them.')) ?> <?= e(Kaleta\Core\ClaudeInstructions::who($instructionsChange)) ?></p>
-	<details><summary><?= e(t('Before the change')) ?></summary><p style="white-space:pre-wrap"><?= e($instructionsChange['old'] !== '' ? $instructionsChange['old'] : t('(empty)')) ?></p></details></div>
+	<details><summary><?= e(t('Before the change')) ?></summary><p style="white-space:pre-wrap"><?= e($instructionsChange['old'] !== '' ? $instructionsChange['old'] : t('(empty)')) ?></p></details>
+<?php if (($instructionsChange['blueprint'] ?? '') !== ''): // 3.39 (N111): the blueprint's text is not in the field below ?>
+	<details open><summary><?= e(t('The blueprint’s instructions now')) ?></summary><p style="white-space:pre-wrap"><?= e($instructionsChange['new']) ?></p>
+	<p><a href="<?= e($app->url('admin.php?module=blueprints')) ?>"><?= e(t('Blueprints')) ?></a></p></details>
+<?php endif ?>
+</div>
 <?php endif ?>
 <div class="radek">
 	<label for="claude_instructions"><?= e(t('Instructions for Claude')) ?></label>

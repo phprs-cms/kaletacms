@@ -61,6 +61,9 @@ trait BlueprintTools
             if ($manifest === null) {
                 throw new \InvalidArgumentException('The manifest is not valid: ' . implode(' ', $errors));
             }
+            if (($refusal = \Kaleta\Core\Language::runWith('en', fn (): ?string => Blueprint::customRefusal($manifest), 'admin-')) !== null) {
+                throw new \InvalidArgumentException($refusal . ' Nothing was applied.'); // 3.39 (N111)
+            }
         } else {
             $manifest = Blueprint::available()[(string) ($a['key'] ?? '')] ?? throw new \InvalidArgumentException('Unknown blueprint – get_blueprint lists the available ones.');
         }

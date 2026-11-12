@@ -8196,4 +8196,8 @@ return [
     'Written through the drafts-only connection %s – Claude treats it as a suggestion until you save or pin it.' => 'Napsáno přes napojení jen pro koncepty %s – Claude ji bere jako návrh, dokud ji neuložíte nebo nepřipnete.',
     'A proposal written through the drafts-only connection %s. Claude treats it as a suggestion, not a decision, until you save it here or pin it.' => 'Návrh napsaný přes napojení jen pro koncepty %s. Claude ho bere jako návrh, ne jako rozhodnutí, dokud ho tady neuložíte nebo nepřipnete.',
     'A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.' => 'Napojení jen pro koncepty nemůže měnit poznámku, kterou napsal člověk nebo napojení s plným přístupem – napište místo toho novou poznámku jako návrh.',
+    'The key %s belongs to a blueprint that ships with Kaleta – give your own blueprint another key.' => 'Klíč %s patří šabloně oboru, která je součástí Kalety – dejte své šabloně jiný klíč.',
+    'The blueprint “%s” brought them – applied by %s through the Claude connection %s on %s.' => 'Přinesla je šablona oboru „%s“ – použil(a) ji %s přes napojení Clauda %s dne %s.',
+    'The blueprint “%s” brought them – applied by %s on %s.' => 'Přinesla je šablona oboru „%s“ – použil(a) ji %s dne %s.',
+    'The blueprint’s instructions now' => 'Pokyny šablony oboru teď',
 ];
