@@ -59,7 +59,7 @@ final class UserSignature
         if ($made['text'] === '') {
             // the standard layout of a Team record, fed with the account: the keys are the ones EmailSignature::fields() finds
             $collection = ['pole' => [['klic' => 'foto', 'typ' => 'obrazek'], ['klic' => 'pozice', 'typ' => 'text'], ['klic' => 'telefon', 'typ' => 'text'], ['klic' => 'email', 'typ' => 'text']]];
-            $item = ['nazev' => $values['name'], 'data' => ['foto' => trim((string) ($user['foto'] ?? '')), 'pozice' => $values['position'], 'telefon' => trim((string) ($user['phone'] ?? '')), 'email' => $values['email']]];
+            $item = ['nazev' => $values['name'], 'data' => ['foto' => \Kaleta\Core\Colleagues::photo((string) ($user['foto'] ?? '')) /* site media only: a remote image would track every recipient */, 'pozice' => $values['position'], 'telefon' => trim((string) ($user['phone'] ?? '')), 'email' => $values['email']]];
 
             return EmailSignature::render($collection, $item, $site);
         }

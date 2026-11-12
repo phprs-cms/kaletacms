@@ -22,10 +22,12 @@ final class Colleagues
      */
     public static function all(Db $db): array
     {
-        $rows = $db->all('SELECT idu, user, jmeno, pozice, phone, email, foto FROM {uzivatele} WHERE blokovat = 0');
+        $rows = $db->all('SELECT idu, jmeno, pozice, phone, email, foto FROM {uzivatele} WHERE blokovat = 0');
         $out = array_map(fn (array $r): array => [
             'id' => (int) $r['idu'],
-            'name' => trim((string) $r['jmeno']) !== '' ? trim((string) $r['jmeno']) : (string) $r['user'],
+            // without a name: the part of the work e-mail before @, never the sign-in name
+            'name' => trim((string) $r['jmeno']) !== '' ? trim((string) $r['jmeno'])
+                : (filter_var(trim((string) $r['email']), FILTER_VALIDATE_EMAIL) !== false ? (string) strstr(trim((string) $r['email']), '@', true) : '—'),
             'position' => trim((string) $r['pozice']),
             'phone' => trim((string) $r['phone']),
             'email' => filter_var(trim((string) $r['email']), FILTER_VALIDATE_EMAIL) !== false ? trim((string) $r['email']) : '',
