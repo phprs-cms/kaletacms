@@ -333,8 +333,14 @@ trait MigrationTools
             'pages' => array_map(fn (array $p): array => array_filter($p, fn (mixed $v): bool => $v !== ''), $queue),
             'count' => count($queue),
             'next' => $queue === [] ? 'No imported page waits for its layout. Run migration_report before the domain is switched.'
-                : 'Take one page at a time: read_old_page with its old_url and format semantic, add classes and a <style> block, build_from_html with its id, check it with preview_link. Pages whose layout is fine as it came: call again with done.',
+                : 'Take one page at a time: read_old_page with its old_url and format semantic, add classes and a <style> block, build_from_html with its id, check it with preview_link. Pages whose layout is fine as it came: layout_queue with done.',
         ];
+    }
+
+    /** list_layout_queue (3.36 review L2): the queue of layout_queue, read only – never a page ticked off. */
+    private function toolListLayoutQueue(string $name, array $a): mixed
+    {
+        return $this->toolLayoutQueue($name, []);
     }
 
     /** import_enquiries */
