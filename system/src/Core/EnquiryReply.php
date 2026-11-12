@@ -216,17 +216,21 @@ final class EnquiryReply
     }
 
     /**
-     * The e-mail signature of a user (My account → My e-mail signature), or null when they have none – the reply form says
-     * which (3.23.1, N-C5) and send() appends it.
+     * The e-mail signature of a user (My account → My e-mail signature), or null without a user – the reply form says
+     * which (3.23.1, N-C5) and send() appends it. 3.37: the one from the Team record, otherwise the fallback signature from
+     * the account and the company details (Builder\UserSignature), so every signed-in user has one.
      *
      * @param array<string, mixed> $user
      * @return array{text: string, html: string}|null
      */
     public static function signature(App $app, array $user): ?array
     {
-        $record = $user !== [] ? \Kaleta\Builder\TeamRecord::forUser($app->db(), $user) : null;
+        if ($user === [] || (int) ($user['idu'] ?? 0) <= 0) {
+            return null;
+        }
+        $signature = \Kaleta\Builder\UserSignature::forUser($app, $user);
 
-        return $record !== null ? \Kaleta\Builder\EmailSignature::forItem($app, $record['collection'], $record['item']) : null;
+        return $signature['text'] !== '' ? ['text' => $signature['text'], 'html' => $signature['html']] : null;
     }
 
     /** The HTML part when a signature goes with the reply: the text as written (line breaks kept), the signature table below (3.34: a reply to a job application too). */

@@ -17,7 +17,7 @@
 <?php foreach ($authors as $a): ?>
 <tr<?= $a['blokovat'] ? ' class="nevydany"' : '' ?>>
 	<td><a href="<?= e($module->url('edit', ['id' => $a['idu']])) ?>"><?= bdi($a['user']) ?></a><?= $a['blokovat'] ? ' <strong>(' . e(t($a['blokovano_automaticky'] !== null ? 'blocked automatically' : 'blocked')) . ')</strong>' : '' ?><?= $a['totp_tajemstvi'] !== '' ? ' <span class="stitek stitek-vydano" title="' . e(t('two-factor sign-in')) . '">2FA</span>' : '' ?></td>
-	<td><?= bdi($a['jmeno']) ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span>
+	<td><?= bdi($a['jmeno']) ?><?= trim((string) $a['pozice']) !== '' ? ' <span class="smltxt">· ' . bdi($a['pozice']) . '</span>' : '' ?><br><span class="smltxt"><?= e($a['shrnuti']) ?></span>
 <?php if ($teamExists): ?>
 		<br><span class="smltxt"><?= isset($linked[(int) $a['idu']]) ? e(t($linked[(int) $a['idu']]['chosen'] ? 'Team record: %s (chosen)' : 'Team record: %s (by e-mail)', $linked[(int) $a['idu']]['name'])) : e(t('Team record: not linked')) ?></span>
 <?php endif ?>

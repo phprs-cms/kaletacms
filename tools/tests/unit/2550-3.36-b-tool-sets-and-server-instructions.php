@@ -33,7 +33,7 @@ check('3.36 B: the essentials and the work set are unchanged – existing connec
         'update_design_system', 'publish_look', 'site_audit', 'list_changes', 'undo_agent_session', 'read_notebook'],
     count(Catalog::WORK), array_values(array_filter(Catalog::ESSENTIALS, fn (string $t): bool => Catalog::extension($t) !== '')),
     Catalog::toolSet('migration'), Catalog::toolSet('fleet'), Catalog::toolSet('Fleet'), Catalog::toolSet(''), Catalog::listOf('all')],
-    [true, 36, [], 'migration', 'fleet', 'all', 'all', null]);
+    [true, 37 /* 3.37: + list_colleagues */, [], 'migration', 'fleet', 'all', 'all', null]);
 check('3.36 B: the migration set holds the move – imports, old pages, the builder, redirects, the report; the fleet set every console tool; setsOf names them', [
     array_values(array_diff(['import_website', 'import_wordpress', 'read_old_page', 'migration_report', 'build_from_html', 'edit_build', 'save_redirect', 'save_redirects',
         'upload_file', 'import_enquiries', 'site_audit', 'undo_agent_session'], Catalog::MIGRATION)),

@@ -40,6 +40,13 @@ $field('company_email', 'Public email', 'email', 'Contact for visitors and searc
 ?>
 </fieldset>
 <fieldset>
+<legend><?= e(t('E-mail signature')) ?></legend>
+<?php
+// 3.37: the fallback signature of whoever has no record in the Team collection (Builder\UserSignature)
+$field('email_signature_template', 'Signature of people without a Team record', 'radky', 'For colleagues who have no record in the Team collection: one line of the signature per line, with {name} {position} {phone} {email} {company} {website} {address}. A line whose placeholders are all empty is left out. Empty = the standard layout with the photo and the logo. Each person copies it in My account → My e-mail signature and replies from Kaleta carry it.', 'spellcheck="false" maxlength="2400" placeholder="{name}&#10;{position}&#10;{phone} · {email}&#10;{company} · {website}"');
+?>
+</fieldset>
+<fieldset>
 <legend><?= e(t('Opening hours and map')) ?></legend>
 <?php
 $field('company_hours', 'Opening hours', 'radky', 'One day or range of days per line: “Mo–Fr 8:00–17:00”, “Sa 9–12”, “Su closed”, lunch break “Tu 8–12, 13–17”. Empty = no opening hours.', 'rows="5" spellcheck="false"');

@@ -535,10 +535,21 @@ trait CollectionTools
             'note' => 'Oldest first (the last 500). fields: key => [old, new] for created and changed; {posted: date} and {taken_down: date} are written by the hourly job once each. Nothing in the log can be edited or deleted.'];
     }
 
-    /** get_email_signature (2.10, Builder\EmailSignature): the signature of one person by the item id or slug */
+    /**
+     * get_email_signature (2.10, Builder\EmailSignature): the signature of one person by the item id or slug; 3.37: without
+     * a collection, the connected user's own (Builder\UserSignature – the Team record or the fallback)
+     */
     private function toolGetEmailSignature(string $name, array $a): mixed
     {
         $db = $this->app->db();
+        if (trim((string) ($a['collection'] ?? '')) === '' && (int) ($a['id'] ?? 0) <= 0 && trim((string) ($a['slug'] ?? '')) === '') {
+            $user = (array) $db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$this->app->auth()->id()]);
+            $own = \Kaleta\Builder\UserSignature::forUser($this->app, $user);
+
+            return ['name' => \Kaleta\Builder\UserSignature::values($user, \Kaleta\Builder\EmailSignature::site($this->app))['name'], 'source' => $own['source']]
+                + ($own['record'] !== null ? ['collection' => (string) $own['record']['collection']['seo_link'], 'item' => (int) $own['record']['item']['idp']] : [])
+                + ['html' => $own['html'], 'text' => $own['text']];
+        }
         $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         $id = (int) ($a['id'] ?? 0);
         $slug = trim((string) ($a['slug'] ?? ''));

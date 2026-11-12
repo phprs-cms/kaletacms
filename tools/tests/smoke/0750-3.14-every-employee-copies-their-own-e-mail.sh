@@ -35,12 +35,12 @@ check "signature: the Users list marks the chosen record" 200 "/admin.php?module
 sq "UPDATE ka_kolekce_polozky SET smazano = '$(site_time)' WHERE idp = $EVA" > /dev/null
 expect "signature: a chosen record in the trash falls back to the e-mail match" "$(sig_page '&tab=signature'; grep -q 'Petr Podpis' "$WORK/response" && ! grep -q 'Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
 sq "UPDATE ka_kolekce_polozky SET smazano = NULL WHERE idp = $EVA; UPDATE ka_uzivatele SET team_item_id = NULL, email = 'nikdo@example.cz' WHERE idu = $SIG_USER" > /dev/null
-expect "signature: not linked – a hint to ask an administrator, no signature" \
-  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'data-kopirovat-podpis\|Petr Podpis\|Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
+expect "signature: not linked – a hint to ask an administrator and (3.37) the site's fallback signature, nobody's record" \
+  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && grep -q 'data-kopirovat-podpis' "$WORK/response" && grep -q 'nikdo@example.cz' "$WORK/response" && ! grep -q 'Petr Podpis\|Eva Skrytá' "$WORK/response" && echo ' ok')" "200 ok"
 check "signature: the Users list says who is not linked" 200 "/admin.php?module=users" "Záznam v týmu: nepropojeno"
 # N314-1: an account e-mail is changed without confirming it, so a hidden record is never matched by e-mail – only chosen
 sq "UPDATE ka_uzivatele SET email = 'EVA@example.cz' WHERE idu = $SIG_USER" > /dev/null
 expect "signature: a hidden record is never linked by the e-mail, only by an administrator's choice (N314-1)" \
-  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'Eva Skrytá\|eva@example.cz' "$WORK/response" && echo ' ok')" "200 ok"
+  "$(sig_page '&tab=signature'; grep -q 'Požádejte správce, aby vás propojil' "$WORK/response" && ! grep -q 'Eva Skrytá\|Účetní' "$WORK/response" && echo ' ok')" "200 ok"
 sq "DELETE FROM ka_uzivatele WHERE idu = $SIG_USER" > /dev/null
 

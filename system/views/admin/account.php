@@ -15,7 +15,6 @@
  * @var list<array<string, mixed>> $apps  apps connected via OAuth (Claude connector)
  * @var string $newToken  token just created (shown only once)
  * @var string $mcpUrl
- * @var bool $teamExists the site has a people collection – the My e-mail signature tab (3.14)
  * @var bool $fresh  a passkey or backup-code step a few minutes ago – passkey changes need no password (3.35)
  * @var bool $renewCodes  a passkey and no authenticator app – "New backup codes" is offered (3.35)
  * @var bool $passkeyOnly  the account signs in with a passkey only (its choice or the site's, Core\SignInPolicy)
@@ -38,9 +37,7 @@ $action = e($app->url('admin.php?action=account'));
 // its forms show no password field, only this note; the strong proof comes from "Confirm with your passkey" below
 $proofNote = '<p class="napoveda">' . e(t($fresh ? 'You confirmed it with your passkey a moment ago – no password is needed for the next few minutes.' : 'You sign in with a passkey only: confirm with your passkey at the top of this page first – your password does not confirm changes here.')) . '</p>';
 ?>
-<?php if ($teamExists ?? false): ?>
 <?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => '']) ?>
-<?php endif ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
 <?php if (!empty($codesRenewed)): ?>
@@ -77,7 +74,8 @@ $proofNote = '<p class="napoveda">' . e(t($fresh ? 'You confirmed it with your p
 <div class="radek"><label for="email-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="email-heslo" name="soucasne" size="30" autocomplete="current-password"><span class="napoveda"><?= e(t('Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.')) ?></span></div></div>
 <?php endif ?>
 <div class="radek"><label for="url"><?= e(t('My website')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
-<div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"></div>
+<div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><div><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"><span class="napoveda"><?= e(t('Shown to your colleagues and in your e-mail signature.')) ?></span></div></div>
+<div class="radek"><label for="phone"><?= e(t('Work phone')) ?></label><div><input class="textpole" type="tel" id="phone" name="phone" value="<?= e((string) ($user['phone'] ?? '')) ?>" maxlength="30" autocomplete="tel" placeholder="+420 777 123 456"><span class="napoveda"><?= e(t('Shown to your colleagues and in your e-mail signature. Without it, the signature has the company phone.')) ?></span></div></div>
 <div class="radek"><label for="foto"><?= e(t('My photo')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
 <div class="radek"><label for="bio"><?= e(t('A few sentences about me')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Shown as a short profile under your news items. What you do in the company and your background.')) ?></span></div></div>
 <div class="radek"><label for="jazyk"><?= e(t('Administration language')) ?></label><div><select id="jazyk" name="jazyk">

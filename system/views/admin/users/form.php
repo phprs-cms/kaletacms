@@ -49,6 +49,14 @@ $role = [
 	<div><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($author['email']) ?>" maxlength="190"><?= $error('email') ?></div>
 <?php endif ?>
 </div>
+<div class="radek">
+	<label for="pozice"><?= e(t('Position in the company')) ?></label>
+	<div><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e((string) ($author['pozice'] ?? '')) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown to colleagues and in the e-mail signature.')) ?></span></div>
+</div>
+<div class="radek">
+	<label for="phone"><?= e(t('Work phone')) ?></label>
+	<div><input class="textpole" type="tel" id="phone" name="phone" value="<?= e((string) ($author['phone'] ?? '')) ?>" maxlength="30"><?= $error('phone') ?></div>
+</div>
 <?php if (($teamChoices ?? []) !== []): ?>
 <div class="radek">
 	<label for="team_item_id"><?= e(t('Team record')) ?></label>

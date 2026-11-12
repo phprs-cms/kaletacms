@@ -90,12 +90,23 @@ final class EmailSignature
      */
     public static function forItem(App $app, array $collection, array $item): array
     {
+        return self::render($collection, $item, self::site($app));
+    }
+
+    /**
+     * The site's data a signature uses (3.37: shared with the fallback signature of Builder\UserSignature): the company,
+     * the website, the company phone and address, the brand colour, the fonts and a raster logo.
+     *
+     * @return array{name: string, url: string, base: string, phone: string, address: string, color: string, text_font: string, heading_font: string, logo: string}
+     */
+    public static function site(App $app): array
+    {
         $s = $app->settings();
         $base = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->request->basePath();
         $ds = DesignSystem::load($s);
         $logo = $s->get('logo');
 
-        return self::render($collection, $item, [
+        return [
             'name' => $s->get('site_name'),
             'url' => $base . '/',
             'base' => $base,
@@ -106,7 +117,7 @@ final class EmailSignature
             'heading_font' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true),
             // mail clients do not show SVG – a vector logo is left out and the site name stands in its place
             'logo' => preg_match('/\.(png|jpe?g|gif|webp)$/i', $logo) ? self::absolute($logo, $base) : '',
-        ]);
+        ];
     }
 
     /**
@@ -195,7 +206,7 @@ final class EmailSignature
     }
 
     /** An absolute URL of an image from the record or the settings: a site path gets the site's address in front. */
-    private static function absolute(string $path, string $base): string
+    public static function absolute(string $path, string $base): string
     {
         if ($path === '') {
             return '';

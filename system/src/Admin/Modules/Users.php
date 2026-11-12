@@ -48,7 +48,7 @@ final class Users extends Module
         $role = $this->request->getInt('role') > 0 ? $this->db->one('SELECT idr, uroven FROM {role} WHERE idr = ?', [$this->request->getInt('role')]) : null;
 
         return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => $role !== null ? (int) $role['uroven'] : Auth::AUTHOR,
-            'role' => $role !== null ? (int) $role['idr'] : null, 'blokovat' => 0, 'team_item_id' => null]);
+            'role' => $role !== null ? (int) $role['idr'] : null, 'blokovat' => 0, 'team_item_id' => null, 'pozice' => '', 'phone' => '']);
     }
 
     protected function actionEdit(): Response
@@ -77,6 +77,14 @@ final class Users extends Module
             // 3.14: the person's record in the Team collection; empty = automatic by the e-mail, anything else must be a person
             'team_item_id' => \Kaleta\Builder\TeamRecord::isChoice($this->db, $r->postInt('team_item_id')) ? $r->postInt('team_item_id') : null,
         ];
+        // 3.37: the position and the work phone (Core\Colleagues) – only when the form sent them, so a save without them keeps them
+        if (array_key_exists('pozice', $_POST)) {
+            $data['pozice'] = mb_substr($r->post('pozice'), 0, 100);
+        }
+        $phone = array_key_exists('phone', $_POST) ? \Kaleta\Core\Colleagues::phone($r->post('phone')) : false;
+        if (is_string($phone)) {
+            $data['phone'] = $phone;
+        }
         // custom role (value "r<id>"): the role determines both the level and the sections
         $custom = preg_match('/^r(\d+)$/D', $r->post('admin'), $m) ? $this->db->one('SELECT * FROM {role} WHERE idr = ?', [(int) $m[1]]) : null;
         if ($custom !== null) {
@@ -110,6 +118,10 @@ final class Users extends Module
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
             $errors['email'] = 'The e-mail address is not valid.';
+        }
+        if ($phone === null) {
+            $errors['phone'] = 'The phone number may contain only digits, spaces and + ( ) / . -';
+            $data['phone'] = mb_substr($r->post('phone'), 0, 40); // back to the form for correction
         }
         // the password as typed, like My account, the reset and the installer (3.3.3, N61); only blanks mean "no change"
         $password = !$isSelf && is_string($_POST['password'] ?? null) && trim($_POST['password']) !== '' ? $_POST['password'] : '';

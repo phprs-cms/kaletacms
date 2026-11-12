@@ -15,6 +15,14 @@ use Kaleta\Core\Handover;
  */
 trait WorkTools
 {
+    /** list_colleagues (3.37, Core\Colleagues): who works here – name, position, work phone, e-mail; empty values left out */
+    private function toolListColleagues(string $name, array $a): mixed
+    {
+        $people = \Kaleta\Core\Colleagues::compact(\Kaleta\Core\Colleagues::all($this->app->db()));
+
+        return ['count' => count($people), 'you' => $this->app->auth()->id(), 'colleagues' => $people];
+    }
+
     /** my_work */
     private function toolMyWork(string $name, array $a): mixed
     {
