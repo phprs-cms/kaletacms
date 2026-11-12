@@ -21,6 +21,9 @@ expect "3.38 review M1: the same holds for every caller of Quotes::save; a draft
   "$(r338_php 'try { Kaleta\Core\Quotes::save($app, (int) $a[0], ["price_list_id" => (int) $a[1]], 0); echo "saved"; } catch (DomainException $e) { echo "refused"; }
     echo "|", Kaleta\Core\Quotes::save($app, (int) $a[2], ["price_list_id" => (int) $a[1]], 0)["id"] === (int) $a[2] ? Kaleta\Core\Quotes::get($db, (int) $a[2])["currency"] : "";' "$R338_Q" "$R338_EUR" "$R338_EMPTY")" "refused|EUR"
 
+# the state of a sent quote: status | the line's quantity | the frozen document's net | the stored net | the lines' net now
+r338_state() { r338_php '$q = Kaleta\Core\Quotes::get($db, (int) $a[0]); echo $q === null ? "missing" : implode("|", [$q["status"], $q["lines"][0]["quantity"] ?? "-", $q["snapshot"]["totals"]["net"] ?? "-",
+  $db->value("SELECT total_net FROM {quotes} WHERE id = ?", [$q["id"]]), $q["totals"]["net"]]);' "$1" 2>&1; }
 # M2: Send and Save on one draft at once – the second waits for the row lock and sees what the first did
 R338_RACE=$(r338_php '$l = [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100"]];
   echo Kaleta\Core\Quotes::save($app, null, ["customer" => ["name" => "Závod 338r"], "lines" => $l], 0)["id"], " ", Kaleta\Core\Quotes::save($app, null, ["customer" => ["name" => "Závod 338r"], "lines" => $l], 0)["id"];')
@@ -30,15 +33,14 @@ R338_BG=$!; sleep 1
 R338_SAVE=$(r338_php 'try { Kaleta\Core\Quotes::save($app, (int) $a[0], ["lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "999"]]], 0); echo "saved"; } catch (DomainException $e) { echo "refused"; }' "$R338_RACE1" 2>&1)
 wait "$R338_BG" 2>/dev/null || true
 expect "3.38 review M2: a save that overlaps Send waits for the lock and is refused – the numbered quote keeps the lines of its frozen document" \
-  "$R338_SAVE|$(sq "SELECT CONCAT(q.status, '|', l.unit_price, '|', JSON_UNQUOTE(JSON_EXTRACT(q.snapshot, '\$.totals.net')), '|', q.total_net) FROM ka_quotes q JOIN ka_quote_lines l ON l.quote_id = q.id WHERE q.id = $R338_RACE1")" \
-  "refused|sent|100.00|100.00|100.00"
+  "$R338_SAVE|$(r338_state "$R338_RACE1")" \
+  "refused|sent|1.000|100.00|100.00|100.00"
 r338_php '$db->transaction(function () use ($app, $a): void { Kaleta\Core\Quotes::save($app, (int) $a[0], ["lines" => [["name" => "Kus 338r", "quantity" => "5", "unit_price" => "100"]]], 0); sleep(3); });' "$R338_RACE2" > /dev/null 2>&1 &
 R338_BG=$!; sleep 1
 r338_php 'Kaleta\Core\Quotes::finalise($app, (int) $a[0], 0);' "$R338_RACE2" > /dev/null 2>&1 || true
 wait "$R338_BG" 2>/dev/null || true
 expect "3.38 review M2: Send that overlaps a save freezes the document from the saved lines – the snapshot, the stored total and the lines agree" \
-  "$(sq "SELECT CONCAT(q.status, '|', l.quantity, '|', JSON_UNQUOTE(JSON_EXTRACT(q.snapshot, '\$.totals.net')), '|', q.total_net, '|', JSON_UNQUOTE(JSON_EXTRACT(q.snapshot, '\$.lines[0].quantity'))) FROM ka_quotes q JOIN ka_quote_lines l ON l.quote_id = q.id WHERE q.id = $R338_RACE2")" \
-  "sent|5.000|500.00|500.00|5.000"
+  "$(r338_state "$R338_RACE2")" "sent|5.000|500.00|500.00|500.00"
 
 # M3 (A-5): Claude sends a quote only to an address it did not write itself – save_contact or an imported enquiry marks it; a person clears it
 R338_SMTP=$((PORT + 4)); mkdir -p "$WORK/smtp-r338"; command php "$ROOT/tools/fake-smtp.php" "$R338_SMTP" "$WORK/smtp-r338" > /dev/null 2>&1 & R338_SMTP_PID=$!

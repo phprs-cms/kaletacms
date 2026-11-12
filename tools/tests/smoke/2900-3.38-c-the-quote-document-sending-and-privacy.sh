@@ -36,7 +36,8 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&act
   --data-urlencode $'message=Dobrý den,\nposíláme nabídku.' -d set_deal_value=1
 C338_NUMBER=$(sq "SELECT number FROM ka_quotes WHERE id = $C338_Q1")
 expect "3.38 C: the sent quote has its number, the e-mail row, a link (only its hash) and the deal its net total" \
-  "$(sq "SELECT CONCAT_WS('|', status, number IS NOT NULL, sent_mail IS NOT NULL, LENGTH(token_hash), token_expires_at > '$(site_time)', JSON_UNQUOTE(JSON_EXTRACT(history, '\$[1].action'))) FROM ka_quotes WHERE id = $C338_Q1")|$(sq "SELECT value FROM ka_deals WHERE id = $C338_DEAL")" \
+  "$(c338_php '$q = Kaleta\Core\Quotes::get($db, (int) $a[0]); $h = $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [(int) $a[0]]);
+    echo $q === null ? "missing" : implode("|", [$q["status"], (int) ($q["number"] !== null), (int) ($q["sent_mail"] !== null), strlen((string) $h), (int) ((string) $q["token_expires_at"] > Kaleta\Core\Clock::now()), $q["history"][1]["action"] ?? "-"]);' "$C338_Q1" 2>&1)|$(sq "SELECT value FROM ka_deals WHERE id = $C338_DEAL")" \
   "sent|1|1|64|1|sent|$(sq "SELECT total_net FROM ka_quotes WHERE id = $C338_Q1")"
 F=$(grep -l "^X-Rcpt-To: zakaznik338@example.cz" "$WORK"/smtp-c338/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then c338_eml "$F" > "$WORK/c338-eml"; else : > "$WORK/c338-eml"; fi
 C338_LINK=$(grep -o "$B/quote/[a-f0-9]\{64\}" "$WORK/c338-eml" | head -1); C338_TOKEN="${C338_LINK##*/}"
