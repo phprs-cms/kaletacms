@@ -8,7 +8,7 @@
  *
  * @var array{action: string, people: array<int, string>, draft: string} $newTask
  * @var string $csrf
- * @var bool $team  show the tabs (administrators)
+ * @var bool $team  the Team tab (administrators); 3.41: everyone has the tabs Mine and Summary
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\MyWork $module
  * @var array<string, list<array<string, mixed>>> $lists  list => rows (Core\MyWork::lists)
@@ -52,9 +52,7 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
     default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
 };
 ?>
-<?php if ($team): ?>
-<?= $app->view->render('admin/my_work/tabs', ['module' => $module, 'current' => '']) ?>
-<?php endif ?>
+<?= $app->view->render('admin/my_work/tabs', ['module' => $module, 'current' => '', 'team' => $team]) ?>
 <details class="ukol-pridat moje-novy-ukol" data-new-task<?= $newTask['draft'] !== '' ? ' open' : '' ?>><summary><?= e(t('New task')) ?></summary>
 <?= $app->view->render('admin/task_form', ['csrf' => $csrf, 'action' => $newTask['action'], 'fields' => [], 'people' => $newTask['people'], 'me' => $app->auth()->id(), 'draft' => $newTask['draft'], 'prefix' => 'novy-ukol']) ?>
 </details>

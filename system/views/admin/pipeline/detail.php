@@ -28,6 +28,8 @@
  * @var array<string, mixed> $thread Admin\CommentActions::commentThread
  * @var array<string, mixed> $tasks Admin\TaskActions::taskPanel
  * @var array<string, mixed>|null $quoteBox its quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
+ * @var string|null $since 3.41: since when the open deal is in its stage (Core\Deals::stageSince); null when closed
+ * @var array<string, mixed>|null $next 3.41: its next step – the open task due first (Core\Tasks::nextFor)
  * @var bool $admin
  * @var int $me
  */
@@ -101,6 +103,10 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 <?php endif ?>
 	<dt><?= e(t('Value')) ?></dt><dd><?= $d['value'] !== null ? '<strong>' . e(Deals::formatValue($d['value'], $d['currency'])) . '</strong>' : '<span class="napoveda">—</span>' ?></dd>
 	<dt><?= e(t('Expected close')) ?></dt><dd><?= $d['expected_close'] !== null ? e(format_date($d['expected_close'])) . ($overdue ? ' <span class="stitek stitek-chyba">' . e(t('overdue')) . '</span>' : '') : '<span class="napoveda">—</span>' ?></dd>
+<?php if ($since !== null): $days = Deals::daysSince($since, $today); /* 3.41 (R5): how long in the stage, and the next step */ ?>
+	<dt><?= e(t('In this stage')) ?></dt><dd data-deal-age><?= e(match ($days) { 0 => t('since today'), 1 => t('1 day (since %s)', format_date(substr($since, 0, 10))), default => t('%d days (since %s)', $days, format_date(substr($since, 0, 10))) }) ?></dd>
+	<dt><?= e(t('Next step')) ?></dt><dd data-deal-next><?php if ($next !== null): ?><a href="#tasks"><?= e($next['title'] !== '' ? $next['title'] : t('(no title)')) ?></a><?= $next['due_at'] !== null ? ' · ' . e(format_date((string) $next['due_at'], substr((string) $next['due_at'], 11, 5) !== Kaleta\Core\Tasks::DEFAULT_TIME)) : '' ?><?= $next['due_at'] !== null && substr((string) $next['due_at'], 0, 10) < $today ? ' <span class="stitek stitek-chyba">' . e(t('overdue')) . '</span>' : '' ?><?php else: ?><span class="napoveda"><?= e(t('No next step')) ?> – <a href="#tasks"><?= e(t('add a task')) ?></a></span><?php endif ?></dd>
+<?php endif ?>
 	<dt><?= e(t('Customer')) ?></dt><dd><?= $customer !== '' ? ($canContacts ? '<a href="' . e($app->url(Contacts::adminPath((int) $d['contact_id']))) . '">' . bdi($customer) . '</a>' : bdi($customer)) : '<span class="napoveda">—</span>' ?><?= $canContacts && $d['contact_email'] !== null && $d['contact_email'] !== '' && $d['contact_email'] !== $customer ? ' · <a href="mailto:' . e($d['contact_email']) . '">' . bdi($d['contact_email']) . '</a>' : '' ?></dd>
 <?php if ($d['company_id'] !== null): ?>
 	<dt><?= e(t('Company')) ?></dt><dd><?= $canContacts ? '<a href="' . e($app->url(Contacts::companyAdminPath($d['company_id']))) . '">' . bdi((string) $d['company_name']) . '</a>' : bdi((string) $d['company_name']) ?></dd>

@@ -16,6 +16,8 @@ use Kaleta\Core\Tasks;
  * "New task" adds one about nothing in particular – for me or a colleague (task; the form is views/admin/task_form.php).
  * Administrators also get the Team tab: open tasks per person (Tasks::team) and the tasks nobody active has – handed to
  * nobody or left on a removed or blocked account (Tasks::unassigned) – each given to a colleague right there (reassign).
+ * 3.41: everyone gets the Summary tab (summary, Core\TeamSummary) – the team's counts of a period; per person only for
+ * administrators.
  */
 final class MyWork extends Module
 {
@@ -78,6 +80,20 @@ final class MyWork extends Module
         $for = (int) ($task['assignee_id'] ?? 0);
 
         return $this->back($for === $this->app->auth()->id() ? 'The task was added.' : t('The task was added for %s – they are notified.', \Kaleta\Core\Assignment::label($this->db, $for)));
+    }
+
+    /**
+     * The Summary tab (3.41, step 7, Core\TeamSummary): how much of the team's work happened in a period (?period=, the
+     * keys of TeamSummary::PERIODS) – counts only, for the sections the person may open. An administrator sees everyone's
+     * counts by name; everyone else their own and the team's totals (owner decision 9).
+     */
+    protected function actionSummary(): Response
+    {
+        $admin = $this->app->auth()->isAdmin();
+        $summary = \Kaleta\Core\TeamSummary::build($this->app, \Kaleta\Core\TeamSummary::sectionsFor($this->kernel->modules()), $this->request->get('period'),
+            $this->app->auth()->id(), $admin);
+
+        return $this->view('summary', 'My work', ['summary' => $summary, 'team' => $admin]);
     }
 
     /**

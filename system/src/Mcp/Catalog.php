@@ -212,6 +212,7 @@ final class Catalog
         // The team's work (3.24): what waits for the connected user, and who is responsible – never an access limit
         'my_work' => ['read', ''],
         'list_colleagues' => ['read', ''], // 3.37: who works here (Core\Colleagues)
+        'team_summary' => ['read', ''], // 3.41: the team's counts (Core\TeamSummary) – per person only for administrators
         'assign' => ['write', ''],
         // Comment threads of the team (3.26): an internal comment on an enquiry, a page or an item – never shown on the site, so
         // a drafts-only connection may write one too, without @mentions (they e-mail colleagues; Handlers\CommentTools)
@@ -413,6 +414,7 @@ final class Catalog
         'delete_newsletter' => 'Delete a newsletter',
         'my_work' => 'Get my work',
         'list_colleagues' => 'List colleagues',
+        'team_summary' => 'Get the team summary',
         'assign' => 'Assign a responsible person',
         'list_comments' => 'List the comments of a record',
         'add_comment' => 'Add a comment',
@@ -549,7 +551,7 @@ final class Catalog
     public const array WORK = ['site_info', 'my_work', 'list_enquiries', 'update_enquiry', 'triage_enquiries', 'reply_to_enquiry', 'list_comments', 'add_comment',
         'assign', 'get_email_signature', 'list_colleagues', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
         'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task', 'list_contacts', 'get_contact', 'save_contact',
-        'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary', 'list_applications', 'get_application', 'update_application', 'reply_to_application'];
+        'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary', 'team_summary', 'list_applications', 'get_application', 'update_application', 'reply_to_application'];
 
     /**
      * The tools a "migration" connection lists (3.36): moving a site from another platform – the imports, read_old_page and

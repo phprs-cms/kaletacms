@@ -28,7 +28,7 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
     default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
 };
 ?>
-<?= $app->view->render('admin/my_work/tabs', ['module' => $module, 'current' => 'team']) ?>
+<?= $app->view->render('admin/my_work/tabs', ['module' => $module, 'current' => 'team', 'team' => true]) ?>
 <?php if ($people === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'moje', 'heading' => t('Nobody has an open task.'),
     'text' => t('Tasks the team creates – for themselves or for a colleague, in the administration or through Claude – are counted here per person.')]) ?>

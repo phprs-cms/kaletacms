@@ -864,6 +864,40 @@ final class Deals
     }
 
     /**
+     * Since when each deal is in its current stage (3.41, the deal card): the moment of its latest move – or its creation –
+     * from the stage history; a deal without history (data from before 3.31) since it was created.
+     *
+     * @param list<array<string, mixed>> $deals rows of list() or get()
+     * @return array<int, string> deal id => moment
+     */
+    public static function stageSince(Db $db, array $deals): array
+    {
+        $out = array_column(array_map(fn (array $d): array => ['id' => (int) $d['id'], 'at' => (string) $d['created_at']], $deals), 'at', 'id');
+        foreach (array_chunk(array_keys($out), 500) as $chunk) {
+            try {
+                $latest = $db->pairs('SELECT deal_id, MAX(at) FROM {deal_stage_history} WHERE deal_id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ') GROUP BY deal_id', $chunk);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+                return $out;
+            }
+            foreach ($latest as $id => $at) {
+                $out[(int) $id] = (string) $at;
+            }
+        }
+
+        return $out;
+    }
+
+    /** Whole days from a moment to today on the site's clock (0 = today, never below 0). Pure with $today. */
+    public static function daysSince(string $moment, string $today): int
+    {
+        $from = \DateTimeImmutable::createFromFormat('!Y-m-d', substr($moment, 0, 10));
+        $to = \DateTimeImmutable::createFromFormat('!Y-m-d', substr($today, 0, 10));
+
+        return $from === false || $to === false ? 0 : max(0, (int) $from->diff($to)->format('%r%a'));
+    }
+
+    /**
      * The deals' entries of a contact's or company's timeline (Contacts::timeline, the company page), newest first: one per
      * move – kind deal, title (the deal's title, data), status created | moved | won | lost | reopened, text (the label of
      * the stage it moved to), by (who moved it), ref deal:<id>, path.

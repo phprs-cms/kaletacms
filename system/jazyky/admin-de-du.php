@@ -1417,4 +1417,6 @@ return [
     'Applicants who agreed that you keep their application for future openings. %d days before the consent lapses, each gets an e-mail in their language with two links: keep it for another %d months, or delete it now. Without an answer the application follows the normal retention.' => 'Bewerber, die eingewilligt haben, dass du ihre Bewerbung für künftige Stellen aufbewahrst. %d Tage bevor die Einwilligung endet, erhält jeder eine E-Mail in seiner Sprache mit zwei Links: weitere %d Monate aufbewahren oder sofort löschen. Ohne Antwort gilt für die Bewerbung die normale Aufbewahrung.',
     'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Dieses Angebot hat kein PDF: Seine Sprache oder sein Text lässt sich mit den Schriften eines PDF nicht darstellen. Drucke die Vorschau oder speichere sie im Browser als PDF.',
     'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'Die Positionsvorlage „%1$s“ wurde in %2$s gespeichert, dieses Angebot ist in %3$s – ihre freien Positionen kamen ohne Preis; ergänze die Preise.',
+    'You' => 'Du',
+    'You see your own counts and the team’s totals.' => 'Du siehst deine eigenen Anzahlen und die Summen des Teams.',
 ];

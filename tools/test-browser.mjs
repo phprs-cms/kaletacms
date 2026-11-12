@@ -5087,7 +5087,7 @@ await step('3.37 record pages and board cards: two columns at 1440, one at 375, 
     const card = page.locator(`#deal-${deal}`);
     if (await card.locator('select[name="stage"]').isVisible()) { throw new Error('the stage select is not folded behind ⋯ with a mouse'); }
     const cardHeight = (await card.boundingBox()).height;
-    if (cardHeight > 170) { throw new Error(`the card is ${Math.round(cardHeight)} px tall`); }
+    if (cardHeight > 190) { throw new Error(`the card is ${Math.round(cardHeight)} px tall`); } // 3.41: + one line of the days in the stage and the next step
     await card.locator('details.obchod-vice > summary').click();
     if (!(await card.locator('select[name="stage"]').isVisible())) { throw new Error('⋯ does not open the stage select'); }
     const state = await context.storageState();
@@ -5588,6 +5588,84 @@ await step('3.40 A Download PDF: the customer\'s page at 390 px and the quote\'s
   } finally {
     execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); Kaleta\\Core\\QuoteDelivery::delete($app->db(), [${Number(quoteId) || 0}]);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' });
     sql("DELETE FROM ka_quote_counters; DELETE FROM ka_nastaveni WHERE promenna = 'quote_vat_rate'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
+// 3.41 A (step 7, R5): the deal card says how many days the deal is in its stage and its next step (or "No next step"); a
+// keyboard move sets the days to today; the detail says both; My work → Summary – a row per person for an administrator with
+// the team's total – fits 1440 and 375 px without sideways scroll (one card per row on a phone), light and dark, axe
+await step('3.41 A: the deal card (days in the stage, next step), the deal detail and My work → Summary – 1440 and 375 px, light/dark, axe', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("DELETE FROM ka_tasks WHERE title LIKE '%A341%'; DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%A341%'); DELETE FROM ka_deals WHERE title LIKE '%A341%'");
+  const admin = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim());
+  const deal = (title) => Number(sql(`INSERT INTO ka_deals (title, owner_id, stage, created_at, updated_at) VALUES ('${title}', ${admin}, 'new', NOW() - INTERVAL 20 DAY, NOW()); SELECT LAST_INSERT_ID();`).trim());
+  const a = deal('Warehouse racks for the Leeds site A341');
+  const b = deal('Logo refresh A341');
+  sql(`INSERT INTO ka_deal_stage_history (deal_id, from_stage, to_stage, at, user_id) VALUES (${a}, NULL, 'new', NOW() - INTERVAL 12 DAY, ${admin}), (${b}, NULL, 'new', NOW() - INTERVAL 3 DAY, ${admin});
+    INSERT INTO ka_tasks (title, target, assignee_id, created_by, due_at, created_at, updated_at) VALUES ('Call Olga about the delivery date A341', 'deal:${a}', ${admin}, ${admin}, CURDATE() + INTERVAL 2 DAY + INTERVAL 9 HOUR, NOW(), NOW());
+    INSERT INTO ka_tasks (title, assignee_id, created_by, done_at, done_by, created_at, updated_at) VALUES ('Done A341', ${admin}, ${admin}, NOW() - INTERVAL 1 DAY, ${admin}, NOW() - INTERVAL 2 DAY, NOW())`);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=pipeline');
+    const line = async (id) => ((await page.locator(`#deal-${id} .obchod-krok`).innerText()) || '').replace(/\s+/g, ' ').trim();
+    if (!/^Days in this stage: 12 · Next: Call Olga about the delivery date A341 · /.test(await line(a))) { throw new Error('the card with a task says: ' + await line(a)); }
+    if ((await line(b)) !== 'Days in this stage: 3 · No next step') { throw new Error('the card without a task says: ' + await line(b)); }
+    const cardHeight = (await page.locator(`#deal-${a}`).boundingBox()).height;
+    if (cardHeight > 190) { throw new Error(`the card with its next step is ${Math.round(cardHeight)} px tall`); }
+    // a keyboard move starts the stage today – the card says so without a reload
+    await page.locator(`#deal-${b} .obchod-uchyt`).focus();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Space');
+    await page.waitForFunction((id) => /since today/.test(document.querySelector(`#deal-${id} [data-deal-days]`).textContent), b, { timeout: 5000 });
+    if (sql(`SELECT stage FROM ka_deals WHERE id = ${b}`).trim() === 'new') { throw new Error('the keyboard move was not saved'); }
+    await visit(`/admin.php?module=pipeline&action=detail&id=${a}`);
+    if (!/^12 days \(since /.test(await page.locator('[data-deal-age]').innerText())) { throw new Error('the detail says: ' + await page.locator('[data-deal-age]').innerText()); }
+    await page.locator('[data-deal-next] a[href="#tasks"]').click();
+    if (!(await page.locator('#tasks').isVisible())) { throw new Error('the next step does not lead to the tasks'); }
+    await visit('/admin.php?module=my_work&action=summary&period=7_days');
+    if (!(await page.locator(`[data-team-summary] tr[data-person="${admin}"]`).count()) || !(await page.locator('[data-team-summary] tr[data-person="team"]').count())) { throw new Error('the summary has no row of the administrator or of the team'); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 375, 812]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of ['/admin.php?module=my_work&action=summary&period=7_days', '/admin.php?module=pipeline', `/admin.php?module=pipeline&action=detail&id=${a}`]) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+            if (url.includes('summary') && label === 'phone') {
+              // one card per row: the cells stack under the person's name, each with its label
+              const [name, cell] = await Promise.all([p2.locator(`tr[data-person="${admin}"] th`).boundingBox(), p2.locator(`tr[data-person="${admin}"] td[data-count="tasks_done"]`).boundingBox()]);
+              if (!(cell.y > name.y + name.height - 1)) { throw new Error(`the summary is not a card per row at 375 px (${scheme})`); }
+            }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/341a-${url.includes('summary') ? 'summary' : url.includes('detail') ? 'deal' : 'board'}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [['/admin.php?module=my_work&action=summary&period=7_days', ['[data-team-summary]', '[data-team-summary-period]']], ['/admin.php?module=pipeline', [`#deal-${a}`]],
+        [`/admin.php?module=pipeline&action=detail&id=${a}`, ['[data-deal-card]']]]) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_tasks WHERE title LIKE '%A341%'; DELETE FROM ka_deal_stage_history WHERE deal_id IN (${a}, ${b}); DELETE FROM ka_deals WHERE id IN (${a}, ${b})`);
   }
 });
 

@@ -66,7 +66,8 @@ $r338Allowed = ['src/Admin/Modules/Quotes.php', 'src/Admin/QuoteSending.php', 's
     'src/Core/Quotes.php', 'src/Core/Scheduler.php', 'src/Front/QuotePage.php', 'src/Mcp/Confirmation.php', 'src/Mcp/Handlers/QuoteTools.php', // 3.39 review M4: the summary of send_quote's confirmation
     'views/admin/quotes/detail.php', 'views/admin/quotes/send.php', 'views/admin/quotes/texts.php',
     'src/Admin/QuoteExtras.php', 'src/Core/QuoteLineSets.php', 'src/Front/QuoteDecision.php', // 3.40: follow-ups and customer lists, saved line sets, the customer's answer on the quote page
-    'src/Front/QuotePdf.php']; // 3.40 A: the quote as a PDF formats its amounts as the page does (QuoteDelivery::money)
+    'src/Front/QuotePdf.php', // 3.40 A: the quote as a PDF formats its amounts as the page does (QuoteDelivery::money)
+    'src/Core/TeamSummary.php']; // 3.41: the team summary counts quotes per person (QuoteDelivery::countsByPerson) – counts, never money
 $r338Found = $r338Callers(KALETA_SYSTEM);
 check('3.38 review L7: Prices::forItem, Quotes::get / of and QuoteDelivery are called only by the quote screens, sending, privacy, retention and their own classes – never by the site, SEO, search or the assistant', [
     array_values(array_diff(array_keys($r338Found), $r338Allowed)), isset($r338Found['src/Admin/Modules/Quotes.php']), isset($r338Found['src/Front/QuotePage.php']),

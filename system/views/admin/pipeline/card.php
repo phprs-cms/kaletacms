@@ -5,7 +5,9 @@
  * reveals the reason (CSS :has(); without it the detail asks). image/admin.js makes the card draggable and adds the
  * keyboard handle. 3.37 (U28): a lighter card – the title in at most two lines, the customer in one, one line of value ·
  * close · the responsible person's initials (the name for screen readers and on hover); with a mouse admin.js folds the
- * move form behind "⋯" (on a touch screen and without JavaScript it stays open).
+ * move form behind "⋯" (on a touch screen and without JavaScript it stays open). 3.41 (R5): an open deal says how many days
+ * it is in its stage and its next step – the open task about it due first (its title and day, overdue marked) or "No next
+ * step"; a move on the board (admin.js) sets the days to today.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Pipeline $module
@@ -16,11 +18,15 @@
  * @var string $return the query of the board (where the form returns)
  * @var string $today
  * @var bool $canContacts
+ * @var string|null $since since when it is in its stage (open deals; Core\Deals::stageSince)
+ * @var array<string, mixed>|null $next its next open task (Core\Tasks::nextFor)
  */
 use Kaleta\Admin\Modules\Pipeline;
 use Kaleta\Core\Deals;
 
 $id = (int) $d['id'];
+$since ??= null; // 3.41: only the board passes them
+$next ??= null;
 $customer = Pipeline::contactLabel($d);
 $overdue = $d['closed_at'] === null && $d['expected_close'] !== null && $d['expected_close'] < $today;
 $owner = $d['owner_id'] !== null ? (string) ($owners[$d['owner_id']] ?? '') : '';
@@ -44,6 +50,11 @@ $initials = mb_strtoupper(implode('', array_map(fn (string $word): string => mb_
 		<span class="obchod-osoba" title="<?= e($owner) ?>"><span aria-hidden="true"><?= e($initials) ?></span><span class="navod-skryte"><?= e(t('Responsible person: %s', $owner)) ?></span></span>
 <?php endif ?>
 	</div>
+<?php endif ?>
+<?php if ($d['closed_at'] === null && $since !== null): $days = Deals::daysSince($since, $today);
+    $daysText = $days === 0 ? t('In this stage since today') : t('Days in this stage: %d', $days);
+    $nextText = $next !== null ? t('Next: %s', $next['title'] !== '' ? $next['title'] : t('(no title)')) . ($next['due_at'] !== null ? ' · ' . format_date(substr((string) $next['due_at'], 0, 10)) : '') : t('No next step'); ?>
+	<p class="obchod-krok" title="<?= e($daysText . ' · ' . $nextText) ?>"><span data-deal-days><?= e($days === 0 ? t('In this stage since today') : t('Days in this stage: %d', $days)) ?></span> · <?php if ($next !== null): ?><span class="obchod-dalsi"><?= e(t('Next: %s', $next['title'] !== '' ? $next['title'] : t('(no title)'))) ?><?= $next['due_at'] !== null ? ' · ' . e(format_date(substr((string) $next['due_at'], 0, 10))) : '' ?><?= $next['due_at'] !== null && substr((string) $next['due_at'], 0, 10) < $today ? ' <span class="stitek stitek-chyba">' . e(t('overdue')) . '</span>' : '' ?></span><?php else: ?><span class="obchod-bez-kroku"><?= e(t('No next step')) ?></span><?php endif ?></p>
 <?php endif ?>
 	<form class="obchod-presun" method="post" action="<?= e($module->url('move')) ?>" data-deal-move>
 		<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="return" value="<?= e($return) ?>">

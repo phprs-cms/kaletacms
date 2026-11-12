@@ -859,6 +859,8 @@
 				if (!j.ok) { say(j.chyba || T('The deal could not be moved.')); return; }
 				col.querySelector('[data-stage-cards]').prepend(card);
 				setStage(card, j.stage, true);
+				var days = card.querySelector('[data-deal-days]'); // 3.41: a new stage starts today
+				if (days) { days.textContent = T('In this stage since today'); }
 				recount();
 				if (handle) { handle.focus(); }
 				say(j.zprava || T('Moved to %s.').replace('%s', stageName(col)));

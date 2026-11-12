@@ -1734,6 +1734,8 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .ukol-rychle button.navigace { padding: 6px 12px; font-weight: 500; }
 /* 3.27: "New task" on My work – the folded shared form above the lists */
 .moje-novy-ukol { margin: 0 0 20px; }
+/* 3.41: the team's total under the people of My work → Summary */
+tr.souhrn-celkem > * { border-top: 2px solid var(--linka); font-weight: 600; }
 /* 3.27: "Reassign to…" of a task nobody has (My work → Team) – the person and Save on one line, wrapping on a phone */
 form.moje-predat { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
 form.moje-predat select { max-width: 100%; }
@@ -1926,6 +1928,10 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 .obchod-uchyt { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-slaby); font-size: 16px; line-height: 1; cursor: grab; }
 .obchod-vice { margin-left: auto; }
 .obchod-termin { white-space: nowrap; }
+/* 3.41 (R5): days in the stage · the next step – one muted line (the whole text on hover) */
+.obchod-krok { margin: 0; overflow: hidden; color: var(--text-slaby); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+.obchod-dalsi { color: var(--text); }
+.obchod-bez-kroku { font-style: italic; }
 .obchod-vice > summary { display: grid; place-items: center; width: 32px; height: 32px; box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; color: var(--text-slaby); font-size: 18px; line-height: 1; list-style: none; cursor: pointer; }
 .obchod-vice > summary::-webkit-details-marker { display: none; }
 .obchod-vice > summary:hover, .obchod-vice[open] > summary { border-color: var(--linka-pole); color: var(--text); }

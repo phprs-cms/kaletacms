@@ -240,6 +240,36 @@ final class Tasks
     }
 
     /**
+     * The next step of each record (3.41, the deal card): its open task due first – no date last, then the oldest. One
+     * query for the whole board; a record without an open task is left out.
+     *
+     * @param list<string> $targets
+     * @return array<string, array<string, mixed>> target => the task as find() returns it
+     */
+    public static function nextFor(Db $db, array $targets): array
+    {
+        $targets = array_values(array_unique(array_filter(array_map(self::cleanTarget(...), $targets))));
+        if ($targets === []) {
+            return [];
+        }
+        $out = [];
+        foreach (array_chunk($targets, 500) as $chunk) {
+            try {
+                $rows = $db->all('SELECT ' . self::COLUMNS . ' FROM {tasks} WHERE done_at IS NULL AND target IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')'
+                    . ' ORDER BY due_at IS NULL, due_at, id', $chunk);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+                return [];
+            }
+            foreach ($rows as $r) {
+                $out[(string) $r['target']] ??= self::row($r);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * Open tasks per person (the Team tab of My work, administrators): assignee id (0 = nobody) => name, the counts of
      * overdue, today, upcoming, later and all open ones, and whether nobody active has them (unassigned – nobody, a removed
      * or a blocked account: they are in unassigned(), where an administrator gives them to someone). People with the most

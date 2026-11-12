@@ -23,6 +23,25 @@ trait WorkTools
         return ['count' => count($people), 'you' => $this->app->auth()->id(), 'colleagues' => $people];
     }
 
+    /**
+     * team_summary (3.41, Core\TeamSummary): the team's counts of a period for the sections the user may open – job
+     * applications only while the site lets Claude read them; the counts of each person only for an administrator.
+     */
+    private function toolTeamSummary(string $name, array $a): mixed
+    {
+        $userId = $this->app->auth()->id();
+        $sections = \Kaleta\Core\TeamSummary::sectionsFor((new \Kaleta\Admin\Kernel($this->app))->modules());
+        if (!$this->app->settings()->bool('applications_claude')) {
+            $sections = array_values(array_diff($sections, ['applications']));
+        }
+        $admin = $this->app->auth()->isAdmin();
+        $summary = \Kaleta\Core\TeamSummary::build($this->app, $sections, is_string($a['period'] ?? null) ? $a['period'] : '', $userId, $admin, false);
+
+        return \Kaleta\Core\TeamSummary::compact($summary) + ['note' => 'Counts only. enquiries_open, tasks_open and tasks_overdue are counted as they are now, the rest within the period.'
+            . ($admin ? ' people: administrators only – never put the counts of a person into anything that leaves the administration.' : ' The counts of each person are for administrators only.'),
+            'admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=my_work&action=summary&period=' . $summary['period'])];
+    }
+
     /** my_work */
     private function toolMyWork(string $name, array $a): mixed
     {

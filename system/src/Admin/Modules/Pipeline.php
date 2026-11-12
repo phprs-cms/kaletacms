@@ -13,6 +13,7 @@ use Kaleta\Core\Contacts as Customers;
 use Kaleta\Core\Db;
 use Kaleta\Core\Deals;
 use Kaleta\Core\Response;
+use Kaleta\Core\Tasks;
 
 /**
  * Pipeline (3.31, stage 6 of the staged CRM path, Core\Deals): the deals of the site's customers, moving New → Qualified →
@@ -101,7 +102,9 @@ final class Pipeline extends Module
         $deals = [...$open['rows'], ...$closed];
 
         return $this->view('board', 'Pipeline', $data + ['columns' => self::columns($stages, $deals, self::monthStart()), 'more' => max(0, $open['total'] - count($open['rows'])),
-            'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($deals, 'owner_id')))), 'today' => Clock::today()]);
+            'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($deals, 'owner_id')))), 'today' => Clock::today(),
+            // 3.41: how long each open deal is in its stage and its next step (the open task due first)
+            'since' => Deals::stageSince($this->db, $open['rows']), 'next' => Tasks::nextFor($this->db, array_map(fn (array $d): string => Comments::deal((int) $d['id']), $open['rows']))]);
     }
 
     /**
@@ -237,6 +240,8 @@ final class Pipeline extends Module
             'thread' => $this->commentThread($target, ['id' => $id]),
             'tasks' => $this->taskPanel($target, ['id' => $id]),
             'quoteBox' => Quotes::box($this->app, $modules, 'deal', $id), // 3.38 B
+            // 3.41: since when it is in its stage and its next step (the open task due first)
+            'since' => $deal['closed_at'] === null ? (Deals::stageSince($this->db, [$deal])[$id] ?? null) : null, 'next' => Tasks::nextFor($this->db, [$target])[$target] ?? null,
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
     }
 

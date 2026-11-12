@@ -34,6 +34,9 @@ namespace Kaleta\Core;
  * 3.34: "recruitment" – job applications received (the top five positions by count), invited to an interview, hired,
  * rejected and still waiting for the first reply (Core\Applications::monthCounts); counts and position titles only, with
  * the feature on and when something happened.
+ * 3.41: "team" – the team's totals of the month (Core\TeamSummary::monthTotals): how many people did something counted,
+ * enquiries answered, tasks done, deal moves, deals won and lost, applications handled, quotes sent and accepted – never a
+ * name or a person's own numbers.
  */
 final class MonthlyReport
 {
@@ -211,6 +214,9 @@ final class MonthlyReport
             'quotes' => Quotes::isOn($s) ? $section(fn (): ?array => QuoteDelivery::monthCounts($db, $from, $to)) : null,
             // 3.34: recruitment – counts and position titles only; null with the feature off or nothing in the month
             'recruitment' => Applications::isOn($s) ? $section(fn (): ?array => Applications::monthCounts($db, $from, $to)) : null,
+            // 3.41 (step 7): the team's totals – how many people did something counted and what; never a name or a person's
+            // own numbers (those stay on the administrators' screen); null when nothing was counted
+            'team' => $section(fn (): ?array => TeamSummary::monthTotals($app, $from, $to)),
             'open' => $section(fn (): array => self::open($app, $enquiries)),
             // 3.26.1: the month's uptime from the fleet console (Fleet\Uptime, drawn by Core\UptimeStrip) – null without a console
             'uptime' => $section(fn (): ?array => \Kaleta\Fleet\Uptime::month($s, $monthStart->format('Y-m'))),
@@ -731,6 +737,13 @@ final class MonthlyReport
                 $positions = array_map(static fn (array $x): array => [(string) ($x['title'] ?? ''), $n($x['n'] ?? 0)], array_values(array_filter((array) ($recruitment['positions'] ?? []), 'is_array')));
                 $section(ReportVisual::title(t('Recruitment'), $p) . ReportVisual::pairs($pairs, $p) . ($positions !== [] ? ReportVisual::subtitle(t('Applications by position'), $p) . ReportVisual::pairs($positions, $p) : ''),
                     mb_strtoupper(t('Recruitment')) . "\n" . $plainPairs($pairs));
+            }
+
+            // 3.41: the team – totals only, never names
+            $team = is_array($data['team'] ?? null) ? $data['team'] : null;
+            if ($team !== null) {
+                $pairs = TeamSummary::reportPairs($team, $n);
+                $section(ReportVisual::title(t('Team'), $p) . ReportVisual::pairs($pairs, $p), mb_strtoupper(t('Team')) . "\n" . $plainPairs($pairs));
             }
 
             // what is new on the site: pages and news published this month

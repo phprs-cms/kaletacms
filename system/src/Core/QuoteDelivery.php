@@ -762,6 +762,23 @@ final class QuoteDelivery
         return array_sum($counts) > 0 ? $counts : null;
     }
 
+    /**
+     * The quotes of a period per person for the team summary (3.41, Core\TeamSummary) – counts only, never money: sent by
+     * whoever sent them, accepted for the responsible person (user id, 0 = nobody).
+     *
+     * @return array{sent: array<int, int>, accepted: array<int, int>}
+     */
+    public static function countsByPerson(Db $db, string $from, string $to): array
+    {
+        try {
+            return ['sent' => array_map('intval', $db->pairs('SELECT COALESCE(sent_by, 0), COUNT(*) FROM {quotes} WHERE sent_at >= ? AND sent_at < ? GROUP BY COALESCE(sent_by, 0)', [$from, $to])),
+                'accepted' => array_map('intval', $db->pairs("SELECT COALESCE(owner_id, 0), COUNT(*) FROM {quotes} WHERE status = 'accepted' AND decided_at >= ? AND decided_at < ? GROUP BY COALESCE(owner_id, 0)", [$from, $to]))];
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return ['sent' => [], 'accepted' => []]; // before migration 0123
+        }
+    }
+
     /** How many quotes hold a customer (the record of processing). */
     public static function withCustomer(Db $db): int
     {

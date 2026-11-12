@@ -296,6 +296,12 @@ final class ReportPage
             ]);
         }
 
+        // 3.41: the team – totals only, never names
+        $team = is_array($data['team'] ?? null) ? $data['team'] : null;
+        if ($team !== null) {
+            $add('team', t('Team'), [$pairs(TeamSummary::reportPairs($team, $n))]);
+        }
+
         // newsletter
         $newsletter = is_array($data['newsletter'] ?? null) ? $data['newsletter'] : null;
         if ($newsletter !== null) {

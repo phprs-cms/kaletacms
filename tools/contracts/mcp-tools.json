@@ -2606,6 +2606,18 @@
             "openWorldHint": false
         }
     },
+    "team_summary": {
+        "parameters": {
+            "period": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Get the team summary",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "translation_status": {
         "parameters": {
             "status": "string",

@@ -19,6 +19,8 @@
  * @var string $companyName
  * @var int $more open deals beyond Pipeline::BOARD_MAX
  * @var string $today
+ * @var array<int, string> $since 3.41: deal id => since when it is in its stage (Core\Deals::stageSince, open deals)
+ * @var array<string, array<string, mixed>> $next 3.41: deal:<id> => its next open task (Core\Tasks::nextFor)
  * @var bool $canContacts
  * @var bool $admin
  * @var int $me
@@ -58,7 +60,7 @@ $sums = fn (array $sums): string => implode(' · ', array_map(fn (string $cur, s
 		<ol class="obchody-karty" data-stage-cards>
 <?php foreach ($col['deals'] as $d): ?>
 <?= $app->view->render('admin/pipeline/card', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'd' => $d, 'stages' => $stages, 'owners' => $owners, 'return' => $return,
-    'today' => $today, 'canContacts' => $canContacts]) ?>
+    'today' => $today, 'canContacts' => $canContacts, 'since' => $since[(int) $d['id']] ?? null, 'next' => $next['deal:' . (int) $d['id']] ?? null]) ?>
 <?php endforeach ?>
 		</ol>
 		<p class="obchody-prazdne napoveda" data-stage-empty<?= $col['count'] > 0 ? ' hidden' : '' ?>><?= e(t('No deal here.')) ?></p>
