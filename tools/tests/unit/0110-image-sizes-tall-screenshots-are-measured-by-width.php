@@ -154,7 +154,9 @@ $parity = [
         'prices_import_run' => 'admin: writing a checked CSV import is the decision of the person who checked it',
         'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',
         'list_default' => 'admin: the default price list is the administrator\'s set-up', 'settings' => $readOnly,
-        'settings_save' => 'admin: numbering, VAT, limits and retention of quotes are the administrator\'s set-up'],
+        'settings_save' => 'admin: numbering, VAT, limits and retention of quotes are the administrator\'s set-up',
+        'send' => 'send_quote', 'preview' => $readOnly, 'link' => 'admin: a new customer\'s link for a sent quote is handed over by a person',
+        'link_withdraw' => 'admin: withdrawing a customer\'s link is the person\'s decision', 'texts_save' => 'admin: the default texts of quotes are the administrator\'s set-up'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],
@@ -702,7 +704,7 @@ check('3.8: openWorldHint – exactly the tools that fetch an outside address or
     array_keys(array_filter(array_combine(array_keys(Kaleta\Mcp\Catalog::TOOLS), array_map(fn (string $t): bool => Kaleta\Mcp\Tools::annotations($t)['openWorldHint'], array_keys(Kaleta\Mcp\Catalog::TOOLS))))),
     array_map(fn (string $cs): bool => Kaleta\Mcp\Tools::annotations($cs)['openWorldHint'], ['nahraj_soubor', 'importuj_web', 'uloz_polozku_kolekce', 'seznam_medii']),
     array_values(array_diff(Kaleta\Mcp\Catalog::OPEN_WORLD, array_keys(Kaleta\Mcp\Catalog::TOOLS)))],
-    [['save_collection_items', 'upload_file', 'import_website', 'migration_report', 'read_old_page', 'import_wordpress', 'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'send_newsletter', 'reply_to_application'],
+    [['save_collection_items', 'upload_file', 'import_website', 'migration_report', 'read_old_page', 'import_wordpress', 'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'send_newsletter', 'reply_to_application', 'send_quote'],
      [true, true, false, false], []]);
 // the tools on the list really reach outside: each downloads through Core\ImageDownloader / WpImport::download, or e-mails
 $handlers38 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_ROOT . '/system/src/Mcp/Handlers/*.php') ?: [], KALETA_ROOT . '/system/src/Mcp/Tools.php']));
@@ -712,7 +714,7 @@ $method38 = function (string $tool) use ($handlers38): string {
     return $start === false ? '' : substr($handlers38, $start, (int) (strpos($handlers38, "\n    }\n", $start) ?: strlen($handlers38)) - $start);
 };
 check('3.8: every open-world tool\'s code downloads, imports or e-mails (or hands it to the class that does)', array_values(array_filter(Kaleta\Mcp\Catalog::OPEN_WORLD,
-    fn (string $t): bool => preg_match('/ImageDownloader|WpImport::download|WebImport|MigrationReport|ItemBatch|Mailing::|Testimonials::request|EnquiryReply::send|Applications::reply|Booking::(confirm|decline|cancel|propose)|uploadFile|customer_notified/', $method38($t)) !== 1)), []);
+    fn (string $t): bool => preg_match('/ImageDownloader|WpImport::download|WebImport|MigrationReport|ItemBatch|Mailing::|Testimonials::request|EnquiryReply::send|Applications::reply|Booking::(confirm|decline|cancel|propose)|uploadFile|customer_notified|QuoteDelivery::send\(/', $method38($t)) !== 1)), []);
 check('3.8: idempotentHint only on write tools of the verified list, never on a read, a send, a publish or an import', [
     array_values(array_diff(Kaleta\Mcp\Catalog::IDEMPOTENT, array_keys(array_filter(Kaleta\Mcp\Catalog::TOOLS, fn (array $t): bool => $t[0] !== 'read')))),
     array_values(array_filter(array_keys(Kaleta\Mcp\Catalog::TOOLS), fn (string $t): bool => isset(Kaleta\Mcp\Tools::annotations($t)['idempotentHint']) !== in_array($t, Kaleta\Mcp\Catalog::IDEMPOTENT, true))),

@@ -244,6 +244,8 @@ final class Catalog
         // never journaled for undo (save_price returns the previous values)
         'list_prices' => ['read', 'quotes'],
         'save_price' => ['write', 'quotes'],
+        // 3.38 C: a real e-mail with the quote to its customer's own address – a full-access connection, confirm: true (design A-5)
+        'send_quote' => ['destructive', 'quotes'],
     ];
 
     /**
@@ -426,6 +428,7 @@ final class Catalog
         'reply_to_application' => 'Send a reply to a job applicant',
         'list_prices' => 'List internal prices',
         'save_price' => 'Save internal prices',
+        'send_quote' => 'Send a quote to the customer',
     ];
 
     /**
@@ -438,7 +441,7 @@ final class Catalog
      * list_connectors (status from the database) and e-mails to the site's own users (update_request, send_test_newsletter).
      */
     public const array OPEN_WORLD = ['upload_file', 'import_website', 'migration_report', 'read_old_page', 'import_wordpress', 'save_collection_items', 'send_newsletter',
-        'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'reply_to_application'];
+        'request_testimonial', 'reply_to_enquiry', 'cancel_booking', 'confirm_booking', 'decline_booking', 'propose_booking_times', 'reply_to_application', 'send_quote'];
 
     /**
      * Write tools that a repeated call with the same arguments changes nothing more (3.8, MCP idempotentHint), verified in
@@ -466,7 +469,7 @@ final class Catalog
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
-        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue', 'save_price'];
+        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue', 'save_price', 'send_quote'];
 
     /**
      * 3.36 review L2: write tools whose call without this argument only reads – then Mcp\Server writes no change-log row,
@@ -576,7 +579,7 @@ final class Catalog
         'delete_hours_exception', 'list_bookings', 'booking_availability', 'save_booking_service', 'save_booking_staff', 'cancel_booking', 'confirm_booking',
         'decline_booking', 'propose_booking_times', 'list_pending_review', 'get_due_agent_runs', 'report_agent_run', 'translation_status', 'list_newsletters',
         'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
-        'list_prices', 'save_price']; // 3.38: internal prices – one find_tools away (design A8: outside the essentials and the work set)
+        'list_prices', 'save_price', 'send_quote']; // 3.38: internal prices – one find_tools away (design A8: outside the essentials and the work set)
 
     /**
      * The focused sets that list a tool by its English name (3.36): [] for a tool of ON_DEMAND (or an add-on's tool).

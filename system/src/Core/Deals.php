@@ -1096,6 +1096,7 @@ final class Deals
     {
         $idps = array_values(array_unique(array_filter(array_map('intval', $idps), fn (int $id): bool => $id > 0)));
         self::forgetEnquiryWords($db, $idps);
+        QuoteDelivery::forgetEnquiries($db, $idps); // 3.38: a quote of a deleted enquiry keeps its customer block, without the link
         $changed = 0;
         try {
             foreach (array_chunk($idps, 500) as $chunk) {

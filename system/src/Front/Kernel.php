@@ -22,6 +22,7 @@ use Kaleta\Core\View;
  *   /rss.xml                    RSS feed of news
  *   /<slug>                     page
  *   /screen/<secret>            screen mode for a TV in the reception (2.11, Front\Screen)
+ *   /quote/<token>              the customer's quote, a print-ready document (3.38, Front\QuotePage)
  *   robots.txt, sitemap.xml, llms.txt, feed.json... see Seo
  */
 final class Kernel
@@ -189,6 +190,11 @@ final class Kernel
         if (str_starts_with($request->path(), '/media/')
             && ($staged = \Kaleta\Core\MediaStaging::serve($this->app, $request->path(), fn (): bool => $this->sitePreview || \Kaleta\Core\MediaStaging::hasPreview($this->app), (string) ($_SERVER['HTTP_ACCEPT'] ?? ''))) !== null) {
             return $staged;
+        }
+        // 3.38: the customer's quote (Front\QuotePage) – a bearer link to one sent quote, before the cache and never stored in it;
+        // a wrong, withdrawn or expired token is the plain not-found page (no detail, not logged among the addresses not found)
+        if (preg_match('#^/quote/([a-f0-9]{64})$#D', $request->path(), $m) === 1) {
+            return QuotePage::response($this->app, $m[1]) ?? $this->notFoundPage(404);
         }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;

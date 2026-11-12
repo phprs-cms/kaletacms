@@ -1390,4 +1390,11 @@ return [
     'A discount above %s %% – ask a person to set it in the admin.' => 'Ein Rabatt über %s %% – bitte eine Person, ihn in der Administration einzustellen.',
     'Write the validity as a date, e.g. %s.' => 'Schreib die Gültigkeit als Datum, z. B. %s.',
     'Someone else saved this quote in the meantime – your version replaced theirs.' => 'Jemand anderes hat das Angebot inzwischen gespeichert – deine Fassung hat seine ersetzt.',
+    'Quote %s was finalised – hand over the link below or print the quote.' => 'Angebot %s ist abgeschlossen – gib den Link unten weiter oder drucke das Angebot.',
+    'Finalising gives the quote its number and a link for the customer; send the link from your own mail program or print the quote.' => 'Beim Abschließen erhält das Angebot seine Nummer und einen Link für den Kunden; sende den Link aus deinem eigenen Mailprogramm oder drucke das Angebot.',
+    'The quote goes only to the customer’s e-mail – to send it elsewhere, change the customer in the quote.' => 'Das Angebot geht nur an die E-Mail des Kunden – für eine andere Adresse ändere den Kunden im Angebot.',
+    'Your e-mail signature is added; when the customer answers, it comes to you (%s).' => 'Deine E-Mail-Signatur wird angefügt; wenn der Kunde antwortet, kommt es zu dir (%s).',
+    'Your e-mail signature is added.' => 'Deine E-Mail-Signatur wird angefügt.',
+    'You have no e-mail signature yet, so the e-mail goes without one.' => 'Du hast noch keine E-Mail-Signatur, die E-Mail geht also ohne.',
+    'Retention: not limited – set it in Quotes → Settings; drafts not touched for %d months are deleted.' => 'Aufbewahrung: unbegrenzt – stelle sie unter Angebote → Einstellungen ein; Entwürfe, die %d Monate nicht bearbeitet wurden, werden gelöscht.',
 ];

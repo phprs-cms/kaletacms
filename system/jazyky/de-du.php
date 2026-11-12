@@ -388,4 +388,5 @@ Der Link gilt %d Tage.
     "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}" => "Hallo {{name}},\n\nvielen Dank für dein Interesse und deine Bewerbung für {{position}}. Nach sorgfältiger Prüfung haben wir uns entschieden, deine Bewerbung diesmal nicht weiterzuverfolgen. Wir wünschen dir viel Erfolg.\n\nViele Grüße\n{{company}}",
     'Your CV could not be stored, so nothing was sent. Please try again later.' => 'Dein Lebenslauf konnte nicht gespeichert werden, daher wurde nichts gesendet. Bitte versuche es später erneut.',
     'Please attach at most %d files.' => 'Bitte hänge höchstens %d Dateien an.',
+    'thank you for your interest. You will find our quotation at the link below – you can print it or save it as a PDF.' => 'vielen Dank für dein Interesse. Unser Angebot findest du unter dem Link unten – du kannst es drucken oder als PDF speichern.',
 ];

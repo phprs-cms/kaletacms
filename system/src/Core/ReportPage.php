@@ -278,6 +278,13 @@ final class ReportPage
             ]);
         }
 
+        // 3.38: quotes – counts only, never money
+        $quotes = is_array($data['quotes'] ?? null) ? $data['quotes'] : null;
+        if ($quotes !== null) {
+            $add('quotes', t('Quotes'), [$pairs([[t('Quotes sent'), $n($quotes['sent'] ?? 0)], [t('Quotes accepted'), $n($quotes['accepted'] ?? 0)],
+                [t('Quotes declined'), $n($quotes['declined'] ?? 0)], [t('Quotes expired'), $n($quotes['expired'] ?? 0)]])]);
+        }
+
         // 3.34: recruitment – counts and position titles only
         $recruitment = is_array($data['recruitment'] ?? null) ? $data['recruitment'] : null;
         if ($recruitment !== null) {

@@ -207,6 +207,8 @@ final class MonthlyReport
                     $db->all("SELECT subject, finished_at, sent_count FROM {newsletters} WHERE status = 'sent' AND finished_at >= ? AND finished_at < ? ORDER BY finished_at LIMIT 20", [$from, $to]))]) : null,
             // 3.31: the pipeline – counts only, never values (D-W7: a report is never money); null on a site without deals
             'pipeline' => $section(fn (): ?array => self::pipeline($app, $from, $to)),
+            // 3.38: quotes – counts only (sent, accepted, declined, expired), never money; null with the feature off or none in the month
+            'quotes' => Quotes::isOn($s) ? $section(fn (): ?array => QuoteDelivery::monthCounts($db, $from, $to)) : null,
             // 3.34: recruitment – counts and position titles only; null with the feature off or nothing in the month
             'recruitment' => Applications::isOn($s) ? $section(fn (): ?array => Applications::monthCounts($db, $from, $to)) : null,
             'open' => $section(fn (): array => self::open($app, $enquiries)),
@@ -712,6 +714,13 @@ final class MonthlyReport
             if ($pipeline !== null) {
                 $pairs = [[t('New deals'), $n($pipeline['new'] ?? 0)], [t('Deals won'), $n($pipeline['won'] ?? 0)], [t('Deals lost'), $n($pipeline['lost'] ?? 0)]];
                 $section(ReportVisual::title(t('Pipeline'), $p) . ReportVisual::pairs($pairs, $p), mb_strtoupper(t('Pipeline')) . "\n" . $plainPairs($pairs));
+            }
+
+            // 3.38: quotes – counts only, never money
+            $quotes = is_array($data['quotes'] ?? null) ? $data['quotes'] : null;
+            if ($quotes !== null) {
+                $pairs = [[t('Quotes sent'), $n($quotes['sent'] ?? 0)], [t('Quotes accepted'), $n($quotes['accepted'] ?? 0)], [t('Quotes declined'), $n($quotes['declined'] ?? 0)], [t('Quotes expired'), $n($quotes['expired'] ?? 0)]];
+                $section(ReportVisual::title(t('Quotes'), $p) . ReportVisual::pairs($pairs, $p), mb_strtoupper(t('Quotes')) . "\n" . $plainPairs($pairs));
             }
 
             // 3.34: recruitment – counts and position titles only

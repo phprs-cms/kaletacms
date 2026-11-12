@@ -33,6 +33,8 @@ use Kaleta\Core\Response;
  */
 final class Quotes extends Module
 {
+    use \Kaleta\Admin\QuoteSending; // 3.38: send, preview, link, link_withdraw, texts_save (the document, sending and the customer's link)
+
     public const string IDENT = Prices::SECTION;
     public const string NAME = 'Quotes';
     public const string GROUP = 'Workspace';

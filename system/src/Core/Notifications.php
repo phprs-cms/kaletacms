@@ -81,6 +81,7 @@ final class Notifications
                 \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
             },
             fn () => Booking::purge($app), // bookings follow the same retention (3.0)
+            fn () => QuoteDelivery::purge($app), // 3.38 (A-11): quotes after quotes_months the way of old enquiries, drafts after 6 months
             fn () => Contacts::purge($app), // 3.28: customers with no activity for contacts_months are anonymised
             function (): void {
                 \Kaleta\Admin\Modules\Contacts::sweepImports(); // N328-5: an uploaded customers CSV nobody confirmed (personal data) goes after a day, not only when Import is opened again

@@ -68,6 +68,7 @@ final class Scheduler
         'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
+        'quotes' => [3600, 'any', 'Quotes: expired after their validity, the customer\'s links ended, reminders'], // 3.38 (Core\QuoteDelivery::run)
         'import_recheck' => [0, 'any', 'Imported content checked again with today\'s sanitizers'],
         'media_staging' => [3600, 'any', 'Files waiting for approval: public with the content that uses them, deleted after 30 days'],
         'inbox' => [3600, 'any', 'Notifications: the daily e-mail summary at 8:00, kept 90 days'], // 3.26 (Core\Inbox)
@@ -194,6 +195,7 @@ final class Scheduler
             'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),
             'booking_reminders' => fn (App $app): string => Booking::remind($app),
+            'quotes' => fn (App $app): string => QuoteDelivery::run($app), // 3.38: never an amount in the bell
             'media_staging' => fn (App $app): string => MediaStaging::cleanup($app->db()), // 3.15 (N10)
             'inbox' => fn (App $app): string => Inbox::run($app), // 3.26: the daily summary and the clean-up, once a day after 8:00
             'import_recheck' => function (App $app, string $source): string {

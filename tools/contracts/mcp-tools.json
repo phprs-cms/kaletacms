@@ -2455,6 +2455,25 @@
             "openWorldHint": true
         }
     },
+    "send_quote": {
+        "parameters": {
+            "confirm": "boolean",
+            "id": "integer",
+            "message": "string",
+            "set_deal_value": "boolean",
+            "subject": "string"
+        },
+        "required": [
+            "id",
+            "confirm"
+        ],
+        "annotations": {
+            "title": "Send a quote to the customer",
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "openWorldHint": true
+        }
+    },
     "send_test_newsletter": {
         "parameters": {
             "id": "integer"

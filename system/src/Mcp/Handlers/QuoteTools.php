@@ -192,4 +192,42 @@ trait QuoteTools
 
         return $out + ($variants !== [] ? ['variants' => $variants] : []) + ($missing !== [] ? ['missing' => $missing] : []);
     }
+
+    /**
+     * send_quote (3.38 C, design A-5): a real e-mail with the quote to its customer – confirm=true on a full-access
+     * connection (Catalog: destructive), only to the address of the quote's customer record or enquiry
+     * (QuoteDelivery::claudeRefusal); confirm=false returns what would be sent and sends nothing.
+     */
+    private function toolSendQuote(string $name, array $a): mixed
+    {
+        $db = $this->app->db();
+        if (!\Kaleta\Core\Quotes::mayOpen($db, $this->app->settings(), $this->app->auth()->id())) {
+            throw new \DomainException('Only a user who may open Quotes can send a quote – an administrator gives the section in Users.');
+        }
+
+        return Language::runWith('en', function () use ($db, $a): array {
+            $id = (int) ($a['id'] ?? 0);
+            $quote = \Kaleta\Core\Quotes::get($db, $id) ?? throw new \InvalidArgumentException('The quote does not exist.');
+            $draft = \Kaleta\Core\QuoteDelivery::draft($this->app, $quote);
+            $subject = is_string($a['subject'] ?? null) ? $a['subject'] : '';
+            $message = is_string($a['message'] ?? null) ? $a['message'] : '';
+            $setDeal = is_bool($a['set_deal_value'] ?? null) ? $a['set_deal_value'] : $draft['set_deal_value'];
+            if (($a['confirm'] ?? false) !== true) {
+                $why = $draft['refusal'] ?? $draft['smtp'] ?? \Kaleta\Core\QuoteDelivery::claudeRefusal($db, $quote);
+
+                return ['id' => $id, 'sent' => false, 'to' => $draft['to'], 'subject' => $subject !== '' ? $subject : $draft['subject'], 'message' => $message !== '' ? $message : $draft['message'],
+                    'currency' => $quote['currency'], 'totals' => ['net' => $quote['totals']['net'], 'vat' => $quote['totals']['vat'], 'gross' => $quote['totals']['gross']],
+                    'valid_until' => $quote['valid_until'], 'set_deal_value' => $setDeal && $quote['deal_id'] !== null]
+                    + ($why !== null ? ['cannot_send' => $why] : [])
+                    + ['next' => $why !== null ? 'Tell the user why the quote cannot be sent yet.' : 'Show the user the recipient, subject, message and total. Send only when they explicitly ask: the same call with confirm=true.'];
+            }
+            $result = \Kaleta\Core\QuoteDelivery::send($this->app, $id, $subject, $message, $setDeal, 'mcp');
+
+            return ['id' => $id, 'sent' => true, 'number' => $result['number'], 'status' => $result['status'], 'to' => $result['to'], 'deal_value_set' => $result['deal_value_set']]
+                + ($result['error'] !== '' ? ['error' => $result['error']] : []) + ($result['warnings'] !== [] ? ['warnings' => $result['warnings']] : [])
+                + ['admin_url' => $this->app->request->origin() . $this->app->url(\Kaleta\Core\Quotes::adminPath($id)),
+                    'next' => $result['status'] === 'sent' ? 'Tell the user the quote went out with its number. Its link and state are in the quote in the administration.'
+                        : 'Tell the user the mail server refused it for now (' . $result['error'] . '); the site retries from its mail queue – the quote is numbered and counts as sent.'];
+        }, 'admin-');
+    }
 }

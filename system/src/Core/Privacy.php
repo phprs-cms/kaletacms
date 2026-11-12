@@ -415,6 +415,20 @@ final class Privacy
             t('Deals with customers: %d. A deal names the customer, the enquiry it came from, a responsible person, a value and its stage. A customer with an open deal is not anonymised; the enquiries of a deal are kept while it is open and for the enquiries’ retention after it closes. Erasing a customer keeps their deals without the person.', $dealCount),
             t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
         ]];
+        $quoteCount = QuoteDelivery::withCustomer($db);
+        if (Quotes::isOn($s) || $quoteCount > 0) {
+            // 3.38: quotes (Core\Quotes, Core\QuoteDelivery) – counts only, never money
+            $quoteMonths = max(0, $s->int('quotes_months'));
+            $sections[] = ['heading' => t('Quotes'), 'lines' => [
+                t('Quotes with a customer: %d. A quote holds the customer’s name, company, address, registration and VAT numbers and e-mail, copied from the customer record or the enquiry.', $quoteCount),
+                t('Purpose: steps before a contract at the customer’s request. Legal basis: Art. 6(1)(b); for companies legitimate interest (Art. 6(1)(f)).'),
+                $quoteMonths > 0 ? t('Retention: %d months after the last change of status, then %s automatically; drafts not touched for %d months are deleted.', $quoteMonths,
+                    t($s->get('enquiries_expiry') === 'anonymise' ? 'kept without the person (number, lines and totals stay)' : 'deleted'), QuoteDelivery::DRAFT_MONTHS)
+                    : t('Retention: not limited – set it in Quotes → Settings; drafts not touched for %d months are deleted.', QuoteDelivery::DRAFT_MONTHS),
+                t('A customer with a quote waiting for an answer is not anonymised; erasing a customer keeps a numbered quote without the person.'),
+                t('Recipients: the people with access to Quotes in the administration; the customer through the link in the e-mail, which works for %d days after the validity and can be withdrawn at once. Quotes are not part of the site export and never shown on the site.', max(1, $s->int('quote_link_days'))),
+            ]];
+        }
         if (Applications::isOn($s)) {
             // 3.34: applications apart from enquiries (Core\Applications)
             $applicationMonths = $s->int('applications_months');

@@ -5118,6 +5118,73 @@ await step('3.38 internal prices: the grid at 1440 and 390 px (light/dark, axe),
   }
 });
 
+// 3.38 (agent C): the customer's quote – a sent quote's signed link opens the document in the site's look at 1440 and 390 px
+// (no sideways scroll, the Print button, axe), the printed page is A4 with the button hidden and the table header repeated,
+// a wrong token is the 404; the send dialog of a draft fits a phone in light and dark
+await step('3.38 C the quote document: 1440 and 390 px, axe, print to A4 (one or two pages), a wrong token 404; the send dialog on a phone', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota); REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21'), ('quote_terms', 'Delivery within four weeks of the order. Prices include installation where stated.')");
+  const ids = execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); $db = $app->db();
+    $lines = []; foreach (range(1, 9) as $i) { $lines[] = ["name" => "Shock-wave therapy unit with a rather long product name C338 no. " . $i, "code" => "SW-C338-" . $i, "description" => "Applicator set, trolley and two years of service", "quantity" => (string) $i, "unit" => "pc", "unit_price" => (string) (12500 + $i * 1000), "discount_percent" => $i === 2 ? "5" : "0", "vat_rate" => "21"]; }
+    $customer = ["name" => "Grace Customer", "company" => "Physio Clinic C338 Ltd", "address" => "12 Long Street\\nLondon E1 6AN", "reg_no" => "12345678", "vat_id" => "GB123456789", "email" => "grace.c338@customer.example"];
+    $sent = Kaleta\\Core\\Quotes::finalise($app, Kaleta\\Core\\Quotes::save($app, null, ["customer" => $customer, "title" => "Shock-wave units for the clinic", "lines" => $lines, "discount_percent" => "3", "valid_days" => 21], 0)["id"], 0);
+    $draft = Kaleta\\Core\\Quotes::save($app, null, ["customer" => $customer, "title" => "A draft to send", "lines" => array_slice($lines, 0, 2)], 0)["id"];
+    echo $sent["id"], " ", $draft, " ", Kaleta\\Core\\QuoteDelivery::issueLink($app, $sent["id"], 0);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim().split(' ');
+  const [quoteId, draftId, link] = ids;
+  try {
+    if (!/\/quote\/[a-f0-9]{64}$/.test(link || '')) { throw new Error(`no link: ${ids.join(' ')}`); }
+    for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+      // axe is injected into the desktop page – the document's own CSP allows only the site's scripts, so that context bypasses it
+      const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', ...(width < 500 ? { isMobile: true, hasTouch: true } : { bypassCSP: true }) });
+      const p2 = await other.newPage(); watch(p2);
+      try {
+        const response = await p2.goto(link, { waitUntil: 'networkidle' });
+        if (response.status() !== 200 || !/no-store/.test(response.headers()['cache-control'] || '')) { throw new Error(`the link answers ${response.status()} ${response.headers()['cache-control']}`); }
+        if (!/^Quotation \S+/.test(await p2.locator('h1').innerText())) { throw new Error(`the heading is ${await p2.locator('h1').innerText()}`); }
+        if (!(await p2.locator('[data-quote-print]').isVisible())) { throw new Error('the Print button is not shown'); }
+        if ((await p2.locator('.quote-lines tbody tr').count()) !== 9) { throw new Error('not every line is in the document'); }
+        const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the quote (${label})`); }
+        if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/338c-quote-${label}.png`, fullPage: true }); }
+        if (label === 'desktop') {
+          await p2.addScriptTag({ path: AXE });
+          const found = await p2.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['.quote', '.quote-tools'], WCAG]);
+          if (found.violations.length) { throw new Error('axe quote: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+          await p2.emulateMedia({ media: 'print' });
+          const printed = await p2.evaluate(() => [getComputedStyle(document.querySelector('.quote-tools')).display, getComputedStyle(document.querySelector('.quote-lines thead')).display]);
+          if (printed.join() !== 'none,table-header-group') { throw new Error(`print: ${printed.join()}`); }
+          const pdf = (await p2.pdf({ preferCSSPageSize: true, printBackground: true })).toString('latin1');
+          const pages = (pdf.match(/\/Type\s*\/Page[^s]/g) || []).length;
+          const box = (pdf.match(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)/) || []).slice(1).map(Number);
+          if (!pdf.startsWith('%PDF') || pages < 1 || pages > 2 || Math.round(box[0]) !== 595 || Math.round(box[1]) !== 842) { throw new Error(`the printed quote: ${pages} pages, page box ${box.join('×')}`); }
+        }
+      } finally {
+        await other.close();
+      }
+    }
+    const wrong = await page.goto(link.replace(/[a-f0-9]{64}$/, 'f'.repeat(64)));
+    if (wrong.status() !== 404 || /Quotation|Grace Customer/.test(await page.content())) { throw new Error(`a wrong token answers ${wrong.status()}`); }
+    // the send dialog of a draft (no SMTP on this site: finalise and hand over the link) on a phone, light and dark
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      const other = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: scheme, storageState: state, isMobile: true, hasTouch: true });
+      const p2 = await other.newPage(); watch(p2);
+      try {
+        await p2.goto(`${BASE}/admin.php?module=quotes&action=send&id=${Number(draftId)}`, { waitUntil: 'networkidle' });
+        if (!(await p2.locator('[data-quote-no-smtp], [data-quote-send]').count())) { throw new Error(`the send dialog is not shown (${scheme})`); }
+        const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the send dialog (${scheme})`); }
+        if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/338c-send-phone-${scheme}.png`, fullPage: true }); }
+      } finally {
+        await other.close();
+      }
+    }
+  } finally {
+    execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); Kaleta\\Core\\QuoteDelivery::delete($app->db(), [${Number(quoteId) || 0}, ${Number(draftId) || 0}]);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' });
+    sql("DELETE FROM ka_quote_counters; DELETE FROM ka_nastaveni WHERE promenna IN ('quote_vat_rate', 'quote_terms'); UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

@@ -38,6 +38,7 @@
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. Won or lost is only offered, never set by itself.')) ?></span></div></div>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
+<?= $app->view->render('admin/quotes/texts', ['app' => $app, 'module' => $module, 'csrf' => $csrf]) ?>
 <section data-quotes-people aria-labelledby="nabidky-kdo">
 <h2 id="nabidky-kdo"><?= e(t('Who may open Quotes')) ?></h2>
 <p class="napoveda"><?= $module->hint(t('Administrators, and whoever you give the section Quotes in Users or Roles; changing prices needs the permission “Quotes: change internal prices” as well.')) ?></p>

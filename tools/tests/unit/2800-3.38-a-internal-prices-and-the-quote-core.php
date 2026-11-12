@@ -111,7 +111,8 @@ check('3.38 MCP: list_prices reads, save_price writes; both need the feature, li
 
 // A4: the structure that keeps prices private – only these files name the tables of prices and quotes
 $m338Allowed = ['src/Core/Prices.php', 'src/Core/Quotes.php', 'src/Core/PersonalData.php', 'src/Core/Privacy.php', 'src/Admin/Modules/Quotes.php',
-    'src/Mcp/Handlers/QuoteTools.php', 'src/Front/QuotePage.php'];
+    'src/Mcp/Handlers/QuoteTools.php', 'src/Front/QuotePage.php',
+    'src/Core/QuoteDelivery.php']; // 3.38 C: the customer's link, sending, the expiry job, the retention (the daily clean-up step calls it) and the personal data of quotes
 $m338Names = static function (string $root): array {
     $found = [];
     foreach (['src', 'views'] as $dir) {

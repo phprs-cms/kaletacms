@@ -30,6 +30,9 @@ namespace Kaleta\Core;
  *  - 3.34: job applications (Core\Applications) sent from the address (their own e-mail field only) – with the replies, the
  *    team's notes and tasks, the status history and the CVs by name and size (never the file); erasing deletes them with
  *    their sealed files. Personal data requests are for administrators, who may open applications anyway (B-3).
+ *  - 3.38: quotes (Core\QuoteDelivery::ofPerson) sent to the address or made for one of the person's customer records, with
+ *    their lines – the person's own quotes; erasing deletes their drafts and keeps a numbered quote as the firm's record
+ *    without the person (the customer block, the frozen document and the customer's link go).
  *  - The change log and the event keep only a masked address and the counts, never the address itself.
  *  - The undo journal of Claude sessions (Core\AgentJournal) does not journal these tables; entries an older release
  *    journaled are redacted on erasure (3.3.2), so undoing a session never brings erased data back.
@@ -89,7 +92,7 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>, applications: list<array<string, mixed>>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>, applications: list<array<string, mixed>>, quotes: list<array<string, mixed>>}
      */
     public static function find(Db $db, string $email, ?App $app = null): array
     {
@@ -130,6 +133,8 @@ final class PersonalData
             'contacts' => self::contacts($db, $contactIds),
             // 3.34: the job applications (their attachment list is sealed – opening it needs the settings of the App)
             'applications' => $app !== null ? Applications::ofEmail($app, $email) : [],
+            // 3.38: the quotes made for the person (their address or one of their customer records), with the lines they were offered
+            'quotes' => QuoteDelivery::ofPerson($db, $email, $contactIds),
         ];
     }
 
@@ -178,6 +183,7 @@ final class PersonalData
             'account' => $found['account'] !== null ? 1 : 0,
             'contacts' => count($found['contacts'] ?? []), // 3.28
             'applications' => count($found['applications'] ?? []), // 3.34
+            'quotes' => count($found['quotes'] ?? []), // 3.38
         ];
     }
 
@@ -204,6 +210,7 @@ final class PersonalData
         $found = self::find($db, $email, $app);
         // 3.34: with their sealed CVs, notes and tasks; second review N7: one whose files cannot be located stays and is reported
         Applications::delete($app, array_map('intval', array_column($found['applications'], 'id')), true, $heldApplications);
+        QuoteDelivery::erase($db, $found['quotes']); // 3.38: drafts go, a numbered quote stays without the person – before the contacts go
         foreach ($found['contacts'] as $contact) {
             Contacts::delete($app, (int) $contact['id']); // 3.28: with its log, comments and tasks – before the records it links go
         }

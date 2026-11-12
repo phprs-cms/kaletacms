@@ -422,13 +422,13 @@ check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, strin
     Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
     Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
     ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
-    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due
+    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes
 Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
 check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
     Kaleta\Core\Inbox::excerpt("  Jana,\n please check\tthe <b>prices</b> & more  "), mb_strlen(Kaleta\Core\Inbox::excerpt(str_repeat('a', 500))), str_ends_with(Kaleta\Core\Inbox::excerpt(str_repeat('a ', 300)), '…'),
     Kaleta\Core\Inbox::excerpt("a\x07b"), Kaleta\Core\Inbox::parse('enquiry:12'), Kaleta\Core\Inbox::parse('page:5'), Kaleta\Core\Inbox::parse('item:9'), Kaleta\Core\Inbox::parse('stranka:5'),
-    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['quote:3', 'x']),
+    Kaleta\Core\Inbox::parse('page:0'), Kaleta\Core\Inbox::parse('page:5 '), Kaleta\Core\Inbox::places($i326Db, ['offer:3', 'x']),
     Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 07:59')), Kaleta\Core\Inbox::due('', new DateTimeImmutable('2026-11-02 08:00')),
     Kaleta\Core\Inbox::due('2026-11-02', new DateTimeImmutable('2026-11-02 15:00')), Kaleta\Core\Inbox::due('2026-11-01', new DateTimeImmutable('2026-11-02 23:10'))],
     ['daily', 'instant', 'instant', 'Jana, please check the <b>prices</b> & more', 200, true, 'ab', ['enquiry', 12], ['page', 5], ['item', 9], null, null, null, [], false, true, false, true]);

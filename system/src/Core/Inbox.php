@@ -27,7 +27,8 @@ final class Inbox
     /** What a notification can be about. */
     public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due',
         'fleet_expiry', // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
-        'deletion_due']; // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
+        'deletion_due', // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
+        'quote_expiring', 'quote_expired']; // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -307,6 +308,9 @@ final class Inbox
         if (isset($ids['application'])) {
             $out += Applications::places($db, $ids['application']); // 3.34: a job application, by its number and position only
         }
+        if (isset($ids['quote'])) {
+            $out += QuoteDelivery::places($db, $ids['quote']); // 3.38: a quote, by its number only – never an amount or the customer
+        }
         if (isset($ids['fleet_site']) || isset($ids['fleet_customer'])) {
             $out += \Kaleta\Fleet\ConsoleTasks::places($db, $ids['fleet_site'] ?? [], $ids['fleet_customer'] ?? []); // 3.30: a site, a customer of a fleet console
         }
@@ -333,7 +337,7 @@ final class Inbox
      */
     public static function parse(string $target): ?array
     {
-        return preg_match('/^(enquiry|page|item|task|contact|company|fleet_site|fleet_customer|deal|application):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
+        return preg_match('/^(enquiry|page|item|task|contact|company|fleet_site|fleet_customer|deal|application|quote):([1-9]\d{0,9})$/D', $target, $m) === 1 ? [$m[1], (int) $m[2]] : null;
     }
 
     /**
@@ -351,6 +355,8 @@ final class Inbox
             'task_due' => t('A task is due'),
             'fleet_expiry' => t('A date of a site comes up'),
             'deletion_due' => t('An application will be deleted soon'), // 3.34
+            'quote_expiring' => t('A quote expires in a few days'), // 3.38
+            'quote_expired' => t('A quote has expired'),
             default => $kind,
         };
     }
@@ -375,6 +381,7 @@ final class Inbox
             'deal' => t('Deal #%s', (string) $place['id']), // 3.31: a number only – a deal's title may name a customer
             // 3.34: the number and the position only – never the applicant
             'application' => t('Application #%s · %s', (string) $place['id'], (string) $place['title'] !== '' ? (string) $place['title'] : t('no position')),
+            'quote' => t('Quote %s', (string) $place['title']), // 3.38: the number only
             default => t('(no longer available)'),
         };
     }

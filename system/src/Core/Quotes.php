@@ -276,13 +276,14 @@ final class Quotes
         if ($quote === null || $has('title')) {
             $data['title'] = self::line($fields['title'] ?? ($sources['title'] ?? ''), self::TITLE_MAX);
         }
-        foreach (['intro' => 'quote_intro', 'terms' => 'quote_terms'] as $key => $setting) {
-            if ($quote === null || $has($key)) {
-                $data[$key] = self::text($has($key) ? $fields[$key] : $s->get($setting), self::TEXT_MAX);
-            }
-        }
         if ($quote === null || $has('language')) {
             $data['language'] = Language::column($s, is_string($fields['language'] ?? null) ? $fields['language'] : '');
+        }
+        foreach (['intro', 'terms'] as $key) {
+            if ($quote === null || $has($key)) {
+                // 3.38 C: the default text in the quote's language (QuoteDelivery::defaultText)
+                $data[$key] = self::text($has($key) ? $fields[$key] : QuoteDelivery::defaultText($s, $key, (string) ($data['language'] ?? $quote['language'] ?? '')), self::TEXT_MAX);
+            }
         }
         if ($has('valid_until') || $has('valid_days') || $quote === null) {
             $data['valid_until'] = self::validUntil($fields, $s, $has('valid_until') || $has('valid_days') ? null : 'default');
@@ -758,7 +759,7 @@ final class Quotes
 
         return ['v' => 1, 'number' => $quote['number'], 'title' => $quote['title'], 'currency' => $quote['currency'], 'language' => $quote['language'], 'vat_mode' => $quote['vat_mode'],
             'vat_payer' => $s->bool('quote_vat_payer'), 'valid_until' => $quote['valid_until'], 'discount_percent' => $quote['discount_percent'], 'supplier' => $supplier,
-            'customer' => $quote['customer'], 'intro' => $quote['intro'], 'terms' => $quote['terms'], 'footer' => $s->get('quote_footer'),
+            'customer' => $quote['customer'], 'intro' => $quote['intro'], 'terms' => $quote['terms'], 'footer' => QuoteDelivery::defaultText($s, 'footer', (string) $quote['language']),
             'lines' => array_map(fn (array $l): array => array_intersect_key($l, array_flip(['code', 'name', 'description', 'quantity', 'unit', 'unit_price', 'discount_percent', 'vat_rate', 'line_net'])), $quote['lines']),
             'totals' => $quote['totals']];
     }

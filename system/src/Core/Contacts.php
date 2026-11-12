@@ -381,6 +381,7 @@ final class Contacts
         }
         self::unlink($db, [$id]);
         Deals::unlinkContacts($db, [$id], true); // 3.31: its deals stay without the person, the comments on them go
+        QuoteDelivery::unlink($db, 'contact_id', [$id]); // 3.38: its quotes keep their own customer block
         $db->run('DELETE FROM {contact_activities} WHERE contact_id = ?', [$id]);
         Comments::forget($db, [Comments::contact($id)]); // the comments, their notifications and the tasks about it
         $db->delete('contacts', ['id' => $id]);
@@ -413,6 +414,7 @@ final class Contacts
             }
             $in = implode(',', $chunk);
             Deals::unlinkContacts($db, $chunk); // 3.31: its deals stay without the person (before the name and address go), the comments on them are blanked
+            QuoteDelivery::unlink($db, 'contact_id', $chunk); // 3.38: its quotes keep their own customer block and retention
             $now = Clock::now();
             $done += $db->run("UPDATE {contacts} SET email = '', email_norm = NULL, name = '', phone = '', company_id = NULL, summary = NULL, anonymised_at = ?, updated_at = ? WHERE id IN (" . $in . ')',
                 [$now, $now])->rowCount();
@@ -619,7 +621,7 @@ final class Contacts
      * (which contact and address were merged, by whom). Returns what moved.
      *
      * @param int $byUserId who merges (the author of the note; 0 = Kaleta itself)
-     * @return array{into: int, from: int, moved: array{enquiries: int, bookings: int, subscriptions: int, activities: int, comments: int, tasks: int, deals: int}}
+     * @return array{into: int, from: int, moved: array{enquiries: int, bookings: int, subscriptions: int, activities: int, comments: int, tasks: int, deals: int, quotes: int}}
      * @throws \DomainException with a translated reason; nothing changes
      */
     public static function merge(App $app, int $into, int $from, int $byUserId): array
@@ -665,6 +667,7 @@ final class Contacts
                 Db::rethrowUnlessMissing($e);
                 $moved['deals'] = 0; // before migration 0117
             }
+            $moved['quotes'] = QuoteDelivery::moveContact($db, $b['id'], $a['id']); // 3.38
             $fill = array_filter(['name' => $a['name'] === '' ? $b['name'] : '', 'phone' => $a['phone'] === '' ? $b['phone'] : '', 'language' => $a['language'] === '' ? $b['language'] : ''],
                 fn (string $v): bool => $v !== '');
             if ($a['company_id'] === null && $b['company_id'] !== null) {
@@ -966,6 +969,7 @@ final class Contacts
             return false;
         }
         $db->run('UPDATE {contacts} SET company_id = NULL WHERE company_id = ?', [$id]);
+        QuoteDelivery::unlink($db, 'company_id', [$id]); // 3.38: its quotes keep their own customer block
         try {
             $db->run('UPDATE {deals} SET company_id = NULL WHERE company_id = ?', [$id]); // N331-2: its deals stay, without the company
         } catch (\PDOException $e) {
@@ -992,6 +996,10 @@ final class Contacts
      */
     public static function hasOpenDeal(Db $db, int $contactId): bool
     {
+        if (QuoteDelivery::hasOpenQuote($db, $contactId)) {
+            return true; // 3.38: a sent quote waiting for the customer's answer holds the contact too
+        }
+
         return Deals::hasOpenDeal($db, $contactId);
     }
 
@@ -1005,7 +1013,8 @@ final class Contacts
      */
     public static function heldByDeals(Db $db, array $idps, int $months = 0): array
     {
-        return Deals::heldEnquiries($db, $idps, $months);
+        // 3.38: the enquiry of a quote waiting for the answer or decided less than the retention ago is kept too
+        return array_values(array_unique([...Deals::heldEnquiries($db, $idps, $months), ...QuoteDelivery::heldEnquiries($db, $idps, $months)]));
     }
 
     /**

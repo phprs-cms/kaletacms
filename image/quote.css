@@ -1,0 +1,330 @@
+/*
+ * Kaleta – the customer's quote (3.38, Front\QuotePage): a print-ready document in the site's look. Colours, fonts and the
+ * scale come from the design system's tokens (inline before this file), each with its own fallback. Loaded only on
+ * /quote/<token> and the admin's preview; the screen shows a sheet, the printer gets A4 with the table header repeated on
+ * every page.
+ */
+@layer sablona {
+	.quote-body {
+		margin: 0;
+		background: color-mix(in oklch, var(--ka-barva-text, #1f2328) 6%, var(--ka-barva-pozadi, #ffffff));
+		color: var(--ka-barva-text, #1f2328);
+		font: 400 clamp(0.875rem, 0.84rem + 0.2vw, 1rem)/1.5 var(--ka-pismo-text, system-ui, sans-serif);
+	}
+
+	.quote-tools {
+		display: flex;
+		justify-content: flex-end;
+		max-inline-size: 52rem;
+		margin-inline: auto;
+		padding: var(--ka-mezera-s, 0.75rem) 1rem 0;
+	}
+
+	.quote-print {
+		padding: 0.6em 1.1em;
+		border: 0;
+		border-radius: var(--ka-zaobleni, 6px);
+		background: var(--ka-barva-primarni, #1f2328);
+		color: var(--ka-barva-na-primarni, #ffffff);
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.quote-print:focus-visible {
+		outline: 3px solid color-mix(in oklch, var(--ka-barva-primarni, #1f2328) 45%, transparent);
+		outline-offset: 2px;
+	}
+
+	.quote {
+		container-type: inline-size;
+		box-sizing: border-box;
+		max-inline-size: 52rem;
+		margin: var(--ka-mezera-s, 0.75rem) auto var(--ka-mezera-xl, 2.5rem);
+		padding: clamp(1rem, 4vw, 3rem);
+		background: var(--ka-barva-pozadi, #ffffff);
+		box-shadow: var(--ka-stin-m, 0 4px 16px rgb(0 0 0 / 0.08));
+	}
+
+	.quote h1,
+	.quote h2 {
+		margin: 0 0 0.4em;
+		font-family: var(--ka-pismo-titulky, inherit);
+		line-height: 1.2;
+	}
+
+	.quote h1 {
+		font-size: var(--ka-krok-3, 1.75rem);
+	}
+
+	.quote h2 {
+		font-size: var(--ka-krok-0, 1rem);
+		color: var(--ka-barva-tlumeny, #57606a);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.quote p {
+		margin: 0 0 0.6em;
+	}
+
+	.quote-head {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--ka-mezera-m, 1.25rem);
+		padding-block-end: var(--ka-mezera-m, 1.25rem);
+		border-block-end: 2px solid var(--ka-barva-primarni, #1f2328);
+	}
+
+	@container (min-width: 34rem) {
+		.quote-head {
+			grid-template-columns: 1fr auto;
+		}
+
+		.quote-title {
+			text-align: end;
+		}
+	}
+
+	.quote-logo {
+		display: block;
+		max-inline-size: 12rem;
+		max-block-size: 4rem;
+		margin-block-end: 0.6em;
+		object-fit: contain;
+		object-position: left;
+	}
+
+	[dir="rtl"] .quote-logo {
+		object-position: right;
+	}
+
+	.quote-party-name {
+		font-weight: 700;
+	}
+
+	.quote-party {
+		color: var(--ka-barva-tlumeny, #57606a);
+	}
+
+	.quote-subject {
+		font-size: var(--ka-krok-1, 1.15rem);
+	}
+
+	.quote-dates {
+		display: grid;
+		grid-template-columns: auto auto;
+		justify-content: start;
+		gap: 0.1em 1em;
+		margin: 0.6em 0 0;
+	}
+
+	@container (min-width: 34rem) {
+		.quote-dates {
+			justify-content: end;
+		}
+	}
+
+	.quote-dates dt {
+		color: var(--ka-barva-tlumeny, #57606a);
+	}
+
+	.quote-dates dd {
+		margin: 0;
+		font-weight: 600;
+	}
+
+	.quote-notice {
+		margin: var(--ka-mezera-m, 1.25rem) 0 0;
+		padding: 0.6em 0.9em;
+		border-inline-start: 4px solid var(--ka-barva-primarni, #1f2328);
+		background: var(--ka-barva-primarni-jemna, #f2f4f7);
+	}
+
+	.quote-notice-warning {
+		border-inline-start-color: #b42318;
+		background: color-mix(in oklch, #b42318 10%, var(--ka-barva-pozadi, #ffffff));
+	}
+
+	.quote-customer,
+	.quote-text {
+		margin-block-start: var(--ka-mezera-m, 1.25rem);
+	}
+
+	.quote-lines,
+	.quote-totals {
+		inline-size: 100%;
+		border-collapse: collapse;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.quote-lines {
+		margin-block-start: var(--ka-mezera-l, 1.75rem);
+	}
+
+	.quote-lines th,
+	.quote-lines td {
+		padding: 0.55em 0.5em;
+		border-block-end: 1px solid var(--ka-barva-linka, #d0d7de);
+		text-align: start;
+		vertical-align: top;
+	}
+
+	.quote-lines thead th {
+		border-block-end: 2px solid var(--ka-barva-text, #1f2328);
+		font-size: var(--ka-krok--1, 0.875rem);
+		color: var(--ka-barva-tlumeny, #57606a);
+	}
+
+	.quote-lines .quote-num,
+	.quote-totals .quote-num {
+		text-align: end;
+		white-space: nowrap;
+	}
+
+	.quote-amount {
+		direction: ltr;
+		unicode-bidi: isolate;
+	}
+
+	.quote-item-name {
+		font-weight: 600;
+	}
+
+	.quote-item-code {
+		color: var(--ka-barva-tlumeny, #57606a);
+		font-size: var(--ka-krok--1, 0.875rem);
+	}
+
+	.quote-item-description {
+		display: block;
+		color: var(--ka-barva-tlumeny, #57606a);
+		font-size: var(--ka-krok--1, 0.875rem);
+	}
+
+	.quote-totals {
+		inline-size: min(100%, 26rem);
+		margin: var(--ka-mezera-s, 0.75rem) 0 0 auto;
+	}
+
+	[dir="rtl"] .quote-totals {
+		margin: var(--ka-mezera-s, 0.75rem) auto 0 0;
+	}
+
+	.quote-totals th,
+	.quote-totals td {
+		padding: 0.3em 0.5em;
+		font-weight: 400;
+		text-align: start;
+	}
+
+	.quote-grand th,
+	.quote-grand td {
+		border-block-start: 2px solid var(--ka-barva-text, #1f2328);
+		font-size: var(--ka-krok-1, 1.15rem);
+		font-weight: 700;
+	}
+
+	.quote-note {
+		margin-block-start: var(--ka-mezera-s, 0.75rem);
+		color: var(--ka-barva-tlumeny, #57606a);
+		font-size: var(--ka-krok--1, 0.875rem);
+	}
+
+	.quote-footer {
+		margin-block-start: var(--ka-mezera-l, 1.75rem);
+		padding-block-start: var(--ka-mezera-s, 0.75rem);
+		border-block-start: 1px solid var(--ka-barva-linka, #d0d7de);
+		color: var(--ka-barva-tlumeny, #57606a);
+		font-size: var(--ka-krok--1, 0.875rem);
+	}
+
+	/* a phone: the table becomes one card per line, each number on its own row with its label (data-label) */
+	@container (max-width: 33.99rem) {
+		.quote-lines thead {
+			position: absolute;
+			inline-size: 1px;
+			block-size: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+		}
+
+		.quote-lines tr {
+			display: block;
+			padding-block: 0.6em;
+			border-block-end: 1px solid var(--ka-barva-linka, #d0d7de);
+		}
+
+		.quote-lines td {
+			display: block;
+			padding: 0;
+			border: 0;
+		}
+
+		.quote-lines td.quote-num {
+			display: flex;
+			justify-content: space-between;
+			gap: 1em;
+			text-align: end;
+		}
+
+		.quote-lines td.quote-num::before {
+			content: attr(data-label);
+			color: var(--ka-barva-tlumeny, #57606a);
+			font-size: var(--ka-krok--1, 0.875rem);
+		}
+
+		.quote-lines td:last-child {
+			font-weight: 700;
+		}
+
+		.quote-lines td:empty {
+			display: none;
+		}
+	}
+
+	@page {
+		size: A4;
+		margin: 16mm 14mm 18mm;
+	}
+
+	@media print {
+		.quote-body {
+			background: #ffffff;
+			font-size: 10pt;
+		}
+
+		.quote-tools {
+			display: none;
+		}
+
+		.quote {
+			max-inline-size: none;
+			margin: 0;
+			padding: 0;
+			box-shadow: none;
+		}
+
+		.quote-lines thead {
+			display: table-header-group;
+		}
+
+		.quote-lines tr,
+		.quote-totals,
+		.quote-note {
+			break-inside: avoid;
+		}
+
+		.quote-head {
+			grid-template-columns: 1fr auto;
+		}
+
+		.quote-title {
+			text-align: end;
+		}
+
+		.quote-notice {
+			print-color-adjust: exact;
+		}
+	}
+}

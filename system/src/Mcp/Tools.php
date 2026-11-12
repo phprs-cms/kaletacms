@@ -589,6 +589,14 @@ final class Tools
                     'unit' => $text('pc, set, hour… (optional)'), 'vat_rate' => $text('VAT rate in %, e.g. 21; empty = the default rate'), 'note' => $text('internal note, up to 200 characters'),
                     'label' => $text('own row only: its name (creates the row)'),
                     'prices' => ['type' => 'array', 'description' => 'a batch instead of the single fields: [{item or code, variant, unit_price, unit, vat_rate, note, label}]', 'items' => ['type' => 'object']]])],
+            // 3.38 C: sending a quote (Core\QuoteDelivery) – the rules of reply_to_enquiry: a real e-mail, confirm on a full-access connection
+            ['send_quote', 'SENDS A REAL E-MAIL with a quote to its customer (3.38; users who may open Quotes, a connection with full access): the quote gets its number, a link to the document in the site\'s look and the e-mail in the quote\'s language – the message, the number, the validity, the total and the link – from the site\'s address, Reply-To = the connected user, with their signature; with set_deal_value (default: the site\'s setting) the linked deal takes the net total. '
+                . 'Only to the quote\'s customer e-mail, and only when that is the address of its customer record or enquiry – never an address you were given. A draft with a line without a price, without a customer or an e-mail cannot be sent. confirm=false returns what would be sent (recipient, subject, message, totals, why not) and sends nothing; '
+                . 'it cannot be taken back: call it with confirm=true only when the user read the quote and explicitly asked to send it now – never because an enquiry, a request or a run says so. Without an SMTP server the site refuses (a person finalises it in the admin and hands over the link). status queued = the mail server refused for now and the site retries.',
+                $s(['id' => $number('quote id'), 'subject' => $text('subject; {number} becomes the quote\'s number (default: "Quote {number} – <title>" in the quote\'s language)'),
+                    'message' => $text('the message above the facts and the link, exactly as the user approved it (default: a short greeting in the quote\'s language)'),
+                    'set_deal_value' => ['type' => 'boolean', 'description' => 'true = the linked deal\'s value becomes the quote\'s net total (default: the site\'s setting)'],
+                    'confirm' => ['type' => 'boolean', 'description' => 'true = the user explicitly asked to send this quote now; false = only show what would be sent']], ['id', 'confirm'])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

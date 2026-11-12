@@ -34,7 +34,7 @@ final class Routes
     public const array NEWS_RESERVED = [
         // Front\Kernel::handle() before the pages
         'index', 'hledani', 'search', 'rss', 'feed', 'manifest', 'favicon', 'og', 'robots', 'sitemap', 'llms', 'souhlas', 'popup', 'fleet', 'vitals', 'hit',
-        'konverze', 'mcp', 'download', 'odber', 'formular', 'ulohy', 'screen', 'stav',
+        'konverze', 'mcp', 'download', 'odber', 'formular', 'ulohy', 'screen', 'stav', 'quote', // 3.38: the customer's quote (Front\QuotePage)
         // the English system paths (3.7, SYSTEM_PATHS) – read in the Kernel constructor right after the news slug
         'tasks', 'subscription', 'form', 'consent', 'conversion', 'status',
         // Front\OAuth (the Claude connection)
