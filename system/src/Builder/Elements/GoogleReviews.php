@@ -134,6 +134,18 @@ final class GoogleReviews extends Element
             return '';
         }
 
-        return '<script type="application/ld+json">' . str_replace('</', '<\/', (string) json_encode($node, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '</script>';
+        return self::jsonLdScript($node);
+    }
+
+    /**
+     * The node as a JSON-LD script tag. 3.41 (N122): < and > go out as \u003C and \u003E (JSON_HEX_TAG, as Front\Seo has) – a
+     * review text with "<!--<script" would otherwise put the browser's tokenizer into the escaped script state, and the
+     * rest of the page would be read as part of this tag. Any Google user writes these texts.
+     *
+     * @param array<string, mixed> $node
+     */
+    public static function jsonLdScript(array $node): string
+    {
+        return '<script type="application/ld+json">' . (string) json_encode($node, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . '</script>';
     }
 }
