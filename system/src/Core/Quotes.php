@@ -385,6 +385,13 @@ final class Quotes
             }
         }
         $current = $lines ?? ($quote['lines'] ?? []);
+        if ($fromClaude && ($lines !== null || isset($data['discount_percent']))) {
+            // 3.38 review L4: Claude's cap is on what the customer gets – a line's discount and the whole-quote discount together
+            $quoteDiscount = Money::percent($data['discount_percent'] ?? $quote['discount_percent'] ?? null);
+            foreach ($current as $n => $l) {
+                self::checkDiscount(self::combinedDiscount(Money::percent($l['discount_percent']), $quoteDiscount), $s, true, $n + 1);
+            }
+        }
         $totals = self::computeTotals($current, (string) ($data['discount_percent'] ?? $quote['discount_percent'] ?? '0.00'), (string) ($data['vat_mode'] ?? $quote['vat_mode'] ?? 'standard'));
         $data['total_net'] = $totals['net'];
         $data['total_vat'] = $totals['vat'];
@@ -1029,13 +1036,30 @@ final class Quotes
         return $out;
     }
 
-    /** A discount above quote_max_discount is refused over MCP: a person sets it in the admin. @throws \DomainException */
-    private static function checkDiscount(int $points, Settings $s, bool $fromClaude): void
+    /**
+     * A discount above quote_max_discount is refused over MCP: a person sets it in the admin. $line > 0: the combined discount
+     * of that line (3.38 review L4). @throws \DomainException
+     */
+    private static function checkDiscount(int $points, Settings $s, bool $fromClaude, int $line = 0): void
     {
         $max = Money::percent(trim($s->get('quote_max_discount')) !== '' ? $s->get('quote_max_discount') : '20');
         if ($fromClaude && $points > $max) {
-            throw new \DomainException(t('A discount above %s %% – ask a person to set it in the admin.', Money::short(Money::percentText($max))));
+            throw new \DomainException($line > 0
+                ? t('Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.', $line, Money::short(Money::percentText($max)))
+                : t('A discount above %s %% – ask a person to set it in the admin.', Money::short(Money::percentText($max))));
         }
+    }
+
+    /**
+     * The discount a line really gets with the whole-quote discount on top, in basis points: 1 − (1 − line)(1 − quote),
+     * rounded up (20 % + 20 % = 36 %). Pure.
+     */
+    public static function combinedDiscount(int $linePoints, int $quotePoints): int
+    {
+        $linePoints = max(0, min(10000, $linePoints));
+        $quotePoints = max(0, min(10000, $quotePoints));
+
+        return 10000 - intdiv((10000 - $linePoints) * (10000 - $quotePoints), 10000);
     }
 
     /** Is a line's price manual: priced without a list price, or different from it? */

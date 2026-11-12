@@ -16,3 +16,8 @@ check('3.38 review L1: a link token is 64 hex characters of fresh randomness –
 check('3.38 review L2: every path under /quote/ is private – mangled, with a language prefix, in upper case; other addresses are not', array_map(Kaleta\Core\NotFound::isPrivate(...), [
     'quote/' . str_repeat('a', 64) . '/', '/quote/' . str_repeat('b', 63), 'en/quote/x', '/de-at/Quote/x', 'QUOTE/abc', 'quotes/x', 'kontakt', 'blog/quote/x', 'quote']),
     [true, true, true, true, true, false, false, false, false]);
+
+// L4: Claude's cap counts what a line really gets – its own discount and the whole-quote discount together
+check('3.38 review L4: the combined discount of a line – 20 % + 20 % is 36 %, 10 % + 10 % is 19 %, none is none, rounded up, bounded', array_map(
+    fn (array $p): int => Kaleta\Core\Quotes::combinedDiscount($p[0], $p[1]), [[2000, 2000], [1000, 1000], [0, 0], [0, 2000], [1500, 1000], [3333, 1], [10000, 5000], [-5, 20000]]),
+    [3600, 1900, 0, 2000, 2350, 3334, 10000, 10000]);

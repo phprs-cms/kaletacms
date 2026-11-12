@@ -8612,4 +8612,5 @@ return [
     'Customer’s link withdrawn' => 'Enlace para el cliente retirado',
     'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'El enlace se guarda solo como una huella, por eso no se puede volver a mostrar. «Nuevo enlace» crea uno para copiar; el enlace que tiene el cliente deja de funcionar.',
     'The deal’s value was not changed: only a user who may open the Pipeline changes a deal.' => 'El valor del negocio no se cambió: solo un usuario que puede abrir el embudo de ventas cambia un negocio.',
+    'Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.' => 'Línea %1$d: su descuento y el del presupuesto juntos superan el %2$s %%: pida a una persona que lo ponga en la administración.',
 ];

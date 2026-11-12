@@ -123,6 +123,16 @@ kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || 
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R338_USER; DELETE FROM ka_uzivatele WHERE idu = $R338_USER;
   DELETE FROM ka_deal_stage_history WHERE deal_id = $R338_DEAL; DELETE FROM ka_deals WHERE id = $R338_DEAL" > /dev/null
 
+# L4: over MCP the cap (quote_max_discount, 20 %) is on a line's discount and the quote's discount together
+mcp save_quote "{\"contact\":$R338_CONTACT,\"discount_percent\":\"20\",\"lines\":[{\"name\":\"Kus 338r\",\"quantity\":1,\"unit_price\":\"100\",\"discount_percent\":\"20\"}]}" > "$WORK/response"; mcp_text; cp "$WORK/text" "$WORK/r338-l4a"
+mcp save_quote "{\"contact\":$R338_CONTACT,\"discount_percent\":\"10\",\"lines\":[{\"name\":\"Kus 338r\",\"quantity\":1,\"unit_price\":\"100\",\"discount_percent\":\"10\"}]}" > "$WORK/response"; mcp_text
+R338_QC=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | cut -d: -f2); R338_QC="${R338_QC:-0}"
+mcp save_quote "{\"id\":$R338_QC,\"discount_percent\":\"15\"}" > "$WORK/response"; mcp_text; cp "$WORK/text" "$WORK/r338-l4b"
+expect "3.38 review L4: Claude cannot give 20 % on the line plus 20 % on the quote (36 %), nor raise the quote's discount past the cap; 10 % + 10 % (19 %) is fine" \
+  "$(grep -c 'together are above 20 %' "$WORK/r338-l4a")|$(grep -c 'together are above 20 %' "$WORK/r338-l4b")|$(sq "SELECT CONCAT(q.discount_percent, '/', l.discount_percent) FROM ka_quotes q JOIN ka_quote_lines l ON l.quote_id = q.id WHERE q.id = $R338_QC")" "1|1|10.00/10.00"
+expect "3.38 review L4: a person in the admin may still give more" \
+  "$(r338_php 'echo Kaleta\Core\Quotes::save($app, (int) $a[0], ["discount_percent" => "25"], (int) $a[1])["id"] === (int) $a[0] ? Kaleta\Core\Quotes::get($db, (int) $a[0])["discount_percent"] : "";' "$R338_QC" "$R338_ADMIN" 2>&1)" "25.00"
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');
