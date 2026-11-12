@@ -87,7 +87,8 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -
 expect "3.26 My account: the new token keeps the work tool set" "$(sq "SELECT CONCAT(access, '/', tool_set) FROM ka_api_tokeny WHERE nazev = 'c326-new'")" "drafts/work"
 C326_NEW=$(sq "SELECT idt FROM ka_api_tokeny WHERE nazev = 'c326-new'")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
-expect "3.26 My account: the work token is labelled and its switch goes to all tools" "$(grep -c '>pracovní nástroje<' "$WORK/response")|$(grep -c "value=\"all:token:$C326_NEW\"" "$WORK/response")" "1|1"
+# 3.36: the label is the pill; the other tokens' folded choice offers the work set as a button too
+expect "3.26 My account: the work token is labelled and its switch goes to all tools" "$(grep -c '<span class="stitek">pracovní nástroje</span>' "$WORK/response")|$(grep -c "value=\"all:token:$C326_NEW\"" "$WORK/response")" "1|1"
 sq "DELETE FROM ka_api_tokeny WHERE nazev LIKE 'c326-%'; DELETE FROM ka_comments WHERE target IN ('page:$C326_PAGE', 'enquiry:$C326_ENQ', 'item:$C326_ITEM'); DELETE FROM ka_stranky WHERE seo_link = 'c326-page';
   DELETE FROM ka_kolekce_polozky WHERE seo_link = 'c326-item'; DELETE FROM ka_kolekce WHERE seo_link = 'c326-collection'; DELETE FROM ka_poptavky WHERE formular = 'C326 form';
   DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($C326_ED, $C326_SALES, $C326_GONE); DELETE FROM ka_uzivatele WHERE user LIKE 'c326-%'" > /dev/null

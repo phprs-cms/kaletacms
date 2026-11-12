@@ -24,7 +24,7 @@ check('[source-pin] 3.35 review M2: every confirmation of My account goes throug
 foreach (["case 'profil':" => 'passwordRefused(', "case 'heslo':" => 'passwordRefused(', "case 'token_novy':" => 'passwordRefused(', "case 'totp_start':" => 'passwordRefused(',
     "case 'klic_smaz':" => 'freshnessRefused(', "case 'passkey_only':" => 'freshnessRefused(', "case 'backup_codes_new':" => 'freshnessRefused(', "case 'totp_vypni':" => 'passwordRefused('] as $r352Case => $r352Call) {
     $r352Start = strpos($r352Account, $r352Case);
-    check('[source-pin] 3.35 review M2: ' . $r352Case . ' asks ' . $r352Call, $r352Start !== false && str_contains(substr($r352Account, $r352Start, (int) strpos($r352Account, '                case ', $r352Start + 20) - $r352Start), $r352Call), true);
+    check('[source-pin] 3.35 review M2: ' . $r352Case . ' asks ' . $r352Call, $r352Start !== false && str_contains(substr($r352Account, $r352Start, (strpos($r352Account, '                case ', $r352Start + 20) ?: strlen($r352Account)) - $r352Start) /* 3.36: the last case runs to the end of the file */, $r352Call), true);
 }
 check('[source-pin] 3.35 review M2: My account confirms with the passkey (the endpoints of the consent) and its forms hide the password fields', [
     str_contains($r352Account, "in_array(\$r->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)"),

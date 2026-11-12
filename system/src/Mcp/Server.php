@@ -177,7 +177,7 @@ final class Server
         // the meta tools (3.10): callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
             $available = $this->available($tools);
-            $list = Catalog::listOf($this->toolSet()); // the essentials or the work set (3.26); null = all tools
+            $list = Catalog::listOf($this->toolSet()); // the essentials, work, migration or fleet set (3.26, 3.36); null = all tools
             try {
                 $found = Discovery::find($available, $list ?? array_column($available, 'name'), $arguments, $list !== null ? Discovery::runners($available, $this->access(), $list) : []);
             } catch (\InvalidArgumentException $e) {
@@ -317,7 +317,7 @@ final class Server
             [...Translator::listAll($tools->listAll()), ...\Kaleta\Extension\Registry::get()->toolDefinitions()]), fn (array $t): bool => Catalog::allows($this->access(), $t['name'])));
     }
 
-    /** The tool set of this connection: all | essentials (3.10) | work (3.26). */
+    /** The tool set of this connection: all | essentials (3.10) | work (3.26) | migration | fleet (3.36). */
     private function toolSet(): string
     {
         return $this->app->auth()->connection()['tool_set'] ?? 'all';

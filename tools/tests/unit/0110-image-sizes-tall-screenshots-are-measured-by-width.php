@@ -798,7 +798,7 @@ check('3.10: find_tools on a read-only connection offers only reads, names a wri
     [['read'], ['create_news'], ['run_read_tool'], ['migration_report']]);
 $server310 = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php');
 check('[source-pin] 3.10: the server instructions of an essentials connection name the runners; a runner checks the class before the call of a direct call; a missing tool_set column falls back to all (N310-9)', [
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), "=== 'essentials'") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'run_destructive_tool for deleting, sending or reaching outside the site'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), "'essentials' => 'YOUR TOOL LIST HOLDS THE ESSENTIALS") /* 3.36: one paragraph per focused tool set */ && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'run_destructive_tool for deleting, sending or reaching outside the site'),
     (bool) preg_match('/function runTool\(.*?Discovery::runner\(\$name\) !== \$runner.*?return \$this->call\(\$tools, \$name, \$inner\);/s', $server310),
     (bool) preg_match('/\$select\(\'t\.tool_set\'\);\s*\} catch \(\\\\PDOException \$e\) \{.*?42S22.*?\$select\("\'all\'"\)/s', $server310),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Front/OAuth.php'), 'self::insertWithToolSet(')], [true, true, true, 2]);

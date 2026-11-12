@@ -103,6 +103,7 @@ final class Account
                     $access = \Kaleta\Front\OAuth::access($r->post('access') ?: 'drafts'); // no choice sent: drafts only (3.11, N311-3)
                     // 3.10: a personal token lists all tools unless the person picks the essentials (Claude Code and scripts)
                     $toolSet = \Kaleta\Mcp\Catalog::toolSet($r->post('tool_set'));
+                    $toolSet = in_array($toolSet, \Kaleta\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'all'; // 3.36: the fleet set only on a fleet site
                     // a token with an expiry ends by itself (2.8); one without works until it is revoked and System status reports it
                     $days = in_array($r->postInt('platnost', 365), self::TOKEN_LIFETIMES, true) ? $r->postInt('platnost', 365) : 365;
                     $db->insert('api_tokeny', ['idu' => $user['idu'], 'nazev' => mb_substr($r->post('nazev') ?: 'Claude', 0, 100), 'access' => $access, 'tool_set' => $toolSet, 'otisk' => hash('sha256', $token), 'vytvoren' => date('Y-m-d H:i:s'),
@@ -116,9 +117,14 @@ final class Account
                     break;
                 case 'tool_set':
                     // 3.10: an existing connection switches between the essentials and all tools – "<set>:token:<id>" for a
-                    // personal token, "<set>:app:<client_id>" for every token of a connected application (a refresh copies it)
+                    // personal token, "<set>:app:<client_id>" for every token of a connected application (a refresh copies it);
+                    // 3.36: to any tool set (it only decides what tools/list shows first – never what the connection may run)
                     $parts = explode(':', $r->post('tool_set_switch'), 3);
                     $toolSet = \Kaleta\Mcp\Catalog::toolSet($parts[0]);
+                    if (!in_array($toolSet, \Kaleta\Mcp\Catalog::offered($app->settings()), true)) { // 3.36: the fleet set only on a fleet site
+                        $message = ['chyba', 'This tool set is not offered on this site. Nothing was changed.'];
+                        break;
+                    }
                     $changed = match ($parts[1] ?? '') {
                         'token' => $db->run("UPDATE {api_tokeny} SET tool_set = ? WHERE idt = ? AND idu = ? AND druh = 'token'", [$toolSet, (int) ($parts[2] ?? 0), $user['idu']])->rowCount(),
                         // a client id is 32 hex characters (the column is ASCII since 3.12 – other text would be an SQL error)
@@ -132,6 +138,8 @@ final class Account
                     $message = ['ok', match ($toolSet) {
                         'essentials' => 'Done – Claude will load the essentials in the next conversation it starts and find the other tools when it needs them.',
                         'work' => 'Done – Claude will load the work tools in the next conversation it starts and find the other tools when it needs them.',
+                        'migration' => 'Done – Claude will load the migration tools in the next conversation it starts and find the other tools when it needs them.',
+                        'fleet' => 'Done – Claude will load the fleet tools in the next conversation it starts and find the other tools when it needs them.',
                         default => 'Done – Claude will see all tools in the next conversation it starts.',
                     }];
                     break;

@@ -578,14 +578,14 @@ check('3.26 (C, T12): the work tool set – catalog tools once each in catalog o
         'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link', 'list_collection_items', 'save_collection_item'], Kaleta\Mcp\Catalog::WORK)),
     array_values(array_intersect(['list_comments', 'add_comment', 'my_work', 'assign'], Kaleta\Mcp\Catalog::ESSENTIALS)),
     in_array('assign', array_column($w326Drafts, 'name'), true), in_array('add_comment', array_column($w326Drafts, 'name'), true),
-], [['all', 'essentials', 'work'], 'work', 'all', true, true, null, null, [], [], true, true, true, [], [], false, true]);
+], [['all', 'essentials', 'work', 'migration', 'fleet'] /* 3.36 */, 'work', 'all', true, true, null, null, [], [], true, true, true, [], [], false, true]);
 check('[source-pin] 3.26 (C): the work tool set is offered under Advanced on the consent screen and for a new token, labelled on My account; the server instructions name it', [
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/connection-access.php'), "'work' => ['Work – for a colleague’s own Claude'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php'), "'work' => t('work tools')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'YOUR TOOL LIST HOLDS THE WORK TOOLS'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), 'Discovery::essentials($this->available($tools), $this->access(), $list)'),
     array_map(fn (string $code): bool => isset((require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['work tools']), ['cs', 'de', 'es']),
-], [2, true, true, true, [true, true, true]]);
+], [1 /* 3.36: one list of sets, the Claude and the application wording differ only in one sentence */, true, true, true, [true, true, true]]);
 
 // 3.26 (C, N-U2): spacing and colour in the builder are token choices – the field checks a custom value as the server does
 $n326Script = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');

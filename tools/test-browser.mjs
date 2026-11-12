@@ -242,6 +242,31 @@ await step('account: Enter in the token name creates the token, with tokens list
   if (listed !== 2 || switched !== 0) throw new Error(`${listed} tokens listed, ${switched} switched to the essentials`);
 });
 
+// 3.36 (B): the tool set of a connection changes through one folded choice of every other set offered on the site (fleet only
+// on a fleet site); it fits a phone and reads in dark mode
+await step('3.36 account: a token changes to the migration tools through the folded choice (1440 and 390 px, dark mode)', async () => {
+  await visit('/admin.php?action=account');
+  const choice = page.locator('#claude .napojeni', { hasText: 'Enter token 1' }).locator('details.sada-nastroju');
+  await choice.locator('summary').click();
+  const offered = (await choice.locator('button').allTextContents()).map((t) => t.trim()).join('|');
+  // this site has the Fleet console extension on, so the fleet set is offered too
+  if (offered !== 'essentials|work tools|migration tools|fleet tools') throw new Error(`the sets offered: ${offered}`);
+  for (const [width, scheme] of [[390, 'light'], [390, 'dark']]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.emulateMedia({ colorScheme: scheme });
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (wide > 0) throw new Error(`${wide} px of sideways scroll at ${width} px with the choice open`);
+    const look = await choice.locator('summary').evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).color]);
+    if (look[0] === look[1]) throw new Error(`the summary is unreadable in ${scheme} mode: ${look.join(' on ')}`);
+    if (SHOTS) { await choice.screenshot({ path: `${SHOTS}/336b-tool-set-${scheme}.png` }); }
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await Promise.all([page.waitForNavigation(), choice.getByRole('button', { name: 'migration tools' }).click()]);
+  const label = await page.locator('#claude .napojeni', { hasText: 'Enter token 1' }).locator('.stitek', { hasText: /^migration tools$/ }).count();
+  if (label !== 1) throw new Error('the token is not labelled with the migration tools after the change');
+});
+
 await step('appearance: change a colour and preview', async () => {
   await visit('/admin.php?module=appearance');
   const colour = page.locator('input[type="color"]:visible').first();

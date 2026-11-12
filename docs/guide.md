@@ -428,8 +428,12 @@ faster and keeps more room for your work. Claude finds the other tools (news, re
 `find_tools` and runs them when it needs them – reads with `run_read_tool`, drafts and changes with `run_tool`, and
 deleting, sending or anything that reaches outside the site with `run_destructive_tool`, which Claude confirms with you
 first (your Claude app asks for each runner separately) – with the same access and rules. **All tools** lists
-everything at once (the default for a personal token – Claude Code and scripts). Connections from before 3.10 keep all
-tools; switch any connection in My account.
+everything at once (the default for a personal token – Claude Code and scripts). **Work** is for a colleague's own Claude
+(my work, enquiries, customers, deals, tasks, comments, job applications), **Migration** for moving a site to Kaleta (the
+imports, old pages, the builder, redirects and the migration report) and **Fleet** for the fleet console (offered only
+where the Fleet console extension is on). A tool set only decides what Claude sees first – never what it may do: that is
+the access you chose and your role. Connections from before 3.10 keep all tools; switch any connection in My account
+(Change the tool set).
 
 My account shows the access and the tool set of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
