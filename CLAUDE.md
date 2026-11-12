@@ -338,6 +338,12 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Interní ceník a nabídky (3.38, migrace 0123):** `Core\Money` (jen celá čísla), `Core\Prices`, `Core\Quotes`, `Core\QuoteDelivery`;
+  rozšíření a sekce `quotes` (přidělují se výslovně), oblast `prices_edit`. Ceny jen v `ka_prices`, nikdy v položce; pět tabulek smí
+  jmenovat jen třídy z povolovacího seznamu (unit 2800). Číslo nabídky vzniká při prvním odeslání nebo Dokončení, počitadlo po rocích.
+  Dokument zákazníka `/quote/<token>` (`Front\QuotePage`, HMAC, uložen jen sha256, nikdy v cache, robots Disallow); odeslání jen přes
+  `QuoteDelivery::send` (SMTP, vlastní adresa zákazníka). Protokol změn, zvonky ani reporty nikdy nenesou částky. MCP nástroje nabídek
+  a cen jsou na vyžádání; `mark_quote` bere `decline_reason` (`reason` je ochranný argument serveru).
 - **Stránky záznamů (3.37):** poptávka, obchod a zákazník mají jednu šablonu (lišta `.zaznam-lista`: zpět, stav, jedna hlavní
   akce, vedlejší, Další; `.zaznam` = hlavní sloupec + boční panely, na telefonu jeden sloupec). Poptávka má jeden formulář Vyřízení
   (`actionTriage`; třídění se stane osobním jen při změně). Karty na nástěnce skládají fázi a Přesunout za ⋯ jen pro myš.

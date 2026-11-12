@@ -1929,6 +1929,46 @@ Migration 0122 adds `ka_uzivatele.phone` (the work phone); `KALETA_DB_VERSION` 1
    `get_email_signature` without `collection` returns the caller's own (`source: team|fallback`); new read tool
    `list_colleagues` (Work set).
 
+## 3.38 – internal prices and quotes (12 November 2026)
+
+Migration 0123 adds `ka_price_lists`, `ka_prices`, `ka_quotes`, `ka_quote_lines` and `ka_quote_counters` (design
+`kaleta-audity/design-quotes-applications-2026-11-10.md` part A; the owner approved all its recommendations, A-1…A-13);
+`KALETA_DB_VERSION` 123. Feature and section `quotes` (off until switched on, granted explicitly – after the update only
+administrators), area `prices_edit` (`Auth::canEditPrices()`).
+
+1. **Internal prices.** Price lists, one currency each (`Prices::defaultList` creates "Standard" in the site currency on first
+   use); prices without VAT, one default rate and a short list of rates; the Internal prices tab (grid, own rows, CSV export and
+   an import with a preview) and an "Internal prices" box on the product item form, shown only with the section.
+   `Core\Money` – integers only (no float, no bcmath): parsing, the line rule, VAT per rate, three VAT modes.
+   `Core\Prices::forItem()` falls back from the variant to the product row, the default-language translation, then the code.
+   **Never public:** only the allowlisted classes name the five tables (unit 2800); smoke 2800 checks a canary price never
+   reaches public pages, search, sitemap, feed, llms.txt, site or blueprint export, the monthly report, the heartbeat, other
+   MCP tools or a colleague without the section.
+2. **Quotes.** `Core\Quotes`: lines and totals, numbering at the first send or Finalise (`{YYYY}-{NNNN}`, optional prefix, a
+   counter per year taken FOR UPDATE, `raiseCounter` to continue a series), statuses with history, revisions (`/2`; the original
+   expires when the revision is sent), `linesFromEnquiry`, the deal value set to the net total on sending when the box is
+   ticked (won or lost only offered, never automatic). Admin: list (status, responsible person, search, linked record), a draft
+   editor in the record template (prices from the list, manual prices badged, discounts – above the 20 % setting only by a
+   person – totals computed by the server, `action=totals`), the detail with statuses, revisions and the frozen document; a
+   Quotes box on enquiry, deal, contact and company pages.
+3. **The customer's document and sending.** `/quote/<token>` (`Front\QuotePage`, `image/quote.css`): the frozen snapshot in
+   the site's look, A4 print, one card per line on a phone; never cached, noindex, no-referrer, own CSP, robots
+   `Disallow: /quote/`; the token is an HMAC of the quote id and its expiry, only its sha256 is stored; a wrong, withdrawn or
+   expired token is a plain 404 (not logged among 404s, counted per network). `Core\QuoteDelivery`: sending SMTP only, to the
+   customer's own address, in the quote's language, with the total, the link and the sender's signature; job `quotes` (hourly)
+   expires sent quotes past their validity and withdraws links past their end – bells name the number only; retention step in
+   the daily personal-data clean-up (`quotes_months` after the last status change as the site does with enquiries; untouched
+   drafts after 6 months); PersonalData find/erase/merge, the Privacy record, monthly report counts only. Admin trait
+   `Admin\QuoteSending` (send, preview, link, link_withdraw, texts_save).
+4. **MCP** (all on demand – one `find_tools` away): `list_prices`, `save_price`, `list_quotes`, `get_quote`, `save_quote`
+   (drafts; prices from the list only, a different price saved with a warning, discount cap), `mark_quote` (`decline_reason` –
+   `reason` is the server's guardrail argument; `update_deal` only on request), `send_quote` (destructive, `confirm: true`,
+   full-access connection, only to the address of the quote's contact or enquiry).
+5. Tests: 278 `php -r` calls in the shell tests pass shell values after `--` (a random id starting with "-" was read as a PHP
+   option – the 3.37 release workflow failed on it once).
+
+Not in 3.38 (3.40, Q2): PDF, a price list per company or contact, customer Accept/Decline on the page, "first opened on".
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
