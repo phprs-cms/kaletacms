@@ -133,6 +133,17 @@ expect "3.38 review L4: Claude cannot give 20 % on the line plus 20 % on the quo
 expect "3.38 review L4: a person in the admin may still give more" \
   "$(r338_php 'echo Kaleta\Core\Quotes::save($app, (int) $a[0], ["discount_percent" => "25"], (int) $a[1])["id"] === (int) $a[0] ? Kaleta\Core\Quotes::get($db, (int) $a[0])["discount_percent"] : "";' "$R338_QC" "$R338_ADMIN" 2>&1)" "25.00"
 
+# L5 (A-11): anonymising keeps the number, lines and totals – the free texts that may name the person and every link to them go
+R338_QA=$(r338_php '$d = Kaleta\Core\Deals::save($app, null, ["title" => "Obchod Olga 338r", "contact_id" => (int) $a[1]], (int) $a[0]);
+  $q = Kaleta\Core\Quotes::save($app, null, ["contact_id" => (int) $a[1], "deal_id" => $d, "title" => "Nabídka pro Olgu Osobní", "intro" => "Milá paní Osobní,", "terms" => "Platí pro Olgu",
+    "lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100"]]], (int) $a[0])["id"];
+  Kaleta\Core\Quotes::finalise($app, $q, 0); Kaleta\Core\QuoteDelivery::anonymise($db, [$q]); echo $q, " ", $d;' "$R338_ADMIN" "$R338_CONTACT" 2>&1)
+read -r R338_QA R338_DA <<< "$R338_QA" || true; R338_QA="${R338_QA:-0}"; R338_DA="${R338_DA:-0}"
+expect "3.38 review L5: an anonymised quote has no title, intro, terms, contact, company, enquiry or deal – the number, lines and totals stay" \
+  "$(sq "SELECT CONCAT_WS('|', title = '', intro IS NULL, terms IS NULL, contact_id IS NULL, company_id IS NULL, enquiry_id IS NULL, deal_id IS NULL, customer_name = '', number IS NOT NULL, total_net, (SELECT COUNT(*) FROM ka_quote_lines WHERE quote_id = $R338_QA)) FROM ka_quotes WHERE id = $R338_QA")" \
+  "1|1|1|1|1|1|1|1|1|100.00|1"
+sq "DELETE FROM ka_deal_stage_history WHERE deal_id = $R338_DA; DELETE FROM ka_deals WHERE id = $R338_DA" > /dev/null
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');

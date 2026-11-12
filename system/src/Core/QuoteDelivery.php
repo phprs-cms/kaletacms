@@ -580,8 +580,9 @@ final class QuoteDelivery
     }
 
     /**
-     * Keeps quotes as the firm's record without the person: the customer block, the frozen document, the link and the
-     * link to the contact go; the number, the lines, the totals, the status and the history stay. Returns how many (already
+     * Keeps quotes as the firm's record without the person: the customer block, the title, intro and terms (free text that
+     * may name them), the frozen document, the link and the links to the contact, company, enquiry and deal go (3.38 review
+     * L5, design A-11); the number, the lines, the totals, the status and the history stay. Returns how many (already
      * anonymised ones are skipped). @param list<int> $ids
      */
     public static function anonymise(Db $db, array $ids): int
@@ -593,7 +594,8 @@ final class QuoteDelivery
         $now = Clock::now();
 
         return $db->run("UPDATE {quotes} SET customer_name = '', customer_company = '', customer_address = '', customer_reg_no = '', customer_vat_id = '', customer_email = '',"
-            . ' snapshot = NULL, token_hash = NULL, token_expires_at = NULL, contact_id = NULL, anonymised_at = ? WHERE anonymised_at IS NULL AND id IN (' . implode(',', $ids) . ')', [$now])->rowCount();
+            . " title = '', intro = NULL, terms = NULL, contact_id = NULL, company_id = NULL, enquiry_id = NULL, deal_id = NULL," // 3.38 review L5: free texts may name the person, the links lead to them
+            . ' snapshot = NULL, token_hash = NULL, token_expires_at = NULL, anonymised_at = ? WHERE anonymised_at IS NULL AND id IN (' . implode(',', $ids) . ')', [$now])->rowCount();
     }
 
     /* ---------- customers, enquiries and personal data ---------- */
