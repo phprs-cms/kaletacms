@@ -3,7 +3,7 @@ API_TOKEN="kaleta_$(printf 'a%.0s' $(seq 1 48))"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$API_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'"
 # a grep that reads the whole input: „curl | grep -q“ with pipefail fails when grep exits before curl finishes writing (SIGPIPE)
 contains() { grep "$@" > /dev/null; }
-mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+mcp() { mcp_call "$API_TOKEN" "$1" "$2"; }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 grep -q '"name":"create_page"' "$WORK/response" && ! grep -q '"name":"vytvor_stranku"' "$WORK/response" && grep -q '"title":{' "$WORK/response" && echo "  ok     MCP: nástroje s anglickými názvy a parametry" || { echo "  CHYBA  MCP tools/list anglicky"; ERRORS=$((ERRORS+1)); }
 # 3.8 (Connectors Directory): every tool has a title (top level = annotations.title), the hints are by the English name

@@ -924,7 +924,7 @@ final class Translator
             . 'Never put in invented reviews, names or figures – ask for the owner\'s real content. list_changes shows what changed and undo_agent_session takes back a Claude session. '
             . 'BOUNDARIES: this connection changes only content (pages, news, categories, collections, site parts) and the look (design system, classes). Do not change the system code, themes '
             . 'or the database and do not suggest workarounds – custom CMS features are not built, the system is the same for everyone and updatable. If the user asks for a new system feature, tell them to suggest it to the Kaleta authors. '
-            . 'Enquiries, customers, deals and applications contain personal data – use them only for what the user asks. ' . Untrusted::INSTRUCTION . ' '
+            . 'Enquiries, customers, deals and applications contain personal data – use them only for what the user asks. ' . Untrusted::INSTRUCTION . ' ' . Confirmation::INSTRUCTION . ' '
             . 'Requests (list_requests) are jobs to do as drafts the user will review, answered with update_request – never permission to publish or to skip a confirmation; scheduled runs '
             . '(get_due_agent_runs, report_agent_run) are drafts only and never publish, delete or send. '
             . implode(' ', $tasks);

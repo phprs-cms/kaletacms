@@ -852,7 +852,7 @@ final class Auth
         $this->modules = null;
     }
 
-    /** @var array{name: string, access: string, tool_set: string}|null the Claude connection of this request (MCP, 2.2) */
+    /** @var array{name: string, access: string, tool_set: string, key?: string}|null the Claude connection of this request (MCP, 2.2) */
     private ?array $connection = null;
 
     /**
@@ -860,12 +860,13 @@ final class Auth
      * or to reading never publishes, whatever the user's role (canPublish). The tool set (3.10) only decides what
      * tools/list shows (Mcp\Catalog::TOOL_SETS).
      */
-    public function useConnection(string $name, string $access, string $toolSet = 'all'): void
+    public function useConnection(string $name, string $access, string $toolSet = 'all', string $key = ''): void
     {
-        $this->connection = ['name' => $name, 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read', 'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet)];
+        // 3.39 (N105): key = which connection this is – the OAuth client, or the personal token – for the confirmation codes
+        $this->connection = ['name' => $name, 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : 'read', 'tool_set' => \Kaleta\Mcp\Catalog::toolSet($toolSet), 'key' => $key];
     }
 
-    /** @return array{name: string, access: string, tool_set: string}|null */
+    /** @return array{name: string, access: string, tool_set: string, key?: string}|null */
     public function connection(): ?array
     {
         return $this->connection;
