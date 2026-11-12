@@ -157,6 +157,10 @@ $parity = [
         'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',
         'list_default' => 'admin: the default price list is the administrator\'s set-up', 'settings' => $readOnly,
         'settings_save' => 'admin: numbering, VAT, limits and retention of quotes are the administrator\'s set-up',
+        // 3.40: the tasks of a quote and "Remind me" are tasks (save_task, target quote:<id>); saved line sets are inserted by save_quote (line_set)
+        'task' => 'save_task', 'follow_up' => 'save_task',
+        'customer_list' => 'admin: which price list a customer gets is a commercial decision a person makes in the customer\'s record',
+        'line_set_rename' => 'admin: the saved line sets are the administrator\'s set-up (Quotes → Settings)', 'line_set_delete' => 'admin: deleting a saved line set is the administrator\'s set-up',
         'send' => 'send_quote', 'preview' => $readOnly, 'link' => 'admin: a new customer\'s link for a sent quote is handed over by a person',
         'link_withdraw' => 'admin: withdrawing a customer\'s link is the person\'s decision', 'texts_save' => 'admin: the default texts of quotes are the administrator\'s set-up'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],

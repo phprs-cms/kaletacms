@@ -28,7 +28,8 @@ final class Inbox
     public const array KINDS = ['mention', 'assigned', 'comment', 'review_due', 'task_due',
         'fleet_expiry', // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
         'deletion_due', // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
-        'quote_expiring', 'quote_expired']; // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
+        'quote_expiring', 'quote_expired', // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
+        'quote_accepted', 'quote_declined']; // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -47,7 +48,8 @@ final class Inbox
 
     /** Prefixes of a target string ("enquiry:12", "page:5", "item:9", 3.28 "contact:3", "company:2", 3.30 "fleet_site:4", "fleet_customer:2", 3.31 "deal:7", 3.34 "application:5") => the kind of Core\Assignment that opens it. */
     public const array TARGETS = ['enquiry' => 'enquiry', 'page' => 'page', 'item' => 'item', 'contact' => 'contact', 'company' => 'company',
-        'fleet_site' => 'fleet_site', 'fleet_customer' => 'fleet_customer', 'deal' => 'deal', 'application' => 'application'];
+        'fleet_site' => 'fleet_site', 'fleet_customer' => 'fleet_customer', 'deal' => 'deal', 'application' => 'application',
+        'quote' => 'quote']; // 3.40: a quote (follow-up tasks; Assignment::KINDS – the section Quotes)
 
     /**
      * Notifies a user: records the notification and, when they chose "instant", sends one e-mail now (queued, sent after
@@ -357,6 +359,8 @@ final class Inbox
             'deletion_due' => t('An application will be deleted soon'), // 3.34
             'quote_expiring' => t('A quote expires in a few days'), // 3.38
             'quote_expired' => t('A quote has expired'),
+            'quote_accepted' => t('The customer accepted a quote'), // 3.40
+            'quote_declined' => t('The customer declined a quote'),
             default => $kind,
         };
     }

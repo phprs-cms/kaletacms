@@ -24,7 +24,8 @@ final class Assignment
      * 3.34: a job application the section Applications (Core\Applications::SECTION – given only explicitly)
      */
     public const array KINDS = ['enquiry' => 'enquiries', 'page' => 'pages', 'item' => 'collections', 'contact' => 'contacts', 'company' => 'contacts',
-        'fleet_site' => 'fleet', 'fleet_customer' => 'fleet', 'deal' => 'pipeline', 'application' => 'applications'];
+        'fleet_site' => 'fleet', 'fleet_customer' => 'fleet', 'deal' => 'pipeline', 'application' => 'applications',
+        'quote' => 'quotes']; // 3.40: a quote (follow-up tasks) – the section Quotes (Core\Quotes::SECTION, given only explicitly)
 
     /**
      * Sections only administrators open (Module::ADMIN_ONLY – the fleet console, N330-4): a stale or forged section right
@@ -189,6 +190,8 @@ final class Assignment
                 // 3.34: an application is named by its number and position only – never the applicant
                 'application' => [t('You are responsible for the application #%s', (string) $target['id']),
                     t('%s made you the responsible person for the application #%s%s.', $by, (string) $target['id'], $target['title'] !== '' ? ' (' . $target['title'] . ')' : '') . ' ' . t('It is listed in My work and under Mine in Applications. It does not change who may open it.')],
+                'quote' => [t('You are responsible for the quote %s', $target['title']), // 3.40: the number only
+                    t('%s made you the responsible person for the quote %s.', $by, $target['title']) . ' ' . t('It does not change who may open it.')],
                 'company' => [t('You are responsible for the company “%s”', $target['title']),
                     t('%s made you the responsible person for the company “%s”.', $by, $target['title']) . ' ' . t('It is listed under Mine in Customers. It does not change who may open it.')],
                 default => [t('You are responsible for “%s” in %s', $target['title'], (string) ($target['collection'] ?? '')),
@@ -222,6 +225,11 @@ final class Assignment
             $position = $db->one('SELECT job_title FROM {applications} WHERE id = ?', [$id]); // 3.34: the position, never the applicant
 
             return $position === null ? null : ['id' => $id, 'title' => (string) $position['job_title'], 'path' => Applications::adminPath($id)];
+        }
+        if ($kind === 'quote') {
+            $place = Inbox::places($db, ['quote:' . $id])['quote:' . $id] ?? null; // 3.40: the number only – never the customer or an amount
+
+            return $place === null ? null : ['id' => $id, 'title' => $place['title'], 'path' => $place['path']];
         }
         if ($kind === 'company') {
             $name = $db->value('SELECT name FROM {companies} WHERE id = ?', [$id]);

@@ -24,6 +24,7 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
     'fleet_customer' => t('Console customer “%s”', $about['title']),
     'deal' => t('Deal #%s', (string) $about['id']), // 3.31: by its number, as the bell names it
     'application' => t('Application #%s · %s', (string) $about['id'], $about['title'] !== '' ? $about['title'] : t('no position')), // 3.34: the number and the position, as the bell names it
+    'quote' => t('Quote %s', $about['title']), // 3.40: a follow-up of a quote, by its number only
     default => t('“%s” in %s', $about['title'], (string) ($about['collection'] ?? '')),
 };
 ?>

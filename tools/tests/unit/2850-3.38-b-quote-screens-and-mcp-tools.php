@@ -46,7 +46,7 @@ check('3.38 B MCP: the definitions – required ids, a status for mark_quote, no
     // "reason" is every tool's guardrail argument (Mcp\Server takes it away) – the decline reason has its own name
     array_values(array_filter($b338Tools, fn (string $t): bool => array_key_exists('reason', (array) $b338Defs[$t]['inputSchema']['properties']))),
     array_key_exists('decline_reason', (array) $b338Defs['mark_quote']['inputSchema']['properties']),
-], [['id'], ['id', 'status'], [], true, true, ['status', 'contact', 'company', 'deal', 'enquiry', 'owner', 'search', 'page', 'limit'], [], true]);
+], [['id'], ['id', 'status'], [], true, true, ['status', 'contact', 'company', 'deal', 'enquiry', 'owner', 'search', 'page', 'limit', 'line_sets'], [], true]); // 3.40: line_sets
 
 // the dictionaries: the screens speak Czech, German (formal and the du overlay where it addresses the person) and Spanish
 $b338Keys = ['Create a quote', 'Save and send', 'Finalise without sending', 'Mark accepted', 'Mark declined', 'Move the deal to won', 'New quote', 'manual price', 'no price',

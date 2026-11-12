@@ -58,6 +58,7 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 <form method="post" action="<?= e($module->url('send')) ?>" data-potvrdit="<?= e(t('Finalise the quote? It gets its number and cannot be edited any more.')) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>"><input type="hidden" name="mode" value="finalise">
 	<p class="napoveda"><?= e(t('Finalising gives the quote its number and a link for the customer; send the link from your own mail program or print the quote.')) ?></p>
+	<?= $app->view->render('admin/quotes/follow_up_box') ?>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Finalise and show the link')) ?></button></p>
 </form>
 <?php else: ?>
@@ -73,6 +74,7 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 <?php if ($draft['deal']): ?>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="set_deal_value" value="1"<?= $draft['set_deal_value'] ? ' checked' : '' ?> data-quote-deal-value> <?= e(t('Set the deal value to the net total')) ?></label></div></div>
 <?php endif ?>
+	<?= $app->view->render('admin/quotes/follow_up_box') ?>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send the quote')) ?></button></p>
 </form>
 <?php endif ?>

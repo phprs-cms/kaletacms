@@ -89,6 +89,7 @@ return [
     'quotes' => ['quotes', []],
     'quote_lines' => ['quote_lines', []],
     'quote_counters' => ['quote_counters', []],
+    'quote_line_sets' => ['quote_line_sets', []], // 3.40
     // links, imports and statistics
     'nenalezeno' => ['not_found', ['cesta' => 'path', 'pocet' => 'hits', 'naposledy' => 'last_seen_at']],
     'odkazy_vadne' => ['broken_links', ['ido' => 'id']],

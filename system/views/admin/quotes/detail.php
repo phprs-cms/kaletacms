@@ -22,6 +22,9 @@
  * @var bool $canDelete
  * @var list<array{id: int, label: string, status: string, url: string}> $revisions
  * @var string|null $refusal why a draft cannot be finalised yet
+ * @var array<string, mixed> $tasks the tasks of the quote (3.40, Admin\TaskActions::taskPanel – target quote:<id>)
+ * @var bool $tracking "first opened on" is recorded (quote_track_opened, 3.40)
+ * @var int $followUpDays the days "Remind me" offers
  */
 use Kaleta\Core\Contacts;
 use Kaleta\Core\Deals;
@@ -154,17 +157,27 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 <section id="history" aria-labelledby="nabidka-historie" data-quote-history>
 <h2 id="nabidka-historie"><?= e(t('History')) ?></h2>
 <ol class="obchod-historie">
-<?php foreach (array_reverse($q['history']) as $h): $action = (string) ($h['action'] ?? ''); ?>
-	<li data-history-action="<?= e($action) ?>"><span class="obchod-historie-co"><?= match ($action) {
+<?php foreach (array_reverse($q['history']) as $h): $action = (string) ($h['action'] ?? ''); /* 3.40: via customer = the customer decided on the quote page */ ?>
+	<li data-history-action="<?= e($action) ?>"<?= ($h['via'] ?? '') === 'customer' ? ' data-history-customer' : '' ?>><span class="obchod-historie-co"><?= match ($action) {
 	    'status' => e(t(Quotes::STATUS_LABELS[$h['from'] ?? ''] ?? (string) ($h['from'] ?? '')) . ' → ' . t(Quotes::STATUS_LABELS[$h['to'] ?? ''] ?? (string) ($h['to'] ?? '')))
 	        . (($h['to'] ?? '') === 'declined' && isset(Deals::LOST_REASONS[(string) ($h['note'] ?? '')]) ? ' · ' . e(t(Deals::LOST_REASONS[(string) $h['note']])) : ''),
 	    'revision', 'replaced' => e(t($actions[$action], (string) ($h['note'] ?? ''))),
 	    default => e(t($actions[$action] ?? $action)),
 	} ?></span>
-		<span class="napoveda"><?= e(format_date((string) ($h['at'] ?? ''), true)) ?><?= $who(isset($h['by']) ? (int) $h['by'] : null) ?></span></li>
+		<span class="napoveda"><?= e(format_date((string) ($h['at'] ?? ''), true)) ?><?= ($h['via'] ?? '') === 'customer' ? ' · ' . e(t('by the customer')) : $who(isset($h['by']) ? (int) $h['by'] : null) ?></span></li>
 <?php endforeach ?>
 </ol>
 </section>
+
+<?php if ($status !== 'draft'): /* 3.40: "Remind me in N days" – a task about the quote for its responsible person */ ?>
+<form class="nabidka-pripomenout" method="post" action="<?= e($module->url('follow_up')) ?>" data-quote-follow-up><?= $hidden ?>
+	<label for="nabidka-pripomenout-dny"><?= e(t('Remind me in')) ?></label>
+	<input class="textpole cislo-kratke" type="number" id="nabidka-pripomenout-dny" name="days" min="1" max="<?= Quotes::FOLLOW_UP_MAX_DAYS ?>" value="<?= (int) $followUpDays ?>">
+	<span><?= e(t('days')) ?></span> <button class="navigace" type="submit"><?= e(t('Remind me')) ?></button>
+	<span class="napoveda"><?= e(t('A task about this quote for its responsible person (for you when nobody is responsible).')) ?></span>
+</form>
+<?php endif ?>
+<?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) ?>
 </div>
 
 <div class="zaznam-bok">
@@ -177,7 +190,11 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 	<dt><?= e(t('Sent')) ?></dt><dd><?= e(format_date($q['sent_at'], true)) ?><?= $who($q['sent_by']) ?></dd>
 <?php endif ?>
 <?php if ($q['decided_at'] !== null): ?>
-	<dt><?= e(t($status === 'declined' ? 'Declined' : 'Accepted')) ?></dt><dd><?= e(format_date($q['decided_at'], true)) ?><?= $who($q['decided_by']) ?><?= $q['decline_reason'] !== null ? ' · ' . e(t(Deals::LOST_REASONS[$q['decline_reason']] ?? $q['decline_reason'])) : '' ?></dd>
+	<dt><?= e(t($status === 'declined' ? 'Declined' : 'Accepted')) ?></dt><dd data-quote-decided><?= e(format_date($q['decided_at'], true)) ?><?= $q['decided_by_customer'] ? ' · <strong>' . e(t('by the customer')) . '</strong>' : $who($q['decided_by']) ?><?= $q['decline_reason'] !== null && !$q['decided_by_customer'] ? ' · ' . e(t(Deals::LOST_REASONS[$q['decline_reason']] ?? $q['decline_reason'])) : '' ?>
+		<?= $q['customer_reason'] !== null && $status === 'declined' ? '<br><q class="nabidka-duvod-zakaznika" data-quote-customer-reason>' . nl2br(bdi($q['customer_reason'])) . '</q>' : '' ?></dd>
+<?php endif ?>
+<?php if ($tracking && $status !== 'draft'): /* 3.40: the first opening of the customer's link – the time only */ ?>
+	<dt><?= e(t('First opened')) ?></dt><dd data-quote-opened><?= $q['first_opened_at'] !== null ? e(format_date($q['first_opened_at'], true)) : '<span class="napoveda">' . e(t('not yet')) . '</span>' ?></dd>
 <?php endif ?>
 	<dt><?= e(t('VAT')) ?></dt><dd><?= e(t($vatModes[$vatMode] ?? $vatMode)) ?></dd>
 	<dt><?= e(t('Internal price list')) ?></dt><dd><?= e($listName !== '' ? $listName . ' (' . $q['currency'] . ')' : $q['currency']) ?></dd>

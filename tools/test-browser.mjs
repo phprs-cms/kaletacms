@@ -5389,6 +5389,92 @@ await step('3.39 B: a notebook proposal and the unblocking box of a blocked acco
   }
 });
 
+// 3.40 (agent B): quotes II – the customer's Accept / Decline on the quote page at 1440 px (axe) and on a phone (decline with a
+// reason, no sideways scroll), the price list in the box Quotes of a company, a saved line set inserted in the editor, and the
+// detail with "by the customer", the first opening and Remind me – at 390 px in light and dark
+await step('3.40 B quotes II: Accept / Decline on the quote page (1440 axe, 390 decline), customer price list, line set, Remind me; 390 px light/dark', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota);"
+    + " REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21'), ('quote_customer_decision', '1'), ('quote_track_opened', '1');"
+    + " INSERT INTO ka_companies (name, created_at, updated_at) VALUES ('Clinic B340 Ltd', NOW(), NOW())");
+  const company = Number(sql("SELECT MAX(id) FROM ka_companies WHERE name = 'Clinic B340 Ltd'").trim());
+  const ids = execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); $db = $app->db();
+    $lines = [["name" => "Shock-wave unit B340", "code" => "SW-B340", "quantity" => "1", "unit" => "pc", "unit_price" => "12500", "vat_rate" => "21"], ["name" => "Installation and training B340", "quantity" => "4", "unit" => "h", "unit_price" => "90", "vat_rate" => "21"]];
+    $customer = ["name" => "Grace Customer", "company" => "Clinic B340 Ltd", "address" => "12 Long Street\\nLondon E1 6AN", "email" => "grace.b340@customer.example"];
+    $admin = (int) $db->value("SELECT idu FROM {uzivatele} WHERE user = ?", ["admin"]);
+    $sent = Kaleta\\Core\\Quotes::finalise($app, Kaleta\\Core\\Quotes::save($app, null, ["customer" => $customer, "title" => "Shock-wave unit for the clinic", "lines" => $lines, "valid_days" => 21, "owner_id" => $admin], 0)["id"], 0);
+    $draft = Kaleta\\Core\\Quotes::save($app, null, ["customer" => $customer, "title" => "A draft for a line set", "lines" => array_slice($lines, 0, 1)], 0)["id"];
+    $set = Kaleta\\Core\\QuoteLineSets::fromQuote($app, $sent["id"], "Unit with installation B340", 0)["id"];
+    echo $sent["id"], " ", $draft, " ", $set, " ", Kaleta\\Core\\QuoteDelivery::issueLink($app, $sent["id"], 0);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim().split(' ');
+  const [quoteId, draftId, setId, link] = ids;
+  try {
+    if (!/\/quote\/[a-f0-9]{64}$/.test(link || '')) { throw new Error(`no link: ${ids.join(' ')}`); }
+    // the customer's page: the answer under the document – axe at 1440 (that context bypasses the page's own CSP for axe only)
+    const wide = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB', bypassCSP: true });
+    try {
+      const p2 = await wide.newPage(); watch(p2);
+      await p2.goto(link, { waitUntil: 'networkidle' });
+      if (!(await p2.locator('[data-quote-decision="open"]').isVisible())) { throw new Error('the answer is not shown under the quote'); }
+      await p2.locator('[data-quote-accept] summary').click();
+      if (!(await p2.locator('[data-quote-accept] button[type="submit"]').isVisible())) { throw new Error('Accept does not unfold its confirmation'); }
+      await p2.addScriptTag({ path: AXE });
+      const found = await p2.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['.quote-decision'], WCAG]);
+      if (found.violations.length) { throw new Error('axe quote answer: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      await p2.emulateMedia({ media: 'print' });
+      if ((await p2.evaluate(() => getComputedStyle(document.querySelector('.quote-decision')).display)) !== 'none') { throw new Error('the answer is printed'); }
+    } finally {
+      await wide.close();
+    }
+    if (sql(`SELECT first_opened_at IS NOT NULL FROM ka_quotes WHERE id = ${Number(quoteId)}`).trim() !== '1') { throw new Error('the first opening was not recorded'); }
+    // on a phone: Decline with a reason – the page thanks, the quote is declined by the customer
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true });
+    try {
+      const p2 = await phone.newPage(); watch(p2);
+      await p2.goto(link, { waitUntil: 'networkidle' });
+      await p2.locator('[data-quote-decline] summary').click();
+      await p2.locator('#quote-decline-reason').fill('We chose a smaller unit this year.');
+      const sideways = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      if (sideways > 1) { throw new Error(`${sideways} px of sideways scroll on the quote answer (phone)`); }
+      if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/340b-quote-answer-phone.png`, fullPage: true }); }
+      await Promise.all([p2.waitForNavigation(), p2.locator('[data-quote-decline] button[type="submit"]').click()]);
+      if (!(await p2.locator('[data-quote-decision="done"]').isVisible()) || (await p2.locator('[data-quote-decision="open"]').count())) { throw new Error('no thank-you after declining'); }
+    } finally {
+      await phone.close();
+    }
+    if (sql(`SELECT CONCAT_WS('|', status, customer_reason) FROM ka_quotes WHERE id = ${Number(quoteId)}`).trim() !== 'declined|We chose a smaller unit this year.') { throw new Error('the decline was not stored'); }
+    // the admin: the editor inserts the saved line set; the detail says "by the customer" and Remind me adds a task
+    await visit(`/admin.php?module=quotes&action=edit&id=${Number(draftId)}`);
+    await page.locator('#nabidka-sada').selectOption(String(Number(setId)));
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-insert-set]').click()]);
+    if (sql(`SELECT COUNT(*) FROM ka_quote_lines WHERE quote_id = ${Number(draftId)}`).trim() !== '3') { throw new Error('the line set was not inserted'); }
+    await visit(`/admin.php?module=quotes&action=detail&id=${Number(quoteId)}`);
+    if (!(await page.locator('[data-quote-customer-reason]').isVisible()) || !(await page.locator('[data-quote-opened]').count())) { throw new Error('the detail does not show the customer\'s answer or the first opening'); }
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-follow-up] button[type="submit"]').click()]);
+    if (!(await page.locator(`[data-tasks="quote:${Number(quoteId)}"] [data-task]`).count())) { throw new Error('Remind me did not add a task about the quote'); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      const other = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: scheme, storageState: state, isMobile: true, hasTouch: true });
+      const p2 = await other.newPage(); watch(p2);
+      try {
+        for (const [what, url, root] of [['detail', `/admin.php?module=quotes&action=detail&id=${Number(quoteId)}`, '[data-quote-follow-up]'], ['company', `/admin.php?module=contacts&action=company&id=${company}`, '[data-quote-customer-list]'],
+          ['editor', `/admin.php?module=quotes&action=edit&id=${Number(draftId)}`, '[data-quote-line-sets]'], ['settings', '/admin.php?module=quotes&action=settings', '[data-quotes-line-sets]']]) {
+          await p2.goto(BASE + url, { waitUntil: 'networkidle' });
+          if (!(await p2.locator(root).count())) { throw new Error(`the ${what} lacks ${root} (${scheme})`); }
+          const sideways = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (sideways > 1) { throw new Error(`${sideways} px of sideways scroll on the quote ${what} (phone, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/340b-${what}-phone-${scheme}.png`, fullPage: true }); }
+        }
+      } finally {
+        await other.close();
+      }
+    }
+  } finally {
+    execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); Kaleta\\Core\\QuoteDelivery::delete($app->db(), [${Number(quoteId) || 0}, ${Number(draftId) || 0}]);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' });
+    sql(`DELETE FROM ka_quote_counters; DELETE FROM ka_quote_line_sets; DELETE FROM ka_tasks WHERE target LIKE 'quote:%'; DELETE FROM ka_notifications WHERE target LIKE 'quote:%'; DELETE FROM ka_companies WHERE id = ${company || 0};`
+      + " DELETE FROM ka_nastaveni WHERE promenna IN ('quote_vat_rate', 'quote_customer_decision', 'quote_track_opened'); UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

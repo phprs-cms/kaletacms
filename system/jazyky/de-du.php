@@ -389,4 +389,9 @@ Der Link gilt %d Tage.
     'Your CV could not be stored, so nothing was sent. Please try again later.' => 'Dein Lebenslauf konnte nicht gespeichert werden, daher wurde nichts gesendet. Bitte versuche es später erneut.',
     'Please attach at most %d files.' => 'Bitte hänge höchstens %d Dateien an.',
     'thank you for your interest. You will find our quotation at the link below – you can print it or save it as a PDF.' => 'vielen Dank für dein Interesse. Unser Angebot findest du unter dem Link unten – du kannst es drucken oder als PDF speichern.',
+    'Thank you – you accepted the quotation. We will be in touch about the next steps.' => 'Vielen Dank – du hast das Angebot angenommen. Wir melden uns wegen der nächsten Schritte.',
+    'Thank you for your answer – you declined the quotation.' => 'Vielen Dank für deine Antwort – du hast das Angebot abgelehnt.',
+    'This quotation can no longer be answered here – please contact us.' => 'Auf dieses Angebot kann hier nicht mehr geantwortet werden – bitte kontaktiere uns.',
+    'Your answer' => 'Deine Antwort',
+    'By confirming you accept quotation %s as it stands. We will be in touch about the next steps.' => 'Mit der Bestätigung nimmst du das Angebot %s so an, wie es ist. Wir melden uns wegen der nächsten Schritte.',
 ];

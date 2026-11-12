@@ -170,7 +170,9 @@ trait QuoteTools
             'owner' => Handover::person($db, $q['owner_id']), 'updated_at' => substr($q['updated_at'], 0, 16), 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))],
             fn (mixed $v): bool => $v !== null), $result['rows']), 'total' => $result['total'], 'page' => $result['page'], 'pages' => $result['pages'],
             'admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Quotes::SECTION)]
-            + ($result['total'] === 0 ? ['next' => 'No quotes here. save_quote creates a draft (with enquiry: from its basket and customer).'] : []);
+            + ($result['total'] === 0 ? ['next' => 'No quotes here. save_quote creates a draft (with enquiry: from its basket and customer).'] : [])
+            // 3.40: the saved line sets save_quote inserts with line_set
+            + (($a['line_sets'] ?? false) === true ? ['line_sets' => array_map(fn (array $set): array => ['id' => $set['id'], 'name' => $set['name'], 'lines' => $set['lines']], \Kaleta\Core\QuoteLineSets::all($db))] : []);
     }
 
     /** get_quote */
@@ -236,13 +238,32 @@ trait QuoteTools
                 $fields['lines'][] = $out;
             }
         }
+        // 3.40: a saved line set appended after the lines (products and own rows priced from the quote's list now)
+        $set = null;
+        if (array_key_exists('line_set', $a) && !(is_string($a['line_set']) && trim($a['line_set']) === '') && $a['line_set'] !== null) {
+            $set = \Kaleta\Core\QuoteLineSets::find($db, $a['line_set']);
+            if ($set === null) {
+                $names = array_column(\Kaleta\Core\QuoteLineSets::all($db), 'name');
+                throw new \InvalidArgumentException('No saved line set is "' . mb_substr(is_scalar($a['line_set']) ? (string) $a['line_set'] : '', 0, 60) . '". '
+                    . ($names !== [] ? 'The sets: ' . implode(', ', array_slice($names, 0, 30)) . ' (list_quotes with line_sets=true).' : 'The site has no line sets – a person saves them in the editor of a quote.') . ' Nothing was saved.');
+            }
+        }
         try {
-            $saved = Language::runWith('en', function () use ($db, $s, $a, $fields, $id, $self): array {
+            $saved = Language::runWith('en', function () use ($db, $s, $a, $fields, $id, $self, $set): array {
                 if (array_key_exists('price_list', $a)) {
                     $fields['price_list_id'] = Prices::resolveList($db, $s, $a['price_list'])['id'];
                 }
 
-                return Quotes::save($this->app, $id > 0 ? $id : null, $fields, $self, true);
+                // one transaction: a set that does not fit (Quotes::MAX_LINES) leaves no half-made quote behind
+                return $db->transaction(function () use ($fields, $id, $self, $set): array {
+                    $saved = Quotes::save($this->app, $id > 0 ? $id : null, $fields, $self, true);
+                    if ($set !== null) {
+                        $inserted = \Kaleta\Core\QuoteLineSets::insert($this->app, $saved['id'], $set['id'], $self, true);
+                        $saved['warnings'] = array_values(array_unique([...$saved['warnings'], ...$inserted['warnings']]));
+                    }
+
+                    return $saved;
+                });
             }, 'admin-');
         } catch (\DomainException $e) {
             throw new \DomainException($e->getMessage() . ' Nothing was saved.');
@@ -337,6 +358,9 @@ trait QuoteTools
                 'to' => $h['to'] ?? null, 'note' => $h['note'] ?? null, 'by' => isset($h['by']) ? Handover::person($db, $h['by']) : null], fn (mixed $v): bool => $v !== null), $q['history']),
             'not_sendable' => $refusal, 'sent_at' => $q['sent_at'] !== null ? substr($q['sent_at'], 0, 16) : null,
             'decided_at' => $q['decided_at'] !== null ? substr($q['decided_at'], 0, 16) : null, 'decline_reason' => $q['decline_reason'],
+            // 3.40: the customer's own decision on the quote page (and their words), the first opening of the link (the time only)
+            'decided_by' => $q['decided_by_customer'] ? 'customer' : null, 'customer_reason' => $q['customer_reason'],
+            'first_opened_at' => $q['first_opened_at'] !== null ? substr($q['first_opened_at'], 0, 16) : null,
             'updated_at' => $q['updated_at'], 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))], fn (mixed $v): bool => $v !== null && $v !== []);
     }
 

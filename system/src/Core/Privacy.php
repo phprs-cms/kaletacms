@@ -427,6 +427,9 @@ final class Privacy
                     : t('Retention: not limited – set it in Quotes → Settings; drafts not touched for %d months are deleted.', QuoteDelivery::DRAFT_MONTHS),
                 t('A customer with a quote waiting for an answer is not anonymised; erasing a customer keeps a numbered quote without the person.'),
                 t('Recipients: the people with access to Quotes in the administration; the customer through the link in the e-mail, which works for %d days after the validity and can be withdrawn at once. Quotes are not part of the site export and never shown on the site.', max(1, $s->int('quote_link_days'))),
+                // 3.40: the customer's answer on the quote page and "first opened on" – both only when switched on
+                ...($s->bool('quote_customer_decision') ? [t('The customer may accept or decline a quote on its page; a reason for declining is optional and kept with the quote.')] : []),
+                ...($s->bool('quote_track_opened') ? [t('When the customer first opens the link, the time is recorded – no address, browser or cookie.')] : []),
             ]];
         }
         if (Applications::isOn($s)) {

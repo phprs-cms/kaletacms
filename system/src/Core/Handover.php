@@ -276,6 +276,9 @@ final class Handover
         if ($section === Applications::SECTION) {
             return Applications::isOn($siteSettings); // 3.34: the section of a feature that is not one of KINDS
         }
+        if ($section === Quotes::SECTION) {
+            return Quotes::isOn($siteSettings); // 3.40: quotes (follow-up tasks) only while the feature is on
+        }
         foreach (self::KINDS as [$ident, $extension]) {
             if ($ident === $section) {
                 return Extensions::isEnabled($siteSettings, $extension);

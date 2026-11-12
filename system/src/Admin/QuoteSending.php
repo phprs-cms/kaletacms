@@ -57,6 +57,7 @@ trait QuoteSending
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), 'send', ['id' => $id], 'chyba');
         }
+        $this->followUpAfterSend($id); // 3.40: "Remind me in N days" (Admin\QuoteExtras)
 
         return $this->back('', 'send', ['id' => $id]);
     }

@@ -15,6 +15,7 @@ use Kaleta\Core\Deals;
 use Kaleta\Core\Language;
 use Kaleta\Core\Money;
 use Kaleta\Core\Prices;
+use Kaleta\Core\QuoteLineSets;
 use Kaleta\Core\Quotes as Store;
 use Kaleta\Core\Response;
 
@@ -39,6 +40,7 @@ use Kaleta\Core\Response;
 final class Quotes extends Module
 {
     use \Kaleta\Admin\QuoteSending; // 3.38: send, preview, link, link_withdraw, texts_save (the document, sending and the customer's link)
+    use \Kaleta\Admin\QuoteExtras; // 3.40: task, follow_up, customer_list, line_set_rename, line_set_delete
 
     public const string IDENT = Prices::SECTION;
     public const string NAME = 'Quotes';
@@ -175,6 +177,12 @@ final class Quotes extends Module
             $fields = $this->postedQuote($quote);
             $saved = Store::save($this->app, $quote['id'], $fields, $me);
             $warnings = $saved['warnings'];
+            if ($next === 'save_set') { // 3.40: the lines as a saved line set (an existing name is replaced)
+                $set = QuoteLineSets::fromQuote($this->app, $quote['id'], $this->request->post('set_name'), $me);
+                $setName = QuoteLineSets::cleanName($this->request->post('set_name'));
+                ChangeLog::write($this->app, self::IDENT, 'line_set', t('Line set “%s” saved', $setName));
+                $this->app->session->flash('ok', t($set['replaced'] ? 'The line set “%s” now holds these lines.' : 'The lines were saved as the line set “%s”.', $setName));
+            }
             if ($next === 'finalise') {
                 $done = Store::finalise($this->app, $quote['id'], $me);
                 if ($dealValue && $done['deal_id'] !== null && isset($this->kernel->modules()[Pipeline::IDENT]) && Store::setDealValue($this->app, $quote['id'], $me)) {
@@ -200,7 +208,8 @@ final class Quotes extends Module
             'preview' => Response::redirect($this->url('preview', ['id' => $quote['id']])), // the customer's document (part C, Admin\QuoteSending)
             // the send dialog and the e-mail are the next part's (action send); the box "set the deal value" travels along
             'send' => Response::redirect($this->url('send', ['id' => $quote['id']] + ((Store::get($this->db, $quote['id'])['deal_id'] ?? null) !== null ? ['deal_value' => $dealValue ? 1 : 0] : []))),
-            default => $next === 'add' ? Response::redirect($this->url('edit', ['id' => $quote['id']]) . '#lines') : $this->back('The quote was saved.', 'edit', ['id' => $quote['id']]),
+            'save_set' => Response::redirect($this->url('edit', ['id' => $quote['id']]) . '#line-sets'),
+            default => in_array($next, ['add', 'line_set'], true) ? Response::redirect($this->url('edit', ['id' => $quote['id']]) . '#lines') : $this->back('The quote was saved.', 'edit', ['id' => $quote['id']]),
         };
     }
 
@@ -233,7 +242,10 @@ final class Quotes extends Module
             'names' => Assignment::labels($this->db, $people), 'listName' => $list !== null ? $list['name'] : '',
             'canContacts' => isset($modules[Customers::SECTION]), 'canDelete' => $this->app->auth()->isAdmin() || ($quote['number'] === null && $quote['created_by'] === $this->app->auth()->id()),
             'revisions' => array_map(fn (array $r): array => $r + ['url' => $this->url('detail', ['id' => $r['id']])], $this->revisions($quote)),
-            'refusal' => $quote['status'] === 'draft' ? Store::sendRefusal($quote, false) : null]);
+            'refusal' => $quote['status'] === 'draft' ? Store::sendRefusal($quote, false) : null,
+            // 3.40: the tasks of the quote (follow-ups), "first opened on" while it is recorded, the customer's own decision
+            'tasks' => $this->taskPanel('quote:' . $quote['id'], ['id' => $quote['id']]), 'tracking' => $this->app->settings()->bool('quote_track_opened'),
+            'followUpDays' => Store::FOLLOW_UP_DAYS]);
     }
 
     /** Mark accepted, declined (with a reason), back to sent, or expired – Store::setStatus; nothing moves the deal by itself. */
@@ -535,11 +547,13 @@ final class Quotes extends Module
             return $this->error('Only an administrator can change the settings of quotes.', 403);
         }
         $s = $this->app->settings();
-        $keys = ['quote_number_format', 'quote_valid_days', 'quote_vat_payer', 'quote_vat_rate', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value'];
+        $keys = ['quote_number_format', 'quote_valid_days', 'quote_vat_payer', 'quote_vat_rate', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value',
+            'quote_customer_decision', 'quote_track_opened']; // 3.40
 
         return $this->view('settings', 'Quotes', ['values' => array_combine($keys, array_map(fn (string $k): string => $s->get($k), $keys)), 'next' => Store::nextNumber($this->db, $s),
             'people' => array_map(fn (array $u): string => (string) ($u['jmeno'] ?: $u['user']), $this->db->all('SELECT DISTINCT u.jmeno, u.user FROM {uzivatele} u JOIN {uzivatele_prava} p ON p.fk_id_user = u.idu'
-                . ' WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 ORDER BY u.jmeno', [Prices::SECTION, Auth::ADMIN]))]);
+                . ' WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 ORDER BY u.jmeno', [Prices::SECTION, Auth::ADMIN])),
+            'lineSets' => QuoteLineSets::all($this->db), 'setOwners' => Assignment::labels($this->db, array_values(array_filter(array_column(QuoteLineSets::all($this->db), 'created_by'))))]); // 3.40
     }
 
     protected function actionSettingsSave(): Response
@@ -584,6 +598,13 @@ final class Quotes extends Module
             Store::withoutVat($this->db); // 3.38 review L8: the drafts follow – gross = net, as their document shows
         }
         $s->set('quote_set_deal_value', $this->request->postBool('quote_set_deal_value') ? '1' : '0');
+        // 3.40 (design A-12, both off by default): the customer's Accept / Decline on the quote page; "first opened on" –
+        // switching it off forgets the times recorded so far
+        $s->set('quote_customer_decision', $this->request->postBool('quote_customer_decision') ? '1' : '0');
+        if (!$this->request->postBool('quote_track_opened') && $s->bool('quote_track_opened')) {
+            Store::forgetOpened($this->db);
+        }
+        $s->set('quote_track_opened', $this->request->postBool('quote_track_opened') ? '1' : '0');
         $s->set('quote_valid_days', (string) max(1, min(365, $this->request->postInt('quote_valid_days', 30))));
         $s->set('quote_link_days', (string) max(1, min(365, $this->request->postInt('quote_link_days', 30))));
         $s->set('quotes_months', (string) max(0, min(120, $this->request->postInt('quotes_months', 36))));
@@ -652,7 +673,7 @@ final class Quotes extends Module
             'contacts' => $canContacts ? Pipeline::contactChoices($this->db, $quote['contact_id']) : [], 'companies' => $canContacts ? Pipeline::companyChoices($this->db, $quote['company_id']) : [],
             'deals' => $deals, 'canContacts' => $canContacts, 'canDeals' => $canDeals, 'languages' => $languages,
             'maxDiscount' => Money::short(Money::percentText(Money::percent(trim($s->get('quote_max_discount')) !== '' ? $s->get('quote_max_discount') : '20'))),
-            'dealValue' => $s->bool('quote_set_deal_value'), 'me' => $this->app->auth()->id(),
+            'dealValue' => $s->bool('quote_set_deal_value'), 'me' => $this->app->auth()->id(), 'lineSets' => QuoteLineSets::all($this->db), // 3.40
             'canDelete' => $this->app->auth()->isAdmin() || $quote['created_by'] === $this->app->auth()->id()]);
     }
 
@@ -763,6 +784,10 @@ final class Quotes extends Module
         if (trim($r->post('add_free_name')) !== '') {
             $lines[] = ['name' => $r->post('add_free_name'), 'unit_price' => $r->post('add_free_price'), 'quantity' => $r->post('add_free_quantity'), 'code' => ''];
         }
+        if ($r->post('next') === 'line_set') { // 3.40: a saved line set after the lines – priced from this quote's list now
+            $set = QuoteLineSets::find($this->db, $r->postInt('line_set')) ?? throw new \DomainException(t('Choose a line set to insert.'));
+            $lines = [...$lines, ...QuoteLineSets::inputs($set)];
+        }
         $fields['lines'] = $lines;
 
         return $fields;
@@ -828,9 +853,17 @@ final class Quotes extends Module
         }
         $quotes = Store::of($app->db(), $kind, $id, self::BOX + 1);
 
+        $priceList = null;
+        if (in_array($kind, ['contact', 'company'], true) && isset($modules[Customers::SECTION])) {
+            // 3.40: the price list a new quote for this customer takes (Store::customerList), chosen here
+            $current = Store::customerListId($app->db(), $kind, $id);
+            $priceList = ['current' => $current, 'lists' => array_values(array_filter(Prices::lists($app->db(), true), fn (array $l): bool => $l['archived_at'] === null || $l['id'] === $current)),
+                'default' => Prices::defaultList($app->db(), $app->settings())['name'], 'action' => $app->url('admin.php?module=' . self::IDENT . '&action=customer_list')];
+        }
+
         return ['kind' => $kind, 'id' => $id, 'quotes' => array_map(fn (array $q): array => $q + ['url' => $app->url(Store::adminPath($q['id']))], array_slice($quotes, 0, self::BOX)),
             'more' => count($quotes) > self::BOX, 'createUrl' => $app->url('admin.php?module=' . self::IDENT . '&action=create'),
-            'allUrl' => $app->url('admin.php?module=' . self::IDENT . '&' . $kind . '=' . $id)];
+            'allUrl' => $app->url('admin.php?module=' . self::IDENT . '&' . $kind . '=' . $id), 'priceList' => $priceList];
     }
 
     /**

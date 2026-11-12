@@ -126,7 +126,12 @@ final class Quotes
             'decided_at' => $q['decided_at'] === null ? null : (string) $q['decided_at'], 'decided_by' => $int($q['decided_by']),
             'decline_reason' => $q['decline_reason'] === null ? null : (string) $q['decline_reason'],
             'created_by' => $int($q['created_by']), 'created_at' => (string) $q['created_at'], 'updated_at' => (string) $q['updated_at'],
-            'anonymised_at' => $q['anonymised_at'] === null ? null : (string) $q['anonymised_at']];
+            'anonymised_at' => $q['anonymised_at'] === null ? null : (string) $q['anonymised_at'],
+            // 3.40 (migration 0128): the first opening of the customer's link (only with quote_track_opened), the customer's own
+            // words when they declined, and whether the last decision was the customer's own (the Accept / Decline buttons)
+            'first_opened_at' => ($q['first_opened_at'] ?? null) === null ? null : (string) $q['first_opened_at'],
+            'customer_reason' => ($q['customer_reason'] ?? null) === null ? null : (string) $q['customer_reason'],
+            'decided_by_customer' => $q['decided_at'] !== null && in_array((string) $q['status'], ['accepted', 'declined'], true) && self::customerDecided(is_array($history) ? $history : [], (string) $q['status'])];
     }
 
     /**
@@ -291,9 +296,18 @@ final class Quotes
         $int = fn (string $key): int => (int) (is_scalar($fields[$key] ?? null) ? $fields[$key] : 0);
         $data = [];
 
-        // the price list and its currency
-        if ($quote === null || $has('price_list_id')) {
-            $list = $int('price_list_id') > 0 ? Prices::priceList($db, $int('price_list_id')) : Prices::defaultList($db, $s);
+        // where it came from: the enquiry, the deal; the customer
+        $sources = self::sources($app, $quote, $fields, $byUserId);
+
+        // the price list and its currency – 3.40: a new quote (or a draft without lines whose customer changes) takes the
+        // price list of its contact or company unless one is chosen (customerList)
+        $customerList = null;
+        if (!$has('price_list_id') && ($quote === null || ($quote['lines'] === [] && (array_key_exists('contact_id', $sources['data']) || array_key_exists('company_id', $sources['data']))))) {
+            $customerList = self::customerList($db, array_key_exists('contact_id', $sources['data']) ? $sources['data']['contact_id'] : ($quote['contact_id'] ?? null),
+                array_key_exists('company_id', $sources['data']) ? $sources['data']['company_id'] : ($quote['company_id'] ?? null));
+        }
+        if ($quote === null || $has('price_list_id') || ($customerList !== null && $customerList['id'] !== $quote['price_list_id'])) {
+            $list = $customerList ?? ($int('price_list_id') > 0 ? Prices::priceList($db, $int('price_list_id')) : Prices::defaultList($db, $s));
             if ($list === null) {
                 throw new \DomainException(t('The price list does not exist.'));
             }
@@ -310,8 +324,6 @@ final class Quotes
             $list = Prices::priceList($db, $quote['price_list_id']) ?? Prices::defaultList($db, $s);
         }
 
-        // where it came from: the enquiry, the deal; the customer
-        $sources = self::sources($app, $quote, $fields, $byUserId);
         $data += $sources['data'];
         if ($has('customer') || $sources['fill'] !== null) {
             $given = is_array($fields['customer'] ?? null) ? $fields['customer'] : [];
@@ -544,7 +556,7 @@ final class Quotes
      *
      * @throws \DomainException
      */
-    public static function setStatus(App $app, int $id, string $status, int $byUserId, ?string $reason = null): bool
+    public static function setStatus(App $app, int $id, string $status, int $byUserId, ?string $reason = null, string $via = ''): bool
     {
         $db = $app->db();
         $quote = self::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
@@ -563,10 +575,208 @@ final class Quotes
         $db->update('quotes', ['status' => $status, 'decided_at' => $decided ? $now : null, 'decided_by' => $decided && $byUserId > 0 ? $byUserId : null,
             'decline_reason' => $status === 'declined' ? (string) $reason : null, 'updated_at' => $now,
             'history' => self::appended($quote['history'], ['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'status', 'from' => $quote['status'], 'to' => $status]
-                + ($status === 'declined' ? ['note' => (string) $reason] : []))], ['id' => $id]);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'status', t('Quote %1$s: %2$s', $quote['label'], t(self::STATUS_LABELS[$status])));
+                + ($status === 'declined' ? ['note' => (string) $reason] : []) + ($via === 'customer' ? ['via' => 'customer'] : []))], ['id' => $id]); // 3.40: the customer's own decision
+        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'status', $via === 'customer' ? t('Quote %1$s: %2$s by the customer', $quote['label'], t(self::STATUS_LABELS[$status]))
+            : t('Quote %1$s: %2$s', $quote['label'], t(self::STATUS_LABELS[$status])));
 
         return true;
+    }
+
+    /* ---------- 3.40: the customer's decision, the first opening, the customer's price list, the follow-up ---------- */
+
+    /** The longest reason a customer may give when declining on the quote page. */
+    public const int CUSTOMER_REASON_MAX = 1000;
+
+    /** The days "Remind me" offers after sending by default, and the most it takes. */
+    public const int FOLLOW_UP_DAYS = 7;
+    public const int FOLLOW_UP_MAX_DAYS = 90;
+
+    /**
+     * May the customer accept or decline this quote on its page now? The setting quote_customer_decision is on (off by
+     * default, design A-12), the quote is sent and still valid (valid_until today or later), it has its frozen document and a
+     * customer, and the customer has not decided on it before (one decision – a person who set it back to sent decides the
+     * rest).
+     *
+     * @param array<string, mixed> $quote as get() returns it
+     */
+    public static function customerMayDecide(Settings $s, array $quote): bool
+    {
+        return $s->bool('quote_customer_decision') && $quote['status'] === 'sent' && $quote['snapshot'] !== null && $quote['anonymised_at'] === null
+            && ($quote['valid_until'] === null || $quote['valid_until'] >= Clock::today()) && !self::customerDecided($quote['history']);
+    }
+
+    /**
+     * The customer accepts or declines a sent quote on its page (Front\QuoteDecision – a POST bound to the link's token):
+     * the status changes with the history entry "by the customer" (decided_by stays empty), a decline keeps the customer's
+     * own words (customer_reason; the reason code is "other"), and the responsible person – or whoever sent it – gets a
+     * bell that names the number only. The deal is never moved: the quote's page in the admin offers won or lost to a
+     * person. Under the quote's row lock, so two clicks make one decision. False when the quote may not be decided now
+     * (customerMayDecide) – nothing changes then.
+     *
+     * @param 'accepted'|'declined' $decision
+     */
+    public static function customerDecision(App $app, int $id, string $decision, string $reason = ''): bool
+    {
+        if (!in_array($decision, ['accepted', 'declined'], true)) {
+            return false;
+        }
+        $db = $app->db();
+        $s = $app->settings();
+        $reason = trim(mb_substr(trim((string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/u', '', str_replace("\r\n", "\n", $reason))), 0, self::CUSTOMER_REASON_MAX));
+
+        return Language::runWith(Language::defaults($s), function () use ($app, $db, $s, $id, $decision, $reason): bool {
+            $done = $db->transaction(function (Db $db) use ($app, $s, $id, $decision, $reason): ?array {
+                $db->value('SELECT status FROM {quotes} WHERE id = ? FOR UPDATE', [$id]);
+                $quote = self::get($db, $id);
+                if ($quote === null || !self::customerMayDecide($s, $quote)) {
+                    return null;
+                }
+                self::setStatus($app, $id, $decision, 0, $decision === 'declined' ? 'other' : null, 'customer');
+                $db->update('quotes', ['customer_reason' => $decision === 'declined' && $reason !== '' ? $reason : null], ['id' => $id]);
+
+                return $quote;
+            });
+            if ($done === null) {
+                return false;
+            }
+            Events::record($db, 'quote.' . $decision, 'info', mb_substr(t($decision === 'accepted' ? 'Quote %s was accepted by the customer.' : 'Quote %s was declined by the customer.', $done['label']), 0, 255), ['quote' => $id]);
+            foreach (array_unique(array_filter([$done['owner_id'] ?? $done['sent_by']])) as $person) {
+                if (Quotes::mayOpen($db, $s, (int) $person)) {
+                    Inbox::notify($app, (int) $person, $decision === 'accepted' ? 'quote_accepted' : 'quote_declined', 'quote:' . $id, null); // the number only – never the customer's words
+                }
+            }
+
+            return true;
+        }, 'admin-');
+    }
+
+    /** Did the customer decide on this quote themself (an entry "by the customer"; with $status: the last change to it)? @param array<mixed> $history */
+    public static function customerDecided(array $history, string $status = ''): bool
+    {
+        foreach (array_reverse($history) as $h) {
+            if (!is_array($h) || ($h['action'] ?? '') !== 'status') {
+                continue;
+            }
+            if ($status !== '' && ($h['to'] ?? '') === $status) {
+                return ($h['via'] ?? '') === 'customer';
+            }
+            if ($status === '' && ($h['via'] ?? '') === 'customer') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The first opening of the customer's link (3.40, setting quote_track_opened – off by default): only the time, never an
+     * address or a browser, and only the first one. Returns whether it was recorded now.
+     */
+    public static function markOpened(Db $db, int $id): bool
+    {
+        return $db->run('UPDATE {quotes} SET first_opened_at = ? WHERE id = ? AND first_opened_at IS NULL AND status <> \'draft\'', [Clock::now(), $id])->rowCount() > 0;
+    }
+
+    /** Forgets every recorded first opening (the setting quote_track_opened was switched off). Returns how many. */
+    public static function forgetOpened(Db $db): int
+    {
+        try {
+            return $db->run('UPDATE {quotes} SET first_opened_at = NULL WHERE first_opened_at IS NOT NULL')->rowCount();
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return 0; // before migration 0128
+        }
+    }
+
+    /**
+     * The price list a new quote for this customer takes (3.40): the contact's own, else its company's; null = none set
+     * (or archived, or gone) – then the default list.
+     *
+     * @return array{id: int, name: string, currency: string, is_default: bool, archived_at: ?string}|null
+     */
+    public static function customerList(Db $db, ?int $contactId, ?int $companyId): ?array
+    {
+        try {
+            $ids = [$contactId !== null && $contactId > 0 ? $db->value('SELECT price_list_id FROM {contacts} WHERE id = ?', [$contactId]) : null,
+                $companyId !== null && $companyId > 0 ? $db->value('SELECT price_list_id FROM {companies} WHERE id = ?', [$companyId]) : null];
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return null; // before migration 0128
+        }
+        foreach ($ids as $listId) {
+            $list = $listId !== null ? Prices::priceList($db, (int) $listId) : null;
+            if ($list !== null && $list['archived_at'] === null) {
+                return $list;
+            }
+        }
+
+        return null;
+    }
+
+    /** The price list chosen on a contact or company (its id, or null for none). @param 'contact'|'company' $kind */
+    public static function customerListId(Db $db, string $kind, int $id): ?int
+    {
+        try {
+            $value = $db->value('SELECT price_list_id FROM {' . ($kind === 'company' ? 'companies' : 'contacts') . '} WHERE id = ?', [$id]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return null; // before migration 0128
+        }
+
+        return $value === null ? null : (int) $value;
+    }
+
+    /**
+     * Chooses the price list of a contact or company (0 = none – the company's or the default list). Needs Quotes and
+     * Customers ($byUserId > 0). The change log names the customer by number, never a price.
+     *
+     * @param 'contact'|'company' $kind
+     * @throws \DomainException
+     */
+    public static function setCustomerList(App $app, string $kind, int $id, int $listId, int $byUserId): bool
+    {
+        $db = $app->db();
+        if ($byUserId > 0 && (!self::mayOpen($db, $app->settings(), $byUserId) || !Handover::mayOpen($db, $app->settings(), $byUserId, Contacts::SECTION))) {
+            throw new \DomainException(t('Only a user who may open Quotes and Customers chooses the price list of a customer.'));
+        }
+        $exists = $kind === 'company' ? Contacts::findCompany($db, $id) !== null : (($c = Contacts::find($db, $id)) !== null && $c['anonymised_at'] === null);
+        if (!$exists) {
+            throw new \DomainException(t($kind === 'company' ? 'The company does not exist.' : 'The contact does not exist.'));
+        }
+        if ($listId > 0) {
+            $list = Prices::priceList($db, $listId) ?? throw new \DomainException(t('The price list does not exist.'));
+            if ($list['archived_at'] !== null) {
+                throw new \DomainException(t('The price list %s is archived – choose another one.', $list['name']));
+            }
+        }
+        if (self::customerListId($db, $kind, $id) === ($listId > 0 ? $listId : null)) {
+            return false;
+        }
+        $db->update($kind === 'company' ? 'companies' : 'contacts', ['price_list_id' => $listId > 0 ? $listId : null], ['id' => $id]);
+        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'customer_list', $kind === 'company' ? t('Price list of the company #%s changed', (string) $id) : t('Price list of the customer #%s changed', (string) $id));
+
+        return true;
+    }
+
+    /**
+     * A follow-up task after sending (3.40, "Remind me in N days"): a task about the quote (target quote:<id>) due in $days
+     * days at Tasks::DEFAULT_TIME, for the responsible person – or the one who asks, when nobody is responsible (or the
+     * responsible person can no longer open Quotes). The title names the number only. Returns the task's id.
+     *
+     * @throws \DomainException
+     */
+    public static function followUp(App $app, int $quoteId, int $days, int $byUserId): int
+    {
+        $db = $app->db();
+        $quote = self::get($db, $quoteId) ?? throw new \DomainException(t('The quote does not exist.'));
+        if ($quote['status'] === 'draft') {
+            throw new \DomainException(t('A follow-up comes after the quote is sent.'));
+        }
+        $days = max(1, min(self::FOLLOW_UP_MAX_DAYS, $days));
+        $owner = $quote['owner_id'] !== null && self::mayOpen($db, $app->settings(), $quote['owner_id']) ? $quote['owner_id'] : $byUserId;
+
+        return Tasks::create($app, ['title' => t('Follow up on quote %s', $quote['label']), 'target' => 'quote:' . $quoteId, 'assignee_id' => $owner,
+            'due_at' => Clock::day('+' . $days . ' days') . ' ' . Tasks::DEFAULT_TIME], $byUserId);
     }
 
     /**
@@ -588,6 +798,7 @@ final class Quotes
         $newId = $db->transaction(function (Db $db) use ($row, $quote, $byUserId, $now, $id): int {
             $newId = $db->insert('quotes', ['number' => null, 'revision_of' => $id, 'status' => 'draft', 'snapshot' => null, 'token_hash' => null, 'token_expires_at' => null,
                 'sent_at' => null, 'sent_by' => null, 'sent_mail' => null, 'decided_at' => null, 'decided_by' => null, 'decline_reason' => null, 'anonymised_at' => null,
+                'first_opened_at' => null, 'customer_reason' => null, // 3.40
                 'created_by' => $byUserId > 0 ? $byUserId : null, 'created_at' => $now, 'updated_at' => $now,
                 'history' => (string) json_encode([['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'revision', 'note' => $quote['number']]])] + $row);
             foreach ($db->all('SELECT * FROM {quote_lines} WHERE quote_id = ? ORDER BY position, id', [$id]) as $line) {

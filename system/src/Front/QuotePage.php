@@ -53,7 +53,9 @@ final class QuotePage
             return null;
         }
 
-        return self::html(self::document($app, $quote['snapshot'], self::state($app, $quote)));
+        QuoteDecision::opened($app, $quote); // 3.40: "first opened on" (the time only) and the customer's Accept / Decline
+
+        return self::html(QuoteDecision::into($app, self::document($app, $quote['snapshot'], self::state($app, $quote)), $quote, $token));
     }
 
     /** The response of a rendered document: never cached, never indexed, no referrer, its own CSP (scripts and styles of the site only). */
@@ -61,7 +63,7 @@ final class QuotePage
     {
         return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'private, no-store', 'X-Robots-Tag' => 'noindex, nofollow',
             'Referrer-Policy' => 'no-referrer', 'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"]);
+            'Content-Security-Policy' => "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'"]); // 3.40: the customer's answer posts to the page itself
     }
 
     /**

@@ -598,7 +598,7 @@ final class QuoteDelivery
 
         return $db->run("UPDATE {quotes} SET customer_name = '', customer_company = '', customer_address = '', customer_reg_no = '', customer_vat_id = '', customer_email = '',"
             . " title = '', intro = NULL, terms = NULL, contact_id = NULL, company_id = NULL, enquiry_id = NULL, deal_id = NULL," // 3.38 review L5: free texts may name the person, the links lead to them
-            . ' snapshot = NULL, token_hash = NULL, token_expires_at = NULL, anonymised_at = ? WHERE anonymised_at IS NULL AND id IN (' . implode(',', $ids) . ')', [$now])->rowCount();
+            . ' snapshot = NULL, token_hash = NULL, token_expires_at = NULL, customer_reason = NULL, anonymised_at = ? WHERE anonymised_at IS NULL AND id IN (' . implode(',', $ids) . ')', [$now])->rowCount();
     }
 
     /* ---------- customers, enquiries and personal data ---------- */
@@ -701,7 +701,8 @@ final class QuoteDelivery
             }
             $out[] = ['id' => $q['id'], 'number' => $q['number'], 'status' => $q['status'], 'title' => $q['title'], 'customer' => $q['customer'], 'currency' => $q['currency'],
                 'intro' => $q['intro'], 'terms' => $q['terms'], 'valid_until' => $q['valid_until'], 'sent_at' => $q['sent_at'], 'created_at' => $q['created_at'], 'totals' => $q['totals'],
-                'lines' => array_map(fn (array $l): array => array_intersect_key($l, array_flip(['code', 'name', 'description', 'quantity', 'unit', 'unit_price', 'discount_percent', 'vat_rate', 'line_net'])), $q['lines'])];
+                'lines' => array_map(fn (array $l): array => array_intersect_key($l, array_flip(['code', 'name', 'description', 'quantity', 'unit', 'unit_price', 'discount_percent', 'vat_rate', 'line_net'])), $q['lines'])]
+                + array_filter(['customer_reason' => $q['customer_reason'], 'first_opened_at' => $q['first_opened_at']], fn (?string $v): bool => $v !== null); // 3.40: their own words, the first opening
         }
 
         return $out;

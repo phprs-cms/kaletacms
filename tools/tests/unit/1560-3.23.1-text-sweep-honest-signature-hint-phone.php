@@ -113,7 +113,7 @@ check('3.24 (B): the assignment e-mail – English by the site, Czech and German
 $a324App = (new ReflectionClass(Kaleta\Core\App::class))->newInstanceWithoutConstructor(); // never reaches the database: refused before it
 check('3.24 (B): no assignment e-mail to oneself, to nobody, or for an unknown kind', [
     Kaleta\Core\Assignment::notify($a324App, 'enquiry', 1, 5, 5), Kaleta\Core\Assignment::notify($a324App, 'page', 1, 0, 5), Kaleta\Core\Assignment::notify($a324App, 'news', 1, 6, 5),
-    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal', 'application'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts', 'fleet', 'fleet', 'pipeline', 'applications']]); // 3.28: customers and companies; 3.30: the console's sites and customers (tasks only); 3.31: deals; 3.34: job applications
+    array_keys(Kaleta\Core\Assignment::KINDS), array_values(Kaleta\Core\Assignment::KINDS)], [false, false, false, ['enquiry', 'page', 'item', 'contact', 'company', 'fleet_site', 'fleet_customer', 'deal', 'application', 'quote'], ['enquiries', 'pages', 'collections', 'contacts', 'contacts', 'fleet', 'fleet', 'pipeline', 'applications', 'quotes']]); // 3.28: customers and companies; 3.30: the console's sites and customers (tasks only); 3.31: deals; 3.34: job applications; 3.40: quotes (follow-up tasks)
 // the review reminder: one e-mail per person and day at most, an item once per review date; people without an owner never
 $r324 = [['kind' => 'page', 'id' => 1, 'review_by' => '2026-11-01', 'owner_id' => 3], ['kind' => 'collection_item', 'id' => 1, 'review_by' => '2026-11-02', 'owner_id' => 3],
     ['kind' => 'page', 'id' => 2, 'review_by' => '2026-11-02', 'owner_id' => 4], ['kind' => 'page', 'id' => 5, 'review_by' => '2026-11-02', 'owner_id' => null]];
@@ -422,7 +422,7 @@ check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, strin
     Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
     Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
     ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
-    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes
+    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes; 3.40: the customer's answer
 Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
 check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
@@ -914,9 +914,9 @@ $k328Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 $k328Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0114-contacts.sql');
 $k328Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|TEXT)/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
 check('[source-pin] 3.28: ka_contacts, ka_companies and ka_contact_activities alike in schema.sql and migration 0114, contact_id on enquiries, bookings and subscribers (indexed), the names map, the moments, DB version 114', [
-    // 3.38 review M3: email_by_agent_at came with migration 0124
-    array_values(array_diff($k328Columns($k328Schema, 'ka_contacts'), ['email_by_agent_at'])), array_values(array_diff($k328Columns($k328Schema, 'ka_contacts'), ['email_by_agent_at'])) === $k328Columns($k328Migration, 'ka_contacts'),
-    $k328Columns($k328Schema, 'ka_companies') === $k328Columns($k328Migration, 'ka_companies') && $k328Columns($k328Schema, 'ka_companies') !== [],
+    // 3.38 review M3: email_by_agent_at came with migration 0124; 3.40: price_list_id (contacts and companies) with migration 0128
+    array_values(array_diff($k328Columns($k328Schema, 'ka_contacts'), ['email_by_agent_at', 'price_list_id'])), array_values(array_diff($k328Columns($k328Schema, 'ka_contacts'), ['email_by_agent_at', 'price_list_id'])) === $k328Columns($k328Migration, 'ka_contacts'),
+    array_values(array_diff($k328Columns($k328Schema, 'ka_companies'), ['price_list_id'])) === $k328Columns($k328Migration, 'ka_companies') && $k328Columns($k328Schema, 'ka_companies') !== [],
     // 3.35 review L5: merged_email came with migration 0121
     array_values(array_diff($k328Columns($k328Schema, 'ka_contact_activities'), ['merged_email'])) === $k328Columns($k328Migration, 'ka_contact_activities') && $k328Columns($k328Schema, 'ka_contact_activities') !== [],
     str_contains($k328Schema, 'UNIQUE KEY ux_contacts_email (email_norm)'), preg_match_all('/ALTER TABLE ka_(poptavky|bookings|odberatele) ADD COLUMN contact_id INT UNSIGNED NULL DEFAULT NULL, ADD KEY ix_\1_contact \(contact_id\);/', $k328Migration),

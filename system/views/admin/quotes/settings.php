@@ -10,6 +10,8 @@
  * @var array<string, string> $values
  * @var string $next the number the next quote would get
  * @var list<string> $people who may open Quotes besides the administrators
+ * @var list<array{id: int, name: string, lines: int, created_by: ?int, updated_at: string}> $lineSets the saved line sets (3.40)
+ * @var array<int, string> $setOwners who saved them
  */
 ?>
 <?= $app->view->render('admin/quotes/tabs', ['module' => $module, 'current' => 'settings', 'admin' => true]) ?>
@@ -36,9 +38,40 @@
 		<span class="napoveda"><?= e(t('Counted from the last change of status; then the quote goes the way of old enquiries (deleted or without the person). 0 = keep.')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_set_deal_value" value="1"<?= $values['quote_set_deal_value'] === '1' ? ' checked' : '' ?>> <?= e(t('Sending a quote sets the value of its deal to the net total')) ?></label>
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. Won or lost is only offered, never set by itself.')) ?></span></div></div>
+	<h2><?= e(t('The customer’s page')) ?></h2>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_customer_decision" value="1"<?= $values['quote_customer_decision'] === '1' ? ' checked' : '' ?> data-quotes-decision> <?= e(t('The customer can accept or decline the quote on its page')) ?></label>
+		<span class="napoveda"><?= e(t('Accept and Decline buttons under a sent quote while it is valid; one decision, a reason for a decline is optional. The quote’s status changes “by the customer” and its responsible person gets a notification. The deal is only offered as won or lost, never moved by itself.')) ?></span></div></div>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_track_opened" value="1"<?= $values['quote_track_opened'] === '1' ? ' checked' : '' ?> data-quotes-opened> <?= e(t('Record when the customer first opens the quote')) ?></label>
+		<span class="napoveda"><?= e(t('A mild form of tracking: the quote shows the time its link was first opened – only the time, never an address or a browser. Mail filters that check links may open it before the customer does. Switching it off forgets the times recorded so far.')) ?></span></div></div>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
 <?= $app->view->render('admin/quotes/texts', ['app' => $app, 'module' => $module, 'csrf' => $csrf]) ?>
+<section id="line-sets" data-quotes-line-sets aria-labelledby="nabidky-sady">
+<h2 id="nabidky-sady"><?= e(t('Saved line sets')) ?></h2>
+<p class="napoveda"><?= e(t('Lines kept under a name in the editor of a quote (Save as a set) and inserted into another quote in one step. Inserting takes the prices of products and own rows from that quote’s price list.')) ?></p>
+<?php if ($lineSets === []): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('No line sets yet'), 'text' => t('Save the lines of a draft as a set in its editor.')]) ?>
+<?php else: ?>
+<div class="tab-obal">
+<table class="vypis vypis-karty">
+<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col" class="cislo"><?= e(t('Lines')) ?></th><th scope="col"><?= e(t('Saved')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<tbody>
+<?php foreach ($lineSets as $set): ?>
+<tr data-line-set="<?= (int) $set['id'] ?>">
+	<td><form class="vradku" method="post" action="<?= e($module->url('line_set_rename')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $set['id'] ?>">
+		<input class="textpole" type="text" name="name" value="<?= e($set['name']) ?>" maxlength="<?= Kaleta\Core\QuoteLineSets::NAME_MAX ?>" aria-label="<?= e(t('Name of the line set')) ?>" required>
+		<button class="navigace" type="submit"><?= e(t('Rename')) ?></button></form></td>
+	<td class="cislo" data-popisek="<?= e(t('Lines')) ?>"><?= format_count($set['lines']) ?></td>
+	<td data-popisek="<?= e(t('Saved')) ?>"><?= e(format_date($set['updated_at'], true)) ?><?= $set['created_by'] !== null && ($setOwners[$set['created_by']] ?? '') !== '' ? ' · ' . e($setOwners[$set['created_by']]) : '' ?></td>
+	<td data-popisek="<?= e(t('Actions')) ?>"><form method="post" action="<?= e($module->url('line_set_delete')) ?>" data-potvrdit="<?= e(t('Delete the line set “%s”? Quotes made with it keep their lines.', $set['name'])) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $set['id'] ?>">
+		<button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+<?php endif ?>
+</section>
 <section data-quotes-people aria-labelledby="nabidky-kdo">
 <h2 id="nabidky-kdo"><?= e(t('Who may open Quotes')) ?></h2>
 <p class="napoveda"><?= $module->hint(t('Administrators, and whoever you give the section Quotes in Users or Roles; changing prices needs the permission “Quotes: change internal prices” as well.')) ?></p>

@@ -328,3 +328,92 @@
 		}
 	}
 }
+
+/* 3.40: the customer's answer under the quote (Front\QuoteDecision – Accept / Decline in two folded steps, no script) */
+@layer sablona {
+	.quote-decision {
+		margin-block-start: var(--ka-mezera-l, 2rem);
+		padding: var(--ka-mezera-m, 1.25rem);
+		border: 1px solid color-mix(in oklch, var(--ka-barva-text, #1f2328) 18%, transparent);
+		border-radius: var(--ka-zaobleni, 6px);
+	}
+
+	.quote-decision h2 {
+		margin: 0 0 var(--ka-mezera-s, 0.75rem);
+		font-size: 1.1em;
+	}
+
+	.quote-decision p {
+		margin: 0;
+	}
+
+	.quote-decision-steps {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ka-mezera-s, 0.75rem);
+		align-items: start;
+	}
+
+	.quote-decision-step {
+		flex: 1 1 16rem;
+	}
+
+	.quote-decision-step summary {
+		list-style: none;
+	}
+
+	.quote-decision-step summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.quote-decision-step form {
+		display: grid;
+		gap: var(--ka-mezera-s, 0.75rem);
+		margin-block-start: var(--ka-mezera-s, 0.75rem);
+	}
+
+	.quote-decision-step textarea {
+		inline-size: 100%;
+		box-sizing: border-box;
+		padding: 0.5em 0.7em;
+		border: 1px solid color-mix(in oklch, var(--ka-barva-text, #1f2328) 35%, transparent);
+		border-radius: var(--ka-zaobleni, 6px);
+		background: var(--ka-barva-pozadi, #ffffff);
+		color: inherit;
+		font: inherit;
+	}
+
+	.quote-button {
+		display: inline-block;
+		padding: 0.6em 1.1em;
+		border: 1px solid var(--ka-barva-primarni, #1f2328);
+		border-radius: var(--ka-zaobleni, 6px);
+		background: var(--ka-barva-pozadi, #ffffff);
+		color: var(--ka-barva-text, #1f2328);
+		font: inherit;
+		font-weight: 600;
+		text-align: center;
+		cursor: pointer;
+	}
+
+	.quote-button-primary {
+		background: var(--ka-barva-primarni, #1f2328);
+		color: var(--ka-barva-na-primarni, #ffffff);
+	}
+
+	.quote-button:focus-visible,
+	.quote-decision-step textarea:focus-visible {
+		outline: 3px solid color-mix(in oklch, var(--ka-barva-primarni, #1f2328) 45%, transparent);
+		outline-offset: 2px;
+	}
+
+	.quote-decision-step[open] > summary {
+		opacity: 0.7;
+	}
+
+	@media print {
+		.quote-decision {
+			display: none;
+		}
+	}
+}

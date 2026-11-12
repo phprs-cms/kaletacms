@@ -57,6 +57,8 @@ final class Settings
         'quote_link_days' => '30',      // the customer's link stops working this many days after the validity
         'quotes_months' => '36',        // retention: months after the last status change; 0 = keep
         'quote_set_deal_value' => '1',  // sending offers to set the linked deal's value to the net total (ticked by default)
+        'quote_customer_decision' => '0', // 3.40: the customer may accept or decline a sent, valid quote on its page (design A-12: off by default)
+        'quote_track_opened' => '0',    // 3.40: record when the customer's link is first opened – the time only (a mild form of tracking, off by default)
         'contacts_months' => '24',      // 3.28 (Core\Contacts): a contact with no activity for this many months is anonymised by the clean-up; 0 = keep. Migration 0114 starts it at enquiries_months
         'whistleblowing_enabled' => '0',  // the whistleblowing channel at /_report (2.14, Core\Whistleblowing)
         'whistleblowing_readers' => '',   // ids of the users who may open reports (comma-separated); nobody else sees their content

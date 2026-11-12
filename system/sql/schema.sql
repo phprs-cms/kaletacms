@@ -672,6 +672,7 @@ CREATE TABLE ka_contacts (
     updated_at       DATETIME NOT NULL,
     anonymised_at    DATETIME NULL,
     email_by_agent_at DATETIME NULL,                     -- 3.38 review M3: a Claude connection last set the e-mail (send_quote refuses it); NULL = a person, a form, the site
+    price_list_id    INT UNSIGNED NULL,                  -- 3.40: the internal price list of a new quote for this contact (NULL = the company's or the default)
     PRIMARY KEY (id),
     UNIQUE KEY ux_contacts_email (email_norm),
     KEY ix_contacts_owner (owner_id),
@@ -691,6 +692,7 @@ CREATE TABLE ka_companies (
     note            TEXT NULL,
     created_at      DATETIME NOT NULL,
     updated_at      DATETIME NOT NULL,
+    price_list_id   INT UNSIGNED NULL,                   -- 3.40: the internal price list of a new quote for this company (NULL = the default)
     PRIMARY KEY (id),
     KEY ix_companies_domain (domain),
     KEY ix_companies_owner (owner_id)
@@ -877,6 +879,8 @@ CREATE TABLE ka_quotes (
     created_at       DATETIME NOT NULL,
     updated_at       DATETIME NOT NULL,
     anonymised_at    DATETIME NULL,                          -- the customer block blanked
+    first_opened_at  DATETIME NULL,                          -- 3.40: the customer's link first opened – the time only, only with quote_track_opened
+    customer_reason  VARCHAR(1000) NULL,                     -- 3.40: the customer's own words when they declined on the quote page
     PRIMARY KEY (id),
     UNIQUE KEY ux_quotes_number (number),
     UNIQUE KEY ux_quotes_token (token_hash),
@@ -907,6 +911,18 @@ CREATE TABLE ka_quote_lines (
     line_net         DECIMAL(14,2) NOT NULL DEFAULT 0.00,    -- after the line's own discount, before the whole-quote discount
     PRIMARY KEY (id),
     KEY ix_quote_lines_quote (quote_id, position)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.40: saved line sets (Core\QuoteLineSets) – lines kept under a name; product and own-row prices are read again at insertion.
+CREATE TABLE ka_quote_line_sets (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(120) NOT NULL,
+    content     MEDIUMTEXT NOT NULL,                         -- JSON list {item_id, variant_code, code, name, description, quantity, unit, unit_price, discount_percent, vat_rate}
+    created_by  INT UNSIGNED NULL,
+    created_at  DATETIME NOT NULL,
+    updated_at  DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_quote_line_sets_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_quote_counters (

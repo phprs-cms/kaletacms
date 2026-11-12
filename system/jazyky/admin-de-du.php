@@ -1404,4 +1404,11 @@ return [
     'A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.' => 'Eine Verbindung nur für Entwürfe kann keine Notiz ändern, die eine Person oder eine Verbindung mit vollem Zugriff geschrieben hat – schreib stattdessen eine neue Notiz als Vorschlag.',
     'The key %s belongs to a blueprint that ships with Kaleta – give your own blueprint another key.' => 'Der Schlüssel %s gehört zu einer Branchenvorlage, die mit Kaleta ausgeliefert wird – gib deiner Vorlage einen anderen Schlüssel.',
     'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.' => 'Das Konto ist wieder aktiv – der Benutzer kann sich wieder anmelden. Seine Claude-Verbindungen und persönlichen Tokens wurden widerrufen (%d); um sie zu behalten, entferne stattdessen das Häkchen im Formular des Benutzers.',
+    'Give the line set a name.' => 'Gib der Positionsvorlage einen Namen.',
+    'A site keeps at most %d line sets – delete one in Quotes → Settings first.' => 'Eine Website behält höchstens %d Positionsvorlagen – lösche zuerst eine unter Angebote → Einstellungen.',
+    'Choose a line set to insert.' => 'Wähle eine Positionsvorlage zum Einfügen.',
+    'You are responsible for the quote %s' => 'Du bist für das Angebot %s verantwortlich',
+    '%s made you the responsible person for the quote %s.' => '%s hat dich als verantwortliche Person für das Angebot %s eingetragen.',
+    'A task about this quote for its responsible person (for you when nobody is responsible).' => 'Eine Aufgabe zu diesem Angebot für die verantwortliche Person (für dich, wenn niemand verantwortlich ist).',
+    'Save the lines of a draft as a set in its editor.' => 'Speichere die Positionen eines Entwurfs im Editor als Vorlage.',
 ];

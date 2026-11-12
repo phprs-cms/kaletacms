@@ -32,6 +32,7 @@
  * @var bool $dealValue
  * @var int $me
  * @var bool $canDelete
+ * @var list<array{id: int, name: string, lines: int, created_by: ?int, updated_at: string}> $lineSets the saved line sets (3.40, Core\QuoteLineSets)
  */
 use Kaleta\Core\Money;
 use Kaleta\Core\Quotes;
@@ -145,6 +146,29 @@ foreach ($lines as $line) {
 <p class="tlacitka"><button class="navigace" type="submit" name="next" value="add" data-quote-add-line><?= e(t('Add to the quote')) ?></button></p>
 <p class="napoveda"><?= e(t('Prices come from the price list %s (%s) without VAT; a different price is kept as a manual price.', $list['name'], $list['currency'])) ?></p>
 </fieldset>
+
+<?php if ($lineSets !== [] || $lines !== []): /* 3.40: saved line sets – insert one, or keep these lines as one */ ?>
+<fieldset class="nabidka-pridat" id="line-sets" data-quote-line-sets>
+<legend><?= e(t('Saved line sets')) ?></legend>
+<?php if ($lineSets !== []): ?>
+<div class="zaznam-dvojice">
+	<div class="zaznam-pole"><label for="nabidka-sada"><?= e(t('Insert a line set')) ?></label><select id="nabidka-sada" name="line_set"><option value="">—</option>
+<?php foreach ($lineSets as $set): ?>
+		<option value="<?= (int) $set['id'] ?>"><?= e($set['name'] . ' · ' . t('%d lines', $set['lines'])) ?></option>
+<?php endforeach ?>
+	</select></div>
+</div>
+<p class="tlacitka"><button class="navigace" type="submit" name="next" value="line_set" data-quote-insert-set><?= e(t('Insert the set')) ?></button></p>
+<?php endif ?>
+<?php if ($lines !== []): ?>
+<div class="zaznam-dvojice">
+	<div class="zaznam-pole"><label for="nabidka-sada-nazev"><?= e(t('Save these lines as a set')) ?></label><input class="textpole" type="text" id="nabidka-sada-nazev" name="set_name" maxlength="<?= Kaleta\Core\QuoteLineSets::NAME_MAX ?>" placeholder="<?= e(t('For example: Laser with installation')) ?>"></div>
+</div>
+<p class="tlacitka"><button class="navigace" type="submit" name="next" value="save_set" data-quote-save-set><?= e(t('Save as a set')) ?></button></p>
+<?php endif ?>
+<p class="napoveda"><?= e(t('Inserting a set adds its lines below these: products and own rows take their price from this quote’s price list now, free lines keep theirs. Saving under the name of an existing set replaces its lines.')) ?></p>
+</fieldset>
+<?php endif ?>
 
 <section class="zaznam-panel nabidka-soucty" aria-labelledby="nabidka-soucty" data-quote-sum aria-live="polite">
 <h2 id="nabidka-soucty"><?= e(t('Totals')) ?></h2>
