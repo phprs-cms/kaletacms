@@ -338,6 +338,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Souhrn týmu (3.41, `Core\TeamSummary`):** Moje práce → Souhrn a MCP `team_summary` (sada Work) – jen počty za období pro sekce,
+  které člověk smí otevřít; po lidech jen správce, ostatní vlastní řádek a součty; měsíční report jen součty týmu bez jmen. Karta
+  obchodu: dní v etapě (`Deals::stageSince`) a další krok (`Tasks::nextFor`).
+- **Bezpečnost 3.41:** odkazy na obnovu hesla a pozvánky končí změnou e-mailu nebo hesla a přihlášením (`PasswordReset::cancel`); pošta
+  s odkazem předává `expires`. Každá změna druhého faktoru volá `Auth::newEpoch` (migrace 0130). Kořenový .htaccess drží pravidla Kalety
+  v bloku `# BEGIN Kaleta` … `# END Kaleta sha256:` – úprava bloku = nový otisk (hlídá unit test). Zdroj aktualizací jen https (http jen
+  na testovací kopii). Odpovědi konzole nesou `site_id` a `ts`. Vložené skripty náhledů přes `Csp::attribute()`, kód správce přes
+  `Csp::withNonce()`.
 - **Nabídky II a přihlášky II (3.40, migrace 0128 a 0129):** PDF nabídky vlastním `Core\Pdf` (standardní písma, WinAnsi +
   Differences, ToUnicode; bez cizí knihovny), `Front\QuotePdf` ze snapshotu; `/quote/<token>.pdf` a admin akce `pdf` vždy jako příloha,
   bez cache; písmo, které PDF nenakreslí (řečtina, cyrilice, CJK, RTL) = jen tisková stránka; přílohy jen přes `Mail::send(..., $attachments)`.

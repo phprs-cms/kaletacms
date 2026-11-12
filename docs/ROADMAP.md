@@ -2043,6 +2043,32 @@ Migrations 0128 (`price_list_id` on `ka_contacts` and `ka_companies`, quote deci
    the choice). Optional webhook `webhook_applications` (`application.received`, number and position only). The deletion
    reminder goes out once per deletion day, also for hired applications.
 
+## 3.41 – team summary, the deal card, the last audit findings (13 November 2026)
+
+Migration 0130 adds `ka_uzivatele.sign_in_epoch`; `KALETA_DB_VERSION` 130.
+
+1. **Step 7 – team summary, counts only** (owner decision 9). `Core\TeamSummary`: My work → Summary (`?period=` 7d, 30d,
+   this month, last month, 90d) – enquiries open and answered, tasks open/overdue/done, deal moves/won/lost, applications
+   changed, quotes sent/accepted (`QuoteDelivery::countsByPerson`), only for sections the person may open. Administrators see a
+   row per person; everyone else their own row and the team total. MCP `team_summary` (read, Work set; `people` only for
+   administrators). The monthly report gets team totals without names (`monthTotals`). `TeamSummary::NOT_SPAM` mirrors
+   `Enquiries::NOT_SPAM` (Core may not call Admin; a unit test keeps them equal).
+2. **The deal card.** Board cards and the deal detail show days in the current stage (`Deals::stageSince`) and the next step –
+   the open task about the deal due first (`Tasks::nextFor`) or "No next step".
+3. **Audit findings N113–N123** (N115 was already done in 3.35). N113 reset and invitation links end on an e-mail or password
+   change and on a completed sign-in (`PasswordReset::cancel`); a sign-in-page request never replaces a pending invitation; one
+   link per account per 15 minutes. N114 mail with a link passes `expires` – an expired queued copy is dropped; backups leave
+   out unsent bodies with a live link. N116 every change of the second factor calls `Auth::newEpoch` and ends the account's
+   other sign-ins (an administrator's reset ends all). N117 a failed sign-in logs only an existing account's stored name, else
+   "unknown account". N118 the root .htaccess keeps Kaleta's rules in a hashed `# BEGIN Kaleta` … `# END Kaleta sha256:` block
+   that an update replaces when unchanged, keeping the owner's lines; System status lists lines to carry over. N119 every
+   redirect hop of the update source is checked; plain http to localhost only on a test copy. N120 export names get a random
+   part; daily job `server_rules` checks that storage/ and system/ are not served. N121 the console's signed answer carries
+   `site_id` and `ts` (older consoles accepted until a bound answer was seen). N122 the reviews JSON-LD uses `JSON_HEX_TAG`.
+   N123 OAuth redirect hosts must be plain DNS names; an unapproved app on a Claude address gets the "only if you started
+   this" warning. **CSP in previews:** draft builds, preview links, site and look previews and the popup/component canvases
+   send `script-src 'self' 'nonce-…'` (`Csp::attribute()`, `Csp::withNonce()` for administrator-written code).
+
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 
 **No English renaming of tables or columns – not in 4.0 and not later.** The owner rejected it on 21 and 22 October 2026
