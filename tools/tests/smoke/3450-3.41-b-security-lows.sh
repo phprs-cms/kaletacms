@@ -83,3 +83,17 @@ expect "3.41 N114: the expired link is dropped with its reason; the backup has t
   "$(sq "SELECT CONCAT(telo IS NULL, '|', odeslano IS NULL, '|', chyba) FROM ka_posta WHERE komu = 's341-old@example.com'")|$S341_DUMP|$S341_PLAIN|$(sq "SELECT telo IS NOT NULL FROM ka_posta WHERE komu = 's341-live@example.com'")" \
   "1|1|The link in the message expired before the message could be sent.|1|plain-body-s341|1"
 rm -f "$WORK/web/storage/zalohy/$S341_BACKUP"; sq "DELETE FROM ka_posta WHERE idp > $S341_M0" > /dev/null
+
+# N116: a change of the second factor ends the other sign-ins of the account; the one that made it stays signed in
+sq "UPDATE ka_uzivatele SET passkey_only = 1 WHERE idu = $S341_INV" > /dev/null
+s341_signin() { curl -s -c "$1" -o "$WORK/response" "$B/admin.php"; curl -s -b "$1" -c "$1" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(s341_csrf "$WORK/response")" -d user=s341inv --data-urlencode "password=S341-invited-pw-1"; }
+s341_signed_in() { curl -s -b "$1" -c "$1" -o "$WORK/response" "$B/admin.php?action=account"; grep -c 'name="co" value="profil"' "$WORK/response" || true; }
+S341_A="$WORK/jar-s341a"; S341_B="$WORK/jar-s341b"; rm -f "$S341_A" "$S341_B"
+S341_IN="$(s341_signin "$S341_A")|$(s341_signin "$S341_B")|$(s341_signed_in "$S341_A")|$(s341_signed_in "$S341_B")"
+curl -s -b "$S341_A" -c "$S341_A" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$S341_A" -c "$S341_A" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$(s341_csrf "$WORK/response")" -d co=passkey_only --data-urlencode "soucasne=S341-invited-pw-1"
+expect "3.41 N116: switching \"passkey only\" off in one sign-in ends the other one; the first stays signed in" \
+  "$S341_IN|$(sq "SELECT passkey_only FROM ka_uzivatele WHERE idu = $S341_INV")|$(s341_signed_in "$S341_A")|$(s341_signed_in "$S341_B")" "302|302|1|1|0|1|0"
+sq "UPDATE ka_uzivatele SET sign_in_epoch = sign_in_epoch + 1 WHERE idu = $S341_INV" > /dev/null
+expect "3.41 N116: a second-factor change made elsewhere (an administrator's reset raises the account's epoch) ends that sign-in as well" "$(s341_signed_in "$S341_A")" "0"
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $S341_INV; DELETE FROM ka_uzivatele WHERE idu = $S341_INV" > /dev/null

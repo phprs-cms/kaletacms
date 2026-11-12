@@ -4940,6 +4940,8 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
   const siteUrl = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'").trim();
   const adminId = sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim();
   const codesBefore = sql(`SELECT IFNULL(totp_zalozni, '') FROM ka_uzivatele WHERE idu = ${adminId}`).trim();
+  // 3.41 (N116): adding the passkey in this other context ends the main page's sign-in – the epoch is put back below
+  const epochBefore = Number(sql(`SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = ${adminId}`).trim()) || 0;
   sql(`UPDATE ka_nastaveni SET hodnota = '${local}' WHERE promenna = 'site_url'`);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
   try {
@@ -4999,7 +5001,7 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
   } finally {
     await ctx.close();
     sql(`UPDATE ka_nastaveni SET hodnota = '${siteUrl}' WHERE promenna = 'site_url'; DELETE FROM ka_uzivatele_klice WHERE idu = ${adminId};
-      UPDATE ka_uzivatele SET totp_zalozni = ${codesBefore === '' ? 'NULL' : `'${codesBefore}'`}, passkey_handle = '' WHERE idu = ${adminId}`);
+      UPDATE ka_uzivatele SET totp_zalozni = ${codesBefore === '' ? 'NULL' : `'${codesBefore}'`}, passkey_handle = '', sign_in_epoch = ${epochBefore} WHERE idu = ${adminId}`);
   }
 });
 

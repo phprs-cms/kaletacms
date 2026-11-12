@@ -189,6 +189,7 @@ final class Account
                     }
                     $app->session->remove('totp_nove');
                     ChangeLog::write($app, 'ucet', 'two_factor_on');
+                    $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 (N116): the other sign-ins end
                     // the backup codes are shown only now - hence no redirect
                     return $this->page(['backupCodes' => $codes] + $data);
                 case 'klic_moznosti':
@@ -202,6 +203,7 @@ final class Account
                     }
                     $name = (string) $db->value('SELECT nazev FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
                     $db->run('DELETE FROM {uzivatele_klice} WHERE idk = ? AND idu = ?', [$r->postInt('idk'), $user['idu']]);
+                    $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 (N116)
                     ChangeLog::write($app, 'ucet', 'passkey_remove', $name);
                     $message = ['ok', 'The passkey has been removed.'];
                     break;
@@ -225,6 +227,7 @@ final class Account
                         break;
                     }
                     $db->update('uzivatele', ['passkey_only' => $on ? 1 : 0], ['idu' => $user['idu']]);
+                    $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 (N116)
                     ChangeLog::write($app, 'ucet', $on ? 'passkey_only_on' : 'passkey_only_off');
                     $message = ['ok', $on ? 'Done – you sign in with your passkey only. A backup code after the password stays your way back if you lose it.' : 'Done – you can sign in with your password and the second step again.'];
                     break;
@@ -256,6 +259,7 @@ final class Account
                     // when a passkey is lost); an account without passkeys loses the codes with the app, as before
                     $keepsCodes = $app->auth()->accountKeys((int) $user['idu']) !== [];
                     $db->update('uzivatele', ['totp_tajemstvi' => ''] + ($keepsCodes ? [] : ['totp_zalozni' => null]), ['idu' => $user['idu']]);
+                    $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 (N116)
                     ChangeLog::write($app, 'ucet', 'two_factor_off');
                     $message = ['ok', $keepsCodes ? 'Two-factor sign-in with the app is turned off. Your passkeys and backup codes stay.' : 'Two-factor sign-in is turned off.'];
                     break;
@@ -493,6 +497,7 @@ final class Account
                 $firstCodes = null; // 3.35 review L4: codes made meanwhile (another tab) stay – nothing new to show
             }
         });
+        $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 (N116): the other sign-ins of the account end
         ChangeLog::write($app, 'ucet', 'passkey_add', $name . ($replaced !== null ? ' (' . t('registered again') . ')' : ''));
         if ($firstCodes !== null) {
             $app->session->set('backup_codes_show', $firstCodes[0]);

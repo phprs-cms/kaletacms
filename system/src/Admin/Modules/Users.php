@@ -211,6 +211,7 @@ final class Users extends Module
                 }
                 if ($totpReset) {
                     $this->db->run('DELETE FROM {uzivatele_klice} WHERE idu = ?', [$id]); // the lost passkeys go with the second factor
+                    $this->app->auth()->newEpoch($id); // 3.41 (N116): and every sign-in of the account ends
                 }
                 if (isset($data['password'])) {
                     \Kaleta\Front\OAuth::revokeConnections($this->db, $id); // a new password ends the user's Claude connections (N39-1)
