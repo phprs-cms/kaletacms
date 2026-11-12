@@ -399,6 +399,10 @@ final class Quotes
 
         $now = Clock::now();
         $id = $db->transaction(function (Db $db) use ($quote, $data, $lines, $byUserId, $now): int {
+            // 3.38 review M2: the status is checked again under the row lock – a save that overlaps Send never changes a numbered quote
+            if ($quote !== null && $db->value('SELECT status FROM {quotes} WHERE id = ? FOR UPDATE', [$quote['id']]) !== 'draft') {
+                throw new \DomainException(t('A sent quote is frozen – revise it to make a new draft.'));
+            }
             if ($quote === null) {
                 $id = $db->insert('quotes', $data + ['status' => 'draft', 'number' => null, 'revision_of' => null, 'created_by' => $byUserId > 0 ? $byUserId : null, 'created_at' => $now, 'updated_at' => $now,
                     'history' => (string) json_encode([['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'created']])]);
@@ -459,12 +463,18 @@ final class Quotes
             throw new \DomainException($refusal);
         }
         $now = Clock::now();
-        $snapshot = self::snapshot($app, $quote);
-        $number = $db->transaction(function (Db $db) use ($app, $quote, $byUserId, $mailId, $action, $now, $snapshot): string {
-            $locked = $db->one('SELECT status, number FROM {quotes} WHERE id = ? FOR UPDATE', [$quote['id']]);
+        $number = $db->transaction(function (Db $db) use ($app, $id, $byUserId, $mailId, $action, $now): string {
+            $locked = $db->one('SELECT status, number FROM {quotes} WHERE id = ? FOR UPDATE', [$id]);
             if ($locked === null || $locked['status'] !== 'draft') {
                 throw new \DomainException(t('The quote was already sent.'));
             }
+            // 3.38 review M2: the frozen document (and the totals the deal value takes) is built from the quote as it is under the lock
+            $quote = self::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
+            $refusal = self::sendRefusal($quote, $action === 'sent');
+            if ($refusal !== null) {
+                throw new \DomainException($refusal);
+            }
+            $snapshot = self::snapshot($app, $quote);
             $number = $locked['number'] !== null ? (string) $locked['number'] : self::assignNumber($db, $app->settings(), $quote['revision_of']);
             $snapshot['number'] = $number;
             $snapshot['sent_at'] = $now;
@@ -594,10 +604,11 @@ final class Quotes
         if ($deal === null) {
             return false;
         }
-        if ($deal['value'] !== null && Money::fromDecimal($deal['value']) === Money::fromDecimal($quote['totals']['net']) && $deal['currency'] === $quote['currency']) {
+        $net = (string) ($quote['snapshot']['totals']['net'] ?? $quote['totals']['net']); // 3.38 review M2: the frozen document's total once sent
+        if ($deal['value'] !== null && Money::fromDecimal($deal['value']) === Money::fromDecimal($net) && $deal['currency'] === $quote['currency']) {
             return false;
         }
-        Deals::save($app, $deal['id'], ['value' => $quote['totals']['net'], 'currency' => $quote['currency']], $byUserId);
+        Deals::save($app, $deal['id'], ['value' => $net, 'currency' => $quote['currency']], $byUserId);
 
         return true;
     }
