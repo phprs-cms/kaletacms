@@ -66,3 +66,8 @@ if (function_exists('imagecreatetruecolor') && function_exists('imagejpeg')) {
         strlen($r340Big) > Kaleta\Core\Pdf::JPEG_BYTES && strlen($r340Big) <= Kaleta\Core\Pdf::IMAGE_BYTES, $r340B !== null && ($r340B[0] === 'DCTDecode' && $r340B[1] <= Kaleta\Core\Pdf::JPEG_BYTES && $r340B[2] <= Kaleta\Core\Pdf::IMAGE_SIDE),
         $r340S === null ? null : [$r340S[0], $r340S[1] === strlen($r340SmallJpeg)]], [true, true, ['DCTDecode', true]]);
 }
+
+// L6: System status knows every webhook address setting (a new one is listed in Health::WEBHOOK_SETTINGS, or this fails)
+check('3.40 review L6: Health::WEBHOOK_SETTINGS are exactly the webhook address settings – webhook_applications included', [
+    array_values(array_filter(array_keys(Kaleta\Core\Settings::DEFAULTS), fn (string $k): bool => str_starts_with($k, 'webhook_') && !in_array($k, ['webhook_secret', 'webhook_test_url'], true))),
+    in_array('webhook_applications', Kaleta\Core\Health::WEBHOOK_SETTINGS, true)], [Kaleta\Core\Health::WEBHOOK_SETTINGS, true]);

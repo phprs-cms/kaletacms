@@ -10,6 +10,9 @@ namespace Kaleta\Core;
  */
 final class Health
 {
+    /** The settings holding a webhook address: one filled in shows the Webhooks row (3.40 review L6: applications too). */
+    public const array WEBHOOK_SETTINGS = ['webhook_url', 'webhook_enquiries', 'webhook_applications'];
+
     /**
      * $leaving = the checks go out of the site (the fleet heartbeat, the monthly report – 3.16, N316-3): the background job
      * and the events of the whistleblowing channel are left out of them (Whistleblowing::concerns).
@@ -288,7 +291,7 @@ final class Health
             }
         }
         $given = (int) $db->value('SELECT COUNT(*) FROM {webhook_deliveries} WHERE delivered IS NULL AND next_attempt IS NULL AND created > ?', [Clock::at('-7 days')]);
-        if ($given > 0 || $siteSettings->get('webhook_url') !== '' || $siteSettings->get('webhook_enquiries') !== '') {
+        if ($given > 0 || array_filter(self::WEBHOOK_SETTINGS, fn (string $key): bool => $siteSettings->get($key) !== '') !== []) {
             $add(t('Operation'), t('Webhooks'), $given === 0 ? 'ok' : 'varovani', $given === 0 ? t('all calls of the last 7 days delivered') : t('%d call(s) of the last 7 days not delivered – see Settings → Webhooks', $given));
         }
         $cron = $siteSettings->int('tasks_last_run');
