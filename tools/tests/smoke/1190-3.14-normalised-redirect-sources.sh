@@ -10,8 +10,8 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.39: System status lists the colliding redirects and has no Ready for 4.0 section" \
   "$(contains -F '/R314-Stara/ = /r314-stara' "$WORK/response" && echo redirects)|$(grep -c 'id="ready-4"\|Připraveno na 4.0' "$WORK/response" || true)" "redirects|0"
 mcp get_health '{}' > "$WORK/response"
-expect "3.39: get_health keeps its keys, reports the redirect group as a problem and no longer has ready_for_4_0" \
-  "$(mcp_value status | grep -cE '^(ok|warning|error)$')|$(grep -c 'Old addresses of redirects' "$WORK/response")|$(grep -c 'ready_for_4_0' "$WORK/response" || true)" "1|1|0"
+expect "3.39: get_health keeps its keys, reports the redirect group as a problem and keeps ready_for_4_0 in its old shape (status ok, no checks) with planned false" \
+  "$(mcp_value status | grep -cE '^(ok|warning|error)$')|$(grep -c 'Old addresses of redirects' "$WORK/response")|$(mcp_value ready_for_4_0 status)|$(mcp_value ready_for_4_0 checks)|$(mcp_value ready_for_4_0 planned)" "1|1|ok|[]|"
 # N314-2: editing the old address of a redirect normalises it again (lookups read source_norm since 3.19)
 R314ID=$(sq "SELECT idp FROM ka_presmerovani WHERE z_adresy = 'r314-stara'"); R314ID="${R314ID:-0}"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$TOKEN" -d idp=$R314ID -d z_adresy=/r314-Nova -d na_adresu=/kontakt -d typ=301
