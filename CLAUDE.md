@@ -338,6 +338,16 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Flotila 3.39:** Dnes po kontrolách (`Fleet\Health::groups`); přijetí stavu (`Fleet\Acceptances`, `ka_fleet_acceptances`, migrace 0125):
+  jedna kontrola jednoho webu, poznámka + poslední den, jen v konzoli; platí do dne nebo do změny stavu; upozornění, připomínky a souhrn
+  ho přeskočí; MCP značí `accepted` aditivně. Šest sekcí `Fleet::SECTIONS`, dřívější záložky zůstávají jako pohledy.
+- **Bezpečnost 3.39:** tajná nastavení `Vault::SECRET_SETTINGS` a TOTP semínka jsou zapečetěná (`kaleta-sealed:`) jen s klíčem
+  v config.php – čti a zapisuj přes Settings / `Vault::openSecret`/`sealSecret`; nové pole typu `tajne` patří do seznamu (unit 3050).
+  Nástroj MCP, který posílá e-mail mimo tým nebo trvale maže, patří do `Mcp\Confirmation::TOOLS` (první volání vrátí kód, druhé nese
+  `confirmation`); smoke používá `mcp_call`. Poznámky ze spojení jen na koncepty jsou návrhy (`via`/`access`), nikdy připnuté.
+- **Tabulky ani sloupce se nikdy nepřejmenovávají do angličtiny** (rozhodnutí 21.–22. 10. a 10. 11. 2026, ROADMAP „Path to 4.0“);
+  `Core\Names` jsou jen anglické aliasy. **Vrstvy kódu** (`docs/design/code-layers.md`, unit 3100): Core neodkazuje na
+  Admin/Front/Builder/Fleet/Mcp, Mcp ne na `Admin\Modules`; zmrazený seznam výjimek jen ubývá.
 - **Interní ceník a nabídky (3.38, migrace 0123):** `Core\Money` (jen celá čísla), `Core\Prices`, `Core\Quotes`, `Core\QuoteDelivery`;
   rozšíření a sekce `quotes` (přidělují se výslovně), oblast `prices_edit`. Ceny jen v `ka_prices`, nikdy v položce; pět tabulek smí
   jmenovat jen třídy z povolovacího seznamu (unit 2800). Číslo nabídky vzniká při prvním odeslání nebo Dokončení, počitadlo po rocích.

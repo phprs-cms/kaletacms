@@ -1979,6 +1979,41 @@ administrators), area `prices_edit` (`Auth::canEditPrices()`).
 
 Not in 3.38 (3.40, Q2): PDF, a price list per company or contact, customer Accept/Decline on the page, "first opened on".
 
+## 3.39 – Fleet Today by check, encrypted secrets, two-step confirmation (12 November 2026)
+
+Migrations 0125 (`ka_fleet_acceptances`) and 0126 (`ka_uzivatele.totp_tajemstvi` VARCHAR(255), `ka_notebook.via`,
+`ka_notebook.access`); `KALETA_DB_VERSION` 126.
+
+1. **Fleet Today by check.** `Fleet\Health::groups`: one group per check, red first and open, amber folded over
+   `Health::FOLD_OVER`; overdue tasks and a held rollout are groups of their own; every row has a plain link to the site's
+   admin. **Accepting a state** (owner decision 11): `Fleet\Acceptances` – one check of one site in the console's current
+   state, a note and a last day (30 days by default, at most 365), console only, nothing reaches the site; it holds until the
+   day or until the state changes (a worse state reopens it), job `fleet_alerts` drops stale ones; alerts
+   (`AlertRules::CHECK_OF`), certificate and domain reminders skip it, the weekly digest lists it as accepted. MCP additive:
+   `fleet_today` items `accepted`, summary `open`/`accepted`, `groups`; `fleet_health` problems `accepted`; `fleet_plan`
+   leaves accepted states out (`accepted_left_out`). Six sections (`Fleet::SECTIONS`) instead of twelve tabs; former tabs
+   stay as views at their old addresses.
+2. **N106 – secrets at rest.** `Vault::SECRET_SETTINGS` (smtp_password, backup_password, ai_key, newsletter_key,
+   captcha_secret, webhook_secret, site_key_secret) and the accounts' TOTP seeds are sealed (`kaleta-sealed:`, Core\Vault
+   purposes `settings`/`totp`) – only with the key in config.php; `Settings::get/set` open and seal them, plain values are
+   still read; sealing of existing values in `Vault::move()`, on the first admin request of a new version and in the daily
+   `security` job. Without its key a site reads them as empty and keeps running; System status "Stored passwords and keys".
+   `secret_key` stays plain (signed links).
+3. **N105 part 2 – two-step confirmation.** `Mcp\Confirmation`, enforced in `Mcp\Server` for reply_to_enquiry,
+   reply_to_application, send_quote, cancel/confirm/decline_booking, propose_booking_times, send_newsletter (except
+   unschedule), request_testimonial (send), erase_personal_data, merge_contacts, undo_agent_session, delete_enquiry: a call
+   that would act returns `confirmation_required` with a code (one use, 10 minutes, bound to the tool, user, connection and
+   exact arguments) and does nothing; repeating the call with `confirmation` runs it. `confirm` keeps its meaning.
+4. **N110** notes from a drafts-only connection are proposals (`via`, `access`): never pinned, never in site_info, marked in
+   read_notebook; a person who saves or pins one makes it theirs. **N111** an applied blueprint with new or changed Claude
+   instructions raises the instructions notice; a custom manifest may not reuse the key of a shipped blueprint. **N112**
+   reactivating a blocked account revokes its Claude connections and personal tokens (a box in the user form, ticked by
+   default).
+5. **T5 – the 4.0 decision.** The English renaming of tables is not planned (see "Path to 4.0"): `Core\Readiness`,
+   `Core\LegacyNames`, the Ready for 4.0 section, the rename tools and their tests are removed; `get_health` keeps the key
+   `ready_for_4_0` as `{planned: false}` (MCP output additive only). The encryption-key state moved into System status.
+   `docs/design/code-layers.md` + unit 3100: which namespace may call which; today's exceptions are frozen and may only shrink.
+
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 
 **No English renaming of tables or columns – not in 4.0 and not later.** The owner rejected it on 21 and 22 October 2026
