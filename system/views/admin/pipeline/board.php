@@ -42,7 +42,8 @@ $sums = fn (array $sums): string => implode(' · ', array_map(fn (string $cur, s
 <?php if ($more > 0): ?>
 <p class="hlaska hlaska-info"><?= e(t('The board shows the first %d open deals – %d more are in the list.', Pipeline::BOARD_MAX, $more)) ?> <a href="<?= e($module->url('', ['view' => 'list'] + $query)) ?>"><?= e(t('Open the list')) ?></a></p>
 <?php endif ?>
-<p class="napoveda obchody-navod" id="obchody-navod"><?= e(t('Move a deal with its stage and Move, or drag the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.')) ?></p>
+<?php /* 3.37 (U28): the instructions fold behind "How to move a deal" – the keyboard handles still read them (aria-describedby) */ ?>
+<details class="obchody-navod"><summary><?= e(t('How to move a deal')) ?></summary><p class="napoveda" id="obchody-navod"><?= e(t('Drag a card to another column, or choose its stage and press Move – with a mouse they are behind ⋯ on the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.')) ?></p></details>
 <div class="obchody-tabule" data-pipeline-board data-money="<?= e((string) json_encode(Deals::moneyFormat(), JSON_UNESCAPED_UNICODE)) ?>">
 <?php foreach ($columns as $col): ?>
 	<section class="obchody-sloupec obchody-<?= e($col['kind']) ?>" data-stage="<?= e($col['key']) ?>" data-kind="<?= e($col['kind']) ?>" aria-labelledby="etapa-<?= e($col['key']) ?>">

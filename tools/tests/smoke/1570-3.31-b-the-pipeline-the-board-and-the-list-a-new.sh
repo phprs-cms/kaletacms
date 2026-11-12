@@ -81,7 +81,7 @@ expect "3.31: a comment with a mention (Jana notified) and a task on the deal; t
 # the customer and the company: the Deals box with New deal, the deal on the timeline
 check "3.31: the customer's page lists the deal with New deal" 200 "/admin.php?module=contacts&action=detail&id=$B331_EVA" 'data-deals-box'
 expect "3.31: … the deal and its moves on the timeline with Open the deal; the company page lists it too" \
-  "$(b331_has "data-deal=\"$B331_D1\"")|$(b331_has 'data-timeline-entry="deal"' | sed 's/[2-9]/1/')|$(b331_has 'module=pipeline&amp;action=new&amp;contact=')|$(curl -s -b "$JAR" "$B/admin.php?module=contacts&action=company&id=$B331_CO" | grep -c "data-deal=\"$B331_D1\"")" "1|1|1|1"
+  "$(b331_has "data-deal=\"$B331_D1\"")|$(b331_has 'data-timeline-entry="deal"' | sed 's/[2-9]/1/')|$(b331_has 'module=pipeline&amp;action=new&amp;contact=')|$(curl -s -b "$JAR" "$B/admin.php?module=contacts&action=company&id=$B331_CO" | grep -c "data-deal=\"$B331_D1\"")" "1|1|2|1" # 3.37: New deal in the bar and in the box
 # the list: the status and the filters, paging keeps them
 check "3.31: the list – open deals by default" 200 "/admin.php?module=pipeline&view=list" 'data-deals-list'
 expect "3.31: … both open; owner=mine only the administrator's; nobody's none; Jana's one; a company filter" \

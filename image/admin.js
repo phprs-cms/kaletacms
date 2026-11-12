@@ -841,6 +841,8 @@
 			if (col.getAttribute('data-kind') === 'lost') {
 				// a lost deal needs a reason – the card's own form asks for it, Move finishes
 				setStage(card, col.getAttribute('data-stage'), false);
+				var fold = card.querySelector('details.obchod-vice');
+				if (fold) { fold.open = true; } // 3.37: the form behind ⋯ opens with the reason
 				var reason = card.querySelector('select[name="lost_reason"]');
 				if (reason) { reason.focus(); }
 				say(T('Say why “%s” was lost, then press Move.').replace('%s', cardTitle(card)));
@@ -869,6 +871,8 @@
 		var dragged = null;
 		Array.prototype.forEach.call(board.querySelectorAll('[data-deal]'), function (card) {
 			card.setAttribute('draggable', 'true');
+			// 3.37: a drag that starts on the title or the customer moves the card, not the link (the card is short now)
+			Array.prototype.forEach.call(card.querySelectorAll('a'), function (link) { link.setAttribute('draggable', 'false'); });
 			card.addEventListener('dragstart', function (e) {
 				if (e.target !== card) { return; }
 				dragged = card;
@@ -891,6 +895,26 @@
 			handle.setAttribute('aria-pressed', 'false');
 			handle.title = T('Drag, or press Space to move with the arrow keys');
 			card.insertBefore(handle, card.firstChild);
+			// 3.37 (U28): with a mouse the stage select and Move fold behind ⋯ – a lighter card; on a touch screen (no drag
+			// there) and without JavaScript the form stays open
+			var form = card.querySelector('form[data-deal-move]');
+			if (form && window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+				var fold = document.createElement('details');
+				fold.className = 'obchod-vice';
+				var summary = document.createElement('summary');
+				summary.textContent = '⋯';
+				summary.setAttribute('aria-label', T('Stage and Move: “%s”').replace('%s', cardTitle(card)));
+				summary.title = T('Stage and Move');
+				fold.appendChild(summary);
+				var row = card.querySelector('.obchod-udaje'); // ⋯ ends the line of value · close · person
+				if (!row) {
+					row = document.createElement('div');
+					row.className = 'obchod-udaje';
+					form.parentNode.insertBefore(row, form);
+				}
+				row.appendChild(fold);
+				fold.appendChild(form);
+			}
 		});
 		boardColumns().forEach(function (col) {
 			col.addEventListener('dragover', function (e) {

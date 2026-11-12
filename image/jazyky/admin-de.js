@@ -3095,5 +3095,7 @@ window.KALETA_PREKLAD = {
 	"job application": "Bewerbung",
 	"Position": "Stelle",
 	"Fill with the open jobs": "Mit den offenen Stellen füllen",
-	"Only someone who may open Applications can change this.": "Das kann nur ändern, wer die Bewerbungen öffnen darf."
+	"Only someone who may open Applications can change this.": "Das kann nur ändern, wer die Bewerbungen öffnen darf.",
+	"Stage and Move: “%s”": "Phase und Verschieben: „%s“",
+	"Stage and Move": "Phase und Verschieben"
 };

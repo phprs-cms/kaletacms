@@ -1869,6 +1869,8 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 
 /* 3.31: the Pipeline – the board (a column per stage, the cards and their move forms), a deal, the stages, the boxes */
 .obchody-navod { margin: 0 0 12px; font-size: 13px; }
+.obchody-navod > summary { display: inline-flex; align-items: center; min-height: 32px; color: var(--text-slaby); cursor: pointer; }
+.obchody-navod > p { max-width: 70ch; margin: 4px 0 0; }
 .obchody-zuzeni { margin: -6px 0 16px; }
 .obchody-tabule { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(13rem, 1fr); gap: 12px; align-items: start; margin: 0 0 24px; padding: 0 0 8px; overflow-x: auto; }
 .obchody-sloupec { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--linka); border-radius: var(--radius); background: color-mix(in oklch, var(--akcent) 3%, var(--podklad)); }
@@ -1880,19 +1882,32 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 .obchody-soucty { min-height: 1.2em; margin: 2px 0 0; color: var(--text-slaby); font-size: 13px; overflow-wrap: anywhere; }
 .obchody-karty { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .obchody-prazdne { margin: 0; font-size: 13px; }
-.obchod-karta { position: relative; display: grid; gap: 4px; min-width: 0; padding: 10px 12px; border: 1px solid var(--linka); border-radius: 8px; background: var(--plocha); overflow-wrap: anywhere; }
+.obchod-karta { position: relative; display: grid; gap: 3px; min-width: 0; padding: 8px 10px; border: 1px solid var(--linka); border-radius: 8px; background: var(--plocha); overflow-wrap: anywhere; }
+/* 3.37 (U28): the handle and ⋯ stand at the right edge – the lines keep clear of them */
+.obchod-karta:has(> .obchod-uchyt) > :is(.obchod-titulek, .obchod-kdo) { padding-right: 34px; }
+.obchod-karta:has(> .obchod-uchyt) > .obchod-titulek { min-height: 34px; } /* ⋯ on the next line never meets the handle */
 .obchod-karta[draggable="true"] { cursor: grab; }
 .obchod-po-terminu { box-shadow: inset 3px 0 0 var(--chyba); }
-.obchod-titulek { margin: 0; padding-right: 30px; font-size: 15px; }
+.obchod-titulek { display: -webkit-box; margin: 0; overflow: hidden; font-size: 14px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.obchod-kdo { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.obchod-kdo a { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; line-height: 24px; vertical-align: top; } /* a target 24 px high (WCAG 2.5.8) */
 .obchod-kdo, .obchod-udaje { margin: 0; color: var(--text-slaby); font-size: 13px; }
-.obchod-udaje { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.obchod-udaje { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+.obchod-osoba { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; box-sizing: border-box; border-radius: 999px; background: var(--akcent-svetly); color: var(--text); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .obchod-hodnota { color: var(--text); }
 .obchod-presun { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 0; }
 .obchod-presun select { flex: 1 1 8em; min-width: 0; max-width: 100%; }
 .obchod-presun button { flex: none; }
 .obchod-duvod { display: none; }
 .obchod-presun:has(select[name="stage"] option[data-kind="lost"]:checked:not([data-current])) .obchod-duvod { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 6px; }
-.obchod-uchyt { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-slaby); font-size: 16px; line-height: 1; cursor: grab; }
+.obchod-uchyt { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-slaby); font-size: 16px; line-height: 1; cursor: grab; }
+.obchod-vice { margin-left: auto; }
+.obchod-termin { white-space: nowrap; }
+.obchod-vice > summary { display: grid; place-items: center; width: 32px; height: 32px; box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; color: var(--text-slaby); font-size: 18px; line-height: 1; list-style: none; cursor: pointer; }
+.obchod-vice > summary::-webkit-details-marker { display: none; }
+.obchod-vice > summary:hover, .obchod-vice[open] > summary { border-color: var(--linka-pole); color: var(--text); }
+.obchod-vice[open] { display: grid; flex: 1 1 100%; }
+.obchod-vice[open] > summary { justify-self: end; }
 .obchod-uchyt:hover, .obchod-uchyt[aria-pressed="true"] { border-color: var(--linka-pole); color: var(--text); }
 .obchod-zvednuta { outline: 2px solid var(--fokus); outline-offset: 2px; }
 .obchod-tazena, .obchod-presouva { opacity: .55; }
@@ -2001,3 +2016,62 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 .uchazec-sablony { margin: 0 0 16px; padding: 8px 14px; border: 1px solid var(--linka); border-radius: var(--radius); }
 .uchazec-sablona-polozka { margin: 4px 0; }
 .uchazec-sablona-polozka > summary { min-height: 32px; padding: 6px 0; cursor: pointer; }
+
+/* 3.37: one record template for an enquiry, a deal and a customer (views/admin/enquiries|pipeline|contacts/detail.php) – the
+   bar with the way back, one primary action, the secondary ones and "More" (sticky under the top bar on a wide screen); the
+   main column (the message and the conversation, the history, the timeline) and a side column of panels (who handles it,
+   the facts, the customer, the deal, the tasks); one column on a phone, the main column first */
+.zaznam-lista { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 20px; }
+.zaznam-lista > .navigace:first-child { margin-right: auto; }
+.zaznam-akce { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.zaznam-akce form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; margin: 0; }
+.zaznam-akce :is(.tl, a.navigace, button.navigace), .zaznam-vice > summary { min-height: 40px; box-sizing: border-box; }
+.zaznam-akce select { min-height: 40px; min-width: 0; max-width: 100%; }
+.zaznam-akce .stitek { align-self: center; }
+.zaznam-vice { position: relative; }
+.zaznam-vice > summary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); font-weight: 600; list-style: none; cursor: pointer; }
+.zaznam-vice > summary::-webkit-details-marker { display: none; }
+.zaznam-vice > summary::after { content: "▾"; color: var(--text-slaby); }
+.zaznam-vice > summary:hover { border-color: var(--text-slaby); }
+.zaznam-vice-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; display: grid; gap: 6px; width: max-content; min-width: 12rem; max-width: min(20rem, calc(100vw - 32px)); padding: 8px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); box-shadow: 0 8px 30px rgb(16 24 40 / 0.12); }
+.zaznam-vice-menu form { display: block; margin: 0; }
+.zaznam-vice-menu :is(button.navigace, a.navigace) { display: block; width: 100%; min-height: 40px; text-align: left; }
+@media (min-width: 861px) {
+	.zaznam-lista { position: sticky; top: 64px; z-index: 4; margin: -8px 0 12px; padding: 8px 0; background: var(--podklad); }
+}
+.zaznam-obal { container-type: inline-size; }
+.zaznam { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 28px; }
+.zaznam-hlavni, .zaznam-bok { min-width: 0; }
+.zaznam-bok { display: grid; gap: 16px; align-content: start; margin-top: 24px; }
+/* a deal and a customer: their facts first on a phone (an enquiry keeps the message and the reply first) */
+.zaznam-fakta-prvni > .zaznam-bok { order: -1; margin: 0 0 28px; }
+@container (min-width: 900px) {
+	.zaznam { grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem); align-items: start; }
+	.zaznam-bok, .zaznam-fakta-prvni > .zaznam-bok { order: 0; margin: 0; }
+}
+.zaznam-hlavni > :first-child, .zaznam-hlavni > :first-child > h2:first-child, .zaznam-panel > h2:first-child, .zaznam-bok > .ukoly > h2:first-child { margin-top: 0; }
+.zaznam :is(#thread, #reply, #timeline, #history) { scroll-margin-top: 140px; }
+.zaznam-panel { min-width: 0; margin: 0; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.zaznam-panel > h2 { margin: 0 0 10px; font-size: 15px; }
+.zaznam-panel > :last-child { margin-bottom: 0; }
+.zaznam-bok .zakaznik-box { margin: 0; }
+.zaznam-bok .ukoly { margin: 0; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.zaznam-bok .ukoly .ukol { background: var(--podklad); }
+.zaznam-bok .poptavka { grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0 0 12px; }
+.zaznam-bok .poptavka dd { margin-bottom: 8px; }
+.zaznam-bok .poptavka dd:last-child { margin-bottom: 0; }
+.zaznam-bok .zakaznik-odpovedny { margin: 0 0 12px; }
+.zaznam-bok .zakaznik-odpovedny select { flex: 1 1 10em; min-width: 0; }
+.zaznam-bok .zakaznik-tlacitka { margin-top: 4px; }
+/* one form for who handles an enquiry, its kind, priority, summary and drafted reply – labels above the fields in the side column */
+.zaznam-formular { display: grid; gap: 12px; }
+.zaznam-formular .zaznam-pole { display: grid; gap: 4px; min-width: 0; }
+.zaznam-formular .zaznam-pole > label { font-weight: 600; font-size: 14px; }
+.zaznam-formular :is(select, textarea, input[type="text"]) { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.zaznam-formular .napoveda { font-size: 12px; }
+.zaznam-formular .tlacitka { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.zaznam-formular .tlacitka button { min-height: 40px; }
+.zaznam-dvojice { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 12px; }
+.zaznam-akce .obchod-presun-detail { margin: 0; padding: 0; border: 0; background: none; }
+.zaznam-akce .obchod-presun-detail select[name="stage"] { flex: none; width: 12em; }
+.zaznam-akce .obchod-presun-detail .obchod-duvod { order: 1; }

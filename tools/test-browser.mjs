@@ -704,11 +704,11 @@ await step('3.20 (C2, C16) enquiry → form → page: the detail names the form 
   // C16, 3.23.1 (N-C10 and the owner): asking for a testimonial is a folded step after the main actions – not on a new enquiry;
   // once it is marked resolved, the same buttons and one plain sentence for every role (the References collection comes with the first answer)
   if (await page.locator('[data-testimonial]').count() !== 0) { throw new Error('a new enquiry already offers to ask for a testimonial'); }
-  await Promise.all([page.waitForNavigation(), page.locator('.tlacitka button', { hasText: 'Mark as resolved' }).click()]);
+  await Promise.all([page.waitForNavigation(), page.locator('[data-record-status] button', { hasText: 'Mark as resolved' }).click()]);
   if (!page.url().includes(`id=${newId}`)) { await visit(`/admin.php?module=enquiries&action=detail&id=${newId}`); }
   const ask = page.locator('details.reference-zadost[data-testimonial]');
   if (await ask.count() !== 1 || await ask.evaluate((d) => d.open)) { throw new Error('a resolved enquiry has no folded testimonial block'); }
-  if (!(await ask.evaluate((d) => { const actions = document.querySelector('.tlacitka form[action*="action=status"]'); return !!actions && !!(actions.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING); }))) { throw new Error('the testimonial block is not below the main actions'); }
+  if (!(await ask.evaluate((d) => { const actions = document.querySelector('[data-record-bar] form[action*="action=status"]'); return !!actions && !!(actions.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING); }))) { throw new Error('the testimonial block is not below the main actions'); }
   if ((await ask.locator('summary').textContent()).trim() !== 'Ask the customer for a testimonial') { throw new Error('the summary is not “Ask the customer for a testimonial”'); }
   await ask.locator('summary').click();
   if (!(await ask.locator('button', { hasText: 'Ask for a testimonial by e-mail' }).isVisible()) || !(await ask.locator('button', { hasText: 'Only create the link' }).isVisible())) { throw new Error('the two request buttons are not in the block'); }
@@ -3968,7 +3968,7 @@ await step('3.28 customers: list, detail, log a meeting, company suggestion, mer
               if ((label === 'phone') !== (display === 'block')) { throw new Error(`the list rows are ${display} on the ${label}`); }
             }
             if (url.includes('action=detail')) {
-              const colours = await p2.locator('.zakaznik-karta').evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('dd')).color]);
+              const colours = await p2.locator('[data-contact-card]').evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el.querySelector('dd')).color]);
               if (colours[0] === colours[1]) { throw new Error(`the card text has the colour of the card (${label}, ${scheme})`); }
             }
             if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/328-${url.includes('merge') ? 'merge' : url.includes('detail') ? 'detail' : 'list'}-${label}-${scheme}.png`, fullPage: true }); }
@@ -4739,6 +4739,7 @@ await step('3.34 Move to Applications: one enquiry moves after the confirmation 
     await page.setViewportSize({ width: 390, height: 844 });
     await visit(`/admin.php?module=enquiries&action=detail&id=${idp}`);
     if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) { throw new Error('the enquiry detail scrolls sideways at 390 px'); }
+    await page.locator('[data-record-more] > summary').click(); // 3.37: in More of the bar
     await page.locator('form[data-to-application] button').click();
     const dialog = page.locator('dialog.potvrzeni[open]');
     await dialog.waitFor();
@@ -4913,6 +4914,101 @@ await step('3.36 A: "Layout done" in the tab of layouts to rebuild (1440 and 390
     if (!/taken off the list of layouts to rebuild: 1/.test(await page.locator('body').innerText())) { throw new Error('no message after "Layout done"'); }
   } finally {
     sql(`DELETE FROM ka_import_mapa WHERE zdroj = 'layout' AND nase_id = ${ids}; DELETE FROM ka_stranky WHERE ids = ${ids}`);
+  }
+});
+
+// 3.37 (agent A): the record template – an enquiry, a deal and a customer in two columns with one action bar (sticky on a wide
+// screen), one column at 375 px with the bar reachable and no sideways scroll; the Handling form saves who handles the enquiry
+// with one Save; the board's card folds Stage + Move behind ⋯ with a mouse and is short; light and dark; axe on all four
+await step('3.37 record pages and board cards: two columns at 1440, one at 375, one bar, one Handling Save, ⋯ on a card (light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("DELETE FROM ka_deal_stage_history WHERE deal_id IN (SELECT id FROM ka_deals WHERE title LIKE '%A337%'); DELETE FROM ka_deals WHERE title LIKE '%A337%'; DELETE FROM ka_poptavky WHERE formular = 'Contact A337'; DELETE FROM ka_contacts WHERE email_norm LIKE '%a337%'");
+  const admin = Number(sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim());
+  const olga = Number(sql(`INSERT INTO ka_contacts (email, email_norm, name, phone, language, source, first_seen_at, last_activity_at, created_at, updated_at, owner_id)
+    VALUES ('olga@hartsteel-a337.example', 'olga@hartsteel-a337.example', 'Olga Longname-Hartsteel A337', '+44 20 7946 0337', 'en', 'enquiry', NOW(), NOW(), NOW(), NOW(), ${admin}); SELECT LAST_INSERT_ID();`).trim());
+  const enquiry = Number(sql(`INSERT INTO ka_poptavky (datum, formular, email, data, stav, contact_id, kategorie, priorita, triaged_by) VALUES (NOW(), 'Contact A337', 'olga@hartsteel-a337.example',
+    '[["Name","Olga Longname-Hartsteel A337"],["Phone","+44 20 7946 0337"],["Message","We need forty custom brackets for a new warehouse rack system, delivered to Leeds by the end of the month."]]', 1, ${olga}, 'sales', 3, 'claude'); SELECT LAST_INSERT_ID();`).trim());
+  const deal = Number(sql(`INSERT INTO ka_deals (title, contact_id, owner_id, stage, value, currency, expected_close, created_at, updated_at)
+    VALUES ('Forty custom brackets for the warehouse rack system A337', ${olga}, ${admin}, 'new', '18000.00', 'GBP', CURDATE() - INTERVAL 2 DAY, NOW(), NOW()); SELECT LAST_INSERT_ID();`).trim());
+  sql(`INSERT INTO ka_deal_stage_history (deal_id, from_stage, to_stage, at) VALUES (${deal}, NULL, 'new', NOW())`);
+  const pages = [`/admin.php?module=enquiries&action=detail&id=${enquiry}`, `/admin.php?module=pipeline&action=detail&id=${deal}`, `/admin.php?module=contacts&action=detail&id=${olga}`];
+  try {
+    // the Handling form: one Save keeps the person and the summary, Claude's unchanged sorting stays Claude's
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(pages[0]);
+    if (await page.locator('button', { hasText: 'Save triage' }).count()) { throw new Error('the enquiry still has Save triage'); }
+    await page.selectOption('#prirazeno', String(admin));
+    await page.fill('#poznamka', 'Quote by Friday A337');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-enquiry-handling] button.tl[type="submit"]').click()]);
+    const saved = sql(`SELECT CONCAT_WS('|', prirazeno, poznamka, triaged_by) FROM ka_poptavky WHERE idp = ${enquiry}`).trim();
+    if (saved !== `${admin}|Quote by Friday A337|claude`) { throw new Error(`the Handling form saved: ${saved}`); }
+    // More opens a menu with Delete and closes with Esc
+    await page.locator('[data-record-more] > summary').click();
+    if (!(await page.locator('[data-record-more] button', { hasText: 'Delete' }).isVisible())) { throw new Error('More does not show Delete'); }
+    await page.keyboard.press('Escape');
+    if (await page.locator('[data-record-more]').evaluate((d) => d.open)) { throw new Error('Esc did not close More'); }
+    // the board: ⋯ folds Stage + Move with a mouse, the card is short; opening ⋯ shows the select
+    await visit('/admin.php?module=pipeline');
+    const card = page.locator(`#deal-${deal}`);
+    if (await card.locator('select[name="stage"]').isVisible()) { throw new Error('the stage select is not folded behind ⋯ with a mouse'); }
+    const cardHeight = (await card.boundingBox()).height;
+    if (cardHeight > 170) { throw new Error(`the card is ${Math.round(cardHeight)} px tall`); }
+    await card.locator('details.obchod-vice > summary').click();
+    if (!(await card.locator('select[name="stage"]').isVisible())) { throw new Error('⋯ does not open the stage select'); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 375, 812]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of [...pages, '/admin.php?module=pipeline']) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+            if (url.endsWith('pipeline')) {
+              // on a touch screen the stage select stays open on the card (no drag there); with a mouse it is behind ⋯
+              if ((await p2.locator(`#deal-${deal} select[name="stage"]`).isVisible()) !== (label === 'phone')) { throw new Error(`the card's stage select (${label}, ${scheme})`); }
+              if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/337a-board-${label}-${scheme}.png`, fullPage: true }); }
+              continue;
+            }
+            const main = await p2.locator('.zaznam-hlavni').boundingBox();
+            const side = await p2.locator('.zaznam-bok').boundingBox();
+            if (label === 'desktop' && !(side.x > main.x + main.width - 1 && Math.abs(side.y - main.y) < 40)) { throw new Error(`not two columns at 1440 (${url}, ${scheme})`); }
+            if (label === 'phone' && Math.abs(side.x - main.x) > 1) { throw new Error(`not one column at 375 (${url}, ${scheme})`); }
+            // the bar: at the top, its buttons a finger high; on a wide screen it stays under the top bar while scrolling
+            const primary = p2.locator('[data-record-bar] :is(.tl, [data-record-status] button)').first();
+            const box = await primary.boundingBox();
+            if (!box || box.height < 40 || box.y > 520) { throw new Error(`the bar's primary action is not reachable (${url}, ${label}, ${scheme}): ${JSON.stringify(box)}`); }
+            if (label === 'desktop') {
+              // scrolled down, the bar sits under the top bar (64 px) – or where it is, when the page is too short to pass it
+              const [start, scrolled, top] = await p2.locator('[data-record-bar]').evaluate((el) => { const t = el.getBoundingClientRect().top + window.scrollY; window.scrollTo(0, 1200); return [t, window.scrollY, el.getBoundingClientRect().top]; });
+              if (Math.abs(top - Math.max(64, start - scrolled)) > 2) { throw new Error(`the bar does not stay at the top while scrolling (${url}): ${top}`); }
+            }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/337a-${url.includes('enquiries') ? 'enquiry' : url.includes('pipeline') ? 'deal' : 'customer'}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const [url, include] of [...pages.map((u) => [u, ['[data-record-bar]', '.zaznam']]), ['/admin.php?module=pipeline', ['[data-pipeline-board]', '.obchody-navod']]]) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [include, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_comments WHERE target IN ('enquiry:${enquiry}', 'deal:${deal}', 'contact:${olga}'); DELETE FROM ka_deal_stage_history WHERE deal_id = ${deal}; DELETE FROM ka_deals WHERE id = ${deal}; DELETE FROM ka_poptavky WHERE idp = ${enquiry}; DELETE FROM ka_contacts WHERE id = ${olga}`);
   }
 });
 

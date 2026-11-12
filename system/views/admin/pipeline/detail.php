@@ -3,7 +3,9 @@
  * A deal (3.31, Core\Deals): its stage, value, expected close, customer, company, the enquiry it came from and the
  * responsible person; Move (won, lost with a reason and a note, reopen – a lost stage reveals the reason with :has(), or is
  * chosen already when the board sent the person here, ?lose=); the stage history; the team's comments and tasks (deal:N);
- * Edit; Delete for administrators.
+ * Edit; Delete for administrators. 3.37: the record template (image/admin.css .zaznam-*) – the stage and Move in the bar (the
+ * stage said once), More with Delete; the history and the comments in the main column, the facts, the responsible person,
+ * Edit and the tasks in the side column.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Pipeline $module
@@ -38,10 +40,61 @@ $customer = Pipeline::contactLabel($d);
 $overdue = $d['closed_at'] === null && $d['expected_close'] !== null && $d['expected_close'] < $today;
 $chosen = $lose !== '' ? $lose : $d['stage'];
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url() . '#deal-' . $id) ?>">← <?= e(t('The pipeline')) ?></a></p>
-<section class="zakaznik-karta obchod-detail" data-deal-card>
+<div class="zaznam-lista" data-record-bar>
+<a class="navigace" href="<?= e($module->url() . '#deal-' . $id) ?>">← <?= e(t('The pipeline')) ?></a>
+<div class="zaznam-akce">
+	<span class="stitek<?= $kind === 'won' ? ' stitek-vydano' : ($kind === 'lost' ? ' stitek-chyba' : '') ?>" data-deal-stage="<?= e($d['stage']) ?>"><?= e($labels[$d['stage']] ?? $d['stage']) ?></span>
+	<form class="obchod-presun obchod-presun-detail" id="move" method="post" action="<?= e($module->url('move')) ?>" data-deal-move>
+		<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="return" value="detail">
+		<label class="navod-skryte" for="obchod-etapa"><?= e(t('Move to the stage')) ?></label>
+		<select id="obchod-etapa" name="stage">
+<?php foreach ($stages as $st): ?>
+			<option value="<?= e($st['key']) ?>" data-kind="<?= e($st['kind']) ?>"<?= $st['key'] === $d['stage'] ? ' data-current' : '' ?><?= $st['key'] === $chosen ? ' selected' : '' ?>><?= e($st['label']) ?></option>
+<?php endforeach ?>
+		</select>
+		<span class="obchod-duvod">
+			<label for="obchod-duvod"><?= e(t('Why it was lost')) ?></label>
+			<select id="obchod-duvod" name="lost_reason">
+				<option value=""><?= e(t('Why it was lost…')) ?></option>
+<?php foreach (Deals::LOST_REASONS as $key => $label): ?>
+				<option value="<?= e($key) ?>"><?= e(t($label)) ?></option>
+<?php endforeach ?>
+			</select>
+			<label for="obchod-poznamka"><?= e(t('Note (optional)')) ?></label>
+			<input class="textpole siroke" type="text" id="obchod-poznamka" name="lost_note" maxlength="<?= Deals::NOTE_MAX ?>">
+		</span>
+		<button class="tl" type="submit"><?= e(t('Move')) ?></button>
+	</form>
+<?php if ($admin): ?>
+	<details class="zaznam-vice" data-zavrit-mimo data-record-more><summary><?= e(t('More')) ?></summary><div class="zaznam-vice-menu">
+		<form method="post" action="<?= e($module->url('delete')) ?>" data-deal-delete data-potvrdit="<?= e(t('Delete this deal for good? Its history, comments and tasks go too; the customer and the enquiry stay. This cannot be undone.')) ?>">
+			<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
+	</div></details>
+<?php endif ?>
+</div>
+</div>
+<div class="zaznam-obal"><div class="zaznam zaznam-fakta-prvni">
+<div class="zaznam-hlavni">
+<section class="obchod-historie-obal" id="history" data-deal-history>
+<h2><?= e(t('History')) ?></h2>
+<p class="napoveda"><?= e(t('Won and lost close the deal; moving a closed deal to an open stage opens it again.')) ?></p>
+<ol class="obchod-historie">
+<?php foreach ($history as $h): ?>
+	<li data-history-to="<?= e($h['to']) ?>"><span class="obchod-historie-co"><?= $h['from'] === null ? e(t('Created in %s', $labels[$h['to']] ?? $h['to'])) : e(($labels[$h['from']] ?? $h['from']) . ' → ' . ($labels[$h['to']] ?? $h['to'])) ?></span>
+		<span class="napoveda"><?= e(format_date($h['at'], true)) ?><?= $h['user_id'] !== null && ($names[$h['user_id']] ?? '') !== '' ? ' · ' . e($names[$h['user_id']]) : '' ?></span></li>
+<?php endforeach ?>
+</ol>
+</section>
+<?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) ?>
+</div>
+
+<div class="zaznam-bok">
+<section class="zaznam-panel" aria-labelledby="obchod-udaje-nadpis" data-deal-card>
+<h2 id="obchod-udaje-nadpis"><?= e(t('Details')) ?></h2>
 <dl class="poptavka">
-	<dt><?= e(t('Stage')) ?></dt><dd data-deal-stage="<?= e($d['stage']) ?>"><span class="stitek<?= $kind === 'won' ? ' stitek-vydano' : ($kind === 'lost' ? ' stitek-chyba' : '') ?>"><?= e($labels[$d['stage']] ?? $d['stage']) ?></span><?= $d['closed_at'] !== null ? ' · ' . e(t('closed %s', format_date($d['closed_at']))) : '' ?></dd>
+<?php if ($d['closed_at'] !== null): ?>
+	<dt><?= e(t('Closed')) ?></dt><dd><?= e(format_date($d['closed_at'])) ?></dd>
+<?php endif ?>
 <?php if ($d['lost_reason'] !== null): ?>
 	<dt><?= e(t('Why it was lost')) ?></dt><dd data-deal-lost><?= e(t(Deals::LOST_REASONS[$d['lost_reason']] ?? $d['lost_reason'])) ?><?= $d['lost_note'] !== '' ? ' – ' . bdi($d['lost_note']) : '' ?></dd>
 <?php endif ?>
@@ -71,47 +124,8 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 	<?= $app->view->render('admin/pipeline/form', ['module' => $module, 'csrf' => $csrf, 'd' => $d, 'draft' => $draft + ['currency' => $currency], 'contacts' => $contacts, 'companies' => $companies,
         'people' => $people, 'stages' => [], 'canContacts' => $canContacts, 'me' => $me]) ?>
 	</details>
-<?php if ($admin): ?>
-	<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-deal-delete data-potvrdit="<?= e(t('Delete this deal for good? Its history, comments and tasks go too; the customer and the enquiry stay. This cannot be undone.')) ?>">
-		<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
-<?php endif ?>
 </div>
 </section>
-
-<section class="obchod-posun" id="move" aria-labelledby="obchod-posun-nadpis">
-<h2 id="obchod-posun-nadpis"><?= e(t('Move')) ?></h2>
-<form class="obchod-presun obchod-presun-detail" method="post" action="<?= e($module->url('move')) ?>" data-deal-move>
-	<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="return" value="detail">
-	<label for="obchod-etapa"><?= e(t('Stage')) ?></label>
-	<select id="obchod-etapa" name="stage">
-<?php foreach ($stages as $st): ?>
-		<option value="<?= e($st['key']) ?>" data-kind="<?= e($st['kind']) ?>"<?= $st['key'] === $d['stage'] ? ' data-current' : '' ?><?= $st['key'] === $chosen ? ' selected' : '' ?>><?= e($st['label']) ?></option>
-<?php endforeach ?>
-	</select>
-	<span class="obchod-duvod">
-		<label for="obchod-duvod"><?= e(t('Why it was lost')) ?></label>
-		<select id="obchod-duvod" name="lost_reason">
-			<option value=""><?= e(t('Why it was lost…')) ?></option>
-<?php foreach (Deals::LOST_REASONS as $key => $label): ?>
-			<option value="<?= e($key) ?>"><?= e(t($label)) ?></option>
-<?php endforeach ?>
-		</select>
-		<label for="obchod-poznamka"><?= e(t('Note (optional)')) ?></label>
-		<input class="textpole siroke" type="text" id="obchod-poznamka" name="lost_note" maxlength="<?= Deals::NOTE_MAX ?>">
-	</span>
-	<button class="tl" type="submit"><?= e(t('Move')) ?></button>
-</form>
-<p class="napoveda"><?= e(t('Won and lost close the deal; moving a closed deal to an open stage opens it again.')) ?></p>
-</section>
-
-<section class="obchod-historie-obal" id="history" data-deal-history>
-<h2><?= e(t('History')) ?></h2>
-<ol class="obchod-historie">
-<?php foreach ($history as $h): ?>
-	<li data-history-to="<?= e($h['to']) ?>"><span class="obchod-historie-co"><?= $h['from'] === null ? e(t('Created in %s', $labels[$h['to']] ?? $h['to'])) : e(($labels[$h['from']] ?? $h['from']) . ' → ' . ($labels[$h['to']] ?? $h['to'])) ?></span>
-		<span class="napoveda"><?= e(format_date($h['at'], true)) ?><?= $h['user_id'] !== null && ($names[$h['user_id']] ?? '') !== '' ? ' · ' . e($names[$h['user_id']]) : '' ?></span></li>
-<?php endforeach ?>
-</ol>
-</section>
-<?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) ?>
 <?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) ?>
+</div>
+</div></div>

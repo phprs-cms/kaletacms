@@ -34,7 +34,7 @@ expect "3.28: … nothing saved, the name offered again; a bad phone is refused 
 # a company, the suggestion from the e-mail domain, the responsible person
 check "3.28: the contact's detail suggests the company of its e-mail domain" 200 "/admin.php?module=contacts&action=detail&id=$B328_EVA" 'data-company-suggestion'
 expect "3.28: … the comments and tasks of the contact, the log form, Merge with… and Delete for the administrator" \
-  "$(grep -c "data-comments=\"contact:$B328_EVA\"" "$WORK/response")|$(grep -c "data-tasks=\"contact:$B328_EVA\"" "$WORK/response")|$(grep -c 'data-activity-form' "$WORK/response")|$(grep -c 'data-contact-merge' "$WORK/response")|$(grep -c 'data-contact-delete' "$WORK/response")|$(grep -c "href=\"mailto:Eva-B328@b328firma.cz\"" "$WORK/response")|$(grep -c 'href="tel:+420600328001"' "$WORK/response")" "1|1|1|1|1|1|1"
+  "$(grep -c "data-comments=\"contact:$B328_EVA\"" "$WORK/response")|$(grep -c "data-tasks=\"contact:$B328_EVA\"" "$WORK/response")|$(grep -c 'data-activity-form' "$WORK/response")|$(grep -c 'data-contact-merge' "$WORK/response")|$(grep -c 'data-contact-delete' "$WORK/response")|$(grep -c "href=\"mailto:Eva-B328@b328firma.cz\"" "$WORK/response")|$(grep -c 'href="tel:+420600328001"' "$WORK/response")" "1|1|1|1|1|2|2" # 3.37: E-mail and Call in the bar too
 b328_post "$JAR" "module=contacts&action=detail&id=$B328_EVA" "module=contacts&action=save" -d "id=$B328_EVA" -d "company_new=B328firma" -d "company_domain=b328firma.cz" > /dev/null
 B328_CO=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_companies WHERE domain = 'b328firma.cz'")
 b328_post "$JAR" "module=contacts&action=detail&id=$B328_EVA" "module=contacts&action=save" -d "id=$B328_EVA" -d "owner_id=$B328_JANA" > /dev/null

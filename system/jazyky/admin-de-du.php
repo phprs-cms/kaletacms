@@ -1111,7 +1111,6 @@ return [
     'You cannot block your own account.' => 'Du kannst dein eigenes Konto nicht sperren.',
     'Choose who takes the work over.' => 'Wähle, wer die Arbeit übernimmt.',
     'Choose who takes it over – only people who may open those sections are offered. Resolved enquiries keep who handled them.' => 'Wähle, wer sie übernimmt – angeboten werden nur Personen, die diese Bereiche öffnen dürfen. Erledigte Anfragen behalten, wer sie bearbeitet hat.',
-    'One short internal summary shown first in the conversation – it can be rewritten. Add notes above; they are kept as written.' => 'Eine kurze interne Zusammenfassung, die in der Unterhaltung zuerst steht – sie kann überschrieben werden. Notizen fügst du oben hinzu; sie bleiben, wie sie geschrieben wurden.',
     'Write the note first.' => 'Schreib zuerst die Notiz.',
     '%s mentioned you' => '%s hat dich erwähnt',
     '%s mentioned you: %s' => '%s hat dich erwähnt: %s',
@@ -1224,7 +1223,6 @@ return [
     'Security releases go to every site at once, whatever its ring and window. Change the delays in Fleet → Rollout.' => 'Sicherheitsreleases gehen sofort an jede Website, unabhängig von Ring und Fenster. Die Verzögerungen änderst du unter Website-Konsole → Rollout.',
     'This browser is signed in as %s. Setting the password signs it out; then sign in as %s.' => 'Dieser Browser ist als %s angemeldet. Das Festlegen des Passworts meldet ihn ab; melde dich danach als %s an.',
     'A deal is what a customer may buy – it moves from New to Won or Lost. Create one here, or with “Create deal” on an enquiry or a customer.' => 'Ein Deal ist, was ein Kunde kaufen könnte – er wandert von Neu zu Gewonnen oder Verloren. Leg ihn hier an oder mit „Deal anlegen“ bei einer Anfrage oder einem Kunden.',
-    'Move a deal with its stage and Move, or drag the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.' => 'Verschiebe einen Deal mit seiner Phase und „Verschieben“ oder zieh die Karte. Mit der Tastatur: Fokus auf den Griff einer Karte, Leertaste drücken, die Phase mit den Pfeiltasten wählen und erneut die Leertaste drücken; Esc bricht ab.',
     'Change the numbers to reorder the stages. A stage with deals cannot be removed and keeps its kind – move its deals first.' => 'Ändere die Zahlen, um die Phasen umzuordnen. Eine Phase mit Deals lässt sich nicht entfernen und behält ihre Art – verschiebe zuerst ihre Deals.',
     'Say why the deal was lost.' => 'Gib an, warum der Deal verloren ging.',
     'Deals you are responsible for' => 'Deals, für die du verantwortlich bist',
@@ -1247,7 +1245,6 @@ return [
     'Your current password' => 'Dein aktuelles Passwort',
     // 3.32 part A
     'Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.' => 'Aus der Anfrage ausgefüllt – prüfe den Namen, ergänze den Wert und den erwarteten Abschluss, falls bekannt, und lege den Deal an.',
-    'Internal – the customer does not see this. Edit it under Responsible person below.' => 'Intern – der Kunde sieht das nicht. Bearbeite sie unten bei „Verantwortliche Person“.',
     'Enquiries you are responsible for' => 'Anfragen, für die du verantwortlich bist',
     'Turn the enquiry into a deal to follow it to won or lost – the customer and the responsible person come along.' => 'Mach aus der Anfrage einen Deal und verfolge ihn bis Gewonnen oder Verloren – Kunde und verantwortliche Person werden übernommen.',
     '%s made you responsible' => '%s hat dich als verantwortliche Person eingetragen',
@@ -1368,4 +1365,8 @@ return [
     'Enter your own current password to give this role every section. Nothing was saved.' => 'Gib dein eigenes aktuelles Passwort ein, um dieser Rolle alle Bereiche zu geben. Es wurde nichts gespeichert.',
     'Needed only to give the role every section.' => 'Nur nötig, um der Rolle alle Bereiche zu geben.',
     'The backup codes could not be saved because your account was being changed at the same moment. Nothing was changed – please try again.' => 'Die Backup-Codes konnten nicht gespeichert werden, weil dein Konto im selben Moment geändert wurde. Es wurde nichts geändert – bitte versuch es erneut.',
+    'Internal – the customer does not see this. Edit it in Handling.' => 'Intern – der Kunde sieht das nicht. Bearbeite sie unter „Bearbeitung“.',
+    'One short internal summary shown first in the conversation – it can be rewritten. Add notes in the conversation; they are kept as written.' => 'Eine kurze interne Zusammenfassung, die in der Unterhaltung zuerst steht – sie kann überschrieben werden. Notizen fügst du in der Unterhaltung hinzu; sie bleiben, wie sie geschrieben wurden.',
+    'How to move a deal' => 'So verschiebst du einen Deal',
+    'Drag a card to another column, or choose its stage and press Move – with a mouse they are behind ⋯ on the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.' => 'Zieh eine Karte in eine andere Spalte oder wähle ihre Phase und drück „Verschieben“ – mit der Maus liegen sie hinter ⋯ auf der Karte. Mit der Tastatur: Fokus auf den Griff einer Karte, Leertaste drücken, die Phase mit den Pfeiltasten wählen und erneut die Leertaste drücken; Esc bricht ab.',
 ];

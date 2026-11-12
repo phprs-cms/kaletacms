@@ -2980,5 +2980,7 @@ window.KALETA_PREKLAD = {
 	"job application": "žádost o místo",
 	"Position": "Pozice",
 	"Fill with the open jobs": "Doplnit otevřená pracovní místa",
-	"Only someone who may open Applications can change this.": "Změnit to může jen ten, kdo smí otevřít Žádosti o místo."
+	"Only someone who may open Applications can change this.": "Změnit to může jen ten, kdo smí otevřít Žádosti o místo.",
+	"Stage and Move: “%s”": "Fáze a přesun: „%s“",
+	"Stage and Move": "Fáze a přesun"
 };

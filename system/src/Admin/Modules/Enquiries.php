@@ -269,7 +269,6 @@ final class Enquiries extends Module
         return \Kaleta\Core\Assignment::candidates($this->db, 'enquiry', $assignee); // 3.24: one rule for enquiries, pages and items
     }
 
-    /** Internal note and who handles the enquiry. */
     /** Asks the customer of an enquiry for a testimonial (2.12, Core\Testimonials): the link by e-mail, or only to copy. */
     protected function actionTestimonial(): Response
     {
@@ -286,22 +285,61 @@ final class Enquiries extends Module
         return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $id]);
     }
 
-    /** A person's triage (2.12): the kind, the priority and the drafted reply – Claude and the assistant never overwrite it. */
+    /**
+     * A person's triage (2.12): the kind, the priority and the drafted reply – Claude and the assistant never overwrite it.
+     * 3.37 (U26): the detail's one Handling form posts here with who handles the enquiry and its summary too; then the triage
+     * is saved only when one of its fields changed, so choosing a person keeps "Sorted by Claude" true.
+     */
     protected function actionTriage(): Response
     {
         $id = $this->request->postInt('id');
-        if ($this->request->isPost() && $this->findVisible($id, 'idp') !== null) {
+        $found = $this->request->isPost() ? $this->findVisible($id, 'prirazeno, kategorie, priorita, navrh_odpovedi') : null;
+        if ($found !== null) {
             $user = $this->app->auth()->user();
-            \Kaleta\Core\Triage::save($this->db, $id, \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priorita'), $this->request->post('navrh_odpovedi')),
-                (string) ($user['jmeno'] ?? '') !== '' ? (string) $user['jmeno'] : (string) ($user['user'] ?? 'admin'));
+            $clean = \Kaleta\Core\Triage::clean($this->request->post('kategorie'), $this->request->postInt('priorita'), $this->request->post('navrh_odpovedi'));
+            $handling = $this->request->hasPost('poznamka');
+            if (!$handling || self::triageChanged($found, $clean)) {
+                \Kaleta\Core\Triage::save($this->db, $id, $clean, (string) ($user['jmeno'] ?? '') !== '' ? (string) ($user['jmeno'] ?? '') : (string) ($user['user'] ?? 'admin'));
+            }
+            if ($handling) {
+                $this->saveHandling($id, $found);
+            }
         }
 
         return $this->back('Saved.', 'detail', ['id' => $id]);
     }
 
     /**
+     * 3.37: does a triage posted with the Handling form change what is stored? A field left empty (null) changes nothing, as
+     * in Core\Triage::save. @param array<string, mixed> $stored @param array{kategorie: ?string, priorita: ?int, navrh_odpovedi: ?string} $clean
+     */
+    public static function triageChanged(array $stored, array $clean): bool
+    {
+        return ($clean['kategorie'] !== null && $clean['kategorie'] !== (string) ($stored['kategorie'] ?? ''))
+            || ($clean['priorita'] !== null && $clean['priorita'] !== (int) ($stored['priorita'] ?? 0))
+            || ($clean['navrh_odpovedi'] !== null && $clean['navrh_odpovedi'] !== (string) ($stored['navrh_odpovedi'] ?? ''));
+    }
+
+    /**
+     * Who handles the enquiry and its summary (the one editable note it had before 3.25): from the Handling form (3.37,
+     * actionTriage) or a form posting poznamka to actionNote. @param array<string, mixed> $found the row with prirazeno
+     */
+    private function saveHandling(int $idp, array $found): void
+    {
+        $who = $this->request->postInt('prirazeno');
+        $before = $found['prirazeno'];
+        $after = $who > 0 && isset($this->listAssignees((int) $before)[$who]) ? $who : null;
+        $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000), 'prirazeno' => $after], ['idp' => $idp]);
+        if ($after !== null && $after !== ($before === null ? null : (int) $before)) {
+            // 3.24: one e-mail to the new person handling it – never to oneself, never with the enquiry's content
+            \Kaleta\Core\Assignment::notify($this->app, 'enquiry', $idp, $after, $this->app->auth()->id());
+        }
+    }
+
+    /**
      * Two forms post here: the note composer of the conversation (add_note – appended as a new note, 3.25) and the form
-     * with who handles the enquiry and its summary (poznamka – the one editable note it had before 3.25).
+     * with who handles the enquiry and its summary (poznamka – the one editable note it had before 3.25; since 3.37 the
+     * detail sends it with the triage to actionTriage, this stays for any other form).
      */
     protected function actionNote(): Response
     {
@@ -319,22 +357,16 @@ final class Enquiries extends Module
                 return $this->back($e->getMessage(), 'detail', ['id' => $idp], 'chyba');
             }
             \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'note added', '#' . $idp . ' (comment #' . $note['id'] . ')');
+            $this->app->session->flash('ok', 'The note was added.');
 
-            return $this->back('The note was added.', 'detail', ['id' => $idp]);
+            return Response::redirect($this->url('detail', ['id' => $idp]) . '#thread'); // 3.37 (U26): back to the conversation, not the top
         }
         if ($this->request->isPost() && $this->request->hasPost('poznamka')) {
             $found = $this->findVisible($idp, 'prirazeno');
             if ($found === null) {
                 return $this->error('The enquiry does not exist.', 404);
             }
-            $who = $this->request->postInt('prirazeno');
-            $before = $found['prirazeno'];
-            $after = $who > 0 && isset($this->listAssignees((int) $before)[$who]) ? $who : null;
-            $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000), 'prirazeno' => $after], ['idp' => $idp]);
-            if ($after !== null && $after !== ($before === null ? null : (int) $before)) {
-                // 3.24: one e-mail to the new person handling it – never to oneself, never with the enquiry's content
-                \Kaleta\Core\Assignment::notify($this->app, 'enquiry', $idp, $after, $this->app->auth()->id());
-            }
+            $this->saveHandling($idp, $found);
         }
 
         return $this->back('The note has been saved.', 'detail', ['id' => $idp]);
