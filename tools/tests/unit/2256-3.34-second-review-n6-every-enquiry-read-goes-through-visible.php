@@ -97,6 +97,6 @@ check('3.34 second review N6: visible() – a twin is an application with the en
     $n6Twin, Kaleta\Admin\Modules\Enquiries::visible($n6Settings->db(), $n6Settings, false)],
     ['NOT EXISTS (SELECT 1 FROM {applications} twin WHERE twin.source_enquiry_id = p.idp AND twin.received_at = p.datum)', '1 = 1']);
 $n6Places = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
-check('3.34 second review N6: in Enquiries the detail, attachment, triage, notes, status, delete, bulk and CSV act only on what the person may see', [
+check('[source-pin] 3.34 second review N6: in Enquiries the detail, attachment, triage, notes, status, delete, bulk and CSV act only on what the person may see', [
     substr_count($n6Places, '$this->findVisible('), str_contains($n6Places, "\$this->db->all('SELECT idp FROM {poptavky} WHERE idp IN (' . implode(',', \$ids) . ') AND ' . \$this->visibleHere())"),
     str_contains($n6Places, "\$this->db->all('SELECT * FROM {poptavky} WHERE ' . \$this->visibleHere() . ' ORDER BY idp')")], [7, true, true]);

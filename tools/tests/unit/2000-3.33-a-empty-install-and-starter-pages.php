@@ -20,6 +20,6 @@ check('3.33 M2: the starter record is an internal setting (never exported, never
     in_array(StarterPages::SETTING, Kaleta\Core\SiteExport::SETTINGS, true),
 ], [true, false]);
 $i333Form = (string) file_get_contents(KALETA_ROOT . '/system/views/install/form.php');
-check('3.33 M2: the installer offers the empty site for a move next to the starter sites and the export', [
+check('[source-pin] 3.33 M2: the installer offers the empty site for a move next to the starter sites and the export', [
     str_contains($i333Form, 'Kaleta\Install\Installer::MOVE'), Kaleta\Install\Installer::MOVE, isset(Kaleta\Builder\Library::SITES[Kaleta\Install\Installer::MOVE]),
 ], [true, 'move', false]);

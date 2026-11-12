@@ -8,7 +8,7 @@ use Kaleta\Core\WpImport;
 $i333wFresh = WpImport::newState('topeni-dub.xml');
 $i333wOld = $i333wFresh;
 unset($i333wOld['prehled']['cile_stranek']);
-check('3.33 review L7: a 3.33 analysis always records where the pages land; an older state without it shows and replaces no starter page', [
+check('[source-pin] 3.33 review L7: a 3.33 analysis always records where the pages land; an older state without it shows and replaces no starter page', [
     WpImport::previewedStarters($i333wFresh), WpImport::previewedStarters($i333wOld), WpImport::previewedStarters([]),
     str_contains((string) file_get_contents(KALETA_ROOT . '/system/src/Core/WpImport.php'), '$starter = !self::previewedStarters($state) ? null : StarterPages::makeRoom('),
 ], [true, false, false, true]);

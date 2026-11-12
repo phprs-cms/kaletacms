@@ -8,11 +8,11 @@ $r352Auth = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 $r352Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $r352Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
 $r352View = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php');
-check('3.35 review M2: Auth::freshProof – a passkey-only account only with the strong proof, the password not even checked', [
+check('[source-pin] 3.35 review M2: Auth::freshProof – a passkey-only account only with the strong proof, the password not even checked', [
     (bool) preg_match("/function freshProof\(.*?if \(\\\$this->isPasskeyOnly\(\)\) \{\s*return \\\$this->isFreshlyVerified\(\) \? 'ok' : 'passkey';\s*\}.*?return \\\$this->confirmPassword\(\\\$typed\);/s", $r352Auth),
     (bool) preg_match('/function isPasskeyOnly\(.*?SignInPolicy::passkeyOnly\(/s', $r352Auth),
 ], [true, true]);
-check('3.35 review M2: every confirmation of My account goes through freshProof (password or strong), the OAuth consent too (recent)', [
+check('[source-pin] 3.35 review M2: every confirmation of My account goes through freshProof (password or strong), the OAuth consent too (recent)', [
     substr_count($r352Account, '->freshProof('), substr_count($r352Account, '->confirmPassword('),
     (bool) preg_match("/function passwordRefused\(string \\\$wrong\): \?array\s*\{\s*return \\\$this->proofRefused\(\\\$wrong, 'password'\);/", $r352Account),
     (bool) preg_match("/function freshnessRefused\(string \\\$wrong\): \?array\s*\{\s*return \\\$this->proofRefused\(\\\$wrong, 'strong'\);/", $r352Account),
@@ -24,9 +24,9 @@ check('3.35 review M2: every confirmation of My account goes through freshProof 
 foreach (["case 'profil':" => 'passwordRefused(', "case 'heslo':" => 'passwordRefused(', "case 'token_novy':" => 'passwordRefused(', "case 'totp_start':" => 'passwordRefused(',
     "case 'klic_smaz':" => 'freshnessRefused(', "case 'passkey_only':" => 'freshnessRefused(', "case 'backup_codes_new':" => 'freshnessRefused(', "case 'totp_vypni':" => 'passwordRefused('] as $r352Case => $r352Call) {
     $r352Start = strpos($r352Account, $r352Case);
-    check('3.35 review M2: ' . $r352Case . ' asks ' . $r352Call, $r352Start !== false && str_contains(substr($r352Account, $r352Start, (int) strpos($r352Account, '                case ', $r352Start + 20) - $r352Start), $r352Call), true);
+    check('[source-pin] 3.35 review M2: ' . $r352Case . ' asks ' . $r352Call, $r352Start !== false && str_contains(substr($r352Account, $r352Start, (int) strpos($r352Account, '                case ', $r352Start + 20) - $r352Start), $r352Call), true);
 }
-check('3.35 review M2: My account confirms with the passkey (the endpoints of the consent) and its forms hide the password fields', [
+check('[source-pin] 3.35 review M2: My account confirms with the passkey (the endpoints of the consent) and its forms hide the password fields', [
     str_contains($r352Account, "in_array(\$r->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)"),
     (bool) preg_match('/function confirmWithPasskey\(\): Response.*?confirmChallenge\(.*?->confirmWithPasskey\(.*?passkey_confirm/s', $r352Account),
     str_contains($r352View, 'data-klic-potvrdit'), substr_count($r352View, '<?= $proofNote ?>'),

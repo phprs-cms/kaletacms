@@ -178,7 +178,8 @@ final class Tasks
     {
         try {
             $row = $db->one('SELECT ' . self::COLUMNS . ' FROM {tasks} WHERE id = ?', [$id]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null; // before migration 0113
         }
 
@@ -209,7 +210,8 @@ final class Tasks
         $order = $filter === 'done' ? 'done_at DESC, id DESC' : 'due_at IS NULL, due_at, id';
         try {
             $rows = $db->all('SELECT ' . self::COLUMNS . ' FROM {tasks} WHERE assignee_id = ? AND ' . $where . ' ORDER BY ' . $order . ' LIMIT ' . $limit, [$userId, ...$params]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -229,7 +231,8 @@ final class Tasks
         }
         try {
             $rows = $db->all('SELECT ' . self::COLUMNS . ' FROM {tasks} WHERE target = ? ORDER BY done_at IS NOT NULL, due_at IS NULL, due_at, done_at DESC, id LIMIT 200', [$target]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -253,7 +256,8 @@ final class Tasks
             $rows = $db->all('SELECT COALESCE(assignee_id, 0) AS who, SUM(due_at < ?) AS overdue, SUM(due_at >= ? AND due_at < ?) AS today, SUM(due_at >= ? AND due_at < ?) AS upcoming,'
                 . ' SUM(due_at IS NULL OR due_at >= ?) AS later, COUNT(*) AS open FROM {tasks} WHERE done_at IS NULL GROUP BY COALESCE(assignee_id, 0)',
                 [$today, $today, $tomorrow, $tomorrow, $after, $after]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
         $out = [];
@@ -283,7 +287,8 @@ final class Tasks
         try {
             $rows = $db->all('SELECT ' . $columns . ' FROM {tasks} t LEFT JOIN {uzivatele} u ON u.idu = t.assignee_id AND u.blokovat = 0 WHERE u.idu IS NULL AND t.done_at IS '
                 . ($done ? 'NOT NULL ORDER BY t.done_at DESC, t.id DESC' : 'NULL ORDER BY t.due_at IS NULL, t.due_at, t.id') . ' LIMIT ' . $limit);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -307,7 +312,8 @@ final class Tasks
         try {
             $row = $db->one('SELECT SUM(due_at < ?) AS overdue, SUM(due_at >= ?) AS today FROM {tasks} WHERE assignee_id = ? AND done_at IS NULL AND due_at < ?',
                 [Clock::today() . ' 00:00:00', Clock::today() . ' 00:00:00', $userId, Clock::day('+1 day') . ' 00:00:00']);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['overdue' => 0, 'today' => 0];
         }
 
@@ -477,7 +483,8 @@ final class Tasks
     {
         try {
             return (int) $db->value('SELECT COUNT(*) FROM {tasks} WHERE assignee_id = ? AND done_at IS NULL', [$userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -491,7 +498,8 @@ final class Tasks
     {
         try {
             return array_map('intval', $db->pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE assignee_id IS NOT NULL AND done_at IS NULL GROUP BY assignee_id'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
     }
@@ -505,7 +513,8 @@ final class Tasks
     {
         try {
             $targets = array_column($db->all('SELECT DISTINCT target FROM {tasks} WHERE assignee_id = ? AND done_at IS NULL AND target IS NOT NULL', [$userId]), 'target');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
         $sections = [];
@@ -524,7 +533,8 @@ final class Tasks
     {
         try {
             return $db->run('UPDATE {tasks} SET assignee_id = ?, notified_at = NULL, updated_at = ? WHERE assignee_id = ? AND done_at IS NULL', [$to, Clock::now(), $from])->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -548,7 +558,8 @@ final class Tasks
                     $deleted += $db->run('DELETE FROM {tasks} WHERE target IN (' . $in . ')', $chunk)->rowCount();
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0113
         }
 
@@ -574,7 +585,8 @@ final class Tasks
                     $changed += $db->run("UPDATE {tasks} SET title = '' WHERE target IN (" . $in . ')', $chunk)->rowCount();
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0113
         }
 
@@ -589,7 +601,8 @@ final class Tasks
     {
         try {
             $targets = array_column($db->all('SELECT DISTINCT target FROM {tasks} WHERE target IS NOT NULL'), 'target');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
         $byKind = [];
@@ -603,7 +616,8 @@ final class Tasks
             foreach (array_chunk(array_values(array_unique(array_filter($byKind[$kind] ?? []))), 500) as $chunk) {
                 try {
                     $existing = array_flip(array_map('intval', array_column($db->all('SELECT ' . $key . ' FROM {' . $table . '} WHERE ' . $key . ' IN (' . implode(',', $chunk) . ')'), $key)));
-                } catch (\PDOException) {
+                } catch (\PDOException $e) {
+                    Db::rethrowUnlessMissing($e);
                     continue; // the contacts tables before migration 0114, the deals before 0117, the applications before 0119
                 }
                 foreach ($chunk as $id) {
@@ -630,7 +644,8 @@ final class Tasks
         try {
             $due = $db->all('SELECT id, title, target, assignee_id, created_by FROM {tasks} WHERE done_at IS NULL AND notified_at IS NULL AND assignee_id IS NOT NULL'
                 . ' AND COALESCE(remind_at, due_at) <= ? ORDER BY COALESCE(remind_at, due_at), id LIMIT ' . self::BATCH, [$now]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 'not installed';
         }
         $sent = 0;
@@ -663,7 +678,8 @@ final class Tasks
         try {
             $rows = $db->all('SELECT ' . self::COLUMNS . ' FROM {tasks} WHERE done_at IS NULL AND (' . $like . ') ORDER BY due_at IS NULL, due_at, id LIMIT ' . max(1, min(2000, $limit)),
                 array_map(fn (string $k): string => $k . ':%', $kinds)); // a target is kind:<digits> – no kind is another's prefix
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 

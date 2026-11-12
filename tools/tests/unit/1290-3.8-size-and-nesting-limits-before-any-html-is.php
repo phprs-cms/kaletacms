@@ -448,7 +448,7 @@ check('3.10 freshness: the threshold of System status, the setting, and the dail
     str_contains((string) file_get_contents(KALETA_ROOT . '/tools/check-channel.php'), 'Updater::needsSignatureV2($m[\'verze\'])'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/tools/release.php'), "'vydano' => date('Y-m-d')")],
     [60, true, false, true, true]);
-check('3.9 updates: the PHP a package needs is read from its own bootstrap (none before 3.7)', [
+check('[source-pin] 3.9 updates: the PHP a package needs is read from its own bootstrap (none before 3.7)', [
     Kaleta\Core\Updater::packageMinPhp((string) file_get_contents(KALETA_SYSTEM . '/bootstrap.php')),
     Kaleta\Core\Updater::packageMinPhp("<?php\nif (PHP_VERSION_ID < 80400) {\n    exit('Kaleta vyžaduje PHP 8.4');\n}\n"),
     Kaleta\Core\Updater::packageMinPhp("<?php\n// const KALETA_MIN_PHP = '7.0';\nconst KALETA_MIN_PHP = '8.5';\n"),
@@ -457,7 +457,7 @@ check('3.9 updates: the PHP a package needs is read from its own bootstrap (none
 // one minimum everywhere: the bootstrap gate, PHPStan, the CI matrix, the release manifest and the README
 $bootstrapSource = (string) file_get_contents(KALETA_SYSTEM . '/bootstrap.php');
 [$minMajor, $minMinor] = array_map('intval', explode('.', KALETA_MIN_PHP));
-check('3.7 minimum PHP ' . KALETA_MIN_PHP . ': bootstrap (English and Czech), PHPStan, CI, release and README say the same', [
+check('[source-pin] 3.7 minimum PHP ' . KALETA_MIN_PHP . ': bootstrap (English and Czech), PHPStan, CI, release and README say the same', [
     str_contains($bootstrapSource, "version_compare(PHP_VERSION, KALETA_MIN_PHP, '<')") && str_contains($bootstrapSource, "'Kaleta requires PHP ' . KALETA_MIN_PHP") && str_contains($bootstrapSource, "'Kaleta vyžaduje PHP ' . KALETA_MIN_PHP"),
     str_contains((string) file_get_contents(KALETA_ROOT . '/phpstan.neon.dist'), 'phpVersion: ' . ($minMajor * 10000 + $minMinor * 100)),
     str_contains((string) file_get_contents(KALETA_ROOT . '/.github/workflows/kontrola.yml'), "php: ['" . KALETA_MIN_PHP . "'"),

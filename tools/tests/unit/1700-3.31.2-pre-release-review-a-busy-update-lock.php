@@ -16,7 +16,7 @@ if ($b3312Lock !== false) {
     fclose($b3312Lock);
 }
 $u3312Run = substr($u3312 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Updater.php'), (int) strpos($u3312, 'public static function runInBackground('), 7600);
-check('3.31.2: the background job checks the update lock before the pre-update backup and, on BUSY, stores a postponement (not the due state); a postponed try is waited for and then due', [
+check('[source-pin] 3.31.2: the background job checks the update lock before the pre-update backup and, on BUSY, stores a postponement (not the due state); a postponed try is waited for and then due', [
     $b3312Held, U3312::installRunning(),
     strpos($u3312Run, 'if (self::installRunning()) {') < strpos($u3312Run, "Backup::create(\$app->db(), 'predaktualizaci');"),
     str_contains($u3312Run, "\$s->set('update_attempt', self::postponed(\$before, \$version, time()));"), str_contains($u3312Run, "\$s->set('update_attempt', \$before);"),

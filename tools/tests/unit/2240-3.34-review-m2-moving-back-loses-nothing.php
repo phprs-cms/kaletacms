@@ -6,7 +6,7 @@ declare(strict_types=1);
 $m2Move = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php');
 $m2Apply = strpos($m2Move, 'private static function moveBack(');
 $m2Body = $m2Apply === false ? '' : substr($m2Move, $m2Apply);
-check('3.34 review M2: a locked list skips the row; each copy is read back and compared; a failure or a rollback removes the copies; the sealed files go after the commit', [
+check('[source-pin] 3.34 review M2: a locked list skips the row; each copy is read back and compared; a failure or a rollback removes the copies; the sealed files go after the commit', [
     str_contains($m2Body, 'if (Applications::attachmentsLocked($s, $row[\'attachments\'] ?? null)) {'),
     str_contains($m2Body, "hash_equals(hash('sha256', \$file['content']), hash('sha256', \$check))"),
     substr_count($m2Body, '$forget($written);') >= 3,

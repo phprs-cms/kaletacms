@@ -5,27 +5,27 @@ declare(strict_types=1);
 /* ---------- 3.20 pre-release review (N320-1 … N320-12) ---------- */
 $n320Origin = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/EnquiryOrigin.php');
 $n320Links = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/news/links.php');
-check('3.20 review (N320-1, N320-5): the footer link to the report form is stored root-relative (Core\\Menu adds the base path); "Check again" posts to, and returns to, the module the screen was opened from', [
+check('[source-pin] 3.20 review (N320-1, N320-5): the footer link to the report form is stored root-relative (Core\\Menu adds the base path); "Check again" posts to, and returns to, the module the screen was opened from', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Whistleblowing.php'), "\$path = '/_report';"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/BrokenLinks.php'), "protected function actionLinks(): Response\n    {\n        return \$this->actionList();"),
     str_contains($n320Links, "\$checkUrl = \$app->url('admin.php?module=' . (\$app->request->get('module') === Kaleta\\Admin\\Modules\\BrokenLinks::IDENT ? Kaleta\\Admin\\Modules\\BrokenLinks::IDENT : Kaleta\\Admin\\Modules\\News::IDENT) . '&action=links');"),
     str_contains($n320Links, 'action="<?= e($checkUrl) ?>"') && !str_contains($n320Links, "url('links')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/News.php'), "\$module = \$this->request->get('module') === BrokenLinks::IDENT ? BrokenLinks::IDENT : static::IDENT;"),
 ], [true, true, true, true, true]);
-check('3.20 review (N320-3, N320-7, N320-11): enquiry origins drop the .html suffix of url_slash = html, an item path keeps its language, an old row links a known page even without the form', [
+check('[source-pin] 3.20 review (N320-3, N320-7, N320-11): enquiry origins drop the .html suffix of url_slash = html, an item path keeps its language, an old row links a known page even without the form', [
     substr_count($n320Origin, "preg_replace('~\\.html$~', '', trim((string) parse_url(\$path, PHP_URL_PATH), '/'))"),
     str_contains($n320Origin, 'AND p.seo_link = ? AND p.jazyk = ? AND p.smazano IS NULL LIMIT 1') && !str_contains($n320Origin, "ORDER BY p.jazyk"),
     !str_contains($n320Origin, "if (\$source === '' && \$id === '')"),
 ], [2, true, true]);
 $n320Media = new ReflectionMethod(Kaleta\Admin\Modules\Media::class, 'allowedLink');
-check('3.20 review (N320-6): "Used in" links only to the modules the person may open (the same rule as BuilderActions::dataLinks); null = every link', [
+check('[source-pin] 3.20 review (N320-6): "Used in" links only to the modules the person may open (the same rule as BuilderActions::dataLinks); null = every link', [
     $n320Media->invoke(null, 'admin.php?module=users&action=edit&id=3', ['pages', 'media']), $n320Media->invoke(null, 'admin.php?module=pages&action=edit&id=3', ['pages', 'media']),
     $n320Media->invoke(null, 'admin.php?module=settings', ['pages']), $n320Media->invoke(null, 'admin.php?module=settings', null),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Media.php'), 'self::findUsagesWithLinks($this->db, $modules)'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Media.php'), 'self::allowedLink('),
 ], ['', 'admin.php?module=pages&action=edit&id=3', '', 'admin.php?module=settings', true, 2]);
 $n320Stats = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/stats/list.php');
-check('3.20 review (N320-8, N320-9): the cookies tab says when the privacy page is hidden and links its settings; Statistics renders empty texts through Module::hint() like every view', [
+check('[source-pin] 3.20 review (N320-8, N320-9): the cookies tab says when the privacy page is hidden and links its settings; Statistics renders empty texts through Module::hint() like every view', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), "SELECT ids, titulek, seo_link, zobrazit FROM {stranky}") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), "'visible' => (int) \$row['zobrazit'] === 1"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), "\$privacyPage['visible']") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), "t('Page settings')"),
     str_contains($n320Stats, '$module->hint(t($empty))'), str_contains($n320Stats, 'MenuPaths::links'),
@@ -99,7 +99,7 @@ check('3.21 review (N321-1): instant canvas text skips the strip of a hidden ele
 $c10Json = json_encode([['at' => '2026-11-01 10:00:00', 'by' => 'Alex', 'by_id' => 3, 'to' => 'hana@example.cz', 'reply_to' => 'alex@firma.cz', 'subject' => 'Re: Kontakt', 'text' => "Dobrý den,\nděkujeme.", 'mail' => 7, 'status' => 'sent', 'error' => '', 'via' => 'admin'],
     'junk', ['status' => 'hacked', 'via' => 'other']]);
 $c10Anon = Kaleta\Core\EnquiryReply::decode(Kaleta\Core\EnquiryReply::anonymised($c10Json));
-check('3.22 C10: EnquiryReply – history cleaned, anonymised without address and text, subject, one address only', [
+check('[source-pin] 3.22 C10: EnquiryReply – history cleaned, anonymised without address and text, subject, one address only', [
     count(Kaleta\Core\EnquiryReply::decode($c10Json)), Kaleta\Core\EnquiryReply::decode($c10Json)[1]['status'], Kaleta\Core\EnquiryReply::decode($c10Json)[1]['via'],
     Kaleta\Core\EnquiryReply::decode('not json'), Kaleta\Core\EnquiryReply::decode(null), Kaleta\Core\EnquiryReply::anonymised(null),
     [$c10Anon[0]['by'], $c10Anon[0]['at'], $c10Anon[0]['status'], $c10Anon[0]['to'], $c10Anon[0]['reply_to'], $c10Anon[0]['subject'], $c10Anon[0]['text']],
@@ -108,7 +108,7 @@ check('3.22 C10: EnquiryReply – history cleaned, anonymised without address an
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'count($to) !== 1'),
 ], [2, 'failed', 'admin', [], [], null, ['Alex', '2026-11-01 10:00:00', 'sent', '', '', '', ''], 'Re: Kontakt', true, [], ['a@example.cz', 'b@example.cz'], true]);
 // the message's own Reply-To (the visitor of a notification, the user who replies) wins over the site's reply address
-check('3.22 C10: Mail keeps the Reply-To a message names; the site address only otherwise; the log row id is known', [
+check('[source-pin] 3.22 C10: Mail keeps the Reply-To a message names; the site address only otherwise; the log row id is known', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), "\$siteSettings->get('mail_reply_to') !== '' && !isset(\$h['Reply-To'])"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), "self::\$lastId = \$siteSettings->db()->insert('posta'"),
 ], [true, true]);

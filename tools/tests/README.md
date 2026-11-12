@@ -27,3 +27,11 @@ Both runners take the files in number order. A file whose name does not match `N
 - A guard that reads the smoke suite as text uses `smoke_test_source()` (bootstrap.php), not `tools/test.sh`.
 - `KALETA_UNIT_LABELS=<file> php tools/unit-tests.php` writes every check's file and label – compare two lists to prove
   that a refactoring kept every check.
+- **No new source pins (3.36 T3).** A check that searches the text of a product file (`str_contains(file_get_contents(KALETA_SYSTEM …), …)`)
+  passes when the behaviour is broken and fails when a correct refactoring moves a line. The existing ones carry `[source-pin]` in their
+  label, the runner prints how many there are, and `2610-…` fails when a new one appears (`unit_source_pins()` in bootstrap.php finds
+  them; a rule that walks the whole tree is no pin). Test the behaviour instead; when you replace a pin, lower `UNIT_SOURCE_PIN_CEILING`.
+- **A database error is an error (3.36 T3).** A `catch (\PDOException …)` calls `Db::rethrowUnlessMissing($e)` when it only covers the
+  time before a migration, uses the error, or says "any database error" and why – `2600-…` checks every catch in `system/`.
+- **Query budgets (3.36 T3).** The test copy answers every admin request with `X-Kaleta-Queries` (`Core\TestSeams`); `2610-…` keeps the busy
+  lists under their budgets and checks that more rows add no statement.

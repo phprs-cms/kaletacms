@@ -21,7 +21,7 @@ check('3.34 review low (f): without the section the Purpose stays as it was (a n
     $lfPurposes($lfLocked), count(array_filter(array_keys($lfErrors), fn (string $k): bool => str_ends_with($k, '.obsah.ucel'))), $lfPurposes($lfOpen), $lfPurposes($lfCli),
     $lfFormSchema['vlastnosti']['ucel']['jen_cteni'] ?? false],
     [['uchazec', '', ''], 3, ['', 'uchazec', 'uchazec'], ['', 'uchazec', 'uchazec'], true]);
-check('3.34 review low (f): the admin and MCP requests set it from the section; the builder shows the property read-only', [
+check('[source-pin] 3.34 review low (f): the admin and MCP requests set it from the section; the builder shows the property read-only', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), '\Kaleta\Builder\Build::$purposeAllowed = $app->auth()->hasModule(\Kaleta\Core\Applications::SECTION);'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), '\Kaleta\Builder\Build::$purposeAllowed = $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION);'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), "el('select', { disabled: !!def.jen_cteni,")],

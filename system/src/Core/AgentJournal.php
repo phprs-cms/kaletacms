@@ -67,7 +67,8 @@ final class AgentJournal
             $id = $session !== null ? (int) $session['id'] : $db->insert('agent_sessions', ['connection' => mb_substr($connection, 0, 100), 'started_at' => $now, 'last_at' => $now, 'calls' => 0]);
             $db->run('UPDATE {agent_sessions} SET last_at = ?, calls = calls + 1 WHERE id = ?', [$now, $id]);
             $call = (int) $db->value('SELECT calls FROM {agent_sessions} WHERE id = ?', [$id]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -274,7 +275,8 @@ final class AgentJournal
         try {
             return $db->run("UPDATE {agent_journal} SET row_key = '', before_row = NULL, after_row = NULL, untracked = 'personal data erased on request' WHERE tbl IN ("
                 . implode(',', array_fill(0, count(self::PERSONAL_TABLES), '?')) . ') AND (LOWER(before_row) LIKE ? OR LOWER(after_row) LIKE ?)', [...self::PERSONAL_TABLES, $like, $like])->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0; // before the 2.17 migration
         }
     }

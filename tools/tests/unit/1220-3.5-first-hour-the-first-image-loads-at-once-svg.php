@@ -51,7 +51,7 @@ check('3.5 UXP-05: countdown – role="timer" on a <div> around the <dl>, the li
 // UXP-02/UXM-02/UXP-07: the cookie bar – every visitor language has the descriptive link text; the categories really stay hidden
 // until Settings (display: grid used to override [hidden]); the toolbar sits above the bar
 $cookieView = (string) file_get_contents(KALETA_SYSTEM . '/views/front/cookies.php');
-check('3.5: the cookie bar link text in every visitor language, categories behind Settings, the toolbar above the bar', [
+check('[source-pin] 3.5: the cookie bar link text in every visitor language, categories behind Settings, the toolbar above the bar', [
     array_values(array_filter(['cs', 'de', 'es', 'fr', 'it', 'pl', 'sk'], fn (string $code): bool => !isset((require KALETA_SYSTEM . '/jazyky/' . $code . '.php')['More about cookies and privacy']))),
     str_contains($cookieView, "t('More information')"), str_contains($cookieView, '.cookies-volby:not([hidden]) { display: grid;'), str_contains($cookieView, '.cookies-volby { display'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/front/pristupnost.php'), 'max(56px, var(--ka-cookies-vyska, 0px))'),

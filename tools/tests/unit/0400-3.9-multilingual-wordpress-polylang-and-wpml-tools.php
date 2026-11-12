@@ -159,7 +159,7 @@ check('3.9.2 N392-4: a German "Vor- und Nachname" field is the name of a lead',
 preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0084-media-htaccess.php'), $n67Migration);
 // 3.15 (N72): migration 0098 carries the newer file (the header rules match an upper-case extension too) and replaces the one 0084 wrote
 preg_match("/<<<'HTACCESS'\n(.*?)\nHTACCESS/s", (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0098-media-htaccess-case.php'), $n72Migration);
-check('3.9.2 N67 / 3.15 N72: migration 0098 writes exactly the media/.htaccess of the package and replaces the one of 0084 (3.9.2)', [
+check('[source-pin] 3.9.2 N67 / 3.15 N72: migration 0098 writes exactly the media/.htaccess of the package and replaces the one of 0084 (3.9.2)', [
     ($n72Migration[1] ?? '') . "\n" === $n67Htaccess, str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0098-media-htaccess-case.php'), "'" . hash('sha256', ($n67Migration[1] ?? '') . "\n") . "'"),
     str_contains($n67Htaccess, (string) (new ReflectionClassConstant(Kaleta\Core\Health::class, 'MEDIA_HEADER_RULE'))->getValue()),
     preg_match_all('/<FilesMatch "\(\?i\)/', $n67Htaccess)], [true, true, true, 3]);

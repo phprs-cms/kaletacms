@@ -10,12 +10,12 @@ check('3.34 B: a leaver hands applications over like other work – only to some
     Handover::KINDS['application'] ?? null, Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 0, 'application' => 2]),
     Kaleta\Core\Language::runWith('en', fn (): string => Handover::describe(['page' => 1, 'item' => 0, 'enquiry' => 0, 'application' => 2]), 'admin-')],
     [['applications', 'applications', 'applications', 'id', 'assignee_id'], ['applications'], 'pages: 1, open job applications: 2']);
-check('3.34 B: My work – the undecided applications one is responsible for and the new ones nobody is, with the section Applications; MCP my_work keeps them additive and without the name', [
+check('[source-pin] 3.34 B: My work – the undecided applications one is responsible for and the new ones nobody is, with the section Applications; MCP my_work keeps them additive and without the name', [
     Kaleta\Core\MyWork::LISTS['applications'] ?? null, Kaleta\Core\MyWork::LISTS['applications_new'] ?? null,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/WorkTools.php'), "'applications' => 'applications_assigned', 'applications_new' => 'applications_unassigned'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php'), "<?php elseif (\$list === 'applications' || \$list === 'applications_new'):")],
     ['applications', 'applications', true, true]);
-check('3.34 B: Ctrl K asks for applications only with the section; the palette, the jobs list and the builder get their data', [
+check('[source-pin] 3.34 B: Ctrl K asks for applications only with the section; the palette, the jobs list and the builder get their data', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), "isset(\$modules['applications']) ? ' data-applications=\""),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.js'), "palette.getAttribute('data-applications')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "isset(\$this->kernel->modules()[\\Kaleta\\Core\\Applications::SECTION])"),

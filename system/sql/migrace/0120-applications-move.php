@@ -67,7 +67,9 @@ return static function (Db $db, Settings $settings): void {
     try {
         $collections = $db->all("SELECT idk, seo_link FROM {kolekce} WHERE preset = 'jobs'");
         $db->value('SELECT 1 FROM {applications} LIMIT 1');
-    } catch (\PDOException) {
+    } catch (\PDOException $e) {
+        Db::rethrowUnlessMissing($e);
+
         return; // no collections or no applications table on this database
     }
     if ($collections === []) {

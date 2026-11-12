@@ -262,7 +262,8 @@ final class Rollout
     {
         try {
             return array_map('strval', $db->pairs("SELECT id, update_window FROM {fleet_customers} WHERE update_window <> ''"));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
     }

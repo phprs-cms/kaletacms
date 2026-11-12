@@ -369,7 +369,8 @@ final class Contacts extends Module
         $back = $this->app->url('admin.php?module=' . $section . '&action=detail&id=' . $id);
         try {
             $contactId = Customers::link($this->app, $kind, $id);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            \Kaleta\Core\Db::rethrowUnlessMissing($e);
             $contactId = null;
         }
         if ($contactId === null) {

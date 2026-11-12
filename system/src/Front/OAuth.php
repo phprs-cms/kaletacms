@@ -552,7 +552,8 @@ final class OAuth
     {
         try {
             $client === null ? $db->delete('oauth_rotated', ['idu' => $userId]) : $db->delete('oauth_rotated', ['idu' => $userId, 'client_id' => $client]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the 3.3.4 migration there are no records
         }
     }

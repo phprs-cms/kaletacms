@@ -90,14 +90,14 @@ check('3.29 (N329-1): Origin: null is no host – a same-origin beacon (or a bro
 ], [null, null, 'site', 'site']);
 check('3.29: the flood guard – 300 views a day at most, 10 views within 10 seconds is a machine', [Stats329::DAILY_VIEWS, Stats329::BURST_VIEWS, Stats329::BURST_SECONDS], [300, 10, 10]);
 $vitalsJs329 = (string) file_get_contents(KALETA_ROOT . '/image/vitals.js');
-check('3.29: the beacon script counts the page view only when a person can see it – visible, not prerendered, never under browser automation – once, with sendBeacon (fetch keepalive as a fallback), without cookies or storage', [
+check('[source-pin] 3.29: the beacon script counts the page view only when a person can see it – visible, not prerendered, never under browser automation – once, with sendBeacon (fetch keepalive as a fallback), without cookies or storage', [
     str_contains($vitalsJs329, "document.visibilityState !== 'visible' || document.prerendering"), str_contains($vitalsJs329, "addEventListener('prerenderingchange', count)"),
     str_contains($vitalsJs329, "addEventListener('visibilitychange', count)"), (bool) preg_match('/if \(!script \|\| navigator\.webdriver/', $vitalsJs329),
     str_contains($vitalsJs329, "getAttribute('data-hit')"), str_contains($vitalsJs329, 'keepalive: true'), str_contains($vitalsJs329, 'counted = true;'),
     (bool) preg_match('/document\.cookie|localStorage|sessionStorage|indexedDB/', $vitalsJs329)],
     [true, true, true, true, true, true, true, false]);
 $kernel329 = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
-check('3.29: rendering a page or serving it from the page cache counts nothing; the beacon (and so the counting) is only on indexable pages outside previews and for nobody signed in', [
+check('[source-pin] 3.29: rendering a page or serving it from the page cache counts nothing; the beacon (and so the counting) is only on indexable pages outside previews and for nobody signed in', [
     str_contains($kernel329, 'Stats::record('), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Cache.php'), 'Stats::record('),
     preg_match('/visit = visit \+ 1/', $kernel329 . file_get_contents(KALETA_SYSTEM . '/src/Front/Cache.php')),
     str_contains($kernel329, "\$meta['vitals'] = Stats::isOn(\$this->app) && \$this->app->request->get('preview') === '' && !\$this->wantsDraft() && \$this->app->auth()->user() === null;"),

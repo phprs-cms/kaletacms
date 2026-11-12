@@ -169,7 +169,8 @@ final class Testimonials
         }
         try {
             return array_map('intval', array_column($db->all('SELECT DISTINCT item_id FROM {testimonial_requests} WHERE item_id IN (' . implode(',', $itemIds) . ')'), 'item_id'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before the testimonial requests existed
         }
     }

@@ -6,7 +6,7 @@ declare(strict_types=1);
 // the legacy combined General form (tab=general without general_split) carries the security fields too
 $r361Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
 $r361Fn = substr($r361Settings, (int) strpos($r361Settings, 'private function signInChangeRefusal('), (int) strpos($r361Settings, 'public const string HOST_CHANGE_CONFIRM') - (int) strpos($r361Settings, 'private function signInChangeRefusal('));
-check('3.35 re-review N1: signInChangeRefusal has no early return for the host change; the proof runs for every other sensitive key', [
+check('[source-pin] 3.35 re-review N1: signInChangeRefusal has no early return for the host change; the proof runs for every other sensitive key', [
     str_contains($r361Fn, "return [['site_url']"),
     substr_count($r361Fn, 'return '),
     str_contains($r361Fn, "\$unconfirmed[] = 'site_url';"),

@@ -44,7 +44,7 @@ check('3.3.2 N25: a stored build with a reserved hook renders without it (no err
     (bool) preg_match('/<a class="ka-nahoru" href="#" aria-label="[^"]+" aria-label="Custom" data-x="y">/', $n25Own)],
     ['<h2 data-x="y" title="T">Hi</h2>', true, true]);
 $webJs = $frontScripts['image/web.js'];
-check('3.3.2 N25: web.js loads Leaflet only from the site\'s own copy, writes the map credit as text and makes basket and comparison links only from http(s) or site addresses', [
+check('[source-pin] 3.3.2 N25: web.js loads Leaflet only from the site\'s own copy, writes the map credit as text and makes basket and comparison links only from http(s) or site addresses', [
     (bool) preg_match('/leaflet\.origin === location\.origin && \/\\\\\/image\\\\\/vendor\\\\\/leaflet\\\\\/\$\/\.test\(leaflet\.pathname\)/', $webJs), str_contains($webJs, "attributionControl: false"), str_contains($webJs, 'link.textContent = credit;'),
     str_contains($webJs, 'attribution:'), str_contains($webJs, "safeUrl(form.getAttribute('data-kosik'))"), str_contains($webJs, "safeUrl(box.form.getAttribute('data-porovnani'))"),
     substr_count($webJs, 'A(basket.page)') + substr_count($webJs, 'A(compare.url'), Kaleta\Builder\Elements\StoreLocator::LEAFLET_PATH],

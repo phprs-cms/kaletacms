@@ -14,7 +14,7 @@ check('3.31.2 N103: three tries – an hour after the first failure, twelve afte
     [[3600, 43200], '3.31.3|1|4600', '3.31.3|2|44200', '3.31.3', '3.31.3', 2]);
 $u3312 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Updater.php');
 $u3312Run = substr($u3312, (int) strpos($u3312, 'public static function runInBackground('), 7000);
-check('3.31.2 N103: the background update takes a database lock, re-reads the attempt under it, and install() no longer marks a version as done', [
+check('[source-pin] 3.31.2 N103: the background update takes a database lock, re-reads the attempt under it, and install() no longer marks a version as done', [
     str_contains($u3312Run, "\$db->value('SELECT GET_LOCK(?, 0)', [\$lock])"), str_contains($u3312Run, "\$db->value('SELECT RELEASE_LOCK(?)', [\$lock]);"),
     strpos($u3312Run, 'GET_LOCK') < strpos($u3312Run, "\$s->set('update_attempt', \$stored);"), strpos($u3312Run, "SELECT hodnota FROM {nastaveni} WHERE promenna = ?") < strpos($u3312Run, "\$s->set('update_attempt', \$stored);"),
     substr_count($u3312, "set('update_attempt'"), str_contains($u3312, "self::BUSY);"), str_contains($u3312Run, '$e->getCode() === self::BUSY')],
@@ -30,7 +30,7 @@ $u3312Ask = function (array $answers): array {
 
     return [$fetch('https://site.example/')[0], $asked];
 };
-check('3.31.2 N103: the check after an update asks again when a proxy answers 502/503/504 – at most twice more; a 200, a 500 or a 403 counts at once; probe() uses it', [
+check('[source-pin] 3.31.2 N103: the check after an update asks again when a proxy answers 502/503/504 – at most twice more; a 200, a 500 or a 403 counts at once; probe() uses it', [
     $u3312Ask([[200, 'ok']]), $u3312Ask([[503, ''], [200, 'ok']]), $u3312Ask([[502, ''], [504, ''], [200, 'ok']]), $u3312Ask([[502, '']]), $u3312Ask([[500, 'Fatal'], [200, 'ok']]), $u3312Ask([[403, ''], [200, 'ok']]),
     str_contains($u3312, '$fetch = self::askingAgain($fetch, $this->probeFetch === null ? self::PROBE_WAIT : 0);')],
     [[200, 1], [200, 2], [200, 3], [502, 3], [500, 1], [403, 1], true]);

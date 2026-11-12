@@ -23,7 +23,7 @@ check('3.35 B3 N104: an add-on tool that declares openWorld is offered to full c
 $i335cTools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php');
 $i335cBatch = (string) file_get_contents(KALETA_SYSTEM . '/src/Builder/ItemBatch.php');
 $i335cMigration = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/MigrationTools.php');
-check('3.35 B3 N104: upload_file refuses a url before any request, media reuse comes before the rule, migration_report checks it in code too', [
+check('[source-pin] 3.35 B3 N104: upload_file refuses a url before any request, media reuse comes before the rule, migration_report checks it in code too', [
     strpos($i335cTools, 'Catalog::mayFetch($this->app->auth()->connection())') < strpos($i335cTools, '(new \Kaleta\Core\ImageDownloader($url))->download($url, false)'),
     strpos($i335cBatch, '$reused = self::mediaFromMap($app, $url);') < strpos($i335cBatch, 'Catalog::mayFetch($app->auth()->connection())'),
     strpos($i335cBatch, 'Catalog::mayFetch($app->auth()->connection())') < strpos($i335cBatch, '(new ImageDownloader($url))->download($url, $image)'),

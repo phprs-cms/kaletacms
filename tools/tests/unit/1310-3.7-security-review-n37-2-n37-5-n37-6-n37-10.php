@@ -11,11 +11,11 @@ check('3.7 N37-2: Pages::slugReserved refuses the system words of both languages
     [true, true, true, true, true, true, true, true, true, true, false, false, false, false]);
 $pagesSource37 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/PageTools.php')
     . file_get_contents(KALETA_SYSTEM . '/src/Core/WebImport.php') . file_get_contents(KALETA_SYSTEM . '/src/Import/Batch.php') . file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Bookings.php');
-check('3.7 N37-2: no page writer checks RESERVED_SLUGS on its own any more (they all ask Pages::slugReserved)', substr_count($pagesSource37, 'in_array($seo, Pages::RESERVED_SLUGS') + substr_count($pagesSource37, 'in_array($url, Pages::RESERVED_SLUGS')
+check('[source-pin] 3.7 N37-2: no page writer checks RESERVED_SLUGS on its own any more (they all ask Pages::slugReserved)', substr_count($pagesSource37, 'in_array($seo, Pages::RESERVED_SLUGS') + substr_count($pagesSource37, 'in_array($url, Pages::RESERVED_SLUGS')
     + substr_count($pagesSource37, 'in_array($a, Pages::RESERVED_SLUGS') + substr_count($pagesSource37, "in_array(\$data['seo_link'], self::RESERVED_SLUGS"), 0);
 // N37-5: the installer's cron line comes from the same helper as System status
 $installerSource37 = (string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php');
-check('3.7 N37-5: the installer takes the cron path from Routes::publicSystemPath, never a hard-coded /tasks',
+check('[source-pin] 3.7 N37-5: the installer takes the cron path from Routes::publicSystemPath, never a hard-coded /tasks',
     [str_contains($installerSource37, "Routes::publicSystemPath('ulohy', \$db)"), str_contains($installerSource37, "'/tasks?token='"), Routes::publicSystemPath('ulohy', null)], [true, false, 'tasks']);
 // N37-6: the English system words never follow url_slash (only a page that holds the word does – that needs the database)
 check('3.7 N37-6: the English system words are no page-like URLs, so url_slash never redirects them', [

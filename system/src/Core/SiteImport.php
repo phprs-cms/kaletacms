@@ -471,8 +471,14 @@ final class SiteImport
         $clean = array_intersect_key($clean, array_flip($this->columns($table)));
         try {
             $this->db->insert($table, $clean);
-        } catch (\PDOException) {
-            return false; // a duplicate number or address in the export
+        } catch (\PDOException $e) {
+            // a row the table refuses (a duplicate number or address, a value out of range in the export) is skipped;
+            // any other database error stops the import (SQLSTATE class 22 = data, 23 = integrity)
+            if (!in_array(substr((string) $e->getCode(), 0, 2), ['22', '23'], true)) {
+                throw $e;
+            }
+
+            return false;
         }
         foreach ($tags as $ids) {
             $this->db->run('INSERT IGNORE INTO {novinky_stitky} (idc, ids) VALUES (?, ?)', [$clean['idc'], $ids]);

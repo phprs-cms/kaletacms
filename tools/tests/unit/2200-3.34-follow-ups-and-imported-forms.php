@@ -30,7 +30,7 @@ check('3.34: an imported career form is a Form element without the Purpose – a
     Applications::isApplicationForm($f340Form['obsah'] ?? [], 'kolekce:3', ['kolekce:3']),
     Applications::isApplicationForm($f340Form['obsah'] ?? [], 'popup:2', [])],
     [true, '', false, true, true, false]);
-check('3.34: the importers never write the Purpose of a form nor a jobs collection (the jobs preset comes only from Collections)', [
+check('[source-pin] 3.34: the importers never write the Purpose of a form nor a jobs collection (the jobs preset comes only from Collections)', [
     preg_match("/'ucel'/", (string) file_get_contents(KALETA_SYSTEM . '/src/Builder/HtmlConverter.php') . file_get_contents(KALETA_SYSTEM . '/src/Builder/HtmlWidgets.php') . file_get_contents(KALETA_SYSTEM . '/src/Core/WebImport.php')),
     preg_match('/Jobs::PRESET|\'jobs\'/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/WpImport.php') . file_get_contents(KALETA_SYSTEM . '/src/Core/WebImport.php'))],
     [0, 0]);
@@ -39,7 +39,7 @@ check('3.34: the importers never write the Purpose of a form nor a jobs collecti
 $f340Enquiries = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
 $f340Detail = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php');
 $f340Move = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php');
-check('3.34: Move to Applications – the action needs the section Applications, uses ApplicationMove for one row and opens the application; the button only for those who may', [
+check('[source-pin] 3.34: Move to Applications – the action needs the section Applications, uses ApplicationMove for one row and opens the application; the button only for those who may', [
     str_contains($f340Enquiries, "protected function actionToApplication(): Response"),
     str_contains($f340Enquiries, "!isset(\$this->kernel->modules()[\\Kaleta\\Core\\Applications::SECTION])"),
     str_contains($f340Enquiries, '\Kaleta\Core\ApplicationMove::enquiryToApplication($this->app, $idp)'),
@@ -53,7 +53,7 @@ check('3.34: Move to Applications never clears the page cache (Enquiries is a si
 // site_info features.applications and the list_enquiries hint (additive keys)
 $f340Pages = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/PageTools.php');
 $f340List = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php');
-check('3.34: site_info carries features.applications (on, the switch for Claude, whether this user may open them); list_enquiries points kind job to list_applications only with the feature on', [
+check('[source-pin] 3.34: site_info carries features.applications (on, the switch for Claude, whether this user may open them); list_enquiries points kind job to list_applications only with the feature on', [
     str_contains($f340Pages, "'features' => ['applications' => ['enabled' => \\Kaleta\\Core\\Applications::isOn(\$siteSettings), 'claude' => \$siteSettings->bool('applications_claude'),"),
     str_contains($f340List, "\$applicationsHint = \\Kaleta\\Core\\Applications::isOn(\$siteSettings)"),
     str_contains($f340List, "+ (\$applicationsHint !== null && \$p['kategorie'] === 'job' ? ['applications_hint' => \$applicationsHint] : []),"),

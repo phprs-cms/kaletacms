@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.32 (pre-release review): a form notification's subject names the person by name or company only; the mail log never ---------- */
 $r332Mail = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php');
-check('3.32: the notification subject – "<form>: <site> – <name or company>", never the e-mail address; the log keeps "<form>: <site>"; a queued mail keeps its full subject in its body', [
+check('[source-pin] 3.32: the notification subject – "<form>: <site> – <name or company>", never the e-mail address; the log keeps "<form>: <site>"; a queued mail keeps its full subject in its body', [
     Kaleta\Front\Forms::notificationSubject('Contact', 'Hartsteel', 'olivia@example.com', [['Name', 'Olivia Hart'], ['E-mail', 'olivia@example.com']]),
     Kaleta\Front\Forms::notificationSubject('Contact', 'Hartsteel', 'olivia@example.com', [['Company', 'Bracket Works Ltd'], ['E-mail', 'olivia@example.com']]),
     Kaleta\Front\Forms::notificationSubject('Contact', 'Hartsteel', 'olivia@example.com', [['E-mail', 'olivia@example.com'], ['Message', 'Hello there, we need help']]),

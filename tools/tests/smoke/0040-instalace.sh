@@ -32,7 +32,8 @@ printf '%s\n' '<?php require __DIR__ . "/system/bootstrap.php"; $app = Kaleta\Co
 t1_deprecation() { php "$WORK/web/t1-deprecation.php" 2>&1 | tail -c 300; }
 expect "T1 (Q1): a deprecation after App::boot() is logged, not thrown – once, as one line" \
   "$(t1_deprecation)|$(grep -c '\] PHP deprecation: T1 smoke deprecation in t1-deprecation.php:1' "$WORK/web/storage/log/chyby.log")" "survived|1"
-php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_STRICT_DEPRECATIONS\x27, true);", (string) file_get_contents($f), 1));' "$WORK/web/config.php"
+# 3.36 (T3/T4): the test copy also defines KALETA_TEST_SEAMS – Core\TestSeams answers "off" on every site without it
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_STRICT_DEPRECATIONS\x27, true); define(\x27KALETA_TEST_SEAMS\x27, true);", (string) file_get_contents($f), 1));' "$WORK/web/config.php"
 expect "T1 (Q1): with KALETA_STRICT_DEPRECATIONS (the test copies) a deprecation is thrown again" "$(t1_deprecation | grep -c survived)|$(grep -c '\] ErrorException: T1 smoke deprecation' "$WORK/web/storage/log/chyby.log")" "0|1"
 rm -f "$WORK/web/t1-deprecation.php"
 php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 smoke deprecation"))));' "$WORK/web/storage/log/chyby.log"

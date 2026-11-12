@@ -14,7 +14,7 @@ check('3.30: console tasks are tasks about fleet_site:<id> or fleet_customer:<id
         ['Site “Lindner” in the fleet console', 'Console customer “Fysiomed”'],
         ['fleet_site:3', 'fleet_customer:2', 'admin.php?module=fleet&action=detail&id=3#tasks', 'admin.php?module=fleet&action=customer_detail&id=2#tasks'], false, true]);
 $y330Src = fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/src/' . $f);
-check('3.30: a console task follows its record – a removed site and a forgotten customer take theirs, a merge moves them, the sweep checks the console tables; only on a console', [
+check('[source-pin] 3.30: a console task follows its record – a removed site and a forgotten customer take theirs, a merge moves them, the sweep checks the console tables; only on a console', [
     str_contains($y330Src('Fleet/Console.php'), 'Tasks::forgetTargets($db, [ConsoleTasks::site($id)])'),
     str_contains($y330Src('Fleet/Customers.php'), 'ConsoleTasks::moveCustomer($db, $id, (int) $other)'),
     str_contains($y330Src('Fleet/Customers.php'), 'Tasks::forgetTargets($db, array_map(ConsoleTasks::customer(...), $gone))') && str_contains($y330Src('Fleet/Customers.php'), 'ConsoleTasks::customersWithOpenTasks($db)'),
@@ -63,7 +63,7 @@ check('3.30 fleet_plan: per site the items, the tasks, the connector and the ord
         ['id' => 1, 'title' => 'Renew the domain', 'due' => '2026-11-01 09:00', 'overdue' => true, 'admin_url' => 'https://console.example/admin.php?module=fleet&action=detail&id=3#tasks'],
         [['Lindner GmbH', 2, true, [3]]], [2, 0, 0], [false, false, false, false], [], [], 0,
         ['https://lindner.example/mcp', 'https://x.example/sub/mcp', null, null, null, null]]);
-check('3.30: fleet_plan is a read tool of the fleet extension, outside the essentials, English on both sides, with a title; the prompt fleet_fix is listed only on a console', [
+check('[source-pin] 3.30: fleet_plan is a read tool of the fleet extension, outside the essentials, English on both sides, with a title; the prompt fleet_fix is listed only on a console', [
     Kaleta\Mcp\Catalog::TOOLS['fleet_plan'] ?? null, in_array('fleet_plan', Kaleta\Mcp\Catalog::ESSENTIALS, true), in_array('fleet_plan', Kaleta\Mcp\Catalog::WORK, true),
     Kaleta\Mcp\Translator::czech('fleet_plan'), isset(Kaleta\Mcp\Catalog::TITLES['fleet_plan']), Kaleta\Mcp\Tools::annotations('fleet_plan')['readOnlyHint'],
     Kaleta\Mcp\Prompts::FLEET_ONLY, in_array('fleet_fix', array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), true),

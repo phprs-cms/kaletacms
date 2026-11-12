@@ -190,7 +190,8 @@ final class Applications
         try {
             return array_values(array_unique(array_map('strval', array_column($db->all("SELECT p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.preset = ? AND p.zobrazit = 1
                 AND p.smazano IS NULL AND (p.valid_until IS NULL OR p.valid_until >= ?) AND p.jazyk = ? ORDER BY p.nazev LIMIT 100", [Jobs::PRESET, Clock::today(), $language]), 'nazev'))));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
     }
@@ -675,7 +676,8 @@ final class Applications
                 }
             }
             $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [self::waitingBefore(Clock::today())]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             $waiting = 0; // before migration 0119
         }
 
@@ -731,7 +733,8 @@ final class Applications
             foreach ($db->all("SELECT job_item_id, SUM(status = 'new') AS fresh, COUNT(*) AS n FROM {applications} WHERE job_collection_id = ? AND job_item_id IS NOT NULL GROUP BY job_item_id", [$collectionId]) as $r) {
                 $out[(int) $r['job_item_id']] = [(int) $r['fresh'], (int) $r['n']];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0119
         }
 
@@ -769,7 +772,8 @@ final class Applications
     {
         try {
             return (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new'");
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -801,7 +805,8 @@ final class Applications
             foreach ($ids === [] ? [] : $db->all('SELECT id, job_title FROM {applications} WHERE id IN (' . implode(',', $ids) . ')') as $r) {
                 $out[self::target((int) $r['id'])] = ['kind' => 'application', 'id' => (int) $r['id'], 'title' => (string) $r['job_title'], 'path' => self::adminPath((int) $r['id'])];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0119
         }
 
@@ -900,7 +905,8 @@ final class Applications
     {
         try {
             return (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE assignee_id = ? AND status NOT IN ('hired', 'rejected')", [$userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -914,7 +920,8 @@ final class Applications
     {
         try {
             return array_map('intval', $db->pairs("SELECT assignee_id, COUNT(*) FROM {applications} WHERE assignee_id IS NOT NULL AND status NOT IN ('hired', 'rejected') GROUP BY assignee_id"));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
     }
@@ -924,7 +931,8 @@ final class Applications
     {
         try {
             return $db->run("UPDATE {applications} SET assignee_id = ? WHERE assignee_id = ? AND status NOT IN ('hired', 'rejected')", [$to, $from])->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -934,7 +942,8 @@ final class Applications
     {
         try {
             $db->run('UPDATE {applications} SET last_activity_at = ? WHERE id = ?', [Clock::now(), $id]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0119
         }
     }
@@ -1032,7 +1041,8 @@ final class Applications
         try {
             $rows = $db->all('SELECT p.idp, p.data FROM {poptavky} p JOIN {applications} a ON a.source_enquiry_id = p.idp AND a.received_at = p.datum'
                 . ($ids !== null ? ' WHERE a.id IN (' . implode(',', array_map('intval', $ids)) . ')' : ''));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0; // before migration 0119
         }
         if ($rows === []) {
@@ -1144,8 +1154,8 @@ final class Applications
             if ($s->get(self::FILES_SINCE) === '') {
                 $s->set(self::FILES_SINCE, (string) time());
             }
-        } catch (\PDOException) {
-            // a marker never fails the sealing of a CV
+        } catch (\PDOException $e) {
+            ErrorLog::write(ErrorLog::exception($e)); // logged, but a marker never fails the sealing of a CV
         }
     }
 
@@ -1413,7 +1423,8 @@ final class Applications
             foreach ($app->db()->all('SELECT attachments FROM {applications} WHERE attachments IS NOT NULL') as $row) {
                 $count += self::attachmentsLocked($s, $row['attachments']) ? 1 : 0;
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
 
@@ -1456,7 +1467,8 @@ final class Applications
             if (!self::lockFiles($db, 0)) {
                 return 0; // N4: a move runs – the next clean-up seals
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
         try {
@@ -1476,7 +1488,8 @@ final class Applications
         while (true) {
             try {
                 $rows = $db->all('SELECT id, attachments FROM {applications} WHERE source_enquiry_id IS NOT NULL AND attachments IS NOT NULL AND id > ? ORDER BY id LIMIT 200', [$after]);
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 return 0;
             }
             if ($rows === []) {
@@ -1675,7 +1688,8 @@ final class Applications
                     }
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
         $removed = 0;
@@ -1713,7 +1727,8 @@ final class Applications
         $done = 0;
         try {
             $rows = $app->db()->all("SELECT id, attachments FROM {applications} WHERE attachments LIKE 'db:%' LIMIT 500");
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
         foreach ($rows as $row) {
@@ -1733,7 +1748,8 @@ final class Applications
     {
         try {
             return (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE attachments LIKE 'db:%'");
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -1753,7 +1769,8 @@ final class Applications
                     $count += $path !== null && is_file($path) ? 1 : 0;
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0; // before migration 0119
         }
 
@@ -1793,7 +1810,8 @@ final class Applications
     {
         try {
             $row = $app->db()->one('SELECT COUNT(*) AS n, MIN(moved_at) AS since FROM {applications} WHERE source_enquiry_id IS NOT NULL AND id > ?', [self::confirmedUpTo($app->settings())]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['count' => 0, 'since' => null];
         }
 
@@ -1851,7 +1869,8 @@ final class Applications
         try {
             $rows = $app->db()->all('SELECT id, decided_at, last_activity_at, pool_until FROM {applications} WHERE source_enquiry_id IS NOT NULL AND id > ? AND COALESCE(decided_at, last_activity_at) < ?',
                 [self::confirmedUpTo($s), $before . ' 23:59:59']);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null; // before migration 0119
         }
         $count = count(self::expired($rows, $months, $today));
@@ -1936,7 +1955,8 @@ final class Applications
         $db = $app->db();
         try {
             $db->value('SELECT 1 FROM {applications} LIMIT 1');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0; // before migration 0119
         }
         self::sealPending($app);
@@ -1991,7 +2011,8 @@ final class Applications
             // review low (e): the application's own address only – an application that merely names it (a referee, a colleague)
             // belongs to its applicant and is neither exported to nor erased for someone else
             $rows = $db->all('SELECT * FROM {applications} WHERE email_norm = ? OR LOWER(email) = ? ORDER BY id', [PersonalData::normalise($email) ?? $email, mb_strtolower($email)]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before migration 0119
         }
 
@@ -2030,7 +2051,8 @@ final class Applications
                 }
             }
             $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [$to]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
         if ($received + array_sum($moves) + $waiting === 0) {
@@ -2050,7 +2072,8 @@ final class Applications
         try {
             $moved = $db->value("SELECT MIN(created_at) FROM {events} WHERE type = 'applications.moved'");
             $first = $db->value('SELECT MIN(received_at) FROM {applications} WHERE source_enquiry_id IS NULL');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
         $start = min(array_filter([is_string($moved) ? $moved : null, is_string($first) ? $first : null]) ?: ['']);

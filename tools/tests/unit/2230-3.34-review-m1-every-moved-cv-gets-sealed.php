@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.34 review M1: sealPending walks the moved rows with an id cursor; the settings tab counts the CVs still waiting ---------- */
 $m1Store = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Applications.php');
-check('3.34 review M1: an id cursor (applications_seal_after), no fixed first 500 rows; the end starts over; the count of waiting CVs', [
+check('[source-pin] 3.34 review M1: an id cursor (applications_seal_after), no fixed first 500 rows; the end starts over; the count of waiting CVs', [
     str_contains($m1Store, "AND attachments IS NOT NULL AND id > ? ORDER BY id LIMIT 200', [\$after]"),
     str_contains($m1Store, 'ORDER BY id LIMIT 500'),
     str_contains($m1Store, "\$s->set('applications_seal_after', '0');"),

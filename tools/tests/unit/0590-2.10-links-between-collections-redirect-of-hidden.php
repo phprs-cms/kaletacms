@@ -25,6 +25,6 @@ check('2.10: where hidden items redirect – a path on the site or https', array
     ['', '/tym', 'https://example.com/team', null, null, null]);
 check('2.10: Hours::rangesText – hours for people from ranges or their text, nothing from nonsense (the door sign)', [Kaleta\Core\Hours::rangesText([['08:00', '12:00'], ['13:30', '17:00']]), Kaleta\Core\Hours::rangesText('9-12'), Kaleta\Core\Hours::rangesText('morning')],
     ['8:00–12:00, 13:30–17:00', '9:00–12:00', '']);
-check('2.10: HoursSign – formats, a standalone view with print CSS, a Print button only on screen and no outside resource', [Kaleta\Core\HoursSign::FORMATS,
+check('[source-pin] 2.10: HoursSign – formats, a standalone view with print CSS, a Print button only on screen and no outside resource', [Kaleta\Core\HoursSign::FORMATS,
     (fn (string $v): array => [str_contains($v, '@page'), str_contains($v, '@media print'), str_contains($v, 'data-tisk'), preg_match('/(href|src)="https?:/', $v) === 0, str_contains($v, '<!DOCTYPE html>')])((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/hours_sign.php'))],
     [['a4', 'a5'], [true, true, true, true, true]]);

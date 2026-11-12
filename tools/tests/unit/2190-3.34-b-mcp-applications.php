@@ -22,7 +22,7 @@ check('3.34 B MCP: the work set stays under 49,000 bytes, the essentials unchang
     $p339Json(['tools' => Kaleta\Mcp\Discovery::essentials($p339All, 'full', Catalog::WORK)]) <= 49000, $p339Json(['tools' => Kaleta\Mcp\Discovery::essentials($p339All, 'full')]) <= 49000],
     [true, true]);
 $p339Source = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ApplicationTools.php');
-check('3.34 B MCP: every tool checks the switch and the section first; a CV only by name and size; applicant text marked untrusted; the reply needs confirm', [
+check('[source-pin] 3.34 B MCP: every tool checks the switch and the section first; a CV only by name and size; applicant text marked untrusted; the reply needs confirm', [
     substr_count($p339Source, '$this->applicationsOpen();'), str_contains($p339Source, "'attachments' => array_map(fn (array \$f): array => ['name' => \$f['name'], 'size' => \$f['size']], \$application['attachments']),"),
     substr_count($p339Source, '+ \\Kaleta\\Mcp\\Untrusted::mark(['), /* 3.35: the one marker of Mcp\Untrusted */ str_contains($p339Source, "if ((\$a['confirm'] ?? false) !== true) {"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/WorkTools.php'), 'return $this->assignApplication($a);'),

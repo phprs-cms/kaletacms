@@ -165,7 +165,8 @@ final class Contacts
         }
         try {
             $row = $db->one('SELECT * FROM {companies} WHERE domain = ? ORDER BY id LIMIT 1', [$domain]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null; // before migration 0114
         }
 
@@ -187,7 +188,8 @@ final class Contacts
         }
         try {
             $row = $db->one('SELECT c.*, co.name AS company_name FROM {contacts} c LEFT JOIN {companies} co ON co.id = c.company_id WHERE c.email_norm = ?', [$norm]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -203,7 +205,8 @@ final class Contacts
     {
         try {
             $row = $id > 0 ? $db->one('SELECT c.*, co.name AS company_name FROM {contacts} c LEFT JOIN {companies} co ON co.id = c.company_id WHERE c.id = ?', [$id]) : null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null; // before migration 0114
         }
 
@@ -321,7 +324,8 @@ final class Contacts
             $page = max(1, min($page, $pages));
             $rows = $db->all('SELECT c.*, co.name AS company_name' . $sql . ' ORDER BY ' . (self::SORTS[$filter['sort'] ?? ''] ?? self::SORTS['activity'])
                 . ' LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage), $params);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1]; // before migration 0114
         }
         $rows = array_map(self::row(...), $rows);
@@ -352,7 +356,8 @@ final class Contacts
             foreach ($db->pairs('SELECT contact_id, COUNT(*) FROM {bookings} WHERE contact_id IN (' . $in . ') GROUP BY contact_id') as $id => $n) {
                 $out[(int) $id]['bookings'] = (int) $n;
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // without the booking tables (before 3.0)
         }
         foreach ($db->all('SELECT contact_id FROM {odberatele} WHERE stav = 1 AND contact_id IN (' . $in . ')') as $r) {
@@ -399,7 +404,8 @@ final class Contacts
             $in = implode(',', $chunk);
             try {
                 $chunk = array_map('intval', array_column($db->all('SELECT id FROM {contacts} WHERE anonymised_at IS NULL AND id IN (' . $in . ')'), 'id'));
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 return $done; // before migration 0114
             }
             if ($chunk === []) {
@@ -413,7 +419,8 @@ final class Contacts
             $db->run("UPDATE {contact_activities} SET text = '' WHERE contact_id IN (" . $in . ')');
             try {
                 $db->run("UPDATE {contact_activities} SET merged_email = '' WHERE contact_id IN (" . $in . ") AND merged_email <> ''"); // 3.35 review L5: the marker too
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 // before migration 0121 (a background job of the new code before the database update) – there is no marker
             }
             Comments::anonymiseTargets($db, array_map(Comments::contact(...), $chunk));
@@ -544,7 +551,8 @@ final class Contacts
             }
             try {
                 $rows = $db->all('SELECT ' . $key . ' AS id, contact_id FROM {' . $table . '} WHERE ' . $key . ' > ? ORDER BY ' . $key . ' LIMIT ' . $left, [$state[$kind]]);
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 continue; // a table missing (bookings before 3.0, contacts before 0114)
             }
             foreach ($rows as $r) {
@@ -553,7 +561,8 @@ final class Contacts
                 if ($r['contact_id'] === null) {
                     try {
                         $linked += self::link($app, $kind, (int) $r['id']) !== null ? 1 : 0;
-                    } catch (\PDOException) {
+                    } catch (\PDOException $e) {
+                        Db::rethrowUnlessMissing($e);
                         // a row that cannot be linked now (contacts not installed yet) – it waits behind the cursor no longer
                     }
                 }
@@ -594,7 +603,8 @@ final class Contacts
         try {
             $contactId = (int) $db->value('SELECT contact_id FROM {' . $table . '} WHERE ' . $key . ' = ?', [$id]);
             self::touch($db, $contactId, $at ?? Clock::now());
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0114
         }
     }
@@ -629,7 +639,8 @@ final class Contacts
             foreach (['enquiries' => 'poptavky', 'bookings' => 'bookings', 'subscriptions' => 'odberatele'] as $label => $table) {
                 try {
                     $moved[$label] = $db->run('UPDATE {' . $table . '} SET contact_id = ? WHERE contact_id = ?', [$a['id'], $b['id']])->rowCount();
-                } catch (\PDOException) {
+                } catch (\PDOException $e) {
+                    Db::rethrowUnlessMissing($e);
                     $moved[$label] = 0;
                 }
             }
@@ -638,17 +649,20 @@ final class Contacts
             $moved['comments'] = $db->run('UPDATE {comments} SET target = ? WHERE target = ?', [$new, $old])->rowCount();
             try {
                 $moved['tasks'] = $db->run('UPDATE {tasks} SET target = ? WHERE target = ?', [$new, $old])->rowCount();
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 $moved['tasks'] = 0;
             }
             try {
                 $db->run('UPDATE {notifications} SET target = ? WHERE target = ?', [$new, $old]);
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 // before migration 0112
             }
             try {
                 $moved['deals'] = $db->run('UPDATE {deals} SET contact_id = ? WHERE contact_id = ?', [$a['id'], $b['id']])->rowCount(); // 3.31
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 $moved['deals'] = 0; // before migration 0117
             }
             $fill = array_filter(['name' => $a['name'] === '' ? $b['name'] : '', 'phone' => $a['phone'] === '' ? $b['phone'] : '', 'language' => $a['language'] === '' ? $b['language'] : ''],
@@ -736,7 +750,8 @@ final class Contacts
     {
         try {
             $rows = $db->all('SELECT * FROM {contact_activities} WHERE contact_id = ? ORDER BY happened_at DESC, id DESC LIMIT ' . max(1, min(1000, $limit)), [$contactId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -772,7 +787,8 @@ final class Contacts
                     $out[] = ['at' => $reply['at'], 'kind' => 'reply', 'title' => $reply['subject'], 'by' => $reply['by'], 'status' => $reply['status'], 'ref' => 'enquiry:' . (int) $r['idp'], 'path' => $path];
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before migration 0114
         }
         try {
@@ -780,7 +796,8 @@ final class Contacts
                 $out[] = ['at' => (string) $r['created_at'], 'kind' => 'booking', 'title' => (string) ($r['service'] ?? ''), 'text' => (string) $r['starts_at'], 'status' => (string) $r['status'],
                     'ref' => 'booking:' . (int) $r['id'], 'path' => 'admin.php?module=bookings&action=detail&id=' . (int) $r['id']];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // without the booking tables
         }
         foreach ($db->all('SELECT ido, datum, potvrzeno, stav FROM {odberatele} WHERE contact_id = ? LIMIT 5', [$id]) as $r) {
@@ -868,7 +885,8 @@ final class Contacts
     {
         try {
             $row = $id > 0 ? $db->one('SELECT * FROM {companies} WHERE id = ?', [$id]) : null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -888,7 +906,8 @@ final class Contacts
         }
         try {
             $row = $db->one('SELECT * FROM {companies} WHERE LOWER(name) = ? ORDER BY id LIMIT 1', [mb_strtolower($name)]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -926,7 +945,8 @@ final class Contacts
             $pages = max(1, (int) ceil($total / $perPage));
             $page = max(1, min($page, $pages));
             $rows = array_map(self::companyRow(...), $db->all('SELECT *' . $sql . ' ORDER BY ' . $db->sortText('name') . ', id LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage), $params));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
         }
         $ids = array_column($rows, 'id');
@@ -948,7 +968,8 @@ final class Contacts
         $db->run('UPDATE {contacts} SET company_id = NULL WHERE company_id = ?', [$id]);
         try {
             $db->run('UPDATE {deals} SET company_id = NULL WHERE company_id = ?', [$id]); // N331-2: its deals stay, without the company
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0117
         }
         Comments::forget($db, [Comments::company($id)]);
@@ -1017,7 +1038,8 @@ final class Contacts
                     $changed++;
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return $changed; // before migration 0114
         }
 
@@ -1046,7 +1068,8 @@ final class Contacts
         try {
             $ids = array_map('intval', array_column($db->all('SELECT id FROM {contacts} WHERE anonymised_at IS NULL AND COALESCE(last_activity_at, created_at) < ? ORDER BY id LIMIT ' . self::PURGE_BATCH,
                 [$before]), 'id'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0; // before migration 0114
         }
         $ids = array_values(array_filter($ids, function (int $id) use ($db, $before): bool {
@@ -1075,12 +1098,14 @@ final class Contacts
         $moments = [];
         try {
             $moments[] = $db->value('SELECT MAX(created_at) FROM {comments} WHERE target = ?', [$target]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the 3.25 migration
         }
         try {
             $moments[] = $db->value('SELECT MAX(GREATEST(created_at, updated_at, COALESCE(done_at, created_at), COALESCE(due_at, created_at))) FROM {tasks} WHERE target = ?', [$target]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the 3.27 migration
         }
         $moments = array_filter(array_map(fn (mixed $m): string => (string) $m, $moments), fn (string $m): bool => $m !== '');
@@ -1139,7 +1164,8 @@ final class Contacts
                     $out['company:' . (int) $r['id']] = ['kind' => 'company', 'id' => (int) $r['id'], 'title' => (string) $r['name'], 'path' => self::companyAdminPath((int) $r['id'])];
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0114
         }
 
@@ -1156,7 +1182,8 @@ final class Contacts
         try {
             return ['contact' => (int) $db->value('SELECT COUNT(*) FROM {contacts} WHERE owner_id = ? AND anonymised_at IS NULL', [$userId]),
                 'company' => (int) $db->value('SELECT COUNT(*) FROM {companies} WHERE owner_id = ?', [$userId])];
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['contact' => 0, 'company' => 0];
         }
     }
@@ -1177,7 +1204,8 @@ final class Contacts
                     $out[(int) $idu][$kind] = (int) $n;
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -1190,7 +1218,8 @@ final class Contacts
         try {
             return ['contact' => $db->run('UPDATE {contacts} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount(),
                 'company' => $db->run('UPDATE {companies} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount()];
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['contact' => 0, 'company' => 0];
         }
     }
@@ -1218,7 +1247,8 @@ final class Contacts
                 try {
                     $ids = [...$ids, ...array_map('intval', array_column($db->all('SELECT contact_id FROM {contact_activities} WHERE merged_email = ?', [$norm]), 'contact_id'))];
                     $legacy = " AND merged_email = ''";
-                } catch (\PDOException) {
+                } catch (\PDOException $e) {
+                    Db::rethrowUnlessMissing($e);
                     $legacy = ''; // before migration 0121
                 }
                 foreach ($db->all("SELECT contact_id, text FROM {contact_activities} WHERE kind = 'note'" . $legacy . ' AND LOWER(text) LIKE ?', ['%' . addcslashes($norm, '%_\\') . '%']) as $row) {
@@ -1233,7 +1263,8 @@ final class Contacts
                     $ids = [...$ids, ...array_map('intval', array_column($db->all('SELECT DISTINCT contact_id FROM {' . $table . '} WHERE contact_id IS NOT NULL AND ' . $key . ' IN (' . implode(',', $list) . ')'), 'contact_id'))];
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before migration 0114
         }
 
@@ -1354,7 +1385,8 @@ final class Contacts
             try {
                 $rows = $db->all('SELECT ' . $column . ' AS email, contact_id FROM {' . $table . '} WHERE ' . $column . ' = ? AND contact_id IS NOT NULL' . ($other === $kind ? ' AND ' . $key . ' <> ' . $id : '')
                     . ' ORDER BY ' . $key . ' DESC LIMIT 20', [$norm]);
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 continue;
             }
             foreach ($rows as $r) {
@@ -1386,7 +1418,8 @@ final class Contacts
         foreach (self::LINKED as [$table]) {
             try {
                 $db->run('UPDATE {' . $table . '} SET contact_id = NULL WHERE contact_id IN (' . $in . ')');
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 // a table missing (bookings before 3.0)
             }
         }

@@ -140,7 +140,8 @@ final class Health
         $passkeyHost = SignInPolicy::siteRpId($siteSettings);
         try {
             $passkeysElsewhere = $passkeyHost === '' ? 0 : (int) $db->value("SELECT COUNT(*) FROM {uzivatele_klice} WHERE rp_id <> '' AND rp_id <> ?", [$passkeyHost]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             $passkeysElsewhere = 0; // before migration 0121
         }
         if ($passkeysElsewhere > 0) {

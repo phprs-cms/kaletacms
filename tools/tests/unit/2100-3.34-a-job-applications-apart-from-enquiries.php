@@ -131,7 +131,7 @@ check('3.34: the section Applications is never a default of a level; the ready-m
 // the form side: an application never reaches the enquiry path (no triage, customer record, webhook or enquiry event), the CV check runs
 $a334Forms = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php');
 $a334Branch = substr($a334Forms, (int) strpos($a334Forms, 'if ($application) {'), 900);
-check('3.34: Front\Forms – an application form goes to Applications::receive and returns before the enquiry row, triage, customer record, webhook and "enquiry received"', [
+check('[source-pin] 3.34: Front\Forms – an application form goes to Applications::receive and returns before the enquiry row, triage, customer record, webhook and "enquiry received"', [
     str_contains($a334Forms, 'Applications::isApplicationForm($element[\'obsah\'], $source, \Kaleta\Core\Jobs::sources($this->app->db()))'),
     str_contains($a334Forms, 'Applications::checkUpload((string) $file[\'tmp_name\'], (string) $file[\'name\']) === null'),
     str_contains($a334Branch, 'Applications::receive(') && str_contains($a334Branch, 'return $this->finish('),

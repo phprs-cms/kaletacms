@@ -396,12 +396,14 @@ final class Privacy
         $contactMonths = Contacts::months($s);
         try {
             $contactCount = (int) $db->value('SELECT COUNT(*) FROM {contacts} WHERE anonymised_at IS NULL');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             $contactCount = 0; // before migration 0114
         }
         try {
             $dealCount = (int) $db->value('SELECT COUNT(*) FROM {deals} WHERE contact_id IS NOT NULL'); // 3.31 (Core\Deals)
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             $dealCount = 0; // before migration 0117
         }
         $sections[] = ['heading' => t('Customer relations'), 'lines' => [

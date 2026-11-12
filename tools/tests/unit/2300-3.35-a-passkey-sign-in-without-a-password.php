@@ -108,7 +108,7 @@ $p335Auth = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 $p335Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $p335Js = (string) file_get_contents(KALETA_ROOT . '/image/klice.js');
 $p335Login = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/login.php');
-check('3.35 A: an empty app secret is never checked (its codes are public); the passwordless sign-in requires UV, the account\'s handle and a discoverable key, uses the sign-in limits and pops its challenge first', [
+check('[source-pin] 3.35 A: an empty app secret is never checked (its codes are public); the passwordless sign-in requires UV, the account\'s handle and a discoverable key, uses the sign-in limits and pops its challenge first', [
     str_contains($p335Auth, "\$step = \$appCode && (string) \$user['totp_tajemstvi'] !== '' ? Totp::step("),
     str_contains($p335Auth, "(string) \$key['verejny'], (int) \$key['pocitadlo'], true);"),
     str_contains($p335Auth, "if (empty(\$key['discoverable'])) {"),
@@ -117,7 +117,7 @@ check('3.35 A: an empty app secret is never checked (its codes are public); the 
     substr_count($p335Auth, 'return t(self::PASSKEY_FAILED);'),
     str_contains($p335Auth, '$secondStep = SignInPolicy::needsSecondStep($user, $this->workingKeys((int) $user[\'idu\']));'), // 3.35 review M3: the passkeys of this host
 ], [true, true, true, true, true, 1, true]);
-check('3.35 A: registration needs a fresh confirmation and requires UV; removing too; the old TOTP precondition is gone; the script offers conditional UI and the button', [
+check('[source-pin] 3.35 A: registration needs a fresh confirmation and requires UV; removing too; the old TOTP precondition is gone; the script offers conditional UI and the button', [
     str_contains($p335Account, "\$this->freshnessRefused('Enter your current password to add a passkey.')"),
     str_contains($p335Account, "\$this->freshnessRefused('Enter your current password to remove a passkey. Nothing was removed.')"),
     str_contains($p335Account, 'Passkey::rpId($url), true);'), str_contains($p335Account, "'Turn on two-factor sign-in first.'"),

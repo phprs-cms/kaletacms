@@ -28,17 +28,17 @@ check('3.3.3 N9: the link check pins every resolved address – IPv6, CGNAT 100.
 check('3.3.3 N22: NAT64 (64:ff9b::/96, 64:ff9b:1::/48) and SIIT (::ffff:0:a.b.c.d) are not public; ordinary IPv6 still is', array_map(Kaleta\Core\ImageDownloader::isPublicIp(...),
     ['64:ff9b::a9fe:a9fe', '64:ff9b:1::a00:1', '64:ff9b:1:ffff::1', '::ffff:0:a9fe:a9fe', '::ffff:0:7f00:1', '::ffff:0:5db8:d822', '64:ff9b:2::1', '2606:4700::1111']),
     [false, false, false, false, false, false, true, true]);
-check('3.3.3 N52: curl compares the address it connected to with the pinned one (any notation of the same address)', [
+check('[source-pin] 3.3.3 N52: curl compares the address it connected to with the pinned one (any notation of the same address)', [
     defined('CURLOPT_PREREQFUNCTION') ? str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Outbound.php'), 'CURLOPT_PREREQFUNCTION') : true,
     Kaleta\Core\Outbound::sameAddress('127.0.0.1', '::ffff:127.0.0.1'), Kaleta\Core\Outbound::sameAddress('::1', '0:0::1'), Kaleta\Core\Outbound::sameAddress('[::1]', '::1'),
     Kaleta\Core\Outbound::sameAddress('127.0.0.1', '127.0.0.2'), Kaleta\Core\Outbound::sameAddress('', '127.0.0.1')],
     [true, true, true, true, false, false]);
 $n52Sources = array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/src/' . $f), ['Core/ImageDownloader.php', 'Import/Fetch.php', 'Fleet/Http.php', 'Core/Links.php']);
-check('3.3.3 N52: no curl caller builds its own CURLOPT_RESOLVE entry – all pin through Outbound::pin', [array_sum(array_map(fn (string $s): int => substr_count($s, 'CURLOPT_RESOLVE'), $n52Sources)),
+check('[source-pin] 3.3.3 N52: no curl caller builds its own CURLOPT_RESOLVE entry – all pin through Outbound::pin', [array_sum(array_map(fn (string $s): int => substr_count($s, 'CURLOPT_RESOLVE'), $n52Sources)),
     array_map(fn (string $s): bool => str_contains($s, 'Outbound::pin('), $n52Sources)], [0, [true, true, true, true]]);
 
 // N55: a Kaleta archive brings settings through the same validation as the admin form and MCP
-check('3.3.3 N55: imported company_map and social_* must be web addresses; texts and numbers are checked by their field type', [
+check('[source-pin] 3.3.3 N55: imported company_map and social_* must be web addresses; texts and numbers are checked by their field type', [
     Kaleta\Admin\Modules\Settings::checkable('company_map'), Kaleta\Admin\Modules\Settings::checkable('social_facebook'), Kaleta\Admin\Modules\Settings::checkable('design_system'),
     Kaleta\Admin\Modules\Settings::verifyValue('company_map', 'javascript:alert(1)'), Kaleta\Admin\Modules\Settings::verifyValue('social_x', ' JavaScript:alert(2)'),
     Kaleta\Admin\Modules\Settings::verifyValue('social_linkedin', 'https://www.linkedin.com/company/x'), Kaleta\Admin\Modules\Settings::verifyValue('company_map', ''),
@@ -62,7 +62,7 @@ check('3.3.3 N63: ImportRecheck::build leaves a safe build as it is (Custom HTML
     Kaleta\Core\ImportRecheck::build($n63Safe) === $n63Safe, str_contains((string) $n63Risky, 'onclick'), str_contains((string) $n63Risky, 'javascript:'), str_contains((string) $n63Risky, '<script>own()</script>'),
     Kaleta\Core\ImportRecheck::build((string) $n63Risky) === $n63Risky, Kaleta\Core\ImportRecheck::build('not json')],
     [true, false, false, true, true, null]);
-check('3.3.3 N63: migration 0074 is a data migration of this release, its background job finishes large sites, System status reports it', [
+check('[source-pin] 3.3.3 N63: migration 0074 is a data migration of this release, its background job finishes large sites, System status reports it', [
     in_array('0074-imported-content-recheck', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION >= 74, Kaleta\Core\Scheduler::JOBS['import_recheck'][0] ?? null,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), 'ImportRecheck::state('), Kaleta\Core\Settings::DEFAULTS['imported_recheck'] ?? null],
     [true, true, 0, true, '']);

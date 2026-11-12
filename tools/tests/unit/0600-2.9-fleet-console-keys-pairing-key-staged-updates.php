@@ -124,7 +124,7 @@ foreach (['cs', 'de', 'es'] as $code316) {
 }
 check('3.16 N316-8: the machine names the console detail shows (firewall reasons, security events, run results and tasks, jobs) have their labels in every admin language', $missing316, []);
 $detail316 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/detail.php');
-check('3.16 N316-5/-8: the console detail reads dates through Console::date and names machine keys through the label maps', [str_contains($detail316, 'new DateTimeImmutable($part'), str_contains($detail316, 'Console::date('),
+check('[source-pin] 3.16 N316-5/-8: the console detail reads dates through Console::date and names machine keys through the label maps', [str_contains($detail316, 'new DateTimeImmutable($part'), str_contains($detail316, 'Console::date('),
     str_contains($detail316, 'ReportPage::FIREWALL'), str_contains($detail316, 'AgentSchedules::STATUSES'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Heartbeat.php'), 'TODO')], [false, true, true, true, false]);
 // 3.17: the inbox of the console (Fleet\Inbox) – built from stored heartbeats, a 3.15 heartbeat without the 3.16 parts too
 $inboxIso = fn (int $hoursAgo): string => date(DATE_ATOM, $fleetNow - $hoursAgo * 3600);
@@ -163,4 +163,4 @@ check('3.17: Fleet\Inbox – filters by kind, site, customer and urgency; counts
 check('3.17: Fleet\Customers – a customer name is one trimmed line, a note plain text', [Kaleta\Fleet\Customers::clean("  Novák\n <b>s.r.o.</b> "), mb_strlen(Kaleta\Fleet\Customers::clean(str_repeat('x', 300))),
     Kaleta\Fleet\Customers::cleanNote("<i>Calls</i> on Mondays\r\nonly")], ['Novák s.r.o.', 150, "Calls on Mondays\nonly"]);
 $inboxView = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/inbox.php');
-check('3.17: the inbox links out plainly – a new tab without an opener, no token or sign-in in the link', [str_contains($inboxView, 'target="_blank" rel="noopener"'), (bool) preg_match('/token|password|login/i', (string) json_encode(array_column($inbox, 'link')))], [true, false]);
+check('[source-pin] 3.17: the inbox links out plainly – a new tab without an opener, no token or sign-in in the link', [str_contains($inboxView, 'target="_blank" rel="noopener"'), (bool) preg_match('/token|password|login/i', (string) json_encode(array_column($inbox, 'link')))], [true, false]);

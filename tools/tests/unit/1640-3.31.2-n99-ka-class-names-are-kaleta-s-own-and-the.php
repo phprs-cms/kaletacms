@@ -7,7 +7,7 @@ declare(strict_types=1);
 // user class in every path that reads Build::CLASS_PATTERN (builder, MCP, imports, shared classes, kits)
 preg_match_all('/\.(ka-[a-z0-9-]*[a-z0-9])/', $frontScripts['image/web.js'] . $frontScripts['image/vitals.js'], $n99Hooks);
 $n99Hooks = array_values(array_unique($n99Hooks[1]));
-check('3.31.2 N99: every .ka-… class hook of the public scripts is refused as a user class; ordinary names stay', [
+check('[source-pin] 3.31.2 N99: every .ka-… class hook of the public scripts is refused as a user class; ordinary names stay', [
     count($n99Hooks) > 10, in_array('ka-kolekce-strany', $n99Hooks, true), in_array('ka-kolekce-filtry', $n99Hooks, true),
     array_values(array_filter($n99Hooks, fn (string $c): bool => preg_match(Kaleta\Builder\Build::CLASS_PATTERN, $c) === 1)),
     array_map(fn (string $c): int => (int) preg_match(Kaleta\Builder\Build::CLASS_PATTERN, $c), ['karta', 'karta--zvyraznena', 'kabel', 'kafe-menu', 'ka', 'ka-', 'ka-x', 'ka-kolekce-strany', 'ka-tlacitko--primarni']),

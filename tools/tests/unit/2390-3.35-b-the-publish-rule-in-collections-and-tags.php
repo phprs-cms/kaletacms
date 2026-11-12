@@ -35,7 +35,7 @@ check('3.35 B6 N107: admin – every action that changes an item or a category o
     // a hidden copy and a restore from the trash (as hidden) stay open to the role
     !$i335fAction($i335fAdmin, 'actionDuplicateItem', 'canPublish'), !$i335fAction($i335fAdmin, 'actionRestoreItem', 'canPublish'),
 ], array_fill(0, 11, true));
-check('3.35 B6 N107: MCP – the same rule for a role that does not publish over any connection (not only drafts-only connections)', [
+check('[source-pin] 3.35 B6 N107: MCP – the same rule for a role that does not publish over any connection (not only drafts-only connections)', [
     $i335fAction($i335fMcp, 'toolSaveCollectionItem', 'if (!$auth->canPublish()) {'),
     $i335fAction($i335fMcp, 'toolSaveCollectionItems', "\$options = ['drafts_only' => !\$auth->canPublish()];"),
     $i335fAction($i335fMcp, 'toolDeleteCollectionItem', 'Collections::isDraft($stored)'), $i335fAction($i335fMcp, 'toolListItemVersions', 'Collections::isDraft($item)'),

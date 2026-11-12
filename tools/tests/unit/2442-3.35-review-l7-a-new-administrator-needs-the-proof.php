@@ -14,7 +14,7 @@ check('3.35 review L7: Users::elevates – the administrator level for a new or 
     Users::elevates(1, 1, ['pages', 'news'], ['pages'], $r359All),
 ], [true, true, false, false, true, true, false, false]);
 $r359Users = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php');
-check('3.35 review L7: the elevation joins the changes confirmed by Auth::freshProof before anything is written; never for one\'s own account', [
+check('[source-pin] 3.35 review L7: the elevation joins the changes confirmed by Auth::freshProof before anything is written; never for one\'s own account', [
     str_contains($r359Users, '$elevates = !$isSelf && self::elevates('),
     str_contains($r359Users, "if (\$errors === [] && ((\$id > 0 && (\$password !== '' || \$totpReset || \$emailChanged)) || \$elevates)) {"),
     strpos($r359Users, '->freshProof(') < strpos($r359Users, '$this->db->transaction('),

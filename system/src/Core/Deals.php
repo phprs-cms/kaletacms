@@ -162,7 +162,8 @@ final class Deals
         if ($removed !== []) {
             try {
                 $used = $app->db()->value('SELECT stage FROM {deals} WHERE stage IN (' . implode(',', array_fill(0, count($removed), '?')) . ') LIMIT 1', array_values($removed));
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 $used = null;
             }
             if ($used !== null) {
@@ -177,7 +178,8 @@ final class Deals
                     . ' SUM(closed_at IS NOT NULL AND lost_reason IS NOT NULL) AS lost_n FROM {deals} WHERE stage IN (' . implode(',', array_fill(0, count($rekinded), '?')) . ') GROUP BY stage', $rekinded) as $row) {
                     $counts[(string) $row['stage']] = ['n' => (int) $row['n'], 'open' => (int) $row['open_n'], 'won' => (int) $row['won_n'], 'lost' => (int) $row['lost_n']];
                 }
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 $counts = [];
             }
             $labels = array_column($current, 'label', 'key');
@@ -404,7 +406,8 @@ final class Deals
         try {
             $row = $id > 0 ? $db->one('SELECT d.*, c.name AS contact_name, c.email AS contact_email, co.name AS company_name FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id'
                 . ' LEFT JOIN {companies} co ON co.id = d.company_id WHERE d.id = ?', [$id]) : null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null; // before migration 0117
         }
 
@@ -467,7 +470,8 @@ final class Deals
             $page = max(1, min($page, $pages));
             $rows = $db->all('SELECT d.*, c.name AS contact_name, c.email AS contact_email, co.name AS company_name' . $sql . ' ORDER BY ' . $order
                 . ' LIMIT ' . $perPage . ' OFFSET ' . (($page - 1) * $perPage), $params);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1]; // before migration 0117
         }
 
@@ -697,7 +701,8 @@ final class Deals
     {
         try {
             $id = $db->value('SELECT id FROM {deals} WHERE source_enquiry_id = ? AND closed_at IS NULL ORDER BY id LIMIT 1', [$idp]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -721,7 +726,8 @@ final class Deals
             foreach ($db->all('SELECT id, stage, closed_at, source_enquiry_id FROM {deals} WHERE source_enquiry_id IN (' . implode(',', array_unique($idps)) . ') ORDER BY id') as $r) {
                 $out[(int) $r['source_enquiry_id']] = ['id' => (int) $r['id'], 'stage' => (string) $r['stage'], 'closed' => $r['closed_at'] !== null];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -773,7 +779,8 @@ final class Deals
         try {
             $rows = $db->all('SELECT stage, closed_at IS NULL AS open, currency, COUNT(*) AS n, SUM(value) AS total FROM {deals} WHERE (closed_at IS NULL OR closed_at >= ?)' . $where
                 . ' GROUP BY stage, closed_at IS NULL, currency', [$monthStart]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             $rows = []; // before migration 0117
         }
         $openCount = 0;
@@ -842,7 +849,8 @@ final class Deals
         try {
             $rows = $db->all('SELECT d.id, d.title, d.stage, d.expected_close, d.contact_id, c.name AS contact_name, c.email AS contact_email FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id'
                 . ' WHERE d.owner_id = ? AND d.closed_at IS NULL ORDER BY d.expected_close IS NULL, d.expected_close, d.id DESC LIMIT ' . max(1, min(500, $limit)), [$userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
         $labels = array_column(self::stages($app->settings()), 'label', 'key');
@@ -870,7 +878,8 @@ final class Deals
             $rows = $db->all('SELECT h.deal_id, h.from_stage, h.to_stage, h.at, h.user_id, d.title FROM {deal_stage_history} h JOIN {deals} d ON d.id = h.deal_id WHERE d.' . $column . ' = ?'
                 . ' ORDER BY h.at DESC, h.id DESC LIMIT ' . max(1, min(500, $limit)), [$id]);
             $stored = (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'pipeline_stages'") ?? '');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before migration 0117
         }
         $stages = self::parseStages($stored);
@@ -934,7 +943,8 @@ final class Deals
             $entered = array_map('intval', $db->pairs('SELECT to_stage, COUNT(*) FROM {deal_stage_history} WHERE at >= ? AND at < ? GROUP BY to_stage', [$from, $to]));
             $new = (int) $db->value('SELECT COUNT(*) FROM {deal_stage_history} WHERE from_stage IS NULL AND at >= ? AND at < ?', [$from, $to]);
             $closed = $db->all('SELECT stage, COUNT(*) AS n FROM {deals} WHERE closed_at >= ? AND closed_at < ? GROUP BY stage', [$from, $to]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
         $kinds = array_column(self::stages($app->settings()), 'kind', 'key');
@@ -967,7 +977,8 @@ final class Deals
         }
         try {
             return $db->value('SELECT 1 FROM {deals} WHERE contact_id = ? AND closed_at IS NULL LIMIT 1', [$contactId]) !== null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return false; // before migration 0117
         }
     }
@@ -995,7 +1006,8 @@ final class Deals
                 $held = [...$held, ...array_map('intval', array_column($db->all('SELECT DISTINCT d.source_enquiry_id AS idp FROM {deals} d WHERE d.source_enquiry_id IN (' . $in . ') AND ' . $live, $params), 'idp'))];
                 $held = [...$held, ...array_map('intval', array_column($db->all('SELECT DISTINCT p.idp FROM {poptavky} p JOIN {deals} d ON d.contact_id = p.contact_id WHERE p.idp IN (' . $in . ') AND ' . $live, $params), 'idp'))];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before migration 0117
         }
         $held = array_values(array_unique($held));
@@ -1039,7 +1051,8 @@ final class Deals
                     $changed += $db->update('deals', ['contact_id' => null, 'title' => $title, 'lost_note' => null, 'updated_at' => Clock::now()], ['id' => (int) $r['id']]);
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return $changed; // before migration 0117
         }
 
@@ -1066,7 +1079,8 @@ final class Deals
         Tasks::anonymiseTargets($db, $targets);
         try {
             $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($targets), '?')) . ')', $targets);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the 3.25 migration
         }
     }
@@ -1087,7 +1101,8 @@ final class Deals
             foreach (array_chunk($idps, 500) as $chunk) {
                 $changed += $db->run('UPDATE {deals} SET source_enquiry_id = NULL WHERE source_enquiry_id IN (' . implode(',', $chunk) . ')')->rowCount();
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return $changed; // before migration 0117
         }
 
@@ -1120,7 +1135,8 @@ final class Deals
                     }
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return $changed; // before migration 0117
         }
 
@@ -1202,7 +1218,8 @@ final class Deals
                     'currency' => $r['currency'] !== null ? (string) $r['currency'] : null, 'expected_close' => $r['expected_close'], 'created_at' => (string) $r['created_at'],
                     'closed_at' => $r['closed_at'], 'lost_reason' => $r['lost_reason'], 'lost_note' => $r['lost_note']];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 
@@ -1239,7 +1256,8 @@ final class Deals
             foreach ($ids === [] ? [] : $db->all('SELECT id, title FROM {deals} WHERE id IN (' . implode(',', $ids) . ')') as $r) {
                 $out['deal:' . (int) $r['id']] = ['kind' => 'deal', 'id' => (int) $r['id'], 'title' => '#' . (int) $r['id'], 'name' => (string) $r['title'], 'path' => self::adminPath((int) $r['id'])];
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0117
         }
 
@@ -1251,7 +1269,8 @@ final class Deals
     {
         try {
             return (int) $db->value('SELECT COUNT(*) FROM {deals} WHERE owner_id = ? AND closed_at IS NULL', [$userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -1261,7 +1280,8 @@ final class Deals
     {
         try {
             return $db->value('SELECT 1 FROM {deals} WHERE owner_id = ? LIMIT 1', [$userId]) !== null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return false;
         }
     }
@@ -1271,7 +1291,8 @@ final class Deals
     {
         try {
             return array_map('intval', $db->pairs('SELECT owner_id, COUNT(*) FROM {deals} WHERE owner_id IS NOT NULL AND closed_at IS NULL GROUP BY owner_id'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
     }
@@ -1281,7 +1302,8 @@ final class Deals
     {
         try {
             return $db->run('UPDATE {deals} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -1406,7 +1428,8 @@ final class Deals
         try {
             $rows = $db->all('SELECT d.*, c.name AS contact_name, c.email AS contact_email, co.name AS company_name FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id'
                 . ' LEFT JOIN {companies} co ON co.id = d.company_id WHERE d.' . $column . ' = ? ORDER BY d.closed_at IS NOT NULL, d.closed_at DESC, d.id DESC LIMIT ' . max(1, min(500, $limit)), [$id]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 

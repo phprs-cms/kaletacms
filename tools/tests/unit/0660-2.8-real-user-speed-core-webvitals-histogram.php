@@ -20,7 +20,7 @@ check('2.8: WebVitals::rating – Google\'s thresholds', [WebVitals::rating('lcp
 check('2.8: WebVitals::isRegression – more than 25 % worse with at least 30 measurements in both periods', [WebVitals::isRegression(3000.0, 2000.0, 30, 30), WebVitals::isRegression(2500.0, 2000.0, 100, 100),
     WebVitals::isRegression(2501.0, 2000.0, 100, 100), WebVitals::isRegression(3000.0, 2000.0, 29, 30), WebVitals::isRegression(3000.0, 2000.0, 30, 29), WebVitals::isRegression(3000.0, null, 30, 30), WebVitals::isRegression(null, 2000.0, 30, 30)],
     [true, false, true, false, false, false, false]);
-check('2.8: the beacon script looks for nothing but its own endpoint and sends with sendBeacon', [str_contains((string) file_get_contents(KALETA_ROOT . '/image/vitals.js'), "getAttribute('data-vitals')"),
+check('[source-pin] 2.8: the beacon script looks for nothing but its own endpoint and sends with sendBeacon', [str_contains((string) file_get_contents(KALETA_ROOT . '/image/vitals.js'), "getAttribute('data-vitals')"),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/vitals.js'), 'navigator.sendBeacon('), preg_match('/document\.cookie|localStorage|sessionStorage/', (string) file_get_contents(KALETA_ROOT . '/image/vitals.js'))], [true, true, 0]);
 check('2.8: /vitals is a reserved address', in_array('vitals', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), true);
 

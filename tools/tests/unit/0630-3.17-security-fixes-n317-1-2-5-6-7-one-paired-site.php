@@ -75,7 +75,7 @@ check('3.17 N317-1: the site\'s page and get_site show a stored heartbeat cleane
     [['audit' => ['link' => 2], 'requests' => ['new' => 0, 'in_progress' => 0, 'done_to_review' => 0, 'oldest_waiting_hours' => null,
         'items' => [['id' => 4, 'title' => '', 'status' => 'new', 'created_at' => null, 'updated_at' => null]]]], [], []]);
 $jobs317 = (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/History.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/AlertRules.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Report.php');
-check('3.17 N317-1: the history, alert and report jobs isolate each site (customer) – a failure is logged and the others go on', substr_count($jobs317, 'catch (\Throwable $e)'), 3);
+check('[source-pin] 3.17 N317-1: the history, alert and report jobs isolate each site (customer) – a failure is logged and the others go on', substr_count($jobs317, 'catch (\Throwable $e)'), 3);
 // N317-2: what a site sends reaches the console's e-mails on one line
 $evilName317 = "Acme\r\nACTION REQUIRED: sign in at https://evil.example\u{2028}now\u{202E}";
 $evilMail317 = AlertRules::message($reportSettings(['site_name' => 'Agency console']), [['site' => 9, 'kind' => 'update_failed', 'detail' => "failed\nSIGN IN at https://evil.example"]],
@@ -92,7 +92,7 @@ check('3.17 N317-2: a site\'s name and update message are one line – at arriva
     $ownLines317($evilDigest317[1]), str_contains($evilDigest317[1], "Acme ACTION REQUIRED: sign in at https://evil.example now – https://acme.example\n"), str_contains($evilDigest317[1], "    · Title SIGN IN at https://evil.example\n")],
     ['Acme ACTION REQUIRED x y', 'Version 3.17.1 Sign in at https://evil.example', null, 200, 'Name with null', '', '?(bad', [], true, [], true, true]);
 // N317-5: a site's address has no user information, the inbox and the digest link only such an address
-check('3.17 N317-5: the console keeps and links a site address without user information ("https://acme.example@evil.example" opens evil.example)', [
+check('[source-pin] 3.17 N317-5: the console keeps and links a site address without user information ("https://acme.example@evil.example" opens evil.example)', [
     Kaleta\Fleet\Console::url('https://acme.example@evil.example'), Kaleta\Fleet\Console::url('https://user:pw@acme.example/'), Kaleta\Fleet\Console::url('https://acme.example/path'),
     Kaleta\Fleet\Console::url('http://127.0.0.1:8201'), Kaleta\Fleet\Console::url('https://acme.example/"onmouseover=x'), Kaleta\Fleet\Console::url('javascript:alert(1)'), Kaleta\Fleet\Console::url('https://acme.example\\@evil.example'),
     Kaleta\Fleet\Console::url('https://' . str_repeat('a', 260) . '.example'), Kaleta\Fleet\Console::clean(['url' => 'https://acme.example@evil.example'])['url'],
@@ -114,6 +114,6 @@ foreach (['cs', 'de', 'es'] as $code317) {
     $dictionary317 = require KALETA_SYSTEM . '/jazyky/admin-' . $code317 . '.php';
     $missing317 = [...$missing317, ...array_map(static fn (string $k): string => $code317 . ': ' . $k, array_diff($texts317, array_keys($dictionary317)))];
 }
-check('3.17 N317-4: the recipients of the alerts and the digest are told the e-mails cover every site; the new texts are translated', [
+check('[source-pin] 3.17 N317-4: the recipients of the alerts and the digest are told the e-mails cover every site; the new texts are translated', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/alerts.php'), "t('The alert and digest e-mails cover every site in the console"), $missing317,
     array_key_exists($texts317[0], require KALETA_SYSTEM . '/jazyky/admin-de-du.php')], [true, [], true]);

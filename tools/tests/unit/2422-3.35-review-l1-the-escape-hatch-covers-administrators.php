@@ -15,7 +15,7 @@ check('3.35 review L1: without the constant an account with a passkey always nee
     SignInPolicy::needsSecondStep(['admin' => 2, 'totp_tajemstvi' => '', 'totp_zalozni' => null], []),
 ], [false, false, true, true, true, false]);
 $r354Policy = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/SignInPolicy.php');
-check('3.35 review L1: with the constant only an administrator with no app and no backup codes is let in by the password', [
+check('[source-pin] 3.35 review L1: with the constant only an administrator with no app and no backup codes is let in by the password', [
     str_contains($r354Policy, "return \$keys !== [] && !(self::escapeHatch() && (int) (\$user['admin'] ?? -1) === Auth::ADMIN && self::backupCodesLeft(\$user) === 0);"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), "if (\\Kaleta\\Core\\SignInPolicy::escapeHatch() && \$app->auth()->isAdmin() && !\$request->isPost()) {"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), 'if (SignInPolicy::escapeHatch()) {'),

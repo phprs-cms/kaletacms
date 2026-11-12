@@ -465,7 +465,8 @@ final class Pipeline extends Module
         $this->app->session->remove('stages_draft');
         try {
             $counts = array_map('intval', $this->db->pairs('SELECT stage, COUNT(*) FROM {deals} GROUP BY stage'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             $counts = [];
         }
 
@@ -599,7 +600,8 @@ final class Pipeline extends Module
     {
         try {
             $rows = $db->all('SELECT from_stage, to_stage, at, user_id FROM {deal_stage_history} WHERE deal_id = ? ORDER BY at DESC, id DESC LIMIT ' . self::HISTORY, [$id]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
 

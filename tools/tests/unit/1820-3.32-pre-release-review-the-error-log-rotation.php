@@ -5,7 +5,7 @@ declare(strict_types=1);
 /* ---------- 3.32 (pre-release review): the error log – rotation under a lock with a re-check, the cut first line of a tail, more masking ---------- */
 $r332Errors = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/ErrorLog.php');
 $r332Long = str_repeat('Ab', 18);
-check('3.32: ErrorLog::clean masks 32+ letters-only and digits-only tokens and the value of "Duplicate entry \'…\'"; short words, class names and paths stay; rotate() locks and re-checks; System status skips a cut first line', [
+check('[source-pin] 3.32: ErrorLog::clean masks 32+ letters-only and digits-only tokens and the value of "Duplicate entry \'…\'"; short words, class names and paths stay; rotate() locks and re-checks; System status skips a cut first line', [
     Kaleta\Core\ErrorLog::clean('token ' . $r332Long . ' and ' . str_repeat('7', 32) . ' end'),
     Kaleta\Core\ErrorLog::clean("SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry 'Olivia O\\'Hart-3' for key 'ka_contacts.uk'"),
     Kaleta\Core\ErrorLog::clean('Kaleta\Core\ErrorLog in system/src/Core/ErrorLog.php:12 ' . str_repeat('a', 31) . ' ' . str_repeat('1', 31)),

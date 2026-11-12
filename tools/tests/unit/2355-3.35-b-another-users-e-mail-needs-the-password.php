@@ -10,7 +10,7 @@ check('3.35 B2: what counts as a changed e-mail – letter case and spaces do no
     Users::emailChanges('jana@example.com', ''), Users::emailChanges('', 'jana@example.com'), Users::emailChanges('jana@example.com', 'jana@example.org'), Users::emailChanges('', ''),
 ], [false, false, true, true, true, false]);
 $i335bUsers = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php');
-check('3.35 B2: the changed e-mail of another account joins the password and the second factor before confirmPassword, never one\'s own', [
+check('[source-pin] 3.35 B2: the changed e-mail of another account joins the password and the second factor before confirmPassword, never one\'s own', [
     str_contains($i335bUsers, "\$emailChanged = \$id > 0 && !\$isSelf && self::emailChanges("),
     strpos($i335bUsers, '$emailChanged = ') < strpos($i335bUsers, '->freshProof('), // 3.35 review M2/L7: Auth::freshProof calls confirmPassword
     str_contains($i335bUsers, "'locked' => Auth::CONFIRM_LOCKED,") && str_contains($i335bUsers, ': self::PASSWORD_NEEDED,'),

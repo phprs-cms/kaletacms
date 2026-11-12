@@ -31,7 +31,7 @@ check('2.14 Whistleblowing: deadlines – the acknowledgement in 7 days, the fee
     [['acknowledge_by' => '2026-02-06 10:00:00', 'feedback_due' => '2026-04-30 10:00:00'], ['acknowledgement' => false, 'feedback' => false], ['acknowledgement' => true, 'feedback' => false],
         ['acknowledgement' => true, 'feedback' => true], ['acknowledgement' => false, 'feedback' => true], ['acknowledgement' => false, 'feedback' => false]]);
 $wbTools = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), 'name');
-check('2.14 Whistleblowing: no MCP tool touches the cases, the public address is reserved, the job runs daily, the export leaves the tables out',
+check('[source-pin] 2.14 Whistleblowing: no MCP tool touches the cases, the public address is reserved, the job runs daily, the export leaves the tables out',
     [array_values(array_filter($wbTools, fn (string $n): bool => str_contains($n, 'whistle') || str_contains($n, 'report_case'))), in_array('_report', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true),
         Kaleta\Core\Scheduler::JOBS['whistleblowing'][0], preg_match('/whistleblowing_(cases|messages)}/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'))],
     [[], true, 86400, 0]);

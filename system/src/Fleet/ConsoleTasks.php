@@ -74,7 +74,8 @@ final class ConsoleTasks
                     $out[self::customer((int) $r['id'])] = ['kind' => 'fleet_customer', 'id' => (int) $r['id'], 'title' => (string) $r['name'], 'path' => self::path('fleet_customer', (int) $r['id'])];
                 }
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // a site without the console's tables
         }
 
@@ -91,7 +92,8 @@ final class ConsoleTasks
         $out = ['sites' => [], 'customers' => []];
         try {
             $rows = $db->pairs("SELECT target, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND (target LIKE 'fleet_site:%' OR target LIKE 'fleet_customer:%') GROUP BY target");
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return $out;
         }
         foreach ($rows as $target => $n) {
@@ -176,7 +178,8 @@ final class ConsoleTasks
     {
         try {
             $db->run('UPDATE {tasks} SET target = ? WHERE target = ?', [self::customer($to), self::customer($from)]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before migration 0113
         }
     }
@@ -192,7 +195,8 @@ final class ConsoleTasks
         try {
             return array_map(fn (mixed $t): int => (int) substr((string) $t, strlen('fleet_customer:')),
                 array_column($db->all("SELECT DISTINCT target FROM {tasks} WHERE done_at IS NULL AND target LIKE 'fleet_customer:%'"), 'target'));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
     }

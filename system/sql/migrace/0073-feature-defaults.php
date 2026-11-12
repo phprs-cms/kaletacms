@@ -24,7 +24,9 @@ return static function (Db $db, Settings $settings): void {
     $exists = static function (string $sql) use ($db): bool {
         try {
             return $db->value($sql) !== null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+
             return false; // a table this site does not have
         }
     };

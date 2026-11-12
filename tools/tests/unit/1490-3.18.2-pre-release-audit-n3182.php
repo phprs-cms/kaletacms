@@ -21,7 +21,7 @@ if (DIRECTORY_SEPARATOR === '/' && function_exists('shell_exec')) {
     unlink($longScript);
     check('3.18.2 N3182-3: a 5,000-character /media/ path is no file and no crash under open_basedir (Files::isFile, Menu::isMediaIcon); a real file still is one', json_decode((string) $longRun, true), ['warns', [false, false, false, true, false]]);
 }
-check('3.18.2 N3182-3: Audit and the menu ask the disk about a path from content only through Files::isFile', [
+check('[source-pin] 3.18.2 N3182-3: Audit and the menu ask the disk about a path from content only through Files::isFile', [
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Audit.php'), 'is_file(KALETA_ROOT . $path)'), substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Menu.php'), ' is_file('),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Audit.php'), 'Files::isFile('), substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Menu.php'), 'Files::isFile(')], [0, 0, 1, 1]);
 
@@ -52,7 +52,7 @@ $editorJs = (string) file_get_contents(KALETA_ROOT . '/image/editor.js');
 $webJs = (string) file_get_contents(KALETA_ROOT . '/image/web.js');
 preg_match('#var EMBED = (/\^https:.*?/);#', $editorJs, $editorEmbed);
 preg_match('#if \(!(/\^https:.*?/)\.test\(address\)\)#', $webJs, $webEmbed);
-check('3.18.2 N3182-1: the editor allows a pasted frame only from the services the front end embeds (the same list as data-vlozit)', [($editorEmbed[1] ?? 'a') === ($webEmbed[1] ?? 'b'),
+check('[source-pin] 3.18.2 N3182-1: the editor allows a pasted frame only from the services the front end embeds (the same list as data-vlozit)', [($editorEmbed[1] ?? 'a') === ($webEmbed[1] ?? 'b'),
     str_contains($editorJs, "n.textContent = '';"), preg_match('#innerHTML\.replace\(#', $editorJs), preg_match('#/\^\\\\s\*javascript:/#', $editorJs)], [true, true, 0, 0]);
 
 // 3.18.3 (owner's request): a collection's own item in the admin menu – the column for existing sites (on by default) and
@@ -60,16 +60,16 @@ check('3.18.2 N3182-1: the editor allows a pasted frame only from the services t
 $migration3183 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0103-collection-admin-menu.sql');
 $mcp3183 = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
 $icons3183 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
-check('3.18.3: migration 0103 adds ka_kolekce.admin_menu on by default, schema.sql has it, KALETA_DB_VERSION is at least 103', [
+check('[source-pin] 3.18.3: migration 0103 adds ka_kolekce.admin_menu on by default, schema.sql has it, KALETA_DB_VERSION is at least 103', [
     str_contains($migration3183, 'ALTER TABLE ka_kolekce ADD COLUMN admin_menu TINYINT(1) NOT NULL DEFAULT 1'), (bool) preg_match('/^\s+admin_menu\s+TINYINT\(1\) NOT NULL DEFAULT 1,/m', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql')),
     KALETA_DB_VERSION >= 103, Migration::latest() === KALETA_DB_VERSION], [true, true, true, true]);
-check('3.18.3, 3.25: at most 5 collections in the menu (then More…), with the list icon; create_collection and update_collection take an optional boolean admin_menu', [
+check('[source-pin] 3.18.3, 3.25: at most 5 collections in the menu (then More…), with the list icon; create_collection and update_collection take an optional boolean admin_menu', [
     Kaleta\Admin\Modules\Collections::MENU_LIMIT, str_contains($icons3183, "'polozky' =>"),
     $mcp3183['create_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['create_collection']['inputSchema']['required'], true),
     $mcp3183['update_collection']['inputSchema']['properties']['admin_menu']['type'] ?? null, in_array('admin_menu', $mcp3183['update_collection']['inputSchema']['required'], true),
     Kaleta\Mcp\Translator::arguments('update_collection', ['admin_menu' => false])],
     [5, true, 'boolean', false, 'boolean', false, ['admin_menu' => false]]);
-check('3.18.3: the site export carries admin_menu and the import keeps it (on when an older export has none)', [
+check('[source-pin] 3.18.3: the site export carries admin_menu and the import keeps it (on when an older export has none)', [
     (bool) preg_match('/detail, admin_menu, (icon, )?hidden_redirect/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'admin_menu' => (int) !empty(\$r['admin_menu'] ?? 1)")], [true, true]);
 
@@ -78,7 +78,7 @@ check('3.18.3: the site export carries admin_menu and the import keeps it (on wh
 check('3.19: Collections::icon keeps only a key of the built-in icon set', array_map(fn (mixed $v): ?string => Kaleta\Builder\Collections::icon($v),
     ['dum', 'auto', 'home', '', null, '<svg>', 'dum ', ['dum'], 5, 'polozky']), ['dum', 'auto', null, null, null, null, null, null, null, null]);
 $migration319icon = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0104-collection-icon.sql');
-check('3.19: migration 0104 adds ka_kolekce.icon (nullable, English name), schema.sql has it after admin_menu', [
+check('[source-pin] 3.19: migration 0104 adds ka_kolekce.icon (nullable, English name), schema.sql has it after admin_menu', [
     str_contains($migration319icon, 'ALTER TABLE ka_kolekce ADD COLUMN icon VARCHAR(40) NULL AFTER admin_menu;'),
     (bool) preg_match('/^\s+admin_menu\s+TINYINT\(1\) NOT NULL DEFAULT 1,[^\n]*\n\s+icon\s+VARCHAR\(40\)\s+NULL,/m', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'))], [true, true]);
 $mcp319 = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
@@ -100,7 +100,7 @@ check('3.19 MCP: an icon by its English name or stored key, "" or null = none, a
     [$iconIn319->invoke(null, 'home'), $iconIn319->invoke(null, 'dum'), $iconIn319->invoke(null, ''), $iconIn319->invoke(null, null), str_contains($iconRefused319, 'home, shield'),
         $iconOut319->invoke(null, 'auto'), $iconOut319->invoke(null, 'castle'), $iconOut319->invoke(null, null)],
     ['dum', 'dum', null, null, true, 'car', null, null]);
-check('3.19: the export carries the icon and the import keeps only a key of the set', [
+check('[source-pin] 3.19: the export carries the icon and the import keeps only a key of the set', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteExport.php'), 'admin_menu, icon, hidden_redirect'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'icon' => \\Kaleta\\Builder\\Collections::icon(\$r['icon'] ?? null)")], [true, true]);
 
@@ -113,7 +113,7 @@ $migration319 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0106-ad
 preg_match_all('/Kaleta\\\\([A-Za-z]+\\\\[A-Za-z]+)/', $migration319, $classes319);
 check('3.19: migration 0106 is self-contained – besides Db and Settings only Core\\RedirectSources (unchanged since 3.14), no other class of the code', array_values(array_unique($classes319[1])), ['Core\\Db', 'Core\\Settings', 'Core\\RedirectSources']);
 $installer319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php');
-check('3.19: both installation paths write slugs_per_language = 1 (schema.sql has no global keys)', substr_count($installer319, "'slugs_per_language' => '1'"), 2);
+check('[source-pin] 3.19: both installation paths write slugs_per_language = 1 (schema.sql has no global keys)', substr_count($installer319, "'slugs_per_language' => '1'"), 2);
 check('3.19 Slug::failure reads the reason the migration stored; anything else is no failure', [
     Kaleta\Core\Slug::failure($reportSettings(['slugs_switch_failed' => '{"reason":"shared","table":"kategorie","slugs":["/novinky/kategorie/x"]}']))['slugs'] ?? null,
     Kaleta\Core\Slug::failure($reportSettings(['slugs_switch_failed' => 'nonsense'])), Kaleta\Core\Slug::failure($reportSettings([]))], [['/novinky/kategorie/x'], null, null]);
@@ -133,10 +133,10 @@ foreach (['Front/Kernel.php', 'Core/Audit.php', 'Core/Links.php', 'Core/Migratio
 }
 check('3.19: redirects are looked up by source_norm in the router, the audit, the broken-link check and the migration report', $byCollation319, []);
 $writers319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Redirects.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectRules.php');
-check('3.19: every writer of a redirect fills its normal form (Redirects::add, the admin form, a pattern rule, the import)', [
+check('[source-pin] 3.19: every writer of a redirect fills its normal form (Redirects::add, the admin form, a pattern rule, the import)', [
     substr_count($writers319, 'INSERT INTO {presmerovani} (z_adresy, source_norm,'), str_contains($writers319, "'source_norm' => null"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'source_norm' => RedirectSources::normalize(\$from)")], [2, false, true]);
-check('3.19: System status has the rows Addresses in every language and Old addresses of redirects; the events are documented', [
+check('[source-pin] 3.19: System status has the rows Addresses in every language and Old addresses of redirects; the events are documented', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "t('Addresses in every language')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "t('Old addresses of redirects')"),
     array_values(array_diff(['slugs.per_language', 'slugs.per_language_failed', 'tags.split', 'redirect.collisions'], array_keys(Kaleta\Core\Events::TYPES)))], [true, true, []]);

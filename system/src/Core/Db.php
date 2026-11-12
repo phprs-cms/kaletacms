@@ -33,6 +33,9 @@ final class Db
     /** MySQL/MariaDB "Table … doesn't exist". */
     private const int MISSING_TABLE = 1146;
 
+    /** MySQL/MariaDB "Unknown column …". */
+    private const int MISSING_COLUMN = 1054;
+
     public function __construct(
         private readonly string $dsn,
         private readonly string $user,
@@ -85,7 +88,7 @@ final class Db
             try {
                 $this->pdo->exec('SET sql_mode = ' . self::SQL_MODE);
             } catch (\PDOException) {
-                // the server's mode stays; Backup::create refuses to write an empty backup in that case
+                // any database error: the server's mode stays; Backup::create refuses to write an empty backup in that case
             }
             // 3.15: today's names unless this database was found renamed before (the marker) – no query on a normal site
             $this->english = $this->marker() !== null && is_file($this->marker());
@@ -153,7 +156,30 @@ final class Db
         try {
             return $this->detectTableNames() !== $before;
         } catch (\PDOException) {
-            return false;
+            return false; // any database error: run() throws the statement's own error
+        }
+    }
+
+    /**
+     * 3.36 (T3): whether a database error only says that a table or a column does not exist (yet) – SQLSTATE 42S02 / 42S22,
+     * MySQL and MariaDB 1146 / 1054. That is the one error code written before its migration may read as "nothing yet";
+     * a lost connection, a deadlock or a mistake in the SQL is not.
+     */
+    public static function tableMissing(\PDOException $e): bool
+    {
+        return in_array((int) ($e->errorInfo[1] ?? 0), [self::MISSING_TABLE, self::MISSING_COLUMN], true)
+            || in_array((string) $e->getCode(), ['42S02', '42S22'], true);
+    }
+
+    /**
+     * For a catch block of code that may run before its migration (new files on the server, the database not updated yet):
+     * returns when the table or column is missing – the caller then answers "nothing yet" – and throws the error on in
+     * every other case, so a real database error is logged and shown as an error, never as an empty list (3.36, T3).
+     */
+    public static function rethrowUnlessMissing(\PDOException $e): void
+    {
+        if (!self::tableMissing($e)) {
+            throw $e;
         }
     }
 

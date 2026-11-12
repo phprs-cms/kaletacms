@@ -5,7 +5,7 @@ declare(strict_types=1);
 /* ---------- 3.31.2 (pre-release review): Users does not bypass My account; another user's password or second factor needs the administrator's password ---------- */
 $s3312Users = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php');
 $s3312Form = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/users/form.php');
-check('3.31.2: Users ignores one\'s own e-mail, password and two-factor reset; for another account a new password or a turned-off second factor is confirmed with the administrator\'s own password before anything is written', [
+check('[source-pin] 3.31.2: Users ignores one\'s own e-mail, password and two-factor reset; for another account a new password or a turned-off second factor is confirmed with the administrator\'s own password before anything is written', [
     str_contains($s3312Users, "\$data['email'] = (string) \$this->db->value('SELECT email FROM {uzivatele} WHERE idu = ?', [\$id]);"),
     str_contains($s3312Users, "\$password = !\$isSelf && is_string(\$_POST['password'] ?? null)"),
     str_contains($s3312Users, "\$totpReset = \$id > 0 && !\$isSelf && \$r->postBool('totp_reset');"),

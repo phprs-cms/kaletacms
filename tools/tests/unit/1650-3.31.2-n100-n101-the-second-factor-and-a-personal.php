@@ -6,13 +6,13 @@ declare(strict_types=1);
 $a3312 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $a3312Case = fn (string $case): string => substr($a3312, (int) strpos($a3312, "case '" . $case . "':"), 2200);
 $a3312Verify = '$this->passwordRefused(\'';
-check('3.31.2 N100: a new second factor is refused while one is set, and confirming one checks the password before the code and before anything is written', [
+check('[source-pin] 3.31.2 N100: a new second factor is refused while one is set, and confirming one checks the password before the code and before anything is written', [
     (bool) preg_match("/case 'totp_start':\s+case 'totp_potvrd':/", $a3312),
     strpos($a3312Case('totp_start'), "\$user['totp_tajemstvi'] !== ''") < strpos($a3312Case('totp_start'), 'Totp::newSecret()'),
     strpos($a3312Case('totp_start'), $a3312Verify) < strpos($a3312Case('totp_start'), 'Totp::verify($secret'),
     strpos($a3312Case('totp_start'), $a3312Verify) < strpos($a3312Case('totp_start'), "'totp_tajemstvi' => \$secret")],
     [true, true, true, true]);
-check('3.31.2 N101: a token is made only after the password check; a password change keeps personal tokens only on an explicit "0" – in My account and in Users', [
+check('[source-pin] 3.31.2 N101: a token is made only after the password check; a password change keeps personal tokens only on an explicit "0" – in My account and in Users', [
     strpos($a3312Case('token_novy'), $a3312Verify) < strpos($a3312Case('token_novy'), 'random_bytes(24)'),
     array_map(Kaleta\Admin\Account::keepsTokens(...), ['0', '1', '', 'off', 'false']),
     str_contains($a3312Case('heslo'), "self::keepsTokens(\$r->post('zrusit_tokeny')) ? 0 : \$db->delete('api_tokeny', ['idu' => \$user['idu'], 'druh' => 'token'])"),

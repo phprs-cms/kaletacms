@@ -25,7 +25,7 @@ check('3.35 review L5: older merge notes in any shipped language, with a no-brea
     Contacts::mergeNoteNames('Merged with the contact #12 (xjane@example.com).', 'jane@example.com'),
 ], [true, true, true, false]);
 $r358Contacts = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
-check('3.35 review L5: a merge stores the marker, a request finds it, anonymising clears it; the schema and migration 0121 have the column', [
+check('[source-pin] 3.35 review L5: a merge stores the marker, a request finds it, anonymising clears it; the schema and migration 0121 have the column', [
     str_contains($r358Contacts, "\$db->run('UPDATE {contact_activities} SET merged_email = ? WHERE id = ?', [\$merged, \$note]);"),
     str_contains($r358Contacts, "SELECT contact_id FROM {contact_activities} WHERE merged_email = ?"),
     str_contains($r358Contacts, "SET merged_email = '' WHERE contact_id IN ("),

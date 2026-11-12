@@ -23,13 +23,13 @@ check('3.23.1 (C4, N-C5, N-C6): the last plain menu paths are links – in Engli
 $stale3231 = ['is in News → Broken links', 'Settings → General → More options', 'Statistics → Campaigns and pages', 'News is always at', 'Requests on the console', 'Settings and connections', 'come from the design system', 'come from your design system', 'to the design system,', 'look to the design system'];
 $views3231 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_SYSTEM . '/views/admin/*.php'), ...glob(KALETA_SYSTEM . '/views/admin/*/*.php')]))
     . (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/AgentSchedules.php');
-check('3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system" in owner copy; the signature tab has its guide, the details keep theirs', [
+check('[source-pin] 3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system" in owner copy; the signature tab has its guide, the details keep theirs', [
     array_values(array_filter($stale3231, fn (string $x): bool => str_contains($views3231, $x))),
     str_contains($views3231, "'Requests from staff'"),
     Kaleta\Admin\Guide::forScreen('account', '', 'signature', 'en'), Kaleta\Admin\Guide::forScreen('account', '', '', 'cs'),
     Kaleta\Admin\Hubs::class !== '' && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php'), "['claude_settings', '', 'Claude settings']"),
 ], [[], false, 'https://kaletacms.com/guide/email#your-e-mail-signature', 'https://kaletacms.com/cs/guide/claude-connect', true]);
-check('3.23.1 (N-C5, N-C10, N-C15): the reply form promises a signature only to who has one; one testimonial sentence; the empty Pages filter speaks of languages only with them', [
+check('[source-pin] 3.23.1 (N-C5, N-C10, N-C15): the reply form promises a signature only to who has one; one testimonial sentence; the empty Pages filter speaks of languages only with them', [
     str_contains($v3231('enquiries/detail.php'), '$hasSignature =>') && str_contains($v3231('enquiries/detail.php'), 'data-reply-no-signature'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'hasSignature' => \\Kaleta\\Core\\EnquiryReply::signature("),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'TeamRecord::forUser'),
@@ -62,13 +62,13 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
         $nc2Callers[] = basename((string) $nc2File);
     }
 }
-check('3.23.1 (N-C2): no Language::runWith(… ?: \'cs\') left; a new user stores the admin language of whoever creates them', [$nc2Callers,
+check('[source-pin] 3.23.1 (N-C2): no Language::runWith(… ?: \'cs\') left; a new user stores the admin language of whoever creates them', [$nc2Callers,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php'), "\$this->db->insert('uzivatele', \$data + ['jazyk' => \\Kaleta\\Core\\Language::code()])")], [[], true]);
 // 3.23.1 (N-C3): one change-log row per action – the generic row of the admin is left out when the module wrote its own, and
 // carries the record number of the form when it has one
 $nc3 = fn (array $post): int => Kaleta\Admin\Kernel::recordId(new Kaleta\Core\Request([], $post, []));
 check('3.23.1 (N-C3): the record of an admin form – id, idp… in that order, positive numbers only', [$nc3(['id' => '7']), $nc3(['idp' => '3', 'titulek' => 'X']), $nc3(['id' => '0', 'idr' => '5']), $nc3(['id' => 'x']), $nc3([])], [7, 3, 5, 0, 0]);
-check('3.23.1 (N-C3): ChangeLog::wrote knows the areas written in this request; the Kernel forgets them before each action and skips its row after one or after a refusal (an error message)', [
+check('[source-pin] 3.23.1 (N-C3): ChangeLog::wrote knows the areas written in this request; the Kernel forgets them before each action and skips its row after one or after a refusal (an error message)', [
     Kaleta\Admin\ChangeLog::wrote('nc3-area'),
     (bool) preg_match('/ChangeLog::forget\(\);.*\$response = \(new \$class\(\$this\)\)->handle.*!ChangeLog::wrote\(\$ident, \.\.\.self::LOGS_AS\[\$ident\] \?\? \[\]\)\s*&& \(ChangeLog::isChangedAnyway\(\) \|\| !in_array\(\'chyba\', array_slice\(\$app->session->flashTypes\(\), \$flashes\), true\)\)/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php')),
 ], [false, true]);
@@ -81,7 +81,7 @@ Kaleta\Admin\ChangeLog::changedAnyway();
 $n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
 Kaleta\Admin\ChangeLog::forget();
 $n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
-check('3.23.1 review (N3231-1): a partial save marks the change, the Kernel forgets the mark before the next action; every "saved, but" error marks it', [...$n32311,
+check('[source-pin] 3.23.1 review (N3231-1): a partial save marks the change, the Kernel forgets the mark before the next action; every "saved, but" error marks it', [...$n32311,
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), 'ChangeLog::changedAnyway();'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "ChangeLog::changedAnyway(); // the item is saved"),
 ], [false, true, false, 5, 1]); // 3.28: a backup whose database copy waits for the recovery key is a fifth "saved, but"
@@ -92,7 +92,7 @@ $n32312 = new ReflectionClassConstant(Kaleta\Admin\Kernel::class, 'LOGS_AS');
 Kaleta\Admin\ChangeLog::forget();
 $n32312Before = Kaleta\Admin\ChangeLog::wrote('business', 'settings');
 (new ReflectionProperty(Kaleta\Admin\ChangeLog::class, 'written'))->setValue(null, ['settings' => true]); // what write() remembers of a 'settings' row
-check('3.23.1 review (N3231-2): the areas a module logs under; wrote() takes several areas', [$n32312->getValue(), $n32312Before,
+check('[source-pin] 3.23.1 review (N3231-2): the areas a module logs under; wrote() takes several areas', [$n32312->getValue(), $n32312Before,
     Kaleta\Admin\ChangeLog::wrote('business', ...$n32312->getValue()['business']), Kaleta\Admin\ChangeLog::wrote('business'),
     array_values(array_diff(array_keys($n32312->getValue()), array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES))),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Hours.php'), "ChangeLog::write(\$app, 'settings', 'hours_exception_delete'"),
@@ -124,14 +124,14 @@ check('3.24 (B): review reminders – grouped by the responsible person, without
     $r324Keys(Kaleta\Core\Validity::remindersToSend($r324, ['page|1|2026-10-01' => true], [4 => true])),
     Kaleta\Core\Validity::OWNED], [[3 => ['page|1', 'collection_item|1'], 4 => ['page|2']], [3 => ['collection_item|1'], 4 => ['page|2']], [3 => ['page|1', 'collection_item|1']], ['page' => 'page', 'collection_item' => 'item']]);
 $validity324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Validity.php');
-check('3.24 (B): the hourly validity job e-mails the responsible people (the admin language) and records content.review_mailed without the address', [
+check('[source-pin] 3.24 (B): the hourly validity job e-mails the responsible people (the admin language) and records content.review_mailed without the address', [
     str_contains($validity324, '$mailed = $owned !== [] ? self::remindOwners($app, $owned, $today) : 0;'), str_contains($validity324, "Mail::send(\$s, (string) \$user['email'], \$subject, \$body);"),
     str_contains($validity324, "'admin-', Language::normalizeRegister((string) \$user['register'])"), isset(Kaleta\Core\Events::TYPES['content.review_mailed']),
     str_contains($validity324, "['user' => \$owner, 'day' => \$today, 'items' =>")], [true, true, true, true, true]);
 // draft attribution (N-U6): "Draft by Jana, 21:05" – the time alone today, the date before; recorded by the builder and by MCP
 $d324Today = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\DraftAttribution::label(['by' => 'Jana', 'at' => date('Y-m-d') . ' 21:05:09']), 'admin-');
 $d324Before = Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\DraftAttribution::label(['by' => 'Jana', 'at' => '2026-01-05 08:00:00']), 'admin-');
-check('3.24 (B, N-U6): the draft label, and who records a draft: the page builder\'s saveDraft and MCP saveBuild – never another builder target', [
+check('[source-pin] 3.24 (B, N-U6): the draft label, and who records a draft: the page builder\'s saveDraft and MCP saveBuild – never another builder target', [
     $d324Today, str_starts_with($d324Before, 'Draft by Jana, ') && str_ends_with($d324Before, ' 08:00') && $d324Before !== 'Draft by Jana, 08:00',
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php'), 'DraftAttribution::record('),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'DraftAttribution::record('),
@@ -140,7 +140,7 @@ check('3.24 (B, N-U6): the draft label, and who records a draft: the page builde
     ['Draft by Jana, 21:05', true, 1, 1, 0, 'draft edited', 'úprava konceptu']);
 $enquiries324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
 $kernel324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
-check('3.24 (B): Handled by e-mails the new person only when it changed; one rule for who can be chosen; the dashboard tile of open enquiries assigned to me', [
+check('[source-pin] 3.24 (B): Handled by e-mails the new person only when it changed; one rule for who can be chosen; the dashboard tile of open enquiries assigned to me', [
     str_contains($enquiries324, "if (\$after !== null && \$after !== (\$before === null ? null : (int) \$before)) {"),
     str_contains($enquiries324, "Assignment::notify(\$this->app, 'enquiry', \$idp, \$after, \$this->app->auth()->id());"),
     str_contains($enquiries324, "return \\Kaleta\\Core\\Assignment::candidates(\$this->db, 'enquiry', \$assignee);"),
@@ -151,7 +151,7 @@ check('3.24 (B): Handled by e-mails the new person only when it changed; one rul
 ], [true, true, true, true, true, true]);
 $pages324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pages.php');
 $collections324 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php');
-check('3.24 (B): the responsible person is written only from a form that has the field, through Assignment::fromForm; a copy is the copier\'s only when the original had one; the page export never carries it', [
+check('[source-pin] 3.24 (B): the responsible person is written only from a form that has the field, through Assignment::fromForm; a copy is the copier\'s only when the original had one; the page export never carries it', [
     substr_count($pages324, "if (array_key_exists('owner_id', \$_POST)) {"), substr_count($collections324, "if (array_key_exists('owner_id', \$_POST)) {"),
     substr_count($pages324 . $collections324, 'Assignment::fromForm('), str_contains($pages324, "\$copy['owner_id'] = \$page['owner_id'] !== null && \$this->app->auth()->id() > 0 ? \$this->app->auth()->id() : null;"),
     str_contains($collections324, "'owner_id' => \$p['owner_id'] !== null && \$this->app->auth()->id() > 0 ? \$this->app->auth()->id() : null];"),
@@ -213,7 +213,7 @@ check('3.24 T1: every MCP write tool is classified once – it changes the site 
     array_values(array_diff($t324Writes, $t324ChangingTools, Kaleta\Mcp\Catalog::SITE_NEUTRAL)), array_values(array_intersect($t324ChangingTools, Kaleta\Mcp\Catalog::SITE_NEUTRAL)),
     array_values(array_diff(Kaleta\Mcp\Catalog::SITE_NEUTRAL, $t324Writes)), array_values(array_diff($t324ChangingTools, $t324Writes)),
 ], [[], [], [], []]);
-check('3.24 T1: Catalog::isSiteNeutral – by the English or the Czech name; content tools, an unknown tool and the meta runners are not', [
+check('[source-pin] 3.24 T1: Catalog::isSiteNeutral – by the English or the Czech name; content tools, an unknown tool and the meta runners are not', [
     Kaleta\Mcp\Catalog::isSiteNeutral('update_enquiry'), Kaleta\Mcp\Catalog::isSiteNeutral('write_notebook'), Kaleta\Mcp\Catalog::isSiteNeutral('update_request'),
     Kaleta\Mcp\Catalog::isSiteNeutral((string) Kaleta\Mcp\Translator::czech('resolve_draft_comment')), Kaleta\Mcp\Catalog::isSiteNeutral('save_build'),
     Kaleta\Mcp\Catalog::isSiteNeutral((string) Kaleta\Mcp\Translator::czech('save_build')), Kaleta\Mcp\Catalog::isSiteNeutral('confirm_booking'),
@@ -246,7 +246,7 @@ check('3.24: Handover – counted labels (no plural forms), the sections a recip
     Kaleta\Core\Handover::resolve($w324Db, 'none', 7), Kaleta\Core\Handover::resolve($w324Db, '', 7), Kaleta\Core\Handover::resolve($w324Db, 'Me', 7),
     (function () use ($w324Db): string { try { Kaleta\Core\Handover::resolve($w324Db, ['x'], 7); return 'none'; } catch (\Throwable $e) { return 'refused'; } })(),
 ], ['pages: 2, open enquiries: 1', 'stránky: 1, položky kolekcí: 3', '', ['pages', 'enquiries'], null, null, 7, 'none']);
-check('3.24: MCP assign and update_enquiry send the assignment e-mail through Handover::notify → Assignment::notify (one rule for who may be assigned) and the menu puts My work first only for non-administrators', [
+check('[source-pin] 3.24: MCP assign and update_enquiry send the assignment e-mail through Handover::notify → Assignment::notify (one rule for who may be assigned) and the menu puts My work first only for non-administrators', [
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Handover.php'), 'Assignment::notify($app, $kind, $id, $userId, $app->auth()->id());')
     + substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Handover.php'), 'Assignment::allowed($db, $kind, $userId)') - 1,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), '$myWorkFirst = !$app->auth()->isAdmin();'),
@@ -259,14 +259,14 @@ $n3242Auth->useConnection('Claude', 'full');
 $n3242Before = [$n3242Auth->id(), $n3242Auth->isAdmin()];
 $n3242Auth->forgetForBackground();
 $n3242Notifications = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Notifications.php');
-check('N324-2: Auth::forgetForBackground – nobody is signed in for the rest of the request (no connection either); afterAdminResponse calls it before the jobs', [
+check('[source-pin] N324-2: Auth::forgetForBackground – nobody is signed in for the rest of the request (no connection either); afterAdminResponse calls it before the jobs', [
     $n3242Before, $n3242Auth->user(), $n3242Auth->id(), $n3242Auth->isAdmin(), $n3242Auth->connection(),
     strpos($n3242Notifications, '$app->auth()->forgetForBackground();') !== false && strpos($n3242Notifications, '$app->auth()->forgetForBackground();') < strpos($n3242Notifications, 'fn () => self::runInBackground($app)'),
 ], [[7, true], null, 0, false, null, true]);
 
 // N324-5: the menu badge, the "Assigned to me" tile and My work count the same enquiries – open, spam left out
 $n3245 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
-check('N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
+check('[source-pin] N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
     str_contains($n3245, "' AND ' . \\Kaleta\\Admin\\Modules\\Enquiries::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return $count + Enquiries::countAssigned($app->db(), $app->auth()->id());'),
 ], [true, true]);
 
@@ -284,7 +284,7 @@ check('3.25 (A): the customer\'s message is the longest sentence-like field (not
     array_map(fn (array $e): string => $e['type'] . ':' . ($e['entry']['text'] ?? ''), $a325Thread),
 ], ["Dobrý den,\nkolik stojí okna do kuchyně?", '', 'Call me back please', '',
     ["customer:Dobrý den,\nkolik stojí okna do kuchyně?", 'reply:Same minute', 'note:Call her', 'reply:Reply', 'note:Done']]);
-check('3.25 (A, CPO #7): the default subject is Re: the topic, else the first 60 characters of the message, else the form; the quote is "> " lines under a line naming who wrote', [
+check('[source-pin] 3.25 (A, CPO #7): the default subject is Re: the topic, else the first 60 characters of the message, else the form; the quote is "> " lines under a line naming who wrote', [
     Kaleta\Core\EnquiryReply::subject(['tema' => "Okna –\n kuchyň", 'formular' => 'Kontakt'] + $a325Enquiry),
     Kaleta\Core\EnquiryReply::subject($a325Enquiry),
     Kaleta\Core\EnquiryReply::subject(['data' => json_encode([['Zpráva', str_repeat('slovo ', 20)]])] + $a325Enquiry),
@@ -294,7 +294,7 @@ check('3.25 (A, CPO #7): the default subject is Re: the topic, else the first 60
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), "\$plain = \$text . (\$signature !== null && \$signature['text'] !== '' ? \"\\n\\n-- \\n\" . \$signature['text'] : '') . (\$quote !== '' ? \"\\n\\n\" . \$quote : '');"),
 ], ['Re: Okna – kuchyň', 'Re: Dobrý den, kolik stojí okna do kuchyně?', 'Re: ' . rtrim(mb_substr(trim(str_repeat('slovo ', 20)), 0, 60)) . '…', 'Re: Kontakt',
     ['> Dobrý den,', '> kolik stojí okna do kuchyně?'], true, '', true]);
-check('3.25 (A): a note is plain text kept as written (control characters out, line breaks kept, capped); enquiry notes are personal data never journaled, kept on every delete path; Enquiries sits in the Workspace group', [
+check('[source-pin] 3.25 (A): a note is plain text kept as written (control characters out, line breaks kept, capped); enquiry notes are personal data never journaled, kept on every delete path; Enquiries sits in the Workspace group', [
     Kaleta\Core\Comments::clean("  a\r\nb\x07\tc  "), Kaleta\Core\Comments::clean(" \n "), mb_strlen(Kaleta\Core\Comments::clean(str_repeat('é', 6000))), Kaleta\Core\Comments::enquiry(12),
     in_array('comments', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true), Kaleta\Core\AgentJournal::journaled('comments'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), 'Comments::forgetEnquiries('),
@@ -320,7 +320,7 @@ check('3.25 (C21): compare per section – matched by element id, changed text t
 ], [['Prices:changed', 'Team:same', 'Reviews:added', 'Contact:layout', 'Old offer:removed'], true, true, true, '', true, 0, [], false]);
 $c325Builder = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php');
 $c325Tools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php');
-check('3.25 (U17): every builder and MCP draft save records the draft history; restores keep the replaced draft; published versions leave the draft rows out', [
+check('[source-pin] 3.25 (U17): every builder and MCP draft save records the draft history; restores keep the replaced draft; published versions leave the draft rows out', [
     substr_count($c325Builder, 'DraftHistory::record('), str_contains($c325Builder, "DraftHistory::record(\$this->app, \$target['revize'], \$build, \$target['koncept'] ?? \$target['stavba'], true);"),
     substr_count($c325Tools, 'DraftHistory::record('), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Publisher.php'), "['ids = ? AND cast IS NULL'"),
     Kaleta\Builder\DraftHistory::KEPT, Kaleta\Builder\DraftHistory::when(Kaleta\Core\Clock::now()) === t('today') . ' ' . substr(Kaleta\Core\Clock::now(), 11, 5),
@@ -367,7 +367,7 @@ check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged)
     33, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications
 $c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
-check('3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
+check('[source-pin] 3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
     str_contains($c325Layout, '<details class="menu-skupiny" data-menu-skupina="'), str_contains($c325Layout, "' data-aktualni' : ''"), str_contains($c325Layout, '<summary class="menu-skupina">'),
     (bool) preg_match('#<script src="<\?= e\(\$app->url\(\'image/admin-menu\.js\'\)\) \?>\?v=<\?= e\(KALETA_VERSION\) \?>"( data-menu-prihlaseni="[^"]*")?></script>#', $c325Layout), str_contains($c325Layout, "e(t('More…'))"),
     substr_count($c325Script, 'localStorage.'), substr_count($c325Script, 'try {'), str_contains($c325Script, "hasAttribute('data-aktualni')"),
@@ -383,7 +383,7 @@ foreach ($c325Paths as [$parts, $module]) {
         $c325Wrong[] = implode(' → ', $parts);
     }
 }
-check('3.25 (C): menu paths that name a group name the group the item is in now; nothing points to Customers or Company; the Booking hint and the newsletter prompt follow the moves', [
+check('[source-pin] 3.25 (C): menu paths that name a group name the group the item is in now; nothing points to Customers or Company; the Booking hint and the newsletter prompt follow the moves', [
     $c325Wrong, str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Elements/Booking.php'), "in Workspace → Bookings; the form appears here.')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'Content → Newsletter.'),
 ], [[], true, true]);
@@ -393,7 +393,7 @@ check('3.25 (C): the group label Workspace in the dictionaries (cs Pracoviště)
 
 $c325Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js');
 $c325Builder = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
-check('3.25 (N-U9): one link picker – the Text dialog and every [data-odkaz-vyber] field (builder link fields, menu editor) share linkPicker; the old datalist is gone', [
+check('[source-pin] 3.25 (N-U9): one link picker – the Text dialog and every [data-odkaz-vyber] field (builder link fields, menu editor) share linkPicker; the old datalist is gone', [
     substr_count($c325Editor, 'linkPicker('), str_contains($c325Editor, "e.target.hasAttribute('data-odkaz-vyber')"), str_contains($c325Editor, "list.setAttribute('popover', 'manual')"),
     str_contains($c325Builder, "'data-odkaz-vyber': def.typ === 'odkaz'"), str_contains($c325Builder, 'st-dl-odkazy'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/menu.js'), "'data-odkaz-vyber': ''"),
@@ -402,12 +402,12 @@ check('3.25 (N-U9): one link picker – the Text dialog and every [data-odkaz-vy
 
 // N325-2: the link picker offers the site's addresses with the installation folder (App::url) – the menu editor stores a
 // custom link without it (Core\Menu::items adds it) and a form's thank-you page does not get it twice
-check('N325-2: picked addresses in a site installed in a folder – the menu editor strips the folder, the thank-you redirect adds it only once', [
+check('[source-pin] N325-2: picked addresses in a site installed in a folder – the menu editor strips the folder, the thank-you redirect adds it only once', [
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/menu.js'), 'p.url = withoutBase(e.target.value.trim());'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php'), "(\$base === '' || !str_starts_with(\$thankYouUrl, \$base . '/')) ? \$base . \$thankYouUrl : \$thankYouUrl;"),
 ], [true, true]);
 
-check('N325-3: the floating link picker of a field the builder redrew away takes its list and scroll listener with it', [
+check('[source-pin] N325-3: the floating link picker of a field the builder redrew away takes its list and scroll listener with it', [
     str_contains($c325Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js'), "if (f.input.isConnected) { return true; }"), str_contains($c325Editor, "window.removeEventListener('scroll', f.onScroll, true);"),
     str_contains($c325Editor, 'floating.push({ input: input, list: list, onScroll: onScroll });'),
 ], [true, true, true]);
@@ -472,7 +472,7 @@ check('3.26: the texts of notifications are translated in every admin language',
 $i326Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
 $i326Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $i326Post = fn (string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => '', 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
-check('3.26: the Notifications screen is a header action (no section, no left-menu item, no menu group), reading and marking keep the page cache, the e-mail choice too; the bell sits in the header bar with one COUNT', [
+check('[source-pin] 3.26: the Notifications screen is a header action (no section, no left-menu item, no menu group), reading and marking keep the page cache, the e-mail choice too; the bell sits in the header bar with one COUNT', [
     in_array('inbox', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS[''], true), str_contains($i326Kernel, "if (\$action === 'inbox' && \$ident === '') {"),
     array_values(array_filter(Kaleta\Admin\Kernel::MODULES, fn (string $c): bool => in_array($c::IDENT, ['inbox', 'notifications'], true))),
     $i326Post('inbox', ['read_all' => '1']), $i326Post('account', ['co' => 'notifications']), $i326Post('account', ['co' => 'profil']),
@@ -484,7 +484,7 @@ check('3.26: the Notifications screen is a header action (no section, no left-me
 $i326Assignment = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php');
 $i326Validity = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Validity.php');
 $i326Comments = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Comments.php');
-check('3.26: the assignment e-mail and the review reminder go through the notifications – one record each, their own e-mail only for "instant" and then marked e-mailed (no second e-mail from the summary); an enquiry\'s deleted or anonymised notes take the notifications quoting them along', [
+check('[source-pin] 3.26: the assignment e-mail and the review reminder go through the notifications – one record each, their own e-mail only for "instant" and then marked e-mailed (no second e-mail from the summary); an enquiry\'s deleted or anonymised notes take the notifications quoting them along', [
     str_contains($i326Assignment, "Inbox::record(\$db, \$toUserId, 'assigned', \$kind . ':' . \$id, \$byUserId > 0 ? \$byUserId : null);"),
     str_contains($i326Assignment, "if ((\$note['email'] ?? 'instant') !== 'instant' || count(Mail::addresses((string) \$to['email'])) !== 1) {"),
     str_contains($i326Assignment, "Inbox::markEmailed(\$db, \$note !== null ? [\$note['id']] : []);"),
@@ -495,7 +495,7 @@ check('3.26: the assignment e-mail and the review reminder go through the notifi
     str_contains((string) file_get_contents(KALETA_ROOT . '/index.php'), 'Kaleta\Core\Mail::afterResponse($app);')],
     [true, true, true, true, true, true, true, true, true, true]);
 // the merge of 3.26: comments and mentions (agent A) notify through the real Inbox, and every way a comment's text goes takes its quote along
-check('3.26 merge: Comments notify through Inbox::notify directly (no stand-in check), never the author; an edit requotes, a delete blanks, forget and both sweeps forget the notifications', [
+check('[source-pin] 3.26 merge: Comments notify through Inbox::notify directly (no stand-in check), never the author; an edit requotes, a delete blanks, forget and both sweeps forget the notifications', [
     str_contains($i326Comments, 'Inbox::notify($app, $userId, $kind, $target, $author > 0 ? $author : null, $excerpt);'), str_contains($i326Comments, 'is_callable'),
     substr_count($i326Comments, 'Inbox::requote($db, $target,'), substr_count($i326Comments, 'Inbox::forgetTargets($db, $gone);'), str_contains($i326Comments, "Inbox::forgetTargets(\$db, \$targets); // the notifications about them go too (they may quote a comment)"),
     Kaleta\Core\Comments::recipients([3, 5, 3], 5, 5), Kaleta\Core\Comments::EXCERPT === Kaleta\Core\Inbox::EXCERPT, Kaleta\Core\Inbox::requote($i326Db, 'page:1', '', 'x')],
@@ -524,7 +524,7 @@ check('3.26 (A): who is notified – each newly mentioned person once, the respo
     $a326::recipients([5, 7, 5, 3], 7, 3), $a326::recipients([], 9, 3), $a326::recipients([], 3, 3), $a326::recipients([3], null, 3), $a326::recipients([5], 9, 0),
 ], [[[5, 'mention'], [7, 'mention']], [[9, 'comment']], [], [], [[5, 'mention'], [9, 'comment']]]);
 $a326Src = fn (string $file): string => (string) file_get_contents(KALETA_SYSTEM . '/' . $file);
-check('3.26 (A): a thread follows its target – the permanent delete and the emptied trash of pages and items, a deleted collection; the trash keeps it; the real Inbox notifies', [
+check('[source-pin] 3.26 (A): a thread follows its target – the permanent delete and the emptied trash of pages and items, a deleted collection; the trash keeps it; the real Inbox notifies', [
     str_contains($a326Src('src/Admin/Modules/Pages.php'), "Comments::forget(\$this->db, [\\Kaleta\\Core\\Comments::page(\$this->request->postInt('ids'))]);"),
     str_contains($a326Src('src/Admin/Modules/Pages.php'), 'Comments::forget($db, array_map(\Kaleta\Core\Comments::page(...), $ids));'),
     str_contains($a326Src('src/Admin/Modules/Collections.php'), "Comments::forget(\$this->db, [\\Kaleta\\Core\\Comments::item(\$this->request->postInt('idp'))]);"),
@@ -536,7 +536,7 @@ check('3.26 (A): a thread follows its target – the permanent delete and the em
     in_array('comment', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS['pages'], true) && in_array('comment', Kaleta\Admin\Kernel::SITE_NEUTRAL_ACTIONS['collections'], true),
 ], [true, true, true, true, true, true, true, true]);
 $a326Admin = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
-check('3.26 (A): the "@" autocomplete is delegated from image/admin.js (CSP: no inline script) for textarea[data-mentions] – the comment panel, the enquiry composer and the builder Team tab carry it', [
+check('[source-pin] 3.26 (A): the "@" autocomplete is delegated from image/admin.js (CSP: no inline script) for textarea[data-mentions] – the comment panel, the enquiry composer and the builder Team tab carry it', [
     str_contains($a326Admin, "e.target.matches('textarea[data-mentions]')"), str_contains($a326Admin, "'@' + o.getAttribute('data-user') + ' '"),
     str_contains($a326Src('views/admin/comments.php'), 'data-mentions="<?= e($mentionsJson) ?>"'), str_contains($a326Src('views/admin/enquiries/detail.php'), 'data-mentions="<?= e($mentionsJson) ?>"'),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), "'data-mentions': people"),
@@ -544,13 +544,13 @@ check('3.26 (A): the "@" autocomplete is delegated from image/admin.js (CSP: no 
 ], [true, true, true, true, true, true, true]);
 
 // 3.26 (C): MCP list_comments / add_comment on Core\Comments, and the "work" tool set for an employee's own Claude (D-W10, T12)
-check('3.26 (C): MCP comments stand on Core\Comments – the targets, the check of mentions and post() of the administration; the refusal in English', [
+check('[source-pin] 3.26 (C): MCP comments stand on Core\Comments – the targets, the check of mentions and post() of the administration; the refusal in English', [
     Kaleta\Core\Comments::parseTarget('page:12'), Kaleta\Core\Comments::parseTarget('item:40'), Kaleta\Core\Comments::parseTarget('enquiry:7'),
     Kaleta\Core\Comments::parseTarget('page:0'), Kaleta\Core\Comments::parseTarget('news:3'), Kaleta\Core\Comments::parseTarget('page:12;drop'), Kaleta\Core\Comments::parseTarget('stranka:5'),
     str_contains($c326Tools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/CommentTools.php'), "Language::runWith('en', fn (): array => Comments::mentions(\$db, \$target, \$text), 'admin-')"),
     str_contains($c326Tools, "Comments::post(\$this->app, \$target, \$text, \$auth->user() ?? [], 'mcp')"), str_contains($c326Tools, "Comments::add(\$db, \$target, \$text, \$auth->user() ?? [], 'mcp')"),
 ], [['type' => 'page', 'id' => 12], ['type' => 'item', 'id' => 40], ['type' => 'enquiry', 'id' => 7], null, null, null, null, true, true, true]);
-check('3.26 (C): list_comments (read) and add_comment (draft – no @mention from a drafts-only connection), English on both sides, outside the essentials, site-neutral, inside the site', [
+check('[source-pin] 3.26 (C): list_comments (read) and add_comment (draft – no @mention from a drafts-only connection), English on both sides, outside the essentials, site-neutral, inside the site', [
     Kaleta\Mcp\Catalog::TOOLS['list_comments'] ?? null, Kaleta\Mcp\Catalog::TOOLS['add_comment'] ?? null, Kaleta\Mcp\Translator::czech('list_comments'), Kaleta\Mcp\Translator::czech('add_comment'),
     array_values(array_intersect(['list_comments', 'add_comment'], Kaleta\Mcp\Catalog::ESSENTIALS)), Kaleta\Mcp\Catalog::isSiteNeutral('add_comment'), Kaleta\Mcp\Catalog::isOpenWorld('add_comment'),
     Kaleta\Mcp\Catalog::isIdempotent('add_comment'), Kaleta\Mcp\Catalog::allows('drafts', 'add_comment'), Kaleta\Mcp\Catalog::allows('read', 'add_comment'), Kaleta\Mcp\Catalog::allows('read', 'list_comments'),
@@ -579,7 +579,7 @@ check('3.26 (C, T12): the work tool set – catalog tools once each in catalog o
     array_values(array_intersect(['list_comments', 'add_comment', 'my_work', 'assign'], Kaleta\Mcp\Catalog::ESSENTIALS)),
     in_array('assign', array_column($w326Drafts, 'name'), true), in_array('add_comment', array_column($w326Drafts, 'name'), true),
 ], [['all', 'essentials', 'work'], 'work', 'all', true, true, null, null, [], [], true, true, true, [], [], false, true]);
-check('3.26 (C): the work tool set is offered under Advanced on the consent screen and for a new token, labelled on My account; the server instructions name it', [
+check('[source-pin] 3.26 (C): the work tool set is offered under Advanced on the consent screen and for a new token, labelled on My account; the server instructions name it', [
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/connection-access.php'), "'work' => ['Work – for a colleague’s own Claude'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php'), "'work' => t('work tools')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'YOUR TOOL LIST HOLDS THE WORK TOOLS'),
@@ -591,7 +591,7 @@ check('3.26 (C): the work tool set is offered under Advanced on the consent scre
 $n326Script = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.js');
 preg_match('~const COLOUR = /(.+)/i; // mirrors Style::COLOR_PATTERN~', $n326Script, $n326Colour);
 $n326Php = (string) (new ReflectionClassConstant(Kaleta\Builder\Style::class, 'COLOR_PATTERN'))->getValue();
-check('3.26 (N-U2): the builder\'s colour check mirrors Style::COLOR_PATTERN; spacing and colour fields are token choices with Custom…', [
+check('[source-pin] 3.26 (N-U2): the builder\'s colour check mirrors Style::COLOR_PATTERN; spacing and colour fields are token choices with Custom…', [
     $n326Colour[1] ?? '', str_contains($n326Script, "} else if (def.typ === 'mezera') {\n\t\t\tinputEl = spaceControl("), str_contains($n326Script, "} else if (def.typ === 'barva') {\n\t\t\tinputEl = colourControl("),
     str_contains($n326Script, 'pattern: LENGTH, placeholder: \'24px, 1.5rem\''), str_contains($n326Script, 'pattern: COLOUR,'),
 ], [substr($n326Php, 1, strrpos($n326Php, '/') - 1), true, true, true, true]);
@@ -665,7 +665,7 @@ check('3.26.1 Uptime::stored, month and fill – the report of a month archived 
     Uptime::stored($reportSettings([Uptime::SETTING => '{"checked":"x"}']))],
     [null, null, 288, 100.0, null, true, null, null]);
 $sources3261 = array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/' . $f), ['src/Core/MonthlyReport.php', 'src/Front/Kernel.php', 'src/Fleet/Link.php', 'src/Mcp/Handlers/ReportTools.php', 'src/Core/ReportArchive.php', 'views/admin/fleet/trend.php']);
-check('3.26.1 wiring: the report data has uptime (and older months gain it), the console answers /fleet/uptime, the heartbeat asks after a confirmed send and unpairing forgets the days, MCP adds it, the archive asks first; the trend draws the shared strip; the setting is internal', [
+check('[source-pin] 3.26.1 wiring: the report data has uptime (and older months gain it), the console answers /fleet/uptime, the heartbeat asks after a confirmed send and unpairing forgets the days, MCP adds it, the archive asks first; the trend draws the shared strip; the setting is internal', [
     str_contains($sources3261[0], "'uptime' => \$section(fn (): ?array => \\Kaleta\\Fleet\\Uptime::month(\$s, \$monthStart->format('Y-m'))),"), str_contains($sources3261[0], 'Uptime::fill($app->settings(), $stored[\'data\'])'),
     str_contains($sources3261[1], "'/fleet/uptime' => \\Kaleta\\Fleet\\Uptime::answer("), str_contains($sources3261[2], 'Uptime::afterHeartbeat($app, $refreshUptime)'), str_contains($sources3261[2], "'fleet_kit_error', Uptime::SETTING] as \$name"),
     str_contains($sources3261[3], 'Uptime::fill($this->app->settings(), $stored[\'data\'])'), str_contains($sources3261[4], 'Uptime::afterHeartbeat($app);'), str_contains($sources3261[5], 'UptimeStrip::html('), str_contains($sources3261[5], '<svg'),
@@ -688,13 +688,13 @@ $installed3261->setValue(null, true);
 $runs3261 = [Kaleta\Core\Updater::installedNow()];
 $installed3261->setValue(null, false);
 $jobSources3261 = array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/src/Core/' . $f), ['Notifications.php', 'Scheduler.php', 'Updater.php']);
-check('3.26.1 (N3261-1): the process that installed an update runs no background job – neither after the admin answer nor the rest of a scheduler run', [
+check('[source-pin] 3.26.1 (N3261-1): the process that installed an update runs no background job – neither after the admin answer nor the rest of a scheduler run', [
     $installedBefore3261, $runs3261[0], str_contains($jobSources3261[0], "< 60 || Updater::installedNow()) {\n            return;"), str_contains($jobSources3261[1], 'if (microtime(true) > $end || Updater::installedNow()) {'),
     substr_count($jobSources3261[2], 'self::$installedNow = true;')], [false, true, true, true, 1]);
 
 // N3261-2: "Done by people" counts the changes of signed-in people once – no sign-ins (a bot's failed attempts), no comment twice
 $peopleSql3261 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MonthlyReport.php');
-check('3.26.1 (N3261-2): the changes people made – the care count when the report has it, otherwise the change log by area (without sign-ins), only the oldest reports the bare count; the query leaves out sign-ins, Kaleta and comments', [
+check('[source-pin] 3.26.1 (N3261-2): the changes people made – the care count when the report has it, otherwise the change log by area (without sign-ins), only the oldest reports the bare count; the query leaves out sign-ins, Kaleta and comments', [
     ReportSummary::care(['care' => ['people_changes' => 3, 'comments' => 2], 'changes' => ['people' => 40], 'work' => ['areas' => ['pages' => ['people' => 9]]]])['people'],
     ReportSummary::care(['changes' => ['people' => 40], 'work' => ['areas' => ['pages' => ['people' => 4, 'claude' => 6], 'look' => ['people' => 1], 'x' => 'junk']]])['people'],
     ReportSummary::care(['changes' => ['people' => 40]])['people'],
@@ -785,13 +785,13 @@ check('3.27: the tools – list_tasks (read), save_task and complete_task (write
     Kaleta\Mcp\Catalog::isIdempotent('complete_task'), Kaleta\Mcp\Catalog::isIdempotent('save_task'), Kaleta\Mcp\Catalog::isOpenWorld('save_task'), Kaleta\Mcp\Tools::annotations('list_tasks')['readOnlyHint'],
     Kaleta\Mcp\Catalog::allows('drafts', 'save_task'), Kaleta\Mcp\Catalog::allows('read', 'list_tasks')],
     [['read', ''], ['write', ''], ['write', ''], ['list_tasks', 'save_task', 'complete_task'], [], ['list_tasks', 'save_task', 'complete_task'], true, true, true, false, false, true, false, true]);
-check('3.27: the job "tasks" every 5 minutes on visits too, before the mail; ka_tasks never journaled by itself (a personal-data table) – Core\Tasks journals what is not about an enquiry', [
+check('[source-pin] 3.27: the job "tasks" every 5 minutes on visits too, before the mail; ka_tasks never journaled by itself (a personal-data table) – Core\Tasks journals what is not about an enquiry', [
     Kaleta\Core\Scheduler::JOBS['tasks'] ?? null, isset(Kaleta\Core\Scheduler::jobs()['tasks']),
     array_search('tasks', array_keys(Kaleta\Core\Scheduler::JOBS), true) < array_search('mail', array_keys(Kaleta\Core\Scheduler::JOBS), true),
     Kaleta\Core\AgentJournal::journaled('tasks'), in_array('tasks', Kaleta\Core\AgentJournal::PERSONAL_TABLES, true),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Tasks.php'), "\$journal = \$db->journal !== null && !self::personal(\$task['target']);")], // 3.28: nor about a contact
     [[300, 'any', 'Task reminders'], true, true, false, true, true]);
-check('3.27: the hand-over counts open tasks (no section of their own), the processing record names them, the cleanup paths of enquiries, pages and items take them along', [
+check('[source-pin] 3.27: the hand-over counts open tasks (no section of their own), the processing record names them, the cleanup paths of enquiries, pages and items take them along', [
     Kaleta\Core\Handover::describe(['page' => 0, 'item' => 1, 'enquiry' => 0, 'task' => 4]), Kaleta\Core\Handover::describe(['page' => 2, 'item' => 0, 'enquiry' => 0]),
     Kaleta\Core\Handover::sectionsOf(['page' => 1, 'item' => 0, 'enquiry' => 2, 'task' => 3]),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Comments.php'), 'Tasks::'),
@@ -832,7 +832,7 @@ check('3.27 default titles – a follow-up names the form (an empty one: Enquiry
 $enquiriesSource327 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php');
 preg_match('/function commentTarget\(\): \?array\s*\{(.*?)\n    \}/s', $enquiriesSource327, $enquiryTarget327);
 preg_match('/function followUp\(.*?\n    \}/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/TaskActions.php'), $followUp327);
-check('3.27 no enquiry content in a follow-up: the enquiry is read as idp and form name only, its task target reuses it, the title is followUpTitle(record title)', [
+check('[source-pin] 3.27 no enquiry content in a follow-up: the enquiry is read as idp and form name only, its task target reuses it, the title is followUpTitle(record title)', [
     preg_match("/SELECT idp, formular FROM \{poptavky\}/", $enquiryTarget327[1] ?? '') === 1, preg_match('/\b(data|email|poznamka|navrh_odpovedi)\b/', $enquiryTarget327[1] ?? 'data') === 1,
     str_contains($enquiriesSource327, '$record = $this->commentTarget();'), str_contains($followUp327[0] ?? '', "TaskPanel::followUpTitle(\$record['title'])"),
     str_contains($followUp327[0] ?? '', "'assignee_id' => \$me")],
@@ -859,7 +859,7 @@ $n327rTools = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/Task
 $n327rStrings = ['Not assigned', 'Was for', 'Reassign to…', 'Open tasks nobody active has – handed to nobody, or left on a removed or blocked account. Give each to a colleague; they are notified.',
     'Nobody can be given this task now – what it is about is gone, in the trash or switched off.', 'This task is no longer waiting for someone.', 'Choose who takes the task.',
     'The task was given to %s – they are notified.', 'The task is yours now.'];
-check('3.27: tasks nobody has – the Team tab lists them with Reassign to… (site-neutral, CSRF form, its own people), list_tasks assignee:none for administrators only, translated', [
+check('[source-pin] 3.27: tasks nobody has – the Team tab lists them with Reassign to… (site-neutral, CSRF form, its own people), list_tasks assignee:none for administrators only, translated', [
     Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'my_work', 'action' => 'reassign'], ['id' => '1', 'assignee_id' => '2'], ['REQUEST_METHOD' => 'POST'])),
     method_exists(Kaleta\Admin\Modules\MyWork::class, 'actionReassign'), Kaleta\Core\Tasks::hasActiveAssignee(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), null),
     str_contains($n327rView, 'id="unassigned"') && str_contains($n327rView, '<a href="#unassigned">') && str_contains($n327rView, '<?= $csrf ?><input type="hidden" name="id"'),
@@ -885,29 +885,35 @@ check('3.28: the name and phone of a contact come from the form\'s fields – a 
     $k328::fromFields([['Name', str_repeat('x', 120)]]), $k328::fromFields(['bad', [1]]),
 ], [['name' => 'Jana Nová', 'phone' => '+420 777 123 456'], ['name' => '', 'phone' => ''], ['name' => 'Petr Dvořák', 'phone' => '777123456'], ['name' => '', 'phone' => ''], ['name' => '', 'phone' => '']]);
 $k328Src = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
-check('3.28: two different addresses are never merged by Kaleta – link() finds the contact by the normalised address or a record of the same address a person merged; only merge() moves another contact\'s records', [
+check('[source-pin] 3.28: two different addresses are never merged by Kaleta – link() finds the contact by the normalised address or a record of the same address a person merged; only merge() moves another contact\'s records', [
     str_contains($k328Src, '$contact = self::findByEmail($db, $norm) ?? self::mergedInto($db, $app->settings(), $norm, $kind, $id);'),
     str_contains($k328Src, "' AS email, contact_id FROM {' . \$table . '} WHERE ' . \$column . ' = ? AND contact_id IS NOT NULL'")
         && str_contains($k328Src, "self::normalise((string) \$r['email']) === \$norm ? self::find("),
     substr_count($k328Src, 'SET contact_id = ? WHERE contact_id = ?'), substr_count($k328Src, 'SET contact_id = ? WHERE ' . "' . \$key . ' = ? AND contact_id IS NULL"),
-    str_contains($k328Src, "\$kind === 'subscriber' && !\$record['confirmed']"), $k328::hasOpenDeal(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 1),
-], [true, true, 3, 1, true, false]); // 3.31: merge() moves the deals too
-check('3.28 (N328-3): linking a new address scans no table until the first merge or change of a linked address (contacts_merged_at); merge() and an address change set it, and it is bookkeeping that undo never resets', [
+    str_contains($k328Src, "\$kind === 'subscriber' && !\$record['confirmed']"), (function () use ($k328): string { // 3.36 T3: a database it cannot reach is an error, never "no open deal"
+        try {
+            return var_export($k328::hasOpenDeal(new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''), 1), true);
+        } catch (PDOException) {
+            return 'thrown';
+        }
+    })(),
+], [true, true, 3, 1, true, 'thrown']); // 3.31: merge() moves the deals too
+check('[source-pin] 3.28 (N328-3): linking a new address scans no table until the first merge or change of a linked address (contacts_merged_at); merge() and an address change set it, and it is bookkeeping that undo never resets', [
     str_contains($k328Src, "if (\$s->get('contacts_merged_at') === '') {\n            return null;"), substr_count($k328Src, 'self::markMerged($app->settings());'),
     array_key_exists('contacts_merged_at', Kaleta\Core\Settings::DEFAULTS), preg_match('/_(check|time|checked|seen|ts|at)$/', 'contacts_merged_at'),
 ], [true, 2, true, 1]);
-check('3.28 (N328-7): the retention counts the team\'s comments and tasks about a customer as activity – an open task is never blanked by it, and the processing record and the setting say so', [
+check('[source-pin] 3.28 (N328-7): the retention counts the team\'s comments and tasks about a customer as activity – an open task is never blanked by it, and the processing record and the setting say so', [
     str_contains($k328Src, '$team = self::teamActivity($db, $id);'), str_contains($k328Src, 'self::touch($db, $id, min($team, Clock::now()));'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), 'logged contact, comment or task).'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/list.php'), 'logged contact, comment or task for this long')], [true, true, true, true]);
-check('3.28: the timeline is bounded – the default and the most, every source limited, newest first; get_contact shows at most 50 entries, each text at most 200 characters', [
+check('[source-pin] 3.28: the timeline is bounded – the default and the most, every source limited, newest first; get_contact shows at most 50 entries, each text at most 200 characters', [
     $k328::TIMELINE, $k328::TIMELINE_MAX, str_contains($k328Src, '$limit = max(1, min(self::TIMELINE_MAX, $limit));'), substr_count($k328Src, "LIMIT ' . \$limit, [\$id]"),
     str_contains($k328Src, "return array_slice(array_map("), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "\$limit = max(0, min(50, (int) (\$a['timeline'] ?? 20)));"),
 ], [100, 500, true, 2, true, true]);
 $k328Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 $k328Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0114-contacts.sql');
 $k328Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|TEXT)/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
-check('3.28: ka_contacts, ka_companies and ka_contact_activities alike in schema.sql and migration 0114, contact_id on enquiries, bookings and subscribers (indexed), the names map, the moments, DB version 114', [
+check('[source-pin] 3.28: ka_contacts, ka_companies and ka_contact_activities alike in schema.sql and migration 0114, contact_id on enquiries, bookings and subscribers (indexed), the names map, the moments, DB version 114', [
     $k328Columns($k328Schema, 'ka_contacts'), $k328Columns($k328Schema, 'ka_contacts') === $k328Columns($k328Migration, 'ka_contacts'),
     $k328Columns($k328Schema, 'ka_companies') === $k328Columns($k328Migration, 'ka_companies') && $k328Columns($k328Schema, 'ka_companies') !== [],
     // 3.35 review L5: merged_email came with migration 0121
@@ -929,11 +935,11 @@ check('3.28: comments, tasks and notifications take customers and companies (sec
 ], [['type' => 'contact', 'id' => 4], ['type' => 'company', 'id' => 2], null, 'contact:7', 'company:8', ['contact:3', 'company:9', null, null], ['contact', 3], ['company', 2],
     true, false, true, false, ['enquiries', 'contacts'], ['contacts'], 'customers: 3, companies: 1', [true, true, true], 'Customer #4']);
 $k328Mail = Kaleta\Core\Assignment::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], 'contact', ['id' => 12, 'title' => '#12', 'path' => ''], 'Jana', 'https://x/1');
-check('3.28: the assignment e-mail of a customer names its number only – never the customer\'s name', [$k328Mail[0], str_contains($k328Mail[1], 'customer #12'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php'), "['id' => \$id, 'title' => '#' . \$id, 'path' => Contacts::adminPath(\$id)]")],
+check('[source-pin] 3.28: the assignment e-mail of a customer names its number only – never the customer\'s name', [$k328Mail[0], str_contains($k328Mail[1], 'customer #12'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php'), "['id' => \$id, 'title' => '#' . \$id, 'path' => Contacts::adminPath(\$id)]")],
     ['You are responsible for the customer #12', true, true]);
 $k328Tools = ['list_contacts', 'get_contact', 'save_contact', 'log_activity', 'merge_contacts'];
 $k328Defs = array_column(Kaleta\Mcp\Tools::definitions(), null, 'name');
-check('3.28: the contact tools – English on both sides, in the work set and never in the essentials, site-neutral, merge destructive with confirm, the descriptions say the changes are not undoable', [
+check('[source-pin] 3.28: the contact tools – English on both sides, in the work set and never in the essentials, site-neutral, merge destructive with confirm, the descriptions say the changes are not undoable', [
     array_map(fn (string $t): ?array => Kaleta\Mcp\Catalog::TOOLS[$t] ?? null, $k328Tools), array_map(Kaleta\Mcp\Translator::czech(...), $k328Tools),
     array_values(array_intersect($k328Tools, Kaleta\Mcp\Catalog::ESSENTIALS)), array_values(array_intersect($k328Tools, Kaleta\Mcp\Catalog::WORK)),
     array_map(Kaleta\Mcp\Catalog::isSiteNeutral(...), ['save_contact', 'log_activity', 'merge_contacts']), Kaleta\Mcp\Discovery::runner('merge_contacts'), Kaleta\Mcp\Catalog::allows('drafts', 'save_contact'),
@@ -954,7 +960,7 @@ check('3.28: the texts of contacts are in every admin language; the du overlay a
 $b328 = Kaleta\Admin\Modules\Contacts::class;
 $b328Icons = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
 $b328Modules = array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES);
-check('3.28 (B): Customers – IDENT contacts (= Core\Contacts::SECTION), NAME Customers in Workspace right after Enquiries, core (no extension, not admin-only), site-neutral, comments and tasks', [
+check('[source-pin] 3.28 (B): Customers – IDENT contacts (= Core\Contacts::SECTION), NAME Customers in Workspace right after Enquiries, core (no extension, not admin-only), site-neutral, comments and tasks', [
     $b328::IDENT, Kaleta\Core\Contacts::SECTION, $b328::NAME, $b328::GROUP, $b328::EXTENSION, $b328::ADMIN_ONLY, array_search('contacts', $b328Modules, true) - array_search('enquiries', $b328Modules, true),
     Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'contacts', 'action' => 'save'], ['id' => '1'], ['REQUEST_METHOD' => 'POST'])),
     Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'contacts', 'action' => 'merge'], [], ['REQUEST_METHOD' => 'POST'])),
@@ -969,7 +975,7 @@ check('3.28 (B): an import reads the columns e-mail, name, phone and company by 
     $b328::importRow(['x'], ['email' => 0, 'company' => 3])],
     [['email' => 0, 'name' => 1, 'phone' => 2, 'company' => 3], ['name' => 0, 'company' => 1, 'email' => 2, 'phone' => 3], ['email' => 0, 'name' => 1, 'phone' => 2, 'company' => 3], ['company' => 1],
     ['email' => 'jana@firma.cz', 'name' => 'Jana Nováková', 'phone' => '+420 777 123 456', 'company' => ''], ['email' => 'x', 'name' => '', 'phone' => '', 'company' => '']]);
-check('3.28 (N328-5): the daily clean-up of personal data also removes customers CSV uploads nobody confirmed within a day', [
+check('[source-pin] 3.28 (N328-5): the daily clean-up of personal data also removes customers CSV uploads nobody confirmed within a day', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Notifications.php'), '\\Kaleta\\Admin\\Modules\\Contacts::sweepImports();'),
     (new ReflectionMethod($b328, 'sweepImports'))->isPublic()], [true, true]);
 check('3.28 (B): a CSV cell starting with = + - @ gets an apostrophe; the last-activity filter (active since / quiet before); unknown keys are no filter', [
@@ -980,7 +986,7 @@ check('3.28 (B): a CSV cell starting with = + - @ gets an apostrophe; the last-a
     [["'=HYPERLINK(\"x\")", "'+420 777", "'-1", "'@sum", 'Jana', ''], ['active_since' => '2026-10-04 10:00:00'], ['inactive_before' => '2025-11-03 10:00:00'], [], true,
         ['email' => 'jana@firma.cz', 'name' => '-Jana-', 'phone' => '+420 777 123 456', 'company' => "'Quoted"]]);
 $b328Kinds = ['enquiry', 'reply', 'booking', 'subscription', 'comment', 'task', ...array_keys(Kaleta\Core\Contacts::ACTIVITY_KINDS)];
-check('3.28 (B): every kind of the timeline has an icon in views/admin/icons.php and a translated label', [
+check('[source-pin] 3.28 (B): every kind of the timeline has an icon in views/admin/icons.php and a translated label', [
     array_values(array_diff($b328Kinds, array_keys($b328::KINDS))),
     array_values(array_filter($b328::KINDS, fn (array $k): bool => !str_contains($b328Icons, "'" . $k[0] . "' =>"))),
     array_map(fn (string $code): array => array_values(array_diff(array_column(array_diff_key($b328::KINDS, ['call' => 1, 'meeting' => 1]), 1), array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'), ['E-mail'])), ['cs', 'de', 'es'])], // E-mail is the same word in Czech
@@ -988,7 +994,7 @@ check('3.28 (B): every kind of the timeline has an icon in views/admin/icons.php
 $b328Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $b328Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
 $b328Box = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/contact_box.php');
-check('3.28 (B): the palette searches customers on the server only for whoever has Customers; the box on an enquiry and a booking; Link to a contact posts with the form token', [
+check('[source-pin] 3.28 (B): the palette searches customers on the server only for whoever has Customers; the box on an enquiry and a booking; Link to a contact posts with the form token', [
     str_contains($b328Layout, "isset(\$modules['contacts']) ? ' data-contacts=\"'"), str_contains($b328Script, "palette.getAttribute('data-contacts')"), str_contains($b328Script, "T('customer')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php'), "render('admin/contact_box'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/bookings/detail.php'), "render('admin/contact_box'"),
     str_contains($b328Box, '<?= $csrf ?><input type="hidden" name="kind"'),
@@ -1102,7 +1108,7 @@ $c328Strings = ['Off-site copies are paused until the recovery key is saved (Set
     'The recovery key does not belong to this backup – check that it was copied in full, or use the key of the site the backup comes from. Nothing was restored.',
     'This backup is encrypted. Enter the recovery key of the site it comes from, then click Restore again. Nothing was restored.',
     'The encrypted backup is damaged or was changed – it cannot be restored. Nothing was restored.', 'Download the recovery key (.txt)', 'Recovery key saved %s.'];
-check('3.28: .enc backups are listed and restored with the key; site-neutral actions; the pause alerts; translated (cs, de, es)', [
+check('[source-pin] 3.28: .enc backups are listed and restored with the key; site-neutral actions; the pause alerts; translated (cs, de, es)', [
     (bool) preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D', 'kaleta-20261103-101500-auto-a1b2c3d4.sql.gz.enc'), Kaleta\Core\Backup::encrypted('kaleta-1-auto-x.sql.gz.enc'), Kaleta\Core\Backup::encrypted('kaleta-1-auto-x.sql.gz'),
     array_map(fn (string $a): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'settings', 'action' => $a], [], ['REQUEST_METHOD' => 'POST'])), ['backup_key', 'backup_key_download', 'backup_key_confirm', 'backup_key_new', 'backup_key_use']),
     in_array('backup.copy_paused', Kaleta\Core\Alerts::WARNINGS, true), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RemoteBackup.php'), "\$put(basename(\$path) . BackupEncryption::EXTENSION, \$encrypted)"),

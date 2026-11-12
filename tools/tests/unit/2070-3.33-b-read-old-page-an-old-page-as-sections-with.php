@@ -43,7 +43,7 @@ check('3.33 read_old_page: colours of every notation; stylesheet links absolute 
     ($o333Long = Kaleta\Core\OldPage::analyse('<main><section><p>' . str_repeat('<b>long text</b> ', 2000) . '</p></section><section><p>Next</p></section></main>', 'https://old.example/')['sections'][0])['truncated'],
     strlen($o333Long['html']) <= Kaleta\Core\OldPage::SECTION_BYTES && str_ends_with($o333Long['html'], '>')],
     [['#aabbcc'], ['#0a141e'], ['#ff0000'], ['#ffffff'], ['https://old.example/x/a.css', 'https://old.example/a.css'], [2], true, true]);
-check('3.33 read_old_page: MCP – a read-only, open-world, non-essential tool in English only, for administrators whose connection may use import_website; reading goes through ImageDownloader with robots.txt and an untrusted marker', [
+check('[source-pin] 3.33 read_old_page: MCP – a read-only, open-world, non-essential tool in English only, for administrators whose connection may use import_website; reading goes through ImageDownloader with robots.txt and an untrusted marker', [
     Kaleta\Mcp\Catalog::TOOLS['read_old_page'], in_array('read_old_page', Kaleta\Mcp\Catalog::OPEN_WORLD, true), in_array('read_old_page', Kaleta\Mcp\Catalog::ESSENTIALS, true),
     Kaleta\Mcp\Translator::czech('read_old_page'), Kaleta\Mcp\Catalog::TITLES['read_old_page'],
     (bool) preg_match("/function toolReadOldPage.*isAdmin\\(\\).*Catalog::allows\\(.*'import_website'\\).*new \\\\Kaleta\\\\Core\\\\OldPage\\(new ImageDownloader\\(\\\$url, true\\)\\).*'untrusted' =>/s", (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/MigrationTools.php')),

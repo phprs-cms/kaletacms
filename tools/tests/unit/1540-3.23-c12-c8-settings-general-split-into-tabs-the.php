@@ -29,7 +29,7 @@ check('3.23 (C12): General, Languages, Security and Agency – each field in the
     [S323::verifyValue('require_2fa', 'spravci'), S323::verifyValue('agency_email', 'x'), S323::verifyValue('site_language', 'de'), S323::verifyValue('screen_mode', 'true'), S323::checkable('agency_name')],
 ], [[], [], ['site_language', 'german_register', 'additional_languages', 'slugs_per_language'], ['require_2fa', 'signin_passkey_only', 'auto_suspend'],
     ['agency_name', 'agency_url', 'agency_email', 'agency_phone', 'agency_logo'], ['spravci', null, 'de', '1', true]]);
-check('3.23 (C12): the old single General form (no marker) still saves every field it showed; the split form sends the marker; old links move on', [
+check('[source-pin] 3.23 (C12): the old single General form (no marker) still saves every field it showed; the split form sends the marker; old links move on', [
     (bool) preg_match("/tab === 'general'.*!\\\$this->request->postBool\('general_split'\).*SPLIT_FROM_GENERAL/s", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/list.php'), 'name="general_split" value="1"'),
     array_intersect_key(S323::movedFields($reportSettings(['additional_languages' => 'de', 'extensions' => 'jazyky'])), array_flip(['additional_languages', 'require_2fa', 'auto_suspend', 'agency_logo', 'nazev_webu_de', 'site_name', 'time_zone'])),
@@ -37,7 +37,7 @@ check('3.23 (C12): the old single General form (no marker) still saves every fie
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/extensions.php'), 'module=settings&tab=languages#additional_languages'),
     Kaleta\Core\Demo::blocksAdmin('settings', 'save', 'languages', true), Kaleta\Core\Demo::blocksAdmin('settings', 'save', 'security', true),
 ], [true, true, ['additional_languages' => 'languages', 'require_2fa' => 'security', 'auto_suspend' => 'security', 'agency_logo' => 'agency', 'nazev_webu_de' => 'languages'], true, true, false, true]);
-check('3.23 (C8): "Reporting to a console" is the last tab, shown with a named agency or a pairing – never hidden while paired', [
+check('[source-pin] 3.23 (C8): "Reporting to a console" is the last tab, shown with a named agency or a pairing – never hidden while paired', [
     array_slice(array_keys(array_diff_key(S323::TABS, S323::MOVED_TABS)), -3), S323::TABS['console'],
     isset(S323::visibleTabs($reportSettings([]))['console']), isset(S323::visibleTabs($reportSettings(['agency_name' => '  ']))['console']),
     isset(S323::visibleTabs($reportSettings(['agency_name' => 'Studio Kaleta']))['console']),

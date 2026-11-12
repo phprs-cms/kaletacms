@@ -50,7 +50,7 @@ $m332 = fn (string $lang): array => Kaleta\Core\Language::runWith($lang, fn (): 
     Kaleta\Core\Deals::formatValue('1250000', 'CZK'), Kaleta\Core\Deals::formatValue('99.99', 'USD'), Kaleta\Core\Deals::formatValue(null, 'EUR')], 'admin-');
 $a332Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
 preg_match("/CURRENCY_CHOICES = '([^']+)'/", $a332Settings, $a332Choices);
-check('3.32 (U29): deal values read as money in each admin language; the default currency is chosen or derived; the board totals use the same rule', [
+check('[source-pin] 3.32 (U29): deal values read as money in each admin language; the default currency is chosen or derived; the board totals use the same rule', [
     $m332('en'), $m332('cs'), $m332('de'), $m332('es'),
     Kaleta\Core\Deals::defaultCurrency($reportSettings(['default_currency' => 'SEK', 'company_country' => 'GB'])),
     Kaleta\Core\Deals::defaultCurrency($reportSettings(['default_currency' => 'XXX', 'company_country' => 'gb'])),
@@ -68,7 +68,7 @@ check('3.32 (U29): deal values read as money in each admin language; the default
 // 3.32 (U35): row actions 32 px (40 px on touch and phone), the task title a link, Edit and Take it in My work
 $u35Css = (string) file_get_contents(KALETA_ROOT . '/image/admin.css');
 $u35View = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php');
-check('3.32 (U35): list row buttons are 32/40 px; My work links the task title, edits a task (a form outside the Done form) and takes an enquiry', [
+check('[source-pin] 3.32 (U35): list row buttons are 32/40 px; My work links the task title, edits a task (a form outside the Done form) and takes an enquiry', [
     (bool) preg_match('/table\.vypis button\.navigace,\s*table\.vypis a\.navigace,[^{]*\{[^}]*min-height: 32px;/', $u35Css),
     (bool) preg_match('/@media \(pointer: coarse\), \(max-width: 640px\) \{\s*table\.vypis button\.navigace,[^{]*\{ min-height: 40px;/', $u35Css),
     str_contains($u35Css, 'table.vypis button.navigace {' . "\n\tpadding: 2px 8px;"),
@@ -79,7 +79,7 @@ check('3.32 (U35): list row buttons are 32/40 px; My work links the task title, 
 ], [true, true, false, true, 5, true, true, true, true]);
 // 3.32 (U36, A2): Workspace-only people land on My work; the look bar only on the dashboard and the Appearance screens
 $u36 = fn (bool $admin, array $idents): bool => Kaleta\Admin\Kernel::landsOnMyWork($admin, array_intersect_key(array_column(array_map(fn (string $c): array => [$c::IDENT, $c], Kaleta\Admin\Kernel::MODULES), 1, 0), array_flip($idents)));
-check('3.32 (U36, A2): after sign-in only a person without content sections lands on My work; the look bar shows on the dashboard and the Appearance group', [
+check('[source-pin] 3.32 (U36, A2): after sign-in only a person without content sections lands on My work; the look bar shows on the dashboard and the Appearance group', [
     $u36(false, ['my_work', 'media', 'enquiries', 'contacts', 'pipeline']), $u36(false, ['my_work', 'media', 'enquiries', 'pages']), $u36(false, ['my_work', 'media', 'news']),
     $u36(true, ['my_work', 'media', 'enquiries']), $u36(false, ['media', 'enquiries']),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), "\$lookHere = \$onDashboard || (isset(\$modules[\$active]) && \$modules[\$active]::GROUP === 'Appearance');"),
@@ -88,7 +88,7 @@ check('3.32 (U36, A2): after sign-in only a person without content sections land
 // 3.32 (U37): the dashboard leads with the site's numbers; Connect Claude, First steps and the examples fold to one line
 $u37Dash = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/dashboard.php');
 $u37Connect = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/claude_connect.php');
-check('3.32 (U37): the tiles come before the onboarding blocks, which are details (Connect Claude open for administrators, First steps while a step is left)', [
+check('[source-pin] 3.32 (U37): the tiles come before the onboarding blocks, which are details (Connect Claude open for administrators, First steps while a step is left)', [
     strpos($u37Dash, '<div class="dlazdice">') < strpos($u37Dash, "render('admin/claude_connect'"), strpos($u37Dash, "render('admin/pending_review'") < strpos($u37Dash, '<div class="dlazdice">'),
     str_contains($u37Dash, "<?= \$finished < count(\$firstSteps) ? ' open' : '' ?>"), str_contains($u37Connect, "<?= \$connect['admin'] ? ' open' : '' ?>"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/ask_claude.php'), '<details class="ask-claude-priklady-obal"><summary>'),
@@ -96,7 +96,7 @@ check('3.32 (U37): the tiles come before the onboarding blocks, which are detail
 // 3.32 (U46, U47, U49, U50): scrolling table wrappers become focusable regions, the cookie table is a listing, yes/no boxes
 // are named by their row, the charts are groups of bars that are images
 $a11yJs = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
-check('3.32 (U46, U47, U49, U50): focusable scrollers, the cookie listing, named boxes, chart roles', [
+check('[source-pin] 3.32 (U46, U47, U49, U50): focusable scrollers, the cookie listing, named boxes, chart roles', [
     str_contains($a11yJs, "box.setAttribute('tabindex', '0');") && str_contains($a11yJs, "box.setAttribute('role', 'region');") && strpos($a11yJs, 'var markScrollers') > strpos($a11yJs, "tab.classList.add('vypis-karty');"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), "<div class=\"tab-obal\">\n<table class=\"vypis cookies-tabulka\">"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/list.php'), "<input type=\"checkbox\" aria-labelledby=\"' . e(\$key) . '-popisek\" name=\"' . e(\$key) . '\" value=\"1\"'"),
@@ -120,7 +120,7 @@ check('3.31: a move is created, moved, won, lost or reopened (from a closing sta
 // before it links the enquiry's contact (the same refusal as a new deal without an enquiry)
 $a3311From = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
 $a3311FromBody = substr($a3311From, (int) strpos($a3311From, 'public static function createFromEnquiry('), 2600);
-check('3.31.1: createFromEnquiry takes stage (an open one, checked before the contact is linked, the refusal of save()); the tool says so; the parameter stays', [
+check('[source-pin] 3.31.1: createFromEnquiry takes stage (an open one, checked before the contact is linked, the refusal of save()); the tool says so; the parameter stays', [
     str_contains($a3311FromBody, "array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage', 'contact_id', 'company_id'])" /* 3.32: and the customer of the prefilled form */),
     strpos($a3311FromBody, "throw new \\DomainException(t('A new deal starts in an open stage.'));") < strpos($a3311FromBody, 'Contacts::link($app'),
     substr_count($a3311From, "t('A new deal starts in an open stage.')"),
@@ -133,13 +133,13 @@ check('3.31: a deal\'s title names the person when it has every word of their na
     $d331::names('Anything', '', 'not-an-address'), $d331::names('Information pack', '', 'info@acme.cz'),
 ], [true, true, false, true, false, false, false, false, false]);
 $d331Src = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
-check('3.31: won and lost close a deal, lost needs a reason, reopening clears it; one open deal per enquiry; every move is in the history; delete is for administrators', [
+check('[source-pin] 3.31: won and lost close a deal, lost needs a reason, reopening clears it; one open deal per enquiry; every move is in the history; delete is for administrators', [
     str_contains($d331Src, "\$closedAt = \$to['kind'] === 'open' ? null :"), str_contains($d331Src, "if (!isset(self::LOST_REASONS[\$reason])) {"),
     str_contains($d331Src, "['stage' => \$to['key'], 'closed_at' => \$closedAt, 'lost_reason' => \$reason, 'lost_note' => \$note"), substr_count($d331Src, "\$db->insert('deal_stage_history',"),
     substr_count($d331Src, '$open = self::openForEnquiry($db, '), str_contains($d331Src, "if (!\$app->auth()->isAdmin()) {\n            throw new \\DomainException(t('Only an administrator can delete a deal.'));"),
     array_keys($d331::LOST_REASONS), $d331::SECTION, Kaleta\Core\Assignment::KINDS['deal'] ?? null,
 ], [true, true, true, 2, 2, true, ['price', 'competitor', 'timing', 'no_response', 'not_a_fit', 'other'], 'pipeline', 'pipeline']);
-check('3.31 (D-W6): an enquiry of a deal is kept while the deal is open and for the retention after it closed; a customer with an open deal is never anonymised; an erased or anonymised customer\'s deals stay without the person', [
+check('[source-pin] 3.31 (D-W6): an enquiry of a deal is kept while the deal is open and for the retention after it closed; a customer with an open deal is never anonymised; an erased or anonymised customer\'s deals stay without the person', [
     str_contains($d331Src, "\$live = '(d.closed_at IS NULL' . (\$months > 0 ? ' OR d.closed_at >= ?' : '') . ')';"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), '$held = \Kaleta\Core\Contacts::heldByDeals($db, $expired, $months);'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php'), "return Deals::hasOpenDeal(\$db, \$contactId);"),
@@ -150,7 +150,7 @@ check('3.31 (D-W6): an enquiry of a deal is kept while the deal is open and for 
 $d331Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 $d331Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0117-pipeline.sql');
 $d331Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|DATE|TEXT|DECIMAL|CHAR)\b/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
-check('3.31: ka_deals and ka_deal_stage_history alike in schema.sql and migration 0117 (indexes for stage, owner, contact, company, enquiry; no foreign keys), the names map, the moments and the civil day, the section granted with Customers, DB version 117, never journaled', [
+check('[source-pin] 3.31: ka_deals and ka_deal_stage_history alike in schema.sql and migration 0117 (indexes for stage, owner, contact, company, enquiry; no foreign keys), the names map, the moments and the civil day, the section granted with Customers, DB version 117, never journaled', [
     $d331Columns($d331Schema, 'ka_deals'), $d331Columns($d331Schema, 'ka_deals') === $d331Columns($d331Migration, 'ka_deals'),
     $d331Columns($d331Schema, 'ka_deal_stage_history') === $d331Columns($d331Migration, 'ka_deal_stage_history') && $d331Columns($d331Schema, 'ka_deal_stage_history') !== [],
     preg_match_all('/KEY ix_deals_(stage|owner|contact|company|enquiry) /', $d331Migration), preg_match_all('/KEY ix_deals_(stage|owner|contact|company|enquiry) /', $d331Schema), str_contains($d331Migration, 'FOREIGN KEY'),
@@ -163,7 +163,7 @@ check('3.31: ka_deals and ka_deal_stage_history alike in schema.sql and migratio
 ], [['id', 'title', 'contact_id', 'company_id', 'owner_id', 'stage', 'value', 'currency', 'source_enquiry_id', 'expected_close', 'closed_at', 'lost_reason', 'lost_note', 'created_by', 'created_at', 'updated_at'],
     true, true, 5, 5, false, true, ['deals', 'deal_stage_history'], ['closed_at', 'created_at', 'updated_at'], ['at'], ['expected_close'], true, true, [true, true]]);
 $d331Mail = Kaleta\Core\Assignment::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], 'deal', ['id' => 12, 'title' => '#12', 'path' => ''], 'Jana', 'https://x/1');
-check('3.31: the bell and the assignment e-mail name a deal by its number only (its title may name a customer); the hand-over counts deals and needs the pipeline; My work lists them', [
+check('[source-pin] 3.31: the bell and the assignment e-mail name a deal by its number only (its title may name a customer); the hand-over counts deals and needs the pipeline; My work lists them', [
     Kaleta\Core\Inbox::parse('deal:3'), Kaleta\Core\Inbox::TARGETS['deal'] ?? null, Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Inbox::where(['kind' => 'deal', 'id' => 4, 'title' => '#4']), 'admin-'),
     $d331Mail[0], str_contains($d331Mail[1], 'deal #12'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignment.php'), "['id' => \$id, 'title' => '#' . \$id, 'path' => Deals::adminPath(\$id)]"),
     Kaleta\Core\Handover::sectionsOf(['page' => 0, 'item' => 0, 'enquiry' => 0, 'deal' => 2]), Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Core\Handover::describe(['page' => 0, 'item' => 0, 'enquiry' => 0, 'deal' => 2]), 'admin-'),
@@ -172,7 +172,7 @@ check('3.31: the bell and the assignment e-mail name a deal by its number only (
 $d331Tools = ['list_deals', 'save_deal', 'move_deal', 'pipeline_summary'];
 $d331Defs = array_column(Kaleta\Mcp\Tools::definitions(), null, 'name');
 $d331Handler = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/DealTools.php');
-check('3.31: the pipeline tools – English on both sides, in the work set and never in the essentials, site-neutral, move_deal idempotent, no delete over MCP, titled, the access check in every handler, the writes say they are not undoable', [
+check('[source-pin] 3.31: the pipeline tools – English on both sides, in the work set and never in the essentials, site-neutral, move_deal idempotent, no delete over MCP, titled, the access check in every handler, the writes say they are not undoable', [
     array_map(fn (string $t): ?array => Kaleta\Mcp\Catalog::TOOLS[$t] ?? null, $d331Tools), array_map(Kaleta\Mcp\Translator::czech(...), $d331Tools),
     array_values(array_intersect($d331Tools, Kaleta\Mcp\Catalog::ESSENTIALS)), array_values(array_intersect($d331Tools, Kaleta\Mcp\Catalog::WORK)),
     array_map(Kaleta\Mcp\Catalog::isSiteNeutral(...), ['save_deal', 'move_deal']), Kaleta\Mcp\Catalog::isIdempotent('move_deal'), Kaleta\Mcp\Catalog::isIdempotent('save_deal'),
@@ -184,7 +184,7 @@ check('3.31: the pipeline tools – English on both sides, in the work set and n
 $d331Report = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections(['month' => '2026-10', 'pipeline' => ['new' => 4, 'won' => 1, 'lost' => 2,
     'stages' => [['key' => 'new', 'label' => 'New', 'n' => 4], ['key' => 'qualified', 'label' => 'Qualified', 'n' => 0], ['key' => 'won', 'label' => 'Won', 'n' => 1]]]]), 'admin-');
 $d331Section = array_values(array_filter($d331Report, fn (array $s): bool => $s['key'] === 'pipeline'))[0] ?? null;
-check('3.31 (D-W7): the monthly report counts the pipeline – new, won and lost deals and the stages reached (those with deals) – never a value; none without deals', [
+check('[source-pin] 3.31 (D-W7): the monthly report counts the pipeline – new, won and lost deals and the stages reached (those with deals) – never a value; none without deals', [
     $d331Section['title'] ?? null, $d331Section['blocks'][0]['rows'] ?? null, $d331Section['blocks'][1]['rows'] ?? null,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/MonthlyReport.php'), "'pipeline' => \$section(fn (): ?array => self::pipeline(\$app, \$from, \$to)),"),
     preg_match('/function monthCounts.*?\n    }\n/s', $d331Src, $d331Fn) === 1 && !str_contains($d331Fn[0], 'SUM(') && !str_contains($d331Fn[0], 'currency'),
@@ -209,7 +209,7 @@ $b331Modules = array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kerne
 $b331Icons = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php');
 $b331Post = fn (string $action): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => 'pipeline', 'action' => $action], ['id' => '1'], ['REQUEST_METHOD' => 'POST']));
 $b331Preset = fn (string $key): int => array_search('pipeline', Kaleta\Admin\Modules\Roles::PRESETS[$key][3], true) - array_search('contacts', Kaleta\Admin\Modules\Roles::PRESETS[$key][3], true);
-check('3.31 (B): the Pipeline – IDENT pipeline (= Core\Deals::SECTION), in Workspace right after Customers, core, site-neutral, comments and tasks, an icon, next to Customers in the presets, named in cs/de/es', [
+check('[source-pin] 3.31 (B): the Pipeline – IDENT pipeline (= Core\Deals::SECTION), in Workspace right after Customers, core, site-neutral, comments and tasks, an icon, next to Customers in the presets, named in cs/de/es', [
     $b331::IDENT, Kaleta\Core\Deals::SECTION, $b331::NAME, $b331::GROUP, $b331::EXTENSION, $b331::ADMIN_ONLY, array_search('pipeline', $b331Modules, true) - array_search('contacts', $b331Modules, true),
     in_array('pipeline', Kaleta\Admin\Kernel::SITE_NEUTRAL_MODULES, true), $b331Post('move'), $b331Post('stages_save'), $b331Post('delete'),
     [in_array(Kaleta\Admin\CommentActions::class, class_uses($b331), true), in_array(Kaleta\Admin\TaskActions::class, class_uses($b331), true)],
@@ -239,7 +239,7 @@ check('3.31 (B): the stage editor – rows in the order of their numbers (unnumb
 // 3.31.1: a stage with deals keeps its kind – saveStages compares the kinds of the stages that stay (kindChanges) and refuses
 $a3311Stages = Kaleta\Core\Deals::parseStages('');
 $a3311Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
-check('3.31.1: kindChanges – the stages that stay with another kind (a removed or a new stage is not one); saveStages refuses them while deals are in them, naming how many', [
+check('[source-pin] 3.31.1: kindChanges – the stages that stay with another kind (a removed or a new stage is not one); saveStages refuses them while deals are in them, naming how many', [
     Kaleta\Core\Deals::kindChanges($a3311Stages, $a3311Stages),
     Kaleta\Core\Deals::kindChanges($a3311Stages, [['key' => 'new', 'kind' => 'open'], ['key' => 'proposal', 'kind' => 'lost'], ['key' => 'won', 'kind' => 'open'], ['key' => 'fresh', 'kind' => 'won'], ['key' => 'lost', 'kind' => 'lost']]),
     str_contains($a3311Deals, '$rekinded = self::kindChanges($current, $clean);'),
@@ -249,12 +249,12 @@ check('3.31.1: kindChanges – the stages that stay with another kind (a removed
 // review of 3.31.1: a kind change is allowed when every deal of the stage already fits the new kind – the repair of a stage
 // whose kind changed under 3.31.0 – and refused, with the hint, when one does not
 $a3311Fit = fn (int $open, int $won, int $lost, string $kind): bool => Kaleta\Core\Deals::dealsFitKind(['n' => $open + $won + $lost, 'open' => $open, 'won' => $won, 'lost' => $lost], $kind);
-check('3.31.1 (review): dealsFitKind – open = all deals open, won = all closed without a lost reason, lost = all closed with one; saveStages refuses only a stage whose deals do not fit', [
+check('[source-pin] 3.31.1 (review): dealsFitKind – open = all deals open, won = all closed without a lost reason, lost = all closed with one; saveStages refuses only a stage whose deals do not fit', [
     $a3311Fit(3, 0, 0, 'open'), $a3311Fit(0, 2, 0, 'won'), $a3311Fit(0, 0, 2, 'lost'), $a3311Fit(0, 0, 0, 'lost'),
     $a3311Fit(2, 1, 0, 'open'), $a3311Fit(0, 2, 1, 'won'), $a3311Fit(0, 1, 1, 'lost'), $a3311Fit(1, 0, 0, 'won'), $a3311Fit(0, 1, 0, 'nonsense'),
     str_contains($a3311Deals, 'if (isset($counts[$key]) && !self::dealsFitKind($counts[$key], $kinds[$key])) {')],
     [true, true, true, true, false, false, false, false, false, true]);
-check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeline) – personal, never journaled; the timeline shows a deal with an icon and a label; "Deal #N" in My work', [
+check('[source-pin] 3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeline) – personal, never journaled; the timeline shows a deal with an icon and a label; "Deal #N" in My work', [
     Kaleta\Core\Comments::parseTarget('deal:3'), Kaleta\Core\Comments::deal(5), Kaleta\Core\Comments::KINDS['deal'] ?? null, Kaleta\Core\Comments::parseTarget('deal:0'),
     Kaleta\Core\Tasks::cleanTarget('deal:4'), Kaleta\Core\Tasks::personal('deal:4'), Kaleta\Core\Assignment::KINDS['deal'],
     Kaleta\Admin\Modules\Contacts::KINDS['deal'] ?? null, str_contains($b331Icons, "'obchody' =>"),
@@ -266,7 +266,7 @@ check('3.31 (B): a deal has the team\'s thread and tasks (deal:N, section Pipeli
 $a3311Timeline = [['at' => '2026-11-09 10:00:00', 'kind' => 'deal', 'title' => 'Olga Nováková – yearly contract', 'status' => 'won', 'text' => 'Signed', 'by' => 'Jana',
     'ref' => 'deal:7', 'path' => 'admin.php?module=pipeline&action=detail&id=7', 'contact' => 'Olga', 'contact_id' => 3],
     ['at' => '2026-11-08 10:00:00', 'kind' => 'enquiry', 'title' => 'Contact form', 'text' => 'Website', 'status' => 'new', 'ref' => 'enquiry:4', 'path' => 'admin.php?module=enquiries&action=detail&id=4']];
-check('3.31.1: Deals::neutralTimeline – a deal entry keeps when, its number and the contact only (no title, stage, status, who or link); other entries stay; used by the customer, the company and get_contact', [
+check('[source-pin] 3.31.1: Deals::neutralTimeline – a deal entry keeps when, its number and the contact only (no title, stage, status, who or link); other entries stay; used by the customer, the company and get_contact', [
     Kaleta\Core\Deals::neutralTimeline($a3311Timeline), Kaleta\Core\Deals::neutralTimeline([]),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Contacts.php'), '$this->dealsShown('),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Contacts.php'), "return isset(\$this->kernel->modules()[Pipeline::IDENT]) ? \$timeline : \\Kaleta\\Core\\Deals::neutralTimeline(\$timeline);"),
@@ -277,7 +277,7 @@ check('3.31.1: Deals::neutralTimeline – a deal entry keeps when, its number an
 $b331Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $b331Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
 $b331Board = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pipeline/board.php');
-check('3.31 (B): the palette searches deals only for whoever has the Pipeline; the board script posts the move form as JSON, announces moves and lets a lost column ask for the reason; the boxes on an enquiry, a customer and a company', [
+check('[source-pin] 3.31 (B): the palette searches deals only for whoever has the Pipeline; the board script posts the move form as JSON, announces moves and lets a lost column ask for the reason; the boxes on an enquiry, a customer and a company', [
     str_contains($b331Layout, "isset(\$modules['pipeline']) ? ' data-deals=\"'"), str_contains($b331Script, "palette.getAttribute('data-deals')"), str_contains($b331Script, "T('deal')"),
     str_contains($b331Script, "document.querySelector('[data-pipeline-board]')"), str_contains($b331Script, "data.set('format', 'json')"), str_contains($b331Board, 'aria-live="polite" data-pipeline-announce'),
     str_contains($b331Script, "col.getAttribute('data-kind') === 'lost'"),
@@ -308,7 +308,7 @@ check('3.31 (B): the views escape a deal\'s title, customer, company and stage; 
 $m331Kinds = array_keys(Kaleta\Core\Inbox::TARGETS);
 $m331Views = array_map(fn (string $v): string => (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/' . $v . '.php'), ['list', 'team']);
 $m331Sweep = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Tasks.php');
-check('3.31: every target kind parses, is a task target, is swept, has an assignment kind and a label in My work (Mine, Team)', [
+check('[source-pin] 3.31: every target kind parses, is a task target, is swept, has an assignment kind and a label in My work (Mine, Team)', [
     $m331Kinds, array_values(array_filter($m331Kinds, fn (string $k): bool => Kaleta\Core\Inbox::parse($k . ':7') !== [$k, 7] || Kaleta\Core\Tasks::cleanTarget($k . ':7') !== $k . ':7'
         || !isset(Kaleta\Core\Assignment::KINDS[$k]) || !str_contains($m331Sweep, "'" . $k . "' => ['")
         || ($k !== 'item' && array_filter($m331Views, fn (string $v): bool => !str_contains($v, "    '" . $k . "' => t(")) !== []))),
@@ -319,7 +319,7 @@ check('3.31: every target kind parses, is a task target, is swept, has an assign
 $p331Contacts = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
 $p331Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
 $p331Data = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/PersonalData.php');
-check('3.31: an erased customer\'s deals lose the comments, an anonymised one\'s keep them blanked (Comments::anonymiseTargets); the personal data file carries them', [
+check('[source-pin] 3.31: an erased customer\'s deals lose the comments, an anonymised one\'s keep them blanked (Comments::anonymiseTargets); the personal data file carries them', [
     str_contains($p331Contacts, 'Deals::unlinkContacts($db, [$id], true);'), str_contains($p331Contacts, 'Deals::unlinkContacts($db, $chunk);'),
     str_contains($p331Deals, "self::forgetComments(\$db, array_map(fn (array \$r): string => Comments::deal((int) \$r['id']), \$rows), \$erase);"),
     str_contains($p331Deals, "Comments::anonymiseTargets(\$db, \$targets);"), str_contains($p331Deals, "\$db->run('DELETE FROM {comments} WHERE target IN ('"),
@@ -328,7 +328,7 @@ check('3.31: an erased customer\'s deals lose the comments, an anonymised one\'s
 
 // 3.31 (code scanning #44): the moved-field redirect of Settings goes only to a same-origin http(s) path, never "//host"
 $x331Js = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
-check('3.31: the moved-field redirect checks the origin and the protocol and keeps only the path and query', [
+check('[source-pin] 3.31: the moved-field redirect checks the origin and the protocol and keeps only the path and query', [
     str_contains($x331Js, "movedUrl.origin === location.origin && (movedUrl.protocol === 'https:' || movedUrl.protocol === 'http:')"),
     str_contains($x331Js, "location.replace(movedUrl.pathname.replace(/^\\/+/, '/') + movedUrl.search + '#' + encodeURIComponent(movedId));"),
     str_contains($x331Js, "location.replace(movedTo")], [true, true, false]);
@@ -336,7 +336,7 @@ check('3.31: the moved-field redirect checks the origin and the protocol and kee
 // 3.31 (code scanning #45): the dummy hashes are valid bcrypt hashes of cost 12 and 10, and no bcrypt literal stands in Auth.php
 $h331 = new ReflectionClass(Kaleta\Core\Auth::class);
 $h331Info = fn (string $name): array => [password_get_info((string) $h331->getConstant($name))['algoName'], password_get_info((string) $h331->getConstant($name))['options']['cost'] ?? 0, strlen((string) $h331->getConstant($name))];
-check('3.31: the dummy hashes stay valid bcrypt of cost 12 and 10 (60 characters) and no bcrypt hash literal is left in Auth.php', [
+check('[source-pin] 3.31: the dummy hashes stay valid bcrypt of cost 12 and 10 (60 characters) and no bcrypt hash literal is left in Auth.php', [
     $h331Info('DUMMY_HASH'), $h331Info('DUMMY_HASH_10'), password_verify('anything', (string) $h331->getConstant('DUMMY_HASH_10')),
     preg_match('/\$2[aby]?\$\d+\$[.\/A-Za-z0-9]{53}/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php'))],
     [['bcrypt', 12, 60], ['bcrypt', 10, 60], false, 0]);
@@ -344,7 +344,7 @@ check('3.31: the dummy hashes stay valid bcrypt of cost 12 and 10 (60 characters
 // 3.31: a fleet expiry reminder whose e-mail fails is retried by the mail queue (Mail::send keeps it), never re-sent by the job
 $f331 = (string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Calendar.php');
 $f331Send = new ReflectionMethod(Kaleta\Core\Mail::class, 'send');
-check('3.31: Calendar::run sends each reminder e-mail with Mail::send and its queue (a failure waits for the job "mail"); the reminder is recorded first', [
+check('[source-pin] 3.31: Calendar::run sends each reminder e-mail with Mail::send and its queue (a failure waits for the job "mail"); the reminder is recorded first', [
     substr_count($f331, 'Mail::send('), str_contains($f331, '$queued += Mail::send($s, $recipient, $subject, $text) ? 0 : 1;'),
     $f331Send->getParameters()[6]->getName(), $f331Send->getParameters()[6]->getDefaultValue(),
     strpos($f331, "INSERT IGNORE INTO {fleet_expiry_reminders}") < strpos($f331, '$queued += Mail::send(')],

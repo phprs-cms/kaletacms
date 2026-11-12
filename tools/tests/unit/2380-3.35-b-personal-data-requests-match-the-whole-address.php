@@ -25,7 +25,7 @@ check('3.35 B5 N94: only Kaleta\'s merge note names a merged address – in ever
 ], [true, true, true, true, false, false, false]);
 $i335eContacts = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Contacts.php');
 $i335ePersonal = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/PersonalData.php');
-check('3.35 B5 N94: the LIKE of the activity log and of the enquiry fields only narrows rows – the exact rule decides', [
+check('[source-pin] 3.35 B5 N94: the LIKE of the activity log and of the enquiry fields only narrows rows – the exact rule decides', [
     str_contains($i335eContacts, 'if (self::mergeNoteNames((string) $row[\'text\'], $norm)) {'),
     str_contains($i335ePersonal, 'fn (array $r): bool => self::ofEnquiry((string) $r[\'email\'], (string) $r[\'data\'], $email)'),
 ], [true, true]);

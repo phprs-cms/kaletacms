@@ -72,7 +72,8 @@ final class MyWork
             }
             try {
                 $out[$list] = self::find($app, $list, $userId);
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 $out[$list] = []; // a column from a newer migration that has not run yet must not break the screen
             }
         }

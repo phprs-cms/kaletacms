@@ -5,7 +5,7 @@ declare(strict_types=1);
 /* ---------- 3.29 (agent B): the console screens – Today (the default tab), the health matrix, the workload; MCP fleet_today and fleet_health ---------- */
 $b329Tabs = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/tabs.php');
 $b329Fleet = new ReflectionClass(Kaleta\Admin\Modules\Fleet::class);
-check('3.29: the fleet console opens on Today; the inbox, the health matrix and the workload are tabs of their own, each an action of the module', [
+check('[source-pin] 3.29: the fleet console opens on Today; the inbox, the health matrix and the workload are tabs of their own, each an action of the module', [
     (bool) preg_match("/\\['' => t\\('Today'\\), 'inbox' => t\\('Inbox'\\), 'health' => t\\('Health'\\), 'workload' => t\\('Workload'\\), 'sites' =>/", $b329Tabs),
     array_map(fn (string $m): bool => $b329Fleet->hasMethod($m), ['actionList', 'actionInbox', 'actionHealth', 'actionWorkload']),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Fleet.php'), "return \$this->view('today', 'Fleet'"),
@@ -61,7 +61,7 @@ check('3.29 Health::sortWorkload – by a count (the sites without it last, eith
 $b329Keys = ['Needs action', 'Summary of the sites', 'Everything is green on the %d sites.', 'Workload', 'Unanswered over 24 h', 'Median hours to the first reply', 'Severity', 'without a customer',
     'Health of the sites: a row per site, a column per check', 'Support the development of Kaleta CMS', ...array_values(Kaleta\Fleet\Health::SHORT), ...array_values(Kaleta\Fleet\Health::STATE_LABELS)];
 $b329Cs = require KALETA_SYSTEM . '/jazyky/admin-cs.php';
-check('3.29: the new texts of the screens are in Czech, German and Spanish; the support link says what the owner asked for in each language', [
+check('[source-pin] 3.29: the new texts of the screens are in Czech, German and Spanish; the support link says what the owner asked for in each language', [
     array_values(array_filter($b329Keys, fn (string $k): bool => !isset($b329Cs[$k]) && !in_array($k, ['TLS', 'SPF', 'SMTP', '2FA', 'Auto', 'Cookies', 'Claude', 'OK', 'Online'], true))),
     array_values(array_filter($b329Keys, fn (string $k): bool => !isset((require KALETA_SYSTEM . '/jazyky/admin-de.php')[$k]) && isset($b329Cs[$k]))),
     array_values(array_filter($b329Keys, fn (string $k): bool => !isset((require KALETA_SYSTEM . '/jazyky/admin-es.php')[$k]) && isset($b329Cs[$k]))),

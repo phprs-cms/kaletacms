@@ -19,12 +19,12 @@ check('3.33 review H1 replace_starter_pages: only legacy pages, each named by it
 check('3.33 review H1: the import result says why a legacy page was kept', StarterPages::summary(['ponechano' => [['/kontakt', 'Kontakt', '/kontakt', 'legacy']]])['kept'][0]['why'],
     'recognised only by the titles of an older installation, so it is replaced only when chosen (replace_starter_pages) – the imported page got a number');
 $i333hSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Core/StarterPages.php');
-check('3.33 review H1: the legacy rule proves the installer\'s row – shared stamp after the first account, no versions, no import map, no imported Kaleta export', [
+check('[source-pin] 3.33 review H1: the legacy rule proves the installer\'s row – shared stamp after the first account, no versions, no import map, no imported Kaleta export', [
     str_contains($i333hSource, 'SELECT potvrzeno FROM {uzivatele} ORDER BY idu LIMIT 1'), str_contains($i333hSource, '{stranky_revize} v WHERE v.ids = s.ids'),
     str_contains($i333hSource, "{import_mapa} m WHERE m.typ = 'stranka' AND m.nase_id = s.ids"), str_contains($i333hSource, "akce = 'import of a Kaleta export'"),
     str_contains($i333hSource, "count(array_unique(array_column(\$rows, 'zmeneno'))) === 1"),
 ], [true, true, true, true, true]);
-check('3.33 review H1: "Start from an export" and the Kaleta import write an empty record (no sample pages, no legacy rule)', [
+check('[source-pin] 3.33 review H1: "Start from an export" and the Kaleta import write an empty record (no sample pages, no legacy rule)', [
     str_contains((string) file_get_contents(KALETA_ROOT . '/system/src/Install/Installer.php'), "StarterPages::SETTING => '{}'"),
     substr_count((string) file_get_contents(KALETA_ROOT . '/system/src/Core/SiteImport.php'), "set(StarterPages::SETTING, '{}')"),
 ], [true, 2]);

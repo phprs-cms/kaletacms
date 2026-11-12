@@ -83,7 +83,7 @@ check('3.33 M4: an Elementor page keeps its blocks – "widget" is noise only at
     str_contains(Kaleta\Core\WebImport::extract('<main><div class="elementor-widget elementor-widget-text-editor"><div class="elementor-widget-container"><p>Kept text of an Elementor page that is long enough to be the content of it.</p></div></div><div class="widget widget_text"><p>Sidebar text</p></div></main>', 'https://e.example/')['obsah'], 'Kept text'),
     str_contains(Kaleta\Core\WebImport::extract('<main><div class="elementor-widget"><p>Kept text of an Elementor page that is long enough to be the content of it.</p></div><div class="widget widget_text"><p>Sidebar text</p></div></main>', 'https://e.example/')['obsah'], 'Sidebar text')],
     [true, false]);
-check('3.33 M4: WebImport – the widgets come out before the noise goes, files go into Media within the limits, the state counts what was kept and what needs a person', [
+check('[source-pin] 3.33 M4: WebImport – the widgets come out before the noise goes, files go into Media within the limits, the state counts what was kept and what needs a person', [
     preg_match('/takeWidgets\(\$root\);\s+\/\/ an element inside one removed earlier/', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/WebImport.php')),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/WebImport.php'), "self::politeDownload(\$this->downloader, \$url, (array) (\$state['robots'] ?? []), false, false)"),
     Kaleta\Core\WebImport::created(['vysledek' => ['stranky' => 1, 'obrazky' => 2], 'zachovano' => ['soubory' => 3]]),

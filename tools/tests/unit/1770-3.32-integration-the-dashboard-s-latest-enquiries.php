@@ -6,7 +6,7 @@ declare(strict_types=1);
 $i332Dash = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/dashboard.php');
 $i332Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
 $i332Work = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php');
-check('3.32: the dashboard names its latest enquiries with RecordTitle::enquiry (the form under it) and reads the columns it needs; My work\'s unassigned list has the Who cell and Take it in one row', [
+check('[source-pin] 3.32: the dashboard names its latest enquiries with RecordTitle::enquiry (the form under it) and reads the columns it needs; My work\'s unassigned list has the Who cell and Take it in one row', [
     str_contains($i332Dash, 'bdi(Kaleta\\Core\\RecordTitle::enquiry($p))'), str_contains($i332Dash, "e(\$p['formular'] !== '' ? \$p['formular'] : t('Enquiry'))"),
     str_contains($i332Kernel, "SELECT idp, datum, formular, tema, zdroj, email, data, anonymizovano, stav FROM {poptavky} WHERE ' . Modules\\Enquiries::NOT_SPAM . ' AND ' . Modules\\Enquiries::visible("),
     str_contains($i332Work, "<?= bdi((string) (\$r['name'] ?? \$r['title'])) ?>"), substr_count($i332Work, 'data-enquiry-take'),

@@ -27,7 +27,7 @@ check('3.35 review L4: a list of the older format verifies as before and stays i
 ], [2, (string) json_encode([hash('sha256', 'fghij-67890')]), null, 2, 8]);
 $r357Auth = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 $r357Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
-check('3.35 review L4: the sign-in uses a code up by compare-and-swap; every new list replaces the stored one by compare-and-swap', [
+check('[source-pin] 3.35 review L4: the sign-in uses a code up by compare-and-swap; every new list replaces the stored one by compare-and-swap', [
     str_contains($r357Auth, "'UPDATE {uzivatele} SET totp_zalozni = ? WHERE idu = ? AND totp_zalozni = ?'"),
     str_contains($r357Auth, "' WHERE idu = ? AND totp_zalozni <=> ?'"),
     str_contains($r357Auth, '$usedBackupCode = $step === null && $user !== null && $this->consumeBackupCode((int) $user[\'idu\'], $code);'),

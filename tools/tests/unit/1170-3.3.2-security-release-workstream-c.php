@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.3.2: security release, workstream C ---------- */
 $mcpSettings = (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue();
-check('3.3.2 (N27): Claude cannot set GTM or Matomo (script chosen by their owner); GA4 and Plausible load from a fixed host and stay; the tool says why',
+check('[source-pin] 3.3.2 (N27): Claude cannot set GTM or Matomo (script chosen by their owner); GA4 and Plausible load from a fixed host and stay; the tool says why',
     [array_map(fn (string $key): int => preg_match($mcpSettings, $key), ['gtm_id', 'matomo_url', 'matomo_id', 'ga4_id', 'plausible_domain']),
         str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "['gtm_id', 'matomo_url', 'matomo_id']"), Kaleta\Admin\Modules\Settings::verifyValue('gtm_id', 'GTM-<x>')],
     [[0, 0, 0, 1, 1], true, null]);
@@ -38,9 +38,9 @@ check('3.3.2 (N32): with deleting switched off, deleting a redirect or a part va
     [['uloz_presmerovani' => 'smazat', 'uloz_variantu' => 'smazat', 'restore_item_version' => '', 'request_testimonial' => 'send', 'confirm_booking' => '', 'propose_booking_times' => ''], ['uloz_presmerovani', 'uloz_variantu', 'restore_item_version', 'request_testimonial']]);
 check('3.3.2 (N34): tries are counted per IPv4 address and per IPv6 /64 (an IPv4 address written as IPv6 counts as itself)', array_map(Kaleta\Core\Antispam::network(...),
     ['203.0.113.7', '2001:db8:1:2:3:4:5:6', '2001:db8:1:2:ffff::1', '::ffff:203.0.113.7', 'unknown']), ['203.0.113.7', '2001:db8:1:2::/64', '2001:db8:1:2::/64', '203.0.113.7', 'unknown']);
-check('3.3.2 (N34): a page password has a limit per address and one per page across all addresses', [Kaleta\Core\PageLock::ATTEMPTS, Kaleta\Core\PageLock::PAGE_ATTEMPTS > Kaleta\Core\PageLock::ATTEMPTS,
+check('[source-pin] 3.3.2 (N34): a page password has a limit per address and one per page across all addresses', [Kaleta\Core\PageLock::ATTEMPTS, Kaleta\Core\PageLock::PAGE_ATTEMPTS > Kaleta\Core\PageLock::ATTEMPTS,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/PageLock.php'), 'Antispam::network(')], [10, true, true]);
-check('3.3.2 (N28, N35): the whistleblowing channel caps reports per hour, per day and attachment storage, and keeps only a short keyed bucket of an address', [
+check('[source-pin] 3.3.2 (N28, N35): the whistleblowing channel caps reports per hour, per day and attachment storage, and keeps only a short keyed bucket of an address', [
     Kaleta\Core\Whistleblowing::REPORTS_PER_HOUR, Kaleta\Core\Whistleblowing::REPORTS_PER_DAY, Kaleta\Core\Whistleblowing::MAX_STORAGE >= 512 * 1048576,
     (new ReflectionClassConstant(Kaleta\Core\Whistleblowing::class, 'BUCKET_LENGTH'))->getValue() <= 5,
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Whistleblowing.php'), 'Antispam($app->db(), $app->settings()))->write')],

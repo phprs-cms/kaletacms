@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.32 (pre-release review): System status warns when the clean-up has not succeeded for 2 days; the dashboard's latest enquiries leave spam out ---------- */
 $r332Now = strtotime('2026-11-10 12:00:00');
-check('3.32: Scheduler::cleanupStale – a success older than 2 days is reported; a recent one, none yet, or no cleanup row are not; Health adds the row', [
+check('[source-pin] 3.32: Scheduler::cleanupStale – a success older than 2 days is reported; a recent one, none yet, or no cleanup row are not; Health adds the row', [
     Kaleta\Core\Scheduler::cleanupStale([['name' => 'mail', 'last_ok' => '2026-01-01 00:00:00'], ['name' => 'cleanup', 'last_ok' => '2026-11-08 11:00:00']], $r332Now),
     Kaleta\Core\Scheduler::cleanupStale([['name' => 'cleanup', 'last_ok' => '2026-11-08 13:00:00']], $r332Now),
     Kaleta\Core\Scheduler::cleanupStale([['name' => 'cleanup', 'last_ok' => null]], $r332Now), Kaleta\Core\Scheduler::cleanupStale([], $r332Now),

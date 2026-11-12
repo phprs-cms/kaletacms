@@ -31,13 +31,13 @@ check('3.35 review L6: Passkey::rpId and origin never carry a default port or a 
 $r353Auth = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 $r353Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $r353Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
-check('3.35 review M3: the rules read only the passkeys of this host (Auth::workingKeys); a registration records its host', [
+check('[source-pin] 3.35 review M3: the rules read only the passkeys of this host (Auth::workingKeys); a registration records its host', [
     substr_count($r353Auth, '->workingKeys('), substr_count($r353Auth, 'SignInPolicy::passkeyOnly($user, $this->accountKeys('), substr_count($r353Auth, '$this->rememberHost($key, $siteUrl);'),
     str_contains($r353Account, "'rp_id' => Passkey::rpId(\$url),"), str_contains($r353Account, "SignInPolicy::passkeyOnly(\$user, \$working, \$app->settings())"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql'), "rp_id      VARCHAR(255) NOT NULL DEFAULT ''"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0121-passkey-sign-in.sql'), "ALTER TABLE ka_uzivatele_klice ADD COLUMN rp_id VARCHAR(255) NOT NULL DEFAULT '';"),
 ], [8, 0, 3, true, true, true, true]);
-check('3.35 review M3: a new host of the site address needs the confirmation and Auth::freshProof (recent), never the passkey-only password', [
+check('[source-pin] 3.35 review M3: a new host of the site address needs the confirmation and Auth::freshProof (recent), never the passkey-only password', [
     (bool) preg_match("/function signInChangeRefusal\(.*?SignInPolicy::hostChanges\(.*?postBool\('site_url_confirm'\).*?->freshProof\(.*?'recent'\)/s", $r353Settings),
     str_contains($r353Settings, "\$value = \\Kaleta\\Core\\SignInPolicy::normaliseSiteUrl(\$value);"),
 ], [true, true]);

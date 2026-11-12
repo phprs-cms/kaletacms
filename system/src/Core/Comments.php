@@ -217,7 +217,8 @@ final class Comments
     {
         try {
             $row = $id > 0 ? $db->one('SELECT * FROM {comments} WHERE id = ?', [$id]) : null;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -529,7 +530,8 @@ final class Comments
     {
         try {
             $rows = $db->all('SELECT * FROM {comments} WHERE target = ?' . ($withDeleted ? '' : ' AND deleted_at IS NULL') . ' ORDER BY id', [$target]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return []; // before the 3.25 migration
         }
 
@@ -550,7 +552,8 @@ final class Comments
         }
         try {
             $pairs = $db->pairs('SELECT target, COUNT(*) FROM {comments} WHERE deleted_at IS NULL AND target IN (' . implode(',', array_fill(0, count($targets), '?')) . ') GROUP BY target', $targets);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return [];
         }
         $out = [];
@@ -578,7 +581,8 @@ final class Comments
         Tasks::forgetTargets($db, $targets); // 3.27: the tasks about them too (their titles may name the customer)
         try {
             return $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($targets), '?')) . ')', $targets)->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -598,7 +602,8 @@ final class Comments
         Tasks::anonymiseTargets($db, $targets); // 3.27: the tasks about them keep who and when, the title goes
         try {
             return $db->run("UPDATE {comments} SET text = '', mentions = NULL WHERE target IN (" . implode(',', array_fill(0, count($targets), '?')) . ')', $targets)->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -623,7 +628,8 @@ final class Comments
             foreach (array_chunk($targets, 500) as $chunk) {
                 $changed += $db->run("UPDATE {comments} SET text = '', mentions = NULL WHERE target IN (" . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk)->rowCount();
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the 3.25 migration
         }
 
@@ -653,7 +659,8 @@ final class Comments
             }
 
             return $deleted;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -674,7 +681,8 @@ final class Comments
             foreach (array_chunk($targets, 500) as $chunk) {
                 $deleted += $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk)->rowCount();
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the 3.25 migration
         }
 
@@ -703,7 +711,8 @@ final class Comments
                 foreach (array_chunk($gone, 500) as $chunk) {
                     $deleted += $db->run('DELETE FROM {comments} WHERE target IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk)->rowCount();
                 }
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 return $deleted;
             }
         }

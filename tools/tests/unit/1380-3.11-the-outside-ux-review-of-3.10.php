@@ -25,12 +25,12 @@ check('3.11 UX310-1: sample content is found in every starter home page and the 
         ['id' => 'g', 'typ' => 'nadpis', 'obsah' => ['text' => 'years in business']]),
 ], [[], [2, true], [], ['c' => 'testimonial', 'd' => 'text', 'e' => 'figure', 'f' => 'text']]);
 $findings311 = Kaleta\Builder\SampleContent::findings($landing311);
-check('3.11 UX310-1: the pre-publish findings start with a summary with the counts; Library and element defaults no longer invent reviews or figures', [
+check('[source-pin] 3.11 UX310-1: the pre-publish findings start with a summary with the counts; Library and element defaults no longer invent reviews or figures', [
     str_contains($findings311[0]['zprava'], 'sample testimonials: 2') && str_contains($findings311[0]['zprava'], 'invented reviews'), count($findings311) <= Kaleta\Builder\Check::MAX,
     array_values(array_filter(['David Clarke', 'Emma Johnson', 'Sarah Miller', '98%', '1,200', '★★★★★', 'from £40', '£120', 'John Smith', 'London EC2A 4NE'], fn (string $x): bool => str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Library.php'), "'" . $x . "'"))),
     Kaleta\Core\Language::runWith('en', fn (): array => [Kaleta\Builder\Elements\Quote::properties()['autor']['vychozi'], Kaleta\Builder\Elements\Counter::properties()['cislo']['vychozi']])],
     [true, true, [], ['[Customer’s name]', '[number]']]);
-check('3.11 UX310-1: a page of the audit has the kind sample, MCP build checks start with it', [
+check('[source-pin] 3.11 UX310-1: a page of the audit has the kind sample, MCP build checks start with it', [
     array_key_first(Kaleta\Core\Audit::KINDS), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'SampleContent::findings($build)')], ['sample', true]);
 // UX310-2: one name per access level, drafts first and recommended on the consent screen
 $consent311 = $oauthView->render('admin/connection-access', ['role' => 'Administrator', 'selected' => 'drafts', 'claude' => true, 'toolSet' => 'essentials', 'recommended' => 'drafts']);

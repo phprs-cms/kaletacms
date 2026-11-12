@@ -50,7 +50,7 @@ $widened39[] = 'ka_applications.language'; // 3.34: migration 0119 creates the a
 sort($widened39);
 $schemaLanguageColumns39 = array_keys($languageColumns39);
 sort($schemaLanguageColumns39);
-check('3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (17 of them with the tags\' of 3.14, the contacts\' of 3.28 and the applications\' of 3.34) and migrations 0083, 0095, 0114 and 0119 make the same ones', [
+check('[source-pin] 3.9: every language column is VARCHAR(35) CHARACTER SET ascii in schema.sql (17 of them with the tags\' of 3.14, the contacts\' of 3.28 and the applications\' of 3.34) and migrations 0083, 0095, 0114 and 0119 make the same ones', [
     array_unique(array_values($languageColumns39)), count($languageColumns39), $widened39 === $schemaLanguageColumns39, str_contains($schema39, 'CHAR(2)')],
     [['VARCHAR(35) CHARACTER SET ascii'], 17, true, false]);
 $slugMigrations39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0083-language-tags-and-slugs.sql') . (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0095-tag-language.sql');
@@ -58,7 +58,7 @@ $slugMigrations39 = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/008
 // one and a plain key on seo_link for the lookups in any version (migration 0105)
 $plainKeys319 = ['stranky' => 'ix_stranky_seo', 'novinky' => 'ix_clanky_seo', 'kategorie' => 'ix_topic_seo', 'stitky' => 'ix_stitky_seo'];
 $keyMigration319 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0105-slug-lookup-keys.sql');
-check('3.9/3.19: pages, news, categories and tags have the per-language slug key (schema, migrations 0083, 0095), no global one in schema.sql, and a plain key on seo_link (0105)', array_map(
+check('[source-pin] 3.9/3.19: pages, news, categories and tags have the per-language slug key (schema, migrations 0083, 0095), no global one in schema.sql, and a plain key on seo_link (0105)', array_map(
     fn (array $t): bool => !str_contains($schema39, 'UNIQUE KEY ' . $t[1] . ' (seo_link)') && str_contains($schema39, 'UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)')
         && str_contains($slugMigrations39, 'ADD UNIQUE KEY ' . $t[2] . ' (jazyk, seo_link)'), Kaleta\Core\Slug::TABLES)
     + array_map(fn (string $key): bool => (bool) preg_match('/^\s+KEY ' . $key . ' \(seo_link\)/m', $schema39) && str_contains($keyMigration319, ' ADD KEY ' . $key . ' (seo_link);'), $plainKeys319),

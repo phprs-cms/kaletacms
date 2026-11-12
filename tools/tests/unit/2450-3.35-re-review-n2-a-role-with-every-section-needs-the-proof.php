@@ -18,7 +18,7 @@ check('3.35 re-review N2: a role\'s sections given in Users count like sections 
 ], [true, false, false]);
 $r362Roles = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Roles.php');
 $r362Users = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php');
-check('3.35 re-review N2: the proof runs before the role is written; Users passes the custom role\'s sections; the form shows the proof', [
+check('[source-pin] 3.35 re-review N2: the proof runs before the role is written; Users passes the custom role\'s sections; the form shows the proof', [
     strpos($r362Roles, '->freshProof(') < strpos($r362Roles, '$this->db->transaction('),
     str_contains($r362Roles, "'passkey' => Auth::PASSKEY_PROOF,"),
     str_contains($r362Users, "\$custom !== null && \$data['role'] !== null => array_values(array_filter(explode(',', (string) \$custom['moduly'])))"),

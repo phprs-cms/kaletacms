@@ -52,7 +52,7 @@ check('3.29.1 Fleet\Report – a site whose switch falls in the report month car
     array_key_exists('counting_changed', Kaleta\Fleet\Report::siteData($site3291('2026-10-20'), [], [], [], null)),
     str_contains($sections3291, 'Counting of visits changed on')],
     ['2026-10-20', '2026-10-01', '2026-10-31', false, false, false, false, false, true]);
-check('3.29.1 – the new texts are in Czech, German and Spanish; the heartbeat sends the day only through Stats::confirmedSince', [
+check('[source-pin] 3.29.1 – the new texts are in Czech, German and Spanish; the heartbeat sends the day only through Stats::confirmedSince', [
     array_map(fn (string $code): array => array_values(array_diff(['Counting of visits changed on %s – fewer bots, not fewer people.', 'counting changed on %s'], array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es']),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Fleet/Heartbeat.php'), "'stats_confirmed_since' => \\Kaleta\\Front\\Stats::enabled(\$s) ? self::part(fn (): ?string => \\Kaleta\\Front\\Stats::confirmedSince(\$s, \$db)) : null")],
     [[[], [], []], true]);

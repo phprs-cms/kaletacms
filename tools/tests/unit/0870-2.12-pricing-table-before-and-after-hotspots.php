@@ -68,7 +68,7 @@ check('2.12 Vocabulary: the new elements and their items in English and back', [
         ['typ' => 'cenik', 'obsah' => ['plany' => [['nazev' => 'A', 'cena' => '1', 'obdobi' => '/ m', 'funkce' => 'x', 'tlacitko' => 'Go', 'odkaz' => '/a', 'zvyraznit' => true, 'stitek' => 'Top']]]],
         ['typ' => 'pred_po', 'obsah' => ['obrazek_pred' => 'media/a.jpg', 'popisek_po' => 'After', 'delic' => 30]]]);
 $f9Schema = array_column(Kaleta\Builder\Build::schema(true, 'en')['prvky'], null, 'typ');
-check('2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute', [
+check('[source-pin] 2.12 schema: the four elements are content blocks with a sensible default in the page language, the before-and-after hook cannot be a custom attribute', [
     array_map(fn (string $t): string => $f9Schema[$t]['skupina'], ['cenik', 'pred_po', 'hotspoty', 'casova_osa']), array_column($f9Schema['cenik']['vlastnosti']['plany']['vychozi'], 'nazev'), $f9Schema['cenik']['vlastnosti']['plany']['vychozi'][1]['zvyraznit'],
     $f9Schema['pred_po']['vlastnosti']['popisek_pred']['vychozi'], count($f9Schema['hotspoty']['vlastnosti']['body']['vychozi']), $f9Schema['casova_osa']['vlastnosti']['udalosti']['vychozi'][2]['datum'],
     preg_match(Kaleta\Builder\Build::ATTRIBUTE_PATTERN, 'data-pred-po'), preg_match('/data-\(vlozit\|[^)]*pred-po/', (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php'))],

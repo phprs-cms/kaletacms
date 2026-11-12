@@ -7,7 +7,7 @@ $b3311List = [['soubor' => 'kaleta-20261109-030000-auto-a1b2c3d4.sql.gz.enc', 'v
     ['soubor' => 'kaleta-20261020-030000-rucni-c1b2c3d4.sql', 'velikost' => 9, 'cas' => 100]];
 $b3311Sources = implode("\n", array_map(fn (string $f): string => (string) file_get_contents(KALETA_SYSTEM . '/src/' . $f),
     ['Core/Health.php', 'Core/MonthlyReport.php', 'Admin/Kernel.php', 'Mcp/Handlers/HealthTools.php', 'Fleet/Heartbeat.php', 'Core/Backup.php']));
-check('3.31.1: an encrypted copy uploaded back (.enc) is not a local backup – the schedule, System status, the dashboard, the monthly report, get_health and the heartbeat read listLocal()', [
+check('[source-pin] 3.31.1: an encrypted copy uploaded back (.enc) is not a local backup – the schedule, System status, the dashboard, the monthly report, get_health and the heartbeat read listLocal()', [
     array_column(Kaleta\Core\Backup::local($b3311List), 'soubor'), Kaleta\Core\Backup::local([]), array_column(Kaleta\Core\Backup::local([$b3311List[0]]), 'soubor'),
     preg_match_all('/Backup::listAll\(\)\[0\]/', $b3311Sources), substr_count($b3311Sources, 'Backup::listLocal()[0]') + substr_count($b3311Sources, 'self::listLocal()[0]'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/backups.php'), "Kaleta\\Core\\Backup::encrypted(\$z['soubor'])): // 3.31.1"),
@@ -23,7 +23,7 @@ $b3311Backups = fn (int $local, int $uploaded, int $uploadedFirst = 0): array =>
 ];
 $b3311Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
 $b3311Restore = substr($b3311Settings, (int) strpos($b3311Settings, 'function actionRestoreBackup'), 6000);
-check('3.31.1: the rotation never deletes the copy being restored – an old uploaded copy is not pushed out by ten local backups, each kind keeps its newest KEEP, protected names stay; the restore holds the file, makes the safety backup without rotating and prunes afterwards', [
+check('[source-pin] 3.31.1: the rotation never deletes the copy being restored – an old uploaded copy is not pushed out by ten local backups, each kind keeps its newest KEEP, protected names stay; the restore holds the file, makes the safety backup without rotating and prunes afterwards', [
     Kaleta\Core\Backup::KEEP,
     Kaleta\Core\Backup::prunable($b3311Backups(11, 1)), // the safety backup before restoring the old uploaded copy: only the 11th local goes
     Kaleta\Core\Backup::prunable($b3311Backups(11, 1), ['kaleta-20261020-030000-auto-y.sql.gz']), // the oldest local is being restored: it stays
@@ -42,7 +42,7 @@ $b3311Sorted = array_column(Kaleta\Core\Backup::newestFirst([['soubor' => 'kalet
     ['soubor' => 'kaleta-20200101-000003-c.sql', 'velikost' => 1, 'cas' => 100], ['soubor' => 'kaleta-20200101-000002-b.sql', 'velikost' => 1, 'cas' => 100],
     ['soubor' => 'kaleta-20190101-000000-z.sql', 'velikost' => 1, 'cas' => 200]]), 'soubor');
 $b3311BackupSrc = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php');
-check('3.31.1 (review): a hold marker per request – heldName reads .hold-<backup>.<12 hex> only (no old single marker, no path, no other name); held() deletes an expired marker; the restore releases its own token; ties of one second sort by name', [
+check('[source-pin] 3.31.1 (review): a hold marker per request – heldName reads .hold-<backup>.<12 hex> only (no old single marker, no path, no other name); held() deletes an expired marker; the restore releases its own token; ties of one second sort by name', [
     Kaleta\Core\Backup::heldName('.hold-kaleta-20261101-030000-auto-x.sql.gz.' . $b3311Tok), Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.gz.enc.' . $b3311Tok),
     Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.' . $b3311Tok), Kaleta\Core\Backup::heldName('.hold-kaleta-x.sql.gz'),
     Kaleta\Core\Backup::heldName('.hold-kaleta-a/../b.sql.' . $b3311Tok), Kaleta\Core\Backup::heldName('.hold-../kaleta-b.sql.' . $b3311Tok),
@@ -81,7 +81,7 @@ check('3.31.1 (review): failureText masks a password with "|" and double spaces 
 $h3311Keys = ['%d account(s) unused for %d days – block them in Users, or switch on the automatic suspension in Settings → Security',
     '%d connection(s) unused for %d days – revoke them in the user’s account, or switch on the automatic suspension in Settings → Security'];
 $h3311Health = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php');
-check('3.31.1 (review): System status sends the automatic suspension of unused accounts and connections to Settings → Security – both warnings, every dictionary (cs, de, de-du, es), no old key left', [
+check('[source-pin] 3.31.1 (review): System status sends the automatic suspension of unused accounts and connections to Settings → Security – both warnings, every dictionary (cs, de, de-du, es), no old key left', [
     array_map(fn (string $key): bool => str_contains($h3311Health, "t('" . $key . "'"), $h3311Keys), substr_count($h3311Health, 'automatic suspension in Settings → General'),
     array_map(function (string $code) use ($h3311Keys): array {
         $dictionary = require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php';
@@ -90,7 +90,7 @@ check('3.31.1 (review): System status sends the automatic suspension of unused a
             count(array_filter(array_intersect_key($dictionary, array_flip($h3311Keys)), fn (string $text): bool => (bool) preg_match('/→ (Zabezpečení|Sicherheit|Seguridad)\b/u', $text)))];
     }, ['cs', 'de', 'de-du', 'es'])],
     [[true, true], 0, [[2, 0, 2], [2, 0, 2], [2, 0, 2], [2, 0, 2]]]);
-check('3.31.1: upload() records backup.failed once per failed copy (the short text in the status and the event), the paused copy returns before it; the media copy records its failure when it starts; translated (cs, de, es)', [
+check('[source-pin] 3.31.1: upload() records backup.failed once per failed copy (the short text in the status and the event), the paused copy returns before it; the media copy records its failure when it starts; translated (cs, de, es)', [
     substr_count($b3311Upload, "Events::record(\$s->db(), 'backup.failed', 'error'"), strpos($b3311Upload, 'return self::pausedText();') < strpos($b3311Upload, "'backup.failed'"),
     str_contains($b3311Upload, "\$s->set('remote_backup_status', date('Y-m-d H:i') . '|' . \$text);"),
     substr_count($b3311Remote, "'backup.failed'"), str_contains($b3311Remote, 'if ($error !== null && !$failing) {'),

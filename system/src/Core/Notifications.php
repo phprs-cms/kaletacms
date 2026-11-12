@@ -27,8 +27,10 @@ final class Notifications
         ignore_user_abort(true);
         try {
             Scheduler::run($app, 'visit', 8.0); // 2.8: the same job list as cron, only the jobs that may run on a visit
-        } catch (\Throwable) {
-            // background work must not break the site; the next attempt happens on the next visit
+        } catch (\Throwable $e) {
+            // background work must not break the site; the next attempt happens on the next visit – but it is logged (3.36, T3):
+            // a failing job is recorded by Scheduler::runOne, this is what fails around the jobs (the lock, the job table)
+            ErrorLog::write(ErrorLog::exception($e));
         }
     }
 

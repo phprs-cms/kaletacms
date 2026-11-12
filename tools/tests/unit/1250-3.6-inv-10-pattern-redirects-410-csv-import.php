@@ -41,7 +41,7 @@ check('3.6 redirects: only simple regular expressions become patterns – groups
     $rr::fromRegex('^/blog/(.*)$', '/news/$1'), $rr::fromRegex('/a/(.+)/b/(.*)', '/x/$1/$2'), $rr::fromRegex('/a/(.*)/b/(.+)', '/x/$2/$1'), $rr::fromRegex('/old\\.html', '/new'),
     $rr::fromRegex('/old.html', '/new'), $rr::fromRegex('^/(\\d+)$', '/x/$1'), $rr::fromRegex('/a/(.*)', '/b/$1$')],
     [['/blog/*', '/news/*'], ['/a/*/b/*', '/x/*/*'], null, ['/old.html', '/new'], null, null, null]);
-check('3.6 redirects: the limits the moved sites need (500 per MCP call, 5,000 CSV rows), and the 404 path reads patterns only after the exact lookup', [
+check('[source-pin] 3.6 redirects: the limits the moved sites need (500 per MCP call, 5,000 CSV rows), and the 404 path reads patterns only after the exact lookup', [
     $rr::MAX_BATCH >= 500, $rr::MAX_CSV_ROWS >= 5000,
     (bool) preg_match('/storedRedirect\(\$requested[^;]+\)\) !== null\) \{\s+return \$redirect;\s+\}\s+\/\/ only then the pattern rules[^\n]*\n\s+if \(\(\$redirect = \$this->patternRedirect/', (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php'))],
     [true, true, true]);

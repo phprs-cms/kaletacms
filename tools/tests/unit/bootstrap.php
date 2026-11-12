@@ -13,15 +13,18 @@ require dirname(__DIR__, 3) . '/system/bootstrap.php';
 
 $errors = 0;
 $total = 0;
+/** 3.36 T3 (Q6): how many checks carry [source-pin] in their label – they pin the text of a product file (unit_source_pins()) */
+$sourcePins = 0;
 /** true while the runner replays an earlier file only for what a selected file needs (php tools/unit-tests.php <filter>) */
 $unitRunnerQuiet = false;
 function check(string $label, mixed $actual, mixed $expected): void
 {
-    global $errors, $total, $unitRunnerQuiet, $unitRunnerFile;
+    global $errors, $total, $unitRunnerQuiet, $unitRunnerFile, $sourcePins;
     if ($unitRunnerQuiet) {
         return;
     }
     $total++;
+    $sourcePins += str_contains($label, '[source-pin]') ? 1 : 0;
     if (($labels = getenv('KALETA_UNIT_LABELS')) !== false && $labels !== '') { // the list of check names (T2 proof)
         file_put_contents($labels, basename((string) $unitRunnerFile) . "\t" . json_encode($label, JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND);
     }
@@ -129,4 +132,82 @@ function unit_test_closure(array $files, array $selected): array
     }
 
     return array_values(array_filter($files, fn (string $f): bool => isset($wanted[$f])));
+}
+
+/**
+ * 3.36 T3 (Q6): the checks of one unit file that pin the text of a product file – a search (str_contains, strpos,
+ * substr_count, preg_match …) in what file_get_contents() read from one named file of system/, image/, extensions/ or an
+ * entry file, directly or through a variable that holds such a text (or a part of it). A check that walks the tree (glob,
+ * a directory iterator, foreach) is a structural rule, not a pin. Static and approximate, on tokens; each pin's label must
+ * carry the tag [source-pin] (the runner counts them, and the count may only go down – replace a pin with a behaviour test
+ * when its code is next touched).
+ *
+ * @return list<array{line: int, label: string, tagged: bool}>
+ */
+function unit_source_pins(string $file): array
+{
+    $tokens = array_values(array_filter(token_get_all((string) file_get_contents($file)), fn ($t): bool => !is_array($t) || !in_array($t[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)));
+    $count = count($tokens);
+    $text = fn (int $from, int $to): string => implode(' ', array_map(fn ($t): string => is_array($t) ? $t[1] : $t, array_slice($tokens, $from, $to - $from)));
+    $reads = '/file_get_contents \( (?:\( string \) )?(?:KALETA_SYSTEM|KALETA_ROOT \. \'\/(?:system|image|extensions|admin\.php|index\.php|install\.php))/';
+    $walks = '/\b(glob|RecursiveDirectoryIterator|RecursiveIteratorIterator|scandir|foreach|smoke_test_source)\b/';
+    $searches = '/\b(str_contains|strpos|stripos|strrpos|substr_count|preg_match|preg_match_all|str_starts_with|str_ends_with) \(/';
+    $sources = []; // variables holding the text of one product file
+    $pins = [];
+    $depth = 0;
+    for ($i = 0; $i < $count; $i++) {
+        $t = $tokens[$i];
+        if ($t === '{' || (is_array($t) && in_array($t[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true))) {
+            $depth++;
+        } elseif ($t === '}') {
+            $depth--;
+        }
+        // $x = … file_get_contents(KALETA_SYSTEM …) …;  or  $x = substr($known, …);  at the top level
+        if ($depth === 0 && is_array($t) && $t[0] === T_VARIABLE && ($tokens[$i + 1] ?? null) === '=' && !in_array($tokens[$i - 1] ?? null, ['(', ','], true)) {
+            for ($end = $i + 2; $end < $count && $tokens[$end] !== ';'; $end++);
+            $rhs = $text($i + 2, $end);
+            $derived = false;
+            foreach (array_keys($sources) as $name) {
+                $derived = $derived || preg_match('/' . preg_quote($name, '/') . '\b/', $rhs) === 1;
+            }
+            if ((preg_match($reads, $rhs) === 1 || $derived) && preg_match($walks, $rhs) !== 1) {
+                $sources[$t[1]] = true;
+            } else {
+                unset($sources[$t[1]]);
+            }
+            continue;
+        }
+        if (!is_array($t) || $t[0] !== T_STRING || $t[1] !== 'check' || ($tokens[$i + 1] ?? null) !== '(' || (is_array($tokens[$i - 1] ?? null) && in_array($tokens[$i - 1][0], [T_FUNCTION, T_OBJECT_OPERATOR, T_DOUBLE_COLON], true))) {
+            continue;
+        }
+        // the call's arguments, and where the label (the first argument) ends
+        $open = 0;
+        $labelEnd = null;
+        for ($end = $i + 1; $end < $count; $end++) {
+            $e = $tokens[$end];
+            if (in_array($e, ['(', '['], true) || (is_array($e) && in_array($e[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true)) || $e === '{') {
+                $open++;
+            } elseif (in_array($e, [')', ']', '}'], true)) {
+                $open--;
+                if ($open === 0) {
+                    break;
+                }
+            } elseif ($e === ',' && $open === 1 && $labelEnd === null) {
+                $labelEnd = $end;
+            }
+        }
+        $labelEnd ??= $end;
+        $args = $text($labelEnd, $end);
+        $usesSource = preg_match($reads, $args) === 1;
+        foreach (array_keys($sources) as $name) {
+            $usesSource = $usesSource || preg_match('/' . preg_quote($name, '/') . '\b/', $args) === 1;
+        }
+        if ($usesSource && preg_match($searches, $args) === 1 && preg_match($walks, $args) !== 1) {
+            $label = $text($i + 2, $labelEnd);
+            $pins[] = ['line' => $t[2], 'label' => $label, 'tagged' => str_contains($label, '[source-pin]')];
+        }
+        $i = $end;
+    }
+
+    return $pins;
 }

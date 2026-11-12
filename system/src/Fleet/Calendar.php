@@ -350,7 +350,8 @@ final class Calendar
         try {
             $db->run('DELETE FROM {fleet_expiry_reminders} WHERE sent_at < ? OR site_id NOT IN (SELECT id FROM {fleet_sites})', [Clock::at('-' . self::KEEP_DAYS . ' days')]);
             $records = $db->all('SELECT site_id, kind, expires, days_before, sent_at FROM {fleet_expiry_reminders}');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 'before the migration';
         }
         $sent = self::covered($records, $thresholds);

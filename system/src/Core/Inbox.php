@@ -93,7 +93,8 @@ final class Inbox
             $target = mb_substr($target, 0, 40);
             $id = $db->insert('notifications', ['user_id' => $userId, 'kind' => $kind, 'target' => $target, 'actor_id' => $actorId,
                 'actor_name' => mb_substr($actor, 0, 100), 'excerpt' => $excerpt, 'created_at' => Clock::now()]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -131,7 +132,8 @@ final class Inbox
         }
         try {
             $db->run('UPDATE {notifications} SET emailed_at = ? WHERE id IN (' . implode(',', $ids) . ')', [Clock::now()]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the migration
         }
     }
@@ -141,7 +143,8 @@ final class Inbox
     {
         try {
             return (int) $db->value('SELECT COUNT(*) FROM {notifications} WHERE user_id = ? AND read_at IS NULL', [$userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -157,7 +160,8 @@ final class Inbox
         try {
             $rows = $db->all('SELECT id, kind, target, actor_id, actor_name, excerpt, created_at, read_at FROM {notifications} WHERE user_id = ? ORDER BY id DESC LIMIT '
                 . (self::PAGE + 1) . ' OFFSET ' . (($page - 1) * self::PAGE), [$userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return ['rows' => [], 'more' => false];
         }
         $more = count($rows) > self::PAGE;
@@ -179,7 +183,8 @@ final class Inbox
     {
         try {
             $row = $db->one('SELECT id, target, read_at FROM {notifications} WHERE id = ? AND user_id = ?', [$id, $userId]);
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
 
@@ -192,7 +197,8 @@ final class Inbox
     {
         try {
             return $db->run('UPDATE {notifications} SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL', [Clock::now(), $id, $userId])->rowCount() > 0;
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return false;
         }
     }
@@ -202,7 +208,8 @@ final class Inbox
     {
         try {
             return $db->run('UPDATE {notifications} SET read_at = ? WHERE user_id = ? AND read_at IS NULL', [Clock::now(), $userId])->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -224,7 +231,8 @@ final class Inbox
                 $changed += $blank ? $db->run("UPDATE {notifications} SET excerpt = '' WHERE target IN (" . $in . ')', $chunk)->rowCount()
                     : $db->run('DELETE FROM {notifications} WHERE target IN (' . $in . ')', $chunk)->rowCount();
             }
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             // before the migration
         }
 
@@ -243,7 +251,8 @@ final class Inbox
         }
         try {
             return $db->run("UPDATE {notifications} SET excerpt = ? WHERE target = ? AND excerpt = ? AND kind IN ('mention', 'comment')", [self::excerpt($new), mb_substr($target, 0, 40), $old])->rowCount();
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }
@@ -307,7 +316,8 @@ final class Inbox
                 foreach ($db->all('SELECT id, title FROM {tasks} WHERE id IN (' . implode(',', array_unique($ids['task'])) . ')') as $r) {
                     $out['task:' . (int) $r['id']] = ['kind' => 'task', 'id' => (int) $r['id'], 'title' => (string) $r['title'], 'path' => 'admin.php?module=my_work#task-' . (int) $r['id']];
                 }
-            } catch (\PDOException) {
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
                 // before migration 0113
             }
         }
@@ -451,7 +461,8 @@ final class Inbox
         $sent = 0;
         try {
             $users = $db->all("SELECT idu, email, jazyk, register FROM {uzivatele} WHERE notify_email = 'daily' AND blokovat = 0");
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 'purged ' . $purged;
         }
         foreach ($users as $user) {
@@ -499,7 +510,8 @@ final class Inbox
             }
 
             return $deleted + self::forgetTargets($db, array_values(array_filter($targets, fn (string $t): bool => !isset($existing[$t]))));
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return 0;
         }
     }

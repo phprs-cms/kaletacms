@@ -52,5 +52,6 @@ foreach ($unitRunnerRun as $unitRunnerFile) {
     require $unitRunnerFile;
 }
 $unitRunnerQuiet = false;
-echo $errors === 0 ? "  ok     jednotkové testy ({$total})\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
+// 3.36 T3 (Q6): the checks that pin the text of a product file are counted – the number may only go down
+echo $errors === 0 ? "  ok     jednotkové testy ({$total}; {$sourcePins} of them pin source text)\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

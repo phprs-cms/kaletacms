@@ -9,7 +9,7 @@ use Kaleta\Admin\Account;
 $r363Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $r363On = substr($r363Account, (int) strpos($r363Account, '[$codes, $json] = Totp::backupCodes();'), 900);
 $r363New = substr($r363Account, (int) strrpos($r363Account, '[$codes, $json] = Totp::backupCodes();'), 700);
-check('3.35 re-review N3: every caller checks the result; both places that show codes check it the result before logging and before showing the codes', [
+check('[source-pin] 3.35 re-review N3: every caller checks the result; both places that show codes check it the result before logging and before showing the codes', [
     substr_count($r363Account, '$app->auth()->replaceBackupCodes('), substr_count($r363Account, '!$app->auth()->replaceBackupCodes('),
     strpos($r363On, 'self::CODES_NOT_SAVED') < strpos($r363On, "'two_factor_on'"), strpos($r363On, 'self::CODES_NOT_SAVED') < strpos($r363On, "'backupCodes' => \$codes"),
     strpos($r363New, 'self::CODES_NOT_SAVED') < strpos($r363New, "'backup_codes_new'"), strpos($r363New, 'self::CODES_NOT_SAVED') < strpos($r363New, "'backupCodes' => \$codes"),

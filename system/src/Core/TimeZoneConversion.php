@@ -175,7 +175,8 @@ final class TimeZoneConversion
     {
         try {
             return $db->one('SELECT * FROM {time_zone_conversions} WHERE finished_at IS NULL ORDER BY id LIMIT 1');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
     }
@@ -185,7 +186,8 @@ final class TimeZoneConversion
     {
         try {
             $conversion = $db->one('SELECT * FROM {time_zone_conversions} ORDER BY id DESC LIMIT 1');
-        } catch (\PDOException) {
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
             return null;
         }
         if ($conversion === null) {

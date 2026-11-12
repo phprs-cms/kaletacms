@@ -17,7 +17,7 @@ $a332Row = ['formular' => 'Contact', 'tema' => 'Contact', 'zdroj' => 'stranka:4'
     ['Message', 'We need 40 custom brackets for a new hall in March']])];
 $a332Views = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/list.php') . (string) file_get_contents(KALETA_SYSTEM . '/views/admin/inbox.php') . (string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php');
 $a332Texts = ['(no name)', 'Enquiry: %s', 'Deal “%s”', 'Customer “%s”', 'Who'];
-check('3.32 (U27/U41): RecordTitle – who (name, else company, else e-mail) and what (a collection topic, else the first words of the message, else the topic); the form only when nothing is known; place() names only for the section', [
+check('[source-pin] 3.32 (U27/U41): RecordTitle – who (name, else company, else e-mail) and what (a collection topic, else the first words of the message, else the topic); the form only when nothing is known; place() names only for the section', [
     Kaleta\Core\Language::runWith('en', fn (): array => [
         Kaleta\Core\RecordTitle::enquiry($a332Row),
         Kaleta\Core\RecordTitle::enquiry(['data' => json_encode([['Company', 'Hartsteel Ltd'], ['Phone', '+44 20 7946 0000']])] + $a332Row),
@@ -38,13 +38,13 @@ check('3.32 (U27/U41): RecordTitle – who (name, else company, else e-mail) and
         'Deal “Maintenance contract”', 'Deal #6', 'Enquiry: Olivia Hart – We need', 'Customer #4', '(no longer available)', 'Deal #6'], true, false, [[], [], []]]);
 
 $a332MyWork = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
-check('3.32 (R1): My work keeps an unassigned enquiry until it is answered (a reply in replies) or resolved – read or not', [
+check('[source-pin] 3.32 (R1): My work keeps an unassigned enquiry until it is answered (a reply in replies) or resolved – read or not', [
     Kaleta\Core\MyWork::UNANSWERED, str_contains($a332MyWork, "'prirazeno IS NULL AND ' . self::UNANSWERED"), str_contains($a332MyWork, 'prirazeno IS NULL AND stav = 0')],
     ["stav < 2 AND (replies IS NULL OR replies IN ('', '[]'))", true, false]);
 
 $a332Deals = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Deals.php');
 $a332Pipeline = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Pipeline.php');
-check('3.32 (U25): Create deal opens the short form prefilled from the enquiry (the title from who and what, no value, the first stage); createFromEnquiry and MCP save_deal take the same default title, an explicit one wins', [
+check('[source-pin] 3.32 (U25): Create deal opens the short form prefilled from the enquiry (the title from who and what, no value, the first stage); createFromEnquiry and MCP save_deal take the same default title, an explicit one wins', [
     str_contains($a332Deals, "'title' => self::line(RecordTitle::enquiry(\$enquiry), self::TITLE_MAX)"), str_contains($a332Deals, "\$given + ['title' => \$defaults['title']"),
     str_contains($a332Deals, "'title' => \$topic !== '' ? \$topic"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/deal_box.php'), "href=\"<?= e(\$box['formUrl']) ?>\" data-deal-create"),
     str_contains($a332Pipeline, "Deals::createFromEnquiry(\$this->app, \$idp, \$this->app->auth()->id(), \$fields)"), str_contains($a332Pipeline, "'currency' => '', 'stage' => \$fromEnquiry['stage']"),

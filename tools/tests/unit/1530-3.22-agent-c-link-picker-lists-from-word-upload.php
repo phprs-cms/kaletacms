@@ -39,7 +39,7 @@ check('3.22 C14: the advice names the place of this server – .htaccess on mod_
 ], ['htaccess', 'htaccess', 'user_ini', 'user_ini', 'php_ini', true, true]);
 $c14Installer = (string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php');
 $c14Health = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php');
-check('3.22 C14: the installer writes .user.ini after config.php; System status gives the advice and the button; /.user.ini is not in git; the editor knows the request limit', [
+check('[source-pin] 3.22 C14: the installer writes .user.ini after config.php; System status gives the advice and the button; /.user.ini is not in git; the editor knows the request limit', [
     (bool) preg_match("/file_put_contents\\(KALETA_ROOT \\. '\\/config\\.php'.*?UploadLimit::write\\(KALETA_ROOT\\)/s", $c14Installer),
     str_contains($c14Health, "UploadLimit::advice()"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/health.php'), "\$module->url('user_ini')"),
     str_contains((string) file_get_contents(KALETA_ROOT . '/.gitignore'), "\n/.user.ini\n"),
@@ -52,13 +52,13 @@ check('3.22 C14: Media reads the "resized from … to …" lines of the upload f
     Kaleta\Admin\Modules\Media::resizedNotes(''),
 ], [1, true, []]);
 $c22Editor = (string) file_get_contents(KALETA_ROOT . '/image/editor.js');
-check('3.22 C14: the browser scales photos to 2000 px at quality 0.85, keeps PNG as PNG, leaves GIF/SVG/PDF, respects the EXIF rotation, and sends large sets in batches', [
+check('[source-pin] 3.22 C14: the browser scales photos to 2000 px at quality 0.85, keeps PNG as PNG, leaves GIF/SVG/PDF, respects the EXIF rotation, and sends large sets in batches', [
     str_contains($c22Editor, "if (!/^image\\/(jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap)"), str_contains($c22Editor, "createImageBitmap(file, { imageOrientation: 'from-image' })"),
     str_contains($c22Editor, 'return write(0.85);'), str_contains($c22Editor, 'canvas.toBlob(done, file.type, quality)'), str_contains($c22Editor, 'function sendInBatches(files)'),
     Kaleta\Core\Images::MAX_SIDE,
 ], [true, true, true, true, true, 2000]);
 // U7: numbered list and quote in the builder's text fields, still no subheadings there; Word lists converted on paste only
-check('3.22 U7: the builder\'s text editor has numbered lists and quotes, not H2/H3; Word list paragraphs become lists on paste', [
+check('[source-pin] 3.22 U7: the builder\'s text editor has numbered lists and quotes, not H2/H3; Word list paragraphs become lists on paste', [
     str_contains($builderScript, "'data-editor': 'stavitel'"), str_contains($c22Editor, "[T('1. list'), T('Numbered list'), function () { statement('insertOrderedList'); }, 'text']"),
     str_contains($c22Editor, "[T('“quote”'), T('Quote'), function () { statement('formatBlock', 'BLOCKQUOTE'); }, 'text']"),
     str_contains($c22Editor, "['H2', T('Mezititulek'), function () { statement('formatBlock', 'H2'); }, 'velky']"),
@@ -71,7 +71,7 @@ check('3.22 U7: a builder Text keeps ol, nested lists and blockquote', str_repla
     '<ol><li>One<ol><li>Sub</li></ol></li></ol><ul><li>a<ul><li>b</li></ul></li></ul><blockquote><p>Quote</p></blockquote><h2>T</h2>');
 // U6: the link dialog searches one endpoint for every signed-in user, after the two-factor gate; anchors from the builder
 $c22Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
-check('3.22 U6: link targets – a route behind the sign-in and the two-factor gate, the builder\'s anchors, mailto: and tel: helpers, a keyboard combobox', [
+check('[source-pin] 3.22 U6: link targets – a route behind the sign-in and the two-factor gate, the builder\'s anchors, mailto: and tel: helpers, a keyboard combobox', [
     strpos($c22Kernel, "\$action === 'link_targets'") > strpos($c22Kernel, 'isMissingRequired2fa'), str_contains($builderScript, 'window.kaletaKotvy = pageAnchors;'),
     str_contains($c22Editor, "url: 'mailto:' + q"), str_contains($c22Editor, "url: 'tel:' +"), str_contains($c22Editor, 'role="combobox" aria-autocomplete="list"'),
     str_contains($c22Editor, "input.setAttribute('aria-activedescendant'"), str_contains($c22Editor, "ADMIN + '?action=link_targets&q='"),
@@ -103,7 +103,7 @@ foreach ($c9Area as $c9Class) {
 }
 $c9Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Module.php');
 $c9Components = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Components.php');
-check('3.22 (C9): live actions of the appearance modules need canPublish, a component from the builder keeps Custom HTML only for an administrator', [
+check('[source-pin] 3.22 (C9): live actions of the appearance modules need canPublish, a component from the builder keeps Custom HTML only for an administrator', [
     $c9Live, (bool) preg_match('/in_array\(\$action, static::LIVE_ACTIONS, true\) && \$this->request->isPost\(\) && !\$this->app->auth\(\)->canPublish\(\)/', $c9Module),
     str_contains($c9Components, "Build::sanitize(['v' => Build::VERSION, 'deti' => [\$element]], \$this->app->auth()->isAdmin())"),
     (bool) preg_match('/function actionFromElement.+?canPublish\(\).+?Build::sanitize/s', $c9Components),
@@ -112,7 +112,7 @@ check('3.22 (C9): live actions of the appearance modules need canPublish, a comp
 // MCP (additive): the tools of these areas check the Appearance area, never the administrator role alone
 $c9Mcp = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/BuilderTools.php')
     . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/PageTools.php');
-check('3.22 (C9): MCP – site parts, pop-ups, components and the menu follow the Appearance area', [
+check('[source-pin] 3.22 (C9): MCP – site parts, pop-ups, components and the menu follow the Appearance area', [
     substr_count($c9Mcp, 'hasAppearanceArea()'),
     preg_match_all('/function tool(ListSiteParts|SavePartVariant|ListPopups|SavePopup)\(string \$name, array \$a\): mixed\s*\{[^}]*?isAdmin\(\)/', $c9Mcp),
 ], [14, 0]);
@@ -133,13 +133,13 @@ check('3.22 (C13): the printed canonical is absolute; the WordPress import keeps
 $c13Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 $c13Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0109-canonical-url.sql');
 $c13Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
-check('3.22 (C13): the column on pages, news and items (schema and migration 0109), one canonical link in the page frame, fed by the three detail pages', [
+check('[source-pin] 3.22 (C13): the column on pages, news and items (schema and migration 0109), one canonical link in the page frame, fed by the three detail pages', [
     preg_match_all("/^\s+canonical_url\s+VARCHAR\(500\) NOT NULL DEFAULT '',/m", $c13Schema),
     preg_match_all('/ALTER TABLE ka_(stranky|novinky|kolekce_polozky) ADD COLUMN canonical_url VARCHAR\(500\) NOT NULL DEFAULT \'\' AFTER noindex;/', $c13Migration),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/front/base.php'), 'rel="canonical"'),
     substr_count($c13Kernel, "'kanonicka' => (string) ("), str_contains($c13Kernel, 'CanonicalUrl::absolute('),
 ], [3, 3, 1, 3, true]);
-check('3.22 (C13): MCP takes canonical_url on pages, news and collection items (the same name on both sides), get_page and get_news return it', [
+check('[source-pin] 3.22 (C13): MCP takes canonical_url on pages, news and collection items (the same name on both sides), get_page and get_news return it', [
     Kaleta\Mcp\Translator::arguments('update_page', ['id' => 1, 'canonical_url' => '/original']), Kaleta\Mcp\Translator::arguments('update_news', ['id' => 1, 'canonical_url' => '']),
     Kaleta\Mcp\Translator::arguments('save_collection_item', ['collection' => 'x', 'canonical_url' => 'https://a.cz/']),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'seo_titulek, obrazek, noindex, canonical_url, text'),
@@ -164,31 +164,31 @@ check('3.23 (C17): Mail::smtpTested – the server set now accepted a message; a
 $audit323 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Audit.php');
 $auditView323 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/audit/list.php');
 preg_match_all("/\\\$row\('([a-z_]+)'/", $audit323, $rows323);
-check('3.23 (C17): one checklist – the rows in order, the new checks among them, no folded "Building this for a client?" left in the view, the Notebook as a row', [
+check('[source-pin] 3.23 (C17): one checklist – the rows in order, the new checks among them, no folded "Building this for a client?" left in the view, the Notebook as a row', [
     $rows323[1], Kaleta\Core\Audit::KINDS['handover'], str_contains($auditView323, "t('Building this for a client?')"), str_contains($auditView323, "t('Open the Notebook')"),
     str_contains($auditView323, "t('%d of %d done'"), str_contains($audit323, 'Auth::APPEARANCE_AREA'), str_contains($audit323, "Roles::PRESETS['client'][0]"),
     str_contains($audit323, "promenna = 'claude_destructive'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), 'self::rememberSmtp($siteSettings);'),
 ], [['site_email', 'smtp', 'remote_backup', 'company', 'indexing', 'favicon', 'cookies', 'security_contact', 'two_step', 'unused_access', 'auto_suspend',
     'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'domain'], 'Handing over to a client', false, false, true, true, true, true, true]);
-check('3.23 (C17): MCP site_audit returns handover_checklist additively (no new tool, no new parameter), its description stays in the essentials budget', [
+check('[source-pin] 3.23 (C17): MCP site_audit returns handover_checklist additively (no new tool, no new parameter), its description stays in the essentials budget', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "\$out['handover_checklist'] = ["),
     Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'handover_checklist = every row with done'),
 ], [true, ['kind' => 'handover'], true]);
 // 3.23 review (N323-1): the essentials list had 39 bytes left under its 50 KB budget – the repeated parameter texts (reason,
 // the build targets) and site_audit were tightened; at least 1 KB stays free, so the next tool or parameter fits without a rush
-check('3.23 review (N323-1): the essentials tool list keeps at least 1 KB of headroom under 50 KB; the safety sentences stay', [
+check('[source-pin] 3.23 review (N323-1): the essentials tool list keeps at least 1 KB of headroom under 50 KB; the safety sentences stay', [
     $json310(['tools' => $essentials310]) <= 49000,
     str_contains((string) json_encode($all310, JSON_UNESCAPED_UNICODE), 'SENDS A REAL E-MAIL'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'never with invented ones'),
 ], [true, true, true]);
 // 3.23 review (N323-3): Media → Used in links a setting to the tab that has it – the agency logo is on Agency since 3.23
-check('3.23 review (N323-3): a setting that uses a file links to its own Settings tab (or the screen of its own)', [
+check('[source-pin] 3.23 review (N323-3): a setting that uses a file links to its own Settings tab (or the screen of its own)', [
     Kaleta\Admin\Modules\Settings::fieldUrl('agency_logo'), Kaleta\Admin\Modules\Settings::fieldUrl('share_image'), Kaleta\Admin\Modules\Settings::fieldUrl('company_name'),
     Kaleta\Admin\Modules\Settings::fieldUrl('cookies_text_de'), Kaleta\Admin\Modules\Settings::fieldUrl('smtp_last_ok'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Media.php'), 'Settings::fieldUrl((string) $r[\'kde\'])'),
 ], ['module=settings&tab=agency#agency_logo', 'module=settings&tab=seo#share_image', 'module=business#company_name', 'module=settings&tab=cookies#cookies_text_de', 'module=settings', true]);
 // 3.23 (C18): module names are English source strings (the Czech is in the dictionary), the dashboard copy says Ask Claude
-check('3.23 (C18): News, Users and Settings have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
+check('[source-pin] 3.23 (C18): News, Users and Settings have English NAME source strings translated in every admin dictionary; Ask Claude, not Requests, in the dashboard copy', [
     Kaleta\Admin\Modules\News::NAME, Kaleta\Admin\Modules\Users::NAME, Kaleta\Admin\Modules\Settings::NAME,
     Kaleta\Core\Language::runWith('cs', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
     Kaleta\Core\Language::runWith('de', fn (): string => t('News') . '|' . t('Users') . '|' . t('Settings'), 'admin-'),
@@ -202,7 +202,7 @@ check('3.23 (C18): News, Users and Settings have English NAME source strings tra
 // 3.23 (owner): the draft look for whoever has the Appearance area – the preview only; publishing stays with the administrator
 $kernel323 = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Kernel.php');
 $lookBar323 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/look_bar.php');
-check('3.23: Front\Kernel activates the draft look for the Appearance area (build=koncept or preview=vzhled), never by isAdmin alone; the read-only look bar has no Publish or Discard', [
+check('[source-pin] 3.23: Front\Kernel activates the draft look for the Appearance area (build=koncept or preview=vzhled), never by isAdmin alone; the read-only look bar has no Publish or Discard', [
     str_contains($kernel323, "(\$r->get('build') === 'koncept' || \$r->get('preview') === 'vzhled') && \$this->app->auth()->hasAppearanceArea()"),
     str_contains($kernel323, "\$r->get('build') === 'koncept' && \$this->app->auth()->isAdmin()"),
     (bool) preg_match('/<\?php if \(\$readOnly\): \?>.*?<\?php else: \?>\s*<form[^>]*discard_look/s', $lookBar323),
@@ -225,7 +225,7 @@ check('3.23 (U10): the fields referring to collections, their fields and categor
     'kolekce.razeni_pole' => 'pole:text', 'novinky.kategorie' => 'kategorie_novinek:text', 'pobocky.kolekce' => 'kolekce:text', 'pobocky.pole_poloha' => 'pole:text',
     'predchozi_dalsi.pole_obrazku' => 'pole:text', 'rezervace.osoba' => 'osoba:cislo', 'rezervace.sluzba' => 'sluzba:cislo',
 ]);
-check('3.23 (U10): each source has a choice in the builder and a hint in MCP', array_values(array_filter(array_unique(array_map(fn (string $s): string => explode(':', $s)[0], $u10Sources)),
+check('[source-pin] 3.23 (U10): each source has a choice in the builder and a hint in MCP', array_values(array_filter(array_unique(array_map(fn (string $s): string => explode(':', $s)[0], $u10Sources)),
     fn (string $s): bool => !str_contains($u10Script, "case '" . $s . "':") || !isset(Kaleta\Mcp\Vocabulary::SOURCES[$s]))), []);
 $u10Mcp = Kaleta\Mcp\Vocabulary::schema(Kaleta\Builder\Build::schema(true, 'en'), ['booking', 'store_locator', 'collection_list'], false)['elements'];
 $u10Fields = array_column($u10Mcp, 'fields', 'type');
@@ -238,13 +238,13 @@ check('3.23 (U10): builder_schema says where a service, a collection, a location
 check('3.23 (U10): a stored reference is kept as it is – also one the site no longer has (the builder shows it as not found)', [
     $u10Build['deti'][0]['deti'][0]['obsah']['sluzba'], $u10Build['deti'][0]['deti'][0]['obsah']['osoba'], $u10Build['deti'][0]['deti'][1]['obsah']['kolekce'], $u10Build['deti'][0]['deti'][1]['obsah']['pole_poloha'],
 ], [12, 3, 'zmizela', 'gps']);
-check('3.23 (U10): the builder action of the choices is a read of every builder module, the data is asked with the people\'s sections', [
+check('[source-pin] 3.23 (U10): the builder action of the choices is a read of every builder module, the data is asked with the people\'s sections', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "'volby' => self::builderChoices(\$this->db, array_keys(\$this->kernel->modules())"),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "self::builderChoices(\$this->db, array_keys(\$this->kernel->modules()), Language::column(\$this->app->settings(), (string) \$target['jazyk']))"), // N323-2: the language column, '' for the default
 ], [true, 2]);
 // 3.23 (U15): a tablet (below 1180 px since 3.23.1, N-U5) folds the panels into icon rails over which they open; a desktop keeps its three columns
 $u15Css = (string) file_get_contents(KALETA_ROOT . '/image/stavitel.css');
-check('3.23 (U15): the tablet layout – rails, panels over the canvas, two columns of elements; the phone notice below 720 px stays', [
+check('[source-pin] 3.23 (U15): the tablet layout – rails, panels over the canvas, two columns of elements; the phone notice below 720 px stays', [
     str_contains($u15Css, '@media (max-width: 1179px) {' . "\n\t" . '.st { grid-template: "lista lista lista" auto "pruh-levy platno pruh-pravy" 1fr / 48px minmax(0, 1fr) 48px; }'),
     str_contains($u15Css, '.st:not([data-panel="levy"]) .st-levy, .st:not([data-panel="pravy"]) .st-pravy { display: none; }'),
     str_contains($u15Css, '.st-prvky { grid-template-columns: repeat(2, minmax(0, 1fr)); }'), str_contains($u15Css, '@media (max-width: 719px) {'),

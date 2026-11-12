@@ -15,7 +15,7 @@ check('3.18 N318-1 ClaudeConnection::canCall – blocked accounts never, 2FA req
 // the MCP server records a call only after every refusal: the stamp is not in user() and comes after the 2FA check
 $server318 = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php');
 $user318 = substr($server318, (int) strpos($server318, 'private function user()'), (int) strpos($server318, 'private function served(') - (int) strpos($server318, 'private function user()'));
-check('3.18 N318-1 Mcp\Server – the last use, the refresh row and claude_first_used are written after the 2FA check, not when the token is looked up', [
+check('[source-pin] 3.18 N318-1 Mcp\Server – the last use, the refresh row and claude_first_used are written after the 2FA check, not when the token is looked up', [
     str_contains($user318, 'pouzit'), str_contains($user318, 'ClaudeConnection::stamp'), str_contains($user318, 'claude_first_used'),
     (int) strpos($server318, '$this->served($user)') > (int) strpos($server318, 'isMissingRequired2fa')], [false, false, false, true]);
 // N318-2: refreshes of one connection are limited – an hourly refresh, a burst and a retry pass, a loop waits
@@ -28,7 +28,7 @@ check('3.18 N318-2 OAuth::refreshWait – under 30 refreshes an hour no wait; at
 // N318-2: the indexes of the status queries – a migration for existing sites, the same keys in schema.sql for new ones
 $migration318 = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0102-claude-status-indexes.sql');
 $schema318 = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
-check('3.18 N318-2 migration 0102 adds the status indexes, schema.sql has them, KALETA_DB_VERSION is at least 102', [
+check('[source-pin] 3.18 N318-2 migration 0102 adds the status indexes, schema.sql has them, KALETA_DB_VERSION is at least 102', [
     str_contains($migration318, 'ALTER TABLE ka_api_tokeny ADD KEY ix_tokeny_druh_expirace (druh, expirace);'), str_contains($migration318, 'ALTER TABLE ka_oauth_rotated ADD KEY ix_oauth_rotated_at (rotated_at);'),
     str_contains($schema318, 'KEY ix_tokeny_druh_expirace (druh, expirace)'), str_contains($schema318, 'KEY ix_oauth_rotated_at (rotated_at)'), KALETA_DB_VERSION >= 102, Migration::latest() === KALETA_DB_VERSION],
     [true, true, true, true, true, true]);

@@ -30,7 +30,7 @@ $presetSiteTexts = static function (string $key, array $p): array {
 };
 $jobsCs = Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Builder\Build::toJson(Kaleta\Builder\Presets::itemTemplate($presets['jobs'], Kaleta\Builder\Collections::sanitizeFields(array_map(
     fn (array $f): array => ['klic' => $f[0], 'popisek' => t($f[1]), 'typ' => $f[2]] + (isset($f[3]['preset']) ? ['kolekce' => 'tym'] : []), $presets['jobs']['fields'])))));
-check('3.9.2 presets: the jobs item template built in a Czech site (as over MCP) has no English text and asks for "Jméno a příjmení"', [
+check('[source-pin] 3.9.2 presets: the jobs item template built in a Czech site (as over MCP) has no English text and asks for "Jméno a příjmení"', [
     array_values(array_filter($presetSiteTexts('jobs', $presets['jobs']), fn (string $text): bool => str_contains($jobsCs, $text))),
     str_contains($jobsCs, '"popisek":"Jméno a příjmení"'), str_contains($jobsCs, 'Název'), str_contains($jobsCs, '"tlacitko":"Odeslat žádost"')], [[], true, false, true]);
 // every text a preset writes into the site (name, field labels, the item template, extra pages) is in every site dictionary;

@@ -797,7 +797,7 @@ check('3.10: find_tools on a read-only connection offers only reads, names a wri
     Kaleta\Mcp\Discovery::find($readOnly310, Kaleta\Mcp\Catalog::ESSENTIALS, ['names' => ['migration_report', 'list_news']], Kaleta\Mcp\Discovery::runners($readOnly310, 'read'))['not_available'] ?? []],
     [['read'], ['create_news'], ['run_read_tool'], ['migration_report']]);
 $server310 = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php');
-check('3.10: the server instructions of an essentials connection name the runners; a runner checks the class before the call of a direct call; a missing tool_set column falls back to all (N310-9)', [
+check('[source-pin] 3.10: the server instructions of an essentials connection name the runners; a runner checks the class before the call of a direct call; a missing tool_set column falls back to all (N310-9)', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), "=== 'essentials'") && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Prompts.php'), 'run_destructive_tool for deleting, sending or reaching outside the site'),
     (bool) preg_match('/function runTool\(.*?Discovery::runner\(\$name\) !== \$runner.*?return \$this->call\(\$tools, \$name, \$inner\);/s', $server310),
     (bool) preg_match('/\$select\(\'t\.tool_set\'\);\s*\} catch \(\\\\PDOException \$e\) \{.*?42S22.*?\$select\("\'all\'"\)/s', $server310),
@@ -923,7 +923,7 @@ check('3.7: both forms of every system path reach the same internal route; the C
     ['/ulohy', '/ulohy', '/odber', '/odber', '/formular', '/formular', '/souhlas', '/souhlas', '/konverze', '/konverze', '/stav.json', '/stav.json', '/_komentar', '/_komentar', '/_komponenta/5', '/_komponenta/5', '/_sekce/cenik', '/_sekce/cenik', '/form/item', '/tasks.json', '/formx', '/_componentx', '/o-nas']);
 $systemPaths37 = Routes::SYSTEM_PATHS + Routes::SYSTEM_PREFIXES;
 $kernel37 = (string) file_get_contents(KALETA_ROOT . '/system/src/Front/Kernel.php');
-check('3.7: every English system path is reserved (news slug, and pages and collections unless it has a dot) and every Czech one keeps its route in the Kernel', [
+check('[source-pin] 3.7: every English system path is reserved (news slug, and pages and collections unless it has a dot) and every Czech one keeps its route in the Kernel', [
     array_values(array_filter($systemPaths37, fn (string $en): bool => !str_starts_with($en, '_') && (Routes::systemSlugError(explode('.', $en)[0]) === null || (!str_contains($en, '.') && !in_array($en, Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true))))),
     in_array('odber', Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true), Routes::systemSlugError('tasks'), Routes::systemSlugError('status'),
     array_values(array_filter(array_keys($systemPaths37), fn (string $cz): bool => !str_contains($kernel37, "'/" . $cz . "'") && !str_contains($kernel37, "'#^/" . $cz . '/'))),

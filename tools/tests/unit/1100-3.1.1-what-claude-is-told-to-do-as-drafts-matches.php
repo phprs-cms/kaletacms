@@ -24,7 +24,7 @@ foreach ($draftTexts as $where => $text) {
 }
 check('3.1.1: drafts routines are only told to use tools a drafts-only connection may call (or told what needs full access)', $draftGaps, []);
 
-check('3.1.1: the Client and Enquiries only presets can ask Claude; Whistleblowing narrows who sees it; every module icon exists and no two menu sections share one by accident', [
+check('[source-pin] 3.1.1: the Client and Enquiries only presets can ask Claude; Whistleblowing narrows who sees it; every module icon exists and no two menu sections share one by accident', [
     in_array('requests', Kaleta\Admin\Modules\Roles::PRESETS['client'][3], true), in_array('requests', Kaleta\Admin\Modules\Roles::PRESETS['office'][3], true), in_array('requests', Kaleta\Admin\Modules\Roles::PRESETS['writer'][3], true),
     (new ReflectionMethod(Kaleta\Admin\Modules\Whistleblowing::class, 'availableTo'))->getDeclaringClass()->getName(),
     array_values(array_diff(array_map(fn (string $c): string => $c::ICON, Kaleta\Admin\Kernel::MODULES), (function (): array { $icon = require KALETA_SYSTEM . '/views/admin/icons.php'; preg_match_all("/^    '([a-z-]+)' =>/m", (string) file_get_contents(KALETA_SYSTEM . '/views/admin/icons.php'), $m); return $m[1]; })()))],

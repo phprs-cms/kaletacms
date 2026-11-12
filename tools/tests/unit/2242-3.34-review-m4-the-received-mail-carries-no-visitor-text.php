@@ -13,7 +13,7 @@ check('3.34 review M4: safeName lets through letters, spaces, hyphens and apostr
 $m4Settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
 (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($m4Settings, ['site_name' => 'Northfield', 'site_language' => 'en', 'company_name' => '']);
 $m4Spam = ['name' => 'Cheap pills at spam.example – click', 'job_title' => 'Welder', 'language' => 'en'];
-check('3.34 review M4: the automatic compose drops a name that is not a plain name (a person replying still sees it); the position stays the job\'s', [
+check('[source-pin] 3.34 review M4: the automatic compose drops a name that is not a plain name (a person replying still sees it); the position stays the job\'s', [
     str_starts_with(Applications::compose($m4Settings, $m4Spam, 'received', true)['text'], "Hello,\n\nthank you for your application for Welder."),
     str_contains(Applications::compose($m4Settings, $m4Spam, 'received', true)['text'], 'spam.example'),
     str_starts_with(Applications::compose($m4Settings, ['name' => 'Jana Nováková'] + $m4Spam, 'received', true)['text'], 'Hello Jana Nováková,'),

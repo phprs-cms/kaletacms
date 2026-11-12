@@ -166,7 +166,7 @@ $a3311Held = fn (int $firstSeen, bool $security = false, array $states = ['block
     'rings' => [], 'next' => []], $x330Delays, $x330Now), 'admin-');
 $a3311Item = $a3311Held($x330Now - 6 * 86400);
 $a3311Today = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/today.php');
-check('3.31.1 Rollout::heldItem – one item for the release (held since the first held site\'s ring delay), amber, linking to the Rollout tab; none under 3 days, for a security release or without held sites; a careful site counts from its own week; Today and fleet_today show it', [
+check('[source-pin] 3.31.1 Rollout::heldItem – one item for the release (held since the first held site\'s ring delay), amber, linking to the Rollout tab; none under 3 days, for a security release or without held sites; a careful site counts from its own week; Today and fleet_today show it', [
     array_intersect_key($a3311Item ?? [], array_flip(['kind', 'site_id', 'check', 'state', 'label', 'detail', 'link', 'weight', 'held'])), ($a3311Item['since'] ?? 0) === $x330Now - 4 * 86400,
     $a3311Held($x330Now - 5 * 86400), $a3311Held($x330Now - 6 * 86400, true), $a3311Held($x330Now - 6 * 86400, false, ['waiting', 'allowed']), $a3311Held($x330Now - 6 * 86400, false, ['waiting', 'blocked']), $a3311Held($x330Now - 11 * 86400, false, ['waiting', 'blocked'])['held'] ?? 0,
     count(Kaleta\Fleet\ConsoleTasks::rank([['site' => 'B', 'site_id' => 2, 'state' => 'bad', 'weight' => 100, 'since' => 1], $a3311Item])),
@@ -233,7 +233,7 @@ check('3.30 Calendar::ics – CRLF lines folded at 75 octets, an all-day event, 
 // the console's screens, jobs and tools
 $x330Tabs = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/tabs.php');
 $x330Fleet = new ReflectionClass(Kaleta\Admin\Modules\Fleet::class);
-check('3.30: three new tabs (Inventory, Calendar, Rollout), their actions, the reminder job only on a console, fleet_inventory and fleet_calendar are read tools of the fleet extension outside the essentials, English on both sides, with a title', [
+check('[source-pin] 3.30: three new tabs (Inventory, Calendar, Rollout), their actions, the reminder job only on a console, fleet_inventory and fleet_calendar are read tools of the fleet extension outside the essentials, English on both sides, with a title', [
     (bool) preg_match("/'inventory' => t\\('Inventory'\\), 'calendar' => t\\('Calendar'\\), 'rollout' => t\\('Rollout'\\)/", $x330Tabs),
     array_map(fn (string $m): bool => $x330Fleet->hasMethod($m), ['actionInventory', 'actionInventoryCsv', 'actionCalendar', 'actionCalendarSave', 'actionCalendarFeed', 'actionRollout', 'actionRolloutSave', 'actionWindow']),
     Kaleta\Core\Scheduler::JOBS['fleet_expiry'][0] ?? null, Kaleta\Core\Scheduler::applies('fleet_expiry', $c329Settings(['extensions' => 'fleet'])), Kaleta\Core\Scheduler::applies('fleet_expiry', $c329Settings(['extensions' => 'novinky'])),
