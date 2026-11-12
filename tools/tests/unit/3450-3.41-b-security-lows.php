@@ -66,3 +66,23 @@ check('3.41 N114: Mail::forBackup drops the body and the next try of a message w
     Kaleta\Core\Mail::forBackup(['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00']),
     Kaleta\Core\Mail::forBackup(['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]),
 ], [['idp' => 1, 'telo' => null, 'dalsi_pokus' => null, 'chyba' => 'x'], ['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00'], ['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]]);
+
+// N118: Kaleta's block in the root .htaccess – an update replaces it and keeps the owner's own lines around it
+$s341Shipped = (string) file_get_contents(KALETA_ROOT . '/.htaccess');
+$s341Block = Kaleta\Core\Updater::htaccessBlock($s341Shipped);
+$s341Newer = str_replace("Options -Indexes\n", "Options -Indexes\nRewriteRule ^s341/ - [F,L]\n", $s341Shipped);
+$s341NewBlock = Kaleta\Core\Updater::htaccessBlock($s341Newer);
+$s341Newer = $s341NewBlock === null ? $s341Newer : (string) preg_replace('/sha256:[a-f0-9]{16}/', 'sha256:' . substr(hash('sha256', substr($s341Newer, $s341NewBlock['start'] + strlen("# BEGIN Kaleta\n"), strrpos($s341Newer, '# END Kaleta') - $s341NewBlock['start'] - strlen("# BEGIN Kaleta\n"))), 0, 16), $s341Newer);
+$s341Own = "RewriteCond %{HTTPS} off\nRewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]\n" . $s341Shipped . "# own footer\n";
+$s341Merged = Kaleta\Core\Updater::mergeHtaccess($s341Own, $s341Newer);
+check('3.41 N118: the shipped .htaccess has one intact Kaleta block; an update replaces the block and keeps the own lines above and below', [
+    $s341Block !== null && $s341Block['intact'], $s341Merged !== null && str_starts_with($s341Merged, "RewriteCond %{HTTPS} off\n") && str_ends_with($s341Merged, "# own footer\n"),
+    substr_count((string) $s341Merged, 'RewriteRule ^s341/ - [F,L]'), Kaleta\Core\Updater::htaccessBlock((string) $s341Merged)['intact'] ?? null,
+], [true, true, 1, true]);
+check('3.41 N118: an edit inside the block, a file without the block (before 3.41) or two blocks are never merged – the .kaleta-nova path stays', [
+    Kaleta\Core\Updater::mergeHtaccess(str_replace('Options -Indexes', 'Options -Indexes +FollowSymLinks', $s341Own), $s341Newer),
+    Kaleta\Core\Updater::mergeHtaccess("# Kaleta\nOptions -Indexes\n", $s341Newer), Kaleta\Core\Updater::mergeHtaccess($s341Own . $s341Shipped, $s341Newer),
+    Kaleta\Core\Updater::mergeHtaccess(str_replace("\n", "\r\n", $s341Own), $s341Newer) !== null,
+], [null, null, null, true]);
+check('3.41 N118: missingHtaccessLines lists the new rule lines only – no comments, blanks or lines the file has', Kaleta\Core\Updater::missingHtaccessLines(
+    "# mine\nOptions -Indexes\n  RewriteEngine On\n", "# Kaleta\nOptions -Indexes\n\nRewriteEngine On\nRewriteRule ^tools/ - [F,L]\n# note\nRewriteRule ^tools/ - [F,L]\n"), ['RewriteRule ^tools/ - [F,L]']);

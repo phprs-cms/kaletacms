@@ -1,3 +1,6 @@
+# Your own rules (HTTPS, www, redirects) belong above "# BEGIN Kaleta" or below "# END Kaleta": an update of Kaleta
+# replaces only the lines between them, and only while they are unchanged (since 3.41).
+# BEGIN Kaleta
 # Kaleta
 Options -Indexes
 
@@ -73,3 +76,4 @@ Options -Indexes
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml application/rss+xml application/javascript text/javascript application/json application/manifest+json image/svg+xml
 </IfModule>
+# END Kaleta sha256:35af667da737401b

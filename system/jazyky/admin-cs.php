@@ -8294,4 +8294,6 @@ return [
     'The web server hands files from storage/ or system/ to visitors (%s) – the error log, exports and backups lie there. Add the rules of system/nginx.example.conf to the server\'s configuration (nginx, Caddy), or ask the hosting to refuse these folders; the next daily check confirms it.' => 'Webový server vydává návštěvníkům soubory ze storage/ nebo system/ (%s) – leží tam záznam chyb, exporty a zálohy. Doplňte do konfigurace serveru (nginx, Caddy) pravidla ze system/nginx.example.conf, nebo požádejte hosting, aby tyto složky odmítal; další denní kontrola to potvrdí.',
     'the web server refuses them to visitors (checked %s)' => 'webový server je návštěvníkům odmítá (zkontrolováno %s)',
     'request ignored – a valid link is pending, account: %s' => 'žádost nevyřízena – platný odkaz už čeká, účet: %s',
+    'Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.' => 'Nejjednodušší je vzít .htaccess.kaleta-nova jako svůj .htaccess a vlastní pravidla dát nad „# BEGIN Kaleta“ – další aktualizace pak vymění jen část Kalety a vaši nechají.',
+    'Lines your .htaccess lacks (%d): %s' => 'Řádky, které váš .htaccess nemá (%d): %s',
 ];

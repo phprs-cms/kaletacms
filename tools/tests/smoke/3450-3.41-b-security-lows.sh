@@ -97,3 +97,14 @@ expect "3.41 N116: switching \"passkey only\" off in one sign-in ends the other 
 sq "UPDATE ka_uzivatele SET sign_in_epoch = sign_in_epoch + 1 WHERE idu = $S341_INV" > /dev/null
 expect "3.41 N116: a second-factor change made elsewhere (an administrator's reset raises the account's epoch) ends that sign-in as well" "$(s341_signed_in "$S341_A")" "0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $S341_INV; DELETE FROM ka_uzivatele WHERE idu = $S341_INV" > /dev/null
+
+# N118: while .htaccess.kaleta-nova waits, System status lists the rule lines the customised .htaccess lacks
+[ -f "$WORK/web/.htaccess.kaleta-nova" ] && cp "$WORK/web/.htaccess.kaleta-nova" "$WORK/s341-kaleta-nova.saved" || true
+S341_OWN_HTACCESS=0; [ -f "$WORK/web/.htaccess" ] || { cp "$ROOT/.htaccess" "$WORK/web/.htaccess"; S341_OWN_HTACCESS=1; } # the test copy may have none
+{ cat "$WORK/web/.htaccess"; echo 'RewriteRule ^s341-closed/ - [F,L]'; } > "$WORK/web/.htaccess.kaleta-nova"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.41 N118: System status names the missing line and the way to keep own rules above # BEGIN Kaleta" \
+  "$(grep -c 'Řádky, které váš .htaccess nemá (1): RewriteRule ^s341-closed/ - \[F,L\]' "$WORK/response")|$(grep -c 'nad „# BEGIN Kaleta“' "$WORK/response")" "1|1"
+rm -f "$WORK/web/.htaccess.kaleta-nova"; [ "$S341_OWN_HTACCESS" = 1 ] && rm -f "$WORK/web/.htaccess"
+if [ -f "$WORK/s341-kaleta-nova.saved" ]; then mv "$WORK/s341-kaleta-nova.saved" "$WORK/web/.htaccess.kaleta-nova"; fi
+

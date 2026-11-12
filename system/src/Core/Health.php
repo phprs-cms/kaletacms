@@ -113,7 +113,11 @@ final class Health
         if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
             // an update keeps a customised .htaccess and puts its own next to it (Core\Updater) – since 3.3.2 it also closes extensions/,
             // since 3.19.1 (N86) also a PHP file in an add-on's public/ folder asked for with a path after it
-            $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors; since 3.19.1 they also refuse a PHP file in an add-on\'s public/ folder when a path follows its name, like run.php/x), then delete the file.'));
+            // 3.41 (N118): the rule lines the customised file lacks, so the administrator knows what to carry over
+            $missing = Updater::missingHtaccessLines((string) @file_get_contents(KALETA_ROOT . '/.htaccess'), (string) @file_get_contents(KALETA_ROOT . '/.htaccess.kaleta-nova'));
+            $add(t('Bezpečnost'), '.htaccess', 'varovani', t('An update left a newer .htaccess.kaleta-nova next to your customised .htaccess – carry its new rules over (since 3.3.2 they keep the code of add-ons in extensions/ away from visitors; since 3.19.1 they also refuse a PHP file in an add-on\'s public/ folder when a path follows its name, like run.php/x), then delete the file.')
+                . ' ' . t('Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.')
+                . ($details && $missing !== [] ? ' ' . t('Lines your .htaccess lacks (%d): %s', count($missing), implode(' · ', array_slice($missing, 0, 8)) . (count($missing) > 8 ? ' …' : '')) : ''));
         }
         // 3.41 (N120): the daily cron check asks the site for a canary file in storage/ and for system/sql/schema.sql
         $serverRules = ServerRules::last($siteSettings);

@@ -8701,4 +8701,6 @@ return [
     'The web server hands files from storage/ or system/ to visitors (%s) – the error log, exports and backups lie there. Add the rules of system/nginx.example.conf to the server\'s configuration (nginx, Caddy), or ask the hosting to refuse these folders; the next daily check confirms it.' => 'Der Webserver gibt Dateien aus storage/ oder system/ an Besucher heraus (%s) – dort liegen das Fehlerprotokoll, Exporte und Sicherungen. Ergänzen Sie die Regeln aus system/nginx.example.conf in der Serverkonfiguration (nginx, Caddy) oder bitten Sie das Hosting, diese Ordner abzuweisen; die nächste tägliche Prüfung bestätigt es.',
     'the web server refuses them to visitors (checked %s)' => 'der Webserver verweigert sie Besuchern (geprüft am %s)',
     'request ignored – a valid link is pending, account: %s' => 'Anfrage ignoriert – ein gültiger Link liegt bereits vor, Konto: %s',
+    'Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.' => 'Am einfachsten: Übernehmen Sie .htaccess.kaleta-nova als Ihre .htaccess und setzen Sie Ihre eigenen Regeln über „# BEGIN Kaleta“ – spätere Updates ersetzen dann nur den Teil von Kaleta und behalten Ihren.',
+    'Lines your .htaccess lacks (%d): %s' => 'Zeilen, die Ihrer .htaccess fehlen (%d): %s',
 ];

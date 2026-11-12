@@ -721,9 +721,16 @@ final class Updater
                 foreach ($files as $relativePath) {
                     $target = $this->root . '/' . $relativePath;
                     if ($relativePath === '.htaccess' && is_file($target) && isset($releaseHashes['.htaccess']) && !hash_equals($releaseHashes['.htaccess'], (string) hash_file('sha256', $target))) {
-                        // custom edits of .htaccess (HTTPS, www, redirects) are not overwritten – the new version is placed next to it for comparison
-                        copy($workDir . '/' . $relativePath, $target . '.kaleta-nova');
-                        continue;
+                        // 3.41 (N118): own rules outside an unchanged "# BEGIN Kaleta … # END Kaleta" block stay, the block is replaced
+                        $merged = self::mergeHtaccess((string) file_get_contents($target), (string) file_get_contents($workDir . '/' . $relativePath));
+                        if ($merged === null) {
+                            // custom edits inside Kaleta's rules (or a file from before 3.41) are not overwritten – the new version
+                            // is placed next to it for comparison; System status lists the lines to carry over
+                            copy($workDir . '/' . $relativePath, $target . '.kaleta-nova');
+                            continue;
+                        }
+                        file_put_contents($workDir . '/' . $relativePath, $merged);
+                        @unlink($target . '.kaleta-nova'); // an older copy waiting to be carried over is in place now
                     }
                     if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true)) {
                         throw new \RuntimeException(t('Cannot create the folder %s.', dirname($relativePath)));
@@ -1332,6 +1339,66 @@ final class Updater
         $path = (string) ($p['path'] ?? '/');
 
         return $origin . substr($path, 0, (int) strrpos($path, '/') + 1) . $location;
+    }
+
+    /**
+     * 3.41 (N118, pure): Kaleta's rules in the root .htaccess with the owner's own lines kept. Kaleta's lines sit between
+     * "# BEGIN Kaleta" and "# END Kaleta sha256:<16 hex>", the hash of the lines between. When both files have exactly one
+     * such block and the current block is unchanged (its hash matches), the result is the current file with the new block
+     * in its place; otherwise null – an edit inside the block, or a file from before 3.41, is never overwritten.
+     */
+    public static function mergeHtaccess(string $current, string $new): ?string
+    {
+        $old = self::htaccessBlock($current);
+        $fresh = self::htaccessBlock($new);
+        if ($old === null || $fresh === null || !$old['intact'] || !$fresh['intact']) {
+            return null;
+        }
+
+        return substr($current, 0, $old['start']) . substr($new, $fresh['start'], $fresh['end'] - $fresh['start']) . substr($current, $old['end']);
+    }
+
+    /**
+     * Where Kaleta's block lies in a .htaccess (byte offsets: start of the BEGIN line, end of the END line with its line
+     * break) and whether its lines still match the hash in the END line (line breaks compared as \n). null = not exactly one block.
+     *
+     * @return array{start: int, end: int, intact: bool}|null
+     */
+    public static function htaccessBlock(string $text): ?array
+    {
+        if (preg_match_all('/^# BEGIN Kaleta\r?$/m', $text, $begins, PREG_OFFSET_CAPTURE) !== 1
+            || preg_match_all('/^# END Kaleta sha256:([a-f0-9]{16})\r?(?:\n|$)/m', $text, $ends, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
+        $start = (int) $begins[0][0][1];
+        $endLine = (int) $ends[0][0][1];
+        $bodyStart = $start + strlen($begins[0][0][0]) + 1;
+        if ($endLine < $bodyStart) {
+            return null;
+        }
+        $body = str_replace("\r\n", "\n", substr($text, $bodyStart, $endLine - $bodyStart));
+
+        return ['start' => $start, 'end' => $endLine + strlen($ends[0][0][0]), 'intact' => hash_equals((string) $ends[1][0][0], substr(hash('sha256', $body), 0, 16))];
+    }
+
+    /**
+     * 3.41 (N118, pure): the rule lines of Kaleta's newer .htaccess that the current file lacks – what System status asks the
+     * administrator to carry over while .htaccess.kaleta-nova waits. Comments and empty lines are left out.
+     *
+     * @return list<string>
+     */
+    public static function missingHtaccessLines(string $current, string $new): array
+    {
+        $have = array_flip(array_map('trim', preg_split('/\R/', $current) ?: []));
+        $missing = [];
+        foreach (preg_split('/\R/', $new) ?: [] as $line) {
+            $line = trim($line);
+            if ($line !== '' && !str_starts_with($line, '#') && !isset($have[$line]) && !in_array($line, $missing, true)) {
+                $missing[] = $line;
+            }
+        }
+
+        return $missing;
     }
 
     /**
