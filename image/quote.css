@@ -407,10 +407,6 @@
 		outline-offset: 2px;
 	}
 
-	.quote-decision-step[open] > summary {
-		opacity: 0.7;
-	}
-
 	@media print {
 		.quote-decision {
 			display: none;
