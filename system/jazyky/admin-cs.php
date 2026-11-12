@@ -8192,4 +8192,8 @@ return [
     '%d password(s), key(s) or sign-in app secret(s) are in plain text in the database – the daily security task encrypts them with the key in config.php.' => 'Hesla, klíče nebo tajemství aplikací pro přihlášení (%d) jsou v databázi v čitelné podobě – denní bezpečnostní úloha je zašifruje klíčem z config.php.',
     '%d password(s), key(s) or sign-in app secret(s) are in plain text in the database and in every local backup. Move the encryption key to config.php in Settings → Backups and updates – they are encrypted in the same step.' => 'Hesla, klíče nebo tajemství aplikací pro přihlášení (%d) jsou v čitelné podobě v databázi i v každé místní záloze. Přesuňte šifrovací klíč do config.php v Nastavení → Zálohy a aktualizace – zašifrují se v témže kroku.',
     'encrypted with the key in config.php' => 'šifrované klíčem z config.php',
+    'proposal' => 'návrh',
+    'Written through the drafts-only connection %s – Claude treats it as a suggestion until you save or pin it.' => 'Napsáno přes napojení jen pro koncepty %s – Claude ji bere jako návrh, dokud ji neuložíte nebo nepřipnete.',
+    'A proposal written through the drafts-only connection %s. Claude treats it as a suggestion, not a decision, until you save it here or pin it.' => 'Návrh napsaný přes napojení jen pro koncepty %s. Claude ho bere jako návrh, ne jako rozhodnutí, dokud ho tady neuložíte nebo nepřipnete.',
+    'A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.' => 'Napojení jen pro koncepty nemůže měnit poznámku, kterou napsal člověk nebo napojení s plným přístupem – napište místo toho novou poznámku jako návrh.',
 ];

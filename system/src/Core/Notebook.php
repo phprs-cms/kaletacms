@@ -14,6 +14,12 @@ use Kaleta\Admin\ChangeLog;
  *
  * A note is plain text under a topic; pinned notes come first everywhere. The author is the signed-in user's name, or
  * the name of the Claude connection that wrote it – so the next reader knows who decided.
+ *
+ * 3.39 (N110): every note keeps through which connection it was written (via, its access; '' = a person in the
+ * administration). A note written through a drafts-only connection is a proposal: it cannot be pinned (pinned titles
+ * reach every connection in site_info), read_notebook marks it so that a later connection – also a full one – treats it as
+ * a suggestion to check with the user, never as a decision; a drafts-only connection changes only proposals. A person who
+ * saves or pins it in the administration makes it a note of their own.
  */
 final class Notebook
 {
@@ -34,7 +40,7 @@ final class Notebook
     /**
      * Notes, pinned first and then the most recently changed; by a topic and a searched text (title or text).
      *
-     * @return list<array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string}>
+     * @return list<array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string, via: string, access: string, proposal: bool}>
      */
     public static function all(Db $db, string $topic = '', string $search = '', int $limit = self::MAX_NOTES): array
     {
@@ -57,7 +63,7 @@ final class Notebook
         return array_map(self::row(...), $rows);
     }
 
-    /** @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string}|null */
+    /** @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string, via: string, access: string, proposal: bool}|null */
     public static function find(Db $db, int $id): ?array
     {
         $row = $id > 0 ? $db->one('SELECT * FROM {notebook} WHERE id = ?', [$id]) : null;
@@ -70,7 +76,7 @@ final class Notebook
     {
         try {
             return ['count' => (int) $db->value('SELECT COUNT(*) FROM {notebook}'),
-                'pinned' => array_map('strval', array_column($db->all('SELECT title FROM {notebook} WHERE pinned = 1 ORDER BY updated_at DESC, id DESC LIMIT 20'), 'title'))];
+                'pinned' => array_map('strval', array_column($db->all("SELECT title FROM {notebook} WHERE pinned = 1 AND access <> 'drafts' ORDER BY updated_at DESC, id DESC LIMIT 20"), 'title'))];
         } catch (\Throwable) {
             return ['count' => 0, 'pinned' => []]; // before the 2.15 migration
         }
@@ -90,6 +96,12 @@ final class Notebook
         if ($id > 0 && $existing === null) {
             return t('The note does not exist.');
         }
+        // 3.39 (N110): a drafts-only connection proposes – it changes only its own kind of note and never pins
+        $access = (string) ($app->auth()->connection()['access'] ?? '');
+        $proposal = $access === 'drafts';
+        if ($proposal && $existing !== null && !$existing['proposal']) {
+            return t('A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.');
+        }
         $topic = array_key_exists('topic', $data) || $existing === null ? self::topic($data['topic'] ?? 'other') : $existing['topic'];
         if ($topic === null) {
             return t('The topic must be one of: %s.', implode(', ', array_keys(self::TOPICS)));
@@ -103,8 +115,9 @@ final class Notebook
             return t('A note needs a text.');
         }
         $now = date('Y-m-d H:i:s');
-        $row = ['topic' => $topic, 'title' => $title, 'text' => $text, 'pinned' => array_key_exists('pinned', $data) ? (int) (bool) $data['pinned'] : (int) ($existing['pinned'] ?? false),
-            'author' => self::author($app), 'updated_at' => $now];
+        $row = ['topic' => $topic, 'title' => $title, 'text' => $text, 'pinned' => $proposal ? 0 : (array_key_exists('pinned', $data) ? (int) (bool) $data['pinned'] : (int) ($existing['pinned'] ?? false)),
+            'author' => self::author($app), 'updated_at' => $now,
+            'via' => mb_substr((string) ($app->auth()->connection()['name'] ?? ''), 0, 100), 'access' => isset(\Kaleta\Mcp\Catalog::CONNECTION_ACCESS[$access]) ? $access : ''];
         if ($existing === null) {
             $id = $db->insert('notebook', $row + ['created_at' => $now]);
         } else {
@@ -135,10 +148,13 @@ final class Notebook
         return mb_substr((string) ($app->auth()->connection()['name'] ?? '') ?: ((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? '')), 0, 100);
     }
 
-    /** @param array<string, mixed> $r @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string} */
+    /** @param array<string, mixed> $r @return array{id: int, topic: string, title: string, text: string, pinned: bool, author: string, created_at: string, updated_at: string, via: string, access: string, proposal: bool} */
     private static function row(array $r): array
     {
+        $access = (string) ($r['access'] ?? '');
+
         return ['id' => (int) $r['id'], 'topic' => (string) $r['topic'], 'title' => (string) $r['title'], 'text' => (string) $r['text'], 'pinned' => (bool) $r['pinned'],
-            'author' => (string) $r['author'], 'created_at' => (string) $r['created_at'], 'updated_at' => (string) $r['updated_at']];
+            'author' => (string) $r['author'], 'created_at' => (string) $r['created_at'], 'updated_at' => (string) $r['updated_at'],
+            'via' => (string) ($r['via'] ?? ''), 'access' => $access, 'proposal' => $access === 'drafts'];
     }
 }
