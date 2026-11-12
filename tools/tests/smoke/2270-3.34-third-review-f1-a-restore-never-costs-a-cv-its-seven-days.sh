@@ -11,7 +11,7 @@ F1_OLD=$(php -r 'echo date("YmdHi", strtotime("-60 days"));')
 F1_A=$(f1_bin 'CV of F1a'); F1_B=$(f1_bin 'CV of F1b'); F1_C=$(f1_bin 'CV of F1c')
 touch -t "$F1_OLD" "$F1_A" "$F1_B" "$F1_C"
 expect "3.34 third review F1: the first sweep after the restore removes nothing – the unlisted old files are set aside, their time is now" \
-  "$(t334_php 'echo Kaleta\Core\Applications::sweepOrphans($app);')|$(f1_where "$F1_A")|$(f1_where "$F1_B")|$(f1_where "$F1_C")|$(php -r 'echo time() - filemtime($argv[1]) < 600 ? "fresh" : "old";' "$F1_A.orphan")" \
+  "$(t334_php 'echo Kaleta\Core\Applications::sweepOrphans($app);')|$(f1_where "$F1_A")|$(f1_where "$F1_B")|$(f1_where "$F1_C")|$(php -r 'echo time() - filemtime($argv[1]) < 600 ? "fresh" : "old";' -- "$F1_A.orphan")" \
   "0|aside|aside|aside|fresh"
 expect "3.34 third review F1: a second sweep the same week still removes nothing" "$(t334_php 'echo Kaleta\Core\Applications::sweepOrphans($app);')|$(f1_where "$F1_A")" "0|aside"
 # B: a newer backup restored – a row lists it again; the sweep puts it back

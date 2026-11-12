@@ -9,7 +9,7 @@ for i in $(seq 1 40); do [ "$(import_field phase)" = done ] && break; mcp migrat
 expect "3.7 migration report: all 352 addresses of a sitemap index are checked (it stopped at 300)" "$(import_field summary)" '{"addresses":352,"checked":352,"ok":1,"redirected":0,"not_published":0,"missing":351,"errors":351,"warnings":0}'
 mcp migration_report "{\"report_id\":\"$REPORT_ID\",\"offset\":300}" > "$WORK/response"
 expect "3.7 migration report: the problems page by offset; the page robots.txt disallows is looked up here, never downloaded" \
-  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo count($r["problems"]), "|", $r["more_problems"], "|", count(array_filter($r["problems"], fn (array $p): bool => in_array("robots", array_column($p["problems"], "code"), true)));' "$WORK/response")|$(grep -c '^/p/' "$BIGLOG" || true)|$(grep -c '^/private/' "$BIGLOG" || true)" \
+  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); echo count($r["problems"]), "|", $r["more_problems"], "|", count(array_filter($r["problems"], fn (array $p): bool => in_array("robots", array_column($p["problems"], "code"), true)));' -- "$WORK/response")|$(grep -c '^/p/' "$BIGLOG" || true)|$(grep -c '^/private/' "$BIGLOG" || true)" \
   "51|0|1|350|0"
 # 3.7 (N37-27): a huge number is a clear tool error naming the parameter – never an error page or another number
 curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
@@ -84,7 +84,7 @@ N25_LIST=$(grep -c "name=\"import\" value=\"$IMPORT37\"" "$WORK/response" || tru
 N25_ROWS=$([ -e "$IMPORTDIR/polozky-$IMPORT37.rows.json" ] && echo rows-kept || echo rows-gone)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=collections&action=import_delete" -d "_csrf=$(csrf)" -d "idk=$IDK37" -d "import=$IMPORT37"
 printf '<?xml version="1.0"?><rss/>' > "$IMPORTDIR/old-export.xml"; printf '{}' > "$IMPORTDIR/web-0123456789abcdef.json"; printf '{}' > "$IMPORTDIR/parita-0123456789abcdef.json"; printf '{}' > "$IMPORTDIR/parita-fedcba9876543210.json"
-php -r 'foreach (array_slice($argv, 1) as $f) { touch($f, time() - 20 * 86400); }' "$IMPORTDIR/old-export.xml" "$IMPORTDIR/web-0123456789abcdef.json" "$IMPORTDIR/parita-0123456789abcdef.json"
+php -r 'foreach (array_slice($argv, 1) as $f) { touch($f, time() - 20 * 86400); }' -- "$IMPORTDIR/old-export.xml" "$IMPORTDIR/web-0123456789abcdef.json" "$IMPORTDIR/parita-0123456789abcdef.json"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 expect "3.7 N37-25 item import: rows deleted once saved, the finished import listed and removable; the daily clean-up expires old states, keeps the export and fresh files" \
   "$N25_ROWS|$N25_LIST|$([ -e "$IMPORTDIR/polozky-$IMPORT37.json" ] && echo state-kept || echo state-gone)|$(ls "$IMPORTDIR" | grep -E '^(old-export\.xml|web-0123456789abcdef\.json|parita-0123456789abcdef\.json|parita-fedcba9876543210\.json)$' | tr '\n' ' ')" \

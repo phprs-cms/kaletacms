@@ -82,7 +82,7 @@ expect "3.38 A4: the internal price is in no public response, export, blueprint,
 
 # a colleague without the section sees no price; with the section but without the area reads and cannot save
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
-sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, blokovat) VALUES ('cenik-338', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Cena Kolegyně', 'cenik338@example.cz', 1, 0)" > /dev/null
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, blokovat) VALUES ('cenik-338', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")', 'Cena Kolegyně', 'cenik338@example.cz', 1, 0)" > /dev/null
 Q338_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'cenik-338'"); Q338_USER="${Q338_USER:-0}"
 sq "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) VALUES ($Q338_USER, 'collections')" > /dev/null
 JAR_Q338="$WORK/jar-q338"; rm -f "$JAR_Q338"

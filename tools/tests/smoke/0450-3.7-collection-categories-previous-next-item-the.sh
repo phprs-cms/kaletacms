@@ -141,7 +141,7 @@ mcp save_collection_item '{"collection":"produkty","id":'"$(sq "SELECT idp FROM 
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n37-author', '', 'Author N37', 0, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'news' FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
 AUTHOR37="kaleta_$(printf '37%.0s' $(seq 1 24))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 37', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR37")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 37', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$AUTHOR37")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n37-author'" > /dev/null
 mcp37() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $AUTHOR37" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"list_collection_items\",\"arguments\":$1}}"; }
 expect "3.7 N37-9: list_collection_items hides a hidden category from a user without Collections, also as a filter; the editor sees and filters by it" \
   "$(mcp37 '{"collection":"produkty"}' | grep -c 'skryta-37' || true)|$(mcp37 '{"collection":"produkty","category":"skryta-37"}' | grep -c 'The category is not in this collection' || true)|$(mcp list_collection_items '{"collection":"produkty","category":"skryta-37"}' > "$WORK/response"; mcp_value total)" "0|1|1"
@@ -158,7 +158,7 @@ check "3.7 N37-10: a category address with a trailing newline is a 404, not the 
 mcp create_collection '{"name":"Formy 37","slug":"formy-37","item_pages":true,"fields":[{"label":"Popis","type":"text"}]}' > /dev/null
 FORMY37=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'formy-37'")
 form37() { php -r 'require $argv[1] . "/system/bootstrap.php"; [$b] = Kaleta\Builder\Build::sanitize(["v" => 1, "deti" => [["id" => "s" . $argv[2], "typ" => "sekce", "deti" => [["id" => $argv[2], "typ" => "formular",
-  "obsah" => ["nazev" => "Enquiry 37", "bez_captcha" => true, "pole" => [["popisek" => "Name", "typ" => "text", "povinne" => true]]]]]]]], true); echo Kaleta\Builder\Build::toJson($b);' "$ROOT" "$1"; }
+  "obsah" => ["nazev" => "Enquiry 37", "bez_captcha" => true, "pole" => [["popisek" => "Name", "typ" => "text", "povinne" => true]]]]]]]], true); echo Kaleta\Builder\Build::toJson($b);' -- "$ROOT" "$1"; }
 sq "INSERT INTO ka_kolekce_sablony (idk, jazyk, stavba, zmeneno) VALUES ($FORMY37, 'en', '$(form37 f37item)', '$(site_time)');
   INSERT INTO ka_collection_category_templates (idk, jazyk, stavba, zmeneno) VALUES ($FORMY37, 'en', '$(form37 f37cat)', '$(site_time)')" > /dev/null
 SECRET37=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")
@@ -192,5 +192,5 @@ if [ "$FORM_MB" -ge 2 ]; then
   check "3.7: the form's own lower limit is shown" 200 /vykresy "Nejvýš 1 MB: PDF"
   case "$(draw_submit)" in *result=pole*) echo "  ok     3.7: the same drawing is refused by a form with a 1 MB limit";; *) echo "  CHYBA  3.7 attachment over the form's limit"; ERRORS=$((ERRORS+1));; esac
 fi
-expect "3.7: a form without its own limit keeps 10 MB (the default)" "$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Builder\Elements\Form::attachmentLimit(["max_priloha" => 10]) === min(10 * 1048576, Kaleta\Core\Files::limit() ?: PHP_INT_MAX) ? "ok" : "no", "|", Kaleta\Builder\Build::fresh("formular")["obsah"]["max_priloha"];' "$ROOT")" "ok|10"
+expect "3.7: a form without its own limit keeps 10 MB (the default)" "$(php -r 'require $argv[1] . "/system/bootstrap.php"; echo Kaleta\Builder\Elements\Form::attachmentLimit(["max_priloha" => 10]) === min(10 * 1048576, Kaleta\Core\Files::limit() ?: PHP_INT_MAX) ? "ok" : "no", "|", Kaleta\Builder\Build::fresh("formular")["obsah"]["max_priloha"];' -- "$ROOT")" "ok|10"
 

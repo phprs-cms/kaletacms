@@ -1,7 +1,7 @@
 echo "== 3.24: My work, handing work over, assign"
 # three colleagues: an editor with Pages, Collections, Enquiries and Ask Claude; a salesperson with Enquiries only; a writer
 # with News only. A hidden page and an item they can be responsible for, three enquiries and a request Claude answered.
-W324_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+W324_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, posledni_login, potvrzeno) VALUES
   ('w324-editor', '$W324_HASH', 'Editor W324', 'w324-editor@example.com', 1, '$(site_time)', '$(site_time)'),
   ('w324-sales', '$W324_HASH', 'Sales W324', 'w324-sales@example.com', 0, '$(site_time)', '$(site_time)'),
@@ -66,16 +66,16 @@ contains -q '"name":"my_work"' "$WORK/response" && contains -q '"name":"assign"'
 
 # my_work for the editor's own connection: the same lists as the screen, only for the sections they may open
 W324_TOKEN="kaleta_$(printf 'b%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) VALUES ($W324_ED, 'w324', '$(php -r 'echo hash("sha256", $argv[1]);' "$W324_TOKEN")', '$(site_time)')" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) VALUES ($W324_ED, 'w324', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$W324_TOKEN")', '$(site_time)')" > /dev/null
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $W324_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"my_work","arguments":{}}}' > "$WORK/response"; mcp_text
 php -r '$w = json_decode((string) file_get_contents($argv[1]), true) ?: []; $ids = fn (string $k): string => implode(",", array_column($w[$k] ?? [], "id"));
   $page = array_values(array_filter($w["pages"] ?? [], fn ($p) => $p["title"] === "W324 page"))[0] ?? [];
   echo implode("|", [$ids("enquiries_assigned"), in_array((int) $argv[2], array_column($w["enquiries_unassigned"] ?? [], "id"), true) ? "unassigned" : "-", implode("+", $page["reasons"] ?? []), $page["unresolved_comments"] ?? 0,
-    implode("+", array_values(array_filter($w["items"] ?? [], fn ($p) => $p["title"] === "W324 item"))[0]["reasons"] ?? []), implode(",", array_column($w["requests"] ?? [], "title")), $w["user"]["name"] ?? ""]);' "$WORK/text" "$(sq "SELECT idp FROM ka_poptavky WHERE formular = 'W324 form D'")" > "$WORK/w324"
+    implode("+", array_values(array_filter($w["items"] ?? [], fn ($p) => $p["title"] === "W324 item"))[0]["reasons"] ?? []), implode(",", array_column($w["requests"] ?? [], "title")), $w["user"]["name"] ?? ""]);' -- "$WORK/text" "$(sq "SELECT idp FROM ka_poptavky WHERE formular = 'W324 form D'")" > "$WORK/w324"
 expect "3.24 my_work: the open assigned enquiries (newest first, not the resolved one), new unassigned ones, the page (review soon, draft, a comment), the overdue item, the request Claude answered" \
   "$(cat "$WORK/w324")" "$W324_EB,$W324_EA|unassigned|review+draft+comments|1|overdue|W324 request|Editor W324"
 W324_TOKEN2="kaleta_$(printf 'c%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) VALUES ($W324_WRITER, 'w324', '$(php -r 'echo hash("sha256", $argv[1]);' "$W324_TOKEN2")', '$(site_time)')" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) VALUES ($W324_WRITER, 'w324', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$W324_TOKEN2")', '$(site_time)')" > /dev/null
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $W324_TOKEN2" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"my_work","arguments":{}}}' > "$WORK/response"; mcp_text
 contains -q '"total":0' "$WORK/text" && ! contains -q 'enquiries_assigned\|"pages"' "$WORK/text" && echo "  ok     3.24 my_work: a writer without those sections gets no enquiry or page lists" || { echo "  CHYBA  3.24 my_work for a writer: $(head -c 300 "$WORK/text")"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $W324_TOKEN2" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"assign\",\"arguments\":{\"target\":\"page\",\"id\":$W324_QUIET,\"user\":\"me\"}}}" > "$WORK/response"; mcp_text
@@ -91,10 +91,10 @@ grep -q "module=pages&amp;action=edit&amp;id=$W324_PAGE\"" "$WORK/response" && g
   && echo "  ok     3.24 My work: every row links to its place" || { echo "  CHYBA  3.24 My work rows"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR324" -o "$WORK/response" "$B/admin.php"
 expect "3.24 My work: the first menu item for a non-administrator, with the count of enquiries assigned to them" \
-  "$(php -r '$h = (string) file_get_contents($argv[1]); $w = strpos($h, "class=\"menu-moje"); $d = strpos($h, "class=\"menu-prehled"); echo $w !== false && $d !== false && $w < $d ? "first" : "no"; echo preg_match("#menu-moje.*?menu-pocet[^>]*>2<#s", $h) ? "|2" : "|-";' "$WORK/response")" "first|2"
+  "$(php -r '$h = (string) file_get_contents($argv[1]); $w = strpos($h, "class=\"menu-moje"); $d = strpos($h, "class=\"menu-prehled"); echo $w !== false && $d !== false && $w < $d ? "first" : "no"; echo preg_match("#menu-moje.*?menu-pocet[^>]*>2<#s", $h) ? "|2" : "|-";' -- "$WORK/response")" "first|2"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.24 My work: an administrator keeps the Dashboard first, My work right after it" \
-  "$(php -r '$h = (string) file_get_contents($argv[1]); $w = strpos($h, "class=\"menu-moje"); $d = strpos($h, "class=\"menu-prehled"); echo $w !== false && $d !== false && $d < $w ? "after" : "no";' "$WORK/response")" "after"
+  "$(php -r '$h = (string) file_get_contents($argv[1]); $w = strpos($h, "class=\"menu-moje"); $d = strpos($h, "class=\"menu-prehled"); echo $w !== false && $d !== false && $d < $w ? "after" : "no";' -- "$WORK/response")" "after"
 # 3.32 (U35): "Take it" on a new enquiry nobody handles – the editor takes it; a second take (someone has it) changes nothing
 sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES ('$(site_time)', 'W332 take', 'take@visitor.example', '[]', 0)" > /dev/null
 W332_TAKE=$(sq "SELECT idp FROM ka_poptavky WHERE formular = 'W332 take'")
@@ -138,7 +138,7 @@ sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, posledni_logi
 W324_HELPER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'w324-helper'")
 check "3.24 Users: the edit form offers the hand-over next to Block account" 200 "/admin.php?module=users&action=edit&id=$W324_SALES" 'name="hand_over_to"'
 expect "N324-4 Users: with a page in the trash the recipient must open Pages too – the administrator is offered, the colleague with Enquiries only not" \
-  "$(php -r 'preg_match("#<select id=\"hand_over_to\".*?</select>#s", (string) file_get_contents($argv[1]), $m); $s = $m[0] ?? ""; echo substr_count($s, "<option value=\"" . $argv[2] . "\""), "|", substr_count($s, "<option value=\"" . $argv[3] . "\"");' "$WORK/response" "$W324_ADMIN" "$W324_HELPER")" "1|0"
+  "$(php -r 'preg_match("#<select id=\"hand_over_to\".*?</select>#s", (string) file_get_contents($argv[1]), $m); $s = $m[0] ?? ""; echo substr_count($s, "<option value=\"" . $argv[2] . "\""), "|", substr_count($s, "<option value=\"" . $argv[3] . "\"");' -- "$WORK/response" "$W324_ADMIN" "$W324_HELPER")" "1|0"
 TOKEN=$(csrf); W324_LOG=$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'users'")
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=save" -d "_csrf=$TOKEN" -d "idu=$W324_SALES" -d user=w324-sales -d jmeno='Sales W324' -d email=w324-sales@example.com -d admin=0 -d blokovat=1 -d hand_over_to=0
 expect "3.24 Users: block with the hand-over in the edit form – the enquiry has nobody, the account is blocked, one change-log row" \

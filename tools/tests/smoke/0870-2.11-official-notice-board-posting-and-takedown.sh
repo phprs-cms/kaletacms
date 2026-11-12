@@ -69,5 +69,5 @@ expect "MCP: list_notice_log lists the whole trail with who and what" "$(mcp_val
 mcp list_notice_log "{\"collection\":\"uredni-deska\",\"id\":$NOTICE_B}" > "$WORK/response"
 expect "MCP: list_notice_log of one notice" "$(mcp_value count)|$(mcp_value entries 4 action)|$(mcp_value entries 4 fields taken_down)" "5|taken_down|$N_YESTERDAY"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
-php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_notice_log"]["readOnlyHint"] === true && !isset($t["edit_notice_log"]) && !isset($t["delete_notice_log"]) ? 0 : 1);' "$WORK/response" \
+php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_notice_log"]["readOnlyHint"] === true && !isset($t["edit_notice_log"]) && !isset($t["delete_notice_log"]) ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     MCP: the notice log is read-only – no tool edits or deletes it" || { echo "  CHYBA  notice log tools"; ERRORS=$((ERRORS+1)); }

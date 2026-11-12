@@ -1,7 +1,7 @@
 echo "== 2.13: Google Business Profile sync and customer reviews from Google"
 GBP_LOG="$FAKE_LOGS-google-business.log"; rm -f "$GBP_LOG" "$FAKE_LOGS-google-fewer"
 # gbp_sent <key>: the last logged request of a kind (patch | post) as JSON, for the checks of what went to Google
-gbp_sent() { php -r 'foreach (array_reverse(file($argv[1], FILE_IGNORE_NEW_LINES)) as $l) { $e = json_decode($l, true); if (isset($e[$argv[2]])) { echo json_encode($e, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; } }' "$GBP_LOG" "$1" 2>/dev/null; }
+gbp_sent() { php -r 'foreach (array_reverse(file($argv[1], FILE_IGNORE_NEW_LINES)) as $l) { $e = json_decode($l, true); if (isset($e[$argv[2]])) { echo json_encode($e, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); exit; } }' -- "$GBP_LOG" "$1" 2>/dev/null; }
 GBP_HOURS_BEFORE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'company_hours'")
 connect_fake google
 check "GBP: the Connections screen has the Business Profile section with the location select and the news opt-in" 200 "/admin.php?module=connectors" 'name="config\[location\]"'
@@ -25,7 +25,7 @@ sq "INSERT INTO ka_jobs (name, last_run) VALUES ('gbp', NULL) ON DUPLICATE KEY U
 background_jobs resume
 rm -f "$GBP_LOG"; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 GBP_PATCH=$(gbp_sent patch)
-GBP_TOMORROW=$(php -r '$d = new DateTimeImmutable($argv[1]); echo json_encode(["year" => (int) $d->format("Y"), "month" => (int) $d->format("n"), "day" => (int) $d->format("j")]);' "$TOMORROW")
+GBP_TOMORROW=$(php -r '$d = new DateTimeImmutable($argv[1]); echo json_encode(["year" => (int) $d->format("Y"), "month" => (int) $d->format("n"), "day" => (int) $d->format("j")]);' -- "$TOMORROW")
 printf %s "$GBP_PATCH" | grep -q '"updateMask":"regularHours,specialHours"' && [ "$(printf %s "$GBP_PATCH" | grep -o '"openDay":"[A-Z]*"' | sort | tr '\n' ' ')" = '"openDay":"FRIDAY" "openDay":"MONDAY" "openDay":"THURSDAY" "openDay":"TUESDAY" "openDay":"WEDNESDAY" ' ] \
   && printf %s "$GBP_PATCH" | grep -q '"openTime":{"hours":8,"minutes":0},"closeDay":"MONDAY","closeTime":{"hours":17,"minutes":0}' && printf %s "$GBP_PATCH" | grep -qF "{\"startDate\":$GBP_TOMORROW,\"endDate\":$GBP_TOMORROW,\"closed\":true}" \
   && echo "  ok     GBP: the job PATCHes the location – Mo–Fr 8–17 as regularHours, tomorrow closed as specialHours, with the update mask" || { echo "  CHYBA  GBP hours PATCH"; printf '%s\n' "$GBP_PATCH" | head -c 600; cat "$WORK/tasks.txt" | head -5; ERRORS=$((ERRORS+1)); }

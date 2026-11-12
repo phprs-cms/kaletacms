@@ -126,7 +126,7 @@ mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Spatna data","data":"funkce=
 mcp uloz_polozku_kolekce '{"kolekce":"tym","nazev":"Zdenek Zeman","adresa":"zdenek","zobrazit":true}' > "$WORK/response"
 grep -q 'tym\\/zdenek' "$WORK/response" && echo "  ok     MCP: vlastní adresa položky" || { echo "  CHYBA  MCP adresa položky"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp stavba_uloz '{"kolekce":"tym","stavba":{"v":1,"deti":[{"typ":"sekce","deti":[{"typ":"nadpis","znacka":"h1","obsah":{"text":"Profil: {{nazev}}"}}]}]}}' > "$WORK/response"
-PREVIEW=$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo json_decode($o["result"]["content"][0]["text"] ?? "{}", true)["nahled"] ?? "";' "$WORK/response")
+PREVIEW=$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo json_decode($o["result"]["content"][0]["text"] ?? "{}", true)["nahled"] ?? "";' -- "$WORK/response")
 [ -n "$PREVIEW" ] && curl -s "$PREVIEW" | contains 'Profil: ' && echo "  ok     MCP: šablona detailu kolekce jako koncept s podepsaným náhledem" || { echo "  CHYBA  MCP šablona detailu kolekce"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s "$B/tym/zdenek" | contains 'Profil: ' && { echo "  CHYBA  koncept šablony kolekce je vidět bez publikování"; ERRORS=$((ERRORS+1)); } || echo "  ok     koncept šablony kolekce návštěvník nevidí"
 mcp publikuj_stavbu '{"kolekce":"tym"}' > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html

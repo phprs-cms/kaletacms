@@ -30,5 +30,5 @@ leftovers() { php -r 'require $argv[3] . "/system/bootstrap.php"; $dictionary = 
     $t = trim((string) preg_replace("/\s+/u", " ", $n->textContent));
     if ($t !== "" && isset($dictionary[$t]) && $dictionary[$t] !== $t && !isset($czechKeys[$t])) { $found[$t] = true; }
   }
-  echo implode(" | ", array_slice(array_keys($found), 0, 5));' "$1" "$2" "$ROOT"; }
+  echo implode(" | ", array_slice(array_keys($found), 0, 5));' -- "$1" "$2" "$ROOT"; }
 

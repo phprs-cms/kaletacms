@@ -2,7 +2,7 @@ echo "== 3.35 review M2: a passkey-only account is never confirmed by its passwo
 # Uses the software authenticator of 2300 ($WORK/pk335.php, p335_*). pk414 signs in with a passkey only; once the proofs of its
 # passkey sign-in are old, its right current password confirms none of the sensitive changes – only "Confirm with your
 # passkey" (Auth::confirmWithPasskey through My account) or a new passkey/backup-code step does (Auth::freshProof).
-R414_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+R414_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk414', '$R414_HASH', 'Passkey Tester 414', 'pk414@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0)" > /dev/null
 R414_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk414'")

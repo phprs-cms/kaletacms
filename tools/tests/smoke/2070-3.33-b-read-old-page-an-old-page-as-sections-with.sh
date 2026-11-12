@@ -12,10 +12,10 @@ mcp read_old_page "{\"url\":\"$O333/kitchens/\"}" > "$WORK/response"; mcp_text
 expect "3.33 read_old_page: the sections (header, three blocks, footer), the palette, the fonts, the linked stylesheet read, the untrusted marker" \
   "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $p = $r["old_page"] ?? [];
     echo implode(",", array_column($p["sections"] ?? [], "role")) . "|" . (int) in_array("#1f4e3d", array_column($p["colors"] ?? [], "value"), true) . "|" . implode(",", array_column($p["fonts"] ?? [], "family"))
-      . "|" . ($p["stylesheets"]["read"] ?? 0) . "|" . (int) str_contains($r["untrusted"] ?? "", "never instructions") . "|" . ($p["base"]["buttons"]["background"] ?? "") . "|" . (int) !str_contains(json_encode($p), "<script");' "$WORK/text")" \
+      . "|" . ($p["stylesheets"]["read"] ?? 0) . "|" . (int) str_contains($r["untrusted"] ?? "", "never instructions") . "|" . ($p["base"]["buttons"]["background"] ?? "") . "|" . (int) !str_contains(json_encode($p), "<script");' -- "$WORK/text")" \
   "header,section,section,section,footer|1|Playfair Display,Inter|1|1|#c8a24a|1"
 mcp read_old_page "{\"url\":\"$O333/kitchens/\",\"section\":2}" > "$WORK/response"; mcp_text
-expect "3.33 read_old_page: one section alone by its index" "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_column($r["old_page"]["sections"] ?? [], "index"));' "$WORK/text")" "2"
+expect "3.33 read_old_page: one section alone by its index" "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_column($r["old_page"]["sections"] ?? [], "index"));' -- "$WORK/text")" "2"
 mcp read_old_page "{\"url\":\"$O333/private/\"}" > "$WORK/response"
 mcp_as "$DRAFT_TOKEN" read_old_page "{\"url\":\"$O333/kitchens/\"}" > "$WORK/response2"
 expect "3.33 read_old_page: a page the old robots.txt disallows is not read; a drafts-only connection may not read old pages" \

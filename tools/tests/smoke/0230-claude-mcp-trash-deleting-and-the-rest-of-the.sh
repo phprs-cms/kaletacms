@@ -2,7 +2,7 @@ echo "== Claude (MCP): trash, deleting and the rest of the admin (continued)"
 # 3.5 (UXA-02) over MCP: create_page with visible true and nothing to show waits hidden; the first published build shows it –
 # the same end state as before for create_page → save_build(publish), without an empty page on the site in between
 mcp create_page '{"title":"Prázdná MCP","slug":"prazdna-mcp","visible":true,"in_menu":true}' > "$WORK/response"
-php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' "$WORK/response" > "$WORK/text"
+php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' -- "$WORK/response" > "$WORK/text"
 MCP_EMPTY=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'prazdna-mcp'")
 contains -q 'hidden until it has content' "$WORK/text" && expect "3.5 MCP: an empty visible page waits hidden, the wish is kept" "$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', v_menu) FROM ka_stranky WHERE ids = ${MCP_EMPTY:-0}")" "0/1/1" \
   || { echo "  CHYBA  3.5 MCP create_page status"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
@@ -24,7 +24,7 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html
 expect "3.5 N35-1: a scheduled waiting page stays hidden with its schedule after text and after a published build" \
   "$EMB_TEXT|$(sq "SELECT CONCAT(zobrazit, '/', show_on_publish, '/', zverejnit_od IS NOT NULL) FROM ka_stranky WHERE ids = ${MCP_EMB:-0}")|$(curl -s -o /dev/null -w '%{http_code}' "$B/embargo-mcp")" "0/0/1|0/0/1|404"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
-php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_pages"]["readOnlyHint"] === true && $t["trash_page"]["destructiveHint"] === true && $t["create_page"]["readOnlyHint"] === false && $t["delete_collection"]["destructiveHint"] === true ? 0 : 1);' "$WORK/response" \
+php -r '$t = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["tools"], "annotations", "name"); exit($t["list_pages"]["readOnlyHint"] === true && $t["trash_page"]["destructiveHint"] === true && $t["create_page"]["readOnlyHint"] === false && $t["delete_collection"]["destructiveHint"] === true ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     MCP: tools carry annotations (read-only, destructive)" || { echo "  CHYBA  MCP annotations"; ERRORS=$((ERRORS+1)); }
 mcp site_info '{}' > "$WORK/response"
 expect "MCP: site_info lists extensions and languages" "$(mcp_value extensions | grep -c novinky)|$(mcp_value languages default)" "1|cs"

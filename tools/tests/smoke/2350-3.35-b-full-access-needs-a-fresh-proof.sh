@@ -2,7 +2,7 @@ echo "== 3.35 B1: approving full access on the OAuth consent needs a fresh proof
 # Owner decision 11 Nov 2026: a NEW Claude connection with full access ("Can also publish") is approved only with the
 # current password, or within Auth::VERIFIED_WINDOW after a sign-in or a confirmed password (the session marker
 # verified_at). Drafts and read stay one click. A refused consent keeps its request for another try.
-S335A_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+S335A_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('s335a', '$S335A_HASH', 'Tester S335A', 's335a@example.com', 'en', 2, '$(site_time)', '$(site_time)', 0);
   DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
 S335A_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 's335a'")

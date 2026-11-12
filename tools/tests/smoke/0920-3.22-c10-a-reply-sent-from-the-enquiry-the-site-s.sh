@@ -61,7 +61,7 @@ expect "3.22 C10: reply_to_enquiry sends with confirm=true, the history has a se
   "$(mcp_value status)|$(sq "SELECT CONCAT_WS('|', JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].via')), JSON_UNQUOTE(JSON_EXTRACT(replies, '\$[1].subject'))) FROM ka_poptavky WHERE idp = $C10")" "sent|2|mcp|Re: Kolik stojí okna?"
 # anonymising keeps who replied and when, drops the address, the subject and the text; the personal data file carries the replies
 mcp find_personal_data '{"email":"hana@example.cz"}' > /dev/null
-C10_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $f = Kaleta\Core\PersonalData::find($app->db(), "hana@example.cz"); foreach ($f["enquiries"] as $e) { if ((int) $e["idp"] === (int) $argv[1]) { echo count($e["replies"]), "|", $e["replies"][0]["text"]; } }' "$C10")
+C10_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $f = Kaleta\Core\PersonalData::find($app->db(), "hana@example.cz"); foreach ($f["enquiries"] as $e) { if ((int) $e["idp"] === (int) $argv[1]) { echo count($e["replies"]), "|", $e["replies"][0]["text"]; } }' -- "$C10")
 expect "3.22 C10: the personal data file carries the replies sent to the person" "$C10_EXPORT" "2|Dobrý den,
 pošleme nabídku do pátku."
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$C10"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=anonymise" -d "_csrf=$(csrf)" -d "idp=$C10"

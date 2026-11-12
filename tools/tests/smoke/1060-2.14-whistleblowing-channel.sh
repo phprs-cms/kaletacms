@@ -75,7 +75,7 @@ WB_CALM=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//' 
 expect "3.3.3 whistleblowing: below the hourly cap a report carries no flood mark" "$WB_HTTP|$(sq "SELECT flood FROM ka_whistleblowing_cases WHERE number = '$WB_CALM'")" "200|0"
 sq "DELETE FROM ka_whistleblowing_cases WHERE number = '$WB_CALM'; DELETE FROM ka_kontrola_ip WHERE typ = 'oznameni-den'" > /dev/null
 # the storage cap for attachments: above it the report goes through only without new attachments
-php -r '$f = fopen($argv[1], "w"); ftruncate($f, 1100 * 1048576); fclose($f);' "$WORK/web/storage/oznameni/$(date +%Y)/full.bin"
+php -r '$f = fopen($argv[1], "w"); ftruncate($f, 1100 * 1048576); fclose($f);' -- "$WORK/web/storage/oznameni/$(date +%Y)/full.bin"
 WB_HTTP=$(curl -s -o "$WORK/response" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=With a file over the storage cap" -F name= -F contact= -F "files[]=@$WORK/cv.pdf")
 WB_HTTP2=$(curl -s -o "$WORK/response2" -w '%{http_code}' -X POST "$B/_report" -F "as_cas=$WB_TIME" -F "as_podpis=$WB_SIGNATURE" --form-string "text=Without a file over the storage cap" -F name= -F contact=)
 WB_NOFILE=$(grep -o 'ka-oznameni-cislo">[0-9-]*' "$WORK/response" | sed 's/.*>//' || true)

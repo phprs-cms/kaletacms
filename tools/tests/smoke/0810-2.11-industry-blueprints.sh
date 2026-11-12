@@ -28,7 +28,7 @@ mcp export_blueprint '{"key":"my_clinic","name":"My clinic"}' > "$WORK/response"
 contains -q 'kaleta_blueprint' "$WORK/response" && contains -q 'insurers' "$WORK/response" && ! contains -q 'VZP' "$WORK/response" && contains -q 'people' "$WORK/response" \
   && echo "  ok     blueprints: the export has the presets and the facts, never their values" || { echo "  CHYBA  export_blueprint"; head -c 500 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -D "$WORK/headers" -o "$WORK/response" "$B/admin.php?module=blueprints&action=export&key=my_clinic&name=Moje"
-grep -qi 'filename="my_clinic.blueprint.json"' "$WORK/headers" && php -r 'exit(json_decode(file_get_contents($argv[1]), true)["kaleta_blueprint"] === 1 ? 0 : 1);' "$WORK/response" \
+grep -qi 'filename="my_clinic.blueprint.json"' "$WORK/headers" && php -r 'exit(json_decode(file_get_contents($argv[1]), true)["kaleta_blueprint"] === 1 ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     blueprints: the admin downloads the site as a blueprint file" || { echo "  CHYBA  stažení plánu"; ERRORS=$((ERRORS+1)); }
 mcp remove_blueprint '{"key":"dental_test"}' > /dev/null
 expect "blueprints: removing keeps the collection and the fact" "$(sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_blueprints), '|', (SELECT COUNT(*) FROM ka_kolekce WHERE preset = 'people'), '|', (SELECT value FROM ka_facts WHERE fact_key = 'insurers'))")" "0|1|VZP, OZP"

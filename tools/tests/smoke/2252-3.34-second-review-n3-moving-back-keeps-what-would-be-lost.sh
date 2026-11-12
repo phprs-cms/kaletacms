@@ -19,14 +19,14 @@ N3_KEY="stranka:1|N3 back"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=move"
 expect "3.34 second review N3: a post without the confirmation moves nothing and opens the review" \
   "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?module=applications&action=move_run" -d "_csrf=$(csrf)" -d direction=back --data-urlencode "form=$N3_KEY" | grep -c 'action=move&back=')|$(sq "SELECT COUNT(*) FROM ka_applications WHERE form = 'N3 back'")" "1|4"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=move&back=$(php -r 'echo rawurlencode($argv[1]);' "$N3_KEY")"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=move&back=$(php -r 'echo rawurlencode($argv[1]);' -- "$N3_KEY")"
 expect "3.34 second review N3: the review says how many move, how many stay and why (total|move|expired|kept|move with the box), that the status, its history and the consent are dropped, and offers the box" \
   "$(grep -o 'data-move-back-review="[^"]*"' "$WORK/response")|$(grep -c 'data-move-back-drops' "$WORK/response")|$(grep -c 'name="include_kept"' "$WORK/response")" \
   'data-move-back-review="4|1|1|2|3"|1|1'
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=applications&action=move_run" -d "_csrf=$(csrf)" -d direction=back -d confirmed=1 --data-urlencode "form=$N3_KEY"
 expect "3.34 second review N3: confirmed – only the fresh one goes back; the old, the hired and the kept one stay applications" \
   "$(sq "SELECT GROUP_CONCAT(name ORDER BY name) FROM ka_applications WHERE form = 'N3 back'")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'N3 back' AND email = 'fresh-n3@example.com'")" "Hired N3,Old N3,Pool N3|1"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=move&back=$(php -r 'echo rawurlencode($argv[1]);' "$N3_KEY")"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=move&back=$(php -r 'echo rawurlencode($argv[1]);' -- "$N3_KEY")"
 curl -s -b "$JAR" -o /dev/null -X POST "$B/admin.php?module=applications&action=move_run" -d "_csrf=$(csrf)" -d direction=back -d confirmed=1 -d include_kept=1 --data-urlencode "form=$N3_KEY"
 expect "3.34 second review N3: with the box ticked the hired and the kept one go too – the old one never (the retention would delete it at once)" \
   "$(sq "SELECT GROUP_CONCAT(name ORDER BY name) FROM ka_applications WHERE form = 'N3 back'")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'N3 back'")" "Old N3|3"

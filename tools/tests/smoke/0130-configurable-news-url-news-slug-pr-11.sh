@@ -26,7 +26,7 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/general.html" "$B/admin.php?module=setting
 php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
   foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
     $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
-  echo implode("&", $q);' "$WORK/general.html" > "$WORK/general.post"
+  echo implode("&", $q);' -- "$WORK/general.html" > "$WORK/general.post"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general.post" -d news_slug=oauth
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=general"
 expect "news_slug: oauth is refused in the admin with the reason" "$(grep -c 'Adresa novinek.*Tuto adresu používá systém' "$WORK/response")|$(slug_q "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'news_slug'")" "1|blog"

@@ -5,7 +5,7 @@ for i in $(seq 1 20); do (exec 3<>"/dev/tcp/127.0.0.1/$SMTP2_PORT") 2>/dev/null 
 command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$T327_SMTP" > /dev/null 2>&1 & SMTP_PID=$!
 sq "DROP TABLE IF EXISTS ka_t327_mail; CREATE TABLE ka_t327_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
-T327_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+T327_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 # Jana: an editor with Enquiries and Pages, e-mail at once (English); Petr: Enquiries only, the daily summary; Eva: Pages, no e-mail
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('t327-jana', '$T327_HASH', 'Jana T327', 'jana-t327@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'instant'),
@@ -21,8 +21,8 @@ T327_ENQ=$(sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALU
 t327_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"' Kaleta\Core\Mail::processQueue($app->settings(), 50);'); }
 t327_mails() { grep -l "^X-Rcpt-To: $1" "$T327_SMTP"/*.eml 2>/dev/null | wc -l | tr -d ' '; }
 t327_last() { local f; f=$(grep -l "^X-Rcpt-To: $1" "$T327_SMTP"/*.eml 2>/dev/null | tail -1); if [ -n "$f" ]; then eml "$f"; fi; }
-t327_json() { php -r '$v = json_decode((string) file_get_contents($argv[1]), true); foreach (explode(".", $argv[2]) as $k) { $v = is_array($v) ? ($v[$k] ?? null) : null; } echo is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_bool($v) ? ($v ? "true" : "false") : (string) $v);' "$WORK/text" "$1"; }
-t327_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', 'full', '$4', '$(php -r 'echo hash("sha256", $argv[1]);' "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
+t327_json() { php -r '$v = json_decode((string) file_get_contents($argv[1]), true); foreach (explode(".", $argv[2]) as $k) { $v = is_array($v) ? ($v[$k] ?? null) : null; } echo is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_bool($v) ? ($v ? "true" : "false") : (string) $v);' -- "$WORK/text" "$1"; }
+t327_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', 'full', '$4', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
 T327_TJ=$(t327_token 3 "$T327_JANA" t327-jana work); T327_TP=$(t327_token 4 "$T327_PETR" t327-petr all); T327_TE=$(t327_token 5 "$T327_EVA" t327-eva all); T327_TA=$(t327_token 6 "$T327_ADMIN" t327-admin all)
 
 # save_task: a task for oneself about an enquiry, due in 3 days (9:00 on the site's clock)

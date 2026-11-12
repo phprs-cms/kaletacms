@@ -21,7 +21,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=media&acti
 expect "clean-up: descriptions saved in bulk" "$(sq "SELECT nazev FROM ka_media WHERE ido = $F16_ALT")" "Ctverec z formulare"
 # 3.15 (N49): a user who is not an administrator sees only their own files in the clean-up
 mcp upload_file "{\"filename\":\"spravcuv-n49.png\",\"data\":\"$PNG\"}" > /dev/null
-sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n49-author', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Author N49', 0, '$(site_time)', '$(site_time)');
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n49-author', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")', 'Author N49', 0, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'media' FROM ka_uzivatele WHERE user = 'n49-author'" > /dev/null
 JAR_N49="$WORK/cookies-n49.txt"; curl -s -c "$JAR_N49" -o "$WORK/response" "$B/admin.php"
 curl -s -b "$JAR_N49" -c "$JAR_N49" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=n49-author --data-urlencode "password=$PASSWORD"
@@ -32,13 +32,13 @@ sq "DELETE FROM ka_uzivatele WHERE user = 'n49-author'" > /dev/null
 mcp create_page '{"title":"Kontrola obsahu F16","content":"<h2>Co nabízíme</h2><p>Text o kuchyních.</p><h4>Skok</h4><img src=\"/media/x.jpg\">"}' > /dev/null; F16_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'kontrola-obsahu-f16'")
 mcp get_page "{\"id\":$F16_PAGE}" > "$WORK/response"; mcp_value content_check > "$WORK/check.json"
 expect "MCP: get_page content_check – one H1 (the title), a skipped level, an image without alt, a short title, no description" \
-  "$(php -r '$c = array_column(json_decode(file_get_contents($argv[1]), true), "ok", "check"); echo (int) $c["single_h1"], (int) $c["heading_order"], (int) $c["images_alt"], (int) $c["title_length"], (int) $c["description_length"];' "$WORK/check.json")" "10000"
+  "$(php -r '$c = array_column(json_decode(file_get_contents($argv[1]), true), "ok", "check"); echo (int) $c["single_h1"], (int) $c["heading_order"], (int) $c["images_alt"], (int) $c["title_length"], (int) $c["description_length"];' -- "$WORK/check.json")" "10000"
 check "the page editor shows the content check of the saved version" 200 "/admin.php?module=pages&action=edit&id=$F16_PAGE" 'data-kontrola="heading_order"'
 # translation overview: the page has no English version – missing in the admin matrix and over MCP; after translating and changing the original – outdated
 check "translations: the overview offers to create the missing English version" 200 "/admin.php?module=pages&action=translations" "translation_of=$F16_PAGE"
 grep -q 'data-stav="missing"' "$WORK/response" && echo "  ok     translations: the cell says missing" || { echo "  CHYBA  translation matrix cell"; ERRORS=$((ERRORS+1)); }
 mcp translation_status '{"type":"page"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
-f16_status() { php -r '$v = json_decode(file_get_contents($argv[1]), true) ?: []; foreach ($v as $i) { if ((int) $i["id"] === (int) $argv[2]) { echo $i["type"], "|", $i["translations"]["en"]["status"]; } }' "$WORK/items.json" "$F16_PAGE"; }
+f16_status() { php -r '$v = json_decode(file_get_contents($argv[1]), true) ?: []; foreach ($v as $i) { if ((int) $i["id"] === (int) $argv[2]) { echo $i["type"], "|", $i["translations"]["en"]["status"]; } }' -- "$WORK/items.json" "$F16_PAGE"; }
 expect "MCP: translation_status reports the missing English version" "$(f16_status)" "page|missing"
 mcp create_page "{\"title\":\"Content check F16\",\"language\":\"en\",\"translation_of\":$F16_PAGE}" > /dev/null
 mcp translation_status '{"type":"page"}' > "$WORK/response"; mcp_value items > "$WORK/items.json"
@@ -56,7 +56,7 @@ mcp save_collection_item '{"collection":"n33","name":"N33 hidden item"}' > /dev/
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n33-author', '', 'Author N33', 0, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'news' FROM ka_uzivatele WHERE user = 'n33-author'" > /dev/null
 AUTHOR33_TOKEN="kaleta_$(printf 'c%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 33', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR33_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n33-author'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 33', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$AUTHOR33_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n33-author'" > /dev/null
 mcp_as "$AUTHOR33_TOKEN" create_news "{\"title\":\"N33 own draft\",\"category\":\"$CATEGORY\"}" > /dev/null
 mcp_as "$AUTHOR33_TOKEN" translation_status '{"status":"all"}' > "$WORK/response"; mcp_text
 expect "3.10.1 N33: translation_status for an author lists its own draft, but no hidden page, other author's draft or hidden collection item" \

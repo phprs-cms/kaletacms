@@ -21,7 +21,7 @@ sq "DELETE FROM ka_stranky WHERE ids = $S3312_PAGE" > /dev/null
 # N100: a signed-in session alone neither sets nor replaces the second factor – turning it on asks for the current password,
 # and an account that has one keeps it until it is turned off (with the password); a backup code and the administrator's
 # reset keep working. An administrator of its own (s3312) so the main account stays as the other checks left it.
-S3312_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+S3312_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('s3312', '$S3312_HASH', 'Tester S3312', 's3312@example.com', '', 2, '$(site_time)', '$(site_time)', 0);
   DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
 S3312_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 's3312'")
@@ -29,7 +29,7 @@ S3312_JAR="$WORK/jar-s3312"; rm -f "$S3312_JAR"
 curl -s -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php"; curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=s3312 --data-urlencode "password=$PASSWORD"
 s3312_account() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=account" -d "_csrf=$S3312_CSRF" "$@"; }
 s3312_totp() { sq "SELECT CONCAT(totp_tajemstvi, '/', IFNULL(IFNULL(JSON_LENGTH(totp_zalozni, '\$.codes'), JSON_LENGTH(totp_zalozni)), 0)) FROM ka_uzivatele WHERE idu = $S3312_USER"; } # 3.35 review L4: {"codes": […]} or the older list
-s3312_code() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30));' "$ROOT" "$1"; }
+s3312_code() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30));' -- "$ROOT" "$1"; }
 curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
 s3312_account -d co=totp_start > /dev/null
 curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"
@@ -104,7 +104,7 @@ expect "3.31.2 N101: Users – the form sends 0 for the unticked box; unticked k
 # 3.31.2 (pre-release review): an administrator setting another user's password or turning off their second factor in Users
 # confirms it with their own current password; without it (or with a wrong one) nothing of the save is written. Recovery
 # still works with it: the factor and the passkeys go, the new password signs the user in.
-S3312_SECRET2=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' "$ROOT")
+S3312_SECRET2=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' -- "$ROOT")
 sq "UPDATE ka_uzivatele SET totp_tajemstvi = '$S3312_SECRET2', totp_zalozni = '[]', jmeno = 'Tester S3312' WHERE idu = $S3312_USER;
   INSERT INTO ka_uzivatele_klice (idu, nazev, otisk_id, id_klice, verejny, alg, pocitadlo, vytvoreno) VALUES ($S3312_USER, 's3312 key', SHA2('s3312-key-$RANDOM', 256), 'k3312', 'x', -7, 0, '$(site_time)')" > /dev/null
 S3312_HASH_NOW=$(sq "SELECT password FROM ka_uzivatele WHERE idu = $S3312_USER")

@@ -3,9 +3,9 @@ echo "== 3.35 review M3, L6: passkeys are counted on the host of the site addres
 # backup codes); after the site address moves to another host (confirmed, with the administrator's password) that passkey
 # no longer counts – the account signs in with its password alone instead of a dead end – System status says so, My
 # account marks the passkey. L6: an explicit default port, a trailing dot or slash of the site address are normalised.
-R418_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+R418_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 R418_URL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")
-R418_HOST=$(php -r 'echo strtolower(parse_url($argv[1], PHP_URL_HOST));' "$R418_URL")
+R418_HOST=$(php -r 'echo strtolower(parse_url($argv[1], PHP_URL_HOST));' -- "$R418_URL")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk418', '$R418_HASH', 'Passkey Tester 418', 'pk418@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0)" > /dev/null
 R418_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk418'")
@@ -30,7 +30,7 @@ expect "3.35 review M3: … the message names the host change" "$(grep -c 'Tick 
 expect "3.35 review M3: confirmed but without the administrator's password – not saved" \
   "$(r418_save "&site_url=$R418_NEW&site_url_confirm=1")|$(r418_url)" "302|$R418_URL"
 expect "3.35 review L6: the same host with an explicit default port, a trailing dot and slash is no host change – saved normalised" \
-  "$(r418_save "&site_url=$(php -r '$u = parse_url($argv[1]); echo $u["scheme"] . "://" . $u["host"] . ".:" . ($u["port"] ?? ($u["scheme"] === "https" ? 443 : 80)) . "/";' "$R418_URL")")|$(r418_url)" "302|$R418_URL"
+  "$(r418_save "&site_url=$(php -r '$u = parse_url($argv[1]); echo $u["scheme"] . "://" . $u["host"] . ".:" . ($u["port"] ?? ($u["scheme"] === "https" ? 443 : 80)) . "/";' -- "$R418_URL")")|$(r418_url)" "302|$R418_URL"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'" > /dev/null
 expect "3.35 review M3: confirmed and with the password – saved; the change log says so" \
   "$(r418_save "&site_url=$R418_NEW&site_url_confirm=1&soucasne=$PASSWORD")|$(r418_url)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'site_host_change'")" "302|$R418_NEW|1"

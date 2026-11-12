@@ -48,7 +48,7 @@ expect "3.19.1 (N82): deleting a backup is in the change log and the events" \
   "$([ ! -f "$WORK/web/storage/zalohy/$N82_SAFETY" ] && echo gone)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'backup deleted' AND popis = '$N82_SAFETY'")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'backup.deleted' AND data LIKE '%$N82_SAFETY%'")" "gone|1|1"
 # N84: a new signing key withdraws a shared preview link; the stored secrets stay readable whatever the state of the encryption key
 n84() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $db = $app->db(); $s = $app->settings();
-  echo $argv[1] === "key" ? Kaleta\Core\Preview::key($db, $s, "web", 60) : (Kaleta\Core\Preview::verify($db, $s, "web", $argv[2]) ? "valid" : "withdrawn") . "|" . Kaleta\Core\Vault::state($s);' "$@"); }
+  echo $argv[1] === "key" ? Kaleta\Core\Preview::key($db, $s, "web", 60) : (Kaleta\Core\Preview::verify($db, $s, "web", $argv[2]) ? "valid" : "withdrawn") . "|" . Kaleta\Core\Vault::state($s);' -- "$@"); }
 KEY84=$(n84 key); STATE84=$(n84 check "$KEY84"); SECRET84=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'secret_key'")
 backups_page; TOKEN=$(csrf)
 grep -q 'action=new_signing_key' "$WORK/response" && grep -q 'Vytvořit nový podpisový klíč? Okamžitě přestane fungovat: každý sdílený odkaz na náhled konceptu' "$WORK/response" \

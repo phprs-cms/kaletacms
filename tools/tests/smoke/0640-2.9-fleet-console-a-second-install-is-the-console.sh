@@ -104,7 +104,7 @@ grep -qF 'href="http://127.0.0.1:1/" target="_blank" rel="noopener"' "$WORK/resp
 sq3 "UPDATE ka_fleet_sites SET url = '$B' WHERE id = $FLEET_ID" > /dev/null
 # Claude on the console reads the fleet (read-only tools, only with the extension)
 CON_TOKEN="kaleta_$(printf 'c%.0s' $(seq 1 48))"
-sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$CON_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$CON_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sites","arguments":{}}}' > "$WORK/response"
 contains -q 'console_decides_updates' "$WORK/response" && contains -q 'newest_version' "$WORK/response" && echo "  ok     MCP list_sites on the console" || { echo "  CHYBA  MCP list_sites"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_site\",\"arguments\":{\"id\":$FLEET_ID}}}" > "$WORK/response"

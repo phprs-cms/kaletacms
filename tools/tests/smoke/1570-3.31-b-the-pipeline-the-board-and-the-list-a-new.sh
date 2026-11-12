@@ -1,5 +1,5 @@
 echo "== 3.31 (B): the Pipeline – the board and the list, a new deal, a deal from an enquiry and its badge, moves without JavaScript (lost with a reason), the detail, comments and tasks, the stages, permissions"
-B331_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+B331_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES
   ('b331-jana', '$B331_HASH', 'Jana B331', 'jana-b331@example.com', '', 0, '$(site_time)', '$(site_time)', 0),
   ('b331-petr', '$B331_HASH', 'Petr B331', 'petr-b331@example.com', '', 1, '$(site_time)', '$(site_time)', 0);
@@ -68,7 +68,7 @@ check "3.31: … the detail has Lost chosen and the reason to fill in" 200 "/adm
 b331_post "$JAR" "module=pipeline&action=detail&id=$B331_D1" "module=pipeline&action=move" -d "id=$B331_D1" -d stage=lost -d lost_reason=nonsense -d return=detail > /dev/null
 b331_post "$JAR" "module=pipeline&action=detail&id=$B331_D1" "module=pipeline&action=move" -d "id=$B331_D1" -d stage=lost -d lost_reason=timing --data-urlencode "lost_note=Až na jaře" -d return=detail > /dev/null
 expect "3.31: … an unknown reason is refused; with a reason and a note the deal is lost and closed" "$(b331_deal "$B331_D1")" "Nový web B331/lost/12500.50/CZK/$B331_ADMIN/$B331_EVA/$B331_CO/-/closed/timing/Až na jaře"
-B331_JSON=$(b331_post "$JAR" "module=pipeline" "module=pipeline&action=move" -d "id=$B331_D1" -d stage=proposal -d format=json > /dev/null; php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo ($j["ok"] ? "ok" : "no") . "/" . $j["stage"] . "/" . ($j["closed"] ? "closed" : "open");' "$WORK/b331-post")
+B331_JSON=$(b331_post "$JAR" "module=pipeline" "module=pipeline&action=move" -d "id=$B331_D1" -d stage=proposal -d format=json > /dev/null; php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo ($j["ok"] ? "ok" : "no") . "/" . $j["stage"] . "/" . ($j["closed"] ? "closed" : "open");' -- "$WORK/b331-post")
 expect "3.31: drag and drop (format=json) reopens it in Proposal – the reason and the note are cleared" "$B331_JSON|$(b331_deal "$B331_D1" | cut -d/ -f9-11)" "ok/proposal/open|open/-/-"
 # the detail: history, the thread and the tasks of the deal; the change log never carries the title
 check "3.31: the detail – the history, the comments and tasks of deal:N, the move form" 200 "/admin.php?module=pipeline&action=detail&id=$B331_D1" "data-comments=\"deal:$B331_D1\""

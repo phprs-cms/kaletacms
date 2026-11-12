@@ -2,7 +2,7 @@ echo "== 3.32 pre-release review"
 r332_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
 R332_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 # r332_enq <name> <company> <e-mail> <message> [zdroj] [tema] – an enquiry as a form stores it
-r332_enq() { local data; data=$(php -r 'echo json_encode([["Jméno", $argv[1]], ["Firma", $argv[2]], ["E-mail", $argv[3]], ["Zpráva", $argv[4]]], JSON_UNESCAPED_UNICODE);' "$1" "$2" "$3" "$4")
+r332_enq() { local data; data=$(php -r 'echo json_encode([["Jméno", $argv[1]], ["Firma", $argv[2]], ["E-mail", $argv[3]], ["Zpráva", $argv[4]]], JSON_UNESCAPED_UNICODE);' -- "$1" "$2" "$3" "$4")
   sq "INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, data, stav) VALUES ('$(site_time)', 'Kontakt', '${5:-stranka:1}', '${6:-Kontakt}', '$3', '$data', 1); SELECT LAST_INSERT_ID();"; }
 # r332_deal <idp> [title] – a deal from the enquiry: the generated title (createFromEnquiry) or the one given
 r332_deal() { if [ -z "${2:-}" ]; then r332_php "echo Kaleta\\Core\\Deals::createFromEnquiry(\$app, $1, $R332_ADMIN);"; else
@@ -76,7 +76,7 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=my_work"
 R332_UN=$(awk '/data-list="unassigned"/{u=1} /<\/section>/{u=0} u' "$WORK/response")
 mcp my_work '{}' > "$WORK/response"; mcp_text
 expect "3.32 My work: an opened enquiry from 40 days ago is not listed; a new one that old and an opened recent one are – in the admin and in MCP my_work" \
-  "$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W1\"")|$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W2\"")|$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W3\"")|$(php -r '$ids = array_column(json_decode(file_get_contents($argv[1]), true)["enquiries_unassigned"] ?? [], "id"); echo implode(",", array_map(fn ($i) => (int) in_array((int) $i, $ids, true), array_slice($argv, 2)));' "$WORK/text" "$R332_W1" "$R332_W2" "$R332_W3")" \
+  "$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W1\"")|$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W2\"")|$(echo "$R332_UN" | grep -c "data-enquiry=\"$R332_W3\"")|$(php -r '$ids = array_column(json_decode(file_get_contents($argv[1]), true)["enquiries_unassigned"] ?? [], "id"); echo implode(",", array_map(fn ($i) => (int) in_array((int) $i, $ids, true), array_slice($argv, 2)));' -- "$WORK/text" "$R332_W1" "$R332_W2" "$R332_W3")" \
   "0|1|1|0,1,1"
 sq "DELETE FROM ka_poptavky WHERE idp IN ($R332_W1, $R332_W2, $R332_W3)" > /dev/null
 # item 5: Create deal from an enquiry not linked to a customer yet – the form's "the enquiry's customer" (0) keeps the customer

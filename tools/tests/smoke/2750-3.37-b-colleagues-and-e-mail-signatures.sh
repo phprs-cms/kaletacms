@@ -51,7 +51,7 @@ expect "3.37: without any phone the Mobil line is left out" "$(k337_page '&tab=s
 sq "UPDATE ka_uzivatele SET phone = '+420 603 000 337' WHERE idu = $K337; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('company_phone', '$K337_PHONE')" > /dev/null
 # the reply machinery (enquiries, job applications) takes the same signature
 expect "3.37: a reply from Kaleta carries the fallback signature of a user without a Team record" \
-  "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $u = $app->db()->one("SELECT * FROM {uzivatele} WHERE idu = ?", [(int) $argv[1]]); $s = Kaleta\Core\EnquiryReply::signature($app, (array) $u); echo $s !== null && str_contains($s["text"], "Mobil: +420 603 000 337") && str_contains($s["html"], "tel:+420603000337") ? "ok" : "no";' "$K337")" "ok"
+  "$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $u = $app->db()->one("SELECT * FROM {uzivatele} WHERE idu = ?", [(int) $argv[1]]); $s = Kaleta\Core\EnquiryReply::signature($app, (array) $u); echo $s !== null && str_contains($s["text"], "Mobil: +420 603 000 337") && str_contains($s["html"], "tel:+420603000337") ? "ok" : "no";' -- "$K337")" "ok"
 sq "DELETE FROM ka_nastaveni WHERE promenna = 'email_signature_template'" > /dev/null
 # MCP: list_colleagues (work set) and get_email_signature without a collection = the caller's own
 mcp list_colleagues '{}' > "$WORK/response"; mcp_text; cp "$WORK/text" "$WORK/k337.json"

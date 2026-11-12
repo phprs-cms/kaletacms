@@ -12,7 +12,7 @@ general39() { # Settings → Languages (General until 3.23) saved as a browser d
   php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
     foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $n === "slugs_per_language" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
       $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
-    echo implode("&", $q), $argv[2] === "1" ? "&slugs_per_language=1" : "";' "$WORK/general39.html" "$1" > "$WORK/general39.post"
+    echo implode("&", $q), $argv[2] === "1" ? "&slugs_per_language=1" : "";' -- "$WORK/general39.html" "$1" > "$WORK/general39.post"
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general39.post"
   curl -s -b "$JAR" -c "$JAR" -o "$WORK/general39.html" "$B/admin.php?module=settings&tab=languages"
 }

@@ -18,6 +18,6 @@ expect "3.36 T3: a real database error is an error page on Customers, the board 
   "$(t3_code 'admin.php?module=contacts')|$(grep -c 'Sorry, something went wrong\|došlo k chybě' "$WORK/t3.html")|$(t3_code 'admin.php?module=pipeline')|$(t3_code 'admin.php')|$(t3_mcp)|$(grep -c 'total' "$WORK/t3.json" || true)|$(t3_logged)" \
   "500|1|500|500|500|0|4"
 sq "DROP VIEW ka_contacts; RENAME TABLE ka_t3_contacts TO ka_contacts" > /dev/null
-php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "General error: 1356"))));' "$WORK/web/storage/log/chyby.log"
+php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "General error: 1356"))));' -- "$WORK/web/storage/log/chyby.log"
 expect "3.36 T3: … and with the table back Customers lists again" "$(t3_code 'admin.php?module=contacts')" "200"
 background_jobs resume

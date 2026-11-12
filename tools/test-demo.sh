@@ -26,7 +26,7 @@ curl -s -o "$WORK/install.html" -X POST "$B/install.php" -d jazyk=en --data-urle
   --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ -d nazev_webu=Demo -d web=firemni -d user=demo -d email= -d password=Demo-kaleta-2026 -d password2=Demo-kaleta-2026
 [ -f "$WORK/web/config.php" ] || { sed 's/<[^>]*>//g' "$WORK/install.html" | grep -v '^\s*$' | head -20; exit 1; }
 # demo mode: the shared account in config.php
-php -r '$f = $argv[1]; $c = require $f; $c["demo"] = ["user" => "demo", "password" => "Demo-kaleta-2026"]; file_put_contents($f, "<?php\nreturn " . var_export($c, true) . ";\n");' "$WORK/web/config.php"
+php -r '$f = $argv[1]; $c = require $f; $c["demo"] = ["user" => "demo", "password" => "Demo-kaleta-2026"]; file_put_contents($f, "<?php\nreturn " . var_export($c, true) . ";\n");' -- "$WORK/web/config.php"
 # 3.2: features are chosen by whoever runs the demo before the snapshot (visitors cannot switch them) – here Bookings
 sql "UPDATE ka_nastaveni SET hodnota = 'bookings' WHERE promenna = 'extensions'"
 (cd "$WORK/web" && php system/demo.php snapshot > "$WORK/snapshot.txt" 2>&1) && ok "snapshot saved" || { fail "snapshot"; cat "$WORK/snapshot.txt"; }

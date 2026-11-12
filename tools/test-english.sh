@@ -30,7 +30,7 @@ headings() {
   local msg; msg=$(php -r 'require $argv[2] . "/system/bootstrap.php"; $d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR);
     $h = array_map(fn ($e) => (int) $e->tagName[1], iterator_to_array($d->querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6")));
     $single = count(array_keys($h, 1)); if ($single !== 1) { echo "$single h1"; exit; }
-    foreach ($h as $i => $u) { if ($i > 0 && $u > $h[$i - 1] + 1) { echo "h", $h[$i - 1], " → h", $u; exit; } }' "$WORK/page.html" "$ROOT")
+    foreach ($h as $i => $u) { if ($i > 0 && $u > $h[$i - 1] + 1) { echo "h", $h[$i - 1], " → h", $u; exit; } }' -- "$WORK/page.html" "$ROOT")
   [ -z "$msg" ] || fail "$1: headings ($msg)"
 }
 login() { # login <jar> <user> <password>
@@ -95,7 +95,7 @@ curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en --data-urlenco
 check "installer: wrong database user" "$WORK/page.html"
 # (with the bootstrap: on PHP 8.3 Dom\HTMLDocument comes from system/compat)
 php -r 'require $argv[2] . "/system/bootstrap.php"; $d = Dom\HTMLDocument::createFromString(file_get_contents($argv[1]), LIBXML_NOERROR); $c = $d->querySelector("#db_user")?->parentNode?->textContent ?? "";
-  exit(str_contains($c, "user name or password") && !str_contains(file_get_contents($argv[1]), "SQLSTATE") ? 0 : 1);' "$WORK/page.html" "$ROOT" \
+  exit(str_contains($c, "user name or password") && !str_contains(file_get_contents($argv[1]), "SQLSTATE") ? 0 : 1);' -- "$WORK/page.html" "$ROOT" \
   || fail "installer: a wrong database user is not reported in plain words at the User field"
 curl -s -o "$WORK/page.html" -X POST "$B/install.php" -d jazyk=en -d db_name= -d db_user= -d user=admin --data-urlencode "password=$PASSWORD" -d password2=other
 check "installer: missing fields and passwords that do not match" "$WORK/page.html"

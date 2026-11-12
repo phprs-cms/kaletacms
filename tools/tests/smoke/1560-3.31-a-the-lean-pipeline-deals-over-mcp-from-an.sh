@@ -1,8 +1,8 @@
 echo "== 3.31 (A): the lean pipeline – deals over MCP, from an enquiry, moves and history, retention, erasure, the monthly report"
 t331_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
-t331_json() { php -r '$v = json_decode((string) file_get_contents($argv[1]), true); foreach (explode(".", $argv[2]) as $k) { $v = is_array($v) ? ($v[$k] ?? null) : null; } echo is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_bool($v) ? ($v ? "true" : "false") : (string) $v);' "$WORK/text" "$1"; }
-t331_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', 'full', '$4', '$(php -r 'echo hash("sha256", $argv[1]);' "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
-T331_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+t331_json() { php -r '$v = json_decode((string) file_get_contents($argv[1]), true); foreach (explode(".", $argv[2]) as $k) { $v = is_array($v) ? ($v[$k] ?? null) : null; } echo is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_bool($v) ? ($v ? "true" : "false") : (string) $v);' -- "$WORK/text" "$1"; }
+t331_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', 'full', '$4', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
+T331_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 # Jana: Enquiries, Customers and the pipeline (work tools); Petr: Enquiries and Customers, no pipeline
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('t331-jana', '$T331_HASH', 'Jana T331', 'jana-t331@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off'),
@@ -23,7 +23,7 @@ mcp_as "$T331_TP" list_deals '{}' > "$WORK/response"; mcp_text
 expect "3.31 list_deals: refused without the pipeline (Petr has Customers only)" "$(grep -c 'Only a user who may open the pipeline' "$WORK/text")" "1"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $T331_TJ" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' > "$WORK/response"
 expect "3.31: the work set lists list_deals, save_deal, move_deal and pipeline_summary" \
-  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $n = array_column($d["result"]["tools"] ?? [], "name"); echo count(array_intersect(["list_deals", "save_deal", "move_deal", "pipeline_summary"], $n));' "$WORK/response")" "4"
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $n = array_column($d["result"]["tools"] ?? [], "name"); echo count(array_intersect(["list_deals", "save_deal", "move_deal", "pipeline_summary"], $n));' -- "$WORK/response")" "4"
 mkdir -p "$WORK/web/storage/cache/stranky"; echo cached > "$WORK/web/storage/cache/stranky/t331.html"
 mcp_as "$T331_TA" save_deal "{\"enquiry\":${T331_E1:-0},\"value\":\"12 500,50\",\"currency\":\"czk\"}" > "$WORK/response"; mcp_text
 T331_D1=$(t331_json id)
@@ -96,11 +96,11 @@ expect "3.31 My work (Deals::forOwner): Jana's open deal, its stage and overdue 
   "$(t331_php "echo json_encode(array_map(fn (\$d) => [\$d['id'], \$d['stage'], \$d['overdue']], Kaleta\\Core\\Deals::forOwner(\$app, $T331_JANA)));")" "[[${T331_D2:-0},\"new\",true]]"
 mcp_as "$T331_TJ" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
 expect "3.31: the deals' moves are on the customer's timeline (created, moved, lost, reopened, won)" \
-  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_unique(array_column(array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"), "status")));' "$WORK/text")" "created,won,reopened,lost,moved"
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo implode(",", array_unique(array_column(array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"), "status")));' -- "$WORK/text")" "created,won,reopened,lost,moved"
 # 3.31.1: Petr (Customers, no pipeline) sees the same moves only as "a deal" – no title, stage, status, who or link
 mcp_as "$T331_TP" get_contact "{\"id\":${T331_C1:-0},\"timeline\":20}" > "$WORK/response"; mcp_text
 expect "3.31.1 get_contact without the pipeline: the deal entries are there, without title, stage, status or who; no stage name in the answer (the enquiry keeps its topic)" \
-  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $e = array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"); echo count($e) > 0 ? "some" : "none", "|", count(array_filter($e, fn ($x) => isset($x["title"]) || isset($x["text"]) || isset($x["status"]) || isset($x["by"])));' "$WORK/text")|$(grep -c '"Proposal"' "$WORK/text")" \
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $e = array_filter($d["timeline"] ?? [], fn ($e) => $e["kind"] === "deal"); echo count($e) > 0 ? "some" : "none", "|", count(array_filter($e, fn ($x) => isset($x["title"]) || isset($x["text"]) || isset($x["status"]) || isset($x["by"])));' -- "$WORK/text")|$(grep -c '"Proposal"' "$WORK/text")" \
   "some|0|0"
 expect "3.31: the hand-over counts Jana's open deal" "$(t331_php "echo Kaleta\\Core\\Handover::owned(\$app->db(), $T331_JANA)['deal'];")" "1"
 expect "3.31: deleting a deal needs an administrator" "$(t331_php "try { Kaleta\\Core\\Deals::delete(\$app, ${T331_D2:-0}); echo 'deleted'; } catch (DomainException \$e) { echo 'refused'; }")|$(sq "SELECT COUNT(*) FROM ka_deals WHERE id = ${T331_D2:-0}")" "refused|1"

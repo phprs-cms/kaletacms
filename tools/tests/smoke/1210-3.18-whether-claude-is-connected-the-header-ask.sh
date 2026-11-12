@@ -3,7 +3,7 @@ echo "== 3.18: whether Claude is connected – the header, Ask Claude, requests,
 cc318() { php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone();
   $beat = Kaleta\Fleet\Heartbeat::build($app); $c = $beat["claude_connection"] ?? [];
   echo $c["state"] ?? "-", "|", $c["pickup"] ?? "-", "|", ($c["last_call"] ?? null) !== null ? "call" : "nocall", "|",
-    implode(",", array_filter(Kaleta\Fleet\Console::attention(["up" => 1, "last_seen" => date("Y-m-d H:i:s"), "status" => "ok", "heartbeat" => json_encode($beat)], time())["reasons"], fn ($r) => str_starts_with($r, "claude_")));' "$WORK/web"; }
+    implode(",", array_filter(Kaleta\Fleet\Console::attention(["up" => 1, "last_seen" => date("Y-m-d H:i:s"), "status" => "ok", "heartbeat" => json_encode($beat)], time())["reasons"], fn ($r) => str_starts_with($r, "claude_")));' -- "$WORK/web"; }
 chip318() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"; grep -o 'class="claude-stav claude-stav-[a-z]*"[^>]*><span class="claude-stav-tecka" aria-hidden="true"></span><span class="claude-stav-text">[^<]*' "$WORK/response" | sed 's/^class="claude-stav claude-stav-\([a-z]*\)".*claude-stav-text">/\1|/' || true; }
 # every connection is put aside for the section (back at its end): the site has none; one new request waits for three days
 sq "DROP TABLE IF EXISTS ka_tokeny_318, ka_rotated_318; CREATE TABLE ka_tokeny_318 AS SELECT * FROM ka_api_tokeny; CREATE TABLE ka_rotated_318 AS SELECT * FROM ka_oauth_rotated; DELETE FROM ka_api_tokeny; DELETE FROM ka_oauth_rotated;
@@ -63,7 +63,7 @@ ACC318=$(grep -o '"access_token":"[a-z0-9_]*"' "$WORK/token318.json" | sed 's/.*
 expect "3.18: an OAuth refresh carries the last call over to the new access and refresh token" "$([ -n "$ACC318" ] && echo new)|$(sq "SELECT GROUP_CONCAT(CONCAT(druh, ':', pouzit = '$CALL318') ORDER BY druh) FROM ka_api_tokeny WHERE klient = '$CLIENT318'")" "new|obnova:1,pristup:1"
 expect "3.18: after the refresh the header still says connected" "$(chip318)" "active|Claude připojený"
 expect "3.18: the hygiene check does not count a live OAuth connection as unused (created 100 days ago, called 2 hours ago)" \
-  "$(php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo count(array_filter(Kaleta\Core\SecurityHygiene::findings($app)["unused_connections"], fn ($c) => $c["id"] === $argv[2]));' "$WORK/web" "$CLIENT318")" "0"
+  "$(php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo count(array_filter(Kaleta\Core\SecurityHygiene::findings($app)["unused_connections"], fn ($c) => $c["id"] === $argv[2]));' -- "$WORK/web" "$CLIENT318")" "0"
 # 3.18 audit N318-2: refreshes of one connection are limited – a refresh every hour for a day is fine, a loop gets
 # 429 slow_down after 30 within an hour, its refresh token stays valid and works once the hour has moved on
 REF318=$(grep -o '"refresh_token":"[a-z0-9_]*"' "$WORK/token318.json" | sed 's/.*:"//;s/"//' || true)

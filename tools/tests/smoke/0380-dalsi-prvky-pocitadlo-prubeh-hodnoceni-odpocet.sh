@@ -34,7 +34,7 @@ grep -q 'alt="Hero35" fetchpriority="high"' "$WORK/response" && grep -q 'alt="Dr
 curl -s -o "$WORK/response" "$B/obrazky-35"
 grep -q 'alt="Hero35" fetchpriority="high"' "$WORK/response" && echo "  ok     3.5: a build saved before 3.5 (priority false) gets the automatic priority too" || { echo "  CHYBA  3.5: an older build's first image"; ERRORS=$((ERRORS+1)); }
 mcp get_build "{\"id\":$ID35}" > "$WORK/response"
-BUILD35=$(php -r '$t = json_decode(json_decode((string) file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); $b = $t["build"]; $b["children"][0]["children"][0]["children"][0]["content"]["priority"] = "lazy"; $b["children"][0]["children"][1]["content"]["priority"] = true; echo json_encode($b);' "$WORK/response")
+BUILD35=$(php -r '$t = json_decode(json_decode((string) file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); $b = $t["build"]; $b["children"][0]["children"][0]["children"][0]["content"]["priority"] = "lazy"; $b["children"][0]["children"][1]["content"]["priority"] = true; echo json_encode($b);' -- "$WORK/response")
 mcp save_build "{\"id\":$ID35,\"publish\":true,\"build\":$BUILD35}" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/obrazky-35"
 grep -q 'alt="Hero35" loading="lazy"' "$WORK/response" && grep -q 'alt="Druhy35" fetchpriority="high"' "$WORK/response" && grep -q 'alt="Treti35" loading="lazy"' "$WORK/response" \

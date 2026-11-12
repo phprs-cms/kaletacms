@@ -12,7 +12,7 @@ settings_form_as() { # <jar> <tab> <file>: settings_form of 0060 for another ses
   php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
     foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
       $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
-    echo implode("&", $q);' "$WORK/settings-form.html" > "$3"; }
+    echo implode("&", $q);' -- "$WORK/settings-form.html" > "$3"; }
 R426_BEFORE=$(r426_set)
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('signin_passkey_only', '1'), ('require_2fa', '')" > /dev/null
 r426_age "$JAR"
@@ -27,7 +27,7 @@ expect "3.35 review L2: with the password – passkeys only goes off" "$(r426_sa
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'" > /dev/null
 
 # an administrator who signs in with a passkey only
-R426_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+R426_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk426', '$R426_HASH', 'Admin 426', 'pk426@example.com', 'en', 2, '$(site_time)', '$(site_time)', 0)" > /dev/null
 R426_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk426'")

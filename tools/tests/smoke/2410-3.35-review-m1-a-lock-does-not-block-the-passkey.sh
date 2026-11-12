@@ -2,7 +2,7 @@ echo "== 3.35 review M1: a lock after wrong passwords does not block a valid pas
 # Uses the software authenticator of 2300 ($WORK/pk335.php, p335_page, p335_message). The account pk410 gets a passkey;
 # then its lock is set as ten wrong passwords would set it. The password stays locked; a valid passkey signs in (without a
 # password, as the second step, and as the confirmation of a signed-in session) and ends the lock; a refused passkey counts.
-R410_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+R410_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk410', '$R410_HASH', 'Passkey Tester 410', 'pk410@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0)" > /dev/null
 R410_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk410'")

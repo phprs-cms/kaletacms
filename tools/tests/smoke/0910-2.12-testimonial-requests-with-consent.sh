@@ -4,7 +4,7 @@ NO_MAIL_ENQUIRY=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, 
 mcp request_testimonial "{\"id\":$NO_MAIL_ENQUIRY}" > "$WORK/response"
 contains -q 'no e-mail address' "$WORK/response" && echo "  ok     testimonials: an enquiry without an e-mail cannot be asked" || { echo "  CHYBA  žádost bez e-mailu"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp request_testimonial "{\"id\":$REF_ENQUIRY,\"send\":false}" > "$WORK/response"
-REF_LINK=$(php -r '$t = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "null", true); echo ltrim((string) parse_url((string) ($t["link"] ?? ""), PHP_URL_PATH), "/");' "$WORK/response")
+REF_LINK=$(php -r '$t = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "null", true); echo ltrim((string) parse_url((string) ($t["link"] ?? ""), PHP_URL_PATH), "/");' -- "$WORK/response")
 [ -n "$REF_LINK" ] && expect "testimonials: only a hash of the token is stored" "$(sq "SELECT COUNT(*) FROM ka_testimonial_requests WHERE idp = $REF_ENQUIRY AND token_hash = SHA2('${REF_LINK#_testimonial/}', 256)")" "1" || { echo "  CHYBA  request_testimonial"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -D "$WORK/headers" -o "$WORK/formular.html" "$B/$REF_LINK"
 grep -q 'name="consent_words"' "$WORK/formular.html" && grep -q 'name="consent_photo"' "$WORK/formular.html" && grep -q 'noindex' "$WORK/formular.html" && echo "  ok     testimonials: the customer's page asks for the words and two separate consents" || { echo "  CHYBA  stránka pro referenci"; ERRORS=$((ERRORS+1)); }

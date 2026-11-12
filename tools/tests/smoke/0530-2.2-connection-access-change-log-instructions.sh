@@ -16,7 +16,7 @@ READ_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude drafts" -d access=drafts --data-urlencode "soucasne=$PASSWORD"
 DRAFT_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
 expect "tokens from My account keep the chosen access" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT GROUP_CONCAT(access ORDER BY nazev) FROM ka_api_tokeny WHERE nazev IN ('Claude read', 'Claude drafts')")" "drafts,read"
-mcp_text() { php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' "$WORK/response" > "$WORK/text"; } # the tool result itself
+mcp_text() { php -r 'echo json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "";' -- "$WORK/response" > "$WORK/text"; } # the tool result itself
 mcp_as() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$2\",\"arguments\":$3}}"; }
 mcp_as "$READ_TOKEN" create_page '{"title":"From a read-only connection"}' > "$WORK/response"
 contains -q 'can only read the site' "$WORK/response" && expect "a read-only connection changes nothing" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stranky WHERE titulek = 'From a read-only connection'")" 0 || { echo "  CHYBA  read-only connection wrote"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -54,7 +54,7 @@ expect "3.15 N10: anonymous visitors get 404 for a staged file and its variants,
   "$(anon_code "$STAGED")|$(anon_code "$STAGED_THUMB")|$(anon_code "$STAGED.webp")|$(anon_code "storage/staging/${STAGED#media/}")" "404|404|404|403"
 STAGE_HEAD=$(curl -s -b "$JAR" -D - -o "$WORK/staged.png" "$B/$STAGED" | tr -d '\r')
 expect "3.15 N10: a signed-in user gets the staged file (200, the image, nosniff, never cached)" \
-  "$(echo "$STAGE_HEAD" | head -1 | cut -d' ' -f2)|$(echo "$STAGE_HEAD" | grep -ic '^content-type: image/png')|$(echo "$STAGE_HEAD" | grep -ic '^x-content-type-options: nosniff')|$(echo "$STAGE_HEAD" | grep -ic '^cache-control: private, no-store')|$(php -r 'echo getimagesize($argv[1])[0] ?? 0;' "$WORK/staged.png")" \
+  "$(echo "$STAGE_HEAD" | head -1 | cut -d' ' -f2)|$(echo "$STAGE_HEAD" | grep -ic '^content-type: image/png')|$(echo "$STAGE_HEAD" | grep -ic '^x-content-type-options: nosniff')|$(echo "$STAGE_HEAD" | grep -ic '^cache-control: private, no-store')|$(php -r 'echo getimagesize($argv[1])[0] ?? 0;' -- "$WORK/staged.png")" \
   "200|1|1|1|1400"
 [ ! -f "$WORK/web/storage/staging/${STAGED#media/}.webp" ] || expect "3.15: a browser that accepts WebP gets the staged WebP sibling" "$(curl -s -b "$JAR" -H 'Accept: image/webp,*/*' -D - -o /dev/null "$B/$STAGED" | tr -d '\r' | grep -i '^content-type' | cut -d' ' -f2)" "image/webp"
 STAGED_SVG=$(stage_upload staged-logo.svg "$(printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>' | base64 | tr -d '\n')")
@@ -86,7 +86,7 @@ expect "3.15: a full-access upload goes straight to media/ (no staged flag, anon
 # at most every 5 minutes per file (N315-5), so the 404 the PDF got a moment ago is remembered until then
 sq "UPDATE ka_stranky SET text = CONCAT(text, '<p><a href=\"/$STAGED_PDF\">Menu</a></p>') WHERE ids = ${STAGE_PAGE:-0}" > /dev/null
 STAGE_REMEMBERED=$(anon_code "$STAGED_PDF")
-age_staging_checks() { php -r 'foreach (glob($argv[1] . "/media-staging-*") ?: [] as $f) { touch($f, time() - 600); }' "$WORK/web/storage/cache"; }
+age_staging_checks() { php -r 'foreach (glob($argv[1] . "/media-staging-*") ?: [] as $f) { touch($f, time() - 600); }' -- "$WORK/web/storage/cache"; }
 age_staging_checks
 expect "3.15: a staged file published content refers to goes public on an anonymous request – the answer of the last 5 minutes is remembered first (N315-5)" \
   "$STAGE_REMEMBERED|$(anon_code "$STAGED_PDF")|$([ -f "$WORK/web/$STAGED_PDF" ] && echo media)|$(sq "SELECT staged_at IS NULL FROM ka_media WHERE obr_poloha = '$STAGED_PDF'")" "404|200|media|1"
@@ -228,7 +228,7 @@ contains -q 'Build a new page about kitchens' "$WORK/response" && echo "  ok    
 # 3.13: the prompts are Kaleta's skills – the new runbooks are listed with a title, every earlier name still works
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/list"}' > "$WORK/response"
 php -r '$p = array_column(json_decode(file_get_contents($argv[1]), true)["result"]["prompts"] ?? [], null, "name"); $want = ["build_page", "audit_and_fix", "translate_page", "write_news", "migrate_site", "launch_site", "weekly_care", "work_requests", "scheduled_run", "review_pending", "draft_blueprint", "set_up_bookings", "compliance_check", "add_language_version", "newsletter_release"];
-    exit(array_keys($p) === $want && !isset($p["weekly_review"]) && ($p["add_language_version"]["title"] ?? "") === "Add a language version" && ($p["add_language_version"]["arguments"][0] ?? []) === ["name" => "language", "description" => "Language code, e.g. de, en-gb, pt-br or ar", "required" => true] ? 0 : 1);' "$WORK/response" \
+    exit(array_keys($p) === $want && !isset($p["weekly_review"]) && ($p["add_language_version"]["title"] ?? "") === "Add a language version" && ($p["add_language_version"]["arguments"][0] ?? []) === ["name" => "language", "description" => "Language code, e.g. de, en-gb, pt-br or ar", "required" => true] ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     3.13: prompts/list has the runbooks (launch_site, weekly_care, set_up_bookings, compliance_check, add_language_version, newsletter_release) with titles and arguments" || { echo "  CHYBA  3.13: prompts/list"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"prompts/get","params":{"name":"add_language_version","arguments":{"language":"ar"}}}' > "$WORK/response"
 contains -q 'add the language version ar to this site' "$WORK/response" && contains -q 'run_read_tool (reads): ' "$WORK/response" && echo "  ok     3.13: prompts/get fills the language in and names the runners of non-essential tools" || { echo "  CHYBA  3.13: prompts/get add_language_version"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }

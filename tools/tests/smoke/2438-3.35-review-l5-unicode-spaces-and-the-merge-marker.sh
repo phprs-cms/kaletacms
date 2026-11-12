@@ -16,5 +16,5 @@ sq "UPDATE ka_contact_activities SET text = 'Notiz ohne Adresse' WHERE contact_i
 R438_C3=$(s335e_contact 'old438@acme.example' 'Old'); s335e_note "$R438_C3" "Sloučeno s kontaktem #9 (${R438_NBSP}JANE438@acme.example)."
 s335e_mcp find_personal_data '{"email":"jane438@acme.example"}' > "$WORK/response"
 expect "3.35 review L5: found – both enquiries (spaces and case aside), the customer of the marker and of the older note; not the quote" \
-  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); sort($r["enquiry_ids"]); echo implode(",", $r["enquiry_ids"]), "|", $r["found"]["contacts"];' "$WORK/response")" "$R438_E1,$R438_E2|2"
+  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); sort($r["enquiry_ids"]); echo implode(",", $r["enquiry_ids"]), "|", $r["found"]["contacts"];' -- "$WORK/response")" "$R438_E1,$R438_E2|2"
 sq "DELETE FROM ka_contact_activities WHERE contact_id IN ($R438_C1, $R438_C2, $R438_C3); DELETE FROM ka_contacts WHERE id IN ($R438_C1, $R438_C2, $R438_C3); DELETE FROM ka_poptavky WHERE idp IN ($R438_E1, $R438_E2, $R438_E3); DELETE FROM ka_api_tokeny WHERE nazev = 'r438 full'" > /dev/null

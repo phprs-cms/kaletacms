@@ -1,6 +1,6 @@
 echo "== Claude (MCP): varianty, verze, stránky a poptávky jako v administraci"
 # a value from an MCP response: mcpv key [key…] (arrays and objects as JSON)
-mcp_value() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); foreach (array_slice($argv, 2) as $k) { $v = $v[$k] ?? null; } echo is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$WORK/response" "$@"; }
+mcp_value() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); foreach (array_slice($argv, 2) as $k) { $v = $v[$k] ?? null; } echo is_scalar($v) ? $v : json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' -- "$WORK/response" "$@"; }
 mcp seznam_casti '{}' > "$WORK/response"; [[ "$(mcp_value)" == *'"varianta":"landing-page"'* ]] && echo "  ok     MCP: seznam částí webu s variantami" || { echo "  CHYBA  MCP seznam_casti"; ERRORS=$((ERRORS+1)); }
 mcp uloz_variantu "{\"cast\":\"paticka\",\"nazev\":\"Kampaň\",\"stranky\":[$IDZ]}" > "$WORK/response"; VARIANT=$(mcp_value varianta)
 expect "MCP: varianta patičky založena" "$VARIANT|$(mcp_value stranky)" "kampan|[$IDZ]"
@@ -21,7 +21,7 @@ expect "MCP: starší verze v konceptu" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELEC
 mcp list_build_versions "{\"id\":$IDV}" > "$WORK/response"
 php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true)["versions"] ?? [];
   $k = array_column($v, "kind"); $d = array_values(array_filter($v, fn ($x) => $x["kind"] === "draft"));
-  exit($k[0] === "published" && count($d) === 2 && str_ends_with((string) $d[0]["who"], "Claude") && isset($v[0]["version_id"], $v[0]["when"]) ? 0 : 1);' "$WORK/response" \
+  exit($k[0] === "published" && count($d) === 2 && str_ends_with((string) $d[0]["who"], "Claude") && isset($v[0]["version_id"], $v[0]["when"]) ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     3.25 MCP: list_build_versions adds the draft history (kind draft, via Claude) after the published versions" || { echo "  CHYBA  3.25 MCP list_build_versions: $(mcp_value)"; ERRORS=$((ERRORS+1)); }
 DRAFT_B=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM ka_stavba_revize WHERE ids = $IDV AND cast = 'draft~mcp' AND stavba LIKE '%Verze B%' ORDER BY idr DESC LIMIT 1")
 mcp restore_build_version "{\"id\":$IDV,\"version_id\":${DRAFT_B:-0}}" > /dev/null

@@ -31,7 +31,7 @@ migrate() {
     $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]);
     try { echo implode(",", Kaleta\Core\Migration::apply($db, new Kaleta\Core\Settings($db))), "\n"; }
     catch (Throwable $e) { fwrite(STDERR, $e->getMessage() . "\n"); exit(1); }
-  ' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
+  ' -- "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
 }
 if OUTPUT=$(migrate 2>&1); then echo "  ok     migrations ran: ${OUTPUT:-none}"; else echo "  CHYBA  migration failed: $OUTPUT"; ERRORS=$((ERRORS+1)); fi
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '$OLD_DB_VERSION' WHERE promenna = 'db_version'"
@@ -276,7 +276,7 @@ migrate_one_row() {
     require $argv[1] . "/system/bootstrap.php";
     $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]);
     Kaleta\Core\Migration::apply($db, new Kaleta\Core\Settings($db));
-  ' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
+  ' -- "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD"
 }
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_events WHERE type LIKE 'applications.move%';
   INSERT INTO ka_kolekce (idk, nazev, seo_link, pole, preset) VALUES (9344, 'Jobs', 'jobs-344', '[]', 'jobs');
@@ -300,7 +300,7 @@ resume344() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT_WS('|', (SELECT COUNT(*)
   (SELECT COUNT(*) FROM ka_events WHERE type = 'applications.move_failed' AND message LIKE '%#9346%' AND message NOT LIKE '%example.com%'), (SELECT COUNT(*) FROM ka_applications WHERE source_contact_id IS NOT NULL))"; }
 expect_sql_value "3.34 review M3 (0120): out of time after one row – one moved, the name in data_migrations_unfinished, the rest still to move" "$(resume344)" "1|9345,9346,9347|0120-applications-move|9347|9345|0|0"
 M344=$(php -r 'require $argv[1] . "/system/bootstrap.php"; $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]); $s = new Kaleta\Core\Settings($db);
-  echo Kaleta\Core\Migration::pending($s) ? "pending" : "idle", "|", Kaleta\Core\Applications::movingCondition($db, $s) !== null ? "hidden" : "shown", "|", Kaleta\Core\Applications::movingLeft($db, $s), "\n";' "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD" 2>&1)
+  echo Kaleta\Core\Migration::pending($s) ? "pending" : "idle", "|", Kaleta\Core\Applications::movingCondition($db, $s) !== null ? "hidden" : "shown", "|", Kaleta\Core\Applications::movingLeft($db, $s), "\n";' -- "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD" 2>&1)
 expect_sql_value "3.34 review M3 (0120): the next request runs it again; meanwhile the enquiries still to move are hidden and counted" "$M344" "pending|hidden|3"
 migrate > /dev/null
 expect_sql_value "3.34 review M3 (0120): the next request finishes – the failed row stays an enquiry (its number in the event, no address), nothing left to hide, the customer with a responsible person stays" "$(resume344)" "3|9346|||9345|1|0"

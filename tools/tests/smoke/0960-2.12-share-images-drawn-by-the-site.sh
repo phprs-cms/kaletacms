@@ -10,7 +10,7 @@ OG_URL=$(grep -o 'property="og:image" content="[^"]*"' "$WORK/response" | head -
 case "$OG_URL" in "$B"/og/[a-f0-9]*.png) echo "  ok     share images: a page without an image points og:image to /og/<hash>.png";; *) echo "  CHYBA  og:image of a page without an image: „$OG_URL“"; ERRORS=$((ERRORS+1));; esac
 grep -q 'og:image:width" content="1200"' "$WORK/response" && grep -q 'twitter:card" content="summary_large_image"' "$WORK/response" && echo "  ok     share images: the size is announced and the Twitter card is the large one" || { echo "  CHYBA  og:image:width / twitter:card of the generated image"; ERRORS=$((ERRORS+1)); }
 code=$(curl -s -o "$WORK/og.png" -w '%{http_code} %{content_type}' "$OG_URL"); expect "share images: the picture is served as PNG" "$code" "200 image/png"
-expect "share images: the PNG is 1200×630" "$(php -r '$s = @getimagesize($argv[1]); echo $s ? $s[0] . "x" . $s[1] : "none";' "$WORK/og.png")" "1200x630"
+expect "share images: the PNG is 1200×630" "$(php -r '$s = @getimagesize($argv[1]); echo $s ? $s[0] . "x" . $s[1] : "none";' -- "$WORK/og.png")" "1200x630"
 curl -s -o /dev/null -D "$WORK/og.headers" "$OG_URL"; grep -qi '^Cache-Control: public, max-age=31536000' "$WORK/og.headers" && echo "  ok     share images: cached for a year (the address changes with the content)" || { echo "  CHYBA  Cache-Control of the picture"; ERRORS=$((ERRORS+1)); }
 OG_HASH=${OG_URL##*/og/}; OG_HASH=${OG_HASH%.png}
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/og/${OG_HASH:1}0.png"); expect "share images: a tampered hash is 404 – nobody makes the site draw their own text" "$code" "404"

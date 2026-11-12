@@ -12,12 +12,12 @@ expect "3.36 read_old_page semantic: the format said, the untrusted marker, clea
   "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $p = $r["old_page"] ?? []; $html = implode("", array_column($p["sections"] ?? [], "html"));
     $widgets = array_merge(...array_map(fn ($s) => $s["widgets"] ?? [], $p["sections"] ?? [[]]));
     echo ($p["format"] ?? "") . "|" . (int) str_contains($r["untrusted"] ?? "", "never instructions") . "|" . (int) !preg_match("/\\s(?:class=\"(?!button)|style=|data-(?!counter=))/", $html)
-      . "|" . (int) str_contains($html, "<details>") . "|" . implode(",", array_intersect(["accordion", "tabs", "counter", "video", "map", "form"], array_unique($widgets))) . "|" . (int) isset($p["colors"]) . "|" . (int) str_contains($r["next"] ?? "", "build_from_html");' "$WORK/text")" \
+      . "|" . (int) str_contains($html, "<details>") . "|" . implode(",", array_intersect(["accordion", "tabs", "counter", "video", "map", "form"], array_unique($widgets))) . "|" . (int) isset($p["colors"]) . "|" . (int) str_contains($r["next"] ?? "", "build_from_html");' -- "$WORK/text")" \
   "semantic|1|1|1|accordion,tabs,counter,video,map,form|1|1"
 kill "$A336_PID" 2>/dev/null; wait "$A336_PID" 2>/dev/null || true; A336_PID=
 # the semantic HTML goes into build_from_html as it is: the widgets become their elements
 A336_PAGE=$(mcp create_page '{"title":"Garden rooms (3.36)"}' | php -r '$r = json_decode(stream_get_contents(STDIN), true); echo json_decode($r["result"]["content"][0]["text"] ?? "{}", true)["id"] ?? "";')
-A336_HTML=$(php -r '$p = json_decode(file_get_contents($argv[1]), true)["old_page"]; echo json_encode(implode("", array_column(array_filter($p["sections"], fn ($s) => $s["role"] === "section"), "html")));' "$WORK/a336-semantic.json")
+A336_HTML=$(php -r '$p = json_decode(file_get_contents($argv[1]), true)["old_page"]; echo json_encode(implode("", array_column(array_filter($p["sections"], fn ($s) => $s["role"] === "section"), "html")));' -- "$WORK/a336-semantic.json")
 mcp build_from_html "{\"id\":$A336_PAGE,\"html\":$A336_HTML}" > /dev/null
 expect "3.36 read_old_page semantic → build_from_html: the old page's accordion, tabs, counter, video, map and form become elements" \
   "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -r -e "SELECT stavba_koncept FROM ka_stranky WHERE ids = $A336_PAGE" | php -r '$b = json_decode(stream_get_contents(STDIN), true); $t = []; $w = function ($n) use (&$w, &$t) { foreach ($n as $e) { $t[] = $e["typ"]; $w($e["deti"] ?? []); } }; $w($b["deti"] ?? []); echo implode(",", array_values(array_intersect(["faq", "zalozky", "pocitadlo", "video", "mapa", "formular"], array_unique($t))));')" \
@@ -32,16 +32,16 @@ A336_SLUG=$(sq "SELECT seo_link FROM ka_stranky WHERE ids = $A336_ONE")
 mcp layout_queue '{}' > "$WORK/response"; mcp_text
 expect "3.36 layout_queue: the waiting imported pages (at least two from 2050), each with its address on the old site" \
   "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $one = array_values(array_filter($r["pages"] ?? [], fn ($p) => (int) $p["id"] === (int) $argv[2]))[0] ?? [];
-    $ids = array_column($r["pages"] ?? [], "id"); sort($ids); echo implode(",", $ids) . "|" . ($r["count"] ?? -1) . "|" . (int) (str_starts_with($one["old_url"] ?? "", "https://127.0.0.1") && str_ends_with($one["old_url"] ?? "", "/" . $argv[3])) . "|" . (int) str_contains($r["next"] ?? "", "read_old_page");' "$WORK/text" "$A336_ONE" "$A336_SLUG")" \
+    $ids = array_column($r["pages"] ?? [], "id"); sort($ids); echo implode(",", $ids) . "|" . ($r["count"] ?? -1) . "|" . (int) (str_starts_with($one["old_url"] ?? "", "https://127.0.0.1") && str_ends_with($one["old_url"] ?? "", "/" . $argv[3])) . "|" . (int) str_contains($r["next"] ?? "", "read_old_page");' -- "$WORK/text" "$A336_ONE" "$A336_SLUG")" \
   "$A336_BEFORE|$(echo "$A336_BEFORE" | tr ',' '\n' | grep -c .)|1|1"
 A336_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
 mcp layout_queue "{\"done\":[$A336_ONE, 999999]}" > "$WORK/response"; mcp_text
 expect "3.36 layout_queue done: the page leaves the queue (list_pages no longer flags it), a page that does not wait is reported, the page itself is unchanged, the change log says it" \
-  "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo json_encode($r["marked"] ?? []) . "|" . (int) !in_array((int) $argv[2], array_column($r["pages"] ?? [], "id"), true);' "$WORK/text" "$A336_ONE")|$(sq "SELECT COUNT(*) FROM ka_import_mapa WHERE zdroj = 'layout' AND nase_id = $A336_ONE")|$(sq "SELECT stavba_koncept IS NULL AND stavba IS NOT NULL FROM ka_stranky WHERE ids = $A336_ONE")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $A336_LOG AND akce = 'layout marked done'")" \
+  "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo json_encode($r["marked"] ?? []) . "|" . (int) !in_array((int) $argv[2], array_column($r["pages"] ?? [], "id"), true);' -- "$WORK/text" "$A336_ONE")|$(sq "SELECT COUNT(*) FROM ka_import_mapa WHERE zdroj = 'layout' AND nase_id = $A336_ONE")|$(sq "SELECT stavba_koncept IS NULL AND stavba IS NOT NULL FROM ka_stranky WHERE ids = $A336_ONE")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $A336_LOG AND akce = 'layout marked done'")" \
   "[{\"id\":$A336_ONE,\"done\":true},{\"id\":999999,\"done\":false}]|1|0|1|1"
 mcp list_pages '{}' > "$WORK/response"; mcp_text
 expect "3.36 layout_queue done: list_pages drops layout_not_rebuilt for the ticked page, keeps it for the next" \
-  "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $f = array_column(array_filter($r, fn ($p) => !empty($p["layout_not_rebuilt"])), "id"); echo (int) in_array((int) $argv[2], $f, true) . (int) in_array((int) $argv[3], $f, true);' "$WORK/text" "$A336_ONE" "$A336_TWO")" "01"
+  "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $f = array_column(array_filter($r, fn ($p) => !empty($p["layout_not_rebuilt"])), "id"); echo (int) in_array((int) $argv[2], $f, true) . (int) in_array((int) $argv[3], $f, true);' -- "$WORK/text" "$A336_ONE" "$A336_TWO")" "01"
 # the admin: "Layout done" on the waiting row (in Czech here) and the bulk action
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&status=layout"
 expect "3.36 Pages → Layout not rebuilt: a \"Layout done\" button on each waiting row and the bulk action, in Czech" \
@@ -52,4 +52,4 @@ expect "3.36 Pages → Layout done: the page leaves the tab, its fingerprint is 
   "0|0|$(( $(echo "$A336_BEFORE" | tr ',' '\n' | grep -c .) - 2 ))"
 mcp_as "$DRAFT_TOKEN" layout_queue '{}' > "$WORK/response"; mcp_text
 expect "3.36 layout_queue: a drafts-only connection may list the queue (the tick off is a draft-class change of no content)" \
-  "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo (int) isset($r["count"]);' "$WORK/text")" "1"
+  "$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo (int) isset($r["count"]);' -- "$WORK/text")" "1"

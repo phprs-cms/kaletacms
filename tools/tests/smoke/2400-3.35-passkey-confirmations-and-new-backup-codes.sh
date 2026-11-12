@@ -4,7 +4,7 @@ echo "== 3.35: new backup codes in My account, and the passkey confirmation of a
 # shown once and the old ones stop working). The OAuth consent of a new full connection accepts Auth::recentlyVerified(): a
 # passkey-only account approves right after its passkey sign-in, and later confirms with its passkey (Auth::confirmWithPasskey,
 # markVerified) where others type the current password. Uses the software authenticator of 2300 ($WORK/pk335.php, p335_*).
-Q340_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+Q340_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk340', '$Q340_HASH', 'Passkey Tester 340', 'pk340@example.com', 'en', 2, '$(site_time)', '$(site_time)', 0)" > /dev/null
 Q340_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk340'")
@@ -45,7 +45,7 @@ P335_CSRF=$(p335_page "$Q3" "?action=account")
 expect "3.35: right after the passkey sign-in new codes need no password (fresh confirmation)" \
   "$(grep -c 'id="kody-heslo"' "$WORK/response")|$(p335_account "$Q3" -d co=backup_codes_new)|$(grep -c 'Your new backup codes' "$WORK/response")" "0|200|1"
 # with the app, codes come from turning the app off and on – the button is not offered and the action is refused
-Q340_SECRET=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' "$ROOT")
+Q340_SECRET=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' -- "$ROOT")
 sq "UPDATE ka_uzivatele SET totp_tajemstvi = '$Q340_SECRET' WHERE idu = $Q340_USER" > /dev/null
 P335_CSRF=$(p335_page "$Q3" "?action=account"); Q340_BEFORE=$(q340_codes)
 expect "3.35: an account with the authenticator app gets no “New backup codes” – refused even when posted" \
@@ -75,7 +75,7 @@ q340_confirm() { # <jar> <nonce> <flags> <counter> → HTTP code of the passkey 
 expect "3.35: a confirmation without user verification is refused and counted like a wrong password" \
   "$(q340_confirm "$Q4" "$Q340_N2" 1 3)|$(sq "SELECT pocet_chyb FROM ka_uzivatele WHERE idu = $Q340_USER")|$(q340_consent "$Q4" "$Q340_N2" -d access=full | cut -c1-3)" "401|1|403"
 expect "3.35: the challenge names the account's own passkey; the confirmation with it returns to this consent" \
-  "$(q340_confirm "$Q4" "$Q340_N2" 5 4)|$(grep -cF -e "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["id"];' "$WORK/pk340-a")" "$WORK/q340-options")|$(grep -c "\"kam\":\"[^\"]*request=$Q340_N2\"" "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE kdo = $Q340_USER AND akce = 'passkey_confirm'")" "200|1|1|1"
+  "$(q340_confirm "$Q4" "$Q340_N2" 5 4)|$(grep -cF -e "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["id"];' -- "$WORK/pk340-a")" "$WORK/q340-options")|$(grep -c "\"kam\":\"[^\"]*request=$Q340_N2\"" "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE kdo = $Q340_USER AND akce = 'passkey_confirm'")" "200|1|1|1"
 expect "3.35: after the passkey confirmation full access is allowed; the request waited for it" \
   "$(q340_consent "$Q4" "$Q340_N2" -d access=full | grep -c '^302 https://claude.ai/api/mcp/auth_callback?code=.*state=aged340')" "1"
 expect "3.35: the same assertion again is refused – the challenge was used once" \

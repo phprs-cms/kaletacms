@@ -5,7 +5,7 @@ echo "== 3.36 T3: query budgets of the busy lists"
 t3q() { curl -s -b "$JAR" -D - -o /dev/null "$B/admin.php?$1" | tr -d '\r' | sed -n 's/^[Xx]-[Kk]aleta-[Qq]ueries: //p'; }
 t3q_all() { printf '%s|%s|%s|%s|%s|%s|%s' "$(t3q 'module=contacts')" "$(t3q 'module=contacts&action=companies')" "$(t3q 'module=pipeline')" "$(t3q 'module=pipeline&view=list')" "$(t3q 'module=enquiries')" "$(t3q 'module=my_work')" "$(t3q '')"; }
 t3q_within() { php -r '$n = explode("|", $argv[1]); $max = explode("|", $argv[2]); $over = [];
-  foreach ($max as $i => $m) { if (($n[$i] ?? "") === "" || (int) $n[$i] > (int) $m) { $over[] = $i . ":" . ($n[$i] ?? "") . ">" . $m; } } echo $over === [] ? "within" : implode(" ", $over);' "$1" "$2"; }
+  foreach ($max as $i => $m) { if (($n[$i] ?? "") === "" || (int) $n[$i] > (int) $m) { $over[] = $i . ":" . ($n[$i] ?? "") . ">" . $m; } } echo $over === [] ? "within" : implode(" ", $over);' -- "$1" "$2"; }
 # customers, companies, the board, the pipeline list, enquiries, my work, the dashboard
 T3Q_BUDGET="30|25|30|30|28|32|75" # 3.36.0: 22|16|22|20|19|24|61 after all earlier sections
 T3Q_BEFORE=$(t3q_all)

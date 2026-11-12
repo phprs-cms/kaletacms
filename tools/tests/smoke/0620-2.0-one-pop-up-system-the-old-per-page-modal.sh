@@ -4,8 +4,8 @@ mcp create_page '{"title":"Stará akce","slug":"stara-akce","visible":true}' > /
 mcp save_build "{\"id\":$MODAL_PAGE,\"publish\":true,\"build\":{\"v\":1,\"children\":[{\"type\":\"section\",\"children\":[{\"type\":\"button\",\"content\":{\"text\":\"Nabídka\",\"link\":\"#nabidka\"}}]}]}}" > /dev/null
 # the Modal as 1.x stored it, next to the button (the 2.0 validator no longer accepts it, so straight into the database)
 php -r '$b = json_decode($argv[1], true); $b["deti"][0]["deti"][] = ["id" => "ok1", "typ" => "okno", "kotva" => "nabidka", "popis" => "Jarní akce", "obsah" => ["samo" => "5", "znovu" => "tyden"], "styl" => [], "tridy" => [],
-  "deti" => [["id" => "na1", "typ" => "nadpis", "znacka" => "h2", "obsah" => ["text" => "Sleva 20 %"], "styl" => [], "tridy" => []]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' "$(sq "SELECT stavba FROM ka_stranky WHERE ids = $MODAL_PAGE")" > "$WORK/modal.json"
-php -r '$pdo = new PDO("mysql:host=" . $argv[1] . ";port=" . $argv[2] . ";dbname=" . $argv[3] . ";charset=utf8mb4", $argv[4], $argv[5]); $pdo->prepare("UPDATE ka_stranky SET stavba = ? WHERE ids = ?")->execute([file_get_contents($argv[6]), $argv[7]]);' \
+  "deti" => [["id" => "na1", "typ" => "nadpis", "znacka" => "h2", "obsah" => ["text" => "Sleva 20 %"], "styl" => [], "tridy" => []]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);' -- "$(sq "SELECT stavba FROM ka_stranky WHERE ids = $MODAL_PAGE")" > "$WORK/modal.json"
+php -r '$pdo = new PDO("mysql:host=" . $argv[1] . ";port=" . $argv[2] . ";dbname=" . $argv[3] . ";charset=utf8mb4", $argv[4], $argv[5]); $pdo->prepare("UPDATE ka_stranky SET stavba = ? WHERE ids = ?")->execute([file_get_contents($argv[6]), $argv[7]]);' -- \
   "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASS" "$WORK/modal.json" "$MODAL_PAGE"
 sq "UPDATE ka_nastaveni SET hodnota = '33' WHERE promenna = 'db_version'; UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'data_migrations'" > /dev/null # a site of 1.9
 rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" "$B/stara-akce"

@@ -7,7 +7,7 @@ sign_in_2fa() { # prihlas2fa <jar> → vrátí kód odpovědi na zadání druhé
   curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d krok=kod -d "kod=$2"
 }
 expect "špatný kód z aplikace neprojde" "$(sign_in_2fa "$WORK/jar6" 000000)" "401"
-TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' "$ROOT")
+TOTP_CODE=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code("JBSWY3DPEHPK3PXP", intdiv(time(), 30));' -- "$ROOT")
 expect "přihlášení s kódem z aplikace (TOTP)" "$(sign_in_2fa "$WORK/jar7" "$TOTP_CODE")" "302"
 # 3.15 (N18): the same code again – a code seen over a shoulder or by a phishing page – is refused while it is still in its window
 expect "3.15 N18: a code from the app signs in only once" "$(sign_in_2fa "$WORK/jar12" "$TOTP_CODE")|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_kontrola_ip WHERE typ = 'totp' AND cil = (SELECT idu FROM ka_uzivatele WHERE user = 'autor')")" "401|1"

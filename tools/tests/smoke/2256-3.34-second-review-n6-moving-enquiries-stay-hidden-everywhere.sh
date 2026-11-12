@@ -1,6 +1,6 @@
 echo "== 3.34 second review N6: while 0120 moves, the job enquiries still to move stay hidden from people without Applications everywhere – export, download, actions by id, My work, the customer's timeline"
 r334_on
-N6_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+N6_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES ('n6-sam', '$N6_HASH', 'Sam N6', 'sam-n6@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.ident FROM ka_uzivatele JOIN (SELECT 'enquiries' AS ident UNION SELECT 'contacts' UNION SELECT 'my_work') m WHERE user = 'n6-sam'" > /dev/null
 N6_SAM=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'n6-sam'")

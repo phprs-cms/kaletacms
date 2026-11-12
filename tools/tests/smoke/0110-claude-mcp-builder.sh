@@ -1,6 +1,6 @@
 echo "== Claude (MCP): builder"
 API_TOKEN="kaleta_$(printf 'a%.0s' $(seq 1 48))"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$API_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$API_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'"
 # a grep that reads the whole input: „curl | grep -q“ with pipefail fails when grep exits before curl finishes writing (SIGPIPE)
 contains() { grep "$@" > /dev/null; }
 mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
@@ -9,11 +9,11 @@ grep -q '"name":"create_page"' "$WORK/response" && ! grep -q '"name":"vytvor_str
 # 3.8 (Connectors Directory): every tool has a title (top level = annotations.title), the hints are by the English name
 php -r '$t = json_decode(file_get_contents($argv[1]), true)["result"]["tools"]; $bad = array_filter($t, fn ($x) => !is_string($x["title"] ?? null) || $x["title"] === "" || $x["title"] !== ($x["annotations"]["title"] ?? null) || array_slice(array_keys($x), 0, 2) !== ["name", "title"]);
   $a = array_column($t, "annotations", "name"); exit($bad === [] && $a["upload_file"]["openWorldHint"] === true && $a["import_website"]["openWorldHint"] === true && $a["list_pages"]["openWorldHint"] === false
-  && ($a["save_build"]["idempotentHint"] ?? null) === true && !isset($a["publish_build"]["idempotentHint"]) && $a["list_pages"]["title"] === "List pages" ? 0 : 1);' "$WORK/response" \
+  && ($a["save_build"]["idempotentHint"] ?? null) === true && !isset($a["publish_build"]["idempotentHint"]) && $a["list_pages"]["title"] === "List pages" ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     3.8 MCP: every tool has a title, open-world and idempotent hints by the English name" || { echo "  CHYBA  3.8 MCP titles and hints"; ERRORS=$((ERRORS+1)); }
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' > "$WORK/initialize.json"
 php -r '$i = json_decode(file_get_contents($argv[1]), true)["result"]; $s = $i["serverInfo"]; exit($i["protocolVersion"] === "2025-06-18" && str_starts_with($s["name"], "Kaleta – ") && $s["title"] === "Kaleta" && $s["websiteUrl"] === "https://kaletacms.com"
-  && $s["icons"][0]["src"] === $argv[2] . "/image/kaleta-znacka.svg" && $s["icons"][1]["sizes"] === ["180x180"] ? 0 : 1);' "$WORK/initialize.json" "$B" \
+  && $s["icons"][0]["src"] === $argv[2] . "/image/kaleta-znacka.svg" && $s["icons"][1]["sizes"] === ["180x180"] ? 0 : 1);' -- "$WORK/initialize.json" "$B" \
   && [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/image/kaleta-znacka-180.png")" = 200 ] \
   && echo "  ok     3.8 MCP: initialize names the server (title Kaleta, websiteUrl, icons the site serves)" || { echo "  CHYBA  3.8 MCP serverInfo"; head -c 400 "$WORK/initialize.json"; ERRORS=$((ERRORS+1)); }
 mcp list_pages '{}' > "$WORK/response"; grep -q 'title\\":' "$WORK/response" && grep -q 'in_menu\\":' "$WORK/response" && echo "  ok     MCP: anglický nástroj vrací anglické klíče" || { echo "  CHYBA  MCP list_pages"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }

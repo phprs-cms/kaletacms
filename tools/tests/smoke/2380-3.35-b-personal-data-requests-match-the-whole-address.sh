@@ -19,7 +19,7 @@ S335E_C3=$(s335e_contact 'kept335@acme.example' 'Kept'); s335e_note "$S335E_C3" 
 S335E_C4=$(s335e_contact 'mary.jane335@acme.example' 'Mary'); s335e_note "$S335E_C4" 'Merged with the contact #8 (xjane335@acme.example).'
 s335e_mcp find_personal_data '{"email":"jane335@acme.example"}' > "$WORK/response"
 expect "3.35 B5 N94: find_personal_data lists the person's own enquiries (sent, or the address as a field) and contacts (own and merged), nothing else" \
-  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); sort($r["enquiry_ids"]); echo implode(",", $r["enquiry_ids"]), "|", $r["found"]["contacts"];' "$WORK/response")" "$S335E_E1,$S335E_E2|2"
+  "$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); sort($r["enquiry_ids"]); echo implode(",", $r["enquiry_ids"]), "|", $r["found"]["contacts"];' -- "$WORK/response")" "$S335E_E1,$S335E_E2|2"
 s335e_mcp erase_personal_data '{"email":"jane335@acme.example","confirm":true}' > /dev/null
 expect "3.35 B5 N94: erasing removes exactly those – the enquiry that quotes the address, the longer address and the contacts that only mention it stay" \
   "$(sq "SELECT GROUP_CONCAT(idp ORDER BY idp) FROM ka_poptavky WHERE formular = 'N94'")|$(sq "SELECT GROUP_CONCAT(id ORDER BY id) FROM ka_contacts WHERE id IN ($S335E_C1, $S335E_C2, $S335E_C3, $S335E_C4)")" \

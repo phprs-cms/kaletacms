@@ -46,24 +46,24 @@ php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r
   $t = array_column($h["tasks"] ?? [], null, "id")[(int) $argv[3]] ?? []; $c = $d["customer_tasks"][0] ?? [];
   echo implode("|", [$h["connector"] ?? "-", $h["url"] ?? "-", count($h["items"] ?? []) > 0 ? "items" : "-", ($t["overdue"] ?? false) ? "overdue" : "-", str_ends_with($t["admin_url"] ?? "", "action=detail&id=" . $argv[2] . "#tasks") ? "link" : "-",
     count(array_filter($h["order"] ?? [], fn ($o) => str_starts_with($o, "Task #" . $argv[3]))), ($c["id"] ?? 0) === (int) $argv[4] ? "customer" : "-", isset($d["how"], $d["note"], $d["written_on_the_site"]) ? "how" : "-",
-    preg_match("/key|token|secret|heartbeat|password/i", implode(",", array_keys($h))) ? "leak" : "clean", str_contains(file_get_contents($argv[1]), "hostile329bkey") || str_contains(file_get_contents($argv[1]), "evil329b") ? "leak" : "clean"]);' \
+    preg_match("/key|token|secret|heartbeat|password/i", implode(",", array_keys($h))) ? "leak" : "clean", str_contains(file_get_contents($argv[1]), "hostile329bkey") || str_contains(file_get_contents($argv[1]), "evil329b") ? "leak" : "clean"]);' -- \
   "$WORK/response" "$HOST329" "${Y330_T1:-0}" "${Y330_T2:-0}" > "$WORK/plan330.txt"
 expect "3.30 MCP fleet_plan: the hostile site with its items, its overdue task in the order with the console link, its connector from the known address; the customer's task apart; no key" \
   "$(cat "$WORK/plan330.txt")" "http://hostile329b.test/mcp|http://hostile329b.test|items|overdue|link|1|customer|how|clean|clean"
 y330_call fleet_plan "{\"customer\":\"$Y330_ACME\",\"severity\":\"amber\",\"tasks\":false}" > "$WORK/response"
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);
-  echo implode("|", [str_contains(file_get_contents($argv[1]), "hostile329b") ? "other" : "only", count(array_filter($d["sites"] ?? [], fn ($s) => array_filter($s["items"], fn ($i) => $i["state"] !== "warn") !== [])), count($d["customer_tasks"] ?? [1]), count(array_merge(...array_map(fn ($s) => $s["tasks"], $d["sites"] ?? [])))]);' "$WORK/response" > "$WORK/plan330.txt"
+  echo implode("|", [str_contains(file_get_contents($argv[1]), "hostile329b") ? "other" : "only", count(array_filter($d["sites"] ?? [], fn ($s) => array_filter($s["items"], fn ($i) => $i["state"] !== "warn") !== [])), count($d["customer_tasks"] ?? [1]), count(array_merge(...array_map(fn ($s) => $s["tasks"], $d["sites"] ?? [])))]);' -- "$WORK/response" > "$WORK/plan330.txt"
 expect "3.30 MCP fleet_plan: the customer filter, amber = warn only, without tasks" "$(cat "$WORK/plan330.txt")" "only|0|0|0"
 y330_call fleet_plan "{\"site\":$HOST329,\"checks\":[\"uptime\"]}" > "$WORK/response"
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);
-  echo implode("|", [count($d["sites"] ?? []), implode(",", array_unique(array_column($d["sites"][0]["items"] ?? [], "check"))), count($d["customer_tasks"] ?? [1])]);' "$WORK/response" > "$WORK/plan330.txt"
+  echo implode("|", [count($d["sites"] ?? []), implode(",", array_unique(array_column($d["sites"][0]["items"] ?? [], "check"))), count($d["customer_tasks"] ?? [1])]);' -- "$WORK/response" > "$WORK/plan330.txt"
 expect "3.30 MCP fleet_plan: one site, one check, no customer tasks" "$(cat "$WORK/plan330.txt")" "1|uptime|0"
 expect "3.30 MCP fleet_plan: an unknown severity, check or site is refused" \
   "$(y330_call fleet_plan '{"severity":"purple"}' | grep -c 'severity must be one of')|$(y330_call fleet_plan '{"checks":["nope"]}' | grep -c 'Unknown check: nope')|$(y330_call fleet_plan '{"site":999999}' | grep -c 'not in the console')" "1|1|1"
 # only administrators of the console; only on a console; a console task only where the console is on
 sq3 "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('editor330', '!', 'Editor 330', 1, '$(site_time)', '$(site_time)')" > /dev/null
 Y330_ETOKEN="kaleta_$(printf 'e%.0s' $(seq 1 48))"
-sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$Y330_ETOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'editor330'" > /dev/null
+sq3 "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$Y330_ETOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'editor330'" > /dev/null
 y330_mcp "$Y330_ETOKEN" '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_plan","arguments":{}}}' > "$WORK/response"
 contains -q '"isError":true' "$WORK/response" && ! contains -q 'connector' "$WORK/response" && echo "  ok     3.30 MCP fleet_plan: refused to someone who is not an administrator" || { echo "  CHYBA  3.30 fleet_plan for an editor"; head -c 400 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp fleet_plan '{}' > "$WORK/response"; contains -q '"connector"' "$WORK/response" && { echo "  CHYBA  fleet_plan works on a site that is not a console"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.30: fleet_plan exists only on a console"

@@ -49,7 +49,7 @@ expect "3.15 N42: with config.php not writable the line to add is shown, nothing
   "$([ -n "$VAULT_NEW" ] && echo line)|$(grep -c 'Kaleta nemůže klíč do config.php bezpečně zapsat' "$WORK/response")|$(grep -c vault_key "$WORK/web/config.php" || true)|$(vault_sealed)|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%${VAULT_NEW:-none}%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%${VAULT_NEW:-none}%' OR akce = 'encryption key moved'")|$(vault read)" \
   "line|1|0|$VAULT_BEFORE|0|0|$VAULT_PLAIN"
 # the administrator adds the line by hand; a failure while encrypting again (a table gone) rolls everything back
-php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/return\s*(\[|array\s*\()/", "$0\n  " . $argv[2], (string) file_get_contents($f), 1));' "$WORK/web/config.php" "$VAULT_LINE,"; config_changed
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/return\s*(\[|array\s*\()/", "$0\n  " . $argv[2], (string) file_get_contents($f), 1));' -- "$WORK/web/config.php" "$VAULT_LINE,"; config_changed
 sq "RENAME TABLE ka_whistleblowing_messages TO ka_wm_315" > /dev/null; vault_move; sq "RENAME TABLE ka_wm_315 TO ka_whistleblowing_messages" > /dev/null
 expect "3.15 N42: a failed re-encryption rolls back: the old key stays in use, the data reads, Ready for 4.0 says the move is unfinished" \
   "$(grep -c 'Přesun se nezdařil' "$WORK/response")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'vault_check'")|$(vault_sealed)|$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Dokončete přesun' "$WORK/response")" \
@@ -59,7 +59,7 @@ expect "3.15 N42: the move encrypts the data again under the key in config.php, 
   "$(grep -c 'Šifrovací klíč je teď v config.php' "$WORK/response")|$([ "$(vault_sealed)" != "$VAULT_BEFORE" ] && echo resealed)|$(vault read)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'encryption key moved'")|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%$VAULT_NEW%'")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE popis LIKE '%$VAULT_NEW%'")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c "$VAULT_NEW" "$WORK/response" || true)" \
   "1|resealed|$VAULT_PLAIN|1|0|0|0"
 # config.php without the key the data belongs to (a database restored elsewhere): nothing reads, System status says what to put back
-cp "$WORK/web/config.php" "$WORK/config-315.php"; php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/\n\s*\x27vault_key\x27 => \x27[0-9a-f]{64}\x27,[^\n]*/", "", (string) file_get_contents($f)));' "$WORK/web/config.php"; config_changed
+cp "$WORK/web/config.php" "$WORK/config-315.php"; php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/\n\s*\x27vault_key\x27 => \x27[0-9a-f]{64}\x27,[^\n]*/", "", (string) file_get_contents($f)));' -- "$WORK/web/config.php"; config_changed
 expect "3.15 N42: without the key in config.php the data cannot be read and System status says to put the line back" \
   "$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Vraťte do něj řádek s vault_key' "$WORK/response")" "-|-|1"
 cp "$WORK/config-315.php" "$WORK/web/config.php"; config_changed

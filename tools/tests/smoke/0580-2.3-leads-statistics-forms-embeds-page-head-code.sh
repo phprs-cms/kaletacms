@@ -211,7 +211,7 @@ mcp update_settings '{"settings":{"cookies_mode":"vestavena"}}' > /dev/null; rm 
 # 2.6: import from a website – a small "old site" with a sitemap, a header, a footer, an image and a blog post
 OLD_PORT=$((PORT + 10)); OLD="http://127.0.0.1:$OLD_PORT"
 mkdir -p "$WORK/oldsite/about-us" "$WORK/oldsite/blog/first-post" "$WORK/oldsite/img"
-php -r '$i = imagecreatetruecolor(400, 300); imagefill($i, 0, 0, imagecolorallocate($i, 40, 120, 90)); imagepng($i, $argv[1]);' "$WORK/oldsite/img/team.png"
+php -r '$i = imagecreatetruecolor(400, 300); imagefill($i, 0, 0, imagecolorallocate($i, 40, 120, 90)); imagepng($i, $argv[1]);' -- "$WORK/oldsite/img/team.png"
 printf 'User-agent: *\nSitemap: %s/sitemap.xml\n' "$OLD" > "$WORK/oldsite/robots.txt"
 printf '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>%s/</loc></url><url><loc>%s/about-us/</loc></url><url><loc>%s/blog/first-post/</loc></url></urlset>' "$OLD" "$OLD" "$OLD" > "$WORK/oldsite/sitemap.xml"
 oldpage() { printf '<!doctype html><html><head><title>%s | Old Oak</title><meta name="description" content="%s"></head><body><header><nav><a href="/">Old home</a> <a href="/about-us/">About</a></nav></header><main><h1>%s</h1>%s</main><footer>Old footer 1990</footer></body></html>' "$1" "$2" "$1" "$3"; }
@@ -220,7 +220,7 @@ oldpage "About us" "Who we are" '<p>We build oak furniture since 1990, for homes
 printf '<!doctype html><html><head><title>Our first post | Old Oak</title><meta property="article:published_time" content="2024-05-06T09:00:00+02:00"></head><body><article><h1>Our first post</h1><p>Today we opened the new workshop for visitors, come and see how a table is made from a single oak.</p></article></body></html>' > "$WORK/oldsite/blog/first-post/index.html"
 (cd "$WORK/oldsite" && exec php -S "127.0.0.1:$OLD_PORT" > /dev/null 2>&1) & OLDSITE_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$OLD/" && break; sleep 0.3; done
-import_field() { php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "{}", true); echo is_array($r[$argv[2]] ?? null) ? json_encode($r[$argv[2]]) : ($r[$argv[2]] ?? "");' "$WORK/response" "$1"; }
+import_field() { php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "{}", true); echo is_array($r[$argv[2]] ?? null) ? json_encode($r[$argv[2]]) : ($r[$argv[2]] ?? "");' -- "$WORK/response" "$1"; }
 mcp import_website "{\"url\":\"$OLD\"}" > "$WORK/response"; IMPORT_ID=$(import_field import_id)
 for i in $(seq 1 20); do [ "$(import_field phase)" = finding ] || break; mcp import_website "{\"import_id\":\"$IMPORT_ID\"}" > "$WORK/response"; done
 [ "$(import_field phase)" = preview ] && [ "$(import_field found)" = 3 ] && contains -q '/about-us' "$WORK/response" && echo "  ok     website import: three pages found in the sitemap, shown before importing" || { echo "  CHYBA  website import: finding pages"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
@@ -277,7 +277,7 @@ contains -q '/contact' "$WORK/response" && ! contains -q 'form_missing' "$WORK/r
 # 3.18.2 N3182-4: a component holding itself 60 times and a chain A → B → A – the report follows each component once
 # (before: 61⁴ lookups for the one page, the batch never ended) and still finds the form
 mcp save_component '{"name":"Cyklus 3182"}' > "$WORK/response"; CYCLE3182=$(mcp_value id)
-CYCLE_BUILD=$(php -r '$d = [["id" => "f3182", "typ" => "formular"]]; for ($i = 0; $i < 60; $i++) { $d[] = ["id" => "s3182x" . $i, "typ" => "komponenta", "obsah" => ["komponenta" => $argv[1]]]; } $d[] = ["id" => "c3182", "typ" => "komponenta", "obsah" => ["komponenta" => $argv[2]]]; echo addslashes(json_encode(["v" => 1, "deti" => [["id" => "k3182", "typ" => "sekce", "deti" => $d]]]));' "$COMP3182" "$CYCLE3182")
+CYCLE_BUILD=$(php -r '$d = [["id" => "f3182", "typ" => "formular"]]; for ($i = 0; $i < 60; $i++) { $d[] = ["id" => "s3182x" . $i, "typ" => "komponenta", "obsah" => ["komponenta" => $argv[1]]]; } $d[] = ["id" => "c3182", "typ" => "komponenta", "obsah" => ["komponenta" => $argv[2]]]; echo addslashes(json_encode(["v" => 1, "deti" => [["id" => "k3182", "typ" => "sekce", "deti" => $d]]]));' -- "$COMP3182" "$CYCLE3182")
 sq "UPDATE ka_komponenty SET stavba = '$CYCLE_BUILD' WHERE idm = $COMP3182" > /dev/null
 sq "UPDATE ka_komponenty SET stavba = '{\"v\":1,\"deti\":[{\"id\":\"b3182\",\"typ\":\"komponenta\",\"obsah\":{\"komponenta\":\"$COMP3182\"}}]}' WHERE idm = $CYCLE3182" > /dev/null
 START3182=$(date +%s)

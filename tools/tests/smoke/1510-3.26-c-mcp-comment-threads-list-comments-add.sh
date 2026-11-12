@@ -1,7 +1,7 @@
 echo "== 3.26 (C): MCP comment threads (list_comments, add_comment) and the work tool set of an employee's own Claude"
 # an editor with Pages, Collections and Enquiries (own Claude: the work tool set, and a drafts-only connection), a salesperson
 # with Enquiries only, a blocked administrator; a page the editor is responsible for, an enquiry and a collection item
-C326_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+C326_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, blokovat, posledni_login, potvrzeno) VALUES
   ('c326-editor', '$C326_HASH', 'Editor C326', 'c326-editor@example.com', 1, 0, '$(site_time)', '$(site_time)'),
   ('c326-sales', '$C326_HASH', 'Sales C326', 'c326-sales@example.com', 0, 0, '$(site_time)', '$(site_time)'),
@@ -17,7 +17,7 @@ mcp create_collection '{"name":"C326 collection","slug":"c326-collection"}' > /d
 C326_IDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'c326-collection'")
 sq "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, zobrazit, datum) VALUES ($C326_IDK, 'C326 item', 'c326-item', '{}', 1, '$(site_time)')" > /dev/null
 C326_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE seo_link = 'c326-item'")
-c326_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', '$4', '$5', '$(php -r 'echo hash("sha256", $argv[1]);' "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
+c326_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', '$4', '$5', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
 C326_WORK=$(c326_token d "$C326_ED" c326-work full work); C326_DRAFTS=$(c326_token e "$C326_ED" c326-drafts drafts all)
 C326_SALES_T=$(c326_token f "$C326_SALES" c326-sales full all); C326_UNDO=$(c326_token 7 "$C326_ADMIN" c326-undo full all)
 C326_CACHE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'page_cache'"); setting page_cache 1
@@ -25,7 +25,7 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o /dev/null "$B/"; C326
 
 # add_comment from the editor's own Claude: a mention of a colleague who may open the page is stored and named in the result
 mcp_as "$C326_WORK" add_comment "{\"target\":\"page:$C326_PAGE\",\"text\":\"Prices are out of date – @admin please check.\\nThanks!\"}" > "$WORK/response"; mcp_text
-C326_C1=$(php -r '$v = json_decode((string) file_get_contents($argv[1]), true); echo (int) ($v["id"] ?? 0);' "$WORK/text")
+C326_C1=$(php -r '$v = json_decode((string) file_get_contents($argv[1]), true); echo (int) ($v["id"] ?? 0);' -- "$WORK/text")
 expect "3.26 add_comment: a page comment as the connected user (via mcp), the mention of an administrator stored, the admin link in the result" \
   "$(sq "SELECT CONCAT_WS('/', target, author_id, via, mentions, REPLACE(text, '\n', '~')) FROM ka_comments WHERE id = ${C326_C1:-0}")|$(grep -c "\"mentioned\":\[{\"id\":$C326_ADMIN," "$WORK/text")|$(grep -c "module=pages&action=edit&id=$C326_PAGE\"" "$WORK/text")" \
   "page:$C326_PAGE/$C326_ED/mcp/[$C326_ADMIN]/Prices are out of date – @admin please check.~Thanks!|1|1"
@@ -55,7 +55,7 @@ expect "3.26 add_comment: a drafts-only connection writes a plain comment on an 
 # who may open the record: the salesperson reads the enquiry's thread, not the page's; a missing record, a bad target, an empty text
 mcp_as "$C326_SALES_T" list_comments "{\"target\":\"enquiry:$C326_ENQ\"}" > "$WORK/response"; mcp_text
 expect "3.26 list_comments: the thread of an enquiry for someone with Enquiries – who, the text, the mention by id, name and sign-in name (N326-2)" \
-  "$(php -r '$v = json_decode((string) file_get_contents($argv[1]), true); $c = $v["comments"][0] ?? []; echo ($v["total"] ?? 0), "|", $c["by"]["name"] ?? "", "|", $c["mentions"][0]["name"] ?? "", "|", $c["mentions"][0]["user"] ?? "", "|", $c["via"] ?? "";' "$WORK/text")" "1|Editor C326|Sales C326|c326-sales|claude"
+  "$(php -r '$v = json_decode((string) file_get_contents($argv[1]), true); $c = $v["comments"][0] ?? []; echo ($v["total"] ?? 0), "|", $c["by"]["name"] ?? "", "|", $c["mentions"][0]["name"] ?? "", "|", $c["mentions"][0]["user"] ?? "", "|", $c["via"] ?? "";' -- "$WORK/text")" "1|Editor C326|Sales C326|c326-sales|claude"
 mcp_as "$C326_SALES_T" list_comments "{\"target\":\"page:$C326_PAGE\"}" > "$WORK/response"; mcp_text
 contains -q 'Only a user who may open Pages' "$WORK/text" && echo "  ok     3.26 list_comments: a user without Pages cannot read a page's thread" || { echo "  CHYBA  3.26 list_comments without the section: $(head -c 300 "$WORK/text")"; ERRORS=$((ERRORS+1)); }
 expect "3.26 list_comments / add_comment: a missing page, a malformed target and an empty text are refused" \
@@ -74,7 +74,7 @@ expect "3.26 undo_agent_session: the page comment is gone, the enquiry note stay
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $C326_WORK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' > "$WORK/response"
 expect "3.26 work tool set: tools/list holds my_work, the enquiry and comment tools, assign and find_tools, not the builder; under 49,000 bytes" \
   "$(php -r '$t = json_decode((string) file_get_contents($argv[1]), true)["result"]["tools"] ?? []; $n = array_column($t, "name");
-    echo implode(",", array_values(array_intersect(["my_work", "list_enquiries", "list_comments", "add_comment", "assign", "get_email_signature", "find_tools", "save_build", "publish_look"], $n))), "|", strlen(json_encode(["tools" => $t], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) <= 49000 ? "small" : "big";' "$WORK/response")" \
+    echo implode(",", array_values(array_intersect(["my_work", "list_enquiries", "list_comments", "add_comment", "assign", "get_email_signature", "find_tools", "save_build", "publish_look"], $n))), "|", strlen(json_encode(["tools" => $t], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) <= 49000 ? "small" : "big";' -- "$WORK/response")" \
   "my_work,list_enquiries,list_comments,add_comment,assign,get_email_signature,find_tools|small"
 mcp_as "$C326_WORK" find_tools '{"names":["save_build"]}' > "$WORK/response"; mcp_text
 contains -q '"runner":"run_tool"' "$WORK/text" && echo "  ok     3.26 work tool set: find_tools reaches the builder (save_build through run_tool)" || { echo "  CHYBA  3.26 work find_tools: $(head -c 300 "$WORK/text")"; ERRORS=$((ERRORS+1)); }

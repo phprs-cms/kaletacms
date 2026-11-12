@@ -92,7 +92,7 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
 # N310-7: the form of a new token has "Create token" as its only button – the buttons of the listed connections belong to their own form
 expect "3.10 N310-7: Enter in the token name can only create a token" "$(php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d);
   $own = []; foreach ($x->query("//form[.//input[@id=\"token-nazev\"]]//button[not(@form) and not(@type=\"button\")]") as $b) { $own[] = $b->getAttribute("value"); }
-  echo implode(",", $own), "|", $x->query("//form[.//input[@id=\"token-nazev\"]]//button[@form=\"claude-connections\"]")->length > 0 ? "listed" : "none", "|", $x->query("//form[@id=\"claude-connections\"]//input[@name=\"_csrf\"]")->length;' "$WORK/response")" "token_novy|listed|1"
+  echo implode(",", $own), "|", $x->query("//form[.//input[@id=\"token-nazev\"]]//button[@form=\"claude-connections\"]")->length > 0 ? "listed" : "none", "|", $x->query("//form[@id=\"claude-connections\"]//input[@name=\"_csrf\"]")->length;' -- "$WORK/response")" "token_novy|listed|1"
 ESS_IDT=$(sq "SELECT idt FROM ka_api_tokeny WHERE nazev = 'Claude essentials'")
 contains -q "value=\"all:token:$ESS_IDT\"" "$WORK/response" && contains -q "value=\"all:app:$CLIENT\"" "$WORK/response" && contains -q 'základní nástroje' "$WORK/response" \
   && echo "  ok     3.10: My account shows the tool set of tokens and connected applications with a switch" || { echo "  CHYBA  3.10: My account tool set"; ERRORS=$((ERRORS+1)); }

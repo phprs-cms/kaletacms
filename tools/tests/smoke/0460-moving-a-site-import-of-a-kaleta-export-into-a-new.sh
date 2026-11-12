@@ -19,7 +19,7 @@ MOVE3_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = 
 mv "$WORK/web/storage/zalohy/$MOVE3_EXPORT" "$WORK/presun3.zip"
 unzip -p "$WORK/presun3.zip" obsah.json > "$WORK/obsah3.json" 2>/dev/null || true
 expect "3.14: export format 3 has the English header, table and column names, the default export stays format 2" \
-  "$(php -r '$h = json_decode(rtrim(rtrim((string) fgets(fopen($argv[1], "rb"))), ",") . "}", true); $t = file_get_contents($argv[1]); echo $h["format_version"] ?? "-", "|", isset($h["settings"]["site_name"]) ? "settings" : "-", "|", (int) str_contains($t, "\n\"tags\":["), "|", (int) str_contains($t, "\n\"stitky\":["), "|", (int) str_contains($t, "\"slug\":\"move-314\",\"language\":\"en\"");' "$WORK/obsah3.json")|$(unzip -p "$WORK/presun3.zip" README.txt | grep -c 'Format 3 holds the same')" \
+  "$(php -r '$h = json_decode(rtrim(rtrim((string) fgets(fopen($argv[1], "rb"))), ",") . "}", true); $t = file_get_contents($argv[1]); echo $h["format_version"] ?? "-", "|", isset($h["settings"]["site_name"]) ? "settings" : "-", "|", (int) str_contains($t, "\n\"tags\":["), "|", (int) str_contains($t, "\n\"stitky\":["), "|", (int) str_contains($t, "\"slug\":\"move-314\",\"language\":\"en\"");' -- "$WORK/obsah3.json")|$(unzip -p "$WORK/presun3.zip" README.txt | grep -c 'Format 3 holds the same')" \
   "3|settings|1|0|1|1"
 sq "DELETE FROM ka_stitky WHERE seo_link = 'move-314'" > /dev/null
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
@@ -143,7 +143,7 @@ php -r '$z = new ZipArchive(); $z->open($argv[1]); $d = json_decode((string) $z-
   $z->addFromString("media/2026/10/route.GPX", "<?xml version=\"1.0\"?><gpx version=\"1.1\" creator=\"x\"><trk><name>r</name></trk></gpx>");
   $z->addFromString("media/2026/10/fake-315.pdf", "<!DOCTYPE html><html><body><script>alert(1)</script></body></html>");
   $z->addFromString("media/2026/10/fake-315.png", "<html><body><script>alert(2)</script></body></html>");
-  $z->addFromString("obsah.json", (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $z->close();' "$WORK/presun37.zip" "$PRODUKTY" "$CAT_SUB" "$OTHER37" "$CAT_TOP"
+  $z->addFromString("obsah.json", (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); $z->close();' -- "$WORK/presun37.zip" "$PRODUKTY" "$CAT_SUB" "$OTHER37" "$CAT_TOP"
 kill "$SERVER2_PID" 2>/dev/null || true; wait "$SERVER2_PID" 2>/dev/null || true
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB2\`; CREATE DATABASE \`$DB2\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 rm -f "$WORK/web2/config.php"; cp "$ROOT/install.php" "$WORK/web2/install.php"

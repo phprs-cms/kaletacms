@@ -19,7 +19,7 @@ expect "3.25: MCP update_enquiry add_note appends a note as the connected user (
 mcp update_enquiry "{\"id\":$N325,\"add_note\":\" \"}" > "$WORK/response"
 contains -q 'add_note must be the text of the note' "$WORK/response" && echo "  ok     3.25: an empty add_note is refused" || { echo "  CHYBA  3.25: empty add_note"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp list_enquiries '{"search":"notes325@example.cz"}' > "$WORK/response"
-expect "3.25: list_enquiries rows carry notes_count (old keys kept)" "$(php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); $r = $v[0] ?? $v["enquiries"][0] ?? []; echo ($r["notes_count"] ?? "none"), "|", isset($r["email"], $r["status"], $r["fields"]) ? 1 : json_encode(array_keys($r));' "$WORK/response")" "3|1"
+expect "3.25: list_enquiries rows carry notes_count (old keys kept)" "$(php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true); $r = $v[0] ?? $v["enquiries"][0] ?? []; echo ($r["notes_count"] ?? "none"), "|", isset($r["email"], $r["status"], $r["fields"]) ? 1 : json_encode(array_keys($r));' -- "$WORK/response")" "3|1"
 N325_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); foreach (Kaleta\Core\PersonalData::find($app->db(), "notes325@example.cz")["enquiries"] as $e) { echo count($e["notes"]), "|", $e["notes"][0]["text"]; }')
 expect "3.25: the personal data file carries the notes on the person's enquiry" "$N325_EXPORT" "3|První poznámka 325
 na dva řádky"

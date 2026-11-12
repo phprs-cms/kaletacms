@@ -16,9 +16,9 @@ expect "3.36 review L3: the first call lists 50 pages with the total and the nex
 expect "3.36 review L3: one call of the queue runs four statements, however many pages it lists (the redirects in one query)" \
   "$(l3php '$db = $app->db(); $n = $db->queryCount; Kaleta\Core\ImportLayout::queue($db); echo $db->queryCount - $n;')" "4"
 mcp layout_queue '{}' > "$WORK/response"; mcp_text
-L3_MCP=$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo count($r["pages"] ?? []) . "|" . ($r["next_offset"] ?? "-") . "|" . (($r["count"] ?? 0) >= 55 ? "total" : "?");' "$WORK/text")
+L3_MCP=$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo count($r["pages"] ?? []) . "|" . ($r["next_offset"] ?? "-") . "|" . (($r["count"] ?? 0) >= 55 ? "total" : "?");' -- "$WORK/text")
 mcp list_layout_queue '{"offset":50}' > "$WORK/response"; mcp_text
 expect "3.36 review L3: layout_queue lists 50 with next_offset and count = every waiting page; list_layout_queue with offset gives the rest without next_offset" \
-  "$L3_MCP|$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo (count($r["pages"] ?? []) === ($r["count"] ?? -1) - 50 ? "rest" : "?") . "|" . ($r["next_offset"] ?? "-");' "$WORK/text")" "50|50|total|rest|-"
+  "$L3_MCP|$(php -r '$r = json_decode(file_get_contents($argv[1]), true); echo (count($r["pages"] ?? []) === ($r["count"] ?? -1) - 50 ? "rest" : "?") . "|" . ($r["next_offset"] ?? "-");' -- "$WORK/text")" "50|50|total|rest|-"
 sq "DELETE FROM ka_presmerovani WHERE z_adresy IN ('l3-guess', '?p=4242', 'old-l3-pretty', 'l3-other-*'); DELETE FROM ka_import_mapa WHERE nase_id IN ($L3_PAGES) AND (zdroj = 'layout' OR zdroj = 'web:old-l3.example.test');
   DELETE FROM ka_stranky WHERE ids IN ($L3_PAGES)" > /dev/null

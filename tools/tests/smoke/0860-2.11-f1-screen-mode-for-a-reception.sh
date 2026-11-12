@@ -22,7 +22,7 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/general.html" "$B/admin.php?module=setting
 php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
   foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
     $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
-  echo implode("&", $q);' "$WORK/general.html" > "$WORK/general.post"
+  echo implode("&", $q);' -- "$WORK/general.html" > "$WORK/general.post"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general.post" -d novy_token_obrazovka=1
 SCREEN_SECRET_2=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'screen_secret'")
 [ "${#SCREEN_SECRET_2}" = 32 ] && [ "$SCREEN_SECRET_2" != "$SCREEN_SECRET" ] && echo "  ok     screen: the button creates a new address" || { echo "  CHYBA  new screen address"; ERRORS=$((ERRORS+1)); }

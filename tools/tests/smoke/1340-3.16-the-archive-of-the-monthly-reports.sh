@@ -62,7 +62,7 @@ mcp get_monthly_report "{\"month\":\"$LAST_MONTH\"}" > "$WORK/response"
 expect "MCP get_monthly_report: the data and the printable page" "$(mcp_value report month)|$(mcp_value report requests done_count)|$(mcp_value print_url | grep -c "action=report_view&month=$LAST_MONTH")" "$LAST_MONTH|1|1"
 contains -q 'example.org' "$WORK/response" && { echo "  CHYBA  3.16 MCP report carries an address"; ERRORS=$((ERRORS+1)); } || echo "  ok     MCP: nothing personal in the report"
 AUTHOR316="kaleta_$(printf 'c%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 316', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR316")', '$(site_time)' FROM ka_uzivatele WHERE user = 'autor'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author 316', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$AUTHOR316")', '$(site_time)' FROM ka_uzivatele WHERE user = 'autor'" > /dev/null
 mcp_as "$AUTHOR316" get_monthly_report "{\"month\":\"$LAST_MONTH\"}" > "$WORK/response"
 contains -q '"isError":true' "$WORK/response" && contains -q 'administrator' "$WORK/response" && echo "  ok     MCP: a non-administrator is refused the reports" || { echo "  CHYBA  3.16 MCP refuses non-admins"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 sq "DELETE FROM ka_requests WHERE title LIKE 'Opening hours 316%'; DELETE FROM ka_api_tokeny WHERE nazev = 'author 316'; DELETE FROM ka_events WHERE type = 'update.applied' AND message = 'Version 3.16.0 was installed (from 3.15.4).';

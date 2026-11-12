@@ -39,7 +39,7 @@ expect "3.6 the menus: main and footer into the draft look, the third one handed
   "main|in_draft_look|footer|skipped|https://instagram.example/stavbynovak"
 wxr_menu() { php -r '$v = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"], true);
   $f = function (array $items) use (&$f): string { return implode(",", array_map(fn (array $i): string => $i["text"] . "=" . ($i["url"] ?? $i["type"]) . (!empty($i["new_window"]) ? "*" : "") . (isset($i["children"]) ? "[" . $f($i["children"]) . "]" : ""), $items)); };
-  echo ($v["look_draft"] ?? "") !== "" ? "draft:" : "live:", $f($v["items"] ?? []);' "$WORK/response"; }
+  echo ($v["look_draft"] ?? "") !== "" ? "draft:" : "live:", $f($v["items"] ?? []);' -- "$WORK/response"; }
 mcp get_menu '{"location":"main"}' > "$WORK/response"
 expect "3.6 the main menu draft: links to the new addresses, hierarchy kept, a third level moved up, a page that was not imported left out" "$(wxr_menu)" \
   "draft:Domů=/,=page[Byty=page,Postup=/sluzby-stavby/rekonstrukce-bytu#postup],Aktuality stavby=/novinky/kategorie/aktuality-stavby[Zakázka=/novinky/nova-zakazka-v-lhote],Kontakt=page"

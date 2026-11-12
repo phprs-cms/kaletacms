@@ -20,7 +20,7 @@ expect "alerts: at most one an hour" "$(( $(sq "SELECT COUNT(*) FROM ka_posta WH
 # the check after an update: only with the one-time code
 code=$(curl -s -o /dev/null -w '%{http_code}' "$B/ulohy?probe=abc"); expect "update check without the code is refused" "$code" "403"
 sq "INSERT INTO ka_nastaveni VALUES ('update_probe','probe123') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
-expect "update check with the code answers the running version" "$(curl -s "$B/ulohy?probe=probe123")" "KALETA-PROBE $(php -r 'require $argv[1]; echo KALETA_VERSION;' "$ROOT/system/bootstrap.php" 2>/dev/null)"
+expect "update check with the code answers the running version" "$(curl -s "$B/ulohy?probe=probe123")" "KALETA-PROBE $(php -r 'require $argv[1]; echo KALETA_VERSION;' -- "$ROOT/system/bootstrap.php" 2>/dev/null)"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_probe'" > /dev/null
 # Claude: get_health and list_events
 mcp get_health '{}' > "$WORK/response"

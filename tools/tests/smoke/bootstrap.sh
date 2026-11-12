@@ -27,7 +27,7 @@ php() { command php -d date.timezone="$SITE_TZ" "$@"; }
 site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" "${2:-Y-m-d H:i:s}"; } # site_time ['-1 hour'|tomorrow…] [format]
 site_date() { site_time "$1" Y-m-d; }
 # run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
-run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' "$1"); }
+run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' -- "$1"); }
 
 # T4 (Q4): the light background jobs run after a response, at most once a minute (Notifications::runInBackground, the clock
 # notification_check) – a slow run gets one more pass than a fast one. A check that compares or counts what they would
@@ -56,4 +56,4 @@ background_jobs() {
 background_jobs_lock() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\Scheduler::lockName((new Kaleta\Core\App(require "config.php"))->db());'); }
 # T4 (Q10): a second site of a section (the console, the site to move to …) is a test copy too – its config.php defines
 # KALETA_TEST_SEAMS, without which Core\TestSeams ignores the KALETA_* variables its server was started with
-test_seams() { php -r '$f = $argv[1]; $c = (string) file_get_contents($f); if (!str_contains($c, "KALETA_TEST_SEAMS")) { file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_TEST_SEAMS\x27, true);", $c, 1)); }' "$1/config.php"; }
+test_seams() { php -r '$f = $argv[1]; $c = (string) file_get_contents($f); if (!str_contains($c, "KALETA_TEST_SEAMS")) { file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_TEST_SEAMS\x27, true);", $c, 1)); }' -- "$1/config.php"; }

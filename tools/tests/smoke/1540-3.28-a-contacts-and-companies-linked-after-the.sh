@@ -1,8 +1,8 @@
 echo "== 3.28 (A): contacts and companies – linked after the response, the backfill, merge, retention, erasure, MCP"
 t328_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
-t328_json() { php -r '$v = json_decode((string) file_get_contents($argv[1]), true); foreach (explode(".", $argv[2]) as $k) { $v = is_array($v) ? ($v[$k] ?? null) : null; } echo is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_bool($v) ? ($v ? "true" : "false") : (string) $v);' "$WORK/text" "$1"; }
-t328_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', 'full', '$4', '$(php -r 'echo hash("sha256", $argv[1]);' "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
-T328_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+t328_json() { php -r '$v = json_decode((string) file_get_contents($argv[1]), true); foreach (explode(".", $argv[2]) as $k) { $v = is_array($v) ? ($v[$k] ?? null) : null; } echo is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_bool($v) ? ($v ? "true" : "false") : (string) $v);' -- "$WORK/text" "$1"; }
+t328_token() { local t="kaleta_$(printf "$1%.0s" $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($2, '$3', 'full', '$4', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$t")', '$(site_time)')" > /dev/null; echo "$t"; }
+T328_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 # Jana: Enquiries and Customers (work tools); Petr: Enquiries only; Eva: Pages only
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('t328-jana', '$T328_HASH', 'Jana T328', 'jana-t328@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off'),
@@ -104,7 +104,7 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '1
 t328_php 'Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $app->settings());'
 expect "3.28: the expired enquiries are gone, the contact keeps the first contact (date and form, in the site's language), never the message" \
   "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'Starý formulář T328'")|$(sq "SELECT summary FROM ka_contacts WHERE id = ${T328_C3:-0}")" \
-  "0|První kontakt $(php -r 'echo date("j. n. Y", strtotime($argv[1]));' "$(site_time '-20 months')") přes formulář „Starý formulář T328“."
+  "0|První kontakt $(php -r 'echo date("j. n. Y", strtotime($argv[1]));' -- "$(site_time '-20 months')") přes formulář „Starý formulář T328“."
 T328_P=$(t328_php 'echo Kaleta\Core\Contacts::purge($app);')
 expect "3.28 retention: the contact inactive for 12 months is anonymised – address, name, summary gone, its log without text, unlinked; the active ones stay" \
   "$([ "${T328_P:-0}" -ge 1 ] && echo 1)|$(sq "SELECT CONCAT(email, '|', email_norm IS NULL, '|', name, '|', summary IS NULL, '|', anonymised_at IS NOT NULL) FROM ka_contacts WHERE id = ${T328_C3:-0}")|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(text = '')) FROM ka_contact_activities WHERE contact_id = ${T328_C3:-0}")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id IN (${T328_C1:-0}, ${T328_C4:-0}) AND anonymised_at IS NULL")" \

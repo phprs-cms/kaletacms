@@ -23,7 +23,7 @@ curl -s -b "$JAR" -o /dev/null "$B/admin.php?module=connectors&action=callback&c
 curl -s -b "$JAR" -c "$JAR" -L -o "$WORK/response" "$B/admin.php?module=connectors&action=callback&error=Call+our+support+at+evil.example"
 grep -q 'unknown_error' "$WORK/response" && ! grep -q 'evil.example' "$WORK/response" && echo "  ok     3.15 N49: a cancelled sign-in shows an OAuth error code, not text from the address" || { echo "  CHYBA  N49 OAuth callback error"; ERRORS=$((ERRORS+1)); }
 expect "connectors: a callback with a state the session did not issue changes nothing" "$(sq "SELECT COUNT(*) FROM ka_connector_log WHERE action = 'oauth.token'")" "1"
-connector_call() { php -r 'chdir($argv[1]); putenv("KALETA_CONNECTORS_FAKE=" . $argv[2]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, "google", "GET", "https://www.googleapis.com/echo"); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];' "$WORK/web" "http://127.0.0.1:$FAKE_PORT"; }
+connector_call() { php -r 'chdir($argv[1]); putenv("KALETA_CONNECTORS_FAKE=" . $argv[2]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\Connectors::request($app, "google", "GET", "https://www.googleapis.com/echo"); echo $r["status"], "|", $r["json"]["authorization"] ?? "", "|", $r["error"];' -- "$WORK/web" "http://127.0.0.1:$FAKE_PORT"; }
 expect "connectors: a call is authorised with the stored token" "$(connector_call)" "200|Bearer access-1|"
 sq "UPDATE ka_connectors SET expires_at = '$(site_time)' - INTERVAL 1 DAY WHERE service = 'google'" > /dev/null
 expect "connectors: an expired token is refreshed with the refresh token" "$(connector_call)" "200|Bearer access-2|"

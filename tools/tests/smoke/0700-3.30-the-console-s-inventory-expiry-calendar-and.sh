@@ -33,9 +33,9 @@ expect "3.30 Calendar: the month view and the list carry the pilot's certificate
   "$(cat "$WORK/code330.txt")|$(grep -c 'class="flotila-stav flotila-stav-bad" href="/admin.php?module=fleet&amp;action=detail&amp;id='"$PILOT330"'"' "$WORK/response" | awk '{print ($1 >= 1)}')|$(grep -c 'class="vypis vypis-karty flotila-terminy"' "$WORK/response")|$(grep -A3 'X330 Careful' "$WORK/response" | grep -c 'flotila-stav-bad')" "200|1|1|1"
 SMTP_PORT=$((PORT + 3)); mkdir -p "$WORK/smtp330"
 # an earlier sink on the same port may still be closing: wait until the port is free, then until the new sink listens
-for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' "$SMTP_PORT" && break; sleep 0.1; done
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' -- "$SMTP_PORT" && break; sleep 0.1; done
 command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
-for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' "$SMTP_PORT" && break; sleep 0.1; done
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' -- "$SMTP_PORT" && break; sleep 0.1; done
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'console@example.cz'), ('alerts_enabled', '1');
   DELETE FROM ka_jobs WHERE name = 'fleet_expiry'" > /dev/null
 curl -s -o /dev/null "$B3/tasks?token=contoken317"
@@ -51,7 +51,7 @@ expect "3.30: the bell lists the reminder with the site in the console" "$(grep 
 # 3.31: the mail server is down when a reminder is due – the bell arrives, the e-mail waits in the mail queue; once the server
 # is back the job "mail" delivers it exactly once, and no later run repeats the e-mail or the bell
 kill "$SMTP_PID" 2>/dev/null || true; wait "$SMTP_PID" 2>/dev/null || true
-for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' "$SMTP_PORT" && break; sleep 0.1; done
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 1 : 0);' -- "$SMTP_PORT" && break; sleep 0.1; done
 R331_REMINDER="(predmet LIKE '%termíny vašich webů%' OR predmet LIKE '%dates of your sites%')"
 # (no "eml | grep -q" here: grep quits early and pipefail would count the cut-off eml as a failure)
 r331_emls() { local n=0 f; for f in "$WORK"/smtp330/*.eml; do { [ -f "$f" ] && grep -q '^X-Rcpt-To: owner317@agency.example' "$f"; } || continue
@@ -63,7 +63,7 @@ expect "3.31 reminders, mail server down: the reminder recorded, the bell once m
   "$(sq3 "SELECT COUNT(*) FROM ka_fleet_expiry_reminders")|$(sq3 "SELECT COUNT(*) FROM ka_notifications WHERE kind = 'fleet_expiry'")|$(ls "$WORK"/smtp330/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(sq3 "SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus IS NOT NULL), '|', SUM(komu = 'owner317@agency.example')) FROM ka_posta WHERE idp > $R331_P0 AND $R331_REMINDER")" \
   "3|3|1|1|1|1"
 command php "$ROOT/tools/fake-smtp.php" "$SMTP_PORT" "$WORK/smtp330" > /dev/null 2>&1 & SMTP_PID=$!
-for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' "$SMTP_PORT" && break; sleep 0.1; done
+for _ in $(seq 1 50); do command php -r 'exit(@fsockopen("127.0.0.1", (int) $argv[1]) ? 0 : 1);' -- "$SMTP_PORT" && break; sleep 0.1; done
 sq3 "UPDATE ka_posta SET dalsi_pokus = '$(site_time '-1 day')' WHERE idp > $R331_P0 AND odeslano IS NULL AND telo IS NOT NULL; DELETE FROM ka_jobs WHERE name IN ('fleet_expiry', 'mail')" > /dev/null
 curl -s -o /dev/null "$B3/tasks?token=contoken317"
 for _ in $(seq 1 50); do [ "$(r331_emls)" -ge 2 ] && break; sleep 0.2; done; sleep 0.5
@@ -103,7 +103,7 @@ expect "3.30 calendar link: revoked – the feed is gone" "$(curl -s -o /dev/nul
 # the update gate: what the console answers a site's own signed heartbeat, by ring, window and release
 hb330() { sleep 1; php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings();
   $body = json_encode(["action" => "heartbeat", "site_id" => $s->int("fleet_site_id"), "ts" => time(), "version" => "3.29.0", "manage_updates" => true]);
-  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hb330.json" > "$WORK/hb330.sig"
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' -- "$WORK/web" "$WORK/hb330.json" > "$WORK/hb330.sig"
   curl -s -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hb330.sig")" --data-binary @"$WORK/hb330.json" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo is_array($d) && array_key_exists("update_allowed", $d) ? ($d["update_allowed"] === "" ? "-" : $d["update_allowed"]) : "error";'; }
 CLOSED330=$(php -r 'echo date("N", strtotime("+3 days"));')
 sq3 "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('fleet_versions', '{\"3.99.9\":[$(($(date +%s) - 3600)),false]}');
@@ -126,7 +126,7 @@ curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fl
 A3311_TODAY="$(grep -c 'data-fleet-rollout-held="3.99.9"' "$WORK/response")|$(grep -A6 'data-fleet-rollout-held=' "$WORK/response" | grep -c 'href="/admin.php?module=fleet&amp;action=rollout"' | awk '{print ($1 >= 1)}')|$(grep -cE '<strong>(Nasazování aktualizace se zdrželo|Update rollout held back)</strong>' "$WORK/response")"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_today","arguments":{}}}' > "$WORK/response"
 A3311_MCP=$(php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $i = array_values(array_filter($d["items"] ?? [], fn ($x) => $x["check"] === "rollout"));
-  echo count($i), "|", $i[0]["state"] ?? "-", "|", (int) preg_match("~^http://127\.0\.0\.1:[0-9]+/admin\.php\?module=fleet&action=rollout$~", $i[0]["link"] ?? ""), "|", (int) isset($i[0]["site_id"]), "|", (int) str_starts_with($i[0]["detail"] ?? "", "Version 3.99.9");' "$WORK/response")
+  echo count($i), "|", $i[0]["state"] ?? "-", "|", (int) preg_match("~^http://127\.0\.0\.1:[0-9]+/admin\.php\?module=fleet&action=rollout$~", $i[0]["link"] ?? ""), "|", (int) isset($i[0]["site_id"]), "|", (int) str_starts_with($i[0]["detail"] ?? "", "Version 3.99.9");' -- "$WORK/response")
 curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" "$B3/admin.php?module=fleet&action=rollout"; A3311_HINT=$(grep -c 'data-rollout-held' "$WORK/response")
 sq3 "UPDATE ka_nastaveni SET hodnota = '{\"3.99.9\":[$(($(date +%s) - 3600)),false]}' WHERE promenna = 'fleet_versions'" > /dev/null
 expect "3.31.1 Today: a rollout held back by the pilots for 6 days is one amber item with a plain link to Rollout (screen and fleet_today), Rollout says how it goes on; after an hour – none" \
@@ -166,13 +166,13 @@ expect "3.30 review N330-3: a maintenance window under two hours is refused for 
 # MCP on the console
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_inventory","arguments":{"php":"8.3"}}}' > "$WORK/response"
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true);
-  echo implode("|", [count($d["sites"] ?? []), $d["sites"][0]["name"] ?? "-", json_encode($d["sites"][0]["update_needed"] ?? null), $d["sites"][0]["update"]["state"] ?? "-", $d["rollout"]["version"] ?? "-", $d["rollout"]["delays_hours"]["normal"] ?? "-", isset($d["filters"]["php"]["8.3"]) ? "options" : "-"]);' "$WORK/response" > "$WORK/mcp330.txt"
+  echo implode("|", [count($d["sites"] ?? []), $d["sites"][0]["name"] ?? "-", json_encode($d["sites"][0]["update_needed"] ?? null), $d["sites"][0]["update"]["state"] ?? "-", $d["rollout"]["version"] ?? "-", $d["rollout"]["delays_hours"]["normal"] ?? "-", isset($d["filters"]["php"]["8.3"]) ? "options" : "-"]);' -- "$WORK/response" > "$WORK/mcp330.txt"
 expect "3.30 MCP fleet_inventory: filtered like the screen, the old site marked, its update state, the rollout and the filter values" "$(cat "$WORK/mcp330.txt")" "1|=SUM(1) X330 Old|true|self|3.99.9|24|options"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":30}}}' > "$WORK/response"
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true); $by = [];
   foreach ($d["dates"] ?? [] as $e) { $by[$e["site"] . ":" . $e["kind"]] = $e["state"] . ":" . $e["days_left"]; }
   $keys = array_column($d["recovery_keys"] ?? [], "state", "site");
-  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean", implode(",", $d["certificate_reminder_days_before"] ?? [])]);' "$WORK/response" > "$WORK/mcp330.txt"
+  echo implode("|", [$by["X330 Pilot:certificate"] ?? "-", $by["X330 Pilot:domain"] ?? "-", $keys["X330 Careful"] ?? "-", $keys["X330 Pilot"] ?? "-", implode(",", $d["reminder_days_before"] ?? []), str_contains(file_get_contents($argv[1]), "evil330") ? "leak" : "clean", implode(",", $d["certificate_reminder_days_before"] ?? [])]);' -- "$WORK/response" > "$WORK/mcp330.txt"
 expect "3.30 MCP fleet_calendar: the dates with their state and days left, the recovery keys, the reminder days (3.31.1: the certificates' apart)" "$(cat "$WORK/mcp330.txt")" "bad:4|warn:19|bad|ok|45,10|clean|14,7"
 curl -s -X POST "$B3/mcp" -H "Authorization: Bearer $CON_TOKEN" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fleet_calendar","arguments":{"days":9999}}}' > "$WORK/response"
 contains -q 'days must be between' "$WORK/response" && echo "  ok     3.30 MCP fleet_calendar: days out of range refused" || { echo "  CHYBA  3.30 MCP fleet_calendar days"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }

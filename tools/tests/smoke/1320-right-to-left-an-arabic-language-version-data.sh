@@ -6,7 +6,7 @@ mcp create_page "{\"title\":\"شريط كينيزيو\",\"slug\":\"kinesio-rtl-a
 ARP=$(get39 /ar/kinesio-rtl-ar)
 contains -q '<html lang="ar" dir="rtl"' "$WORK/response" && contains -q 'شريط Kinesio Tape (5 cm) للرياضيين' "$WORK/response" && contains -q '<meta property="og:locale" content="ar_SA">' "$WORK/response" \
   && contains -q 'hreflang="cs" href="[^"]*/kinesio-rtl"' "$WORK/response" && contains -q 'hreflang="ar" href="[^"]*/ar/kinesio-rtl-ar"' "$WORK/response" \
-  && contains -q "$(php -r 'echo (require $argv[1])["Skip to content"];' "$ROOT/system/jazyky/ar.php")" "$WORK/response" && ARP="$ARP ok"
+  && contains -q "$(php -r 'echo (require $argv[1])["Skip to content"];' -- "$ROOT/system/jazyky/ar.php")" "$WORK/response" && ARP="$ARP ok"
 CSP=$(get39 /kinesio-rtl)
 contains -q '<html lang="cs"' "$WORK/response" && ! contains -q 'dir="rtl"' "$WORK/response" && contains -q 'hreflang="ar" href="[^"]*/ar/kinesio-rtl-ar"' "$WORK/response" && CSP="$CSP ok"
 expect "RTL: /ar/kinesio-rtl-ar is right to left with Arabic texts, its Latin product name and hreflang both ways; the Czech page has no dir" "$ARP|$CSP" "200  ok|200  ok"

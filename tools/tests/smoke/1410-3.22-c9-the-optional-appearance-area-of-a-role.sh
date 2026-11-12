@@ -30,7 +30,7 @@ expect "3.22 (C9): the footer opens in the builder for the member, its canvas dr
   "$(c9_code c9-manager '/admin.php?module=parts&action=builder&type=paticka&language=')|$(grep -c 'id="stavitel-data"' "$WORK/response")|$(c9_code c9-manager '/?part=paticka&build=koncept&editor=1')|$([ "$(grep -c 'data-ka-id=' "$WORK/response")" -gt 0 ] && echo canvas)" "200|1|200|canvas"
 c9_code c9-manager '/admin.php?module=parts&action=builder&type=paticka&language=' > /dev/null
 C9_BUILD=$(php -r 'preg_match("/id=\"stavitel-data\">(.*?)<\/script>/s", (string) file_get_contents($argv[1]), $m); $b = (json_decode($m[1] ?? "", true) ?: [])["stavba"] ?? ["v" => 1, "deti" => []];
-  $b["deti"][] = ["typ" => "sekce", "deti" => [["typ" => "nadpis", "obsah" => ["text" => "C9 footer line"]]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE);' "$WORK/response")
+  $b["deti"][] = ["typ" => "sekce", "deti" => [["typ" => "nadpis", "obsah" => ["text" => "C9 footer line"]]]]; echo json_encode($b, JSON_UNESCAPED_UNICODE);' -- "$WORK/response")
 c9_code c9-manager '/admin.php?module=parts' > /dev/null; C9_TOKEN=$(csrf)
 expect "3.22 (C9): the member saves the footer draft from the builder (server-side check passes)" \
   "$(curl -s -b "$WORK/jar-c9-manager" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=parts&action=build_save&type=paticka&language=" -d "_csrf=$C9_TOKEN" --data-urlencode "stavba=$C9_BUILD")|$(grep -c '"ok":true' "$WORK/response")|$(sq "SELECT stavba_koncept LIKE '%C9 footer line%' FROM ka_casti WHERE typ = 'paticka' AND jazyk = '' AND varianta = ''")" "200|1|1"
@@ -62,7 +62,7 @@ sq "UPDATE ka_nastaveni SET hodnota = JSON_REMOVE(hodnota, '$.design_system') WH
 publish_look
 # MCP (additive): a member's token reaches the site parts and the menu; a plain editor's does not, as before
 C9_MCP="kaleta_$(printf '7%.0s' $(seq 1 48))"; C9_MCP_ED="kaleta_$(printf '8%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'c9', '$(php -r 'echo hash("sha256", $argv[1]);' "$C9_MCP")', '$(site_time)' FROM ka_uzivatele WHERE user = 'c9-manager'; INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'c9', '$(php -r 'echo hash("sha256", $argv[1]);' "$C9_MCP_ED")', '$(site_time)' FROM ka_uzivatele WHERE user = 'c9-editor'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'c9', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$C9_MCP")', '$(site_time)' FROM ka_uzivatele WHERE user = 'c9-manager'; INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'c9', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$C9_MCP_ED")', '$(site_time)' FROM ka_uzivatele WHERE user = 'c9-editor'" > /dev/null
 mcp_as "$C9_MCP" list_site_parts '{}' > "$WORK/c9-parts"; mcp_as "$C9_MCP_ED" list_site_parts '{}' > "$WORK/c9-parts-ed"
 mcp_as "$C9_MCP" site_info '{}' > "$WORK/c9-info"
 expect "3.22 (C9): MCP – the member lists the site parts and site_info says can_edit_appearance; a plain editor is refused" \

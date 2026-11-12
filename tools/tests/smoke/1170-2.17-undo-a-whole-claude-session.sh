@@ -27,7 +27,7 @@ S3105=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $db = Kaleta\C
   $db->insert("redirects", ["z_adresy" => "n310-5-old", "na_adresu" => "n310-5-new", "vytvoreno" => Kaleta\Core\Clock::now()]);
   $db->update("pages", ["titulek" => "N310-5 changed"], ["ids" => (int) $argv[1]]);
   $db->delete("tags", ["ids" => (int) $argv[2]]);
-  echo $db->journal?->session ?? 0;' "$UNDO_OLD" "$TAG3105")
+  echo $db->journal?->session ?? 0;' -- "$UNDO_OLD" "$TAG3105")
 expect "3.10 N310-5: an insert, an update and a delete through English table names are journaled under today's names" \
   "$(sq "SELECT GROUP_CONCAT(tbl ORDER BY id) FROM ka_agent_journal WHERE session_id = ${S3105:-0} AND untracked IS NULL")" "presmerovani,stranky,stitky"
 mcp undo_agent_session "{\"id\":${S3105:-0},\"confirm\":true}" > /dev/null

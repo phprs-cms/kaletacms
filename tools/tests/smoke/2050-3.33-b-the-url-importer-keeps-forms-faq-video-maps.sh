@@ -5,7 +5,7 @@ B333_PORT=$((PORT + 10)); B333="http://127.0.0.1:$B333_PORT"; B333_DIR="$WORK/b3
 mkdir -p "$B333_DIR/img" "$B333_DIR/files" "$B333_DIR/_files/ugd"
 B333_PAGES="elementor divi wpbakery gutenberg breakdance squarespace webflow wix"
 for b333_page in $B333_PAGES; do mkdir -p "$B333_DIR/$b333_page"; cp "$ROOT/tools/fixtures/builder-pages/$b333_page.html" "$B333_DIR/$b333_page/index.html"; done
-php -r '$i = imagecreatetruecolor(1200, 630); imagefill($i, 0, 0, imagecolorallocate($i, 31, 78, 61)); imagepng($i, $argv[1]);' "$B333_DIR/img/share.png"
+php -r '$i = imagecreatetruecolor(1200, 630); imagefill($i, 0, 0, imagecolorallocate($i, 31, 78, 61)); imagepng($i, $argv[1]);' -- "$B333_DIR/img/share.png"
 for b333_pdf in files/price-list.pdf files/aftercare.pdf files/brochure.pdf files/process.pdf _files/ugd/timetable.pdf; do
   printf '%%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%%%EOF\n' > "$B333_DIR/$b333_pdf"; done
 # an MP4 header (ftyp isom) and zeros: random bytes looked like a Windows executable to finfo about once in a hundred runs,
@@ -32,7 +32,7 @@ expect "3.33 M4: the old <title> is the SEO title, og:image the share image in M
 expect "3.33 M4: the video file of the Gutenberg page plays from Media; the linked PDFs of the other builders are in Media too" \
   "$(sq "SELECT stavba LIKE '%\"url\":\"media/%clinic-tour%.mp4\"%' FROM ka_stranky WHERE seo_link = 'gutenberg' AND smazano IS NULL")|$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha REGEXP '(price-list|aftercare|brochure|process|timetable)-[0-9a-f]{6}[.]pdf$'")|$(sq "SELECT COUNT(*) FROM ka_media WHERE obr_poloha LIKE '%clinic-tour%.mp4'")" "1|5|1"
 B333_ANSWER=$(php -r '$r = json_decode(json_decode(file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? "{}", true); $k = $r["kept"] ?? []; $a = implode("\n", $r["attention"] ?? []);
-  echo ($k["forms"] ?? 0) . "|" . ($k["faq"] ?? 0) . "|" . ($k["maps"] ?? 0) . "|" . ($k["files"] ?? 0) . "|" . ($k["pages_with_seo_fields"] ?? 0) . "|" . (int) str_contains($a, "/gutenberg – a form") . "|" . (int) str_contains($a, "/squarespace – a form") . "|" . (int) str_contains($r["next"] ?? "", "attention");' "$WORK/b333-import.json")
+  echo ($k["forms"] ?? 0) . "|" . ($k["faq"] ?? 0) . "|" . ($k["maps"] ?? 0) . "|" . ($k["files"] ?? 0) . "|" . ($k["pages_with_seo_fields"] ?? 0) . "|" . (int) str_contains($a, "/gutenberg – a form") . "|" . (int) str_contains($a, "/squarespace – a form") . "|" . (int) str_contains($r["next"] ?? "", "attention");' -- "$WORK/b333-import.json")
 expect "3.33 M4: MCP – kept counts the forms, accordions, maps, files and SEO fields; attention names the two forms a script draws (placeholders)" "$B333_ANSWER" "6|9|7|6|8|1|1|1"
 expect "3.33 M4: a form drawn by a script is a visible placeholder in the build, never an invented form" \
   "$(sq "SELECT stavba LIKE '%Formulář ze starého webu%' OR stavba LIKE '%Form from the old site%' FROM ka_stranky WHERE seo_link = 'squarespace' AND smazano IS NULL")" "1"

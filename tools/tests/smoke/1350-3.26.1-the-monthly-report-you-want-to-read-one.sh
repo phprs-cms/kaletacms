@@ -17,7 +17,7 @@ for i in $(seq 1 25); do (exec 3<>"/dev/tcp/127.0.0.1/$SMTP3261_PORT") 2>/dev/nu
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=report_send" -d "_csrf=$(csrf)" -d "month=$LAST_MONTH"
 F3261=""; for i in $(seq 1 40); do F3261=$(grep -l '^X-Rcpt-To: report3261@example.cz' "$WORK"/smtp3261/*.eml 2>/dev/null | tail -1); [ -n "$F3261" ] && break; sleep 0.25; done
-: > "$WORK/eml3261.txt"; [ -n "$F3261" ] && php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo $h, "\n"; preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p); foreach ($p[1] as $x) { echo base64_decode($x), "\n"; }' "$F3261" > "$WORK/eml3261.txt"
+: > "$WORK/eml3261.txt"; [ -n "$F3261" ] && php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo $h, "\n"; preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p); foreach ($p[1] as $x) { echo base64_decode($x), "\n"; }' -- "$F3261" > "$WORK/eml3261.txt"
 expect "3.26.1: the report e-mail reaches the SMTP sink – multipart with a text and an HTML part" \
   "$([ -n "$F3261" ] && echo sent)|$(grep -ci 'multipart/alternative' "$F3261" 2>/dev/null | head -1 | grep -c '[1-9]')|$(grep -ci 'text/plain' "$F3261" 2>/dev/null | grep -c '[1-9]')|$(grep -ci 'text/html' "$F3261" 2>/dev/null | grep -c '[1-9]')" "sent|1|1|1"
 expect "3.26.1: the HTML part – the accent band, tiles, the split of the work, e-mail safe (600 px, no SVG or script, light and dark)" \
@@ -27,5 +27,5 @@ expect "3.26.1: the text part – the opening sentence, the work by group, the l
   "$(grep -c '^Provoz webu .* si vyžádal .* úkonů\|^Keeping .* running took .* tasks' "$WORK/eml3261.txt")|$(grep -c '^CO DAL PROVOZ WEBU ZA PRÁCI\|^WHAT IT TOOK TO RUN THE SITE' "$WORK/eml3261.txt")|$([ "$(grep -c 'module=settings&tab=reports' "$WORK/eml3261.txt")" -ge 1 ] && echo link)|$(grep -ciE '\b(hodin|hours|Kč|EUR|price|cena)\b' "$WORK/eml3261.txt")" \
   "1|1|link|0"
 kill "$SMTP3261_PID" 2>/dev/null || true
-php -r 'foreach (explode("&", $argv[1]) as $pair) { [$k, $v] = array_pad(explode("=", $pair, 2), 2, ""); echo "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES (\x27", addslashes($k), "\x27, \x27", addslashes($v), "\x27);\n"; }' "$MAIL3261" | sq "$(cat)" > /dev/null
+php -r 'foreach (explode("&", $argv[1]) as $pair) { [$k, $v] = array_pad(explode("=", $pair, 2), 2, ""); echo "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES (\x27", addslashes($k), "\x27, \x27", addslashes($v), "\x27);\n"; }' -- "$MAIL3261" | sq "$(cat)" > /dev/null
 

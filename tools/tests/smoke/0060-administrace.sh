@@ -17,7 +17,7 @@ grep -q 'ukázkové reference: ' "$WORK/response" && grep -q '<h2 id="predani-na
   && echo "  ok     3.11 UX310-1/20, 3.23 C17: the home page has sample testimonials; the client questions are marked rows of the hand-over checklist" || { echo "  CHYBA  3.11: the audit of a fresh starter site"; sed 's/<[^>]*>/ /g' "$WORK/response" | grep -i 'ukázk\|klient' | head -5; ERRORS=$((ERRORS+1)); }
 # 3.5 (UXA-07, UXA-20): until a Claude connection has ever called the site, the dashboard leads with "Connect Claude" (the
 # address with Copy, the HTTPS warning), then First steps, and Ask Claude below
-dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' "$WORK/response" "$@"; }
+dash_order() { php -r '$h = (string) file_get_contents($argv[1]); $p = array_map(fn (string $n) => strpos($h, $n), [$argv[2], $argv[3], $argv[4]]); echo in_array(false, $p, true) ? "missing" : ($p[0] < $p[1] && $p[1] < $p[2] ? "ok" : "order");' -- "$WORK/response" "$@"; }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.5: not connected – Connect Claude, First steps, then Ask Claude" "$(dash_order 'id="pripojit-claude"' 'class="pruvodce"' 'id="ask-claude-nadpis"')" "ok"
 # 3.32 (U37): the site's numbers first (Waiting for you and the tiles), then Connect Claude – open for the administrator –
@@ -38,7 +38,7 @@ check "3.29: the support link in the admin footer asks to support the developmen
 n67_rerun() { "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(REPLACE(CONCAT(',', hodnota, ','), ',0084-media-htaccess,', ','), ',0098-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n67=$RANDOM"; }
 cp "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new"
 { echo '# Uploaded files are only served – never run.'; sed -e '1,2d' -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/"(?i)/"/' -e 's/|pht|phtml|phar|pl|py|cgi|sh|shtml|html?|js)(\\.|\$)/|phtml|phar|pl|py|cgi|sh|html?|js)$/' "$WORK/media-htaccess-new"; } > "$WORK/web/media/.htaccess"
-expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
+expect "3.9.2 N67: the test rebuilds the media/.htaccess of 3.9.1 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' -- "$WORK/web/media/.htaccess")" "e20dd912d8066f36f5d967ee462497fca1dcbcd5b53f19d6f77e6bff7ceec708"
 n67_rerun
 expect "3.9.2 N67, 3.15 N72: migrations 0084 and 0098 replace the media/.htaccess of an earlier release" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
 printf '# my own rules\nRequire all granted\n' > "$WORK/web/media/.htaccess"
@@ -48,7 +48,7 @@ check "3.9.2 N67: System status asks to carry the new media/.htaccess over" 200 
 # 3.15 N72: the file of 3.9.2–3.14 (header rules for lower-case extensions only) is replaced by 0098 alone; System status
 # names a file without the new rules
 sed -e '/case of the extension, as Apache/d' -e 's/ – in any$//' -e 's/<FilesMatch "(?i)\\.svg\$">/<FilesMatch "\\.svg$">/' -e 's/<FilesMatch "(?i)\\.(docx/<FilesMatch "\\.(docx/' "$WORK/media-htaccess-new" > "$WORK/web/media/.htaccess"; rm -f "$WORK/web/media/.htaccess.kaleta-nova"
-expect "3.15 N72: the test rebuilds the media/.htaccess of 3.9.2 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' "$WORK/web/media/.htaccess")" "1901ef144717137b305ae54dcead8641c3552c35ee8c36a8e334ae37716a5669"
+expect "3.15 N72: the test rebuilds the media/.htaccess of 3.9.2 exactly" "$(php -r 'echo hash_file("sha256", $argv[1]);' -- "$WORK/web/media/.htaccess")" "1901ef144717137b305ae54dcead8641c3552c35ee8c36a8e334ae37716a5669"
 check "3.15 N72: System status names a media/.htaccess without the rules of 3.15" 200 "/admin.php?module=status" "nemá pravidla Kalety 3.15"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0098-media-htaccess-case,', ',')) WHERE promenna = 'data_migrations'"; curl -s -o /dev/null "$B/?n72=$RANDOM"
 expect "3.15 N72: migration 0098 replaces the media/.htaccess of 3.9.2" "$(cmp -s "$WORK/web/media/.htaccess" "$WORK/media-htaccess-new" && echo same)|$([ -f "$WORK/web/media/.htaccess.kaleta-nova" ] && echo nova)" "same|"
@@ -81,7 +81,7 @@ for z in company:business health:status; do expect "3.2: settings&tab=${z%%:*} l
 check "3.2: System status is its own screen" 200 "/admin.php?module=status" "Cron"
 # 3.32 (U48): problems first (each linking to its row), then the groups – a group with a problem open, an all-green one folded
 expect "3.32 (U48): System status – the problems link to their rows, the open groups are those with a problem, green ones are folded" \
-  "$(php -r '$h = (string) file_get_contents($argv[1]); preg_match_all("#<a href=\"\\#(stav-\\d+)\">#", $h, $links); $missing = array_filter($links[1], fn ($id) => !str_contains($h, "<tr id=\"$id\" class=\"stav-")); preg_match_all("#<details class=\"stav-skupina\" data-status-group( open)?>\\s*<summary><h2>[^<]*</h2> <span class=\"stitek stitek-(\\w+)\">#", $h, $g, PREG_SET_ORDER); $wrong = array_filter($g, fn ($m) => ($m[1] === " open") !== ($m[2] === "koncept")); echo count($g) > 3 ? "groups" : "few", "|", $missing === [] ? "linked" : "broken", "|", $wrong === [] ? "folded" : "wrong", "|", str_contains($h, "data-status-problems") === (count($links[1]) > 0) ? "list" : "nolist";' "$WORK/response")" "groups|linked|folded|list"
+  "$(php -r '$h = (string) file_get_contents($argv[1]); preg_match_all("#<a href=\"\\#(stav-\\d+)\">#", $h, $links); $missing = array_filter($links[1], fn ($id) => !str_contains($h, "<tr id=\"$id\" class=\"stav-")); preg_match_all("#<details class=\"stav-skupina\" data-status-group( open)?>\\s*<summary><h2>[^<]*</h2> <span class=\"stitek stitek-(\\w+)\">#", $h, $g, PREG_SET_ORDER); $wrong = array_filter($g, fn ($m) => ($m[1] === " open") !== ($m[2] === "koncept")); echo count($g) > 3 ? "groups" : "few", "|", $missing === [] ? "linked" : "broken", "|", $wrong === [] ? "folded" : "wrong", "|", str_contains($h, "data-status-problems") === (count($links[1]) > 0) ? "list" : "nolist";' -- "$WORK/response")" "groups|linked|folded|list"
 check "3.2: Claude settings hold the instructions and the guardrails" 200 "/admin.php?module=claude_settings" 'name="claude_instructions"'
 check "3.2: Business details show the hub tabs" 200 "/admin.php?module=facts" 'zalozky-hub'
 check "3.2: the menu leads to the hubs" 200 "/admin.php" "module=claude_settings"
@@ -106,7 +106,7 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/general.html" "$B/admin.php?module=setting
 php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
   foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
     $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
-  echo implode("&", $q);' "$WORK/general.html" > "$WORK/general.post"
+  echo implode("&", $q);' -- "$WORK/general.html" > "$WORK/general.post"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general.post"
 expect "saving Settings → General keeps the language versions" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")" "en"
 # 3.23 (C12): General is split into tabs – each tab's form saved as a browser does (every field as it is) leaves the other tabs alone
@@ -115,7 +115,7 @@ settings_form() { # <tab> <file>: the body a browser posts for the form of Setti
   php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d); $f = $x->query("//form[.//input[@name=\"tab\"]]")->item(0); $q = [];
     foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
       $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value")); $q[] = rawurlencode($n) . "=" . rawurlencode($v); }
-    echo implode("&", $q);' "$WORK/settings-form.html" > "$2"
+    echo implode("&", $q);' -- "$WORK/settings-form.html" > "$2"
 }
 SPLIT323="'additional_languages', 'auto_suspend', 'require_2fa', 'agency_name', 'share_buttons', 'page_cache', 'site_name', 'social_networks'"
 split323() { sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna SEPARATOR ';') FROM ka_nastaveni WHERE promenna IN ($SPLIT323)"; }

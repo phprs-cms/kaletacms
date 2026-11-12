@@ -18,7 +18,7 @@ REQ2FA329=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'require_2fa'"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', 'spravci');
   INSERT INTO ka_tasks (title, due_at, created_at, updated_at) VALUES ('Call Jan329 at jan329@client.example', '$(site_time '-2 days')', '$(site_time '-3 days')', '$(site_time '-3 days')'), ('Open329', NULL, '$(site_time)', '$(site_time)')" > /dev/null
 # sent by the site's own job code (the administration would first ask this admin to set up two-step sign-in)
-sleep 1; KALETA_FLEET_LOCAL=1 php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Fleet\Link::send($app);' "$WORK/web" > "$WORK/send329.txt" 2>&1
+sleep 1; KALETA_FLEET_LOCAL=1 php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Fleet\Link::send($app);' -- "$WORK/web" > "$WORK/send329.txt" 2>&1
 expect "3.29: the heartbeat carries the new parts – off-site, mail, two-step, cookie scan, privacy, statement, hand-over, workload" \
   "$(sq3 "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.offsite.status')) IN ('off', 'never', 'ok', 'paused', 'failing'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.mail_setup.mode')), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.twofa.required')),
     JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.cookie_scan')), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.privacy_page')) IN ('published', 'hidden', 'none'), JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.accessibility_statement')) IN ('published', 'draft', 'none'),
@@ -32,7 +32,7 @@ php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\
   $site = $app->db()->one("SELECT * FROM {fleet_sites} WHERE id = ?", [(int) $argv[2]]); $c = array_column(Kaleta\Core\Language::runWith("en", fn () => Kaleta\Fleet\Checks::forRow($site), "admin-"), null, "id");
   $today = array_column(array_filter(Kaleta\Fleet\Checks::today([$site]), fn ($i) => $i["check"] === "privacy_policy" || $i["check"] === "handover"), "link");
   echo $c["two_step"]["state"], "|", $c["uptime"]["state"], "|", $c["reporting"]["state"], "|", count(array_filter($c, fn ($x) => $x["state"] === "unknown" && $x["detail"] === "Update the site to see")), "|",
-    count(array_filter($today, fn ($l) => !str_starts_with($l, rtrim((string) $site["url"], "/") . "/admin.php?module="))), "|", Kaleta\Fleet\Checks::workload([$site])["reporting"];' "$WORK/web3" "$FLEET_ID" > "$WORK/checks329.txt" 2>&1
+    count(array_filter($today, fn ($l) => !str_starts_with($l, rtrim((string) $site["url"], "/") . "/admin.php?module="))), "|", Kaleta\Fleet\Checks::workload([$site])["reporting"];' -- "$WORK/web3" "$FLEET_ID" > "$WORK/checks329.txt" 2>&1
 expect "3.29: the console maps the stored parts – two-step required ok, up, reporting, no 'update the site' for a 3.29 site, links from its known address, workload known" "$(cat "$WORK/checks329.txt")" "ok|ok|ok|0|0|1"
 # a hostile heartbeat signed by the site's own key: huge, negative, odd and unknown values are bounded or dropped, the console stays up
 sleep 1
@@ -42,7 +42,7 @@ php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\
     "twofa" => ["required" => "admins", "admins_without" => 9.9e300], "cookie_scan" => ["at" => "2026-11-03", "error" => "x", "cookies" => -40, "names" => ["evil329"]],
     "privacy_page" => "javascript:alert(1)", "accessibility_statement" => ["draft"], "handover" => ["done" => 999999, "total" => 16, "failing" => ["smtp", "https://evil329.test/", "smtp"]],
     "workload" => ["enquiries_this_week" => 1e300, "tasks_open" => 9223372036854775807, "tasks_overdue" => "7", "unanswered_over_24h" => -1, "jan329" => 5], "links" => ["two_step" => "https://evil329.test/"]]);
-  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hostile329.json" > "$WORK/hostile329.sig"
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' -- "$WORK/web" "$WORK/hostile329.json" > "$WORK/hostile329.sig"
 expect "3.29: a hostile heartbeat signed by the site is accepted and bounded (no 500)" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hostile329.sig")" --data-binary @"$WORK/hostile329.json")" "200"
 expect "3.29: the hostile values – dates and enums dropped, counts clamped, unknown keys and failing rows left out" \
   "$(sq3 "SELECT CONCAT_WS('|', JSON_UNQUOTE(JSON_EXTRACT(heartbeat, '\$.offsite.status')), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.offsite.at')), JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.offsite.recovery_key')),
@@ -73,13 +73,13 @@ php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\
   $site = $app->db()->one("SELECT * FROM {fleet_sites} WHERE id = ?", [(int) $argv[2]]);
   $all = array_map(fn (array $k): array => ["on" => true, "threshold" => $k[1]], Kaleta\Fleet\AlertRules::KINDS);
   $words = implode(",", [...Kaleta\Fleet\Console::attention($site, time())["reasons"], ...array_column(Kaleta\Fleet\AlertRules::matches($site, $all, time()), "kind")]);
-  echo preg_match("/visit|traffic|drop/", $words) === 1 ? "alarm: " . $words : "none", "|", Kaleta\Fleet\Console::countingChanged(Kaleta\Fleet\Console::storedBeat($site), time()) ?? "-";' "$WORK/web3" "$FLEET_ID" > "$WORK/alerts3291.txt" 2>&1
+  echo preg_match("/visit|traffic|drop/", $words) === 1 ? "alarm: " . $words : "none", "|", Kaleta\Fleet\Console::countingChanged(Kaleta\Fleet\Console::storedBeat($site), time()) ?? "-";' -- "$WORK/web3" "$FLEET_ID" > "$WORK/alerts3291.txt" 2>&1
 expect "3.29.1: the drop across the switch raises no attention and no alert on the console (every rule on); the mark holds" "$(cat "$WORK/alerts3291.txt")" "none|$D3291"
 # a hostile day signed by the site is dropped on its own, the rest of the heartbeat kept
 sleep 1
 php -r 'chdir($argv[1]); require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings();
   $body = json_encode(["action" => "heartbeat", "site_id" => $s->int("fleet_site_id"), "ts" => time(), "version" => "3.29.1", "name" => "Hostile3291", "visits_7_days" => 12, "stats_confirmed_since" => "9999-12-31<script>"]);
-  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' "$WORK/web" "$WORK/hostile3291.json" > "$WORK/hostile3291.sig"
+  file_put_contents($argv[2], $body); echo Kaleta\Fleet\Keys::sign($s, $body);' -- "$WORK/web" "$WORK/hostile3291.json" > "$WORK/hostile3291.sig"
 expect "3.29.1: a hostile stats_confirmed_since is dropped, the visits kept, the site page still opens without the mark" \
   "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B3/fleet/heartbeat" -H 'Content-Type: application/json' -H "X-Kaleta-Signature: $(cat "$WORK/hostile3291.sig")" --data-binary @"$WORK/hostile3291.json")|$(sq3 "SELECT CONCAT(JSON_TYPE(JSON_EXTRACT(heartbeat, '\$.stats_confirmed_since')), '|', JSON_EXTRACT(heartbeat, '\$.visits_7_days')) FROM ka_fleet_sites WHERE id = $FLEET_ID")|$(curl -s -b "$JAR_CON" -c "$JAR_CON" -o "$WORK/response" -w '%{http_code}' "$B3/admin.php?module=fleet&action=detail&id=$FLEET_ID")|$(grep -c 'data-counting-changed' "$WORK/response")" \
   "200|NULL|12|200|0"
@@ -99,9 +99,9 @@ expect "3.26.1: the site received its days from the console – the day of last 
   "1|$PREV317-05|288|2|$TODAY3261"
 mcp get_monthly_report "{\"month\":\"$PREV317\"}" > "$WORK/response"
 php -r '$r = json_decode(file_get_contents($argv[1]), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "", true)["report"]["uptime"] ?? null;
-  echo is_array($d) ? implode("|", [$d["percent"], $d["checks"], $d["failed"], count($d["days"]), $d["days"][4]["state"], $d["days"][4]["percent"], $d["days"][0]["state"]]) : "none";' "$WORK/response" > "$WORK/uptime.txt"
+  echo is_array($d) ? implode("|", [$d["percent"], $d["checks"], $d["failed"], count($d["days"]), $d["days"][4]["state"], $d["days"][4]["percent"], $d["days"][0]["state"]]) : "none";' -- "$WORK/response" > "$WORK/uptime.txt"
 expect "3.26.1: MCP get_monthly_report has uptime for a month archived before 3.26.1 – percent, checks, failed and every day with its state" \
-  "$(cat "$WORK/uptime.txt")" "99.3|288|2|$(php -r 'echo (new DateTimeImmutable($argv[1] . "-01"))->format("t");' "$PREV317")|partial|99.3|none"
+  "$(cat "$WORK/uptime.txt")" "99.3|288|2|$(php -r 'echo (new DateTimeImmutable($argv[1] . "-01"))->format("t");' -- "$PREV317")|partial|99.3|none"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=reports"
 expect "3.26.1: with uptime days the Reports tab no longer shows the hint" "$(grep -cE "the fleet console has sent this site|Connect a fleet console to see uptime|konzole webů pošle dny|Připojte konzoli webů" "$WORK/response")" "0"
 expect "3.26.1: the console answers the uptime question only to a request signed by the site's key" \

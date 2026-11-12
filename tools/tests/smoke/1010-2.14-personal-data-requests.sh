@@ -5,7 +5,7 @@ mcp find_personal_data '{"email":" PD.Person@Example.com "}' > "$WORK/response";
 contains -q '"enquiries":2' "$WORK/text" && contains -q '"subscriber":1' "$WORK/text" && ! contains -q 'PD Person' "$WORK/text" && echo "  ok     personal data: Claude finds the enquiries (sender and any field) and the subscription, counts only" || { echo "  CHYBA  find_personal_data"; head -c 400 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 check "personal data: the administrator's screen lists what the site keeps" 200 "/admin.php?module=enquiries&action=personal" "osobni-email"
 curl -s -b "$JAR" -o "$WORK/response" -X POST "$B/admin.php?module=enquiries&action=personal" -d "_csrf=$(csrf)" -d email=pd.person@example.com -d provest=export
-php -r '$j = json_decode(file_get_contents($argv[1]), true); exit(count($j["enquiries"] ?? []) === 2 && ($j["subscriber"]["email"] ?? "") === "pd.person@example.com" ? 0 : 1);' "$WORK/response" \
+php -r '$j = json_decode(file_get_contents($argv[1]), true); exit(count($j["enquiries"] ?? []) === 2 && ($j["subscriber"]["email"] ?? "") === "pd.person@example.com" ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     personal data: the export is a JSON file for the person" || { echo "  CHYBA  personal data export"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 mcp erase_personal_data '{"email":"pd.person@example.com"}' > "$WORK/response"
 expect "personal data: erasing needs an explicit confirmation" "$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE formular = 'PD'")" "3"

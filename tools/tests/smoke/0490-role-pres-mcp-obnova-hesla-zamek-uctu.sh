@@ -1,10 +1,10 @@
 echo "== role přes MCP, obnova hesla, zámek účtu"
 SUB_TOKEN2="kaleta_$(printf 'b%.0s' $(seq 1 48))"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$SUB_TOKEN2")', '$(site_time)' FROM ka_uzivatele WHERE user = 'obchodnik'"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$SUB_TOKEN2")', '$(site_time)' FROM ka_uzivatele WHERE user = 'obchodnik'"
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $SUB_TOKEN2" -H 'Content-Type: application/json' --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"vytvor_novinku","arguments":{"titulek":"Od obchodnika","kategorie":"aktuality"}}}' > "$WORK/response"
 grep -q 'nemáš přístup' "$WORK/response" && expect "vlastní role bez Novinek nezaloží novinku ani přes MCP" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_novinky WHERE titulek = 'Od obchodnika'")" "0" || { echo "  CHYBA  MCP bez kontroly sekce Novinky"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 FAKE_REFRESH="$(printf 'c%.0s' $(seq 1 64))"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$FAKE_REFRESH")', obnova_cas = '$(site_time)' + INTERVAL 1 DAY WHERE user = 'obchodnik'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' -- "$FAKE_REFRESH")', obnova_cas = '$(site_time)' + INTERVAL 1 DAY WHERE user = 'obchodnik'"
 JAR3="$WORK/jar3"
 TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php?action=password&token=$FAKE_REFRESH" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//' || true)
 curl -s -b "$JAR3" -c "$JAR3" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$TOKEN3" -d "token=$FAKE_REFRESH" --data-urlencode "password=Nove-heslo-123" --data-urlencode "password2=Nove-heslo-123"
@@ -13,7 +13,7 @@ expect "obnova hesla zruší tokeny napojení" "$("${MYSQL[@]}" "$DB_NAME" -N -e
 # the invited user then signs in with the new password by user name and by the e-mail the invitation came to
 csrf_of() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//' || true; }
 INVITE_TOKEN="$(printf 'd%.0s' $(seq 1 64))"
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' "$INVITE_TOKEN")', obnova_cas = '$(site_time)' + INTERVAL 3 DAY WHERE user = 'pozvany'"
+"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET obnova_otisk = '$(php -r 'echo hash("sha256", $argv[1]);' -- "$INVITE_TOKEN")', obnova_cas = '$(site_time)' + INTERVAL 3 DAY WHERE user = 'pozvany'"
 JAR5="$WORK/jar5"; curl -s -c "$JAR5" -o "$WORK/response" "$B/admin.php"
 SIGNED_IN=$(curl -s -b "$JAR5" -c "$JAR5" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf_of "$WORK/response")" -d user=obchodnik --data-urlencode "password=Nove-heslo-123")
 curl -s -b "$JAR5" -c "$JAR5" -o "$WORK/response" "$B/admin.php?action=password&token=$INVITE_TOKEN"
@@ -57,7 +57,7 @@ expect "3.3.3: a password with spaces around it signs in as typed" "$(curl -s -b
 # 3.3.3 (N60): the sign-in ends after 8 idle hours or 24 hours in total – the admin keep-alive (action=token) does not extend it
 session_shift() { # session_shift <jar> <key> <seconds back>: moves a time in the stored session of the jar
   local id dir; id=$(awk '$6 == "kaleta" {print $7}' "$1" | tail -1); dir=$(php -r '$p = (string) ini_get("session.save_path"); $p = substr($p, (int) strrpos($p, ";") + (str_contains($p, ";") ? 1 : 0)); echo $p !== "" ? $p : sys_get_temp_dir();')
-  php -r '$f = $argv[1]; $s = (string) file_get_contents($f); file_put_contents($f, preg_replace("/" . $argv[2] . "\\|i:\\d+;/", $argv[2] . "|i:" . (time() - (int) $argv[3]) . ";", $s));' "$dir/sess_$id" "$2" "$3"
+  php -r '$f = $argv[1]; $s = (string) file_get_contents($f); file_put_contents($f, preg_replace("/" . $argv[2] . "\\|i:\\d+;/", $argv[2] . "|i:" . (time() - (int) $argv[3]) . ";", $s));' -- "$dir/sess_$id" "$2" "$3"
 }
 expect "3.3.3: a fresh sign-in keeps the keep-alive working" "$(curl -s -b "$JAR4" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=token")|$(grep -c '"csrf"' "$WORK/response")" "200|1"
 session_shift "$JAR4" last_seen $((8 * 3600 + 60))

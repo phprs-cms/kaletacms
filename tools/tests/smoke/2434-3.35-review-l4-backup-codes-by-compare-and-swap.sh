@@ -2,8 +2,8 @@ echo "== 3.35 review L4: backup codes – 64 bits under a salt of the list, used
 # pk434 has a passkey row (so its password needs the second step) and backup codes. Two sign-ins at the same moment with
 # two different codes both pass and leave neither code behind; the same code twice at the same moment signs in once.
 # New codes from My account (64 bits, xxxx-xxxx-xxxx-xxxx) complete the sign-in typed without dashes in upper case.
-R434_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
-R434_HOST=$(php -r 'echo strtolower(parse_url($argv[1], PHP_URL_HOST));' "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")")
+R434_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
+R434_HOST=$(php -r 'echo strtolower(parse_url($argv[1], PHP_URL_HOST));' -- "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk434', '$R434_HASH', 'Tester 434', 'pk434@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0)" > /dev/null
 R434_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk434'")

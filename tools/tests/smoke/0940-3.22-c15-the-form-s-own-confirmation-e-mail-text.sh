@@ -7,7 +7,7 @@ mcp get_build "{\"id\":${C15_PAGE:-0}}" > "$WORK/response"
 contains -q 'confirmation_text' "$WORK/response" && ! contains -q 'potvrzeni_text' "$WORK/response" && echo "  ok     3.22 C15: get_build gives it back as confirmation_text" || { echo "  CHYBA  3.22 C15: get_build vocabulary"; ERRORS=$((ERRORS+1)); }
 c15_send() { # c15_send <element id> <e-mail>
   rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/formular.html" "$B/potvrzeni-322"
-  php -r '$h = file_get_contents($argv[1]); preg_match("~<form[^>]*>(?:(?!</form>).)*name=\"prvek\" value=\"" . $argv[2] . "\"(?:(?!</form>).)*</form>~s", $h, $m); file_put_contents($argv[1], $m[0] ?? "");' "$WORK/formular.html" "$1"
+  php -r '$h = file_get_contents($argv[1]); preg_match("~<form[^>]*>(?:(?!</form>).)*name=\"prvek\" value=\"" . $argv[2] . "\"(?:(?!</form>).)*</form>~s", $h, $m); file_put_contents($argv[1], $m[0] ?? "");' -- "$WORK/formular.html" "$1"
   local source element time signature; source=$(field_value zdroj); element=$(field_value prvek); time=$(field_value as_cas); signature=$(field_value as_podpis); sleep 4
   curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "zdroj=$source" -d "prvek=$element" -d zpet=/potvrzeni-322 -d "as_cas=$time" -d "as_podpis=$signature" --data-urlencode "p0=$2"; }
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null

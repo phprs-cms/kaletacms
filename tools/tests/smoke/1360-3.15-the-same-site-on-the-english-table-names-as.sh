@@ -28,12 +28,12 @@ renamed_pass() { # <label> <settings table> <pages table>
 }
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
 expect "3.15: rename to the English names (one RENAME TABLE)" "$(php "$ROOT/tools/rename-tables.php" "$WORK/web" english | sed 's/ tables.*//')|$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('ka_novinky', 'ka_news', 'ka_nastaveni', 'ka_settings')")" \
-  "$(php -r '$n = 0; foreach (require $argv[1] as $t => [$e]) { $n += $e !== $t ? 1 : 0; } echo $n;' "$ROOT/system/sql/names.php")|2"
+  "$(php -r '$n = 0; foreach (require $argv[1] as $t => [$e]) { $n += $e !== $t ? 1 : 0; } echo $n;' -- "$ROOT/system/sql/names.php")|2"
 renamed_pass "3.15 English table names" settings pages
 mcp get_health '{}' > "$WORK/response"
 contains -F 'table_names' "$WORK/response" && contains -F 'already have their English names' "$WORK/response" && echo "  ok     3.15: Ready for 4.0 (get_health) says the tables have their English names" || { echo "  CHYBA  3.15: table_names in get_health"; ERRORS=$((ERRORS+1)); }
 expect "3.15: the site remembers the renamed tables (the marker in storage/cache)" "$(ls "$WORK"/web/storage/cache/tables-english-* 2>/dev/null | wc -l | tr -d ' ')" "1"
-expect "3.15: rename back to today's names" "$(php "$ROOT/tools/rename-tables.php" "$WORK/web" today | sed 's/ tables.*//')" "$(php -r '$n = 0; foreach (require $argv[1] as $t => [$e]) { $n += $e !== $t ? 1 : 0; } echo $n;' "$ROOT/system/sql/names.php")"
+expect "3.15: rename back to today's names" "$(php "$ROOT/tools/rename-tables.php" "$WORK/web" today | sed 's/ tables.*//')" "$(php -r '$n = 0; foreach (require $argv[1] as $t => [$e]) { $n += $e !== $t ? 1 : 0; } echo $n;' -- "$ROOT/system/sql/names.php")"
 renamed_pass "3.15 today's table names again" nastaveni stranky
 expect "3.15: back on today's names the marker is gone and both pages are there" "$(ls "$WORK"/web/storage/cache/tables-english-* 2>/dev/null | wc -l | tr -d ' ')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE titulek IN ('Names pages', 'Names stranky')")" "0|2"
 

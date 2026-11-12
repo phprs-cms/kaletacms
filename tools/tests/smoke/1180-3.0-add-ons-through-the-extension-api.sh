@@ -54,7 +54,7 @@ sq "UPDATE ka_nastaveni SET hodnota = 'hello,gate' WHERE promenna = 'addons_enab
   INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n39-author', '', 'Author N39', 0, '$(site_time)', '$(site_time)');
   DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'n39-author') AND ident_modulu = 'enquiries'" > /dev/null
 AUTHOR_TOKEN="kaleta_$(printf 'e%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author', '$(php -r 'echo hash("sha256", $argv[1]);' "$AUTHOR_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'author', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$AUTHOR_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
 expect "3.3.2 add-ons: an author's connection cannot call a write tool or a tool of a section it lacks, may call a read tool; the admin may call all" \
   "$(mcp_as "$AUTHOR_TOKEN" ext_gate_write '{}' | grep -c 'needs an editor')|$(mcp_as "$AUTHOR_TOKEN" ext_gate_leads '{}' | grep -c 'section')|$(mcp_as "$AUTHOR_TOKEN" ext_gate_look '{}' | grep -c 'looked')|$(mcp ext_gate_write '{}' | grep -c 'written')|$(mcp ext_gate_leads '{}' | grep -c 'leads')" "1|1|1|1|1"
 sq "UPDATE ka_nastaveni SET hodnota = 'hello' WHERE promenna = 'addons_enabled'; DELETE FROM ka_uzivatele WHERE user = 'n39-author'" > /dev/null
@@ -64,7 +64,7 @@ mcp create_news "{\"title\":\"N12 draft only for News\",\"category\":\"$CATEGORY
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('n12-editor', '', 'Editor N12', 1, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
 EDITOR12_TOKEN="kaleta_$(printf 'd%.0s' $(seq 1 48))"
-sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor', '$(php -r 'echo hash("sha256", $argv[1]);' "$EDITOR12_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
+sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'editor', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$EDITOR12_TOKEN")', '$(site_time)' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
 expect "3.3.2 MCP: list_news and get_news without the News section show no drafts; with it they do" \
   "$(mcp_as "$EDITOR12_TOKEN" list_news '{"limit":50}' | grep -c 'N12 draft only')|$(mcp_as "$EDITOR12_TOKEN" get_news "{\"id\":$N12_DRAFT}" | grep -c '"isError":true')|$(mcp list_news '{"limit":50}' | grep -c 'N12 draft only')" "0|1|1"
 mcp trash_news "{\"id\":$N12_DRAFT}" > /dev/null
@@ -72,7 +72,7 @@ mcp trash_news "{\"id\":$N12_DRAFT}" > /dev/null
 expect "3.15 N71: without the Notebook section read_notebook is refused and site_info names no pinned note; the admin still reads them" \
   "$(mcp_as "$EDITOR12_TOKEN" read_notebook '{}' | grep -c 'no access to the Notebook')|$(mcp_as "$EDITOR12_TOKEN" site_info '{}' | grep -c 'Fotky z roku 2024')|$(mcp read_notebook '{}' | grep -c 'Fotky z roku 2024')|$(mcp site_info '{}' | grep -c 'Fotky z roku 2024')" "1|0|1|1"
 # 3.3.2 (N11): an author-level role with the Categories section cannot rename or delete a category in the admin (as over MCP)
-sq "UPDATE ka_uzivatele SET admin = 0, password = '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")' WHERE user = 'n12-editor';
+sq "UPDATE ka_uzivatele SET admin = 0, password = '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")' WHERE user = 'n12-editor';
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'categories' FROM ka_uzivatele WHERE user = 'n12-editor'" > /dev/null
 JAR_N11="$WORK/cookies-n11.txt"; curl -s -c "$JAR_N11" -o "$WORK/response" "$B/admin.php"
 curl -s -b "$JAR_N11" -c "$JAR_N11" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=n12-editor --data-urlencode "password=$PASSWORD"

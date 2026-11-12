@@ -10,6 +10,6 @@ L1_OUT=$(l1php 'try { Kaleta\Core\Notifications::purgePersonalData($app, true); 
 sq "DROP VIEW ka_applications; RENAME TABLE ka_l1_applications TO ka_applications" > /dev/null
 expect "3.36 review L1: the error in the applications is thrown on at the end, the later step still removed the old unconfirmed sign-up, each failing step is logged (every step that reads the applications)" \
   "$L1_OUT|$(sq "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'l1-old@example.test'")|$( [ "$(grep -c 'General error: 1356' "$WORK/web/storage/log/chyby.log" || true)" -ge 1 ] && echo logged)" "thrown|0|logged"
-php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "General error: 1356"))));' "$WORK/web/storage/log/chyby.log"
+php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "General error: 1356"))));' -- "$WORK/web/storage/log/chyby.log"
 sq "DELETE FROM ka_odberatele WHERE email = 'l1-old@example.test'" > /dev/null
 background_jobs resume

@@ -2,7 +2,7 @@ echo "== 3.0: structured importers – Ghost and Blogger (Import\\Batch)"
 # a small "old site" that only serves the images the fixtures point at; the fixtures name it as 127.0.0.1:65000
 SRC_PORT=$((PORT + 16)); SRC="http://127.0.0.1:$SRC_PORT"
 mkdir -p "$WORK/sources/img" "$WORK/sources/s1600"
-php -r '$i = imagecreatetruecolor(320, 200); imagefill($i, 0, 0, imagecolorallocate($i, 120, 60, 30)); imagepng($i, $argv[1]); copy($argv[1], $argv[2]);' "$WORK/sources/img/team.png" "$WORK/sources/s1600/team.png"
+php -r '$i = imagecreatetruecolor(320, 200); imagefill($i, 0, 0, imagecolorallocate($i, 120, 60, 30)); imagepng($i, $argv[1]); copy($argv[1], $argv[2]);' -- "$WORK/sources/img/team.png" "$WORK/sources/s1600/team.png"
 (cd "$WORK/sources" && exec php -S "127.0.0.1:$SRC_PORT" > /dev/null 2>&1) & SRC_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$SRC/img/team.png" && break; sleep 0.3; done
 sed "s|http://127.0.0.1:65000|$SRC|g" "$ROOT/tools/fixtures/blogger-export.xml" > "$WORK/blogger-export.xml"

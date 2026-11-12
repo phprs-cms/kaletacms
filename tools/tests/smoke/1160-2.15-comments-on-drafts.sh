@@ -8,10 +8,10 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&actio
 contains -q '"komentare":\[\]' "$WORK/response" && contains -q '"komentarVyrizen":' "$WORK/response" && echo "  ok     comments: the builder of a page carries the comments panel data (empty) and the resolve address" || { echo "  CHYBA  builder comments data"; ERRORS=$((ERRORS+1)); }
 dc_share() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?module=pages&action=build_share&id=$DC_PAGE" -d "_csrf=$(csrf)" -d dni=1 "$@"; }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
-code=$(dc_share -d komentare=1); DC_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response"); DC_KEY="${DC_LINK##*preview_key=}"
+code=$(dc_share -d komentare=1); DC_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' -- "$WORK/response"); DC_KEY="${DC_LINK##*preview_key=}"
 [ "$code" = 200 ] && contains -q '"komentare":true' "$WORK/response" && [[ "$DC_KEY" == *k.* ]] && echo "  ok     comments: Share with “Allow comments” signs the flag into the key" || { echo "  CHYBA  build_share with comments: code $code, link $DC_LINK"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages"
-dc_share > /dev/null; DC_PLAIN_KEY="$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")"; DC_PLAIN_KEY="${DC_PLAIN_KEY##*preview_key=}"
+dc_share > /dev/null; DC_PLAIN_KEY="$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' -- "$WORK/response")"; DC_PLAIN_KEY="${DC_PLAIN_KEY##*preview_key=}"
 curl -s -o "$WORK/response" "$DC_LINK"; DC_ELEMENT=$(grep -o 'data-ka-id="[^"]*"' "$WORK/response" | head -1 | sed 's/data-ka-id="//;s/"//')
 contains -q 'data-ka-komentare' "$WORK/response" && contains -q 'Draft paragraph to comment on' "$WORK/response" && contains -q 'noindex' "$WORK/response" && [ -n "$DC_ELEMENT" ] && ! contains -q 'data-ka-typ' "$WORK/response" \
   && echo "  ok     comments: a visitor with the link sees the draft, the comment widget and element ids – not the editor markers" || { echo "  CHYBA  comment mode preview"; ERRORS=$((ERRORS+1)); }
@@ -25,7 +25,7 @@ expect "comments: stored as plain text with the element, the quote and the name"
 expect "comments: an invalid key, a plain key and a wrong target are refused" "$(dc_post -d klic=1999999999k.$(printf 'a%.0s' $(seq 1 64)) -d jmeno=X -d text=Y | cut -c1-3)|$(dc_post -d "klic=$DC_PLAIN_KEY" -d jmeno=X -d text=Y | cut -c1-3)|$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/_komentar" -d cil=stranka:999999 -d "klic=$DC_KEY" -d jmeno=X -d text=Y)" "403|403|403"
 expect "comments: without a name or a text nothing is stored" "$(dc_post -d "klic=$DC_KEY" -d jmeno= -d text=Hello | sed 's/.*comment=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments")" "chyba|1"
 for i in $(seq 1 25); do DC_MAIL=$(grep -l '^X-Rcpt-To: editor@example.cz' "$WORK"/smtp-dc/*.eml 2>/dev/null | tail -1); [ -n "$DC_MAIL" ] && break; sleep 0.2; done # every administrator gets one; the test reads the admin's (the fake SMTP server writes its file a moment after accepting)
-dc_body() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo base64_decode($b);' "$1"; } # a single-part base64 message
+dc_body() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo base64_decode($b);' -- "$1"; } # a single-part base64 message
 [ -n "$DC_MAIL" ] && eml "$DC_MAIL" | contains 'Nový komentář ke konceptu „Comment draft“' && dc_body "$DC_MAIL" | contains 'Client Novak' && dc_body "$DC_MAIL" | contains "module=pages&action=builder&id=$DC_PAGE" \
   && echo "  ok     comments: the administrator gets an e-mail with the name, the excerpt and the builder link" || { echo "  CHYBA  comment e-mail"; [ -n "$DC_MAIL" ] && { eml "$DC_MAIL" | head -12; dc_body "$DC_MAIL"; }; ERRORS=$((ERRORS+1)); }
 check "comments: the pages list shows the badge with the count" 200 "/admin.php?module=pages" "Komentářů: 1"

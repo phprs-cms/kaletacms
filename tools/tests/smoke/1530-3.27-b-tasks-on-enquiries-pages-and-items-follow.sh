@@ -1,5 +1,5 @@
 echo "== 3.27 (B): tasks on enquiries, pages and items – follow-ups, the review date, snooze, done, edit, delete, hand to Claude"
-B327_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+B327_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES
   ('b327-jana', '$B327_HASH', 'Jana B327', 'jana-b327@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0),
   ('b327-petr', '$B327_HASH', 'Petr B327', 'petr-b327@example.com', '', 1, '$(site_time)', '$(site_time)', 0);

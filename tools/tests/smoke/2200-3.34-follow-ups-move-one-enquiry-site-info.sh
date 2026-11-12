@@ -24,17 +24,17 @@ expect "3.34 follow-up: moving it again finds nothing (the enquiry moved once); 
   "302|1|1"
 # site_info: features.applications for the administrator and for Olga (no section)
 mcp site_info '{}' > "$WORK/response"; mcp_text
-T340_INFO=$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $f = $d["features"]["applications"] ?? []; echo json_encode([$f["enabled"] ?? null, $f["claude"] ?? null, $f["can_open"] ?? null]);' "$WORK/text")
+T340_INFO=$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $f = $d["features"]["applications"] ?? []; echo json_encode([$f["enabled"] ?? null, $f["claude"] ?? null, $f["can_open"] ?? null]);' -- "$WORK/text")
 mcp_as "$T334_TO" site_info '{}' > "$WORK/response"; mcp_text
 expect "3.34 follow-up site_info: features.applications – on, Claude may read, the administrator may open; Olga may not" \
-  "$T340_INFO|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo json_encode($d["features"]["applications"]["can_open"] ?? null);' "$WORK/text")" "[true,true,true]|false"
+  "$T340_INFO|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo json_encode($d["features"]["applications"]["can_open"] ?? null);' -- "$WORK/text")" "[true,true,true]|false"
 # list_enquiries: a row of kind job points to Applications while the feature is on, and only then
 T340_B=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, email, data, stav, kategorie, triaged_by) VALUES ('$(site_time '-1 day')', 'Contact T340', 'stranka:1', 'x', '/contact', 'ota-t340@example.com',
   '[[\"Name\",\"Ota T340\"]]', 0, 'job', 'person'); SELECT LAST_INSERT_ID();")
 mcp list_enquiries '{"category":"job","search":"t340"}' > "$WORK/response"; mcp_text
-T340_HINT=$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo str_contains($d[0]["applications_hint"] ?? "", "list_applications") ? "hint" : "none";' "$WORK/text")
+T340_HINT=$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo str_contains($d[0]["applications_hint"] ?? "", "list_applications") ? "hint" : "none";' -- "$WORK/text")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$T340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
 mcp list_enquiries '{"category":"job","search":"t340"}' > "$WORK/response"; mcp_text
 expect "3.34 follow-up list_enquiries: kind job points to list_applications with the feature on, says nothing with it off" \
-  "$T340_HINT|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo isset($d[0]["applications_hint"]) ? "hint" : "none";' "$WORK/text")" "hint|none"
+  "$T340_HINT|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo isset($d[0]["applications_hint"]) ? "hint" : "none";' -- "$WORK/text")" "hint|none"
 sq "DELETE FROM ka_comments WHERE target IN ('application:$T340_A', 'enquiry:$T340_B'); DELETE FROM ka_applications WHERE id = $T340_A; DELETE FROM ka_poptavky WHERE idp = $T340_B" > /dev/null

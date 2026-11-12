@@ -56,7 +56,7 @@ php -r '$d = json_decode(file_get_contents($argv[1]), true); $d["titulek"] = "Ba
   $d["tridy"] = [["nazev" => "balicek-karta", "styl" => ["zaklad" => ["odsazeni" => "l"]], "css" => "color: red; behavior: url(x)"], ["nazev" => "balicek-vlastni", "styl" => ["zaklad" => ["pozadi" => "primarni"]], "css" => ""]];
   $d["komponenty"] = [["id" => 901, "nazev" => "Balíček vnější", "vlastnosti" => [], "stavba" => ["v" => 1, "deti" => [["typ" => "sekce", "deti" => [["typ" => "komponenta", "obsah" => ["komponenta" => "902"]]]]]]],
     ["id" => 902, "nazev" => "Balíček vnitřní", "vlastnosti" => [["klic" => "nadpis", "popisek" => "Nadpis", "typ" => "text", "vychozi" => "Ahoj"]], "stavba" => ["v" => 1, "deti" => [["typ" => "nadpis", "obsah" => ["text" => "{{nadpis}}"]]]]]];
-  file_put_contents($argv[2], json_encode($d, JSON_UNESCAPED_UNICODE));' "$WORK/stranka.json" "$WORK/balicek.json"
+  file_put_contents($argv[2], json_encode($d, JSON_UNESCAPED_UNICODE));' -- "$WORK/stranka.json" "$WORK/balicek.json"
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('balicek-vlastni', '{}', 'color: blue', '$(site_time)')"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&action=import" -F "_csrf=$TOKEN" -F "soubor=@$WORK/balicek.json;type=application/json"
 OUTER=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnější'"); INNER=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT idm FROM ka_komponenty WHERE nazev = 'Balíček vnitřní'")
@@ -66,5 +66,5 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pages&acti
 expect "a second import of the same page reuses the components" "$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_komponenty WHERE nazev LIKE 'Balíček%'")" "2"
 IDB=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "SELECT MIN(ids) FROM ka_stranky WHERE titulek = 'Balíček'")
 curl -s -b "$JAR" -o "$WORK/balicek-export.json" "$B/admin.php?module=pages&action=export&id=$IDB"
-expect "the export lists the used classes and both components" "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo $d["verze"], "|", implode(",", preg_grep("/^(balicek|karta$)/", array_column($d["tridy"], "nazev"))), "|", implode(",", array_column($d["komponenty"], "nazev"));' "$WORK/balicek-export.json")" "2|balicek-karta,balicek-vlastni,karta|Balíček vnější,Balíček vnitřní"
+expect "the export lists the used classes and both components" "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo $d["verze"], "|", implode(",", preg_grep("/^(balicek|karta$)/", array_column($d["tridy"], "nazev"))), "|", implode(",", array_column($d["komponenty"], "nazev"));' -- "$WORK/balicek-export.json")" "2|balicek-karta,balicek-vlastni,karta|Balíček vnější,Balíček vnitřní"
 

@@ -3,7 +3,7 @@ t334_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = K
 t334_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/t334-form.html" | head -1 | sed 's/.*value="//;s/"$//'; }
 t334_login() { curl -s -c "$2" -b "$2" -o "$WORK/response" "$B/admin.php"; curl -s -b "$2" -c "$2" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d "user=$1" --data-urlencode "password=$PASSWORD"; }
 t334_post() { local jar="$1" action="$2"; shift 2; curl -s -b "$jar" -o "$WORK/response" "$B/admin.php?module=applications"; curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=applications&action=$action" -d "_csrf=$(csrf)" "$@"; }
-T334_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+T334_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 # Hana: HR (Applications only); Olga: Enquiries, Customers and the pipeline – sales sees nothing of applications
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('t334-hana', '$T334_HASH', 'Hana T334', 'hana-t334@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off'),
@@ -92,7 +92,7 @@ expect "3.34: a note (with a mention) and a task on the application – target a
 curl -s -b "$T334_JH" -o "$WORK/response" "$B/admin.php?module=my_work"
 expect "3.34: My work names the task's application by its number and position" "$(grep -c "Application #$T334_A · Technician T334" "$WORK/response" | awk '{print ($1 > 0)}')" "1"
 # MCP: the comment tools follow the section (Olga has none) and the switch applications_claude
-T334_TO="kaleta_$(printf '9%.0s' $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($T334_OLGA, 't334-olga', 'full', 'work', '$(php -r 'echo hash("sha256", $argv[1]);' "$T334_TO")', '$(site_time)')" > /dev/null
+T334_TO="kaleta_$(printf '9%.0s' $(seq 1 48))"; sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($T334_OLGA, 't334-olga', 'full', 'work', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$T334_TO")', '$(site_time)')" > /dev/null
 mcp_as "$T334_TO" list_comments "{\"target\":\"application:$T334_A\"}" > "$WORK/response"; mcp_text
 expect "3.34 MCP list_comments: refused without the section Applications" "$(grep -c 'Only a user who may open Applications' "$WORK/text")" "1"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_claude', '0')" > /dev/null
@@ -102,11 +102,11 @@ sq "DELETE FROM ka_nastaveni WHERE promenna = 'applications_claude'" > /dev/null
 
 # personal data: found, in the file, erased with the sealed CV
 mcp find_personal_data '{"email":"ivan-t334@example.com"}' > "$WORK/response"; mcp_text
-expect "3.34 find_personal_data: the applications are counted" "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["found"]["applications"] ?? "missing";' "$WORK/text")" "1"
+expect "3.34 find_personal_data: the applications are counted" "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["found"]["applications"] ?? "missing";' -- "$WORK/text")" "1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=personal"
 curl -s -b "$JAR" -o "$WORK/t334-export.json" -X POST "$B/admin.php?module=enquiries&action=personal" -d "_csrf=$(csrf)" -d email=ivan-t334@example.com -d provest=export
 expect "3.34: the personal data file holds the application with its note and the CV by name – never the file" \
-  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $a = $d["applications"][0] ?? []; echo ($a["position"] ?? ""), "|", count($a["notes"] ?? []), "|", ($a["attachments"][0]["name"] ?? ""), "|", isset($a["attachments"][0]["key"]) || isset($a["attachments"][0]["path"]) ? "leak" : "ok";' "$WORK/t334-export.json")" \
+  "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); $a = $d["applications"][0] ?? []; echo ($a["position"] ?? ""), "|", count($a["notes"] ?? []), "|", ($a["attachments"][0]["name"] ?? ""), "|", isset($a["attachments"][0]["key"]) || isset($a["attachments"][0]["path"]) ? "leak" : "ok";' -- "$WORK/t334-export.json")" \
   "Technician T334|1|CV Ivan.pdf|ok"
 mcp erase_personal_data '{"email":"ivan-t334@example.com","confirm":true}' > /dev/null
 expect "3.34 erase_personal_data: the application, its sealed CV, notes, tasks and notifications are gone" \

@@ -3,7 +3,7 @@ echo "== 3.24 (B): responsible people, Mine, the assignment e-mail, review remin
 B324_SMTP="$WORK/smtp-324b"; mkdir -p "$B324_SMTP"; command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$B324_SMTP" > /dev/null 2>&1 & SMTP_PID=$!
 sq "DROP TABLE IF EXISTS ka_b324_mail; CREATE TABLE ka_b324_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
-B324_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+B324_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES
   ('b324-jana', '$B324_HASH', 'Jana B324', 'jana-b324@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0),
   ('b324-petr', '$B324_HASH', 'Petr B324', 'petr-b324@example.com', '', 1, '$(site_time)', '$(site_time)', 0),

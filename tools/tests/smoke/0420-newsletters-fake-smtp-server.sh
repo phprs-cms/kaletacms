@@ -6,7 +6,7 @@ tok() { php -r 'echo bin2hex(random_bytes(16));'; }
 # eml <file>: headers, the decoded subject and the decoded text and HTML parts of a captured message
 eml() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); echo $h, "\n"; preg_match("/^Subject: (.*)$/m", $h, $s); echo "Subject-Decoded: ", mb_decode_mimeheader(trim($s[1] ?? "")), "\n";
   preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p); foreach ($p[1] as $x) { echo base64_decode($x), "\n"; }
-  if ($p[1] === [] && preg_match("/^Content-Transfer-Encoding: base64/mi", $h)) { echo base64_decode(preg_replace("/\s+/", "", $b)), "\n"; }' "$1"; }
+  if ($p[1] === [] && preg_match("/^Content-Transfer-Encoding: base64/mi", $h)) { echo base64_decode(preg_replace("/\s+/", "", $b)), "\n"; }' -- "$1"; }
 mail_to() { grep -l "^X-Rcpt-To: $1" "$WORK"/smtp/*.eml 2>/dev/null | tail -1; }
 newsletter_action() { curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=newsletters"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=newsletters&action=$1" -d "_csrf=$(csrf)" "${@:2}"; }
 ANNA=$(tok); PETR=$(tok)
@@ -139,9 +139,9 @@ mail_form -d smtp_provider=other -d smtp_host=127.0.0.1 -d "smtp_port=$SMTP_PORT
 rm -f "$WORK"/smtp/*.eml; SITE_MAILBOX=$(db "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")
 # 3.23 (C17): c17_row <key> – done | open | missing: one row of the hand-over checklist in the last site_audit answer ($WORK/c17.json)
 c17_row() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true);
-  foreach ($t["handover_checklist"]["items"] ?? [] as $i) { if ($i["key"] === $argv[2]) { echo $i["done"] ? "done" : "open"; exit; } } echo "missing";' "$WORK/c17.json" "$1"; }
+  foreach ($t["handover_checklist"]["items"] ?? [] as $i) { if ($i["key"] === $argv[2]) { echo $i["done"] ? "done" : "open"; exit; } } echo "missing";' -- "$WORK/c17.json" "$1"; }
 db "DELETE FROM ka_nastaveni WHERE promenna = 'smtp_last_ok'"; mcp site_audit '{"kind":"handover"}' > "$WORK/c17.json"
-C17_SMTP_BEFORE="$(c17_row smtp)|$(php -r '$t = json_decode((string) (json_decode((string) file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? ""), true); echo count(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === "smtp_tested"));' "$WORK/c17.json")"
+C17_SMTP_BEFORE="$(c17_row smtp)|$(php -r '$t = json_decode((string) (json_decode((string) file_get_contents($argv[1]), true)["result"]["content"][0]["text"] ?? ""), true); echo count(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === "smtp_tested"));' -- "$WORK/c17.json")"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=test_mail" -d "_csrf=$(csrf)" -d tab=mail
 : > "$WORK/eml.txt"; for i in $(seq 1 25); do F=$(mail_to "$SITE_MAILBOX" || true); if [ -n "$F" ]; then eml "$F" > "$WORK/eml.txt"; break; fi; sleep 0.2; done
 expect "3.9: “Other server” saved through the form – the test e-mail reaches the fake SMTP server" "$(mail_smtp "$OLD_SMTP_PW")|$(grep -c 'can send e-mail\|umí odesílat e-maily\|E-Mails senden kann' "$WORK/eml.txt")" "127.0.0.1|$SMTP_PORT|zadne||1|1"

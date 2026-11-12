@@ -1,7 +1,7 @@
 echo "== 3.36 review L4: a refused OAuth consent shows only the tool sets this site offers"
 # a refused try (full access without a fresh proof) keeps the chosen set – but a posted fleet set on a site without the
 # fleet extension falls back to the essentials, as the approval itself would, and the fleet choice is never shown
-L4_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+L4_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('l4oauth', '$L4_HASH', 'Tester L4', 'l4oauth@example.com', 'en', 2, '$(site_time)', '$(site_time)', 0);
   DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
 L4_JAR="$WORK/jar-l4oauth"; rm -f "$L4_JAR"

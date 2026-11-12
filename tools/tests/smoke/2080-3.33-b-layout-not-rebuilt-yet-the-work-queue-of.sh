@@ -1,7 +1,7 @@
 echo "== 3.33 (part B): \"layout not rebuilt yet\" – the work queue of a move in list_pages and the admin list of pages"
 # the builder pages of 2050 were imported: their builds are still the imported text
 L333_EL=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'elementor' AND smazano IS NULL"); L333_DIVI=$(sq "SELECT ids FROM ka_stranky WHERE seo_link = 'divi' AND smazano IS NULL")
-l333_flags() { mcp list_pages '{}' > "$WORK/response"; mcp_text; php -r '$r = json_decode(file_get_contents($argv[1]), true); $f = array_column(array_filter($r, fn ($p) => !empty($p["layout_not_rebuilt"])), "id"); echo implode(",", array_map(fn ($i) => (int) in_array((int) $i, $f, true), array_slice($argv, 2)));' "$WORK/text" "$@"; }
+l333_flags() { mcp list_pages '{}' > "$WORK/response"; mcp_text; php -r '$r = json_decode(file_get_contents($argv[1]), true); $f = array_column(array_filter($r, fn ($p) => !empty($p["layout_not_rebuilt"])), "id"); echo implode(",", array_map(fn ($i) => (int) in_array((int) $i, $f, true), array_slice($argv, 2)));' -- "$WORK/text" "$@"; }
 L333_HOME=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'")
 expect "3.33 layout_not_rebuilt: list_pages flags the imported pages whose build is still the imported text, never another page" "$(l333_flags "$L333_EL" "$L333_DIVI" "$L333_HOME")" "1,1,0"
 L333_HEADING=$("${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -r -e "SELECT stavba FROM ka_stranky WHERE ids = $L333_EL" | php -r '$b = json_decode(stream_get_contents(STDIN), true); echo $b["deti"][0]["deti"][0]["id"] ?? "";')

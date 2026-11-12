@@ -2,7 +2,7 @@ echo "== 3.35 B6 (N107, N108): an author-level role works with hidden collection
 # A role that does not publish (Auth::canPublish false – the author level, the ready-made Writer, a custom author-level role
 # with Collections) prepares hidden items and categories and changes hidden ones, in the admin and over MCP; it never
 # publishes, changes or deletes what is on the site. Renaming, merging and deleting tags is for editors (Tags::LIVE_ACTIONS).
-S335F_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+S335F_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('s335f', '$S335F_HASH', 'Writer S335F', 's335f@example.com', 'en', 0, '$(site_time)', '$(site_time)', 0);
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m FROM ka_uzivatele, (SELECT 'news' AS m UNION SELECT 'tags' UNION SELECT 'collections') x WHERE user = 's335f';
   DELETE FROM ka_kontrola_ip WHERE typ = 'login';

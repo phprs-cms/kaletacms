@@ -42,7 +42,7 @@ expect "3.6 MCP save_redirects: 500 rows in one call" "$(mcp_value added)|$(mcp_
 php -r 'echo "from,to,code\n"; for ($i = 1; $i <= 5000; $i++) { echo "/velky-import/clanek-$i,/novinky/vitejte-v-kalete,301\n"; }' > "$WORK/big.csv"
 started=$(php -r 'echo microtime(true);')
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=import_save" -d "_csrf=$TOKEN" --data-urlencode "csv@$WORK/big.csv"
-echo "  info   3.6 CSV: 5,000 rows saved in $(php -r 'printf("%.1f", microtime(true) - (float) $argv[1]);' "$started") s"
+echo "  info   3.6 CSV: 5,000 rows saved in $(php -r 'printf("%.1f", microtime(true) - (float) $argv[1]);' -- "$started") s"
 expect "3.6 CSV: 5,000 rows in one import" "$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'velky-import/%'")" 5000
 expect "3.6: with thousands of rules the exact one and a pattern still answer" "$(rcode /velky-import/clanek-4321)|$(rcode /stary-blog/vitejte-v-kalete)" "301 $B/novinky/vitejte-v-kalete|301 $B/novinky/vitejte-v-kalete"
 sq "DELETE FROM ka_presmerovani WHERE z_adresy LIKE 'velky-import/%' OR z_adresy LIKE 'hromadne/%' OR z_adresy IN ('old/*', 'katalog/*', 'ven/*')"

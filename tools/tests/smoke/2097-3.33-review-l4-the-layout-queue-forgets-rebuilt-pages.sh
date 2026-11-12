@@ -18,7 +18,7 @@ grep -q "ImportLayout::prune" "$ROOT/system/src/Core/Scheduler.php" && echo "  o
 L4_DIR="$WORK/web/storage/import"; mkdir -p "$L4_DIR"
 printf '{"id":"aaaaaaaaaaaaaaaa","faze":"hotovo","zalozeno":"2026-11-01 10:00:00","dokonceno":"2026-11-01 10:05:00","radky":[{"stav":"sample","problemy":["sample_page"]}]}' > "$L4_DIR/parita-aaaaaaaaaaaaaaaa.json"
 printf '{"id":"bbbbbbbbbbbbbbbb","faze":"kontrola","zalozeno":"2026-11-02 10:00:00","radky":[]}' > "$L4_DIR/parita-bbbbbbbbbbbbbbbb.json"
-php -r 'touch($argv[1], time() + 30); touch($argv[2], time() + 60);' "$L4_DIR/parita-aaaaaaaaaaaaaaaa.json" "$L4_DIR/parita-bbbbbbbbbbbbbbbb.json" # newer than any report of the earlier sections
+php -r 'touch($argv[1], time() + 30); touch($argv[2], time() + 60);' -- "$L4_DIR/parita-aaaaaaaaaaaaaaaa.json" "$L4_DIR/parita-bbbbbbbbbbbbbbbb.json" # newer than any report of the earlier sections
 expect "3.33 review L4: latestReport finds the newest finished report without decoding them all" \
   "$(l4php '$r = Kaleta\Core\MoveStatus::latestReport(); echo $r === null ? "none" : $r["id"] . ":" . $r["on_sample_pages"];')" "aaaaaaaaaaaaaaaa:1"
 rm -f "$L4_DIR/parita-aaaaaaaaaaaaaaaa.json" "$L4_DIR/parita-bbbbbbbbbbbbbbbb.json"

@@ -10,7 +10,7 @@ expect "3.34 B: Ctrl K finds the application by number for Hana; Olga has no pal
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=items&id=${T334_IDK:-0}"
 expect "3.34 B: the jobs collection's items list shows Applications (new / all) for the job" "$(grep -o "data-job-applications=\"${T334_ITEM:-0}\"><a [^>]*>0 / 1<" "$WORK/response" | wc -l | tr -d ' ')" "1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_choices&id=$(sq "SELECT MIN(ids) FROM ka_stranky WHERE smazano IS NULL")"
-expect "3.34 B: the builder's choices carry the open jobs for a Position field" "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo in_array("Technician T334", $d["volby"]["pozice"] ?? [], true) ? "yes" : "no";' "$WORK/response")" "yes"
+expect "3.34 B: the builder's choices carry the open jobs for a Position field" "$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo in_array("Technician T334", $d["volby"]["pozice"] ?? [], true) ? "yes" : "no";' -- "$WORK/response")" "yes"
 rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/$T334_SLUG/technician-t334"
 expect "3.34 B JobPosting: the job page says directApply and carries the identifier" "$(grep -c '"directApply":true' "$WORK/response")|$(grep -c '"identifier":{"@type":"PropertyValue"' "$WORK/response")" "1|1"

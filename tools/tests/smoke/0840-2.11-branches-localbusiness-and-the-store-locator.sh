@@ -28,7 +28,7 @@ check "store locator: Leaflet 1.9.4 is served from the site itself" 200 "/image/
 check "store locator: the Leaflet stylesheet and marker are there" 200 "/image/vendor/leaflet/leaflet.css" "leaflet-marker-icon"
 check "store locator: the Leaflet licence is shipped" 200 "/image/vendor/leaflet/LICENSE" "BSD 2-Clause"
 # the structured data of a branch page: the LocalBusiness node of the graph (the company node is there too, so the whole page is not enough)
-branch_node() { php -r 'preg_match("#<script type=\"application/ld\+json\">(.*?)</script>#s", (string) file_get_contents($argv[1]), $m); foreach (json_decode($m[1] ?? "{}", true)["@graph"] ?? [] as $n) { if (($n["@type"] ?? "") === "LocalBusiness") { echo json_encode($n, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); } }' "$WORK/response"; }
+branch_node() { php -r 'preg_match("#<script type=\"application/ld\+json\">(.*?)</script>#s", (string) file_get_contents($argv[1]), $m); foreach (json_decode($m[1] ?? "{}", true)["@graph"] ?? [] as $n) { if (($n["@type"] ?? "") === "LocalBusiness") { echo json_encode($n, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); } }' -- "$WORK/response"; }
 curl -s -o "$WORK/response" "$B/pobocky/brno"
 BRNO_NODE=$(branch_node)
 case "$BRNO_NODE" in *'"geo":{"@type":"GeoCoordinates","latitude":49.1951,"longitude":16.6068}'*'"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"09:00","closes":"17:00"},{"@type":"OpeningHoursSpecification","dayOfWeek":["Saturday"],"opens":"09:00","closes":"12:00"}]'*'"parentOrganization":{"@id":'*)

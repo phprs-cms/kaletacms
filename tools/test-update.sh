@@ -133,7 +133,7 @@ echo '<?php // removed in the new version' > "$WORK/web/system/zrusene.php"; ech
 if [ -n "${PACKAGE:-}" ]; then
   # the old site knows the files of its release (a real install from its package has this list); keys stay the real ones
   php -r '$h = []; foreach (file($argv[2], FILE_IGNORE_NEW_LINES) as $s) { if (!preg_match("#^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.git|media/|storage/|install\.php$)#", $s) && is_file($argv[1] . "/" . $s)) { $h[$s] = hash_file("sha256", $argv[1] . "/" . $s); } }
-    file_put_contents($argv[1] . "/system/soubory.json", json_encode(["verze" => "stara", "soubory" => $h]));' "$WORK/web" "$WORK/stare-soubory.txt"
+    file_put_contents($argv[1] . "/system/soubory.json", json_encode(["verze" => "stara", "soubory" => $h]));' -- "$WORK/web" "$WORK/stare-soubory.txt"
   cp "$PACKAGE" "$WORK/kanal/kaleta.zip"
   # TRUST_KEY=<public key, base64>: a package signed with a throwaway key (a dry run of tools/release.php) – the old site trusts it too
   [ -z "${TRUST_KEY:-}" ] || printf '\n%s test-release\n' "$TRUST_KEY" >> "$WORK/web/system/aktualizace.pub"
@@ -168,7 +168,7 @@ if ($fromV2 === '1') {
 file_put_contents($target, json_encode($m));
 PHP
   php "$WORK/manifest.php" "$ROOT" "${MANIFEST:-$(dirname "$PACKAGE")/aktualizace.json}" "$CHANNEL_PORT" "$WORK/kanal/aktualizace.json" "$WORK/web/system/aktualizace.pub" "$FROM_V2" "${TRUST_KEY:-}"
-  NEW_VERSION=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["verze"];' "$WORK/kanal/aktualizace.json")
+  NEW_VERSION=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["verze"];' -- "$WORK/kanal/aktualizace.json")
   echo "  ok     release package $PACKAGE ($NEW_VERSION)"
 else
   # the package is a newer release of the working tree's line (3.15: a regular update never moves to another major)
@@ -216,7 +216,7 @@ else
   curl -s -L -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
   # 3.15: a release before 3.15 reads only aktualizace.json – it is offered the release of its line, never Kaleta 4 next to it;
   # 3.15 and later also read aktualizace-4.json and show 4.0.0 on its own (checked after the update below)
-  if php -r 'exit(version_compare(ltrim($argv[1], "v"), "3.15.0", "<") ? 0 : 1);' "$FROM"; then
+  if php -r 'exit(version_compare(ltrim($argv[1], "v"), "3.15.0", "<") ? 0 : 1);' -- "$FROM"; then
     grep -qF "$NEW_VERSION" "$WORK/response" && ! grep -qF '4.0.0' "$WORK/response" && echo "  ok     the old release is offered $NEW_VERSION, not Kaleta 4.0.0" || { echo "  CHYBA  the old release's update offer"; ERRORS=$((ERRORS+1)); }
   else
     grep -qF "$NEW_VERSION" "$WORK/response" && echo "  ok     the old release is offered $NEW_VERSION" || { echo "  CHYBA  the old release's update offer"; ERRORS=$((ERRORS+1)); }

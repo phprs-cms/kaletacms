@@ -17,7 +17,7 @@ php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x =
   foreach ($x->query(".//input|.//select|.//textarea", $f) as $e) { $n = $e->getAttribute("name"); $t = $e->getAttribute("type"); if ($n === "" || $t === "submit" || (in_array($t, ["checkbox", "radio"], true) && !$e->hasAttribute("checked"))) continue;
     $v = $e->nodeName === "select" ? (($o = $x->query(".//option[@selected]", $e)->item(0) ?? $x->query(".//option", $e)->item(0)) ? $o->getAttribute("value") : "") : ($e->nodeName === "textarea" ? $e->textContent : $e->getAttribute("value"));
     $q[] = rawurlencode($n) . "=" . rawurlencode($n === "time_zone" ? "Europe/London" : $v); }
-  echo implode("&", $q);' "$WORK/general310.html" > "$WORK/general310.post"
+  echo implode("&", $q);' -- "$WORK/general310.html" > "$WORK/general310.post"
 TZ_NEXT=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/general310.post")
 expect "3.12: saving a new time zone leads to the confirmation, and the zone is not changed yet" "${TZ_NEXT#*\?}|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'time_zone'")" "module=settings&action=time_zone&zone=Europe%2FLondon|Europe/Prague"
 check "3.12: the confirmation offers to convert the saved dates or to keep their clock time" 200 "/admin.php?module=settings&action=time_zone&zone=Europe/London" 'Ponechat čas na hodinách'

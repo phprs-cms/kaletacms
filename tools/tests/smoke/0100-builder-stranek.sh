@@ -26,7 +26,7 @@ curl -s -o "$WORK/response" "$B/o-nas"; ! grep -q "Builder test" "$WORK/response
 check "náhled konceptu pro editor" 200 "/o-nas?build=koncept&editor=1" 'data-ka-id="nad1"'
 check "náhled konceptu se neindexuje" 200 "/o-nas?build=koncept" 'noindex'
 curl -s -o "$WORK/response" "$B/o-nas?build=koncept&editor=1"; ! grep -q "Builder test" "$WORK/response" && echo "  ok     náhled konceptu nevidí návštěvník" || { echo "  CHYBA  koncept vidí nepřihlášený"; ERRORS=$((ERRORS+1)); }
-code=$(page_action build_share -d dni=3); SHARED_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' "$WORK/response")
+code=$(page_action build_share -d dni=3); SHARED_LINK=$(php -r 'echo json_decode((string) file_get_contents($argv[1]))->odkaz ?? "";' -- "$WORK/response")
 curl -s -o "$WORK/response" "$SHARED_LINK"
 [ "$code" = 200 ] && [[ "$SHARED_LINK" == "$B/o-nas?build=koncept&preview_key="* ]] && grep -q "Builder test" "$WORK/response" && ! grep -q 'data-ka-id' "$WORK/response" && echo "  ok     sdílený odkaz ukáže koncept bez přihlášení a bez značek editoru" || { echo "  CHYBA  stavba_sdilet: kód $code, odkaz $SHARED_LINK"; ERRORS=$((ERRORS+1)); }
 curl -s -o "$WORK/response" "$B/o-nas?stavba=koncept&nahled_klic=${SHARED_LINK##*preview_key=}"; grep -q "Builder test" "$WORK/response" && echo "  ok     an old shared preview link (stavba=, nahled_klic=) still opens the draft" || { echo "  CHYBA  old preview link"; ERRORS=$((ERRORS+1)); }
@@ -57,12 +57,12 @@ for i in 1 2 3 4 5 6 7 8 9 10 11; do age_hist; page_action build_save --data-url
 expect "3.25: the draft history keeps the last 10 entries of a page" "$(hist 'COUNT(*)')|$(hist "stavba LIKE '%Prune 11%'" 'ORDER BY idr DESC LIMIT 1')" "10|1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_versions&id=$IDS"
 php -r '$j = json_decode((string) file_get_contents($argv[1]), true); $d = array_column($j["koncepty"] ?? [], "idr"); $p = array_column($j["revize"] ?? [], "idr");
-  exit(count($d) === 10 && $p !== [] && array_intersect($d, $p) === [] && preg_match("/^(today|dnes) \\d\\d:\\d\\d$/", (string) $j["koncepty"][0]["kdy"]) === 1 ? 0 : 1);' "$WORK/response" \
+  exit(count($d) === 10 && $p !== [] && array_intersect($d, $p) === [] && preg_match("/^(today|dnes) \\d\\d:\\d\\d$/", (string) $j["koncepty"][0]["kdy"]) === 1 ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     3.25: Versions lists the draft history (today/dnes HH:MM) apart from the published versions" || { echo "  CHYBA  3.25: build_versions koncepty"; ERRORS=$((ERRORS+1)); }
 OLDEST=$(hist 'idr' 'ORDER BY idr ASC LIMIT 1')
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_compare&id=$IDS&version=$OLDEST"
 php -r '$j = json_decode((string) file_get_contents($argv[1]), true); $s = $j["sekce"][0] ?? [];
-  exit(($j["ok"] ?? false) && $s["stav"] === "changed" && str_contains($s["html"], "<del>") && str_contains($s["html"], "<ins>11</ins>") && $j["pridano"] > 0 ? 0 : 1);' "$WORK/response" \
+  exit(($j["ok"] ?? false) && $s["stav"] === "changed" && str_contains($s["html"], "<del>") && str_contains($s["html"], "<ins>11</ins>") && $j["pridano"] > 0 ? 0 : 1);' -- "$WORK/response" \
   && echo "  ok     3.25 (C21): a draft history entry compared with the current draft per section" || { echo "  CHYBA  3.25: build_compare $(head -c 300 "$WORK/response")"; ERRORS=$((ERRORS+1)); }
 PUBLISHED_IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM ka_stavba_revize WHERE ids = $IDS AND cast IS NULL ORDER BY idr DESC LIMIT 1")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_compare&id=$IDS&version=$PUBLISHED_IDR"; grep -q '"ok":true' "$WORK/response" && echo "  ok     3.25: a published version compares too" || { echo "  CHYBA  3.25: compare of a published version"; ERRORS=$((ERRORS+1)); }

@@ -46,7 +46,7 @@ location=$(curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/formular" -d "z
 case "$location" in *result=ok*) echo "  ok     gated: the form was sent";; *) echo "  CHYBA  gated form: $location"; ERRORS=$((ERRORS+1));; esac
 expect "gated: the enquiry records which file was sent" "$(sq "SELECT data LIKE '%Soubor poslan% e-mailem%cenik-v2.pdf%' FROM ka_poptavky WHERE email = 'gate@example.cz'")" "1"
 # a plain-text e-mail: one base64 body (the eml helper above decodes the parts of a multipart newsletter)
-gate_mail() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); preg_match("/^Subject: (.*)$/m", $h, $s); echo "Subject-Decoded: ", mb_decode_mimeheader(trim($s[1] ?? "")), "\n", base64_decode($b);' "$1"; }
+gate_mail() { php -r '[$h, $b] = explode("\r\n\r\n", file_get_contents($argv[1]), 2); preg_match("/^Subject: (.*)$/m", $h, $s); echo "Subject-Decoded: ", mb_decode_mimeheader(trim($s[1] ?? "")), "\n", base64_decode($b);' -- "$1"; }
 F=$(grep -l "^X-Rcpt-To: gate@example.cz" "$WORK"/smtp2/*.eml 2>/dev/null | tail -1 || true); if [ -n "$F" ]; then gate_mail "$F" > "$WORK/eml.txt"; else : > "$WORK/eml.txt"; fi
 GATE_LINK=$(grep -o "http://127.0.0.1:$PORT/download/[A-Za-z0-9._-]*" "$WORK/eml.txt" | head -1 || true)
 [ -n "$GATE_LINK" ] && grep -q '^Subject-Decoded: Váš soubor z webu' "$WORK/eml.txt" && grep -q 'cenik-v2.pdf' "$WORK/eml.txt" && echo "  ok     gated: the visitor got an e-mail with the file name and the download link" || { echo "  CHYBA  gated e-mail"; head -30 "$WORK/eml.txt"; ERRORS=$((ERRORS+1)); }

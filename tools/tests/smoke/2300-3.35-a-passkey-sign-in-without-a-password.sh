@@ -31,7 +31,7 @@ $handle = ($argv[7] ?? '-') !== '-' ? $argv[7] : $state['handle'];
 echo json_encode(['id' => $id, 'clientDataJSON' => $b64($client), 'authenticatorData' => $b64($data), 'signature' => $b64($signature), 'userHandle' => $handle]);
 PHP
 P335_ORIGIN=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'"); P335_ORIGIN="${P335_ORIGIN%/}"
-P335_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+P335_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('pk335', '$P335_HASH', 'Passkey Tester', 'pk335@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0)" > /dev/null
 P335_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'pk335'")
@@ -68,7 +68,7 @@ expect "3.35 A: My account shows the passkey section without two-factor sign-in;
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE idu = $P335_USER" > /dev/null
 expect "3.35 A: a registration whose device did not verify the user (no UV) is refused" "$(p335_register "$J1" "$WORK/pk335-nouv" 65 --data-urlencode "soucasne=$PASSWORD")|$(sq "SELECT COUNT(*) FROM ka_uzivatele_klice WHERE idu = $P335_USER")" "200|400|0"
 expect "3.35 A: the options ask for a discoverable passkey with user verification and carry the account's opaque handle" \
-  "$(grep -o '"residentKey":"required"' "$WORK/p335-reg-options")|$(grep -o '"userVerification":"required"' "$WORK/p335-reg-options")|$(sq "SELECT LENGTH(passkey_handle) = 22 AND passkey_handle <> CAST(idu AS CHAR) FROM ka_uzivatele WHERE idu = $P335_USER")|$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo $o["user"]["id"] === $argv[2] ? "same" : "other";' "$WORK/p335-reg-options" "$(sq "SELECT passkey_handle FROM ka_uzivatele WHERE idu = $P335_USER")")" \
+  "$(grep -o '"residentKey":"required"' "$WORK/p335-reg-options")|$(grep -o '"userVerification":"required"' "$WORK/p335-reg-options")|$(sq "SELECT LENGTH(passkey_handle) = 22 AND passkey_handle <> CAST(idu AS CHAR) FROM ka_uzivatele WHERE idu = $P335_USER")|$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo $o["user"]["id"] === $argv[2] ? "same" : "other";' -- "$WORK/p335-reg-options" "$(sq "SELECT passkey_handle FROM ka_uzivatele WHERE idu = $P335_USER")")" \
   '"residentKey":"required"|"userVerification":"required"|1|same'
 expect "3.35 A: a passkey with UV is registered as discoverable; the first one brings eight backup codes, shown once" \
   "$(p335_register "$J1" "$WORK/pk335-a" 69 --data-urlencode "soucasne=$PASSWORD")|$(sq "SELECT CONCAT(COUNT(*), '/', MAX(discoverable), '/', MAX(nazev)) FROM ka_uzivatele_klice WHERE idu = $P335_USER")|$(sq "SELECT JSON_LENGTH(totp_zalozni, '\$.codes') FROM ka_uzivatele WHERE idu = $P335_USER")|$(p335_page "$J1" "?action=account" > /dev/null; grep -o '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response" | wc -l | tr -d ' ')|$(p335_page "$J1" "?action=account" > /dev/null; grep -c '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response")" \
@@ -86,7 +86,7 @@ expect "3.35 A: a passkey with UV signs in without a user name and password; the
   "200|1|1|1|1"
 J3="$WORK/jar-p335-3"; rm -f "$J3"
 p335_token=$(p335_page "$J3")
-p335_message() { php -r '$j = json_decode(file_get_contents($argv[1]), true); echo $j["chyba"] ?? "";' "$WORK/response"; }
+p335_message() { php -r '$j = json_decode(file_get_contents($argv[1]), true); echo $j["chyba"] ?? "";' -- "$WORK/response"; }
 P335_REPLAY=$(curl -s -b "$J3" -c "$J3" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$p335_token" -d krok=passkey --data-urlencode "odpoved@$WORK/p335-assertion")
 P335_FAILED=$(p335_message) # the one answer of every failure, in the language of the sign-in page
 expect "3.35 A: the same assertion again (a replay) is refused – the challenge was used once" "$P335_REPLAY|$(grep -c 'did not succeed\|se nepovedlo' "$WORK/response")" "401|1"
@@ -118,8 +118,8 @@ expect "3.35 A: passkey + password – the password alone does not sign in; the 
 expect "3.35 A: a backup code completes it; right after it a passkey can be added without the password (fresh confirmation)" \
   "$(p335_code "$J4" "$P335_BACKUP")|$(p335_signed_in "$J4")|$(P335_CSRF=$(p335_page "$J4" "?action=account"); p335_account "$J4" -d co=klic_moznosti)" "302|1|200"
 J5="$WORK/jar-p335-5"; rm -f "$J5"
-P335_SECRET=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' "$ROOT")
-p335_totp() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30) + (int) $argv[3]);' "$ROOT" "$P335_SECRET" "${1:-0}"; }
+P335_SECRET=$(php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::newSecret();' -- "$ROOT")
+p335_totp() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30) + (int) $argv[3]);' -- "$ROOT" "$P335_SECRET" "${1:-0}"; }
 sq "UPDATE ka_uzivatele SET totp_tajemstvi = '$P335_SECRET' WHERE idu = $P335_USER; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
 expect "3.35 A: passkey + app – the code from the app still completes the password sign-in (a session that is not fresh)" "$(p335_password "$J5")|$(p335_code "$J5" "$(p335_totp)")|$(p335_signed_in "$J5")" "200|302|1"
 P335_CSRF=$(p335_page "$J5" "?action=account")
@@ -163,19 +163,19 @@ sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'; DELETE FROM ka_
 J10="$WORK/jar-p335-10"; rm -f "$J10"; t=$(p335_page "$J10")
 expect "3.35 A: the site requires passkeys – an account without one signs in as before and hears it should add one" \
   "$(curl -s -b "$J10" -c "$J10" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d user=admin --data-urlencode "password=$PASSWORD")|$(curl -s -b "$J10" -o "$WORK/response" "$B/admin.php?action=account"; grep -c 'in My account – until\|v Mém účtu – do té doby' "$WORK/response")|$(grep -c 'below – until\|níže klíč pro toto' "$WORK/response")" "302|1|1"
-php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php\ndefine(\x27KALETA_PASSKEY_ONLY_OFF\x27, true); // p335\n", (string) file_get_contents($f), 1));' "$WORK/web/config.php"; sleep 3 # the opcache of the test server revalidates files every 2 s
+php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php\ndefine(\x27KALETA_PASSKEY_ONLY_OFF\x27, true); // p335\n", (string) file_get_contents($f), 1));' -- "$WORK/web/config.php"; sleep 3 # the opcache of the test server revalidates files every 2 s
 J11="$WORK/jar-p335-11"; rm -f "$J11"
 expect "3.35 A: KALETA_PASSKEY_ONLY_OFF in config.php switches passkey only off – the password and the app's code work again" \
   "$(p335_password "$J11")|$(sq "UPDATE ka_kontrola_ip SET cil = NULL WHERE typ = 'totp'"; p335_code "$J11" "$(p335_totp 1)")|$(p335_signed_in "$J11")" "200|302|1"
-php -r '$f = $argv[1]; file_put_contents($f, str_replace("\ndefine(\x27KALETA_PASSKEY_ONLY_OFF\x27, true); // p335\n", "", (string) file_get_contents($f)));' "$WORK/web/config.php"; sleep 3
+php -r '$f = $argv[1]; file_put_contents($f, str_replace("\ndefine(\x27KALETA_PASSKEY_ONLY_OFF\x27, true); // p335\n", "", (string) file_get_contents($f)));' -- "$WORK/web/config.php"; sleep 3
 sq "DELETE FROM ka_nastaveni WHERE promenna = 'signin_passkey_only'; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
 
 # an older passkey (registered as the second step before 3.35): the second step only, and "register again" replaces it
 P335_OLDCSRF=$(p335_page "$J5" "?action=account")
 php "$WORK/pk335.php" register "$WORK/pk335-old" "$P335_ORIGIN" 65 < "$WORK/p335-reg-options" > /dev/null
-P335_OLD_PUB=$(php -r '$s = json_decode(file_get_contents($argv[1]), true); echo openssl_pkey_get_details(openssl_pkey_get_private($s["pem"]))["key"];' "$WORK/pk335-old")
-P335_OLD_ID=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["id"];' "$WORK/pk335-old")
-P335_OLD_HASH=$(php -r '$b = base64_decode(strtr($argv[1], "-_", "+/")); echo hash("sha256", $b);' "$P335_OLD_ID")
+P335_OLD_PUB=$(php -r '$s = json_decode(file_get_contents($argv[1]), true); echo openssl_pkey_get_details(openssl_pkey_get_private($s["pem"]))["key"];' -- "$WORK/pk335-old")
+P335_OLD_ID=$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["id"];' -- "$WORK/pk335-old")
+P335_OLD_HASH=$(php -r '$b = base64_decode(strtr($argv[1], "-_", "+/")); echo hash("sha256", $b);' -- "$P335_OLD_ID")
 sq "INSERT INTO ka_uzivatele_klice (idu, nazev, otisk_id, id_klice, verejny, alg, pocitadlo, vytvoreno, discoverable) VALUES ($P335_USER, 'Old key', '$P335_OLD_HASH', '$P335_OLD_ID', '$P335_OLD_PUB', -7, 0, '$(site_time)', 0)" > /dev/null
 J12="$WORK/jar-p335-12"; rm -f "$J12"
 expect "3.35 A: an older second-step passkey does not sign in without a password – its owner hears to register it again" \

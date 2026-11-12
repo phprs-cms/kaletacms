@@ -5,7 +5,7 @@ for i in $(seq 1 20); do (exec 3<>"/dev/tcp/127.0.0.1/$SMTP2_PORT") 2>/dev/null 
 command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$N326_SMTP" > /dev/null 2>&1 & SMTP_PID=$!
 sq "DROP TABLE IF EXISTS ka_n326_mail; CREATE TABLE ka_n326_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
-N326_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")
+N326_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
   ('n326-jana', '$N326_HASH', 'Jana N326', 'jana-n326@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'instant'),
   ('n326-petr', '$N326_HASH', 'Petr N326', 'petr-n326@example.com', '', 1, '$(site_time)', '$(site_time)', 0, 'daily'),

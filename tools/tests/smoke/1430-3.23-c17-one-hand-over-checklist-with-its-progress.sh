@@ -1,10 +1,10 @@
 echo "== 3.23 (C17): one hand-over checklist with its progress"
 c17_audit() { mcp site_audit "{\"kind\":\"${1:-handover}\"}" > "$WORK/c17.json"; }
 c17_progress() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true); $c = $t["handover_checklist"] ?? null;
-  echo $c === null ? "none" : ($c["done"] === count(array_filter($c["items"], fn ($i) => $i["done"])) && $c["total"] === count($c["items"]) ? $c["done"] . "/" . $c["total"] : "bad");' "$WORK/c17.json"; }
+  echo $c === null ? "none" : ($c["done"] === count(array_filter($c["items"], fn ($i) => $i["done"])) && $c["total"] === count($c["items"]) ? $c["done"] . "/" . $c["total"] : "bad");' -- "$WORK/c17.json"; }
 # the client rows start open: no other active account (blocked for the check), the report off, the guardrails never saved, an empty Notebook
 c17_finding() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true);
-  echo count(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === $argv[2]));' "$WORK/c17.json" "$1"; }
+  echo count(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === $argv[2]));' -- "$WORK/c17.json" "$1"; }
 C17_ACTIVE=$(sq "SELECT GROUP_CONCAT(idu) FROM ka_uzivatele WHERE admin < 2 AND blokovat = 0")
 [ -z "$C17_ACTIVE" ] || sq "UPDATE ka_uzivatele SET blokovat = 1 WHERE idu IN ($C17_ACTIVE)" > /dev/null
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('claude_destructive', 'report_monthly', 'report_recipients'); DROP TABLE IF EXISTS ka_c17_notebook; CREATE TABLE ka_c17_notebook AS SELECT * FROM ka_notebook; DELETE FROM ka_notebook" > /dev/null
@@ -22,7 +22,7 @@ expect "3.23 (C17): another kind does not carry the checklist" "$(c17_progress)"
 # 3.23.1 (N-C1) the row is done only when it can change the menu, the footer and the opening hours, otherwise it says what is
 # missing and links the role; with no such account the link is a new user with the Client role (N-C9)
 c17_fix() { php -r '$r = json_decode((string) file_get_contents($argv[1]), true); $t = json_decode((string) ($r["result"]["content"][0]["text"] ?? ""), true);
-  echo implode(" ; ", array_map(fn ($f) => preg_replace("#^.*admin\.php#", "admin.php", $f["edit"]) . " " . $f["message"], array_values(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === $argv[2]))));' "$WORK/c17.json" "$1"; }
+  echo implode(" ; ", array_map(fn ($f) => preg_replace("#^.*admin\.php#", "admin.php", $f["edit"]) . " " . $f["message"], array_values(array_filter($t["findings"] ?? [], fn ($f) => ($f["target"]["handover"] ?? "") === $argv[2]))));' -- "$WORK/c17.json" "$1"; }
 c17_audit; C17_NONE=$(c17_fix client_account)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=roles"; TOKEN=$(csrf)
 C17_KLIENT_NEW=0; [ -n "$(sq "SELECT idr FROM ka_role WHERE nazev = 'Klient'")" ] || { C17_KLIENT_NEW=1; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=roles&action=save" -d "_csrf=$TOKEN" -d idr=0 --data-urlencode "nazev=Klient" -d uroven=1 -d 'moduly[]=pages'; }
@@ -98,7 +98,7 @@ grep -q '"kategorieNovinek":\[{' "$WORK/response" && ! grep -q '(výchozí jazyk
   && echo "  ok     3.23 review (N323-2): the news categories of a default-language page are not marked as another language" \
   || { echo "  CHYBA  3.23 review (N323-2): build_choices marks the default language: $(grep -o '"kategorieNovinek":[^]]*' "$WORK/response" | head -c 300)"; ERRORS=$((ERRORS+1)); }
 expect "3.23 (U10): build_choices of a page that does not exist" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=pages&action=build_choices&id=999999")" 404
-sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('u10-editor', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$PASSWORD")', 'Editor U10', 1, '$(site_time)', '$(site_time)');
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, admin, posledni_login, potvrzeno) VALUES ('u10-editor', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")', 'Editor U10', 1, '$(site_time)', '$(site_time)');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pages' FROM ka_uzivatele WHERE user = 'u10-editor'" > /dev/null
 JAR3="$WORK/jar-u10"
 TOKEN3=$(curl -s -c "$JAR3" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
