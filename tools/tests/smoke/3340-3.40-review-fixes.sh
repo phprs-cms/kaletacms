@@ -41,3 +41,16 @@ r340_php 'Kaleta\Core\QuoteDelivery::erase($app->db(), [["id" => '"$R340_QN"', "
 expect "3.40 review M4: erasing a person blanks the task title of their numbered quote (the task stays) and deletes the task of their draft" \
   "$(sq "SELECT CONCAT(COUNT(*), ':', IFNULL(MAX(title), '-')) FROM ka_tasks WHERE id = $R340_TN")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE id = $R340_TD")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE title LIKE '%Rita R340%'")" "1:|0|0"
 sq "DELETE FROM ka_tasks WHERE target = 'quote:$R340_QN'; DELETE FROM ka_quotes WHERE id = $R340_QN" > /dev/null
+
+# L1: the talent-pool link page is never stored (no-store), and wrong links count per network like /quote/ does
+curl -s -D "$WORK/r340-headers" -o /dev/null "$B/application-consent/$(php -r 'echo bin2hex(random_bytes(32));')"
+expect "3.40 review L1: the talent-pool link page says Cache-Control: private, no-store" "$(grep -ci '^cache-control: private, no-store' "$WORK/r340-headers")" "1"
+expect "3.40 review L1: a wrong talent-pool link counts as a failed attempt of the network" \
+  "$(sq "SELECT COUNT(*) >= 1 FROM ka_kontrola_ip WHERE typ = 'pool_consent' AND cas > '$(site_time '-5 minutes')'")" "1"
+R340_POOL=$(sq "INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, language, data, status, status_at, last_activity_at, pool_consent_at, pool_until, pool_token, pool_token_until) VALUES ('$(site_time)', 9342, 'Welder R340', 'Job application', 'Pia R340', 'pia-r340@example.com', 'pia-r340@example.com', '', '[]', 'reviewed', '$(site_time)', '$(site_time)', '$(site_time)', '$(site_date '+20 days')', SHA2('$R340_TOKEN', 256), '$(site_time '+20 days')'); SELECT LAST_INSERT_ID();")
+expect "3.40 review L1: a working talent-pool link shows its choice" "$(curl -s "$B/application-consent/$R340_TOKEN" | grep -c 'name="choice" value="keep"')" "1"
+R340_IPH=$(sq "SELECT ip_adresa FROM ka_kontrola_ip WHERE typ = 'pool_consent' ORDER BY idk DESC LIMIT 1")
+sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) VALUES $(for r340_i in $(seq 1 30); do printf "('%s', 'pool_consent', 0, '%s')," "$R340_IPH" "$(site_time)"; done | sed 's/,$//')" > /dev/null
+expect "3.40 review L1: after too many wrong links from the network even a working one is answered as invalid (nothing is looked up)" "$(curl -s "$B/application-consent/$R340_TOKEN" | grep -c 'name="choice"')" "0"
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'pool_consent'" > /dev/null
+r340_php 'Kaleta\Core\Applications::delete($app, ['"$R340_POOL"'], false);' > /dev/null; sq "DELETE FROM ka_application_counts WHERE job_item_id = 9342" > /dev/null

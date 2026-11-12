@@ -32,6 +32,10 @@ final class TalentPool
     /** The path of the link's page (Front\Kernel), followed by the token. */
     public const string PATH = 'application-consent';
 
+    /** Failed link attempts from one network within an hour before every link is answered as invalid (3.40 review L1, Core\Antispam). */
+    public const int MAX_TRIES = 30;
+    public const string TRIES = 'pool_consent';
+
     /** The setting with the webhook address of new applications ('' = off). */
     public const string WEBHOOK_SETTING = 'webhook_applications';
 

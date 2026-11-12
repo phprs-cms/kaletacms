@@ -1783,7 +1783,8 @@ final class Kernel
         }
 
         if (!empty($meta['soukroma'])) {
-            return new Response($html, $status, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Security-Policy' => self::PRIVATE_CSP, 'Referrer-Policy' => 'no-referrer']);
+            return new Response($html, $status, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Security-Policy' => self::PRIVATE_CSP, 'Referrer-Policy' => 'no-referrer',
+                'Cache-Control' => 'private, no-store']); // 3.40 review L1: a private page (a talent-pool link) is never kept by a browser or a proxy
         }
 
         return Response::html($html, $status);

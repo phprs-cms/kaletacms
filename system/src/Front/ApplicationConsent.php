@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Front;
 
+use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 use Kaleta\Core\Applications;
 use Kaleta\Core\Language;
@@ -14,7 +15,9 @@ use Kaleta\Core\TalentPool;
  * Opening the link (GET) only shows the choice – keep the application for another applications_pool_months, or delete it
  * now – with the chosen one first (?choice=keep|delete); mail scanners open links, so nothing changes until a button posts
  * the form (POST to the same address). The token works once and only until the consent lapses; a wrong, used or expired
- * one gets the same answer. The texts are in the language of the application; the page is never cached or indexed.
+ * one gets the same answer. Failed attempts count per network (Core\Antispam, 3.40 review L1, as /quote/ does): after
+ * TalentPool::MAX_TRIES within an hour every link from it gets that answer. The texts are in the language of the
+ * application; the page is never cached (Cache-Control: no-store) or indexed.
  */
 final class ApplicationConsent
 {
@@ -26,9 +29,17 @@ final class ApplicationConsent
     public static function page(App $app, string $token): array
     {
         $r = $app->request;
+        $ip = Antispam::network($r->ip());
+        $antispam = new Antispam($app->db(), $app->settings());
+        $invalid = [t('The link is no longer valid'), '<p>' . e(t('The link is invalid, has already been used or has expired. If you have a question about your application, reply to the e-mail you received.')) . '</p>'];
+        if ($antispam->count($ip, TalentPool::TRIES, 0, 60) >= TalentPool::MAX_TRIES) {
+            return $invalid; // too many wrong links from this network: no lookup at all
+        }
         $row = TalentPool::byToken($app->db(), $token);
         if ($row === null) {
-            return [t('The link is no longer valid'), '<p>' . e(t('The link is invalid, has already been used or has expired. If you have a question about your application, reply to the e-mail you received.')) . '</p>'];
+            $antispam->write($ip, TalentPool::TRIES, 0);
+
+            return $invalid;
         }
 
         return Language::runWith(Applications::languageOf($app->settings(), $row), function () use ($app, $r, $row, $token): array {
