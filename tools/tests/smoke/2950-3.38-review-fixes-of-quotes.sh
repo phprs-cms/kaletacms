@@ -95,6 +95,12 @@ R338_L3=$(grep -o "$B/quote/[a-f0-9]\{64\}" "$WORK/response" | head -1)
 expect "3.38 review L1: New link shows the new link to copy in this session; it opens, the one before it is dead" \
   "$([ -n "$R338_L3" ] && echo shown)|$(sq "SELECT token_hash = SHA2('${R338_L3##*/}', 256) FROM ka_quotes WHERE id = $R338_QL")|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L3:-$B/quote/x}")|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L2:-$B/quote/x}")" "shown|1|200|404"
 
+# L2: a mangled customer's link is the plain 404 and never lands among the addresses not found (Redirects shows them)
+R338_T=$(php -r 'echo bin2hex(random_bytes(32));')
+for r338_p in "/quote/$R338_T/" "/quote/${R338_T}x" "/quote/$R338_T/print" "/en/quote/$R338_T" "/QUOTE/$R338_T"; do curl -s -o /dev/null "$B$r338_p"; done
+expect "3.38 review L2: mangled links under /quote/ are 404s that store no token among the addresses not found" \
+  "$(curl -s -o /dev/null -w '%{http_code}' "$B/quote/${R338_T}x")|$(sq "SELECT COUNT(*) FROM ka_nenalezeno WHERE LOWER(cesta) LIKE '%$R338_T%'")" "404|0"
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');

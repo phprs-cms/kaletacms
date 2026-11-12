@@ -26,6 +26,16 @@ final class NotFound
     /** After this many requests of an address without a page an event is recorded once (2.8, notfound.spike). */
     public const int SPIKE = 20;
 
+    /**
+     * Is the address one that must never be kept among the addresses not found (3.38 review L2)? Anything under /quote/
+     * (also behind a language prefix, in any case): a mangled customer's link still carries a working token, and the list
+     * of addresses not found is shown in Redirects.
+     */
+    public static function isPrivate(string $path): bool
+    {
+        return preg_match('#^/*(?:[a-z]{2,3}(?:-[a-z0-9]{2,8})?/+)?quote/#i', $path) === 1;
+    }
+
     public static function isBot(string $path): bool
     {
         return preg_match(self::BOTS, $path) === 1;

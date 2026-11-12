@@ -1253,7 +1253,8 @@ final class Kernel
         if (($refused = \Kaleta\Core\Firewall::notFound($this->app, $path)) !== null) {
             return $refused; // 2.8: the fifth probe for another system in an hour blocks the address
         }
-        if ($path !== '' && $this->app->request->get('part') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')) {
+        if ($path !== '' && $this->app->request->get('part') === '' && !\Kaleta\Core\NotFound::isBot($path) && mb_check_encoding($path, 'UTF-8')
+            && !\Kaleta\Core\NotFound::isPrivate($path) && !\Kaleta\Core\NotFound::isPrivate($this->app->request->path())) { // 3.38 review L2: a mangled customer's link carries its token
             try {
                 if ((int) $this->app->db()->value('SELECT COUNT(*) FROM {nenalezeno}') < 2000 || $this->app->db()->value('SELECT 1 FROM {nenalezeno} WHERE cesta = ?', [$path]) !== null) {
                     $this->app->db()->run('INSERT INTO {nenalezeno} (cesta, pocet, naposledy) VALUES (?, 1, ?) ON DUPLICATE KEY UPDATE pocet = pocet + 1, naposledy = VALUES(naposledy)', [$path, \Kaleta\Core\Clock::now()]);
