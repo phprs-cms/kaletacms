@@ -23,6 +23,8 @@ curl -s -b "$C340_JH" -o "$WORK/response" "$B/admin.php?module=applications&acti
 expect "3.40 statistics: HR sees twelve months and the position with its counts – never a name or an address" \
   "$(grep -c 'data-applications-stats' "$WORK/response" | awk '{print ($1 > 0)}')|$(grep -c "data-stats-month=" "$WORK/response")|$(grep -c 'Welder C340' "$WORK/response" | awk '{print ($1 > 0)}')|$(grep -c 'Anna Ray C340\|anna-c340' "$WORK/response")" "1|12|1|0"
 
+# (the columns come one by one and are joined here: CONCAT/IFNULL/GROUP_CONCAT over ascii columns, literals and JSON results
+# mix collations, which MySQL 8.4 refuses – the error made the value empty on CI)
 # Reject and send the rejection: refused without SMTP; with it each one gets the template, no e-mail = rejected only, rejected already = left alone
 C340_B=$(c340_app "'', '', NULL, '', '[]', 'reviewed', '$(site_time)', '$(site_time)'")
 C340_C=$(c340_app "'Carl C340', 'carl-c340@example.com', 'carl-c340@example.com', '', '[]', 'rejected', '$(site_time)', '$(site_time)'")
@@ -37,7 +39,8 @@ curl -s -b "$C340_JH" -o "$WORK/response" "$B/admin.php?module=applications&stat
 expect "3.40 bulk rejection: the list offers it behind a confirmation" "$(grep -c 'value="reject_reply" data-potvrdit=' "$WORK/response")" "1"
 c340_post "$C340_JH" bulk -d do=reject_reply -d "ids[]=$C340_A" -d "ids[]=$C340_B" -d "ids[]=$C340_C" -d reply_reason=position_filled > /dev/null
 expect "3.40 bulk rejection: each rejected with the reason and the history; the one with an address got the reply on its own history; the rejected one is left alone" \
-  "$(sq "SELECT GROUP_CONCAT(CONCAT(status, ':', IFNULL(reject_reason, '-'), ':', IFNULL(JSON_LENGTH(replies), 0), ':', IFNULL(JSON_UNQUOTE(JSON_EXTRACT(history, CONCAT('\$[', JSON_LENGTH(history) - 1, '].to'))), '-')) ORDER BY id) FROM ka_applications WHERE id IN ($C340_A, $C340_B, $C340_C)")" \
+  "$(sq "SELECT status, reject_reason, JSON_LENGTH(replies), JSON_UNQUOTE(JSON_EXTRACT(history, CONCAT('\$[', JSON_LENGTH(history) - 1, '].to'))) FROM ka_applications WHERE id IN ($C340_A, $C340_B, $C340_C) ORDER BY id" \
+    | awk -F'\t' '{ printf "%s%s:%s:%s:%s", (NR > 1 ? "," : ""), $1, ($2 == "NULL" ? "-" : $2), ($3 == "NULL" ? 0 : $3), ($4 == "NULL" ? "-" : $4) }')" \
   "rejected:position_filled:1:rejected,rejected:position_filled:0:rejected,rejected:-:0:-"
 C340_F=$(grep -l "^X-Rcpt-To: anna-c340@example.com" "$C340_SMTP"/*.eml 2>/dev/null | tail -1 || true); if [ -n "$C340_F" ]; then eml "$C340_F" > "$WORK/c340.txt"; else : > "$WORK/c340.txt"; fi
 expect "3.40 bulk rejection: one e-mail – the rejection template with the position and the sender's signature; the mail log names nobody" \
