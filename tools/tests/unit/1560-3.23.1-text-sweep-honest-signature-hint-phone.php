@@ -43,7 +43,7 @@ check('3.23.1 (N-C4, N-C12): status cells wrap on a phone; below 600 px the Sett
     str_contains($css3231, 'table.vypis-stav th, table.vypis-stav td { padding: 10px 12px; white-space: normal; overflow-wrap: anywhere; }'),
     (bool) preg_match('/<form class="zalozky-vyber" method="get".*?><input type="hidden" name="module" value="settings">.*<select id="zalozka-vyber" name="tab" data-odeslat-pri-zmene>.*foreach \(\$navigation as \$key => \$name\)/s', $v3231('settings/list.php')),
     str_contains($css3231, '.zalozky:has(+ .zalozky-vyber) { display: none; }') && str_contains($css3231, "@media (max-width: 600px) {\n\t.zalozky-vyber { display: flex;"),
-], [3, true, true, true]);
+], [2, true, true, true]);
 
 // 3.23.1 (N-C1): the ready-made roles' names and descriptions fit the role form (60 and 200 characters) in every admin language
 check('3.23.1 (N-C1): ready-made role names and descriptions fit the form in every admin language', array_values(array_filter(array_map(fn (string $code): string => Kaleta\Core\Language::runWith($code,

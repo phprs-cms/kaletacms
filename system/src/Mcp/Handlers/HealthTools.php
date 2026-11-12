@@ -8,7 +8,6 @@ use Kaleta\Core\Backup;
 use Kaleta\Core\Events;
 use Kaleta\Core\Health;
 use Kaleta\Core\Language;
-use Kaleta\Core\Readiness;
 use Kaleta\Core\Scheduler;
 
 /**
@@ -34,7 +33,7 @@ trait HealthTools
             'status' => ['ok' => 'ok', 'varovani' => 'warning', 'chyba' => 'error'][Health::summary($checks)],
             'kaleta_version' => KALETA_VERSION,
             // 3.8 (D3): the release channel (latest | stable | custom), the version it offers, and the stable version a stable site is already past
-            // 3.15: the next major version (Kaleta 4.0) on its own update source – offered only, the administrator installs it
+            // 3.15: the next major version on its own update source – offered only, the administrator installs it
             'update' => ['channel' => $update['channel'], 'available' => $update['nova']['verze'] ?? $update['vyzaduje_php']['verze'] ?? null, 'ahead_of_stable' => $update['ahead_of'],
                 'major_available' => \Kaleta\Core\Updater::nextMajor($this->app->settings())['verze'] ?? null, 'behind_days' => \Kaleta\Core\Updater::behindDays($update)],
             'problems' => array_values(array_map(fn (array $c): array => ['group' => $c['skupina'], 'check' => $c['nazev'], 'status' => $c['stav'] === 'chyba' ? 'error' : 'warning', 'detail' => strip_tags((string) $c['info'])],
@@ -48,24 +47,8 @@ trait HealthTools
             // 3.18: whether Claude is connected (Core\ClaudeConnection): state off | none | idle | active, the last call, how
             // requests are picked up (automatic | manual | stalled), the earliest end of a connection
             'claude_connection' => \Kaleta\Core\ClaudeConnection::summary(\Kaleta\Core\ClaudeConnection::status($db, $this->app->settings())),
-            // 3.14: Ready for 4.0 (Core\Readiness) – read-only, as System status shows it
-            'ready_for_4_0' => self::readiness(Language::runWith('en', fn (): array => Readiness::checks($this->app), 'admin-')),
             'next' => 'Fix what you can (e.g. with update_settings or the site audit) and tell the user what needs them: hosting, DNS or a password are theirs. list_events shows what happened.',
         ];
-    }
-
-    /**
-     * The Ready for 4.0 checks for Claude: a stable key per check, English states, the files, tags or addresses behind it.
-     *
-     * @param list<array{key: string, nazev: string, stav: string, info: string, seznam: list<string>}> $checks
-     * @return array{status: string, checks: list<array<string, mixed>>}
-     */
-    private static function readiness(array $checks): array
-    {
-        $state = ['ok' => 'ok', 'varovani' => 'warning', 'info' => 'info'];
-
-        return ['status' => $state[Readiness::summary($checks)], 'checks' => array_map(fn (array $c): array => ['check' => $c['key'], 'name' => $c['nazev'],
-            'status' => $state[$c['stav']], 'detail' => $c['info']] + ($c['seznam'] !== [] ? ['items' => $c['seznam']] : []), $checks)];
     }
 
     /** list_events */

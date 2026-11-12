@@ -185,28 +185,15 @@ final class Db
 
     /**
      * Fills in the table prefix: {novinky} -> `ka_novinky`. The English name of a table works the same (3.10, Core\Names):
-     * {news} -> `ka_novinky` until a release renames the table, and both keep working after that (3.15: `ka_news`).
+     * {news} -> `ka_novinky`; on a database with English table names (the 3.15 bridge) both give `ka_news`.
      */
     public function sql(string $sql): string
     {
-        $legacy = [];
-        $resolved = preg_replace_callback(
+        return preg_replace_callback(
             '/\{([a-z][a-z0-9_]*)\}/',
-            function (array $m) use (&$legacy): string {
-                // 3.14: with add-ons switched on, a Czech name of a table 4.0 renames is logged for the add-on that wrote it
-                if (LegacyNames::$watching && Names::isLegacy($m[1])) {
-                    $legacy[] = $m[1];
-                }
-
-                return '`' . $this->prefix . Names::physical($m[1], $this->english ?? false) . '`';
-            },
+            fn (array $m): string => '`' . $this->prefix . Names::physical($m[1], $this->english ?? false) . '`',
             $sql,
         ) ?? $sql;
-        if ($legacy !== []) {
-            LegacyNames::note($legacy);
-        }
-
-        return $resolved;
     }
 
     /**

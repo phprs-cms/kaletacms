@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * English names of the data model (3.10, docs/design/4.0-data-model.md §4), read from the rename map system/sql/names.php.
+ * English names of the data model (3.10), read from the map system/sql/names.php.
  *
- * In 3.x nothing is renamed: physical() lets SQL name a table either way ({news} and {novinky} are both `ka_novinky`),
- * english() gives the name 4.0 will use. New code may write the English placeholders; old code and add-ons keep working.
+ * Nothing is renamed: the tables and columns keep their Czech names (owner decisions of 21 and 22 October 2026, docs/ROADMAP.md
+ * "Path to 4.0"). physical() lets SQL name a table either way ({news} and {novinky} are both `ka_novinky`), english() gives
+ * the English alias. New code may write the English placeholders; old code and add-ons keep working.
  *
- * 3.15 (the bridge to 4.0): the database may already carry the English names – 4.0 renames the tables, and a site rolled
- * back to 3.15 keeps them. Core\Db finds out which names the database has (setRenamed()) and physical() then gives the
- * English one: {novinky} and {news} are both `ka_news` there. table() stays the name 3.x code knows a table by.
+ * 3.15 left a bridge for databases whose tables carry the English names: Core\Db finds out which names the database has
+ * (setRenamed()) and physical() then gives the English one. No release renames a database, so the bridge only waits for a
+ * major release to remove it (docs/design/4.0-data-model.md §4). table() stays the name the code knows a table by.
  */
 final class Names
 {
@@ -21,9 +22,6 @@ final class Names
 
     /** @var array<string, string>|null English name => today's name, only where they differ */
     private static ?array $aliases = null;
-
-    /** @var array<string, string>|null legacy (Czech) name => its English name, only tables that 4.0 renames (3.14) */
-    private static ?array $legacy = null;
 
     /** 3.15: the tables of this database carry their English names (renamed by 4.0) – set by Core\Db when it connects or finds out. */
     private static bool $renamed = false;
@@ -75,32 +73,6 @@ final class Names
         }
 
         return self::$aliases[$name] ?? $name;
-    }
-
-    /**
-     * Legacy names (3.14): the Czech name of every table 4.0 renames (novinky → news), the names add-ons should stop writing.
-     * Tables named in English since 1.5 are not in it.
-     *
-     * @return array<string, string> legacy name => English name
-     */
-    public static function legacy(): array
-    {
-        if (self::$legacy === null) {
-            self::$legacy = [];
-            foreach (self::map() as $table => [$english]) {
-                if ($english !== $table) {
-                    self::$legacy[$table] = $english;
-                }
-            }
-        }
-
-        return self::$legacy;
-    }
-
-    /** Whether a placeholder is the legacy name of a table that 4.0 renames ({novinky} yes, {news} and {events} no). */
-    public static function isLegacy(string $name): bool
-    {
-        return isset((self::$legacy ?? self::legacy())[$name]);
     }
 
     /** The English name of a table (novinky → news); a table the map does not know (an add-on's own) as it is. */

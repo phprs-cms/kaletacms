@@ -1,14 +1,15 @@
 # Glossary: Czech names in the code → English
 
-Kaleta's code started with Czech identifiers. From 1.4 they are renamed to English, one area per release, with
-`tools/rename.php` and a map per step (`tools/rename/*.php`). This page is the source of truth for the translations, so
+Kaleta's code started with Czech identifiers. From 1.4 they were renamed to English, one area per release, by a tool
+that renamed PHP tokens with a map per step (removed in 3.39, once the work was done). This page is the source of truth for the translations, so
 that one Czech term becomes the same English word everywhere. The English wording follows what users already see: the
 English admin and the MCP tools (`get_build`, `list_site_parts`, `save_collection_item`…).
 
 ## What does not change
 
 These are contracts with data that already exists, with users' own CSS and scripts, and with Claude and other API
-clients. They keep their Czech names; the rename tool never touches string literals.
+clients. They keep their Czech names; the 1.4 renames never touched string literals. Tables and columns are not renamed
+in any later version either (owner decision, docs/ROADMAP.md "Path to 4.0").
 
 | Contract | Examples | Why |
 |---|---|---|
@@ -22,7 +23,7 @@ clients. They keep their Czech names; the rename tool never touches string liter
 
 Renamed later, each with a migration or an alias so old links and data keep working:
 
-- UI source strings `t('…')` / `T('…')`: English since 1.4.1 (step 6, `tools/rename/6-texts.php`); Czech is a dictionary like
+- UI source strings `t('…')` / `T('…')`: English since 1.4.1 (step 6); Czech is a dictionary like
   any other language (`system/jazyky/cs.php`, `admin-cs.php`, `install-cs.php`, `image/jazyky/admin-cs.js`). About 160 texts
   stay Czech for now (one Czech text with two English translations, or two Czech texts sharing one), and the other
   dictionaries keep their Czech keys, so a Czech text passed from data still translates.

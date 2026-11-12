@@ -45,28 +45,10 @@ uasort($problems, fn (array $a, array $b): int => ($b['stav'] === 'chyba') <=> (
 <?php if (Kaleta\Core\UploadLimit::bytes((string) ini_get('upload_max_filesize')) < 8 * 1024 * 1024 && Kaleta\Core\UploadLimit::canWrite()): // 3.22 (C14) ?>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('user_ini')) ?>"><?= e(t('Write %s with larger upload limits', Kaleta\Core\UploadLimit::fileName())) ?></button></p>
 <?php endif ?>
-<?php if ($readiness !== []): ?>
-<fieldset id="ready-4">
-<legend><?= e(t('Ready for 4.0')) ?></legend>
 <?php if (($major ?? null) !== null): // 3.15: the next major version is on its own update source ?>
+<fieldset id="major-update">
+<legend><?= e(t('New major version')) ?></legend>
 <p class="hlaska hlaska-ok"><?= e(t('Kaleta %s is available – read what changes, back up, then update.', (string) $major['verze'])) ?> <a href="<?= e($app->url('admin.php?module=settings&tab=backups#major-update')) ?>"><?= e(t('Backups and updates')) ?></a></p>
-<?php endif ?>
-<p><?= e(t(Kaleta\Core\Readiness::summary($readiness) === 'ok'
-    ? 'Nothing on this site stands in the way of Kaleta 4.0 so far. The checks only read – they change nothing.'
-    : 'Some items need attention before the update to Kaleta 4.0. The checks only read – they change nothing.')) ?></p>
-<div class="tab-obal">
-<table class="vypis vypis-stav">
-<tbody>
-<?php foreach ($readiness as $k): ?>
-<tr>
-	<td class="stred"><span class="stitek<?= $k['stav'] === 'info' ? '' : ' stitek-' . ['ok' => 'vydano', 'varovani' => 'koncept'][$k['stav']] ?>" title="<?= e(t(['ok' => 'v pořádku', 'varovani' => 'varování', 'info' => 'for information'][$k['stav']])) ?>"><?= ['ok' => '✓', 'varovani' => '!', 'info' => 'i'][$k['stav']] ?></span></td>
-	<td><strong><?= e($k['nazev']) ?></strong></td>
-	<td><?= e($k['info']) ?><?php if ($k['seznam'] !== []): ?><ul class="smltxt"><?php foreach ($k['seznam'] as $item): ?><li><?= e($item) ?></li><?php endforeach ?></ul><?php endif ?></td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
-</div>
 </fieldset>
 <?php endif ?>
 <fieldset>

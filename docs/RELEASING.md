@@ -279,11 +279,11 @@ Owner's decision of 13 October 2026: an older site never jumps straight to a maj
   name has none). It is checked with the regular check (background job `updates`), remembered 12 hours in
   `update_major_cache` – also when it answers 404, which is the normal state until 4.0 is out – and verified like any
   manifest (v2, freshness per address and channel). Settings → Backups and updates shows "Kaleta 4.0 is available – read
-  what changes, back up, then update" with the change lines and a link to Ready for 4.0; System status shows the same
-  above the Ready for 4.0 checks; MCP `get_health` says `update.major_available`.
+  what changes, back up, then update" with the change lines; System status shows the same (the "Ready for 4.0" checks
+  were removed in 3.39 with the rejected table renames); MCP `get_health` says `update.major_available`.
 - **Never installed by itself.** Not by the background job (even with `"bezpecnostni": true` and automatic updates on),
   not by the fleet console. Only Settings → Backups and updates → *Back up and update to 4.0.0* installs it, after the
-  administrator ticks "I have read what changes and checked Ready for 4.0", only when the site runs the newest release of
+  administrator ticks "I have read what changes", only when the site runs the newest release of
   its own line, and always after a fresh database backup (`predaktualizaci`). The package goes through the same checks as
   any update (hash, signature, PHP of the package, the site asked afterwards, files restored on failure).
 - **Defence in depth:** the regular update offers and installs only a release of the site's own major version

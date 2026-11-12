@@ -102,6 +102,9 @@ final class Health
             ? t('config.php can be read by every user of the server (mode %s) – it holds the database password and the encryption key. Set its mode to 0600 (0640 where the web server reads it through its group) in your FTP client or the hosting\'s file manager.', sprintf('%04o', (int) @fileperms(KALETA_ROOT . '/config.php') & 0777))
                 . (Vault::canProtectConfig() ? ' ' . t('Kaleta can do it for you – the button is below the table.') : '')
             : t('readable only by the site'));
+        // 3.15 (N42): where the key of the encrypted secrets is – never the key itself (on System status since 3.39, was Ready for 4.0)
+        $vault = Vault::state($siteSettings);
+        $add(t('Bezpečnost'), t('Encryption key'), in_array($vault, ['config', 'database'], true) ? 'ok' : 'varovani', Vault::describe($vault));
         $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
         $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
         if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {

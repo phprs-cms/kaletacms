@@ -70,15 +70,13 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 <?php if (($major['zmeny'] ?? []) !== []): ?>
 	<ul><?php foreach ($major['zmeny'] as $change): ?><li><?= e($change) ?></li><?php endforeach ?></ul>
 <?php endif ?>
-	<p><?= e(t('A new major version is never installed automatically, not even as a security update. Check Ready for 4.0 first and download a database backup off the server.')) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
+	<p><?= e(t('A new major version is never installed automatically, not even as a security update. Download a database backup off the server first.')) ?></p>
 <?php if ($update !== null && ($majorBlocker = Kaleta\Core\Updater::majorBlocker($update)) !== null): // N315-3: the action checks it again, fresh ?>
 	<p class="napoveda"><?= e($majorBlocker) ?></p>
-<?php elseif (($majorBlockers = Kaleta\Core\Readiness::blockers(Kaleta\Core\Readiness::checks($app))) !== []): ?>
-	<p class="napoveda"><?= e(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $majorBlockers))) ?> <a href="<?= e($app->url('admin.php?module=status#ready-4')) ?>"><?= e(t('Ready for 4.0')) ?></a></p>
 <?php elseif (Kaleta\Core\Updater::phpTooOld($major)): ?>
 	<p class="napoveda"><?= e(t('Version %s needs PHP %s or newer; the server runs PHP %s. Ask your hosting to switch the site to a newer PHP, then the update will be offered here.', $majorVersion, Kaleta\Core\Updater::minPhp($major), PHP_VERSION)) ?></p>
 <?php else: ?>
-	<p><label><input type="checkbox" name="precteno" value="1"> <?= e(t('I have read what changes and checked Ready for 4.0')) ?></label></p>
+	<p><label><input type="checkbox" name="precteno" value="1"> <?= e(t('I have read what changes')) ?></label></p>
 	<p><button class="navigace" type="submit" name="verze" value="<?= e($majorVersion) ?>" formaction="<?= e($module->url('update_major')) ?>" data-potvrdit="<?= e(t('Update to Kaleta %s? A database backup is created first; the update cannot be undone by a click – going back means restoring that backup and the files of this version.', $majorVersion)) ?>"><?= e(t('Back up and update to %s', $majorVersion)) ?></button></p>
 <?php endif ?>
 </div>

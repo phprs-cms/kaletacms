@@ -39,8 +39,8 @@ expect "3.15 N42: a new site keeps the encryption key in config.php, the data is
   "1|32|test-client-secret|Vedoucí skladu falšuje ev|1|0"
 VAULT_FIRST=$(vault key)
 vault legacy
-expect "3.15 N42: a site from before 3.15 (key in the database) reads its data; the backups tab and Ready for 4.0 offer the move" \
-  "$(vault read)|$(grep -c vault_key "$WORK/web/config.php" || true)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'action=vault_move' "$WORK/response")|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'šifrované klíčem uloženým v databázi' "$WORK/response")" \
+expect "3.15 N42: a site from before 3.15 (key in the database) reads its data; the backups tab says so and offers the move" \
+  "$(vault read)|$(grep -c vault_key "$WORK/web/config.php" || true)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'action=vault_move' "$WORK/response")|$(grep -c 'šifrované klíčem uloženým v databázi' "$WORK/response")" \
   "$VAULT_PLAIN|0|1|1"
 # config.php cannot be written: the exact line comes back once, nothing changes, the key is kept nowhere
 VAULT_BEFORE=$(vault_sealed); chmod 444 "$WORK/web/config.php"; vault_move; chmod 644 "$WORK/web/config.php"
@@ -51,8 +51,8 @@ expect "3.15 N42: with config.php not writable the line to add is shown, nothing
 # the administrator adds the line by hand; a failure while encrypting again (a table gone) rolls everything back
 php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/return\s*(\[|array\s*\()/", "$0\n  " . $argv[2], (string) file_get_contents($f), 1));' -- "$WORK/web/config.php" "$VAULT_LINE,"; config_changed
 sq "RENAME TABLE ka_whistleblowing_messages TO ka_wm_315" > /dev/null; vault_move; sq "RENAME TABLE ka_wm_315 TO ka_whistleblowing_messages" > /dev/null
-expect "3.15 N42: a failed re-encryption rolls back: the old key stays in use, the data reads, Ready for 4.0 says the move is unfinished" \
-  "$(grep -c 'Přesun se nezdařil' "$WORK/response")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'vault_check'")|$(vault_sealed)|$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"; grep -c 'Dokončete přesun' "$WORK/response")" \
+expect "3.15 N42: a failed re-encryption rolls back: the old key stays in use, the data reads, the backups tab says the move is unfinished" \
+  "$(grep -c 'Přesun se nezdařil' "$WORK/response")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'vault_check'")|$(vault_sealed)|$(vault read)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; grep -c 'Dokončete přesun' "$WORK/response")" \
   "1||$VAULT_BEFORE|$VAULT_PLAIN|1"
 vault_move
 expect "3.15 N42: the move encrypts the data again under the key in config.php, logs it and never writes the key into the database" \

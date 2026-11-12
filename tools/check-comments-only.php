@@ -1,8 +1,8 @@
 <?php
 /**
  * Kaleta – proves that changed files differ from a git revision in comments only (used when comments are translated):
- * PHP compares the token stream without comments and whitespace, JavaScript compares acorn's tokens (NODE_PATH with acorn,
- * see tools/rename-js.mjs), CSS and SQL compare the text without comments and whitespace, shell compares lines that are not
+ * PHP compares the token stream without comments and whitespace, JavaScript compares acorn's tokens (NODE_PATH with acorn),
+ * CSS and SQL compare the text without comments and whitespace, shell compares lines that are not
  * whole-line comments.
  *   php tools/check-comments-only.php [revision=HEAD] [file…]      (no files = every file changed since the revision)
  */
