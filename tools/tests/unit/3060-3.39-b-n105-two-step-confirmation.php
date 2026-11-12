@@ -11,7 +11,7 @@ check('3.39 N105: when a call acts – confirm=true, send, every newsletter call
     Confirmation::needed('reply_to_enquiry', ['id' => 1, 'confirm' => true]), Confirmation::needed('reply_to_enquiry', ['id' => 1]), Confirmation::needed('reply_to_enquiry', ['confirm' => 'true']),
     Confirmation::needed('send_quote', ['confirm' => false]), Confirmation::needed('request_testimonial', ['send' => true]), Confirmation::needed('request_testimonial', ['send' => false]),
     Confirmation::needed('send_newsletter', ['id' => 3]), Confirmation::needed('send_newsletter', ['id' => 3, 'unschedule' => true]), Confirmation::needed('delete_enquiry', ['id' => 2]),
-    Confirmation::needed('delete_media', ['id' => 2]), Confirmation::needed('update_settings', ['confirm' => true]),
+    Confirmation::needed('delete_popup', ['id' => 2]), Confirmation::needed('update_settings', ['confirm' => true]),
 ], [true, false, false, false, true, false, true, false, true, false, false]);
 check('3.39 N105: every tool of the list is a site tool that writes, and every tool that e-mails people outside the team is on it', [
     array_values(array_filter(array_keys(Confirmation::TOOLS), fn (string $t): bool => !in_array(Catalog::access($t), ['write', 'destructive'], true))),
