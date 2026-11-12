@@ -4,7 +4,7 @@ description: "Move a site from WordPress (with WooCommerce, Polylang or WPML) or
 license: GPL-2.0-or-later
 metadata:
   kaleta-prompt: "migrate_site"
-  kaleta-tools: "site_info read_notebook site_audit trash_page upload_file import_wordpress import_website update_design_system builder_schema save_classes list_classes get_menu save_menu preview_link publish_look list_pages read_old_page build_from_html edit_build get_build save_build apply_part_template save_popup list_collection_presets create_collection save_collection_items save_collection_category import_enquiries save_redirects list_redirects save_redirect migration_report list_media_without_alt update_media list_pending_review publish_build update_page update_settings write_notebook"
+  kaleta-tools: "site_info read_notebook site_audit trash_page upload_file import_wordpress import_website update_design_system builder_schema save_classes list_classes get_menu save_menu preview_link publish_look layout_queue read_old_page build_from_html edit_build get_build save_build apply_part_template save_popup list_collection_presets create_collection save_collection_items save_collection_category import_enquiries save_redirects list_redirects save_redirect migration_report list_media_without_alt update_media list_pending_review publish_build update_page update_settings write_notebook"
   kaleta-terms: "media_deferred more_problems starter_pages"
 ---
 
@@ -119,11 +119,13 @@ Import and export – `publish_look` would publish the colours and classes too.
 ## 5. Rebuild page-builder layouts (Breakdance, Elementor)
 
 An export carries only the text of a page made with a page builder; the import preview names the builders it
-found. Rebuild each page in the Kaleta builder, page by page (`list_pages` shows the imported ones):
+found. Rebuild each page in the Kaleta builder, page by page (`layout_queue` lists the imported pages still
+waiting, with each one's old address):
 
 1. Look at the live old page – `read_old_page` with its address returns it section by section as cleaned HTML
-   with the colours and fonts each section uses (or the element tree through the old site's connection) – and
-   list its sections: hero, benefits, services, references, call to action, contact.
+   with the colours and fonts each section uses; with `format` semantic each section comes as clean semantic
+   HTML that `build_from_html` takes as it is, whatever builder made the page – and list its sections: hero,
+   benefits, services, references, call to action, contact.
 2. Call `builder_schema` once and reuse the site's classes, components and saved sections.
 3. Write semantic HTML (`section`, `h1`–`h3`, `p`, `ul`, `a`, `img`, `figure`, `blockquote`, `details`) and one
    `<style>` block with rules of one class each and the tokens `var(--ka-…)`; breakpoints from desktop down:
@@ -134,7 +136,8 @@ found. Rebuild each page in the Kaleta builder, page by page (`list_pages` shows
    elements.
 4. Call `build_from_html` with the `id` of the imported page (`mode` replace, or append to add sections in
    parts; `overwrite_classes` only when the user wants the site's classes replaced). Fix what it could not
-   convert with `edit_build`, or `get_build` and `save_build`.
+   convert with `edit_build`, or `get_build` and `save_build`. A rebuilt page leaves the queue by itself; a page
+   whose layout came over fine is ticked off with `layout_queue` and `done`.
 5. The header and the footer: start with `apply_part_template` (`part` header or footer, `language` for each
    version), then `edit_build` or `save_build` with `part`, using the logo, navigation and company details
    elements.
@@ -196,5 +199,5 @@ your list, call find_tools with its name for its parameters, then run it with it
 as a direct call:
 
 - run_read_tool (reads): list_classes, list_collection_presets, list_redirects, list_media_without_alt, list_pending_review
-- run_tool (drafts and changes): save_classes, apply_part_template, save_popup, create_collection, save_collection_category, import_enquiries, save_redirects, save_redirect, update_settings, write_notebook
+- run_tool (drafts and changes): save_classes, layout_queue, apply_part_template, save_popup, create_collection, save_collection_category, import_enquiries, save_redirects, save_redirect, update_settings, write_notebook
 - run_destructive_tool (deleting, sending or reaching outside the site – confirm the exact action with the user first): trash_page, import_wordpress, import_website, read_old_page, save_collection_items, migration_report

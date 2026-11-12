@@ -486,6 +486,13 @@ final class HtmlConverter
 
     private function customHtml(Element $el): ?array
     {
+        if (strtolower($el->localName) === 'iframe' && HtmlWidgets::isMapFrame(HtmlWidgets::frameSource($el))) {
+            // 3.36: a map whose place the address does not carry – a Map element with the address does the same job for everyone
+            $this->messages[] = 'A map frame without a readable place (' . mb_substr((string) parse_url(HtmlWidgets::frameSource($el), PHP_URL_HOST), 0, 60) . ') – add a Map element with the address instead.';
+            if (!$this->admin) {
+                return null;
+            }
+        }
         if (!$this->admin) {
             $this->messages[] = 'Značka <' . strtolower($el->localName) . '> jde vložit jen jako Vlastní HTML, a to smí jen správce webu – vynechána.';
 

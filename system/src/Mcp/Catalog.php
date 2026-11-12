@@ -130,6 +130,9 @@ final class Catalog
         // 3.33: an old page as section HTML with its colours and fonts – changes nothing here (IP-pinned reads of the old public
         // site, like migration_report); administrators whose connection may use import_website (Handlers\MigrationTools)
         'read_old_page' => ['read', ''],
+        // 3.36: the work queue of a move – lists the imported pages whose layout waits and takes pages off it (Core\ImportLayout);
+        // the mark lives in ka_import_mapa, never on the page, so it is a draft-class tool and site-neutral
+        'layout_queue' => ['draft', ''],
         // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
         // records and redirects, so it is not for a drafts-only connection
         'import_wordpress' => ['write', ''],
@@ -334,6 +337,7 @@ final class Catalog
         'get_stats' => 'Get visitor statistics',
         'migration_report' => 'Report on a site migration',
         'read_old_page' => 'Read an old page with its look',
+        'layout_queue' => 'List and tick off layouts to rebuild',
         'import_wordpress' => 'Import a WordPress export',
         'get_health' => 'Get site health',
         'list_events' => 'List site events',
@@ -438,7 +442,7 @@ final class Catalog
         'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
         'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
-        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal', 'update_application'];
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal', 'update_application', 'layout_queue'];
 
     /**
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
@@ -451,7 +455,7 @@ final class Catalog
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
-        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application'];
+        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue'];
 
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool

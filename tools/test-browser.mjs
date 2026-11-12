@@ -4842,6 +4842,55 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
   }
 });
 
+// 3.36 (A): "Layout done" on a waiting row of the layout tab takes the imported page off the queue – the button fits 1440 and
+// 390 px in light and dark without sideways scroll and passes axe; clicking it leaves the page as it was
+await step('3.36 A: "Layout done" in the tab of layouts to rebuild (1440 and 390 px, light/dark, axe, the click)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const build = '{"v":1,"deti":[{"id":"b336a","typ":"sekce","znacka":"section","obsah":{"sirka":"uzka"},"styl":{},"tridy":[],"deti":[{"id":"b336b","typ":"text","znacka":"div","obsah":{"html":"<p>Imported text B336</p>"},"styl":{},"tridy":[],"deti":[]}]}]}';
+  const ids = Number(sql(`INSERT INTO ka_stranky (seo_link, titulek, text, stavba, zobrazit, v_menu) VALUES ('b336-imported', 'Imported B336', '<p>Imported text B336</p>', '${build}', 0, 0); SELECT LAST_INSERT_ID();`).trim());
+  sql(`INSERT INTO ka_import_mapa (zdroj, typ, cizi_id, nase_id) SELECT 'layout', 'stranka', CONCAT(ids, ':', SHA2(stavba, 256)), ids FROM ka_stranky WHERE ids = ${ids}`);
+  try {
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=pages&status=layout`, { waitUntil: 'networkidle' });
+          const button = p2.locator(`[data-layout-done="${ids}"]`);
+          if ((await button.count()) !== 1 || (await button.innerText()).trim() !== 'Layout done' || !(await button.isVisible())) { throw new Error(`no visible "Layout done" button (${label}, ${scheme})`); }
+          if (!(await p2.locator('select[name="provest"] option[value="rebuilt"]').count())) { throw new Error('the bulk action "Layout done" is missing'); }
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/336a-layout-done-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + '/admin.php?module=pages&status=layout', { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['table.vypis', 'form.hromadne'], WCAG]);
+        if (found.violations.length) { throw new Error(`axe layout tab (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    await visit('/admin.php?module=pages&status=layout');
+    await Promise.all([page.waitForNavigation(), page.click(`[data-layout-done="${ids}"]`)]);
+    const left = sql(`SELECT CONCAT((SELECT COUNT(*) FROM ka_import_mapa WHERE zdroj = 'layout' AND nase_id = ${ids}), '|', (SELECT COUNT(*) FROM ka_stranky WHERE ids = ${ids} AND stavba = '${build}' AND smazano IS NULL))`).trim();
+    if (left !== '0|1') { throw new Error(`after "Layout done": ${left} (the fingerprint must go, the page stay as it was)`); }
+    if (!/taken off the list of layouts to rebuild: 1/.test(await page.locator('body').innerText())) { throw new Error('no message after "Layout done"'); }
+  } finally {
+    sql(`DELETE FROM ka_import_mapa WHERE zdroj = 'layout' AND nase_id = ${ids}; DELETE FROM ka_stranky WHERE ids = ${ids}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

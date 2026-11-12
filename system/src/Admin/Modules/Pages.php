@@ -54,6 +54,9 @@ final class Pages extends Module
     /** 3.33: the tab of the imported pages whose layout waits to be rebuilt (Core\ImportLayout::pending) – query status=layout. */
     public const string LAYOUT = 'layout';
 
+    /** 3.36: the bulk action (and the row button) that takes imported pages off that tab – Core\ImportLayout::markRebuilt. */
+    public const string REBUILT = 'rebuilt';
+
     /** The WHERE of a status tab; '' and an unknown value are "All" – every page that is not in the trash. */
     public static function statusCondition(string $status): string
     {
@@ -229,7 +232,7 @@ final class Pages extends Module
             return $this->back();
         }
         $action = $this->request->post('provest');
-        if (!in_array($action, ['zobrazit', 'skryt', 'jazyk', 'kos'], true)) {
+        if (!in_array($action, ['zobrazit', 'skryt', 'jazyk', 'kos', self::REBUILT], true)) {
             return $this->back('Unknown action.', '', [], 'chyba');
         }
         $auth = $this->app->auth();
@@ -253,15 +256,17 @@ final class Pages extends Module
                 'zobrazit' => $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null] + self::edited($auth->id()), ['ids' => $id]),
                 'skryt' => $this->db->update('stranky', ['zobrazit' => 0, 'show_on_publish' => 0] + self::edited($auth->id()), ['ids' => $id]),
                 'jazyk' => $this->db->update('stranky', ['jazyk' => $language, 'preklad_z' => $language === '' ? null : $page['preklad_z']] + self::edited($auth->id()), ['ids' => $id]),
+                self::REBUILT => \Kaleta\Core\ImportLayout::markRebuilt($this->db, $id), // 3.36: off the queue of a move, the page itself unchanged
                 default => $this->db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ?', [\Kaleta\Core\Clock::now(), $id]),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($page['titulek'], 0, 80));
+            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash', self::REBUILT => 'layout marked done'][$action], mb_substr($page['titulek'], 0, 80));
             $done++;
         }
-        if ($done > 0) {
+        if ($done > 0 && $action !== self::REBUILT) {
             \Kaleta\Front\Cache::clear();
         }
         $message = match ($action) {
+            self::REBUILT => t('Pages taken off the list of layouts to rebuild: %d.', $done),
             'zobrazit' => t('Pages published: %d.', $done), 'skryt' => t('Pages hidden: %d.', $done),
             'jazyk' => t('Pages moved to the language version: %d.', $done), default => t('Pages moved to the trash: %d.', $done),
         };
