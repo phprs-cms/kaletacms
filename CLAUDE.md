@@ -242,6 +242,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   `style`, `children`, `button`, `mobile`, `primary`…), uložené stavby zůstávají české; na vstupu projde i česká podoba. Nový prvek, pole, vlastnost
   stylu nebo token = záznam ve `Vocabulary` (jinak selže unit test, který převádí všechny sekce knihovny tam a zpět).
   **Parita:** každá akce administrace je v mapě `$parity` v `tools/unit-tests.php` – čtení, nástroj MCP, nebo „admin: důvod“.
+  **Sady nástrojů (3.36):** každý nástroj z `Catalog::TOOLS` patří aspoň do jedné z `ESSENTIALS`, `WORK`, `MIGRATION`, `FLEET`,
+  nebo do `ON_DEMAND` (jen sada all), nikdy do `ON_DEMAND` a zároveň jinam; ESSENTIALS nové nástroje neberou. Každá sada se vejde
+  do `Catalog::BUDGETS` (hlídá unit 2550), Fleet se nabízí jen se zapnutým rozšířením (`SET_NEEDS`), nová spojení začínají na essentials.
+  Pokyny serveru: `Translator::instructions` + `INSTRUCTION_TASKS`/`INSTRUCTION_FEATURES`.
 - **Koncept vzhledu (od 1.7, `Core\Look`):** design system, změny a mazání existujících tříd a menu jdou do jednoho konceptu (`look_draft`
   v nastavení) – z Vzhledu webu, builderu, editoru menu i MCP (`update_design_system`, `save_classes`, `save_menu`); nová třída platí hned.
   Publikuje `Look::publish` (admin lišta `admin/look_bar`, MCP `publish_look`), předchozí vzhled jde do `ka_look_versions` (20), zpět
@@ -334,6 +338,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Přesun z libovolného builderu (3.36):** `read_old_page` s `format: semantic` (`Core\SemanticHtml`) vrací sekce staré stránky
+  jako čisté HTML pro `build_from_html`, widgety ve tvarech převodníku, `widgets` u sekce; nic podle konkrétního builderu.
+  Fronta rozvržení: `ImportLayout::markRebuilt` (Stránky „Layout done“, hromadně `rebuilt`) a MCP `layout_queue` (`old_url` je jen nápověda).
 - **Export stránky** (`kaleta-stranka` verze 2) nese sdílené třídy a komponenty (`Builder\PagePackage`); import doplní chybějící třídy (existující
   nepřepíše) a komponenty, stejnou komponentu (název, vlastnosti, stavba bez id) použije znovu.
 
@@ -346,6 +353,11 @@ Web projektu: `kaletacms.com` (kanál aktualizací `https://kaletacms.com/aktual
 ## Spuštění a testy
 
 `php -S 127.0.0.1:8095 system/dev-router.php` (preview `kaleta`), vývojová databáze `kaleta_dev`, `config.php` není v gitu.
+**Testy a chyby (3.36, T3/T4):** `catch (\PDOException $e)` volá `Db::rethrowUnlessMissing($e)`, chybu použije, nebo v komentáři
+řekne „any database error“ a proč (unit 2600) – jen chybějící tabulka nebo sloupec znamená „před migrací“. Žádné nové kontroly
+zdrojového textu (`[source-pin]`, strop `UNIT_SOURCE_PIN_CEILING`, unit 2610) – testuj chování. Testovací přepínače jen přes
+`Core\TestSeams` (`KALETA_TEST_SEAMS`), v jednotkových testech `Clock::freeze()`, smoke používá `background_jobs` a nikdy nezapisuje
+`notification_check`; pojmenované zámky MySQL vždy přes `$db->lockName()`; rozpočty dotazů `X-Kaleta-Queries` (smoke 2610).
 Po změně: `tools/test.sh` (lint, jednotkové testy, čistá instalace a průchod webem i administrací; potřebuje MySQL,
 databázi `kaleta_test` smaže a vytvoří), případně jen `php tools/unit-tests.php` (jeden soubor: `php tools/unit-tests.php 0310` nebo část názvu),
 a projít dotčené stránky v prohlížeči. Testy leží v `tools/tests/unit/NNNN-tema.php` a `tools/tests/smoke/NNNN-tema.sh` (běží v pořadí čísel,

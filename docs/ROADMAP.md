@@ -1868,6 +1868,43 @@ another host name asks for a confirmation and leaves the old passkeys out of the
 (xxxx-xxxx-xxxx-xxxx) – the old ones keep working; turning "passkeys only" off, changing the two-factor rule and making
 someone an administrator ask for the administrator's password.
 
+## 3.36 – moving a site from any builder, tool sets by task, honest errors (12 November 2026)
+
+No migration (`KALETA_DB_VERSION` stays 121).
+
+1. **Move II, builder-agnostic** (owner decision 10 Nov: nothing per builder, one general path through clean HTML).
+   `read_old_page` takes `format: "semantic"` (default `look`, `Core\SemanticHtml`): every section of an old page from any
+   builder as clean HTML that `build_from_html` takes as it is – single-child wrappers removed, classes, styles, data and
+   ARIA attributes, scripts, icons and screen-reader copies dropped, lazy image sources used, tracking pixels and
+   `javascript:` links removed, accordions, tabs, video, maps, counters and forms written in the converter's shapes, fake
+   form fields dropped, a `widgets` key per section. `Builder\HtmlConverter` also recognises aria-expanded accordions
+   without aria-controls (never in navigation), FAQ definition lists, plain number blocks as counters (never phone numbers,
+   prices or dates) and the current Mapy.com embed; a map frame whose place cannot be read says to add a Map element with
+   the address. Pages → "Layout not rebuilt" gets a "Layout done" button and a bulk action (`ImportLayout::markRebuilt`, the
+   page cache is kept); new non-essential MCP tool `layout_queue` lists the waiting pages with their guessed old address
+   (`old_url` – a hint, not a checked address) and `done: [ids]` ticks them off.
+2. **MCP tool sets by task** (owner request 10 Nov). `Catalog::TOOL_SETS` = all, essentials, work, migration, fleet.
+   Essentials and Work are unchanged, so existing connections list what they did; a row with no known set counts as all.
+   Migration (29 tools: imports, read_old_page, migration_report, builds, pages, menu, redirects, media, design system,
+   audit, layout_queue…) and Fleet (fleet tools plus this site's health, events, my work, tasks, comments, requests,
+   notebook, monthly reports – offered only with the fleet extension on, `Catalog::SET_NEEDS`). The rule: every tool sits
+   in at least one focused set or in `Catalog::ON_DEMAND` (listed only by all), never both; each focused set fits
+   `Catalog::BUDGETS` (49,000 bytes) – unit 2550. New connections start on Essentials (decision 10). A set changes only what
+   tools/list shows first; the access level and the role decide what runs. My account: "Change the tool set". Server
+   instructions rewritten by task (`Translator::instructions`, `INSTRUCTION_TASKS`/`INSTRUCTION_FEATURES`): 10,951 → 6,444
+   bytes base – always-true rules, building a site, moving a site, daily CRM work; applications and the fleet console only
+   with their extension on.
+3. **T3 honest failures.** `Db::tableMissing()` / `Db::rethrowUnlessMissing()`: only a missing table or column
+   (42S02/42S22) still reads as "before the migration"; every other database error is rethrown, logged and shown (151
+   catches converted; unit 2600 rejects a catch that swallows every database error). Source pins tagged `[source-pin]`
+   and capped (`UNIT_SOURCE_PIN_CEILING`, unit 2610). Query budgets for seven admin pages via `X-Kaleta-Queries`
+   (`Core\TestSeams`, smoke 2610).
+4. **T4 flakes.** `Core\TestSeams` (only with `KALETA_TEST_SEAMS`) is the only reader of the test switches;
+   `Clock::freeze()`; 23 builder sleeps in the browser suite became condition waits; smoke helper `background_jobs`
+   (hold|resume|due|settle); file lists break one-second ties by name. Product fix: the scheduler and time-zone-conversion
+   locks are per site (`Db::lockName`) – before, every site on one MySQL server shared them, so one site could make
+   another skip its background jobs. Known: two browser checks fail when a run crosses UTC midnight.
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
