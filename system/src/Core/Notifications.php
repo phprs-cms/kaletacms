@@ -73,22 +73,56 @@ final class Notifications
             return;
         }
         $s->set('data_cleanup', (string) time());
-        Jobs::purgeApplications($app); // applications to job openings first: they usually have a shorter retention (2.11)
-        Applications::purge($app); // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
-        \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
-        Booking::purge($app); // bookings follow the same retention (3.0)
-        Contacts::purge($app); // 3.28: customers with no activity for contacts_months are anonymised
-        \Kaleta\Admin\Modules\Contacts::sweepImports(); // N328-5: an uploaded customers CSV nobody confirmed (personal data) goes after a day, not only when Import is opened again
-        if ($s->int('cookies_log_months') > 0) {
-            // records of cookie consents should not be kept forever
-            $app->db()->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($s->int('cookies_log_months'))]);
+        $db = $app->db();
+        self::runEach([
+            fn () => Jobs::purgeApplications($app), // applications to job openings first: they usually have a shorter retention (2.11)
+            fn () => Applications::purge($app), // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
+            function () use ($app, $s): void {
+                \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
+            },
+            fn () => Booking::purge($app), // bookings follow the same retention (3.0)
+            fn () => Contacts::purge($app), // 3.28: customers with no activity for contacts_months are anonymised
+            function (): void {
+                \Kaleta\Admin\Modules\Contacts::sweepImports(); // N328-5: an uploaded customers CSV nobody confirmed (personal data) goes after a day, not only when Import is opened again
+            },
+            function () use ($db, $s): void {
+                if ($s->int('cookies_log_months') > 0) {
+                    // records of cookie consents should not be kept forever
+                    $db->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($s->int('cookies_log_months'))]);
+                }
+            },
+            fn () => $db->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-30 days')]),
+            function (): void {
+                // the states of imports and migration reports, the rows of item imports (3.7, N37-25) – never an uploaded export
+                try {
+                    WpFile::purgeOld(WpFile::folder(), time());
+                } catch (\RuntimeException) {
+                    // no storage/import folder and none can be made: nothing to clean
+                }
+            },
+        ]);
+    }
+
+    /**
+     * 3.36 review L1: runs every step of a clean-up even when an earlier one fails – a database error in one retention
+     * (applications, customers …) must not keep the others (enquiries, bookings, consents, sign-ups) from running. Each
+     * failure is logged; the first is thrown on at the end, so the job is still recorded as failed and System status warns.
+     *
+     * @param list<callable(): mixed> $steps
+     */
+    public static function runEach(array $steps): void
+    {
+        $first = null;
+        foreach ($steps as $step) {
+            try {
+                $step();
+            } catch (\Throwable $e) {
+                ErrorLog::write(ErrorLog::exception($e));
+                $first ??= $e;
+            }
         }
-        $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-30 days')]);
-        // the states of imports and migration reports, the rows of item imports (3.7, N37-25) – never an uploaded export
-        try {
-            WpFile::purgeOld(WpFile::folder(), time());
-        } catch (\RuntimeException) {
-            // no storage/import folder and none can be made: nothing to clean
+        if ($first !== null) {
+            throw $first;
         }
     }
 

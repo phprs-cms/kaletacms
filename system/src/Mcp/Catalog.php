@@ -133,6 +133,8 @@ final class Catalog
         // 3.36: the work queue of a move – lists the imported pages whose layout waits and takes pages off it (Core\ImportLayout);
         // the mark lives in ka_import_mapa, never on the page, so it is a draft-class tool and site-neutral
         'layout_queue' => ['draft', ''],
+        // 3.36 review L2: the same queue read only – on any connection, with no change-log row (layout_queue ticks pages off)
+        'list_layout_queue' => ['read', ''],
         // 3.6: the WordPress export import – everything arrives hidden and menus go to the draft look, but it creates
         // records and redirects, so it is not for a drafts-only connection
         'import_wordpress' => ['write', ''],
@@ -338,6 +340,7 @@ final class Catalog
         'migration_report' => 'Report on a site migration',
         'read_old_page' => 'Read an old page with its look',
         'layout_queue' => 'List and tick off layouts to rebuild',
+        'list_layout_queue' => 'List layouts to rebuild',
         'import_wordpress' => 'Import a WordPress export',
         'get_health' => 'Get site health',
         'list_events' => 'List site events',
@@ -457,6 +460,24 @@ final class Catalog
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
         'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue'];
 
+    /**
+     * 3.36 review L2: write tools whose call without this argument only reads – then Mcp\Server writes no change-log row,
+     * counts nothing against the hourly limit and opens no undo journal (layout_queue without done lists the queue).
+     */
+    public const array READS_WITHOUT = ['layout_queue' => 'done'];
+
+    /**
+     * Does this call of a tool only read (READS_WITHOUT: the argument is missing, null or an empty list)?
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public static function readsOnly(string $name, array $arguments): bool
+    {
+        $key = self::READS_WITHOUT[self::english($name) ?? ''] ?? null;
+
+        return $key !== null && in_array($arguments[$key] ?? null, [null, []], true);
+    }
+
     /** May the page cache stay after this write tool (by either name)? */
     public static function isSiteNeutral(string $name): bool
     {
@@ -518,7 +539,7 @@ final class Catalog
     public const array MIGRATION = ['site_info', 'read_notebook', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema',
         'get_build', 'edit_build', 'build_from_html', 'preview_link', 'list_collections', 'list_media', 'upload_file', 'import_website', 'update_design_system',
         'list_redirects', 'save_redirect', 'save_redirects', 'site_audit', 'migration_report', 'read_old_page', 'import_wordpress', 'import_enquiries',
-        'list_changes', 'undo_agent_session', 'layout_queue',
+        'list_changes', 'undo_agent_session', 'layout_queue', 'list_layout_queue',
     ];
 
     /**

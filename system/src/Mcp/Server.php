@@ -212,18 +212,19 @@ final class Server
                 $arguments = Translator::arguments($name, $arguments);
             }
             $tool = $czech ?? $name;
+            $writes = $tools->isWriteTool($tool) && !Catalog::readsOnly($tool, $arguments); // L2: layout_queue without done only lists
             // the site owner's guardrails (2.15) hold for every connection, on top of its access; a write call gets its
             // change-log row before the tool runs, so parallel calls count each other against the hourly limit (3.7, N37-20)
             // – a batch records how many rows it sent, an import 1 until its step has run (Guardrails::COUNTED_AFTER)
             $what = isset(\Kaleta\Core\Guardrails::BATCH_ROWS[$tool]) || in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true) ? \Kaleta\Core\Guardrails::weight($tool, $arguments) . ' rows'
                 : mb_substr((string) ($arguments['titulek'] ?? $arguments['nazev'] ?? $arguments['sablona'] ?? $arguments['id'] ?? ''), 0, 200);
-            $logged = \Kaleta\Core\Guardrails::reserve($this->app, $tool, Catalog::access($tool), $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''), $what, $reason);
+            $logged = \Kaleta\Core\Guardrails::reserve($this->app, $tool, $writes ? Catalog::access($tool) : 'read', $arguments, (string) ($this->app->auth()->connection()['name'] ?? ''), $what, $reason);
             if (is_string($logged)) {
                 return ['content' => [['type' => 'text', 'text' => $logged]], 'isError' => true];
             }
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
-            $db->journal = $tools->isWriteTool($tool) && $tool !== 'undo_agent_session'
+            $db->journal = $writes && $tool !== 'undo_agent_session'
                 ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($tool) ?? $name) : null;
             try {
                 $result = $tools->call($tool, $arguments);
@@ -234,7 +235,7 @@ final class Server
             } finally {
                 $db->journal = null;
             }
-            if ($tools->isWriteTool($tool)) {
+            if ($writes) {
                 if (in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true)) {
                     ChangeLog::describe($this->app, $logged, max(1, $tools->recordsCreated) . ' rows'); // what the step created (N37-26)
                 }

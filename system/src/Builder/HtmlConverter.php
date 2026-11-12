@@ -488,7 +488,9 @@ final class HtmlConverter
     {
         if (strtolower($el->localName) === 'iframe' && HtmlWidgets::isMapFrame(HtmlWidgets::frameSource($el))) {
             // 3.36: a map whose place the address does not carry – a Map element with the address does the same job for everyone
-            $this->messages[] = 'A map frame without a readable place (' . mb_substr((string) parse_url(HtmlWidgets::frameSource($el), PHP_URL_HOST), 0, 60) . ') – add a Map element with the address instead.';
+            // 3.36 review L5: only the letters of a host name go into the note – the frame's address is someone else's text
+            $host = (string) preg_replace('/[^a-z0-9.-]/', '', strtolower((string) parse_url(HtmlWidgets::frameSource($el), PHP_URL_HOST)));
+            $this->messages[] = 'A map frame without a readable place (' . substr($host, 0, 60) . ') – add a Map element with the address instead.';
             if (!$this->admin) {
                 return null;
             }

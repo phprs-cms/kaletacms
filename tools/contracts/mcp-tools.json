@@ -1029,7 +1029,8 @@
     },
     "layout_queue": {
         "parameters": {
-            "done": "array"
+            "done": "array",
+            "offset": "integer"
         },
         "required": [],
         "annotations": {
@@ -1364,6 +1365,18 @@
         ],
         "annotations": {
             "title": "List item versions",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_layout_queue": {
+        "parameters": {
+            "offset": "integer"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List layouts to rebuild",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false

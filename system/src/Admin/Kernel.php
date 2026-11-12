@@ -740,8 +740,11 @@ final class Kernel
             'passkeyConfirm' => $app->auth()->workingKeys($app->auth()->id()) !== [] && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl),
             'passkeyOnly' => $app->auth()->isPasskeyOnly(), // 3.35 review M2: on every host – the password is no proof for it anywhere
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
-            // (3.36, owner decision 10: new Claude connections start on the essentials); a refused try keeps the set chosen
-            'toolSet' => $isPost && $app->request->post('tool_set') !== '' ? \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set')) : 'essentials',
+            // (3.36, owner decision 10: new Claude connections start on the essentials); a refused try keeps the set chosen –
+            // 3.36 review L4: only a set this site offers (the fleet set on a fleet site), as the approval itself does
+            'toolSet' => $isPost && $app->request->post('tool_set') !== ''
+                && in_array(\Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set')), \Kaleta\Mcp\Catalog::offered($app->settings()), true)
+                ? \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set')) : 'essentials',
         ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);
