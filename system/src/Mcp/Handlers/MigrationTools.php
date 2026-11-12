@@ -327,12 +327,15 @@ trait MigrationTools
                 $done[] = ['id' => $id, 'done' => true];
             }
         }
-        $queue = \Kaleta\Core\ImportLayout::queue($db, $this->app->settings()->int('home_page'));
+        $offset = max(0, (int) ($a['offset'] ?? 0));
+        $queue = \Kaleta\Core\ImportLayout::queue($db, $this->app->settings()->int('home_page'), $offset);
+        $more = $offset + count($queue['pages']) < $queue['total'];
 
         return ($done !== [] ? ['marked' => $done] : []) + [
-            'pages' => array_map(fn (array $p): array => array_filter($p, fn (mixed $v): bool => $v !== ''), $queue),
-            'count' => count($queue),
-            'next' => $queue === [] ? 'No imported page waits for its layout. Run migration_report before the domain is switched.'
+            'pages' => array_map(fn (array $p): array => array_filter($p, fn (mixed $v): bool => $v !== ''), $queue['pages']),
+            'count' => $queue['total'], // every waiting page; pages lists up to ImportLayout::QUEUE_PAGE of them (3.36 review L3)
+        ] + ($more ? ['next_offset' => $offset + count($queue['pages'])] : []) + [
+            'next' => $queue['total'] === 0 ? 'No imported page waits for its layout. Run migration_report before the domain is switched.'
                 : 'Take one page at a time: read_old_page with its old_url and format semantic, add classes and a <style> block, build_from_html with its id, check it with preview_link. Pages whose layout is fine as it came: layout_queue with done.',
         ];
     }
@@ -340,7 +343,7 @@ trait MigrationTools
     /** list_layout_queue (3.36 review L2): the queue of layout_queue, read only – never a page ticked off. */
     private function toolListLayoutQueue(string $name, array $a): mixed
     {
-        return $this->toolLayoutQueue($name, []);
+        return $this->toolLayoutQueue($name, isset($a['offset']) ? ['offset' => $a['offset']] : []);
     }
 
     /** import_enquiries */

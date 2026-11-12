@@ -1029,7 +1029,8 @@
     },
     "layout_queue": {
         "parameters": {
-            "done": "array"
+            "done": "array",
+            "offset": "integer"
         },
         "required": [],
         "annotations": {
@@ -1370,7 +1371,9 @@
         }
     },
     "list_layout_queue": {
-        "parameters": [],
+        "parameters": {
+            "offset": "integer"
+        },
         "required": [],
         "annotations": {
             "title": "List layouts to rebuild",

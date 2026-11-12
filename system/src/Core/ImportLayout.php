@@ -67,41 +67,67 @@ final class ImportLayout
         return $db->run("DELETE FROM {import_mapa} WHERE zdroj = ? AND typ = 'stranka' AND nase_id = ?", [self::SOURCE, $page])->rowCount() > 0;
     }
 
+    /** 3.36 review L3: the most pages one call of the queue lists (the rest by offset). */
+    public const int QUEUE_PAGE = 50;
+
     /**
      * The work queue with what Claude needs to take the next page (3.36, MCP layout_queue): the page and where it stood on
      * the old site – the domain the import recorded (web:<domain>, wp:<domain>) and the old path (the source of a redirect
      * to the page when its address changed, else its own address, which the imports keep). The old address is a hint for
-     * read_old_page; '' when the import recorded no domain.
+     * read_old_page; '' when the import recorded no domain. 3.36 review L3: QUEUE_PAGE pages from offset with the total,
+     * and the redirects of all of them in one query – the oldest exact one, an import's own before a guess of the daily
+     * job (auto_score) and a pretty address before a WordPress ?p=123.
      *
-     * @return list<array{id: int, title: string, slug: string, visible: bool, old_url: string}>
+     * @return array{pages: list<array{id: int, title: string, slug: string, visible: bool, old_url: string}>, total: int}
      */
-    public static function queue(Db $db, int $home = 0): array
+    public static function queue(Db $db, int $home = 0, int $offset = 0, int $limit = self::QUEUE_PAGE): array
     {
         $waiting = self::pending($db);
         if ($waiting === []) {
-            return [];
+            return ['pages' => [], 'total' => 0];
         }
         $ids = implode(', ', array_keys($waiting));
+        $rows = $db->all("SELECT ids, titulek, seo_link, zobrazit FROM {stranky} WHERE ids IN ($ids) ORDER BY jazyk, poradi, ids LIMIT "
+            . max(1, min(self::QUEUE_PAGE, $limit)) . ' OFFSET ' . max(0, $offset));
+        if ($rows === []) {
+            return ['pages' => [], 'total' => count($waiting)];
+        }
+        $listed = implode(', ', array_map(fn (array $r): int => (int) $r['ids'], $rows));
         $domains = [];
-        foreach ($db->all("SELECT nase_id, zdroj FROM {import_mapa} WHERE typ = 'stranka' AND nase_id IN ($ids) AND (zdroj LIKE 'web:%' OR zdroj LIKE 'wp:%') ORDER BY zdroj") as $r) {
+        foreach ($db->all("SELECT nase_id, zdroj FROM {import_mapa} WHERE typ = 'stranka' AND nase_id IN ($listed) AND (zdroj LIKE 'web:%' OR zdroj LIKE 'wp:%') ORDER BY zdroj") as $r) {
             $domain = substr((string) $r['zdroj'], (int) strpos((string) $r['zdroj'], ':') + 1);
             if (preg_match('/^[a-z0-9.-]+(?::\d{1,5})?$/iD', $domain)) {
                 $domains[(int) $r['nase_id']] ??= strtolower($domain);
             }
         }
+        $targets = [];
+        foreach ($rows as $r) {
+            if (isset($domains[(int) $r['ids']]) && (int) $r['ids'] !== $home) {
+                $targets[] = (string) $r['seo_link'];
+                $targets[] = '/' . $r['seo_link'];
+            }
+        }
+        $sources = [];
+        if ($targets !== []) {
+            $marks = implode(', ', array_fill(0, count($targets), '?'));
+            foreach ($db->all("SELECT z_adresy, na_adresu FROM {presmerovani} WHERE na_adresu IN ($marks) AND z_adresy NOT LIKE '%*%' AND typ IN (301, 302)
+                ORDER BY auto_score IS NOT NULL, z_adresy LIKE '?%', idp", $targets) as $r) {
+                $sources[ltrim((string) $r['na_adresu'], '/')] ??= (string) $r['z_adresy'];
+            }
+        }
         $out = [];
-        foreach ($db->all("SELECT ids, titulek, seo_link, zobrazit FROM {stranky} WHERE ids IN ($ids) ORDER BY jazyk, poradi, ids") as $r) {
+        foreach ($rows as $r) {
             $id = (int) $r['ids'];
             $slug = (string) $r['seo_link'];
             $old = '';
             if (isset($domains[$id])) {
-                $from = $id === $home ? '' : (string) ($db->value("SELECT z_adresy FROM {presmerovani} WHERE na_adresu IN (?, ?) AND z_adresy NOT LIKE '%*%' AND typ IN (301, 302) ORDER BY idp LIMIT 1", [$slug, '/' . $slug]) ?? $slug);
+                $from = $id === $home ? '' : ($sources[$slug] ?? $slug);
                 $old = 'https://' . $domains[$id] . '/' . ltrim($from, '/');
             }
             $out[] = ['id' => $id, 'title' => (string) $r['titulek'], 'slug' => $slug, 'visible' => (bool) $r['zobrazit'], 'old_url' => $old];
         }
 
-        return $out;
+        return ['pages' => $out, 'total' => count($waiting)];
     }
 
     /**
