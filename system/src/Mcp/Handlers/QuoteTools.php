@@ -361,7 +361,8 @@ trait QuoteTools
             // 3.40: the customer's own decision on the quote page (and their words), the first opening of the link (the time only)
             'decided_by' => $q['decided_by_customer'] ? 'customer' : null, 'customer_reason' => $q['customer_reason'],
             'first_opened_at' => $q['first_opened_at'] !== null ? substr($q['first_opened_at'], 0, 16) : null,
-            'updated_at' => $q['updated_at'], 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))], fn (mixed $v): bool => $v !== null && $v !== []);
+            'updated_at' => $q['updated_at'], 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))], fn (mixed $v): bool => $v !== null && $v !== [])
+            + ($q['customer_reason'] !== null ? \Kaleta\Mcp\Untrusted::mark(['customer_reason']) : []); // 3.40 review L3: the customer typed it on the quote page
     }
 
     /**
