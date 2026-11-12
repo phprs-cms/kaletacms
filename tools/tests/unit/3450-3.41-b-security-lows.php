@@ -41,3 +41,13 @@ $s341Closed = Kaleta\Core\ServerRules::check('https://w.example/', fn (string $u
 $s341Down = Kaleta\Core\ServerRules::check('https://w.example/', fn (string $url): array => [0, '']);
 check('3.41 N120: ServerRules::check – a served canary is open, a 200 soft 404 is not; 403 everywhere is closed; no answer is an error, not "closed"', [
     $s341Rules['open'], $s341Rules['error'], $s341Closed['open'], $s341Closed['error'], $s341Down['open'], $s341Down['error'] !== ''], [['storage/cache/kaleta-canary.txt'], '', [], '', [], true]);
+
+// N121: the console's signed answer belongs to one heartbeat – this site and the request's time
+check('3.41 N121: Link::answerBinding – bound for this site and time; another site, an old time or a half binding is refused; no binding is legacy until a bound answer was seen', [
+    Kaleta\Fleet\Link::answerBinding(['ok' => true, 'site_id' => 7, 'ts' => 1700000000, 'update_allowed' => '3.41.0'], 7, 1700000000, false),
+    Kaleta\Fleet\Link::answerBinding(['ok' => true, 'site_id' => 8, 'ts' => 1700000000], 7, 1700000000, false),
+    Kaleta\Fleet\Link::answerBinding(['ok' => true, 'site_id' => 7, 'ts' => 1699999000], 7, 1700000000, true),
+    Kaleta\Fleet\Link::answerBinding(['ok' => true, 'site_id' => 7], 7, 1700000000, false),
+    Kaleta\Fleet\Link::answerBinding(['ok' => true, 'update_allowed' => '3.41.0'], 7, 1700000000, false),
+    Kaleta\Fleet\Link::answerBinding(['ok' => true, 'update_allowed' => '3.41.0'], 7, 1700000000, true),
+], ['bound', 'refused', 'refused', 'refused', 'legacy', 'refused']);

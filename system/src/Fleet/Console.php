@@ -188,7 +188,8 @@ final class Console
         // 3.17: a kit meant for one customer is announced to that customer's sites only
         $kit = Kit::announcementFor($db, isset($site['customer_id']) ? (int) $site['customer_id'] : null);
 
-        return self::signed($app->settings(), ['ok' => true, 'update_allowed' => $allowed] + ($kit !== null ? ['kit' => $kit] : []));
+        // 3.41 (N121): the answer names the site and echoes the heartbeat's time – the site accepts it for this request only
+        return self::signed($app->settings(), ['ok' => true, 'site_id' => (int) $site['id'], 'ts' => $ts, 'update_allowed' => $allowed] + ($kit !== null ? ['kit' => $kit] : []));
     }
 
     /** POST /fleet/unpair – the site ended the pairing. */
@@ -196,8 +197,10 @@ final class Console
     {
         $d = json_decode($body, true);
         $db = $app->db();
-        $site = is_array($d) ? $db->one('SELECT id, url, public_key FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
-        if ($site === null || !Keys::verify($body, $signature, (string) $site['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW) {
+        $site = is_array($d) ? $db->one('SELECT id, url, public_key, last_ts FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
+        // 3.41 (N121): the heartbeat's rule – a request not newer than the last one the site signed is a replay
+        if ($site === null || !Keys::verify($body, $signature, (string) $site['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW
+            || (int) ($d['ts'] ?? 0) <= (int) $site['last_ts']) {
             return Response::json(['error' => 'Not a valid request of a paired site.'], 403);
         }
         self::remove($app, (int) $site['id']);

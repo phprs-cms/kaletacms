@@ -207,6 +207,8 @@ final class Settings
         'fleet_site_id' => '',         // this site's number on the console
         'fleet_updates' => '0',        // the console decides when new versions install here
         'fleet_update_allowed' => '',  // the version the console allowed in its last answer
+        'fleet_answers_bound' => '',   // '1' once the console's answers carried the site and the request time (3.41, N121) – then they must
+        'fleet_last_ts' => '',         // the time of the last heartbeat this site signed (3.41, N121) – an unpair request is newer
         'fleet_last_sent' => '',
         'fleet_last_error' => '',
         'fleet_versions' => '',        // console: versions it has seen and when (JSON, staged updates)
