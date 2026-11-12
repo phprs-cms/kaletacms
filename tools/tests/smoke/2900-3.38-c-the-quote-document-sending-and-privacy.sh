@@ -137,8 +137,8 @@ c338_php '$l = [["name" => "X", "quantity" => "1", "unit_price" => "10"]];
   echo json_encode($r), "|", $db->value("SELECT CONCAT(customer_name, \"/\", number IS NOT NULL) FROM {quotes} WHERE id = ?", [$old]), "|", $db->value("SELECT customer_name FROM {quotes} WHERE id = ?", [$keep]), "|", (int) $db->value("SELECT COUNT(*) FROM {quotes} WHERE id = ?", [$draft]), "|";
   $db->run("UPDATE {quotes} SET updated_at = ?, anonymised_at = NULL WHERE id = ?", [Kaleta\Core\Clock::monthsAgo(37), $keep]); $app->settings()->set("enquiries_expiry", "delete");
   echo json_encode(Kaleta\Core\QuoteDelivery::purge($app)), "|", (int) $db->value("SELECT COUNT(*) FROM {quotes} WHERE id = ?", [$keep]) + (int) $db->value("SELECT COUNT(*) FROM {quote_lines} WHERE quote_id = ?", [$keep]);' > "$WORK/c338-ret" 2>&1 || true
-expect "3.38 C (A-11): retention – an old quote anonymised (the number stays) or deleted with its lines as the site does with enquiries, a recent one kept, an old draft deleted" \
-  "$(cat "$WORK/c338-ret")" '{"drafts":1,"deleted":0,"anonymised":1}|/1|Nová Firma|0|{"drafts":0,"deleted":1,"anonymised":0}|0'
+expect "3.38 C (A-11): retention – an old quote anonymised (the number stays) or deleted with its lines as the site does with enquiries (3.38 review L6: the anonymised one too), a recent one kept, an old draft deleted" \
+  "$(cat "$WORK/c338-ret")" '{"drafts":1,"deleted":0,"anonymised":1}|/1|Nová Firma|0|{"drafts":0,"deleted":2,"anonymised":0}|0'
 
 # the default texts per language (administrators)
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=settings"
