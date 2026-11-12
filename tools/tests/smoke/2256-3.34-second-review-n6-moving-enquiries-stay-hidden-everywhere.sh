@@ -8,7 +8,8 @@ N6_JAR="$WORK/n6-sam.jar"; rm -f "$N6_JAR"
 curl -s -c "$N6_JAR" -o "$WORK/response" "$B/admin.php"; curl -s -b "$N6_JAR" -c "$N6_JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d "user=n6-sam" --data-urlencode "password=$PASSWORD"
 N6_HEX=$(php -r 'echo bin2hex(random_bytes(12));'); mkdir -p "$WORK/web/storage/prilohy/2026/07"; printf 'CV of Nina N6' > "$WORK/web/storage/prilohy/2026/07/$N6_HEX.pdf"
 N6_IDK=$(sq "INSERT INTO ka_kolekce (nazev, seo_link, pole, preset) VALUES ('Jobs N6', 'jobs-n6', '[]', 'jobs'); SELECT LAST_INSERT_ID();")
-N6_CONTACT=$(sq "INSERT INTO ka_contacts (email, email_norm, name, source, created_at, updated_at) VALUES ('nina-n6@example.com', 'nina-n6@example.com', 'Nina N6', 'enquiry', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
+N6_NOW=$(site_time) # one moment for both columns: two clock reads a second apart would make the record look edited (ApplicationMove::LONE_DELETE)
+N6_CONTACT=$(sq "INSERT INTO ka_contacts (email, email_norm, name, source, created_at, updated_at) VALUES ('nina-n6@example.com', 'nina-n6@example.com', 'Nina N6', 'enquiry', '$N6_NOW', '$N6_NOW'); SELECT LAST_INSERT_ID();")
 N6_E=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, tema, email, data, stav, prirazeno, contact_id) VALUES ('$(site_time '-1 hour')', 'Job application N6', 'kolekce:$N6_IDK', '/jobs-n6/welder', '', 'nina-n6@example.com',
   '[[\"Name\",\"Nina N6\"],[\"CV\",\"cv.pdf (1 kB)\",\"2026/07/$N6_HEX.pdf\"]]', 0, $N6_SAM, $N6_CONTACT); SELECT LAST_INSERT_ID();")
 N6_UNTIL=$(sq "SELECT IFNULL(MAX(hodnota), '') FROM ka_nastaveni WHERE promenna = 'applications_move_until'")

@@ -137,17 +137,17 @@ TABS3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -
 SELECT3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /<option value="([a-z_]+)"/g) if /<select id="zalozka-vyber"[^>]*>(.*?)<\/select>/s')
 expect "3.23.1 (N-C12): the phone select of Settings offers the same tabs as the row, 13 of them" "$SELECT3231|$(echo "$TABS3231" | wc -w | tr -d ' ')" "$TABS3231|13"
 # pass 1 may only add the default of a key never saved before (a fresh secret too); pass 2 must change nothing at all.
-# The clocks of the throttled background jobs (they run after an admin response, at most once a minute / five minutes –
-# Notifications, Links) are no form fields: a job that comes due during the round wrote them, not the save (3.35 re-review)
-JOBS3231="'link_check_time', 'notification_check', 'media_sync_check', 'tasks_last_run'"
+# The background jobs that run after an admin response would write their own clocks (link_check_time …) during the round:
+# they are held for it (T4, background_jobs), so every setting is compared – none is left out
 diff3231() { sq "SELECT IFNULL(GROUP_CONCAT(promenna ORDER BY promenna), 'none') FROM (SELECT k.promenna FROM ka_nastaveni k $1 JOIN nastaveni3231 n USING (promenna) WHERE NOT (k.hodnota <=> n.hodnota)
-    UNION SELECT n.promenna FROM nastaveni3231 n LEFT JOIN ka_nastaveni k USING (promenna) WHERE k.promenna IS NULL) d WHERE promenna NOT IN ($JOBS3231)"; }
+    UNION SELECT n.promenna FROM nastaveni3231 n LEFT JOIN ka_nastaveni k USING (promenna) WHERE k.promenna IS NULL) d"; }
 save3231() { for t in $TABS3231; do settings_form "$t" "$WORK/tab3231.post"; curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" --data-binary @"$WORK/tab3231.post"; done; }
+background_jobs hold; background_jobs settle
 sq "DROP TABLE IF EXISTS nastaveni3231; CREATE TABLE nastaveni3231 AS SELECT * FROM ka_nastaveni" > /dev/null; save3231; PASS1_3231=$(diff3231 "")
 sq "DROP TABLE nastaveni3231; CREATE TABLE nastaveni3231 AS SELECT * FROM ka_nastaveni" > /dev/null; save3231
 expect "3.23.1: saving each of the $(echo "$TABS3231" | wc -w | tr -d ' ') Settings tabs unchanged, one after another, keeps every value of the other tabs – and a second round changes nothing at all" \
   "$PASS1_3231|$(diff3231 LEFT)" "none|none"
-sq "DROP TABLE nastaveni3231" > /dev/null
+sq "DROP TABLE nastaveni3231" > /dev/null; background_jobs resume
 grep -q 'name="general_split" value="1"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general") && ! grep -q 'name="auto_suspend\[\]"\|name="agency_name"\|name="additional_languages\[\]"' <(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general") \
   && echo "  ok     3.23: the General form carries the marker and none of the moved fields" || { echo "  CHYBA  3.23: the General form still has moved fields or no marker"; ERRORS=$((ERRORS+1)); }
 check "3.23: Settings → Languages has the languages" 200 "/admin.php?module=settings&tab=languages" 'id="additional_languages"'

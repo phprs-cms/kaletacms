@@ -56,7 +56,7 @@ final class ImageDownloader
     /** The automated tests download from their own server on 127.0.0.1 (KALETA_IMPORT_LOCAL=1); never set on a real site. */
     private static function localTests(): bool
     {
-        return getenv('KALETA_IMPORT_LOCAL') === '1';
+        return TestSeams::on('KALETA_IMPORT_LOCAL');
     }
 
     /** Can the server download at all? Without both curl and allow_url_fopen the images have to be moved manually. */

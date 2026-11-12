@@ -73,7 +73,7 @@ $channels = [
     // the manifest published today (3.8.0, written before v2 existed): the daily check keeps passing on its v1 signature
     'stary' => [array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]), null],
     // 3.10 (N39-7): a manifest signed 50 days ago (sites warn at 60, the check two weeks earlier) and one without a signed date
-    'zastaraly' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 50 * 86400)] + $m, $sk), null],
+    'zastaraly' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', strtotime('-50 days'))] + $m, $sk), null],
     'nedatovany' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => ''] + $m, $sk), null],
     'budouci' => [Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk), null],
 ];
@@ -81,7 +81,7 @@ $channels = [
 // published 70 days ago (System status warns after 60)
 $replay = [
     'novy' => $signed('3.99.10', 'latest'),
-    'starsi' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.9', 'kanal' => 'latest', 'vydano' => date('Y-m-d', time() - 7 * 86400)] + $m, $sk),
+    'starsi' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.9', 'kanal' => 'latest', 'vydano' => date('Y-m-d', strtotime('-7 days'))] + $m, $sk),
     'v1' => array_diff_key($signed('3.8.0', 'latest'), ['podpis2' => 1]),
     'stary-datum' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => date('Y-m-d', strtotime('-70 days'))] + $m, $sk),
 ];
@@ -89,7 +89,7 @@ foreach ($replay as $name => $manifest) {
     file_put_contents(dirname($site) . '/kanal/replay-' . $name . '.json', json_encode($manifest));
 }
 // 3.10 (N310-1): genuine manifests of both channels to serve at the wrong address; (N310-3) one dated far in the future
-$dated = fn (string $version, string $channel, int $daysAgo): array => Kaleta\Core\Signature::signManifest(['verze' => $version, 'kanal' => $channel, 'vydano' => date('Y-m-d', time() - $daysAgo * 86400)] + $m, $sk);
+$dated = fn (string $version, string $channel, int $daysAgo): array => Kaleta\Core\Signature::signManifest(['verze' => $version, 'kanal' => $channel, 'vydano' => date('Y-m-d', strtotime('-' . $daysAgo . ' days'))] + $m, $sk);
 @mkdir(dirname($site) . '/kanal/krizem');
 foreach (['latest-10' => $dated('3.99.10', 'latest', 10), 'latest-0' => $dated('3.99.10', 'latest', 0), 'stable-20' => $dated('3.99.9', 'stable', 20), 'stable-5' => $dated('3.99.11', 'stable', 5),
     'budouci' => Kaleta\Core\Signature::signManifest(['verze' => '3.99.10', 'kanal' => 'latest', 'vydano' => '2099-12-31'] + $m, $sk)] as $name => $manifest) {

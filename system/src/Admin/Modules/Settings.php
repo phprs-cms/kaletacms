@@ -614,14 +614,14 @@ class Settings extends Module
         // a larger site: the first batches right away, under the background jobs' lock, so no job writes into a table
         // half converted; a failing table is skipped and reported, never an error page (N312-2)
         $state = null;
-        if ((int) $this->db->value('SELECT GET_LOCK(?, 10)', [\Kaleta\Core\Scheduler::LOCK]) === 1) {
+        if ((int) $this->db->value('SELECT GET_LOCK(?, 10)', [\Kaleta\Core\Scheduler::lockName($this->db)]) === 1) {
             try {
                 $state = \Kaleta\Core\TimeZoneConversion::run($this->db, 8.0)
                     ?? \Kaleta\Core\TimeZoneConversion::state($this->db, $started, $from, $to); // converted at once in begin()
             } catch (\Throwable) {
                 $state = null; // the background job continues it
             } finally {
-                $this->db->value('SELECT RELEASE_LOCK(?)', [\Kaleta\Core\Scheduler::LOCK]);
+                $this->db->value('SELECT RELEASE_LOCK(?)', [\Kaleta\Core\Scheduler::lockName($this->db)]);
             }
         }
         if ($state !== null && ($state['finished_now'] || ($state['done'] && $state['id'] === $started))) { // finished now, or at once in begin()

@@ -33,6 +33,18 @@ const watch = (p) => {
 watch(page);
 page.on('frameattached', () => {}); // builder canvases are iframes of the same page: their errors arrive through the page
 const canvas = () => page.frameLocator('.st-platno iframe').first();
+// T4 (Q4): conditions instead of fixed waits in the builder. Ready = the canvas shows the page (no preview still loading);
+// saved = also every change is saved as the draft – a change sets "Unsaved…" at once, so "Draft saved" (or "Saved, but
+// with warnings") with no canvas loading means the server has it and the canvas was drawn from it
+const builderCanvasReady = (needSaved) => {
+  const frames = [...document.querySelectorAll('.st-platno iframe')];
+  const f = frames[frames.length - 1];
+  const state = document.querySelector('.st-lista .st-stav') || document.querySelector('.st-stav');
+  return !!f && !document.querySelector('.st-platno iframe.st-nacita') && f.contentWindow?.location.href !== 'about:blank' && f.contentDocument?.readyState === 'complete'
+    && (!needSaved || (!!state && /^(Draft saved|Saved, but with warnings)/.test(state.textContent.trim())));
+};
+const builderReady = (timeout = 15000) => page.waitForFunction(builderCanvasReady, false, { timeout });
+const builderSaved = (timeout = 20000) => page.waitForFunction(builderCanvasReady, true, { timeout });
 let steps = 0;
 
 async function step(name, fn) {
@@ -293,7 +305,7 @@ await step('3.24 N-U3/N-U4: New page starts in the builder – three choices, th
   await page.fill('#titulek', 'Browser builder page');
   await Promise.all([page.waitForNavigation(), create.click()]);
   await page.locator('.st-lista .st-skryta').waitFor();
-  await page.waitForTimeout(1500);
+  await builderReady();
   if (await canvas().locator('h1').count() !== 1 || !/Browser builder page/.test((await canvas().locator('h1').first().textContent()) || '')) { throw new Error('the empty builder page does not start with its title band'); }
   await page.locator('.st-zalozky [role="tab"]').first().click();
   const titleBand = page.locator('.st-knihovna button', { hasText: 'Page title' }).first();
@@ -331,7 +343,7 @@ await step('3.5 a new page from a template stays hidden until its build is publi
 
 await step('builder: select, style, phone, edit text', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('h1').first().click();
   await page.waitForTimeout(500);
   await page.getByRole('tab', { name: 'Style' }).first().click().catch(() => page.getByText('Style', { exact: true }).first().click());
@@ -343,7 +355,7 @@ await step('builder: select, style, phone, edit text', async () => {
   await canvas().locator('h1').first().click();
   await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => page.getByText('Content', { exact: true }).first().click());
   const field = page.locator('.st-panel textarea, .st-panel input[type="text"]').first();
-  if (await field.count()) { await field.fill('Browser test heading'); await page.waitForTimeout(2500); } // autosave of the draft
+  if (await field.count()) { await field.fill('Browser test heading'); await builderSaved(); } // autosave of the draft
 });
 
 // 3.21 (U3, U4): a phone override is visible from Desktop (a dot on the Phone button, a device icon with the value next to the field,
@@ -413,7 +425,7 @@ await step('3.21 (U3, U4) builder: phone override seen from Desktop, reset, hide
   await page.waitForTimeout(300);
   if (!((await strip.textContent()) || '').startsWith('Hidden on phone')) { throw new Error('typing the hidden heading\'s text overwrote its strip: ' + await strip.textContent()); }
   await page.keyboard.press('Backspace');
-  await page.waitForTimeout(2500);
+  await builderSaved();
   // „show“ on the strip brings the element back on the phone and keeps the other devices as they were
   await strip.locator('button').click();
   await canvas().locator('.ka-st-skryty-prvek').first().waitFor({ state: 'detached', timeout: 5000 });
@@ -422,7 +434,7 @@ await step('3.21 (U3, U4) builder: phone override seen from Desktop, reset, hide
   await page.getByRole('tab', { name: 'Advanced' }).first().click();
   if ((await page.locator('.st-viditelnost button[data-bp="mobil"]').getAttribute('aria-pressed')) !== 'true') { throw new Error('after „show“ the Visibility row still says hidden on Phone'); }
   await pick('Desktop');
-  await page.waitForTimeout(2500); // autosave of the draft before the next step
+  await builderSaved(); // autosave of the draft before the next step
 });
 
 await step('builder: select the parent element', async () => {
@@ -565,7 +577,7 @@ await step('3.26 (N-U2) builder: Margin bottom is a select of spacing steps, "pr
   // a step: saved, rendered, and stored as the token (the select shows it again after the element is selected anew)
   await margin.selectOption('3xl');
   await until(async () => { const m = await h1Margin(); return m && m !== before ? m : null; }, 'the canvas heading did not take the 3xl spacing');
-  await page.waitForTimeout(2500); // the autosave answers with the cleaned build; the panel is drawn from it anew
+  await builderSaved(); // the autosave answers with the cleaned build; the panel is drawn from it anew
   await page.getByRole('tab', { name: 'Content' }).first().click();
   await page.getByRole('tab', { name: 'Style' }).first().click();
   await openGroups();
@@ -641,7 +653,7 @@ await step('3.19.2 builder: Save as component, Save to my sections and a shared 
     return (await fetch(D.adresy.trida, { method: 'POST', body: f, credentials: 'same-origin' })).json();
   });
   if (!j.ok) { throw new Error(`saving a shared class failed: ${j.chyba || j.status}`); }
-  await page.waitForTimeout(2500); // the draft autosaves before the next step reloads the builder
+  await builderSaved(); // the draft autosaves before the next step reloads the builder
 });
 
 // 3.20 "Connected admin", part B (CPO audit C2, C5, C16, C19, C20)
@@ -693,7 +705,7 @@ await step('3.20 (C2, C16) enquiry → form → page: the detail names the form 
   await page.reload({ waitUntil: 'networkidle' }); // a change of the hash alone is no new page load
   await canvas().locator('[data-ka-id]').first().waitFor({ timeout: 15000 });
   if (await canvas().locator('.ka-st-vybrany').count() !== 0) { throw new Error('an unknown #element id selected something'); }
-  await page.waitForTimeout(1500); // the draft autosave settles before the next screen
+  await builderReady(); // the reloaded builder has drawn its canvas before the next screen
   // Statistics: "Pages that bring leads" gets a small "edit" link into the page form next to the public one
   await visit('/admin.php?module=stats');
   const leadRow = page.locator('.stat-siroka tr', { hasText: '/contact' }).first();
@@ -797,7 +809,7 @@ await step('builder: insert elements from the Add panel by click and by drag', a
 // administrator (who may open everything) sees both
 await step('3.20 U11: the Form panel links to Enquiries and to the spam protection', async () => {
   await visit('/admin.php?module=pages&action=builder&id=4'); // Contact of the Business starter: an enquiry form
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('form').first().click({ position: { x: 4, y: 4 } });
   await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => {});
   const links = page.locator('.st-panel .st-odkazy-dat a');
@@ -806,7 +818,7 @@ await step('3.20 U11: the Form panel links to Enquiries and to the spam protecti
   if (!hrefs.some((h) => /^Open Enquiries → .*module=enquiries$/.test(h)) || !hrefs.some((h) => /^Spam protection → .*module=settings&tab=cookies$/.test(h))) { throw new Error(`the form panel links: ${hrefs.join('; ')}`); }
   if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/form-panel-data-links.png` }); }
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
 });
 
 // 3.20 (C4, C6, C22): menu paths are links in the module hints too, every "How to connect Claude" leads to one place,
@@ -994,7 +1006,7 @@ await step('3.21 (U24) the Countdown has a date-and-time picker and saves "YYYY-
 await step('3.12 UX310-18: the Form inspector – a row per field, a contact form edited without the condition fields, a condition by keyboard', async () => {
   const selectForm = async () => {
     await visit('/admin.php?module=pages&action=builder&id=4'); // Contact of the Business starter: an enquiry form
-    await page.waitForTimeout(1500);
+    await builderReady();
     await canvas().locator('form').first().click({ position: { x: 4, y: 4 } });
     await page.getByRole('tab', { name: 'Content' }).first().click().catch(() => {});
     await page.locator('.st-panel details.st-polozka-radek').first().waitFor();
@@ -1021,7 +1033,7 @@ await step('3.12 UX310-18: the Form inspector – a row per field, a contact for
   if (await rows.first().locator('.st-podminka').count()) { throw new Error('the condition opened by itself'); }
   // the condition is still there: "Add a condition" by keyboard moves the focus into it – after the autosave of the label
   // has come back (on a slow runner its redraw of the canvas and the panel could land between the key and the check)
-  await page.waitForTimeout(2500);
+  await builderSaved();
   await rows.first().locator('button.st-pridat-podminku').focus();
   await page.keyboard.press('Enter');
   // a slow runner may redraw the panel once more (a check coming back from the server) – the focus must survive it
@@ -1032,7 +1044,7 @@ await step('3.12 UX310-18: the Form inspector – a row per field, a contact for
   await page.keyboard.type('*');
   await page.waitForTimeout(400);
   if (SHOTS) { await page.locator('.st-pravy').screenshot({ path: `${SHOTS}/form-inspector-condition.png` }); }
-  await page.waitForTimeout(2500); // autosave of the draft
+  await builderSaved(); // autosave of the draft
   rows = await selectForm();
   const saved = (await rows.first().locator('summary').textContent()).trim();
   if (!/^Your name · .* · with a condition$/.test(saved)) { throw new Error(`after a reload the first row says "${saved}"`); }
@@ -1041,7 +1053,7 @@ await step('3.12 UX310-18: the Form inspector – a row per field, a contact for
   await rows.first().getByRole('button', { name: 'Remove the condition' }).click();
   await page.waitForTimeout(300);
   await page.locator('.st-panel details.st-polozka-radek').first().locator('input[type="text"]').first().fill(summary.split(' · ')[0]);
-  await page.waitForTimeout(2500);
+  await builderSaved();
 });
 
 await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" publishes the menu, the colours keep waiting', async () => {
@@ -1068,7 +1080,7 @@ await step('3.6 UXA-09: the draft look bar is one line; "Save and publish menu" 
 
 await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspector; a one-line top bar; header options only in the header', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('h1').first().dblclick();
   await page.keyboard.type('Zq');
   await page.waitForTimeout(200);
@@ -1086,7 +1098,7 @@ await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspect
   await page.waitForTimeout(400);
   if (/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('a page section offers the header-only options'); }
   await visit('/admin.php?module=parts&action=builder&typ=hlavicka&jazyk=');
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('[data-ka-id]').first().click({ position: { x: 3, y: 3 } });
   await page.waitForTimeout(400);
   if (!/Header on scroll/.test(await page.locator('.st-pravy').textContent())) { throw new Error('the header part does not offer the header options'); }
@@ -1096,7 +1108,7 @@ await step('3.6 UXA-14, UXA-11, UXA-12: typing on the canvas updates the inspect
 // tree parsed its HTML in the admin page; now every envelope goes through the server and code stays only in this site's signed copy
 await step('3.18.2 builder: a pasted envelope claiming this site runs nothing; the own copy (Ctrl+C, Ctrl+V) still pastes (N3182-2)', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
   const key = (k) => page.evaluate((x) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: x, ctrlKey: true, bubbles: true, cancelable: true })), k);
   const paste = (text) => page.evaluate(async (t) => {
     const status = () => document.querySelector('.st-stav');
@@ -1134,7 +1146,7 @@ await step('3.18.2 builder: a pasted envelope claiming this site runs nothing; t
   const headings = await canvas().locator('h1').count();
   const own = await paste(copied);
   if (own.text !== 'Inserted' || own.error) { throw new Error(`the own copy did not paste: ${JSON.stringify(own)}`); }
-  await page.waitForTimeout(1500);
+  await builderSaved();
   if ((await canvas().locator('h1').count()) !== headings + 1) { throw new Error('the pasted heading is not on the canvas'); }
   await key('z');
   await page.waitForTimeout(800);
@@ -1143,7 +1155,7 @@ await step('3.18.2 builder: a pasted envelope claiming this site runs nothing; t
 // 3.18.2 N3182-1 (CodeQL #42): the inspector shows what is typed on the canvas through the editor's cleanup, as nodes
 await step('3.18.2 builder inspector: text typed on the canvas is shown cleaned – the iframe bypass runs nothing (N3182-1)', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
   const text = canvas().locator('.ka-text').first();
   await text.dblclick();
   const field = page.locator('.st-panel [data-pole="html"] .editor-plocha');
@@ -1169,7 +1181,7 @@ await step('3.18.2 builder inspector: text typed on the canvas is shown cleaned 
 // link dialog is the same picker, with the anchors of the page from the builder
 await step('3.22 (U6, U7) builder Text: numbered list and quote, no H2; the link dialog suggests pages there too', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('.ka-text').first().dblclick();
   const tools = page.locator('.st-panel [data-pole="html"] .editor-nastroje');
   await tools.waitFor({ timeout: 5000 });
@@ -1192,11 +1204,11 @@ await step('3.22 (U6, U7) builder Text: numbered list and quote, no H2; the link
 
 await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix it" in the check, the image field and the media picker', async () => {
   await visit('/admin.php?module=pages&action=builder&id=1');
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('section').first().click({ position: { x: 5, y: 5 } });
   await page.locator('.st-zalozky [role="tab"]').first().click();
   await page.locator('.st-knihovna button', { hasText: 'Hero with image' }).first().click();
-  await page.waitForTimeout(1500);
+  await builderSaved();
   const hero = canvas().locator('section').nth(1);
   if (await hero.locator('h1').count() || !(await hero.locator('h2').count())) { throw new Error('the ready-made section below the first one kept its H1'); }
   await hero.locator('h2').first().click();
@@ -1231,7 +1243,7 @@ await step('3.6 UXA-10, UXA-13: a ready section below the first gets an H2, "Fix
 
 await step('builder: site header', async () => {
   await visit('/admin.php?module=parts&action=builder&type=hlavicka&language=');
-  await page.waitForTimeout(1500);
+  await builderReady();
   await canvas().locator('nav, header').first().click().catch(() => {});
 });
 

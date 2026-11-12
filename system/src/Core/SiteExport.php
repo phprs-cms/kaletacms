@@ -103,7 +103,7 @@ final class SiteExport
                 $exports[] = ['soubor' => basename($path), 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
-        usort($exports, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($exports, fn (array $a, array $b): int => [$b['cas'], $b['soubor']] <=> [$a['cas'], $a['soubor']]); // T4: two files of one second in a fixed order
 
         return $exports;
     }

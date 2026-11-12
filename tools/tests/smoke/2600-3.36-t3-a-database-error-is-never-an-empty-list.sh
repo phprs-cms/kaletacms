@@ -2,6 +2,7 @@ echo "== 3.36 T3: a database error is never an empty list"
 # Q2: only a missing table or column means "before the migration" (an empty Customers list, as before); any other database
 # error – here a view whose table is gone (MySQL 1356, SQLSTATE HY000) in the place of ka_contacts – is logged and shown as
 # an error page, in the admin and through MCP, never as "no customers"
+background_jobs hold # the jobs after a response would fail on the broken table too
 t3_code() { curl -s -b "$JAR" -o "$WORK/t3.html" -w '%{http_code}' "$B/$1"; }
 t3_mcp() { curl -s -o "$WORK/t3.json" -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
   --data-binary '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_contacts","arguments":{}}}'; }
@@ -19,3 +20,4 @@ expect "3.36 T3: a real database error is an error page on Customers, the board 
 sq "DROP VIEW ka_contacts; RENAME TABLE ka_t3_contacts TO ka_contacts" > /dev/null
 php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "General error: 1356"))));' "$WORK/web/storage/log/chyby.log"
 expect "3.36 T3: … and with the table back Customers lists again" "$(t3_code 'admin.php?module=contacts')" "200"
+background_jobs resume

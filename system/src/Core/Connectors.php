@@ -296,8 +296,8 @@ final class Connectors
     /** The real address, or the fake service in tests (KALETA_CONNECTORS_FAKE keeps the path and the query). */
     public static function url(string $url): string
     {
-        $fake = getenv('KALETA_CONNECTORS_FAKE');
-        if (is_string($fake) && $fake !== '' && preg_match('#^https://[^/]+(/.*)?$#D', $url, $m) === 1) {
+        $fake = TestSeams::value('KALETA_CONNECTORS_FAKE');
+        if ($fake !== '' && preg_match('#^https://[^/]+(/.*)?$#D', $url, $m) === 1) {
             return rtrim($fake, '/') . ($m[1] ?? '/');
         }
 

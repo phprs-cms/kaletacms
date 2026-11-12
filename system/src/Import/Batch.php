@@ -107,7 +107,7 @@ final class Batch
                 $files[] = ['soubor' => basename($path), 'zdroj' => $key, 'velikost' => (int) filesize($path), 'cas' => (int) filemtime($path)];
             }
         }
-        usort($files, fn (array $a, array $b): int => $b['cas'] <=> $a['cas']);
+        usort($files, fn (array $a, array $b): int => [$b['cas'], $b['soubor']] <=> [$a['cas'], $a['soubor']]); // T4: two files of one second in a fixed order
 
         return $files;
     }

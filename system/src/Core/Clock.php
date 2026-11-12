@@ -18,28 +18,56 @@ final class Clock
     /** The form of a DATETIME column. */
     public const string FORMAT = 'Y-m-d H:i:s';
 
+    /** A fixed "now" (a Unix time) set by freeze() – only on a test copy (Core\TestSeams); null = the real clock. */
+    private static ?int $frozen = null;
+
+    /**
+     * 3.36 (T4, Q4): fixes "now" of every method here at a moment on the site's clock ('2026-03-29 01:30:00'), so a test can
+     * stand just before a change of summer time or a month's end; null lets the clock run again. Only on a test copy
+     * (KALETA_TEST_SEAMS) – a real site refuses (LogicException).
+     */
+    public static function freeze(?string $moment): void
+    {
+        if ($moment !== null && !TestSeams::enabled()) {
+            throw new \LogicException('Clock::freeze() is for the automated tests only (KALETA_TEST_SEAMS).');
+        }
+        self::$frozen = $moment === null ? null : (new \DateTimeImmutable($moment, self::zone()))->getTimestamp();
+    }
+
+    /** Now as a Unix time: time(), or the moment freeze() fixed. */
+    public static function time(): int
+    {
+        return self::$frozen ?? time();
+    }
+
     /** Now on the site's clock, in the form of a DATETIME column. */
     public static function now(): string
     {
-        return date(self::FORMAT);
+        return date(self::FORMAT, self::time());
     }
 
     /** Today on the site's clock (a DATE column). */
     public static function today(): string
     {
-        return date('Y-m-d');
+        return date('Y-m-d', self::time());
     }
 
     /** Now in UTC, in the form of a DATETIME column – for what leaves the site (APIs, signatures) and for checks. */
     public static function nowUtc(): string
     {
-        return gmdate(self::FORMAT);
+        return gmdate(self::FORMAT, self::time());
     }
 
     /** A moment relative to now on the site's clock ('-1 hour', '+30 days'), for comparisons that would use NOW() - INTERVAL. */
     public static function at(string $modifier): string
     {
-        return self::toDb(new \DateTimeImmutable($modifier, self::zone()));
+        return self::toDb(self::$frozen === null ? new \DateTimeImmutable($modifier, self::zone()) : self::current()->modify($modifier));
+    }
+
+    /** Now as a date object in the site's zone (the fixed moment of freeze(), if any). */
+    private static function current(): \DateTimeImmutable
+    {
+        return self::$frozen === null ? new \DateTimeImmutable('now', self::zone()) : (new \DateTimeImmutable('@' . self::$frozen))->setTimezone(self::zone());
     }
 
     /**
@@ -48,7 +76,7 @@ final class Clock
      */
     public static function monthsAgo(int $months): string
     {
-        $now = new \DateTimeImmutable('now', self::zone());
+        $now = self::current();
         $month = $now->modify('first day of this month')->modify('-' . $months . ' months');
 
         return $month->setDate((int) $month->format('Y'), (int) $month->format('n'), min((int) $now->format('j'), (int) $month->format('t')))->format(self::FORMAT);
@@ -57,7 +85,7 @@ final class Clock
     /** A day relative to today on the site's clock ('-14 days', '+30 days'), for comparisons that would use CURDATE() - INTERVAL. */
     public static function day(string $modifier): string
     {
-        return (new \DateTimeImmutable('today ' . $modifier, self::zone()))->format('Y-m-d');
+        return (self::$frozen === null ? new \DateTimeImmutable('today ' . $modifier, self::zone()) : self::current()->modify('today ' . $modifier))->format('Y-m-d');
     }
 
     /** The site's time zone (PHP's default zone, which App::applyTimezone sets from the time_zone setting). */
@@ -69,7 +97,7 @@ final class Clock
     /** The site's UTC offset now ('+02:00'): what each database connection sets as its session time_zone (Db::pdo). */
     public static function offset(): string
     {
-        return date('P');
+        return date('P', self::time());
     }
 
     /** A moment (a date object or a Unix time) in the form of a DATETIME column on the site's clock. */

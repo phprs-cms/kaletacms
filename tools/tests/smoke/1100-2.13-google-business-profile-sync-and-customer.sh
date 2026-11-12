@@ -22,7 +22,7 @@ sq "INSERT INTO ka_jobs (name, last_run) VALUES ('gbp', NULL) ON DUPLICATE KEY U
 # the visit trigger of background jobs (at most once a minute) also runs after this cron call when the last one is older than
 # a minute, and its connectors pass would deliver the hours the gbp job just queued a second time (2|2 on a slow runner):
 # mark it as just run, so only the cron pass delivers
-sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('notification_check', UNIX_TIMESTAMP()) ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
+background_jobs resume
 rm -f "$GBP_LOG"; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 GBP_PATCH=$(gbp_sent patch)
 GBP_TOMORROW=$(php -r '$d = new DateTimeImmutable($argv[1]); echo json_encode(["year" => (int) $d->format("Y"), "month" => (int) $d->format("n"), "day" => (int) $d->format("j")]);' "$TOMORROW")

@@ -75,8 +75,15 @@ final class Scheduler
 
     public const int FAILURES_TO_ALERT = 3;
 
-    /** One run at a time; a time zone conversion started from Settings holds it too (Admin\Modules\Settings::actionTimeZone). */
-    public const string LOCK = 'kaleta_scheduler';
+    /**
+     * One run at a time; a time zone conversion started from Settings holds it too (Admin\Modules\Settings::actionTimeZone).
+     * 3.36 (T4): per site (Db::lockName – the database and the prefix) – one name for every site on a MySQL server made a
+     * visit of one site skip its jobs while another site's ran (and the parallel test suites skip each other's).
+     */
+    public static function lockName(Db $db): string
+    {
+        return $db->lockName('scheduler');
+    }
 
     /**
      * Every job with its implementation: it gets the app and the trigger (cron | visit) and returns a short result.
@@ -214,7 +221,7 @@ final class Scheduler
         \Kaleta\Extension\Registry::boot($app);
         $db = $app->db();
         // a visit gives way at once; cron waits for a run started by a visit to finish, so its call is never skipped
-        if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::LOCK, $source === 'cron' ? 20 : 0]) !== 1) {
+        if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::lockName($db), $source === 'cron' ? 20 : 0]) !== 1) {
             return []; // another run is in progress
         }
         $end = microtime(true) + $budget;
@@ -241,7 +248,7 @@ final class Scheduler
                 }
             }
         } finally {
-            $db->value('SELECT RELEASE_LOCK(?)', [self::LOCK]);
+            $db->value('SELECT RELEASE_LOCK(?)', [self::lockName($db)]);
         }
 
         return $results;

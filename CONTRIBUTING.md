@@ -49,7 +49,14 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
   `'$(site_time '-1 hour')'`, `$(site_time tomorrow Y-m-d)`) – `INTERVAL` arithmetic on it is fine. The scripts force their
   own MySQL sessions to UTC, so this mistake fails locally too.
 - **Background jobs run after a visit.** After any public request (also `/tasks` or the older `/ulohy`) the site runs the due jobs once a minute.
-  When a check counts what a queue delivered, mark that trigger as just run first (`notification_check`, see `tools/test.sh`).
+  When a check counts what a queue delivered or compares settings, hold them first: `background_jobs hold` … `background_jobs resume`
+  (`settle` waits for a pass already running, `due` lets the next response run one – `tools/tests/smoke/bootstrap.sh`). Never write
+  `notification_check` yourself; a unit test looks for it.
+- **Test switches only through `Core\TestSeams`.** The `KALETA_*` variables of the test servers and the `*_test_url` settings count only
+  where `config.php` defines `KALETA_TEST_SEAMS` (the suites write it; `test_seams <dir>` for a second site). `Clock::freeze()` fixes
+  "now" in a unit test – use it for summer time and month ends instead of `time() - N * 86400`.
+- **Calendar days are dates, not 86 400 seconds.** `date('Y-m-d', strtotime('-70 days'))`, never `time() - 70 * 86400` (a summer-time
+  change in between moves the date). A random value as a grep pattern needs `grep -F -e` (a base64url id may start with `-`).
 - **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+17`; run parallel suites with their own
   `PORT` and `DB_NAME` (for example `DB_NAME=mine_op PORT=9850 tools/test.sh`). Kill only the `php -S` you started.
 - **Never stop or restart MySQL** from a test or while suites run – other suites share it.

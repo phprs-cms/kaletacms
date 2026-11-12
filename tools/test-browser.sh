@@ -104,7 +104,7 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
         ["id" => 12, "title" => str_repeat("Update the price list of the implants and the whitening ", 2), "status" => "new", "created_at" => $iso(80), "updated_at" => $iso(80)],
         ["id" => 13, "title" => "New team photo", "status" => "in_progress", "created_at" => $iso(3), "updated_at" => $iso(1)]]],
       "pending_review" => ["staged_media" => 4, "page_drafts" => 2], "enquiries_new_not_spam" => 3, "bookings_pending" => 2,
-      "domain_watch" => ["local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 5 * 86400)], "domain" => null], "audit" => ["links" => 3]]],
+      "domain_watch" => ["local" => false, "certificate" => ["expires" => date("Y-m-d", strtotime("+5 days"))], "domain" => null], "audit" => ["links" => 3]]],
     ["Smile Dental – booking", "https://booking.smile.example", $customer, date("Y-m-d H:i:s", time() - 30 * 3600), 1, ["last_backup" => time(), "enquiries_unanswered" => 5]],
     ["Bakery", "https://bakery.example", null, date("Y-m-d H:i:s", time() - 600), 0, ["last_backup" => time(), "update_problem" => "Version 3.17.0 did not install", "security_7_days" => ["failed_sign_ins" => 120, "events" => []]]]];
   foreach ($sites as $i => [$name, $url, $cid, $seen, $up, $beat]) {
@@ -125,8 +125,8 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   $db->insert("fleet_sites", ["id" => 901, "name" => "Northwind Architects", "url" => "https://northwind-architects.example", "public_key" => "browser-test-329", "paired_at" => $at("-60 days"),
     "last_seen" => $at("now"), "version" => "3.29.0", "version_since" => $at("-1 days"), "status" => "ok", "up" => 1, "up_checked" => $at("now"),
     "heartbeat" => json_encode(["version" => "3.29.0", "last_backup" => time() - 3600, "cron_last_run" => time() - 5 * 3600, "auto_updates" => false, "jobs_failing" => [],
-      "offsite" => ["status" => "paused", "at" => date("Y-m-d", time() - 3 * 86400), "recovery_key" => "unconfirmed"], "mail_setup" => ["mode" => "smtp", "tested" => false, "tested_at" => null],
-      "twofa" => ["required" => "none", "admins_without" => 2], "cookie_scan" => ["at" => date("Y-m-d", time() - 20 * 86400), "error" => false, "cookies" => 3], "privacy_page" => "published",
+      "offsite" => ["status" => "paused", "at" => date("Y-m-d", strtotime("-3 days")), "recovery_key" => "unconfirmed"], "mail_setup" => ["mode" => "smtp", "tested" => false, "tested_at" => null],
+      "twofa" => ["required" => "none", "admins_without" => 2], "cookie_scan" => ["at" => date("Y-m-d", strtotime("-20 days")), "error" => false, "cookies" => 3], "privacy_page" => "published",
       "accessibility_statement" => "draft", "handover" => ["done" => 12, "total" => 18, "failing" => ["smtp", "two_step"]],
       "workload" => ["enquiries_this_week" => 14, "enquiries_last_week" => 9, "unanswered_over_24h" => 3, "median_first_reply_hours" => 5, "tasks_open" => 11, "tasks_overdue" => 2, "customers_this_month" => 4]])]);
   $db->insert("fleet_incidents", ["site_id" => 900, "started_at" => $at("-12 days 10:00"), "ended_at" => $at("-12 days 10:45"), "status" => 503]);
@@ -138,11 +138,11 @@ LAST="$(php -r 'echo (new DateTimeImmutable("first day of last month"))->format(
   $merge = function (int $id, array $parts) use ($db): void { $beat = json_decode((string) $db->value("SELECT heartbeat FROM {fleet_sites} WHERE id = ?", [$id]), true) ?: [];
     $db->update("fleet_sites", ["heartbeat" => json_encode($parts + $beat)], ["id" => $id]); };
   $merge(901, ["php" => "8.4.6", "update_channel" => "latest", "db_server" => ["family" => "mariadb", "version" => "10.11.6"], "web_server" => "nginx", "features" => ["novinky", "poptavky", "bookings", "statistika"],
-    "addons" => ["seo-pack"], "languages" => ["en", "de"], "recovery_key_since" => date("Y-m-d", time() - 200 * 86400),
-    "domain_watch" => ["checked" => time(), "local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 5 * 86400), "days" => 5, "error" => false],
-      "domain" => ["expires" => date("Y-m-d", time() + 20 * 86400), "days" => 20, "error" => false]]]);
+    "addons" => ["seo-pack"], "languages" => ["en", "de"], "recovery_key_since" => date("Y-m-d", strtotime("-200 days")),
+    "domain_watch" => ["checked" => time(), "local" => false, "certificate" => ["expires" => date("Y-m-d", strtotime("+5 days")), "days" => 5, "error" => false],
+      "domain" => ["expires" => date("Y-m-d", strtotime("+20 days")), "days" => 20, "error" => false]]]);
   $merge(900, ["php" => "8.3.12", "update_channel" => "stable", "db_server" => ["family" => "mysql", "version" => "8.0.36"], "web_server" => "apache", "features" => ["novinky", "poptavky"], "languages" => ["cs"],
-    "domain_watch" => ["checked" => time(), "local" => false, "certificate" => ["expires" => date("Y-m-d", time() + 40 * 86400), "days" => 40, "error" => false], "domain" => null]]);
+    "domain_watch" => ["checked" => time(), "local" => false, "certificate" => ["expires" => date("Y-m-d", strtotime("+40 days")), "days" => 40, "error" => false], "domain" => null]]);
   $db->run("UPDATE {fleet_sites} SET ring = ?, manage_updates = 1 WHERE id = 900", ["pilot"]); $db->run("UPDATE {fleet_sites} SET manage_updates = 1 WHERE id = 901");
   $db->run("UPDATE {fleet_customers} SET update_window = ?", ["12345|22:00-05:00"]);') || { echo "preparing the 3.30 console screens failed"; exit 1; }
 # 3.23.1: a local SMTP sink on PORT+3 (tools/fake-smtp.php writes every message to a folder – no mail leaves the machine);

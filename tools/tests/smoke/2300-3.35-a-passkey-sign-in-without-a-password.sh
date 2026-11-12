@@ -184,7 +184,7 @@ p335_password "$J12" > /dev/null; t=$(csrf)
 curl -s -b "$J12" -c "$J12" -o "$WORK/p335-options" -X POST "$B/admin.php" -d "_csrf=$t" -d krok=klic_moznosti
 php "$WORK/pk335.php" assert "$WORK/pk335-old" "$P335_ORIGIN" 1 2 < "$WORK/p335-options" > "$WORK/p335-assertion"
 expect "3.35 A: the older passkey keeps working as the second step after the password (without UV, as before)" \
-  "$(grep -c "$P335_OLD_ID" "$WORK/p335-options")|$(curl -s -b "$J12" -c "$J12" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d krok=klic --data-urlencode "odpoved@$WORK/p335-assertion")|$(p335_signed_in "$J12")" "1|200|1"
+  "$(grep -cF -e "$P335_OLD_ID" "$WORK/p335-options")|$(curl -s -b "$J12" -c "$J12" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d krok=klic --data-urlencode "odpoved@$WORK/p335-assertion")|$(p335_signed_in "$J12")" "1|200|1"
 P335_OLD_IDK=$(sq "SELECT idk FROM ka_uzivatele_klice WHERE otisk_id = '$P335_OLD_HASH'")
 P335_CSRF=$(p335_page "$J12" "?action=account")
 expect "3.35 A: My account marks it \"second step only\" with a \"Register again\" button; registering again (fresh after the passkey step) replaces it" \

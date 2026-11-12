@@ -382,9 +382,9 @@ final class RemoteBackup
         if ($bucket === '' || !preg_match('/^[a-z0-9.-]+$/iD', $host)) {
             throw new \RuntimeException(t('Fill in the storage address (e.g. s3.eu-central-1.amazonaws.com) and the bucket name.'));
         }
-        // tests: the storage can be a local fake server (only through the database, it is not in the admin)
+        // tests: the storage can be a local fake server (only through the database and only on a test copy)
         $base = 'https://' . $host;
-        $test = $s->get('backup_test_url');
+        $test = TestSeams::address($s, 'backup_test_url');
         if ($test !== '' && preg_match('#^http://(127\.0\.0\.1:\d+)$#D', $test, $m)) {
             [$base, $host] = [$test, $m[1]];
         }

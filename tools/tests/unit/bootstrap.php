@@ -10,6 +10,8 @@ declare(strict_types=1);
 ini_set('memory_limit', '512M');
 
 require dirname(__DIR__, 3) . '/system/bootstrap.php';
+// 3.36 T4: the unit tests are a test copy too – the test switches (Core\TestSeams) and Clock::freeze() answer here
+define('KALETA_TEST_SEAMS', true);
 
 $errors = 0;
 $total = 0;

@@ -33,5 +33,7 @@ Both runners take the files in number order. A file whose name does not match `N
   them; a rule that walks the whole tree is no pin). Test the behaviour instead; when you replace a pin, lower `UNIT_SOURCE_PIN_CEILING`.
 - **A database error is an error (3.36 T3).** A `catch (\PDOException …)` calls `Db::rethrowUnlessMissing($e)` when it only covers the
   time before a migration, uses the error, or says "any database error" and why – `2600-…` checks every catch in `system/`.
+- **Background jobs and the clock (3.36 T4).** In a smoke section, `background_jobs hold|resume|due|settle` (bootstrap.sh) instead of
+  writing `notification_check`; a second site gets `test_seams <dir>`. In a unit file `Clock::freeze('2026-03-29 01:30:00')` … `Clock::freeze(null)`.
 - **Query budgets (3.36 T3).** The test copy answers every admin request with `X-Kaleta-Queries` (`Core\TestSeams`); `2610-…` keeps the busy
   lists under their budgets and checks that more rows add no statement.

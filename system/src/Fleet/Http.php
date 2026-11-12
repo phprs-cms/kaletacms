@@ -26,7 +26,7 @@ final class Http
     /** The automated tests run a console and its sites on 127.0.0.1 over plain http; never set on a real site. */
     private static function localTests(): bool
     {
-        return getenv('KALETA_FLEET_LOCAL') === '1';
+        return \Kaleta\Core\TestSeams::on('KALETA_FLEET_LOCAL');
     }
 
     /** Only https (plain http too when $plainHttp, for the uptime check of a site), no user name; tests also local http. */

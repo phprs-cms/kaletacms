@@ -154,8 +154,8 @@ final class Webhook
     /** @return array{0: int, 1: string} HTTP status (0 = no response) and the error ('' = delivered, 2xx) */
     private static function send(Settings $settings, string $url, string $event, int $id, string $body): array
     {
-        // tests: the URL can be redirected to a local fake server (only through the database, it is not in the admin)
-        $test = $settings->get('webhook_test_url');
+        // tests: the URL can be redirected to a local fake server (only through the database and only on a test copy)
+        $test = TestSeams::address($settings, 'webhook_test_url');
         if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#D', $test)) {
             $url = $test . (string) parse_url($url, PHP_URL_PATH);
         } elseif (!preg_match('#^https://#i', $url)) {

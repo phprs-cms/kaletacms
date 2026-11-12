@@ -80,7 +80,7 @@ final class Captcha
             return false;
         }
         // KALETA_CAPTCHA_VERIFY replaces the provider's address in the tests (tools/test.sh), never needed on a real site
-        $url = (string) (getenv('KALETA_CAPTCHA_VERIFY') ?: $url);
+        $url = TestSeams::value('KALETA_CAPTCHA_VERIFY') ?: $url;
         $result = self::post($url, ['secret' => $s->get('captcha_secret'), 'response' => $answer, 'remoteip' => $r->ip()]);
         if ($result === null) {
             return null;

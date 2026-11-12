@@ -282,7 +282,7 @@ final class Links
         if ($target === null) {
             return null;
         }
-        if (getenv('KALETA_LINKS_LOCAL') === '1' && $target['host'] === '127.0.0.1') {
+        if (TestSeams::on('KALETA_LINKS_LOCAL') && $target['host'] === '127.0.0.1') {
             return $target + ['ip' => '127.0.0.1'];
         }
         if (!in_array($target['port'], [80, 443], true)) {

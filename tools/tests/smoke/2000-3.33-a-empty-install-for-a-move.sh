@@ -14,7 +14,7 @@ s3_install() { # $1 = the starter choice (move | firemni)
   curl -s -o "$WORK/response" -X POST "$S3/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$S3_DB" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
     --data-urlencode "nazev_webu=Stěhování 333" -d "web=$1" -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
     -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=claude'
-  cp "$WORK/response" "$WORK/install333.html"
+  cp "$WORK/response" "$WORK/install333.html"; test_seams "$WORK/web333" # T4: KALETA_IMPORT_LOCAL counts only on a test copy
   s3q "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'test', '$(php -r 'echo hash("sha256", $argv[1]);' "$S3_TOKEN")', NOW() FROM ka_uzivatele WHERE user = 'admin'"
   curl -s -c "$S3_JAR" -b "$S3_JAR" -o "$WORK/response" "$S3/admin.php"
   curl -s -b "$S3_JAR" -c "$S3_JAR" -o /dev/null -X POST "$S3/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"

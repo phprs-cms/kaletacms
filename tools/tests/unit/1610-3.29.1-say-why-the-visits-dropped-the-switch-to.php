@@ -34,7 +34,7 @@ check('3.29.1 Console::countingChanged – the mark while the 7-day visits reach
     Kaleta\Core\ReportSummary::visitsChange(600, 1000, Kaleta\Core\ReportSummary::countingChanged(['confirmed_since' => '2026-10-20'])),
     Kaleta\Core\ReportSummary::visitsChange(1200, 1000, '2026-10-20'), Kaleta\Core\ReportSummary::tiles(['stats' => ['visits' => 600, 'previous_visits' => 1000]], null, ['totals' => ['all' => 0]])[0],
     Kaleta\Fleet\Console::attention(['up' => 1, 'last_seen' => date('Y-m-d H:i:s'), 'status' => 'ok', 'heartbeat' => json_encode(['version' => '3.29.1', 'visits_7_days' => 0,
-        'stats_confirmed_since' => date('Y-m-d', time() - 3 * 86400), 'last_backup' => time(), 'cron_last_run' => time()])], time())['reasons'],
+        'stats_confirmed_since' => date('Y-m-d', strtotime('-3 days')), 'last_backup' => time(), 'cron_last_run' => time()])], time())['reasons'],
 ], 'admin-');
 check('3.29.1 ReportSummary – a drop of visits across the switch is "counting changed on …" in a neutral tone, never ▼; a rise or a drop without the switch as before; the console asks no attention for it', [
     $tile3291['tone'], str_contains($tile3291['change'], '▼'), $tile3291['change'] === Kaleta\Core\Language::runWith('en', fn (): string => 'counting changed on ' . format_date('2026-10-20'), 'admin-'),

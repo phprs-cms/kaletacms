@@ -48,8 +48,8 @@ final class TimeZoneConversion
 
     private const string DATETIME_MAX = '9999-12-31 23:59:59';
 
-    /** One start at a time (begin()); the prefix is added, so two sites in one database do not wait for each other. */
-    private const string LOCK = 'kaleta_time_zone';
+    /** One start at a time (begin()); per site (Db::lockName, 3.36 T4: the database too, not only the prefix). */
+    private const string LOCK = 'time-zone';
 
     /**
      * The moments: table (without the prefix) => DATETIME columns converted from the old zone to the new one. Created,
@@ -216,7 +216,7 @@ final class TimeZoneConversion
         if ($from === $to || !in_array($from, $zones, true) || !in_array($to, $zones, true)) {
             return null;
         }
-        $lock = self::LOCK . '_' . $db->prefix;
+        $lock = $db->lockName(self::LOCK);
         if ((int) $db->value('SELECT GET_LOCK(?, 10)', [$lock]) !== 1) {
             return null;
         }

@@ -132,8 +132,8 @@ final class Newsletter
                 'zdroj' => $source, 'cas' => date('c')], false],
             default => throw new \RuntimeException(t('The mailing service is not set up.')),
         };
-        // tests: the service URL can be redirected to a local fake server (only through the database, it is not in the admin)
-        $test = $s->get('newsletter_test_url');
+        // tests: the service URL can be redirected to a local fake server (only through the database and only on a test copy)
+        $test = TestSeams::address($s, 'newsletter_test_url');
         if ($test !== '' && preg_match('#^http://127\.0\.0\.1:\d+$#D', $test)) {
             $url = $test . '/' . $service . (string) parse_url($url, PHP_URL_PATH);
         }

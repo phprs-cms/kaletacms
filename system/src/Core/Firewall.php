@@ -87,8 +87,8 @@ final class Firewall
             return null;
         }
         $ip = self::visitorIp($app->request->serverValues(), $app->settings()->get('firewall_proxy'));
-        // the automated tests connect from 127.0.0.1 (KALETA_FIREWALL_LOCAL=1); never set on a real site
-        if ($ip === '' || (self::isLocal($ip) && getenv('KALETA_FIREWALL_LOCAL') !== '1')) {
+        // the automated tests connect from 127.0.0.1 (KALETA_FIREWALL_LOCAL=1, only on a test copy – Core\TestSeams)
+        if ($ip === '' || (self::isLocal($ip) && !TestSeams::on('KALETA_FIREWALL_LOCAL'))) {
             return null;
         }
 

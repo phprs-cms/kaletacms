@@ -386,7 +386,7 @@ final class ItemBatch
     private static function downloadable(string $url): bool
     {
         return Outbound::url($url) !== null && (str_starts_with(strtolower($url), 'https://')
-            || (getenv('KALETA_IMPORT_LOCAL') === '1' && str_starts_with($url, 'http://127.0.0.1:')));
+            || (\Kaleta\Core\TestSeams::on('KALETA_IMPORT_LOCAL') && str_starts_with($url, 'http://127.0.0.1:')));
     }
 
     /**

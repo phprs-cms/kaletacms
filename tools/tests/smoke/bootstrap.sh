@@ -29,3 +29,31 @@ site_date() { site_time "$1" Y-m-d; }
 # run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
 run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' "$1"); }
 
+# T4 (Q4): the light background jobs run after a response, at most once a minute (Notifications::runInBackground, the clock
+# notification_check) – a slow run gets one more pass than a fast one. A check that compares or counts what they would
+# write first holds them:
+#   background_jobs hold    – no pass starts until resume (their clock is set far ahead; cron and run_job still run)
+#   background_jobs resume  – as if a pass had just run: the next one comes a minute later
+#   background_jobs due     – the next response runs a pass
+#   background_jobs settle  – waits until a pass that already started has finished: a static file is answered only after
+#                             the single-worker test server is done with the previous request, background work included,
+#                             and the scheduler's lock (Scheduler::lockName) is then free
+background_jobs() {
+  local at
+  case "$1" in
+    hold) at=4102444800 ;; # 2100-01-01
+    resume) at=$(date +%s) ;;
+    due) at=0 ;;
+    settle)
+      curl -s -o /dev/null "$B/image/web.css" || true # a static file: no app, so it starts no pass of its own
+      local i; for i in $(seq 1 100); do
+        [ "$(sq "SELECT IS_FREE_LOCK('$(background_jobs_lock)')")" = 1 ] && return 0; sleep 0.1
+      done; echo "  CHYBA  background_jobs settle: the scheduler still runs after 10 s"; ERRORS=$((ERRORS+1)); return 0 ;;
+    *) echo "background_jobs hold|resume|due|settle" >&2; return 1 ;;
+  esac
+  sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('notification_check', '$at') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
+}
+background_jobs_lock() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\Scheduler::lockName((new Kaleta\Core\App(require "config.php"))->db());'); }
+# T4 (Q10): a second site of a section (the console, the site to move to …) is a test copy too – its config.php defines
+# KALETA_TEST_SEAMS, without which Core\TestSeams ignores the KALETA_* variables its server was started with
+test_seams() { php -r '$f = $argv[1]; $c = (string) file_get_contents($f); if (!str_contains($c, "KALETA_TEST_SEAMS")) { file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_TEST_SEAMS\x27, true);", $c, 1)); }' "$1/config.php"; }
