@@ -86,3 +86,20 @@ check('3.41 N118: an edit inside the block, a file without the block (before 3.4
 ], [null, null, null, true]);
 check('3.41 N118: missingHtaccessLines lists the new rule lines only – no comments, blanks or lines the file has', Kaleta\Core\Updater::missingHtaccessLines(
     "# mine\nOptions -Indexes\n  RewriteEngine On\n", "# Kaleta\nOptions -Indexes\n\nRewriteEngine On\nRewriteRule ^tools/ - [F,L]\n# note\nRewriteRule ^tools/ - [F,L]\n"), ['RewriteRule ^tools/ - [F,L]']);
+
+// CSP of draft previews: off for visitors; in a preview the policy, the nonce on Kaleta's and the administrator's scripts only
+Kaleta\Front\Csp::reset();
+$s341Off = [Kaleta\Front\Csp::attribute(), Kaleta\Front\Csp::withNonce('<script>a()</script>'), isset(Kaleta\Front\Csp::apply(Kaleta\Core\Response::html('<p>x</p>'))->headers['Content-Security-Policy'])];
+Kaleta\Front\Csp::start();
+$s341Nonce = substr(Kaleta\Front\Csp::attribute(), 8, -1);
+$s341On = [
+    Kaleta\Front\Csp::withNonce('<SCRIPT src="https://w.example/x.js"></SCRIPT><script nonce="kept">b()</script><scripts>'),
+    Kaleta\Front\Csp::apply(Kaleta\Core\Response::html('<p>x</p>'))->headers['Content-Security-Policy'] ?? '',
+    isset(Kaleta\Front\Csp::apply(Kaleta\Core\Response::json(['a' => 1]))->headers['Content-Security-Policy']),
+    Kaleta\Front\Csp::apply(new Kaleta\Core\Response('<p>x</p>', 200, ['Content-Type' => 'text/html; charset=utf-8', 'Content-Security-Policy' => "default-src 'none'"]))->headers['Content-Security-Policy'],
+];
+Kaleta\Front\Csp::reset();
+check('3.41 CSP: without a preview nothing changes; in a preview the nonce goes on the administrator\'s scripts (not twice), the policy on HTML pages only, a page\'s own policy wins', [
+    $s341Off, strlen($s341Nonce) >= 24, $s341On], [['', '<script>a()</script>', false], true, [
+    '<script nonce="' . $s341Nonce . '" src="https://w.example/x.js"></SCRIPT><script nonce="kept">b()</script><scripts>',
+    "script-src 'self' 'nonce-" . $s341Nonce . "'; object-src 'none'; base-uri 'self'", false, "default-src 'none'"]]);

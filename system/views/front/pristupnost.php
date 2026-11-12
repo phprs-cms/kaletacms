@@ -43,7 +43,7 @@ $options = ['text' => t('Larger text'), 'kontrast' => t('High contrast'), 'podtr
 <?php endforeach ?>
 	<button type="button" class="ka-pristupnost-reset" data-pristupnost-volba=""><?= e(t('Default settings')) ?></button>
 </div>
-<script>
+<script<?= Kaleta\Front\Csp::attribute() ?>>
 (function () {
 	var KEY = 'ka-pristupnost', root = document.documentElement, box = document.querySelector('[data-pristupnost]');
 	var SIZES = [1, 1.125, 1.25], level = box.querySelector('.ka-pristupnost-uroven');

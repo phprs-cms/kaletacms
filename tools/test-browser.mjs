@@ -5593,6 +5593,29 @@ await step('3.40 A Download PDF: the customer\'s page at 390 px and the quote\'s
   }
 });
 
+await step('3.41 a draft preview runs under its Content-Security-Policy: the head code runs with the nonce, a script without it does not', async () => {
+  const saved = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'head_code'").trim();
+  const firstError = errors.length;
+  try {
+    sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('head_code', '<script>window.s341Head = 1;</script>')");
+    const response = await page.goto(BASE + '/?build=koncept', { waitUntil: 'networkidle' });
+    const policy = response?.headers()['content-security-policy'] || '';
+    if (!/^script-src 'self' 'nonce-[A-Za-z0-9_-]{24,}'/.test(policy)) { throw new Error(`no preview policy: ${policy}`); }
+    // a script the page did not write (no nonce) is refused – Chrome reports the violation, which this step expects
+    const ran = await page.evaluate(() => new Promise((resolve) => {
+      document.addEventListener('securitypolicyviolation', () => resolve('blocked'), { once: true });
+      const s = document.createElement('script'); s.textContent = 'window.s341Injected = 1;'; document.body.append(s);
+      setTimeout(() => resolve(window.s341Injected === 1 ? 'ran' : 'silent'), 1000);
+    }));
+    const head = await page.evaluate(() => window.s341Head === 1);
+    await page.waitForTimeout(500); // the console report of the violation arrives a moment after the event
+    errors.splice(firstError, errors.length - firstError, ...errors.slice(firstError).filter((e) => !/Content Security Policy/.test(e))); // the refused script above, on purpose
+    if (!head || ran !== 'blocked') { throw new Error(`head code ran: ${head}, injected script: ${ran}`); }
+  } finally {
+    sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('head_code', '${saved.replace(/\\/g, '\\\\').replace(/'/g, "''")}')`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

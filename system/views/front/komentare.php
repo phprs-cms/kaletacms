@@ -50,7 +50,7 @@
 	<p><button type="submit" class="ka-komentare-tl"><?= e(t('Send comment')) ?></button></p>
 	<p class="ka-komentare-pozn"><?= e(t('The comment goes to the people who edit this page. Nothing on the site changes by itself.')) ?></p>
 </form>
-<script>
+<script<?= Kaleta\Front\Csp::attribute() ?>>
 (function () {
 	var box = document.getElementById('ka-komentar'), button = box.querySelector('.ka-komentare-tl'), form = document.getElementById('ka-komentar-panel');
 	var elementField = form.elements.prvek, quoteField = form.elements.citace, elementRow = form.querySelector('[data-ka-komentar-prvek]'), quoteRow = form.querySelector('[data-ka-komentar-citace]');

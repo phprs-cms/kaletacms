@@ -108,3 +108,12 @@ expect "3.41 N118: System status names the missing line and the way to keep own 
 rm -f "$WORK/web/.htaccess.kaleta-nova"; [ "$S341_OWN_HTACCESS" = 1 ] && rm -f "$WORK/web/.htaccess"
 if [ -f "$WORK/s341-kaleta-nova.saved" ]; then mv "$WORK/s341-kaleta-nova.saved" "$WORK/web/.htaccess.kaleta-nova"; fi
 
+# CSP in draft previews: a draft build gets the policy and the head code its nonce; the published page for visitors gets neither
+S341_HEAD=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'head_code'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('head_code', '<script>window.s341=1</script>')" > /dev/null
+curl -s -b "$JAR" -D "$WORK/s341-headers" -o "$WORK/response" "$B/?build=koncept"
+S341_NONCE=$(grep -i '^Content-Security-Policy:' "$WORK/s341-headers" | grep -o "'nonce-[A-Za-z0-9_-]*'" | sed "s/'nonce-//;s/'//")
+curl -s -D "$WORK/s341-headers-pub" -o "$WORK/s341-public" "$B/?s341=$RANDOM"
+expect "3.41 CSP: the draft build has script-src 'self' with a nonce that the head code carries; the published page has no policy and no nonce" \
+  "$(grep -ci "^Content-Security-Policy: script-src 'self' 'nonce-" "$WORK/s341-headers")|$([ -n "$S341_NONCE" ] && grep -c "<script nonce=\"$S341_NONCE\">window.s341=1" "$WORK/response")|$(grep -ci '^Content-Security-Policy:' "$WORK/s341-headers-pub")|$(grep -c '<script>window.s341=1' "$WORK/s341-public")" "1|1|0|1"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('head_code', '$(printf '%s' "$S341_HEAD" | sed "s/'/''/g")')" > /dev/null
