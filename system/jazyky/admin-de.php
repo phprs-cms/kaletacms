@@ -8678,7 +8678,6 @@ return [
     'Talent pool' => 'Talentpool',
     'Rejected with the rejection template: %d sent, %d waiting in the mail queue.' => 'Mit der Absage-Vorlage abgelehnt: %d gesendet, %d warten in der Mail-Warteschlange.',
     '%d had no e-mail address – rejected without a reply.' => '%d hatten keine E-Mail-Adresse – ohne Antwort abgelehnt.',
-    '%d were already rejected – nothing was sent to them.' => '%d waren schon abgelehnt – ihnen wurde nichts gesendet.',
     'Application #%d: %s.' => 'Bewerbung #%d: %s.',
     '%d days before that consent lapses, the applicant is asked by e-mail whether to keep the application for another period or delete it now.' => '%d Tage bevor diese Einwilligung endet, wird der Bewerber per E-Mail gefragt, ob die Bewerbung für einen weiteren Zeitraum aufbewahrt oder sofort gelöscht werden soll.',
     'Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.' => 'Jede neue Bewerbung wird per Webhook an %s gemeldet – nur ihre Nummer und Stelle, nichts über den Bewerber.',
@@ -8691,4 +8690,5 @@ return [
     'The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.' => 'Voreinstellung des Kästchens im Sendedialog. Der Link zum Angebot steht immer in der E-Mail; Angebote in arabischer, griechischer, kyrillischer oder asiatischer Schrift gehen nur mit dem Link hinaus.',
     'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Dieses Angebot hat kein PDF: Seine Sprache oder sein Text lässt sich mit den Schriften eines PDF nicht darstellen. Drucken Sie die Vorschau oder speichern Sie sie im Browser als PDF.',
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'Die E-Mail ging ohne PDF hinaus: Sprache oder Text des Angebots lassen sich im PDF nicht darstellen – der Kunde hat den Link.',
+    '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d waren schon abgelehnt oder eingestellt – unverändert gelassen, ihnen wurde nichts gesendet.',
 ];

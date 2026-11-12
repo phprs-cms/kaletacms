@@ -541,8 +541,9 @@ final class Applications
     /**
      * Rejects applications at once with the rejection template (3.40, design B6 "bulk: reject with the rejection template"):
      * each one gets the template in its own language, filled with its name and position, sent by reply() – the signed-in
-     * user's signature, the reply and the status change on its own history. An application already rejected is left alone
-     * (no second rejection e-mail); one without an e-mail address is only rejected. Throws \DomainException before anything
+     * user's signature, the reply and the status change on its own history. An application already rejected or hired is
+     * left alone and counted as skipped (no second rejection e-mail, never a rejection of a new colleague – 3.40 review M2);
+     * one without an e-mail address is only rejected. Throws \DomainException before anything
      * changes when the site cannot send replies (no SMTP, no sender) or nothing is selected.
      *
      * @param list<int> $ids
@@ -564,8 +565,8 @@ final class Applications
         $me = $app->auth()->id();
         foreach ($app->db()->all('SELECT id, name, email, job_title, language, status FROM {applications} WHERE id IN (' . implode(',', $ids) . ') ORDER BY id') as $row) {
             $id = (int) $row['id'];
-            if ($row['status'] === 'rejected') {
-                $out['skipped']++;
+            if (in_array($row['status'], self::DECIDED, true)) {
+                $out['skipped']++; // 3.40 review M2: a hired applicant is never rejected nor e-mailed by a bulk rejection
                 continue;
             }
             if (count(Mail::addresses((string) $row['email'])) !== 1) {

@@ -8698,7 +8698,6 @@ return [
     'Talent pool' => 'Reserva de talento',
     'Rejected with the rejection template: %d sent, %d waiting in the mail queue.' => 'Rechazadas con la plantilla de rechazo: %d enviadas, %d esperan en la cola de correo.',
     '%d had no e-mail address – rejected without a reply.' => '%d no tenían dirección de correo – rechazadas sin respuesta.',
-    '%d were already rejected – nothing was sent to them.' => '%d ya estaban rechazadas – no se les envió nada.',
     'Application #%d: %s.' => 'Candidatura #%d: %s.',
     '%d days before that consent lapses, the applicant is asked by e-mail whether to keep the application for another period or delete it now.' => '%d días antes de que venza ese consentimiento, se pregunta al candidato por correo si conservar la candidatura otro periodo o eliminarla ya.',
     'Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.' => 'Cada nueva candidatura se anuncia a %s mediante un webhook – solo su número y puesto, nada del candidato.',
@@ -8711,4 +8710,5 @@ return [
     'The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.' => 'El valor por defecto de la casilla en el diálogo de envío. El enlace al presupuesto va siempre en el correo; los presupuestos en escritura árabe, griega, cirílica o asiática se envían solo con el enlace.',
     'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Este presupuesto no tiene PDF: su idioma o su texto no se pueden representar con las fuentes de un PDF. Imprima la vista previa o guárdela como PDF desde el navegador.',
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'El correo salió sin el PDF: el idioma o el texto del presupuesto no se pueden representar en un PDF; el cliente tiene el enlace.',
+    '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d ya estaban rechazadas o contratadas – se dejaron sin cambios y no se les envió nada.',
 ];

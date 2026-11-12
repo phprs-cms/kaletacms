@@ -8271,7 +8271,6 @@ return [
     'Talent pool' => 'Zásoba uchazečů',
     'Rejected with the rejection template: %d sent, %d waiting in the mail queue.' => 'Zamítnuto se šablonou zamítnutí: odesláno %d, ve frontě pošty čeká %d.',
     '%d had no e-mail address – rejected without a reply.' => '%d nemělo e-mailovou adresu – zamítnuto bez odpovědi.',
-    '%d were already rejected – nothing was sent to them.' => '%d už bylo zamítnuto – nic jsme jim neposlali.',
     'Application #%d: %s.' => 'Žádost #%d: %s.',
     '%d days before that consent lapses, the applicant is asked by e-mail whether to keep the application for another period or delete it now.' => '%d dní před koncem tohoto souhlasu se uchazeče e-mailem zeptáme, zda žádost uchovat na další období, nebo ji hned smazat.',
     'Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.' => 'Každá nová žádost se ohlásí webhookem na %s – jen její číslo a pozice, nic o uchazeči.',
@@ -8284,4 +8283,5 @@ return [
     'The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.' => 'Výchozí stav zaškrtávacího pole v okně odeslání. Odkaz na nabídku je v e-mailu vždy; nabídky v arabském, řeckém, cyrilském nebo asijském písmu odcházejí jen s odkazem.',
     'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Tato nabídka nemá PDF: její jazyk nebo text nejde písmy PDF vykreslit. Vytiskněte náhled nebo ho uložte jako PDF z prohlížeče.',
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'E-mail odešel bez PDF: jazyk nebo text nabídky nejde v PDF vykreslit – zákazník má odkaz.',
+    '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d už bylo zamítnuto nebo přijato – nechali jsme je beze změny a nic jsme jim neposlali.',
 ];

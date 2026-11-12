@@ -121,7 +121,7 @@ final class Applications extends Module
 
             return $this->back(t('Rejected with the rejection template: %d sent, %d waiting in the mail queue.', $r['sent'], $r['queued'])
                 . ($r['no_email'] > 0 ? ' ' . t('%d had no e-mail address – rejected without a reply.', $r['no_email']) : '')
-                . ($r['skipped'] > 0 ? ' ' . t('%d were already rejected – nothing was sent to them.', $r['skipped']) : ''), '', [], $r['queued'] > 0 ? 'chyba' : 'ok');
+                . ($r['skipped'] > 0 ? ' ' . t('%d were already rejected or hired – left unchanged, nothing was sent to them.', $r['skipped']) : ''), '', [], $r['queued'] > 0 ? 'chyba' : 'ok');
         }
         $changed = 0;
         foreach ($ids as $id) {
