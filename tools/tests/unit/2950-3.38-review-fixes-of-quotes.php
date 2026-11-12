@@ -63,7 +63,7 @@ $r338Callers = static function (string $root): array {
 };
 $r338Allowed = ['src/Admin/Modules/Quotes.php', 'src/Admin/QuoteSending.php', 'src/Core/Contacts.php', 'src/Core/Deals.php', 'src/Core/Inbox.php',
     'src/Core/MonthlyReport.php', 'src/Core/Notifications.php', 'src/Core/PersonalData.php', 'src/Core/Privacy.php', 'src/Core/Prices.php', 'src/Core/QuoteDelivery.php',
-    'src/Core/Quotes.php', 'src/Core/Scheduler.php', 'src/Front/QuotePage.php', 'src/Mcp/Handlers/QuoteTools.php',
+    'src/Core/Quotes.php', 'src/Core/Scheduler.php', 'src/Front/QuotePage.php', 'src/Mcp/Confirmation.php', 'src/Mcp/Handlers/QuoteTools.php', // 3.39 review M4: the summary of send_quote's confirmation
     'views/admin/quotes/detail.php', 'views/admin/quotes/send.php', 'views/admin/quotes/texts.php'];
 $r338Found = $r338Callers(KALETA_SYSTEM);
 check('3.38 review L7: Prices::forItem, Quotes::get / of and QuoteDelivery are called only by the quote screens, sending, privacy, retention and their own classes – never by the site, SEO, search or the assistant', [

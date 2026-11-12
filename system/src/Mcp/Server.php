@@ -307,11 +307,14 @@ final class Server
         $user = $auth->id();
         $connection = (string) ($auth->connection()['key'] ?? '');
         $now = time();
-        if ($code !== '' && Confirmation::valid($key, $code, $tool, $user, $connection, $arguments, $now) && Confirmation::claim($this->app->db(), $code, $user)) {
+        // 3.39 review M4: a newsletter's or quote's content is bound too – an edit after the user's yes needs a new code
+        $content = Confirmation::content($this->app, $tool, $arguments);
+        $bound = $content !== null ? ["\0content" => $content['fingerprint']] + $arguments : $arguments; // the server's value wins over any argument of that name
+        if ($code !== '' && Confirmation::valid($key, $code, $tool, $user, $connection, $bound, $now) && Confirmation::claim($this->app->db(), $code, $user)) {
             return null;
         }
 
-        return Confirmation::answer($tool, Confirmation::code($key, $tool, $user, $connection, $arguments, $now + Confirmation::MINUTES * 60), $code !== '');
+        return Confirmation::answer($tool, Confirmation::code($key, $tool, $user, $connection, $bound, $now + Confirmation::MINUTES * 60), $code !== '', $content['summary'] ?? null);
     }
 
     /**
