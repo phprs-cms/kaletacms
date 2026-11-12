@@ -31,3 +31,13 @@ expect "3.40 review M3: into a EUR quote the set's free line comes without a pri
 sq "DELETE FROM ka_quote_lines WHERE quote_id IN (SELECT id FROM ka_quotes WHERE title IN ('R340 EUR', 'R340 CZK')); DELETE FROM ka_quotes WHERE title IN ('R340 EUR', 'R340 CZK');
   DELETE FROM ka_quote_line_sets WHERE name = 'Laser R340'; DELETE FROM ka_price_lists WHERE id = $R340_EUR; DELETE FROM ka_quote_counters" > /dev/null
 
+# M4: the tasks about a quote lose their titles when the quote is anonymised (retention or erasure) and go when it is deleted
+R340_ADMIN=$(sq "SELECT MIN(idu) FROM ka_uzivatele WHERE admin = 2 AND blokovat = 0")
+r340_numbered() { sq "INSERT INTO ka_quotes (number, title, status, price_list_id, currency, language, vat_mode, customer_name, customer_email, created_by, created_at, updated_at) VALUES ($1, 'Quote R340', '$2', (SELECT id FROM ka_price_lists WHERE is_default = 1), 'CZK', 'cs', 'standard', 'Rita R340', 'rita-r340@example.com', $R340_ADMIN, '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();"; }
+r340_task() { sq "INSERT INTO ka_tasks (title, target, assignee_id, created_by, created_at, updated_at, due_at) VALUES ('Call Rita R340 about it', 'quote:$1', $R340_ADMIN, $R340_ADMIN, '$(site_time)', '$(site_time)', '$(site_date '+3 days')'); SELECT LAST_INSERT_ID();"; }
+R340_QN=$(r340_numbered "'R340-0001'" sent); R340_QD=$(r340_numbered NULL draft)
+R340_TN=$(r340_task "$R340_QN"); R340_TD=$(r340_task "$R340_QD")
+r340_php 'Kaleta\Core\QuoteDelivery::erase($app->db(), [["id" => '"$R340_QN"', "number" => "R340-0001"], ["id" => '"$R340_QD"', "number" => null]]);' > /dev/null
+expect "3.40 review M4: erasing a person blanks the task title of their numbered quote (the task stays) and deletes the task of their draft" \
+  "$(sq "SELECT CONCAT(COUNT(*), ':', IFNULL(MAX(title), '-')) FROM ka_tasks WHERE id = $R340_TN")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE id = $R340_TD")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE title LIKE '%Rita R340%'")" "1:|0|0"
+sq "DELETE FROM ka_tasks WHERE target = 'quote:$R340_QN'; DELETE FROM ka_quotes WHERE id = $R340_QN" > /dev/null

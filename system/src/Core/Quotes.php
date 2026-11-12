@@ -826,6 +826,7 @@ final class Quotes
             throw new \DomainException(t('Only its author or an administrator deletes a draft; a numbered quote only an administrator.'));
         }
         $db->transaction(function (Db $db) use ($id): void {
+            Tasks::forgetTargets($db, ['quote:' . $id]); // 3.40 review M4: the tasks about it go with it
             $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
             $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
         });
