@@ -14,7 +14,7 @@ sq "DROP TABLE IF EXISTS ka_r340_saved; CREATE TABLE ka_r340_saved AS SELECT * F
 R340_HIRED=$(sq "INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, language, data, status, status_at, last_activity_at, decided_at) VALUES ('$(site_time)', 9341, 'Welder R340', 'Job application', 'Hana R340', 'hana-r340@example.com', 'hana-r340@example.com', '', '[]', 'hired', '$(site_time)', '$(site_time)', '$(site_time)'); SELECT LAST_INSERT_ID();")
 R340_P0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
 expect "3.40 review M2: Reject and send the rejection skips a hired applicant – still hired, no reply, nothing in the mail queue" \
-  "$(r340_php 'echo json_encode(Kaleta\Core\Applications::rejectWithTemplate($app, ['"$R340_HIRED"'], "position_filled"));')|$(sq "SELECT CONCAT(status, ':', IFNULL(JSON_LENGTH(replies), 0)) FROM ka_applications WHERE id = $R340_HIRED")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE idp > $R340_P0")" \
+  "$(r340_php 'echo json_encode(Kaleta\Core\Applications::rejectWithTemplate($app, ['"$R340_HIRED"'], "position_filled"));')|$(sq "SELECT status FROM ka_applications WHERE id = $R340_HIRED"):$(sq "SELECT COUNT(*) FROM ka_applications WHERE id = $R340_HIRED AND replies IS NOT NULL")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE idp > $R340_P0")" \
   '{"sent":0,"queued":0,"no_email":0,"skipped":1}|hired:0|0'
 r340_php 'Kaleta\Core\Applications::delete($app, ['"$R340_HIRED"'], false);' > /dev/null
 sq "DELETE FROM ka_application_counts WHERE job_item_id = 9341; DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'mail_from'); INSERT INTO ka_nastaveni SELECT * FROM ka_r340_saved; DROP TABLE ka_r340_saved" > /dev/null
