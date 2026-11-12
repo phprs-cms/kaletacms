@@ -84,7 +84,7 @@ final class Confirmation
             if ($n === null) {
                 return null;
             }
-            $news = array_map(static fn (array $i): array => [(int) ($i['idc'] ?? 0), (string) ($i['titulek'] ?? '')], \Kaleta\Core\Mailing::newsItems($app, $n));
+            $news = array_map(static fn (array $i): array => [$i['id'], $i['title']], \Kaleta\Core\Mailing::newsItems($app, $n));
             $fields = array_intersect_key($n, array_flip(['subject', 'preheader', 'intro', 'news_mode', 'news_count', 'news_ids', 'button_label', 'button_url', 'language']));
             $at = isset($arguments['at']) ? (string) $arguments['at'] : '';
 

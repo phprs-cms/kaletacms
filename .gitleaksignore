@@ -1,0 +1,2 @@
+# 3.39: a test value written as a literal in a 3.39 B commit, replaced by a run-time value in d11380d2 (never a real secret)
+e970ab98a09a39d5918666729d8bd5d48341bc6d:tools/tests/smoke/3050-3.39-b-n106-sealed-secrets.sh:generic-api-key:18

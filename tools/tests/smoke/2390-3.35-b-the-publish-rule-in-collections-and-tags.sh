@@ -49,7 +49,8 @@ expect "3.35 B6 N108: Tags – renaming, merging and deleting by the role change
 # MCP: the same role over a full connection
 S335F_TOKEN="kaleta_$(openssl rand -hex 24)"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($S335F_USER, 's335f full', 'full', 'all', SHA2('$S335F_TOKEN', 256), '$(site_time)')" > /dev/null
-s335f_mcp() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $S335F_TOKEN" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+# 3.39 (N105): a tool behind the two-step confirmation answers with a code first – mcp_call repeats the call with it
+s335f_mcp() { mcp_call "$S335F_TOKEN" "$1" "$2"; }
 s335f_mcp save_collection_item '{"collection":"s335f-n107","name":"Via MCP","visible":true}' > /dev/null
 expect "3.35 B6 N107: MCP – a new item of the role is hidden; one on the site is not changed, deleted or restored; the batch refuses it" \
   "$(sq "SELECT zobrazit FROM ka_kolekce_polozky WHERE idk = $S335F_K AND nazev = 'Via MCP'")|$(s335f_mcp save_collection_item "{\"collection\":\"s335f-n107\",\"id\":$S335F_LIVE,\"values\":{\"popis\":\"defaced\"}}" | grep -c "role does not publish")|$(s335f_mcp delete_collection_item "{\"collection\":\"s335f-n107\",\"id\":$S335F_LIVE}" | grep -c "role does not publish")|$(s335f_mcp save_collection_items "{\"collection\":\"s335f-n107\",\"items\":[{\"id\":$S335F_LIVE,\"values\":{\"popis\":\"defaced\"}}]}" | grep -c 'refused')|$(s335f_row "$S335F_LIVE")" \

@@ -109,12 +109,6 @@ parameters:
 			path: system/src/Core/SiteImport.php
 
 		-
-			message: '#^Empty array passed to foreach\.$#'
-			identifier: foreach.emptyArray
-			count: 1
-			path: system/src/Core/Updater.php
-
-		-
 			message: '#^Comparison operation "\<\=" between 30 and 0 is always false\.$#'
 			identifier: smallerOrEqual.alwaysFalse
 			count: 1
