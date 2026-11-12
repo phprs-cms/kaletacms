@@ -3277,4 +3277,6 @@ return [
     'Quotation number' => 'Číslo nabídky',
     'Open the quotation' => 'Otevřít nabídku',
     'Open the quotation: %s' => 'Otevřít nabídku: %s',
+    'Download PDF' => 'Stáhnout PDF',
+    'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
 ];

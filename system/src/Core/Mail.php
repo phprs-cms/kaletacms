@@ -23,6 +23,9 @@ final class Mail
     /** @var resource|null open SMTP connection */
     private static $connection = null;
 
+    /** 3.40: the most bytes all attachments of one message may have together (a quote's PDF is a few kilobytes). */
+    public const int MAX_ATTACHMENTS = 5_000_000;
+
     /** How long until a failed send is retried (minutes); after the last attempt the message stays in the queue as failed. */
     private const array RETRY_DELAYS = [5, 30, 120, 720];
 
@@ -37,20 +40,25 @@ final class Mail
      * @param string $logSubject 3.32: what the mail log (ka_posta.predmet) and the mail.failed event keep instead of a
      *        subject that names a person (a form notification's "<form>: <site> – Olivia Hart" is logged as "<form>: <site>");
      *        a queued message keeps its full subject in its body until it is sent. '' = the subject itself.
+     * @param list<array{name: string, type: string, data: string}> $attachments 3.40: files sent with the message (multipart/mixed);
+     *        the names are made safe, together at most MAX_ATTACHMENTS bytes; a queued message keeps them until it is sent
+     * @throws \InvalidArgumentException when the attachments are too large or not files
      */
-    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = ''): bool
+    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = '', array $attachments = []): bool
     {
         if ($html === '' && Language::isRtl(Language::code())) {
             $html = self::rightToLeft($text, Language::code()); // a plain message in Arabic reads from the right in every mail client
         }
-        $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
+        $attachments = self::attachments($attachments);
+        $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers, $attachments);
         $error = self::$error;
         self::$lastId = null;
         try {
             self::$lastId = $siteSettings->db()->insert('posta', [
                 'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($logSubject !== '' ? $logSubject : $subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
                 'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
-                'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers] + ($logSubject !== '' ? ['predmet' => $subject] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers] + ($logSubject !== '' ? ['predmet' => $subject] : [])
+                    + ($attachments !== [] ? ['prilohy' => array_map(fn (array $a): array => ['name' => $a['name'], 'type' => $a['type'], 'data' => base64_encode($a['data'])], $attachments)] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
                 'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
             if (random_int(1, 50) === 1) {
@@ -62,6 +70,35 @@ final class Mail
         self::$error = $error;
 
         return $ok;
+    }
+
+    /**
+     * The attachments of a message made safe (3.40): a file name of letters, digits, dot, dash and underscore only (the
+     * extension kept, never a path or a quote that could break the header), a plain media type (else
+     * application/octet-stream), and at most MAX_ATTACHMENTS bytes together.
+     *
+     * @param array<mixed> $attachments
+     * @return list<array{name: string, type: string, data: string}>
+     * @throws \InvalidArgumentException
+     */
+    public static function attachments(array $attachments): array
+    {
+        $safe = [];
+        $bytes = 0;
+        foreach ($attachments as $a) {
+            if (!is_array($a) || !is_string($a['data'] ?? null) || $a['data'] === '') {
+                throw new \InvalidArgumentException('An attachment needs its data.');
+            }
+            $bytes += strlen($a['data']);
+            if ($bytes > self::MAX_ATTACHMENTS) {
+                throw new \InvalidArgumentException('The attachments of an e-mail are too large.');
+            }
+            $name = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '-', basename(str_replace('\\', '/', (string) ($a['name'] ?? '')))), '.-');
+            $type = strtolower((string) ($a['type'] ?? ''));
+            $safe[] = ['name' => mb_substr($name !== '' ? $name : 'attachment', -100), 'type' => preg_match('#^[a-z]+/[a-z0-9.+-]+$#D', $type) === 1 ? $type : 'application/octet-stream', 'data' => $a['data']];
+        }
+
+        return $safe;
     }
 
     /**
@@ -158,7 +195,14 @@ final class Mail
                 continue;
             }
             // 3.32: a subject naming a person waits in the body (predmet holds the logged one) and goes with it once sent
-            if (self::deliver($siteSettings, $z['komu'], is_string($body['predmet'] ?? null) ? $body['predmet'] : $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []))) {
+            $files = [];
+            foreach (is_array($body['prilohy'] ?? null) ? $body['prilohy'] : [] as $a) { // 3.40: the attachments wait in the body with the text
+                $data = is_array($a) ? base64_decode((string) ($a['data'] ?? ''), true) : false;
+                if (is_string($data) && $data !== '') {
+                    $files[] = ['name' => (string) ($a['name'] ?? ''), 'type' => (string) ($a['type'] ?? ''), 'data' => $data];
+                }
+            }
+            if (self::deliver($siteSettings, $z['komu'], is_string($body['predmet'] ?? null) ? $body['predmet'] : $z['predmet'], (string) ($body['text'] ?? ''), (string) ($body['html'] ?? ''), (array) ($body['hlavicky'] ?? []), self::attachments($files))) {
                 $db->update('posta', ['odeslano' => date('Y-m-d H:i:s'), 'telo' => null, 'dalsi_pokus' => null, 'chyba' => ''], ['idp' => $z['idp']]);
                 $sent++;
             } else {
@@ -185,8 +229,11 @@ final class Mail
         return self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers);
     }
 
-    /** @param array<string, string> $headers */
-    private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = []): bool
+    /**
+     * @param array<string, string> $headers
+     * @param list<array{name: string, type: string, data: string}> $attachments already made safe (attachments())
+     */
+    private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], array $attachments = []): bool
     {
         self::$error = '';
         if (Demo::active()) {
@@ -219,6 +266,18 @@ final class Mail
             $h['Content-Type'] = 'multipart/alternative; boundary="' . $boundary . '"';
             $body = "--{$boundary}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text))
                 . "--{$boundary}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($html)) . "--{$boundary}--\r\n";
+        }
+        if ($attachments !== []) {
+            // 3.40: multipart/mixed – the message as its first part (with its own content headers), then each file
+            $mixed = 'kaleta-' . bin2hex(random_bytes(8));
+            $first = 'Content-Type: ' . $h['Content-Type'] . "\r\n" . (isset($h['Content-Transfer-Encoding']) ? 'Content-Transfer-Encoding: ' . $h['Content-Transfer-Encoding'] . "\r\n" : '');
+            unset($h['Content-Transfer-Encoding']);
+            $h['Content-Type'] = 'multipart/mixed; boundary="' . $mixed . '"';
+            $body = "--{$mixed}\r\n{$first}\r\n{$body}";
+            foreach ($attachments as $a) {
+                $body .= "--{$mixed}\r\nContent-Type: {$a['type']}; name=\"{$a['name']}\"\r\nContent-Disposition: attachment; filename=\"{$a['name']}\"\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($a['data']));
+            }
+            $body .= "--{$mixed}--\r\n";
         }
         $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
         $rows = [];

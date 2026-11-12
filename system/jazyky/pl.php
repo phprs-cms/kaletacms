@@ -2113,4 +2113,6 @@ return [
     'Quotation number' => 'Numer oferty',
     'Open the quotation' => 'Otwórz ofertę',
     'Open the quotation: %s' => 'Otwórz ofertę: %s',
+    'Download PDF' => 'Pobierz PDF',
+    'Page %1$s of %2$s' => 'Strona %1$s z %2$s',
 ];

@@ -2088,4 +2088,6 @@ return [
     'Quotation number' => 'Číslo ponuky',
     'Open the quotation' => 'Otvoriť ponuku',
     'Open the quotation: %s' => 'Otvoriť ponuku: %s',
+    'Download PDF' => 'Stiahnuť PDF',
+    'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
 ];

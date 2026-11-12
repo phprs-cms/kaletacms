@@ -2141,4 +2141,6 @@ The link works for %d days.
     'Quotation number' => '報價單編號',
     'Open the quotation' => '開啟報價單',
     'Open the quotation: %s' => '開啟報價單：%s',
+    'Download PDF' => '下載 PDF',
+    'Page %1$s of %2$s' => '第 %1$s 頁，共 %2$s 頁',
 ];

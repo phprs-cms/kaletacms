@@ -2141,4 +2141,6 @@ The link works for %d days.
     'Quotation number' => 'رقم عرض السعر',
     'Open the quotation' => 'فتح عرض السعر',
     'Open the quotation: %s' => 'فتح عرض السعر: %s',
+    'Download PDF' => 'تنزيل PDF',
+    'Page %1$s of %2$s' => 'الصفحة %1$s من %2$s',
 ];

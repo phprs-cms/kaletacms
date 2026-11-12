@@ -2141,4 +2141,6 @@ A hivatkozás %d napig érvényes.
     'Quotation number' => 'Árajánlat száma',
     'Open the quotation' => 'Árajánlat megnyitása',
     'Open the quotation: %s' => 'Árajánlat megnyitása: %s',
+    'Download PDF' => 'PDF letöltése',
+    'Page %1$s of %2$s' => '%1$s. oldal / %2$s',
 ];

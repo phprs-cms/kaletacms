@@ -596,6 +596,7 @@ final class Tools
                 $s(['id' => $number('quote id'), 'subject' => $text('subject; {number} becomes the quote\'s number (default: "Quote {number} – <title>" in the quote\'s language)'),
                     'message' => $text('the message above the facts and the link, exactly as the user approved it (default: a short greeting in the quote\'s language)'),
                     'set_deal_value' => ['type' => 'boolean', 'description' => 'true = the linked deal\'s value becomes the quote\'s net total (default: the site\'s setting)'],
+                    'attach_pdf' => ['type' => 'boolean', 'description' => 'true = the quote also goes as a PDF attachment (default: the site\'s setting; a quote in a script the PDF cannot draw goes with the link only)'],
                     'confirm' => ['type' => 'boolean', 'description' => 'true = the user explicitly asked to send this quote now; false = only show what would be sent']], ['id', 'confirm'])],
             // 3.38 B: quotes (Core\Quotes) – users with the section Quotes; save_quote saves drafts only, sending is send_quote's
             ['list_quotes', 'Quotes (read-only, 3.38; users who may open Quotes): number (a draft has none until it is sent), status, title, customer, net and gross total as decimal texts with the currency, validity, responsible person; newest change first. Filter by status, contact, company, deal, enquiry, owner or a word.',

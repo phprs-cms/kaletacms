@@ -415,18 +415,19 @@ trait QuoteTools
             $subject = is_string($a['subject'] ?? null) ? $a['subject'] : '';
             $message = is_string($a['message'] ?? null) ? $a['message'] : '';
             $setDeal = is_bool($a['set_deal_value'] ?? null) ? $a['set_deal_value'] : $draft['set_deal_value'];
+            $attach = is_bool($a['attach_pdf'] ?? null) ? $a['attach_pdf'] : $this->app->settings()->bool('quote_attach_pdf'); // 3.40
             if (($a['confirm'] ?? false) !== true) {
                 $why = $draft['refusal'] ?? $draft['smtp'] ?? \Kaleta\Core\QuoteDelivery::claudeRefusal($db, $quote);
 
                 return ['id' => $id, 'sent' => false, 'to' => $draft['to'], 'subject' => $subject !== '' ? $subject : $draft['subject'], 'message' => $message !== '' ? $message : $draft['message'],
                     'currency' => $quote['currency'], 'totals' => ['net' => $quote['totals']['net'], 'vat' => $quote['totals']['vat'], 'gross' => $quote['totals']['gross']],
-                    'valid_until' => $quote['valid_until'], 'set_deal_value' => $setDeal && $draft['deal']]
+                    'valid_until' => $quote['valid_until'], 'set_deal_value' => $setDeal && $draft['deal'], 'attach_pdf' => $attach]
                     + ($why !== null ? ['cannot_send' => $why] : [])
                     + ['next' => $why !== null ? 'Tell the user why the quote cannot be sent yet.' : 'Show the user the recipient, subject, message and total. Send only when they explicitly ask: the same call with confirm=true.'];
             }
-            $result = \Kaleta\Core\QuoteDelivery::send($this->app, $id, $subject, $message, $setDeal, 'mcp');
+            $result = \Kaleta\Core\QuoteDelivery::send($this->app, $id, $subject, $message, $setDeal, 'mcp', $attach ? \Kaleta\Front\QuotePdf::attachment($this->app) : null);
 
-            return ['id' => $id, 'sent' => true, 'number' => $result['number'], 'status' => $result['status'], 'to' => $result['to'], 'deal_value_set' => $result['deal_value_set']]
+            return ['id' => $id, 'sent' => true, 'number' => $result['number'], 'status' => $result['status'], 'to' => $result['to'], 'deal_value_set' => $result['deal_value_set'], 'pdf' => $result['pdf']]
                 + ($result['error'] !== '' ? ['error' => $result['error']] : []) + ($result['warnings'] !== [] ? ['warnings' => $result['warnings']] : [])
                 + ['admin_url' => $this->app->request->origin() . $this->app->url(\Kaleta\Core\Quotes::adminPath($id)),
                     'next' => $result['status'] === 'sent' ? 'Tell the user the quote went out with its number. Its link and state are in the quote in the administration.'

@@ -36,6 +36,8 @@
 		<span class="napoveda"><?= e(t('Counted from the last change of status; then the quote goes the way of old enquiries (deleted or without the person). 0 = keep.')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_set_deal_value" value="1"<?= $values['quote_set_deal_value'] === '1' ? ' checked' : '' ?>> <?= e(t('Sending a quote sets the value of its deal to the net total')) ?></label>
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. Won or lost is only offered, never set by itself.')) ?></span></div></div>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_attach_pdf" value="1"<?= ($values['quote_attach_pdf'] ?? '1') === '1' ? ' checked' : '' ?> data-quote-attach-pdf-default> <?= e(t('Attach the quote as a PDF to the e-mail')) ?></label>
+		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.')) ?></span></div></div>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
 <?= $app->view->render('admin/quotes/texts', ['app' => $app, 'module' => $module, 'csrf' => $csrf]) ?>

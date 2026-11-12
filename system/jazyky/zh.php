@@ -2141,4 +2141,6 @@ The link works for %d days.
     'Quotation number' => '报价单编号',
     'Open the quotation' => '打开报价单',
     'Open the quotation: %s' => '打开报价单：%s',
+    'Download PDF' => '下载 PDF',
+    'Page %1$s of %2$s' => '第 %1$s 页，共 %2$s 页',
 ];

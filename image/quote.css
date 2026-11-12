@@ -15,6 +15,8 @@
 	.quote-tools {
 		display: flex;
 		justify-content: flex-end;
+		align-items: center;
+		gap: var(--ka-mezera-s, 0.75rem);
 		max-inline-size: 52rem;
 		margin-inline: auto;
 		padding: var(--ka-mezera-s, 0.75rem) 1rem 0;
@@ -29,6 +31,13 @@
 		font: inherit;
 		font-weight: 600;
 		cursor: pointer;
+	}
+
+	/* 3.40: the same quote as a PDF file (Front\QuotePdf) – a quiet link beside the main button */
+	.quote-pdf {
+		color: var(--ka-barva-primarni, #1f2328);
+		font-weight: 600;
+		text-underline-offset: 0.2em;
 	}
 
 	.quote-print:focus-visible {

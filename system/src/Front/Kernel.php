@@ -193,8 +193,8 @@ final class Kernel
         }
         // 3.38: the customer's quote (Front\QuotePage) – a bearer link to one sent quote, before the cache and never stored in it;
         // a wrong, withdrawn or expired token is the plain not-found page (no detail, not logged among the addresses not found)
-        if (preg_match('#^/quote/([a-f0-9]{64})$#D', $request->path(), $m) === 1) {
-            return QuotePage::response($this->app, $m[1]) ?? $this->notFoundPage(404);
+        if (preg_match('#^/quote/([a-f0-9]{64})(\.pdf)?$#D', $request->path(), $m) === 1) { // 3.40: <token>.pdf = the same quote as a PDF
+            return QuotePage::response($this->app, $m[1], ($m[2] ?? '') !== '') ?? $this->notFoundPage(404);
         }
         if (($cached = Cache::load($this->app)) !== null) {
             return $cached;

@@ -2114,4 +2114,6 @@ return [
     'Quotation number' => 'Numero del preventivo',
     'Open the quotation' => 'Apri il preventivo',
     'Open the quotation: %s' => 'Apri il preventivo: %s',
+    'Download PDF' => 'Scarica PDF',
+    'Page %1$s of %2$s' => 'Pagina %1$s di %2$s',
 ];

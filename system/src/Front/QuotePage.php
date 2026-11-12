@@ -37,7 +37,7 @@ final class QuotePage
     /**
      * The document of a customer's token, or null (the caller answers with the site's 404). Counts a failed attempt.
      */
-    public static function response(App $app, string $token): ?Response
+    public static function response(App $app, string $token, bool $pdf = false): ?Response
     {
         $db = $app->db();
         $ip = Antispam::network($app->request->ip());
@@ -53,7 +53,14 @@ final class QuotePage
             return null;
         }
 
-        return self::html(self::document($app, $quote['snapshot'], self::state($app, $quote)));
+        $state = self::state($app, $quote);
+        if ($pdf) { // 3.40: /quote/<token>.pdf – the same document as a file (Front\QuotePdf), null = this quote has no PDF
+            $file = QuotePdf::render($app, $quote['snapshot'], $state);
+
+            return $file !== null ? QuotePdf::response($file, QuotePdf::filename($quote['number'], $id)) : null;
+        }
+
+        return self::html(self::document($app, $quote['snapshot'], $state, QuotePdf::render($app, $quote['snapshot'], $state) !== null ? $app->request->basePath() . '/quote/' . $token . '.pdf' : null));
     }
 
     /** The response of a rendered document: never cached, never indexed, no referrer, its own CSP (scripts and styles of the site only). */
@@ -86,17 +93,18 @@ final class QuotePage
      *
      * @param array<string, mixed> $snapshot the frozen content (Quotes::snapshot)
      * @param array{status: string, replaced_by: ?string, draft: bool} $state
+     * @param string|null $pdfUrl 3.40: where "Download PDF" leads (null = no PDF for this quote, Front\QuotePdf)
      */
-    public static function document(App $app, array $snapshot, array $state): string
+    public static function document(App $app, array $snapshot, array $state, ?string $pdfUrl = null): string
     {
         $s = $app->settings();
         $language = Language::ofContent($s, (string) ($snapshot['language'] ?? ''));
 
-        return Language::runWith($language, fn (): string => self::render($app, $snapshot, $state, $language), '', $s->get('german_register'));
+        return Language::runWith($language, fn (): string => self::render($app, $snapshot, $state, $language, $pdfUrl), '', $s->get('german_register'));
     }
 
     /** @param array<string, mixed> $snapshot @param array{status: string, replaced_by: ?string, draft: bool} $state */
-    private static function render(App $app, array $snapshot, array $state, string $language): string
+    private static function render(App $app, array $snapshot, array $state, string $language, ?string $pdfUrl = null): string
     {
         $s = $app->settings();
         $base = $app->request->basePath();
@@ -120,7 +128,8 @@ final class QuotePage
             . '<title>' . e($heading . ' – ' . $siteName) . '</title>' . DesignSystem::fontPreloads($ds, $base) . '<style>' . DesignSystem::css($ds, $base) . '</style>'
             . '<link rel="stylesheet" href="' . e($base . '/image/quote.css?v=' . KALETA_VERSION) . '">'
             . '<script src="' . e($base . '/image/quote.js?v=' . KALETA_VERSION) . '" defer></script></head><body class="quote-body">';
-        $html .= '<div class="quote-tools"><button type="button" class="quote-print" data-quote-print hidden>' . e(t('Print or save as PDF')) . '</button></div>';
+        $html .= '<div class="quote-tools">' . ($pdfUrl !== null ? '<a class="quote-pdf" href="' . e($pdfUrl) . '" download>' . e(t('Download PDF')) . '</a>' : '')
+            . '<button type="button" class="quote-print" data-quote-print hidden>' . e(t('Print or save as PDF')) . '</button></div>';
         $html .= '<article class="quote">';
 
         // the head: the supplier (logo, name, address, numbers) and the document's title with the dates

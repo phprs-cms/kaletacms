@@ -8610,4 +8610,11 @@ return [
     'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.' => 'La cuenta se ha reactivado – el usuario puede volver a iniciar sesión. Sus conexiones de Claude y sus tokens personales se han revocado (%d); para conservarlos, desmarca en su lugar la casilla en el formulario del usuario.',
     'when unblocking, revoke its Claude connections and personal tokens (%d) – otherwise they work again' => 'al desbloquear, revocar sus conexiones de Claude y sus tokens personales (%d) – si no, vuelven a funcionar',
     'An outage or an expired certificate or domain cannot be accepted – it needs fixing. Nothing was saved.' => 'Una caída o un certificado o dominio caducado no se puede aceptar: hay que solucionarlo. No se ha guardado nada.',
+    'Download PDF' => 'Descargar PDF',
+    'Attach the quote as a PDF' => 'Adjuntar el presupuesto en PDF',
+    'This quote’s language cannot be drawn in a PDF, so the e-mail carries the link only.' => 'El idioma de este presupuesto no se puede representar en un PDF, así que el correo lleva solo el enlace.',
+    'Attach the quote as a PDF to the e-mail' => 'Adjuntar el presupuesto en PDF al correo',
+    'The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.' => 'El valor por defecto de la casilla en el diálogo de envío. El enlace al presupuesto va siempre en el correo; los presupuestos en escritura árabe, griega, cirílica o asiática se envían solo con el enlace.',
+    'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Este presupuesto no tiene PDF: su idioma o su texto no se pueden representar con las fuentes de un PDF. Imprima la vista previa o guárdela como PDF desde el navegador.',
+    'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'El correo salió sin el PDF: el idioma o el texto del presupuesto no se pueden representar en un PDF; el cliente tiene el enlace.',
 ];

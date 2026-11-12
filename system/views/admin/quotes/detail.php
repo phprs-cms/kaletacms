@@ -75,6 +75,7 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 <?php endif ?>
 	<details class="zaznam-vice" data-zavrit-mimo data-record-more><summary><?= e(t('More')) ?></summary><div class="zaznam-vice-menu">
 		<a class="navigace" href="<?= e($module->url('preview', ['id' => $id])) ?>" data-quote-preview><?= e(t('Preview')) ?></a>
+		<a class="navigace" href="<?= e($module->url('pdf', ['id' => $id])) ?>" data-quote-pdf><?= e(t('Download PDF')) ?></a>
 <?php if (in_array($status, ['sent', 'accepted'], true)): ?>
 		<form method="post" action="<?= e($module->url('link')) ?>" data-quote-link-new><?= $hidden ?><input type="hidden" name="back" value="detail"><button class="navigace" type="submit"><?= e(t('New link')) ?></button></form>
 <?php endif ?>

@@ -2114,4 +2114,6 @@ return [
     'Quotation number' => 'Número de presupuesto',
     'Open the quotation' => 'Abrir el presupuesto',
     'Open the quotation: %s' => 'Abrir el presupuesto: %s',
+    'Download PDF' => 'Descargar PDF',
+    'Page %1$s of %2$s' => 'Página %1$s de %2$s',
 ];

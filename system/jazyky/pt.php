@@ -2141,4 +2141,6 @@ O link funciona por %d dias.
     'Item' => 'Artigo',
     'Total' => 'Total',
     'Subtotal' => 'Subtotal',
+    'Download PDF' => 'Descarregar PDF',
+    'Page %1$s of %2$s' => 'Página %1$s de %2$s',
 ];

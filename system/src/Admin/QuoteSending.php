@@ -8,6 +8,7 @@ use Kaleta\Core\QuoteDelivery;
 use Kaleta\Core\Quotes;
 use Kaleta\Core\Response;
 use Kaleta\Front\QuotePage;
+use Kaleta\Front\QuotePdf;
 
 /**
  * Sending a quote and its customer's link (3.38, design A5 5–6, A7) – actions of Admin\Modules\Quotes kept apart from
@@ -19,6 +20,8 @@ use Kaleta\Front\QuotePage;
  *    (copy it, or the mail-program link), as replies do. For a quote already sent it shows the link and its state.
  *    (POST): sends it (Core\QuoteDelivery::send) or, with mode=finalise, finalises it and makes the link.
  *  - preview: the document as the customer sees it (Front\QuotePage), a draft from its live data and marked as a draft.
+ *  - pdf (3.40): the same document as a PDF file (Front\QuotePdf) – "Download PDF" on the detail; a draft is marked as one.
+ *    Sending attaches it when "Attach the quote as a PDF" is ticked (quote_attach_pdf).
  *  - link (POST): a new link for a sent quote (the old one stops working); link_withdraw (POST): withdraws it at once.
  *    Both go back to the send dialog, or to the quote's detail with back=detail.
  *  - texts_save (POST, administrators): the default texts of new quotes – intro, terms and the document's footer – for
@@ -39,7 +42,8 @@ trait QuoteSending
             $user = $this->app->auth()->user() ?? [];
 
             return $this->view('send', 'Send the quote', ['quote' => $quote, 'draft' => QuoteDelivery::draft($this->app, $quote), 'link' => QuoteDelivery::linkUrl($this->app, $quote),
-                'signature' => \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null, 'replyTo' => (string) ($user['email'] ?? '')]);
+                'signature' => \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null, 'replyTo' => (string) ($user['email'] ?? ''),
+                'pdf' => $this->pdfOf($quote) !== null, 'attachPdf' => $this->app->settings()->bool('quote_attach_pdf')]);
         }
         try {
             if ($this->request->post('mode') === 'finalise') {
@@ -47,7 +51,8 @@ trait QuoteSending
                 QuoteDelivery::remember($this->app, $id, QuoteDelivery::issueLink($this->app, $id, $this->app->auth()->id())); // 3.38 review L1: shown in this session only
                 $this->app->session->flash('ok', t('Quote %s was finalised – hand over the link below or print the quote.', (string) $done['number']));
             } else {
-                $done = QuoteDelivery::send($this->app, $id, $this->request->post('subject'), $this->request->post('message'), $this->request->postBool('set_deal_value'));
+                $done = QuoteDelivery::send($this->app, $id, $this->request->post('subject'), $this->request->post('message'), $this->request->postBool('set_deal_value'), 'admin',
+                    $this->request->postBool('attach_pdf') ? QuotePdf::attachment($this->app) : null);
                 QuoteDelivery::remember($this->app, $id, $done['link']);
                 $this->app->session->flash($done['status'] === 'sent' ? 'ok' : 'chyba', ($done['status'] === 'sent'
                     ? t('Quote %1$s was sent to %2$s.', $done['number'], $done['to'])
@@ -70,6 +75,29 @@ trait QuoteSending
         $snapshot = $quote['snapshot'] ?? (Quotes::snapshot($this->app, $quote) + ['sent_at' => null]);
 
         return QuotePage::html(QuotePage::document($this->app, $snapshot, QuotePage::state($this->app, $quote)));
+    }
+
+    /** 3.40: the quote as a PDF file – the frozen document of a sent quote, a draft from its live data (marked as a draft). */
+    protected function actionPdf(): Response
+    {
+        $quote = Quotes::get($this->db, $this->request->getInt('id'));
+        if ($quote === null) {
+            return $this->error('The quote does not exist.', 404);
+        }
+        $pdf = $this->pdfOf($quote);
+        if ($pdf === null) {
+            return $this->back('This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.', 'detail', ['id' => (int) $quote['id']], 'chyba');
+        }
+
+        return QuotePdf::response($pdf, QuotePdf::filename($quote['number'], (int) $quote['id']));
+    }
+
+    /** The PDF of a quote (a draft from its live data), or null when its language cannot be drawn. @param array<string, mixed> $quote */
+    private function pdfOf(array $quote): ?string
+    {
+        $snapshot = $quote['snapshot'] ?? (Quotes::snapshot($this->app, $quote) + ['sent_at' => null]);
+
+        return QuotePdf::render($this->app, $snapshot, QuotePage::state($this->app, $quote));
     }
 
     protected function actionLink(): Response

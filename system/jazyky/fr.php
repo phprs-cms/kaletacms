@@ -2107,4 +2107,6 @@ return [
     'Quotation number' => 'Numéro du devis',
     'Open the quotation' => 'Ouvrir le devis',
     'Open the quotation: %s' => 'Ouvrir le devis : %s',
+    'Download PDF' => 'Télécharger le PDF',
+    'Page %1$s of %2$s' => 'Page %1$s sur %2$s',
 ];

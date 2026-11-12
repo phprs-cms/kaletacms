@@ -2538,6 +2538,7 @@
     },
     "send_quote": {
         "parameters": {
+            "attach_pdf": "boolean",
             "confirm": "boolean",
             "id": "integer",
             "message": "string",
