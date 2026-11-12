@@ -12,6 +12,9 @@
  * @var array<string, mixed> $tasks the console tasks about the site (3.30, Admin\TaskActions::taskPanel)
  * @var array{pilot: int, normal: int, careful: int} $delays the rings' delays in hours (3.30, Fleet\Rollout)
  * @var string $customerWindow the maintenance window of the site's customer ('' = any time)
+ * @var array<string, array<string, mixed>> $accepted the accepted checks of the site (3.39, Fleet\\Acceptances::ofSite)
+ * @var array<int, string> $names user id => name of who accepted them
+ * @var string $csrf
  */
 
 use Kaleta\Core\AgentSchedules;
@@ -42,6 +45,19 @@ $yes = fn (mixed $v): string => $v ? t('yes') : t('no');
 ?>
 <p><a href="<?= e($module->url('sites', ['show' => 'all'])) ?>">← <?= e(t('All sites')) ?></a> · <a href="<?= e($module->url('inbox', ['site' => (int) $site['id']])) ?>"><?= e(t('Inbox')) ?></a> · <a href="<?= e((string) $site['url']) ?>" target="_blank" rel="noopener"><?= e((string) $site['url']) ?></a> · <a href="<?= e((string) $site['url'] . '/admin.php') ?>" target="_blank" rel="noopener"><?= e(t('Administration of the site')) ?></a></p>
 <p class="hlaska<?= $site['reasons'] === [] ? ' hlaska-ok' : '' ?>"><?php if ($site['reasons'] === []): ?><?= e(t('Nothing needs attention.')) ?><?php else: ?><?= e(t('Needs attention:')) ?> <?= e(implode(', ', array_map(fn (string $r): string => $reasonLabels[$r], $site['reasons']))) ?><?php endif ?></p>
+<?php if ($accepted !== []): /* 3.39: accepted on the console – nothing was changed on the site */ ?>
+<section class="flotila-prijato" data-fleet-accepted-site aria-labelledby="prijato-nadpis">
+<h2 id="prijato-nadpis"><?= e(t('Accepted on the console')) ?></h2>
+<ul>
+<?php foreach ($accepted as $check => $a): ?>
+	<li><strong><?= e($a['label']) ?></strong> · <?= e(t('until %s', format_date((string) $a['until']))) ?> – <?= e((string) $a['note']) ?>
+		<span class="smltxt"><?= e($a['by'] !== null && isset($names[$a['by']]) ? t('Accepted by %s on %s', $names[$a['by']], format_date((string) $a['at'], true)) : t('Accepted on %s', format_date((string) $a['at'], true))) ?></span>
+		<form class="vradku" method="post" action="<?= e($module->url('unaccept')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $site['id'] ?>"><input type="hidden" name="check" value="<?= e((string) $check) ?>"><input type="hidden" name="from" value="detail">
+			<button class="navigace" type="submit"><?= e(t('Withdraw')) ?><span class="navod-skryte"> – <?= e($a['label']) ?></span></button></form></li>
+<?php endforeach ?>
+</ul>
+</section>
+<?php endif ?>
 <div class="tab-obal"><table class="vypis"><tbody>
 	<tr><th scope="row"><?= e(t('Up')) ?></th><td><?= $site['up'] === null ? e(t('not checked yet')) : ((int) $site['up'] === 1 ? e(t('yes')) : '<span class="stitek stitek-chyba">' . e(t('no')) . '</span>') ?><?= $site['up_checked'] !== null ? ' · ' . e(t('checked %s', format_date(new DateTimeImmutable((string) $site['up_checked']), true))) . ((int) $site['up_status'] > 0 ? ' (HTTP ' . (int) $site['up_status'] . ')' : '') : '' ?></td></tr>
 	<tr><th scope="row"><?= e(t('Last report')) ?></th><td><?= $site['last_seen'] !== null ? e(format_date(new DateTimeImmutable((string) $site['last_seen']), true)) : e(t('no report yet')) ?></td></tr>

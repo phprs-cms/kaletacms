@@ -1370,6 +1370,21 @@ CREATE TABLE ka_fleet_expiry_reminders (
     KEY ix_fleet_expiry_reminders_sent (sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- States accepted on the console (3.39, Fleet\Acceptances): the operator accepts one check of one site in its current state
+-- (warn | bad) with a note until a day – it leaves Today's open groups, alerts and the digest's attention until that day or
+-- until the check's state changes (a worse one re-opens it). Stored on the console only; nothing is sent to the site.
+CREATE TABLE ka_fleet_acceptances (
+    site_id     INT UNSIGNED NOT NULL,
+    check_id    VARCHAR(40) NOT NULL,                       -- a key of Fleet\Checks::CHECKS
+    state       VARCHAR(10) NOT NULL,                       -- warn | bad: the state accepted
+    note        VARCHAR(200) NOT NULL DEFAULT '',
+    ends_on     DATE NOT NULL,                              -- the last day it holds
+    accepted_by INT UNSIGNED NULL,                          -- ka_uzivatele.idu
+    accepted_at DATETIME NOT NULL,
+    PRIMARY KEY (site_id, check_id),
+    KEY ix_fleet_acceptances_ends (ends_on)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 CREATE TABLE ka_fleet_pairing (
     code_hash  CHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin     NOT NULL,                       -- sha256 of the one-time code
     created_at DATETIME     NOT NULL,

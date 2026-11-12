@@ -66,14 +66,19 @@ final class Digest
         $db = $app->db();
         $now = time();
         $sites = [];
+        // 3.39: what the operator accepted (Fleet\Acceptances) is not "needs attention" in the digest – it is listed as accepted
+        $acceptedNow = Acceptances::active(Console::sites($db), Acceptances::load($db), $now, Health::context($app));
         foreach (Console::overview($db, $now) as $site) {
             $id = (int) $site['id'];
             $beat = $site['beat'];
+            $accepted = array_values(array_filter($acceptedNow, fn (array $a): bool => $a['site_id'] === $id));
             $requests = is_array($beat['requests'] ?? null) ? $beat['requests'] : null;
             $days = History::days($db, $id, $from->format('Y-m-d'), $to->modify('-1 day')->format('Y-m-d'));
             $count = static fn (mixed $n): int => Console::count($n) ?? 0; // bounded counts only (N317-1)
             $sites[] = [
-                'id' => $id, 'customer_id' => Console::customerIdOf($site), 'name' => (string) $site['name'], 'url' => Console::url((string) $site['url']) ?? '', 'reasons' => $site['reasons'],
+                'id' => $id, 'customer_id' => Console::customerIdOf($site), 'name' => (string) $site['name'], 'url' => Console::url((string) $site['url']) ?? '',
+                'reasons' => self::openReasons($site['reasons'], array_column($accepted, 'check')),
+                'accepted' => array_map(fn (array $a): array => ['check' => (string) $a['check'], 'until' => (string) $a['until'], 'note' => (string) $a['note']], $accepted),
                 'enquiries' => Console::enquiriesWaiting($beat),
                 'requests' => $requests === null ? null : ['new' => $count($requests['new'] ?? null), 'in_progress' => $count($requests['in_progress'] ?? null), 'done_to_review' => $count($requests['done_to_review'] ?? null)],
                 'request_titles' => array_values(array_map(fn (array $item): string => is_string($item['title'] ?? null) ? $item['title'] : '',
@@ -87,6 +92,26 @@ final class Digest
         }
 
         return ['from' => $from->format('Y-m-d'), 'to' => $to->modify('-1 day')->format('Y-m-d'), 'customers' => Report::byCustomer($sites, Customers::names($db))];
+    }
+
+    /**
+     * The reasons of a site's attention (Console::REASONS) that follow a check of Fleet\Checks (3.39) – a reason whose
+     * check is accepted leaves the digest's "needs attention".
+     */
+    public const array REASON_CHECKS = ['down' => 'uptime', 'not_reporting' => 'reporting', 'update_failed' => 'updates', 'update_available' => 'updates',
+        'jobs_failing' => 'jobs', 'certificate_expiring' => 'certificate', 'domain_expiring' => 'domain', 'no_backup' => 'local_backup', 'no_cron' => 'cron',
+        'claude_not_connected' => 'claude_connection', 'claude_run_stalled' => 'claude_connection'];
+
+    /**
+     * The reasons without those whose check is accepted. Pure.
+     *
+     * @param list<string> $reasons
+     * @param list<string> $acceptedChecks
+     * @return list<string>
+     */
+    public static function openReasons(array $reasons, array $acceptedChecks): array
+    {
+        return array_values(array_filter($reasons, fn (string $r): bool => !in_array(self::REASON_CHECKS[$r] ?? '', $acceptedChecks, true)));
     }
 
     /**
@@ -117,6 +142,10 @@ final class Digest
                     $url = Console::oneLine($site['url'], 255);
                     $lines[] = ($name !== '' ? $name . ' – ' : '') . $url;
                     $lines[] = '  ' . ($site['reasons'] === [] ? t('Nothing needs attention.') : t('Needs attention:') . ' ' . implode(', ', array_map(fn (string $r): string => $labels[$r] ?? $r, $site['reasons'])));
+                    foreach ($site['accepted'] ?? [] as $accepted) { // 3.39: the operator's own note, on one line
+                        $lines[] = '  ' . t('Accepted until %s: %s', format_date($accepted['until']), t(Checks::CHECKS[$accepted['check']][0] ?? $accepted['check']))
+                            . ($accepted['note'] !== '' ? ' – ' . Console::oneLine($accepted['note'], Acceptances::NOTE_LENGTH) : '');
+                    }
                     $waits = array_filter([
                         $site['enquiries'] !== null && $site['enquiries'] > 0 ? t('%d enquiries waiting', $site['enquiries']) : null,
                         $site['requests'] !== null && $site['requests']['new'] + $site['requests']['in_progress'] > 0 ? t('%d requests open', $site['requests']['new'] + $site['requests']['in_progress']) : null,

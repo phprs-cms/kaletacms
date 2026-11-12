@@ -8,7 +8,7 @@ declare(strict_types=1);
 // Structural rules that walk the whole tree (no Czech query parameters, every table in the names map …) are not pins.
 
 /** The pins of 3.36.0 T3; lower it when you replace pins, never raise it. */
-const UNIT_SOURCE_PIN_CEILING = 306;
+const UNIT_SOURCE_PIN_CEILING = 305;
 
 $t3pAll = [];
 $t3pUntagged = [];

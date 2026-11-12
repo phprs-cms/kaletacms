@@ -121,6 +121,7 @@ final class TimeZoneConversion
         'fleet_incidents' => ['started_at', 'ended_at'],
         'fleet_reports' => ['created_at', 'rebuilt_at'],
         'fleet_expiry_reminders' => ['sent_at'], // 3.30 (Fleet\Calendar; the date is civil)
+        'fleet_acceptances' => ['accepted_at'], // 3.39 (Fleet\Acceptances; the last day is civil)
         'facts' => ['updated_at'],
         'fact_history' => ['changed_at'],
         'hours_exceptions' => ['created_at'],
@@ -162,6 +163,7 @@ final class TimeZoneConversion
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
         'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
         'fleet_expiry_reminders' => ['expires'], // 3.30: the day a certificate or domain ends, as the site reported it
+        'fleet_acceptances' => ['ends_on'], // 3.39: the last day an accepted state holds on the console
         // opening hours exceptions (holidays), appointments, days off and proposed times: a 10:00 appointment stays at 10:00
         'hours_exceptions' => ['date_from', 'date_to'],
         'bookings' => ['starts_at', 'ends_at'],

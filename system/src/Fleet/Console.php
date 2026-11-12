@@ -212,6 +212,7 @@ final class Console
         if ($db->delete('fleet_sites', ['id' => $id]) > 0) {
             History::forget($db, $id); // 3.17: its days and down periods; the fleet reports already made keep it
             \Kaleta\Core\Tasks::forgetTargets($db, [ConsoleTasks::site($id)]); // 3.30: its console tasks follow it
+            Acceptances::forget($db, $id); // 3.39: and the states accepted on it
             Events::record($db, 'fleet.site_removed', 'info', t('%s is no longer in the console.', $url), ['site' => $id]);
         }
     }

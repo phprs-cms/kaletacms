@@ -231,10 +231,10 @@ check('3.30 Calendar::ics – CRLF lines folded at 75 octets, an all-day event, 
     [true, true, true, true, true, true, true, true]);
 
 // the console's screens, jobs and tools
-$x330Tabs = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/tabs.php');
 $x330Fleet = new ReflectionClass(Kaleta\Admin\Modules\Fleet::class);
-check('[source-pin] 3.30: three new tabs (Inventory, Calendar, Rollout), their actions, the reminder job only on a console, fleet_inventory and fleet_calendar are read tools of the fleet extension outside the essentials, English on both sides, with a title', [
-    (bool) preg_match("/'inventory' => t\\('Inventory'\\), 'calendar' => t\\('Calendar'\\), 'rollout' => t\\('Rollout'\\)/", $x330Tabs),
+check('3.30: three new tabs (Inventory, Calendar, Rollout), their actions, the reminder job only on a console, fleet_inventory and fleet_calendar are read tools of the fleet extension outside the essentials, English on both sides, with a title', [
+    // 3.39: Inventory a view of Sites, Calendar a section, Rollout a view of Updates (Fleet::SECTIONS)
+    Kaleta\Admin\Modules\Fleet::sectionOf('inventory') === 'sites' && Kaleta\Admin\Modules\Fleet::sectionOf('calendar') === 'calendar' && Kaleta\Admin\Modules\Fleet::sectionOf('rollout') === 'rollout',
     array_map(fn (string $m): bool => $x330Fleet->hasMethod($m), ['actionInventory', 'actionInventoryCsv', 'actionCalendar', 'actionCalendarSave', 'actionCalendarFeed', 'actionRollout', 'actionRolloutSave', 'actionWindow']),
     Kaleta\Core\Scheduler::JOBS['fleet_expiry'][0] ?? null, Kaleta\Core\Scheduler::applies('fleet_expiry', $c329Settings(['extensions' => 'fleet'])), Kaleta\Core\Scheduler::applies('fleet_expiry', $c329Settings(['extensions' => 'novinky'])),
     array_map(fn (string $t): array => [Kaleta\Mcp\Catalog::TOOLS[$t] ?? null, in_array($t, Kaleta\Mcp\Catalog::ESSENTIALS, true), Kaleta\Mcp\Translator::czech($t), isset(Kaleta\Mcp\Catalog::TITLES[$t])],

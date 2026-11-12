@@ -3,10 +3,11 @@
 declare(strict_types=1);
 
 /* ---------- 3.29 (agent B): the console screens – Today (the default tab), the health matrix, the workload; MCP fleet_today and fleet_health ---------- */
-$b329Tabs = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/fleet/tabs.php');
 $b329Fleet = new ReflectionClass(Kaleta\Admin\Modules\Fleet::class);
 check('[source-pin] 3.29: the fleet console opens on Today; the inbox, the health matrix and the workload are tabs of their own, each an action of the module', [
-    (bool) preg_match("/\\['' => t\\('Today'\\), 'inbox' => t\\('Inbox'\\), 'health' => t\\('Health'\\), 'workload' => t\\('Workload'\\), 'sites' =>/", $b329Tabs),
+    // 3.39: the tabs are sections (Fleet::SECTIONS) – Today first with the inbox as its view, the matrix and the workload views of Sites
+    array_key_first(Kaleta\Admin\Modules\Fleet::SECTIONS) === '' && array_keys(Kaleta\Admin\Modules\Fleet::SECTIONS[''][1]) === ['', 'inbox']
+        && isset(Kaleta\Admin\Modules\Fleet::SECTIONS['sites'][1]['health'], Kaleta\Admin\Modules\Fleet::SECTIONS['sites'][1]['workload']),
     array_map(fn (string $m): bool => $b329Fleet->hasMethod($m), ['actionList', 'actionInbox', 'actionHealth', 'actionWorkload']),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Fleet.php'), "return \$this->view('today', 'Fleet'"),
     array_map(fn (string $f): bool => is_file(KALETA_SYSTEM . '/views/admin/fleet/' . $f . '.php'), ['today', 'health', 'workload', 'inbox']),

@@ -117,6 +117,7 @@ return [
     'fleet_incidents' => ['fleet_incidents', []],
     'fleet_reports' => ['fleet_reports', []],
     'fleet_expiry_reminders' => ['fleet_expiry_reminders', []], // 3.30
+    'fleet_acceptances' => ['fleet_acceptances', []], // 3.39
     'facts' => ['facts', []],
     'fact_history' => ['fact_history', []],
     'hours_exceptions' => ['hours_exceptions', []],

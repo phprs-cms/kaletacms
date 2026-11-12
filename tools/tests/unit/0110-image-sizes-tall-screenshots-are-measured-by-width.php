@@ -224,6 +224,8 @@ $parity = [
         'report_build' => 'admin: making or rebuilding the fleet reports replaces stored ones – the administrator\'s choice (3.17)',
         // 3.30: a customer's screen reads what list_sites and fleet_plan read; the console tasks are save_task / complete_task
         'customer_detail' => 'fleet_plan', 'task' => 'save_task',
+        // 3.39: accepting a state is the operator's decision about a customer's site; fleet_today and fleet_health show it (accepted)
+        'accept' => 'admin: accepting a state is the operator\'s decision on the console (3.39); fleet_today shows it', 'unaccept' => 'admin: withdrawing an acceptance is the operator\'s decision (3.39)',
         // 3.30: the inventory, the expiry calendar and the rollout are read by fleet_inventory and fleet_calendar; what they change is the owner's
         'inventory' => 'fleet_inventory', 'inventory_csv' => 'fleet_inventory', 'calendar' => 'fleet_calendar', 'rollout' => 'fleet_inventory',
         'calendar_save' => 'admin: who is reminded of the dates and when is the owner\'s setting (3.30)', 'calendar_feed' => 'admin: a secret calendar link is a person\'s own (3.30)',

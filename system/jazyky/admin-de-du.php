@@ -1404,4 +1404,5 @@ return [
     'Quote %s is finalised – hand it over or print it.' => 'Angebot %s ist abgeschlossen – übergib oder drucke es.',
     'No product or own row of the price list has the code %s – choose one from the list.' => 'Kein Produkt und keine eigene Zeile der Preisliste hat den Code %s – wähle einen aus der Liste.',
     'Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.' => 'Zeile %1$d: Ihr Rabatt und der Rabatt des Angebots liegen zusammen über %2$s %% – bitte eine Person, ihn in der Administration einzustellen.',
+    'Write why the state is accepted – the note is shown to everyone who opens the console. Nothing was saved.' => 'Schreib, warum der Zustand akzeptiert wird – die Notiz sieht jeder, der die Konsole öffnet. Nichts wurde gespeichert.',
 ];

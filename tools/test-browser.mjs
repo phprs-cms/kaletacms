@@ -2317,6 +2317,79 @@ await step('3.29 fleet console: Today, Health and Workload at 1440 and 390 px, l
   }
 });
 
+// 3.39 (A): Today grouped by check – the red groups open, the amber ones open up to 5 rows, six section tabs with a row of views; accepting
+// a state with a note moves it to the folded Accepted group (nothing on the site changes) and withdrawing it brings it back;
+// at 1440 and 390 px, light and dark, no sideways scroll, axe clean with a group and the Accept form open
+await step('3.39 fleet Today: groups by check, accept and withdraw a state, six tabs, 1440 and 390 px, light and dark, axe clean', async () => {
+  const submit = async (locator) => { await Promise.all([page.waitForNavigation(), locator.click()]); };
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height, name] of [[1440, 900, 'desktop'], [390, 844, 'phone']]) {
+        await page.setViewportSize({ width, height });
+        await visit('/admin.php?module=fleet');
+        const groups = page.locator('details[data-fleet-group]');
+        if (await groups.count() < 3) { throw new Error(`Today has ${await groups.count()} groups`); }
+        if (!(await groups.first().evaluate((d) => d.open)) || !(await groups.first().locator('summary .stitek-chyba').count())) { throw new Error('the first group is not red and open'); }
+        const amber = page.locator('details[data-fleet-group]').filter({ has: page.locator('summary .stitek-koncept') }).filter({ has: page.locator('[data-fleet-accept]') });
+        if (!(await amber.count())) { throw new Error('no amber group with Accept'); }
+        if (!(await amber.first().evaluate((d) => d.open === (d.querySelectorAll('tbody tr').length <= 5)))) { throw new Error('an amber group of up to 5 rows is not open, or a longer one not folded'); }
+        if (await page.locator('nav.zalozky:not(.flotila-pohledy) a').count() !== 6) { throw new Error('the console has not six section tabs'); }
+        if (!(await page.locator('nav.flotila-pohledy a[aria-current="page"]', { hasText: 'Today' }).count())) { throw new Error('the views row does not mark Today'); }
+        await amber.first().evaluate((d) => { d.open = true; });
+        await amber.first().locator('[data-fleet-accept] summary').first().click();
+        const wider = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (wider > 1) { throw new Error(`Today with a group and the Accept form open scrolls sideways by ${wider} px at ${width} px (${scheme})`); }
+        if (SHOTS) { await page.screenshot({ path: `${SHOTS}/fleet-339-today-${name}-${scheme}.png`, fullPage: true }); }
+      }
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // accept the first amber row with a note: it leaves its group for the Accepted group, with the note and who accepted
+    await visit('/admin.php?module=fleet');
+    const group = page.locator('details[data-fleet-group]').filter({ has: page.locator('summary .stitek-koncept') }).filter({ has: page.locator('[data-fleet-accept]') }).first();
+    const check = await group.getAttribute('data-fleet-group');
+    const before = await group.locator('tbody tr').count();
+    await group.evaluate((d) => { d.open = true; });
+    const form = group.locator('[data-fleet-accept]').first();
+    await form.locator(':scope > summary').click();
+    await form.locator('input[name="note"]').fill('The customer decides this one');
+    if ((await form.locator('input[name="until"]').inputValue()).length !== 10) { throw new Error('the last day has no default'); }
+    await submit(form.locator('button[type="submit"]'));
+    if (!/Accepted until/.test((await page.locator('.hlaska').first().textContent()) || '')) { throw new Error('no message after accepting'); }
+    const accepted = page.locator('details[data-fleet-accepted]');
+    if (await accepted.evaluate((d) => d.open)) { throw new Error('the Accepted group is not folded'); }
+    if (!(await accepted.locator(`tr[data-fleet-accepted-item="${check}"]`, { hasText: 'The customer decides this one' }).count())) { throw new Error('the accepted state is not in the Accepted group with its note'); }
+    const after = await page.locator(`details[data-fleet-group="${check}"] tbody tr`).count();
+    if (after !== before - 1) { throw new Error(`the group ${check} still has ${after} rows (before ${before})`); }
+    if (!(await page.locator('[data-fleet-accepted-count]').count())) { throw new Error('the summary does not count the accepted states'); }
+    // axe with the Accepted group open and a red group's Accept form open
+    await accepted.locator(':scope > summary').click();
+    await page.locator('details[data-fleet-group][open] [data-fleet-accept] summary').first().click();
+    const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + '/admin.php?module=fleet', { waitUntil: 'networkidle' });
+        await axePage.evaluate(() => { document.querySelectorAll('details[data-fleet-group], details[data-fleet-accepted], details[data-fleet-accept]').forEach((d) => { d.open = true; }); });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([tags]) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [WCAG]);
+        if (found.violations.length) { throw new Error(`axe Today (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // withdraw it: the state is open again
+    await submit(page.locator(`details[data-fleet-accepted] tr[data-fleet-accepted-item="${check}"] button[type="submit"]`).first());
+    if (await page.locator('details[data-fleet-accepted]').count() || await page.locator(`details[data-fleet-group="${check}"] tbody tr`).count() !== before) { throw new Error('withdrawing did not reopen the state'); }
+  } finally {
+    sql('DELETE FROM ka_fleet_acceptances');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+  }
+});
+
 // 3.30 (agent Y): console tasks – the task panel on a site's screen (with the site's own Claude connector and Copy) and on a
 // customer's screen, the Tasks counts of Sites and Customers, the overdue task on Today (amber, opening the task on the console)
 // and in My work – at 1440 and 390 px, light and dark, no sideways scroll, axe clean in the panel, the connector and the sites

@@ -37,6 +37,9 @@ final class Health
     /** The sort orders of the matrix: the worst first (default), by name, grouped by customer. */
     public const array MATRIX_SORTS = ['worst', 'name', 'customer'];
 
+    /** Today (3.39): an amber group with more rows than this starts folded (a red group is always open). */
+    public const int FOLD_OVER = 5;
+
     /** How many Today items the MCP tool returns at most. */
     public const int MCP_LIMIT = 200;
 
@@ -74,6 +77,36 @@ final class Health
     {
         return array_values(array_filter($items, static fn (array $i): bool => ($customer === 0 || ($customer < 0 ? $i['customer_id'] === null : $i['customer_id'] === $customer))
             && ($severity === '' || $i['state'] === $severity)));
+    }
+
+    /**
+     * Today grouped by check (3.39): one group per check (an overdue console task is the group "task", a held rollout the
+     * group "rollout"), the red groups first, then the amber ones; within each, the weight of the check, then the number
+     * of sites, then the label. A group's state is its worst item; it counts its sites (distinct) and its red and amber
+     * items and keeps the items in the order they came (ranked). Pure.
+     *
+     * @param list<array<string, mixed>> $items ranked items of Today (ConsoleTasks::rank)
+     * @return list<array{check: string, label: string, state: string, weight: int, sites: int, bad: int, warn: int, items: list<array<string, mixed>>}>
+     */
+    public static function groups(array $items): array
+    {
+        $groups = [];
+        $places = [];
+        foreach ($items as $item) {
+            $check = (string) $item['check'];
+            $groups[$check] ??= ['check' => $check, 'label' => $check === 'task' ? t('Overdue tasks') : (string) $item['label'], 'state' => 'warn', 'weight' => (int) $item['weight'],
+                'sites' => 0, 'bad' => 0, 'warn' => 0, 'items' => []];
+            $groups[$check]['items'][] = $item;
+            $groups[$check][$item['state'] === 'bad' ? 'bad' : 'warn']++;
+            $groups[$check]['state'] = $groups[$check]['bad'] > 0 ? 'bad' : 'warn';
+            $places[$check][(int) $item['site_id'] > 0 ? 's' . (int) $item['site_id'] : 'c' . (int) ($item['customer_id'] ?? 0)] = true;
+            $groups[$check]['sites'] = count($places[$check]);
+        }
+        $groups = array_values($groups);
+        usort($groups, static fn (array $a, array $b): int => [$b['state'] === 'bad' ? 1 : 0, $b['weight'], $b['sites'], mb_strtolower($a['label'])]
+            <=> [$a['state'] === 'bad' ? 1 : 0, $a['weight'], $a['sites'], mb_strtolower($b['label'])]);
+
+        return $groups;
     }
 
     /**

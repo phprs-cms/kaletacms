@@ -366,7 +366,10 @@ final class Calendar
             $sites[(int) $site['id']] = $site;
         }
         $fresh = [];
-        foreach (self::dueByKind(self::dates(array_values($sites), time()), $thresholds, $sent) as $d) {
+        // 3.39: a certificate or a domain the operator accepted (Fleet\Acceptances) gets no reminder while the acceptance holds
+        $accepted = Acceptances::active(array_values($sites), Acceptances::load($db), time(), Health::context($app));
+        $events = array_values(array_filter(self::dates(array_values($sites), time()), fn (array $e): bool => !isset($accepted[Acceptances::key((int) $e['site_id'], (string) $e['kind'])])));
+        foreach (self::dueByKind($events, $thresholds, $sent) as $d) {
             $e = $d['event'];
             $first = 0;
             foreach ($d['passed'] as $n) {

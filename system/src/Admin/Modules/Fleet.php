@@ -7,6 +7,7 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\ChangeLog;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
+use Kaleta\Fleet\Acceptances;
 use Kaleta\Fleet\AlertRules;
 use Kaleta\Fleet\Calendar;
 use Kaleta\Fleet\Checks;
@@ -49,9 +50,39 @@ final class Fleet extends Module
     public const bool ADMIN_ONLY = true;
 
     /**
-     * Today (3.29, the console opens on it – Fleet\Checks::today through Fleet\Health): what needs attention across the sites,
-     * red before amber, then the check's weight and the oldest first; filtered by customer and severity, with a summary of
-     * the fleet. An older link with the inbox's own filters (kind, site, urgent) still opens the inbox.
+     * The sections of the console (3.39, fewer tabs): section => [label, its views (action => label)]. A section's tab opens
+     * its first view; a section with more views shows them as a second row. Every former tab is a view with its old address,
+     * so links and bookmarks keep working.
+     */
+    public const array SECTIONS = [
+        '' => ['Today', ['' => 'Today', 'inbox' => 'Inbox']],
+        'sites' => ['Sites', ['sites' => 'List', 'health' => 'Health', 'inventory' => 'Inventory', 'workload' => 'Workload']],
+        'customers' => ['Customers', ['customers' => 'Customers', 'reports' => 'Fleet reports']],
+        'rollout' => ['Updates', ['rollout' => 'Rollout', 'kit' => 'Shared kit']],
+        'calendar' => ['Calendar', []],
+        'alerts' => ['Alerts and digest', []],
+    ];
+
+    /** The screens that are not views of their own and the section they belong to. */
+    public const array SECTION_OF = ['detail' => 'sites', 'customer_detail' => 'customers', 'digest_preview' => 'alerts'];
+
+    /** The section of an action (a view, a screen of SECTION_OF, or '' = Today). */
+    public static function sectionOf(string $action): string
+    {
+        foreach (self::SECTIONS as $section => [, $views]) {
+            if ($action === $section || isset($views[$action])) {
+                return $section;
+            }
+        }
+
+        return self::SECTION_OF[$action] ?? '';
+    }
+
+    /**
+     * Today (3.29, the console opens on it – Fleet\Checks::today through Fleet\Health): what needs attention across the sites.
+     * 3.39: grouped by check (Health::groups) – the red groups on top, then the amber ones – and the checks the operator
+     * accepted (Fleet\Acceptances) in a folded group of their own; filtered by customer and severity, with a summary of the
+     * fleet. An older link with the inbox's own filters (kind, site, urgent) still opens the inbox.
      */
     protected function actionList(): Response
     {
@@ -70,11 +101,79 @@ final class Fleet extends Module
         $tasks = ConsoleTasks::todayItems(ConsoleTasks::open($this->db), $sites, $customers);
         // 3.31.1: a rollout held back by the pilots for more than 3 days (kind "rollout") – the whole fleet's, so not under a customer filter
         $held = $customer === 0 ? $this->heldRollout($sites, $now) : null;
-        $all = ConsoleTasks::rank([...$items, ...$tasks, ...($held !== null ? [$held] : [])]);
+        // 3.39: the accepted checks leave the open groups (a worse state is open again – Acceptances::holds)
+        [$open, $accepted] = Acceptances::split(ConsoleTasks::rank([...$items, ...$tasks, ...($held !== null ? [$held] : [])]), Acceptances::load($this->db), date('Y-m-d', $now));
+        $summary = Health::summary($sites, $items, $now, $context);
+        $openChecks = array_filter($open, fn (array $i): bool => ($i['kind'] ?? 'check') === 'check');
+        $summary['bad'] = count(array_filter($openChecks, fn (array $i): bool => $i['state'] === 'bad'));
+        $summary['warn'] = count($openChecks) - $summary['bad'];
+        $acceptedShown = Health::filter($accepted, $customer, $severity);
 
-        return $this->view('today', 'Fleet', ['items' => Health::filter($all, $customer, $severity), 'total' => count($all), 'summary' => Health::summary($sites, $items, $now, $context),
-            'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now, 'pairingKey' => $this->pairingKey(), 'overdueTasks' => count($tasks),
-            'names' => \Kaleta\Core\Assignment::labels($this->db, array_column($tasks, 'assignee_id')), 'me' => $this->app->auth()->id()]);
+        return $this->view('today', 'Fleet', ['groups' => Health::groups(Health::filter($open, $customer, $severity)), 'accepted' => $acceptedShown, 'total' => count($open) + count($accepted),
+            'summary' => $summary + ['accepted' => count($accepted)], 'customer' => $customer, 'severity' => $severity, 'customers' => $customers, 'now' => $now,
+            'pairingKey' => $this->pairingKey(), 'overdueTasks' => count($tasks), 'today' => date('Y-m-d', $now),
+            'names' => \Kaleta\Core\Assignment::labels($this->db, [...array_column($tasks, 'assignee_id'), ...array_column(array_column($acceptedShown, 'accepted'), 'by')]),
+            'me' => $this->app->auth()->id()]);
+    }
+
+    /**
+     * Accepts one check of one site in its current state (3.39, Fleet\Acceptances) with a note until a day – on the console
+     * only; the site is not touched. The state is the console's own evaluation now, never a posted one.
+     */
+    protected function actionAccept(): Response
+    {
+        $site = $this->site();
+        $check = $this->request->post('check');
+        $back = $this->acceptBack();
+        if (!$this->request->isPost() || $site === null || !isset(Checks::CHECKS[$check])) {
+            return $this->back('', ...$back);
+        }
+        $state = '';
+        foreach (Checks::forRow($site, time(), Health::context($this->app)) as $c) {
+            $state = $c['id'] === $check ? $c['state'] : $state;
+        }
+        if (!in_array($state, Acceptances::STATES, true)) {
+            return $this->back('This check needs no attention now – there is nothing to accept.', $back[0], $back[1], 'chyba');
+        }
+        $note = Acceptances::note($this->request->post('note'));
+        $until = Acceptances::until($this->request->post('until'), date('Y-m-d'));
+        if ($note === '') {
+            return $this->back('Write why the state is accepted – the note is shown to everyone who opens the console. Nothing was saved.', $back[0], $back[1], 'chyba');
+        }
+        if ($until === null) {
+            return $this->back(t('The last day must be a date from today to %d days ahead. Nothing was saved.', Acceptances::MAX_DAYS), $back[0], $back[1], 'chyba');
+        }
+        Acceptances::accept($this->db, (int) $site['id'], $check, $state, $note, $until, $this->app->auth()->id());
+        ChangeLog::write($this->app, 'fleet', 'accept', $site['url'] . ': ' . $check . ' (' . $state . ') ' . t('until %s', $until));
+
+        return $this->back(t('Accepted until %s: %s – %s. It comes back when its state changes or on that day; nothing was changed on the site.', format_date($until),
+            t(Checks::CHECKS[$check][0]), Console::oneLine($site['name'] ?? '', Console::NAME_LENGTH) ?: (string) $site['url']), $back[0], $back[1]);
+    }
+
+    /** Withdraws an acceptance (3.39): the check is open on Today again. */
+    protected function actionUnaccept(): Response
+    {
+        $site = $this->site();
+        $check = $this->request->post('check');
+        $back = $this->acceptBack();
+        if (!$this->request->isPost() || $site === null || !isset(Checks::CHECKS[$check])) {
+            return $this->back('', ...$back);
+        }
+        if (Acceptances::withdraw($this->db, (int) $site['id'], $check)) {
+            ChangeLog::write($this->app, 'fleet', 'unaccept', $site['url'] . ': ' . $check);
+        }
+
+        return $this->back('The acceptance was withdrawn; the check is open again.', $back[0], $back[1]);
+    }
+
+    /**
+     * Where an accept form returns: the site's screen when it was posted there, otherwise Today.
+     *
+     * @return array{0: string, 1: array<string, int>}
+     */
+    private function acceptBack(): array
+    {
+        return $this->request->post('from') === 'detail' && $this->request->postInt('id') > 0 ? ['detail', ['id' => $this->request->postInt('id')]] : ['', []];
     }
 
     /**
@@ -247,12 +346,16 @@ final class Fleet extends Module
             return $this->back('The site is not in the console.', '', [], 'chyba');
         }
         $events = $this->db->all("SELECT created_at, type, severity, message FROM {events} WHERE type LIKE 'fleet.%' AND JSON_EXTRACT(data, '$.site') = ? ORDER BY id DESC LIMIT 20", [(int) $site['id']]);
+        $accepted = Acceptances::ofSite($this->db, $site, time(), Health::context($this->app)); // 3.39: the checks of the site the operator accepted
 
         return $this->view('detail', (string) $site['name'], ['site' => $site, 'events' => $events, 'latest' => Console::latest($this->app)[0], 'customers' => Customers::names($this->db),
             'trend' => History::trend($this->db, (int) $site['id'], time()),
             // 3.30: the ring's delay and the customer's maintenance window (Fleet\Rollout); the site's own Claude connector and the console tasks about the site
             'delays' => Rollout::delays($this->app->settings()), 'customerWindow' => Rollout::customerWindows($this->db)[Console::customerIdOf($site)] ?? '',
-            'connector' => Plan::connector($site['url']), 'tasks' => $this->taskPanel(ConsoleTasks::site((int) $site['id']), ['site' => (int) $site['id']])]);
+            'connector' => Plan::connector($site['url']), 'tasks' => $this->taskPanel(ConsoleTasks::site((int) $site['id']), ['site' => (int) $site['id']]),
+            // 3.39: the checks of the site the operator accepted (Fleet\Acceptances), with who and until when
+            'accepted' => $accepted,
+            'names' => \Kaleta\Core\Assignment::labels($this->db, array_column($accepted, 'by'))]);
     }
 
     /** The pairing key made just now, shown once (the inbox or the list of sites, wherever the owner lands). */

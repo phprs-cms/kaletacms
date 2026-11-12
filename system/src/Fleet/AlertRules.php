@@ -42,6 +42,12 @@ final class AlertRules
         'requests_waiting' => [false, Console::THRESHOLDS['requests_waiting'], 'Requests waiting', 'hours the oldest waits', 1, 720],
     ];
 
+    /**
+     * The check of Fleet\Checks each kind follows (3.39): an alert whose check the operator accepted for the site
+     * (Fleet\Acceptances, in the same state, until its last day) is not sent. The kinds without a check always go.
+     */
+    public const array CHECK_OF = ['site_down' => 'uptime', 'site_silent' => 'reporting', 'certificate' => 'certificate', 'domain' => 'domain', 'update_failed' => 'updates'];
+
     /** The console events these rules send (Core\Alerts does not send them again). */
     public const array OWN_EVENTS = ['fleet.site_down', 'fleet.site_silent'];
 
@@ -166,6 +172,18 @@ final class AlertRules
     }
 
     /**
+     * The matches of one site without those whose check is accepted now (3.39, CHECK_OF). Pure.
+     *
+     * @param list<array{kind: string, detail: string}> $matches
+     * @param array<string, mixed> $accepted Acceptances::active – "site:check" => acceptance
+     * @return list<array{kind: string, detail: string}>
+     */
+    public static function unaccepted(array $matches, int $siteId, array $accepted): array
+    {
+        return array_values(array_filter($matches, static fn (array $m): bool => !isset(self::CHECK_OF[$m['kind']]) || !isset($accepted[Acceptances::key($siteId, self::CHECK_OF[$m['kind']])])));
+    }
+
+    /**
      * The alerts not sent for the same site and kind within the quiet hours. Pure.
      *
      * @param list<array{site: int, kind: string, detail: string}> $alerts
@@ -203,17 +221,22 @@ final class AlertRules
     {
         $s = $app->settings();
         $db = $app->db();
+        // 3.39: an acceptance whose check changed or whose last day passed is dropped first – also with the alerts off, so a
+        // problem that went away and came back is open again on Today (Fleet\Acceptances)
+        $pruned = Acceptances::prune($app);
         if (!$s->bool('alerts_enabled') || Demo::active()) {
-            return 'off';
+            return 'off' . ($pruned > 0 ? ', acceptances ended: ' . $pruned : '');
         }
         $rules = self::rules($s);
         $now = time();
         $alerts = [];
         $names = [];
-        foreach (Console::sites($db) as $site) {
+        $sites = Console::sites($db);
+        $accepted = Acceptances::active($sites, Acceptances::load($db), $now, Health::context($app));
+        foreach ($sites as $site) {
             $names[(int) $site['id']] = $site;
             try {
-                foreach (self::matches($site, $rules, $now) as $match) {
+                foreach (self::unaccepted(self::matches($site, $rules, $now), (int) $site['id'], $accepted) as $match) {
                     $alerts[] = ['site' => (int) $site['id']] + $match;
                 }
             } catch (\Throwable $e) {

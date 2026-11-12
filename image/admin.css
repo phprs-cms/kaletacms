@@ -1844,6 +1844,25 @@ table.flotila-prace th a[aria-current] { color: var(--text); }
 table.flotila-prace thead th { min-width: 5.5em; white-space: normal; vertical-align: bottom; }
 table.flotila-prace tbody th, table.flotila-prace tfoot th { background: none; color: var(--text); font-size: 14px; font-weight: 500; white-space: normal; text-align: left; }
 table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px solid var(--linka); border-bottom: 0; color: var(--text); font-weight: 700; }
+/* 3.39: the console in six sections – a section with more views shows them as a smaller second row */
+.zalozky.flotila-pohledy { margin-top: -8px; }
+.zalozky.flotila-pohledy a { padding: 4px 12px; font-size: 13px; }
+/* 3.39: Today grouped by check – red groups open, amber folded, the accepted ones in a folded group; Accept is a small form */
+.flotila-dnes-cast { margin: 22px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-slaby); }
+.flotila-kontrola > summary h3, .flotila-prijate > summary h2 { margin: 0; font-size: 16px; }
+.flotila-prijmout { display: inline-block; margin-left: 6px; text-align: left; }
+.flotila-prijmout > summary { list-style: none; cursor: pointer; }
+.flotila-prijmout > summary::-webkit-details-marker { display: none; }
+.flotila-prijmout[open] { display: block; margin: 8px 0 0; }
+.flotila-prijmout form { display: grid; gap: 8px; max-width: 26rem; margin: 8px 0 0; padding: 12px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.flotila-prijmout form p { margin: 0; }
+.flotila-prijmout label { display: grid; gap: 4px; font-weight: 600; }
+.flotila-prijmout input { width: 100%; min-width: 0; box-sizing: border-box; }
+.flotila-prijato { margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.flotila-prijato h2 { margin: 0 0 6px; font-size: 16px; }
+.flotila-prijato ul { margin: 0; padding: 0; list-style: none; }
+.flotila-prijato li { padding: 4px 0; }
+.flotila-prijato form { display: inline; margin-left: 6px; }
 @media (max-width: 640px) {
 	table.flotila-dnes tr.flotila-bad td:first-child, table.flotila-dnes tr.flotila-warn td:first-child { box-shadow: none; }
 	table.flotila-dnes tr.flotila-bad { box-shadow: inset 3px 0 0 var(--chyba); }
