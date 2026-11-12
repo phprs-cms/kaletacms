@@ -343,7 +343,9 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   jmenovat jen třídy z povolovacího seznamu (unit 2800). Číslo nabídky vzniká při prvním odeslání nebo Dokončení, počitadlo po rocích.
   Dokument zákazníka `/quote/<token>` (`Front\QuotePage`, HMAC, uložen jen sha256, nikdy v cache, robots Disallow); odeslání jen přes
   `QuoteDelivery::send` (SMTP, vlastní adresa zákazníka). Protokol změn, zvonky ani reporty nikdy nenesou částky. MCP nástroje nabídek
-  a cen jsou na vyžádání; `mark_quote` bere `decline_reason` (`reason` je ochranný argument serveru).
+  a cen jsou na vyžádání; `mark_quote` bere `decline_reason` (`reason` je ochranný argument serveru). `send_quote` odmítne adresu, kterou zapsalo
+  spojení Clauda (`ka_contacts.email_by_agent_at`, migrace 0124) nebo importovaná poptávka; odkaz na nabídku je náhodný a znovu se ukáže
+  jen v relaci, která ho vytvořila.
 - **Stránky záznamů (3.37):** poptávka, obchod a zákazník mají jednu šablonu (lišta `.zaznam-lista`: zpět, stav, jedna hlavní
   akce, vedlejší, Další; `.zaznam` = hlavní sloupec + boční panely, na telefonu jeden sloupec). Poptávka má jeden formulář Vyřízení
   (`actionTriage`; třídění se stane osobním jen při změně). Karty na nástěnce skládají fázi a Přesunout za ⋯ jen pro myš.
