@@ -101,6 +101,28 @@ for r338_p in "/quote/$R338_T/" "/quote/${R338_T}x" "/quote/$R338_T/print" "/en/
 expect "3.38 review L2: mangled links under /quote/ are 404s that store no token among the addresses not found" \
   "$(curl -s -o /dev/null -w '%{http_code}' "$B/quote/${R338_T}x")|$(sq "SELECT COUNT(*) FROM ka_nenalezeno WHERE LOWER(cesta) LIKE '%$R338_T%'")" "404|0"
 
+# L3: sending sets the deal's value only for someone who may open the Pipeline (as Finalise and mark_quote)
+R338_SMTP=$((PORT + 4)); command php "$ROOT/tools/fake-smtp.php" "$R338_SMTP" "$WORK/smtp-r338" > /dev/null 2>&1 & R338_SMTP_PID=$!
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$R338_SMTP'); DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, blokovat) VALUES ('nabidky-338r', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")', 'Jen Nabídky', 'nabidky338r@example.cz', 1, 0)" > /dev/null
+R338_USER=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'nabidky-338r'"); R338_USER="${R338_USER:-0}"
+sq "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) VALUES ($R338_USER, 'quotes'), ($R338_USER, 'contacts')" > /dev/null
+R338_DQ=$(r338_php '$d = Kaleta\Core\Deals::save($app, null, ["title" => "Obchod 338r", "contact_id" => (int) $a[1]], (int) $a[0]);
+  echo $d, " ", Kaleta\Core\Quotes::save($app, null, ["deal_id" => $d, "contact_id" => (int) $a[1], "lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100"]]], (int) $a[0])["id"];' "$R338_ADMIN" "$R338_CONTACT")
+read -r R338_DEAL R338_QD <<< "$R338_DQ" || true; R338_DEAL="${R338_DEAL:-0}"; R338_QD="${R338_QD:-0}"
+JAR_R338="$WORK/jar-r338"; rm -f "$JAR_R338"
+R338_CSRF=$(curl -s -c "$JAR_R338" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
+curl -s -b "$JAR_R338" -c "$JAR_R338" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R338_CSRF" -d user=nabidky-338r --data-urlencode "password=$PASSWORD"
+curl -s -b "$JAR_R338" -c "$JAR_R338" -o "$WORK/response" "$B/admin.php?module=quotes&action=send&id=$R338_QD"
+R338_CSRF=$(grep -o 'name="_csrf" value="[a-f0-9]*"' "$WORK/response" | head -1 | sed 's/.*value="//;s/"//')
+expect "3.38 review L3: without the Pipeline the send dialog offers no deal box" "$(grep -c 'data-quote-recipient' "$WORK/response")|$(grep -c 'name="set_deal_value"' "$WORK/response")" "1|0"
+curl -s -b "$JAR_R338" -c "$JAR_R338" -o /dev/null -X POST "$B/admin.php?module=quotes&action=send" -d "_csrf=$R338_CSRF" -d "id=$R338_QD" -d subject=Nabidka -d message=Dobry -d set_deal_value=1
+expect "3.38 review L3: a sender without the Pipeline sends the quote, but a forged set_deal_value leaves the deal's value alone" \
+  "$(sq "SELECT status FROM ka_quotes WHERE id = $R338_QD")|$(sq "SELECT IFNULL(value, 'none') FROM ka_deals WHERE id = $R338_DEAL")" "sent|none"
+kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || true
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R338_USER; DELETE FROM ka_uzivatele WHERE idu = $R338_USER;
+  DELETE FROM ka_deal_stage_history WHERE deal_id = $R338_DEAL; DELETE FROM ka_deals WHERE id = $R338_DEAL" > /dev/null
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');

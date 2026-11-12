@@ -420,7 +420,7 @@ trait QuoteTools
 
                 return ['id' => $id, 'sent' => false, 'to' => $draft['to'], 'subject' => $subject !== '' ? $subject : $draft['subject'], 'message' => $message !== '' ? $message : $draft['message'],
                     'currency' => $quote['currency'], 'totals' => ['net' => $quote['totals']['net'], 'vat' => $quote['totals']['vat'], 'gross' => $quote['totals']['gross']],
-                    'valid_until' => $quote['valid_until'], 'set_deal_value' => $setDeal && $quote['deal_id'] !== null]
+                    'valid_until' => $quote['valid_until'], 'set_deal_value' => $setDeal && $draft['deal']]
                     + ($why !== null ? ['cannot_send' => $why] : [])
                     + ['next' => $why !== null ? 'Tell the user why the quote cannot be sent yet.' : 'Show the user the recipient, subject, message and total. Send only when they explicitly ask: the same call with confirm=true.'];
             }

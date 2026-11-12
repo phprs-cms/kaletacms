@@ -8591,4 +8591,5 @@ return [
     'Customer’s link made' => 'Link für den Kunden erstellt',
     'Customer’s link withdrawn' => 'Link für den Kunden zurückgezogen',
     'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'Der Link ist nur als Fingerabdruck gespeichert und lässt sich daher nicht erneut anzeigen. „Neuer Link“ erstellt einen zum Kopieren – der Link, den der Kunde hat, funktioniert dann nicht mehr.',
+    'The deal’s value was not changed: only a user who may open the Pipeline changes a deal.' => 'Der Wert des Geschäfts wurde nicht geändert: Ein Geschäft ändert nur, wer die Vertriebspipeline öffnen darf.',
 ];

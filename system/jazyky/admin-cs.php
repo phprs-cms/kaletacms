@@ -8184,4 +8184,5 @@ return [
     'Customer’s link made' => 'Vytvořen odkaz pro zákazníka',
     'Customer’s link withdrawn' => 'Odkaz pro zákazníka zrušen',
     'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'Odkaz je uložený jen jako otisk, proto ho nejde zobrazit znovu. Nový odkaz vytvoří jiný, který si zkopírujete – odkaz, který má zákazník, přestane fungovat.',
+    'The deal’s value was not changed: only a user who may open the Pipeline changes a deal.' => 'Hodnota obchodu se nezměnila: obchod mění jen uživatel, který smí otevřít Obchody.',
 ];

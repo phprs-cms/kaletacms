@@ -223,8 +223,11 @@ final class QuoteDelivery
         [$subject, $message] = Language::runWith($language, fn (): array => [self::defaultSubject($quote), implode("\n\n", [t('Hello,'),
             t('thank you for your interest. You will find our quotation at the link below – you can print it or save it as a PDF.'), t('Kind regards')])], '', $s->get('german_register'));
 
+        // 3.38 review L3: the deal box only for someone who may open the Pipeline (as Finalise and mark_quote)
+        $deal = $quote['deal_id'] !== null && Deals::mayOpen($app->db(), $s, $app->auth()->id());
+
         return ['to' => (string) $quote['customer']['email'], 'subject' => $subject, 'message' => $message, 'refusal' => Quotes::sendRefusal($quote),
-            'smtp' => self::smtpRefusal($s), 'deal' => $quote['deal_id'] !== null, 'set_deal_value' => $quote['deal_id'] !== null && $s->bool('quote_set_deal_value'), 'language' => $language];
+            'smtp' => self::smtpRefusal($s), 'deal' => $deal, 'set_deal_value' => $deal && $s->bool('quote_set_deal_value'), 'language' => $language];
     }
 
     /** Why the site cannot send a quote by e-mail now (translated), or null: like replies, only through SMTP and with a sender. */
@@ -327,7 +330,9 @@ final class QuoteDelivery
         }
         $warnings = [];
         $dealSet = false;
-        if ($setDealValue && $sent['deal_id'] !== null) {
+        if ($setDealValue && $sent['deal_id'] !== null && !Deals::mayOpen($db, $s, (int) ($user['idu'] ?? 0))) {
+            $warnings[] = t('The deal’s value was not changed: only a user who may open the Pipeline changes a deal.'); // 3.38 review L3
+        } elseif ($setDealValue && $sent['deal_id'] !== null) {
             try {
                 $dealSet = Quotes::setDealValue($app, $id, (int) ($user['idu'] ?? 0));
             } catch (\DomainException $e) {
