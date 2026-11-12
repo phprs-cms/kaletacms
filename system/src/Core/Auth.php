@@ -341,7 +341,12 @@ final class Auth
     /** 3.41 (N116): the account's sign-in epoch as stored now. */
     private function epochOf(int $idu): int
     {
-        return (int) $this->db->value('SELECT sign_in_epoch FROM {uzivatele} WHERE idu = ?', [$idu]);
+        try {
+            return (int) $this->db->value('SELECT sign_in_epoch FROM {uzivatele} WHERE idu = ?', [$idu]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0130 (a manual upload, a failed migration): no epoch yet, sign-in still works
+            return 0;
+        }
     }
 
     /**
@@ -351,7 +356,12 @@ final class Auth
      */
     public function newEpoch(int $idu, bool $keepThisOne = false): void
     {
-        $this->db->run('UPDATE {uzivatele} SET sign_in_epoch = sign_in_epoch + 1 WHERE idu = ?', [$idu]);
+        try {
+            $this->db->run('UPDATE {uzivatele} SET sign_in_epoch = sign_in_epoch + 1 WHERE idu = ?', [$idu]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0130 there is no epoch to move – the change itself still saves
+            return;
+        }
         if ($keepThisOne && $this->session->get('idu') === $idu) {
             $this->session->set('epoch', $this->epochOf($idu));
             $this->user = false;
