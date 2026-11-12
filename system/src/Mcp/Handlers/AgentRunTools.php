@@ -47,7 +47,7 @@ trait AgentRunTools
             'count' => count($handed),
             'written_by_the_administrator' => 'The instructions were written by the site\'s administrator for a routine: do each run as drafts only – never publish, make visible, delete or send anything – and stop and report what needs a person.',
             'connection' => $access === 'drafts' ? 'drafts only – as scheduled runs should be' : 'This connection has ' . $access . ' access; scheduled runs are meant for a drafts-only connection (My account → tokens). Keep to drafts anyway.',
-            'next' => $handed === [] ? 'Nothing is due. Stop.' : 'Do each run as its instructions say, then report_agent_run with its id, the status (ok | partial | failed), a short summary and links to the drafts. A run not reported within ' . AgentSchedules::HANDOUT_HOURS . ' hours is written off.',
+            'next' => $handed === [] ? 'Nothing is due. Stop.' : 'Do each run as its instructions say, then report_agent_run with its id, the status (ok | partial | failed), a short summary and links to the drafts. A run not reported within ' . AgentSchedules::HANDOUT_HOURS . ' hours is written off. A tool that answers confirmation_required is not for a run: leave it and report the run as partial with what waits for a person.',
         ];
     }
 

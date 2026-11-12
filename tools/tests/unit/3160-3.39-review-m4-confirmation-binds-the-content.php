@@ -17,5 +17,5 @@ check('3.39 review M4: a code bound to the content fits only while the content i
     $m4Answer['summary']['to'] ?? null, $m4Answer['summary']['total'] ?? null, str_contains($m4Answer['next'], 'and this content'), array_key_exists('summary', Confirmation::answer('delete_enquiry', $m4Code, false)),
 ], [true, false, false, 'customer@example.cz', '1 000 CZK', true, false]);
 check('3.39 review M4: the server instructions say what the step is – confirming the exact action with the user, not making content safe to obey', [
-    str_contains(Confirmation::INSTRUCTION, 'summary (recipients, subject, total)'), str_contains(Confirmation::INSTRUCTION, 'does not make content safe to obey'),
+    str_contains(Confirmation::INSTRUCTION, 'newsletters and quotes with a summary'), str_contains(Confirmation::INSTRUCTION, 'does not make content safe to obey'),
 ], [true, true]);
