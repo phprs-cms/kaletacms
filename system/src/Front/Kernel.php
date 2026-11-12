@@ -1494,6 +1494,10 @@ final class Kernel
         if ($this->sitePreview || (($r->get('build') === 'koncept' || $r->get('preview') === 'vzhled') && $this->app->auth()->hasAppearanceArea())) {
             \Kaleta\Core\Look::activate($this->app->settings());
         }
+        // 3.41: a draft preview of any kind gets a Content-Security-Policy (Front\Csp) – only the site's own scripts run
+        if ($this->sitePreview || $r->get('build') === 'koncept' || $r->get('preview') === 'vzhled' || preg_match('#^/_(popup|komponenta)/#', $r->path()) === 1) {
+            Csp::start();
+        }
     }
 
     /** Draft instead of the published build: the builder and single previews (?build=koncept), or the whole-site preview. */
@@ -1778,7 +1782,7 @@ final class Kernel
         }
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving
-        if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false)) {
+        if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false) && !Csp::active()) { // a preview's nonce never goes into the cache
             Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
         }
 

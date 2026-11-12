@@ -41,6 +41,7 @@ CREATE TABLE ka_uzivatele (
     passkey_handle VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '', -- opaque WebAuthn user handle (base64url, 3.35, migration 0121); '' = none yet
     passkey_only   BOOL NOT NULL DEFAULT 0,                -- the account signs in with a passkey only (applies once it has a working passkey; 3.35)
     phone          VARCHAR(40)  NOT NULL DEFAULT '',      -- work phone, shown to colleagues and in the fallback e-mail signature (3.37, migration 0122)
+    sign_in_epoch  INT UNSIGNED NOT NULL DEFAULT 0,       -- raised by every change of the second factor; other sign-ins with an older value end (3.41 N116, migration 0130)
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

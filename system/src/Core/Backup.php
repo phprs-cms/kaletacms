@@ -67,9 +67,14 @@ final class Backup
             if ($structureOnly) {
                 continue;
             }
-            $rows = $pdo->query('SELECT * FROM `' . $table . '`', \PDO::FETCH_NUM);
+            // 3.41 (N114): the mail queue without the bodies that hold a live password or invitation link (Mail::forBackup)
+            $isMailQueue = Names::table(substr($table, strlen($db->prefix))) === 'posta';
+            $rows = $pdo->query('SELECT * FROM `' . $table . '`', $isMailQueue ? \PDO::FETCH_ASSOC : \PDO::FETCH_NUM);
             $batch = [];
             foreach ($rows as $row) {
+                if ($isMailQueue) {
+                    $row = array_values(Mail::forBackup($row));
+                }
                 $batch[] = '(' . implode(',', array_map(fn ($h): string => $h === null ? 'NULL' : (is_int($h) || is_float($h) ? (string) $h : $pdo->quote((string) $h)), $row)) . ')';
                 if (count($batch) >= 200) {
                     $write("INSERT INTO `{$table}` VALUES\n" . implode(",\n", $batch) . ";\n");

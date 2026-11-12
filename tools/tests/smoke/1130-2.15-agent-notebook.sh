@@ -34,7 +34,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=notebook&a
 check "notebook: the edit form shows the changed text" 200 "/admin.php?module=notebook&action=edit&id=$NB_ID3" "i drobné změny"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; NB_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.[a-z]*' "$WORK/response" | head -1)
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; NB_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*-[0-9a-f]*\.[a-z]*' "$WORK/response" | head -1)
 curl -s -b "$JAR" -o "$WORK/nb-export" "$B/admin.php?module=transfer&action=download&file=$NB_EXPORT"
 if [ "${NB_EXPORT##*.}" = zip ]; then unzip -p "$WORK/nb-export" obsah.json > "$WORK/nb-obsah.json" 2>/dev/null || true; else cp "$WORK/nb-export" "$WORK/nb-obsah.json"; fi
 grep -q '"notebook":\[' "$WORK/nb-obsah.json" && grep -q 'Klient je citlivý na stránku O nás' "$WORK/nb-obsah.json" && echo "  ok     notebook: the site export carries the notes (the import is checked in the 1.8 move)" || { echo "  CHYBA  notebook in the export"; ERRORS=$((ERRORS+1)); }

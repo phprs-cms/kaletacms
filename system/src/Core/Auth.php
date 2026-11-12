@@ -81,6 +81,12 @@ final class Auth
     /** The user name of the account the last sign-in with a passkey was for ('' = unknown passkey) – the change log names it. */
     private string $passkeyAccount = '';
 
+    /**
+     * 3.41 (N117): the user name of the existing account the last failed password step was for ('' = no such account).
+     * The change log names only this, never what was typed – a password typed into the name field must not be kept.
+     */
+    private string $failedAccount = '';
+
     public function __construct(private readonly Db $db, private readonly Session $session, private readonly ?Settings $settings = null)
     {
     }
@@ -128,6 +134,7 @@ final class Auth
             }
         }
 
+        $this->failedAccount = $typed === null || $user === null || $closed ? (string) ($user['user'] ?? '') : '';
         if ($typed === null || $user === null || $closed) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null && !$closed) {
@@ -308,6 +315,7 @@ final class Auth
     {
         $this->session->set('idu', $idu);
         $this->session->set('otisk', self::passwordHash($passwordHash));
+        $this->session->set('epoch', $this->epochOf($idu)); // 3.41 (N116)
         $this->session->set('login_at', time());
         $this->session->set('last_seen', time());
         $this->session->remove(self::STRONG_KEY); // a strong proof belongs to the sign-in that made it (markVerified(true) after this)
@@ -328,6 +336,26 @@ final class Auth
     public static function passwordHash(string $hash): string
     {
         return substr(hash('sha256', 'kaleta-session|' . $hash), 0, 24);
+    }
+
+    /** 3.41 (N116): the account's sign-in epoch as stored now. */
+    private function epochOf(int $idu): int
+    {
+        return (int) $this->db->value('SELECT sign_in_epoch FROM {uzivatele} WHERE idu = ?', [$idu]);
+    }
+
+    /**
+     * 3.41 (N116): the second factor of the account changed (the app on or off, a passkey added or removed, "passkey only",
+     * an administrator's reset) – every sign-in of it ends the next time it is used, as after a new password; with
+     * $keepThisOne (the person changing their own factor in My account) this sign-in takes the new value and stays.
+     */
+    public function newEpoch(int $idu, bool $keepThisOne = false): void
+    {
+        $this->db->run('UPDATE {uzivatele} SET sign_in_epoch = sign_in_epoch + 1 WHERE idu = ?', [$idu]);
+        if ($keepThisOne && $this->session->get('idu') === $idu) {
+            $this->session->set('epoch', $this->epochOf($idu));
+            $this->user = false;
+        }
     }
 
     /** After changing one's own password: this sign-in stays valid, the others do not. */
@@ -655,6 +683,12 @@ final class Auth
     }
 
     /** The user name of the account the last sign-in with a passkey was for – '' when the passkey is unknown. */
+    /** 3.41 (N117): the account the last failed password step was for – its stored user name, '' when no account matched. */
+    public function failedAccount(): string
+    {
+        return $this->failedAccount;
+    }
+
     public function passkeyAccount(): string
     {
         return $this->passkeyAccount;
@@ -779,7 +813,8 @@ final class Auth
     private function recordSignIn(int $idu): void
     {
         // 3.35 review M1: a completed sign-in also ends a lock – only a passkey completes one on a locked account
-        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $idu]);
+        // 3.41 (N113): and a reset or invitation link – the account's owner just proved who they are without it
+        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null, 'posledni_login' => date('Y-m-d H:i:s'), 'obnova_otisk' => '', 'obnova_cas' => null], ['idu' => $idu]);
     }
 
     public function logout(): void
@@ -809,6 +844,16 @@ final class Auth
                     $this->user = null;
                 }
             }
+            if ($this->user !== null && isset($this->user['sign_in_epoch'])) {
+                $epoch = $this->session->get('epoch');
+                if ($epoch === null) {
+                    $this->session->set('epoch', (int) $this->user['sign_in_epoch']); // a sign-in from before 3.41 counts from now
+                } elseif ((int) $epoch !== (int) $this->user['sign_in_epoch']) {
+                    // 3.41 (N116): the second factor changed since this sign-in (newEpoch) – like a new password, it ends it
+                    $this->session->remove('idu');
+                    $this->user = null;
+                }
+            }
             if ($this->user !== null) {
                 // 3.3.3 (N60): the idle and the absolute limit are checked here, not left to the session garbage collector;
                 // tokens (MCP, OAuth) never come this way – signInAs() sets the user without a session
@@ -818,7 +863,7 @@ final class Auth
                 if (!is_int($loginAt) || !is_int($lastSeen)) {
                     $this->session->set('login_at', $now); // a sign-in from before 3.3.3: its limits start now
                 } elseif (!self::sessionValid($loginAt, $lastSeen, $now)) {
-                    foreach (['idu', 'otisk', 'login_at', 'last_seen', self::VERIFIED_KEY] as $key) {
+                    foreach (['idu', 'otisk', 'epoch', 'login_at', 'last_seen', self::VERIFIED_KEY] as $key) {
                         $this->session->remove($key);
                     }
                     $this->session->remove(self::STRONG_KEY);

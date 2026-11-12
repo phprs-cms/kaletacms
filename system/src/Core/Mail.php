@@ -42,9 +42,11 @@ final class Mail
      *        a queued message keeps its full subject in its body until it is sent. '' = the subject itself.
      * @param list<array{name: string, type: string, data: string}> $attachments 3.40: files sent with the message (multipart/mixed);
      *        the names are made safe, together at most MAX_ATTACHMENTS bytes; a queued message keeps them until it is sent
+     * @param int $expires 3.41 (N114): when a link in the message stops working (a password or invitation link, Unix time; 0 = none):
+     *        a queued copy is dropped after it instead of being sent, and a backup never carries its body
      * @throws \InvalidArgumentException when the attachments are too large or not files
      */
-    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = '', array $attachments = []): bool
+    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = '', array $attachments = [], int $expires = 0): bool
     {
         if ($html === '' && Language::isRtl(Language::code())) {
             $html = self::rightToLeft($text, Language::code()); // a plain message in Arabic reads from the right in every mail client
@@ -58,7 +60,8 @@ final class Mail
                 'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($logSubject !== '' ? $logSubject : $subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
                 'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
                 'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers] + ($logSubject !== '' ? ['predmet' => $subject] : [])
-                    + ($attachments !== [] ? ['prilohy' => array_map(fn (array $a): array => ['name' => $a['name'], 'type' => $a['type'], 'data' => base64_encode($a['data'])], $attachments)] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                    + ($attachments !== [] ? ['prilohy' => array_map(fn (array $a): array => ['name' => $a['name'], 'type' => $a['type'], 'data' => base64_encode($a['data'])], $attachments)] : [])
+                    + ($expires > 0 ? ['expires' => $expires] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
                 'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
             if (random_int(1, 50) === 1) {
@@ -149,18 +152,39 @@ final class Mail
      * background jobs retry it like any queued message). The answer to the request then takes as long whether a message
      * was sent or not – the password reset does not reveal by its timing which accounts exist (3.3.3, N59).
      */
-    public static function later(Settings $siteSettings, string $recipient, string $subject, string $text): void
+    public static function later(Settings $siteSettings, string $recipient, string $subject, string $text, int $expires = 0): void
     {
         try {
             $siteSettings->db()->insert('posta', [
                 'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 0,
                 'odeslano' => null, 'chyba' => '', 'dalsi_pokus' => date('Y-m-d H:i:s'),
-                'telo' => json_encode(['text' => $text, 'html' => '', 'hlavicky' => []], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+                'telo' => json_encode(['text' => $text, 'html' => '', 'hlavicky' => []] + ($expires > 0 ? ['expires' => $expires] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
             ]);
             self::$pending = true;
         } catch (\Throwable) {
-            self::send($siteSettings, $recipient, $subject, $text); // without the queue table (before a migration) right away
+            self::send($siteSettings, $recipient, $subject, $text, expires: $expires); // without the queue table (before a migration) right away
         }
+    }
+
+    /** 3.41 (N114): the error a queued message gets when the link in it expired before it could be sent. */
+    public const string LINK_EXPIRED = 'The link in the message expired before the message could be sent.';
+
+    /**
+     * 3.41 (N114, pure): a row of ka_posta as a backup writes it – an unsent body that holds a live password or invitation
+     * link (its "expires") is left out: the backup must not carry a working link, and after a restore the person asks again.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    public static function forBackup(array $row): array
+    {
+        $body = is_string($row['telo'] ?? null) ? json_decode($row['telo'], true) : null;
+        if (is_array($body) && isset($body['expires'])) {
+            $row['telo'] = null;
+            $row['dalsi_pokus'] = null;
+        }
+
+        return $row;
     }
 
     /** After the page was sent (admin.php): delivers what later() queued in this request; what fails waits for a retry. */
@@ -188,6 +212,11 @@ final class Mail
         $sent = 0;
         foreach ($db->all('SELECT * FROM {posta} WHERE odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus <= ? ORDER BY idp LIMIT ' . max(1, $maxCount), [Clock::now()]) as $z) {
             $body = json_decode((string) $z['telo'], true) ?: [];
+            if ((int) ($body['expires'] ?? 0) > 0 && (int) $body['expires'] <= time()) {
+                // 3.41 (N114): the password or invitation link in it no longer works – the body goes, nothing is sent
+                $db->run('UPDATE {posta} SET telo = NULL, dalsi_pokus = NULL, chyba = ? WHERE idp = ? AND odeslano IS NULL', [self::LINK_EXPIRED, $z['idp']]);
+                continue;
+            }
             $attempt = (int) $z['pokusu'] + 1;
             // claim the message first: a concurrent request (the background jobs, Mail::afterResponse) then does not send it a second time
             if ($db->run('UPDATE {posta} SET pokusu = ?, dalsi_pokus = ? WHERE idp = ? AND pokusu = ? AND odeslano IS NULL',

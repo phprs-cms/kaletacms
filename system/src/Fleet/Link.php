@@ -97,15 +97,32 @@ final class Link
     {
         $s = $app->settings();
         if (self::isPaired($s)) {
-            Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->int('fleet_site_id'), 'ts' => time()],
+            // 3.41 (N121): newer than the last heartbeat, which the console now requires of an unpair request too
+            Http::post($s->get('fleet_console_url') . '/fleet/unpair', ['action' => 'unpair', 'site_id' => $s->int('fleet_site_id'), 'ts' => max(time(), $s->int('fleet_last_ts') + 1)],
                 fn (string $body): string => Keys::sign($s, $body), 10);
         }
         // the kit counter goes too, so another console's first kit is applied; the drafts that arrived stay for the person to decide
         foreach (['fleet_console_url', 'fleet_console_key', 'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_update_allowed', 'fleet_last_sent', 'fleet_last_error',
-            'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error', Uptime::SETTING] as $name) {
+            'fleet_kit_version', 'fleet_kit_applied_at', 'fleet_kit_error', 'fleet_answers_bound', 'fleet_last_ts', Uptime::SETTING] as $name) {
             $s->set($name, '');
         }
         ChangeLog::write($app, 'settings', 'fleet_unpair');
+    }
+
+    /**
+     * 3.41 (N121): is a signed answer of the console the answer to THIS heartbeat? 'bound' = it names this site and echoes
+     * the request's time; 'legacy' = a console before 3.41 sent neither (accepted until this site has seen a bound answer);
+     * 'refused' = a mismatch, or no binding after the console already sent bound answers (an old answer replayed).
+     *
+     * @param array<mixed> $answer the decoded answer
+     */
+    public static function answerBinding(array $answer, int $siteId, int $ts, bool $boundBefore): string
+    {
+        if (!array_key_exists('site_id', $answer) && !array_key_exists('ts', $answer)) {
+            return $boundBefore ? 'refused' : 'legacy';
+        }
+
+        return (int) ($answer['site_id'] ?? 0) === $siteId && (int) ($answer['ts'] ?? 0) === $ts ? 'bound' : 'refused';
     }
 
     /**
@@ -120,7 +137,9 @@ final class Link
         }
         $payload = ['action' => 'heartbeat', 'site_id' => $s->int('fleet_site_id'), 'ts' => time(), 'manage_updates' => $s->bool('fleet_updates')] + Heartbeat::build($app);
         $answer = Http::post($s->get('fleet_console_url') . '/fleet/heartbeat', $payload, fn (string $body): string => Keys::sign($s, $body), 20);
-        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $s->get('fleet_console_key'))) {
+        $s->set('fleet_last_ts', (string) $payload['ts']);
+        $binding = $answer['status'] === 200 ? self::answerBinding((array) ($answer['json'] ?? []), (int) $payload['site_id'], (int) $payload['ts'], $s->bool('fleet_answers_bound')) : 'refused';
+        if ($answer['status'] !== 200 || !Keys::verify($answer['body'], $answer['signature'], $s->get('fleet_console_key')) || $binding === 'refused') {
             // stored as an English sentence and translated where it is shown; the detail goes to the job's error
             $error = $answer['status'] === 404 || $answer['status'] === 410 ? 'The console does not know this site any more – pair it again.' : 'The console did not confirm the report.';
             $s->set('fleet_last_error', $error);
@@ -130,6 +149,9 @@ final class Link
         }
         $s->set('fleet_last_sent', (string) time());
         $s->set('fleet_last_error', '');
+        if ($binding === 'bound' && !$s->bool('fleet_answers_bound')) {
+            $s->set('fleet_answers_bound', '1'); // from now on an answer without the binding is refused (no downgrade to the old form)
+        }
         $allowed = (string) ($answer['json']['update_allowed'] ?? '');
         $s->set('fleet_update_allowed', preg_match('/^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$/D', $allowed) === 1 ? $allowed : '');
 

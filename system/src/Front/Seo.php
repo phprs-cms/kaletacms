@@ -266,7 +266,7 @@ final class Seo
         // nothing that could tell a third party who opened it
         $private = !empty($meta['soukroma']);
         if (!$private && $s->get('cookies_mode') === 'externi' && trim($s->get('cookies_external_code')) !== '') {
-            $h[] = $s->get('cookies_external_code');
+            $h[] = Csp::withNonce($s->get('cookies_external_code')); // 3.41: in a preview the administrator's code keeps running
         }
         if (!$s->bool('indexing')) {
             $h[] = '<meta name="robots" content="noindex, nofollow">';
@@ -337,11 +337,11 @@ final class Seo
         if (!$private) {
             $h[] = $this->analyticsCode();
             if (trim($s->get('head_code')) !== '') {
-                $h[] = $s->get('head_code');
+                $h[] = Csp::withNonce($s->get('head_code'));
             }
         }
         if (trim((string) ($meta['kod_hlavicky'] ?? '')) !== '') {
-            $h[] = (string) $meta['kod_hlavicky']; // this page only, after the code for the whole site (2.3)
+            $h[] = Csp::withNonce((string) $meta['kod_hlavicky']); // this page only, after the code for the whole site (2.3)
         }
 
         return implode("\n", array_filter($h)) . "\n";
@@ -377,7 +377,7 @@ final class Seo
         $s = $this->app->settings();
         $mode = $s->get('cookies_mode');
         $marketing = trim($s->get('marketing_code'));
-        $html = $marketing === '' ? '' : self::deferUntilConsent($marketing, $mode);
+        $html = $marketing === '' ? '' : self::deferUntilConsent(Csp::withNonce($marketing), $mode);
         if (\Kaleta\Core\Demo::active()) {
             // the public demo (2.6): a badge that leads to the admin; inline styles, so no site class can hide it
             $html .= '<a href="' . e($this->app->url('admin.php')) . '" style="position:fixed;inset-inline-start:12px;bottom:12px;z-index:2147483000;padding:8px 12px;border-radius:999px;background:#121212;color:#fff;font:600 13px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">'
@@ -429,7 +429,7 @@ final class Seo
         $code = '';
         if ($s->get('ga4_id') !== '') {
             $id = $s->get('ga4_id');
-            $code .= "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}"
+            $code .= '<script' . Csp::attribute() . ">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}"
                 . ($pending ? "gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});" : '')
                 . "gtag('js',new Date());gtag('config','{$id}');</script>\n"
                 . "<script async{$attributes} src=\"https://www.googletagmanager.com/gtag/js?id={$id}\"></script>\n";
@@ -439,7 +439,7 @@ final class Seo
         }
         if ($s->get('matomo_url') !== '' && $s->int('matomo_id') > 0) {
             $url = json_encode(rtrim($s->get('matomo_url'), '/') . '/', JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
-            $code .= "<script{$attributes}>var _paq=window._paq=window._paq||[];_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);(function(){var u={$url};_paq.push(['setTrackerUrl',u+'matomo.php']);_paq.push(['setSiteId','{$s->int('matomo_id')}']);var d=document,g=d.createElement('script'),s=d.getElementsByTagName('script')[0];g.async=true;g.src=u+'matomo.js';s.parentNode.insertBefore(g,s);})();</script>\n";
+            $code .= '<script' . Csp::attribute() . "{$attributes}>var _paq=window._paq=window._paq||[];_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);(function(){var u={$url};_paq.push(['setTrackerUrl',u+'matomo.php']);_paq.push(['setSiteId','{$s->int('matomo_id')}']);var d=document,g=d.createElement('script'),s=d.getElementsByTagName('script')[0];g.async=true;g.src=u+'matomo.js';s.parentNode.insertBefore(g,s);})();</script>\n";
         }
         if ($s->get('plausible_domain') !== '') {
             $code .= '<script defer data-domain="' . e($s->get('plausible_domain')) . '" src="https://plausible.io/js/script.js"></script>' . "\n";
@@ -463,8 +463,8 @@ final class Seo
             ? "gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});" : '';
         $loader = "(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s);j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{$id}');";
 
-        return '<script>window.dataLayer=window.dataLayer||[];' . ($defineGtag ? 'function gtag(){dataLayer.push(arguments);}' . $consent : '') . "</script>\n"
-            . ($cookiesMode === 'vestavena' ? '<script type="text/plain" data-gtm>' . $loader . '</script>' : '<script>' . $loader . '</script>') . "\n";
+        return '<script' . Csp::attribute() . '>window.dataLayer=window.dataLayer||[];' . ($defineGtag ? 'function gtag(){dataLayer.push(arguments);}' . $consent : '') . "</script>\n"
+            . ($cookiesMode === 'vestavena' ? '<script' . Csp::attribute() . ' type="text/plain" data-gtm>' . $loader . '</script>' : '<script' . Csp::attribute() . '>' . $loader . '</script>') . "\n";
     }
 
     /**

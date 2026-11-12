@@ -17,7 +17,7 @@ $i335aView = (string) file_get_contents(KALETA_ROOT . '/system/views/admin/oauth
 check('[source-pin] 3.35 B1: every completed sign-in and a right current password set the marker; an ended sign-in drops it', [
     (bool) preg_match('/function startSignIn\(.*?\{[^}]*\$this->markVerified\(\);/s', $i335aAuth),
     (bool) preg_match("/matchingPassword\(\\\$typed, \(string\) \\\$user\['password'\]\) !== null\) \{\s*\\\$this->markVerified\(\);/", $i335aAuth),
-    str_contains($i335aAuth, "['idu', 'otisk', 'login_at', 'last_seen', self::VERIFIED_KEY]"),
+    str_contains($i335aAuth, "['idu', 'otisk', 'epoch', 'login_at', 'last_seen', self::VERIFIED_KEY]"),
 ], [true, true, true]);
 check('[source-pin] 3.35 B1: the consent asks for the password only for full access, through confirmPassword, and keeps the request on a refusal', [
     str_contains($i335aKernel, "\$passwordError = \$access === 'full' ? self::fullAccessRefusal(\$app->auth()) : null;"), // 3.35 review M2: one rule, Auth::freshProof

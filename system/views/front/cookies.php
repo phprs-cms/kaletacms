@@ -61,7 +61,7 @@
 	.cookies-tlacitka .cookies-odkaz { padding-inline: 2px; }
 }
 </style>
-<script>
+<script<?= Kaleta\Front\Csp::attribute() ?>>
 (function () {
 	var lista = document.getElementById('cookies-lista'), znovu = document.getElementById('cookies-znovu');
 	var volby = lista.querySelector('.cookies-volby'), koren = document.documentElement;
@@ -85,6 +85,7 @@
 		// Google Tag Manager (2.6) starts with the first consent to analytics or marketing; its tags follow consent mode
 		document.querySelectorAll('script[type="text/plain"][data-souhlas="' + kategorie + '"], script[type="text/plain"][data-gtm]').forEach(function (s) {
 			var n = document.createElement('script');
+			if (s.nonce) { n.nonce = s.nonce; } // 3.41: a draft preview runs only scripts with the page's nonce (Front\Csp)
 			if (s.src || s.getAttribute('src')) { n.src = s.getAttribute('src'); n.async = true; } else { n.text = s.text; }
 			s.replaceWith(n);
 		});
