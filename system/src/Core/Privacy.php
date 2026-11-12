@@ -437,9 +437,11 @@ final class Privacy
                 $applicationMonths > 0 ? t('Retention: deleted %d months after the decision, or after %d months without any activity, including the CVs.', $applicationMonths, $applicationMonths)
                     : t('Retention: not limited – set it with the applications.'),
                 t('With the applicant’s consent an application is kept for future openings for %d months.', max(1, $s->int('applications_pool_months'))),
+                t('%d days before that consent lapses, the applicant is asked by e-mail whether to keep the application for another period or delete it now.', TalentPool::RENEW_DAYS), // 3.40
                 t('Legal basis: steps before a contract (Art. 6(1)(b)) for the selection; consent (Art. 6(1)(a)) only for keeping the application for future openings.'),
                 t('Recipients: the people with access to Applications in the administration. The CVs are stored encrypted and are never part of the site export.'),
                 ...($s->bool('applications_claude') ? [t('The fields of an application (never the CV) pass to Claude through the connection of a user with access to Applications.')] : []),
+                ...(preg_match('#^https://#i', $s->get(TalentPool::WEBHOOK_SETTING)) === 1 ? [t('Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.', (string) parse_url($s->get(TalentPool::WEBHOOK_SETTING), PHP_URL_HOST))] : []), // 3.40
             ]];
         } elseif (Jobs::sources($db) !== []) {
             $jobMonths = $s->int('job_applications_months');

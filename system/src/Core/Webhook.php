@@ -214,7 +214,7 @@ final class Webhook
     public static function test(App $app): array
     {
         $ids = [];
-        foreach (['webhook_enquiries', 'webhook_url'] as $key) {
+        foreach (['webhook_enquiries', 'webhook_url', TalentPool::WEBHOOK_SETTING] as $key) {
             $url = $app->settings()->get($key);
             if (preg_match('#^https://#i', $url)) {
                 $ids[] = (int) self::queue($app->settings(), 'test', $url, ['udalost' => 'test', 'web' => $app->settings()->get('site_name'), 'cas' => date('c')]);

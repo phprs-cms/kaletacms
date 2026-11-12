@@ -790,6 +790,10 @@ CREATE TABLE ka_applications (
     source_enquiry_id INT UNSIGNED NULL,                      -- moved from this enquiry (migration 0120); makes the move repeatable
     source_contact_id INT UNSIGNED NULL,                      -- the customer record its enquiry had: the move deletes one only applications made (3.34 review M3)
     moved_at          DATETIME NULL,                          -- when it moved in from Enquiries (System status: waiting for the confirmation of the retention, N8)
+    pool_token        CHAR(64) CHARACTER SET ascii NULL,      -- 3.40: sha256 of the link of the consent renewal e-mail (single use, Core\TalentPool)
+    pool_token_until  DATETIME NULL,                          -- 3.40: the link works until then
+    pool_renewal_sent_at DATETIME NULL,                       -- 3.40: when the renewal e-mail went (once per consent)
+    deletion_warned_on DATE NULL,                             -- 3.40: the deletion day the responsible person was reminded of
     PRIMARY KEY (id),
     UNIQUE KEY ux_applications_enquiry (source_enquiry_id),
     KEY ix_applications_contact (source_contact_id),
@@ -798,7 +802,23 @@ CREATE TABLE ka_applications (
     KEY ix_applications_assignee (assignee_id, status),
     KEY ix_applications_email (email_norm),
     KEY ix_applications_decided (decided_at),
-    KEY ix_applications_activity (last_activity_at)
+    KEY ix_applications_activity (last_activity_at),
+    KEY ix_applications_pool (pool_until),
+    KEY ix_applications_pool_token (pool_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.40: the counts of job applications per month and position (Core\ApplicationCounts) – never a person, so the statistics
+-- tab and the monthly report keep their numbers after the retention deleted the applications. job_item_id 0 = no position.
+CREATE TABLE ka_application_counts (
+    month       CHAR(7) CHARACTER SET ascii NOT NULL,       -- YYYY-MM
+    job_item_id INT UNSIGNED NOT NULL DEFAULT 0,
+    job_title   VARCHAR(200) NOT NULL DEFAULT '',           -- the position's title when last counted
+    received    INT UNSIGNED NOT NULL DEFAULT 0,
+    interview   INT UNSIGNED NOT NULL DEFAULT 0,            -- reached the status in the month (once per application and month)
+    offer       INT UNSIGNED NOT NULL DEFAULT 0,
+    hired       INT UNSIGNED NOT NULL DEFAULT 0,
+    rejected    INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (month, job_item_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 -- 3.38: internal prices and quotes (Core\Prices, Core\Quotes, migration 0123) – never read by the public site; prices are not

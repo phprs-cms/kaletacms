@@ -4,7 +4,8 @@
  * person, kept for future openings, a word), the number, received, name, position, status, responsible person and the day
  * it will be deleted; paging. A card per application on a phone. Administrators are told when nobody else has the section.
  * 3.34 B: the tab Waiting (new, no reply for more than a week) and the selected rows at once – a status (rejected with its
- * reason), a responsible person, Delete for administrators.
+ * reason), a responsible person, Delete for administrators. 3.40: Reject and send the rejection template to each selected
+ * applicant (Core\Applications::reply – in their language, with the sender's signature, on each one's history).
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Applications $module
@@ -30,9 +31,7 @@ $query = array_filter(['status' => $filter['status'], 'job' => $filter['job'], '
 $query['status'] = $filter['status'];
 $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool'] || $filter['search'] !== '';
 ?>
-<?php if ($admin): /* 3.34 B: the settings and the move by form are an administrator's */ ?>
-<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'list']) ?>
-<?php endif ?>
+<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'list', 'admin' => $admin]) /* 3.40: board, talent pool and statistics for everyone with the section */ ?>
 <?php if ($nobody): ?>
 <p class="hlaska hlaska-varovani" data-applications-nobody><?= $module->hint(t('Only administrators can open job applications now. Choose who else may: tick Applications for them in Administration → Users, or give them the ready-made role HR in Administration → Roles.')) ?> <a href="<?= e($module->url('settings')) ?>#uchazeci-kdo"><?= e(t('Settings')) ?></a></p>
 <?php endif ?>
@@ -124,6 +123,15 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <?php endforeach ?>
 		</select>
 		<button class="navigace" type="submit" name="do" value="assign"><?= e(t('Save')) ?></button>
+	</span>
+	<span class="uchazeci-hromadne-krok" data-bulk-reject-reply>
+		<label for="hromadne-odmitnuti"><?= e(t('Reason')) ?></label>
+		<select id="hromadne-odmitnuti" name="reply_reason">
+<?php foreach (Store::REJECT_REASONS as $key => $reason): ?>
+			<option value="<?= e($key) ?>"><?= e(t($reason)) ?></option>
+<?php endforeach ?>
+		</select>
+		<button class="navigace" type="submit" name="do" value="reject_reply" data-potvrdit="<?= e(t('Reject the selected applications and send each applicant the rejection template in their language, with your signature? These are real e-mails and cannot be taken back.')) ?>"><?= e(t('Reject and send the rejection')) ?></button>
 	</span>
 <?php if ($admin): ?>
 	<span class="uchazeci-hromadne-krok"><button class="navigace nebezpecne" type="submit" name="do" value="delete" data-potvrdit="<?= e(t('Delete the selected applications for good, with their CVs, notes and tasks? This cannot be undone.')) ?>"><?= e(t('Delete')) ?></button></span>

@@ -63,6 +63,7 @@ trait ApplicationTools
         $db = $this->app->db();
         $target = Applications::target($application['id']);
         $deletes = Applications::deletionDate($application, $this->app->settings()->int('applications_months'));
+        $others = Applications::others($db, $application['id'], is_string($application['email_norm'] ?? null) ? $application['email_norm'] : null, $this->app->settings()->int('applications_months'));
 
         return ['id' => $application['id'], 'received_at' => substr((string) $application['received_at'], 0, 16), 'form' => (string) $application['form'],
             'position' => (string) $application['job_title'] !== '' ? ['title' => (string) $application['job_title']] + ($application['job_item_id'] !== null ? ['item' => $application['job_item_id']] : []) : null,
@@ -78,8 +79,12 @@ trait ApplicationTools
                     Tasks::forTarget($db, $target)),
                 'history' => array_map(fn (array $h): array => ['at' => substr((string) ($h['at'] ?? ''), 0, 16), 'from' => (string) ($h['from'] ?? ''), 'to' => (string) ($h['to'] ?? '')], $application['history']),
                 'assignee' => Handover::person($db, $application['assignee_id'])]
-            + ($application['pool_until'] !== null ? ['kept_for_future_openings_until' => (string) $application['pool_until']] : [])
+            + ($application['pool_until'] !== null ? ['kept_for_future_openings_until' => (string) $application['pool_until']]
+                + (\Kaleta\Core\TalentPool::renewalSent($application) ? ['renewal_email_sent' => substr((string) $application['pool_renewal_sent_at'], 0, 10)] : []) : [])
             + ($deletes !== null ? ['deleted_on' => $deletes] : [])
+            // 3.40: the other applications from the same address – number, position, status (B13)
+            + ($others !== []
+                ? ['other_applications' => array_map(fn (array $o): array => ['id' => $o['id'], 'position' => $o['job_title'] !== '' ? $o['job_title'] : null, 'status' => $o['status'], 'received_at' => substr($o['received_at'], 0, 10)], $others)] : [])
             + \Kaleta\Mcp\Untrusted::mark(['name', 'email', 'phone', 'fields']) // 3.35 (N105): what the applicant wrote – the one marker of Mcp\Untrusted
             + ['admin_url' => $this->app->request->origin() . $this->app->url(Applications::adminPath($application['id']))];
     }

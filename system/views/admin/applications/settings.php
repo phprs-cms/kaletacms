@@ -7,7 +7,7 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Applications $module
  * @var string $csrf
- * @var array{months: int, pool: int, full: bool, claude: bool} $values
+ * @var array{months: int, pool: int, full: bool, claude: bool, webhook: string} $values
  * @var array<string, string> $languages code => name (the default language first)
  * @var array<string, array<string, array{subject: string, text: string, own: bool}>> $templates code => key => template
  * @var list<array{id: int, name: string, admin: bool}> $people who may open applications
@@ -18,7 +18,7 @@
  */
 use Kaleta\Core\Applications as Store;
 ?>
-<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'settings']) ?>
+<?= $app->view->render('admin/applications/tabs', ['module' => $module, 'current' => 'settings', 'admin' => true]) ?>
 <form method="post" action="<?= e($module->url('settings_save')) ?>" class="formular" data-applications-settings>
 	<?= $csrf ?>
 <?php if ($unsealed > 0): ?>
@@ -33,12 +33,14 @@ use Kaleta\Core\Applications as Store;
 	<div class="radek"><label for="uchazeci-mesice"><?= e(t('Delete applications after (months)')) ?></label><div><input class="textpole kratke" type="number" id="uchazeci-mesice" name="applications_months" min="0" max="120" value="<?= (int) $values['months'] ?>">
 		<span class="napoveda"><?= e(t('A decided application (hired or rejected) is deleted this many months after the decision, an undecided one after this long without any activity – with its CVs, notes and tasks. 0 = keep.')) ?><?= $practice !== null ? ' ' . e($practice) : '' ?></span></div></div>
 	<div class="radek"><label for="uchazeci-zasoba"><?= e(t('Consent for future openings keeps an application (months)')) ?></label><div><input class="textpole kratke" type="number" id="uchazeci-zasoba" name="applications_pool_months" min="1" max="60" value="<?= (int) $values['pool'] ?>">
-		<span class="napoveda"><?= e(t('Only when the form offers the consent (its property in the builder) and the applicant ticks it.')) ?></span></div></div>
+		<span class="napoveda"><?= e(t('Only when the form offers the consent (its property in the builder) and the applicant ticks it.')) ?> <?= e(t('%d days before the consent lapses, the applicant gets an e-mail with two links: keep the application for this long again, or delete it now. Without an answer it follows the normal retention.', Kaleta\Core\TalentPool::RENEW_DAYS)) ?></span></div></div>
 	<h2><?= e(t('Notifications and Claude')) ?></h2>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="applications_notify_full" value="1"<?= $values['full'] ? ' checked' : '' ?>> <?= e(t('The e-mail about a new application carries the fields')) ?></label>
 		<span class="napoveda"><?= e(t('Off: the e-mail names the position and links the application – nothing of the person leaves the site with it.')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="applications_claude" value="1"<?= $values['claude'] ? ' checked' : '' ?>> <?= e(t('Claude may read applications')) ?></label>
 		<span class="napoveda"><?= e(t('Through the connection of a person who may open Applications: the fields, replies and notes – never the content of a CV. The record of processing says so.')) ?></span></div></div>
+	<div class="radek"><label for="uchazeci-webhook"><?= e(t('Webhook of new applications')) ?></label><div><input class="textpole siroke" type="url" id="uchazeci-webhook" name="webhook_applications" maxlength="500" placeholder="https://" value="<?= e($values['webhook']) ?>" data-applications-webhook>
+		<span class="napoveda"><?= e(t('Optional (https only): each new application sends the event application.received with its number and position – never the applicant\'s name, e-mail, fields or CV. Signed like the other webhooks (Settings → Webhooks).')) ?></span></div></div>
 	<h2 id="templates"><?= e(t('Reply templates')) ?></h2>
 	<p class="napoveda"><?= e(t('Offered when replying to an applicant; “Application received” also goes to the applicant when the form sends no confirmation of its own. Placeholders: {{name}}, {{position}}, {{company}}. Empty = the built-in text.')) ?></p>
 <?php foreach ($templates as $code => $set): ?>

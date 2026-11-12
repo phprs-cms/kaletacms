@@ -142,7 +142,7 @@ expect "3.34 move: the job enquiry becomes an application (position, status, fil
   "1|Technician T334|reviewed|Lone Applicant|3|1|1|0|[false]"
 t334_move
 expect "3.34 move: run again, nothing moves twice" "$(sq "SELECT COUNT(*) FROM ka_applications WHERE source_enquiry_id = ${T334_EQ:-0}")|$(sq "SELECT COUNT(*) FROM ka_events WHERE type = 'applications.moved'")" "1|1"
-# the monthly report counts (counts and positions only)
+# the monthly report counts (counts and positions only); 3.40: from ka_application_counts – the interview of the erased application still counts
 expect "3.34 monthly report: recruitment counts – no person" \
-  "$(t334_php '$c = Kaleta\Core\Applications::monthCounts($app->db(), date("Y-m-01 00:00:00"), date("Y-m-d H:i:s", strtotime("first day of next month 00:00"))); echo $c === null ? "null" : ($c["interview"] . "|" . (str_contains(json_encode($c), "@") ? "leak" : "ok"));')" "0|ok"
+  "$(t334_php '$c = Kaleta\Core\Applications::monthCounts($app->db(), date("Y-m-01 00:00:00"), date("Y-m-d H:i:s", strtotime("first day of next month 00:00"))); echo $c === null ? "null" : ($c["interview"] . "|" . (str_contains(json_encode($c), "@") ? "leak" : "ok"));')" "1|ok"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$T334_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''; DELETE FROM ka_applications WHERE email LIKE '%-t334@example.com' OR source_enquiry_id = ${T334_EQ:-0}" > /dev/null

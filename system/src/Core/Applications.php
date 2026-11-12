@@ -279,11 +279,13 @@ final class Applications
             // M5: kept and readable (DB_SEALED), but the administrator must put the key back – never lost silently
             Events::record($db, 'applications.vault_missing', 'warning', sprintf('Application #%d: the encryption key of config.php is missing, so its CVs were sealed with the key in the database – put the vault_key line back into config.php (System status).', $id), ['application' => $id]);
         }
+        ApplicationCounts::bump($db, 'received', $position['item'], $position['title'], $now); // 3.40: the statistics keep the count after the retention
         // the position and the form, never the sender (as enquiry.received)
         Events::record($db, 'application.received', 'info', t('Application #%d for “%s” from the form “%s”', $id, $position['title'] !== '' ? $position['title'] : t('no position'), mb_substr((string) ($content['nazev'] ?? ''), 0, 80)),
             ['application' => $id, 'job' => $position['item'], 'form' => (string) ($element['id'] ?? ''), 'source' => $source]);
         self::notifyRecipients($app, $id, $content, $position['title'], $data, $email);
         self::confirmReceipt($app, $content, $id, $email); // 3.34 B: when the form sends no confirmation of its own
+        TalentPool::webhook($app, $id, $position); // 3.40: the optional webhook application.received – the number and the position only
 
         return $id;
     }
@@ -533,6 +535,57 @@ final class Applications
         return ['status' => $ok ? 'sent' : 'queued', 'error' => $error, 'to' => $to[0], 'status_set' => $statusSet];
     }
 
+    /** Applications one bulk rejection answers at most (rejectWithTemplate). */
+    public const int BULK_MAX = 100;
+
+    /**
+     * Rejects applications at once with the rejection template (3.40, design B6 "bulk: reject with the rejection template"):
+     * each one gets the template in its own language, filled with its name and position, sent by reply() – the signed-in
+     * user's signature, the reply and the status change on its own history. An application already rejected is left alone
+     * (no second rejection e-mail); one without an e-mail address is only rejected. Throws \DomainException before anything
+     * changes when the site cannot send replies (no SMTP, no sender) or nothing is selected.
+     *
+     * @param list<int> $ids
+     * @return array{sent: int, queued: int, no_email: int, skipped: int}
+     */
+    public static function rejectWithTemplate(App $app, array $ids, string $reason, string $via = 'admin'): array
+    {
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0))), 0, self::BULK_MAX);
+        if ($ids === []) {
+            throw new \DomainException('Select at least one application.');
+        }
+        $s = $app->settings();
+        $blocked = EnquiryReply::unavailable($s);
+        if ($blocked !== null) {
+            throw new \DomainException($blocked);
+        }
+        $reason = isset(self::REJECT_REASONS[$reason]) ? $reason : 'other';
+        $out = ['sent' => 0, 'queued' => 0, 'no_email' => 0, 'skipped' => 0];
+        $me = $app->auth()->id();
+        foreach ($app->db()->all('SELECT id, name, email, job_title, language, status FROM {applications} WHERE id IN (' . implode(',', $ids) . ') ORDER BY id') as $row) {
+            $id = (int) $row['id'];
+            if ($row['status'] === 'rejected') {
+                $out['skipped']++;
+                continue;
+            }
+            if (count(Mail::addresses((string) $row['email'])) !== 1) {
+                self::setStatus($app, $id, 'rejected', $reason, $me);
+                $out['no_email']++;
+                continue;
+            }
+            $mail = self::compose($s, $row, 'rejection', true); // nobody reads each text: the name only when it is a plain name (M4)
+            try {
+                $result = self::reply($app, $id, $mail['subject'], $mail['text'], 'rejected', $reason, $via);
+            } catch (\DomainException) {
+                $out['skipped']++; // deleted meanwhile
+                continue;
+            }
+            $out[$result['status'] === 'sent' ? 'sent' : 'queued']++;
+        }
+
+        return $out;
+    }
+
     /* ---------- reading ---------- */
 
     /**
@@ -699,14 +752,61 @@ final class Applications
      *
      * @return list<array{id: int, job_title: string, status: string, received_at: string}>
      */
-    public static function others(Db $db, int $id, ?string $emailNorm): array
+    public static function others(Db $db, int $id, ?string $emailNorm, int $months = 0): array
     {
         if ($emailNorm === null || $emailNorm === '') {
             return [];
         }
 
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'job_title' => (string) $r['job_title'], 'status' => (string) $r['status'], 'received_at' => (string) $r['received_at']],
-            $db->all('SELECT id, job_title, status, received_at FROM {applications} WHERE email_norm = ? AND id <> ? ORDER BY id DESC LIMIT 10', [$emailNorm, $id]));
+        // 3.40: with the day each one will be deleted (its own retention – the list never keeps one longer)
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'job_title' => (string) $r['job_title'], 'status' => (string) $r['status'], 'received_at' => (string) $r['received_at'],
+            'deletes_on' => self::deletionDate($r, $months)],
+            $db->all('SELECT id, job_title, status, received_at, decided_at, last_activity_at, pool_until FROM {applications} WHERE email_norm = ? AND id <> ? ORDER BY id DESC LIMIT 10', [$emailNorm, $id]));
+    }
+
+    /** How many other applications came from the same address (3.40: the detail says when there are more than others() lists). */
+    public static function othersCount(Db $db, int $id, ?string $emailNorm): int
+    {
+        return $emailNorm === null || $emailNorm === '' ? 0 : (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE email_norm = ? AND id <> ?', [$emailNorm, $id]);
+    }
+
+    /** Days a decided application stays on the board (3.40). */
+    public const int BOARD_DECIDED_DAYS = 30;
+
+    /** Applications per column of the board at most (3.40). */
+    public const int BOARD_MAX = 100;
+
+    /**
+     * The board of one position (3.40, design B15 "a board by status for one position"): a column per status, newest first;
+     * hired and rejected only when decided in the last BOARD_DECIDED_DAYS days. $job: an item id or 'none' (spontaneous).
+     * Each card: id, name, email (when there is no name), received_at, assignee_id, waiting (new without a reply for more
+     * than WAITING_DAYS), late, pool_until, reject_reason. 'more' = per status how many the column leaves out.
+     *
+     * @return array{columns: array<string, list<array<string, mixed>>>, more: array<string, int>}
+     */
+    public static function board(Db $db, string $job, string $today): array
+    {
+        $columns = array_fill_keys(self::STATUSES, []);
+        $more = array_fill_keys(self::STATUSES, 0);
+        if ($job !== 'none' && (!ctype_digit($job) || (int) $job <= 0)) {
+            return ['columns' => $columns, 'more' => $more];
+        }
+        $since = (new \DateTimeImmutable($today))->modify('-' . self::BOARD_DECIDED_DAYS . ' days')->format('Y-m-d') . ' 00:00:00';
+        $waiting = self::waitingBefore($today);
+        $rows = $db->all('SELECT id, name, email, received_at, status, assignee_id, replies IS NULL AS unanswered, late, pool_until, reject_reason FROM {applications} WHERE '
+            . ($job === 'none' ? 'job_item_id IS NULL' : 'job_item_id = ' . (int) $job) . " AND (status NOT IN ('hired', 'rejected') OR decided_at >= ?) ORDER BY id DESC LIMIT 2000", [$since]);
+        foreach ($rows as $r) {
+            $status = in_array($r['status'], self::STATUSES, true) ? (string) $r['status'] : 'new';
+            if (count($columns[$status]) >= self::BOARD_MAX) {
+                $more[$status]++;
+                continue;
+            }
+            $columns[$status][] = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'received_at' => (string) $r['received_at'],
+                'assignee_id' => $r['assignee_id'] !== null ? (int) $r['assignee_id'] : null, 'waiting' => $status === 'new' && (int) $r['unanswered'] === 1 && (string) $r['received_at'] < $waiting,
+                'late' => (int) $r['late'] === 1, 'pool_until' => $r['pool_until'] !== null ? (string) $r['pool_until'] : null, 'reject_reason' => $r['reject_reason'] !== null ? (string) $r['reject_reason'] : null];
+        }
+
+        return ['columns' => $columns, 'more' => $more];
     }
 
     /**
@@ -778,6 +878,12 @@ final class Applications
         }
     }
 
+    /** A line of the change log of Applications (3.40: for Core\TalentPool, which stays out of the admin layer). */
+    public static function log(App $app, string $action, string $description): void
+    {
+        ChangeLog::write($app, self::SECTION, $action, $description);
+    }
+
     /** The admin address of an application (relative). */
     public static function adminPath(int $id): string
     {
@@ -827,7 +933,7 @@ final class Applications
             throw new \DomainException('Unknown status.');
         }
         $db = $app->db();
-        $row = $db->one('SELECT id, status, reject_reason, history FROM {applications} WHERE id = ?', [$id]) ?? throw new \DomainException('The application does not exist.');
+        $row = $db->one('SELECT id, status, reject_reason, history, job_item_id, job_title FROM {applications} WHERE id = ?', [$id]) ?? throw new \DomainException('The application does not exist.');
         $reason = $status === 'rejected' ? (isset(self::REJECT_REASONS[$reason]) ? $reason : 'other') : null;
         if ($row['status'] === $status && $row['reject_reason'] === $reason) {
             return false;
@@ -837,6 +943,9 @@ final class Applications
         $db->update('applications', ['status' => $status, 'status_at' => $now, 'decided_at' => $decided ? $now : null, 'reject_reason' => $reason,
             'history' => self::appendHistory($row['history'] ?? null, ['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'from' => (string) $row['status'], 'to' => $status]),
             'last_activity_at' => $now], ['id' => $id]);
+        if ($row['status'] !== $status && ApplicationCounts::counts($status, $row['history'] ?? null, $now)) {
+            ApplicationCounts::bump($db, $status, $row['job_item_id'] !== null ? (int) $row['job_item_id'] : null, (string) $row['job_title'], $now); // 3.40
+        }
         ChangeLog::write($app, self::SECTION, 'status', sprintf('#%d %s → %s', $id, (string) $row['status'], $status));
 
         return true;
@@ -1921,19 +2030,27 @@ final class Applications
 
     /**
      * The undecided applications with a responsible person that will be deleted within WARN_DAYS and were not announced
-     * yet (no deletion_due notification about them). Pure.
+     * yet. Pure.
      *
-     * @param list<array<string, mixed>> $rows id, decided_at, last_activity_at, pool_until, assignee_id
-     * @param array<int, true> $warned ids already announced
+     * 3.40 (B8, B15 "the reminder refined"): $warned maps an id to the deletion day it was announced for (the column
+     * deletion_warned_on) – an application whose deletion moved (a note, a reply, a renewed consent) and comes close again
+     * is announced again for its new day; true = announced for an unknown day (a deletion_due bell entry from 3.34), never
+     * again. $hired: a hired application is announced too, so its responsible person takes what belongs in the personnel
+     * file first (B8 "Hired people"); a rejected one never is.
+     *
+     * @param list<array<string, mixed>> $rows id, decided_at, last_activity_at, pool_until, assignee_id (status with $hired)
+     * @param array<int, true|string> $warned ids already announced => true or the day announced
      * @return list<array{id: int, assignee: int, day: string}>
      */
-    public static function dueForWarning(array $rows, int $months, string $today, array $warned): array
+    public static function dueForWarning(array $rows, int $months, string $today, array $warned, bool $hired = false): array
     {
         $limit = (new \DateTimeImmutable($today))->modify('+' . self::WARN_DAYS . ' days')->format('Y-m-d');
         $out = [];
         foreach ($rows as $r) {
             $day = self::deletionDate($r, $months);
-            if ($day !== null && $day > $today && $day <= $limit && ($r['decided_at'] ?? null) === null && (int) ($r['assignee_id'] ?? 0) > 0 && !isset($warned[(int) $r['id']])) {
+            $announced = $warned[(int) $r['id']] ?? null;
+            $open = ($r['decided_at'] ?? null) === null || ($hired && ($r['status'] ?? '') === 'hired');
+            if ($day !== null && $day > $today && $day <= $limit && $open && (int) ($r['assignee_id'] ?? 0) > 0 && ($announced === null || (is_string($announced) && $announced !== $day))) {
                 $out[] = ['id' => (int) $r['id'], 'assignee' => (int) $r['assignee_id'], 'day' => $day];
             }
         }
@@ -1969,13 +2086,23 @@ final class Applications
         $today = Clock::today();
         // 3.34 review H1: what moved in from Enquiries waits until an administrator confirmed the retention (Settings tab)
         // N8: a moved application only up to the highest id an administrator confirmed
-        $rows = $db->all('SELECT id, decided_at, last_activity_at, pool_until, assignee_id FROM {applications} WHERE COALESCE(decided_at, last_activity_at) < ?'
+        $warnedColumn = self::hasWarnedColumn($db);
+        $rows = $db->all('SELECT id, status, decided_at, last_activity_at, pool_until, assignee_id' . $warnedColumn . ' FROM {applications} WHERE COALESCE(decided_at, last_activity_at) < ?'
             . ' AND (source_enquiry_id IS NULL OR id <= ' . self::confirmedUpTo($app->settings()) . ')',
             [(new \DateTimeImmutable($today))->modify('-' . $months . ' months')->modify('+' . (self::WARN_DAYS + 1) . ' days')->format('Y-m-d')]);
+        // 3.40: the day announced (deletion_warned_on); a bell entry of 3.34 without it counts as announced for good
         $warned = array_fill_keys(array_map(fn (array $r): int => (int) substr((string) $r['target'], 12), $db->all("SELECT target FROM {notifications} WHERE kind = 'deletion_due' AND target LIKE 'application:%'")), true);
-        foreach (self::dueForWarning($rows, $months, $today, $warned) as $due) {
+        foreach ($rows as $r) {
+            if (is_string($r['deletion_warned_on'] ?? null)) {
+                $warned[(int) $r['id']] = substr($r['deletion_warned_on'], 0, 10);
+            }
+        }
+        foreach (self::dueForWarning($rows, $months, $today, $warned, true) as $due) {
             if (Assignment::allowed($db, 'application', $due['assignee'])) { // review low (a): only someone who may open Applications
                 Inbox::notify($app, $due['assignee'], 'deletion_due', self::target($due['id']), null, format_date($due['day']));
+                if ($warnedColumn !== '') {
+                    $db->update('applications', ['deletion_warned_on' => $due['day']], ['id' => $due['id']]); // announced once per deletion day
+                }
             }
         }
         $expired = self::expired($rows, $months, $today);
@@ -1994,6 +2121,19 @@ final class Applications
         Events::record($db, 'applications.purged', 'info', t('%d job applications older than %d months were deleted, including the CVs.', $count, $months), ['count' => $count, 'months' => $months]);
 
         return $count;
+    }
+
+    /** ', deletion_warned_on' once migration 0128 added the column, '' before (the clean-up of an update in progress). */
+    private static function hasWarnedColumn(Db $db): string
+    {
+        try {
+            $db->value('SELECT deletion_warned_on FROM {applications} LIMIT 1');
+
+            return ', deletion_warned_on';
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return '';
+        }
     }
 
     /* ---------- personal data, reports ---------- */
@@ -2023,6 +2163,7 @@ final class Applications
             return ['id' => $a['id'], 'received_at' => $a['received_at'], 'position' => $a['job_title'], 'form' => $a['form'], 'page' => $a['page'], 'name' => $a['name'],
                 'email' => $a['email'], 'phone' => $a['phone'], 'data' => $a['data'], 'attachments' => array_map(fn (array $x): array => ['name' => $x['name'], 'size' => $x['size']], $a['attachments']),
                 'status' => $a['status'], 'history' => $a['history'], 'pool_consent_at' => $a['pool_consent_at'], 'pool_consent_text' => $a['pool_consent_text'], 'pool_until' => $a['pool_until'],
+                'pool_renewal_sent_at' => $a['pool_renewal_sent_at'] ?? null, // 3.40: the renewal e-mail of the consent
                 'replies' => array_map(fn (array $x): array => ['at' => $x['at'], 'by' => $x['by'], 'subject' => $x['subject'], 'text' => $x['text']], $a['replies']),
                 'notes' => array_map(fn (array $n): array => ['at' => $n['at'], 'by' => $n['by'], 'text' => $n['text']], Comments::of($db, $target)),
                 'tasks' => array_map(fn (array $t): array => ['title' => $t['title'], 'due_at' => $t['due_at'], 'done_at' => $t['done_at'], 'created_at' => $t['created_at']], Tasks::forTarget($db, $target))];
@@ -2038,6 +2179,21 @@ final class Applications
      */
     public static function monthCounts(Db $db, string $from, string $to): ?array
     {
+        $counted = ApplicationCounts::month($db, $from, $to); // 3.40: the counts survive the retention
+        if ($counted !== null) {
+            try {
+                $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [$to]);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+                $waiting = 0;
+            }
+            if ($counted['received'] + $counted['interview'] + $counted['hired'] + $counted['rejected'] + $waiting === 0) {
+                return null;
+            }
+
+            return ['received' => $counted['received'], 'positions' => $counted['positions'], 'interview' => $counted['interview'], 'hired' => $counted['hired'],
+                'rejected' => $counted['rejected'], 'waiting' => $waiting];
+        }
         try {
             $received = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE received_at >= ? AND received_at < ?', [$from, $to]);
             $positions = array_map(fn (array $r): array => ['title' => (string) $r['title'], 'n' => (int) $r['n']],

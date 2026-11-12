@@ -92,6 +92,7 @@ final class Settings
         'screen_secret' => '',         // the secret part of the address; created when the mode is switched on, shown only in the administration
         'webhook_url' => '',          // where to send the data of a just-published news item (Make, Zapier...)
         'webhook_enquiries' => '',    // where to send a new enquiry from a form (CRM, Make, Zapier, n8n…)
+        'webhook_applications' => '', // 3.40: where to send the event application.received – the number and the position only, never the applicant (Core\TalentPool::webhook, Applications → Settings)
         'webhook_secret' => '',       // created by itself; signs webhook calls (X-Kaleta-Signature), shown only to administrators
         'require_2fa' => '',          // '' | spravci (administrators) | vsichni (everyone) – mandatory two-factor login
         'signin_passkey_only' => '',  // 3.35: '1' = accounts with a working passkey sign in with it only (Core\SignInPolicy; config.php KALETA_PASSKEY_ONLY_OFF switches it off)

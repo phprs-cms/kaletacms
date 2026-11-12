@@ -4825,6 +4825,70 @@ await step('3.34 Move to Applications: one enquiry moves after the confirmation 
   }
 });
 
+// 3.40 (C): applications II – the board of one position (a card moves with its own form, the reason follows Rejected, with a
+// mouse the form folds behind ⋯), the talent pool, the statistics and the page of the renewal link – 1440 and 390 px,
+// light/dark, axe; no sideways scroll on a phone
+await step('3.40 applications II: the board, the talent pool, the statistics and the renewal page – 1440 and 390 px, light/dark, axe', async () => {
+  const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
+    INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, data, status, status_at, last_activity_at, decided_at, reject_reason, pool_consent_at, pool_until, pool_renewal_sent_at, pool_token, pool_token_until) VALUES
+      (NOW() - INTERVAL 10 DAY, 9341, 'Welder B340', 'Job application', 'Nina B340', 'nina-b340@example.com', 'nina-b340@example.com', '[]', 'new', NOW(), NOW(), NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+      (NOW(), 9341, 'Welder B340', 'Job application', 'Oskar Longname-Of-A-Welder B340', 'oskar-b340@example.com', 'oskar-b340@example.com', '[]', 'interview', NOW(), NOW(), NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+      (NOW(), 9341, 'Welder B340', 'Job application', 'Pia B340', 'pia-b340@example.com', 'pia-b340@example.com', '[]', 'rejected', NOW(), NOW(), NOW(), 'position_filled', NOW() - INTERVAL 11 MONTH, CURDATE() + INTERVAL 15 DAY, NOW(), NULL, NOW() + INTERVAL 15 DAY);
+    INSERT IGNORE INTO ka_application_counts (month, job_item_id, job_title, received, interview, offer, hired, rejected) VALUES (DATE_FORMAT(NOW(), '%Y-%m'), 9341, 'Welder B340', 3, 1, 0, 0, 1)`);
+  const nina = sql("SELECT id FROM ka_applications WHERE email = 'nina-b340@example.com'").trim();
+  const token = execFileSync('php', ['-r', 'echo hash("sha256", "b340-renewal-token");'], { encoding: 'utf8' }).trim();
+  // the link carries a 64-hex token, the row only its sha256 (Core\TalentPool)
+  sql(`UPDATE ka_applications SET pool_token = SHA2('${token}', 256) WHERE email = 'pia-b340@example.com'`);
+  const urls = ['/admin.php?module=applications&action=board&job=9341', '/admin.php?module=applications&action=pool', '/admin.php?module=applications&action=stats', `/application-consent/${token}`];
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(urls[0]);
+    if ((await page.locator('[data-board-status]').count()) !== 6) { throw new Error('the board has not six columns'); }
+    const card = page.locator(`[data-board-card="${nina}"]`);
+    if (!(await page.locator(`[data-board-status="new"] [data-board-card="${nina}"]`).count())) { throw new Error('Nina is not in New'); }
+    if (await card.locator('select[name="status"]').isVisible()) { throw new Error('with a mouse the move form does not fold behind ⋯'); }
+    await card.locator('details.obchod-vice > summary').click();
+    if (await card.locator('select[name="reject_reason"]').isVisible()) { throw new Error('the reason shows before Rejected is chosen'); }
+    await card.locator('select[name="status"]').selectOption('rejected');
+    if (!(await card.locator('select[name="reject_reason"]').isVisible())) { throw new Error('the reason does not show with Rejected'); }
+    await card.locator('select[name="status"]').selectOption('interview');
+    await card.locator('form[data-board-move] button').focus();
+    await Promise.all([page.waitForNavigation(), page.keyboard.press('Enter')]); // the keyboard moves it
+    if (!(await page.locator(`[data-board-status="interview"] [data-board-card="${nina}"]`).count())) { throw new Error(`Nina did not move to Interview: ${page.url()}`); }
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      for (const [width, height] of [[1440, 900], [390, 844]]) {
+        await page.setViewportSize({ width, height });
+        for (const url of urls) {
+          await visit(url);
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) { throw new Error(`${url} scrolls sideways at ${width} px (${scheme})`); }
+          if (SHOTS) { await page.screenshot({ path: `${SHOTS}/applications-340-${url.includes('consent') ? 'consent' : url.match(/action=(\w+)/)[1]}-${width}-${scheme}.png`, fullPage: true }); }
+        }
+      }
+    }
+    await visit(urls[3]);
+    if ((await page.locator('button[name="choice"]').count()) !== 2) { throw new Error('the renewal page does not offer keep and delete'); }
+    const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const url of urls) {
+        await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate((tags) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG);
+        if (found.violations.length) { throw new Error(`axe ${url}: ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_applications WHERE email IN ('nina-b340@example.com', 'oskar-b340@example.com', 'pia-b340@example.com'); DELETE FROM ka_application_counts WHERE job_item_id = 9341;
+      REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions}'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''`);
+  }
+});
+
 // 3.35 B1 (owner decision 11 Nov 2026): without a fresh proof (a sign-in or a confirmed password in the last 10 minutes –
 // the session marker verified_at) the consent asks for the current password; "Can also publish" without it is refused on
 // the same page with why and the choice kept, at 1440 and 390 px in light and dark without sideways scroll, axe clean.

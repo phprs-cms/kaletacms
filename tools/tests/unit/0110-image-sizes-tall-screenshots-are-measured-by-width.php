@@ -146,7 +146,8 @@ $parity = [
         'consent' => 'admin: the applicant withdrew the consent for future openings – a person records it', 'delete' => 'admin: deleting an application for good is an administrator\'s decision',
         'comment' => 'admin: the team’s notes on an application – a person writes them; Claude adds one with update_application add_note', 'task' => 'save_task',
         'settings' => $readOnly, 'settings_save' => 'admin: the retention, the templates and the switches of applications are the administrator\'s set-up',
-        'search_json' => $readOnly, 'move' => $readOnly, 'move_run' => 'admin: moving enquiries of a form to applications or back is the administrator\'s decision about personal data'],
+        'search_json' => $readOnly, 'move' => $readOnly, 'move_run' => 'admin: moving enquiries of a form to applications or back is the administrator\'s decision about personal data',
+        'board' => 'list_applications', 'pool' => 'list_applications', 'stats' => $readOnly], // 3.40
     // 3.38: quotes and internal prices (Core\Prices, Core\Quotes) – Claude reads and saves prices with list_prices and save_price;
     // the CSV import, the price lists and the settings stay with people (the quote tools come with the quote screens)
     'quotes' => ['list' => 'list_quotes', 'create' => 'save_quote', 'edit' => 'get_quote', 'save' => 'save_quote', 'detail' => 'get_quote', 'status' => 'mark_quote',
