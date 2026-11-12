@@ -177,6 +177,12 @@ final class Users extends Module
 
             return $this->form(['idu' => $id] + $data + ($id > 0 ? (array) $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$id]) : []), $errors);
         }
+        if ($id > 0 && (isset($data['password']) || $emailChanged)) {
+            // 3.41 (N113): a new password or e-mail ends a reset or invitation link sent before – it went to the old address,
+            // or it would set a password over the one just given
+            $data['obnova_otisk'] = '';
+            $data['obnova_cas'] = null;
+        }
         if ($totpReset) {
             // 3.35: the reset is the way back for passkeys too – the app, the backup codes, the passkeys (below) and the
             // account's "passkey only" go; the user signs in with the password and sets up a new passkey

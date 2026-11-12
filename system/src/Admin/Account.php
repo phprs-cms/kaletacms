@@ -61,6 +61,7 @@ final class Account
                         // form of address in the German administration: '' = formal
                         'register' => $r->post('register') === 'informal' ? 'informal' : ''], ['idu' => $user['idu']]);
                     if ($emailChanged) {
+                        \Kaleta\Admin\PasswordReset::cancel($db, (int) $user['idu']); // 3.41 (N113): a link sent to the old address ends
                         ChangeLog::write($app, 'ucet', 'email_change');
                         $this->noticeOfNewEmail($user, $email);
                     }
@@ -81,7 +82,7 @@ final class Account
                     };
                     if ($message === null) {
                         $newHash = password_hash($newItems, PASSWORD_DEFAULT);
-                        $db->update('uzivatele', ['password' => $newHash], ['idu' => $user['idu']]);
+                        $db->update('uzivatele', ['password' => $newHash, 'obnova_otisk' => '', 'obnova_cas' => null], ['idu' => $user['idu']]); // 3.41 (N113): with any reset link
                         $app->auth()->refreshAfterPasswordChange($newHash); // this ends the other sign-ins of this account
                         // apps connected over OAuth (Claude) always go – their refresh token lives a year (N39-1). Personal tokens
                         // go too (3.31.2, N101) unless the form says to keep them: the unticked box sends zrusit_tokeny=0, and a

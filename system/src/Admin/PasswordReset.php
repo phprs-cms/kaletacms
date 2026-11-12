@@ -25,6 +25,9 @@ final class PasswordReset
 {
     private const int LINK_LIFETIME = 3600;
 
+    /** 3.41 (N113): a request from the sign-in page sends no new link while one is this fresh (seconds) or an invitation waits. */
+    public const int REQUEST_GAP = 900;
+
     public function __construct(private readonly App $app)
     {
     }
@@ -52,7 +55,11 @@ final class PasswordReset
                 $app->db()->insert('kontrola_ip', ['ip_adresa' => $ip, 'typ' => 'obnova', 'cas' => date('Y-m-d H:i:s')]);
                 $who = trim($app->request->post('kdo'));
                 $user = $who === '' ? null : $app->db()->one("SELECT * FROM {uzivatele} WHERE (user = ? OR email = ?) AND blokovat = 0 AND email <> '' LIMIT 1", [$who, $who]);
-                if ($user !== null) {
+                if ($user !== null && self::linkPending($user, time())) {
+                    // 3.41 (N113): an anonymous request never replaces a valid invitation (3 days) with a one-hour link, and one
+                    // mailbox gets at most one link per REQUEST_GAP – the answer is the same, so nothing tells the difference
+                    ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t('request ignored – a valid link is pending, account: %s', (string) $user['user']));
+                } elseif ($user !== null) {
                     $this->sendLink($user);
                 }
                 $sent = true;
@@ -60,6 +67,28 @@ final class PasswordReset
         }
 
         return $this->page(['step' => 'zadost', 'sent' => $sent, 'error' => $error], $error === null ? 200 : 429);
+    }
+
+    /**
+     * 3.41 (N113, pure): does the account have a link that a request from the sign-in page must not replace – an invitation
+     * or an administrator's link (its time lies in the future), or a request link sent less than REQUEST_GAP ago?
+     *
+     * @param array<string, mixed> $user
+     */
+    public static function linkPending(array $user, int $now): bool
+    {
+        $at = (string) ($user['obnova_cas'] ?? '');
+
+        return (string) ($user['obnova_otisk'] ?? '') !== '' && $at !== '' && $at > date('Y-m-d H:i:s', $now - self::REQUEST_GAP);
+    }
+
+    /**
+     * 3.41 (N113): the account's reset or invitation link stops working – on an e-mail or password change, a completed
+     * sign-in, or when the account sets its password through it.
+     */
+    public static function cancel(\Kaleta\Core\Db $db, int $userId): void
+    {
+        $db->run("UPDATE {uzivatele} SET obnova_otisk = '', obnova_cas = NULL WHERE idu = ? AND obnova_otisk <> ''", [$userId]);
     }
 
     /**

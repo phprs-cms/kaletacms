@@ -51,3 +51,11 @@ check('3.41 N121: Link::answerBinding – bound for this site and time; another 
     Kaleta\Fleet\Link::answerBinding(['ok' => true, 'update_allowed' => '3.41.0'], 7, 1700000000, false),
     Kaleta\Fleet\Link::answerBinding(['ok' => true, 'update_allowed' => '3.41.0'], 7, 1700000000, true),
 ], ['bound', 'refused', 'refused', 'refused', 'legacy', 'refused']);
+
+// N113: which links an anonymous request must not replace
+$s341Now = strtotime('2026-11-12 10:00:00');
+check('3.41 N113: PasswordReset::linkPending – an invitation (future time) and a request link younger than 15 minutes are pending; an older or used one is not', array_map(
+    fn (array $u): bool => Kaleta\Admin\PasswordReset::linkPending($u, $s341Now), [
+        ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-15 09:00:00'], ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-12 09:50:00'],
+        ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-12 09:40:00'], ['obnova_otisk' => '', 'obnova_cas' => '2026-11-15 09:00:00'], ['obnova_otisk' => 'x', 'obnova_cas' => null]]),
+    [true, true, false, false, false]);

@@ -792,7 +792,8 @@ final class Auth
     private function recordSignIn(int $idu): void
     {
         // 3.35 review M1: a completed sign-in also ends a lock – only a passkey completes one on a locked account
-        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null, 'posledni_login' => date('Y-m-d H:i:s')], ['idu' => $idu]);
+        // 3.41 (N113): and a reset or invitation link – the account's owner just proved who they are without it
+        $this->db->update('uzivatele', ['pocet_chyb' => 0, 'zamceno_do' => null, 'posledni_login' => date('Y-m-d H:i:s'), 'obnova_otisk' => '', 'obnova_cas' => null], ['idu' => $idu]);
     }
 
     public function logout(): void

@@ -8720,4 +8720,5 @@ return [
     'Folders storage/ and system/' => 'Carpetas storage/ y system/',
     'The web server hands files from storage/ or system/ to visitors (%s) – the error log, exports and backups lie there. Add the rules of system/nginx.example.conf to the server\'s configuration (nginx, Caddy), or ask the hosting to refuse these folders; the next daily check confirms it.' => 'El servidor web entrega a los visitantes archivos de storage/ o system/ (%s): allí están el registro de errores, las exportaciones y las copias de seguridad. Añade las reglas de system/nginx.example.conf a la configuración del servidor (nginx, Caddy) o pide al hosting que rechace estas carpetas; la próxima comprobación diaria lo confirmará.',
     'the web server refuses them to visitors (checked %s)' => 'el servidor web las niega a los visitantes (comprobado el %s)',
+    'request ignored – a valid link is pending, account: %s' => 'solicitud ignorada: ya hay un enlace válido pendiente, cuenta: %s',
 ];
