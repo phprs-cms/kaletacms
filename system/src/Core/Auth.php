@@ -81,6 +81,12 @@ final class Auth
     /** The user name of the account the last sign-in with a passkey was for ('' = unknown passkey) – the change log names it. */
     private string $passkeyAccount = '';
 
+    /**
+     * 3.41 (N117): the user name of the existing account the last failed password step was for ('' = no such account).
+     * The change log names only this, never what was typed – a password typed into the name field must not be kept.
+     */
+    private string $failedAccount = '';
+
     public function __construct(private readonly Db $db, private readonly Session $session, private readonly ?Settings $settings = null)
     {
     }
@@ -128,6 +134,7 @@ final class Auth
             }
         }
 
+        $this->failedAccount = $typed === null || $user === null || $closed ? (string) ($user['user'] ?? '') : '';
         if ($typed === null || $user === null || $closed) {
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($address), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null && !$closed) {
@@ -655,6 +662,12 @@ final class Auth
     }
 
     /** The user name of the account the last sign-in with a passkey was for – '' when the passkey is unknown. */
+    /** 3.41 (N117): the account the last failed password step was for – its stored user name, '' when no account matched. */
+    public function failedAccount(): string
+    {
+        return $this->failedAccount;
+    }
+
     public function passkeyAccount(): string
     {
         return $this->passkeyAccount;

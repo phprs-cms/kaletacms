@@ -635,7 +635,9 @@ final class Kernel
                 return Response::redirect($this->resolveAfterSignIn());
             }
             if ($error !== null && !$secondStep) {
-                ChangeLog::write($app, 'prihlaseni', 'neuspech', 'account: ' . mb_substr($app->request->post('user'), 0, 40));
+                // 3.41 (N117): only the name of an existing account – what was typed may be a password typed into the wrong field
+                $account = $app->auth()->failedAccount();
+                ChangeLog::write($app, 'prihlaseni', 'neuspech', $account !== '' ? 'account: ' . mb_substr($account, 0, 40) : 'unknown account');
             }
         }
 
