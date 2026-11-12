@@ -1335,6 +1335,13 @@ final class Updater
      */
     private const array REMOVED_FILES = [
         // 'path/to/file.php' => ['sha256 of a released version', …] – files the new version removed
+        // 3.39 (T5): the English table rename is not planned – Ready for 4.0 and the legacy-name watch are gone
+        'system/src/Core/Readiness.php' => [
+            '2c73c4f490e25e1dee97c4605864fa3f3014015d0b0b0ff750ebdca19446fef2',
+            'a685449baa5d85306c7219d856f2230ddcea302770f6fc97940ff99462751b98',
+            'bddace9b5e903f51a830f2d2ea37aee962cccd29db45e6201779ddc6114fc04d',
+        ],
+        'system/src/Core/LegacyNames.php' => ['036e95528ff3ee15f2f9f7a91de024d3b95c08d2b3d4faea943249dfcd76b2bd'],
     ];
 
     /**
