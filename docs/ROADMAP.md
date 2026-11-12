@@ -2014,6 +2014,35 @@ Migrations 0125 (`ka_fleet_acceptances`) and 0126 (`ka_uzivatele.totp_tajemstvi`
    `ready_for_4_0` as `{planned: false}` (MCP output additive only). The encryption-key state moved into System status.
    `docs/design/code-layers.md` + unit 3100: which namespace may call which; today's exceptions are frozen and may only shrink.
 
+## 3.40 – quotes as PDF, customer price lists and decisions, applications statistics and talent pool (12 November 2026)
+
+Migrations 0128 (`price_list_id` on `ka_contacts` and `ka_companies`, quote decision and first-opened columns,
+`ka_quote_line_sets`) and 0129 (`ka_application_counts`, `ka_applications.pool_token`, `pool_token_until`,
+`pool_renewal_sent_at`, `deletion_warned_on`); `KALETA_DB_VERSION` 129. Design `kaleta-audity/design-quotes-applications-
+2026-11-10.md`, releases Q2 and B2 (owner approved the recommendations; A-12: customer decisions and "opened on" off by default).
+
+1. **Quotes as PDF** (A-9: no third-party library). `Core\Pdf` (+ `Core\PdfFonts`): A4 pages with text, lines, rectangles and
+   images, classic xref, zlib; the standard fonts with one WinAnsi + Differences encoding per document and a ToUnicode map
+   (Latin-1, Windows-1252 and Central/Eastern European letters; JPEG as is, PNG/GIF/WebP via GD, no SVG). `Pdf::supports()`:
+   Greek, Cyrillic, CJK, Vietnamese tones or RTL = no PDF, the print page only. `Front\QuotePdf` draws the frozen snapshot
+   (table header on every page, "Page x of y"). `/quote/<token>.pdf` under the page's token rules and admin action `pdf` –
+   always an attachment `<number>.pdf`, never cached. `Core\Mail` attachments (multipart/mixed, 5 MB); setting
+   `quote_attach_pdf` (default on) is the default of the send dialog's box; MCP `send_quote` `attach_pdf`, result key `pdf`.
+2. **Quotes II.** A price list per contact or company (`Quotes::customerList`: the contact's list, else the company's).
+   Customer Accept / Decline on the quote page (`quote_customer_decision`, off; `Front\QuoteDecision`, a POST bound to the
+   token, rate-limited, one decision while sent and valid; history "by the customer", bell names the number only, the deal
+   only offered won/lost). "First opened on" (`quote_track_opened`, off; the time only, not for signed-in users; turning it
+   off forgets the times). Task target `quote:<id>` and "Remind me in N days". Saved line sets (`Core\QuoteLineSets`;
+   prices re-read on insert). MCP additive: `list_quotes` `line_sets`, `save_quote` `line_set`, `get_quote` `decided_by`,
+   `customer_reason`, `first_opened_at`.
+3. **Applications II.** Statistics tab and monthly report from `ka_application_counts` (`Core\ApplicationCounts`; counts per
+   month and position, never a person; they survive the retention). Bulk "Reject and send the rejection"
+   (`rejectWithTemplate`). A board by status for one position. Other applications from the same address on the detail (MCP
+   `get_application` `other_applications`). Talent pool (`Core\TalentPool`): one e-mail 30 days before `pool_until` with keep
+   and delete links on `/application-consent/<token>` (sha256 stored, single use, expires with the consent; opening only shows
+   the choice). Optional webhook `webhook_applications` (`application.received`, number and position only). The deletion
+   reminder goes out once per deletion day, also for hired applications.
+
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 
 **No English renaming of tables or columns – not in 4.0 and not later.** The owner rejected it on 21 and 22 October 2026

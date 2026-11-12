@@ -338,6 +338,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Nabídky II a přihlášky II (3.40, migrace 0128 a 0129):** PDF nabídky vlastním `Core\Pdf` (standardní písma, WinAnsi +
+  Differences, ToUnicode; bez cizí knihovny), `Front\QuotePdf` ze snapshotu; `/quote/<token>.pdf` a admin akce `pdf` vždy jako příloha,
+  bez cache; písmo, které PDF nenakreslí (řečtina, cyrilice, CJK, RTL) = jen tisková stránka; přílohy jen přes `Mail::send(..., $attachments)`.
+  Ceník zákazníka (`price_list_id` u kontaktu a firmy), Přijmout/Odmítnout zákazníkem (`quote_customer_decision`, `Front\QuoteDecision`)
+  a „poprvé otevřeno“ (`quote_track_opened`) – obojí výchozí vypnuto; cíl `quote:<id>` pro úkoly; sady řádků `Core\QuoteLineSets`.
+  Přihlášky: počty `ka_application_counts` (`Core\ApplicationCounts`, nikdy osoba), hromadné zamítnutí, nástěnka pozice, zásoba uchazečů
+  `Core\TalentPool` (`/application-consent/<token>`), webhook `webhook_applications` jen číslo a pozice.
 - **Flotila 3.39:** Dnes po kontrolách (`Fleet\Health::groups`); přijetí stavu (`Fleet\Acceptances`, `ka_fleet_acceptances`, migrace 0125):
   jedna kontrola jednoho webu, poznámka + poslední den, jen v konzoli; platí do dne nebo do změny stavu; upozornění, připomínky a souhrn
   ho přeskočí; MCP značí `accepted` aditivně. Šest sekcí `Fleet::SECTIONS`, dřívější záložky zůstávají jako pohledy.
