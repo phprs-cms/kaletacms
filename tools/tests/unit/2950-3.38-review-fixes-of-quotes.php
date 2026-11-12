@@ -26,3 +26,47 @@ check('3.38 review L4: the combined discount of a line – 20 % + 20 % is 36 %, 
 check('3.38 review L6: the retention in delete mode takes anonymised quotes as well; in anonymise mode never twice', [
     QuoteDelivery::due($c338Quotes, 36, '2026-11-12 10:00:00', true), QuoteDelivery::due($c338Quotes, 36, '2026-11-12 10:00:00')],
     [['draft-old', 'sent-old', 'done'], ['draft-old', 'sent-old']]);
+
+// L7: who may read prices and quotes – Prices::forItem, Quotes::get, Quotes::of and anything of QuoteDelivery are called only by
+// the files below (a walk over the whole tree, aliases followed: a new caller such as Front\Seo or Core\Assistant fails here)
+$r338Callers = static function (string $root): array {
+    $found = [];
+    foreach (['src', 'views', '../extensions'] as $dir) {
+        if (!is_dir($root . '/' . $dir)) {
+            continue;
+        }
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (!str_ends_with((string) $file, '.php')) {
+                continue;
+            }
+            $code = (string) file_get_contents((string) $file);
+            $names = []; // local name => core class
+            if (preg_match('/^namespace Kaleta\\\\Core;/m', $code) === 1) {
+                $names += ['Prices' => 'Prices', 'Quotes' => 'Quotes', 'QuoteDelivery' => 'QuoteDelivery'];
+            }
+            preg_match_all('/^use Kaleta\\\\Core\\\\(Prices|Quotes|QuoteDelivery)(?: as (\w+))?;/m', $code, $uses, PREG_SET_ORDER);
+            foreach ($uses as $u) {
+                $names[($u[2] ?? '') !== '' ? $u[2] : $u[1]] = $u[1];
+            }
+            preg_match_all('/(\\\\?Kaleta\\\\Core\\\\(?:Prices|Quotes|QuoteDelivery)|\b\w+)::(\w+)\s*\(/', $code, $calls, PREG_SET_ORDER);
+            foreach ($calls as $c) {
+                $class = str_contains($c[1], '\\') ? substr($c[1], strrpos($c[1], '\\') + 1) : ($names[$c[1]] ?? '');
+                if ($class === 'QuoteDelivery' || ($class === 'Quotes' && in_array($c[2], ['get', 'of'], true)) || ($class === 'Prices' && $c[2] === 'forItem')) {
+                    $found[substr((string) $file, strlen($root) + 1)][] = $class . '::' . $c[2];
+                }
+            }
+        }
+    }
+    ksort($found);
+
+    return array_map(fn (array $m): array => array_values(array_unique($m)), $found);
+};
+$r338Allowed = ['src/Admin/Modules/Quotes.php', 'src/Admin/QuoteSending.php', 'src/Core/Contacts.php', 'src/Core/Deals.php', 'src/Core/Inbox.php',
+    'src/Core/MonthlyReport.php', 'src/Core/Notifications.php', 'src/Core/PersonalData.php', 'src/Core/Privacy.php', 'src/Core/Prices.php', 'src/Core/QuoteDelivery.php',
+    'src/Core/Quotes.php', 'src/Core/Scheduler.php', 'src/Front/QuotePage.php', 'src/Mcp/Handlers/QuoteTools.php',
+    'views/admin/quotes/detail.php', 'views/admin/quotes/send.php', 'views/admin/quotes/texts.php'];
+$r338Found = $r338Callers(KALETA_SYSTEM);
+check('3.38 review L7: Prices::forItem, Quotes::get / of and QuoteDelivery are called only by the quote screens, sending, privacy, retention and their own classes – never by the site, SEO, search or the assistant', [
+    array_values(array_diff(array_keys($r338Found), $r338Allowed)), isset($r338Found['src/Admin/Modules/Quotes.php']), isset($r338Found['src/Front/QuotePage.php']),
+    array_values(array_filter(array_keys($r338Found), fn (string $f): bool => preg_match('#^src/(Front/(?!QuotePage)|Core/(Seo|Search|Assistant|SiteExport|Blueprint))#', $f) === 1))],
+    [[], true, true, []]);
