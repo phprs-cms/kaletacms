@@ -68,3 +68,18 @@ S341_SJAR="$WORK/jar-s341s"; curl -s -c "$S341_SJAR" -o "$WORK/response" "$B/adm
 expect "3.41 N113: a completed sign-in ends a reset link of the account" \
   "$(curl -s -b "$S341_SJAR" -c "$S341_SJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(s341_csrf "$WORK/response")" -d user=s341inv --data-urlencode "password=S341-invited-pw-1")|$(sq "SELECT obnova_otisk = '' FROM ka_uzivatele WHERE idu = $S341_INV")" "302|1"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'; DELETE FROM ka_kontrola_ip WHERE typ IN ('obnova', 'login'); DELETE FROM ka_posta WHERE idp > $S341_P0" > /dev/null
+
+# N114: a queued message whose link expired is dropped, not sent; a backup leaves out a body with a live link
+S341_M0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
+sq "INSERT INTO ka_posta (komu, predmet, vytvoreno, pokusu, odeslano, chyba, dalsi_pokus, telo) VALUES
+  ('s341-old@example.com', 'Reset S341', '$(site_time '-2 hours')', 1, NULL, 'smtp down', '$(site_time '-1 minute')', '{\"text\":\"old-link-s341\",\"html\":\"\",\"hlavicky\":[],\"expires\":$(( $(date +%s) - 60 ))}'),
+  ('s341-live@example.com', 'Invite S341', '$(site_time)', 1, NULL, 'smtp down', '$(site_time '+1 hour')', '{\"text\":\"live-link-s341\",\"html\":\"\",\"hlavicky\":[],\"expires\":$(( $(date +%s) + 3600 ))}'),
+  ('s341-plain@example.com', 'Plain S341', '$(site_time)', 1, NULL, 'smtp down', '$(site_time '+1 hour')', '{\"text\":\"plain-body-s341\",\"html\":\"\",\"hlavicky\":[]}')" > /dev/null
+s341_php 'Kaleta\Core\Mail::processQueue($app->settings());' > /dev/null
+S341_BACKUP=$(s341_php 'echo Kaleta\Core\Backup::create($app->db(), "s341", false);')
+S341_DUMP=$( (gzip -dc "$WORK/web/storage/zalohy/$S341_BACKUP" 2>/dev/null || cat "$WORK/web/storage/zalohy/$S341_BACKUP") | grep -c 'live-link-s341\|plain-body-s341\|old-link-s341' || true)
+S341_PLAIN=$( (gzip -dc "$WORK/web/storage/zalohy/$S341_BACKUP" 2>/dev/null || cat "$WORK/web/storage/zalohy/$S341_BACKUP") | grep -o 'plain-body-s341' | head -1)
+expect "3.41 N114: the expired link is dropped with its reason; the backup has the plain queued body but not the live link" \
+  "$(sq "SELECT CONCAT(telo IS NULL, '|', odeslano IS NULL, '|', chyba) FROM ka_posta WHERE komu = 's341-old@example.com'")|$S341_DUMP|$S341_PLAIN|$(sq "SELECT telo IS NOT NULL FROM ka_posta WHERE komu = 's341-live@example.com'")" \
+  "1|1|The link in the message expired before the message could be sent.|1|plain-body-s341|1"
+rm -f "$WORK/web/storage/zalohy/$S341_BACKUP"; sq "DELETE FROM ka_posta WHERE idp > $S341_M0" > /dev/null

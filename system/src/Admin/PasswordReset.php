@@ -121,9 +121,10 @@ final class PasswordReset
         if ($reason === 'zadost') {
             // a request from the sign-in page: the e-mail goes to the queue and out right after the response (admin.php,
             // Mail::afterResponse), so the answer takes as long whether the account exists or not (3.3.3, N59)
-            Mail::later($app->settings(), (string) $user['email'], $subject, $text);
+            Mail::later($app->settings(), (string) $user['email'], $subject, $text, $time + self::LINK_LIFETIME);
         } else {
-            Mail::send($app->settings(), (string) $user['email'], $subject, $text);
+            // 3.41 (N114): a queued copy (SMTP down) is dropped once the link expires and never goes into a backup
+            Mail::send($app->settings(), (string) $user['email'], $subject, $text, expires: $time + self::LINK_LIFETIME);
         }
         ChangeLog::write($app, 'prihlaseni', 'obnova-hesla', t($reason === 'pozvanka' ? 'invitation sent, account: %s' : 'link sent, account: %s', (string) $user['user']));
     }

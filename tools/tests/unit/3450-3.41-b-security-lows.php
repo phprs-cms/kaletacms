@@ -59,3 +59,10 @@ check('3.41 N113: PasswordReset::linkPending – an invitation (future time) and
         ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-15 09:00:00'], ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-12 09:50:00'],
         ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-12 09:40:00'], ['obnova_otisk' => '', 'obnova_cas' => '2026-11-15 09:00:00'], ['obnova_otisk' => 'x', 'obnova_cas' => null]]),
     [true, true, false, false, false]);
+
+// N114: a backup never carries the unsent body of a message with a live link; other queued messages keep theirs
+check('3.41 N114: Mail::forBackup drops the body and the next try of a message with a link, keeps every other row as it is', [
+    Kaleta\Core\Mail::forBackup(['idp' => 1, 'telo' => '{"text":"token-s341","expires":1900000000}', 'dalsi_pokus' => '2026-11-12 10:00:00', 'chyba' => 'x']),
+    Kaleta\Core\Mail::forBackup(['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00']),
+    Kaleta\Core\Mail::forBackup(['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]),
+], [['idp' => 1, 'telo' => null, 'dalsi_pokus' => null, 'chyba' => 'x'], ['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00'], ['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]]);
