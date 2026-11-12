@@ -338,6 +338,13 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Stránky záznamů (3.37):** poptávka, obchod a zákazník mají jednu šablonu (lišta `.zaznam-lista`: zpět, stav, jedna hlavní
+  akce, vedlejší, Další; `.zaznam` = hlavní sloupec + boční panely, na telefonu jeden sloupec). Poptávka má jeden formulář Vyřízení
+  (`actionTriage`; třídění se stane osobním jen při změně). Karty na nástěnce skládají fázi a Přesunout za ⋯ jen pro myš.
+- **Kolegové a podpisy (3.37, migrace 0122):** `ka_uzivatele.phone` + `pozice` (Můj účet, Uživatelé); Můj účet → Kolegové
+  (`Core\Colleagues`, jen aktivní účty, nikdy v heartbeatu ani reportu); podpis každého je `Builder\UserSignature::forUser` – záznam
+  v Týmu, jinak záložní z účtu a údajů o firmě (šablona `email_signature_template`), vzniká při každém čtení; nese ho
+  `EnquiryReply::signature`, MCP `get_email_signature` bez kolekce a `list_colleagues` (sada Work).
 - **Přesun z libovolného builderu (3.36):** `read_old_page` s `format: semantic` (`Core\SemanticHtml`) vrací sekce staré stránky
   jako čisté HTML pro `build_from_html`, widgety ve tvarech převodníku, `widgets` u sekce; nic podle konkrétního builderu.
   Fronta rozvržení: `ImportLayout::markRebuilt` (Stránky „Layout done“, hromadně `rebuilt`) a MCP `layout_queue` (`old_url` je jen nápověda).

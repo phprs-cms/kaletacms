@@ -1905,6 +1905,30 @@ No migration (`KALETA_DB_VERSION` stays 121).
    locks are per site (`Db::lockName`) – before, every site on one MySQL server shared them, so one site could make
    another skip its background jobs. Known: two browser checks fail when a run crosses UTC midnight.
 
+## 3.37 – record pages in two columns, lighter board cards, colleagues and signatures (12 November 2026)
+
+Migration 0122 adds `ka_uzivatele.phone` (the work phone); `KALETA_DB_VERSION` 122.
+
+1. **Record pages.** Enquiry, deal and customer use one template: a bar (`.zaznam-lista`, `[data-record-bar]`) with the way
+   back, the state, one primary action, secondary actions and a More menu (`details[data-zavrit-mimo]`), sticky under the top
+   bar on a wide screen; `.zaznam` = a main column and side panels side by side from 900 px (container query), one column on a
+   phone. The enquiry has one Handling form (`Enquiries::actionTriage` now also saves the responsible person and the summary;
+   the triage becomes the person's only when kind, priority or the draft changed – `triageChanged` – so "Sorted by Claude"
+   stays true); five Save buttons became one Save plus Send reply and Add note; after an internal note the page returns to
+   `#thread`. Deal: the stage once, Move in the bar, Delete under More. Customer: New deal, E-mail, Call, More (Merge, Delete).
+2. **Board cards.** Title two lines, customer one, then value · close date · the owner's initials (full name for screen
+   readers); with a mouse admin.js folds Stage + Move behind "⋯" (open on touch and without JavaScript); dropping a card on Lost
+   opens it with the reason. Days in stage stay for step 7.
+3. **Step 4a – colleagues and signatures.** Work phone (new) and position (existing `pozice`) in My account and Users.
+   My account → Colleagues (`Core\Colleagues`): every signed-in user sees active colleagues' photo (site media only) or
+   initial, name, position, phone and e-mail – never in heartbeats, the fleet console or reports. Every employee's e-mail
+   signature is `Builder\UserSignature::forUser`: the Team record when the account has one, otherwise a fallback from the
+   account and the company details (template setting `email_signature_template`, placeholders `{name} {position} {phone}
+   {email} {company} {website} {address}`, empty lines dropped, escaped; no usable line → the standard layout), built on every
+   read. `EnquiryReply::signature` uses it, so enquiry and application replies always carry a signature. MCP:
+   `get_email_signature` without `collection` returns the caller's own (`source: team|fallback`); new read tool
+   `list_colleagues` (Work set).
+
 ## Path to 4.0 (owner decisions, 13 October 2026)
 
 | Release | What |
