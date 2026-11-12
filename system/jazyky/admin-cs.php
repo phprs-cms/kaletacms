@@ -8285,4 +8285,5 @@ return [
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'E-mail odešel bez PDF: jazyk nebo text nabídky nejde v PDF vykreslit – zákazník má odkaz.',
     '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d už bylo zamítnuto nebo přijato – nechali jsme je beze změny a nic jsme jim neposlali.',
     'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'Sada řádků „%1$s“ byla uložena v %2$s a tato nabídka je v %3$s – její volné řádky přišly bez ceny; doplňte je.',
+    'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'E-mail odešel bez PDF: soubor je pro e-mail příliš velký – zákazník má odkaz.',
 ];

@@ -8692,4 +8692,5 @@ return [
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'Die E-Mail ging ohne PDF hinaus: Sprache oder Text des Angebots lassen sich im PDF nicht darstellen – der Kunde hat den Link.',
     '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d waren schon abgelehnt oder eingestellt – unverändert gelassen, ihnen wurde nichts gesendet.',
     'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'Die Positionsvorlage „%1$s“ wurde in %2$s gespeichert, dieses Angebot ist in %3$s – ihre freien Positionen kamen ohne Preis; ergänzen Sie die Preise.',
+    'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'Die E-Mail ging ohne PDF hinaus: Die Datei ist für eine E-Mail zu groß – der Kunde hat den Link.',
 ];

@@ -19,8 +19,10 @@ namespace Kaleta\Core;
  *    embedded font (subsetting TrueType is a project of its own) and, for Arabic, text shaping. A character the fonts
  *    cannot draw becomes "?" and counts in $missing; supports() answers beforehand, so a caller offers no PDF at all
  *    instead of a broken one (Front\QuotePdf keeps the print page for such a quote). Right-to-left text is not handled.
- *  - Images: a JPEG goes in as it is (grey or RGB); PNG, GIF and WebP only with PHP's GD, redrawn on white (no alpha
- *    channel in the file) and stored compressed. SVG is not supported. Inputs are bounded (IMAGE_BYTES, IMAGE_PIXELS).
+ *  - Images: a JPEG up to JPEG_BYTES goes in as it is (grey or RGB); a larger one is scaled to IMAGE_SIDE and saved
+ *    again as a JPEG with GD (3.40 review L5: a 5 MB logo would make every quote's PDF too large for an e-mail), or left
+ *    out without GD; PNG, GIF and WebP only with PHP's GD, redrawn on white (no alpha channel in the file) and stored
+ *    compressed. SVG is not supported. Inputs are bounded (IMAGE_BYTES, IMAGE_PIXELS).
  *  - Content streams are compressed with zlib when PHP has it; the file has a classic cross-reference table.
  */
 final class Pdf
@@ -35,6 +37,9 @@ final class Pdf
     /** The largest image file and the most pixels (width × height) the writer takes. */
     public const int IMAGE_BYTES = 5_000_000;
     public const int IMAGE_PIXELS = 4_000_000;
+
+    /** The largest JPEG that goes into the file as it is (3.40 review L5); a larger one is scaled down and saved again. */
+    public const int JPEG_BYTES = 300_000;
 
     /** A redrawn image (not a JPEG) is scaled down to at most this many pixels on its longer side – a logo on paper needs no more. */
     public const int IMAGE_SIDE = 800;
@@ -446,7 +451,7 @@ final class Pdf
             return null;
         }
         $channels = (int) ($info['channels'] ?? 3);
-        if ($info[2] === IMAGETYPE_JPEG && in_array($channels, [1, 3], true)) {
+        if ($info[2] === IMAGETYPE_JPEG && in_array($channels, [1, 3], true) && strlen($bytes) <= self::JPEG_BYTES) {
             return ['w' => $info[0], 'h' => $info[1], 'space' => $channels === 1 ? 'DeviceGray' : 'DeviceRGB', 'filter' => 'DCTDecode', 'data' => $bytes];
         }
         if (!function_exists('imagecreatefromstring') || !function_exists('gzcompress')) {
@@ -472,6 +477,13 @@ final class Pdf
         }
         imagefill($canvas, 0, 0, (int) imagecolorallocate($canvas, 255, 255, 255));
         imagecopy($canvas, $source, 0, 0, 0, 0, $w, $h);
+        if ($info[2] === IMAGETYPE_JPEG) { // 3.40 review L5: a large JPEG is saved again, smaller – or left out
+            ob_start();
+            imagejpeg($canvas, null, 85);
+            $jpeg = (string) ob_get_clean();
+
+            return $jpeg !== '' && strlen($jpeg) <= self::JPEG_BYTES ? ['w' => $w, 'h' => $h, 'space' => 'DeviceRGB', 'filter' => 'DCTDecode', 'data' => $jpeg] : null;
+        }
         $raw = '';
         for ($y = 0; $y < $h; $y++) {
             for ($x = 0; $x < $w; $x++) {

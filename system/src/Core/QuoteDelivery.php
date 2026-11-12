@@ -330,6 +330,14 @@ final class QuoteDelivery
         if ($attachment !== null && $file === null) {
             $warnings[] = t('The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.');
         }
+        if ($file !== null) { // 3.40 review L5: the quote is numbered already – a file over the mail limit goes out as the link only, never an error
+            try {
+                Mail::attachments([$file]);
+            } catch (\InvalidArgumentException) {
+                $file = null;
+                $warnings[] = t('The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.');
+            }
+        }
         $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')), $file !== null ? [$file] : []);
         $mailId = Mail::$lastId;
         if ($mailId !== null) {

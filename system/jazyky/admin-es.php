@@ -8712,4 +8712,5 @@ return [
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'El correo salió sin el PDF: el idioma o el texto del presupuesto no se pueden representar en un PDF; el cliente tiene el enlace.',
     '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d ya estaban rechazadas o contratadas – se dejaron sin cambios y no se les envió nada.',
     'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'El conjunto de líneas «%1$s» se guardó en %2$s y esta oferta está en %3$s – sus líneas libres llegaron sin precio; complétalas.',
+    'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'El correo salió sin el PDF: el archivo es demasiado grande para un correo – el cliente tiene el enlace.',
 ];
