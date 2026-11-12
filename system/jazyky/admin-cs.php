@@ -8182,4 +8182,5 @@ return [
     'User saved. The account is unblocked; its Claude connections and personal tokens were revoked (%d) – Claude connects again only with the user\'s consent.' => 'Uživatel je uložen. Účet je odblokovaný; jeho napojení Clauda a osobní tokeny byly zrušeny (%d) – Claude se znovu napojí jen se souhlasem uživatele.',
     'The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.' => 'Účet je znovu aktivní – uživatel se může zase přihlásit. Jeho napojení Clauda a osobní tokeny byly zrušeny (%d); chcete-li je ponechat, odškrtněte místo toho políčko ve formuláři uživatele.',
     'when unblocking, revoke its Claude connections and personal tokens (%d) – otherwise they work again' => 'při odblokování zrušit jeho napojení Clauda a osobní tokeny (%d) – jinak budou znovu fungovat',
+    'An outage or an expired certificate or domain cannot be accepted – it needs fixing. Nothing was saved.' => 'Výpadek ani prošlý certifikát nebo doménu nejde přijmout – je potřeba je opravit. Nic se neuložilo.',
 ];

@@ -78,6 +78,13 @@ final class Checks
     private const array RANK = ['bad' => 2, 'warn' => 1, 'ok' => 0, 'unknown' => 0];
 
     /**
+     * The reason of an expired certificate or domain (3.39 review M3): never accepted – Fleet\Acceptances refuses it. Every
+     * amber or red check carries a reason (forSite 'reason', at most 64 characters): the specific problem without the
+     * changing counts, so a different problem of the same colour ends an acceptance.
+     */
+    public const string EXPIRED = 'expired';
+
+    /**
      * Bounds one 3.29 part of a heartbeat (Console::clean): enum values only, counts through Console::count, days real
      * calendar dates between 1970 and 2100, the hand-over keys from HANDOVER_ROWS; anything else is null on its own.
      */
@@ -139,7 +146,7 @@ final class Checks
      * @param array<string, mixed> $heartbeat
      * @param array<string, mixed> $uptime
      * @param array{security_version?: string} $context
-     * @return list<array{id: string, label: string, state: string, detail: string, path: string, field: string, weight: int, since: ?int}>
+     * @return list<array{id: string, label: string, state: string, detail: string, path: string, field: string, weight: int, since: ?int, reason: string}>
      */
     public static function forSite(array $heartbeat, array $uptime, ?int $now = null, array $context = []): array
     {
@@ -149,8 +156,9 @@ final class Checks
         $old = array_intersect_key($beat, array_flip(self::PARTS)) === [];
         $out = [];
         foreach (self::CHECKS as $id => [$label, $field, $weight, $path]) {
-            [$state, $detail, $since] = self::evaluate($id, $beat, $uptime, $now, $old, $context) + [2 => null];
-            $out[] = ['id' => $id, 'label' => t($label), 'state' => $state, 'detail' => $detail, 'path' => $path, 'field' => $field, 'weight' => $weight, 'since' => $since];
+            [$state, $detail, $since, $reason] = self::evaluate($id, $beat, $uptime, $now, $old, $context) + [2 => null, 3 => ''];
+            $out[] = ['id' => $id, 'label' => t($label), 'state' => $state, 'detail' => $detail, 'path' => $path, 'field' => $field, 'weight' => $weight, 'since' => $since,
+                'reason' => $reason !== '' ? $reason : $state];
         }
 
         return $out;
@@ -161,7 +169,7 @@ final class Checks
      *
      * @param array<string, mixed> $site
      * @param array{security_version?: string} $context
-     * @return list<array{id: string, label: string, state: string, detail: string, path: string, field: string, weight: int, since: ?int}>
+     * @return list<array{id: string, label: string, state: string, detail: string, path: string, field: string, weight: int, since: ?int, reason: string}>
      */
     public static function forRow(array $site, ?int $now = null, array $context = []): array
     {
@@ -176,7 +184,7 @@ final class Checks
      *
      * @param list<array<string, mixed>> $sites rows of ka_fleet_sites
      * @param array{security_version?: string} $context
-     * @return list<array{site_id: int, site: string, url: string, customer_id: ?int, check: string, label: string, state: string, detail: string, path: string, link: string, weight: int, since: ?int}>
+     * @return list<array{site_id: int, site: string, url: string, customer_id: ?int, check: string, label: string, state: string, detail: string, path: string, link: string, weight: int, since: ?int, reason: string}>
      */
     public static function today(array $sites, ?int $now = null, array $context = []): array
     {
@@ -192,7 +200,7 @@ final class Checks
                 }
                 $items[] = ['site_id' => (int) ($site['id'] ?? 0), 'site' => $name !== '' ? $name : $url, 'url' => $url, 'customer_id' => $customer > 0 ? $customer : null,
                     'check' => $check['id'], 'label' => $check['label'], 'state' => $check['state'], 'detail' => $check['detail'], 'path' => $check['path'],
-                    'link' => self::link($url, $check['id']), 'weight' => $check['weight'], 'since' => $check['since']];
+                    'link' => self::link($url, $check['id']), 'weight' => $check['weight'], 'since' => $check['since'], 'reason' => $check['reason']];
             }
         }
         usort($items, static fn (array $a, array $b): int => [self::RANK[$b['state']], $b['weight'], $a['since'] === null ? 1 : 0, $a['since'] ?? 0, mb_strtolower($a['site']), $a['site_id']]
@@ -265,7 +273,7 @@ final class Checks
      * @param array<string, mixed> $beat cleaned, nulls left out
      * @param array<string, mixed> $uptime
      * @param array{security_version?: string} $context
-     * @return array{0: string, 1: string, 2?: ?int}
+     * @return array{0: string, 1: string, 2?: ?int, 3?: string}
      */
     private static function evaluate(string $id, array $beat, array $uptime, int $now, bool $old, array $context): array
     {
@@ -284,7 +292,7 @@ final class Checks
                 if ((int) $up === 0) {
                     $status = (int) ($uptime['up_status'] ?? 0);
 
-                    return ['bad', $status > 0 ? t('Answers with HTTP %d', min(999, max(0, $status))) : t('No answer'), $since];
+                    return ['bad', $status > 0 ? t('Answers with HTTP %d', min(999, max(0, $status))) : t('No answer'), $since, 'down'];
                 }
 
                 return ['ok', t('Answers'), $since];
@@ -296,8 +304,8 @@ final class Checks
                 $h = (int) $hours($seen);
 
                 return match (true) {
-                    $h > Console::SILENT_HOURS => ['bad', t('No report for %d hours', $h), $seen],
-                    $h >= self::REPORT_WARN_HOURS => ['warn', t('Last report %d hours ago', $h), $seen],
+                    $h > Console::SILENT_HOURS => ['bad', t('No report for %d hours', $h), $seen, 'silent'],
+                    $h >= self::REPORT_WARN_HOURS => ['warn', t('Last report %d hours ago', $h), $seen, 'late'],
                     default => ['ok', t('Reports every hour'), $seen],
                 };
         }
@@ -313,35 +321,35 @@ final class Checks
                 $security = (string) ($context['security_version'] ?? '');
 
                 return match (true) {
-                    isset($beat['update_problem']) => ['bad', t('The last update failed')],
-                    $available !== '' && $security !== '' && $available === $security => ['bad', t('Security update %s waits', $available), $since],
-                    $available !== '' && $behind !== null && $behind >= self::UPDATE_BAD_DAYS => ['bad', t('Version %s waits for %d days', $available, $behind), $since],
-                    $available !== '' => ['warn', t('Version %s is available', $available), $since],
+                    isset($beat['update_problem']) => ['bad', t('The last update failed'), null, 'update_failed'],
+                    $available !== '' && $security !== '' && $available === $security => ['bad', t('Security update %s waits', $available), $since, 'security:' . $available],
+                    $available !== '' && $behind !== null && $behind >= self::UPDATE_BAD_DAYS => ['bad', t('Version %s waits for %d days', $available, $behind), $since, 'overdue'],
+                    $available !== '' => ['warn', t('Version %s is available', $available), $since, 'available'],
                     default => ['ok', t('Up to date')],
                 };
             case 'offsite_backup':
                 $offsite = $beat['offsite'] ?? null;
                 if (!is_array($offsite)) {
-                    return ($beat['offsite_backup'] ?? null) === false ? ['bad', t('Off – backups stay on the same server')] : $missing;
+                    return ($beat['offsite_backup'] ?? null) === false ? ['bad', t('Off – backups stay on the same server'), null, 'off'] : $missing;
                 }
                 $at = Console::date($offsite['at'] ?? null)?->getTimestamp();
                 $ago = (int) $days($at);
 
                 return match ($offsite['status']) {
-                    'off' => ['bad', t('Off – backups stay on the same server')],
-                    'paused' => ['bad', t('Paused – the recovery key is not saved'), $at],
-                    'failing' => ['bad', t('The last copy failed'), $at],
-                    'never' => ['warn', t('No copy yet')],
-                    default => $at === null || $ago > self::OFFSITE_DAYS ? ['warn', $at === null ? t('No copy yet') : t('Last copy %d days ago', $ago), $at] : ['ok', self::ago($ago, 'copy'), $at],
+                    'off' => ['bad', t('Off – backups stay on the same server'), null, 'off'],
+                    'paused' => ['bad', t('Paused – the recovery key is not saved'), $at, 'paused'],
+                    'failing' => ['bad', t('The last copy failed'), $at, 'failing'],
+                    'never' => ['warn', t('No copy yet'), null, 'never'],
+                    default => $at === null || $ago > self::OFFSITE_DAYS ? ['warn', $at === null ? t('No copy yet') : t('Last copy %d days ago', $ago), $at, $at === null ? 'never' : 'old'] : ['ok', self::ago($ago, 'copy'), $at],
                 };
             case 'local_backup':
                 $at = Console::unixTime($beat['last_backup'] ?? null);
                 if ($at === null) {
-                    return ['bad', t('No backup yet')];
+                    return ['bad', t('No backup yet'), null, 'none'];
                 }
                 $ago = (int) $days($at);
 
-                return $ago > self::BACKUP_DAYS ? ['bad', t('Last backup %d days ago', $ago), $at] : ['ok', self::ago($ago, 'backup'), $at];
+                return $ago > self::BACKUP_DAYS ? ['bad', t('Last backup %d days ago', $ago), $at, 'old'] : ['ok', self::ago($ago, 'backup'), $at];
             case 'certificate':
             case 'domain':
                 return self::expiry($id, Console::part($beat, 'domain_watch'), $now, $old);
@@ -356,11 +364,11 @@ final class Checks
                 }
 
                 return match (true) {
-                    $mail['error'] === true => ['warn', t('Could not be checked')],
-                    $mail['spf'] === false && $mail['dmarc'] === false => ['bad', t('No SPF and no DMARC record')],
-                    $mail['spf'] === false => ['bad', t('No SPF record')],
-                    $mail['dmarc'] === false => ['warn', t('No DMARC record')],
-                    $mail['spf_covers_smtp'] === false => ['warn', t('SPF does not cover the SMTP server')],
+                    $mail['error'] === true => ['warn', t('Could not be checked'), null, 'check_failed'],
+                    $mail['spf'] === false && $mail['dmarc'] === false => ['bad', t('No SPF and no DMARC record'), null, 'no_spf_dmarc'],
+                    $mail['spf'] === false => ['bad', t('No SPF record'), null, 'no_spf'],
+                    $mail['dmarc'] === false => ['warn', t('No DMARC record'), null, 'no_dmarc'],
+                    $mail['spf_covers_smtp'] === false => ['warn', t('SPF does not cover the SMTP server'), null, 'spf_smtp'],
                     default => ['ok', t('SPF and DMARC found')],
                 };
             case 'smtp':
@@ -370,8 +378,8 @@ final class Checks
                 }
 
                 return match (true) {
-                    $setup['mode'] !== 'smtp' => ['warn', t('Sent through the host\'s mail()')],
-                    !$setup['tested'] => ['warn', t('SMTP set, no message accepted yet')],
+                    $setup['mode'] !== 'smtp' => ['warn', t('Sent through the host\'s mail()'), null, 'php_mail'],
+                    !$setup['tested'] => ['warn', t('SMTP set, no message accepted yet'), null, 'untested'],
                     default => ['ok', t('Tested'), Console::date($setup['tested_at'])?->getTimestamp()],
                 };
             case 'two_step':
@@ -382,13 +390,13 @@ final class Checks
 
                 return match (true) {
                     $twofa['required'] !== 'none' => ['ok', $twofa['required'] === 'everyone' ? t('Required for everyone') : t('Required for administrators')],
-                    $twofa['admins_without'] > 0 => ['bad', t('Not required – %d administrators sign in without it', $twofa['admins_without'])],
-                    default => ['warn', t('Not required, every administrator uses it')],
+                    $twofa['admins_without'] > 0 => ['bad', t('Not required – %d administrators sign in without it', $twofa['admins_without']), null, 'admins_without:' . $twofa['admins_without']],
+                    default => ['warn', t('Not required, every administrator uses it'), null, 'not_required'],
                 };
             case 'auto_updates':
                 return match ($beat['auto_updates'] ?? null) {
                     true => ['ok', t('On')],
-                    false => ['warn', t('Off')],
+                    false => ['warn', t('Off'), null, 'off'],
                     default => ['unknown', t('Not reported')],
                 };
             case 'cookie_scan':
@@ -400,23 +408,23 @@ final class Checks
                 $ago = (int) $days($at);
 
                 return match (true) {
-                    $at === null => ['warn', t('Never ran')],
-                    $scan['error'] => ['warn', t('The last scan could not reach the site'), $at],
-                    $ago > self::COOKIE_SCAN_DAYS => ['warn', t('Last scan %d days ago', $ago), $at],
+                    $at === null => ['warn', t('Never ran'), null, 'never'],
+                    $scan['error'] => ['warn', t('The last scan could not reach the site'), $at, 'unreachable'],
+                    $ago > self::COOKIE_SCAN_DAYS => ['warn', t('Last scan %d days ago', $ago), $at, 'old'],
                     default => ['ok', t('%d cookies set by the server', $scan['cookies']), $at],
                 };
             case 'privacy_policy':
                 return match ($beat['privacy_page'] ?? null) {
                     'published' => ['ok', t('Published')],
-                    'hidden' => ['warn', t('The page is hidden')],
-                    'none' => ['bad', t('No privacy policy page')],
+                    'hidden' => ['warn', t('The page is hidden'), null, 'hidden'],
+                    'none' => ['bad', t('No privacy policy page'), null, 'none'],
                     default => $missing,
                 };
             case 'accessibility_statement':
                 return match ($beat['accessibility_statement'] ?? null) {
                     'published' => ['ok', t('Published')],
-                    'draft' => ['warn', t('Drafted, not published')],
-                    'none' => ['warn', t('No accessibility statement')],
+                    'draft' => ['warn', t('Drafted, not published'), null, 'draft'],
+                    'none' => ['warn', t('No accessibility statement'), null, 'none'],
                     default => $missing,
                 };
             case 'handover':
@@ -425,7 +433,7 @@ final class Checks
                     return $missing;
                 }
 
-                return [$handover['done'] >= $handover['total'] ? 'ok' : 'warn', t('%d of %d done', $handover['done'], $handover['total'])];
+                return [$handover['done'] >= $handover['total'] ? 'ok' : 'warn', t('%d of %d done', $handover['done'], $handover['total']), null, 'open:' . max(0, $handover['total'] - $handover['done'])];
             case 'claude_connection':
                 $claude = $beat['claude_connection'] ?? null;
                 if (!is_array($claude)) {
@@ -434,27 +442,27 @@ final class Checks
                 $reason = Console::claudeReason($beat);
 
                 return match (true) {
-                    $reason === 'claude_not_connected' => ['bad', t('Requests wait, Claude is not connected')],
-                    $reason === 'claude_run_stalled' => ['bad', t('Requests wait, the scheduled run does not run')],
+                    $reason === 'claude_not_connected' => ['bad', t('Requests wait, Claude is not connected'), null, 'not_connected'],
+                    $reason === 'claude_run_stalled' => ['bad', t('Requests wait, the scheduled run does not run'), null, 'run_stalled'],
                     $claude['state'] === 'off' => ['ok', t('Claude is off')],
-                    $claude['state'] === 'none' => ['warn', t('Not connected')],
-                    $claude['pickup'] === 'stalled' => ['warn', t('The scheduled run does not run')],
+                    $claude['state'] === 'none' => ['warn', t('Not connected'), null, 'none'],
+                    $claude['pickup'] === 'stalled' => ['warn', t('The scheduled run does not run'), null, 'pickup_stalled'],
                     default => ['ok', t('Connected')],
                 };
             case 'jobs':
                 $jobs = is_array($beat['jobs_failing'] ?? null) ? $beat['jobs_failing'] : [];
 
-                return $jobs === [] ? ['ok', t('All run')] : ['bad', t('%d failing: %s', count($jobs), implode(', ', array_slice($jobs, 0, 3)))];
+                return $jobs === [] ? ['ok', t('All run')] : ['bad', t('%d failing: %s', count($jobs), implode(', ', array_slice($jobs, 0, 3))), null, self::jobsReason($jobs)];
             case 'cron':
                 $at = Console::unixTime($beat['cron_last_run'] ?? null);
                 if ($at === null) {
-                    return ['bad', t('Never ran')];
+                    return ['bad', t('Never ran'), null, 'never'];
                 }
                 $h = (int) $hours($at);
 
                 return match (true) {
-                    $h >= self::CRON_BAD_HOURS => ['bad', t('Last run %d hours ago', $h), $at],
-                    $h >= self::CRON_WARN_HOURS => ['warn', t('Last run %d hours ago', $h), $at],
+                    $h >= self::CRON_BAD_HOURS => ['bad', t('Last run %d hours ago', $h), $at, 'stopped'],
+                    $h >= self::CRON_WARN_HOURS => ['warn', t('Last run %d hours ago', $h), $at, 'late'],
                     default => ['ok', t('Runs'), $at],
                 };
         }
@@ -467,7 +475,7 @@ final class Checks
      * domain), warn up to Console::CERTIFICATE_DAYS / DOMAIN_DAYS or when the check failed.
      *
      * @param array<array-key, mixed> $watch the cleaned domain_watch
-     * @return array{0: string, 1: string, 2?: ?int}
+     * @return array{0: string, 1: string, 2?: ?int, 3?: string}
      */
     private static function expiry(string $id, array $watch, int $now, bool $old): array
     {
@@ -483,16 +491,30 @@ final class Checks
         }
         $days = Console::daysLeft($part, $now);
         if ($days === null) {
-            return !empty($part['error']) ? ['warn', t('Could not be checked')] : ['unknown', t('Not checked yet')];
+            return !empty($part['error']) ? ['warn', t('Could not be checked'), null, 'check_failed'] : ['unknown', t('Not checked yet')];
         }
         [$bad, $warn] = $id === 'certificate' ? [7, Console::CERTIFICATE_DAYS] : [14, Console::DOMAIN_DAYS];
 
         return match (true) {
-            $days < 0 => ['bad', t('Expired')],
-            $days < $bad => ['bad', t('Expires in %d days', $days)],
-            $days < $warn => ['warn', t('Expires in %d days', $days)],
+            $days < 0 => ['bad', t('Expired'), null, self::EXPIRED],
+            $days < $bad => ['bad', t('Expires in %d days', $days), null, 'expiring_soon'],
+            $days < $warn => ['warn', t('Expires in %d days', $days), null, 'expiring'],
             default => ['ok', t('Valid for %d more days', $days)],
         };
+    }
+
+    /**
+     * The reason of failing background jobs: which jobs (a short digest of the sorted names), so another job failing ends an
+     * acceptance (3.39 review M3).
+     *
+     * @param array<array-key, mixed> $jobs
+     */
+    private static function jobsReason(array $jobs): string
+    {
+        $names = array_map('strval', array_values($jobs));
+        sort($names);
+
+        return 'failing:' . substr(hash('sha256', implode(',', $names)), 0, 16);
     }
 
     /** "Last copy today" / "… yesterday" / "… %d days ago" for an ok state. */

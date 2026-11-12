@@ -118,13 +118,14 @@ $warn = array_values(array_filter($groups, fn (array $g): bool => $g['state'] !=
 	<td data-popisek="<?= e(t('What needs attention')) ?>"><?= $g['bad'] > 0 && $g['warn'] > 0 ? '<span class="stitek' . $severityClass[$i['state']] . '"><span aria-hidden="true">' . Health::SYMBOLS[$i['state']] . '</span> ' . e($severityLabel[$i['state']]) . '</span> ' : '' ?><?= e($i['detail']) ?></td>
 	<td data-popisek="<?= e(t('Since')) ?>"><?= $since($i['since']) ?></td>
 	<td data-popisek="<?= e(t('Actions')) ?>" class="akce"><?php if ($i['link'] !== ''): ?><a class="navigace" href="<?= e($i['link']) ?>" target="_blank" rel="noopener"><?= e(t('Open')) ?><span class="navod-skryte"> – <?= e($i['label']) ?>, <?= e($i['site']) ?></span></a><?php endif ?>
+		<?php if (Acceptances::acceptable((string) $i['check'], (string) $i['state'], (string) ($i['reason'] ?? ''))): /* 3.39 review M3: never an outage or an expired certificate or domain */ ?>
 		<details class="flotila-prijmout" data-fleet-accept><summary class="navigace"><?= e(t('Accept')) ?><span class="navod-skryte"> – <?= e($i['label']) ?>, <?= e($i['site']) ?></span></summary>
 		<form class="formular" method="post" action="<?= e($module->url('accept')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $i['site_id'] ?>"><input type="hidden" name="check" value="<?= e($i['check']) ?>">
 			<p class="smltxt"><?= e(t('Accept this state on the console – it leaves Today and sends no alert until the day below or until its state changes. Nothing changes on the site.')) ?></p>
 			<label><?= e(t('Why')) ?> <input type="text" name="note" maxlength="<?= Acceptances::NOTE_LENGTH ?>" required></label>
 			<label><?= e(t('Until')) ?> <input type="date" name="until" value="<?= e($until) ?>" min="<?= e($today) ?>" max="<?= e($latest) ?>" required></label>
 			<button class="tl" type="submit"><?= e(t('Accept')) ?></button>
-		</form></details></td>
+		</form></details><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

@@ -128,12 +128,16 @@ final class Fleet extends Module
         if (!$this->request->isPost() || $site === null || !isset(Checks::CHECKS[$check])) {
             return $this->back('', ...$back);
         }
-        $state = '';
+        [$state, $reason] = ['', ''];
         foreach (Checks::forRow($site, time(), Health::context($this->app)) as $c) {
-            $state = $c['id'] === $check ? $c['state'] : $state;
+            [$state, $reason] = $c['id'] === $check ? [$c['state'], $c['reason']] : [$state, $reason];
         }
         if (!in_array($state, Acceptances::STATES, true)) {
             return $this->back('This check needs no attention now – there is nothing to accept.', $back[0], $back[1], 'chyba');
+        }
+        if (!Acceptances::acceptable($check, $state, $reason)) {
+            // 3.39 review M3: every outage reaches the operator, an expired certificate or domain is never muted
+            return $this->back('An outage or an expired certificate or domain cannot be accepted – it needs fixing. Nothing was saved.', $back[0], $back[1], 'chyba');
         }
         $note = Acceptances::note($this->request->post('note'));
         $until = Acceptances::until($this->request->post('until'), date('Y-m-d'));
@@ -143,7 +147,7 @@ final class Fleet extends Module
         if ($until === null) {
             return $this->back(t('The last day must be a date from today to %d days ahead. Nothing was saved.', Acceptances::MAX_DAYS), $back[0], $back[1], 'chyba');
         }
-        Acceptances::accept($this->db, (int) $site['id'], $check, $state, $note, $until, $this->app->auth()->id());
+        Acceptances::accept($this->db, (int) $site['id'], $check, $state, $note, $until, $this->app->auth()->id(), $reason);
         ChangeLog::write($this->app, 'fleet', 'accept', $site['url'] . ': ' . $check . ' (' . $state . ') ' . t('until %s', $until));
 
         return $this->back(t('Accepted until %s: %s – %s. It comes back when its state changes or on that day; nothing was changed on the site.', format_date($until),

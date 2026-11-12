@@ -1377,6 +1377,7 @@ CREATE TABLE ka_fleet_acceptances (
     site_id     INT UNSIGNED NOT NULL,
     check_id    VARCHAR(40) NOT NULL,                       -- a key of Fleet\Checks::CHECKS
     state       VARCHAR(10) NOT NULL,                       -- warn | bad: the state accepted
+    reason      VARCHAR(64) NOT NULL DEFAULT '',            -- the check's specific problem (Fleet\Checks 'reason', 3.39 review M3)
     note        VARCHAR(200) NOT NULL DEFAULT '',
     ends_on     DATE NOT NULL,                              -- the last day it holds
     accepted_by INT UNSIGNED NULL,                          -- ka_uzivatele.idu

@@ -34,22 +34,38 @@ final class Acceptances
     public const array STATES = ['warn', 'bad'];
 
     /**
+     * Checks that are never accepted (3.39 review M3): an outage is never a known state to live with – each one must reach
+     * the operator. An expired certificate or domain (Checks::EXPIRED) is never accepted either.
+     */
+    public const array NEVER = ['uptime'];
+
+    /** The longest reason stored (Checks::forSite 'reason'). */
+    public const int REASON_LENGTH = 64;
+
+    /** May this check in this state with this reason be accepted at all? */
+    public static function acceptable(string $check, string $state, string $reason): bool
+    {
+        return isset(Checks::CHECKS[$check]) && !in_array($check, self::NEVER, true) && in_array($state, self::STATES, true)
+            && $reason !== '' && $reason !== Checks::EXPIRED;
+    }
+
+    /**
      * Every stored acceptance; [] before migration 0125.
      *
-     * @return array<string, array{site_id: int, check: string, state: string, note: string, until: string, by: ?int, at: string}> "site:check" => acceptance
+     * @return array<string, array{site_id: int, check: string, state: string, reason: string, note: string, until: string, by: ?int, at: string}> "site:check" => acceptance
      */
     public static function load(Db $db): array
     {
         try {
-            $rows = $db->all('SELECT site_id, check_id, state, note, ends_on, accepted_by, accepted_at FROM {fleet_acceptances}');
+            $rows = $db->all('SELECT site_id, check_id, state, reason, note, ends_on, accepted_by, accepted_at FROM {fleet_acceptances}');
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
-            return []; // before migration 0125
+            return []; // before migration 0125 (the table) or 0127 (its reason)
         }
         $out = [];
         foreach ($rows as $row) {
             $out[self::key((int) $row['site_id'], (string) $row['check_id'])] = ['site_id' => (int) $row['site_id'], 'check' => (string) $row['check_id'], 'state' => (string) $row['state'],
-                'note' => (string) $row['note'], 'until' => substr((string) $row['ends_on'], 0, 10), 'by' => $row['accepted_by'] !== null ? (int) $row['accepted_by'] : null,
+                'reason' => (string) $row['reason'], 'note' => (string) $row['note'], 'until' => substr((string) $row['ends_on'], 0, 10), 'by' => $row['accepted_by'] !== null ? (int) $row['accepted_by'] : null,
                 'at' => (string) $row['accepted_at']];
         }
 
@@ -62,13 +78,17 @@ final class Acceptances
     }
 
     /**
-     * Whether an acceptance holds for a check in $state on $today ('Y-m-d'): the same state, and its last day not passed. Pure.
+     * Whether an acceptance holds for a check in $state with $reason (Checks::forSite 'reason') on $today ('Y-m-d'): the
+     * same state and the same specific problem (3.39 review M3 – "the last update failed" is not the version accepted as
+     * waiting, another job failing is not the one accepted), its last day not passed, and the check still acceptable
+     * (never an outage, never an expired certificate or domain). Pure.
      *
      * @param array<string, mixed>|null $acceptance load() row
      */
-    public static function holds(?array $acceptance, string $state, string $today): bool
+    public static function holds(?array $acceptance, string $state, string $today, string $reason): bool
     {
-        return $acceptance !== null && $acceptance['state'] === $state && $acceptance['until'] >= $today;
+        return $acceptance !== null && $acceptance['state'] === $state && (string) ($acceptance['reason'] ?? '') === $reason && $acceptance['until'] >= $today
+            && self::acceptable((string) $acceptance['check'], $state, $reason);
     }
 
     /**
@@ -85,7 +105,7 @@ final class Acceptances
         $accepted = [];
         foreach ($items as $item) {
             $acceptance = ($item['kind'] ?? 'check') === 'check' && isset(Checks::CHECKS[$item['check'] ?? '']) ? ($acceptances[self::key((int) $item['site_id'], (string) $item['check'])] ?? null) : null;
-            if ($acceptance !== null && self::holds($acceptance, (string) $item['state'], $today)) {
+            if ($acceptance !== null && self::holds($acceptance, (string) $item['state'], $today, (string) ($item['reason'] ?? ''))) {
                 $accepted[] = $item + ['accepted' => $acceptance];
             } else {
                 $open[] = $item;
@@ -114,7 +134,7 @@ final class Acceptances
         foreach ($sites as $site) {
             foreach (Checks::forRow($site, $now, $context) as $check) {
                 $key = self::key((int) ($site['id'] ?? 0), $check['id']);
-                if (self::holds($acceptances[$key] ?? null, $check['state'], $today)) {
+                if (self::holds($acceptances[$key] ?? null, $check['state'], $today, $check['reason'])) {
                     $out[$key] = $acceptances[$key];
                 }
             }
@@ -124,8 +144,9 @@ final class Acceptances
     }
 
     /**
-     * The acceptances to drop: the last day passed, the site is gone, or the check is in another state than the one
-     * accepted (better or worse; "unknown" – a site that says nothing about it now – keeps it). Pure.
+     * The acceptances to drop: the last day passed, the site is gone, or the check is in another state or has another reason
+     * than the one accepted (better or worse; "unknown" – a site that says nothing about it now – keeps it), or it may not be
+     * accepted at all (an outage, an expired certificate or domain). Pure.
      *
      * @param list<array<string, mixed>> $sites rows of ka_fleet_sites
      * @param array<string, array<string, mixed>> $acceptances load()
@@ -138,13 +159,14 @@ final class Acceptances
         $states = [];
         foreach ($sites as $site) {
             foreach (Checks::forRow($site, $now, $context) as $check) {
-                $states[self::key((int) ($site['id'] ?? 0), $check['id'])] = $check['state'];
+                $states[self::key((int) ($site['id'] ?? 0), $check['id'])] = [$check['state'], $check['reason']];
             }
         }
         $out = [];
         foreach ($acceptances as $key => $acceptance) {
-            $state = $states[$key] ?? null;
-            if ($acceptance['until'] < $today || $state === null || ($state !== 'unknown' && $state !== $acceptance['state'])) {
+            [$state, $reason] = $states[$key] ?? [null, ''];
+            if ($acceptance['until'] < $today || $state === null || in_array($acceptance['check'], self::NEVER, true)
+                || ($state !== 'unknown' && ($state !== $acceptance['state'] || $reason !== (string) ($acceptance['reason'] ?? '') || !self::acceptable((string) $acceptance['check'], $state, $reason)))) {
                 $out[] = (string) $key;
             }
         }
@@ -197,17 +219,18 @@ final class Acceptances
     }
 
     /**
-     * Accepts one check of one site in $state (the console's own evaluation) until $until (until()); replaces an earlier
-     * acceptance of the same check.
+     * Accepts one check of one site in $state with $reason (the console's own evaluation, Checks::forSite) until $until
+     * (until()); replaces an earlier acceptance of the same check.
      */
-    public static function accept(Db $db, int $siteId, string $check, string $state, string $note, string $until, ?int $userId): void
+    public static function accept(Db $db, int $siteId, string $check, string $state, string $note, string $until, ?int $userId, string $reason): void
     {
-        if (!isset(Checks::CHECKS[$check]) || !in_array($state, self::STATES, true)) {
-            throw new \InvalidArgumentException('Only an amber or red check can be accepted.');
+        $reason = mb_substr($reason, 0, self::REASON_LENGTH);
+        if (!self::acceptable($check, $state, $reason)) {
+            throw new \InvalidArgumentException('Only an amber or red check can be accepted – never an outage or an expired certificate or domain.');
         }
-        $db->transaction(function () use ($db, $siteId, $check, $state, $note, $until, $userId): void {
+        $db->transaction(function () use ($db, $siteId, $check, $state, $reason, $note, $until, $userId): void {
             $db->delete('fleet_acceptances', ['site_id' => $siteId, 'check_id' => $check]);
-            $db->insert('fleet_acceptances', ['site_id' => $siteId, 'check_id' => $check, 'state' => $state, 'note' => self::note($note), 'ends_on' => $until,
+            $db->insert('fleet_acceptances', ['site_id' => $siteId, 'check_id' => $check, 'state' => $state, 'reason' => $reason, 'note' => self::note($note), 'ends_on' => $until,
                 'accepted_by' => $userId !== null && $userId > 0 ? $userId : null, 'accepted_at' => Clock::now()]);
         });
     }

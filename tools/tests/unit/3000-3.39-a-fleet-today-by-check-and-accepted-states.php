@@ -37,19 +37,19 @@ check('3.39 Health::groups – an overdue console task groups as "task" with its
 })(), ['Overdue tasks', 2, 2]);
 
 // accepting a state: the same state until the last day holds; a worse state, another state or a passed day does not
-$a339Acc = ['1:offsite_backup' => ['site_id' => 1, 'check' => 'offsite_backup', 'state' => 'bad', 'note' => 'The customer declined', 'until' => $a339Today, 'by' => 1, 'at' => '2027-01-01 10:00:00'],
-    '2:cookie_scan' => ['site_id' => 2, 'check' => 'cookie_scan', 'state' => 'warn', 'note' => 'n', 'until' => '2000-01-01', 'by' => null, 'at' => '2000-01-01 10:00:00'],
-    '3:offsite_backup' => ['site_id' => 3, 'check' => 'offsite_backup', 'state' => 'warn', 'note' => 'n', 'until' => '2100-01-01', 'by' => null, 'at' => '2027-01-01 10:00:00']];
+$a339Acc = ['1:offsite_backup' => ['site_id' => 1, 'check' => 'offsite_backup', 'state' => 'bad', 'reason' => 'off', 'note' => 'The customer declined', 'until' => $a339Today, 'by' => 1, 'at' => '2027-01-01 10:00:00'],
+    '2:cookie_scan' => ['site_id' => 2, 'check' => 'cookie_scan', 'state' => 'warn', 'reason' => 'never', 'note' => 'n', 'until' => '2000-01-01', 'by' => null, 'at' => '2000-01-01 10:00:00'],
+    '3:offsite_backup' => ['site_id' => 3, 'check' => 'offsite_backup', 'state' => 'warn', 'reason' => 'never', 'note' => 'n', 'until' => '2100-01-01', 'by' => null, 'at' => '2027-01-01 10:00:00']];
 [$a339Open, $a339Accepted] = Acceptances::split($a339Items, $a339Acc, $a339Today);
 check('3.39 Acceptances::holds/split – the same state through its last day is accepted (with its acceptance), a passed day or a worse state (warn accepted, now red) is open again; a task never is accepted', [
-    Acceptances::holds($a339Acc['1:offsite_backup'], 'bad', $a339Today), Acceptances::holds($a339Acc['1:offsite_backup'], 'bad', date('Y-m-d', $a339Now + 86400)),
-    Acceptances::holds($a339Acc['3:offsite_backup'], 'bad', $a339Today), Acceptances::holds(null, 'warn', $a339Today),
+    Acceptances::holds($a339Acc['1:offsite_backup'], 'bad', $a339Today, 'off'), Acceptances::holds($a339Acc['1:offsite_backup'], 'bad', date('Y-m-d', $a339Now + 86400), 'off'),
+    Acceptances::holds($a339Acc['3:offsite_backup'], 'bad', $a339Today, 'off'), Acceptances::holds(null, 'warn', $a339Today, 'never'),
     array_map(fn (array $i): string => $i['site_id'] . ':' . $i['check'], $a339Accepted), $a339Accepted[0]['accepted']['note'] ?? null, count($a339Open) + count($a339Accepted) === count($a339Items),
     Acceptances::split([['kind' => 'task', 'site_id' => 1, 'check' => 'offsite_backup', 'state' => 'bad']], $a339Acc, $a339Today)[1]],
     [true, false, false, false, ['1:offsite_backup'], 'The customer declined', true, []]);
 check('3.39 Acceptances::active and stale – active only where the check is in the accepted state; stale = the day passed, the site gone, or the state changed (unknown keeps it)', [
     array_keys(Acceptances::active($a339Sites, $a339Acc, $a339Now)),
-    Acceptances::stale($a339Sites, $a339Acc + ['9:cron' => ['site_id' => 9, 'check' => 'cron', 'state' => 'bad', 'note' => '', 'until' => '2100-01-01', 'by' => null, 'at' => '']], $a339Now),
+    Acceptances::stale($a339Sites, $a339Acc + ['9:cron' => ['site_id' => 9, 'check' => 'cron', 'state' => 'bad', 'reason' => 'stopped', 'note' => '', 'until' => '2100-01-01', 'by' => null, 'at' => '']], $a339Now),
     Acceptances::stale([$a339Site(1, [], ['offsite' => ['status' => 'ok', 'at' => date('Y-m-d', $a339Now), 'recovery_key' => 'confirmed']])], ['1:offsite_backup' => $a339Acc['1:offsite_backup']], $a339Now),
     Acceptances::stale([$a339Site(1, ['heartbeat' => ''])], ['1:offsite_backup' => $a339Acc['1:offsite_backup']], $a339Now)],
     [['1:offsite_backup'], ['2:cookie_scan', '3:offsite_backup', '9:cron'], ['1:offsite_backup'], []]);
