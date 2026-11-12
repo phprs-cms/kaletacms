@@ -386,11 +386,11 @@ class Settings extends Module
             }
             if (str_starts_with($type, 'tajne')) {
                 if ($this->request->postBool($key . '_smazat')) {
-                    $settings->set($key, '');
+                    $settings->set($key, '', true); // a person replaces it on purpose, even one this config.php cannot open (3.39 review M1)
                 } elseif ($value !== '' && $type !== 'tajne' && !preg_match(substr($type, 6), $value)) {
                     $errors[] = $key; // the value is never printed in the message, only the field name
                 } elseif ($value !== '') {
-                    $settings->set($key, mb_substr($value, 0, 300));
+                    $settings->set($key, mb_substr($value, 0, 300), true);
                 }
                 continue;
             }
@@ -1435,7 +1435,7 @@ class Settings extends Module
     protected function actionNewWebhookSecret(): Response
     {
         if ($this->request->isPost()) {
-            $this->app->settings()->set('webhook_secret', '');
+            $this->app->settings()->set('webhook_secret', '', true); // a person asks for a new one (3.39 review M1)
             \Kaleta\Core\Webhook::secret($this->app->settings());
             \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'new webhook secret');
         }

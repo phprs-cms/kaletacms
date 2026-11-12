@@ -343,8 +343,30 @@ final class Settings
         return $this->get($key) === '1';
     }
 
-    public function set(string $key, string $value): void
+    /**
+     * Is a secret setting stored sealed but unreadable here (3.39 review M1): this config.php lacks its key (state missing)
+     * or the value is damaged. Such a value must never be replaced by a new one made by the site itself – putting the
+     * vault_key line back would no longer bring it back.
+     */
+    public function secretUnreadable(string $key): bool
     {
+        if (!in_array($key, Vault::SECRET_SETTINGS, true)) {
+            return false; // and the settings are not loaded for it: set() of any other key must not fill the cache early
+        }
+        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
+
+        return Vault::isSealed((string) ($this->values[$key] ?? '')) && $this->get($key) === '';
+    }
+
+    /**
+     * $force: a person replaces a secret on purpose (the secret fields in Settings, a new webhook secret). Without it a
+     * secret that is stored sealed but unreadable is never overwritten (3.39 review M1) – it throws instead.
+     */
+    public function set(string $key, string $value, bool $force = false): void
+    {
+        if (!$force && $this->secretUnreadable($key)) {
+            throw new \RuntimeException('The stored value of ' . $key . ' is sealed with an encryption key this config.php does not have; it is not overwritten.');
+        }
         unset($this->opened[$key]);
         if (in_array($key, Vault::SECRET_SETTINGS, true)) {
             $value = Vault::sealSecret($this, 'settings', $value); // 3.39 (N106): sealed when the key is in config.php

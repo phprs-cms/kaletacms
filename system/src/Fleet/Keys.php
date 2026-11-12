@@ -53,9 +53,17 @@ final class Keys
         return $key !== false && strlen($key) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES;
     }
 
+    /** A key for this request only, while the stored one cannot be opened (3.39 review M1). */
+    private static ?string $standIn = null;
+
     private static function secret(Settings $s): string
     {
         $secret = base64_decode($s->get(self::SETTING), true);
+        if (($secret === false || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) && $s->secretUnreadable(self::SETTING)) {
+            // sealed with a key this config.php does not have (or damaged): never replaced – the console rejects what this
+            // stand-in signs until the vault_key line is back, and then the stored key works again (3.39 review M1)
+            return self::$standIn ??= sodium_crypto_sign_secretkey(sodium_crypto_sign_keypair());
+        }
         if ($secret === false || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
             $secret = sodium_crypto_sign_secretkey(sodium_crypto_sign_keypair());
             $s->set(self::SETTING, base64_encode($secret));

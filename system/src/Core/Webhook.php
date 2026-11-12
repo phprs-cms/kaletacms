@@ -135,9 +135,15 @@ final class Webhook
         return $db->run('UPDATE {webhook_deliveries} SET next_attempt = ? WHERE id = ? AND delivered IS NULL AND body IS NOT NULL', [Clock::now(), $id])->rowCount() > 0;
     }
 
-    /** The secret signing the calls; created the first time it is needed. */
+    /**
+     * The secret signing the calls; created the first time it is needed. '' when it is stored sealed but this config.php
+     * cannot open it (3.39 review M1): it is never replaced by a new one then – putting the vault_key line back recovers it.
+     */
     public static function secret(Settings $settings): string
     {
+        if ($settings->secretUnreadable('webhook_secret')) {
+            return '';
+        }
         if ($settings->get('webhook_secret') === '') {
             $settings->set('webhook_secret', 'whsec_' . bin2hex(random_bytes(24)));
         }
@@ -161,7 +167,11 @@ final class Webhook
         } elseif (!preg_match('#^https://#i', $url)) {
             return [0, 'Only https:// addresses are allowed.'];
         }
-        [$timestamp, $signature] = self::signature(self::secret($settings), $body, time());
+        $secret = self::secret($settings);
+        if ($secret === '') {
+            return [0, 'The signing secret cannot be read: the encryption key is not in config.php.']; // kept and tried again later
+        }
+        [$timestamp, $signature] = self::signature($secret, $body, time());
         $headers = ['Content-Type: application/json; charset=utf-8', 'User-Agent: Kaleta/' . KALETA_VERSION, 'X-Kaleta-Event: ' . $event,
             'X-Kaleta-Delivery: ' . $id, 'X-Kaleta-Timestamp: ' . $timestamp, 'X-Kaleta-Signature: ' . $signature];
         $response = @file_get_contents($url, false, stream_context_create(['http' => [
