@@ -54,3 +54,14 @@ sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) VALUES $(for r340_i in
 expect "3.40 review L1: after too many wrong links from the network even a working one is answered as invalid (nothing is looked up)" "$(curl -s "$B/application-consent/$R340_TOKEN" | grep -c 'name="choice"')" "0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'pool_consent'" > /dev/null
 r340_php 'Kaleta\Core\Applications::delete($app, ['"$R340_POOL"'], false);' > /dev/null; sq "DELETE FROM ka_application_counts WHERE job_item_id = 9342" > /dev/null
+
+# L2: a colleague without the section Quotes asking for the tasks of a quote gets a plain refusal naming Quotes
+R340_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES ('r340-eva', '$R340_HASH', 'Eva R340', 'eva-r340@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'enquiries' FROM ka_uzivatele WHERE user = 'r340-eva'" > /dev/null
+R340_EVA=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r340-eva'")
+R340_EVA_TOKEN="kaleta_$(openssl rand -hex 24)"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($R340_EVA, 'r340 colleague', 'full', 'all', SHA2('$R340_EVA_TOKEN', 256), '$(site_time)')" > /dev/null
+mcp_call "$R340_EVA_TOKEN" list_tasks '{"filter":"target:quote:1"}' > "$WORK/response"; mcp_text
+expect "3.40 review L2: list_tasks about a quote without the section Quotes – the refusal names Quotes" "$(grep -c 'Only a user who may open Quotes can see the tasks about it' "$WORK/text")" "1"
+sq "DELETE FROM ka_api_tokeny WHERE idu = $R340_EVA; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R340_EVA; DELETE FROM ka_uzivatele WHERE idu = $R340_EVA" > /dev/null

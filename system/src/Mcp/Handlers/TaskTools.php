@@ -197,8 +197,8 @@ trait TaskTools
             throw new \DomainException('Claude may not read job applications on this site (Applications settings).'); // 3.34 B
         }
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
-            throw new \DomainException('Only a user who may open ' . ['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'fleet' => 'the fleet console', 'pipeline' => 'Pipeline',
-                'applications' => 'Applications'][$section] . ' can see the tasks about it.');
+            throw new \DomainException('Only a user who may open ' . (['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'fleet' => 'the fleet console', 'pipeline' => 'Pipeline',
+                'applications' => 'Applications', 'quotes' => 'Quotes'][$section] ?? $section) . ' can see the tasks about it.'); // 3.40 review L2: the quotes too
         }
     }
 }
