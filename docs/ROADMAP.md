@@ -1931,7 +1931,7 @@ Migration 0122 adds `ka_uzivatele.phone` (the work phone); `KALETA_DB_VERSION` 1
 
 ## 3.38 – internal prices and quotes (12 November 2026)
 
-Migration 0123 adds `ka_price_lists`, `ka_prices`, `ka_quotes`, `ka_quote_lines` and `ka_quote_counters` (design
+Migrations 0123 and 0124. 0123 adds `ka_price_lists`, `ka_prices`, `ka_quotes`, `ka_quote_lines` and `ka_quote_counters` (design
 `kaleta-audity/design-quotes-applications-2026-11-10.md` part A; the owner approved all its recommendations, A-1…A-13);
 `KALETA_DB_VERSION` 123. Feature and section `quotes` (off until switched on, granted explicitly – after the update only
 administrators), area `prices_edit` (`Auth::canEditPrices()`).
@@ -1966,6 +1966,16 @@ administrators), area `prices_edit` (`Auth::canEditPrices()`).
    full-access connection, only to the address of the quote's contact or enquiry).
 5. Tests: 278 `php -r` calls in the shell tests pass shell values after `--` (a random id starting with "-" was read as a PHP
    option – the 3.37 release workflow failed on it once).
+
+6. **Review fixes.** Migration 0124 adds `ka_contacts.email_by_agent_at` (`KALETA_DB_VERSION` 124): set when an MCP
+   connection sets a contact's e-mail (or the contact comes from an `import_enquiries` enquiry), cleared when a person changes
+   it in the admin; MCP `send_quote` refuses such an address (a person can still send). A quote link is 32 random bytes per
+   link (only its sha256 stored) and shown again only in the session that made it; elsewhere New link replaces it. Paths under
+   `/quote/` never enter the 404 log. `Quotes::save` locks the row and refuses a price-list change once there are lines;
+   `markSent` builds the snapshot under its lock and the deal value comes from the frozen snapshot. Claude's discount cap
+   applies to the combined line discount. Anonymising clears title, intro and terms and unlinks the records; delete mode also
+   deletes anonymised quotes. A firm that is not a VAT payer gets VAT mode none. A unit check allows `Prices::forItem`,
+   `Quotes::get/of` and `QuoteDelivery` only from listed callers.
 
 Not in 3.38 (3.40, Q2): PDF, a price list per company or contact, customer Accept/Decline on the page, "first opened on".
 

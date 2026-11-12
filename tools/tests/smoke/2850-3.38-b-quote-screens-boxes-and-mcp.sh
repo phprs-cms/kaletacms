@@ -112,8 +112,9 @@ JAR_Q350="$WORK/jar-q350"; rm -f "$JAR_Q350"
 Q350_HER_CSRF=$(curl -s -c "$JAR_Q350" "$B/admin.php" | grep -o 'name="_csrf" value="[a-f0-9]*"' | head -1 | sed 's/.*value="//;s/"//')
 curl -s -b "$JAR_Q350" -c "$JAR_Q350" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$Q350_HER_CSRF" -d user=nabidky-350 --data-urlencode "password=$PASSWORD"
 q350_her() { curl -s -b "$JAR_Q350" -c "$JAR_Q350" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?$1"; }
+# (the amount only when formatted: a random CSP nonce in the page may hold the digits 6990)
 expect "3.38 B: without the section – 403 on the quotes, and the enquiry and the deal show no Quotes box and no amount" \
-  "$(q350_her "module=quotes&action=detail&id=$Q350_ID")|$(q350_her "module=enquiries&action=detail&id=$Q350_ENQ"; printf ' '; grep -c 'data-quotes-box\|6990\|6 990' "$WORK/response")|$(q350_her "module=pipeline&action=detail&id=$Q350_DEAL"; printf ' '; grep -c 'data-quotes-box' "$WORK/response")" \
+  "$(q350_her "module=quotes&action=detail&id=$Q350_ID")|$(q350_her "module=enquiries&action=detail&id=$Q350_ENQ"; printf ' '; grep -cE 'data-quotes-box|6990[.,]00|6[  ]990' "$WORK/response")|$(q350_her "module=pipeline&action=detail&id=$Q350_DEAL"; printf ' '; grep -c 'data-quotes-box' "$WORK/response")" \
   "403|200 0|200 0"
 Q350_HER="kaleta_$(openssl rand -hex 24)"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($Q350_USER, 'q350 colleague', 'full', 'all', SHA2('$Q350_HER', 256), '$(site_time)')" > /dev/null
