@@ -12,6 +12,8 @@
  * @var string|null $link the customer's working link made in this session, or null (3.38 review L1: only its hash is stored)
  * @var bool $signature does the sender have an e-mail signature
  * @var string $replyTo the sender's e-mail
+ * @var bool $pdf 3.40: can this quote be drawn as a PDF (Front\QuotePdf)
+ * @var bool $attachPdf 3.40: the box "Attach the quote as a PDF" ticked by default (quote_attach_pdf)
  */
 $detail = $app->url(Kaleta\Core\Quotes::adminPath((int) $quote['id']));
 $sent = $quote['status'] !== 'draft';
@@ -73,6 +75,11 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 		<?= e($signature ? ($replyTo !== '' ? t('Your e-mail signature is added; when the customer answers, it comes to you (%s).', $replyTo) : t('Your e-mail signature is added.')) : t('You have no e-mail signature yet, so the e-mail goes without one.')) ?></span></div></div>
 <?php if ($draft['deal']): ?>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="set_deal_value" value="1"<?= $draft['set_deal_value'] ? ' checked' : '' ?> data-quote-deal-value> <?= e(t('Set the deal value to the net total')) ?></label></div></div>
+<?php endif ?>
+<?php if ($pdf): ?>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="attach_pdf" value="1"<?= $attachPdf ? ' checked' : '' ?> data-quote-attach-pdf> <?= e(t('Attach the quote as a PDF')) ?></label></div></div>
+<?php else: ?>
+	<div class="radek"><span></span><div><span class="napoveda" data-quote-no-pdf><?= e(t('This quote’s language cannot be drawn in a PDF, so the e-mail carries the link only.')) ?></span></div></div>
 <?php endif ?>
 	<?= $app->view->render('admin/quotes/follow_up_box') ?>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send the quote')) ?></button></p>

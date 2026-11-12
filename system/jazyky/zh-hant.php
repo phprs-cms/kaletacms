@@ -2167,4 +2167,6 @@ The link works for %d days.
     'Yes, keep my application:' => '是，保留我的應徵：',
     'No, delete my application now:' => '否，立即刪除我的應徵：',
     'May we keep your application? – %s' => '我們可以保留您的應徵嗎？– %s',
+    'Download PDF' => '下載 PDF',
+    'Page %1$s of %2$s' => '第 %1$s 頁，共 %2$s 頁',
 ];

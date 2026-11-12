@@ -2167,4 +2167,6 @@ The link works for %d days.
     'Yes, keep my application:' => 'نعم، احتفظوا بطلبي:',
     'No, delete my application now:' => 'لا، احذفوا طلبي الآن:',
     'May we keep your application? – %s' => 'هل يمكننا الاحتفاظ بطلبك؟ – %s',
+    'Download PDF' => 'تنزيل PDF',
+    'Page %1$s of %2$s' => 'الصفحة %1$s من %2$s',
 ];

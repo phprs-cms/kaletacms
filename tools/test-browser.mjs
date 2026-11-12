@@ -5539,6 +5539,58 @@ await step('3.40 B quotes II: Accept / Decline on the quote page (1440 axe, 390 
   }
 });
 
+// 3.40 (agent A): the quote as a PDF – "Download PDF" on the customer's page (390 px, beside Print, axe on the tools) and in
+// the More menu of the quote's detail; both download <number>.pdf, a real PDF file
+await step('3.40 A Download PDF: the customer\'s page at 390 px and the quote\'s detail both download <number>.pdf', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota); REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21')");
+  const ids = execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); $db = $app->db();
+    $lines = [["name" => "Therapy laser A340", "code" => "TL-A340", "quantity" => "2", "unit" => "pc", "unit_price" => "12500", "vat_rate" => "21"], ["name" => "Installation and training", "quantity" => "1", "unit" => "h", "unit_price" => "900", "vat_rate" => "21"]];
+    $sent = Kaleta\\Core\\Quotes::finalise($app, Kaleta\\Core\\Quotes::save($app, null, ["customer" => ["name" => "Grace A340", "company" => "Clinic A340 Ltd", "email" => "grace.a340@customer.example"], "title" => "A laser for the clinic", "lines" => $lines], 0)["id"], 0);
+    echo $sent["id"], " ", $sent["number"], " ", Kaleta\\Core\\QuoteDelivery::issueLink($app, $sent["id"], 0);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim().split(' ');
+  const [quoteId, number, link] = ids;
+  const isPdf = async (download) => {
+    const chunks = [];
+    for await (const chunk of await download.createReadStream()) { chunks.push(chunk); }
+    const file = Buffer.concat(chunks).toString('latin1');
+    return file.startsWith('%PDF-1.4') && file.trimEnd().endsWith('%%EOF');
+  };
+  try {
+    if (!/\/quote\/[a-f0-9]{64}$/.test(link || '')) { throw new Error(`no link: ${ids.join(' ')}`); }
+    const other = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', isMobile: true, hasTouch: true, acceptDownloads: true });
+    const p2 = await other.newPage(); watch(p2);
+    try {
+      await p2.goto(link, { waitUntil: 'networkidle' });
+      const button = p2.locator('a.quote-pdf');
+      if (!(await button.isVisible()) || (await button.innerText()).trim() !== 'Download PDF') { throw new Error('Download PDF is not shown on the customer\'s page'); }
+      const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      if (wide > 1) { throw new Error(`${wide} px of sideways scroll with Download PDF`); }
+      if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/340a-quote-phone.png` }); }
+      const [download] = await Promise.all([p2.waitForEvent('download'), button.click()]);
+      if (download.suggestedFilename() !== `${number}.pdf` || !(await isPdf(download))) { throw new Error(`the customer's download: ${download.suggestedFilename()}`); }
+    } finally {
+      await other.close();
+    }
+    const axeContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, bypassCSP: true });
+    try {
+      const axePage = await axeContext.newPage();
+      await axePage.goto(link, { waitUntil: 'networkidle' });
+      await axePage.addScriptTag({ path: AXE });
+      const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['.quote-tools'], WCAG]);
+      if (found.violations.length) { throw new Error('axe quote tools: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+    } finally {
+      await axeContext.close();
+    }
+    await visit(`/admin.php?module=quotes&action=detail&id=${Number(quoteId)}`);
+    await page.locator('[data-record-more] > summary').click();
+    const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-quote-pdf]').click()]);
+    if (download.suggestedFilename() !== `${number}.pdf` || !(await isPdf(download))) { throw new Error(`the admin's download: ${download.suggestedFilename()}`); }
+  } finally {
+    execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); Kaleta\\Core\\QuoteDelivery::delete($app->db(), [${Number(quoteId) || 0}]);`], { cwd: process.env.WEB_DIR, encoding: 'utf8' });
+    sql("DELETE FROM ka_quote_counters; DELETE FROM ka_nastaveni WHERE promenna = 'quote_vat_rate'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

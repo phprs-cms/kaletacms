@@ -548,7 +548,7 @@ final class Quotes extends Module
         }
         $s = $this->app->settings();
         $keys = ['quote_number_format', 'quote_valid_days', 'quote_vat_payer', 'quote_vat_rate', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value',
-            'quote_customer_decision', 'quote_track_opened']; // 3.40
+            'quote_customer_decision', 'quote_track_opened', 'quote_attach_pdf']; // 3.40
 
         return $this->view('settings', 'Quotes', ['values' => array_combine($keys, array_map(fn (string $k): string => $s->get($k), $keys)), 'next' => Store::nextNumber($this->db, $s),
             'people' => array_map(fn (array $u): string => (string) ($u['jmeno'] ?: $u['user']), $this->db->all('SELECT DISTINCT u.jmeno, u.user FROM {uzivatele} u JOIN {uzivatele_prava} p ON p.fk_id_user = u.idu'
@@ -605,6 +605,7 @@ final class Quotes extends Module
             Store::forgetOpened($this->db);
         }
         $s->set('quote_track_opened', $this->request->postBool('quote_track_opened') ? '1' : '0');
+        $s->set('quote_attach_pdf', $this->request->postBool('quote_attach_pdf') ? '1' : '0'); // 3.40
         $s->set('quote_valid_days', (string) max(1, min(365, $this->request->postInt('quote_valid_days', 30))));
         $s->set('quote_link_days', (string) max(1, min(365, $this->request->postInt('quote_link_days', 30))));
         $s->set('quotes_months', (string) max(0, min(120, $this->request->postInt('quotes_months', 36))));

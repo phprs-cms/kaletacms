@@ -290,10 +290,12 @@ final class QuoteDelivery
      * asked – the deal's value (A-10). $subject may hold {number}; an empty subject or message takes the default.
      *
      * @param 'admin'|'mcp' $via
-     * @return array{id: int, number: string, status: 'sent'|'queued', error: string, to: string, link: string, deal_value_set: bool, warnings: list<string>}
+     * @param (\Closure(array<string, mixed>): ?array{name: string, type: string, data: string})|null $attachment 3.40: makes the file sent
+     *        with the e-mail from the sent quote (the caller's Front\QuotePdf – Core draws no documents); null from it = no file
+     * @return array{id: int, number: string, status: 'sent'|'queued', error: string, to: string, link: string, deal_value_set: bool, warnings: list<string>, pdf: bool}
      * @throws \DomainException with a translated reason; nothing is sent
      */
-    public static function send(App $app, int $id, string $subject, string $message, bool $setDealValue, string $via = 'admin'): array
+    public static function send(App $app, int $id, string $subject, string $message, bool $setDealValue, string $via = 'admin', ?\Closure $attachment = null): array
     {
         $db = $app->db();
         $s = $app->settings();
@@ -323,12 +325,16 @@ final class QuoteDelivery
         $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
         $signature = EnquiryReply::signature($app, $user);
         [$plain, $html] = Language::runWith($draft['language'], fn (): array => self::mail($sent, $message, $link, $signature), '', $s->get('german_register'));
-        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')));
+        $warnings = [];
+        $file = $attachment !== null ? $attachment($sent) : null; // 3.40: the quote as a PDF, when asked and when its language can be drawn
+        if ($attachment !== null && $file === null) {
+            $warnings[] = t('The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.');
+        }
+        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')), $file !== null ? [$file] : []);
         $mailId = Mail::$lastId;
         if ($mailId !== null) {
             $db->update('quotes', ['sent_mail' => $mailId], ['id' => $id]);
         }
-        $warnings = [];
         $dealSet = false;
         if ($setDealValue && $sent['deal_id'] !== null && !Deals::mayOpen($db, $s, (int) ($user['idu'] ?? 0))) {
             $warnings[] = t('The deal’s value was not changed: only a user who may open the Pipeline changes a deal.'); // 3.38 review L3
@@ -342,7 +348,7 @@ final class QuoteDelivery
         Events::record($db, 'quote.sent', $ok ? 'info' : 'warning', mb_substr(t($ok ? 'Quote %s was sent to the customer.' : 'Quote %s waits in the mail queue for another attempt.', $number), 0, 255), ['quote' => $id, 'via' => $via]);
 
         return ['id' => $id, 'number' => $number, 'status' => $ok ? 'sent' : 'queued', 'error' => $ok ? '' : Mail::$error, 'to' => $to[0], 'link' => $link,
-            'deal_value_set' => $dealSet, 'warnings' => $warnings];
+            'deal_value_set' => $dealSet, 'warnings' => $warnings, 'pdf' => $file !== null];
     }
 
     /** The default subject in the current language: "Quotation {number} – <title>". @param array<string, mixed> $quote */

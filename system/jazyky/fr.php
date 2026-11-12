@@ -2133,4 +2133,6 @@ return [
     'Yes, keep my application:' => 'Oui, conservez ma candidature :',
     'No, delete my application now:' => 'Non, supprimez ma candidature maintenant :',
     'May we keep your application? – %s' => 'Pouvons-nous conserver votre candidature ? – %s',
+    'Download PDF' => 'Télécharger le PDF',
+    'Page %1$s of %2$s' => 'Page %1$s sur %2$s',
 ];

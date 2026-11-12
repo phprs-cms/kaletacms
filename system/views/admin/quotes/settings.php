@@ -38,6 +38,8 @@
 		<span class="napoveda"><?= e(t('Counted from the last change of status; then the quote goes the way of old enquiries (deleted or without the person). 0 = keep.')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_set_deal_value" value="1"<?= $values['quote_set_deal_value'] === '1' ? ' checked' : '' ?>> <?= e(t('Sending a quote sets the value of its deal to the net total')) ?></label>
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. Won or lost is only offered, never set by itself.')) ?></span></div></div>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_attach_pdf" value="1"<?= ($values['quote_attach_pdf'] ?? '1') === '1' ? ' checked' : '' ?> data-quote-attach-pdf-default> <?= e(t('Attach the quote as a PDF to the e-mail')) ?></label>
+		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.')) ?></span></div></div>
 	<h2><?= e(t('The customer’s page')) ?></h2>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_customer_decision" value="1"<?= $values['quote_customer_decision'] === '1' ? ' checked' : '' ?> data-quotes-decision> <?= e(t('The customer can accept or decline the quote on its page')) ?></label>
 		<span class="napoveda"><?= e(t('Accept and Decline buttons under a sent quote while it is valid; one decision, a reason for a decline is optional. The quote’s status changes “by the customer” and its responsible person gets a notification. The deal is only offered as won or lost, never moved by itself.')) ?></span></div></div>

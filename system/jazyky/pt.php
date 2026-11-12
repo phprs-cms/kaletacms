@@ -2167,4 +2167,6 @@ O link funciona por %d dias.
     'Yes, keep my application:' => 'Sim, guardem a minha candidatura:',
     'No, delete my application now:' => 'Não, eliminem a minha candidatura agora:',
     'May we keep your application? – %s' => 'Podemos guardar a sua candidatura? – %s',
+    'Download PDF' => 'Descarregar PDF',
+    'Page %1$s of %2$s' => 'Página %1$s de %2$s',
 ];

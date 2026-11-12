@@ -2114,4 +2114,6 @@ return [
     'Yes, keep my application:' => 'Áno, uchovajte moju žiadosť:',
     'No, delete my application now:' => 'Nie, vymažte moju žiadosť hneď:',
     'May we keep your application? – %s' => 'Môžeme vašu žiadosť uchovať? – %s',
+    'Download PDF' => 'Stiahnuť PDF',
+    'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
 ];

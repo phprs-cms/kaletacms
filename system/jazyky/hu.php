@@ -2167,4 +2167,6 @@ A hivatkozás %d napig érvényes.
     'Yes, keep my application:' => 'Igen, őrizzék meg a jelentkezésemet:',
     'No, delete my application now:' => 'Nem, töröljék a jelentkezésemet most:',
     'May we keep your application? – %s' => 'Megőrizhetjük a jelentkezését? – %s',
+    'Download PDF' => 'PDF letöltése',
+    'Page %1$s of %2$s' => '%1$s. oldal / %2$s',
 ];

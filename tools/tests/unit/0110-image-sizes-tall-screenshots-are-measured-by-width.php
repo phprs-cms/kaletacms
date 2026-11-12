@@ -163,7 +163,8 @@ $parity = [
         'customer_list' => 'admin: which price list a customer gets is a commercial decision a person makes in the customer\'s record',
         'line_set_rename' => 'admin: the saved line sets are the administrator\'s set-up (Quotes → Settings)', 'line_set_delete' => 'admin: deleting a saved line set is the administrator\'s set-up',
         'send' => 'send_quote', 'preview' => $readOnly, 'link' => 'admin: a new customer\'s link for a sent quote is handed over by a person',
-        'link_withdraw' => 'admin: withdrawing a customer\'s link is the person\'s decision', 'texts_save' => 'admin: the default texts of quotes are the administrator\'s set-up'],
+        'link_withdraw' => 'admin: withdrawing a customer\'s link is the person\'s decision', 'texts_save' => 'admin: the default texts of quotes are the administrator\'s set-up',
+        'pdf' => $readOnly], // 3.40 A: the quote as a PDF file
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],

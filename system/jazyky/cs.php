@@ -3303,4 +3303,6 @@ return [
     'Yes, keep my application:' => 'Ano, uchovejte mou žádost:',
     'No, delete my application now:' => 'Ne, smažte mou žádost hned:',
     'May we keep your application? – %s' => 'Můžeme vaši žádost uchovat? – %s',
+    'Download PDF' => 'Stáhnout PDF',
+    'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
 ];

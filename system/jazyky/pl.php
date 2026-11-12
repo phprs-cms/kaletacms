@@ -2139,4 +2139,6 @@ return [
     'Yes, keep my application:' => 'Tak, zachowajcie moją aplikację:',
     'No, delete my application now:' => 'Nie, usuńcie moją aplikację teraz:',
     'May we keep your application? – %s' => 'Czy możemy zachować Twoją aplikację? – %s',
+    'Download PDF' => 'Pobierz PDF',
+    'Page %1$s of %2$s' => 'Strona %1$s z %2$s',
 ];

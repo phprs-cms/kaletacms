@@ -8277,4 +8277,11 @@ return [
     'Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.' => 'Každá nová žádost se ohlásí webhookem na %s – jen její číslo a pozice, nic o uchazeči.',
     'Renewal of the consent, application #%d: %s' => 'Obnovení souhlasu, žádost #%d: %s',
     'The webhook address must start with https:// – nothing was saved.' => 'Adresa webhooku musí začínat https:// – nic se neuložilo.',
+    'Download PDF' => 'Stáhnout PDF',
+    'Attach the quote as a PDF' => 'Přiložit nabídku jako PDF',
+    'This quote’s language cannot be drawn in a PDF, so the e-mail carries the link only.' => 'Jazyk této nabídky nejde v PDF vykreslit, e-mail proto ponese jen odkaz.',
+    'Attach the quote as a PDF to the e-mail' => 'Přikládat k e-mailu nabídku jako PDF',
+    'The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.' => 'Výchozí stav zaškrtávacího pole v okně odeslání. Odkaz na nabídku je v e-mailu vždy; nabídky v arabském, řeckém, cyrilském nebo asijském písmu odcházejí jen s odkazem.',
+    'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Tato nabídka nemá PDF: její jazyk nebo text nejde písmy PDF vykreslit. Vytiskněte náhled nebo ho uložte jako PDF z prohlížeče.',
+    'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'E-mail odešel bez PDF: jazyk nebo text nabídky nejde v PDF vykreslit – zákazník má odkaz.',
 ];

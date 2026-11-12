@@ -2167,4 +2167,6 @@ The link works for %d days.
     'Yes, keep my application:' => '是，保留我的申请：',
     'No, delete my application now:' => '否，立即删除我的申请：',
     'May we keep your application? – %s' => '我们可以保留您的申请吗？– %s',
+    'Download PDF' => '下载 PDF',
+    'Page %1$s of %2$s' => '第 %1$s 页，共 %2$s 页',
 ];

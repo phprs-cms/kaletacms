@@ -8704,4 +8704,11 @@ return [
     'Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.' => 'Cada nueva candidatura se anuncia a %s mediante un webhook – solo su número y puesto, nada del candidato.',
     'Renewal of the consent, application #%d: %s' => 'Renovación del consentimiento, candidatura #%d: %s',
     'The webhook address must start with https:// – nothing was saved.' => 'La dirección del webhook debe empezar por https:// – no se guardó nada.',
+    'Download PDF' => 'Descargar PDF',
+    'Attach the quote as a PDF' => 'Adjuntar el presupuesto en PDF',
+    'This quote’s language cannot be drawn in a PDF, so the e-mail carries the link only.' => 'El idioma de este presupuesto no se puede representar en un PDF, así que el correo lleva solo el enlace.',
+    'Attach the quote as a PDF to the e-mail' => 'Adjuntar el presupuesto en PDF al correo',
+    'The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.' => 'El valor por defecto de la casilla en el diálogo de envío. El enlace al presupuesto va siempre en el correo; los presupuestos en escritura árabe, griega, cirílica o asiática se envían solo con el enlace.',
+    'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Este presupuesto no tiene PDF: su idioma o su texto no se pueden representar con las fuentes de un PDF. Imprima la vista previa o guárdela como PDF desde el navegador.',
+    'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'El correo salió sin el PDF: el idioma o el texto del presupuesto no se pueden representar en un PDF; el cliente tiene el enlace.',
 ];
