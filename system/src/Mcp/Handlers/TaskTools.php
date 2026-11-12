@@ -198,7 +198,7 @@ trait TaskTools
         }
         if (!Handover::mayOpen($this->app->db(), $this->app->settings(), $this->app->auth()->id(), $section)) {
             throw new \DomainException('Only a user who may open ' . (['pages' => 'Pages', 'collections' => 'Collections', 'enquiries' => 'Enquiries', 'contacts' => 'Customers', 'fleet' => 'the fleet console', 'pipeline' => 'Pipeline',
-                'applications' => 'Applications', 'quotes' => 'Quotes'][$section] ?? $section) . ' can see the tasks about it.'); // 3.40 review L2: the quotes too
+                'applications' => 'Applications', 'quotes' => 'Quotes'][$section]) . ' can see the tasks about it.'); // 3.40 review L2: the quotes too ($section is one of these keys)
         }
     }
 }
