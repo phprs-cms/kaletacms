@@ -1,4 +1,4 @@
-# Commits that only rename identifiers (tools/rename.php, docs/glossary.md) – git blame and GitHub skip them.
+# Commits that only rename identifiers (the 1.4 rename tool, removed in 3.39; docs/glossary.md) – git blame and GitHub skip them.
 # Local use: git config blame.ignoreRevsFile .git-blame-ignore-revs
 # step 1: tools and tests
 00d033420c15495b2204ecd45a51e5db5283dfee

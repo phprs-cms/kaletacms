@@ -93,8 +93,8 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYS
             }
         }
     }
-    // "$db->prefix . $table" / ". 'novinky'" – Readiness only quotes a prefixed name in its advice and scans add-ons with it
-    if ($relative315 !== 'system/src/Core/Readiness.php' && preg_match_all('/->prefix\s*\.\s*(\$[a-zA-Z_]|\'[a-z])/', $source315, $joined315, PREG_OFFSET_CAPTURE) > 0) {
+    // "$db->prefix . $table" / ". 'novinky'"
+    if (preg_match_all('/->prefix\s*\.\s*(\$[a-zA-Z_]|\'[a-z])/', $source315, $joined315, PREG_OFFSET_CAPTURE) > 0) {
         foreach ($joined315[0] as [$text315, $offset315]) {
             $rawTables315[] = $relative315 . ':' . (substr_count(substr($source315, 0, $offset315), "\n") + 1) . ' ' . $text315;
         }

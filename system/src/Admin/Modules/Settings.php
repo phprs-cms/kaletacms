@@ -282,7 +282,6 @@ class Settings extends Module
             'values' => $invalid['hodnoty'] + $values,
             'privacyPage' => $privacyPage,
             'checks' => $tab === 'health' ? Health::checks($this->app) : [],
-            'readiness' => $tab === 'health' ? \Kaleta\Core\Readiness::checks($this->app) : [], // 3.14: Ready for 4.0, its own section
             'remoteStatus' => $settings->get('remote_backup_status'),
             'mediaStatus' => $settings->get('remote_media_status'),
             'tasksToken' => $settings->get('tasks_token'),
@@ -1204,7 +1203,7 @@ class Settings extends Module
     }
 
     /**
-     * 3.15: installs the next major version (Kaleta 4.0) – never by itself, only here: for the version the administrator saw,
+     * 3.15: installs the next major version – never by itself, only here: for the version the administrator saw,
      * after they confirmed they read what changes, from the newest release of the current line, and after a fresh backup.
      */
     protected function actionUpdateMajor(): Response
@@ -1214,15 +1213,11 @@ class Settings extends Module
         }
         $version = $this->request->post('verze');
         if ($version === '' || $this->request->post('precteno') !== '1') {
-            return $this->back(t('Confirm that you have read what changes and checked Ready for 4.0, then start the update again.'), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('Confirm that you have read what changes, then start the update again.'), '', ['tab' => 'backups'], 'chyba');
         }
         // N315-3: a fresh check of the current line must confirm this is its newest release – fails closed
         if (($blocker = Updater::majorBlocker((new Updater($this->app->settings()))->state(true))) !== null) {
             return $this->back($blocker, '', ['tab' => 'backups'], 'chyba');
-        }
-        // the database server or its rights would make the update fail half-way – Ready for 4.0 must clear them first
-        if (($blockers = \Kaleta\Core\Readiness::blockers(\Kaleta\Core\Readiness::checks($this->app))) !== []) {
-            return $this->back(t('The update to a new major version waits until Ready for 4.0 clears: %s.', implode(', ', $blockers)), '', ['tab' => 'backups'], 'chyba');
         }
         try {
             $backup = Backup::create($this->db, 'predaktualizaci');

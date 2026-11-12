@@ -1979,22 +1979,32 @@ administrators), area `prices_edit` (`Auth::canEditPrices()`).
 
 Not in 3.38 (3.40, Q2): PDF, a price list per company or contact, customer Accept/Decline on the page, "first opened on".
 
-## Path to 4.0 (owner decisions, 13 October 2026)
+## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
+
+**No English renaming of tables or columns – not in 4.0 and not later.** The owner rejected it on 21 and 22 October 2026
+("it doesn't matter to most users") and confirmed it in the plan of 10 November 2026. The Czech tables and columns stay;
+`system/sql/names.php` (`Core\Names`) stays as the map of English aliases, so `{news}` and `{novinky}` both work in
+queries and add-ons may keep either; new tables and columns get English names. 3.39 removed what only prepared the
+rename: "Ready for 4.0" on System status and `ready_for_4_0` in `get_health` (`Core\Readiness`, `Core\LegacyNames`), the
+major-update blockers they fed (database server, rights to rename tables) and `tools/rename*`. The 3.15 bridge in
+`Core\Db` (a database whose tables carry the English names: the marker, the retry after a missing table, the `$english`
+branch of `Migration::statements`) is removed by the next major release – no release ever renamed a database.
 
 | Release | What |
 |---|---|
-| 3.14 | Ready for 4.0 check, the expand steps above, own signatures. |
-| 3.15 – the bridge | Code that works on both the old and the renamed tables (the rollback target of 4.0); 4.0 offered only on a separate update source that 3.15+ reads, so older sites never jump straight to a major version. No support window is promised for 3.15 – administrators are prompted to update to the latest release so security fixes apply. |
-| 4.0-rc | The contract steps in one release: per-language slugs for every site and the global keys dropped (§3), tables renamed (§4), export format 3 by default, tags keyed by language, redirects looked up by `source_norm`. Rehearsed on copies of the owner's sites; update tests from 3.15 and from 1.0.0 through 3.15; a rollback drill to 3.15. |
-| 4.0 | After two weeks of the candidate on the owner's sites. Never installed automatically – the administrator starts it, a backup comes first. MCP tools, parameters and Czech aliases unchanged. |
+| 3.14 | The Ready for 4.0 check (removed in 3.39), the expand steps above, own signatures. |
+| 3.15 | The bridge to both table names (goes with the next major) and a separate update source for majors (stays: 4.x is published in `aktualizace-4.json`, which only 3.15+ reads). No support window is promised for 3.15 – administrators are prompted to update to the latest release so security fixes apply. |
+| 3.19 | The contract steps as a normal 3.x release: per-language slugs for every site and the global keys dropped (§3), tags keyed by language, redirects looked up by `source_norm`. |
+| 3.39 | The rename decision written down; the preparatory checks and tools removed. |
+| 4.0 | No date and no fixed content yet. What needs a major: removing the 3.15 bridge, export format 3 by default (format 2 still read), a unique key on `source_norm` once the reported collisions are resolved. Never installed automatically – the administrator starts it, a backup comes first. MCP tools, parameters and Czech aliases unchanged. |
 | 4.1 | UTC instants table by table (§6 step 2); team hierarchy (departments, "reports to"), an org chart and the right contact shown automatically (owner's idea). |
-| 5.0 | Column renames per entity. |
 
-`zh` means Simplified Chinese (owner, 13 October 2026). Whether add-ons query core tables is answered by the 3.14
-readiness check on real sites.
+`zh` means Simplified Chinese (owner, 13 October 2026).
 
 ## Not planned
 
+- English renames of database tables or columns (21 and 22 October 2026, confirmed on 10 November 2026) – `Core\Names`
+  keeps the English aliases for queries instead.
 - A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
 - A chat with Claude inside the admin that runs on the site's own Anthropic key (decided on 3 October 2026) – "Ask Claude"
   hands the work to Claude through requests instead.

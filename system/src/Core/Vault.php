@@ -66,7 +66,7 @@ final class Vault
         };
     }
 
-    /** What state() means, for the administrator (Settings → Backups and updates, Ready for 4.0) – never the key. */
+    /** What state() means, for the administrator (Settings → Backups and updates) – never the key. */
     public static function describe(string $state): string
     {
         return match ($state) {

@@ -92,16 +92,16 @@ final class Inventory
 
     /**
      * The site's side: the database server from SELECT VERSION() – "8.4.3" → mysql, "10.11.6-MariaDB-log" → mariadb (the
-     * "5.5.5-" some servers put in front skipped, Core\Readiness::databaseServer). Pure.
+     * "5.5.5-" some servers put in front of a MariaDB version skipped). Pure.
      *
      * @return array{family: string, version: ?string}
      */
     public static function databaseServer(string $version): array
     {
-        [$name, $number] = \Kaleta\Core\Readiness::databaseServer($version);
+        $number = preg_match('/^(?:5\.5\.5-)?(\d+\.\d+(?:\.\d+)?)/', trim($version), $m) === 1 ? $m[1] : trim($version);
         $number = preg_match('/^\d{1,3}\.\d{1,3}(\.\d{1,4})?$/D', $number) === 1 ? $number : null;
 
-        return ['family' => $number === null ? 'other' : strtolower($name), 'version' => $number];
+        return ['family' => $number === null ? 'other' : (stripos($version, 'mariadb') !== false ? 'mariadb' : 'mysql'), 'version' => $number];
     }
 
     /**

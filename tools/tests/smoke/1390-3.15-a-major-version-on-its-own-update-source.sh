@@ -4,9 +4,9 @@ major_source() { sq "INSERT INTO ka_nastaveni VALUES ('update_url','http://127.0
 # A: the line has 3.99.10, the next major 4.0.0 (marked security): both are shown, the major cannot be started before 3.99.10
 major_source velka; backups_page
 contains -F 'value="3.99.10"' "$WORK/response" && contains -F 'id="major-update"' "$WORK/response" && contains -F 'Je k dispozici Kaleta 4.0.0' "$WORK/response" && contains -F 'Tables renamed to their English names' "$WORK/response" \
-  && contains -F 'module=status#ready-4' "$WORK/response" && contains -F 'Nejdřív nainstalujte verzi 3.99.10' "$WORK/response" && ! contains -F 'action=update_major' "$WORK/response" \
-  && echo "  ok     3.15: Backups and updates offers 3.99.10 and shows Kaleta 4.0.0 on its own, linked to Ready for 4.0, not installable before 3.99.10" || { echo "  CHYBA  3.15: the major version on Backups and updates"; ERRORS=$((ERRORS+1)); }
-check "3.15: System status shows Kaleta 4.0.0 above the Ready for 4.0 checks" 200 "/admin.php?module=status" 'Je k dispozici Kaleta 4.0.0'
+  && ! contains -F 'module=status#ready-4' "$WORK/response" && contains -F 'Nejdřív nainstalujte verzi 3.99.10' "$WORK/response" && ! contains -F 'action=update_major' "$WORK/response" \
+  && echo "  ok     3.15: Backups and updates offers 3.99.10 and shows Kaleta 4.0.0 on its own (no Ready for 4.0 since 3.39), not installable before 3.99.10" || { echo "  CHYBA  3.15: the major version on Backups and updates"; ERRORS=$((ERRORS+1)); }
+check "3.15: System status shows Kaleta 4.0.0 is available" 200 "/admin.php?module=status" 'Je k dispozici Kaleta 4.0.0'
 mcp get_health '{}' > "$WORK/response"
 expect "3.15: get_health says the line offers 3.99.10 and the next major 4.0.0" "$(mcp_value update available)|$(mcp_value update major_available)" "3.99.10|4.0.0"
 # B: the background job with automatic security updates on: 4.0.0 is marked security, but a major version never installs by itself

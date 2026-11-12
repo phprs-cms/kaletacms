@@ -62,8 +62,6 @@ if (SITE === 'firemni') {
   await shot('admin-appearance', '/admin.php?module=appearance');
   await shot('admin-enquiries', '/admin.php?module=enquiries');
   await shot('admin-extensions', '/admin.php?module=extensions');
-  // 3.14: System status with the Ready for 4.0 check
-  await shot('admin-ready-for-4', '/admin.php?module=status', { before: async () => page.locator('#ready-4').scrollIntoViewIfNeeded() });
 
   // Claude connector: the consent screen a site owner sees when connecting Claude (OAuth dynamic registration + PKCE)
   const client = await (await fetch(`${BASE}/oauth/register`, {
