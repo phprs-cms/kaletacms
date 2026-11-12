@@ -32,7 +32,7 @@ check('[source-pin] 3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system"
 check('[source-pin] 3.23.1 (N-C5, N-C10, N-C15): the reply form promises a signature only to who has one; one testimonial sentence; the empty Pages filter speaks of languages only with them', [
     str_contains($v3231('enquiries/detail.php'), '$hasSignature =>') && str_contains($v3231('enquiries/detail.php'), 'data-reply-no-signature'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'hasSignature' => \\Kaleta\\Core\\EnquiryReply::signature("),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'TeamRecord::forUser'),
+    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), 'UserSignature::forUser'), // 3.37: the Team record or the fallback
     str_contains($v3231('enquiries/detail.php'), 'Nothing is published until you publish it.') && !str_contains($v3231('enquiries/detail.php'), 'an administrator creates that collection'),
     str_contains($v3231('pages/list.php'), "(\$siteLanguages ?? []) === [] ? 'Try another tab.' : 'Try another tab or language.'"),
     Kaleta\Core\Language::runWith('cs', fn (): string => t('Try another tab.') . '|' . t('Ask Claude requests'), 'admin-'),

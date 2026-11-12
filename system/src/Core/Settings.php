@@ -33,6 +33,7 @@ final class Settings
         'company_hours' => '',         // opening hours by lines: "Po–Pá 8:00–17:00" (Front\Company::openingHoursLines)
         'company_map' => '',
         'company_gps' => '',
+        'email_signature_template' => '', // 3.37: the fallback e-mail signature of a person without a Team record, by lines with {name} {position} {phone} {email} {company} {website} {address}; '' = the standard layout (Builder\UserSignature)
         'enquiries_months' => '24',    // form enquiries older than this many months are deleted (personal data should not be kept forever); 0 = do not delete
         'triage_assistant' => '0',      // new enquiries are sorted by the AI assistant (2.12, Core\Triage) – off: the text goes to the AI provider
         'job_applications_months' => '0', // applications to job openings (enquiries from a Job openings item page, Core\Jobs) are deleted after this many months; 0 = like other enquiries

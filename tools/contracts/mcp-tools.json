@@ -811,9 +811,7 @@
             "id": "integer",
             "slug": "string"
         },
-        "required": [
-            "collection"
-        ],
+        "required": [],
         "annotations": {
             "title": "Get an e-mail signature",
             "readOnlyHint": true,
@@ -1151,6 +1149,16 @@
         "required": [],
         "annotations": {
             "title": "List shared classes",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_colleagues": {
+        "parameters": [],
+        "required": [],
+        "annotations": {
+            "title": "List colleagues",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false

@@ -3089,12 +3089,10 @@ await step('3.23.1 item 12: a reply sent with the enquiry form reaches the SMTP 
     const logged = sql(`SELECT CONCAT_WS('|', stav, JSON_UNQUOTE(JSON_EXTRACT(replies, '$[0].status')), JSON_UNQUOTE(JSON_EXTRACT(replies, '$[0].reply_to'))) FROM ka_poptavky WHERE idp = ${id}`).trim();
     if (logged !== '2|sent|alex@browser.example') { throw new Error(`the enquiry logged: ${logged}`); }
     if (await page.locator('[data-reply-status="sent"]').count() !== 1) { throw new Error('the detail does not show the sent reply'); }
-    // N-C5: without a Team record the form says the reply goes without a signature and links My e-mail signature
+    // N-C5, 3.37: without a Team record the user has the site's fallback signature – the hint promises it, never "without one"
     sql("UPDATE ka_uzivatele SET email = 'nobody-3231@browser.example', team_item_id = NULL WHERE user = 'admin'");
     await visit(`/admin.php?module=enquiries&action=detail&id=${id}`);
-    const hint = page.locator('form[data-reply-form] [data-reply-no-signature]');
-    if (await hint.count() !== 1 || (await hint.locator('a', { hasText: 'My account → My e-mail signature' }).getAttribute('href')) !== '/admin.php?action=account&tab=signature') { throw new Error('without a signature the hint does not say so or does not link My e-mail signature'); }
-    if (SHOTS) { await hint.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOTS}/enquiry-reply-no-signature-desktop.png` }); }
+    if (await form.locator('[data-reply-no-signature]').count() !== 0 || !/e-mail signature from My account is added/.test(await form.textContent())) { throw new Error('without a Team record the hint does not promise the fallback signature'); }
   } finally {
     sql(`UPDATE ka_uzivatele SET email = '', team_item_id = ${earlierRecord === 'NULL' ? 'NULL' : Number(earlierRecord)} WHERE user = 'admin'; DELETE FROM ka_poptavky WHERE idp = ${id}; UPDATE ka_nastaveni SET hodnota = 'mail' WHERE promenna = 'mail_mode'`);
   }
@@ -5009,6 +5007,61 @@ await step('3.37 record pages and board cards: two columns at 1440, one at 375, 
   } finally {
     await page.setViewportSize({ width: 1440, height: 900 });
     sql(`DELETE FROM ka_comments WHERE target IN ('enquiry:${enquiry}', 'deal:${deal}', 'contact:${olga}'); DELETE FROM ka_deal_stage_history WHERE deal_id = ${deal}; DELETE FROM ka_deals WHERE id = ${deal}; DELETE FROM ka_poptavky WHERE idp = ${enquiry}; DELETE FROM ka_contacts WHERE id = ${olga}`);
+  }
+});
+
+await step('3.37 B: My account → Colleagues and the fallback e-mail signature (1440 and 390 px, light/dark, axe)', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const before = sql("SELECT CONCAT_WS('|', pozice, phone, IFNULL(team_item_id, 'NULL'), email) FROM ka_uzivatele WHERE user = 'admin'").trim().split('|');
+  sql("UPDATE ka_uzivatele SET pozice = 'Owner B337', phone = '+420 777 337 337', team_item_id = NULL, email = 'nobody-b337@browser.example' WHERE user = 'admin'; INSERT INTO ka_uzivatele (user, password, jmeno, email, pozice, phone) VALUES ('colleague-b337', 'x', 'Colleague B337 With A Rather Long Name', 'colleague.with.a.long.address.b337@browser.example', 'Field engineer', '+420 603 337 000')");
+  try {
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?action=account&tab=colleagues`, { waitUntil: 'networkidle' });
+          const card = p2.locator('.kolegove .kolega', { hasText: 'Colleague B337' });
+          if ((await card.count()) !== 1 || !(await card.isVisible()) || !(await card.innerText()).includes('Field engineer')) { throw new Error(`the colleague card is missing (${label}, ${scheme})`); }
+          if ((await card.locator('a[href="tel:+420603337000"]').count()) !== 1) { throw new Error('the phone is not a tel: link'); }
+          if (!(await p2.locator('nav.zalozky a[aria-current="true"]', { hasText: 'Colleagues' }).count())) { throw new Error('the Colleagues tab is not current'); }
+          let wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll on Colleagues (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/337b-colleagues-${label}-${scheme}.png`, fullPage: true }); }
+          await p2.goto(`${BASE}/admin.php?action=account&tab=signature`, { waitUntil: 'networkidle' });
+          const preview = p2.locator('[data-podpis-nahled]');
+          if (!(await preview.innerText()).includes('Owner B337') || (await preview.locator('a[href="tel:+420777337337"]').count()) !== 1) { throw new Error(`the fallback signature lacks the position or the phone (${label}, ${scheme})`); }
+          wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the signature (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/337b-signature-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + '/admin.php?action=account&tab=colleagues', { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['nav.zalozky', 'ul.kolegove'], WCAG]);
+        if (found.violations.length) { throw new Error(`axe Colleagues (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // the work phone is saved in My account and refused when it is not a number
+    await visit('/admin.php?action=account');
+    await page.fill('#phone', 'call me');
+    await Promise.all([page.waitForNavigation(), page.locator('form:has(#phone) input[type="submit"]').click()]);
+    if (sql("SELECT phone FROM ka_uzivatele WHERE user = 'admin'").trim() !== '+420 777 337 337') { throw new Error('a phone that is not a number was saved'); }
+    if (!/may contain only digits/.test(await page.locator('body').innerText())) { throw new Error('no reason for the refused phone'); }
+  } finally {
+    const [pozice, phone, team, email] = before;
+    sql(`UPDATE ka_uzivatele SET pozice = '${(pozice || '').replace(/'/g, "''")}', phone = '${(phone || '').replace(/'/g, "''")}', team_item_id = ${team === 'NULL' || !team ? 'NULL' : Number(team)}, email = '${(email || '').replace(/'/g, "''")}' WHERE user = 'admin'; DELETE FROM ka_uzivatele WHERE user = 'colleague-b337'`);
   }
 });
 

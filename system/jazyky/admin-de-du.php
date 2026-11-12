@@ -930,8 +930,6 @@ return [
     'Fonts with them: %s; or upload one as a custom font (e.g. %s).' => 'Schriften, die sie haben: %s; oder lade eine als eigene Schrift hoch (z. B. %s).',
     'Left hidden for review (written by a drafts-only Claude connection): %s – check them and show them in Categories.' => 'Zur Prüfung ausgeblendet gelassen (von einer Claude-Verbindung nur für Entwürfe geschrieben): %s – prüfe sie und blende sie unter Kategorien ein.',
     'Made from your record in %s (%s) in the look of your site. When your record or the site changes, open this page again and copy the signature anew.' => 'Erstellt aus deinem Eintrag in %s (%s) im Erscheinungsbild deiner Website. Wenn sich dein Eintrag oder die Website ändert, öffne diese Seite erneut und kopiere die Signatur neu.',
-    'You are not linked to a record yet.' => 'Du bist noch mit keinem Eintrag verknüpft.',
-    'Ask an administrator to link you to your record in the Team collection.' => 'Bitte einen Administrator, dich mit deinem Eintrag in der Sammlung Team zu verknüpfen.',
     // 3.14: Ready for 4.0 (Core\Readiness, System status)
     'Could not check yet – the database update of 3.14 has not run. Open this page again in a minute.' => 'Noch nicht prüfbar – das Datenbank-Update von 3.14 ist noch nicht gelaufen. Öffne diese Seite in einer Minute erneut.',
     '%s %s – Kaleta 4.0 needs MySQL %s or newer, or MariaDB %s or newer. Ask the hosting to upgrade the database server before you update.' => '%s %s – Kaleta 4.0 braucht MySQL %s oder neuer bzw. MariaDB %s oder neuer. Bitte den Hoster vor dem Update um einen neueren Datenbankserver.',
@@ -1369,4 +1367,10 @@ return [
     'One short internal summary shown first in the conversation – it can be rewritten. Add notes in the conversation; they are kept as written.' => 'Eine kurze interne Zusammenfassung, die in der Unterhaltung zuerst steht – sie kann überschrieben werden. Notizen fügst du in der Unterhaltung hinzu; sie bleiben, wie sie geschrieben wurden.',
     'How to move a deal' => 'So verschiebst du einen Deal',
     'Drag a card to another column, or choose its stage and press Move – with a mouse they are behind ⋯ on the card. With the keyboard: focus the handle of a card, press Space, choose the stage with the arrow keys and press Space again; Esc cancels.' => 'Zieh eine Karte in eine andere Spalte oder wähle ihre Phase und drück „Verschieben“ – mit der Maus liegen sie hinter ⋯ auf der Karte. Mit der Tastatur: Fokus auf den Griff einer Karte, Leertaste drücken, die Phase mit den Pfeiltasten wählen und erneut die Leertaste drücken; Esc bricht ab.',
+    'Shown to your colleagues and in your e-mail signature.' => 'Sichtbar für deine Kollegen und in deiner E-Mail-Signatur.',
+    'Shown to your colleagues and in your e-mail signature. Without it, the signature has the company phone.' => 'Sichtbar für deine Kollegen und in deiner E-Mail-Signatur. Ohne Angabe enthält die Signatur das Firmentelefon.',
+    'Made from your details in My account (name, position, work phone, e-mail) and the company details, in the look of your site. When they change, open this page again and copy the signature anew. Replies you send from Kaleta carry it.' => 'Erstellt aus deinen Angaben in Mein Konto (Name, Position, dienstliches Telefon, E-Mail) und den Firmendaten im Aussehen deiner Website. Wenn sie sich ändern, öffne diese Seite erneut und kopiere die Signatur neu. Antworten, die du aus Kaleta sendest, tragen sie.',
+    'You are not linked to a record in the Team collection yet, so this is the common signature of the site. Ask an administrator to link you to your record.' => 'Du bist noch nicht mit einem Eintrag in der Sammlung Team verknüpft, daher ist dies die gemeinsame Signatur der Website. Bitte einen Administrator, dich mit deinem Eintrag zu verknüpfen.',
+    'you' => 'du',
+    'You are the only one with an account so far.' => 'Bisher hast nur du ein Konto.',
 ];

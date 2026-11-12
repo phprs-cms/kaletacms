@@ -18,9 +18,10 @@ grep -q 'name="subject" maxlength="200" value="Re: Kolik stojí okna?"' "$WORK/r
 ! grep -q 'data-reply-no-signature' "$WORK/response" && grep -q 'Pod text se přidá váš e-mailový podpis' "$WORK/response" \
   && echo "  ok     3.23.1 N-C5: with a signature the reply form says it is added" || { echo "  CHYBA  3.23.1 N-C5: the hint with a signature"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_uzivatele SET team_item_id = NULL, email = 'bez-podpisu@firma.example' WHERE idu = $C10_IDU" > /dev/null
-check "3.23.1 N-C5: without a signature the reply form says the reply goes without one" 200 "/admin.php?module=enquiries&action=detail&id=$C10" 'data-reply-no-signature'
-grep -q 'Zatím nemáte e-mailový podpis' "$WORK/response" && grep -q '<a href="/admin.php?action=account&amp;tab=signature">Můj účet → Můj e-mailový podpis</a>' "$WORK/response" && ! grep -q 'Pod text se přidá' "$WORK/response" \
-  && echo "  ok     3.23.1 N-C5: … and links Můj účet → Můj e-mailový podpis" || { echo "  CHYBA  3.23.1 N-C5: the hint without a signature"; ERRORS=$((ERRORS+1)); }
+# 3.37: without a Team record the user has the site's fallback signature (Builder\UserSignature) – the hint promises it
+check "3.37: without a Team record the reply form still promises the (fallback) signature" 200 "/admin.php?module=enquiries&action=detail&id=$C10" 'Pod text se přidá váš e-mailový podpis'
+! grep -q 'data-reply-no-signature' "$WORK/response" \
+  && echo "  ok     3.37: … and never says the reply goes without one" || { echo "  CHYBA  3.37: the hint without a Team record"; ERRORS=$((ERRORS+1)); }
 sq "UPDATE ka_uzivatele SET email = 'alex@firma.example', team_item_id = ${C10_PERSON:-NULL} WHERE idu = $C10_IDU" > /dev/null
 # a line break in the subject never becomes a header; the only recipient is the enquiry's address
 c10_reply "$C10" --data-urlencode $'subject=Re: Poptávka oken\r\nBcc: zly@evil.example' --data-urlencode $'text=Dobrý den,\npošleme nabídku do pátku.'

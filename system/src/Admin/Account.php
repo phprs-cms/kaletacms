@@ -11,7 +11,8 @@ use Kaleta\Core\Extensions;
 use Kaleta\Core\Totp;
 
 /**
- * My account: own name and e-mail, password change, two-factor sign-in, and the own e-mail signature (3.14, tab=signature).
+ * My account: own name and e-mail, password change, two-factor sign-in, the own e-mail signature (3.14, tab=signature) and
+ * the colleagues (3.37, tab=colleagues).
  * Available to every signed-in user.
  */
 final class Account
@@ -42,6 +43,11 @@ final class Account
                         $message = ['chyba', 'The e-mail address is not valid.'];
                         break;
                     }
+                    $phone = \Kaleta\Core\Colleagues::phone($r->post('phone'));
+                    if ($phone === null) {
+                        $message = ['chyba', 'The phone number may contain only digits, spaces and + ( ) / . -'];
+                        break;
+                    }
                     $email = mb_substr($r->post('email'), 0, 190);
                     $emailChanged = $email !== (string) $user['email'];
                     // the e-mail is where a password reset goes: changing it needs the current password, like a new password
@@ -49,7 +55,7 @@ final class Account
                     if ($emailChanged && ($message = $this->passwordRefused('Enter your current password to change the e-mail address. Nothing was saved.')) !== null) {
                         break;
                     }
-                    $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
+                    $db->update('uzivatele', ['jmeno' => mb_substr($r->post('jmeno'), 0, 100), 'email' => $email, 'url' => mb_substr($r->post('url'), 0, 255), 'pozice' => mb_substr($r->post('pozice'), 0, 100), 'phone' => $phone, 'foto' => mb_substr($r->post('foto'), 0, 255), 'bio' => mb_substr($r->post('bio'), 0, 1200),
                         // admin language, Czech explicitly too – an empty value would mean the site language
                         'jazyk' => isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$r->post('jazyk')]) ? $r->post('jazyk') : '',
                         // form of address in the German administration: '' = formal
@@ -263,6 +269,9 @@ final class Account
         if ($r->get('tab') === 'signature') {
             return $this->signature();
         }
+        if ($r->get('tab') === 'colleagues') {
+            return $this->colleagues();
+        }
 
         // 3.35: backup codes created with the first passkey are shown once, on the page the registration returns to
         $shown = $app->session->get('backup_codes_show');
@@ -372,20 +381,35 @@ final class Account
     /**
      * My e-mail signature (3.14): the signature from the signed-in user's own record in the Team collection
      * (Builder\TeamRecord – chosen by an administrator, or by the e-mail), for every signed-in user, without access to
-     * Collections. Nothing in the request selects the record: only the account decides, so nobody sees another person's.
+     * Collections; 3.37: without a record, the fallback signature from the account and the company details
+     * (Builder\UserSignature). Nothing in the request selects the record: only the account decides, so nobody sees another person's.
      */
     private function signature(): Response
     {
         $app = $this->kernel->app;
         $db = $app->db();
         $user = (array) $db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
-        $record = \Kaleta\Builder\TeamRecord::forUser($db, $user);
+        $signature = \Kaleta\Builder\UserSignature::forUser($app, $user);
 
         return $this->kernel->page('My e-mail signature', $app->view->render('admin/account_signature', [
             'app' => $app,
             'teamExists' => \Kaleta\Builder\TeamRecord::collections($db) !== [],
-            'record' => $record,
-            'signature' => $record !== null ? \Kaleta\Builder\EmailSignature::forItem($app, $record['collection'], $record['item']) : null,
+            'record' => $signature['record'],
+            'signature' => $signature,
+        ]));
+    }
+
+    /**
+     * Colleagues (3.37, Core\Colleagues): everyone with an active account – name, position, work phone, e-mail and photo –
+     * for every signed-in user, whatever sections they may open.
+     */
+    private function colleagues(): Response
+    {
+        $app = $this->kernel->app;
+
+        return $this->kernel->page('Colleagues', $app->view->render('admin/account_colleagues', [
+            'app' => $app,
+            'colleagues' => \Kaleta\Core\Colleagues::all($app->db()),
         ]));
     }
 
@@ -528,7 +552,6 @@ final class Account
             'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, ELT(MIN(FIELD(access, 'full', 'drafts', 'read')), 'full', 'drafts', 'read') AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
-            'teamExists' => \Kaleta\Builder\TeamRecord::collections($app->db()) !== [], // the My e-mail signature tab (3.14)
         ]));
     }
 }

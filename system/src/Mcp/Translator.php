@@ -316,6 +316,7 @@ final class Translator
         'list_draft_comments' => ['list_draft_comments', '', []],
         'resolve_draft_comment' => ['resolve_draft_comment', '', []],
         'my_work' => ['my_work', '', []],
+        'list_colleagues' => ['list_colleagues', '', []], // 3.37: English only
         'assign' => ['assign', '', []],
         'list_comments' => ['list_comments', '', []],
         'add_comment' => ['add_comment', '', []],
