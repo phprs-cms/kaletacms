@@ -91,6 +91,11 @@ curl -s -b "$JAR_Q338" -c "$JAR_Q338" -o /dev/null -X POST "$B/admin.php" -d "_c
 q338_get() { curl -s -b "$JAR_Q338" -c "$JAR_Q338" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?$1"; }
 expect "3.38: without the section – 403 on Quotes and no price box or price in the item form" \
   "$(q338_get "module=quotes&action=prices")|$(q338_get "module=collections&action=item&id=$Q338_IDK&item=$Q338_LASER"; printf ' '; grep -c 'data-internal-prices\|98765' "$WORK/response")" "403|200 0"
+Q338_HER="kaleta_$(openssl rand -hex 24)"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($Q338_USER, 'q338 colleague', 'full', 'all', SHA2('$Q338_HER', 256), '$(site_time)')" > /dev/null
+q338_her() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $Q338_HER" -H 'Content-Type: application/json' --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}"; }
+expect "3.38 MCP: a colleague without the section gets no price – list_prices refused, list_collection_items without it" \
+  "$(q338_her list_prices '{}' | grep -c 'Only a user who may open Quotes')|$(q338_her list_collection_items '{"collection":"stroje-338"}' | grep -c '98765')" "1|0"
 sq "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) VALUES ($Q338_USER, 'quotes')" > /dev/null
 expect "3.38: with the section, without the area – the box and the grid are read-only" \
   "$(q338_get "module=collections&action=item&id=$Q338_IDK&item=$Q338_LASER"; printf ' '; grep -c "value=\"$Q338_CANARY\" aria-label=\"[^\"]*\" readonly" "$WORK/response")|$(q338_get "module=quotes&action=prices"; printf ' '; grep -c 'data-prices-readonly' "$WORK/response")" "200 1|200 1"
@@ -177,6 +182,22 @@ grep -v '^Q338_BAD=' "$WORK/q338.out"
 Q338_BAD=$(grep -o '^Q338_BAD=[0-9]*' "$WORK/q338.out" | cut -d= -f2); [ -n "$Q338_BAD" ] || { echo "  CHYBA  3.38 Quotes: the script did not finish"; Q338_BAD=1; }
 ERRORS=$((ERRORS+Q338_BAD))
 
+# Quotes → Settings (administrators): a format without a counter is refused; a prefix and a higher next number are kept
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=settings"
+grep -q 'data-quotes-settings' "$WORK/response" && grep -q 'name="quote_vat_rate"' "$WORK/response" \
+  && echo "  ok     3.38: Quotes → Settings has numbering, VAT and the limits" || { echo "  CHYBA  3.38: the settings tab"; ERRORS=$((ERRORS+1)); }
+q338_settings() { curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&action=settings_save" -d "_csrf=$(csrf)" --data-urlencode "quote_number_format=$1" -d "quote_next_number=$2" \
+  -d quote_valid_days=21 -d quote_vat_payer=1 -d quote_vat_rate=21 --data-urlencode "quote_vat_rates=21; 12,0" -d quote_max_discount=15 -d quote_link_days=30 -d quotes_months=36 -d quote_set_deal_value=1; }
+sq "DELETE FROM ka_quote_counters" > /dev/null # the quotes above raised this year's counter
+q338_settings '{NNNN}' ''
+expect "3.38: a number format without the year is refused and nothing is saved" "$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'quote_number_format'")" "0"
+q338_settings 'N{YYYY}-{NNNN}' 7
+expect "3.38: the settings are saved – the format, the rates in order, the counter raised for this year" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna SEPARATOR ' ') FROM ka_nastaveni WHERE promenna IN ('quote_number_format', 'quote_vat_rates', 'quote_valid_days', 'quote_max_discount')")|$(sq "SELECT last FROM ka_quote_counters WHERE year = $Q338_YEAR")" \
+  "quote_max_discount=15 quote_number_format=N{YYYY}-{NNNN} quote_valid_days=21 quote_vat_rates=21,12,0|6"
+check "3.38: the settings tab shows the next number" 200 "/admin.php?module=quotes&action=settings" "N$Q338_YEAR-0007"
+sq "DELETE FROM ka_nastaveni WHERE promenna LIKE 'quote%'" > /dev/null
+
 # clean up: the feature back as it was, the colleague and the token gone (prices and collection stay for later sections)
-sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $Q338_USER; DELETE FROM ka_uzivatele WHERE idu = $Q338_USER; DELETE FROM ka_api_tokeny WHERE nazev = 'q338 drafts';
+sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $Q338_USER; DELETE FROM ka_uzivatele WHERE idu = $Q338_USER; DELETE FROM ka_api_tokeny WHERE nazev IN ('q338 drafts', 'q338 colleague');
   DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$Q338_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null

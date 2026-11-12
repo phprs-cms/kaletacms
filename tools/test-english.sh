@@ -187,6 +187,12 @@ page "a resolved enquiry with the testimonial request" "/admin.php?module=enquir
 grep -q '<summary>Ask the customer for a testimonial</summary>' "$WORK/page.html" && grep -q 'Was the customer happy? Send them a link where they can write a few words about you for your website. Nothing is published until you publish it.' "$WORK/page.html" \
   || fail "English admin: a resolved enquiry does not offer Ask the customer for a testimonial with its sentence"
 sql "DELETE FROM ka_poptavky WHERE idp = $TM"
+# 3.38: Quotes → Internal prices and Settings in English (the feature switched on for these two screens only)
+Q338_EXT=$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$Q338_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$Q338_EXT"),quotes')"
+page "3.38: Quotes – Internal prices" "/admin.php?module=quotes&action=prices" 200 "$JAR"; grep -q 'data-prices-grid' "$WORK/page.html" || fail "English admin: Internal prices has no grid"
+page "3.38: Quotes – Settings" "/admin.php?module=quotes&action=settings" 200 "$JAR"
+sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$Q338_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''"
 for u in "module=newsletters" "module=appearance"; do curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?$u"; grep -q 'design system' "$WORK/page.html" && fail "English admin: $u still says design system"; done
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 # 3.26: the Notifications screen with something on it – a mention with a quote, an assignment, a review date, a place that is gone

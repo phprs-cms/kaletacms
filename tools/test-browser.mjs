@@ -5065,6 +5065,59 @@ await step('3.37 B: My account → Colleagues and the fallback e-mail signature 
   }
 });
 
+// 3.38 (agent A): Quotes → Internal prices – the grid of a price list with a product and its variants, saving a price, at 1440 and
+// 390 px in light and dark, no sideways scroll, axe on the grid; the price never reaches the product's page
+await step('3.38 internal prices: the grid at 1440 and 390 px (light/dark, axe), saving a price, never on the site', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota);"
+    + " INSERT INTO ka_kolekce (nazev, seo_link, pole, detail, preset) VALUES ('Machines B338', 'machines-b338', '[{\"klic\":\"code\",\"popisek\":\"Code\",\"typ\":\"text\"},{\"klic\":\"variants\",\"popisek\":\"Variants\",\"typ\":\"varianty\"}]', 1, 'products');"
+    + " INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) SELECT idk, 'Shock-wave unit with a rather long product name B338', 'shock-wave-b338', '{\"code\":\"SW-B338\",\"variants\":\"Basic | SW-B338-B\\\\nPro with a long variant name | SW-B338-P\"}', NOW(), 1 FROM ka_kolekce WHERE seo_link = 'machines-b338'");
+  const idk = sql("SELECT idk FROM ka_kolekce WHERE seo_link = 'machines-b338'").trim();
+  const idp = sql(`SELECT idp FROM ka_kolekce_polozky WHERE idk = ${Number(idk)} AND seo_link = 'shock-wave-b338'`).trim();
+  try {
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=quotes&action=prices&collection=${idk}`, { waitUntil: 'networkidle' });
+          if ((await p2.locator(`[data-price-row^="${idp}:"]`).count()) !== 3) { throw new Error(`the product and its two variants are not in the grid (${label}, ${scheme})`); }
+          if (!(await p2.locator('nav.zalozky a[aria-current="true"]', { hasText: 'Internal prices' }).count())) { throw new Error('the Internal prices tab is not current'); }
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on Internal prices (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/338a-prices-${label}-${scheme}.png`, fullPage: true }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(`${BASE}/admin.php?module=quotes&action=prices&collection=${idk}`, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['nav.zalozky', '[data-prices-filter]', '[data-prices-grid]'], WCAG]);
+        if (found.violations.length) { throw new Error(`axe Internal prices (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // a price typed the Czech way is saved as a number; the product's page on the site never shows it
+    await visit(`/admin.php?module=quotes&action=prices&collection=${idk}`);
+    await page.locator(`[data-price-row="${idp}:SW-B338-P"] input[name="price[]"]`).fill('76 543,21');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-prices-grid] button[type="submit"]').click()]);
+    if (sql(`SELECT unit_price FROM ka_prices WHERE item_id = ${Number(idp)} AND variant_code = 'SW-B338-P'`).trim() !== '76543.21') { throw new Error('the price was not saved'); }
+    if ((await page.locator(`[data-price-row="${idp}:SW-B338-P"] input[name="price[]"]`).inputValue()) !== '76543.21') { throw new Error('the grid does not show the saved price'); }
+    await visit('/machines-b338/shock-wave-b338');
+    if (/76543|76 543/.test(await page.content())) { throw new Error('the internal price is on the product page'); }
+  } finally {
+    sql(`DELETE FROM ka_prices WHERE item_id = ${Number(idp) || 0}; DELETE FROM ka_kolekce WHERE seo_link = 'machines-b338'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

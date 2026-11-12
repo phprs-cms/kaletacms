@@ -60,7 +60,7 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 # 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
 # structure check above compares the type, not the character set), and a site's language values stay as they were
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
-[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 17 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114) and 3.34 (0119): the 17 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 18 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119) and 3.38 (0123): the 18 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
 # 3.19 (0105, 0106): the global keys are gone after the upgrade (the empty site could switch), the per-language ones stay
 expect_sql "3.9 (0083), 3.19 (0106): pages, news and categories keep the per-language slug key, the global one is gone" \
