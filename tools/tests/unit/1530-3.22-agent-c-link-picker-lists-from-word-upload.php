@@ -83,7 +83,7 @@ check('3.22 (C9): the four appearance modules share the Appearance area, the res
     array_map(fn (string $c): string => ($c::ADMIN_ONLY ? 'admin' : 'open') . ':' . $c::SHARES_PERMISSION_OF, $c9Area),
     array_map(fn (string $c): bool => $c::ADMIN_ONLY, [Kaleta\Admin\Modules\Appearance::class, Kaleta\Admin\Modules\Settings::class, Kaleta\Admin\Modules\ClaudeSettings::class,
         Kaleta\Admin\Modules\Users::class, Kaleta\Admin\Modules\Roles::class, Kaleta\Admin\Modules\Transfer::class]),
-    array_slice(Kaleta\Admin\Modules\Roles::configurable(), -1, 1, true),
+    array_slice(Kaleta\Admin\Modules\Roles::configurable(), -2, 1, true), // 3.38: the prices area (Auth::PRICES_AREA) comes after it
 ], [array_fill(0, 4, 'open:appearance_area'), array_fill(0, 6, true), ['appearance_area' => 'Appearance: menu, site parts, pop-ups and components']]);
 // nobody gains it on an update or by default: not in the default sections of an author or an editor; of the ready-made roles
 // only the Client has it, with Business details (3.23.1, N-C1, owner decision D1) – saved roles keep their sections

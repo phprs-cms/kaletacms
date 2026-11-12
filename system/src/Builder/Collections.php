@@ -160,7 +160,9 @@ final class Collections
                 $db->run('DELETE ic FROM {collection_item_categories} ic JOIN {kolekce_polozky} p ON p.idp = ic.idp WHERE p.idk = ?', [$idk]);
                 $db->run('DELETE ic FROM {collection_item_categories} ic JOIN {collection_categories} c ON c.id = ic.category_id WHERE c.idk = ?', [$idk]);
                 // 3.26: the team threads of its items go with them
-                \Kaleta\Core\Comments::forget($db, array_map(fn (array $r): string => \Kaleta\Core\Comments::item((int) $r['idp']), $db->all('SELECT idp FROM {kolekce_polozky} WHERE idk = ?', [$idk])));
+                $itemIds = array_map(fn (array $r): int => (int) $r['idp'], $db->all('SELECT idp FROM {kolekce_polozky} WHERE idk = ?', [$idk]));
+                \Kaleta\Core\Comments::forget($db, array_map(\Kaleta\Core\Comments::item(...), $itemIds));
+                \Kaleta\Core\Prices::forgetItems($db, $itemIds); // 3.38: and their internal prices
                 while ($db->run('DELETE FROM {kolekce_polozky} WHERE idk = ? LIMIT ' . self::DELETE_BATCH, [$idk])->rowCount() > 0) {
                     // the next batch
                 }

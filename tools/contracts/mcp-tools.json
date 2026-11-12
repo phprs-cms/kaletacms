@@ -1505,6 +1505,24 @@
             "openWorldHint": false
         }
     },
+    "list_prices": {
+        "parameters": {
+            "collection": "string",
+            "item": "integer",
+            "limit": "integer",
+            "missing": "boolean",
+            "page": "integer",
+            "price_list": "string",
+            "search": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List internal prices",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "list_redirects": {
         "parameters": [],
         "required": [],
@@ -2317,6 +2335,32 @@
             "title": "Save a pop-up",
             "readOnlyHint": false,
             "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_price": {
+        "parameters": {
+            "code": "string",
+            "item": "integer",
+            "label": "string",
+            "note": "string",
+            "price_list": "string",
+            "prices": "array",
+            "unit": "string",
+            "unit_price": [
+                "string",
+                "number",
+                "null"
+            ],
+            "variant": "string",
+            "vat_rate": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "Save internal prices",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
             "openWorldHint": false
         }
     },

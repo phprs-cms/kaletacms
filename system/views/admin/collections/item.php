@@ -110,6 +110,9 @@ $readOnly = !$mayPublish && $p['idp'] > 0 && !Kaleta\Admin\Modules\Collections::
 <p class="tlacitka"><?php if (!$readOnly): ?><input class="tl" type="submit" value="<?= e(t('Save item')) ?>"> <?php endif ?><a class="navigace" href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Back')) ?></a><?php if ($p['idp'] > 0 && Kaleta\Builder\EmailSignature::isPeople($k)): ?>
 	<a class="navigace" href="<?= e($module->url('signature', ['id' => (int) $k['idk'], 'item' => (int) $p['idp']])) ?>"><?= e(t('E-mail signature')) ?></a><?php endif ?></p>
 </form>
+<?php if (($internalPrices ?? null) !== null): ?>
+<?= $app->view->render('admin/quotes/item_box', $internalPrices + ['app' => $app, 'csrf' => $csrf]) /* 3.38 */ ?>
+<?php endif ?>
 <?php if (($thread ?? null) !== null): ?>
 <?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) /* 3.26 */ ?>
 <?php endif ?>

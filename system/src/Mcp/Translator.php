@@ -332,6 +332,8 @@ final class Translator
         'save_deal' => ['save_deal', '', []],
         'move_deal' => ['move_deal', '', []],
         'pipeline_summary' => ['pipeline_summary', '', []],
+        'list_prices' => ['list_prices', '', []], // 3.38: English only
+        'save_price' => ['save_price', '', []],
         'list_applications' => ['list_applications', '', []], // 3.34: English only
         'get_application' => ['get_application', '', []],
         'update_application' => ['update_application', '', []],

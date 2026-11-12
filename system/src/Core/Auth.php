@@ -26,6 +26,12 @@ final class Auth
      */
     public const string APPEARANCE_AREA = 'appearance_area';
 
+    /**
+     * The optional area "change internal prices" (3.38, Core\Prices): next to the section Quotes, which reads prices and
+     * works with quotes; one permission row in ka_uzivatele_prava. Administrators have it; nobody else gets it by an update.
+     */
+    public const string PRICES_AREA = 'prices_edit';
+
     /** After this many wrong passwords or codes in a row the account is locked for 15 minutes (it unlocks itself again). */
     private const int MAX_ERRORS = 10;
 
@@ -936,6 +942,15 @@ final class Auth
     public function hasAppearanceArea(): bool
     {
         return $this->hasModule(self::APPEARANCE_AREA);
+    }
+
+    /**
+     * May change internal prices (3.38): an administrator always, anyone else with the section Quotes and the area
+     * PRICES_AREA – and never through a connection limited to drafts or to reading.
+     */
+    public function canEditPrices(): bool
+    {
+        return $this->hasModule(\Kaleta\Core\Prices::SECTION) && $this->hasModule(self::PRICES_AREA) && ($this->connection['access'] ?? 'full') === 'full';
     }
 
     /**

@@ -2079,3 +2079,9 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 .zaznam-akce .obchod-presun-detail { margin: 0; padding: 0; border: 0; background: none; }
 .zaznam-akce .obchod-presun-detail select[name="stage"] { flex: none; width: 12em; }
 .zaznam-akce .obchod-presun-detail .obchod-duvod { order: 1; }
+
+/* 3.38: internal prices – the grid of a price list and the box on an item's form; narrow fields, a variant indented
+   under its product */
+table.ceny .textpole { width: 100%; min-width: 4.5em; max-width: 12em; }
+table.ceny td.cislo .textpole { text-align: right; }
+table.ceny tr.ceny-varianta td:first-child { padding-inline-start: 24px; color: var(--text-slaby); }

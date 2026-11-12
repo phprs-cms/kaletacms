@@ -188,7 +188,7 @@ final class Users extends Module
         // access to sections follows from the role; a manual choice only when the administrator explicitly wants it
         $modules = match (true) {
             $data['role'] !== null => array_filter(explode(',', (string) $custom['moduly'])),
-            $r->postBool('rucne') => array_intersect($r->postList('moduly'), [...array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES), Auth::APPEARANCE_AREA]),
+            $r->postBool('rucne') => array_intersect($r->postList('moduly'), [...array_map(fn (string $c): string => $c::IDENT, Kernel::MODULES), Auth::APPEARANCE_AREA, Auth::PRICES_AREA]),
             default => self::defaultModules((int) $data['admin']),
         };
 
@@ -349,6 +349,9 @@ final class Users extends Module
         }
         if (in_array(Auth::APPEARANCE_AREA, $modules, true)) {
             $names[] = t(Roles::APPEARANCE_AREA_NAME); // 3.22 (C9)
+        }
+        if (in_array(Auth::PRICES_AREA, $modules, true)) {
+            $names[] = t(Roles::PRICES_AREA_NAME); // 3.38
         }
         $sentence = implode(', ', $parts) . '.';
         if ($names !== []) {

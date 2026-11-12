@@ -167,6 +167,9 @@ final class Roles extends Module
     /** Label of the optional Appearance area (3.22, C9) in the role and the user form. */
     public const string APPEARANCE_AREA_NAME = 'Appearance: menu, site parts, pop-ups and components';
 
+    /** Label of the optional area for changing internal prices (3.38, Auth::PRICES_AREA) in the role and the user form. */
+    public const string PRICES_AREA_NAME = 'Quotes: change internal prices';
+
     /**
      * Sections for which access is set: ident => name. Since 3.22 (C9) the last one is the optional Appearance area
      * (Auth::APPEARANCE_AREA), one checkbox for Menu, Site parts, Pop-ups and Components; it is never a default of a level (the ready-made Client role ticks it since 3.23.1).
@@ -182,7 +185,7 @@ final class Roles extends Module
             }
         }
 
-        return $section + [Auth::APPEARANCE_AREA => self::APPEARANCE_AREA_NAME];
+        return $section + [Auth::APPEARANCE_AREA => self::APPEARANCE_AREA_NAME, Auth::PRICES_AREA => self::PRICES_AREA_NAME]; // 3.38: the prices area
     }
 
     /**

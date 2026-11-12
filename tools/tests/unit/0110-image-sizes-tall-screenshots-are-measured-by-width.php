@@ -147,6 +147,14 @@ $parity = [
         'comment' => 'admin: the team’s notes on an application – a person writes them; Claude adds one with update_application add_note', 'task' => 'save_task',
         'settings' => $readOnly, 'settings_save' => 'admin: the retention, the templates and the switches of applications are the administrator\'s set-up',
         'search_json' => $readOnly, 'move' => $readOnly, 'move_run' => 'admin: moving enquiries of a form to applications or back is the administrator\'s decision about personal data'],
+    // 3.38: quotes and internal prices (Core\Prices, Core\Quotes) – Claude reads and saves prices with list_prices and save_price;
+    // the CSV import, the price lists and the settings stay with people (the quote tools come with the quote screens)
+    'quotes' => ['list' => $readOnly, 'prices' => 'list_prices', 'prices_save' => 'save_price', 'item_prices_save' => 'save_price', 'prices_export' => 'list_prices',
+        'prices_import' => 'admin: a CSV file of prices is uploaded and checked by a person before it is written',
+        'prices_import_run' => 'admin: writing a checked CSV import is the decision of the person who checked it',
+        'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',
+        'list_default' => 'admin: the default price list is the administrator\'s set-up', 'settings' => $readOnly,
+        'settings_save' => 'admin: numbering, VAT, limits and retention of quotes are the administrator\'s set-up'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],

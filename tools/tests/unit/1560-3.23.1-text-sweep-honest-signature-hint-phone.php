@@ -183,7 +183,7 @@ check('3.24 T1: every admin section is classified once – changing the site or 
     array_values(array_diff(Kaleta\Admin\Kernel::SITE_NEUTRAL_TABS, array_keys(Kaleta\Admin\Modules\Settings::TABS))),
 ], [[], [], [], true, [], [], ['newsletters'], []]);
 check('3.24 T1: the site-neutral admin sections – the team\'s work that never reaches the site',
-    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts', 'pipeline', 'applications']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications
+    $t324Neutral, ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles', 'newsletters', 'fleet', 'contacts', 'pipeline', 'applications', 'quotes']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications; 3.38: Quotes
 $t324Post = fn (string $module, string $action, array $post = []): bool => Kaleta\Admin\Kernel::clearsPageCache(new Kaleta\Core\Request(['module' => $module, 'action' => $action], $post, ['REQUEST_METHOD' => 'POST']));
 check('3.24 T1: Kernel::clearsPageCache – enquiries, notes, requests, the notebook, roles and drafts keep the cache; content, the look, Settings tabs visitors see, a new signing key, updates, the author box and anything unknown clear it', [
     $t324Post('enquiries', 'note'), $t324Post('enquiries', 'reply'), $t324Post('enquiries', 'triage'), $t324Post('enquiries', 'bulk'), $t324Post('requests', 'save'),
@@ -350,7 +350,7 @@ check('3.25 (C): the menu groups of an administrator with every feature on – c
 ], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
 check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
     'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
-    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'applications', 'bookings'], // 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers; 3.34: Applications
+    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'quotes', 'applications', 'bookings'], // 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers; 3.34: Applications; 3.38: Quotes after the Pipeline
     'Appearance' => ['appearance', 'parts', 'menu', 'components', 'popups'],
     'Claude' => ['requests', 'claude_settings'],
     'Site care' => ['audit', 'stats', 'redirects', 'broken_links', 'changelog', 'status'],
@@ -364,7 +364,7 @@ check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged)
     Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'collections', 'media', 'business', 'enquiries', 'parts']))),
     Kaleta\Admin\MenuGroups::key('Site care'),
 ], [[['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], 'newsletters', 'newsletter', 'newsletter', 'Newsletter', [['subscribers'], ['stats']],
-    33, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications
+    34, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications; 3.38: Quotes
 $c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
 check('[source-pin] 3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [

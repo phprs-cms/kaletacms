@@ -40,7 +40,8 @@ final class AgentJournal
 
     /** Tables with visitors' personal data: never journaled; rows an older release journaled are redacted by forget(). */
     public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue', 'comments', 'tasks',
-        'contacts', 'companies', 'contact_activities', 'deals', 'deal_stage_history', 'applications']; // 3.34: job applications
+        'contacts', 'companies', 'contact_activities', 'deals', 'deal_stage_history', 'applications', // 3.34: job applications
+        'price_lists', 'prices', 'quotes', 'quote_lines', 'quote_counters']; // 3.38: internal prices are business secrets, quotes name customers – never journaled
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';

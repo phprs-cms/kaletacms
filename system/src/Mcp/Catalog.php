@@ -240,6 +240,10 @@ final class Catalog
         'get_application' => ['read', 'applications'],
         'update_application' => ['draft', 'applications'],
         'reply_to_application' => ['destructive', 'applications'],
+        // Internal prices (3.38, Core\Prices): business secrets for people with the section Quotes – no other tool returns a price;
+        // never journaled for undo (save_price returns the previous values)
+        'list_prices' => ['read', 'quotes'],
+        'save_price' => ['write', 'quotes'],
     ];
 
     /**
@@ -420,6 +424,8 @@ final class Catalog
         'get_application' => 'Get a job application',
         'update_application' => 'Update a job application',
         'reply_to_application' => 'Send a reply to a job applicant',
+        'list_prices' => 'List internal prices',
+        'save_price' => 'Save internal prices',
     ];
 
     /**
@@ -447,7 +453,7 @@ final class Catalog
         'delete_collection', 'delete_collection_item', 'restore_item_version', 'save_collection_category', 'delete_collection_category', 'trash_news',
         'update_category', 'delete_category', 'update_media', 'delete_media', 'update_enquiry', 'delete_enquiry', 'erase_personal_data', 'delete_popup',
         'save_redirect', 'ignore_not_found', 'save_redirects', 'save_fact', 'delete_fact', 'delete_notebook_entry', 'update_social_draft', 'remove_blueprint',
-        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal', 'update_application', 'layout_queue'];
+        'delete_hours_exception', 'cancel_booking', 'confirm_booking', 'decline_booking', 'delete_newsletter', 'assign', 'complete_task', 'move_deal', 'update_application', 'layout_queue', 'save_price'];
 
     /**
      * Write tools that never change what visitors see (3.24, T1): Mcp\Server keeps the page cache after them, every other
@@ -460,7 +466,7 @@ final class Catalog
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
-        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue'];
+        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue', 'save_price'];
 
     /**
      * 3.36 review L2: write tools whose call without this argument only reads – then Mcp\Server writes no change-log row,
@@ -569,7 +575,8 @@ final class Catalog
         'delete_notebook_entry', 'update_social_draft', 'apply_blueprint', 'remove_blueprint', 'export_blueprint', 'list_notice_log', 'save_hours_exception',
         'delete_hours_exception', 'list_bookings', 'booking_availability', 'save_booking_service', 'save_booking_staff', 'cancel_booking', 'confirm_booking',
         'decline_booking', 'propose_booking_times', 'list_pending_review', 'get_due_agent_runs', 'report_agent_run', 'translation_status', 'list_newsletters',
-        'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
+        'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
+        'list_prices', 'save_price']; // 3.38: internal prices – one find_tools away (design A8: outside the essentials and the work set)
 
     /**
      * The focused sets that list a tool by its English name (3.36): [] for a tool of ON_DEMAND (or an add-on's tool).

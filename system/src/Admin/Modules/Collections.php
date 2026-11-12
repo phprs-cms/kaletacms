@@ -320,7 +320,9 @@ final class Collections extends Module
             'tasks' => $p['idp'] > 0 ? $this->taskPanel(\Kaleta\Core\Comments::item((int) $p['idp']), ['idk' => (int) $k['idk'], 'idp' => (int) $p['idp']],
                 ['review' => ($p['review_by'] ?? null) ? (string) $p['review_by'] : null, 'title' => (string) $p['nazev']]) : null,
             // the audit trail of a notice (2.11, Core\Notices), newest first
-            'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : []]);
+            'noticeLog' => $p['idp'] > 0 && Notices::isNotices($k) ? array_reverse(Notices::entries($this->db, (int) $k['idk'], (int) $p['idp'])) : [],
+            // 3.38: the box "Internal prices" – only with the feature and the section Quotes, by its own query (null = no box)
+            'internalPrices' => \Kaleta\Admin\Modules\Quotes::itemBox($this->app, (int) $p['idp'])]);
     }
 
     protected function actionSaveItem(): Response
@@ -812,6 +814,7 @@ final class Collections extends Module
             }
             if ($this->db->run('DELETE FROM {kolekce_polozky} WHERE idp = ? AND idk = ? AND smazano IS NOT NULL', [$this->request->postInt('idp'), $idk])->rowCount() > 0) {
                 \Kaleta\Core\Comments::forget($this->db, [\Kaleta\Core\Comments::item($this->request->postInt('idp'))]); // 3.26: its thread goes with it
+                \Kaleta\Core\Prices::forgetItems($this->db, [$this->request->postInt('idp')]); // 3.38: and its internal prices
             }
         }
 
@@ -863,6 +866,7 @@ final class Collections extends Module
         if ($ids !== []) {
             $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < ?', [$before]);
             \Kaleta\Core\Comments::forget($db, array_map(\Kaleta\Core\Comments::item(...), $ids));
+            \Kaleta\Core\Prices::forgetItems($db, $ids); // 3.38: their internal prices leave with them
         }
     }
 

@@ -30,7 +30,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools, Handlers\TaskTools, Handlers\ContactTools, Handlers\DealTools, Handlers\ApplicationTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools, Handlers\TaskTools, Handlers\ContactTools, Handlers\DealTools, Handlers\ApplicationTools, Handlers\QuoteTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -577,6 +577,18 @@ final class Tools
                 $s(['id' => $number('application id'), 'template' => $text(implode(' | ', array_keys(\Kaleta\Core\Applications::TEMPLATES)) . ' – used when text is empty'), 'text' => $text('the reply exactly as the user approved it'),
                     'subject' => $text('subject (default: the template\'s)'), 'set_status' => $text('the status after the reply'), 'reject_reason' => $text('with set_status rejected: the reason'),
                     'confirm' => ['type' => 'boolean', 'description' => 'true = the user explicitly asked to send this e-mail now']], ['id', 'confirm'])],
+            // 3.38: internal prices (Core\Prices) – users with the section Quotes; changing them needs the prices permission and full access
+            ['list_prices', 'Internal prices of the products (read-only, 3.38; users who may open Quotes): each product of the products collections with its code, its own price and its variants\' prices in a price list – unit_price without VAT as a decimal text, unit, vat_rate (absent = the default rate), the internal note; missing = the product or variants without a price; the own rows (installation, transport…) and the price lists with their currency. Business secrets: never put them on the site or in a page, news item or collection item.',
+                $s(['price_list' => $text('the price list: id, name or currency code; default the default list'), 'collection' => $text('a products collection (id or address); default all'),
+                    'item' => $number('only this product (item id from list_collection_items)'), 'search' => $text('a word in the product name or code'),
+                    'missing' => ['type' => 'boolean', 'description' => 'true = only products with a product or variant without a price'], 'page' => $number('page, default 1'), 'limit' => $number('1–100, default 25')])],
+            ['save_price', 'Saves internal prices (3.38; a user with the permission "Quotes: change internal prices", full-access connection): one price, or a batch of up to ' . \Kaleta\Core\Prices::BATCH_MAX . ' in prices. A product by item (or its code / a variant\'s code), variant = the variant\'s code; an own row (installation, transport) by code with label to create it. unit_price without VAT, e.g. 12500 or 12500.50; null removes the price. Only on the user\'s explicit instruction – never invent a price. '
+                . 'NOT UNDOABLE: prices never enter the undo journal; the result has before for every changed row – save it back to undo.',
+                $s(['price_list' => $text('the price list: id, name or currency code; default the default list'), 'item' => $number('product item id'), 'code' => $text('a product\'s or variant\'s code, or the code of an own row'),
+                    'variant' => $text('the variant\'s code; empty = the product itself'), 'unit_price' => ['type' => ['string', 'number', 'null'], 'description' => 'price without VAT; null removes it'],
+                    'unit' => $text('pc, set, hour… (optional)'), 'vat_rate' => $text('VAT rate in %, e.g. 21; empty = the default rate'), 'note' => $text('internal note, up to 200 characters'),
+                    'label' => $text('own row only: its name (creates the row)'),
+                    'prices' => ['type' => 'array', 'description' => 'a batch instead of the single fields: [{item or code, variant, unit_price, unit, vat_rate, note, label}]', 'items' => ['type' => 'object']]])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 

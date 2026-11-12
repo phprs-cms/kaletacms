@@ -43,6 +43,20 @@ final class Settings
         'applications_notify_full' => '0', // 3.34: the e-mail about a new application carries the fields (otherwise the position and a link only)
         'applications_claude' => '1',   // 3.34: Claude may read applications through the connection of a user with the section (never the CVs)
         'application_templates' => '',  // 3.34 B: the reply templates rewritten per language – JSON {code: {received|interview|rejection: {subject, text}}}; '' = the built-in ones (Core\Applications::TEMPLATES)
+        // 3.38 (Core\Prices, Core\Quotes): quotes and internal prices – none of them readable or writable over MCP update_settings
+        'quote_number_format' => '{YYYY}-{NNNN}', // the number of a quote: {YYYY} or {YY}, {NNNN} (as many N as digits), a prefix in front (N{YYYY}-{NNNN})
+        'quote_next_number' => '',      // the next number to continue an existing series this year (saving it only raises the counter)
+        'quote_valid_days' => '30',     // a new quote is valid this many days
+        'quote_vat_payer' => '1',       // the firm is a VAT payer; 0 = new quotes are without VAT (vat_mode none)
+        'quote_vat_rate' => '',         // the default VAT rate in % (a price without its own rate); '' = not set yet
+        'quote_vat_rates' => '',        // the short list of rates offered on a line, comma-separated (e.g. 21,12,0)
+        'quote_max_discount' => '20',   // the largest discount in % Claude may save; above it only a person in the admin
+        'quote_intro' => '',            // the default text above the lines of a new quote
+        'quote_terms' => '',            // the default text below the lines
+        'quote_footer' => '',           // the footer of the document
+        'quote_link_days' => '30',      // the customer's link stops working this many days after the validity
+        'quotes_months' => '36',        // retention: months after the last status change; 0 = keep
+        'quote_set_deal_value' => '1',  // sending offers to set the linked deal's value to the net total (ticked by default)
         'contacts_months' => '24',      // 3.28 (Core\Contacts): a contact with no activity for this many months is anonymised by the clean-up; 0 = keep. Migration 0114 starts it at enquiries_months
         'whistleblowing_enabled' => '0',  // the whistleblowing channel at /_report (2.14, Core\Whistleblowing)
         'whistleblowing_readers' => '',   // ids of the users who may open reports (comma-separated); nobody else sees their content
