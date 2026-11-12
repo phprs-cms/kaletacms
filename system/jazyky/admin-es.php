@@ -8715,4 +8715,5 @@ return [
     'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'El correo salió sin el PDF: el archivo es demasiado grande para un correo – el cliente tiene el enlace.',
     'Allow access only if you started connecting this application yourself just now (it registered with this website on %s). If a link or someone else brought you here, choose Deny.' => 'Permite el acceso solo si acabas de iniciar tú la conexión de esta aplicación (se registró en este sitio el %s). Si te ha traído aquí un enlace u otra persona, elige Denegar.',
     'Allow access only if you started connecting this application yourself just now. If a link or someone else brought you here, choose Deny.' => 'Permite el acceso solo si acabas de iniciar tú la conexión de esta aplicación. Si te ha traído aquí un enlace u otra persona, elige Denegar.',
+    'The update source leads to an address that is not allowed (%s).' => 'La fuente de actualizaciones lleva a una dirección que no está permitida (%s).',
 ];

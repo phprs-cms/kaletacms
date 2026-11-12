@@ -21,3 +21,15 @@ check('3.41 N123: isValidRedirectUri refuses an escaped host; the callbacks of C
     'https://evil.example%2f.claude.ai/cb', 'https://evil.example%2F.claude.ai/api/mcp/auth_callback', 'https://claude.ai/api/mcp/auth_callback', 'http://localhost:53682/callback',
     'http://127.0.0.1:8080/cb', 'http://[::1]:9000/cb', 'https://app.example.com/oauth/callback', 'https://xn--bcher-kva.example/cb']),
     [false, false, true, true, true, true, true, true]);
+
+// N119: the update source – https only; plain http to localhost only on a test copy; every redirect hop checked the same way
+check('3.41 N119: sourceAllowed – https always, http://127.0.0.1 and localhost only on a test copy, never another http host, a user name or a backslash', [
+    Kaleta\Core\Updater::sourceAllowed('https://kaletacms.com/aktualizace.json', false), Kaleta\Core\Updater::sourceAllowed('http://127.0.0.1:9601/aktualizace.json', false),
+    Kaleta\Core\Updater::sourceAllowed('http://localhost/aktualizace.json', false), Kaleta\Core\Updater::sourceAllowed('http://127.0.0.1:9601/aktualizace.json', true),
+    Kaleta\Core\Updater::sourceAllowed('http://10.0.0.5/aktualizace.json', true), Kaleta\Core\Updater::sourceAllowed('https://user:pw@example.com/a.json', false),
+    Kaleta\Core\Updater::sourceAllowed('https://example.com\\@10.0.0.5/a.json', false), Kaleta\Core\Updater::sourceAllowed('file:///etc/passwd', true), Kaleta\Core\Updater::sourceAllowed('ftp://example.com/a.zip', false),
+], [true, false, false, true, false, false, false, false, false]);
+check('3.41 N119: redirectTarget resolves an absolute, a protocol-relative, a rooted and a relative Location against the current address', [
+    Kaleta\Core\Updater::redirectTarget('https://a.example/x/aktualizace.json', 'http://10.0.0.5/'), Kaleta\Core\Updater::redirectTarget('https://a.example/x/y.json', '//b.example/z.zip'),
+    Kaleta\Core\Updater::redirectTarget('https://a.example:8443/x/y.json', '/pkg/k.zip'), Kaleta\Core\Updater::redirectTarget('https://a.example/x/y.json', 'k-3.41.zip'),
+], ['http://10.0.0.5/', 'https://b.example/z.zip', 'https://a.example:8443/pkg/k.zip', 'https://a.example/x/k-3.41.zip']);

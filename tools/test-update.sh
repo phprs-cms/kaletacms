@@ -46,6 +46,9 @@ curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$
 grep -q "Hotovo, web běží" "$WORK/response" || { echo "  CHYBA  install of $FROM failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 FROM_VERSION=$(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$WORK/web/system/bootstrap.php")
 echo "  ok     $FROM installed ($FROM_VERSION)"
+# a test copy (Core\TestSeams): since 3.41 (N119) only a test copy fetches its updates over plain http from 127.0.0.1 –
+# the old release ignores the constant, the updated one needs it for the local channel
+php -r '$f = $argv[1]; $c = (string) file_get_contents($f); if (!str_contains($c, "KALETA_TEST_SEAMS")) { file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_TEST_SEAMS\x27, true);", $c, 1)); }' -- "$WORK/web/config.php"
 # the old site must never reach the real update channel (kaletacms.com): a security release there would be installed by its
 # background maintenance before the test points it at its own channel – an unreachable local address until then
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('aktualizace_url', 'http://127.0.0.1:9/none.json'), ('update_url', 'http://127.0.0.1:9/none.json') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)"

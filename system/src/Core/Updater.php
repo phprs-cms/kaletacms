@@ -1265,20 +1265,73 @@ final class Updater
 
     private function http(string $url, int $maxBytes, int $timeoutSeconds = 30): string
     {
-        $host = (string) parse_url($url, PHP_URL_HOST);
-        $isLocal = in_array($host, ['localhost', '127.0.0.1'], true);
-        if (!preg_match('#^https://#i', $url) && !($isLocal && preg_match('#^http://#i', $url))) {
-            throw new \RuntimeException(t('The update source must use an https:// address.'));
-        }
-        $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 1, 'max_redirects' => 5, 'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
-        if ($data === false || $data === '') {
-            throw new \RuntimeException(t('The update source is not reachable (%s).', $host));
-        }
-        if (strlen($data) > $maxBytes) {
-            throw new \RuntimeException(t('The downloaded file is unexpectedly large.'));
-        }
+        $testCopy = TestSeams::enabled();
+        // 3.41 (N119): redirects are followed here, one hop at a time, and every hop is checked like the source itself – an
+        // https source can no longer send the site to plain http or into the server's own network
+        for ($hop = 0; ; $hop++) {
+            $host = (string) parse_url($url, PHP_URL_HOST);
+            if (!self::sourceAllowed($url, $testCopy) || (!$testCopy && Links::target($url) === null)) {
+                throw new \RuntimeException($hop === 0 && !self::sourceAllowed($url, $testCopy) ? t('The update source must use an https:// address.')
+                    : t('The update source leads to an address that is not allowed (%s).', $host));
+            }
+            $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 0, 'ignore_errors' => true,
+                'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
+            $status = 0;
+            $location = '';
+            foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
+                if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                    $status = (int) $m[1];
+                } elseif (stripos($line, 'Location:') === 0) {
+                    $location = trim(substr($line, 9));
+                }
+            }
+            if ($status >= 300 && $status < 400 && $location !== '' && $hop < 5) {
+                $url = self::redirectTarget($url, $location);
+                continue;
+            }
+            if ($data === false || $data === '' || $status >= 300) {
+                throw new \RuntimeException(t('The update source is not reachable (%s).', $host));
+            }
+            if (strlen($data) > $maxBytes) {
+                throw new \RuntimeException(t('The downloaded file is unexpectedly large.'));
+            }
 
-        return $data;
+            return $data;
+        }
+    }
+
+    /**
+     * 3.41 (N119): may the site fetch its update manifest or package from this address? Only https:// – plain http to
+     * localhost or 127.0.0.1 only on a test copy (Core\TestSeams), never on a live site. No user name or password in it.
+     */
+    public static function sourceAllowed(string $url, bool $testCopy): bool
+    {
+        $parts = parse_url($url);
+        if (!is_array($parts) || !isset($parts['host']) || isset($parts['user']) || isset($parts['pass']) || preg_match('/[\s\x00-\x1f\x7f\\\\]/', $url)) {
+            return false;
+        }
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+
+        return $scheme === 'https' || ($testCopy && $scheme === 'http' && in_array(strtolower($parts['host']), ['localhost', '127.0.0.1'], true));
+    }
+
+    /** 3.41 (N119): where a redirect leads – an absolute Location as it is, a path or a relative one against the current address. */
+    public static function redirectTarget(string $from, string $location): string
+    {
+        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $location)) {
+            return $location;
+        }
+        $p = parse_url($from);
+        $origin = ($p['scheme'] ?? 'https') . '://' . ($p['host'] ?? '') . (isset($p['port']) ? ':' . $p['port'] : '');
+        if (str_starts_with($location, '//')) {
+            return ($p['scheme'] ?? 'https') . ':' . $location;
+        }
+        if (str_starts_with($location, '/')) {
+            return $origin . $location;
+        }
+        $path = (string) ($p['path'] ?? '/');
+
+        return $origin . substr($path, 0, (int) strrpos($path, '/') + 1) . $location;
     }
 
     /**

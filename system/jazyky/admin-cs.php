@@ -8288,4 +8288,5 @@ return [
     'The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.' => 'E-mail odešel bez PDF: soubor je pro e-mail příliš velký – zákazník má odkaz.',
     'Allow access only if you started connecting this application yourself just now (it registered with this website on %s). If a link or someone else brought you here, choose Deny.' => 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami (k tomuto webu se zaregistrovala %s). Pokud vás sem přivedl odkaz nebo někdo jiný, zvolte Nepovolit.',
     'Allow access only if you started connecting this application yourself just now. If a link or someone else brought you here, choose Deny.' => 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami. Pokud vás sem přivedl odkaz nebo někdo jiný, zvolte Nepovolit.',
+    'The update source leads to an address that is not allowed (%s).' => 'Zdroj aktualizací vede na adresu, která není povolená (%s).',
 ];

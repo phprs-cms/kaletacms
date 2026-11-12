@@ -21,3 +21,23 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=oauth&reque
 expect "3.41 N123: the consent of a new app on claude.ai warns to allow only a connection you started, with its registration time; no foreign-host warning" \
   "$(grep -c 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami (k tomuto webu se zaregistrovala' "$WORK/response")|$(grep -c 'není adresa vlastních aplikací Claude' "$WORK/response")" "1|0"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=oauth" -d "_csrf=$(csrf)" -d "request=$S341_NONCE" -d povolit=0
+
+# N119: a redirect of the update source is followed hop by hop and every hop checked (here a test copy: http to 127.0.0.1 only)
+S341_UPD_PORT=$((PORT + 19)); mkdir -p "$WORK/s341-upd"
+cat > "$WORK/s341-upd/router.php" <<'PHP'
+<?php
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if ($path === '/inside.json') { header('Location: http://10.0.0.5/aktualizace.json', true, 302); exit; }
+if ($path === '/hop.json') { header('Location: /landed.json', true, 302); exit; }
+if ($path === '/landed.json') { echo '{"not":"a manifest"}'; exit; }
+http_response_code(404);
+PHP
+(cd "$WORK/s341-upd" && exec php -S "127.0.0.1:$S341_UPD_PORT" router.php > /dev/null 2>&1) & S341_UPD_PID=$!
+for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$S341_UPD_PORT/" && break; sleep 0.2; done
+S341_OLD_UPDATE_URL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_url'")
+s341_update_error() { sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', 'http://127.0.0.1:$S341_UPD_PORT/$1')" > /dev/null; s341_php 'Kaleta\Core\Language::set("en"); echo (new Kaleta\Core\Updater($app->settings()))->state(true)["chyba"] ?? "none";'; }
+expect "3.41 N119: a redirect into the server's network is refused; a redirect to an allowed address is followed to its answer" \
+  "$(s341_update_error inside.json)|$(s341_update_error hop.json)" \
+  "The update source leads to an address that is not allowed (10.0.0.5).|The update information file is not in a valid format."
+kill "$S341_UPD_PID" 2>/dev/null; S341_UPD_PID=
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', '$S341_OLD_UPDATE_URL'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
