@@ -381,7 +381,9 @@ final class Auth
             return t('The account is temporarily locked after a series of failed attempts. Try again in 15 minutes.');
         }
         $appCode = $user !== null && SignInPolicy::secondSteps($user, $this->workingKeys((int) $user['idu']), $this->siteSettings())['code'];
-        $step = $appCode && (string) $user['totp_tajemstvi'] !== '' ? Totp::step($user['totp_tajemstvi'], $code) : null;
+        // 3.39 (N106): the seed is sealed with the key in config.php; one this config.php cannot open gives '' – no code matches it
+        $seed = $user !== null ? Vault::openSecret($this->siteSettings(), 'totp', (string) $user['totp_tajemstvi']) : '';
+        $step = $appCode && $seed !== '' ? Totp::step($seed, $code) : null;
         if ($step !== null && $user !== null && !$this->claimCodeStep((int) $user['idu'], $step)) {
             $step = null; // 3.15 (N18): a code of a step this account already signed in with is never accepted again
         }

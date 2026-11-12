@@ -27,7 +27,7 @@ CREATE TABLE ka_uzivatele (
     zamceno_do     DATETIME NULL,                         -- temporary lock after 10 failed sign-ins
     obnova_otisk   CHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin     NOT NULL DEFAULT '',      -- sha256 of the one-time token for a password reset by e-mail; empty = nothing pending
     obnova_cas     DATETIME NULL,                         -- when the password reset link was sent (valid for an hour)
-    totp_tajemstvi VARCHAR(64)  NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off
+    totp_tajemstvi VARCHAR(255) NOT NULL DEFAULT '',      -- two-factor sign-in (TOTP); empty = off; 3.39 (N106): sealed with the key in config.php ("kaleta-sealed:…", Core\Vault)
     totp_zalozni   TEXT NULL,                             -- JSON: hashes of one-time backup codes
     posledni_login DATETIME NULL,                         -- last completed sign-in to the administration
     potvrzeno      DATETIME NULL,                         -- created or last confirmed by an administrator (saved in Users, reactivated) – the unused-account check counts from it

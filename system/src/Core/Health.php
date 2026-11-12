@@ -123,6 +123,19 @@ final class Health
             // 3.9.2 (N67), 3.15 (N72): migrations 0084 and 0098 keep a customised media/.htaccess and put Kaleta's newer one next to it
             $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.'));
         }
+        // 3.39 (N106): the passwords and keys in the settings and the sign-in app secrets – sealed with the key in config.php
+        $secrets = Vault::secretsState($db, $siteSettings);
+        if ($secrets['unreadable'] > 0) {
+            $add(t('Bezpečnost'), t('Stored passwords and keys'), 'chyba', t('%d password(s), key(s) or sign-in app secret(s) cannot be read – they were encrypted with a key this config.php does not have. The site keeps working without them (e-mail over SMTP, off-site backups and codes from a sign-in app stop; backup codes still work). Put back the vault_key line from the original config.php (Settings → Backups and updates).', $secrets['unreadable']));
+        }
+        if ($secrets['plain'] > 0) {
+            $add(t('Bezpečnost'), t('Stored passwords and keys'), 'varovani', Vault::state($siteSettings) === 'config'
+                ? t('%d password(s), key(s) or sign-in app secret(s) are in plain text in the database – the daily security task encrypts them with the key in config.php.', $secrets['plain'])
+                : t('%d password(s), key(s) or sign-in app secret(s) are in plain text in the database and in every local backup. Move the encryption key to config.php in Settings → Backups and updates – they are encrypted in the same step.', $secrets['plain']));
+        }
+        if ($secrets['unreadable'] === 0 && $secrets['plain'] === 0 && $secrets['sealed'] > 0) {
+            $add(t('Bezpečnost'), t('Stored passwords and keys'), 'ok', t('encrypted with the key in config.php'));
+        }
         // 3.34 review M5: job applications whose CV list the encryption key of this config.php cannot open
         if (($lockedCvs = Applications::lockedCount($app)) > 0) {
             $add(t('Bezpečnost'), t('CVs of job applications'), 'chyba', t('%d application(s) have CVs that cannot be opened – encryption key: they were sealed with a key this config.php does not have. Put back the vault_key line from the original config.php (Settings → Backups and updates).', $lockedCvs));

@@ -10,7 +10,7 @@ check('[source-pin] 3.31.2 N100: a new second factor is refused while one is set
     (bool) preg_match("/case 'totp_start':\s+case 'totp_potvrd':/", $a3312),
     strpos($a3312Case('totp_start'), "\$user['totp_tajemstvi'] !== ''") < strpos($a3312Case('totp_start'), 'Totp::newSecret()'),
     strpos($a3312Case('totp_start'), $a3312Verify) < strpos($a3312Case('totp_start'), 'Totp::verify($secret'),
-    strpos($a3312Case('totp_start'), $a3312Verify) < strpos($a3312Case('totp_start'), "'totp_tajemstvi' => \$secret")],
+    strpos($a3312Case('totp_start'), $a3312Verify) < strpos($a3312Case('totp_start'), "'totp_tajemstvi' => \\Kaleta\\Core\\Vault::sealSecret(\$app->settings(), 'totp', \$secret)")], // 3.39 (N106): sealed
     [true, true, true, true]);
 check('[source-pin] 3.31.2 N101: a token is made only after the password check; a password change keeps personal tokens only on an explicit "0" – in My account and in Users', [
     strpos($a3312Case('token_novy'), $a3312Verify) < strpos($a3312Case('token_novy'), 'random_bytes(24)'),

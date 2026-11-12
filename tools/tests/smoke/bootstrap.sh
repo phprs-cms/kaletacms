@@ -28,6 +28,10 @@ site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" 
 site_date() { site_time "$1" Y-m-d; }
 # run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
 run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' -- "$1"); }
+# setting_plain <key>: a setting as the site reads it – 3.39 (N106): a secret setting is stored sealed with the key in config.php
+# totp_plain <idu>: the TOTP seed of an account as the sign-in reads it (3.39, N106: stored sealed)
+totp_plain() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); echo Kaleta\Core\Vault::openSecret($app->settings(), "totp", (string) $app->db()->value("SELECT totp_tajemstvi FROM {uzivatele} WHERE idu = ?", [(int) $argv[1]]));' -- "$1"); }
+setting_plain() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo (new Kaleta\Core\App(require "config.php"))->settings()->get($argv[1]);' -- "$1"); }
 
 # T4 (Q4): the light background jobs run after a response, at most once a minute (Notifications::runInBackground, the clock
 # notification_check) – a slow run gets one more pass than a fast one. A check that compares or counts what they would

@@ -291,6 +291,9 @@ final class Settings
     /** @var array<string, string>|null */
     private ?array $values = null;
 
+    /** @var array<string, string> secret settings opened in this request (3.39, N106) */
+    private array $opened = [];
+
     public function __construct(private readonly Db $db)
     {
     }
@@ -313,7 +316,9 @@ final class Settings
         }
 
         if (isset($this->values[$key])) {
-            return $this->values[$key];
+            // 3.39 (N106): a secret is stored sealed with the key in config.php (Core\Vault) – opened once per request
+            return in_array($key, Vault::SECRET_SETTINGS, true) && Vault::isSealed($this->values[$key])
+                ? ($this->opened[$key] ??= Vault::openSecret($this, 'settings', $this->values[$key])) : $this->values[$key];
         }
 
         // default texts the visitor sees, in the site language (an English site must not show the Czech maintenance notice or cookie bar)
@@ -340,6 +345,10 @@ final class Settings
 
     public function set(string $key, string $value): void
     {
+        unset($this->opened[$key]);
+        if (in_array($key, Vault::SECRET_SETTINGS, true)) {
+            $value = Vault::sealSecret($this, 'settings', $value); // 3.39 (N106): sealed when the key is in config.php
+        }
         if ($key === 'news_slug' && ($old = $this->get('news_slug')) !== $value) {
             // the old news URLs keep redirecting to the new ones (Core\Routes::internalPath)
             $this->set('news_slug_previous', Routes::rememberSlug($this->get('news_slug_previous'), $old, $value));

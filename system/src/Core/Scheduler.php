@@ -160,8 +160,10 @@ final class Scheduler
             'security' => function (App $app): string {
                 $done = SecurityHygiene::run($app);
                 $clients = \Kaleta\Front\OAuth::purgeUnusedClients($app->db()); // registrations nobody approved within a day (3.3.4, N66)
+                // 3.39 (N106): a secret written in plain text by older code or by hand is sealed with the key in config.php
+                $sealed = Vault::sealStored($app->db(), $app->settings());
 
-                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']) . ', unused app registrations removed ' . $clients;
+                return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']) . ', unused app registrations removed ' . $clients . ($sealed > 0 ? ', secrets encrypted ' . $sealed : '');
             },
             'validity' => fn (App $app): string => Validity::run($app),
             'events' => fn (App $app): string => Calendar::run($app),

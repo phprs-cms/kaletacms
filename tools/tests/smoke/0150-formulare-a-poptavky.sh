@@ -14,7 +14,7 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$HOOK_PORT/ping"
 "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('webhook_enquiries', 'https://hooks.example.com/crm'), ('webhook_test_url', 'http://127.0.0.1:$HOOK_PORT')"
 # hook_check <n>: is the n-th logged call signed with the site's secret? prints event|signature ok|uri
 hook_check() { php -r '$c = json_decode(explode("\n", trim(file_get_contents($argv[1])))[$argv[2] - 1] ?? "null", true); if (!$c) { echo "none"; exit; }
-  echo $c["event"], "|", hash_equals("sha256=" . hash_hmac("sha256", $c["ts"] . "." . $c["body"], $argv[3]), $c["sig"]) ? "signed" : "BAD", "|", $c["uri"];' -- "$WORK/hook/calls.log" "$1" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'webhook_secret'")"; }
+  echo $c["event"], "|", hash_equals("sha256=" . hash_hmac("sha256", $c["ts"] . "." . $c["body"], $argv[3]), $c["sig"]) ? "signed" : "BAD", "|", $c["uri"];' -- "$WORK/hook/calls.log" "$1" "$(setting_plain webhook_secret)"; }
 curl -s -o "$WORK/formular.html" "$B/kontakt"
 grep -q 'class="ka-formular"' "$WORK/formular.html" && grep -q 'name="as_podpis"' "$WORK/formular.html" && echo "  ok     kontakt má poptávkový formulář" || { echo "  CHYBA  formulář na kontaktu"; ERRORS=$((ERRORS+1)); }
 field_value() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/formular.html" | head -1 | sed 's/.*value="//;s/"$//'; }
