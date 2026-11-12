@@ -23,6 +23,7 @@
  * @var array<string, mixed>|null $contactBox the customer of the enquiry (3.28, Admin\Modules\Contacts::box); null without Customers
  * @var bool $toApplication may move the enquiry to Applications (3.34: the person has both sections)
  * @var array<string, mixed>|null $dealBox the deal of the enquiry and "Create deal" (3.31, Admin\Modules\Pipeline::enquiryBox); null without the Pipeline
+ * @var array<string, mixed>|null $quoteBox its quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
  * @var array<string, mixed> $thread the notes as a thread – names of the people mentioned, who may be mentioned, a refused text (3.26, Admin\CommentActions::commentThread)
  */
 use Kaleta\Admin\Modules\Enquiries;
@@ -194,6 +195,9 @@ if ($testimonialFits): ?>
 <?php endif ?>
 <?php if ($dealBox !== null): /* 3.31: the deal this enquiry became, or Create deal */ ?>
 <?= $app->view->render('admin/deal_box', ['csrf' => $csrf, 'box' => $dealBox]) ?>
+<?php endif ?>
+<?php if ($quoteBox !== null): /* 3.38 B: its quotes and New quote from the basket */ ?>
+<?= $app->view->render('admin/quotes/box', ['csrf' => $csrf, 'box' => $quoteBox]) ?>
 <?php endif ?>
 <?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) /* 3.27 */ ?>
 <section class="zaznam-panel" aria-labelledby="enquiry-facts" data-enquiry-facts>

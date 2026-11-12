@@ -236,6 +236,7 @@ final class Pipeline extends Module
             'draft' => $this->takeDraft('deal_draft', $id), 'currency' => $deal['currency'] ?? Deals::defaultCurrency($this->app->settings()), 'today' => Clock::today(),
             'thread' => $this->commentThread($target, ['id' => $id]),
             'tasks' => $this->taskPanel($target, ['id' => $id]),
+            'quoteBox' => Quotes::box($this->app, $modules, 'deal', $id), // 3.38 B
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
     }
 
@@ -614,7 +615,7 @@ final class Pipeline extends Module
      *
      * @return array<int, string> id => name (and e-mail)
      */
-    private static function contactChoices(Db $db, ?int $keep): array
+    public static function contactChoices(Db $db, ?int $keep): array
     {
         $rows = Customers::list($db, ['sort' => 'activity'], 1, self::CONTACT_CHOICES)['rows'];
         if ($keep !== null && !in_array($keep, array_column($rows, 'id'), true) && ($own = Customers::find($db, $keep)) !== null) {
@@ -632,7 +633,7 @@ final class Pipeline extends Module
     }
 
     /** @return array<int, string> id => name */
-    private static function companyChoices(Db $db, ?int $keep): array
+    public static function companyChoices(Db $db, ?int $keep): array
     {
         $out = array_column(Customers::companies($db, [], 1, self::COMPANY_CHOICES)['rows'], 'name', 'id');
         if ($keep !== null && !isset($out[$keep]) && ($own = Customers::findCompany($db, $keep)) !== null) {

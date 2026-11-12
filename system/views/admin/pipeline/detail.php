@@ -27,6 +27,7 @@
  * @var bool $canContacts
  * @var array<string, mixed> $thread Admin\CommentActions::commentThread
  * @var array<string, mixed> $tasks Admin\TaskActions::taskPanel
+ * @var array<string, mixed>|null $quoteBox its quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
  * @var bool $admin
  * @var int $me
  */
@@ -126,6 +127,9 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 	</details>
 </div>
 </section>
+<?php if ($quoteBox !== null): /* 3.38 B: its quotes and New quote */ ?>
+<?= $app->view->render('admin/quotes/box', ['csrf' => $csrf, 'box' => $quoteBox]) ?>
+<?php endif ?>
 <?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) ?>
 </div>
 </div></div>

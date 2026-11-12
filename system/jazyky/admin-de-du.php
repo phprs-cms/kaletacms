@@ -1390,4 +1390,10 @@ return [
     'A discount above %s %% – ask a person to set it in the admin.' => 'Ein Rabatt über %s %% – bitte eine Person, ihn in der Administration einzustellen.',
     'Write the validity as a date, e.g. %s.' => 'Schreib die Gültigkeit als Datum, z. B. %s.',
     'Someone else saved this quote in the meantime – your version replaced theirs.' => 'Jemand anderes hat das Angebot inzwischen gespeichert – deine Fassung hat seine ersetzt.',
+    'A quote takes its prices from Internal prices and gets its number when it is sent. Create one here, with “New quote” on an enquiry, a deal or a customer – or ask Claude: “Make a quote for enquiry 214, valid three weeks.”' => 'Ein Angebot nimmt seine Preise aus den internen Preisen und erhält seine Nummer beim Senden. Erstelle es hier, mit „Neues Angebot“ bei einer Anfrage, einem Deal oder einem Kunden – oder bitte Claude: „Erstelle ein Angebot zur Anfrage 214, gültig drei Wochen.“',
+    'No lines yet – add a product of the price list, an own row or a free line below.' => 'Noch keine Positionen – füge unten ein Produkt der Preisliste, eine eigene Zeile oder eine freie Position hinzu.',
+    '%d lines have no price yet – the quote cannot be sent until you fill them.' => '%d Positionen haben noch keinen Preis – das Angebot kann erst gesendet werden, wenn du sie ausfüllst.',
+    'Mark the quote expired? It cannot be accepted any more; revise it to send a new one.' => 'Angebot als abgelaufen markieren? Es kann dann nicht mehr angenommen werden; überarbeite es, um ein neues zu senden.',
+    'Quote %s is finalised – hand it over or print it.' => 'Angebot %s ist abgeschlossen – übergib oder drucke es.',
+    'No product or own row of the price list has the code %s – choose one from the list.' => 'Kein Produkt und keine eigene Zeile der Preisliste hat den Code %s – wähle einen aus der Liste.',
 ];

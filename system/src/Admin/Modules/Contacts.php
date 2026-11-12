@@ -186,6 +186,7 @@ final class Contacts extends Module
             'thread' => $this->commentThread($target, ['id' => $id]),
             'tasks' => $this->taskPanel($target, ['id' => $id]),
             'deals' => $contact['anonymised_at'] === null ? Pipeline::deals($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.31
+            'quoteBox' => $contact['anonymised_at'] === null ? Quotes::box($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.38 B
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
     }
 
@@ -418,6 +419,7 @@ final class Contacts extends Module
             'thread' => $this->commentThread($target, ['company' => $id]),
             'tasks' => $this->taskPanel($target, ['company' => $id]),
             'deals' => Pipeline::deals($this->app, $this->kernel->modules(), 'company', $id), // 3.31
+            'quoteBox' => Quotes::box($this->app, $this->kernel->modules(), 'company', $id), // 3.38 B
             'admin' => $this->app->auth()->isAdmin()]);
     }
 
