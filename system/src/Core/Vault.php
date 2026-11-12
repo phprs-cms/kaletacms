@@ -221,8 +221,8 @@ final class Vault
      */
     public static function sealStored(Db $db, Settings $settings): int
     {
-        if (self::state($settings) !== 'config') {
-            return 0;
+        if (self::state($settings) !== 'config' || !self::seedsFit($db, $settings)) {
+            return 0; // 3.39 review M2: nothing while migrations are pending – a sealed seed needs the widened column of 0126
         }
         $count = 0;
         foreach ($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(self::SECRET_SETTINGS), '?')) . ')', self::SECRET_SETTINGS) as $key => $value) {
@@ -232,11 +232,41 @@ final class Vault
             }
         }
         foreach ($db->all("SELECT idu, totp_tajemstvi FROM {uzivatele} WHERE totp_tajemstvi <> '' AND totp_tajemstvi NOT LIKE 'kaleta-sealed:%'") as $row) {
-            $db->update('uzivatele', ['totp_tajemstvi' => self::sealSecret($settings, 'totp', (string) $row['totp_tajemstvi'])], ['idu' => $row['idu']]);
-            $count++;
+            // compare-and-swap (3.39 review M2): a re-enrolment in the meantime keeps its new seed
+            $count += $db->run('UPDATE {uzivatele} SET totp_tajemstvi = ? WHERE idu = ? AND totp_tajemstvi = ?', [
+                self::sealSecret($settings, 'totp', (string) $row['totp_tajemstvi']), $row['idu'], $row['totp_tajemstvi'],
+            ])->rowCount();
         }
 
         return $count;
+    }
+
+    /** The widened TOTP column already checked in this request (3.39 review M2). */
+    private static ?bool $seedColumnWide = null;
+
+    /**
+     * May a sealed TOTP seed be stored (3.39 review M2)? Only once no migration is pending and the column is the widened
+     * one of 0126 (VARCHAR(255)) – a sealed seed (~110 characters) in the old VARCHAR(64) would be cut off under a
+     * non-strict sql_mode and every code from the app would fail.
+     */
+    public static function seedsFit(Db $db, Settings $settings): bool
+    {
+        if (Migration::pending($settings)) {
+            return false;
+        }
+        try {
+            self::$seedColumnWide ??= (int) $db->value('SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', [$db->tableName('uzivatele'), 'totp_tajemstvi']) >= 200;
+        } catch (\PDOException) {
+            return false; // any database error: the seed stays plain, which is always readable – nothing is lost
+        }
+
+        return self::$seedColumnWide;
+    }
+
+    /** A new TOTP seed as it is stored (3.39 review M2): sealed when it fits, plain while migrations are pending. */
+    public static function sealSeed(Db $db, Settings $settings, string $seed): string
+    {
+        return self::state($settings) === 'config' && self::seedsFit($db, $settings) ? self::sealSecret($settings, 'totp', $seed) : $seed;
     }
 
     /**

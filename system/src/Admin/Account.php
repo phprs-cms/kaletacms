@@ -181,7 +181,7 @@ final class Account
                         break;
                     }
                     [$codes, $json] = Totp::backupCodes();
-                    if (!$app->auth()->replaceBackupCodes((int) $user['idu'], $json, false, ['totp_tajemstvi' => \Kaleta\Core\Vault::sealSecret($app->settings(), 'totp', $secret)])) { // 3.35 review L4: compare-and-swap
+                    if (!$app->auth()->replaceBackupCodes((int) $user['idu'], $json, false, ['totp_tajemstvi' => \Kaleta\Core\Vault::sealSeed($app->db(), $app->settings(), $secret)])) { // 3.35 review L4: compare-and-swap
                         // 3.35 re-review N3: nothing was stored (the list kept changing) – no codes to show, nothing logged
                         $message = ['chyba', self::CODES_NOT_SAVED];
                         break;
