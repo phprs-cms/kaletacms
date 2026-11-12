@@ -94,7 +94,7 @@ final class Discovery
      * the same for a "work" connection with Catalog::WORK as $inList.
      *
      * @param list<array<string, mixed>> $available the connection's whole tools/list (Server::listed items it may use)
-     * @param list<string> $inList the tools of the tool set (Catalog::ESSENTIALS or Catalog::WORK)
+     * @param list<string> $inList the tools of the tool set (Catalog::listOf – ESSENTIALS, WORK, MIGRATION or FLEET)
      * @return list<array<string, mixed>>
      */
     public static function essentials(array $available, string $access, array $inList = Catalog::ESSENTIALS): array

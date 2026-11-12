@@ -710,6 +710,7 @@ final class Kernel
             $access = \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'drafts'); // no choice sent: drafts only, the default of the page (3.11, N311-3)
             // 3.10: the tool set (essentials by default on the page); a consent page from before 3.10 sends none: all tools, as before
             $toolSet = \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set'));
+            $toolSet = in_array($toolSet, \Kaleta\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'essentials'; // 3.36: the fleet set only on a fleet site
             // 3.35 (owner decision 11 Nov 2026): full access – publishing and deleting with this account – needs a fresh
             // proof: the current password typed here, or a sign-in or confirmed password within Auth::VERIFIED_WINDOW (an
             // account that signs in without a password signs in again). Drafts and read stay one click. The request waits
@@ -739,7 +740,8 @@ final class Kernel
             'passkeyConfirm' => $app->auth()->workingKeys($app->auth()->id()) !== [] && \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $siteUrl),
             'passkeyOnly' => $app->auth()->isPasskeyOnly(), // 3.35 review M2: on every host – the password is no proof for it anywhere
             // 3.10: a new connection lists the essentials – a shorter tools/list in every conversation; the rest is a find_tools away
-            'toolSet' => 'essentials',
+            // (3.36, owner decision 10: new Claude connections start on the essentials); a refused try keeps the set chosen
+            'toolSet' => $isPost && $app->request->post('tool_set') !== '' ? \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set')) : 'essentials',
         ])]));
         // sending the consent ends with a redirect to the app – CSP form-action must allow it (admin.php)
         $target = parse_url((string) $pending['redirect_uri']);

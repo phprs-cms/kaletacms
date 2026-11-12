@@ -463,10 +463,25 @@ final class Catalog
      * The tool set of a connection (3.10): "all" lists every tool the connection may use (as before 3.10); "essentials"
      * lists ESSENTIALS and the META tools, which reach the rest on demand – a much shorter tools/list in every
      * conversation; "work" (3.26, owner decision D-W10) lists WORK and the META tools – for an employee's own Claude: their
-     * work, enquiries, comments and requests, with the builder a find_tools away. Existing connections keep what they have;
-     * the choice is on the connection row like its access.
+     * work, enquiries, comments and requests, with the builder a find_tools away; "migration" (3.36) lists MIGRATION – moving
+     * a site; "fleet" (3.36) lists FLEET – the fleet console, offered only where the fleet extension is on (SET_NEEDS).
+     * Existing connections keep what they have (a row without a known set is "all"); new Claude connections start on the
+     * essentials (the consent screen preselects them). The choice is on the connection row like its access and only decides
+     * what tools/list shows first – never what the connection may run (Catalog::allows and the user's role decide that).
+     *
+     * 3.36 THE RULE: every tool of TOOLS is declared in at least one of ESSENTIALS, WORK, MIGRATION and FLEET, or in
+     * ON_DEMAND (listed only by "all", one find_tools away everywhere else) – never in ON_DEMAND and a focused set at once.
+     * A new tool goes where the people who need it first will look; ESSENTIALS take no new tool (the owner's rule). Each
+     * focused set's tools/list stays within its BUDGETS bytes on a full connection with every feature on.
+     * tools/unit-tests.php fails a tool without a set and a set over its budget (tools/tests/unit/2550-…).
      */
-    public const array TOOL_SETS = ['all', 'essentials', 'work'];
+    public const array TOOL_SETS = ['all', 'essentials', 'work', 'migration', 'fleet'];
+
+    /** 3.36: the most bytes of a focused set's tools/list (its tools plus META, full access, every feature on). */
+    public const array BUDGETS = ['essentials' => 49000, 'work' => 49000, 'migration' => 49000, 'fleet' => 49000];
+
+    /** 3.36: a tool set offered only where its extension is on (a stored one keeps working anywhere – it only lists less). */
+    public const array SET_NEEDS = ['fleet' => 'fleet'];
 
     /**
      * The core tools an essentials connection lists (3.10): pages, the builder, the menu and the look, collections, media,
@@ -491,6 +506,75 @@ final class Catalog
         'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary', 'list_applications', 'get_application', 'update_application', 'reply_to_application'];
 
     /**
+     * The tools a "migration" connection lists (3.36): moving a site from another platform – the imports, read_old_page and
+     * the builder to rebuild the layout, redirects, media, the menu and the look, collections, the migration report and the
+     * audit, the notebook and the safety net (collections, classes, save_build and notes are a find_tools away – the budget).
+     * read_old_page and migration_report stay full-connection tools (NEEDS).
+     */
+    public const array MIGRATION = ['site_info', 'read_notebook', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema',
+        'get_build', 'edit_build', 'build_from_html', 'preview_link', 'list_collections', 'list_media', 'upload_file', 'import_website', 'update_design_system',
+        'list_redirects', 'save_redirect', 'save_redirects', 'site_audit', 'migration_report', 'read_old_page', 'import_wordpress', 'import_enquiries',
+        'list_changes', 'undo_agent_session',
+        // 3.36 part A: 'layout_queue' joins here at the merge (about 3 KB of the budget is left; unit 2550 checks it)
+    ];
+
+    /**
+     * The tools a "fleet" connection lists (3.36): the fleet console – the sites that report here, what waits across them,
+     * today, health, inventory, the calendar, the plan and the monthly reports – with this site's own health, events, work,
+     * tasks, comments, requests and notebook. It only reads the other sites; changes go through each site's own connection.
+     */
+    public const array FLEET = ['site_info', 'list_sites', 'get_site', 'fleet_inbox', 'fleet_report', 'fleet_today', 'fleet_health', 'fleet_plan', 'fleet_inventory',
+        'fleet_calendar', 'get_health', 'list_events', 'read_notebook', 'write_notebook', 'my_work', 'list_tasks', 'save_task', 'complete_task', 'list_comments',
+        'add_comment', 'list_requests', 'update_request', 'list_monthly_reports', 'get_monthly_report'];
+
+    /**
+     * 3.36: the tools listed only by "all" – every focused set reaches them with find_tools and a runner. Declared here so
+     * that each tool says where it belongs (the rule above); a tool may move to a focused set later.
+     */
+    public const array ON_DEMAND = ['trash_page', 'list_trash', 'restore_from_trash', 'list_build_versions', 'restore_build_version', 'discard_draft', 'save_section', 'delete_section',
+        'list_components', 'save_component', 'delete_component', 'list_site_parts', 'save_part_variant', 'apply_part_template', 'list_draft_comments',
+        'resolve_draft_comment', 'list_classes', 'save_classes', 'discard_look', 'list_look_versions', 'restore_look_version', 'create_collection',
+        'update_collection', 'delete_collection', 'save_collection_items', 'delete_collection_item', 'list_item_versions', 'restore_item_version',
+        'list_collection_categories', 'save_collection_category', 'delete_collection_category', 'list_news', 'get_news', 'create_news', 'update_news',
+        'trash_news', 'list_categories', 'create_category', 'update_category', 'delete_category', 'delete_media', 'list_media_without_alt', 'delete_enquiry',
+        'find_personal_data', 'erase_personal_data', 'list_popups', 'save_popup', 'delete_popup', 'update_settings', 'ignore_not_found', 'list_broken_links',
+        'suggest_internal_links', 'list_agent_sessions', 'get_stats', 'delete_fact', 'find_claims', 'list_hours', 'list_collection_presets',
+        'request_testimonial', 'get_blueprint', 'list_connectors', 'processing_record', 'accessibility_statement', 'get_social_drafts',
+        'delete_notebook_entry', 'update_social_draft', 'apply_blueprint', 'remove_blueprint', 'export_blueprint', 'list_notice_log', 'save_hours_exception',
+        'delete_hours_exception', 'list_bookings', 'booking_availability', 'save_booking_service', 'save_booking_staff', 'cancel_booking', 'confirm_booking',
+        'decline_booking', 'propose_booking_times', 'list_pending_review', 'get_due_agent_runs', 'report_agent_run', 'translation_status', 'list_newsletters',
+        'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter'];
+
+    /**
+     * The focused sets that list a tool by its English name (3.36): [] for a tool of ON_DEMAND (or an add-on's tool).
+     *
+     * @return list<string>
+     */
+    public static function setsOf(string $tool): array
+    {
+        $sets = [];
+        foreach (self::TOOL_SETS as $set) {
+            if (in_array($tool, self::listOf($set) ?? [], true)) {
+                $sets[] = $set;
+            }
+        }
+
+        return $sets;
+    }
+
+    /**
+     * The tool sets a person may choose for a connection on this site (3.36): every set, without a set whose extension is
+     * off (SET_NEEDS) – unless it is the connection's current one, which stays shown. Without settings: no such set.
+     *
+     * @return list<string>
+     */
+    public static function offered(?\Kaleta\Core\Settings $settings, string $current = ''): array
+    {
+        return array_values(array_filter(self::TOOL_SETS, fn (string $set): bool => $set === $current || !isset(self::SET_NEEDS[$set])
+            || ($settings !== null && \Kaleta\Core\Extensions::isEnabled($settings, self::SET_NEEDS[$set]))));
+    }
+
+    /**
      * The tools a tool set lists before the META tools: null = every tool (all).
      *
      * @return list<string>|null
@@ -500,6 +584,8 @@ final class Catalog
         return match (self::toolSet($set)) {
             'essentials' => self::ESSENTIALS,
             'work' => self::WORK,
+            'migration' => self::MIGRATION,
+            'fleet' => self::FLEET,
             default => null,
         };
     }

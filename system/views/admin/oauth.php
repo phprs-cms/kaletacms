@@ -39,7 +39,7 @@ $role = t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? '');
 <?php if ($passwordError !== null): ?>
 		<p class="hlaska hlaska-chyba" role="alert"><?= e(t($passwordError)) ?></p>
 <?php endif ?>
-		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $passwordError !== null ? 'full' : $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet, 'recommended' => 'drafts']) ?>
+		<?= $app->view->render('admin/connection-access', ['role' => $role, 'selected' => $passwordError !== null ? 'full' : $selected, 'claude' => $claudeHost, 'toolSet' => $toolSet, 'toolSets' => Kaleta\Mcp\Catalog::offered($app->settings(), $toolSet), 'recommended' => 'drafts']) ?>
 <?php if (!$verified && !$passkeyOnly): // 3.35: full access needs a fresh proof – the current password, or a sign-in within the last minutes ?>
 		<div class="radek oauth-heslo"><label for="oauth-heslo"><?= e(t('Your current password')) ?></label><div><input class="textpole" type="password" id="oauth-heslo" name="soucasne" size="30" autocomplete="current-password">
 		<span class="napoveda"><?= e(t('Needed only for “Can also publish”. Drafts and reading need no password.')) ?></span></div></div>

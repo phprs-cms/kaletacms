@@ -944,7 +944,10 @@ final class Prompts
     public static function serverInstructions(App $app): string
     {
         $access = $app->auth()->connection()['access'] ?? 'full';
-        $text = Translator::instructions() . ' '
+        $toolSet = $app->auth()->connection()['tool_set'] ?? 'all';
+        // 3.36: the task of the tool set first, then job applications and the fleet console where their extension is on
+        $features = array_filter(Translator::INSTRUCTION_FEATURES, fn (string $key): bool => \Kaleta\Core\Extensions::isEnabled($app->settings(), $key), ARRAY_FILTER_USE_KEY);
+        $text = Translator::instructions(match ($toolSet) { 'work' => 'work', 'migration' => 'move', 'fleet' => 'fleet', default => '' }, $features) . ' '
             . match ($access) {
                 'read' => 'THIS CONNECTION CAN ONLY READ: look, check and suggest; the user makes the changes.',
                 'drafts' => 'THIS CONNECTION CAN ONLY SAVE DRAFTS: builds, hidden pages, news drafts and the draft look; hidden collection items (a visible item cannot be changed), '
@@ -952,13 +955,18 @@ final class Prompts
                     . 'tell the user what is ready to review (list_pending_review lists everything that waits for a person).',
                 default => '',
             };
-        $toolSet = $app->auth()->connection()['tool_set'] ?? 'all';
-        if ($toolSet === 'essentials' || $toolSet === 'work') {
+        $listed = [
             // 3.10: the list holds the core tools; the rest – everything these instructions name – is a find_tools away
+            'essentials' => 'YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit, the change log and undo.',
             // 3.26: a "work" connection (an employee's own Claude) holds the tools of their daily work instead
-            $text .= ($toolSet === 'work' ? ' YOUR TOOL LIST HOLDS THE WORK TOOLS: what waits for the user (my_work), enquiries and replies, the team\'s comments and @mentions, who is responsible, tasks and follow-ups (list_tasks, save_task, complete_task), '
-                . 'requests, the notebook, reading pages with a draft preview, and collection items. '
-                : ' YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit, the change log and undo. ')
+            'work' => 'YOUR TOOL LIST HOLDS THE WORK TOOLS: what waits for the user (my_work), enquiries and replies, customers, deals, the team\'s comments and @mentions, who is responsible, tasks and follow-ups (list_tasks, save_task, complete_task), '
+                . 'job applications, requests, the notebook, reading pages with a draft preview, and collection items.',
+            // 3.36: moving a site and the fleet console
+            'migration' => 'YOUR TOOL LIST HOLDS THE MIGRATION TOOLS: the imports, read_old_page, build_from_html and the builder, redirects, media, the menu and the look, the migration report and the audit.',
+            'fleet' => 'YOUR TOOL LIST HOLDS THE FLEET TOOLS: the sites that report here and the console\'s views of them, with this site\'s health, events, work, tasks, comments, requests and notebook.',
+        ];
+        if (isset($listed[$toolSet])) {
+            $text .= ' ' . $listed[$toolSet] . ' '
                 . 'Every other tool named here or that a task needs (news, redirects, settings, health, pop-ups, trash, versions, bookings, newsletters, imports…) exists too: '
                 . 'call find_tools (with names or a query) for its parameters and its runner, then that runner with name and arguments: run_read_tool for reads, run_tool for drafts and changes, '
                 . 'run_destructive_tool for deleting, sending or reaching outside the site – confirm that exact action with the user first. The same rules as a direct call.';

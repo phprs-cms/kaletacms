@@ -1617,6 +1617,13 @@ table.preklady td[data-stav] form { margin-inline-start: 6px; }
 .komentar-upravit summary:hover { border-color: var(--text-slaby); }
 .komentar-upravit[open] summary { margin-bottom: 6px; }
 .komentar-upravit .tlacitka { margin: 6px 0 0; }
+.napojeni { margin: 1em 0; } /* 3.36: a Claude connection on My account – a block, so the folded choice of its tool set may sit in it */
+.sada-nastroju { display: inline-block; vertical-align: middle; } /* 3.36: the tool set of a Claude connection (My account) – one folded choice */
+.sada-nastroju > summary { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 14px; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); color: var(--text); font-weight: 600; line-height: 1.25; list-style: none; cursor: pointer; }
+.sada-nastroju > summary::-webkit-details-marker { display: none; }
+.sada-nastroju > summary:hover { border-color: var(--text-slaby); }
+.sada-nastroju[open] { display: block; margin: 6px 0; }
+.sada-nastroju > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .zminky-navrhy { display: grid; gap: 2px; max-width: 360px; max-height: 240px; margin-top: 4px; padding: 4px; overflow-y: auto; border: 1px solid var(--linka-pole); border-radius: 6px; background: var(--plocha); font-size: 13px; }
 .zminky-navrhy[hidden] { display: none; }
 .zminky-navrhy [role=option] { display: flex; flex-wrap: wrap; gap: 0 8px; padding: 6px 8px; border-radius: 4px; color: var(--text); cursor: pointer; }

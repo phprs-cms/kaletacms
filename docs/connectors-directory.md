@@ -143,9 +143,10 @@ By feature: 109 core tools, 11 News, 7 Enquiries, 2 Redirects, 5 Newsletter, 2 F
 - tools/list with every feature on is about 152 KB (155,375 bytes in 3.9.2; 144,985 before the titles). The descriptions
   are long on purpose (the builder's data model).
 
-**Tool sets (3.10).** Each connection has a tool set (`ka_api_tokeny.tool_set`, `Mcp\Catalog::TOOL_SETS`), chosen next
-to the access level on the consent screen (default **Essentials**) and for a personal token (default **All tools**), and
-switchable for an existing connection in My account. Connections from before 3.10 keep all tools; a token refresh keeps
+**Tool sets (3.10, 3.36).** Each connection has a tool set (`ka_api_tokeny.tool_set`, `Mcp\Catalog::TOOL_SETS`: all,
+essentials, work, migration, fleet), chosen next to the access level on the consent screen (default **Essentials**) and
+for a personal token (default **All tools**), and switchable for an existing connection in My account (one folded choice
+of every other set offered on the site). Connections from before 3.10 keep all tools; a token refresh keeps
 the tool set.
 
 - **All tools** – tools/list as above, unchanged.
@@ -182,7 +183,31 @@ the tool set.
   `get_email_signature`, requests, the notebook, `list_pages`/`get_page`/`preview_link`, collections and their items)
   plus `find_tools` and the runners, the same way as the essentials – about 26 KB on a full connection (a unit test keeps
   it under 49,000 bytes). Offered under Advanced next to the essentials; existing connections keep their tool set.
-- The meta tools are callable on any connection, but listed only for essentials and work connections; all four are in the
+- **Migration (3.36)** – moving a site to Kaleta: the 28 tools of `Mcp\Catalog::MIGRATION` (the imports `import_website`,
+  `import_wordpress` and `import_enquiries`, `read_old_page`, `migration_report`, the builder to rebuild layouts –
+  `build_from_html`, `edit_build`, `get_build` –, pages and the menu, redirects, media, the design system, the audit, the
+  notebook, the change log and undo) plus `find_tools` and the runners – about 46 KB on a full connection. `read_old_page`
+  and `migration_report` stay full-connection tools, so a drafts-only migration connection never lists them.
+- **Fleet (3.36)** – the fleet console: the 24 tools of `Mcp\Catalog::FLEET` (`list_sites`, `get_site` and every `fleet_*`
+  tool, with this site's health, events, my work, tasks, comments, requests, notebook and monthly reports) plus
+  `find_tools` and the runners – about 27 KB. Offered only where the Fleet console extension is on
+  (`Catalog::SET_NEEDS`); a connection that has it keeps working when the extension goes off – it only lists less.
+- **New connections start on the Essentials** (owner decision of 10 November 2026): the consent screen preselects them; a
+  personal token still preselects All tools. Existing connections keep their set; a row without a known set is All tools.
+  A set decides only what tools/list shows first – never what a connection may run: the access level and the user's role
+  decide that, and every tool outside the list is a `find_tools` away.
+- **The rule (3.36):** every tool of `Catalog::TOOLS` is declared in at least one of `ESSENTIALS`, `WORK`, `MIGRATION`
+  and `FLEET`, or in `ON_DEMAND` (listed only by All tools) – never in `ON_DEMAND` and a focused set at once. A new tool
+  goes where the people who need it first will look (the essentials take no new tool); each focused set's tools/list
+  stays within `Catalog::BUDGETS` (49,000 bytes on a full connection with every feature on). A unit test
+  (`tools/tests/unit/2550-…`) fails a tool without a set and a set over its budget. An add-on's tool is listed by All
+  tools and found by `find_tools` everywhere else.
+- **Server instructions (3.36):** short and by task – what always holds (drafts, preview, publishing only on request,
+  boundaries, the untrusted marker, personal data), then building a site, moving a site and the daily work (my work,
+  enquiries, customers, deals, tasks, comments); job applications and the fleet console only where their extension is
+  on. The task of the connection's set comes first, and every focused set adds one paragraph naming what its list holds.
+  About 6.3 KB without the owner's own instructions (10.9 KB before).
+- The meta tools are callable on any connection, but listed only for connections with a focused set; all four are in the
   contract (`tools/contracts/mcp-tools.json`).
 - Before migration 0085 has run (the `tool_set` column missing), MCP and OAuth keep working with all tools (N310-9).
 
