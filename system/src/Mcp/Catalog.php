@@ -573,8 +573,14 @@ final class Catalog
      */
     public static function offered(?\Kaleta\Core\Settings $settings, string $current = ''): array
     {
-        return array_values(array_filter(self::TOOL_SETS, fn (string $set): bool => $set === $current || !isset(self::SET_NEEDS[$set])
-            || ($settings !== null && \Kaleta\Core\Extensions::isEnabled($settings, self::SET_NEEDS[$set]))));
+        $offered = [];
+        foreach (self::TOOL_SETS as $set) {
+            if ($set === $current || !isset(self::SET_NEEDS[$set]) || ($settings !== null && \Kaleta\Core\Extensions::isEnabled($settings, self::SET_NEEDS[$set]))) {
+                $offered[] = $set;
+            }
+        }
+
+        return $offered;
     }
 
     /**

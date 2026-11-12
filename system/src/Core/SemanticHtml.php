@@ -341,7 +341,7 @@ final class SemanticHtml
                 $n = ++$this->tabs;
                 $list = '';
                 $panels = '';
-                foreach (array_values($tabs) as $i => [$name, $content]) {
+                foreach ($tabs as $i => [$name, $content]) {
                     $id = 'tab-' . $n . '-' . ($i + 1);
                     $list .= '<button role="tab" aria-controls="' . $id . '">' . e($name) . '</button>';
                     $panels .= '<div role="tabpanel" id="' . $id . '">' . $this->fragment($content) . '</div>';
