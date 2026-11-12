@@ -8691,4 +8691,5 @@ return [
     'This quote has no PDF: its language or text cannot be drawn with the fonts of a PDF. Print the preview or save it as a PDF from the browser.' => 'Dieses Angebot hat kein PDF: Seine Sprache oder sein Text lässt sich mit den Schriften eines PDF nicht darstellen. Drucken Sie die Vorschau oder speichern Sie sie im Browser als PDF.',
     'The e-mail went without the PDF: the quote’s language or text cannot be drawn in a PDF – the customer has the link.' => 'Die E-Mail ging ohne PDF hinaus: Sprache oder Text des Angebots lassen sich im PDF nicht darstellen – der Kunde hat den Link.',
     '%d were already rejected or hired – left unchanged, nothing was sent to them.' => '%d waren schon abgelehnt oder eingestellt – unverändert gelassen, ihnen wurde nichts gesendet.',
+    'The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.' => 'Die Positionsvorlage „%1$s“ wurde in %2$s gespeichert, dieses Angebot ist in %3$s – ihre freien Positionen kamen ohne Preis; ergänzen Sie die Preise.',
 ];

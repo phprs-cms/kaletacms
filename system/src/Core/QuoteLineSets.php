@@ -11,9 +11,12 @@ namespace Kaleta\Core;
  *
  *  - What is kept: for a product line the product (item and variant), the quantity, the line discount, the description
  *    and a name only when someone changed it; for an own row of the price list its code; a free line keeps everything
- *    including its price. Product and own-row prices are never kept: inserting reads them from the price list of the quote
- *    it goes into (Quotes::save → Prices::forItem / Prices::byCode), so a set never carries an old price or another
- *    currency into a quote. A product the list has no price for gets a line without a price, as everywhere.
+ *    including its price, and the set keeps the currency of the quote it was saved from (column currency). Product and
+ *    own-row prices are never kept: inserting reads them from the price list of the quote it goes into (Quotes::save →
+ *    Prices::forItem / Prices::byCode). A free line keeps its price only in a quote of the set's currency; into a quote in
+ *    another currency it goes without a price and the insertion warns (3.40 review M3) – a set never carries an old price
+ *    or a number of another currency into a quote. A product the list has no price for gets a line without a price, as
+ *    everywhere.
  *  - Inserting appends the set's lines after the draft's own lines (the draft's lines keep their prices); only a draft
  *    takes them, and Quotes::MAX_LINES still holds.
  *  - A name is unique: saving under an existing name replaces that set's lines. People with the section Quotes save and
@@ -30,25 +33,25 @@ final class QuoteLineSets
     /**
      * Every set by name: id, name, how many lines, who saved it and when.
      *
-     * @return list<array{id: int, name: string, lines: int, created_by: ?int, updated_at: string}>
+     * @return list<array{id: int, name: string, lines: int, currency: string, created_by: ?int, updated_at: string}>
      */
     public static function all(Db $db): array
     {
         try {
-            $rows = $db->all('SELECT id, name, content, created_by, updated_at FROM {quote_line_sets} ORDER BY ' . $db->sortText('name') . ', id');
+            $rows = $db->all('SELECT id, name, content, currency, created_by, updated_at FROM {quote_line_sets} ORDER BY ' . $db->sortText('name') . ', id');
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return []; // before migration 0128
         }
 
-        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'lines' => count(self::decode($r['content'])),
+        return array_map(fn (array $r): array => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'lines' => count(self::decode($r['content'])), 'currency' => (string) $r['currency'],
             'created_by' => $r['created_by'] === null ? null : (int) $r['created_by'], 'updated_at' => (string) $r['updated_at']], $rows);
     }
 
     /**
      * One set with its stored lines, by id or by its exact name (MCP takes either); null when there is none.
      *
-     * @return array{id: int, name: string, lines: list<array<string, mixed>>, updated_at: string}|null
+     * @return array{id: int, name: string, lines: list<array<string, mixed>>, currency: string, updated_at: string}|null
      */
     public static function find(Db $db, mixed $idOrName): ?array
     {
@@ -57,14 +60,14 @@ final class QuoteLineSets
         }
         $key = trim((string) $idOrName);
         try {
-            $row = ctype_digit($key) ? $db->one('SELECT id, name, content, updated_at FROM {quote_line_sets} WHERE id = ?', [(int) $key]) : null;
-            $row ??= $db->one('SELECT id, name, content, updated_at FROM {quote_line_sets} WHERE name = ?', [mb_substr($key, 0, self::NAME_MAX)]);
+            $row = ctype_digit($key) ? $db->one('SELECT id, name, content, currency, updated_at FROM {quote_line_sets} WHERE id = ?', [(int) $key]) : null;
+            $row ??= $db->one('SELECT id, name, content, currency, updated_at FROM {quote_line_sets} WHERE name = ?', [mb_substr($key, 0, self::NAME_MAX)]);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return null; // before migration 0128
         }
 
-        return $row === null ? null : ['id' => (int) $row['id'], 'name' => (string) $row['name'], 'lines' => self::decode($row['content']), 'updated_at' => (string) $row['updated_at']];
+        return $row === null ? null : ['id' => (int) $row['id'], 'name' => (string) $row['name'], 'lines' => self::decode($row['content']), 'currency' => (string) $row['currency'], 'updated_at' => (string) $row['updated_at']];
     }
 
     /**
@@ -94,9 +97,9 @@ final class QuoteLineSets
         $content = (string) json_encode($lines, JSON_UNESCAPED_UNICODE);
         if ($existing !== null) {
             $id = (int) $existing;
-            $db->update('quote_line_sets', ['content' => $content, 'updated_at' => $now], ['id' => $id]);
+            $db->update('quote_line_sets', ['content' => $content, 'currency' => $quote['currency'], 'updated_at' => $now], ['id' => $id]);
         } else {
-            $id = $db->insert('quote_line_sets', ['name' => $name, 'content' => $content, 'created_by' => $byUserId > 0 ? $byUserId : null, 'created_at' => $now, 'updated_at' => $now]);
+            $id = $db->insert('quote_line_sets', ['name' => $name, 'content' => $content, 'currency' => $quote['currency'], 'created_by' => $byUserId > 0 ? $byUserId : null, 'created_at' => $now, 'updated_at' => $now]);
         }
 
         return ['id' => $id, 'replaced' => $existing !== null, 'lines' => count($lines)];
@@ -104,7 +107,8 @@ final class QuoteLineSets
 
     /**
      * Inserts a set into a draft: its lines after the draft's own (whose prices stay), products and own rows priced from the
-     * quote's price list now. Returns what Quotes::save returns.
+     * quote's price list now, free lines with their price only when the quote is in the set's currency (else without a price
+     * and a warning). Returns what Quotes::save returns.
      *
      * @return array{id: int, warnings: list<string>}
      * @throws \DomainException with a translated reason; nothing is saved
@@ -115,18 +119,43 @@ final class QuoteLineSets
         $quote = Quotes::get($db, $quoteId) ?? throw new \DomainException(t('The quote does not exist.'));
         $set = self::find($db, $setId) ?? throw new \DomainException(t('The line set does not exist.'));
 
-        return Quotes::save($app, $quote['id'], ['lines' => [...array_map(self::kept(...), $quote['lines']), ...self::inputs($set)]], $byUserId, $fromClaude);
+        $saved = Quotes::save($app, $quote['id'], ['lines' => [...array_map(self::kept(...), $quote['lines']), ...self::inputs($set, $quote['currency'])]], $byUserId, $fromClaude);
+        $warning = self::currencyWarning($set, $quote['currency']);
+        if ($warning !== null) {
+            $saved['warnings'] = array_values(array_unique([...$saved['warnings'], $warning]));
+        }
+
+        return $saved;
+    }
+
+    /**
+     * The warning when a set's free lines lost their prices on the way into a quote of another currency (3.40 review M3);
+     * null when the currencies agree or the set has no priced free line.
+     *
+     * @param array{lines: list<array<string, mixed>>, currency: string, name: string} $set
+     */
+    public static function currencyWarning(array $set, string $currency): ?string
+    {
+        if ($set['currency'] === $currency) {
+            return null;
+        }
+        $priced = array_filter($set['lines'], fn (array $l): bool => (string) ($l['kind'] ?? 'free') === 'free' && ($l['unit_price'] ?? null) !== null);
+
+        return $priced === [] ? null : t('The line set “%1$s” was saved in %2$s and this quote is in %3$s – its free lines came without a price; fill them in.',
+            $set['name'], $set['currency'] !== '' ? $set['currency'] : '?', $currency);
     }
 
     /**
      * The lines of a set as Quotes::save takes them: a product by item and variant, an own row by its code (both priced by
-     * the quote's list), a free line with its own name, unit, price and VAT rate.
+     * the quote's list), a free line with its own name, unit, price and VAT rate – the price only when $currency (the quote's)
+     * is the set's currency, otherwise without a price (3.40 review M3: never 5000 CZK as 5000 EUR).
      *
-     * @param array{lines: list<array<string, mixed>>} $set
+     * @param array{lines: list<array<string, mixed>>, currency: string} $set
      * @return list<array<string, mixed>>
      */
-    public static function inputs(array $set): array
+    public static function inputs(array $set, string $currency): array
     {
+        $samePrices = $set['currency'] === $currency;
         $out = [];
         foreach ($set['lines'] as $l) {
             $common = ['quantity' => (string) ($l['quantity'] ?? '1'), 'discount_percent' => (string) ($l['discount_percent'] ?? '0'), 'description' => (string) ($l['description'] ?? '')];
@@ -135,7 +164,7 @@ final class QuoteLineSets
                     + ((string) ($l['name'] ?? '') !== '' ? ['name' => (string) $l['name']] : []),
                 'own' => ['code' => (string) ($l['code'] ?? ''), 'name' => (string) ($l['name'] ?? '')] + $common,
                 default => ['code' => (string) ($l['code'] ?? ''), 'name' => (string) ($l['name'] ?? ''), 'unit' => (string) ($l['unit'] ?? ''),
-                    'unit_price' => isset($l['unit_price']) ? (string) $l['unit_price'] : null, 'vat_rate' => (string) ($l['vat_rate'] ?? '')] + $common,
+                    'unit_price' => $samePrices && isset($l['unit_price']) ? (string) $l['unit_price'] : null, 'vat_rate' => (string) ($l['vat_rate'] ?? '')] + $common,
             };
         }
 

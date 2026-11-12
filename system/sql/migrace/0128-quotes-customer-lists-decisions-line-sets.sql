@@ -9,11 +9,13 @@ ALTER TABLE ka_quotes ADD COLUMN first_opened_at DATETIME NULL;
 -- The customer's own words when they declined on the quote page (optional; blanked with the customer block).
 ALTER TABLE ka_quotes ADD COLUMN customer_reason VARCHAR(1000) NULL;
 -- Saved line sets ("Laser with installation"): lines of a draft kept under a name and inserted into another draft; the
--- prices of products and own rows are read from the quote's price list again at insertion (only free lines keep theirs).
+-- prices of products and own rows are read from the quote's price list again at insertion (only free lines keep theirs,
+-- and only into a quote in the set's currency – 3.40 review M3).
 CREATE TABLE IF NOT EXISTS ka_quote_line_sets (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name        VARCHAR(120) NOT NULL,
     content     MEDIUMTEXT NOT NULL,
+    currency    CHAR(3) CHARACTER SET ascii NOT NULL DEFAULT '',
     created_by  INT UNSIGNED NULL,
     created_at  DATETIME NOT NULL,
     updated_at  DATETIME NOT NULL,

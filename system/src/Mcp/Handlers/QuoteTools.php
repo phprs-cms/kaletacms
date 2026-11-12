@@ -172,7 +172,7 @@ trait QuoteTools
             'admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Quotes::SECTION)]
             + ($result['total'] === 0 ? ['next' => 'No quotes here. save_quote creates a draft (with enquiry: from its basket and customer).'] : [])
             // 3.40: the saved line sets save_quote inserts with line_set
-            + (($a['line_sets'] ?? false) === true ? ['line_sets' => array_map(fn (array $set): array => ['id' => $set['id'], 'name' => $set['name'], 'lines' => $set['lines']], \Kaleta\Core\QuoteLineSets::all($db))] : []);
+            + (($a['line_sets'] ?? false) === true ? ['line_sets' => array_map(fn (array $set): array => ['id' => $set['id'], 'name' => $set['name'], 'lines' => $set['lines'], 'currency' => $set['currency']], \Kaleta\Core\QuoteLineSets::all($db))] : []);
     }
 
     /** get_quote */

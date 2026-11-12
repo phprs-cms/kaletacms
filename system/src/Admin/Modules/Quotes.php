@@ -175,7 +175,16 @@ final class Quotes extends Module
         $dealValue = $this->request->postBool('set_deal_value');
         try {
             $fields = $this->postedQuote($quote);
-            $saved = Store::save($this->app, $quote['id'], $fields, $me);
+            // 3.40: a saved line set goes after the saved lines, priced from the quote's list (and currency) as it is after the save
+            $set = $next === 'line_set' ? (QuoteLineSets::find($this->db, $this->request->postInt('line_set')) ?? throw new \DomainException(t('Choose a line set to insert.'))) : null;
+            $saved = $this->db->transaction(function () use ($quote, $fields, $me, $set): array {
+                $saved = Store::save($this->app, $quote['id'], $fields, $me);
+                if ($set !== null) { // one transaction: a set that does not fit (Quotes::MAX_LINES) leaves the draft as it was
+                    $saved['warnings'] = [...$saved['warnings'], ...QuoteLineSets::insert($this->app, $quote['id'], $set['id'], $me)['warnings']];
+                }
+
+                return $saved;
+            });
             $warnings = $saved['warnings'];
             if ($next === 'save_set') { // 3.40: the lines as a saved line set (an existing name is replaced)
                 $set = QuoteLineSets::fromQuote($this->app, $quote['id'], $this->request->post('set_name'), $me);
@@ -784,10 +793,6 @@ final class Quotes extends Module
         }
         if (trim($r->post('add_free_name')) !== '') {
             $lines[] = ['name' => $r->post('add_free_name'), 'unit_price' => $r->post('add_free_price'), 'quantity' => $r->post('add_free_quantity'), 'code' => ''];
-        }
-        if ($r->post('next') === 'line_set') { // 3.40: a saved line set after the lines – priced from this quote's list now
-            $set = QuoteLineSets::find($this->db, $r->postInt('line_set')) ?? throw new \DomainException(t('Choose a line set to insert.'));
-            $lines = [...$lines, ...QuoteLineSets::inputs($set)];
         }
         $fields['lines'] = $lines;
 

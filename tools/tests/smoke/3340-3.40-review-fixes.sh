@@ -18,3 +18,16 @@ expect "3.40 review M2: Reject and send the rejection skips a hired applicant �
   '{"sent":0,"queued":0,"no_email":0,"skipped":1}|hired:0|0'
 r340_php 'Kaleta\Core\Applications::delete($app, ['"$R340_HIRED"'], false);' > /dev/null
 sq "DELETE FROM ka_application_counts WHERE job_item_id = 9341; DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'mail_from'); INSERT INTO ka_nastaveni SELECT * FROM ka_r340_saved; DROP TABLE ka_r340_saved" > /dev/null
+
+# M3: a set saved in CZK inserted into a EUR quote – the free line comes without a price, with a warning (MCP)
+R340_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$R340_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$R340_EXT"),quotes')" > /dev/null
+sq "INSERT INTO ka_price_lists (name, currency, is_default, created_at, updated_at) VALUES ('Euro R340', 'EUR', 0, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_quote_line_sets (name, content, currency, created_at, updated_at) VALUES ('Laser R340', '[{\"kind\":\"free\",\"code\":\"\",\"name\":\"Montáž R340\",\"unit\":\"h\",\"unit_price\":\"5000.00\",\"vat_rate\":\"21\",\"quantity\":\"1\",\"discount_percent\":\"0\"}]', 'CZK', '$(site_time)', '$(site_time)')" > /dev/null
+R340_EUR=$(sq "SELECT id FROM ka_price_lists WHERE name = 'Euro R340'"); R340_EUR="${R340_EUR:-0}"
+r340_quote() { mcp_call "$API_TOKEN" save_quote "{\"title\":\"$1\",\"price_list\":\"$2\",\"line_set\":\"Laser R340\"}" | php -r '$r = json_decode(stream_get_contents(STDIN), true); $j = json_decode((string) ($r["result"]["content"][0]["text"] ?? "{}"), true); echo implode(" ", array_map(fn ($l) => $l["name"] . ":" . ($l["unit_price"] ?? "none"), $j["quote"]["lines"] ?? [])), "|", (int) str_contains(implode(" ", $j["warnings"] ?? []), "saved in CZK");'; }
+expect "3.40 review M3: into a EUR quote the set's free line comes without a price and with a warning; into a CZK quote it keeps 5000" \
+  "$(r340_quote 'R340 EUR' "$R340_EUR")/$(r340_quote 'R340 CZK' "$(sq "SELECT id FROM ka_price_lists WHERE is_default = 1")")" "Montáž R340:none|1/Montáž R340:5000.00|0"
+sq "DELETE FROM ka_quote_lines WHERE quote_id IN (SELECT id FROM ka_quotes WHERE title IN ('R340 EUR', 'R340 CZK')); DELETE FROM ka_quotes WHERE title IN ('R340 EUR', 'R340 CZK');
+  DELETE FROM ka_quote_line_sets WHERE name = 'Laser R340'; DELETE FROM ka_price_lists WHERE id = $R340_EUR; DELETE FROM ka_quote_counters" > /dev/null
+

@@ -938,6 +938,7 @@ CREATE TABLE ka_quote_line_sets (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name        VARCHAR(120) NOT NULL,
     content     MEDIUMTEXT NOT NULL,                         -- JSON list {item_id, variant_code, code, name, description, quantity, unit, unit_price, discount_percent, vat_rate}
+    currency    CHAR(3) CHARACTER SET ascii NOT NULL DEFAULT '', -- the currency of the quote the set was saved from: free lines keep their price only in it
     created_by  INT UNSIGNED NULL,
     created_at  DATETIME NOT NULL,
     updated_at  DATETIME NOT NULL,
