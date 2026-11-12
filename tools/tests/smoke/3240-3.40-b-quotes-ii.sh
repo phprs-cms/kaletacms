@@ -140,7 +140,7 @@ expect "3.40 B: finalising from the send dialog with the box ticked adds the fol
   "$(sq "SELECT status FROM ka_quotes WHERE id = $B340_Q2")|$(sq "SELECT DATE(due_at) FROM ka_tasks WHERE target = 'quote:$B340_Q2'")" "sent|$(site_date '+5 days')"
 expect "3.40 B MCP: save_task takes a quote as its target; the target kind sweeps away with the quote" \
   "$(mcp_call "$API_TOKEN" save_task "{\"title\":\"Call about 340\",\"target\":\"quote:$B340_Q2\"}" | grep -c '"id"')|$(b340_php 'echo json_encode([Kaleta\Core\Tasks::cleanTarget("quote:7"), Kaleta\Core\Inbox::parse("quote:7"), Kaleta\Core\Assignment::KINDS["quote"] ?? null]);')" \
-  '1|"quote:7",["quote",7],"quotes"]'
+  '1|["quote:7",["quote",7],"quotes"]'
 
 # switching "first opened on" off forgets the recorded times; anonymising blanks the customer's words
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=settings"
