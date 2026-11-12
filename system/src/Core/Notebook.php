@@ -19,7 +19,8 @@ use Kaleta\Admin\ChangeLog;
  * administration). A note written through a drafts-only connection is a proposal: it cannot be pinned (pinned titles
  * reach every connection in site_info), read_notebook marks it so that a later connection – also a full one – treats it as
  * a suggestion to check with the user, never as a decision; a drafts-only connection changes only proposals. A person who
- * saves or pins it in the administration makes it a note of their own.
+ * saves or pins it in the administration makes it a note of their own – a connection saving over it, even a full one,
+ * leaves it a proposal (3.39 review L4).
  */
 final class Notebook
 {
@@ -97,9 +98,12 @@ final class Notebook
             return t('The note does not exist.');
         }
         // 3.39 (N110): a drafts-only connection proposes – it changes only its own kind of note and never pins
-        $access = (string) ($app->auth()->connection()['access'] ?? '');
-        $proposal = $access === 'drafts';
-        if ($proposal && $existing !== null && !$existing['proposal']) {
+        $connection = $app->auth()->connection();
+        $access = (string) ($connection['access'] ?? '');
+        // 3.39 review L4: a proposal stays one when any Claude connection saves it – also a full one; only a person in the
+        // administration makes it a note of their own
+        $proposal = $access === 'drafts' || ($connection !== null && $existing !== null && $existing['proposal']);
+        if ($access === 'drafts' && $existing !== null && !$existing['proposal']) {
             return t('A drafts-only connection cannot change a note a person or a full connection wrote – write a new note as a proposal instead.');
         }
         $topic = array_key_exists('topic', $data) || $existing === null ? self::topic($data['topic'] ?? 'other') : $existing['topic'];
@@ -117,7 +121,7 @@ final class Notebook
         $now = date('Y-m-d H:i:s');
         $row = ['topic' => $topic, 'title' => $title, 'text' => $text, 'pinned' => $proposal ? 0 : (array_key_exists('pinned', $data) ? (int) (bool) $data['pinned'] : (int) ($existing['pinned'] ?? false)),
             'author' => self::author($app), 'updated_at' => $now,
-            'via' => mb_substr((string) ($app->auth()->connection()['name'] ?? ''), 0, 100), 'access' => in_array($access, ['full', 'drafts', 'read'], true) ? $access : '']; // the access levels of Mcp\Catalog::CONNECTION_ACCESS (Core may not call Mcp – docs/design/code-layers.md)
+            'via' => mb_substr((string) ($connection['name'] ?? ''), 0, 100), 'access' => $proposal ? 'drafts' : (in_array($access, ['full', 'drafts', 'read'], true) ? $access : '')]; // the access levels of Mcp\Catalog::CONNECTION_ACCESS (Core may not call Mcp – docs/design/code-layers.md)
         if ($existing === null) {
             $id = $db->insert('notebook', $row + ['created_at' => $now]);
         } else {
