@@ -7893,7 +7893,7 @@ return [
     'A sent quote is frozen – revise it to make a new draft.' => 'Odeslaná nabídka je uzavřená – pro novou verzi z ní udělejte revizi.',
     'Someone else saved this quote in the meantime – your version replaced theirs.' => 'Mezitím nabídku uložil někdo jiný – vaše verze nahradila jeho.',
     'The price list %s is archived – choose another one.' => 'Ceník %s je archivovaný – vyberte jiný.',
-    'One quote has one currency – change the price list together with the lines.' => 'Jedna nabídka má jednu měnu – ceník měňte spolu s řádky.',
+    'The price list of a quote with lines cannot change – remove the lines first, or start a new quote.' => 'Ceník nabídky s řádky nejde změnit – nejdřív řádky odeberte, nebo založte novou nabídku.',
     'The customer’s e-mail is not a valid address.' => 'E-mail zákazníka není platná adresa.',
     'The responsible person must be someone who may open Quotes.' => 'Odpovědná osoba musí mít přístup k Nabídkám.',
     'The VAT mode must be one of: %s.' => 'Režim DPH musí být jeden z: %s.',

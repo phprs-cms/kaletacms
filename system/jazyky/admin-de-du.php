@@ -1380,7 +1380,7 @@ return [
     'The file has more than %d rows – split it.' => 'Die Datei hat mehr als %d Zeilen – teile sie auf.',
     'A sent quote is frozen – revise it to make a new draft.' => 'Ein gesendetes Angebot ist eingefroren – überarbeite es als neuen Entwurf.',
     'The price list %s is archived – choose another one.' => 'Die Preisliste %s ist archiviert – wähle eine andere.',
-    'One quote has one currency – change the price list together with the lines.' => 'Ein Angebot hat eine Währung – ändere die Preisliste zusammen mit den Zeilen.',
+    'The price list of a quote with lines cannot change – remove the lines first, or start a new quote.' => 'Die Preisliste eines Angebots mit Zeilen lässt sich nicht ändern – entferne zuerst die Zeilen oder lege ein neues Angebot an.',
     'Add at least one line to the quote.' => 'Füge dem Angebot mindestens eine Zeile hinzu.',
     'Fill the price of every line first – %d lines have none.' => 'Fülle zuerst den Preis jeder Zeile aus – ohne Preis sind %d Zeilen.',
     'Fill in the customer – a name or a company.' => 'Fülle den Kunden aus – einen Namen oder eine Firma.',

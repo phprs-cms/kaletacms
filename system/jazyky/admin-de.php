@@ -8300,7 +8300,7 @@ return [
     'A sent quote is frozen – revise it to make a new draft.' => 'Ein gesendetes Angebot ist eingefroren – überarbeiten Sie es als neuen Entwurf.',
     'Someone else saved this quote in the meantime – your version replaced theirs.' => 'Jemand anderes hat das Angebot inzwischen gespeichert – Ihre Fassung hat seine ersetzt.',
     'The price list %s is archived – choose another one.' => 'Die Preisliste %s ist archiviert – wählen Sie eine andere.',
-    'One quote has one currency – change the price list together with the lines.' => 'Ein Angebot hat eine Währung – ändern Sie die Preisliste zusammen mit den Zeilen.',
+    'The price list of a quote with lines cannot change – remove the lines first, or start a new quote.' => 'Die Preisliste eines Angebots mit Zeilen lässt sich nicht ändern – entfernen Sie zuerst die Zeilen oder legen Sie ein neues Angebot an.',
     'The customer’s e-mail is not a valid address.' => 'Die E-Mail des Kunden ist keine gültige Adresse.',
     'The responsible person must be someone who may open Quotes.' => 'Die verantwortliche Person muss Angebote öffnen dürfen.',
     'The VAT mode must be one of: %s.' => 'Der MwSt.-Modus muss einer von diesen sein: %s.',

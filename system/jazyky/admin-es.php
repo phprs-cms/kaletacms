@@ -8320,7 +8320,7 @@ return [
     'A sent quote is frozen – revise it to make a new draft.' => 'Un presupuesto enviado queda fijado: revíselo para crear un borrador nuevo.',
     'Someone else saved this quote in the meantime – your version replaced theirs.' => 'Otra persona guardó este presupuesto mientras tanto: su versión ha sustituido a la suya.',
     'The price list %s is archived – choose another one.' => 'La lista de precios %s está archivada: elija otra.',
-    'One quote has one currency – change the price list together with the lines.' => 'Un presupuesto tiene una sola moneda: cambie la lista de precios junto con las líneas.',
+    'The price list of a quote with lines cannot change – remove the lines first, or start a new quote.' => 'La lista de precios de un presupuesto con líneas no se puede cambiar: quite primero las líneas o cree un presupuesto nuevo.',
     'The customer’s e-mail is not a valid address.' => 'El correo del cliente no es una dirección válida.',
     'The responsible person must be someone who may open Quotes.' => 'La persona responsable debe poder abrir Presupuestos.',
     'The VAT mode must be one of: %s.' => 'El modo de IVA debe ser uno de: %s.',

@@ -257,7 +257,7 @@ final class Quotes
 
     /**
      * Creates a draft or changes one (only a draft can change). Fields (all optional; on a change only the given ones):
-     * price_list_id (default list; fixes the currency – not changeable once the quote has lines), enquiry_id (a new quote:
+     * price_list_id (default list; fixes the currency – refused once the quote has stored lines, 3.38 review M1), enquiry_id (a new quote:
      * its customer, its open deal and – without lines – its basket through linesFromEnquiry), deal_id, contact_id,
      * company_id (the customer block is filled from them unless customer is given), customer {name, company, address,
      * reg_no, vat_id, email}, owner_id (someone who may open Quotes; a new quote: its creator), language, title, intro,
@@ -300,8 +300,9 @@ final class Quotes
             if ($list['archived_at'] !== null && ($quote === null || $quote['price_list_id'] !== $list['id'])) {
                 throw new \DomainException(t('The price list %s is archived – choose another one.', $list['name']));
             }
-            if ($quote !== null && $list['currency'] !== $quote['currency'] && $quote['lines'] !== [] && !$has('lines')) {
-                throw new \DomainException(t('One quote has one currency – change the price list together with the lines.'));
+            if ($quote !== null && $list['id'] !== $quote['price_list_id'] && $quote['lines'] !== []) {
+                // 3.38 review M1: lines kept by id keep the prices (and currency) of the old list – never a quote in one currency with numbers of another
+                throw new \DomainException(t('The price list of a quote with lines cannot change – remove the lines first, or start a new quote.'));
             }
             $data['price_list_id'] = $list['id'];
             $data['currency'] = $list['currency'];
