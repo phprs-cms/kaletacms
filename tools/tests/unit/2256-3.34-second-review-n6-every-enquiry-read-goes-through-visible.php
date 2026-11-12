@@ -15,7 +15,7 @@ $n6Exempt = [
         'SELECT DISTINCT p.idp FROM {poptavky} p JOIN {deals}' => 'the retention asks which enquiries a deal holds – ids only',
         'SELECT idp, formular, tema, zdroj, email, data FROM {poptavky} WHERE idp IN' => 'the neutral title of deals whose enquiries go (forgetEnquiries) – the callers chose the rows'],
     'src/Core/Inbox.php' => ['SELECT idp FROM {poptavky} WHERE idp IN' => 'which targets still exist – ids only'],
-    'src/Core/QuoteDelivery.php' => ['SELECT email FROM {poptavky} WHERE idp = ?' => 'the address of the enquiry a quote was made from – compared with the quote\'s, never shown (send_quote, A-5)'],
+    'src/Core/QuoteDelivery.php' => ['SELECT email, zdroj FROM {poptavky} WHERE idp = ?' => 'the address (and whether an import brought it) of the enquiry a quote was made from – compared with the quote\'s, never shown (send_quote, A-5)'],
     'src/Core/Comments.php' => ['SELECT idp FROM {poptavky} WHERE idp IN' => 'which targets still exist – ids only'],
     'src/Core/Privacy.php' => ['SELECT idp, data, replies FROM {poptavky} WHERE anonymizovano IS NULL' => 'anonymises the rows its callers chose'],
     'src/Core/Triage.php' => [

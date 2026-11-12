@@ -20,7 +20,8 @@ namespace Kaleta\Core;
  *    then the e-mail in the quote's language: the message, the number, the validity, the total (A-13 – it is the
  *    customer's own quote) and the link. The mail log keeps only "Quote <number>: <site>". A refused delivery stays in the
  *    mail queue (status queued); the quote is sent all the same. With the box ticked the deal takes the net total (A-10).
- *    Claude may send only when the address is the one of the quote's contact or enquiry (A-5: never an address it typed).
+ *    Claude may send only when the address is the one of the quote's contact or enquiry and no Claude connection wrote that
+ *    address there (A-5: never an address it typed – claudeRefusal, Contacts::emailByAgent).
  *  - The expiry job (Scheduler "quotes"): a sent quote past its validity expires (Quotes::setStatus by Kaleta), links past
  *    their end are withdrawn, and the responsible person gets one bell EXPIRING_DAYS before and one when it expired – the
  *    bell names the quote by its number, never an amount.
@@ -209,7 +210,9 @@ final class QuoteDelivery
 
     /**
      * Why Claude may not send this quote (A-5), or null: its e-mail must be the address of its contact or of its enquiry – an
-     * address typed into the quote is sent only by a person from the admin.
+     * address typed into the quote is sent only by a person from the admin. 3.38 review M3: and that address must not come
+     * from Claude itself – a contact whose e-mail a Claude connection set last (Contacts::emailByAgent: save_contact, a record
+     * made from an imported enquiry) or an enquiry import_enquiries brought in (zdroj "import:…") does not count.
      *
      * @param array<string, mixed> $quote as Quotes::get returns it
      */
@@ -219,16 +222,33 @@ final class QuoteDelivery
         if ($email === '') {
             return null; // sendRefusal says what is missing
         }
-        $known = [];
+        $known = $byClaude = [];
         if ($quote['contact_id'] !== null) {
-            $known[] = (string) ($db->value('SELECT email FROM {contacts} WHERE id = ?', [$quote['contact_id']]) ?? '');
+            // 3.38 review M3: an address a Claude connection wrote into the customer record (save_contact, an imported enquiry) is not the customer's own
+            $address = (string) ($db->value('SELECT email FROM {contacts} WHERE id = ?', [$quote['contact_id']]) ?? '');
+            if (Contacts::emailByAgent($db, (int) $quote['contact_id'])) {
+                $byClaude[] = $address;
+            } else {
+                $known[] = $address;
+            }
         }
         if ($quote['enquiry_id'] !== null) {
-            $known[] = (string) ($db->value('SELECT email FROM {poptavky} WHERE idp = ?', [$quote['enquiry_id']]) ?? '');
+            // an enquiry import_enquiries (MCP) brought in carries an address Claude passed, not one the customer typed into the site
+            $enquiry = $db->one('SELECT email, zdroj FROM {poptavky} WHERE idp = ?', [$quote['enquiry_id']]);
+            if ($enquiry !== null && str_starts_with((string) $enquiry['zdroj'], 'import:')) {
+                $byClaude[] = (string) $enquiry['email'];
+            } elseif ($enquiry !== null) {
+                $known[] = (string) $enquiry['email'];
+            }
         }
         foreach ($known as $address) {
             if ($address !== '' && PersonalData::cleanAddress($address) === $email) {
                 return null;
+            }
+        }
+        foreach ($byClaude as $address) {
+            if ($address !== '' && PersonalData::cleanAddress($address) === $email) {
+                return 'The quote\'s e-mail was written by a Claude connection (a customer record saved or an enquiry imported over MCP), so it is not proven to be the customer\'s own address – Claude does not send to it. A person checks the address and sends the quote from the admin (Quotes → the quote → Send).';
             }
         }
 

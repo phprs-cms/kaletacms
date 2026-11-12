@@ -914,7 +914,8 @@ $k328Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 $k328Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0114-contacts.sql');
 $k328Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|TEXT)/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
 check('[source-pin] 3.28: ka_contacts, ka_companies and ka_contact_activities alike in schema.sql and migration 0114, contact_id on enquiries, bookings and subscribers (indexed), the names map, the moments, DB version 114', [
-    $k328Columns($k328Schema, 'ka_contacts'), $k328Columns($k328Schema, 'ka_contacts') === $k328Columns($k328Migration, 'ka_contacts'),
+    // 3.38 review M3: email_by_agent_at came with migration 0124
+    array_values(array_diff($k328Columns($k328Schema, 'ka_contacts'), ['email_by_agent_at'])), array_values(array_diff($k328Columns($k328Schema, 'ka_contacts'), ['email_by_agent_at'])) === $k328Columns($k328Migration, 'ka_contacts'),
     $k328Columns($k328Schema, 'ka_companies') === $k328Columns($k328Migration, 'ka_companies') && $k328Columns($k328Schema, 'ka_companies') !== [],
     // 3.35 review L5: merged_email came with migration 0121
     array_values(array_diff($k328Columns($k328Schema, 'ka_contact_activities'), ['merged_email'])) === $k328Columns($k328Migration, 'ka_contact_activities') && $k328Columns($k328Schema, 'ka_contact_activities') !== [],
@@ -923,7 +924,7 @@ check('[source-pin] 3.28: ka_contacts, ka_companies and ka_contact_activities al
     array_map(Kaleta\Core\Names::english(...), ['contacts', 'companies', 'contact_activities']), Kaleta\Core\TimeZoneConversion::INSTANTS['contacts'] ?? null, KALETA_DB_VERSION >= 114,
     Kaleta\Core\Settings::DEFAULTS['contacts_months'] ?? null, str_contains($k328Migration, "SELECT 'contacts_months', e.hodnota FROM (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months') AS e;"),
 ], [['id', 'email', 'email_norm', 'name', 'phone', 'company_id', 'owner_id', 'language', 'source', 'summary', 'first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'],
-    true, true, true, true, 3, 3, false, ['contacts', 'companies', 'contact_activities'], ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at'], true, '24', true]);
+    true, true, true, true, 3, 3, false, ['contacts', 'companies', 'contact_activities'], ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at', 'email_by_agent_at'], true, '24', true]);
 check('3.28: comments, tasks and notifications take customers and companies (section Customers); the hand-over counts them; never journaled', [
     Kaleta\Core\Comments::parseTarget('contact:4'), Kaleta\Core\Comments::parseTarget('company:2'), Kaleta\Core\Comments::parseTarget('contact:0'), Kaleta\Core\Comments::contact(7), Kaleta\Core\Comments::company(8),
     array_map(Kaleta\Core\Tasks::cleanTarget(...), ['contact:3', 'company:9', 'contact:x', 'deal:x']), Kaleta\Core\Inbox::parse('contact:3'), Kaleta\Core\Inbox::parse('company:2'),

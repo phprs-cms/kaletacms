@@ -671,6 +671,7 @@ CREATE TABLE ka_contacts (
     created_at       DATETIME NOT NULL,
     updated_at       DATETIME NOT NULL,
     anonymised_at    DATETIME NULL,
+    email_by_agent_at DATETIME NULL,                     -- 3.38 review M3: a Claude connection last set the e-mail (send_quote refuses it); NULL = a person, a form, the site
     PRIMARY KEY (id),
     UNIQUE KEY ux_contacts_email (email_norm),
     KEY ix_contacts_owner (owner_id),

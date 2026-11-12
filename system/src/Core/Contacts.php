@@ -231,6 +231,7 @@ final class Contacts
         }
         $source = in_array($fields['source'] ?? '', self::SOURCES, true) ? (string) $fields['source'] : 'manual';
         $now = Clock::now();
+        $data['email_by_agent_at'] = ($data['email_norm'] ?? null) !== null && self::byAgent($app) ? $now : null; // 3.38 review M3
         try {
             $id = $db->insert('contacts', $data + ['source' => $source, 'first_seen_at' => $now, 'last_activity_at' => null, 'created_at' => $now, 'updated_at' => $now]);
         } catch (\PDOException $e) {
@@ -261,6 +262,10 @@ final class Contacts
         $data = self::clean($db, $fields, $contact);
         if ($data === []) {
             return;
+        }
+        if (array_key_exists('email', $data)) {
+            // 3.38 review M3: who set the address last – Claude (send_quote then refuses it) or a person (who vouches for it)
+            $data['email_by_agent_at'] = $data['email_norm'] !== null && self::byAgent($app) ? Clock::now() : null;
         }
         try {
             $db->update('contacts', $data + ['updated_at' => Clock::now()], ['id' => $id]);
@@ -508,7 +513,8 @@ final class Contacts
             try {
                 $contactId = $db->insert('contacts', ['email' => mb_substr(trim($record['email']), 0, 190), 'email_norm' => $norm, 'name' => $record['name'], 'phone' => $record['phone'],
                     'company_id' => $company['id'] ?? null, 'owner_id' => null, 'language' => $record['language'], 'source' => $record['source'], 'summary' => null,
-                    'first_seen_at' => $record['at'], 'last_activity_at' => $record['at'], 'created_at' => $now, 'updated_at' => $now]);
+                    'first_seen_at' => $record['at'], 'last_activity_at' => $record['at'], 'created_at' => $now, 'updated_at' => $now,
+                    'email_by_agent_at' => $record['source'] === 'import' ? $now : null]); // 3.38 review M3: an address import_enquiries (MCP) brought in
             } catch (\PDOException $e) {
                 // a concurrent request created it a moment ago (the unique address): attach to that one
                 $contact = self::findByEmail($db, $norm) ?? throw $e;
@@ -1432,6 +1438,29 @@ final class Contacts
                 // a table missing (bookings before 3.0)
             }
         }
+    }
+
+    /** Is this change made by a Claude connection (MCP)? Its address is then marked (email_by_agent_at, 3.38 review M3). */
+    private static function byAgent(App $app): bool
+    {
+        return $app->auth()->connection() !== null;
+    }
+
+    /**
+     * Was the contact's e-mail last set by a Claude connection (save_contact, or a record made from an enquiry that
+     * import_enquiries brought in)? Such an address is not the customer's own for send_quote (design A-5); a person who
+     * changes it in the administration clears the mark. False for an unknown contact; true before migration 0124 (fail closed).
+     */
+    public static function emailByAgent(Db $db, int $contactId): bool
+    {
+        try {
+            $at = $contactId > 0 ? $db->value('SELECT email_by_agent_at FROM {contacts} WHERE id = ?', [$contactId]) : null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return true; // before migration 0124 nothing is known – Claude does not send to it (a person can)
+        }
+
+        return is_string($at) && $at !== '';
     }
 
     /**

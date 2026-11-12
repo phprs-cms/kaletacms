@@ -40,6 +40,42 @@ expect "3.38 review M2: Send that overlaps a save freezes the document from the 
   "$(sq "SELECT CONCAT(q.status, '|', l.quantity, '|', JSON_UNQUOTE(JSON_EXTRACT(q.snapshot, '\$.totals.net')), '|', q.total_net, '|', JSON_UNQUOTE(JSON_EXTRACT(q.snapshot, '\$.lines[0].quantity'))) FROM ka_quotes q JOIN ka_quote_lines l ON l.quote_id = q.id WHERE q.id = $R338_RACE2")" \
   "sent|5.000|500.00|500.00|5.000"
 
+# M3 (A-5): Claude sends a quote only to an address it did not write itself – save_contact or an imported enquiry marks it; a person clears it
+R338_SMTP=$((PORT + 4)); mkdir -p "$WORK/smtp-r338"; command php "$ROOT/tools/fake-smtp.php" "$R338_SMTP" "$WORK/smtp-r338" > /dev/null 2>&1 & R338_SMTP_PID=$!
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$R338_SMTP'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
+R338_LINE_JSON='[{"name":"Servis 338r","quantity":1,"unit_price":"1000"}]'
+mcp save_contact '{"email":"podvrh338r@example.net","name":"Petr Podvržený"}' > "$WORK/response"; mcp_text
+R338_FAKE=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | cut -d: -f2); R338_FAKE="${R338_FAKE:-0}"
+mcp save_quote "{\"contact\":$R338_FAKE,\"lines\":$R338_LINE_JSON}" > "$WORK/response"; mcp_text
+R338_QF=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | cut -d: -f2); R338_QF="${R338_QF:-0}"
+mcp send_quote "{\"id\":$R338_QF,\"confirm\":false}" > "$WORK/response"; mcp_text; cp "$WORK/text" "$WORK/r338-preview.json"
+mcp send_quote "{\"id\":$R338_QF,\"confirm\":true}" > "$WORK/response"
+expect "3.38 review M3: a customer record Claude created over MCP is not the customer's own address – send_quote refuses it (the preview says so), nothing is sent" \
+  "$(sq "SELECT email_by_agent_at IS NOT NULL FROM ka_contacts WHERE id = $R338_FAKE")|$(grep -c 'written by a Claude connection' "$WORK/r338-preview.json")|$(grep -c 'written by a Claude connection' "$WORK/response")|$(sq "SELECT status FROM ka_quotes WHERE id = $R338_QF")|$(grep -l 'podvrh338r@example.net' "$WORK"/smtp-r338/*.eml 2>/dev/null | wc -l | tr -d ' ')" \
+  "1|1|1|draft|0"
+mcp save_quote "{\"contact\":$R338_CONTACT,\"lines\":$R338_LINE_JSON}" > "$WORK/response"; mcp_text
+R338_QP=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | cut -d: -f2); R338_QP="${R338_QP:-0}"
+mcp save_contact "{\"id\":$R338_CONTACT,\"email\":\"prevzato338r@example.net\"}" > "$WORK/response"
+mcp save_quote "{\"id\":$R338_QP,\"customer\":{\"email\":\"prevzato338r@example.net\"}}" > "$WORK/response"
+mcp send_quote "{\"id\":$R338_QP,\"confirm\":true}" > "$WORK/response"
+expect "3.38 review M3: an address Claude changed in a person's customer record is refused the same way" \
+  "$(sq "SELECT CONCAT(email, '|', email_by_agent_at IS NOT NULL) FROM ka_contacts WHERE id = $R338_CONTACT")|$(grep -c 'written by a Claude connection' "$WORK/response")|$(sq "SELECT status FROM ka_quotes WHERE id = $R338_QP")" \
+  "prevzato338r@example.net|1|1|draft"
+r338_php 'Kaleta\Core\Contacts::update($app, (int) $a[0], ["email" => "osoba338r@example.cz"], (int) $a[1]); Kaleta\Core\Quotes::save($app, (int) $a[2], ["customer" => ["email" => "osoba338r@example.cz"]], (int) $a[1]);' "$R338_CONTACT" "$R338_ADMIN" "$R338_QP" > /dev/null 2>&1 || true
+mcp send_quote "{\"id\":$R338_QP,\"confirm\":true}" > "$WORK/response"; mcp_text
+expect "3.38 review M3: once a person sets the address in the administration, the mark is gone and send_quote sends to it" \
+  "$(sq "SELECT email_by_agent_at IS NULL FROM ka_contacts WHERE id = $R338_CONTACT")|$(grep -c '"sent":true' "$WORK/text")|$(sq "SELECT status FROM ka_quotes WHERE id = $R338_QP")|$(grep -l '^X-Rcpt-To: osoba338r@example.cz' "$WORK"/smtp-r338/*.eml 2>/dev/null | wc -l | tr -d ' ')" \
+  "1|1|sent|1"
+sq "INSERT INTO ka_poptavky (datum, formular, zdroj, tema, email, stav, data) VALUES ('$R338_NOW', 'Import 338r', 'import:stary-web', 'Stará poptávka', 'import338r@example.net', 0, '[]')" > /dev/null
+R338_IMP=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'Import 338r'"); R338_IMP="${R338_IMP:-0}"
+R338_QI=$(r338_php 'echo Kaleta\Core\Quotes::save($app, null, ["enquiry_id" => (int) $a[0], "customer" => ["name" => "Ivan Importovaný", "email" => "import338r@example.net"], "lines" => [["name" => "Servis 338r", "quantity" => "1", "unit_price" => "1000"]]], (int) $a[1])["id"];' "$R338_IMP" "$R338_ADMIN")
+mcp send_quote "{\"id\":${R338_QI:-0},\"confirm\":true}" > "$WORK/response"
+expect "3.38 review M3: the address of an enquiry import_enquiries brought in is refused too; a person can still send from the admin" \
+  "$(grep -c 'written by a Claude connection' "$WORK/response")|$(sq "SELECT status FROM ka_quotes WHERE id = ${R338_QI:-0}")|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=quotes&action=send&id=${R338_QI:-0}")" \
+  "1|draft|200"
+kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || true
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_poptavky WHERE idp = $R338_IMP; DELETE FROM ka_contacts WHERE id = $R338_FAKE" > /dev/null
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');
