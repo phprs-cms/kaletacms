@@ -15,11 +15,12 @@ expect "3.39 N106: a local backup holds the password only sealed" \
 rm -f "$WORK/web/storage/zalohy/$N106_BACKUP"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'smtp_password'" > /dev/null
 # a value written in plain text by older code: System status warns, the daily security task seals it, the site still reads it
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('backup_password', 'legacy-plain-106')" > /dev/null
+N106_LEGACY="legacy-$(tok)" # made at run time: no key-shaped literal in the repository (gitleaks)
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('backup_password', '$N106_LEGACY')" > /dev/null
 check "3.39 N106: System status names a secret still in plain text" 200 "/admin.php?module=status" 'denní bezpečnostní úloha je zašifruje klíčem z config.php'
 N106_JOB=$(run_job security)
 expect "3.39 N106: the daily security task seals it and the site reads the same value" \
-  "$(printf '%s' "$N106_JOB" | grep -q 'secrets encrypted ' && echo job || echo "$N106_JOB")|$(n106_raw backup_password | cut -c1-14)|$(setting_plain backup_password)" "job|kaleta-sealed:|legacy-plain-106"
+  "$(printf '%s' "$N106_JOB" | grep -q 'secrets encrypted ' && echo job || echo "$N106_JOB")|$(n106_raw backup_password | cut -c1-14)|$(setting_plain backup_password)" "job|kaleta-sealed:|$N106_LEGACY"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.39 N106: … then System status no longer names a secret in plain text" "$(grep -c 'denní bezpečnostní úloha je zašifruje' "$WORK/response")" "0"
 # a TOTP seed: sealed by the same task, and the code from the app still signs in
