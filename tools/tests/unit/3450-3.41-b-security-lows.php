@@ -33,3 +33,11 @@ check('3.41 N119: redirectTarget resolves an absolute, a protocol-relative, a ro
     Kaleta\Core\Updater::redirectTarget('https://a.example/x/aktualizace.json', 'http://10.0.0.5/'), Kaleta\Core\Updater::redirectTarget('https://a.example/x/y.json', '//b.example/z.zip'),
     Kaleta\Core\Updater::redirectTarget('https://a.example:8443/x/y.json', '/pkg/k.zip'), Kaleta\Core\Updater::redirectTarget('https://a.example/x/y.json', 'k-3.41.zip'),
 ], ['http://10.0.0.5/', 'https://b.example/z.zip', 'https://a.example:8443/pkg/k.zip', 'https://a.example/x/k-3.41.zip']);
+
+// N120 (the export's random name: the smoke sections that export look for it): the server check reports a served canary or schema.sql, never a soft 404
+$s341Answers = ['https://w.example/storage/cache/kaleta-canary.txt' => [200, 'kaleta-canary'], 'https://w.example/system/sql/schema.sql' => [200, '<html>Not found</html>']];
+$s341Rules = Kaleta\Core\ServerRules::check('https://w.example/', fn (string $url): array => $s341Answers[$url] ?? [404, '']);
+$s341Closed = Kaleta\Core\ServerRules::check('https://w.example/', fn (string $url): array => [403, 'Forbidden']);
+$s341Down = Kaleta\Core\ServerRules::check('https://w.example/', fn (string $url): array => [0, '']);
+check('3.41 N120: ServerRules::check – a served canary is open, a 200 soft 404 is not; 403 everywhere is closed; no answer is an error, not "closed"', [
+    $s341Rules['open'], $s341Rules['error'], $s341Closed['open'], $s341Closed['error'], $s341Down['open'], $s341Down['error'] !== ''], [['storage/cache/kaleta-canary.txt'], '', [], '', [], true]);

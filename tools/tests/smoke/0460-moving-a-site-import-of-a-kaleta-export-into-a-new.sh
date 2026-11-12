@@ -24,7 +24,7 @@ expect "3.14: export format 3 has the English header, table and column names, th
 sq "DELETE FROM ka_stitky WHERE seo_link = 'move-314'" > /dev/null
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('company_map', 'social_facebook', 'social_linkedin'); INSERT INTO ka_nastaveni SELECT * FROM ka_n55_backup; DROP TABLE ka_n55_backup;
   DELETE FROM ka_facts WHERE fact_key IN ('n55promo', 'n55note')" > /dev/null
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*\.zip' "$WORK/response" | head -1)
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"; MOVE_EXPORT=$(grep -o 'export-[0-9]*-[0-9]*-[0-9a-f]*\.zip' "$WORK/response" | head -1)
 curl -s -b "$JAR" -o "$WORK/presun.zip" "$B/admin.php?module=transfer&action=download&file=$MOVE_EXPORT"
 sq "DELETE FROM ka_booking_services WHERE name = 'Move test'" > /dev/null
 MEDIA_IN_ZIP=$(unzip -Z1 "$WORK/presun.zip" | grep -c '^media/.')

@@ -1,6 +1,6 @@
 echo "== 3.41 b: the remaining low findings of the deep security audit (N113–N123)"
 s341_csrf() { grep -o 'name="_csrf" value="[a-f0-9]*"' "$1" | head -1 | sed 's/.*value="//;s/"//' || true; }
-s341_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
+s341_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1" -- "${@:2}"); }
 
 # N117: a failed sign-in logs the name of an existing account only – never what was typed into the name field
 S341_JAR="$WORK/jar-s341"; curl -s -c "$S341_JAR" -o "$WORK/response" "$B/admin.php"; S341_TOKEN=$(s341_csrf "$WORK/response")
@@ -41,3 +41,14 @@ expect "3.41 N119: a redirect into the server's network is refused; a redirect t
   "The update source leads to an address that is not allowed (10.0.0.5).|The update information file is not in a valid format."
 kill "$S341_UPD_PID" 2>/dev/null; S341_UPD_PID=
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', '$S341_OLD_UPDATE_URL'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
+
+# N120: the daily cron job asks the running site for the canary and schema.sql – the test server refuses both; System status says so
+# (the job asks the site_url; this test copy has none, so the check is pointed at the test server itself)
+expect "3.41 N120: the server check finds storage/ and system/ closed on the test server and wrote the canary" \
+  "$(s341_php '$c = Kaleta\Core\ServerRules::run($app->settings(), $argv[1] . "/"); echo $c["error"] !== "" ? $c["error"] : ($c["open"] === [] ? "closed" : implode(",", $c["open"]));' "$B")|$([ -f "$WORK/web/storage/cache/kaleta-canary.txt" ] && echo canary)" "closed|canary"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.41 N120: System status shows the folders storage/ and system/ as refused" "$(grep -c 'webový server je návštěvníkům odmítá' "$WORK/response")" "1"
+sq "UPDATE ka_nastaveni SET hodnota = '{\"at\":$(date +%s),\"open\":[\"storage/cache/kaleta-canary.txt\"],\"error\":\"\"}' WHERE promenna = 'server_rules'" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.41 N120: a served canary is an error on System status naming the address" "$(grep -c 'Webový server vydává návštěvníkům soubory ze storage/ nebo system/ (/storage/cache/kaleta-canary.txt)' "$WORK/response")" "1"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'server_rules'" > /dev/null

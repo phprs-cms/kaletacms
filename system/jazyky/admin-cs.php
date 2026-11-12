@@ -8289,4 +8289,8 @@ return [
     'Allow access only if you started connecting this application yourself just now (it registered with this website on %s). If a link or someone else brought you here, choose Deny.' => 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami (k tomuto webu se zaregistrovala %s). Pokud vás sem přivedl odkaz nebo někdo jiný, zvolte Nepovolit.',
     'Allow access only if you started connecting this application yourself just now. If a link or someone else brought you here, choose Deny.' => 'Přístup povolte, jen pokud jste připojení této aplikace právě teď spustili sami. Pokud vás sem přivedl odkaz nebo někdo jiný, zvolte Nepovolit.',
     'The update source leads to an address that is not allowed (%s).' => 'Zdroj aktualizací vede na adresu, která není povolená (%s).',
+    'Whether the server keeps storage/ and system/ from visitors' => 'Zda server nevydává návštěvníkům storage/ a system/',
+    'Folders storage/ and system/' => 'Složky storage/ a system/',
+    'The web server hands files from storage/ or system/ to visitors (%s) – the error log, exports and backups lie there. Add the rules of system/nginx.example.conf to the server\'s configuration (nginx, Caddy), or ask the hosting to refuse these folders; the next daily check confirms it.' => 'Webový server vydává návštěvníkům soubory ze storage/ nebo system/ (%s) – leží tam záznam chyb, exporty a zálohy. Doplňte do konfigurace serveru (nginx, Caddy) pravidla ze system/nginx.example.conf, nebo požádejte hosting, aby tyto složky odmítal; další denní kontrola to potvrdí.',
+    'the web server refuses them to visitors (checked %s)' => 'webový server je návštěvníkům odmítá (zkontrolováno %s)',
 ];

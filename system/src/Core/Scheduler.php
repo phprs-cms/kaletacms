@@ -65,6 +65,7 @@ final class Scheduler
         'fleet_expiry' => [3600, 'any', 'Fleet console: reminders of certificates and domains that end soon'], // 3.30 (Fleet\Calendar)
         'monthly_report' => [3600, 'any', 'Monthly report by e-mail'],
         'cookie_scan' => [86400, 'cron', 'What cookies the site sets'],
+        'server_rules' => [86400, 'cron', 'Whether the server keeps storage/ and system/ from visitors'], // 3.41 (N120, Core\ServerRules)
         'whistleblowing' => [86400, 'any', 'Whistleblowing: due deadlines and the retention of closed cases'],
         'agent_runs' => [3600, 'any', 'Scheduled Claude runs: noticing runs nobody picked up'],
         'booking_reminders' => [3600, 'any', 'Online booking: reminders before the appointment'],
@@ -193,6 +194,11 @@ final class Scheduler
                 $scan = Privacy::scan($app);
 
                 return $scan['error'] !== '' ? $scan['error'] : 'pages ' . $scan['pages'] . ', cookies ' . count($scan['cookies']);
+            },
+            'server_rules' => function (App $app): string {
+                $check = ServerRules::run($app->settings(), $app->request->origin() . $app->url(''));
+
+                return $check['error'] !== '' ? $check['error'] : ($check['open'] === [] ? 'closed' : 'served to visitors: ' . implode(', ', $check['open']));
             },
             'whistleblowing' => fn (App $app): string => Whistleblowing::run($app),
             'agent_runs' => fn (App $app): string => 'missed ' . AgentSchedules::markMissed($app),

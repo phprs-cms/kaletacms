@@ -278,6 +278,7 @@ final class Settings
         'appearance_saved' => '',        // the administrator has already saved the site appearance (first steps do not count the appearance from the starter site)
         'claude_first_used' => '',       // when a Claude connection first called the site (3.5, Mcp\Server) – until then the dashboard leads with "Connect Claude"
         'smtp_last_ok' => '',            // when the SMTP server last accepted a message and which one ("Y-m-d H:i:s|host", Core\Mail, 3.23) – Site audit's hand-over checklist
+        'server_rules' => '',            // the last check whether the web server refuses storage/ and system/ (JSON, Core\ServerRules, 3.41 N120) – System status
         'stats_confirmed_since' => '', // 3.29 (Front\Stats::hit): the day the counting of page views confirmed by a visitor's browser started; '' = no beacon yet – internal
         'inbox_digest_day' => '',      // the day the daily summary of notifications last went out (3.26, Core\Inbox::run) – internal
         'starter_pages' => '',         // 3.33 (M2, Core\StarterPages): the installer's record of its starter pages as JSON {ids: fingerprint}; '' = a site from before 3.33 – internal

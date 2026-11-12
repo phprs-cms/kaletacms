@@ -54,7 +54,9 @@ final class SiteExport
             throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
         }
         @set_time_limit(300);
-        $base = Backup::FOLDER . '/export-' . date('Ymd-His');
+        // 3.41 (N120): a random part, like the backups have – on a server that does not refuse storage/ (nginx or Caddy
+        // without the example rules) a name made of the date and time alone could be guessed
+        $base = Backup::FOLDER . '/export-' . date('Ymd-His') . '-' . bin2hex(random_bytes(6));
         $json = $base . '.json';
         self::writeContent($db, $json, $format);
         if (!class_exists(\ZipArchive::class)) {
@@ -111,7 +113,7 @@ final class SiteExport
     /** Path to an existing export by the name from the URL; null = invalid name. */
     public static function path(string $file): ?string
     {
-        return preg_match('/^export-\d{8}-\d{6}\.(zip|json)$/D', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
+        return preg_match('/^export-\d{8}-\d{6}(-[a-f0-9]{12})?\.(zip|json)$/D', $file) && is_file(Backup::FOLDER . '/' . $file) ? Backup::FOLDER . '/' . $file : null;
     }
 
     /* ---------- obsah.json ---------- */
