@@ -152,6 +152,24 @@ expect "3.38 review L6: an old anonymised quote stays while the site anonymises 
     echo (int) $db->value("SELECT COUNT(*) FROM {quotes} WHERE id = ?", [(int) $a[0]]) + (int) $db->value("SELECT COUNT(*) FROM {quote_lines} WHERE quote_id = ?", [(int) $a[0]]);' "$R338_QA" 2>&1)" "1|0"
 sq "DELETE FROM ka_nastaveni WHERE promenna IN ('quotes_months', 'enquiries_expiry')" > /dev/null
 
+# L8: a firm that is no VAT payer – the stored gross, the list and the document all say net, whatever vat_mode a caller asks for
+R338_QV=$(r338_php 'echo Kaleta\Core\Quotes::save($app, null, ["customer" => ["name" => "Plátce 338r"], "vat_mode" => "standard", "lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100", "vat_rate" => "21"]]], 0)["id"];' 2>&1)
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_payer', '0')" > /dev/null
+mcp save_quote "{\"contact\":$R338_CONTACT,\"vat_mode\":\"standard\",\"lines\":[{\"name\":\"Kus 338r\",\"quantity\":1,\"unit_price\":\"100\",\"vat_rate\":\"21\"}]}" > "$WORK/response"; mcp_text
+R338_QN=$(grep -o '"id":[0-9]*' "$WORK/text" | head -1 | cut -d: -f2); R338_QN="${R338_QN:-0}"
+expect "3.38 review L8: without VAT payment save_quote with vat_mode standard stores a quote without VAT (gross = net) and says so" \
+  "$(grep -c 'not a VAT payer' "$WORK/text")|$(sq "SELECT CONCAT_WS('|', vat_mode, total_net, total_vat, total_gross) FROM ka_quotes WHERE id = $R338_QN")" "1|none|100.00|0.00|100.00"
+expect "3.38 review L8: a draft saved while the firm paid VAT is frozen without VAT when finalised – the document, the stored totals and the list agree" \
+  "$(sq "SELECT CONCAT_WS('|', vat_mode, total_gross) FROM ka_quotes WHERE id = ${R338_QV:-0}")|$(r338_php '$q = Kaleta\Core\Quotes::finalise($app, (int) $a[0], 0); echo implode("|", [$q["vat_mode"], $q["snapshot"]["totals"]["gross"], $db->value("SELECT total_gross FROM {quotes} WHERE id = ?", [$q["id"]])]);' "${R338_QV:-0}" 2>&1)" \
+  "standard|121.00|none|100.00|100.00"
+sq "UPDATE ka_quotes SET vat_mode = 'standard', total_vat = '21.00', total_gross = '121.00' WHERE id = $R338_QN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_payer', '1')" > /dev/null
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=settings"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&action=settings_save" -d "_csrf=$(csrf)" -d quote_number_format='{YYYY}-{NNNN}' -d quote_valid_days=30 -d quote_vat_rate=21 -d quote_vat_rates=21 -d quote_max_discount=20 -d quote_link_days=30 -d quotes_months=36
+expect "3.38 review L8: switching VAT payment off in Quotes → Settings takes the drafts along (gross = net)" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quote_vat_payer'")|$(sq "SELECT CONCAT_WS('|', vat_mode, total_gross) FROM ka_quotes WHERE id = $R338_QN")" "0|none|100.00"
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('quote_vat_payer', 'quote_number_format', 'quote_valid_days', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value', 'quote_next_number');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21')" > /dev/null
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');

@@ -364,6 +364,13 @@ final class Quotes
             }
             $data['vat_mode'] = $mode;
         }
+        if (!$s->bool('quote_vat_payer') && ($data['vat_mode'] ?? $quote['vat_mode'] ?? 'none') !== 'none') {
+            // 3.38 review L8: a firm that is no VAT payer has quotes without VAT – the stored totals, the list and the document agree (gross = net)
+            if ($has('vat_mode')) {
+                $warnings[] = t('The firm is not a VAT payer (Quotes → Settings) – the quote is without VAT.');
+            }
+            $data['vat_mode'] = 'none';
+        }
 
         // the lines
         $lines = null;
@@ -477,6 +484,10 @@ final class Quotes
             }
             // 3.38 review M2: the frozen document (and the totals the deal value takes) is built from the quote as it is under the lock
             $quote = self::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
+            if (!$app->settings()->bool('quote_vat_payer') && $quote['vat_mode'] !== 'none') {
+                self::withoutVat($db, [$id]); // 3.38 review L8: a draft saved while the firm was a VAT payer
+                $quote = self::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
+            }
             $refusal = self::sendRefusal($quote, $action === 'sent');
             if ($refusal !== null) {
                 throw new \DomainException($refusal);
@@ -501,6 +512,23 @@ final class Quotes
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, $action === 'sent' ? 'send' : 'finalise', ($action === 'sent' ? t('Quote %s sent', $number) : t('Quote %s finalised', $number)));
 
         return self::get($db, $id); // PHPStan remembers the get() above as not null; the row is never deleted in between
+    }
+
+    /**
+     * Drafts without VAT (3.38 review L8): the firm stopped being a VAT payer (Quotes → Settings), so the drafts that still
+     * count VAT get vat_mode none and gross = net, as the document shows them. Null = every such draft. Returns how many.
+     *
+     * @param list<int>|null $ids
+     */
+    public static function withoutVat(Db $db, ?array $ids = null): int
+    {
+        $ids = $ids === null ? null : array_values(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0));
+        if ($ids === []) {
+            return 0;
+        }
+
+        return $db->run("UPDATE {quotes} SET vat_mode = 'none', total_vat = '0.00', total_gross = total_net WHERE status = 'draft' AND vat_mode <> 'none'"
+            . ($ids !== null ? ' AND id IN (' . implode(',', $ids) . ')' : ''))->rowCount();
     }
 
     /** Finalise without sending (a quote handed over on paper): the number and the frozen snapshot, status sent. @return array<string, mixed> */

@@ -8186,4 +8186,5 @@ return [
     'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'Odkaz je uložený jen jako otisk, proto ho nejde zobrazit znovu. Nový odkaz vytvoří jiný, který si zkopírujete – odkaz, který má zákazník, přestane fungovat.',
     'The deal’s value was not changed: only a user who may open the Pipeline changes a deal.' => 'Hodnota obchodu se nezměnila: obchod mění jen uživatel, který smí otevřít Obchody.',
     'Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.' => 'Řádek %1$d: jeho sleva spolu se slevou nabídky je nad %2$s %% – požádejte člověka, ať ji nastaví v administraci.',
+    'The firm is not a VAT payer (Quotes → Settings) – the quote is without VAT.' => 'Firma není plátce DPH (Nabídky → Nastavení) – nabídka je bez DPH.',
 ];

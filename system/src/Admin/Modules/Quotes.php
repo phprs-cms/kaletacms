@@ -580,6 +580,9 @@ final class Quotes extends Module
         $s->set('quote_number_format', $format !== '' ? $format : Store::NUMBER_FORMAT);
         $s->set('quote_vat_rates', implode(',', array_unique($rates)));
         $s->set('quote_vat_payer', $this->request->postBool('quote_vat_payer') ? '1' : '0');
+        if (!$this->request->postBool('quote_vat_payer')) {
+            Store::withoutVat($this->db); // 3.38 review L8: the drafts follow – gross = net, as their document shows
+        }
         $s->set('quote_set_deal_value', $this->request->postBool('quote_set_deal_value') ? '1' : '0');
         $s->set('quote_valid_days', (string) max(1, min(365, $this->request->postInt('quote_valid_days', 30))));
         $s->set('quote_link_days', (string) max(1, min(365, $this->request->postInt('quote_link_days', 30))));

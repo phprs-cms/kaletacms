@@ -8593,4 +8593,5 @@ return [
     'The link is stored only as a fingerprint, so it cannot be shown again. New link makes one for you to copy – the link the customer has stops working.' => 'Der Link ist nur als Fingerabdruck gespeichert und lässt sich daher nicht erneut anzeigen. „Neuer Link“ erstellt einen zum Kopieren – der Link, den der Kunde hat, funktioniert dann nicht mehr.',
     'The deal’s value was not changed: only a user who may open the Pipeline changes a deal.' => 'Der Wert des Geschäfts wurde nicht geändert: Ein Geschäft ändert nur, wer die Vertriebspipeline öffnen darf.',
     'Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.' => 'Zeile %1$d: Ihr Rabatt und der Rabatt des Angebots liegen zusammen über %2$s %% – bitten Sie eine Person, ihn in der Administration einzustellen.',
+    'The firm is not a VAT payer (Quotes → Settings) – the quote is without VAT.' => 'Die Firma ist nicht umsatzsteuerpflichtig (Angebote → Einstellungen) – das Angebot ist ohne MwSt.',
 ];
