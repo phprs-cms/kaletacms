@@ -36,8 +36,10 @@ trait QuoteSending
             return $this->error('The quote does not exist.', 404);
         }
         if (!$this->request->isPost()) {
+            $user = $this->app->auth()->user() ?? [];
+
             return $this->view('send', 'Send the quote', ['quote' => $quote, 'draft' => QuoteDelivery::draft($this->app, $quote), 'link' => QuoteDelivery::linkUrl($this->app, $quote),
-                'signature' => \Kaleta\Core\EnquiryReply::signature($this->app, $this->app->auth()->user() ?? []) !== null, 'replyTo' => (string) ($this->app->auth()->user()['email'] ?? '')]);
+                'signature' => \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null, 'replyTo' => (string) ($user['email'] ?? '')]);
         }
         try {
             if ($this->request->post('mode') === 'finalise') {
