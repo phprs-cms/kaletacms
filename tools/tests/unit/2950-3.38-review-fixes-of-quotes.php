@@ -21,3 +21,8 @@ check('3.38 review L2: every path under /quote/ is private – mangled, with a l
 check('3.38 review L4: the combined discount of a line – 20 % + 20 % is 36 %, 10 % + 10 % is 19 %, none is none, rounded up, bounded', array_map(
     fn (array $p): int => Kaleta\Core\Quotes::combinedDiscount($p[0], $p[1]), [[2000, 2000], [1000, 1000], [0, 0], [0, 2000], [1500, 1000], [3333, 1], [10000, 5000], [-5, 20000]]),
     [3600, 1900, 0, 2000, 2350, 3334, 10000, 10000]);
+
+// L6: when the site deletes old records, an anonymised quote goes too (it is anonymised only once when the site anonymises)
+check('3.38 review L6: the retention in delete mode takes anonymised quotes as well; in anonymise mode never twice', [
+    QuoteDelivery::due($c338Quotes, 36, '2026-11-12 10:00:00', true), QuoteDelivery::due($c338Quotes, 36, '2026-11-12 10:00:00')],
+    [['draft-old', 'sent-old', 'done'], ['draft-old', 'sent-old']]);

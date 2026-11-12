@@ -144,6 +144,14 @@ expect "3.38 review L5: an anonymised quote has no title, intro, terms, contact,
   "1|1|1|1|1|1|1|1|1|100.00|1"
 sq "DELETE FROM ka_deal_stage_history WHERE deal_id = $R338_DA; DELETE FROM ka_deals WHERE id = $R338_DA" > /dev/null
 
+# L6: the retention in delete mode also deletes anonymised quotes (they were never deleted before)
+expect "3.38 review L6: an old anonymised quote stays while the site anonymises and is deleted with its lines once the site deletes" \
+  "$(r338_php '$db->run("UPDATE {quotes} SET updated_at = ? WHERE id = ?", [Kaleta\Core\Clock::monthsAgo(37), (int) $a[0]]);
+    $app->settings()->set("quotes_months", "36"); $app->settings()->set("enquiries_expiry", "anonymise"); Kaleta\Core\QuoteDelivery::purge($app); echo (int) $db->value("SELECT COUNT(*) FROM {quotes} WHERE id = ?", [(int) $a[0]]), "|";
+    $app->settings()->set("enquiries_expiry", "delete"); Kaleta\Core\QuoteDelivery::purge($app);
+    echo (int) $db->value("SELECT COUNT(*) FROM {quotes} WHERE id = ?", [(int) $a[0]]) + (int) $db->value("SELECT COUNT(*) FROM {quote_lines} WHERE quote_id = ?", [(int) $a[0]]);' "$R338_QA" 2>&1)" "1|0"
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('quotes_months', 'enquiries_expiry')" > /dev/null
+
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');

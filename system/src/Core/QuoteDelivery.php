@@ -525,9 +525,11 @@ final class QuoteDelivery
         $done['drafts'] = self::delete($db, $drafts);
         $months = max(0, $s->int('quotes_months'));
         if ($months > 0) {
-            $old = array_map('intval', array_column($db->all("SELECT id FROM {quotes} WHERE status <> 'draft' AND anonymised_at IS NULL AND updated_at < ? ORDER BY id LIMIT " . self::BATCH,
+            // 3.38 review L6: deleting takes the anonymised ones too (erased by a request, or kept while the site anonymised)
+            $anonymise = $s->get('enquiries_expiry') === 'anonymise';
+            $old = array_map('intval', array_column($db->all("SELECT id FROM {quotes} WHERE status <> 'draft'" . ($anonymise ? ' AND anonymised_at IS NULL' : '') . ' AND updated_at < ? ORDER BY id LIMIT ' . self::BATCH,
                 [Clock::monthsAgo($months)]), 'id'));
-            if ($s->get('enquiries_expiry') === 'anonymise') {
+            if ($anonymise) {
                 $done['anonymised'] = self::anonymise($db, $old);
             } else {
                 $done['deleted'] = self::delete($db, $old);
@@ -539,12 +541,13 @@ final class QuoteDelivery
 
     /**
      * Which of the given quotes the retention would take now (pure selection, for the unit test): drafts older than
-     * DRAFT_MONTHS, others older than $months after their last status change (0 = never), anonymised ones never again.
+     * DRAFT_MONTHS, others older than $months after their last status change (0 = never); anonymised ones are not
+     * anonymised again, but go when the site deletes ($delete, 3.38 review L6).
      *
      * @param list<array{status: string, updated_at: string, anonymised_at: ?string}> $quotes
      * @return list<int> the keys of the quotes that go
      */
-    public static function due(array $quotes, int $months, string $now): array
+    public static function due(array $quotes, int $months, string $now, bool $delete = false): array
     {
         $at = function (int $m) use ($now): string {
             // as Clock::monthsAgo counts: a day the shorter month does not have becomes its last day
@@ -555,7 +558,7 @@ final class QuoteDelivery
         };
         $out = [];
         foreach ($quotes as $key => $q) {
-            if ($q['status'] === 'draft' ? $q['updated_at'] < $at(self::DRAFT_MONTHS) : ($months > 0 && $q['anonymised_at'] === null && $q['updated_at'] < $at($months))) {
+            if ($q['status'] === 'draft' ? $q['updated_at'] < $at(self::DRAFT_MONTHS) : ($months > 0 && ($delete || $q['anonymised_at'] === null) && $q['updated_at'] < $at($months))) {
                 $out[] = $key;
             }
         }
