@@ -348,6 +348,9 @@ final class Server
         if (!isset($inner['reason']) && is_string($arguments['reason'] ?? null)) {
             $inner['reason'] = $arguments['reason']; // the reason may come with run_tool itself
         }
+        if (!isset($inner[Confirmation::PARAMETER]) && is_string($arguments[Confirmation::PARAMETER] ?? null)) {
+            $inner[Confirmation::PARAMETER] = $arguments[Confirmation::PARAMETER]; // and so may the confirmation code (3.39 review L2)
+        }
         if (Catalog::english($name) === null) {
             return $error('Unknown tool: ' . mb_substr($name, 0, 100) . '. Call find_tools for the tools of this site.');
         }
