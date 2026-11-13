@@ -339,7 +339,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
 - **Souhrn týmu (3.41, `Core\TeamSummary`):** Moje práce → Souhrn a MCP `team_summary` (sada Work) – jen počty za období pro sekce,
-  které člověk smí otevřít; po lidech jen správce, ostatní vlastní řádek a součty; měsíční report jen součty týmu bez jmen. Karta
+  které člověk smí otevřít; po lidech jen správce, ostatní vlastní řádek a součty (součty pro nesprávce i v měsíčním reportu až od `TeamSummary::MIN_PEOPLE` = 3 lidí s počítanou prací); měsíční report jen součty týmu bez jmen. Karta
   obchodu: dní v etapě (`Deals::stageSince`) a další krok (`Tasks::nextFor`).
 - **Bezpečnost 3.41:** odkazy na obnovu hesla a pozvánky končí změnou e-mailu nebo hesla a přihlášením (`PasswordReset::cancel`); pošta
   s odkazem předává `expires`. Každá změna druhého faktoru volá `Auth::newEpoch` (migrace 0130). Kořenový .htaccess drží pravidla Kalety
