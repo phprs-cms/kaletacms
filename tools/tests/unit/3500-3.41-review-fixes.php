@@ -50,3 +50,14 @@ check('3.41 review L4: Updater::refusal names the port, the unresolved name or t
     'The name of the update source does not resolve (nowhere.example).',
     'The update source 10.0.0.5 leads to an address in a private or internal network. A custom update source must be an https address on a public server.',
 ]);
+
+// L6 (N115): every new list is the 3.35 format – 64-bit codes, HMAC-SHA256 under the list's own salt, never a plain sha256;
+// only a list made before 3.35 still compares plain sha256, until it is replaced
+[$r341Codes, $r341Stored] = Kaleta\Core\Totp::backupCodes();
+$r341List = json_decode($r341Stored, true);
+check('3.41 review L6: a new backup-code list is v2 with a salt and no plain sha256 of any code; a legacy list still verifies', [
+    $r341List['v'] ?? null, strlen((string) ($r341List['salt'] ?? '')), count($r341Codes), preg_match('/^[0-9a-f]{4}(-[0-9a-f]{4}){3}$/', $r341Codes[0]),
+    array_intersect(array_map(fn (string $c): string => hash('sha256', $c), $r341Codes), (array) ($r341List['codes'] ?? [])),
+    array_intersect(array_map(fn (string $c): string => hash('sha256', Kaleta\Core\BackupCodes::normalise($c)), $r341Codes), (array) ($r341List['codes'] ?? [])),
+    Kaleta\Core\BackupCodes::consume((string) json_encode([hash('sha256', 'abcde12345')]), 'ABCDE12345 '),
+], [2, 32, 8, 1, [], [], '[]']);
