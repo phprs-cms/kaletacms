@@ -21,3 +21,14 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.41 review L1: System status says the check couldn't run because the address redirects, not that the folders are refused" \
   "$(grep -c 'Nepodařilo se ověřit, zda je webový server návštěvníkům odmítá – adresa webu přesměrovává (na https://elsewhere.example/)' "$WORK/response")|$(grep -c 'webový server je návštěvníkům odmítá (zkontrolováno' "$WORK/response")" "1|0"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'server_rules'" > /dev/null
+
+# L2: new backup codes in My account (the passkey account of 2400) end the account's other sign-ins and keep this one
+sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE idu = $Q340_USER; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
+R341_A="$WORK/jar-r341-a"; R341_B="$WORK/jar-r341-b"; rm -f "$R341_A" "$R341_B"
+p335_passkey "$R341_A" "$WORK/pk340-a" 5 90 > /dev/null; p335_passkey "$R341_B" "$WORK/pk340-a" 5 91 > /dev/null
+R341_BOTH="$(p335_signed_in "$R341_A")$(p335_signed_in "$R341_B")"
+R341_EPOCH0=$(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $Q340_USER")
+P335_CSRF=$(p335_page "$R341_A" "?action=account")
+expect "3.41 review L2: new backup codes raise the sign-in epoch – this sign-in stays, the other one ends" \
+  "$R341_BOTH|$(p335_account "$R341_A" -d co=backup_codes_new)|$(grep -c 'Your new backup codes' "$WORK/response")|$(( $(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $Q340_USER") - R341_EPOCH0 ))|$(p335_signed_in "$R341_A")|$(p335_signed_in "$R341_B")" \
+  "11|200|1|1|1|0"

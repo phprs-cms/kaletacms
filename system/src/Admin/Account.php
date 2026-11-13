@@ -248,6 +248,7 @@ final class Account
                         $message = ['chyba', self::CODES_NOT_SAVED]; // 3.35 re-review N3: nothing stored, nothing shown or logged
                         break;
                     }
+                    $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 review L2: new codes are a second-factor change – the other sign-ins end
                     ChangeLog::write($app, 'ucet', 'backup_codes_new');
 
                     return $this->page(['backupCodes' => $codes, 'codesFromPasskey' => true, 'codesRenewed' => true] + $data);
