@@ -71,15 +71,23 @@ final class PasswordReset
 
     /**
      * 3.41 (N113, pure): does the account have a link that a request from the sign-in page must not replace – an invitation
-     * or an administrator's link (its time lies in the future), or a request link sent less than REQUEST_GAP ago?
+     * (its time lies in the future and the account never signed in), or a request link sent less than REQUEST_GAP ago?
+     * 3.41 review L7: an administrator's 3-day link (future time, an account that has signed in) is replaced by the person's
+     * own request – a shorter one-hour link, the old one stops working – instead of the request being silently ignored.
      *
      * @param array<string, mixed> $user
      */
     public static function linkPending(array $user, int $now): bool
     {
         $at = (string) ($user['obnova_cas'] ?? '');
+        if ((string) ($user['obnova_otisk'] ?? '') === '' || $at === '') {
+            return false;
+        }
+        if ($at > date('Y-m-d H:i:s', $now)) {
+            return (string) ($user['posledni_login'] ?? '') === ''; // an invitation stays; an administrator's link may be replaced
+        }
 
-        return (string) ($user['obnova_otisk'] ?? '') !== '' && $at !== '' && $at > date('Y-m-d H:i:s', $now - self::REQUEST_GAP);
+        return $at > date('Y-m-d H:i:s', $now - self::REQUEST_GAP);
     }
 
     /**

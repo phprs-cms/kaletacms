@@ -61,3 +61,12 @@ check('3.41 review L6: a new backup-code list is v2 with a salt and no plain sha
     array_intersect(array_map(fn (string $c): string => hash('sha256', Kaleta\Core\BackupCodes::normalise($c)), $r341Codes), (array) ($r341List['codes'] ?? [])),
     Kaleta\Core\BackupCodes::consume((string) json_encode([hash('sha256', 'abcde12345')]), 'ABCDE12345 '),
 ], [2, 32, 8, 1, [], [], '[]']);
+
+// L7: the person's own request replaces an administrator's pending 3-day link; an invitation is never replaced
+$r341Now = strtotime('2026-11-12 10:00:00');
+check('3.41 review L7: linkPending – an invitation (never signed in) stays pending, an administrator\'s link of a signed-in account does not, a fresh request link does', array_map(
+    fn (array $u): bool => Kaleta\Admin\PasswordReset::linkPending($u, $r341Now), [
+        ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-15 09:00:00', 'posledni_login' => null],
+        ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-15 09:00:00', 'posledni_login' => '2026-11-01 08:00:00'],
+        ['obnova_otisk' => 'x', 'obnova_cas' => '2026-11-12 09:55:00', 'posledni_login' => '2026-11-01 08:00:00'],
+    ]), [true, false, true]);

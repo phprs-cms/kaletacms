@@ -69,3 +69,13 @@ expect "3.41 review L5: Link::pair resets fleet_answers_bound and fleet_last_ts 
   "7341|unbound|fresh"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('fleet_console_url', 'fleet_console_key', 'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_last_error', 'fleet_answers_bound', 'fleet_last_ts', 'fleet_update_allowed');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_url', '$R341_SITE_URL')" > /dev/null
+
+# L7: the person's own request replaces an administrator's pending 3-day link (a signed-in account); the old link stops working
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'obnova';
+  INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, obnova_otisk, obnova_cas) VALUES ('r341l7', '$(php -r 'echo password_hash("R341-l7-pw-1", PASSWORD_DEFAULT);')', 'Reset R341', 'r341l7@example.com', 'en', 0, '$(site_time '-3 days')', '$(site_time '-9 days')', 0, SHA2('r341-admin-link', 256), '$(site_time '+71 hours')')" > /dev/null
+R341_L7=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341l7'"); R341_P0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
+R341_RJAR="$WORK/jar-r341r"; curl -s -c "$R341_RJAR" -o "$WORK/response" "$B/admin.php?action=password"
+curl -s -b "$R341_RJAR" -c "$R341_RJAR" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$(r341_csrf "$WORK/response")" -d kdo=r341l7@example.com
+expect "3.41 review L7: a request replaces the administrator's link – a new one-hour link is queued, the old token is gone" \
+  "$(sq "SELECT CONCAT(obnova_otisk <> SHA2('r341-admin-link', 256), '|', obnova_cas <= '$(site_time '+1 minute')') FROM ka_uzivatele WHERE idu = $R341_L7")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE idp > $R341_P0 AND komu = 'r341l7@example.com'")" "1|1|1"
+sq "DELETE FROM ka_posta WHERE idp > $R341_P0; DELETE FROM ka_kontrola_ip WHERE typ = 'obnova'; DELETE FROM ka_uzivatele WHERE idu = $R341_L7" > /dev/null
