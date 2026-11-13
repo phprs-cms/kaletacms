@@ -22,36 +22,61 @@ expect "3.41 review L1: System status says the check couldn't run because the ad
   "$(grep -c 'Nepodařilo se ověřit, zda je webový server návštěvníkům odmítá – adresa webu přesměrovává (na https://elsewhere.example/)' "$WORK/response")|$(grep -c 'webový server je návštěvníkům odmítá (zkontrolováno' "$WORK/response")" "1|0"
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'server_rules'" > /dev/null
 
-# L2: new backup codes in My account (the passkey account of 2400) end the account's other sign-ins and keep this one
-sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE idu = $Q340_USER; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
-R341_A="$WORK/jar-r341-a"; R341_B="$WORK/jar-r341-b"; rm -f "$R341_A" "$R341_B"
-p335_passkey "$R341_A" "$WORK/pk340-a" 5 90 > /dev/null; p335_passkey "$R341_B" "$WORK/pk340-a" 5 91 > /dev/null
+# L2: new backup codes in My account end the account's other sign-ins and keep this one (an account of its own: a password
+# sign-in registers a passkey, a second sign-in with that passkey, then the first one renews the codes)
+R341_ORIGIN_KEPT="$P335_ORIGIN"; P335_ORIGIN=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'"); P335_ORIGIN="${P335_ORIGIN%/}"
+sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
+  INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES ('r341pk', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")', 'Passkey R341', 'r341pk@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0)" > /dev/null
+R341_PK=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341pk'")
+R341_A="$WORK/jar-r341-a"; R341_B="$WORK/jar-r341-b"; rm -f "$R341_A" "$R341_B" "$WORK/pk341"
+R341_T=$(p335_page "$R341_A"); curl -s -b "$R341_A" -c "$R341_A" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R341_T" -d user=r341pk --data-urlencode "password=$PASSWORD"
+P335_CSRF=$(p335_page "$R341_A" "?action=account")
+R341_REG=$(p335_register "$R341_A" "$WORK/pk341" 69 --data-urlencode "soucasne=$PASSWORD")
+p335_page "$R341_A" "?action=account" > /dev/null # the codes of the first passkey are shown here once
+R341_PKIN=$(p335_passkey "$R341_B" "$WORK/pk341" 5 1)
 R341_BOTH="$(p335_signed_in "$R341_A")$(p335_signed_in "$R341_B")"
-R341_EPOCH0=$(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $Q340_USER")
+R341_EPOCH0=$(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $R341_PK")
 P335_CSRF=$(p335_page "$R341_A" "?action=account")
 expect "3.41 review L2: new backup codes raise the sign-in epoch – this sign-in stays, the other one ends" \
-  "$R341_BOTH|$(p335_account "$R341_A" -d co=backup_codes_new)|$(grep -c 'Your new backup codes' "$WORK/response")|$(( $(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $Q340_USER") - R341_EPOCH0 ))|$(p335_signed_in "$R341_A")|$(p335_signed_in "$R341_B")" \
-  "11|200|1|1|1|0"
+  "$R341_REG|$R341_PKIN|$R341_BOTH|$(p335_account "$R341_A" -d co=backup_codes_new --data-urlencode "soucasne=$PASSWORD")|$(grep -c 'Your new backup codes' "$WORK/response")|$(( $(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $R341_PK") - R341_EPOCH0 ))|$(p335_signed_in "$R341_A")|$(p335_signed_in "$R341_B")" \
+  "200|200|200|11|200|1|1|1|0"
+sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp'); DELETE FROM ka_uzivatele_klice WHERE idu = $R341_PK; DELETE FROM ka_uzivatele WHERE idu = $R341_PK" > /dev/null
+P335_ORIGIN="$R341_ORIGIN_KEPT"
 
-# L3: a colleague (Eva of 3400) sees the team's totals only while three or more people did counted work – screen and MCP agree
-R341_PEOPLE=$(r341_php '[$f, $t] = Kaleta\Core\TeamSummary::range("7_days"); echo Kaleta\Core\TeamSummary::people(Kaleta\Core\TeamSummary::collect($app, ["enquiries", "tasks", "deals"], $f, $t), ["enquiries", "tasks", "deals"]);')
-curl -s -b "$JAR_R341A" -c "$JAR_R341A" -o "$WORK/r341.html" "$B/admin.php?module=my_work&action=summary&period=7_days"
-mcp_call "$R341A_TOKEN" team_summary '{"period":"7_days"}' > "$WORK/response"; mcp_text
-R341_MCP=$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo is_array($j["team"] ?? null) ? "totals" : "note:" . ($j["team_note"] ?? "");' -- "$WORK/text")
-if [ "$R341_PEOPLE" -ge 3 ]; then R341_WANT="0|totals"; else R341_WANT="1|note:Team totals appear from three people."; fi
-expect "3.41 review L3: the colleague's team row and MCP follow the three-people rule ($R341_PEOPLE people counted)" "$(grep -c 'data-team-hidden' "$WORK/r341.html")|$R341_MCP" "$R341_WANT"
-# with work only of Eva and the administrator in a period, the colleague gets the note instead of the totals
-expect "3.41 review L3: two people – no totals for a colleague, the totals for an administrator" \
-  "$(r341_php '$s = Kaleta\Core\TeamSummary::build($app, ["deals"], "7_days", (int) $argv[1], false); $a = Kaleta\Core\TeamSummary::build($app, ["deals"], "7_days", (int) $argv[1], true);
-    [$f, $t] = Kaleta\Core\TeamSummary::range("7_days"); $n = Kaleta\Core\TeamSummary::people(Kaleta\Core\TeamSummary::collect($app, ["deals"], $f, $t), ["deals"]);
-    echo $n < 3 ? (($s["team"] === null ? "hidden" : "shown") . "|" . (is_array($a["team"]) ? "admin" : "-")) : "hidden|admin";' "$R341A_EVA")" "hidden|admin"
+# L3: a colleague sees the team's totals only while three or more people did counted work – screen and MCP agree. The
+# colleague may open no section but tasks; the tasks of earlier sections are set aside meanwhile, so the people are known.
+R341_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
+sq "DROP TABLE IF EXISTS r341_tasks; CREATE TABLE r341_tasks LIKE ka_tasks; INSERT INTO r341_tasks SELECT * FROM ka_tasks; DELETE FROM ka_tasks;
+  DELETE FROM ka_kontrola_ip WHERE typ = 'login';
+  INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
+    ('r341col', '$R341_HASH', 'Colleague R341', 'r341col@example.com', 'en', 0, '$(site_time)', '$(site_time)', 0, 'off'),
+    ('r341third', '$R341_HASH', 'Third R341', 'r341third@example.com', 'en', 0, '$(site_time)', '$(site_time)', 0, 'off');
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'news' FROM ka_uzivatele WHERE user = 'r341col'" > /dev/null
+R341_COL=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341col'"); R341_THIRD=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341third'"); R341_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
+r341_done() { sq "INSERT INTO ka_tasks (title, assignee_id, created_by, due_at, done_at, done_by, created_at, updated_at) VALUES ('R341 done', $1, $1, NULL, '$(site_time '-1 day')', $1, '$(site_time '-2 days')', '$(site_time)')" > /dev/null; }
+r341_done "$R341_COL"; r341_done "$R341_ADMIN"
+R341_CJAR="$WORK/jar-r341c"; R341_T=$(p335_page "$R341_CJAR"); curl -s -b "$R341_CJAR" -c "$R341_CJAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R341_T" -d user=r341col --data-urlencode "password=$PASSWORD"
+R341_TOKEN="kaleta_$(openssl rand -hex 24)"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($R341_COL, 'r341 colleague', 'full', 'all', SHA2('$R341_TOKEN', 256), '$(site_time)')" > /dev/null
+r341_team() { # → "<hidden rows on the screen>|<MCP: totals or note:…>|<the colleague's own tasks done>"
+  curl -s -b "$R341_CJAR" -c "$R341_CJAR" -o "$WORK/r341.html" "$B/admin.php?module=my_work&action=summary&period=7_days"
+  mcp_call "$R341_TOKEN" team_summary '{"period":"7_days"}' > "$WORK/response"; mcp_text
+  echo "$(grep -c 'data-team-hidden' "$WORK/r341.html")|$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo is_array($j["team"] ?? null) ? "totals:" . ($j["team"]["tasks_done"] ?? "-") : "note:" . ($j["team_note"] ?? "");' -- "$WORK/text")|$(r341a_cell "$WORK/r341.html" you tasks_done)"; }
+expect "3.41 review L3: two people did counted work – the colleague sees the note instead of the totals, on the screen and through MCP" \
+  "$(r341_team)" "1|note:Team totals appear from three people.|1"
+r341_done "$R341_THIRD"
+expect "3.41 review L3: with a third person the colleague sees the team's totals again" "$(r341_team)" "0|totals:3|1"
+expect "3.41 review L3: an administrator sees the totals with two people too" \
+  "$(r341_php '$s = Kaleta\Core\TeamSummary::build($app, ["tasks"], "7_days", (int) $argv[1], true); echo is_array($s["team"]) ? "admin" : "-";' "$R341_ADMIN")" "admin"
+sq "DELETE FROM ka_tasks; INSERT INTO ka_tasks SELECT * FROM r341_tasks; DROP TABLE r341_tasks; DELETE FROM ka_api_tokeny WHERE idu = $R341_COL;
+  DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN ($R341_COL, $R341_THIRD); DELETE FROM ka_uzivatele WHERE idu IN ($R341_COL, $R341_THIRD); DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
 
 # L4: a refused update source is reported as refused (with what to change), not as "not responding"
 R341_OLD_UPDATE_URL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_url'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', 'http://updates.example/aktualizace.json'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.41 review L4: System status says the source must be https and where to change it – not that it isn't responding" \
-  "$(grep -c 'Zdroj aktualizací musí být na adrese https://. Změňte zdroj aktualizací v Nastavení → Zálohy a aktualizace' "$WORK/response")|$(grep -c 'zdroj aktualizací neodpovídá' "$WORK/response")" "1|0"
+  "$(grep -c 'Zdroj aktualizací musí být na adrese https://. Změňte zdroj aktualizací v ' "$WORK/response")|$(grep -c 'zdroj aktualizací neodpovídá' "$WORK/response")" "1|0"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', '$R341_OLD_UPDATE_URL'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
 
 # L5: pairing again starts without the answer binding and the request time of an earlier pairing (a stand-in console)

@@ -61,10 +61,10 @@ mcp_call "$R341A_TOKEN" team_summary '{"period":"7_days"}' > "$WORK/response"; m
 expect "3.41 A: MCP team_summary for a colleague – their own counts and the team's totals, no people" \
   "$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo ($j["you"]["tasks_done"] ?? "-"), "|", ($j["team"]["tasks_done"] ?? "-"), "|", array_key_exists("people", $j) ? "people!" : "none";' -- "$WORK/text")" "2|$R341A_TEAM|none"
 
-# the monthly report: the team's totals without names
+# the monthly report: the team's totals without names (3.41 review L3: below three people only how many, no totals)
 expect "3.41 A: the monthly report carries the team's totals – how many people, what they did – never a name or a count of the moment" \
   "$(r341a_php '$m = Kaleta\Core\MonthlyReport::build($app, new DateTimeImmutable(date("Y-m-01", strtotime("-1 day")))); $t = $m["team"] ?? []; $j = json_encode($t);
-    echo ($t["people"] ?? 0) >= 2 ? "people" : "no people", "|", isset($t["tasks_done"]) ? "done" : "-", "|", isset($t["tasks_open"]) || isset($t["enquiries_open"]) ? "now!" : "period", "|", str_contains((string) $j, "Eva") || str_contains((string) $j, "name") ? "named!" : "anonymous";')" \
+    echo ($t["people"] ?? 0) >= 2 ? "people" : "no people", "|", (($t["people"] ?? 0) >= 3 ? isset($t["tasks_done"]) : array_keys($t) === ["people"]) ? "done" : "-", "|", isset($t["tasks_open"]) || isset($t["enquiries_open"]) ? "now!" : "period", "|", str_contains((string) $j, "Eva") || str_contains((string) $j, "name") ? "named!" : "anonymous";')" \
   "people|done|period|anonymous"
 
 # the deal card: days in the stage and the next step
