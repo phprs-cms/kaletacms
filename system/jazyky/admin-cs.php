@@ -8326,4 +8326,8 @@ return [
     'Lines your .htaccess lacks (%d): %s' => 'Řádky, které váš .htaccess nemá (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Nepodařilo se ověřit, zda je webový server návštěvníkům odmítá – adresa webu přesměrovává (na %s). V Nastavení → Základní nastavte adresu, na které web skutečně odpovídá.',
     'Team totals appear from three people.' => 'Součty týmu se zobrazují od tří lidí.',
+    'The update source must use the standard https port 443 – %s uses port %d. A custom update source must be an https address on a public server.' => 'Zdroj aktualizací musí používat standardní port https 443 – %s používá port %d. Vlastní zdroj aktualizací musí být adresa https na veřejném serveru.',
+    'The name of the update source does not resolve (%s).' => 'Název zdroje aktualizací se nepodařilo přeložit na adresu (%s).',
+    'The update source %s leads to an address in a private or internal network. A custom update source must be an https address on a public server.' => 'Zdroj aktualizací %s vede na adresu v soukromé nebo vnitřní síti. Vlastní zdroj aktualizací musí být adresa https na veřejném serveru.',
+    'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Změňte zdroj aktualizací v Nastavení → Zálohy a aktualizace, nebo ho nechte prázdný pro oficiální zdroj.',
 ];

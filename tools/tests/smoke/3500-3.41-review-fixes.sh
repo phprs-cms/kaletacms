@@ -45,3 +45,11 @@ expect "3.41 review L3: two people – no totals for a colleague, the totals for
   "$(r341_php '$s = Kaleta\Core\TeamSummary::build($app, ["deals"], "7_days", (int) $argv[1], false); $a = Kaleta\Core\TeamSummary::build($app, ["deals"], "7_days", (int) $argv[1], true);
     [$f, $t] = Kaleta\Core\TeamSummary::range("7_days"); $n = Kaleta\Core\TeamSummary::people(Kaleta\Core\TeamSummary::collect($app, ["deals"], $f, $t), ["deals"]);
     echo $n < 3 ? (($s["team"] === null ? "hidden" : "shown") . "|" . (is_array($a["team"]) ? "admin" : "-")) : "hidden|admin";' "$R341A_EVA")" "hidden|admin"
+
+# L4: a refused update source is reported as refused (with what to change), not as "not responding"
+R341_OLD_UPDATE_URL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'update_url'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', 'http://updates.example/aktualizace.json'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.41 review L4: System status says the source must be https and where to change it – not that it isn't responding" \
+  "$(grep -c 'Zdroj aktualizací musí být na adrese https://. Změňte zdroj aktualizací v Nastavení → Zálohy a aktualizace' "$WORK/response")|$(grep -c 'zdroj aktualizací neodpovídá' "$WORK/response")" "1|0"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', '$R341_OLD_UPDATE_URL'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null

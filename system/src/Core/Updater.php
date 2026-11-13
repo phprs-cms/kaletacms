@@ -64,6 +64,9 @@ final class Updater
     public const int STALE = 3910;
     public const int WRONG_CHANNEL = 3911;
 
+    /** 3.41 review L4: the exception code of a source the site may not use (not https, another port, an internal address). */
+    public const int SOURCE_REFUSED = 3912;
+
     /**
      * 3.19.1 (N88): the exception code of an update whose rollback could not put every file back – the site is a mix of
      * two versions, the originals are kept and the maintenance page stays up (the message says what to do; "nothing has
@@ -387,12 +390,12 @@ final class Updater
      *
      * 3.15: behind_since = since when a newer release of the site's line has been offered (0 = none; behindDays()).
      *
-     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, refused:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}, future_date:string, behind_since:int}
+     * @return array{nastaveno:bool, aktualni:string, nova:?array<string, mixed>, vyzaduje_php:?array{verze:string, min_php:string, bezpecnostni:bool}, chyba:?string, overeno:int, channel:string, ahead_of:?string, stale:bool, refused:bool, source_refused:bool, failing_since:int, newest:?array{verze:string, vydano:string, at:int}, future_date:string, behind_since:int}
      */
     public function state(bool $force = false): array
     {
         $state = ['nastaveno' => $this->url() !== '', 'aktualni' => KALETA_VERSION, 'nova' => null, 'vyzaduje_php' => null, 'chyba' => null, 'overeno' => 0,
-            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'refused' => false, 'failing_since' => 0, 'newest' => null, 'future_date' => '', 'behind_since' => 0];
+            'channel' => $this->effectiveChannel(), 'ahead_of' => null, 'stale' => false, 'refused' => false, 'source_refused' => false, 'failing_since' => 0, 'newest' => null, 'future_date' => '', 'behind_since' => 0];
         if (!$state['nastaveno']) {
             return $state;
         }
@@ -406,6 +409,7 @@ final class Updater
             $state['overeno'] = (int) $cache['overeno'];
             $state['stale'] = ($cache['stale'] ?? false) === true;
             $state['refused'] = ($cache['refused'] ?? false) === true;
+            $state['source_refused'] = ($cache['source_refused'] ?? false) === true;
             $state['failing_since'] = (int) ($cache['failing_since'] ?? 0);
             $state['future_date'] = is_string($cache['future_date'] ?? null) ? $cache['future_date'] : '';
         } else {
@@ -416,13 +420,14 @@ final class Updater
                 $state['chyba'] = $e->getMessage();
                 $state['stale'] = $e->getCode() === self::STALE;
                 $state['refused'] = in_array($e->getCode(), [self::STALE, self::WRONG_CHANNEL], true);
+                $state['source_refused'] = $e->getCode() === self::SOURCE_REFUSED;
                 // 3.10: since when the checks fail – carried over while they keep failing (System status says how long)
                 $state['failing_since'] = is_array($cache) && ($cache['chyba'] ?? null) !== null && (int) ($cache['failing_since'] ?? 0) > 0 ? (int) $cache['failing_since'] : time();
             }
             $state['overeno'] = time();
             $state['future_date'] = $this->futureDate;
             $this->settings->set($this->cacheKey(), (string) json_encode(['url' => $this->url(), 'overeno' => time(), 'manifest' => $manifest, 'chyba' => $state['chyba'],
-                'stale' => $state['stale'], 'refused' => $state['refused'], 'failing_since' => $state['failing_since'], 'future_date' => $state['future_date']], JSON_UNESCAPED_UNICODE));
+                'stale' => $state['stale'], 'refused' => $state['refused'], 'source_refused' => $state['source_refused'], 'failing_since' => $state['failing_since'], 'future_date' => $state['future_date']], JSON_UNESCAPED_UNICODE));
         }
         $state['newest'] = self::newestOf($this->seen(), $this->url());
         $choice = self::choose(is_array($manifest) ? $manifest : null, $state['channel'], KALETA_VERSION, PHP_VERSION, $this->major);
@@ -1277,21 +1282,18 @@ final class Updater
         // https source can no longer send the site to plain http or into the server's own network
         for ($hop = 0; ; $hop++) {
             $host = (string) parse_url($url, PHP_URL_HOST);
-            if (!self::sourceAllowed($url, $testCopy) || (!$testCopy && Links::target($url) === null)) {
-                throw new \RuntimeException($hop === 0 && !self::sourceAllowed($url, $testCopy) ? t('The update source must use an https:// address.')
-                    : t('The update source leads to an address that is not allowed (%s).', $host));
+            if (!self::sourceAllowed($url, $testCopy)) {
+                throw new \RuntimeException($hop === 0 ? t('The update source must use an https:// address.') : t('The update source leads to an address that is not allowed (%s).', $host), self::SOURCE_REFUSED);
             }
-            $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 0, 'ignore_errors' => true,
-                'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
-            $status = 0;
-            $location = '';
-            foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
-                if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
-                    $status = (int) $m[1];
-                } elseif (stripos($line, 'Location:') === 0) {
-                    $location = trim(substr($line, 9));
-                }
+            // 3.41 review L4: on a live site the name must resolve to public addresses only, on port 443 – and the request
+            // is pinned to the checked address (Outbound::pin), so the name cannot be re-pointed between the check and the fetch
+            $target = Links::target($url);
+            if (!$testCopy && !is_array($target)) {
+                throw new \RuntimeException(self::refusal($url, $target === false), self::SOURCE_REFUSED);
             }
+            [$status, $location, $data] = function_exists('curl_init')
+                ? self::curlGet(is_array($target) ? $target : null, $url, $maxBytes, $timeoutSeconds)
+                : self::streamGet($url, $maxBytes, $timeoutSeconds);
             if ($status >= 300 && $status < 400 && $location !== '' && $hop < 5) {
                 $url = self::redirectTarget($url, $location);
                 continue;
@@ -1305,6 +1307,84 @@ final class Updater
 
             return $data;
         }
+    }
+
+    /**
+     * 3.41 review L4: why a live site refuses an https update source – said exactly, so an administrator with an intranet
+     * mirror or a source on another port knows what to change. Pure apart from the name lookup of $unresolved = false.
+     */
+    public static function refusal(string $url, bool $unresolved): string
+    {
+        $target = Outbound::url($url);
+        $host = $target['host'] ?? (string) parse_url($url, PHP_URL_HOST);
+        if ($target !== null && $target['port'] !== 443) {
+            return t('The update source must use the standard https port 443 – %s uses port %d. A custom update source must be an https address on a public server.', $host, $target['port']);
+        }
+        if ($unresolved) {
+            return t('The name of the update source does not resolve (%s).', $host);
+        }
+
+        return t('The update source %s leads to an address in a private or internal network. A custom update source must be an https address on a public server.', $host);
+    }
+
+    /**
+     * One request with curl, pinned to $target's checked address when there is one (a test copy's local source has none).
+     *
+     * @param array{url: string, host: string, port: int, scheme: string, ip: string}|null $target
+     * @return array{0: int, 1: string, 2: string|false} status, Location, body (false = no answer)
+     */
+    private static function curlGet(?array $target, string $url, int $maxBytes, int $timeoutSeconds): array
+    {
+        $data = '';
+        $location = '';
+        $ch = curl_init($target['url'] ?? $url);
+        if ($target !== null) {
+            Outbound::pin($ch, $target['host'], $target['port'], $target['ip']);
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_FOLLOWLOCATION => false, // every hop is checked above
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_CONNECTTIMEOUT => min(10, $timeoutSeconds),
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+            CURLOPT_USERAGENT => 'Kaleta/' . KALETA_VERSION,
+            CURLOPT_HEADERFUNCTION => function ($ch, string $row) use (&$location): int {
+                if (stripos($row, 'Location:') === 0) {
+                    $location = trim(substr($row, 9));
+                }
+
+                return strlen($row);
+            },
+            CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$data, $maxBytes): int {
+                $data .= $chunk;
+
+                return strlen($data) > $maxBytes ? -1 : strlen($chunk); // past the limit: curl stops, the length check refuses it
+            },
+        ]);
+        $ok = curl_exec($ch) !== false || strlen($data) > $maxBytes;
+
+        return [(int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE), $location, $ok ? $data : false];
+    }
+
+    /**
+     * Without curl: the stream wrapper (no pinning possible – the check above still refuses an internal address).
+     *
+     * @return array{0: int, 1: string, 2: string|false}
+     */
+    private static function streamGet(string $url, int $maxBytes, int $timeoutSeconds): array
+    {
+        $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => $timeoutSeconds, 'follow_location' => 0, 'ignore_errors' => true,
+            'header' => "User-Agent: Kaleta/" . KALETA_VERSION . "\r\n"]]), 0, $maxBytes + 1);
+        $status = 0;
+        $location = '';
+        foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                $status = (int) $m[1];
+            } elseif (stripos($line, 'Location:') === 0) {
+                $location = trim(substr($line, 9));
+            }
+        }
+
+        return [$status, $location, $data];
     }
 
     /**

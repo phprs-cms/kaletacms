@@ -39,3 +39,14 @@ check('3.41 review L3: MCP says why the totals are missing; the report block of 
     [['People who did counted work', '2'], ['Team totals appear from three people.', '']],
     [['Lidé se započítanou prací', '2'], ['Součty týmu se zobrazují od tří lidí.', '']],
 ]);
+
+// L4: a refused update source says exactly why – another port, a name that does not resolve, an internal address
+check('3.41 review L4: Updater::refusal names the port, the unresolved name or the private network', Kaleta\Core\Language::runWith('en', fn (): array => [
+    Kaleta\Core\Updater::refusal('https://mirror.example:8443/aktualizace.json', false),
+    Kaleta\Core\Updater::refusal('https://nowhere.example/aktualizace.json', true),
+    Kaleta\Core\Updater::refusal('https://10.0.0.5/aktualizace.json', false),
+], 'admin-'), [
+    'The update source must use the standard https port 443 – mirror.example uses port 8443. A custom update source must be an https address on a public server.',
+    'The name of the update source does not resolve (nowhere.example).',
+    'The update source 10.0.0.5 leads to an address in a private or internal network. A custom update source must be an https address on a public server.',
+]);

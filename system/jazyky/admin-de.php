@@ -8733,4 +8733,8 @@ return [
     'Lines your .htaccess lacks (%d): %s' => 'Zeilen, die Ihrer .htaccess fehlen (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Konnte nicht prüfen, ob der Webserver sie verweigert – die Adresse der Website leitet weiter (nach %s). Stellen Sie unter Einstellungen → Allgemein die Adresse ein, unter der die Website tatsächlich antwortet.',
     'Team totals appear from three people.' => 'Teamsummen werden ab drei Personen angezeigt.',
+    'The update source must use the standard https port 443 – %s uses port %d. A custom update source must be an https address on a public server.' => 'Die Update-Quelle muss den Standard-HTTPS-Port 443 verwenden – %s verwendet Port %d. Eine eigene Update-Quelle muss eine https-Adresse auf einem öffentlichen Server sein.',
+    'The name of the update source does not resolve (%s).' => 'Der Name der Update-Quelle lässt sich nicht auflösen (%s).',
+    'The update source %s leads to an address in a private or internal network. A custom update source must be an https address on a public server.' => 'Die Update-Quelle %s führt zu einer Adresse in einem privaten oder internen Netz. Eine eigene Update-Quelle muss eine https-Adresse auf einem öffentlichen Server sein.',
+    'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Ändern Sie die Update-Quelle unter Einstellungen → Backups und Updates oder lassen Sie sie für die offizielle Quelle leer.',
 ];

@@ -1425,4 +1425,5 @@ return [
     'Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.' => 'Am einfachsten: Übernimm .htaccess.kaleta-nova als deine .htaccess und setze deine eigenen Regeln über „# BEGIN Kaleta“ – spätere Updates ersetzen dann nur den Teil von Kaleta und behalten deinen.',
     'Lines your .htaccess lacks (%d): %s' => 'Zeilen, die deiner .htaccess fehlen (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Konnte nicht prüfen, ob der Webserver sie verweigert – die Adresse der Website leitet weiter (nach %s). Stelle unter Einstellungen → Allgemein die Adresse ein, unter der die Website tatsächlich antwortet.',
+    'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Ändere die Update-Quelle unter Einstellungen → Backups und Updates oder lass sie für die offizielle Quelle leer.',
 ];

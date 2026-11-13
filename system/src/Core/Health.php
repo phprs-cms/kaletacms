@@ -335,6 +335,7 @@ final class Health
         $add(t('Operation'), t('Updates'), !$update['nastaveno'] || $update['chyba'] !== null || $update['nova'] !== null || $update['vyzaduje_php'] !== null || $staleDays !== null ? 'varovani' : 'ok', match (true) {
             !$update['nastaveno'] => t('no update source is set'),
             $update['refused'] => (string) $update['chyba'] . ' ' . t('If the publisher really published this, reset the update history in Settings → Backups and updates.'), // 3.10 (N39-7, N310-1): the message says what happened
+            $update['source_refused'] => (string) $update['chyba'] . ' ' . t('Change the update source in Settings → Backups and updates, or leave it empty for the official one.'), // 3.41 review L4: refused, not unreachable
             $update['chyba'] !== null => t('the update source is not responding: %s', (string) $update['chyba'])
                 . ($update['failing_since'] > 0 && time() - $update['failing_since'] >= 86400 ? ' ' . t('The checks have been failing for %d days.', intdiv(time() - $update['failing_since'], 86400)) : ''),
             $update['vyzaduje_php'] !== null => t('version %s needs PHP %s or newer, the server runs PHP %s – ask the hosting for a newer PHP to update', $update['vyzaduje_php']['verze'], $update['vyzaduje_php']['min_php'], PHP_VERSION),
