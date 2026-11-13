@@ -40,11 +40,13 @@ final class ServerRules
     }
 
     /**
-     * Asks for every file of PROBES under $base. $fetch (tests) answers [status, body] for a URL; the default asks with a
-     * short timeout and follows no redirect.
+     * Asks for every file of PROBES under $base. $fetch (tests) answers [status, body, Location] for a URL; the default asks
+     * with a short timeout and follows no redirect itself. A redirect to the same host (http → https, the www. form of the
+     * name) is followed once – a site address that redirects is common; any other redirect leaves the check inconclusive
+     * ('redirect' = where it led), never "refused" (3.41 review L1: a 301 is not a refusal).
      *
-     * @param \Closure(string): array{0: int, 1: string}|null $fetch
-     * @return array{at: int, open: list<string>, error: string}
+     * @param \Closure(string): array{0: int, 1: string, 2?: string}|null $fetch
+     * @return array{at: int, open: list<string>, error: string, redirect?: string}
      */
     public static function check(string $base, ?\Closure $fetch = null): array
     {
@@ -53,16 +55,29 @@ final class ServerRules
             $body = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 5, 'ignore_errors' => true, 'follow_location' => 0,
                 'header' => 'User-Agent: Kaleta-server-check/' . KALETA_VERSION . "\r\n"]]), 0, 100_000);
             $status = 0;
+            $location = '';
             foreach (last_response_headers($http_response_header ?? null) as $line) { // @phpstan-ignore nullCoalesce.variable (undefined on PHP 8.3 when the request fails)
                 if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
                     $status = (int) $m[1];
+                } elseif (preg_match('#^Location:\s*(\S+)#i', $line, $m)) {
+                    $location = $m[1];
                 }
             }
 
-            return [$status, is_string($body) ? $body : ''];
+            return [$status, is_string($body) ? $body : '', $location];
         };
         foreach (self::PROBES as $path => $proof) {
-            [$status, $body] = $fetch($base . $path);
+            $url = $base . $path;
+            $answer = $fetch($url);
+            $next = self::sameHostRedirect($url, $answer[0], $answer[2] ?? '');
+            if ($next !== null) {
+                $answer = $fetch($next);
+            }
+            [$status, $body] = $answer;
+            if ($status >= 300 && $status < 400) {
+                $result['redirect'] = self::absolute($next ?? $url, $answer[2] ?? '');
+                break; // nothing to say about the rules – the address leads elsewhere
+            }
             if ($status === 0) {
                 $result['error'] = 'the site did not answer at ' . $base;
                 break; // the server cannot reach itself (a firewall, a single worker) – nothing to say about the rules
@@ -75,13 +90,44 @@ final class ServerRules
         return $result;
     }
 
+    /**
+     * Pure: where a redirect of $url leads, when it stays on the same host (or its www. form) – else null. Only http(s);
+     * a relative Location is resolved against $url.
+     */
+    public static function sameHostRedirect(string $url, int $status, string $location): ?string
+    {
+        if ($status < 300 || $status >= 400 || $location === '') {
+            return null;
+        }
+        $target = self::absolute($url, $location);
+        $from = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $to = strtolower((string) parse_url($target, PHP_URL_HOST));
+        $bare = static fn (string $h): string => str_starts_with($h, 'www.') ? substr($h, 4) : $h;
+
+        return in_array(parse_url($target, PHP_URL_SCHEME), ['http', 'https'], true) && $to !== '' && $bare($from) === $bare($to) ? $target : null;
+    }
+
+    /** Pure: a Location header made absolute against the URL that answered it ('' stays ''). */
+    private static function absolute(string $url, string $location): string
+    {
+        if ($location === '' || preg_match('#^[a-z][a-z0-9+.-]*://#i', $location)) {
+            return $location;
+        }
+        $origin = parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST) . (($port = parse_url($url, PHP_URL_PORT)) !== null ? ':' . $port : '');
+        if (str_starts_with($location, '//')) {
+            return parse_url($url, PHP_URL_SCHEME) . ':' . $location;
+        }
+
+        return $origin . (str_starts_with($location, '/') ? $location : '/' . $location);
+    }
+
     /** Pure: did the server hand out the file itself? Only a 200 with the file's own text counts (a soft 404 page does not). */
     public static function served(int $status, string $body, string $proof): bool
     {
         return $status === 200 && str_contains($body, $proof);
     }
 
-    /** @return array{at?: int, open?: list<string>, error?: string} the last check ([] = never ran) */
+    /** @return array{at?: int, open?: list<string>, error?: string, redirect?: string} the last check ([] = never ran) */
     public static function last(Settings $s): array
     {
         $last = json_decode($s->get('server_rules'), true);

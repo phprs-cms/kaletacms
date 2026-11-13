@@ -8731,4 +8731,5 @@ return [
     'request ignored – a valid link is pending, account: %s' => 'Anfrage ignoriert – ein gültiger Link liegt bereits vor, Konto: %s',
     'Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.' => 'Am einfachsten: Übernehmen Sie .htaccess.kaleta-nova als Ihre .htaccess und setzen Sie Ihre eigenen Regeln über „# BEGIN Kaleta“ – spätere Updates ersetzen dann nur den Teil von Kaleta und behalten Ihren.',
     'Lines your .htaccess lacks (%d): %s' => 'Zeilen, die Ihrer .htaccess fehlen (%d): %s',
+    'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Konnte nicht prüfen, ob der Webserver sie verweigert – die Adresse der Website leitet weiter (nach %s). Stellen Sie unter Einstellungen → Allgemein die Adresse ein, unter der die Website tatsächlich antwortet.',
 ];

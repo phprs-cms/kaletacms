@@ -14,3 +14,10 @@ expect "3.41 review M1: without sign_in_epoch the sign-in succeeds and the next 
 if [ "$(sq "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_uzivatele' AND COLUMN_NAME = 'sign_in_epoch'")" = "0" ]; then
   sq "ALTER TABLE ka_uzivatele ADD COLUMN sign_in_epoch INT UNSIGNED NOT NULL DEFAULT 0; UPDATE ka_nastaveni SET hodnota = '130' WHERE promenna = 'db_version'" > /dev/null
 fi
+
+# L1: a check that met a redirect to another host is a warning "couldn't check", never "the web server refuses them"
+sq "UPDATE ka_nastaveni SET hodnota = '{\"at\":$(date +%s),\"open\":[],\"error\":\"\",\"redirect\":\"https://elsewhere.example/\"}' WHERE promenna = 'server_rules'" > /dev/null
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
+expect "3.41 review L1: System status says the check couldn't run because the address redirects, not that the folders are refused" \
+  "$(grep -c 'Nepodařilo se ověřit, zda je webový server návštěvníkům odmítá – adresa webu přesměrovává (na https://elsewhere.example/)' "$WORK/response")|$(grep -c 'webový server je návštěvníkům odmítá (zkontrolováno' "$WORK/response")" "1|0"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'server_rules'" > /dev/null

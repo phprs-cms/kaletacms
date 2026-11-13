@@ -123,6 +123,9 @@ final class Health
         $serverRules = ServerRules::last($siteSettings);
         if (($serverRules['open'] ?? []) !== []) {
             $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'chyba', t('The web server hands files from storage/ or system/ to visitors (%s) – the error log, exports and backups lie there. Add the rules of system/nginx.example.conf to the server\'s configuration (nginx, Caddy), or ask the hosting to refuse these folders; the next daily check confirms it.', implode(', ', array_map(fn (mixed $p): string => '/' . (string) $p, (array) $serverRules['open']))));
+        } elseif (isset($serverRules['redirect'])) {
+            // 3.41 review L1: a redirect to another host is no refusal – say the check could not run
+            $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'varovani', t('Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.', (string) $serverRules['redirect']));
         } elseif (isset($serverRules['at']) && ($serverRules['error'] ?? '') === '') {
             $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'ok', t('the web server refuses them to visitors (checked %s)', format_date(date('Y-m-d H:i:s', (int) $serverRules['at']), true)));
         }
