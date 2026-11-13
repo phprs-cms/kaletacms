@@ -34,6 +34,9 @@ expect "3.40 bulk rejection: without SMTP nothing changes" "$(sq "SELECT GROUP_C
 [ -z "${SMTP_PID:-}" ] || kill "$SMTP_PID" 2>/dev/null || true
 C340_SMTP="$WORK/smtp-340c"; mkdir -p "$C340_SMTP"; command php "$ROOT/tools/fake-smtp.php" "$SMTP2_PORT" "$C340_SMTP" > /dev/null 2>&1 & SMTP_PID=$!
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP2_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
+# no background pass meanwhile: a due job (a reminder, a digest) would add its own e-mail to the count below – a run after the
+# machine slept found two (3.41 review); the scheduler is held and a pass already running is waited for
+background_jobs hold; background_jobs settle
 sleep 1; C340_P0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
 curl -s -b "$C340_JH" -o "$WORK/response" "$B/admin.php?module=applications&status=open"
 expect "3.40 bulk rejection: the list offers it behind a confirmation" "$(grep -c 'value="reject_reply" data-potvrdit=' "$WORK/response")" "1"
@@ -46,6 +49,7 @@ C340_F=$(grep -l "^X-Rcpt-To: anna-c340@example.com" "$C340_SMTP"/*.eml 2>/dev/n
 expect "3.40 bulk rejection: one e-mail – the rejection template with the position and the sender's signature; the mail log names nobody" \
   "$(ls "$C340_SMTP"/*.eml 2>/dev/null | wc -l | tr -d ' ')|$(grep -c 'Welder C340' "$WORK/c340.txt" | awk '{print ($1 > 0)}')|$(grep -c -- '^-- ' "$WORK/c340.txt")|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(predmet LIKE '%Anna%' OR predmet LIKE '%Welder%')) FROM ka_posta WHERE idp > $C340_P0")" \
   "1|1|1|1|0"
+background_jobs resume
 
 # the board of one position: a column per status, each card moves with its own form and comes back to the board
 C340_D=$(c340_app "'Dora C340', 'dora-c340@example.com', 'dora-c340@example.com', '', '[]', 'new', '$(site_time '-10 days')', '$(site_time '-10 days')'")
