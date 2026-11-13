@@ -198,9 +198,11 @@ final class Console
         $d = json_decode($body, true);
         $db = $app->db();
         $site = is_array($d) ? $db->one('SELECT id, url, public_key, last_ts FROM {fleet_sites} WHERE id = ?', [(int) ($d['site_id'] ?? 0)]) : null;
-        // 3.41 (N121): the heartbeat's rule – a request not newer than the last one the site signed is a replay
+        // 3.41 (N121): an unpair older than the last heartbeat the site signed is a replay. The same second is accepted: a
+        // background heartbeat may sign in the very second of the unpair, before the site has stored its time, and repeating
+        // an unpair can only remove the same pairing again.
         if ($site === null || !Keys::verify($body, $signature, (string) $site['public_key']) || abs(time() - (int) ($d['ts'] ?? 0)) > Link::MAX_SKEW
-            || (int) ($d['ts'] ?? 0) <= (int) $site['last_ts']) {
+            || (int) ($d['ts'] ?? 0) < (int) $site['last_ts']) {
             return Response::json(['error' => 'Not a valid request of a paired site.'], 403);
         }
         self::remove($app, (int) $site['id']);
