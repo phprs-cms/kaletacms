@@ -76,7 +76,12 @@ sq "INSERT INTO ka_posta (komu, predmet, vytvoreno, pokusu, odeslano, chyba, dal
   ('s341-old@example.com', 'Reset S341', '$(site_time '-2 hours')', 1, NULL, 'smtp down', '$(site_time '-1 minute')', '{\"text\":\"old-link-s341\",\"html\":\"\",\"hlavicky\":[],\"expires\":$(( $(date +%s) - 60 ))}'),
   ('s341-live@example.com', 'Invite S341', '$(site_time)', 1, NULL, 'smtp down', '$(site_time '+1 hour')', '{\"text\":\"live-link-s341\",\"html\":\"\",\"hlavicky\":[],\"expires\":$(( $(date +%s) + 3600 ))}'),
   ('s341-plain@example.com', 'Plain S341', '$(site_time)', 1, NULL, 'smtp down', '$(site_time '+1 hour')', '{\"text\":\"plain-body-s341\",\"html\":\"\",\"hlavicky\":[]}')" > /dev/null
+# the queue run takes at most 10 due messages, oldest first – messages earlier sections left waiting are set aside meanwhile,
+# so this run reaches the three rows above whatever the queue held (3.41 review: in CI the expired row was never reached)
+S341_LATER="dalsi_pokus = dalsi_pokus + INTERVAL 10 YEAR WHERE idp <= $S341_M0 AND odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus IS NOT NULL"
+sq "UPDATE ka_posta SET $S341_LATER" > /dev/null
 s341_php 'Kaleta\Core\Mail::processQueue($app->settings());' > /dev/null
+sq "UPDATE ka_posta SET dalsi_pokus = dalsi_pokus - INTERVAL 10 YEAR WHERE idp <= $S341_M0 AND odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus > '$(site_time '+5 years')'" > /dev/null
 S341_BACKUP=$(s341_php 'echo Kaleta\Core\Backup::create($app->db(), "s341", false);')
 S341_DUMP=$( (gzip -dc "$WORK/web/storage/zalohy/$S341_BACKUP" 2>/dev/null || cat "$WORK/web/storage/zalohy/$S341_BACKUP") | grep -c 'live-link-s341\|plain-body-s341\|old-link-s341' || true)
 S341_PLAIN=$( (gzip -dc "$WORK/web/storage/zalohy/$S341_BACKUP" 2>/dev/null || cat "$WORK/web/storage/zalohy/$S341_BACKUP") | grep -o 'plain-body-s341' | head -1)
