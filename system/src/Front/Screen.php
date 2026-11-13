@@ -223,7 +223,7 @@ final class Screen
                 . ($slide['lines'] !== [] ? '<ul class="obrazovka-radky">' . implode('', array_map(fn (string $line): string => '<li>' . e($line) . '</li>', $slide['lines'])) . '</ul>' : '')
                 . '</div></section>';
         }
-        $html .= '</main><script>' . self::script($active, $seconds) . '</script></body></html>';
+        $html .= '</main><script' . Csp::attribute() . '>' . self::script($active, $seconds) . '</script></body></html>'; // 3.41 review L8: the nonce, should the screen ever be shown under the preview policy
 
         return new Response($html, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store', 'X-Robots-Tag' => 'noindex, nofollow']);
     }

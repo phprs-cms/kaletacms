@@ -79,3 +79,8 @@ curl -s -b "$R341_RJAR" -c "$R341_RJAR" -o /dev/null -X POST "$B/admin.php?actio
 expect "3.41 review L7: a request replaces the administrator's link – a new one-hour link is queued, the old token is gone" \
   "$(sq "SELECT CONCAT(obnova_otisk <> SHA2('r341-admin-link', 256), '|', obnova_cas <= '$(site_time '+1 minute')') FROM ka_uzivatele WHERE idu = $R341_L7")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE idp > $R341_P0 AND komu = 'r341l7@example.com'")" "1|1|1"
 sq "DELETE FROM ka_posta WHERE idp > $R341_P0; DELETE FROM ka_kontrola_ip WHERE typ = 'obnova'; DELETE FROM ka_uzivatele WHERE idu = $R341_L7" > /dev/null
+
+# L8: the office screen's rotation script carries the nonce when the preview policy is on (and stays plain without it)
+expect "3.41 review L8: Screen::response – every inline script has the request's nonce under the policy, none without it" \
+  "$(r341_php '$plain = Kaleta\Front\Screen::response($app)->body; Kaleta\Front\Csp::start(); $html = Kaleta\Front\Screen::response($app)->body;
+    preg_match_all("/<script\b[^>]*>/", $html, $m); echo count($m[0]), "|", count(array_filter($m[0], fn ($t) => str_contains($t, "nonce=\""))), "|", substr_count($plain, "nonce=");')" "1|1|0"
