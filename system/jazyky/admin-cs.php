@@ -8325,4 +8325,5 @@ return [
     'Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.' => 'Nejjednodušší je vzít .htaccess.kaleta-nova jako svůj .htaccess a vlastní pravidla dát nad „# BEGIN Kaleta“ – další aktualizace pak vymění jen část Kalety a vaši nechají.',
     'Lines your .htaccess lacks (%d): %s' => 'Řádky, které váš .htaccess nemá (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Nepodařilo se ověřit, zda je webový server návštěvníkům odmítá – adresa webu přesměrovává (na %s). V Nastavení → Základní nastavte adresu, na které web skutečně odpovídá.',
+    'Team totals appear from three people.' => 'Součty týmu se zobrazují od tří lidí.',
 ];

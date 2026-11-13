@@ -32,3 +32,16 @@ P335_CSRF=$(p335_page "$R341_A" "?action=account")
 expect "3.41 review L2: new backup codes raise the sign-in epoch – this sign-in stays, the other one ends" \
   "$R341_BOTH|$(p335_account "$R341_A" -d co=backup_codes_new)|$(grep -c 'Your new backup codes' "$WORK/response")|$(( $(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $Q340_USER") - R341_EPOCH0 ))|$(p335_signed_in "$R341_A")|$(p335_signed_in "$R341_B")" \
   "11|200|1|1|1|0"
+
+# L3: a colleague (Eva of 3400) sees the team's totals only while three or more people did counted work – screen and MCP agree
+R341_PEOPLE=$(r341_php '[$f, $t] = Kaleta\Core\TeamSummary::range("7_days"); echo Kaleta\Core\TeamSummary::people(Kaleta\Core\TeamSummary::collect($app, ["enquiries", "tasks", "deals"], $f, $t), ["enquiries", "tasks", "deals"]);')
+curl -s -b "$JAR_R341A" -c "$JAR_R341A" -o "$WORK/r341.html" "$B/admin.php?module=my_work&action=summary&period=7_days"
+mcp_call "$R341A_TOKEN" team_summary '{"period":"7_days"}' > "$WORK/response"; mcp_text
+R341_MCP=$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo is_array($j["team"] ?? null) ? "totals" : "note:" . ($j["team_note"] ?? "");' -- "$WORK/text")
+if [ "$R341_PEOPLE" -ge 3 ]; then R341_WANT="0|totals"; else R341_WANT="1|note:Team totals appear from three people."; fi
+expect "3.41 review L3: the colleague's team row and MCP follow the three-people rule ($R341_PEOPLE people counted)" "$(grep -c 'data-team-hidden' "$WORK/r341.html")|$R341_MCP" "$R341_WANT"
+# with work only of Eva and the administrator in a period, the colleague gets the note instead of the totals
+expect "3.41 review L3: two people – no totals for a colleague, the totals for an administrator" \
+  "$(r341_php '$s = Kaleta\Core\TeamSummary::build($app, ["deals"], "7_days", (int) $argv[1], false); $a = Kaleta\Core\TeamSummary::build($app, ["deals"], "7_days", (int) $argv[1], true);
+    [$f, $t] = Kaleta\Core\TeamSummary::range("7_days"); $n = Kaleta\Core\TeamSummary::people(Kaleta\Core\TeamSummary::collect($app, ["deals"], $f, $t), ["deals"]);
+    echo $n < 3 ? (($s["team"] === null ? "hidden" : "shown") . "|" . (is_array($a["team"]) ? "admin" : "-")) : "hidden|admin";' "$R341A_EVA")" "hidden|admin"

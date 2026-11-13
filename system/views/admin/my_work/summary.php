@@ -7,12 +7,12 @@
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\MyWork $module
- * @var array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null} $summary
+ * @var array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>|null, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null} $summary
  * @var bool $team the Team tab and the per-person rows (administrators)
  */
 use Kaleta\Core\TeamSummary;
 
-$counts = array_keys($summary['team']);
+$counts = array_keys($summary['you']); // the counts of the sections the person may open (TeamSummary::row)
 $cell = fn (string $count, int $n): string => '<td class="cislo" data-count="' . e($count) . '">' . ($count === 'tasks_overdue' && $n > 0 ? '<span class="stitek stitek-koncept">' . format_count($n) . '</span>' : format_count($n)) . '</td>';
 $to = substr($summary['to'], 11) === '00:00:00' ? (new DateTimeImmutable($summary['to']))->modify('-1 day')->format('Y-m-d') : substr($summary['to'], 0, 10);
 ?>
@@ -60,9 +60,13 @@ $to = substr($summary['to'], 11) === '00:00:00' ? (new DateTimeImmutable($summar
 <?php endif ?>
 <tr data-person="team" class="souhrn-celkem">
 	<th scope="row"><?= e(t('The whole team')) ?></th>
+<?php if ($summary['team'] === null): ?>
+	<td colspan="<?= count($counts) ?>" data-team-hidden><?= e(t(TeamSummary::FEW_PEOPLE)) ?></td>
+<?php else: ?>
 <?php foreach ($counts as $count): ?>
-	<?= $cell($count, $summary['team'][$count]) ?>
+	<?= $cell($count, $summary['team'][$count] ?? 0) ?>
 <?php endforeach ?>
+<?php endif ?>
 </tr>
 </tbody>
 </table>

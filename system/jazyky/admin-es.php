@@ -8752,4 +8752,5 @@ return [
     'Simplest: take .htaccess.kaleta-nova as your .htaccess and put your own rules above “# BEGIN Kaleta” – later updates then replace only Kaleta\'s part and keep yours.' => 'Lo más sencillo: usa .htaccess.kaleta-nova como tu .htaccess y pon tus propias reglas encima de «# BEGIN Kaleta»; las próximas actualizaciones sustituirán solo la parte de Kaleta y conservarán la tuya.',
     'Lines your .htaccess lacks (%d): %s' => 'Líneas que le faltan a tu .htaccess (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'No se pudo comprobar si el servidor web las niega: la dirección del sitio redirige (a %s). Indique en Ajustes → General la dirección en la que el sitio responde de verdad.',
+    'Team totals appear from three people.' => 'Los totales del equipo se muestran a partir de tres personas.',
 ];

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Kaleta\Core\ServerRules;
+use Kaleta\Core\TeamSummary;
 
 /* ---------- 3.41 review: the findings of the security review of 3.41 (M1, L1–L8) ---------- */
 
@@ -21,3 +22,20 @@ check('3.41 review L1: sameHostRedirect resolves a relative Location and refuses
     ServerRules::sameHostRedirect('http://w.example/a', 301, 'ftp://w.example/a'),
     ServerRules::sameHostRedirect('http://w.example/a', 200, 'https://w.example/a'),
 ], ['http://w.example/b', null, null, null]);
+
+// L3: the team's totals for someone who is not an administrator, and in the monthly report, only from three people
+$r341Collected = [0 => ['tasks_open' => 4], 3 => ['tasks_done' => 2], 5 => ['deals_won' => 1], 8 => ['quotes_sent' => 1]];
+check('3.41 review L3: people() counts the people (never "nobody responsible") with a count above 0 in the sections shown', [
+    TeamSummary::people($r341Collected, ['tasks', 'deals', 'quotes']), TeamSummary::people($r341Collected, ['tasks', 'deals']),
+    TeamSummary::people([3 => ['tasks_done' => 0]], ['tasks']), TeamSummary::MIN_PEOPLE,
+], [3, 2, 0, 3]);
+$r341Hidden = ['period' => '7_days', 'from' => 'a', 'to' => 'b', 'sections' => ['tasks'], 'team' => null, 'you' => ['tasks_open' => 1, 'tasks_overdue' => 0, 'tasks_done' => 0], 'people' => null];
+check('3.41 review L3: MCP says why the totals are missing; the report block of one or two people has the note and no totals', [
+    TeamSummary::compact($r341Hidden),
+    Kaleta\Core\Language::runWith('en', fn (): array => TeamSummary::reportPairs(['people' => 2], fn (mixed $v): string => (string) $v), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): array => TeamSummary::reportPairs(['people' => 2], fn (mixed $v): string => (string) $v), 'admin-'),
+], [
+    ['period' => '7_days', 'from' => 'a', 'to' => 'b', 'team' => null, 'you' => ['tasks_open' => 1, 'tasks_overdue' => 0, 'tasks_done' => 0], 'team_note' => 'Team totals appear from three people.'],
+    [['People who did counted work', '2'], ['Team totals appear from three people.', '']],
+    [['Lidé se započítanou prací', '2'], ['Součty týmu se zobrazují od tří lidí.', '']],
+]);

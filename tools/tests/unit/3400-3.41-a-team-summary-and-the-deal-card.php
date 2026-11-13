@@ -44,7 +44,7 @@ check('3.41 A: MCP team_summary – people only for an administrator (null = non
 check('3.41 A: the report block – how many people first, then the counts of the period in order; a count of the moment (open, overdue) never; labels translated', [
     Kaleta\Core\Language::runWith('en', fn (): array => TeamSummary::reportPairs(['people' => 3, 'tasks_done' => 4, 'enquiries_answered' => 2, 'tasks_open' => 9, 'deals_won' => 1], fn (mixed $v): string => (string) $v), 'admin-'),
     Kaleta\Core\Language::runWith('cs', fn (): array => TeamSummary::reportPairs(['people' => 1], fn (mixed $v): string => (string) $v), 'admin-')],
-    [[['People who did counted work', '3'], ['Enquiries answered', '2'], ['Tasks done', '4'], ['Deals won', '1']], [['Lidé se započítanou prací', '1']]]);
+    [[['People who did counted work', '3'], ['Enquiries answered', '2'], ['Tasks done', '4'], ['Deals won', '1']], [['Lidé se započítanou prací', '1'], ['Součty týmu se zobrazují od tří lidí.', '']]]); // 3.41 review L3: below three people a note, no totals
 
 $a341Texts = [...array_values(TeamSummary::LABELS), ...array_values(TeamSummary::PERIODS), 'Nobody responsible', 'People who did counted work', 'Team summary', 'You', 'The whole team',
     'Nothing counted in this period yet.', 'Days in this stage: %d', 'In this stage since today', 'Next: %s', 'No next step', 'In this stage', 'Next step', 'since today',

@@ -54,6 +54,16 @@ final class TeamSummary
     /** The section a viewer must be able to open (tasks: everyone). */
     private const array SECTION_OF = ['enquiries' => 'enquiries', 'deals' => Deals::SECTION, 'applications' => Applications::SECTION, 'quotes' => Quotes::SECTION];
 
+    /**
+     * 3.41 review L3: the team's totals are shown to someone who is not an administrator, and put into the monthly report,
+     * only when at least this many people did counted work – with two, the total minus one's own row is the colleague's
+     * exact numbers.
+     */
+    public const int MIN_PEOPLE = 3;
+
+    /** The note shown instead of the totals below MIN_PEOPLE. */
+    public const string FEW_PEOPLE = 'Team totals appear from three people.';
+
     /** The condition of Admin\Modules\Enquiries::NOT_SPAM (Core never names Admin – docs/design/code-layers.md; a unit test keeps them equal). */
     public const string NOT_SPAM = "kategorie <> 'spam'";
 
@@ -221,10 +231,11 @@ final class TeamSummary
     /**
      * The summary a viewer sees: the period, its sections, the team's totals, the viewer's own counts and – only for an
      * administrator ($perPerson) – everyone's, by name (removed or blocked accounts as Assignment labels them; "nobody"
-     * for work nobody is responsible for), the busiest first.
+     * for work nobody is responsible for), the busiest first. The team's totals are null for someone who is not an
+     * administrator while fewer than MIN_PEOPLE people did counted work (3.41 review L3).
      *
      * @param list<string> $sections
-     * @return array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null}
+     * @return array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>|null, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null}
      */
     public static function build(App $app, array $sections, string $period, int $viewer, bool $perPerson, bool $translate = true): array
     {
@@ -241,7 +252,9 @@ final class TeamSummary
             usort($people, fn (array $a, array $b): int => [$a['id'] === 0, -array_sum($a['counts']), $a['name']] <=> [$b['id'] === 0, -array_sum($b['counts']), $b['name']]);
         }
 
-        return ['period' => $period, 'from' => $from, 'to' => $to, 'sections' => $sections, 'team' => self::totals($collected, $sections),
+        $team = $perPerson || self::people($collected, $sections) >= self::MIN_PEOPLE ? self::totals($collected, $sections) : null;
+
+        return ['period' => $period, 'from' => $from, 'to' => $to, 'sections' => $sections, 'team' => $team,
             'you' => self::row($collected[$viewer] ?? [], $sections), 'people' => $people];
     }
 
@@ -249,12 +262,15 @@ final class TeamSummary
      * A summary as MCP team_summary returns it: the period, the team's totals, the user's own counts and – for an
      * administrator – each person (user id, null = nobody responsible; the name; only the counts above 0). Pure.
      *
-     * @param array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null} $summary
+     * @param array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>|null, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null} $summary
      * @return array<string, mixed>
      */
     public static function compact(array $summary): array
     {
         $out = ['period' => $summary['period'], 'from' => $summary['from'], 'to' => $summary['to'], 'team' => $summary['team'], 'you' => $summary['you']];
+        if ($summary['team'] === null) {
+            $out['team_note'] = self::FEW_PEOPLE; // 3.41 review L3
+        }
         if ($summary['people'] !== null) {
             $out['people'] = array_map(fn (array $p): array => ['user' => $p['id'] > 0 ? $p['id'] : null, 'name' => $p['name']] + array_filter($p['counts']), $summary['people']);
         }
@@ -265,7 +281,8 @@ final class TeamSummary
     /**
      * The team block of the monthly report (MonthlyReport::build): the totals of the counts of the period for what the site
      * has switched on, and how many people did something counted – never a name, never a person's own numbers (the report
-     * may be forwarded). Null when nobody did anything counted in the month.
+     * may be forwarded). Null when nobody did anything counted in the month; only the number of people while fewer than
+     * MIN_PEOPLE did (3.41 review L3 – with one or two, the totals are one person's numbers).
      *
      * @return array<string, int>|null
      */
@@ -274,12 +291,26 @@ final class TeamSummary
         $sections = self::sectionsOfSite($app);
         $collected = self::collect($app, $sections, $from, $to);
         $counted = array_flip(array_diff(array_merge(...array_values(array_intersect_key(self::COUNTS, array_flip($sections)))), self::NOW));
-        $people = count(array_filter($collected, fn (array $c, int $id): bool => $id > 0 && array_intersect_key($c, $counted) !== [], ARRAY_FILTER_USE_BOTH));
+        $people = count(array_filter($collected, fn (array $c, int $id): bool => $id > 0 && array_filter(array_intersect_key($c, $counted)) !== [], ARRAY_FILTER_USE_BOTH));
         if ($people === 0) {
             return null;
         }
+        if ($people < self::MIN_PEOPLE) {
+            return ['people' => $people];
+        }
 
         return ['people' => $people] + array_intersect_key(self::totals($collected, $sections), $counted);
+    }
+
+    /**
+     * How many people (not "nobody responsible") have at least one count above 0 in the given sections. Pure.
+     *
+     * @param array<int, array<string, int>> $collected
+     * @param list<string> $sections
+     */
+    public static function people(array $collected, array $sections): int
+    {
+        return count(array_filter($collected, fn (array $c, int $id): bool => $id > 0 && array_filter(self::row($c, $sections)) !== [], ARRAY_FILTER_USE_BOTH));
     }
 
     /**
@@ -297,6 +328,9 @@ final class TeamSummary
             if (array_key_exists($count, $team) && !in_array($count, self::NOW, true)) {
                 $pairs[] = [t($label), $number($team[$count])];
             }
+        }
+        if (count($pairs) === 1 && (int) ($team['people'] ?? 0) < self::MIN_PEOPLE) {
+            $pairs[] = [t(self::FEW_PEOPLE), '']; // 3.41 review L3
         }
 
         return $pairs;
