@@ -54,7 +54,8 @@ expect "3.41 N120: a served canary is an error on System status naming the addre
 sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'server_rules'" > /dev/null
 
 # N113: an anonymous request does not replace a pending invitation; a new e-mail (Users) and a completed sign-in end a link
-sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, potvrzeno, blokovat, obnova_otisk, obnova_cas) VALUES ('s341inv', '$(php -r 'echo password_hash("S341-invited-pw-1", PASSWORD_DEFAULT);')', 'Invited S341', 's341inv@example.com', 'en', 0, '$(site_time)', 0, SHA2('s341-invitation', 256), '$(site_time '+71 hours')')" > /dev/null
+S341_PW="S341-invited-$(openssl rand -hex 4)" # built at run time – no password-shaped literal for the secret scanner
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, potvrzeno, blokovat, obnova_otisk, obnova_cas) VALUES ('s341inv', '$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$S341_PW")', 'Invited S341', 's341inv@example.com', 'en', 0, '$(site_time)', 0, SHA2('s341-invitation', 256), '$(site_time '+71 hours')')" > /dev/null
 S341_INV=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 's341inv'"); S341_P0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
 S341_RJAR="$WORK/jar-s341r"; curl -s -c "$S341_RJAR" -o "$WORK/response" "$B/admin.php?action=password"
 curl -s -b "$S341_RJAR" -c "$S341_RJAR" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$(s341_csrf "$WORK/response")" -d kdo=s341inv@example.com
@@ -66,7 +67,7 @@ expect "3.41 N113: changing the account's e-mail in Users ends its invitation li
 sq "UPDATE ka_uzivatele SET obnova_otisk = SHA2('s341-request', 256), obnova_cas = '$(site_time '-20 minutes')' WHERE idu = $S341_INV" > /dev/null
 S341_SJAR="$WORK/jar-s341s"; curl -s -c "$S341_SJAR" -o "$WORK/response" "$B/admin.php"
 expect "3.41 N113: a completed sign-in ends a reset link of the account" \
-  "$(curl -s -b "$S341_SJAR" -c "$S341_SJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(s341_csrf "$WORK/response")" -d user=s341inv --data-urlencode "password=S341-invited-pw-1")|$(sq "SELECT obnova_otisk = '' FROM ka_uzivatele WHERE idu = $S341_INV")" "302|1"
+  "$(curl -s -b "$S341_SJAR" -c "$S341_SJAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(s341_csrf "$WORK/response")" -d user=s341inv --data-urlencode "password=$S341_PW")|$(sq "SELECT obnova_otisk = '' FROM ka_uzivatele WHERE idu = $S341_INV")" "302|1"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'; DELETE FROM ka_kontrola_ip WHERE typ IN ('obnova', 'login'); DELETE FROM ka_posta WHERE idp > $S341_P0" > /dev/null
 
 # N114: a queued message whose link expired is dropped, not sent; a backup leaves out a body with a live link
@@ -86,12 +87,12 @@ rm -f "$WORK/web/storage/zalohy/$S341_BACKUP"; sq "DELETE FROM ka_posta WHERE id
 
 # N116: a change of the second factor ends the other sign-ins of the account; the one that made it stays signed in
 sq "UPDATE ka_uzivatele SET passkey_only = 1 WHERE idu = $S341_INV" > /dev/null
-s341_signin() { curl -s -c "$1" -o "$WORK/response" "$B/admin.php"; curl -s -b "$1" -c "$1" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(s341_csrf "$WORK/response")" -d user=s341inv --data-urlencode "password=S341-invited-pw-1"; }
+s341_signin() { curl -s -c "$1" -o "$WORK/response" "$B/admin.php"; curl -s -b "$1" -c "$1" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(s341_csrf "$WORK/response")" -d user=s341inv --data-urlencode "password=$S341_PW"; }
 s341_signed_in() { curl -s -b "$1" -c "$1" -o "$WORK/response" "$B/admin.php?action=account"; grep -c 'name="co" value="profil"' "$WORK/response" || true; }
 S341_A="$WORK/jar-s341a"; S341_B="$WORK/jar-s341b"; rm -f "$S341_A" "$S341_B"
 S341_IN="$(s341_signin "$S341_A")|$(s341_signin "$S341_B")|$(s341_signed_in "$S341_A")|$(s341_signed_in "$S341_B")"
 curl -s -b "$S341_A" -c "$S341_A" -o "$WORK/response" "$B/admin.php?action=account"
-curl -s -b "$S341_A" -c "$S341_A" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$(s341_csrf "$WORK/response")" -d co=passkey_only --data-urlencode "soucasne=S341-invited-pw-1"
+curl -s -b "$S341_A" -c "$S341_A" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$(s341_csrf "$WORK/response")" -d co=passkey_only --data-urlencode "soucasne=$S341_PW"
 expect "3.41 N116: switching \"passkey only\" off in one sign-in ends the other one; the first stays signed in" \
   "$S341_IN|$(sq "SELECT passkey_only FROM ka_uzivatele WHERE idu = $S341_INV")|$(s341_signed_in "$S341_A")|$(s341_signed_in "$S341_B")" "302|302|1|1|0|1|0"
 sq "UPDATE ka_uzivatele SET sign_in_epoch = sign_in_epoch + 1 WHERE idu = $S341_INV" > /dev/null

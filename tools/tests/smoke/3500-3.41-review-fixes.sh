@@ -72,7 +72,7 @@ sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('fleet_console_url',
 
 # L7: the person's own request replaces an administrator's pending 3-day link (a signed-in account); the old link stops working
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'obnova';
-  INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, obnova_otisk, obnova_cas) VALUES ('r341l7', '$(php -r 'echo password_hash("R341-l7-pw-1", PASSWORD_DEFAULT);')', 'Reset R341', 'r341l7@example.com', 'en', 0, '$(site_time '-3 days')', '$(site_time '-9 days')', 0, SHA2('r341-admin-link', 256), '$(site_time '+71 hours')')" > /dev/null
+  INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, obnova_otisk, obnova_cas) VALUES ('r341l7', '$(php -r 'echo password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT);')', 'Reset R341', 'r341l7@example.com', 'en', 0, '$(site_time '-3 days')', '$(site_time '-9 days')', 0, SHA2('r341-admin-link', 256), '$(site_time '+71 hours')')" > /dev/null
 R341_L7=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341l7'"); R341_P0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
 R341_RJAR="$WORK/jar-r341r"; curl -s -c "$R341_RJAR" -o "$WORK/response" "$B/admin.php?action=password"
 curl -s -b "$R341_RJAR" -c "$R341_RJAR" -o /dev/null -X POST "$B/admin.php?action=password" -d "_csrf=$(r341_csrf "$WORK/response")" -d kdo=r341l7@example.com

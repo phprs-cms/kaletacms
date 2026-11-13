@@ -1,2 +1,6 @@
 # 3.39: a test value written as a literal in a 3.39 B commit, replaced by a run-time value in d11380d2 (never a real secret)
 e970ab98a09a39d5918666729d8bd5d48341bc6d:tools/tests/smoke/3050-3.39-b-n106-sealed-secrets.sh:generic-api-key:18
+
+# 3.41: test passwords written as literals in 3.41 B commits, built at run time since the 3.41 review (never real secrets)
+4fd92dd33dfd3022a139d716abb6c01a4237bddb:tools/tests/smoke/3450-3.41-b-security-lows.sh:generic-api-key:69
+ca611c98295eee418c242dce3f0b122ef7d55117:tools/tests/smoke/3450-3.41-b-security-lows.sh:generic-api-key:89
