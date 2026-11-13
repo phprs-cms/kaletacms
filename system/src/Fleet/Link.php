@@ -72,7 +72,8 @@ final class Link
             throw new \RuntimeException(t('The console refused the pairing: %s', mb_substr($reason, 0, 200)));
         }
         foreach (['fleet_console_url' => $key['url'], 'fleet_console_key' => $key['key'], 'fleet_console_name' => mb_substr((string) ($answer['json']['console_name'] ?? $key['name']), 0, 150),
-            'fleet_site_id' => (string) (int) $answer['json']['site_id'], 'fleet_updates' => $manageUpdates ? '1' : '0', 'fleet_update_allowed' => '', 'fleet_last_error' => ''] as $name => $value) {
+            'fleet_site_id' => (string) (int) $answer['json']['site_id'], 'fleet_updates' => $manageUpdates ? '1' : '0', 'fleet_update_allowed' => '', 'fleet_last_error' => '',
+            'fleet_answers_bound' => '', 'fleet_last_ts' => ''] as $name => $value) { // 3.41 review L5: a new pairing starts without the binding state of an earlier one
             $s->set($name, $value);
         }
         ChangeLog::write($app, 'settings', 'fleet_pair', $key['url'] . ($manageUpdates ? ', updates by the console' : ''));

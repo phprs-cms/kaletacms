@@ -53,3 +53,19 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.41 review L4: System status says the source must be https and where to change it – not that it isn't responding" \
   "$(grep -c 'Zdroj aktualizací musí být na adrese https://. Změňte zdroj aktualizací v Nastavení → Zálohy a aktualizace' "$WORK/response")|$(grep -c 'zdroj aktualizací neodpovídá' "$WORK/response")" "1|0"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_url', '$R341_OLD_UPDATE_URL'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'update_cache'" > /dev/null
+
+# L5: pairing again starts without the answer binding and the request time of an earlier pairing (a stand-in console)
+R341_SITE_URL=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_url', 'https://site-r341.example'), ('fleet_answers_bound', '1'), ('fleet_last_ts', '4102444800')" > /dev/null
+expect "3.41 review L5: Link::pair resets fleet_answers_bound and fleet_last_ts (no bound answer yet, the new heartbeat's time)" \
+  "$(r341_php '$pair = sodium_crypto_sign_keypair(); $secret = sodium_crypto_sign_secretkey($pair);
+    Kaleta\Fleet\Http::$transport = function (string $url, string $body) use ($secret): array {
+        if (str_ends_with($url, "/fleet/pair")) { $answer = (string) json_encode(["site_id" => 7341, "console_name" => "R341"]); return [200, $answer, base64_encode(sodium_crypto_sign_detached($answer, $secret))]; }
+        return [503, "", ""];
+    };
+    $key = Kaleta\Fleet\Link::makeKey("https://console-r341.example", bin2hex(random_bytes(16)), base64_encode(sodium_crypto_sign_publickey($pair)), "R341");
+    Kaleta\Fleet\Link::pair($app, $key, false); $s = $app->settings();
+    echo $s->get("fleet_site_id"), "|", $s->get("fleet_answers_bound") === "" ? "unbound" : "bound!", "|", $s->int("fleet_last_ts") < 4102444800 ? "fresh" : "old!";')" \
+  "7341|unbound|fresh"
+sq "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('fleet_console_url', 'fleet_console_key', 'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_last_error', 'fleet_answers_bound', 'fleet_last_ts', 'fleet_update_allowed');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_url', '$R341_SITE_URL')" > /dev/null
