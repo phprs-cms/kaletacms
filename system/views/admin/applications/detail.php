@@ -40,7 +40,7 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 	<dt><?= e(t('Position')) ?></dt><dd data-application-position><?= (string) $a['job_title'] !== '' ? bdi((string) $a['job_title']) : '<span class="napoveda">' . e(t('No position (a spontaneous application)')) . '</span>' ?><?= $a['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></dd>
 	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date((string) $a['received_at'], true)) ?> · <?= bdi((string) $a['form']) ?></dd>
 <?php if ((string) $a['email'] !== ''): ?>
-	<dt><?= e(t('E-mail')) ?></dt><dd><a href="mailto:<?= e((string) $a['email']) ?>"><?= bdi((string) $a['email']) ?></a></dd>
+	<dt><?= e(t('Email')) ?></dt><dd><a href="mailto:<?= e((string) $a['email']) ?>"><?= bdi((string) $a['email']) ?></a></dd>
 <?php endif ?>
 <?php if ((string) $a['phone'] !== ''): ?>
 	<dt><?= e(t('Phone')) ?></dt><dd><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', (string) $a['phone'])) ?>"><?= bdi((string) $a['phone']) ?></a></dd>

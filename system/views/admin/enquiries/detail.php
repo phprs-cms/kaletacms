@@ -46,7 +46,7 @@ $pageLink = Kaleta\Front\Forms::isSafePage((string) $p['stranka']);
 <?php if ($toApplication): /* 3.34: a job application that came through a general form */ ?>
 		<form method="post" action="<?= e($module->url('to_application')) ?>" data-to-application data-potvrdit="<?= e(t('Move this enquiry to Applications? It leaves Enquiries with its notes, tasks and attachments; a deal made from it loses the link.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Move to Applications')) ?></button></form>
 <?php endif ?>
-		<form method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete this enquiry and its attachments for good? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 	</div></details>
 </div>
 </div>

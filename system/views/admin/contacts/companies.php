@@ -21,7 +21,7 @@ $filtered = $search !== '' || $ownerKey !== '';
 		<option value="mine"<?= $ownerKey === 'mine' ? ' selected' : '' ?>><?= e(t('Mine')) ?></option>
 		<option value="nobody"<?= $ownerKey === 'nobody' ? ' selected' : '' ?>><?= e(t('Nobody')) ?></option>
 	</select></label>
-	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filtrovat')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($module->url('companies')) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
+	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filter')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($module->url('companies')) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
 </form>
 <?php if ($result['rows'] === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'zakaznici', 'heading' => $filtered ? t('No company matches the filter.') : t('No companies yet.'),

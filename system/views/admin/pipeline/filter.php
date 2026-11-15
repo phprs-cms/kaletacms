@@ -53,7 +53,7 @@ $clear = $filter['view'] === 'list' ? $module->url('', ['view' => 'list']) : $mo
 <?php endforeach ?>
 	</select></label>
 <?php endif ?>
-	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filtrovat')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($clear) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
+	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filter')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($clear) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
 </form>
 <?php if ($filter['contact'] > 0): ?>
 <p class="obchody-zuzeni" data-pipeline-contact="<?= $filter['contact'] ?>"><?= e(t('Deals of the customer %s', $contactName)) ?> · <a href="<?= e($module->url('', array_diff_key(Pipeline::query($filter), ['contact' => 1]))) ?>"><?= e(t('Show everyone’s')) ?></a></p>

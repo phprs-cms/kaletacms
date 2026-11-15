@@ -31,14 +31,14 @@
 </select><span class="napoveda"><?= e(t('The news items get the selected tag, this one is removed and its address redirects. Useful for typos and duplicate spellings.')) ?></span></div></div>
 </details>
 </fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Cancel')) ?></a></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Cancel')) ?></a></p>
 </form>
 <?php endif ?>
 <?php if ($tags === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'stitky', 'heading' => t('No tags yet.'), 'text' => t('Add them in the news editor in the Tags field. Here you can then merge them and turn them into topic pages.')]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Štítek')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Topic')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Tag')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Topic')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($tags as $s): ?>
 <tr>
@@ -46,7 +46,7 @@
 	<td class="cislo"><?= (int) $s['pocet'] ?></td>
 	<td><?= trim((string) $s['popis']) !== '' ? '<span class="stitek stitek-vydano">' . e(t('has an intro')) . '</span>' : '' ?></td>
 	<td class="akce"><?php if ($mayPublish): ?><a href="<?= e($module->url('', ['edit' => $s['ids']])) ?>#uprav"><?= e(t('Edit')) ?></a>
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the tag? The news items stay, they just lose this tag.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form><?php endif ?></td>
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the tag? The news items stay, they just lose this tag.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody></table></div>

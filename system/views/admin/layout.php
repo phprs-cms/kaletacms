@@ -61,7 +61,7 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     }
     $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
     $statements[] = ['n' => t('Notifications'), 'u' => $adminUrl('action=inbox'), 's' => '']; // 3.26
-    $statements[] = ['n' => t('Zobrazit web'), 'u' => $app->url(''), 's' => ''];
+    $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
 }
 // 3.26: the bell – unread notifications of the signed-in person (Core\Inbox, one COUNT over its key); not at the two-factor gate
 $bell = $user !== null && empty($gated) ? Kaleta\Core\Inbox::unreadCount($app->db(), (int) $user['idu']) : null;
@@ -152,7 +152,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 		</ul></details></li>
 <?php endif ?>
 <?php endforeach ?>
-		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('Zobrazit web')) ?></a></li>
+		<li class="menu-web"><a href="<?= e($app->url('')) ?>" target="_blank" rel="noopener"><?= $icon('web') ?><?= e(t('View site')) ?></a></li>
 		<li class="menu-logout"><form method="post" action="<?= e($app->url('admin.php?action=logout')) ?>"><?= $app->session->csrfField() ?><button type="submit"><?= $icon('odhlasit') ?><?= e(t('Sign out')) ?></button></form></li>
 	</ul>
 <?php if (!$menuFlat): // 3.25: before the first paint – the groups this browser closed stay closed (no jump after the page loads)
@@ -179,7 +179,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 <dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?><?= isset($modules['contacts']) ? ' data-contacts="' . e($app->url('admin.php?module=contacts&action=search_json')) . '"' : '' /* 3.28: customers by name, e-mail or company */ ?><?= isset($modules['pipeline']) ? ' data-deals="' . e($app->url('admin.php?module=pipeline&action=search_json')) . '"' : '' /* 3.31: deals by title, customer or company */ ?><?= isset($modules['applications']) ? ' data-applications="' . e($app->url('admin.php?module=applications&action=search_json')) . '"' : '' /* 3.34 B: job applications by number, name or position – only with the section */ ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
-	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('výběr')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
+	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
 	<script type="application/json" id="paleta-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif ?>

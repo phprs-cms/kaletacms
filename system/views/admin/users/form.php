@@ -33,11 +33,11 @@ $role = [
 <?= $csrf ?>
 <input type="hidden" name="idu" value="<?= (int) $author['idu'] ?>">
 <div class="radek">
-	<label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label>
-	<div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($author['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
+	<label for="jmeno"><?= e(t('First and last name')) ?></label>
+	<div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($author['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="user"><?= e(t('Přihlašovací jméno')) ?></label>
+	<label for="user"><?= e(t('User name')) ?></label>
 	<div><input class="textpole" type="text" id="user" name="user" value="<?= e($author['user']) ?>" maxlength="40" size="30" required><?= $error('user') ?></div>
 </div>
 <div class="radek">
@@ -80,7 +80,7 @@ $role = [
 <div class="radek">
 	<label for="password"><?= e(t($author['idu'] ? 'New password' : 'Password')) ?></label>
 	<div><input class="textpole" type="password" id="password" name="password" size="30" minlength="10" autocomplete="new-password">
-	<label style="font-weight:normal"><input type="checkbox" data-ukaz-heslo="password"> <?= e(t('zobrazit')) ?></label><?= $error('password') ?>
+	<label style="font-weight:normal"><input type="checkbox" data-ukaz-heslo="password"> <?= e(t('show')) ?></label><?= $error('password') ?>
 	<span class="napoveda"><?= e(t('At least 10 characters.')) ?> <?= e(t($author['idu'] ? 'Leave empty if you are not changing the password.' : 'The user can change it later under My account.')) ?></span>
 <?php if ($author['idu'] && array_filter($connections ?? [], fn (array $c): bool => $c['kind'] === 'token') !== []): ?>
 	<input type="hidden" name="zrusit_tokeny" value="0"><label style="font-weight:normal"><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
@@ -151,7 +151,7 @@ $role = [
 <?php if ((!empty($author['totp_tajemstvi']) || !empty($passkeys)) && !$isSelf): ?>
 <div class="radek">
 	<span class="popisek"><?= e(t('Two-factor sign-in')) ?></span>
-	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span><?= !empty($passkeys) ? ' <span class="stitek">' . e(t('passkeys: %d', (int) $passkeys)) . '</span>' : '' ?> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t(!empty($passkeys) ? 'reset the second factor and the passkeys (the user lost their devices and backup codes)' : 'turn off (the user lost both their phone and backup codes)')) ?></label></div>
+	<div class="volby"><span class="stitek stitek-vydano"><?= e(t('on')) ?></span><?= !empty($passkeys) ? ' <span class="stitek">' . e(t('passkeys: %d', (int) $passkeys)) . '</span>' : '' ?> <label><input type="checkbox" name="totp_reset" value="1"> <?= e(t(!empty($passkeys) ? 'reset the second factor and the passkeys (the user lost their devices and backup codes)' : 'turn off (the user lost both their phone and backup codes)')) ?></label></div>
 </div>
 <?php endif ?>
 <?php if (!$isSelf): ?>

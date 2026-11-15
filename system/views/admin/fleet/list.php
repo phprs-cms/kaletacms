@@ -48,7 +48,7 @@ $severity = fn (string $r): string => Console::REASONS[$r] >= Console::REASONS['
 <?php endforeach ?>
 	</select></label>
 <?php endif ?>
-	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button></form>
+	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button></form>
 <?php if ($customer > 0): ?>
 <form class="formular" method="post" action="<?= e($module->url('allow')) ?>"><?= $csrf ?><input type="hidden" name="customer" value="<?= $customer ?>">
 <p><button class="navigace" type="submit" data-potvrdit="<?= e(t('The sites of %s that let the console decide install version %s within an hour. Continue?', $customers[$customer], $latest)) ?>"><?= e(t('Allow the new version on the sites of %s now', $customers[$customer])) ?></button></p></form>

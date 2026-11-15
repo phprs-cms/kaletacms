@@ -184,7 +184,7 @@ $tabs = ['styl' => 'Styles', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pism
 <legend><?= e(t('Typography styles')) ?></legend>
 <p class="napoveda"><?= e(t('Named text styles you pick for an element in the builder (Style → Typography). A change here applies everywhere the style is used.')) ?></p>
 <div class="tab-obal"><table class="vypis vzhled-typografie">
-<thead><tr><th scope="col"><?= e(t('Styl')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Weight')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Style')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Weight')) ?></th></tr></thead>
 <tbody>
 <?php foreach (DesignSystem::TYPOGRAPHY as $key => [$name, $step, $weight, $lineHeight, $forHeadings]): $custom = $ds['typografie'][$key] ?? []; ?>
 <tr>
@@ -260,7 +260,7 @@ $tabs = ['styl' => 'Styles', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pism
 <aside class="vzhled-nahled">
 	<div class="vzhled-nahled-lista">
 		<span><?= e(Kaleta\Core\Look::hasDraft($app->settings()) ? t('Preview: draft look') : t('Home page preview')) ?></span>
-		<span class="vzhled-zarizeni" role="group" aria-label="<?= e(t('Zařízení')) ?>">
+		<span class="vzhled-zarizeni" role="group" aria-label="<?= e(t('Devices')) ?>">
 			<button type="button" data-zarizeni="pocitac" aria-pressed="true"><?= e(t('Desktop')) ?></button>
 			<button type="button" data-zarizeni="mobil" aria-pressed="false"><?= e(t('Phone')) ?></button>
 		</span>

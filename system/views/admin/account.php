@@ -65,7 +65,7 @@ $proofNote = '<p class="napoveda">' . e(t($fresh ? 'You confirmed it with your p
 <form class="formular" method="post" action="<?= $action ?>">
 <?= $csrf ?><input type="hidden" name="co" value="profil">
 <fieldset><legend><?= e(t('My details')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('Přihlašovací jméno')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
+<div class="radek"><span class="popisek"><?= e(t('User name')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
 <div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
 <div class="radek"><label for="email"><?= e(t('Email')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
 <?php if ($passkeyOnly): ?>
@@ -102,7 +102,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <fieldset><legend><?= e(t('Notifications by e-mail')) ?></legend>
 <p class="napoveda"><?= e(t('Notifications tell you when a colleague mentions you, comments on what you are responsible for or assigns you something, and when a review date comes. They are always under the bell at the top of the administration; here you choose whether they also come by e-mail.')) ?></p>
 <?php $notifyEmail = Kaleta\Core\Inbox::emailMode((string) ($user['notify_email'] ?? '')); ?>
-<div class="radek"><span class="popisek" id="notify_email_popisek"><?= e(t('E-mail')) ?></span><div role="radiogroup" aria-labelledby="notify_email_popisek">
+<div class="radek"><span class="popisek" id="notify_email_popisek"><?= e(t('Email')) ?></span><div role="radiogroup" aria-labelledby="notify_email_popisek">
 <div class="karty-volby karty-volby-text">
 <?php foreach ([
     'instant' => ['Right away', 'One e-mail for each notification, as it happens.'],
@@ -122,7 +122,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="co" value="heslo">
-<fieldset><legend><?= e(t('Změna hesla')) ?></legend>
+<fieldset><legend><?= e(t('Change password')) ?></legend>
 <?php if ($passkeyOnly): ?>
 <?= $proofNote ?>
 <?php else: ?>
@@ -145,7 +145,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?= $csrf ?>
 <fieldset id="two-factor"><legend><?= e(t('Two-factor sign-in')) ?></legend>
 <?php if ($user['totp_tajemstvi'] !== ''): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
+<p><span class="stitek stitek-vydano"><?= e(t('on')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
 <input type="hidden" name="co" value="totp_vypni">
 <?php if ($passkeyOnly): ?>
 <?= $proofNote ?>
@@ -211,7 +211,7 @@ foreach ($keys as $k): ?>
 	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
 	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
 	<td><?= $elsewhere($k) ? '<span class="stitek">' . e(t('another address: %s', (string) $k['rp_id'])) . '</span>' : (!empty($k['discoverable']) ? '<span class="stitek stitek-vydano">' . e(t('without a password')) . '</span>' : '<span class="stitek">' . e(t('second step only')) . '</span>') ?></td>
-	<td class="akce"><?php if (empty($k['discoverable'])): ?><button class="navigace" type="button" data-klic-pridat data-nahradit="<?= $kid ?>"><?= e(t('Register again')) ?></button> <?php endif ?><button class="navigace nebezpecne" type="submit" name="idk" value="<?= $kid ?>" data-potvrdit="<?= e(t('Remove this passkey? It will no longer sign you in.')) ?>"><?= e(t('Smazat')) ?></button></td>
+	<td class="akce"><?php if (empty($k['discoverable'])): ?><button class="navigace" type="button" data-klic-pridat data-nahradit="<?= $kid ?>"><?= e(t('Register again')) ?></button> <?php endif ?><button class="navigace nebezpecne" type="submit" name="idk" value="<?= $kid ?>" data-potvrdit="<?= e(t('Remove this passkey? It will no longer sign you in.')) ?>"><?= e(t('Delete')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
@@ -253,7 +253,7 @@ foreach ($keys as $k): ?>
 <?= $csrf ?><input type="hidden" name="co" value="passkey_only">
 <fieldset id="passkey-only"><legend><?= e(t('Passkey only')) ?></legend>
 <?php if ($sitePasskeyOnly): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('zapnuté')) ?></span> <?= e(t('This site requires it: you sign in with your passkey. After your password only the passkey or a backup code finishes the sign-in.')) ?></p>
+<p><span class="stitek stitek-vydano"><?= e(t('on')) ?></span> <?= e(t('This site requires it: you sign in with your passkey. After your password only the passkey or a backup code finishes the sign-in.')) ?></p>
 <?php else: ?>
 <div class="radek"><span class="popisek"><?= e(t('Sign-in')) ?></span><div class="volby"><input type="hidden" name="passkey_only" value="0"><label><input type="checkbox" name="passkey_only" value="1"<?= $passkeyOnly ? ' checked' : '' ?> aria-describedby="passkey-only-napoveda"> <?= e(t('sign in with a passkey only')) ?></label>
 	<span class="napoveda" id="passkey-only-napoveda"><?= e(t('Your password then never signs you in with the code from the app: after it only your passkey or a backup code finishes the sign-in. You can still change or reset the password. Lost your passkey and the backup codes? An administrator can reset your passkeys.')) ?></span></div></div>
@@ -307,7 +307,7 @@ $toolSetSwitch = function (string $set, string $target) use ($app, $toolSetNames
 <?php if ($apps !== []): ?>
 <h2><?= e(t('Connected applications')) ?></h2>
 <?php foreach ($apps as $a): ?>
-<div class="napojeni"><span class="stitek"><?= e($a['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $a['tool_set']) ?> <?= e(t('connected %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('zatím nepoužita')) ?>
+<div class="napojeni"><span class="stitek"><?= e($a['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $a['tool_set']) ?> <?= e(t('connected %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('not used yet')) ?>
 	<?= $toolSetSwitch((string) $a['tool_set'], 'app:' . $a['klient']) ?>
 	<button class="navigace nebezpecne" type="submit" form="claude-connections" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></div>
 <?php endforeach ?>

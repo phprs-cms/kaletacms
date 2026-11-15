@@ -63,7 +63,7 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 	<span class="napoveda"><?= e(t('Only these people open the reports – other administrators see case numbers and dates. A new report is announced to them by e-mail with the case number only.')) ?></span></div></fieldset>
 <div class="radek"><label for="wb-retention"><?= e(t('Delete closed cases after')) ?></label><div><input class="textpole" type="number" id="wb-retention" name="retention" value="<?= (int) $retention ?>" min="1" max="120" size="4"> <?= e(t('months')) ?>
 	<span class="napoveda"><?= e(t('Closed cases are deleted with their attachments and messages; open cases are kept. Check the retention period your national law requires.')) ?></span></div></div>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <form id="wb-footer-link" method="post" action="<?= e($module->url('footer_link')) ?>"><?= $csrf ?></form>
 <p class="smltxt"><?= e(t('Claude and other connected tools never see the reports: no MCP tool reads or lists them, and the site export leaves them out.')) ?></p>

@@ -26,7 +26,7 @@ foreach (CollectionSchema::TYPES as $type => [, $props]) {
 <?= $csrf ?>
 <input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>">
 <div class="radek"><label for="nazev"><?= e(t('Collection name')) ?></label><div><input class="textpole siroke" id="nazev" name="nazev" value="<?= e($k['nazev']) ?>" maxlength="100" required placeholder="<?= e(t('e.g. Testimonials, Team, Products')) ?>"></div></div>
-<div class="radek"><label for="seo_link"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="seo_link" name="seo_link" value="<?= e($k['seo_link']) ?>" maxlength="110"><span class="napoveda"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
+<div class="radek"><label for="seo_link"><?= e(t('URL')) ?></label><div><input class="textpole" id="seo_link" name="seo_link" value="<?= e($k['seo_link']) ?>" maxlength="110"><span class="napoveda"><?= e(t('From the name if left empty. Item pages will then be at /address/item-name.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Item pages')) ?></span><div class="volby"><label><input type="checkbox" name="detail" value="1"<?= $k['detail'] ? ' checked' : '' ?>> <?= e(t('each item has its own page (detail)')) ?></label>
 <span class="napoveda"><?= e(t('Design the detail page in the builder (Detail template). Without a detail page, items are just cards in the list.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Admin menu')) ?></span><div class="volby"><label><input type="checkbox" name="admin_menu" value="1"<?= ($k['admin_menu'] ?? 1) ? ' checked' : '' ?>> <?= e(t('Show in the admin menu')) ?></label>
@@ -67,12 +67,12 @@ $iconTile = static fn (string $iconKey): string => '<label><input type="radio" n
 <p class="napoveda"><?= e(t('An item of another collection links two collections – a person to a branch, a reference to a service: choose the type and the linked collection. {{key}} shows the linked item\'s name, {{key_url}} its page. On the page of the linked item, a Collection list filtered by the field with the value {{seo}} lists everything linked to it.')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Linked collection or options')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Type')) ?></th><th scope="col"><?= e(t('Linked collection or options')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($field as $i => $p): ?>
 <tr>
 	<td><input class="textpole" name="pole[<?= $i ?>][popisek]" value="<?= e($p['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="pole[<?= $i ?>][klic]" value="<?= e($p['klic']) ?>"></td>
-	<td><select name="pole[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
+	<td><select name="pole[<?= $i ?>][typ]" aria-label="<?= e(t('Type')) ?>">
 <?php foreach (Collections::FIELD_TYPES as $type => $name): ?>
 		<option value="<?= e($type) ?>"<?= $p['typ'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>

@@ -51,7 +51,7 @@
 <div class="akce">
 	<a class="tlacitko" href="<?= e($base) ?>/admin.php"><?= e(t('Go to the administration')) ?></a>
 <?php endif ?>
-	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('Zobrazit web')) ?></a>
+	<a class="tlacitko druhe" href="<?= e($base) ?>/"><?= e(t('View the site')) ?></a>
 </div>
 <?php if (!empty($mcp) && empty($fromExport)): ?>
 <section class="claude">

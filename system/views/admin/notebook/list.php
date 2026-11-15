@@ -22,7 +22,7 @@ use Kaleta\Core\Notebook;
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="notebook"><input type="hidden" name="topic" value="<?= e($topic) ?>">
 	<label><?= e(t('Search (title, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
 <p><a class="tl" href="<?= e($module->url('edit', array_filter(['topic' => $topic]))) ?>"><?= e(t('New note')) ?></a></p>
 <?php if ($notes === [] && ($search !== '' || $topic !== '')): ?>
@@ -42,7 +42,7 @@ use Kaleta\Core\Notebook;
 	<td class="cislo"><?= e(format_date($n['updated_at'], true)) ?></td>
 	<td class="akce">
 		<form class="vradku" method="post" action="<?= e($module->url('pin')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><input type="hidden" name="topic" value="<?= e($topic) ?>"><input type="hidden" name="search" value="<?= e($search) ?>"><button class="navigace" type="submit"><?= e(t($n['pinned'] ? 'Unpin' : 'Pin')) ?></button></form> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the note? It cannot be brought back.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the note? It cannot be brought back.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 	</td>
 </tr>
 <?php endforeach ?>

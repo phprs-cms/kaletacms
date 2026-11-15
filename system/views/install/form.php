@@ -95,12 +95,12 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 				<strong><?= e(t('Start from an export')) ?></strong><small><?= e(t('An empty site for moving another Kaleta site here – right after installation you import its export in Import and export.')) ?></small></label>
 			<span class="napoveda"><?= e(t('A starter site brings Home, About us, Services and Contact pages with sample texts and its own style – edit the content in the builder and the style in Site appearance.')) ?></span>
 		</fieldset>
-		<div><label for="user"><?= e(t('Přihlašovací jméno')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $error('user') ?></div>
-		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Zobrazuje se u novinek.')) ?></span></div>
+		<div><label for="user"><?= e(t('Username')) ?></label><input type="text" id="user" name="user" value="<?= e($data['user']) ?>" required><?= $error('user') ?></div>
+		<div><label for="jmeno"><?= e(t('Jméno a příjmení')) ?></label><input type="text" id="jmeno" name="jmeno" value="<?= e($data['jmeno']) ?>"><span class="napoveda"><?= e(t('Shown with news posts.')) ?></span></div>
 		<div class="cele"><label for="email"><?= e(t('Email')) ?></label><input type="email" id="email" name="email" value="<?= e($data['email']) ?>"><?= $error('email') ?></div>
 		<div><label for="password"><?= e(t('Password')) ?></label><input type="password" id="password" name="password" autocomplete="new-password" minlength="10" required><?= $error('password') ?><span class="napoveda"><?= e(t('At least 10 characters.')) ?></span></div>
-		<div><label for="password2"><?= e(t('Heslo znovu')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
-		<div class="cele"><label for="jazyk_webu"><?= e(t('Jazyk webu')) ?></label><select id="jazyk_webu" name="jazyk_webu">
+		<div><label for="password2"><?= e(t('Password again')) ?></label><input type="password" id="password2" name="password2" autocomplete="new-password" required></div>
+		<div class="cele"><label for="jazyk_webu"><?= e(t('Website language')) ?></label><select id="jazyk_webu" name="jazyk_webu">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
 			<option value="<?= e($code) ?>"<?= $data['jazyk_webu'] === $code ? ' selected' : '' ?>><?= e($languageName) ?></option>
 <?php endforeach ?>

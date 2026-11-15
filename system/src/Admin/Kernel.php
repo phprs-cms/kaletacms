@@ -441,7 +441,7 @@ final class Kernel
         }
         if (isset($modules['news'])) {
             foreach ($db->all('SELECT c.idc, c.titulek, COALESCE(c.zmeneno, c.datum) AS kdy, c.visible, c.datum > ? AS plan FROM {novinky} c WHERE 1 = 1' . $aliasedScope . ' ORDER BY COALESCE(c.zmeneno, c.datum) DESC LIMIT 6', [\Kaleta\Core\Clock::now()]) as $r) {
-                $edited[] = ['druh' => t('Novinka'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['idc']),
+                $edited[] = ['druh' => t('News item'), 'titulek' => $r['titulek'], 'kdy' => (string) $r['kdy'], 'url' => $this->app->url('admin.php?module=news&action=edit&id=' . (int) $r['idc']),
                     'stav' => !$r['visible'] ? t('draft') : ($r['plan'] ? t('naplánovaná') : '')];
             }
         }

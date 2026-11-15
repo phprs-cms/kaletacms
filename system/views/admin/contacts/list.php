@@ -56,7 +56,7 @@ $filtered = $search !== '' || $ownerKey !== '' || $activity !== '' || $company >
 		<option value="<?= e($key) ?>"<?= $sort === $key ? ' selected' : '' ?>><?= e(t($label)) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filtrovat')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
+	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filter')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
 </form>
 <?php if ($result['rows'] === [] && $filtered): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'zakaznici', 'heading' => t('No customer matches the filter.'), 'text' => t('Try another word or clear the filter.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
@@ -68,14 +68,14 @@ $filtered = $search !== '' || $ownerKey !== '' || $activity !== '' || $company >
 <p class="napoveda" data-contacts-total><?= e(t('Customers: %s', format_count($result['total']))) ?></p>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-contacts-list>
-<thead><tr><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th>
+<thead><tr><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th>
 	<th scope="col"><?= e(t('Last activity')) ?></th><th scope="col"><?= e(t('Enquiries')) ?></th><th scope="col"><?= e(t('Bookings')) ?></th><th scope="col"><?= e(t('Newsletter')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($result['rows'] as $c): ?>
 <tr data-contact="<?= (int) $c['id'] ?>">
 	<td><a href="<?= e($module->url('detail', ['id' => $c['id']])) ?>"><?= bdi($c['name'] !== '' ? $c['name'] : ($c['email'] !== '' ? $c['email'] : '#' . $c['id'])) ?></a></td>
 	<td data-popisek="<?= e(t('Company')) ?>"><?= $c['company_id'] !== null ? '<a href="' . e($module->url('company', ['id' => $c['company_id']])) . '">' . bdi((string) $c['company_name']) . '</a>' : '' ?></td>
-	<td data-popisek="<?= e(t('E-mail')) ?>"><?= $c['email'] !== '' ? bdi($c['email']) : '' ?></td>
+	<td data-popisek="<?= e(t('Email')) ?>"><?= $c['email'] !== '' ? bdi($c['email']) : '' ?></td>
 	<td data-popisek="<?= e(t('Responsible person')) ?>"><?= $c['owner_id'] !== null ? e($owners[$c['owner_id']] ?? '') : '' ?></td>
 	<td data-popisek="<?= e(t('Last activity')) ?>"><?= $c['last_activity_at'] !== null ? e(format_date($c['last_activity_at'])) : '' ?></td>
 	<td class="cislo" data-popisek="<?= e(t('Enquiries')) ?>"><?= $c['enquiries'] > 0 ? (int) $c['enquiries'] : '' ?></td>

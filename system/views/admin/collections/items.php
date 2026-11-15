@@ -127,7 +127,7 @@
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><?php if ($applicationCounts !== null): ?><th scope="col"><?= e(t('Applications (new / all)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Order')) ?></th><?php if ($downloads !== null): ?><th scope="col" title="<?= e(t('Downloads of the stable address /…/latest: the last 30 days / total. Bots are not counted.')) ?>"><?= e(t('Downloads (30 days / total)')) ?></th><?php endif ?><?php if ($applicationCounts !== null): ?><th scope="col"><?= e(t('Applications (new / all)')) ?></th><?php endif ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($items as $p): ?>
 <tr<?= $p['zobrazit'] ? '' : ' class="nevydany"' ?>>
@@ -144,7 +144,7 @@
 	<td class="akce"><?php if ($k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'])) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?><?php if ($downloads !== null && $k['detail'] && $p['zobrazit']): ?><a href="<?= e($app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $k['seo_link'] . '/' . $p['seo_link'] . '/latest')) ?>" title="<?= e(t('The stable address of the current file – it stays the same when a new version replaces the file.')) ?>"><?= e(t('Download')) ?></a> · <?php endif ?>
 		<form class="vradku" method="post" action="<?= e($module->url('duplicate_item')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form><?php if (!empty($noticeBoard)): ?>
 		<span class="napoveda" title="<?= e(t('Notices stay in the archive – change the takedown date instead.')) ?>">· <?= e(t('kept in the archive')) ?></span><?php else: ?> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form><?php endif ?></td>
+		<form class="vradku" method="post" action="<?= e($module->url('delete_item')) ?>" data-potvrdit="<?= e(t('Move the item to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="idp" value="<?= (int) $p['idp'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

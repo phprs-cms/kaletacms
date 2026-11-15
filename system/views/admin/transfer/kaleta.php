@@ -86,5 +86,5 @@ $rowsDone = array_sum(array_map(fn (array $v): int => (int) ($v['ok'] ?? 0) + (i
 </ul></details>
 <?php endif ?>
 <p><?= $module->hint(t('The state before the import is in backup %s (Settings → Backups and updates). Check the site, then delete the export file – it is no longer needed.', $state['zaloha'])) ?></p>
-<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('')) ?>"><?= e(t('Zobrazit web')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
+<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('')) ?>"><?= e(t('View site')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 <?php endif ?>

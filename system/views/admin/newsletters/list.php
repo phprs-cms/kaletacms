@@ -36,7 +36,7 @@
 	<td class="cislo"><?= (int) $n['failed_count'] > 0 ? '<strong>' . (int) $n['failed_count'] . '</strong>' : ($n['status'] === 'sent' ? '0' : '—') ?></td>
 	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $n['id']])) ?>"><?= e(in_array($n['status'], ['draft', 'scheduled'], true) ? t('Edit') : t('View')) ?></a>
 <?php if ($n['status'] !== 'sending'): ?>
-		· <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the newsletter?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		· <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the newsletter?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 <?php endif ?>
 	</td>
 </tr>

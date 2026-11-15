@@ -44,7 +44,7 @@ if ($tabs !== []): ?>
 <?php endif ?>
 <?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?>
 	<label><?= e(t('Name or address contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="20"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
 <br>
 <?php endif ?>
@@ -60,7 +60,7 @@ if ($tabs !== []): ?>
 <p class="smltxt"><?= e(t('Pages in the trash are not on the site. A restored page comes back hidden; after 30 days it is permanently deleted from the trash.')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Adresa')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('URL')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($pages as $s): ?>
 <tr class="nevydany">
@@ -79,7 +79,7 @@ if ($tabs !== []): ?>
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('Adresa')) ?></th><?= $siteLanguages !== [] ? '<th scope="col">' . e(t('Language')) . '</th>' : '' ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('In navigation')) ?></th><th scope="col"><?= e(t('Edited')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Název')) ?></th><th scope="col"><?= e(t('URL')) ?></th><?= $siteLanguages !== [] ? '<th scope="col">' . e(t('Language')) . '</th>' : '' ?><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('In navigation')) ?></th><th scope="col"><?= e(t('Edited')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($pages as $s): ?>
 <tr<?= $s['zobrazit'] ? '' : ' class="nevydany"' ?>>
@@ -92,14 +92,14 @@ if ($tabs !== []): ?>
 	<td><span class="stitek stitek-<?= $s['zobrazit'] ? 'vydano' : 'koncept' ?>"<?= !empty($s['show_on_publish']) ? ' title="' . e(t('Hidden until it has content: it goes on the site, and into the navigation, when you publish it in the builder or add text.')) . '"' : '' ?>><?= e(t($s['zobrazit'] ? 'zveřejněná' : (!empty($s['show_on_publish']) ? 'hidden until published' : 'skrytá'))) ?></span></td>
 	<td><?= e(t($s['v_menu'] ? 'Yes' : 'No')) ?></td>
 	<td class="cislo"><?php // when and who edited last (3.20, C11); empty = never ?><?= $s['zmeneno'] ? e(format_date($s['zmeneno'], true)) . (isset($editors[(int) $s['zmenil']]) ? '<br><span class="smltxt">' . bdi($editors[(int) $s['zmenil']]) . '</span>' : '') : '' ?></td>
-	<td class="akce"><a href="<?= e($module->url('builder', ['id' => $s['ids']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $s['ids']])) ?>"><?= e(t('Nastavení')) ?></a> ·
+	<td class="akce"><a href="<?= e($module->url('builder', ['id' => $s['ids']])) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('edit', ['id' => $s['ids']])) ?>"><?= e(t('Settings')) ?></a> ·
 		<a href="<?= e($module->url('new', ['parent' => $s['ids']])) ?>" title="<?= e(t('New page under this one')) ?>"><?= e(t('Subpage')) ?></a> ·
 		<form class="vradku" method="post" action="<?= e($module->url('duplicate')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace" type="submit"><?= e(t('Duplicate')) ?></button></form>
 <?php if (isset($waiting[(int) $s['ids']])): // 3.36: the layout is fine as it is – off the queue of a move, nothing on the page changes ?> ·
 		<form class="vradku" method="post" action="<?= e($module->url('bulk')) ?>"><?= $csrf ?><input type="hidden" name="provest" value="<?= e($module::REBUILT) ?>"><input type="hidden" name="oznacene[]" value="<?= (int) $s['ids'] ?>"><button class="navigace" type="submit" data-layout-done="<?= (int) $s['ids'] ?>" title="<?= e(t('Takes the page off the list of layouts to rebuild – nothing on the page changes.')) ?>"><?= e(t('Layout done')) ?></button></form>
 <?php endif ?>
 <?php if ((int) $s['ids'] !== $home): ?> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Move the page to the trash? It disappears from the site; you can restore it for 30 days.')) ?>"><?= $csrf ?><input type="hidden" name="ids" value="<?= (int) $s['ids'] ?>"><input type="hidden" name="titulek" value="<?= e($s['titulek']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 <?php endif ?></td>
 </tr>
 <?php endforeach ?>

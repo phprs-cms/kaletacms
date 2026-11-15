@@ -16,7 +16,7 @@
 use Kaleta\Core\Contacts as Customers;
 
 $card = function (array $c, array $side, bool $kept) use ($module): string {
-    $rows = [[t('E-mail'), $c['email']], [t('Phone'), $c['phone']], [t('Company'), (string) ($c['company_name'] ?? '')], [t('Responsible person'), $side['owner']],
+    $rows = [[t('Email'), $c['email']], [t('Phone'), $c['phone']], [t('Company'), (string) ($c['company_name'] ?? '')], [t('Responsible person'), $side['owner']],
         [t('First contact'), $c['first_seen_at'] !== null ? format_date($c['first_seen_at']) : ''], [t('Last activity'), $c['last_activity_at'] !== null ? format_date($c['last_activity_at']) : '']];
     $html = '<section class="slouceni-karta' . ($kept ? ' slouceni-zustava' : '') . '" data-merge-side="' . ($kept ? 'keep' : 'other') . '">'
         . '<p class="slouceni-role"><span class="stitek' . ($kept ? ' stitek-vydano' : ' stitek-koncept') . '">' . e(t($kept ? 'Kept' : 'Merged in and deleted')) . '</span></p>'

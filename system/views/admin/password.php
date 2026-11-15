@@ -42,7 +42,7 @@
 <?php endif ?>
 <p><?= e(t('Account: %s', $account)) ?></p>
 <div class="login-pole"><label for="password"><?= e(t('New password')) ?></label> <input class="textpole" type="password" id="password" name="password" size="20" minlength="10" autocomplete="new-password" required autofocus></div>
-<div class="login-pole"><label for="password2"><?= e(t('Heslo znovu')) ?></label> <input class="textpole" type="password" id="password2" name="password2" size="20" minlength="10" autocomplete="new-password" required></div>
+<div class="login-pole"><label for="password2"><?= e(t('Repeat password')) ?></label> <input class="textpole" type="password" id="password2" name="password2" size="20" minlength="10" autocomplete="new-password" required></div>
 <p class="smltxt"><?= e(t('At least 10 characters. Two-factor sign-in stays on.')) ?></p>
 <p><input class="tl" type="submit" value="<?= e(t('Set password')) ?>"></p>
 </form>
