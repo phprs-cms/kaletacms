@@ -221,6 +221,7 @@ final class Forms
             ['enquiry' => $idp, 'form' => (string) $element['id'], 'source' => $source]); // the form and the page, never the sender
         \Kaleta\Core\Triage::afterSubmit($this->app, $idp); // what is certain is sorted at once (a job application, 2.12)
         \Kaleta\Core\Contacts::later('enquiry', $idp); // 3.28: linked to its customer after the response (index.php)
+        \Kaleta\Core\Quotes::prepareLater($this->app, $idp); // 3.42: a draft quote for an enquiry about products, after the response too (when switched on)
         $this->notify($idp, $element, $data, $email, $campaign, $about);
         \Kaleta\Core\Webhook::enquiryReceived($this->app, $idp, (string) $element['obsah']['nazev'], $data, $email, $back, $campaign, $landing, $referrer, (string) $element['id'], $about);
         // a sheet and the CRM (2.13): through the connector queue, never while the visitor waits

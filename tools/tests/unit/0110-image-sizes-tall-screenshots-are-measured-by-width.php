@@ -158,6 +158,7 @@ $parity = [
         'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',
         'list_default' => 'admin: the default price list is the administrator\'s set-up', 'settings' => $readOnly,
         'settings_save' => 'admin: numbering, VAT, limits and retention of quotes are the administrator\'s set-up',
+        'collections_save' => 'admin: which collections feed the internal price list is the administrator\'s set-up (3.42)',
         // 3.40: the tasks of a quote and "Remind me" are tasks (save_task, target quote:<id>); saved line sets are inserted by save_quote (line_set)
         'task' => 'save_task', 'follow_up' => 'save_task',
         'customer_list' => 'admin: which price list a customer gets is a commercial decision a person makes in the customer\'s record',

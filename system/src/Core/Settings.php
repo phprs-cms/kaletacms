@@ -60,6 +60,8 @@ final class Settings
         'quote_customer_decision' => '0', // 3.40: the customer may accept or decline a sent, valid quote on its page (design A-12: off by default)
         'quote_track_opened' => '0',    // 3.40: record when the customer's link is first opened – the time only (a mild form of tracking, off by default)
         'quote_attach_pdf' => '1',      // 3.40: sending attaches the quote as a PDF (the default of the box in the send dialog)
+        'quote_price_collections' => '', // 3.42: further collections whose items are products of the price list – JSON [{collection, code, variants}] (Core\Prices::mapping)
+        'quote_auto_draft' => '0',      // 3.42: a new enquiry about products gets a draft quote by itself (Core\Quotes::prepareDraft; never sent)
         'contacts_months' => '24',      // 3.28 (Core\Contacts): a contact with no activity for this many months is anonymised by the clean-up; 0 = keep. Migration 0114 starts it at enquiries_months
         'whistleblowing_enabled' => '0',  // the whistleblowing channel at /_report (2.14, Core\Whistleblowing)
         'whistleblowing_readers' => '',   // ids of the users who may open reports (comma-separated); nobody else sees their content

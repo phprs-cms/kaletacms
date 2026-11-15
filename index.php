@@ -14,5 +14,6 @@ Kaleta\Front\Csp::apply((new Kaleta\Front\Kernel($app))->handle())->send(); // 3
 Kaleta\Core\Webhook::afterResponse($app); // a new enquiry goes to the webhook only now – the visitor does not wait
 Kaleta\Core\Mail::afterResponse($app); // 3.26: an e-mail queued by an MCP call (an assignment, a mention) goes right after its answer
 Kaleta\Core\Contacts::afterResponse($app); // 3.28: a new enquiry, booking or subscription joins its customer – the visitor does not wait
+Kaleta\Core\Quotes::afterResponse($app); // 3.42: a draft quote for a new enquiry about products (after its customer is linked; off by default)
 Kaleta\Core\Notifications::runInBackground($app);
 Kaleta\Core\Updater::runInBackground($app);

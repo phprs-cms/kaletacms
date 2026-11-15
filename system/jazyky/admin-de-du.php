@@ -1426,4 +1426,5 @@ return [
     'Lines your .htaccess lacks (%d): %s' => 'Zeilen, die deiner .htaccess fehlen (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Konnte nicht prüfen, ob der Webserver sie verweigert – die Adresse der Website leitet weiter (nach %s). Stelle unter Einstellungen → Allgemein die Adresse ein, unter der die Website tatsächlich antwortet.',
     'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Ändere die Update-Quelle unter Einstellungen → Backups und Updates oder lass sie für die offizielle Quelle leer.',
+    'Create a collection of your products in Collections first.' => 'Lege zuerst unter Sammlungen eine Sammlung deiner Produkte an.',
 ];

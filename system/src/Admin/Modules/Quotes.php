@@ -35,7 +35,9 @@ use Kaleta\Core\Response;
  *  - list_save, list_archive, list_default (administrators): add or rename a price list, archive or restore it, make it
  *    the default.
  *  - settings, settings_save (administrators): numbering and the next number, validity, VAT, the largest discount Claude
- *    may save, how long the customer's link works, retention, the deal value on sending.
+ *    may save, how long the customer's link works, retention, the deal value on sending; 3.42 the automatic draft.
+ *  - collections_save (administrators, 3.42): which collections feed the price list, their code and variants fields
+ *    (Prices::saveMapping) – from Settings and from Internal prices.
  */
 final class Quotes extends Module
 {
@@ -359,7 +361,7 @@ final class Quotes extends Module
         return $this->view('prices', 'Internal prices', ['lists' => $lists, 'list' => $list, 'filter' => $filter, 'grid' => Prices::grid($this->db, $list['id'], $filter, $page),
             'own' => Prices::ownRows($this->db, $list['id']), 'collections' => Prices::productCollections($this->db), 'rates' => Prices::vatRates($s),
             'defaultRate' => Prices::defaultVatRate($s), 'canEdit' => $this->app->auth()->canEditPrices(), 'admin' => $this->app->auth()->isAdmin(),
-            'import' => $this->pendingImport($list['id'])]);
+            'import' => $this->pendingImport($list['id'])] + ($this->app->auth()->isAdmin() ? $this->mappingChoices() : []));
     }
 
     /** The rows of the grid (and the own rows) as posted: only the ones that changed are written. */
@@ -557,12 +559,58 @@ final class Quotes extends Module
         }
         $s = $this->app->settings();
         $keys = ['quote_number_format', 'quote_valid_days', 'quote_vat_payer', 'quote_vat_rate', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value',
-            'quote_customer_decision', 'quote_track_opened', 'quote_attach_pdf']; // 3.40
+            'quote_customer_decision', 'quote_track_opened', 'quote_attach_pdf', Store::AUTO_DRAFT_SETTING]; // 3.40, 3.42
 
         return $this->view('settings', 'Quotes', ['values' => array_combine($keys, array_map(fn (string $k): string => $s->get($k), $keys)), 'next' => Store::nextNumber($this->db, $s),
             'people' => array_map(fn (array $u): string => (string) ($u['jmeno'] ?: $u['user']), $this->db->all('SELECT DISTINCT u.jmeno, u.user FROM {uzivatele} u JOIN {uzivatele_prava} p ON p.fk_id_user = u.idu'
                 . ' WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 ORDER BY u.jmeno', [Prices::SECTION, Auth::ADMIN])),
-            'lineSets' => QuoteLineSets::all($this->db), 'setOwners' => Assignment::labels($this->db, array_values(array_filter(array_column(QuoteLineSets::all($this->db), 'created_by'))))]); // 3.40
+            'lineSets' => QuoteLineSets::all($this->db), 'setOwners' => Assignment::labels($this->db, array_values(array_filter(array_column(QuoteLineSets::all($this->db), 'created_by'))))] // 3.40
+            + $this->mappingChoices()); // 3.42
+    }
+
+    /**
+     * 3.42: which collections feed the price list (administrators; the form is on Settings and on Internal prices): a
+     * posted collection[] is mapped with its code_<idk> and variants_<idk> field; the products preset collections are
+     * always products and are not posted.
+     */
+    protected function actionCollectionsSave(): Response
+    {
+        $back = $this->request->post('back') === 'prices' ? 'prices' : 'settings';
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can change the settings of quotes.', 403);
+        }
+        if (!$this->request->isPost()) {
+            return $this->back('', $back);
+        }
+        $entries = [];
+        foreach (array_map('intval', $this->request->postList('collection')) as $idk) {
+            if ($idk > 0) {
+                $entries[] = ['collection' => $idk, 'code' => $this->request->post('code_' . $idk), 'variants' => $this->request->post('variants_' . $idk)];
+            }
+        }
+        $saved = Prices::saveMapping($this->app, $entries);
+
+        $this->app->session->flash('ok', t('Collections in the price list saved: %d.', count($saved)));
+
+        return Response::redirect($this->url($back) . '#price-collections');
+    }
+
+    /**
+     * 3.42: the collections for the mapping form – every collection with its fields that can be a code or variants, whether
+     * it is a products preset (always in the price list) and its saved mapping.
+     *
+     * @return array{mapping: array<int, array{collection: int, code: string, variants: string}>, mappable: list<array{idk: int, name: string, preset: bool, items: int, code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}>}
+     */
+    private function mappingChoices(): array
+    {
+        $counts = $this->db->pairs('SELECT idk, COUNT(*) FROM {kolekce_polozky} WHERE smazano IS NULL AND jazyk = \'\' GROUP BY idk');
+        $out = [];
+        foreach (\Kaleta\Builder\Collections::all($this->db) as $c) {
+            $fields = Prices::mappableFields($c);
+            $out[] = ['idk' => (int) $c['idk'], 'name' => (string) $c['nazev'], 'preset' => ($c['preset'] ?? '') === 'products', 'items' => (int) ($counts[$c['idk']] ?? 0)] + $fields;
+        }
+
+        return ['mapping' => array_column(Prices::mapping($this->db), null, 'collection'), 'mappable' => $out];
     }
 
     protected function actionSettingsSave(): Response
@@ -615,6 +663,7 @@ final class Quotes extends Module
         }
         $s->set('quote_track_opened', $this->request->postBool('quote_track_opened') ? '1' : '0');
         $s->set('quote_attach_pdf', $this->request->postBool('quote_attach_pdf') ? '1' : '0'); // 3.40
+        $s->set(Store::AUTO_DRAFT_SETTING, $this->request->postBool(Store::AUTO_DRAFT_SETTING) ? '1' : '0'); // 3.42
         $s->set('quote_valid_days', (string) max(1, min(365, $this->request->postInt('quote_valid_days', 30))));
         $s->set('quote_link_days', (string) max(1, min(365, $this->request->postInt('quote_link_days', 30))));
         $s->set('quotes_months', (string) max(0, min(120, $this->request->postInt('quotes_months', 36))));
@@ -916,8 +965,8 @@ final class Quotes extends Module
             return null;
         }
         $item = Prices::item($app->db(), $itemId);
-        if ($item === null) {
-            return null;
+        if ($item === null || !$item['product']) {
+            return null; // 3.42: only items of a products collection – the products preset or one mapped in Quotes → Settings
         }
 
         return ['item' => $item, 'lists' => Prices::lists($app->db()), 'prices' => Prices::ofItem($app->db(), $itemId), 'canEdit' => $app->auth()->canEditPrices(),

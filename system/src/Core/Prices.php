@@ -24,6 +24,9 @@ use Kaleta\Builder\Products;
  *    collection, same address – the pairing of item translations), then the product code.
  *  - The change log names the item or the code, never an amount; the CSV export and import live in Quotes → Internal
  *    prices. The first default list is created on first use (defaultList) in the site's default currency.
+ *  - Products (3.42): the items of a products preset collection and of every collection an administrator maps in Quotes →
+ *    Settings (mapping(), setting MAPPING_SETTING – the collection, its code field or the item's address, its variants
+ *    field). Only the mapping is a setting; the prices of mapped items live in the same tables as every other price.
  *
  * Messages of \DomainException are translated (t()); MCP calls them inside Language::runWith('en').
  */
@@ -215,19 +218,33 @@ final class Prices
 
     /* ---------- products ---------- */
 
+    /** 3.42: the setting that maps further collections to the price list (JSON, see mapping()). */
+    public const string MAPPING_SETTING = 'quote_price_collections';
+
+    /** 3.42: the most collections the mapping holds. */
+    public const int MAPPED_MAX = 30;
+
+    /** 3.42: the field types a mapped collection's code and variants may come from. */
+    public const array CODE_TYPES = ['text', 'cislo'];
+    public const array VARIANT_TYPES = ['varianty', 'radky'];
+
     /**
-     * The collections whose items are products (made from the products preset), with the keys of their code and variants
-     * fields ('' when the field is gone).
+     * The collections whose items are products: every collection made from the products preset (its code and variants
+     * fields, '' when the field is gone – unchanged since 3.38) and, since 3.42, every collection an administrator mapped
+     * in Quotes → Settings (mapping(): any collection, with an optional code field – without one the item's address
+     * stands for its code – and an optional variants field). "preset" says which of the two it is.
      *
-     * @return list<array{idk: int, nazev: string, seo_link: string, code: string, variants: string}>
+     * @return list<array{idk: int, nazev: string, seo_link: string, code: string, variants: string, preset: bool}>
      */
     public static function productCollections(Db $db): array
     {
+        $mapped = array_column(self::mapping($db), null, 'collection');
         $out = [];
         foreach (Collections::all($db) as $c) {
-            $fields = Products::fields($c);
+            $fields = self::fieldsOf($c, $mapped);
             if ($fields !== null) {
-                $out[] = ['idk' => (int) $c['idk'], 'nazev' => (string) $c['nazev'], 'seo_link' => (string) $c['seo_link'], 'code' => $fields['code'], 'variants' => $fields['variants']];
+                $out[] = ['idk' => (int) $c['idk'], 'nazev' => (string) $c['nazev'], 'seo_link' => (string) $c['seo_link'], 'code' => $fields['code'], 'variants' => $fields['variants'],
+                    'preset' => $fields['preset']];
             }
         }
 
@@ -235,15 +252,132 @@ final class Prices
     }
 
     /**
-     * One item of any collection, not in the trash, with its code and variants (when its collection is a products one).
+     * 3.42: the collections an administrator mapped to the price list (setting MAPPING_SETTING): collection id, the key of
+     * the code field ('' = the item's address is its code) and of the variants field ('' = none). A collection made from
+     * the products preset needs no entry – it is always a products collection.
      *
-     * @return array{idp: int, idk: int, name: string, slug: string, language: string, visible: bool, code: string, variants: list<array{name: string, code: string}>}|null
+     * @return list<array{collection: int, code: string, variants: string}>
+     */
+    public static function mapping(Db $db): array
+    {
+        try {
+            $raw = (string) ($db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [self::MAPPING_SETTING]) ?? '');
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return []; // a database without settings (the installer)
+        }
+
+        return self::parseMapping($raw);
+    }
+
+    /**
+     * The mapping as stored – a JSON list of {collection, code, variants}; anything else is dropped (pure).
+     *
+     * @return list<array{collection: int, code: string, variants: string}>
+     */
+    public static function parseMapping(string $json): array
+    {
+        $list = json_decode($json, true);
+        $out = [];
+        foreach (is_array($list) ? $list : [] as $entry) {
+            $id = is_array($entry) && is_scalar($entry['collection'] ?? null) ? (int) $entry['collection'] : 0;
+            if ($id <= 0 || isset($out[$id])) {
+                continue;
+            }
+            $key = fn (string $k): string => is_string($entry[$k] ?? null) && preg_match('/^[a-z0-9_]{1,40}$/D', $entry[$k]) === 1 ? $entry[$k] : '';
+            $out[$id] = ['collection' => $id, 'code' => $key('code'), 'variants' => $key('variants')];
+            if (count($out) >= self::MAPPED_MAX) {
+                break;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * 3.42: saves the mapping (administrators, Quotes → Settings): only collections that exist and are not products
+     * collections already, a code field of a text or number type, a variants field of the variants or longer-text type.
+     * One change-log line. Returns what was stored.
+     *
+     * @param list<array{collection: int, code?: string, variants?: string}> $entries
+     * @return list<array{collection: int, code: string, variants: string}>
+     */
+    public static function saveMapping(App $app, array $entries): array
+    {
+        $db = $app->db();
+        $collections = array_column(Collections::all($db), null, 'idk');
+        $clean = [];
+        foreach (self::parseMapping((string) json_encode($entries)) as $e) {
+            $c = $collections[$e['collection']] ?? null;
+            if ($c === null || Products::fields($c) !== null) {
+                continue;
+            }
+            $options = self::mappableFields($c);
+            $clean[] = ['collection' => $e['collection'], 'code' => in_array($e['code'], array_column($options['code'], 'key'), true) ? $e['code'] : '',
+                'variants' => in_array($e['variants'], array_column($options['variants'], 'key'), true) ? $e['variants'] : ''];
+        }
+        $app->settings()->set(self::MAPPING_SETTING, $clean === [] ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
+        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'settings', t('Collections in the price list: %d', count($clean)));
+
+        return $clean;
+    }
+
+    /**
+     * 3.42: the fields of a collection that can be its code (short text, number) and its variants (variants, longer text).
+     *
+     * @param array<string, mixed> $collection a row of Collections::all (pole decoded)
+     * @return array{code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}
+     */
+    public static function mappableFields(array $collection): array
+    {
+        $out = ['code' => [], 'variants' => []];
+        foreach ((array) ($collection['pole'] ?? []) as $f) {
+            $key = (string) ($f['klic'] ?? '');
+            $type = (string) ($f['typ'] ?? '');
+            foreach (['code' => self::CODE_TYPES, 'variants' => self::VARIANT_TYPES] as $role => $types) {
+                if ($key !== '' && in_array($type, $types, true)) {
+                    $out[$role][] = ['key' => $key, 'label' => (string) ($f['popisek'] ?? $key)];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /** 3.42: is this collection a products collection (the products preset or mapped)? */
+    public static function isProductCollection(Db $db, int $idk): bool
+    {
+        return in_array($idk, array_column(self::productCollections($db), 'idk'), true);
+    }
+
+    /**
+     * One item of any collection, not in the trash, with its code and variants (when its collection is a products one;
+     * an item of a mapped collection without a code field has its address – or #id – as its code, 3.42). "product" says
+     * whether its collection is a products collection.
+     *
+     * @return array{idp: int, idk: int, name: string, slug: string, language: string, visible: bool, code: string, variants: list<array{name: string, code: string}>, product: bool}|null
      */
     public static function item(Db $db, int $itemId): ?array
     {
         $row = $itemId > 0 ? $db->one('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.zobrazit, p.data, k.preset, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp = ? AND p.smazano IS NULL', [$itemId]) : null;
+        if ($row === null) {
+            return null;
+        }
 
-        return $row === null ? null : self::itemRow($row);
+        return self::itemRow($row, ($row['preset'] ?? '') === 'products' ? [] : array_column(self::mapping($db), null, 'collection'));
+    }
+
+    /**
+     * 3.42: every item of a collection not in the trash, as item() gives it – the default language first, then by id.
+     *
+     * @return list<array{idp: int, idk: int, name: string, slug: string, language: string, visible: bool, code: string, variants: list<array{name: string, code: string}>, product: bool}>
+     */
+    public static function itemsOf(Db $db, int $idk): array
+    {
+        $mapped = array_column(self::mapping($db), null, 'collection');
+
+        return array_map(fn (array $r): array => self::itemRow($r, $mapped), $db->all("SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.zobrazit, p.data, k.preset, k.pole FROM {kolekce_polozky} p"
+            . " JOIN {kolekce} k ON k.idk = p.idk WHERE p.idk = ? AND p.smazano IS NULL ORDER BY p.jazyk = '' DESC, p.idp", [$idk]));
     }
 
     /**
@@ -336,12 +470,12 @@ final class Prices
     {
         $index = [];
         foreach (self::productCollections($db) as $c) {
-            if ($c['code'] === '' && $c['variants'] === '') {
+            if (!self::hasCodes($c)) {
                 continue;
             }
-            foreach ($db->all("SELECT idp, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL ORDER BY jazyk = '' DESC, idp", [$c['idk']]) as $r) {
+            foreach ($db->all("SELECT idp, seo_link, data FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL ORDER BY jazyk = '' DESC, idp", [$c['idk']]) as $r) {
                 $data = json_decode((string) $r['data'], true) ?: [];
-                $own = $c['code'] !== '' ? trim((string) ($data[$c['code']] ?? '')) : '';
+                $own = self::codeOf($c, $data, (string) $r['seo_link'], (int) $r['idp']);
                 if ($own !== '') {
                     $index[mb_strtolower($own)] ??= ['item_id' => (int) $r['idp'], 'variant_code' => ''];
                 }
@@ -491,7 +625,8 @@ final class Prices
      * but still have a price come as "gone" rows.
      *
      * @param array{collection?: int, search?: string, missing?: bool} $filter
-     * @return array{rows: list<array<string, mixed>>, total: int, page: int, pages: int}
+     * @return array{rows: list<array<string, mixed>>, total: int, page: int, pages: int, missing: int} missing = products (of the filter's collection and
+     *         search) still without a price – 3.42
      */
     public static function grid(Db $db, int $priceListId, array $filter = [], int $page = 1, int $perPage = self::PAGE): array
     {
@@ -499,7 +634,7 @@ final class Prices
         $chosen = (int) ($filter['collection'] ?? 0);
         $ids = array_column($chosen > 0 ? array_filter($collections, fn (array $c): bool => $c['idk'] === $chosen) : $collections, 'idk');
         if ($ids === []) {
-            return ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+            return ['rows' => [], 'total' => 0, 'page' => 1, 'pages' => 1, 'missing' => 0];
         }
         $where = 'p.smazano IS NULL AND p.idk IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
         $params = $ids;
@@ -510,14 +645,28 @@ final class Prices
             array_push($params, $like, $like);
         }
         $rows = [];
+        $mapped = array_column(self::mapping($db), null, 'collection');
+        $originals = [];
         foreach ($db->all('SELECT p.idp, p.idk, p.nazev, p.seo_link, p.jazyk, p.zobrazit, p.data, k.preset, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE ' . $where
             . ' ORDER BY ' . $db->sortText('k.nazev') . ', p.jazyk, p.poradi, ' . $db->sortText('p.nazev') . ', p.idp', $params) as $r) {
-            $rows[] = self::itemRow($r);
+            // 3.42: a translation collapses into its default-language item (forItem() gives it that item's price) unless it
+            // has a price of its own
+            $key = $r['idk'] . '/' . $r['seo_link'];
+            if ((string) $r['jazyk'] === '') {
+                $originals[$key] = true;
+            }
+            $rows[] = self::itemRow($r, $mapped) + ['collapse' => (string) $r['jazyk'] !== '' && (isset($originals[$key])
+                || $db->value("SELECT 1 FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = '' AND smazano IS NULL LIMIT 1", [$r['idk'], $r['seo_link']]) !== null)];
         }
         $prices = self::ofItems($db, $priceListId, array_column($rows, 'idp'));
         $out = [];
+        $missing = 0;
         foreach ($rows as $item) {
             $own = $prices[$item['idp']] ?? [];
+            if ($item['collapse'] && $own === []) {
+                continue;
+            }
+            unset($item['collapse']);
             $lines = [['variant' => '', 'name' => '', 'code' => $item['code'], 'price' => $own[''] ?? null, 'gone' => false]];
             foreach ($item['variants'] as $v) {
                 if ($v['code'] !== '') {
@@ -527,7 +676,9 @@ final class Prices
             foreach (array_diff(array_keys($own), array_column($lines, 'variant')) as $gone) {
                 $lines[] = ['variant' => (string) $gone, 'name' => '', 'code' => (string) $gone, 'price' => $own[$gone], 'gone' => true];
             }
-            if (($filter['missing'] ?? false) && array_filter($lines, fn (array $l): bool => $l['price'] === null && !$l['gone']) === []) {
+            $needs = array_filter($lines, fn (array $l): bool => $l['price'] === null && !$l['gone']) !== [];
+            $missing += $needs ? 1 : 0;
+            if (($filter['missing'] ?? false) && !$needs) {
                 continue;
             }
             $out[] = $item + ['lines' => $lines];
@@ -536,7 +687,7 @@ final class Prices
         $pages = max(1, (int) ceil($total / max(1, $perPage)));
         $page = max(1, min($page, $pages));
 
-        return ['rows' => array_slice($out, ($page - 1) * $perPage, $perPage), 'total' => $total, 'page' => $page, 'pages' => $pages];
+        return ['rows' => array_slice($out, ($page - 1) * $perPage, $perPage), 'total' => $total, 'page' => $page, 'pages' => $pages, 'missing' => $missing];
     }
 
     /* ---------- CSV ---------- */
@@ -557,12 +708,30 @@ final class Prices
         fwrite($f, "\xEF\xBB\xBF");
         fputcsv($f, self::CSV_COLUMNS, ';', '"', '');
         $rows = $db->all('SELECT p.*, i.nazev FROM {prices} p LEFT JOIN {kolekce_polozky} i ON i.idp = p.item_id WHERE p.price_list_id = ? ORDER BY p.item_id IS NULL, i.nazev, p.item_id, p.variant_code, p.code', [$list['id']]);
+        $put = fn (array $cells) => fputcsv($f, array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) === 1 ? "'" . $v : $v, $cells), ';', '"', '');
+        $own = [];
         foreach ($rows as $r) {
             $isProduct = $r['item_id'] !== null;
             $code = $isProduct ? ($r['variant_code'] !== '' ? (string) (self::item($db, (int) $r['item_id'])['code'] ?? $r['code']) : (string) $r['code']) : (string) $r['code'];
             $cells = [$code, (string) $r['variant_code'], (string) $r['unit_price'], (string) $r['unit'], $r['vat_rate'] === null ? '' : Money::short((string) $r['vat_rate']), (string) $r['note'],
                 $isProduct ? (string) ($r['nazev'] ?? '') : (string) $r['label']];
-            fputcsv($f, array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) === 1 ? "'" . $v : $v, $cells), ';', '"', '');
+            if ($isProduct) {
+                $put($cells);
+            } else {
+                $own[] = $cells;
+            }
+        }
+        // 3.42: every product still without a price, with an empty price to fill in and import back (one with no code
+        // cannot be matched by an import and is left out)
+        foreach (self::grid($db, $list['id'], ['missing' => true], 1, PHP_INT_MAX)['rows'] as $item) {
+            foreach ($item['lines'] as $line) {
+                if ($line['price'] === null && !$line['gone'] && ($line['variant'] !== '' || $item['code'] !== '')) {
+                    $put([$item['code'] !== '' ? $item['code'] : $line['variant'], $line['variant'], '', '', '', '', $item['name'] . ($line['name'] !== '' ? ' – ' . $line['name'] : '')]);
+                }
+            }
+        }
+        foreach ($own as $cells) {
+            $put($cells);
         }
         rewind($f);
         $csv = (string) stream_get_contents($f);
@@ -805,17 +974,62 @@ final class Prices
     }
 
     /**
-     * @param array<string, mixed> $r an item row joined with its collection's preset and fields
-     * @return array{idp: int, idk: int, name: string, slug: string, language: string, visible: bool, code: string, variants: list<array{name: string, code: string}>}
+     * The code and variants fields of a collection when it is a products collection (the preset, or mapped – 3.42), null
+     * otherwise. A mapped collection without a code field takes the item's address as its code (codeOf).
+     *
+     * @param array<string, mixed> $collection idk, preset, pole (decoded)
+     * @param array<int, array{collection: int, code: string, variants: string}> $mapped mapping() by collection
+     * @return array{code: string, variants: string, preset: bool}|null
      */
-    private static function itemRow(array $r): array
+    private static function fieldsOf(array $collection, array $mapped): ?array
     {
-        $fields = Products::fields(['preset' => (string) $r['preset'], 'pole' => json_decode((string) $r['pole'], true) ?: []]);
+        $fields = Products::fields($collection);
+        if ($fields !== null) {
+            return ['code' => $fields['code'], 'variants' => $fields['variants'], 'preset' => true];
+        }
+        $entry = $mapped[(int) ($collection['idk'] ?? 0)] ?? null;
+        if ($entry === null) {
+            return null;
+        }
+        $options = self::mappableFields($collection);
+        $code = in_array($entry['code'], array_column($options['code'], 'key'), true) ? $entry['code'] : '';
+
+        return ['code' => $code, 'variants' => in_array($entry['variants'], array_column($options['variants'], 'key'), true) ? $entry['variants'] : '', 'preset' => false];
+    }
+
+    /** Does a products collection give its items codes (a code field, variants, or the address of a mapped one)? @param array<string, mixed> $c */
+    private static function hasCodes(array $c): bool
+    {
+        return $c['code'] !== '' || $c['variants'] !== '' || !$c['preset'];
+    }
+
+    /**
+     * The code of an item: its code field; for a mapped collection without one or with it empty (3.42) its address, or
+     * "#id" without one.
+     *
+     * @param array<string, mixed> $c a row of productCollections() or fieldsOf()
+     * @param array<string, mixed> $data the item's values
+     */
+    private static function codeOf(array $c, array $data, string $slug, int $idp): string
+    {
+        $own = $c['code'] !== '' ? mb_substr(trim((string) ($data[$c['code']] ?? '')), 0, self::CODE_MAX) : '';
+
+        return $own !== '' || $c['preset'] ? $own : mb_substr($slug !== '' ? $slug : '#' . $idp, 0, self::CODE_MAX);
+    }
+
+    /**
+     * @param array<string, mixed> $r an item row joined with its collection's preset and fields
+     * @param array<int, array{collection: int, code: string, variants: string}> $mapped mapping() by collection
+     * @return array{idp: int, idk: int, name: string, slug: string, language: string, visible: bool, code: string, variants: list<array{name: string, code: string}>, product: bool}
+     */
+    private static function itemRow(array $r, array $mapped): array
+    {
+        $fields = self::fieldsOf(['idk' => (int) $r['idk'], 'preset' => (string) $r['preset'], 'pole' => json_decode((string) $r['pole'], true) ?: []], $mapped);
         $data = json_decode((string) $r['data'], true) ?: [];
         $variants = $fields !== null && $fields['variants'] !== '' ? array_map(fn (array $v): array => ['name' => $v['name'], 'code' => $v['code']], Products::variants((string) ($data[$fields['variants']] ?? ''))) : [];
 
         return ['idp' => (int) $r['idp'], 'idk' => (int) $r['idk'], 'name' => (string) $r['nazev'], 'slug' => (string) $r['seo_link'], 'language' => (string) $r['jazyk'], 'visible' => (bool) $r['zobrazit'],
-            'code' => $fields !== null && $fields['code'] !== '' ? trim((string) ($data[$fields['code']] ?? '')) : '', 'variants' => $variants];
+            'code' => $fields !== null ? self::codeOf($fields, $data, (string) $r['seo_link'], (int) $r['idp']) : '', 'variants' => $variants, 'product' => $fields !== null];
     }
 
     /** One line of plain text, at most $max characters (tags and control characters out). */

@@ -5694,6 +5694,82 @@ await step('3.41 a draft preview runs under its Content-Security-Policy: the hea
   }
 });
 
+// 3.42 (agent C): any collection feeds the internal price list – the mapping on Quotes → Settings at 1440 and 390 px (light/dark,
+// axe), the prefilled grid with "still without a price", and an enquiry from the item's page → New quote arrives priced
+await step('3.42 C collections in the price list: the mapping (1440/390, light/dark, axe), the prefilled grid, a prepared quote from an enquiry', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota);"
+    + " INSERT INTO ka_kolekce (nazev, seo_link, pole, detail, preset) VALUES ('Devices C342', 'devices-c342', '[{\"klic\":\"order_code\",\"popisek\":\"Order code\",\"typ\":\"text\"},{\"klic\":\"versions\",\"popisek\":\"Versions\",\"typ\":\"radky\"},{\"klic\":\"about\",\"popisek\":\"About\",\"typ\":\"html\"}]', 1, '');"
+    + " INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) SELECT idk, 'Ultrasound unit C342', 'ultrasound-c342', '{\"order_code\":\"US-C342\",\"versions\":\"Portable | US-C342-P\\\\nCart | US-C342-C\"}', NOW(), 1 FROM ka_kolekce WHERE seo_link = 'devices-c342';"
+    + " INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) SELECT idk, 'Gel C342', 'gel-c342', '{}', NOW(), 1 FROM ka_kolekce WHERE seo_link = 'devices-c342'");
+  const idk = sql("SELECT idk FROM ka_kolekce WHERE seo_link = 'devices-c342'").trim();
+  const idp = sql(`SELECT idp FROM ka_kolekce_polozky WHERE idk = ${Number(idk)} AND seo_link = 'ultrasound-c342'`).trim();
+  let enquiry = '';
+  try {
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?module=quotes&action=settings#price-collections`, { waitUntil: 'networkidle' });
+          if (!(await p2.locator(`[data-price-collection="${idk}"] select[name="code_${idk}"]`).count())) { throw new Error(`the mapping row of the collection is missing (${label}, ${scheme})`); }
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on Quotes → Settings (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.locator('[data-price-collections]').screenshot({ path: `${SHOTS}/342c-collections-${label}-${scheme}.png` }); }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(`${BASE}/admin.php?module=quotes&action=settings`, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['[data-price-collections]', '[data-quotes-auto-draft]'], WCAG]);
+        if (found.violations.length) { throw new Error(`axe the mapping (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // the administrator ticks the collection, picks its code and variants fields and saves
+    await visit('/admin.php?module=quotes&action=settings');
+    const row = page.locator(`[data-price-collection="${idk}"]`);
+    await row.locator('input[type="checkbox"]').check();
+    await row.locator(`select[name="code_${idk}"]`).selectOption('order_code');
+    await row.locator(`select[name="variants_${idk}"]`).selectOption('versions');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-price-collections] button[type="submit"]').click()]);
+    const stored = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quote_price_collections'").trim();
+    if (stored !== `[{"collection":${Number(idk)},"code":"order_code","variants":"versions"}]`) { throw new Error(`the mapping saved: ${stored}`); }
+    // the grid: every item with an empty price, its versions as variants; "still without a price" filters; a price is typed
+    await visit(`/admin.php?module=quotes&action=prices&collection=${idk}`);
+    if ((await page.locator(`[data-price-row^="${idp}:"]`).count()) !== 3) { throw new Error('the item and its two versions are not in the grid'); }
+    await Promise.all([page.waitForNavigation(), page.locator('[data-prices-missing]').click()]);
+    if (!page.url().includes('missing=1') || !(await page.locator('[data-price-row$=":"]', { hasText: 'Gel C342' }).count())) { throw new Error('the link "still without a price" does not filter'); }
+    await page.locator(`[data-price-row="${idp}:US-C342-P"] input[name="price[]"]`).fill('12 345,60');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-prices-grid] button[type="submit"]').click()]);
+    if (sql(`SELECT unit_price FROM ka_prices WHERE item_id = ${Number(idp)} AND variant_code = 'US-C342-P'`).trim() !== '12345.60') { throw new Error('the price of the version was not saved'); }
+    // an enquiry from the item's page names the version in a field → New quote on the enquiry arrives with that one line, priced
+    sql(`INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES (NOW(), 'Enquiry C342', 'kolekce:${Number(idk)}', '/devices-c342/ultrasound-c342', 'clinic@c342.example', '[["Version","ultrasound unit c342 - Portable"]]', 0)`);
+    enquiry = sql("SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'Enquiry C342'").trim();
+    await visit(`/admin.php?module=enquiries&action=detail&id=${Number(enquiry)}`);
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-new-here] button[type="submit"]').click()]);
+    const codes = await page.locator('input[name="line_code[]"]').evaluateAll((els) => els.map((e) => e.value));
+    const prices = await page.locator('input[name="line_price[]"]').evaluateAll((els) => els.map((e) => e.value));
+    if (codes.join(' ') !== 'US-C342-P' || prices.join(' ') !== '12345.60') { throw new Error(`the prepared quote: ${codes.join(' ')} / ${prices.join(' ')}`); }
+    await visit('/devices-c342/ultrasound-c342');
+    if (/12345|12 345/.test(await page.content())) { throw new Error('the internal price is on the item page'); }
+  } finally {
+    sql(`DELETE l FROM ka_quote_lines l JOIN ka_quotes q ON q.id = l.quote_id WHERE q.enquiry_id = ${Number(enquiry) || 0}; DELETE FROM ka_quotes WHERE enquiry_id = ${Number(enquiry) || 0};`
+      + ` DELETE FROM ka_poptavky WHERE formular = 'Enquiry C342'; DELETE FROM ka_prices WHERE item_id = ${Number(idp) || 0}; DELETE FROM ka_kolekce_polozky WHERE idk = ${Number(idk) || 0};`
+      + " DELETE FROM ka_kolekce WHERE seo_link = 'devices-c342'; DELETE FROM ka_nastaveni WHERE promenna = 'quote_price_collections';"
+      + " UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

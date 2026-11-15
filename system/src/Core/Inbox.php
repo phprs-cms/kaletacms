@@ -29,7 +29,8 @@ final class Inbox
         'fleet_expiry', // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
         'deletion_due', // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
         'quote_expiring', 'quote_expired', // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
-        'quote_accepted', 'quote_declined']; // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
+        'quote_accepted', 'quote_declined', // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
+        'quote_prepared']; // 3.42: a draft quote was prepared from a new enquiry about products (Core\Quotes::prepareDraft) – never an amount
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -361,6 +362,7 @@ final class Inbox
             'quote_expired' => t('A quote has expired'),
             'quote_accepted' => t('The customer accepted a quote'), // 3.40
             'quote_declined' => t('The customer declined a quote'),
+            'quote_prepared' => t('A draft quote was prepared from an enquiry'), // 3.42
             default => $kind,
         };
     }
