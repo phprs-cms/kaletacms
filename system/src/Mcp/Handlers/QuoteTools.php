@@ -42,15 +42,16 @@ trait QuoteTools
             $list = Prices::resolveList($db, $s, $a['price_list'] ?? null);
             $limit = max(1, min(100, (int) ($a['limit'] ?? 25)));
             $collection = 0;
+            $collections = Prices::productCollections($db);
             if (is_scalar($a['collection'] ?? null) && trim((string) $a['collection']) !== '') {
                 $wanted = trim((string) $a['collection']);
-                foreach (Prices::productCollections($db) as $c) {
+                foreach ($collections as $c) {
                     if ((string) $c['idk'] === $wanted || $c['seo_link'] === $wanted) {
                         $collection = $c['idk'];
                     }
                 }
                 if ($collection === 0) {
-                    throw new \InvalidArgumentException('No products collection is "' . mb_substr($wanted, 0, 60) . '". Use list_collections (preset products).');
+                    throw new \InvalidArgumentException('No products collection is "' . mb_substr($wanted, 0, 60) . '". Use list_collections (preset products) – an administrator adds other collections to the price list in Quotes → Settings.');
                 }
             }
             $item = (int) ($a['item'] ?? 0);
@@ -69,6 +70,10 @@ trait QuoteTools
                 'total' => $grid['total'], 'page' => $grid['page'], 'pages' => $grid['pages']]
                 + ($item > 0 ? [] : ['own_rows' => array_map(fn (array $p): array => $this->priceOut($p, ['code' => $p['code'], 'name' => $p['label']]), Prices::ownRows($db, $list['id']))])
                 + ['price_lists' => array_map(fn (array $l): array => $this->priceListOut($l), Prices::lists($db))]
+                // 3.42: the collections whose items are in the price list – the products preset ones and the ones an administrator mapped
+                + ['collections' => array_map(fn (array $c): array => ['id' => $c['idk'], 'name' => $c['nazev'], 'slug' => $c['seo_link'], 'source' => $c['preset'] ? 'products' : 'mapped']
+                    + (!$c['preset'] && $c['code'] === '' ? ['code_from' => 'slug'] : []), $collections)]
+                + ($item > 0 ? [] : ['without_price' => $grid['missing'] ?? 0])
                 + ($default !== null ? ['default_vat_rate' => $default] : ['next' => 'The default VAT rate is not set – an administrator sets it in Quotes → Settings.'])
                 + ['admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Prices::SECTION . '&action=prices&list=' . $list['id'])];
         }, 'admin-');

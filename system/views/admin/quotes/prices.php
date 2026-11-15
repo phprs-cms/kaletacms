@@ -11,7 +11,7 @@
  * @var list<array{id: int, name: string, currency: string, is_default: bool, note: string, archived_at: ?string, prices: int}> $lists
  * @var array{id: int, name: string, currency: string, is_default: bool, note: string, archived_at: ?string, prices: int} $list
  * @var array{collection: int, search: string, missing: bool} $filter
- * @var array{rows: list<array<string, mixed>>, total: int, page: int, pages: int} $grid
+ * @var array{rows: list<array<string, mixed>>, total: int, page: int, pages: int, missing: int} $grid
  * @var list<array<string, mixed>> $own
  * @var list<array{idk: int, nazev: string, seo_link: string, code: string, variants: string}> $collections
  * @var list<string> $rates
@@ -19,6 +19,8 @@
  * @var bool $canEdit
  * @var bool $admin
  * @var array<string, mixed>|null $import
+ * @var array<int, array{collection: int, code: string, variants: string}> $mapping 3.42, administrators only
+ * @var list<array<string, mixed>> $mappable 3.42, administrators only
  */
 use Kaleta\Core\Deals;
 use Kaleta\Core\Money;
@@ -72,9 +74,16 @@ $field = function (string $name, string $value, string $label, string $extra = '
 </section>
 <?php endif ?>
 
+<?php if ($admin): ?>
+<details class="pokrocile" data-price-collections-box<?= $collections === [] ? ' open' : '' ?>>
+<summary><?= e(t('Collections in the price list (%d)', count($collections))) ?></summary>
+<?= $app->view->render('admin/quotes/collections', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'back' => 'prices', 'mapping' => $mapping ?? [], 'mappable' => $mappable ?? []]) ?>
+</details>
+<?php endif ?>
+
 <?php if ($collections === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No products yet.'),
-    'text' => t('Internal prices belong to the items of a Products collection (Collections → New collection → Products) and to own rows such as installation or transport below.')]) ?>
+    'text' => t('Internal prices belong to the items of a Products collection or of a collection an administrator adds to the price list (Collections in the price list), and to own rows such as installation or transport below.')]) ?>
 <?php elseif ($grid['rows'] === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No product matches the filter.'), 'text' => t('Try another word or clear the filter.'),
     'action' => [$module->url('prices', ['list' => $list['id']]), t('Clear filter')]]) ?>
@@ -88,7 +97,7 @@ $field = function (string $name, string $value, string $label, string $extra = '
 <?php } endforeach ?>
 	<datalist id="<?= $rateList ?>"><?php foreach ($rates as $r): ?><option value="<?= e(Money::short($r)) ?>"></option><?php endforeach ?></datalist>
 <?php if ($grid['rows'] !== []): ?>
-	<p class="napoveda" data-prices-total><?= e(t('Products: %s', format_count($grid['total']))) ?> · <?= e(t('Prices in %s, without VAT. An empty VAT rate = the default rate%s.', $list['currency'], $defaultRate !== null ? ' (' . Money::short($defaultRate) . ' %)' : '')) ?></p>
+	<p class="napoveda" data-prices-total><?= e(t('Products: %s', format_count($grid['total']))) ?><?php if (!$filter['missing'] && $grid['missing'] > 0): ?> · <a href="<?= e($module->url('prices', $query + ['missing' => '1'])) ?>" data-prices-missing><?= e(t('%s still without a price', format_count($grid['missing']))) ?></a><?php endif ?> · <?= e(t('Prices in %s, without VAT. An empty VAT rate = the default rate%s.', $list['currency'], $defaultRate !== null ? ' (' . Money::short($defaultRate) . ' %)' : '')) ?></p>
 	<div class="tab-obal">
 	<table class="vypis ceny">
 	<thead><tr><th scope="col"><?= e(t('Product')) ?></th><th scope="col"><?= e(t('Code')) ?></th><th scope="col" class="cislo"><?= e(t('Price')) ?></th><th scope="col"><?= e(t('Unit')) ?></th>

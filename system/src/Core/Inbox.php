@@ -30,14 +30,15 @@ final class Inbox
         'deletion_due', // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
         'quote_expiring', 'quote_expired', // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
         'quote_accepted', 'quote_declined', // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
-        'escalated']; // 3.42: a task of someone who reports to the person is overdue (Core\Tasks::escalate)
+        'escalated', // 3.42: a task of someone who reports to the person is overdue (Core\Tasks::escalate)
+        'quote_prepared']; // 3.42: a draft quote was prepared from a new enquiry about products (Core\Quotes::prepareDraft) – never an amount
 
     /**
      * 3.42: the kinds a stand-in also gets while the person is away today (Core\Absences::standIn – the deputy, else whom the
      * person reports to; only someone who may open the place). A mention is addressed to the person by name and stays theirs;
      * the console's date reminders go to every administrator anyway.
      */
-    public const array STAND_IN_KINDS = ['assigned', 'comment', 'review_due', 'task_due', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined', 'escalated'];
+    public const array STAND_IN_KINDS = ['assigned', 'comment', 'review_due', 'task_due', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined', 'escalated', 'quote_prepared'];
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -393,6 +394,7 @@ final class Inbox
             'quote_accepted' => t('The customer accepted a quote'), // 3.40
             'quote_declined' => t('The customer declined a quote'),
             'escalated' => t('A task of %s is overdue', $actor), // 3.42
+            'quote_prepared' => t('A draft quote was prepared from an enquiry'), // 3.42
             default => $kind,
         };
     }

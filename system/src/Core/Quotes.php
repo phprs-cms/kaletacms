@@ -965,6 +965,95 @@ final class Quotes
 
     /* ---------- from an enquiry ---------- */
 
+    /** 3.42: the setting "prepare a draft quote for new enquiries about products" (off by default). */
+    public const string AUTO_DRAFT_SETTING = 'quote_auto_draft';
+
+    /** @var list<int> enquiries whose draft is prepared after the response (prepareLater) */
+    private static array $preparing = [];
+
+    /**
+     * 3.42: a new enquiry from the site's form – its draft quote is prepared after the response (afterResponse(), index.php),
+     * so the visitor never waits; nothing is queued while the feature or the setting is off.
+     */
+    public static function prepareLater(App $app, int $enquiryId): void
+    {
+        $s = $app->settings();
+        if ($enquiryId > 0 && Prices::isOn($s) && $s->bool(self::AUTO_DRAFT_SETTING)) {
+            self::$preparing[] = $enquiryId;
+        }
+    }
+
+    /** After the page was sent (index.php, after the customer link): prepares what prepareLater() queued. Never fails the request. */
+    public static function afterResponse(App $app): void
+    {
+        if (self::$preparing === []) {
+            return;
+        }
+        $ids = self::$preparing;
+        self::$preparing = [];
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request();
+        }
+        ignore_user_abort(true);
+        foreach ($ids as $id) {
+            try {
+                self::prepareDraft($app, $id);
+            } catch (\Throwable) {
+                // a courtesy – the enquiry stands, a person makes the quote from it
+            }
+        }
+    }
+
+    /** How many drafts prepareLater() queued in this request (tests). */
+    public static function preparing(): int
+    {
+        return count(self::$preparing);
+    }
+
+    /**
+     * 3.42: prepares a DRAFT quote for an enquiry about products – when the feature and AUTO_DRAFT_SETTING are on, the
+     * enquiry is not spam, a job application or anonymised, no quote of it exists yet (one draft per enquiry, never
+     * sent), and linesFromEnquiry() matched at least one product. Linked like "New quote" from the enquiry (its customer,
+     * open deal); the responsible person is the enquiry's, else the deal's, contact's or company's, when they may open
+     * Quotes – they get a bell that names the quote only (no amount). Returns the new quote's id or null.
+     */
+    public static function prepareDraft(App $app, int $enquiryId): ?int
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        if (!Prices::isOn($s) || !$s->bool(self::AUTO_DRAFT_SETTING)) {
+            return null;
+        }
+        $enquiry = $db->one('SELECT idp, kategorie, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, false), [$enquiryId]);
+        if ($enquiry === null || in_array((string) $enquiry['kategorie'], ['spam', 'job'], true) || $enquiry['anonymizovano'] !== null
+            || $db->value('SELECT 1 FROM {quotes} WHERE enquiry_id = ? LIMIT 1', [$enquiryId]) !== null) {
+            return null;
+        }
+        $found = self::linesFromEnquiry($app, $enquiryId);
+        if ($found['matched'] === 0) {
+            return null;
+        }
+        $owner = 0;
+        $deal = Deals::openForEnquiry($db, $enquiryId);
+        $contact = $enquiry['contact_id'] !== null ? Contacts::find($db, (int) $enquiry['contact_id']) : null;
+        $company = $contact !== null && $contact['company_id'] !== null ? Contacts::findCompany($db, (int) $contact['company_id']) : null;
+        foreach ([$enquiry['prirazeno'], $deal !== null ? (Deals::get($db, $deal)['owner_id'] ?? null) : null, $contact['owner_id'] ?? null, $company['owner_id'] ?? null] as $candidate) {
+            if ($candidate !== null && (int) $candidate > 0 && self::mayOpen($db, $s, (int) $candidate)) {
+                $owner = (int) $candidate;
+                break;
+            }
+        }
+        $id = self::save($app, null, ['enquiry_id' => $enquiryId, 'lines' => $found['lines'], 'owner_id' => $owner], 0)['id'];
+        if ($owner > 0) {
+            Inbox::notify($app, $owner, 'quote_prepared', 'quote:' . $id, null);
+        }
+
+        return $id;
+    }
+
+
     /**
      * The lines of an enquiry basket, as the form stored them ("2 × Name – Variant (code)", Builder\Products::basketLines):
      * quantity, name, variant name and code. Other text is ignored (pure).
@@ -986,22 +1075,32 @@ final class Quotes
     /**
      * The lines a new quote of an enquiry starts with: every basket line of the enquiry matched to a product – by its code
      * (a variant's or the product's), then by its name (and the variant's name) in the products collections; what cannot be
-     * matched becomes a free line with its text and quantity and no price. The prices come from the price list when the
-     * quote is saved (save()), never from the enquiry.
+     * matched becomes a free line with its text and quantity and no price. 3.42: then the item whose detail page the form
+     * was sent from (source kolekce:<idk> of a products collection – the products preset or one mapped in Quotes → Settings
+     * – and the item's address in the page; left out when a basket line or a field names that item already), and every
+     * form field whose value names a product by its name or code (case does not matter; a field with several values –
+     * ticked boxes, lines – is read value by value), each once with quantity 1. The prices come from the price list when the quote is saved (save()), never from the enquiry.
      *
      * @return array{lines: list<array<string, mixed>>, matched: int, unmatched: int}
      */
     public static function linesFromEnquiry(App $app, int $enquiryId): array
     {
         $db = $app->db();
-        $data = $db->value('SELECT data FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
-        $fields = json_decode((string) $data, true);
+        $enquiry = $db->one('SELECT data, zdroj, stranka FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
+        $fields = json_decode((string) ($enquiry['data'] ?? ''), true);
+        $fields = is_array($fields) ? $fields : [];
         $lines = [];
         $matched = 0;
         $unmatched = 0;
         $names = null;
-        foreach (is_array($fields) ? $fields : [] as $field) {
-            foreach (self::parseBasket(is_array($field) ? (string) ($field[1] ?? '') : '') as $b) {
+        $seen = [];
+        $plain = [];
+        foreach ($fields as $field) {
+            $basket = self::parseBasket(is_array($field) ? (string) ($field[1] ?? '') : '');
+            if ($basket === [] && is_array($field) && !isset($field[2]) && is_scalar($field[1] ?? null)) {
+                $plain[] = (string) $field[1]; // 3.42: read below for product names and codes (an attachment – [2] – never)
+            }
+            foreach ($basket as $b) {
                 $hit = $b['code'] !== '' ? Prices::findCode($db, $b['code']) : null;
                 if ($hit === null) {
                     $names ??= self::productNames($db);
@@ -1018,6 +1117,7 @@ final class Quotes
                 }
                 if ($hit !== null) {
                     $lines[] = ['item_id' => $hit['item_id'], 'variant_code' => $hit['variant_code'], 'quantity' => (string) $b['quantity']];
+                    $seen[$hit['item_id'] . ':' . $hit['variant_code']] = true;
                     $matched++;
                 } else {
                     $lines[] = ['name' => $b['name'] . ($b['variant'] !== '' ? ' – ' . $b['variant'] : ''), 'code' => $b['code'], 'quantity' => (string) $b['quantity'], 'unit_price' => null];
@@ -1028,8 +1128,101 @@ final class Quotes
                 }
             }
         }
+        if ($enquiry !== null) {
+            $found = [];
+            foreach ($plain as $value) {
+                array_push($found, ...self::namedProducts($db, $value, $names));
+            }
+            // the item of the page, unless a field already names it (or one of its variants)
+            $page = self::pageItem($db, (string) $enquiry['zdroj'], (string) $enquiry['stranka']);
+            if ($page !== null && !in_array($page, array_column($found, 'item_id'), true) && !in_array($page, array_column($lines, 'item_id'), true)) {
+                array_unshift($found, ['item_id' => $page, 'variant_code' => '']);
+            }
+            foreach ($found as $hit) {
+                $key = $hit['item_id'] . ':' . $hit['variant_code'];
+                if (isset($seen[$key]) || count($lines) >= self::MAX_LINES) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $lines[] = ['item_id' => $hit['item_id'], 'variant_code' => $hit['variant_code'], 'quantity' => '1'];
+                $matched++;
+            }
+        }
 
         return ['lines' => $lines, 'matched' => $matched, 'unmatched' => $unmatched];
+    }
+
+    /**
+     * 3.42: the item whose detail page an enquiry was sent from – the source kolekce:<idk> names a products collection
+     * (Prices::productCollections) and the page address ends with /<collection>/<item> (the reading of Front\EnquiryTopic);
+     * the default-language item when several share the address. null otherwise.
+     */
+    private static function pageItem(Db $db, string $source, string $page): ?int
+    {
+        if (preg_match('/^kolekce:(\d+)$/D', $source, $m) !== 1) {
+            return null;
+        }
+        $collection = array_values(array_filter(Prices::productCollections($db), fn (array $c): bool => $c['idk'] === (int) $m[1]))[0] ?? null;
+        if ($collection === null || $collection['seo_link'] === ''
+            || preg_match('#/' . preg_quote($collection['seo_link'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $page, $slug) !== 1) {
+            return null;
+        }
+        $id = $db->value("SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND smazano IS NULL ORDER BY jazyk = '' DESC, idp LIMIT 1", [$collection['idk'], $slug[1]]);
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * 3.42: the products a form value names – the whole value, or else each of its parts (lines, or values separated by a
+     * comma or semicolon, as ticked boxes are stored): a product's code or variant code (Prices::findCode), a product's
+     * name, or "Name – Variant". Case does not matter. Nothing for a long text (a message is not a choice).
+     *
+     * @param array<string, array<string, mixed>>|null $names productNames(), loaded on first need
+     * @return list<array{item_id: int, variant_code: string}>
+     */
+    private static function namedProducts(Db $db, string $value, ?array &$names): array
+    {
+        $value = trim($value);
+        if ($value === '' || mb_strlen($value) > 1000) {
+            return [];
+        }
+        $one = function (string $text) use ($db, &$names): ?array {
+            $text = trim($text);
+            if ($text === '' || mb_strlen($text) > 250) {
+                return null;
+            }
+            $hit = Prices::findCode($db, $text);
+            if ($hit !== null) {
+                return $hit;
+            }
+            $names ??= self::productNames($db);
+            $item = $names[mb_strtolower($text)] ?? null;
+            if ($item !== null) {
+                return ['item_id' => $item['idp'], 'variant_code' => ''];
+            }
+            if (preg_match('/^(.+?)\s+[–-]\s+(.+)$/u', $text, $m) === 1 && ($item = $names[mb_strtolower(trim($m[1]))] ?? null) !== null) {
+                foreach ($item['variants'] as $v) {
+                    if ($v['code'] !== '' && mb_strtolower($v['name']) === mb_strtolower(trim($m[2]))) {
+                        return ['item_id' => $item['idp'], 'variant_code' => $v['code']];
+                    }
+                }
+            }
+
+            return null;
+        };
+        $whole = $one($value);
+        if ($whole !== null) {
+            return [$whole];
+        }
+        $out = [];
+        foreach (preg_split('/\R|[,;]\s*/u', $value) ?: [] as $part) {
+            $hit = $one($part);
+            if ($hit !== null) {
+                $out[] = $hit;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -1265,11 +1458,8 @@ final class Quotes
     {
         $out = [];
         foreach (Prices::productCollections($db) as $c) {
-            foreach ($db->all("SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL ORDER BY jazyk = '' DESC, idp", [$c['idk']]) as $r) {
-                $item = Prices::item($db, (int) $r['idp']);
-                if ($item !== null) {
-                    $out[mb_strtolower($item['name'])] ??= $item;
-                }
+            foreach (Prices::itemsOf($db, $c['idk']) as $item) {
+                $out[mb_strtolower($item['name'])] ??= $item;
             }
         }
 

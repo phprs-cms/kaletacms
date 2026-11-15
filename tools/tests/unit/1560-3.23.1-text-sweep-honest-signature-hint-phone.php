@@ -422,7 +422,7 @@ check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, strin
     Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
     Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
     ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
-    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined', 'escalated'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes; 3.40: the customer's answer; 3.42: escalated
+    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined', 'escalated', 'quote_prepared'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes; 3.40: the customer's answer; 3.42: escalated, a prepared draft
 Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
 check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),

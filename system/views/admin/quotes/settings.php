@@ -12,6 +12,8 @@
  * @var list<string> $people who may open Quotes besides the administrators
  * @var list<array{id: int, name: string, lines: int, created_by: ?int, updated_at: string}> $lineSets the saved line sets (3.40)
  * @var array<int, string> $setOwners who saved them
+ * @var array<int, array{collection: int, code: string, variants: string}> $mapping 3.42: the collections mapped to the price list
+ * @var list<array<string, mixed>> $mappable 3.42: every collection for the mapping form
  */
 ?>
 <?= $app->view->render('admin/quotes/tabs', ['module' => $module, 'current' => 'settings', 'admin' => true]) ?>
@@ -40,6 +42,9 @@
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. Won or lost is only offered, never set by itself.')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_attach_pdf" value="1"<?= ($values['quote_attach_pdf'] ?? '1') === '1' ? ' checked' : '' ?> data-quote-attach-pdf-default> <?= e(t('Attach the quote as a PDF to the e-mail')) ?></label>
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. The link to the quote is in the e-mail either way; quotes in Arabic, Greek, Cyrillic or Asian scripts go with the link only.')) ?></span></div></div>
+	<h2><?= e(t('Enquiries about products')) ?></h2>
+	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_auto_draft" value="1"<?= ($values['quote_auto_draft'] ?? '0') === '1' ? ' checked' : '' ?> data-quotes-auto-draft> <?= e(t('Prepare a draft quote for new enquiries about products')) ?></label>
+		<span class="napoveda"><?= e(t('When a new enquiry comes from the page of a product in the price list, or names one in a field, Kaleta prepares a draft priced from the customer’s or the default price list. It is never sent by itself; the responsible person gets a notification and finds it in the enquiry. Spam and job applications are skipped.')) ?></span></div></div>
 	<h2><?= e(t('The customer’s page')) ?></h2>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_customer_decision" value="1"<?= $values['quote_customer_decision'] === '1' ? ' checked' : '' ?> data-quotes-decision> <?= e(t('The customer can accept or decline the quote on its page')) ?></label>
 		<span class="napoveda"><?= e(t('Accept and Decline buttons under a sent quote while it is valid; one decision, a reason for a decline is optional. The quote’s status changes “by the customer” and its responsible person gets a notification. The deal is only offered as won or lost, never moved by itself.')) ?></span></div></div>
@@ -47,6 +52,10 @@
 		<span class="napoveda"><?= e(t('A mild form of tracking: the quote shows the time its link was first opened – only the time, never an address or a browser. Mail filters that check links may open it before the customer does. Switching it off forgets the times recorded so far.')) ?></span></div></div>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
+<section aria-labelledby="nabidky-kolekce">
+<h2 id="nabidky-kolekce"><?= e(t('Collections in the price list')) ?></h2>
+<?= $app->view->render('admin/quotes/collections', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'back' => 'settings', 'mapping' => $mapping, 'mappable' => $mappable]) ?>
+</section>
 <?= $app->view->render('admin/quotes/texts', ['app' => $app, 'module' => $module, 'csrf' => $csrf]) ?>
 <section id="line-sets" data-quotes-line-sets aria-labelledby="nabidky-sady">
 <h2 id="nabidky-sady"><?= e(t('Saved line sets')) ?></h2>
