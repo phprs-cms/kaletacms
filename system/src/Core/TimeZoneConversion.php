@@ -88,6 +88,9 @@ final class TimeZoneConversion
         'price_lists' => ['archived_at', 'created_at', 'updated_at'], // 3.38
         'prices' => ['updated_at'],
         'quotes' => ['token_expires_at', 'sent_at', 'decided_at', 'created_at', 'updated_at', 'anonymised_at', 'first_opened_at'], // 3.40: first_opened_at
+        'internal_folders' => ['created_at', 'updated_at'], // 3.42
+        'internal_files' => ['created_at', 'updated_at'],
+        'internal_file_versions' => ['uploaded_at'],
         'quote_line_sets' => ['created_at', 'updated_at'], // 3.40
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],

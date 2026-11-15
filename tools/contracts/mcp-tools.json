@@ -829,6 +829,20 @@
             "openWorldHint": false
         }
     },
+    "get_internal_file": {
+        "parameters": {
+            "id": "integer"
+        },
+        "required": [
+            "id"
+        ],
+        "annotations": {
+            "title": "Get an internal file",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "get_menu": {
         "parameters": {
             "language": "string",
@@ -1371,6 +1385,23 @@
         "required": [],
         "annotations": {
             "title": "List opening hours",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "list_internal_files": {
+        "parameters": {
+            "folder": "string",
+            "limit": "integer",
+            "page": "integer",
+            "search": "string",
+            "status": "string",
+            "tag": "string"
+        },
+        "required": [],
+        "annotations": {
+            "title": "List internal files",
             "readOnlyHint": true,
             "destructiveHint": false,
             "openWorldHint": false
@@ -2318,6 +2349,27 @@
         ],
         "annotations": {
             "title": "Save an opening hours exception",
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
+    "save_internal_file": {
+        "parameters": {
+            "content": "string",
+            "description": "string",
+            "folder": "string",
+            "id": "integer",
+            "name": "string",
+            "status": "string",
+            "tags": [
+                "array",
+                "string"
+            ]
+        },
+        "required": [],
+        "annotations": {
+            "title": "Save an internal document",
             "readOnlyHint": false,
             "destructiveHint": false,
             "openWorldHint": false

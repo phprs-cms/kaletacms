@@ -10,7 +10,7 @@ R341_SIGNIN=$(curl -s -b "$R341_JAR" -c "$R341_JAR" -o /dev/null -w '%{http_code
 curl -s -b "$R341_JAR" -c "$R341_JAR" -o "$WORK/response" "$B/admin.php"
 expect "3.41 review M1: without sign_in_epoch the sign-in succeeds and the next administrator request migrates the column back" \
   "$R341_SIGNIN|$(grep -c 'name="password"' "$WORK/response")|$(sq "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_uzivatele' AND COLUMN_NAME = 'sign_in_epoch'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" \
-  "302|0|1|130"
+  "302|0|1|$(sed -n 's/^const KALETA_DB_VERSION = \([0-9]*\);/\1/p' "$ROOT/system/bootstrap.php")" # 3.42: the request migrates to the newest version
 if [ "$(sq "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_uzivatele' AND COLUMN_NAME = 'sign_in_epoch'")" = "0" ]; then
   sq "ALTER TABLE ka_uzivatele ADD COLUMN sign_in_epoch INT UNSIGNED NOT NULL DEFAULT 0; UPDATE ka_nastaveni SET hodnota = '130' WHERE promenna = 'db_version'" > /dev/null
 fi

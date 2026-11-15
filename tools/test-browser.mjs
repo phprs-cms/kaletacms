@@ -5694,6 +5694,65 @@ await step('3.41 a draft preview runs under its Content-Security-Policy: the hea
   }
 });
 
+// 3.42 A: Internal files – a folder for everyone, an upload with a description and tags through the form, the file's detail with
+// its versions; the list and the detail fit 1440 and 375 px without sideways scroll, light and dark, axe
+await step('3.42 A: Internal files – upload through the form, the list and the file detail at 1440 and 375 px, light/dark, axe', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("DELETE FROM ka_internal_file_versions WHERE file_id IN (SELECT id FROM ka_internal_files WHERE name LIKE '%A342%'); DELETE FROM ka_internal_files WHERE name LIKE '%A342%'; DELETE FROM ka_internal_folders WHERE name LIKE '%A342%'");
+  const folder = Number(sql("INSERT INTO ka_internal_folders (name, description, audience, roles, created_at, updated_at) VALUES ('Contracts and price sheets A342', 'Signed contracts and the current price sheets', 'all', '', NOW(), NOW()); SELECT LAST_INSERT_ID();").trim());
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit(`/admin.php?module=internal_files&folder=${folder}`);
+    if (!(await page.locator('details > summary', { hasText: 'Upload a file to Contracts and price sheets A342' }).count())) { throw new Error('no upload form for the folder'); }
+    if (!(await page.locator('details[open]').count())) { await page.locator('details > summary', { hasText: 'Upload a file to' }).click(); }
+    await page.setInputFiles('#if-file', { name: 'Onboarding checklist A342.md', mimeType: 'text/markdown', buffer: Buffer.from('# Onboarding\n\n- keys\n- laptop\n') });
+    await page.fill('#if-description', 'What a new colleague gets in the first week');
+    await page.fill('#if-tags', 'HR, onboarding');
+    await Promise.all([page.waitForNavigation(), page.locator('details form input[type=submit]').click()]);
+    const file = Number(sql("SELECT id FROM ka_internal_files WHERE name = 'Onboarding checklist A342.md'").trim());
+    if (!file) { throw new Error('the upload was not stored'); }
+    if (!(await page.locator('#if-name').count()) || (await page.locator('#if-name').inputValue()) !== 'Onboarding checklist A342.md') { throw new Error('the upload does not land on the file detail'); }
+    await visit(`/admin.php?module=internal_files&folder=${folder}`);
+    if (!(await page.locator('table.vypis a.stitek', { hasText: 'onboarding' }).count())) { throw new Error('the list does not show the file with its tags'); }
+    const state = await context.storageState();
+    const urls = [`/admin.php?module=internal_files&folder=${folder}`, `/admin.php?module=internal_files&action=file&id=${file}`, `/admin.php?module=internal_files&action=folder&id=${folder}`];
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 375, 812]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of urls) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${label}, ${scheme})`); }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/342a-${url.includes('action=file') ? 'file' : url.includes('action=folder') ? 'folder' : 'list'}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const url of urls) {
+        for (const scheme of ['light', 'dark']) {
+          await axePage.emulateMedia({ colorScheme: scheme });
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([tags]) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_internal_file_versions WHERE file_id IN (SELECT id FROM ka_internal_files WHERE folder_id = ${folder}); DELETE FROM ka_internal_files WHERE folder_id = ${folder}; DELETE FROM ka_internal_folders WHERE id = ${folder}`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

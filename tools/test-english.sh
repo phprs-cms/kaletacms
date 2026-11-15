@@ -193,6 +193,15 @@ sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z
 page "3.38: Quotes – Internal prices" "/admin.php?module=quotes&action=prices" 200 "$JAR"; grep -q 'data-prices-grid' "$WORK/page.html" || fail "English admin: Internal prices has no grid"
 page "3.38: Quotes – Settings" "/admin.php?module=quotes&action=settings" 200 "$JAR"
 sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$Q338_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''"
+# 3.42: Internal files in English – the empty state, a folder with a file, the file's detail and the folder form
+page "3.42: Internal files – empty" "/admin.php?module=internal_files" 200 "$JAR"
+I342_FOLDER=$(sql "INSERT INTO ka_internal_folders (name, audience, roles, created_at, updated_at) VALUES ('Handbooks I342', 'all', '', NOW(), NOW()); SELECT LAST_INSERT_ID();")
+I342_FILE=$(sql "INSERT INTO ka_internal_files (folder_id, name, description, tags, status, extension, size, version, created_at, updated_at) VALUES ($I342_FOLDER, 'Handbook I342.pdf', 'For everyone', 'HR', 'draft', 'pdf', 1024, 1, NOW(), NOW()); SELECT LAST_INSERT_ID();")
+sql "INSERT INTO ka_internal_file_versions (file_id, version, path, original_name, extension, size, uploaded_at) VALUES ($I342_FILE, 1, '2026/01/$(printf '0%.0s' $(seq 1 32)).bin', 'Handbook I342.pdf', 'pdf', 1024, NOW())"
+page "3.42: Internal files – a folder" "/admin.php?module=internal_files&folder=$I342_FOLDER" 200 "$JAR"
+page "3.42: Internal files – a file" "/admin.php?module=internal_files&action=file&id=$I342_FILE" 200 "$JAR"
+page "3.42: Internal files – the folder form" "/admin.php?module=internal_files&action=folder&id=$I342_FOLDER" 200 "$JAR"
+sql "DELETE FROM ka_internal_file_versions WHERE file_id = $I342_FILE; DELETE FROM ka_internal_files WHERE id = $I342_FILE; DELETE FROM ka_internal_folders WHERE id = $I342_FOLDER"
 for u in "module=newsletters" "module=appearance"; do curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?$u"; grep -q 'design system' "$WORK/page.html" && fail "English admin: $u still says design system"; done
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 # 3.26: the Notifications screen with something on it – a mention with a quote, an assignment, a review date, a place that is gone

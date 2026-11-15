@@ -253,6 +253,12 @@ final class Catalog
         'get_quote' => ['read', 'quotes'],
         'save_quote' => ['draft', 'quotes'],
         'mark_quote' => ['write', 'quotes'],
+        // Internal files (3.42, Core\InternalFiles): the team's documents, never public – for people with the section, in the folders
+        // they see; the bytes of a file never go over MCP (the text of a small text document only); never journaled for undo.
+        // save_internal_file: a drafts-only connection writes and changes drafts only (Handlers\InternalFileTools); nothing is deleted here
+        'list_internal_files' => ['read', ''],
+        'get_internal_file' => ['read', ''],
+        'save_internal_file' => ['draft', ''],
     ];
 
     /**
@@ -441,6 +447,9 @@ final class Catalog
         'get_quote' => 'Get a quote',
         'save_quote' => 'Create or change a draft quote',
         'mark_quote' => 'Mark a quote accepted or declined',
+        'list_internal_files' => 'List internal files',
+        'get_internal_file' => 'Get an internal file',
+        'save_internal_file' => 'Save an internal document',
     ];
 
     /**
@@ -481,7 +490,8 @@ final class Catalog
     public const array SITE_NEUTRAL = ['assign', 'update_enquiry', 'delete_enquiry', 'import_enquiries', 'request_testimonial', 'reply_to_enquiry', 'write_notebook',
         'delete_notebook_entry', 'update_request', 'report_agent_run', 'resolve_draft_comment', 'save_section', 'delete_section', 'ignore_not_found',
         'update_social_draft', 'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter', 'add_comment', 'save_task', 'complete_task',
-        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue', 'save_price', 'save_quote', 'mark_quote', 'send_quote'];
+        'save_contact', 'log_activity', 'merge_contacts', 'save_deal', 'move_deal', 'update_application', 'reply_to_application', 'layout_queue', 'save_price', 'save_quote', 'mark_quote', 'send_quote',
+        'save_internal_file']; // 3.42: internal files are never on the site
 
     /**
      * 3.36 review L2: write tools whose call without this argument only reads – then Mcp\Server writes no change-log row,
@@ -592,7 +602,8 @@ final class Catalog
         'decline_booking', 'propose_booking_times', 'list_pending_review', 'get_due_agent_runs', 'report_agent_run', 'translation_status', 'list_newsletters',
         'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
         'list_prices', 'save_price', 'send_quote', // 3.38: internal prices – one find_tools away (design A8: outside the essentials and the work set)
-        'list_quotes', 'get_quote', 'save_quote', 'mark_quote']; // 3.38 B: quotes – the work set has no room left under its budget (and stays unchanged)
+        'list_quotes', 'get_quote', 'save_quote', 'mark_quote', // 3.38 B: quotes – the work set has no room left under its budget (and stays unchanged)
+        'list_internal_files', 'get_internal_file', 'save_internal_file']; // 3.42: internal files – the work set is at its budget, one find_tools away
 
     /**
      * The focused sets that list a tool by its English name (3.36): [] for a tool of ON_DEMAND (or an add-on's tool).

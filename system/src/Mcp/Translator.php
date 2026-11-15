@@ -344,6 +344,9 @@ final class Translator
         'get_application' => ['get_application', '', []],
         'update_application' => ['update_application', '', []],
         'reply_to_application' => ['reply_to_application', '', []],
+        'list_internal_files' => ['list_internal_files', '', []], // 3.42: English only
+        'get_internal_file' => ['get_internal_file', '', []],
+        'save_internal_file' => ['save_internal_file', '', []],
     ];
 
     /** Parameter values in English => Czech (by the Czech parameter; for some tools only there). */
