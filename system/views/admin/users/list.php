@@ -9,7 +9,7 @@
  * @var array<int, array{page: int, item: int, enquiry: int, task: int}> $owned 3.24: idu => what the account is responsible for (Core\Handover::ownedByAll)
  */
 ?>
-<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New user')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a></p>
+<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New user')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a> <a class="navigace" href="<?= e($module->url('departments')) ?>"><?= e(t('Departments')) ?></a></p>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('User')) ?></th><th scope="col"><?= e(t('Jméno')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Roles')) ?></th><th scope="col"><?= e(t('News items')) ?></th><th scope="col"><?= e(t('Last sign-in')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>

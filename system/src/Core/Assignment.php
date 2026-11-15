@@ -131,10 +131,14 @@ final class Assignment
      * bell. In the recipient's admin language; the form name or the title and a link – never what the enquiry says. Queued
      * and sent after the response (Mail::later), so the save does not wait for the mail server. Returns whether it e-mailed.
      *
+     * 3.42: while the person is away today, their stand-in gets a copy (Core\Inbox::record, Core\Absences); $standingInFor
+     * (the away person's name) marks a notification that already goes to the stand-in – a new enquiry routed by its
+     * department (Core\Departments::assignEnquiry) – and its e-mail says so.
+     *
      * @param string $kind enquiry | page | item (Assignment::KINDS)
      * @param int $byUserId who assigned it (0 = Kaleta itself)
      */
-    public static function notify(App $app, string $kind, int $id, int $toUserId, int $byUserId): bool
+    public static function notify(App $app, string $kind, int $id, int $toUserId, int $byUserId, string $standingInFor = ''): bool
     {
         if ($toUserId <= 0 || $toUserId === $byUserId || !isset(self::KINDS[$kind])) {
             return false;
@@ -151,13 +155,13 @@ final class Assignment
         }
         // 3.26: the bell first; its e-mail is this one – sent only for "instant" (before migration 0112 there is no row and
         // no choice: the e-mail goes, as in 3.24)
-        $note = Inbox::record($db, $toUserId, 'assigned', $kind . ':' . $id, $byUserId > 0 ? $byUserId : null);
+        $note = Inbox::record($db, $toUserId, 'assigned', $kind . ':' . $id, $byUserId > 0 ? $byUserId : null, '', $app, $standingInFor);
         if (($note['email'] ?? 'instant') !== 'instant' || count(Mail::addresses((string) $to['email'])) !== 1) {
             return false;
         }
         $by = $byUserId > 0 ? (string) $db->value("SELECT IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu = ?", [$byUserId]) : '';
         $url = rtrim($s->get('site_url') ?: $app->request->origin(), '/') . $app->url($target['path']);
-        [$subject, $body] = self::mail($s, $to, $kind, $target, $by !== '' ? $by : 'Kaleta', $url);
+        [$subject, $body] = self::mail($s, $to, $kind, $target, $by !== '' ? $by : 'Kaleta', $url, $standingInFor);
         Mail::later($s, (string) $to['email'], $subject, $body);
         Inbox::markEmailed($db, $note !== null ? [$note['id']] : []);
 
@@ -170,11 +174,12 @@ final class Assignment
      *
      * @param array<string, mixed> $recipient a row of ka_uzivatele with jazyk and register
      * @param array{id: int, title: string, collection?: string, path: string} $target
+     * @param string $standingInFor 3.42: the away person the recipient stands in for ('' = none)
      * @return array{0: string, 1: string}
      */
-    public static function mail(Settings $s, array $recipient, string $kind, array $target, string $by, string $url): array
+    public static function mail(Settings $s, array $recipient, string $kind, array $target, string $by, string $url, string $standingInFor = ''): array
     {
-        return Language::runWith((string) ($recipient['jazyk'] ?? '') ?: Language::defaults($s), function () use ($kind, $target, $by, $url): array {
+        return Language::runWith((string) ($recipient['jazyk'] ?? '') ?: Language::defaults($s), function () use ($kind, $target, $by, $url, $standingInFor): array {
             $responsible = t('Being responsible means its review reminders come to you and it is listed under Mine. It does not change who may edit it.');
             [$subject, $text] = match ($kind) {
                 'enquiry' => [t('An enquiry from the form “%s” is assigned to you', $target['title']),
@@ -198,7 +203,7 @@ final class Assignment
                     t('%s made you the responsible person for “%s” in the collection %s.', $by, $target['title'], (string) ($target['collection'] ?? '')) . ' ' . $responsible],
             };
 
-            return [$subject, $text . "\n\n" . t('Open it in the administration:') . "\n" . $url . "\n"];
+            return [$subject, ($standingInFor !== '' ? Inbox::standingIn($standingInFor) . "\n\n" : '') . $text . "\n\n" . t('Open it in the administration:') . "\n" . $url . "\n"];
         }, 'admin-', Language::normalizeRegister((string) ($recipient['register'] ?? '')));
     }
 

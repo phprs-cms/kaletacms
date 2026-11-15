@@ -5694,6 +5694,78 @@ await step('3.41 a draft preview runs under its Content-Security-Policy: the hea
   }
 });
 
+await step('3.42 B: the team hierarchy – Users → Departments, the org chart at 1440 and 390 px (light/dark, axe, no script, printable) and an own absence in My account', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("INSERT INTO ka_departments (name, head_id, parent_id, enquiry_forms, created_at, updated_at) VALUES ('Sales B342', NULL, NULL, '', NOW(), NOW())");
+  const dep = sql("SELECT id FROM ka_departments WHERE name = 'Sales B342'").trim();
+  sql(`INSERT INTO ka_departments (name, head_id, parent_id, enquiry_forms, created_at, updated_at) VALUES ('Export with a rather long department name B342', NULL, ${dep}, '', NOW(), NOW());
+    INSERT INTO ka_uzivatele (user, password, jmeno, email, pozice, phone, department_id) VALUES ('head-b342', 'x', 'Head B342 With A Rather Long Name', 'head.with.a.long.address.b342@browser.example', 'Head of sales', '+420 603 342 000', ${dep})`);
+  const head = sql("SELECT idu FROM ka_uzivatele WHERE user = 'head-b342'").trim();
+  const admin = sql("SELECT idu FROM ka_uzivatele WHERE user = 'admin'").trim();
+  sql(`UPDATE ka_departments SET head_id = ${head} WHERE id = ${dep}; UPDATE ka_uzivatele SET reports_to = ${head} WHERE user = 'admin';
+    INSERT INTO ka_absences (user_id, starts_on, ends_on, deputy_id, reason, created_at) VALUES (${head}, CURDATE(), CURDATE() + INTERVAL 3 DAY, ${admin}, 'holiday', NOW())`);
+  try {
+    await visit('/admin.php?module=users&action=departments');
+    if (!(await page.locator('table.vypis', { hasText: 'Sales B342' }).count()) || !(await page.locator('#department-name').count())) { throw new Error('Users → Departments lacks the tree or the form'); }
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, javaScriptEnabled: false, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          await p2.goto(`${BASE}/admin.php?action=account&tab=org_chart`, { waitUntil: 'networkidle' });
+          const card = p2.locator('.organigram .kolega', { hasText: 'Head B342' });
+          if ((await card.count()) !== 1 || !(await card.isVisible())) { throw new Error(`the head's card is missing (${label}, ${scheme})`); }
+          const text = await card.innerText();
+          if (!/Head/.test(text) || !/Away until/.test(text) || /Holiday/.test(text)) { throw new Error(`the head's card: ${text}`); }
+          if (!(await p2.locator('.organigram .organigram', { hasText: 'Export with a rather long department name B342' }).isVisible())) { throw new Error('the sub-department is not nested'); }
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll on the org chart (${label}, ${scheme})`); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/342b-org-chart-${label}-${scheme}.png`, fullPage: true }); }
+          if (label === 'desktop' && scheme === 'light') {
+            await p2.emulateMedia({ media: 'print' });
+            if (await p2.locator('.hlavicka').isVisible()) { throw new Error('the header bar prints with the org chart'); }
+            await p2.emulateMedia({ media: 'screen' });
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(BASE + '/admin.php?action=account&tab=org_chart', { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['nav.zalozky', 'ul.organigram'], WCAG]);
+        if (found.violations.length) { throw new Error(`axe org chart (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // an own absence in My account at phone width: two dates, a reason from the list, the deputy
+    await page.setViewportSize({ width: 390, height: 844 });
+    await visit('/admin.php?action=account');
+    const from = sql('SELECT CURDATE() + INTERVAL 7 DAY').trim();
+    const to = sql('SELECT CURDATE() + INTERVAL 9 DAY').trim();
+    await page.fill('#absence-from', from);
+    await page.fill('#absence-to', to);
+    await page.selectOption('#absence-reason', 'trip');
+    await page.selectOption('#absence-deputy', head);
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    if (wide > 0) { throw new Error(`${wide} px of sideways scroll on My account with the absences`); }
+    await Promise.all([page.waitForNavigation(), page.locator('#absences form.formular button[type="submit"]').click()]);
+    if (sql(`SELECT CONCAT(starts_on, '|', ends_on, '|', reason, '|', deputy_id) FROM ka_absences WHERE user_id = ${admin}`).trim() !== `${from}|${to}|trip|${head}`) { throw new Error('the own absence was not saved'); }
+    if (!(await page.locator('#absences .nepritomnosti li').count())) { throw new Error('the saved absence is not listed'); }
+  } finally {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_absences WHERE user_id IN (${head}, ${admin}); UPDATE ka_uzivatele SET reports_to = NULL, department_id = NULL WHERE user = 'admin';
+      DELETE FROM ka_uzivatele WHERE idu = ${head}; DELETE FROM ka_departments WHERE name LIKE '%B342'`);
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

@@ -263,6 +263,27 @@ odkazy na váš web nesou parametry `utm`, takže **Statistika** ukáže návšt
 se drží jen po dobu odesílání – potom zůstanou jen počty a data. Koncept newsletteru a zkoušku umí i Claude; odběratelům
 ho pošle jen na váš pokyn.
 
+### Oddělení, nadřízení a nepřítomnost
+
+Správce zakládá oddělení v **Uživatelé → Oddělení** (název, vedoucí, případně nadřazené oddělení) a každému účtu
+vybere oddělení a nadřízeného. Výsledek vidí všichni v **Můj účet → Organizační struktura** – jména, pozice, pracovní
+telefony a e-maily jen aktivních účtů, bez skriptů a připravené k tisku.
+
+Nepřítomnost si každý zadává v **Můj účet** (první a poslední den, zástupce, důvod z pevného seznamu – nikdy zdravotní
+údaje); správce může zadat kohokoli v Uživatelích. Pravidlo je vždy stejné:
+
+- když je někdo **dnes** pryč, každé upozornění na to, za co odpovídá (přidělení, komentáře, připomínky úkolů, termíny
+  kontroly, připomínky nabídek a přihlášek), dostane dál on **a** kopii jeho zástupce s poznámkou „Zastupujete …“.
+  Zmínka zůstává jen jeho;
+- zástupcem je zástupce z dané nepřítomnosti – aktivní účet, sám ne pryč, který danou věc smí otevřít – jinak nadřízený
+  za stejných podmínek, jinak nikdo (jeden krok, nikdy řetěz);
+- oddělení může v poli **Nové poptávky z formulářů** jmenovat formuláře: novou poptávku z takového formuláře vyřizuje
+  vedoucí, a když je pryč, jeho zástupce. Dokud žádný formulář nejmenujete, nic se nepřiděluje;
+- úkol tři dny po termínu se jednou ohlásí nadřízenému toho, kdo ho má;
+- kdo odpovídá za existující záznam, se nikdy nemění – mění se jen, kdo se o něm dozví a kdo dostane nové poptávky.
+
+Claude vidí oddělení, nadřízené a do kdy je kdo pryč (nikdy důvod) v `list_colleagues`.
+
 ## 8. Údaje o firmě
 
 **Nastavení → Firma:** obchodní firma, druh podniku, IČO, DIČ, adresa, telefon, **otevírací doba** (po řádcích, např.

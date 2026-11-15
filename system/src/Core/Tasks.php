@@ -49,6 +49,15 @@ final class Tasks
     /** The reminder job notifies at most this many tasks per run (the rest at the next one). */
     public const int BATCH = 200;
 
+    /**
+     * 3.42: an open task this many days past its due moment is escalated once (escalated_at) to whom its assignee reports to
+     * (ka_uzivatele.reports_to, Core\Departments) – only when that is set; tasks overdue longer than ESCALATE_WINDOW days
+     * (older than the feature) are left alone.
+     */
+    public const int ESCALATE_DAYS = 3;
+
+    public const int ESCALATE_WINDOW = 30;
+
     /** The columns every reader returns. */
     private const string COLUMNS = 'id, title, target, assignee_id, created_by, due_at, remind_at, notified_at, done_at, done_by, request_id, created_at, updated_at';
 
@@ -689,7 +698,41 @@ final class Tasks
             $sent++;
         }
 
-        return 'notified ' . $sent . ', swept ' . self::sweep($db);
+        return 'notified ' . $sent . ', escalated ' . self::escalate($app, $now) . ', swept ' . self::sweep($db);
+    }
+
+    /**
+     * 3.42: overdue tasks to whom the assignee reports to (ESCALATE_DAYS) – once per task, the marker first; Inbox kind
+     * 'escalated', the assignee as the actor, the title as the excerpt. The place is the task's record when that person may
+     * open it, otherwise the task itself. Returns how many went.
+     */
+    public static function escalate(App $app, string $now): int
+    {
+        $db = $app->db();
+        $moment = new \DateTimeImmutable($now);
+        try {
+            $due = $db->all('SELECT t.id, t.title, t.target, t.assignee_id, u.reports_to FROM {tasks} t JOIN {uzivatele} u ON u.idu = t.assignee_id'
+                . ' WHERE t.done_at IS NULL AND t.escalated_at IS NULL AND u.reports_to IS NOT NULL AND u.reports_to <> t.assignee_id AND t.due_at <= ? AND t.due_at >= ?'
+                . ' ORDER BY t.due_at, t.id LIMIT ' . self::BATCH,
+                [$moment->modify('-' . self::ESCALATE_DAYS . ' days')->format('Y-m-d H:i:s'), $moment->modify('-' . self::ESCALATE_WINDOW . ' days')->format('Y-m-d H:i:s')]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return 0; // before migration 0132
+        }
+        $sent = 0;
+        foreach ($due as $task) {
+            if ($db->run('UPDATE {tasks} SET escalated_at = ? WHERE id = ? AND escalated_at IS NULL', [Clock::now(), (int) $task['id']])->rowCount() === 0) {
+                continue;
+            }
+            $manager = (int) $task['reports_to'];
+            $parsed = $task['target'] !== null ? Inbox::parse((string) $task['target']) : null;
+            $kind = $parsed !== null ? (Inbox::TARGETS[$parsed[0]] ?? null) : null;
+            $target = $parsed !== null && ($kind === null || Assignment::allowed($db, $kind, $manager)) ? (string) $task['target'] : 'task:' . (int) $task['id'];
+            Inbox::notify($app, $manager, 'escalated', $target, (int) $task['assignee_id'], (string) $task['title']);
+            $sent++;
+        }
+
+        return $sent;
     }
 
     /**

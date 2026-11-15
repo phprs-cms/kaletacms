@@ -34,6 +34,9 @@ $n6Exempt = [
         'SELECT p.idp, p.data FROM {poptavky} p JOIN {applications} a' => 'the moved twins themselves, to delete them with their application and in the clean-up (3.34 third review F4)'],
     'src/Core/ApplicationMove.php' => ['SELECT * FROM {poptavky} p WHERE' => 'the move to Applications itself (people with both sections; an enquiry with an application twin is left out by its own NOT EXISTS)'],
     'src/Fleet/Heartbeat.php' => ['SELECT datum, replies FROM {poptavky}' => 'the median hours to a first reply – numbers only'],
+    // 3.42: the team hierarchy – form names only, and the enquiry the form has just stored
+    'src/Core/Departments.php' => ['SELECT idp, formular, prirazeno FROM {poptavky} WHERE idp = ?' => 'the form of the enquiry the form has just stored (assignEnquiry)'],
+    'src/Admin/Modules/Users.php' => ['SELECT DISTINCT formular FROM {poptavky}' => 'the names of forms only – a hint in Users → Departments, never an enquiry'],
 ];
 $n6Missing = [];
 $n6Used = [];

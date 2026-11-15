@@ -15,12 +15,19 @@ use Kaleta\Core\Handover;
  */
 trait WorkTools
 {
-    /** list_colleagues (3.37, Core\Colleagues): who works here – name, position, work phone, e-mail; empty values left out */
+    /**
+     * list_colleagues (3.37, Core\Colleagues): who works here – name, position, work phone, e-mail; empty values left out.
+     * 3.42: each one's department, reports_to and (away today) absent_until and deputy, and the departments (the org chart:
+     * id, name, parent, head) – work data only, never the reason of an absence.
+     */
     private function toolListColleagues(string $name, array $a): mixed
     {
-        $people = \Kaleta\Core\Colleagues::compact(\Kaleta\Core\Colleagues::all($this->app->db()));
+        $db = $this->app->db();
+        $all = \Kaleta\Core\Colleagues::all($db);
+        $people = \Kaleta\Core\Colleagues::compact($all);
+        $departments = \Kaleta\Core\Colleagues::compactDepartments(\Kaleta\Core\Colleagues::chart($db, $all));
 
-        return ['count' => count($people), 'you' => $this->app->auth()->id(), 'colleagues' => $people];
+        return ['count' => count($people), 'you' => $this->app->auth()->id(), 'colleagues' => $people] + ($departments !== [] ? ['departments' => $departments] : []);
     }
 
     /**

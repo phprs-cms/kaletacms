@@ -3,9 +3,9 @@
  * The tabs of My account (3.14): the details, the own e-mail signature and (3.37) the colleagues – for every signed-in user.
  *
  * @var Kaleta\Core\App $app
- * @var string $current '' = the details, 'signature', 'colleagues'
+ * @var string $current '' = the details, 'signature', 'colleagues', 'org_chart'
  */
-$tabs = ['' => t('My details'), 'signature' => t('My e-mail signature'), 'colleagues' => t('Colleagues')];
+$tabs = ['' => t('My details'), 'signature' => t('My e-mail signature'), 'colleagues' => t('Colleagues'), 'org_chart' => t('Org chart')]; // 3.42: the org chart
 ?>
 <nav class="zalozky" aria-label="<?= e(t('My account')) ?>">
 <?php foreach ($tabs as $tab => $label): ?>

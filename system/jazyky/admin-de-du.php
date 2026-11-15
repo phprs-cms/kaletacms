@@ -1426,4 +1426,11 @@ return [
     'Lines your .htaccess lacks (%d): %s' => 'Zeilen, die deiner .htaccess fehlen (%d): %s',
     'Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.' => 'Konnte nicht prüfen, ob der Webserver sie verweigert – die Adresse der Website leitet weiter (nach %s). Stelle unter Einstellungen → Allgemein die Adresse ein, unter der die Website tatsächlich antwortet.',
     'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Ändere die Update-Quelle unter Einstellungen → Backups und Updates oder lass sie für die offizielle Quelle leer.',
+    'You are standing in for %s, who is away.' => 'Du vertrittst %s, die oder der abwesend ist.',
+    'Choose the reason from the list.' => 'Wähle den Grund aus der Liste.',
+    'Nobody can stand in for themself – choose someone else or nobody.' => 'Niemand kann sich selbst vertreten – wähle jemand anderen oder niemanden.',
+    'Enter the first and the last day of the absence.' => 'Gib den ersten und den letzten Tag der Abwesenheit ein.',
+    'Enter the name of the department.' => 'Gib den Namen der Abteilung ein.',
+    'Only these choices – never write health or other private details.' => 'Nur diese Auswahl – trag nie Gesundheits- oder andere private Angaben ein.',
+    'Add the first one below, e.g. Sales or Production.' => 'Leg unten die erste an, z. B. Vertrieb oder Produktion.',
 ];

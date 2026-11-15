@@ -328,6 +328,27 @@ opens; links to your site carry `utm` parameters, so **Statistics** show the vis
 recipients is kept only while sending – afterwards only the counts and dates remain. Claude can draft newsletters and send
 tests too, and sends to subscribers only when you ask.
 
+### Departments, reports to and absences
+
+Administrators create departments in **Users → Departments** (a name, a head, optionally the department it is part of)
+and give each account its department and whom it reports to. Everyone sees the result in **My account → Org chart** –
+names, positions, work phones and e-mails of active accounts only, without any script and ready to print.
+
+Each person adds their own absence in **My account** (first and last day, a deputy, a reason from a fixed list – never
+health details); administrators can add anybody's in Users. The rule is always the same:
+
+- while someone is away **today**, every notification about what they are responsible for (assignments, comments, task
+  reminders, review dates, quote and application reminders) still reaches them **and** a copy reaches their stand-in,
+  marked "standing in for …". A mention stays theirs only;
+- the stand-in is the deputy of that absence – an active account, not away themself, who may open the thing – otherwise
+  whom the person reports to under the same conditions, otherwise nobody (one step, never a chain);
+- a department may name forms in **New enquiries from forms**: a new enquiry from such a form is handled by the head, or
+  by the head's stand-in while the head is away. Nothing is routed until you name a form;
+- a task three days past its due date is escalated once to whom its assignee reports to;
+- who is responsible for an existing record never changes – only who hears about it and who gets new enquiries.
+
+Claude sees departments, reports to and who is away until when (never the reason) in `list_colleagues`.
+
 ## 8. Company details
 
 **Business details:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per

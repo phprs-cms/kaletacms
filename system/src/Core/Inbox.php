@@ -29,7 +29,15 @@ final class Inbox
         'fleet_expiry', // 3.30: a certificate or domain of a site in the fleet console ends soon (Fleet\Calendar, target 'fleet_site:<id>')
         'deletion_due', // 3.34: an undecided job application the person is responsible for will be deleted within a week (Core\Applications::purge)
         'quote_expiring', 'quote_expired', // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
-        'quote_accepted', 'quote_declined']; // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
+        'quote_accepted', 'quote_declined', // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
+        'escalated']; // 3.42: a task of someone who reports to the person is overdue (Core\Tasks::escalate)
+
+    /**
+     * 3.42: the kinds a stand-in also gets while the person is away today (Core\Absences::standIn – the deputy, else whom the
+     * person reports to; only someone who may open the place). A mention is addressed to the person by name and stays theirs;
+     * the console's date reminders go to every administrator anyway.
+     */
+    public const array STAND_IN_KINDS = ['assigned', 'comment', 'review_due', 'task_due', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined', 'escalated'];
 
     /** The e-mail choices of ka_uzivatele.notify_email; the first is the default. */
     public const array EMAIL = ['instant', 'daily', 'off'];
@@ -64,7 +72,7 @@ final class Inbox
     public static function notify(App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = ''): void
     {
         try {
-            $note = self::record($app->db(), $userId, $kind, $target, $actorId, $excerpt);
+            $note = self::record($app->db(), $userId, $kind, $target, $actorId, $excerpt, $app);
             if ($note !== null && $note['email'] === 'instant') {
                 self::mailNow($app, $note);
             }
@@ -77,9 +85,31 @@ final class Inbox
      * Records a notification without e-mailing it. Null when nothing was recorded: the actor themself, an unknown kind, a
      * blocked or removed account, or the table missing (before migration 0112).
      *
-     * @return array{id: int, user: array<string, mixed>, kind: string, target: string, actor_name: string, excerpt: string, email: string}|null
+     * 3.42: when the person is away today and the kind is one of STAND_IN_KINDS, a copy is recorded for their stand-in
+     * (Core\Absences::standIn – never the actor), marked standing_in_for = the away person's name, and – with $app given and
+     * the stand-in's choice "instant" – e-mailed at once; the returned note stays the away person's own. $standingInFor
+     * records a row that already is a stand-in's (Core\Departments::assignEnquiry): no further copy.
+     *
+     * @return array{id: int, user: array<string, mixed>, kind: string, target: string, actor_name: string, excerpt: string, email: string, standing_in_for: string}|null
      */
-    public static function record(Db $db, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = ''): ?array
+    public static function record(Db $db, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = '', ?App $app = null, string $standingInFor = ''): ?array
+    {
+        $note = self::insert($db, $userId, $kind, $target, $actorId, $excerpt, $standingInFor);
+        if ($note !== null && $standingInFor === '' && in_array($kind, self::STAND_IN_KINDS, true)) {
+            // the stand-in must be able to open the place: the section of its kind (a task about nothing needs none)
+            $assignmentKind = self::TARGETS[self::parse($note['target'])[0] ?? ''] ?? null;
+            $standIn = Absences::standIn($db, $userId, fn (int $uid): bool => $uid !== $actorId && ($assignmentKind === null || Assignment::allowed($db, $assignmentKind, $uid)));
+            $copy = $standIn !== null ? self::insert($db, $standIn['id'], $kind, $target, $actorId, $excerpt, $standIn['for_name']) : null;
+            if ($copy !== null && $app !== null && $copy['email'] === 'instant') {
+                self::mailNow($app, $copy);
+            }
+        }
+
+        return $note;
+    }
+
+    /** @return array{id: int, user: array<string, mixed>, kind: string, target: string, actor_name: string, excerpt: string, email: string, standing_in_for: string}|null */
+    private static function insert(Db $db, int $userId, string $kind, string $target, ?int $actorId, string $excerpt, string $standingInFor): ?array
     {
         $actorId = $actorId !== null && $actorId > 0 ? $actorId : null;
         // a reminder of my own task is still mine to get (3.27): only task_due reaches the actor themself
@@ -94,15 +124,16 @@ final class Inbox
             $actor = $actorId !== null ? (string) $db->value("SELECT IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE idu = ?", [$actorId]) : '';
             $excerpt = $kind === 'assigned' ? '' : self::excerpt($excerpt);
             $target = mb_substr($target, 0, 40);
+            $standingInFor = mb_substr($standingInFor, 0, 100);
             $id = $db->insert('notifications', ['user_id' => $userId, 'kind' => $kind, 'target' => $target, 'actor_id' => $actorId,
-                'actor_name' => mb_substr($actor, 0, 100), 'excerpt' => $excerpt, 'created_at' => Clock::now()]);
+                'actor_name' => mb_substr($actor, 0, 100), 'excerpt' => $excerpt, 'created_at' => Clock::now()] + ($standingInFor !== '' ? ['standing_in_for' => $standingInFor] : []));
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return null;
         }
 
         return ['id' => $id, 'user' => $user, 'kind' => $kind, 'target' => $target, 'actor_name' => mb_substr($actor, 0, 100), 'excerpt' => $excerpt,
-            'email' => self::emailMode((string) ($user['notify_email'] ?? ''))];
+            'email' => self::emailMode((string) ($user['notify_email'] ?? '')), 'standing_in_for' => $standingInFor];
     }
 
     /** The e-mail choice of a user as stored: an unknown or empty value is the default (instant). Pure. */
@@ -155,13 +186,13 @@ final class Inbox
     /**
      * The user's notifications, newest first, a page of PAGE at a time, each with the place it is about (place()).
      *
-     * @return array{rows: list<array{id: int, kind: string, target: string, actor_id: int|null, actor_name: string, excerpt: string, created_at: string, read_at: string|null, place: array<string, mixed>|null}>, more: bool}
+     * @return array{rows: list<array{id: int, kind: string, target: string, actor_id: int|null, actor_name: string, excerpt: string, standing_in_for: string, created_at: string, read_at: string|null, place: array<string, mixed>|null}>, more: bool}
      */
     public static function list(Db $db, int $userId, int $page = 1): array
     {
         $page = max(1, $page);
         try {
-            $rows = $db->all('SELECT id, kind, target, actor_id, actor_name, excerpt, created_at, read_at FROM {notifications} WHERE user_id = ? ORDER BY id DESC LIMIT '
+            $rows = $db->all('SELECT id, kind, target, actor_id, actor_name, excerpt, standing_in_for, created_at, read_at FROM {notifications} WHERE user_id = ? ORDER BY id DESC LIMIT '
                 . (self::PAGE + 1) . ' OFFSET ' . (($page - 1) * self::PAGE), [$userId]);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
@@ -173,7 +204,7 @@ final class Inbox
 
         return ['rows' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'kind' => (string) $r['kind'], 'target' => (string) $r['target'],
             'actor_id' => $r['actor_id'] !== null ? (int) $r['actor_id'] : null, 'actor_name' => (string) $r['actor_name'], 'excerpt' => (string) $r['excerpt'],
-            'created_at' => (string) $r['created_at'], 'read_at' => $r['read_at'] !== null ? (string) $r['read_at'] : null,
+            'standing_in_for' => (string) $r['standing_in_for'], 'created_at' => (string) $r['created_at'], 'read_at' => $r['read_at'] !== null ? (string) $r['read_at'] : null,
             'place' => $places[(string) $r['target']] ?? null], $rows), 'more' => $more];
     }
 
@@ -361,8 +392,15 @@ final class Inbox
             'quote_expired' => t('A quote has expired'),
             'quote_accepted' => t('The customer accepted a quote'), // 3.40
             'quote_declined' => t('The customer declined a quote'),
+            'escalated' => t('A task of %s is overdue', $actor), // 3.42
             default => $kind,
         };
+    }
+
+    /** 3.42: the line of a stand-in's copy, in the current language: "You are standing in for Jana, who is away." Pure. */
+    public static function standingIn(string $name): string
+    {
+        return t('You are standing in for %s, who is away.', $name !== '' ? $name : t(Assignment::FORMER_USER));
     }
 
     /**
@@ -396,7 +434,7 @@ final class Inbox
      * the choice. Pure apart from the dictionaries.
      *
      * @param array<string, mixed> $recipient a row of ka_uzivatele with jazyk and register
-     * @param array{kind: string, actor_name: string, excerpt: string} $note
+     * @param array{kind: string, actor_name: string, excerpt: string, standing_in_for?: string} $note
      * @param array<string, mixed>|null $place
      * @return array{0: string, 1: string}
      */
@@ -410,10 +448,12 @@ final class Inbox
                 'comment' => t('%s commented on %s', $actor, $where),
                 'assigned' => t('%s made you responsible for %s', $actor, $where),
                 'task_due' => t('Task due: %s', $note['excerpt'] !== '' ? $note['excerpt'] : $where),
+                'escalated' => t('Overdue task of %s: %s', $actor, $note['excerpt'] !== '' ? $note['excerpt'] : $where), // 3.42
                 'deletion_due' => t('Will be deleted on %s: %s', $note['excerpt'], $where), // 3.34: the excerpt is the day
                 default => t('Review by today: “%s”', (string) ($place['title'] ?? $where)),
             };
-            $text = self::what($note['kind'], $note['actor_name']) . ': ' . $where . "\n";
+            $text = (($note['standing_in_for'] ?? '') !== '' ? self::standingIn((string) $note['standing_in_for']) . "\n\n" : '')
+                . self::what($note['kind'], $note['actor_name']) . ': ' . $where . "\n";
             if ($note['excerpt'] !== '' && $note['kind'] !== 'assigned' && mb_strlen($note['excerpt']) <= self::EXCERPT) {
                 $text .= "\n“" . $note['excerpt'] . "”\n";
             }
@@ -430,7 +470,7 @@ final class Inbox
      * the dictionaries.
      *
      * @param array<string, mixed> $recipient
-     * @param list<array{kind: string, actor_name: string, excerpt: string, url: string, place: array<string, mixed>|null}> $notes
+     * @param list<array{kind: string, actor_name: string, excerpt: string, url: string, place: array<string, mixed>|null, standing_in_for?: string}> $notes
      * @return array{0: string, 1: string}
      */
     public static function digest(Settings $s, array $recipient, array $notes, string $inboxUrl, string $accountUrl): array
@@ -439,6 +479,7 @@ final class Inbox
             $lines = [];
             foreach ($notes as $n) {
                 $lines[] = '- ' . self::what($n['kind'], $n['actor_name']) . ' – ' . self::where($n['place'])
+                    . (($n['standing_in_for'] ?? '') !== '' ? ' (' . t('standing in for %s', (string) $n['standing_in_for']) . ')' : '')
                     . ($n['excerpt'] !== '' && $n['kind'] !== 'assigned' ? "\n  “" . $n['excerpt'] . '”' : '') . ($n['url'] !== '' ? "\n  " . $n['url'] : '');
             }
             $site = $s->get('site_name');
@@ -480,13 +521,13 @@ final class Inbox
             if (count(Mail::addresses((string) $user['email'])) !== 1) {
                 continue; // the bell only; they stay "not e-mailed" until the person adds an address
             }
-            $rows = $db->all('SELECT id, kind, target, actor_name, excerpt FROM {notifications} WHERE user_id = ? AND read_at IS NULL AND emailed_at IS NULL ORDER BY id LIMIT 100', [(int) $user['idu']]);
+            $rows = $db->all('SELECT id, kind, target, actor_name, excerpt, standing_in_for FROM {notifications} WHERE user_id = ? AND read_at IS NULL AND emailed_at IS NULL ORDER BY id LIMIT 100', [(int) $user['idu']]);
             if ($rows === []) {
                 continue;
             }
             $places = self::places($db, array_map(fn (array $r): string => (string) $r['target'], $rows));
             $notes = array_map(fn (array $r): array => ['kind' => (string) $r['kind'], 'actor_name' => (string) $r['actor_name'], 'excerpt' => (string) $r['excerpt'],
-                'place' => $places[(string) $r['target']] ?? null, 'url' => isset($places[(string) $r['target']]) ? $base . $app->url('admin.php?action=inbox&open=' . (int) $r['id']) : ''], $rows);
+                'standing_in_for' => (string) $r['standing_in_for'], 'place' => $places[(string) $r['target']] ?? null, 'url' => isset($places[(string) $r['target']]) ? $base . $app->url('admin.php?action=inbox&open=' . (int) $r['id']) : ''], $rows);
             [$subject, $text] = self::digest($s, $user, $notes, $base . $app->url('admin.php?action=inbox'), $base . $app->url('admin.php?action=account#notifications'));
             Mail::send($s, (string) $user['email'], $subject, $text); // a background job: a failure is queued for a retry
             self::markEmailed($db, array_map(fn (array $r): int => (int) $r['id'], $rows));
@@ -531,7 +572,7 @@ final class Inbox
      * The instant e-mail of one recorded notification: only to a single valid address, and only when its place exists
      * (a notification about something deleted meanwhile stays in the bell). Queued and sent after the response.
      *
-     * @param array{id: int, user: array<string, mixed>, kind: string, target: string, actor_name: string, excerpt: string, email: string} $note
+     * @param array{id: int, user: array<string, mixed>, kind: string, target: string, actor_name: string, excerpt: string, email: string, standing_in_for: string} $note
      */
     private static function mailNow(App $app, array $note): void
     {

@@ -16,6 +16,9 @@
  * @var array{collection: array<string, mixed>, item: array<string, mixed>, chosen: bool}|null $teamRecord  the record the account is linked to now
  * @var array{page: int, item: int, enquiry: int, task: int} $owned  3.24: what the user is responsible for (Core\Handover::owned)
  * @var array<int, string> $recipients  3.24: who may take that work over
+ * @var list<array<string, mixed>> $departments  3.42: Core\Departments::tree
+ * @var array<int, string> $people  3.42: active accounts without this one (reports to, deputy)
+ * @var list<array<string, mixed>> $absences  3.42: Core\Absences::upcoming of this account
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [
@@ -56,6 +59,24 @@ $role = [
 <div class="radek">
 	<label for="phone"><?= e(t('Work phone')) ?></label>
 	<div><input class="textpole" type="tel" id="phone" name="phone" value="<?= e((string) ($author['phone'] ?? '')) ?>" maxlength="30"><?= $error('phone') ?></div>
+</div>
+<div class="radek">
+	<label for="department_id"><?= e(t('Department')) ?></label>
+	<div><select id="department_id" name="department_id">
+		<option value=""><?= e(t('none')) ?></option>
+<?php foreach ($departments ?? [] as $d): ?>
+		<option value="<?= $d['id'] ?>"<?= (int) ($author['department_id'] ?? 0) === $d['id'] ? ' selected' : '' ?>><?= e(str_repeat('– ', $d['depth']) . $d['name']) ?></option>
+<?php endforeach ?>
+	</select> <a href="<?= e($module->url('departments')) ?>"><?= e(t('Departments')) ?></a></div>
+</div>
+<div class="radek">
+	<label for="reports_to"><?= e(t('Reports to')) ?></label>
+	<div><select id="reports_to" name="reports_to">
+		<option value=""><?= e(t('nobody')) ?></option>
+<?php foreach ($people ?? [] as $uid => $name): ?>
+		<option value="<?= $uid ?>"<?= (int) ($author['reports_to'] ?? 0) === $uid ? ' selected' : '' ?>><?= e($name) ?></option>
+<?php endforeach ?>
+	</select><?= $error('reports_to') ?><span class="napoveda"><?= e(t('Shown in the org chart. Stands in while the user is away without a deputy, and hears about their tasks %d days overdue.', Kaleta\Core\Tasks::ESCALATE_DAYS)) ?></span></div>
 </div>
 <?php if (($teamChoices ?? []) !== []): ?>
 <div class="radek">
@@ -183,6 +204,11 @@ $role = [
 </form>
 <?php if ($proofPasskey): ?>
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
+<?php endif ?>
+<?php if ($author['idu'] && !$author['blokovat']): // 3.42: absences with a deputy (Core\Absences) ?>
+<?= $app->view->render('admin/absences', ['app' => $app, 'csrf' => $csrf, 'absences' => $absences ?? [], 'people' => $people ?? [],
+    'addUrl' => $module->url('absence_add'), 'deleteUrl' => $module->url('absence_delete'),
+    'hidden' => '<input type="hidden" name="idu" value="' . (int) $author['idu'] . '">', 'deleteHidden' => '<input type="hidden" name="idu" value="' . (int) $author['idu'] . '">']) ?>
 <?php endif ?>
 <?php if ($author['idu'] && ($connections ?? []) !== []): ?>
 <fieldset id="napojeni">

@@ -184,7 +184,12 @@ $parity = [
         'delete' => 'delete_popup', 'reset' => 'admin: resetting the counters'],
     'users' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions', 'password_link' => 'admin: accounts and permissions',
         'reactivate' => 'admin: accounts and permissions', 'revoke_connection' => 'admin: accounts and permissions',
-        'handover' => 'admin: handing all of a leaver\'s work over goes with blocking or deleting the account (3.24) – Claude moves one record with assign'],
+        'handover' => 'admin: handing all of a leaver\'s work over goes with blocking or deleting the account (3.24) – Claude moves one record with assign',
+        // 3.42: the team hierarchy – Claude reads it with list_colleagues; departments and absences are the administrator's set-up
+        'departments' => 'list_colleagues', 'department_save' => 'admin: departments and who heads them are the administrator\'s set-up (3.42)',
+        'department_delete' => 'admin: departments and who heads them are the administrator\'s set-up (3.42)',
+        'absence_add' => 'admin: an absence and its deputy are recorded by the person or an administrator (3.42); list_colleagues shows it',
+        'absence_delete' => 'admin: an absence and its deputy are recorded by the person or an administrator (3.42)'],
     'my_work' => ['list' => 'my_work', 'team' => 'list_tasks', 'complete' => 'complete_task', 'snooze' => 'save_task', 'task' => 'save_task', 'reassign' => 'save_task', 'task_edit' => 'save_task', 'take' => 'assign', 'summary' => 'team_summary'], // 3.41: the team summary; 3.32 (U35): edit a task, take an enquiry; 3.24; 3.27 tasks (task = New task; reassign = a task nobody has, list_tasks assignee:none)
     'roles' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'admin: accounts and permissions', 'delete' => 'admin: accounts and permissions'],
     'stats' => ['list' => 'get_stats'], 'changelog' => ['list' => 'list_changes', 'sessions' => 'list_agent_sessions', 'undo' => 'undo_agent_session'], 'audit' => ['list' => 'site_audit'],
