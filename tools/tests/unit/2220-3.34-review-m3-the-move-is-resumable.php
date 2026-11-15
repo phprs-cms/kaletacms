@@ -30,7 +30,7 @@ check('[source-pin] 3.34 review M3: Core\Migration runs an unfinished data migra
 check('[source-pin] 3.34 review M3: while moving, the enquiries still to move stay out of Enquiries (list, detail, counts, the dashboard, MCP) for a person without Applications', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$whereParts = 'WHERE ' . implode(' AND ', \$conditions) . ' AND ' . \$this->visibleHere();"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "\$p = \$this->findVisible(\$this->request->getInt('id'), '*');"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "self::NOT_SPAM . self::stillMoving(\$db)"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "self::NOT_SPAM . self::stillMoving(\$db, \$settings)"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), 'Modules\Enquiries::visible($db, $this->app->settings(), isset($modules[\Kaleta\Core\Applications::SECTION]))'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php'), '$whereParts[] = \Kaleta\Admin\Modules\Enquiries::visible($db, $siteSettings, $auth->hasModule(\Kaleta\Core\Applications::SECTION));'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/applications/list.php'), 'data-applications-moving')],

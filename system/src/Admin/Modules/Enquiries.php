@@ -31,13 +31,13 @@ final class Enquiries extends Module
     /** 3.15: new enquiries (not opened yet), as on the Dashboard – spam does not count, as the list does not show it. */
     public static function badge(\Kaleta\Core\App $app): int
     {
-        return self::countNew($app->db());
+        return self::countNew($app->db(), $app->settings()); // 3.42 (Q16): the request's settings, not a second read of them
     }
 
     /** New enquiries as the list shows them (spam left out): the menu badge and the Dashboard. */
-    public static function countNew(\Kaleta\Core\Db $db): int
+    public static function countNew(\Kaleta\Core\Db $db, ?\Kaleta\Core\Settings $settings = null): int
     {
-        return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM . self::stillMoving($db));
+        return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM . self::stillMoving($db, $settings));
     }
 
     /**

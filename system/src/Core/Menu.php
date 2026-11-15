@@ -28,6 +28,15 @@ final class Menu
     /** Submenus rendered in this request – their ids (ka-podmenu-N) stay unique when a page shows two menus. */
     private static int $submenus = 0;
 
+    /**
+     * 3.42 (audit Q16): what this request already read – the stored menus (location|language => JSON or null) and the
+     * visible pages of a language – per database connection. A list of pages asks for the main menu once per row and a
+     * page with two menus read the pages twice; save() forgets the menus.
+     *
+     * @var array<int, array{menus: array<string, ?string>, pages: array<string, list<array<string, mixed>>>}>
+     */
+    private static array $read = [];
+
     /** @return list<array<string, mixed>>|null saved items, null = the menu is built automatically */
     public static function load(Db $db, string $location, string $language): ?array
     {
@@ -35,14 +44,27 @@ final class Menu
         if ($inDraft) {
             return $items === null ? null : self::sanitize($items);
         }
-        $json = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
+        $menus = &self::$read[spl_object_id($db)]['menus'];
+        $key = $location . '|' . $language;
+        if (!isset($menus) || !array_key_exists($key, $menus)) {
+            $value = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
+            $menus[$key] = $value === null ? null : (string) $value;
+        }
+        $json = $menus[$key];
 
-        return $json === null ? null : self::sanitize(json_decode((string) $json, true));
+        return $json === null ? null : self::sanitize(json_decode($json, true));
+    }
+
+    /** Forgets what this request read (after a write of menus or pages that the same request renders again). */
+    public static function forget(): void
+    {
+        self::$read = [];
     }
 
     /** Saves the items; null returns the menu to automatic mode. */
     public static function save(Db $db, string $location, string $language, ?array $items): void
     {
+        self::forget();
         if ($items === null) {
             $db->run('DELETE FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
 
@@ -121,7 +143,9 @@ final class Menu
     {
         $db = $app->db();
         $pages = [];
-        foreach ($db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ' . $db->sortText('titulek', $language === '' ? null : $language), [$language]) as $s) {
+        $visible = &self::$read[spl_object_id($db)]['pages'][$language];
+        $visible ??= $db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ' . $db->sortText('titulek', $language === '' ? null : $language), [$language]);
+        foreach ($visible as $s) {
             $pages[(int) $s['ids']] = $s;
         }
         $url = fn (array $s): string => $app->url((int) $s['ids'] === $home ? '' : $s['seo_link']);
