@@ -8,9 +8,9 @@ name from the rename map `system/sql/names.php` (`Core\Names`) – code may writ
 for the mapped columns, their English meaning. Older identifiers: `idc` = news item, `tema`/`idt` = category, `ido` =
 media item, `idu` = user.
 
-121 tables:
+126 tables:
 
-[`ka_uzivatele`](#ka_uzivatele) (users) · [`ka_role`](#ka_role) (roles) · [`ka_uzivatele_prava`](#ka_uzivatele_prava) (user_modules) · [`ka_nastaveni`](#ka_nastaveni) (settings) · [`ka_kategorie`](#ka_kategorie) (categories) · [`ka_novinky`](#ka_novinky) (news) · [`ka_media_slozky`](#ka_media_slozky) (media_folders) · [`ka_media`](#ka_media) · [`ka_kontrola_ip`](#ka_kontrola_ip) (ip_checks) · [`ka_media_pouziti`](#ka_media_pouziti) (media_usage) · [`ka_stitky`](#ka_stitky) (tags) · [`ka_novinky_stitky`](#ka_novinky_stitky) (news_tags) · [`ka_novinky_revize`](#ka_novinky_revize) (news_versions) · [`ka_stranky`](#ka_stranky) (pages) · [`ka_casti`](#ka_casti) (site_parts) · [`ka_stavba_revize`](#ka_stavba_revize) (build_versions) · [`ka_tridy`](#ka_tridy) (classes) · [`ka_presmerovani`](#ka_presmerovani) (redirects) · [`ka_souhlasy`](#ka_souhlasy) (consents) · [`ka_stat_dny`](#ka_stat_dny) (stats_days) · [`ka_stat_navstevnici`](#ka_stat_navstevnici) (stats_visitors) · [`ka_stat_novinky`](#ka_stat_novinky) (stats_news) · [`ka_stat_stranky`](#ka_stat_stranky) (stats_pages) · [`ka_stat_kampane`](#ka_stat_kampane) (stats_campaigns) · [`ka_stat_zarizeni`](#ka_stat_zarizeni) (stats_devices) · [`ka_stat_konverze`](#ka_stat_konverze) (stats_conversions) · [`ka_web_vitals`](#ka_web_vitals) · [`ka_stat_zdroje`](#ka_stat_zdroje) (stats_sources) · [`ka_protokol`](#ka_protokol) (audit_log) · [`ka_api_tokeny`](#ka_api_tokeny) (api_tokens) · [`ka_uzivatele_klice`](#ka_uzivatele_klice) (user_passkeys) · [`ka_posta`](#ka_posta) (mail_queue) · [`ka_nenalezeno`](#ka_nenalezeno) (not_found) · [`ka_novinky_koncepty`](#ka_novinky_koncepty) (news_drafts) · [`ka_odkazy_vadne`](#ka_odkazy_vadne) (broken_links) · [`ka_draft_comments`](#ka_draft_comments) · [`ka_import_mapa`](#ka_import_mapa) (import_map) · [`ka_poptavky`](#ka_poptavky) (enquiries) · [`ka_comments`](#ka_comments) · [`ka_notifications`](#ka_notifications) · [`ka_tasks`](#ka_tasks) · [`ka_contacts`](#ka_contacts) · [`ka_companies`](#ka_companies) · [`ka_contact_activities`](#ka_contact_activities) · [`ka_deals`](#ka_deals) · [`ka_deal_stage_history`](#ka_deal_stage_history) · [`ka_applications`](#ka_applications) · [`ka_application_counts`](#ka_application_counts) · [`ka_price_lists`](#ka_price_lists) · [`ka_prices`](#ka_prices) · [`ka_quotes`](#ka_quotes) · [`ka_quote_lines`](#ka_quote_lines) · [`ka_quote_line_sets`](#ka_quote_line_sets) · [`ka_quote_counters`](#ka_quote_counters) · [`ka_kolekce`](#ka_kolekce) (collections) · [`ka_kolekce_polozky`](#ka_kolekce_polozky) (collection_items) · [`ka_kolekce_sablony`](#ka_kolekce_sablony) (collection_templates) · [`ka_collection_categories`](#ka_collection_categories) · [`ka_collection_category_texts`](#ka_collection_category_texts) · [`ka_collection_item_categories`](#ka_collection_item_categories) · [`ka_collection_category_templates`](#ka_collection_category_templates) · [`ka_document_versions`](#ka_document_versions) · [`ka_document_downloads`](#ka_document_downloads) · [`ka_menu`](#ka_menu) (menus) · [`ka_stranky_revize`](#ka_stranky_revize) (page_versions) · [`ka_sekce`](#ka_sekce) (library_sections) · [`ka_popupy`](#ka_popupy) (popups) · [`ka_komponenty`](#ka_komponenty) (components) · [`ka_odberatele`](#ka_odberatele) (subscribers) · [`ka_odber_fronta`](#ka_odber_fronta) (subscriber_queue) · [`ka_oauth_klienti`](#ka_oauth_klienti) (oauth_clients) · [`ka_oauth_kody`](#ka_oauth_kody) (oauth_codes) · [`ka_oauth_rotated`](#ka_oauth_rotated) · [`ka_newsletters`](#ka_newsletters) · [`ka_newsletter_queue`](#ka_newsletter_queue) · [`ka_look_versions`](#ka_look_versions) · [`ka_webhook_deliveries`](#ka_webhook_deliveries) · [`ka_events`](#ka_events) · [`ka_jobs`](#ka_jobs) · [`ka_firewall_blocks`](#ka_firewall_blocks) · [`ka_firewall_log`](#ka_firewall_log) · [`ka_fleet_sites`](#ka_fleet_sites) · [`ka_fleet_customers`](#ka_fleet_customers) · [`ka_fleet_expiry_reminders`](#ka_fleet_expiry_reminders) · [`ka_fleet_acceptances`](#ka_fleet_acceptances) · [`ka_fleet_pairing`](#ka_fleet_pairing) · [`ka_fleet_kits`](#ka_fleet_kits) · [`ka_fleet_history`](#ka_fleet_history) · [`ka_fleet_incidents`](#ka_fleet_incidents) · [`ka_fleet_reports`](#ka_fleet_reports) · [`ka_facts`](#ka_facts) · [`ka_fact_history`](#ka_fact_history) · [`ka_hours_exceptions`](#ka_hours_exceptions) · [`ka_blueprints`](#ka_blueprints) · [`ka_notice_log`](#ka_notice_log) · [`ka_testimonial_requests`](#ka_testimonial_requests) · [`ka_connectors`](#ka_connectors) · [`ka_connector_queue`](#ka_connector_queue) · [`ka_connector_log`](#ka_connector_log) · [`ka_whistleblowing_cases`](#ka_whistleblowing_cases) · [`ka_whistleblowing_messages`](#ka_whistleblowing_messages) · [`ka_search_stats`](#ka_search_stats) · [`ka_social_drafts`](#ka_social_drafts) · [`ka_google_reviews`](#ka_google_reviews) · [`ka_notebook`](#ka_notebook) · [`ka_requests`](#ka_requests) · [`ka_request_messages`](#ka_request_messages) · [`ka_agent_sessions`](#ka_agent_sessions) · [`ka_agent_journal`](#ka_agent_journal) · [`ka_agent_schedules`](#ka_agent_schedules) · [`ka_agent_runs`](#ka_agent_runs) · [`ka_booking_services`](#ka_booking_services) · [`ka_booking_staff`](#ka_booking_staff) · [`ka_booking_staff_services`](#ka_booking_staff_services) · [`ka_booking_hours`](#ka_booking_hours) · [`ka_booking_off`](#ka_booking_off) · [`ka_bookings`](#ka_bookings) · [`ka_booking_proposals`](#ka_booking_proposals) · [`ka_time_zone_conversions`](#ka_time_zone_conversions) · [`ka_time_zone_progress`](#ka_time_zone_progress) · [`ka_monthly_reports`](#ka_monthly_reports)
+[`ka_uzivatele`](#ka_uzivatele) (users) · [`ka_role`](#ka_role) (roles) · [`ka_uzivatele_prava`](#ka_uzivatele_prava) (user_modules) · [`ka_nastaveni`](#ka_nastaveni) (settings) · [`ka_kategorie`](#ka_kategorie) (categories) · [`ka_novinky`](#ka_novinky) (news) · [`ka_media_slozky`](#ka_media_slozky) (media_folders) · [`ka_media`](#ka_media) · [`ka_kontrola_ip`](#ka_kontrola_ip) (ip_checks) · [`ka_media_pouziti`](#ka_media_pouziti) (media_usage) · [`ka_stitky`](#ka_stitky) (tags) · [`ka_novinky_stitky`](#ka_novinky_stitky) (news_tags) · [`ka_novinky_revize`](#ka_novinky_revize) (news_versions) · [`ka_stranky`](#ka_stranky) (pages) · [`ka_casti`](#ka_casti) (site_parts) · [`ka_stavba_revize`](#ka_stavba_revize) (build_versions) · [`ka_tridy`](#ka_tridy) (classes) · [`ka_presmerovani`](#ka_presmerovani) (redirects) · [`ka_souhlasy`](#ka_souhlasy) (consents) · [`ka_stat_dny`](#ka_stat_dny) (stats_days) · [`ka_stat_navstevnici`](#ka_stat_navstevnici) (stats_visitors) · [`ka_stat_novinky`](#ka_stat_novinky) (stats_news) · [`ka_stat_stranky`](#ka_stat_stranky) (stats_pages) · [`ka_stat_kampane`](#ka_stat_kampane) (stats_campaigns) · [`ka_stat_zarizeni`](#ka_stat_zarizeni) (stats_devices) · [`ka_stat_konverze`](#ka_stat_konverze) (stats_conversions) · [`ka_web_vitals`](#ka_web_vitals) · [`ka_stat_zdroje`](#ka_stat_zdroje) (stats_sources) · [`ka_protokol`](#ka_protokol) (audit_log) · [`ka_api_tokeny`](#ka_api_tokeny) (api_tokens) · [`ka_uzivatele_klice`](#ka_uzivatele_klice) (user_passkeys) · [`ka_posta`](#ka_posta) (mail_queue) · [`ka_nenalezeno`](#ka_nenalezeno) (not_found) · [`ka_novinky_koncepty`](#ka_novinky_koncepty) (news_drafts) · [`ka_odkazy_vadne`](#ka_odkazy_vadne) (broken_links) · [`ka_draft_comments`](#ka_draft_comments) · [`ka_import_mapa`](#ka_import_mapa) (import_map) · [`ka_poptavky`](#ka_poptavky) (enquiries) · [`ka_comments`](#ka_comments) · [`ka_notifications`](#ka_notifications) · [`ka_tasks`](#ka_tasks) · [`ka_contacts`](#ka_contacts) · [`ka_companies`](#ka_companies) · [`ka_contact_activities`](#ka_contact_activities) · [`ka_deals`](#ka_deals) · [`ka_deal_stage_history`](#ka_deal_stage_history) · [`ka_applications`](#ka_applications) · [`ka_application_counts`](#ka_application_counts) · [`ka_price_lists`](#ka_price_lists) · [`ka_prices`](#ka_prices) · [`ka_quotes`](#ka_quotes) · [`ka_quote_lines`](#ka_quote_lines) · [`ka_quote_line_sets`](#ka_quote_line_sets) · [`ka_quote_counters`](#ka_quote_counters) · [`ka_internal_folders`](#ka_internal_folders) · [`ka_internal_files`](#ka_internal_files) · [`ka_internal_file_versions`](#ka_internal_file_versions) · [`ka_kolekce`](#ka_kolekce) (collections) · [`ka_kolekce_polozky`](#ka_kolekce_polozky) (collection_items) · [`ka_kolekce_sablony`](#ka_kolekce_sablony) (collection_templates) · [`ka_collection_categories`](#ka_collection_categories) · [`ka_collection_category_texts`](#ka_collection_category_texts) · [`ka_collection_item_categories`](#ka_collection_item_categories) · [`ka_collection_category_templates`](#ka_collection_category_templates) · [`ka_document_versions`](#ka_document_versions) · [`ka_document_downloads`](#ka_document_downloads) · [`ka_menu`](#ka_menu) (menus) · [`ka_stranky_revize`](#ka_stranky_revize) (page_versions) · [`ka_sekce`](#ka_sekce) (library_sections) · [`ka_popupy`](#ka_popupy) (popups) · [`ka_komponenty`](#ka_komponenty) (components) · [`ka_odberatele`](#ka_odberatele) (subscribers) · [`ka_odber_fronta`](#ka_odber_fronta) (subscriber_queue) · [`ka_oauth_klienti`](#ka_oauth_klienti) (oauth_clients) · [`ka_oauth_kody`](#ka_oauth_kody) (oauth_codes) · [`ka_oauth_rotated`](#ka_oauth_rotated) · [`ka_newsletters`](#ka_newsletters) · [`ka_newsletter_queue`](#ka_newsletter_queue) · [`ka_look_versions`](#ka_look_versions) · [`ka_webhook_deliveries`](#ka_webhook_deliveries) · [`ka_events`](#ka_events) · [`ka_jobs`](#ka_jobs) · [`ka_firewall_blocks`](#ka_firewall_blocks) · [`ka_firewall_log`](#ka_firewall_log) · [`ka_fleet_sites`](#ka_fleet_sites) · [`ka_fleet_customers`](#ka_fleet_customers) · [`ka_fleet_expiry_reminders`](#ka_fleet_expiry_reminders) · [`ka_fleet_acceptances`](#ka_fleet_acceptances) · [`ka_fleet_pairing`](#ka_fleet_pairing) · [`ka_fleet_kits`](#ka_fleet_kits) · [`ka_fleet_history`](#ka_fleet_history) · [`ka_fleet_incidents`](#ka_fleet_incidents) · [`ka_fleet_reports`](#ka_fleet_reports) · [`ka_facts`](#ka_facts) · [`ka_fact_history`](#ka_fact_history) · [`ka_hours_exceptions`](#ka_hours_exceptions) · [`ka_blueprints`](#ka_blueprints) · [`ka_notice_log`](#ka_notice_log) · [`ka_testimonial_requests`](#ka_testimonial_requests) · [`ka_connectors`](#ka_connectors) · [`ka_connector_queue`](#ka_connector_queue) · [`ka_connector_log`](#ka_connector_log) · [`ka_whistleblowing_cases`](#ka_whistleblowing_cases) · [`ka_whistleblowing_messages`](#ka_whistleblowing_messages) · [`ka_search_stats`](#ka_search_stats) · [`ka_social_drafts`](#ka_social_drafts) · [`ka_google_reviews`](#ka_google_reviews) · [`ka_notebook`](#ka_notebook) · [`ka_requests`](#ka_requests) · [`ka_request_messages`](#ka_request_messages) · [`ka_agent_sessions`](#ka_agent_sessions) · [`ka_agent_journal`](#ka_agent_journal) · [`ka_agent_schedules`](#ka_agent_schedules) · [`ka_agent_runs`](#ka_agent_runs) · [`ka_booking_services`](#ka_booking_services) · [`ka_booking_staff`](#ka_booking_staff) · [`ka_booking_staff_services`](#ka_booking_staff_services) · [`ka_booking_hours`](#ka_booking_hours) · [`ka_booking_off`](#ka_booking_off) · [`ka_bookings`](#ka_bookings) · [`ka_booking_proposals`](#ka_booking_proposals) · [`ka_time_zone_conversions`](#ka_time_zone_conversions) · [`ka_time_zone_progress`](#ka_time_zone_progress) · [`ka_monthly_reports`](#ka_monthly_reports) · [`ka_departments`](#ka_departments) · [`ka_absences`](#ka_absences)
 
 ## ka_uzivatele
 
@@ -47,6 +47,8 @@ English name: `users`.
 | `passkey_only` |  | BOOL NOT NULL DEFAULT 0 | the account signs in with a passkey only (applies once it has a working passkey; 3.35) |
 | `phone` |  | VARCHAR(40) NOT NULL DEFAULT '' | work phone, shown to colleagues and in the fallback e-mail signature (3.37, migration 0122) |
 | `sign_in_epoch` |  | INT UNSIGNED NOT NULL DEFAULT 0 | raised by every change of the second factor; other sign-ins with an older value end (3.41 N116, migration 0130) |
+| `department_id` |  | INT UNSIGNED NULL | ka_departments.id (3.42, migration 0132); no foreign key – a removed department leaves NULL in code |
+| `reports_to` |  | INT UNSIGNED NULL | the account this person reports to (3.42); escalation of overdue tasks, the org chart |
 
 Keys: `PRIMARY KEY (idu)`; `UNIQUE KEY uq_user (user)`.
 
@@ -686,6 +688,7 @@ Keys: `PRIMARY KEY (id)`; `KEY ix_comments_target (target, id)`.
 | `created_at` |  | DATETIME NOT NULL |  |
 | `read_at` |  | DATETIME NULL |  |
 | `emailed_at` |  | DATETIME NULL |  |
+| `standing_in_for` |  | VARCHAR(100) NOT NULL DEFAULT '' | 3.42: a copy for the stand-in of an absent person – their name (Core\Absences) |
 
 Keys: `PRIMARY KEY (id)`; `KEY ix_notifications_user (user_id, read_at, id)`; `KEY ix_notifications_created (created_at)`; `KEY ix_notifications_target (target)`.
 
@@ -706,6 +709,7 @@ Keys: `PRIMARY KEY (id)`; `KEY ix_notifications_user (user_id, read_at, id)`; `K
 | `done_at` |  | DATETIME NULL |  |
 | `done_by` |  | INT UNSIGNED NULL |  |
 | `request_id` |  | INT UNSIGNED NULL | ka_requests.id when handed to Claude |
+| `escalated_at` |  | DATETIME NULL | 3.42: the overdue task was escalated to whom its assignee reports to (once) |
 | `created_at` |  | DATETIME NOT NULL |  |
 | `updated_at` |  | DATETIME NOT NULL |  |
 
@@ -1013,6 +1017,64 @@ Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_quote_line_sets_name (name)`.
 | `last` |  | INT UNSIGNED NOT NULL DEFAULT 0 |  |
 
 Keys: `PRIMARY KEY (year)`.
+
+## ka_internal_folders
+
+3.42: internal files (Core\InternalFiles, admin Workspace → Internal files) – a document library for the team that is never public: no page, search, sitemap, llms.txt, export, blueprint, page package, heartbeat or media picker reads these tables (a unit test keeps them inside the allowed classes). The files live in storage/internal-files/ under random names, outside media/, and are served only through the admin action with the right to the folder. A folder is seen by everyone with the section (audience all) or only by the custom roles in roles (audience roles); administrators see every folder.
+
+| Column | English | Type | Note |
+|---|---|---|---|
+| `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
+| `name` |  | VARCHAR(120) NOT NULL |  |
+| `description` |  | VARCHAR(500) NOT NULL DEFAULT '' |  |
+| `audience` |  | VARCHAR(10) NOT NULL DEFAULT 'all' | all \| roles |
+| `roles` |  | VARCHAR(500) NOT NULL DEFAULT '' | with audience roles: comma-separated ka_role ids |
+| `created_by` |  | INT UNSIGNED NULL |  |
+| `created_at` |  | DATETIME NOT NULL |  |
+| `updated_at` |  | DATETIME NOT NULL |  |
+
+Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_internal_folders_name (name)`.
+
+## ka_internal_files
+
+One document of the library: its name, description and tags, and the number of its current version.
+
+| Column | English | Type | Note |
+|---|---|---|---|
+| `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
+| `folder_id` |  | INT UNSIGNED NOT NULL |  |
+| `name` |  | VARCHAR(200) NOT NULL | the shown name with its extension |
+| `description` |  | TEXT NULL |  |
+| `tags` |  | VARCHAR(500) NOT NULL DEFAULT '' | comma-separated |
+| `status` |  | VARCHAR(10) NOT NULL DEFAULT 'ready' | ready \| draft (a drafts-only Claude connection writes drafts) |
+| `extension` |  | VARCHAR(10) NOT NULL DEFAULT '' |  |
+| `size` |  | BIGINT UNSIGNED NOT NULL DEFAULT 0 | bytes of the current version |
+| `version` |  | INT UNSIGNED NOT NULL DEFAULT 1 | the current version |
+| `created_by` |  | INT UNSIGNED NULL |  |
+| `created_at` |  | DATETIME NOT NULL |  |
+| `updated_by` |  | INT UNSIGNED NULL |  |
+| `updated_at` |  | DATETIME NOT NULL |  |
+
+Keys: `PRIMARY KEY (id)`; `KEY ix_internal_files_folder (folder_id, updated_at)`.
+
+## ka_internal_file_versions
+
+Every version of a file: replacing a file adds a version and keeps the older ones.
+
+| Column | English | Type | Note |
+|---|---|---|---|
+| `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
+| `file_id` |  | INT UNSIGNED NOT NULL |  |
+| `version` |  | INT UNSIGNED NOT NULL |  |
+| `path` |  | VARCHAR(80) NOT NULL | YYYY/MM/<32 hex>.bin under storage/internal-files |
+| `original_name` |  | VARCHAR(200) NOT NULL DEFAULT '' |  |
+| `extension` |  | VARCHAR(10) NOT NULL DEFAULT '' |  |
+| `size` |  | BIGINT UNSIGNED NOT NULL DEFAULT 0 |  |
+| `sha256` |  | CHAR(64) NOT NULL DEFAULT '' |  |
+| `uploaded_by` |  | INT UNSIGNED NULL |  |
+| `uploaded_at` |  | DATETIME NOT NULL |  |
+
+Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_internal_file_versions (file_id, version)`.
 
 ## ka_kolekce
 
@@ -2160,3 +2222,36 @@ The archive of the monthly reports (3.16, Core\ReportArchive): the report of a p
 | `data` |  | MEDIUMTEXT NOT NULL | the built report (JSON) |
 
 Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_monthly_reports_month (month)`.
+
+## ka_departments
+
+3.42: departments (Core\Departments) – a name, an optional head and an optional parent department (a tree; no cycles in code). enquiry_forms: names of forms (one per line) whose new enquiries go to the head (or their stand-in while away). Members are ka_uzivatele.department_id. No foreign keys: removing a department clears its members and children in code.
+
+| Column | English | Type | Note |
+|---|---|---|---|
+| `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
+| `name` |  | VARCHAR(100) NOT NULL |  |
+| `head_id` |  | INT UNSIGNED NULL |  |
+| `parent_id` |  | INT UNSIGNED NULL |  |
+| `enquiry_forms` |  | VARCHAR(1000) NOT NULL DEFAULT '' |  |
+| `created_at` |  | DATETIME NOT NULL |  |
+| `updated_at` |  | DATETIME NOT NULL |  |
+
+Keys: `PRIMARY KEY (id)`; `KEY ix_departments_parent (parent_id)`.
+
+## ka_absences
+
+3.42: absence periods of accounts (Core\Absences) – from and to (days of the site's clock, both included), the deputy who stands in and a reason from a fixed list (Absences::REASONS – never free text, never health data). Past ones go after Absences::KEEP_DAYS.
+
+| Column | English | Type | Note |
+|---|---|---|---|
+| `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
+| `user_id` |  | INT UNSIGNED NOT NULL |  |
+| `starts_on` |  | DATE NOT NULL |  |
+| `ends_on` |  | DATE NOT NULL |  |
+| `deputy_id` |  | INT UNSIGNED NULL |  |
+| `reason` |  | VARCHAR(20) NOT NULL DEFAULT 'away' |  |
+| `created_by` |  | INT UNSIGNED NULL |  |
+| `created_at` |  | DATETIME NOT NULL |  |
+
+Keys: `PRIMARY KEY (id)`; `KEY ix_absences_user (user_id, ends_on)`; `KEY ix_absences_ends (ends_on)`.
