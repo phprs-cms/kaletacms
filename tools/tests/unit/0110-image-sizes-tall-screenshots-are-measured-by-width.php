@@ -165,6 +165,15 @@ $parity = [
         'send' => 'send_quote', 'preview' => $readOnly, 'link' => 'admin: a new customer\'s link for a sent quote is handed over by a person',
         'link_withdraw' => 'admin: withdrawing a customer\'s link is the person\'s decision', 'texts_save' => 'admin: the default texts of quotes are the administrator\'s set-up',
         'pdf' => $readOnly], // 3.40 A: the quote as a PDF file
+    // 3.42: internal files (Core\InternalFiles) – Claude lists, reads text documents and saves documents and metadata with the
+    // internal-file tools; uploads of binary files, deleting and the folders' audiences stay with people
+    'internal_files' => ['list' => 'list_internal_files', 'file' => 'get_internal_file', 'save' => 'save_internal_file',
+        'upload' => 'admin: a binary file is uploaded by a person; Claude writes text documents with save_internal_file',
+        'replace' => 'admin: a new binary version is uploaded by a person; a text document gets new content with save_internal_file',
+        'download' => 'admin: the bytes of an internal file are downloaded by a signed-in person, never passed to Claude',
+        'delete' => 'admin: deleting an internal file with its versions stays with people (administrators or who uploaded it)',
+        'folder' => $readOnly, 'folder_save' => 'admin: a folder decides who sees its documents – the administrator\'s set-up',
+        'folder_delete' => 'admin: deleting a folder is the administrator\'s set-up'],
     'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],

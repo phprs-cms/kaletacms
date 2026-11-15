@@ -48,6 +48,7 @@ final class Kernel
         Modules\Quotes::class, // 3.38: quotes and internal prices, after the Pipeline (the feature "quotes", given only explicitly)
         Modules\Applications::class, // 3.34: job applications apart from enquiries (the feature "applications", given only explicitly)
         Modules\Bookings::class,
+        Modules\InternalFiles::class, // 3.42: the team's document library, never public (given only explicitly)
         Modules\Appearance::class,
         Modules\SiteParts::class,
         Modules\Menu::class,
@@ -97,10 +98,11 @@ final class Kernel
      * The sections whose changes never reach the site: enquiries, subscribers, statistics, requests to Claude and their
      * schedules, the notebook, the audit and the link check, roles, newsletters (an e-mail, no page on the site), the
      * fleet console (it publishes to other sites), the customers (3.28 – the site never reads contacts), the pipeline
-     * (3.31 – nor deals), the job applications (3.34 – nor applications) and quotes with internal prices (3.38 – no page reads them).
+     * (3.31 – nor deals), the job applications (3.34 – nor applications), quotes with internal prices (3.38 – no page reads them) and
+     * internal files (3.42 – never public).
      */
     public const array SITE_NEUTRAL_MODULES = ['my_work', 'enquiries', 'subscribers', 'stats', 'requests', 'schedules', 'notebook', 'audit', 'broken_links', 'roles',
-        'newsletters', 'fleet', 'contacts', 'pipeline', 'applications', 'quotes'];
+        'newsletters', 'fleet', 'contacts', 'pipeline', 'applications', 'quotes', 'internal_files'];
 
     /** The sections whose changes can alter the site: their POSTs clear the page cache, except the SITE_NEUTRAL_ACTIONS. */
     public const array SITE_CHANGING_MODULES = ['pages', 'news', 'collections', 'media', 'categories', 'tags', 'business', 'facts', 'blueprints', 'bookings',

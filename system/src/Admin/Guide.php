@@ -38,6 +38,7 @@ final class Guide
         'quotes' => 'pipeline', // 3.38: quotes and internal prices – until the guide has its own article
         'applications' => 'forms#enquiries', // 3.34: job applications – until the guide has its own article
         'bookings' => 'bookings',
+        'internal_files' => 'customers', // 3.42: internal files – until the guide has its own article
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
         'subscribers' => 'newsletter',
         'newsletters' => 'newsletter#send-newsletters-from-kaleta',

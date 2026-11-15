@@ -30,7 +30,7 @@ use Kaleta\Builder\HtmlConverter;
  */
 final class Tools
 {
-    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools, Handlers\TaskTools, Handlers\ContactTools, Handlers\DealTools, Handlers\ApplicationTools, Handlers\QuoteTools;
+    use Handlers\PageTools, Handlers\BuilderTools, Handlers\LookTools, Handlers\CollectionTools, Handlers\NewsTools, Handlers\MediaTools, Handlers\EnquiryAndPopupTools, Handlers\SettingsTools, Handlers\UpkeepTools, Handlers\NewsletterTools, Handlers\MigrationTools, Handlers\HealthTools, Handlers\FleetTools, Handlers\FactTools, Handlers\BlueprintTools, Handlers\NotebookTools, Handlers\RequestTools, Handlers\AgentRunTools, Handlers\BookingTools, Handlers\PendingReviewTools, Handlers\ReportTools, Handlers\WorkTools, Handlers\CommentTools, Handlers\TaskTools, Handlers\ContactTools, Handlers\DealTools, Handlers\ApplicationTools, Handlers\QuoteTools, Handlers\InternalFileTools;
 
     /** The largest file uploaded via MCP (base64 in one tool call). */
     private const int MAX_UPLOAD = 12 * 1024 * 1024;
@@ -623,6 +623,17 @@ final class Tools
             ['mark_quote', 'Changes the status of a sent quote (3.38): accepted, declined (with decline_reason ' . implode(' | ', array_keys(\Kaleta\Core\Deals::LOST_REASONS)) . ') or back to sent (a mistake). update_deal=true also moves the linked deal to won (accepted) or lost with the same reason (declined) – only when the user asks; nothing moves it otherwise. Drafts are sent from the admin. NOT UNDOABLE through undo_agent_session.',
                 $s(['id' => $number('quote id'), 'status' => $text('accepted | declined | sent'), 'decline_reason' => $text('with declined: ' . implode(' | ', array_keys(\Kaleta\Core\Deals::LOST_REASONS))),
                     'update_deal' => ['type' => 'boolean', 'description' => 'true = also move the linked deal to won or lost (needs the pipeline)']], ['id', 'status'])],
+            // 3.42: internal files (Core\InternalFiles) – the team's documents for users with the section, in the folders they see
+            ['list_internal_files', 'The team\'s internal files (read-only, 3.42; users who may open Internal files): the folders the user sees (audience all = everyone with the section, roles = chosen roles) and the files of one or all of them – name, description, tags, status (ready | draft), version, size, who changed it last; newest change first. Never public: never copy them to the site, a page, news or a collection item unless the user explicitly asks.',
+                $s(['folder' => $text('a folder: id or exact name; default all the user sees'), 'search' => $text('a word in the name, description or tags'), 'tag' => $text('only files with this tag'),
+                    'status' => $text('ready | draft'), 'page' => $number('page, default 1'), 'limit' => $number('1–100, default 25')])],
+            ['get_internal_file', 'One internal file (read-only, 3.42): its metadata and versions and, for a text document (txt, md, csv) up to 200 kB, its text as content. The bytes of other files (PDF, Office, images…) are never passed – a person downloads them in the administration (admin_url).',
+                $s(['id' => $number('file id (list_internal_files)')], ['id'])],
+            ['save_internal_file', 'Creates a text or Markdown document in Internal files (3.42), or changes a file the user sees: name, description, tags, folder, status, and for a text document new content (a new version – the older ones stay). A connection limited to drafts writes and changes drafts only. Nothing is deleted here and nothing becomes public. Write only what the user asked for.',
+                $s(['id' => $number('file id – omit to create a document'), 'folder' => $text('the folder: id or exact name (required for a new document; moves an existing file)'),
+                    'name' => $text('the shown name, e.g. "Onboarding checklist.md" (.md is added when no txt, md or csv extension is given)'), 'content' => $text('the text of the document (Markdown or plain text, up to 200 kB)'),
+                    'description' => $text('what the document is for'), 'tags' => ['type' => ['array', 'string'], 'description' => 'tags: a list or a comma-separated text', 'items' => ['type' => 'string']],
+                    'status' => $text('ready | draft (default ready; a drafts-only connection: draft)')])],
             ['smaz_stranku', 'Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', $s(['id' => $number('ID stránky')], ['id'])],
         ];
 
