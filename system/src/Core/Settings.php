@@ -284,6 +284,23 @@ final class Settings
         'stats_confirmed_since' => '', // 3.29 (Front\Stats::hit): the day the counting of page views confirmed by a visitor's browser started; '' = no beacon yet – internal
         'inbox_digest_day' => '',      // the day the daily summary of notifications last went out (3.26, Core\Inbox::run) – internal
         'starter_pages' => '',         // 3.33 (M2, Core\StarterPages): the installer's record of its starter pages as JSON {ids: fingerprint}; '' = a site from before 3.33 – internal
+        // 3.42 (audit Q9): keys the code read or wrote without declaring them – declared so that every setting has a default here
+        'newsletter_service' => '',    // the mailing service of the subscribers (Core\Newsletter): '' | brevo | mailerlite | mailchimp | ecomail | smartemailing | webhook
+        'newsletter_key' => '',        // its API key (type "tajne", Core\Vault::SECRET_SETTINGS)
+        'newsletter_list' => '',       // the list or audience id at the service
+        'newsletter_webhook' => '',    // the address of the "webhook" service
+        'google_locations' => '',      // the Business Profile locations of the connected Google account (JSON, Core\GoogleBusiness)
+        'google_rating' => '',         // the average Google rating last synced (Core\GoogleBusiness, a fact for Core\Facts)
+        'google_reviews' => '',        // the number of Google reviews last synced
+        'google_reviews_synced' => '', // when the reviews were last synced
+        'cookie_scan' => '',           // the last scan of the cookies the site sets (JSON, Core\Privacy::scanCookies) – {{cookie_table}}
+        'company_address' => '',       // never written: the address is company_street/city/postcode; read by Core\Privacy and named by Core\Blueprint::SETTINGS
+        'company_vat' => '',           // never written (the VAT id is company_vat_id); named by Core\Blueprint::SETTINGS for older blueprints
+        'accessibility_statement_page' => '0', // the page the accessibility statement was created on (Core\Privacy); 0 = none yet
+        'addons_enabled' => '',        // the add-ons the administrator switched on, comma separated (Extension\Registry)
+        'backup_test_url' => '',       // test copies only (Core\TestSeams::ADDRESSES): a local fake S3 server – never set on a real site
+        'newsletter_test_url' => '',   // test copies only: a local fake mailing service
+        'webhook_test_url' => '',      // test copies only: a local fake webhook receiver
         'cleaned_version' => '',       // the version after whose deployment the one-time cleanup of removed files has already run
         'db_version' => '1',            // number of the last applied migration (system/sql/migrace)
     ];
@@ -295,8 +312,43 @@ final class Settings
      */
     public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
 
+    /**
+     * Large values only one feature reads (3.42, audit Q9): they are left out of the query that loads all settings and
+     * read on first use, so a page that never needs them (every public page, the cache hits included) does not carry them.
+     * Not the update manifests (update_cache, update_seen…): the background check after every response reads them, so
+     * loading them apart would add queries instead of saving them.
+     */
+    public const array LAZY = ['look_draft', 'domain_watch'];
+
+    /**
+     * What the code knows about one setting, from the lists that hold it (3.42, audit Q9): the default, whether it is a
+     * secret (Core\Vault), goes into the site export (Core\SiteExport), has a value per language, is loaded lazily, and
+     * its older names (Core\OldSettingsKeys). The form type is Admin\Modules\Settings::FIELDS and Claude's access the
+     * MCP_SETTINGS pattern of Mcp\Tools; `php tools/settings.php <key>` prints all of it. Null for an unknown key.
+     *
+     * @return array{default: string, secret: bool, export: bool, per_language: bool, lazy: bool, old_names: list<string>}|null
+     */
+    public static function declaration(string $key): ?array
+    {
+        if (!array_key_exists($key, self::DEFAULTS)) {
+            return null;
+        }
+
+        return [
+            'default' => self::DEFAULTS[$key],
+            'secret' => in_array($key, Vault::SECRET_SETTINGS, true),
+            'export' => in_array($key, SiteExport::SETTINGS, true),
+            'per_language' => in_array($key, self::PER_LANGUAGE, true),
+            'lazy' => in_array($key, self::LAZY, true),
+            'old_names' => array_keys(array_filter(OldSettingsKeys::KEYS, fn (string $new): bool => $new === $key)),
+        ];
+    }
+
     /** @var array<string, string>|null */
     private ?array $values = null;
+
+    /** @var array<string, true> lazy settings already looked up in this request (also those with no row) */
+    private array $lazyRead = [];
 
     /** @var array<string, string> secret settings opened in this request (3.39, N106) */
     private array $opened = [];
@@ -316,7 +368,7 @@ final class Settings
 
     public function get(string $key): string
     {
-        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
+        $this->load($key);
         // a language version (/en/, /de/…) may have its own site name and description; empty = as in the default language
         if (in_array($key, self::PER_LANGUAGE, true) && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
             return $this->values[$key . '_' . $language];
@@ -330,6 +382,24 @@ final class Settings
 
         // default texts the visitor sees, in the site language (an English site must not show the Czech maintenance notice or cookie bar)
         return in_array($key, self::TRANSLATED_DEFAULTS, true) ? t(self::DEFAULTS[$key]) : (self::DEFAULTS[$key] ?? '');
+    }
+
+    /** All settings but the lazy ones on the first read; a lazy one when it is first asked for (one row, then kept). */
+    private function load(string $key): void
+    {
+        if ($this->values === null) {
+            $this->values = $this->db->pairs(
+                'SELECT promenna, hodnota FROM {nastaveni} WHERE promenna NOT IN (' . implode(', ', array_fill(0, count(self::LAZY), '?')) . ')',
+                self::LAZY,
+            );
+        }
+        if (in_array($key, self::LAZY, true) && !isset($this->lazyRead[$key])) {
+            $value = $this->db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [$key]);
+            if ($value !== null) {
+                $this->values[$key] = (string) $value;
+            }
+            $this->lazyRead[$key] = true;
+        }
     }
 
     /** The heading of the news list (3.18.2): the setting news_title in the default language, otherwise News in the site language. */
@@ -360,7 +430,7 @@ final class Settings
         if (!in_array($key, Vault::SECRET_SETTINGS, true)) {
             return false; // and the settings are not loaded for it: set() of any other key must not fill the cache early
         }
-        $this->values ??= $this->db->pairs('SELECT promenna, hodnota FROM {nastaveni}');
+        $this->load($key);
 
         return Vault::isSealed((string) ($this->values[$key] ?? '')) && $this->get($key) === '';
     }
@@ -388,6 +458,7 @@ final class Settings
         );
         if ($this->values !== null) {
             $this->values[$key] = $value;
+            $this->lazyRead[$key] = true;
         }
         if ($key === 'news_slug' || $key === 'news_slug_previous') {
             Routes::setNewsSlug(null); // read again (and checked) on the next use
