@@ -67,6 +67,15 @@ final class Account
                     }
                     $message = ['ok', 'Details saved.'];
                     break;
+                case 'absence_add':
+                    // 3.42: my own absence with a deputy (Core\Absences) – administrators add anybody's in Users
+                    $added = \Kaleta\Core\Absences::add($db, (int) $user['idu'], $r->post('starts_on'), $r->post('ends_on'), $r->postInt('deputy_id') ?: null, $r->post('reason'), (int) $user['idu']);
+                    $message = is_string($added) ? ['chyba', $added] : ['ok', 'The absence is saved.'];
+                    break;
+                case 'absence_delete':
+                    \Kaleta\Core\Absences::remove($db, $r->postInt('absence'), (int) $user['idu']); // only my own
+                    $message = ['ok', 'The absence is removed.'];
+                    break;
                 case 'notifications':
                     // 3.26: how notifications reach me by e-mail (Core\Inbox) – the bell shows them whatever I choose
                     $db->update('uzivatele', ['notify_email' => \Kaleta\Core\Inbox::emailMode($r->post('notify_email'))], ['idu' => $user['idu']]);
@@ -278,6 +287,9 @@ final class Account
         if ($r->get('tab') === 'colleagues') {
             return $this->colleagues();
         }
+        if ($r->get('tab') === 'org_chart') {
+            return $this->orgChart();
+        }
 
         // 3.35: backup codes created with the first passkey are shown once, on the page the registration returns to
         $shown = $app->session->get('backup_codes_show');
@@ -420,6 +432,22 @@ final class Account
     }
 
     /**
+     * The org chart (3.42, Core\Colleagues::chart): the departments as a tree with their head and people, who reports to whom
+     * and who is away today – work data of active accounts only, for every signed-in user. Plain HTML, printable.
+     */
+    private function orgChart(): Response
+    {
+        $app = $this->kernel->app;
+        $colleagues = \Kaleta\Core\Colleagues::all($app->db());
+
+        return $this->kernel->page('Org chart', $app->view->render('admin/account_org_chart', [
+            'app' => $app,
+            'colleagues' => array_column($colleagues, null, 'id'),
+            'chart' => \Kaleta\Core\Colleagues::chart($app->db(), $colleagues),
+        ]));
+    }
+
+    /**
      * Registration of a passkey (fingerprint, Face ID, security key) - called by the script image/klice.js.
      * 3.35: any account may add one (two-factor sign-in is no longer a precondition). Every new passkey is discoverable and
      * verifies the user, so it signs in without a password and is the second step after the password; its user handle
@@ -553,6 +581,9 @@ final class Account
             'siteRpId' => SignInPolicy::siteRpId($app->settings()), // 3.35 review M3: a passkey of another host is marked in the list
             'renewCodes' => self::mayRenewBackupCodes($user, $keys), // 3.35: "New backup codes"
             'passkeyHost' => SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $app->settings()->get('site_url') ?: $app->request->origin()),
+            // 3.42: my absences and who may stand in (Core\Absences)
+            'absences' => \Kaleta\Core\Absences::upcoming($app->db(), (int) $user['idu']),
+            'people' => array_filter(\Kaleta\Admin\Modules\Users::activePeople($app->db()), fn (int $uid): bool => $uid !== (int) $user['idu'], ARRAY_FILTER_USE_KEY),
             'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
             // the tool set of an application is the one of its newest token (3.10; a new consent may have chosen another)

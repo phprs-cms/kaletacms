@@ -1443,4 +1443,11 @@ return [
     'Only a text document (txt, md, csv) gets new text – replace other files in the administration.' => 'Neuen Text bekommt nur ein Textdokument (txt, md, csv) – andere Dateien ersetzt du in der Verwaltung.',
     'Give the document a name.' => 'Gib dem Dokument einen Namen.',
     'Give the file a name.' => 'Gib der Datei einen Namen.',
+    'You are standing in for %s, who is away.' => 'Du vertrittst %s, die oder der abwesend ist.',
+    'Choose the reason from the list.' => 'Wähle den Grund aus der Liste.',
+    'Nobody can stand in for themself – choose someone else or nobody.' => 'Niemand kann sich selbst vertreten – wähle jemand anderen oder niemanden.',
+    'Enter the first and the last day of the absence.' => 'Gib den ersten und den letzten Tag der Abwesenheit ein.',
+    'Enter the name of the department.' => 'Gib den Namen der Abteilung ein.',
+    'Only these choices – never write health or other private details.' => 'Nur diese Auswahl – trag nie Gesundheits- oder andere private Angaben ein.',
+    'Add the first one below, e.g. Sales or Production.' => 'Leg unten die erste an, z. B. Vertrieb oder Produktion.',
 ];

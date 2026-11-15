@@ -148,6 +148,7 @@ final class Scheduler
                 $news = \Kaleta\Admin\Modules\News::emptyTrash($app->db());
                 $pages = \Kaleta\Admin\Modules\Pages::emptyTrash($app->db());
                 \Kaleta\Admin\Modules\Collections::emptyTrash($app->db());
+                Absences::prune($app->db()); // 3.42: ended absences after 30 days
                 $threads = Comments::sweepContent($app->db()); // 3.26: the threads of pages, items and CRM records that are gone
 
                 return 'news ' . $news . ', pages ' . $pages . ', threads ' . $threads;

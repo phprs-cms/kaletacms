@@ -120,6 +120,9 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save the choice')) ?>"></p>
 </form>
 
+<?= $app->view->render('admin/absences', ['app' => $app, 'csrf' => $csrf, 'absences' => $absences ?? [], 'people' => $people ?? [], 'addUrl' => $app->url('admin.php?action=account'), 'deleteUrl' => $app->url('admin.php?action=account'),
+    'hidden' => '<input type="hidden" name="co" value="absence_add">', 'deleteHidden' => '<input type="hidden" name="co" value="absence_delete">']) // 3.42 ?>
+
 <form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
 <?= $csrf ?><input type="hidden" name="co" value="heslo">
 <fieldset><legend><?= e(t('Změna hesla')) ?></legend>

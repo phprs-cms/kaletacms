@@ -13,7 +13,7 @@
  * @var array<string, string> $modules the sections the person may open (3.32: Core\RecordTitle::place names a record only for them)
  */
 $icon = require __DIR__ . '/icons.php';
-$kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje', 'fleet_expiry' => 'web'];
+$kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje', 'fleet_expiry' => 'web', 'escalated' => 'moje'];
 $emailNote = match ($email) {
     'daily' => t('You get one e-mail summary a day, in the morning.'),
     'off' => t('You get no e-mail about them – they are only here.'),
@@ -44,6 +44,9 @@ $emailNote = match ($email) {
 		<div class="upozorneni-text">
 			<p class="upozorneni-co"><?php if ($unreadRow): ?><span class="navod-skryte"><?= e(t('Unread:')) ?> </span><?php endif ?><strong><?= e($what) ?></strong>
 				<span class="upozorneni-kde"><?php if ($place !== null): ?><a href="<?= e($app->url('admin.php?action=inbox&open=' . (int) $row['id'])) ?>"><?= e($where) ?></a><?php else: ?><?= e($where) ?><?php endif ?></span></p>
+<?php if (($row['standing_in_for'] ?? '') !== ''): ?>
+			<p class="smltxt"><?= e(Kaleta\Core\Inbox::standingIn((string) $row['standing_in_for'])) ?></p>
+<?php endif ?>
 <?php if ($row['excerpt'] !== '' && $row['kind'] !== 'assigned'): ?>
 			<p class="upozorneni-vynatek"><?= e($row['excerpt']) ?></p>
 <?php endif ?>

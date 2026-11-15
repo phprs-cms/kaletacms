@@ -42,6 +42,8 @@ CREATE TABLE ka_uzivatele (
     passkey_only   BOOL NOT NULL DEFAULT 0,                -- the account signs in with a passkey only (applies once it has a working passkey; 3.35)
     phone          VARCHAR(40)  NOT NULL DEFAULT '',      -- work phone, shown to colleagues and in the fallback e-mail signature (3.37, migration 0122)
     sign_in_epoch  INT UNSIGNED NOT NULL DEFAULT 0,       -- raised by every change of the second factor; other sign-ins with an older value end (3.41 N116, migration 0130)
+    department_id  INT UNSIGNED NULL,                     -- ka_departments.id (3.42, migration 0132); no foreign key – a removed department leaves NULL in code
+    reports_to     INT UNSIGNED NULL,                     -- the account this person reports to (3.42); escalation of overdue tasks, the org chart
     PRIMARY KEY (idu),
     UNIQUE KEY uq_user (user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -621,6 +623,7 @@ CREATE TABLE ka_notifications (
     created_at  DATETIME NOT NULL,
     read_at     DATETIME NULL,
     emailed_at  DATETIME NULL,
+    standing_in_for VARCHAR(100) NOT NULL DEFAULT '',    -- 3.42: a copy for the stand-in of an absent person – their name (Core\Absences)
     PRIMARY KEY (id),
     KEY ix_notifications_user (user_id, read_at, id),
     KEY ix_notifications_created (created_at),
@@ -643,6 +646,7 @@ CREATE TABLE ka_tasks (
     done_at     DATETIME NULL,
     done_by     INT UNSIGNED NULL,
     request_id  INT UNSIGNED NULL,                       -- ka_requests.id when handed to Claude
+    escalated_at DATETIME NULL,                          -- 3.42: the overdue task was escalated to whom its assignee reports to (once)
     created_at  DATETIME NOT NULL,
     updated_at  DATETIME NOT NULL,
     PRIMARY KEY (id),
@@ -2036,4 +2040,36 @@ CREATE TABLE ka_monthly_reports (
     data           MEDIUMTEXT NOT NULL,                      -- the built report (JSON)
     PRIMARY KEY (id),
     UNIQUE KEY ux_monthly_reports_month (month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.42: departments (Core\Departments) – a name, an optional head and an optional parent department (a tree; no cycles in
+-- code). enquiry_forms: names of forms (one per line) whose new enquiries go to the head (or their stand-in while away).
+-- Members are ka_uzivatele.department_id. No foreign keys: removing a department clears its members and children in code.
+CREATE TABLE ka_departments (
+    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name          VARCHAR(100) NOT NULL,
+    head_id       INT UNSIGNED NULL,
+    parent_id     INT UNSIGNED NULL,
+    enquiry_forms VARCHAR(1000) NOT NULL DEFAULT '',
+    created_at    DATETIME NOT NULL,
+    updated_at    DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_departments_parent (parent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.42: absence periods of accounts (Core\Absences) – from and to (days of the site's clock, both included), the deputy who
+-- stands in and a reason from a fixed list (Absences::REASONS – never free text, never health data). Past ones go after
+-- Absences::KEEP_DAYS.
+CREATE TABLE ka_absences (
+    id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id     INT UNSIGNED NOT NULL,
+    starts_on   DATE NOT NULL,
+    ends_on     DATE NOT NULL,
+    deputy_id   INT UNSIGNED NULL,
+    reason      VARCHAR(20) NOT NULL DEFAULT 'away',
+    created_by  INT UNSIGNED NULL,
+    created_at  DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_absences_user (user_id, ends_on),
+    KEY ix_absences_ends (ends_on)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

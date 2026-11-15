@@ -78,7 +78,7 @@ final class TimeZoneConversion
         'poptavky' => ['datum', 'triaged_at', 'anonymizovano'],
         'comments' => ['created_at', 'edited_at', 'deleted_at'],
         'notifications' => ['created_at', 'read_at', 'emailed_at'],
-        'tasks' => ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at'], // 3.27
+        'tasks' => ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at', 'escalated_at'], // 3.27; 3.42: escalated_at
         'contacts' => ['first_seen_at', 'last_activity_at', 'created_at', 'updated_at', 'anonymised_at', 'email_by_agent_at'], // 3.28; 3.38 review M3
         'companies' => ['created_at', 'updated_at'],
         'contact_activities' => ['happened_at', 'created_at'],
@@ -126,6 +126,8 @@ final class TimeZoneConversion
         'fleet_reports' => ['created_at', 'rebuilt_at'],
         'fleet_expiry_reminders' => ['sent_at'], // 3.30 (Fleet\Calendar; the date is civil)
         'fleet_acceptances' => ['accepted_at'], // 3.39 (Fleet\Acceptances; the last day is civil)
+        'departments' => ['created_at', 'updated_at'], // 3.42 (Core\Departments)
+        'absences' => ['created_at'], // 3.42 (Core\Absences; the days are civil)
         'facts' => ['updated_at'],
         'fact_history' => ['changed_at'],
         'hours_exceptions' => ['created_at'],
@@ -168,6 +170,7 @@ final class TimeZoneConversion
         'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
         'fleet_expiry_reminders' => ['expires'], // 3.30: the day a certificate or domain ends, as the site reported it
         'fleet_acceptances' => ['ends_on'], // 3.39: the last day an accepted state holds on the console
+        'absences' => ['starts_on', 'ends_on'], // 3.42: the first and the last day of an absence
         // opening hours exceptions (holidays), appointments, days off and proposed times: a 10:00 appointment stays at 10:00
         'hours_exceptions' => ['date_from', 'date_to'],
         'bookings' => ['starts_at', 'ends_at'],

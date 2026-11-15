@@ -102,7 +102,7 @@ final class Validity
             // 3.26: a notification per item; the e-mail below is theirs – only for "instant" (before migration 0112 there are
             // no rows and no choice: the e-mail goes, as in 3.24)
             $notes = array_values(array_filter(array_map(fn (array $r): ?array => Inbox::record($db, $owner, 'review_due',
-                ($r['kind'] === 'page' ? 'page:' : 'item:') . (int) $r['id'], null), $rows)));
+                ($r['kind'] === 'page' ? 'page:' : 'item:') . (int) $r['id'], null, '', $app), $rows))); // 3.42: and a copy for a stand-in
             $choice = $notes[0]['email'] ?? 'instant';
             $mail = $choice === 'instant' && count(Mail::addresses((string) $user['email'])) === 1;
             if (!$mail && $notes === []) {

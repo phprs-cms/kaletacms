@@ -51,6 +51,7 @@ final class MenuPaths
         [['Enquiries'], 'enquiries', 'module=enquiries'],
         [['Pages'], 'pages', 'module=pages'],
         [['Users', 'Roles'], 'roles', 'module=roles'],
+        [['Users', 'Departments'], 'users', 'module=users&action=departments'], // 3.42
         [['Settings', 'Reporting to a console'], 'settings', 'module=settings&tab=console'],
         [['Settings', 'Webhooks'], 'settings', 'module=settings&tab=webhooks'],
         [['Scheduled runs'], 'schedules', 'module=schedules'],
@@ -60,6 +61,7 @@ final class MenuPaths
         [['Statistics', 'Campaigns'], 'stats', 'module=stats'],
         [['My account', 'Claude connection'], '', 'action=account#claude'],
         [['My account', 'My e-mail signature'], '', 'action=account&tab=signature'],
+        [['My account', 'Org chart'], '', 'action=account&tab=org_chart'], // 3.42
     ];
 
     /**

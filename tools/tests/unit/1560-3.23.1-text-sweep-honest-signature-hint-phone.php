@@ -422,7 +422,7 @@ check('3.26 Inbox: the contract – notify(App, int, string, string, ?int, strin
     Kaleta\Core\Inbox::record($i326Db, 5, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 0, 'mention', 'page:1', 5), Kaleta\Core\Inbox::record($i326Db, 6, 'like', 'page:1', 5),
     Kaleta\Core\Inbox::KINDS, Kaleta\Core\Inbox::EMAIL, Kaleta\Core\Inbox::KEEP_DAYS, Kaleta\Core\Inbox::EXCERPT],
     ['Kaleta\Core\App $app, int $userId, string $kind, string $target, ?int $actorId, string $excerpt = \'\'', 'void', true, null, null, null,
-    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes; 3.40: the customer's answer
+    ['mention', 'assigned', 'comment', 'review_due', 'task_due', 'fleet_expiry', 'deletion_due', 'quote_expiring', 'quote_expired', 'quote_accepted', 'quote_declined', 'escalated'], ['instant', 'daily', 'off'], 90, 200]); // 3.27: task_due; 3.30: fleet_expiry; 3.34: deletion_due; 3.38: quotes; 3.40: the customer's answer; 3.42: escalated
 Kaleta\Core\Inbox::notify($i326App, 5, 'mention', 'page:1', 5, 'x'); // must not throw – the actor themself, nothing happens
 check('3.26 Inbox: the e-mail choice, the excerpt (plain text, one line, at most 200 characters), the targets and the daily hour', [
     Kaleta\Core\Inbox::emailMode('daily'), Kaleta\Core\Inbox::emailMode(''), Kaleta\Core\Inbox::emailMode('weekly'),
@@ -485,7 +485,7 @@ $i326Assignment = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Assignme
 $i326Validity = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Validity.php');
 $i326Comments = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Comments.php');
 check('[source-pin] 3.26: the assignment e-mail and the review reminder go through the notifications – one record each, their own e-mail only for "instant" and then marked e-mailed (no second e-mail from the summary); an enquiry\'s deleted or anonymised notes take the notifications quoting them along', [
-    str_contains($i326Assignment, "Inbox::record(\$db, \$toUserId, 'assigned', \$kind . ':' . \$id, \$byUserId > 0 ? \$byUserId : null);"),
+    str_contains($i326Assignment, "Inbox::record(\$db, \$toUserId, 'assigned', \$kind . ':' . \$id, \$byUserId > 0 ? \$byUserId : null, '', \$app, \$standingInFor);"), // 3.42: the stand-in
     str_contains($i326Assignment, "if ((\$note['email'] ?? 'instant') !== 'instant' || count(Mail::addresses((string) \$to['email'])) !== 1) {"),
     str_contains($i326Assignment, "Inbox::markEmailed(\$db, \$note !== null ? [\$note['id']] : []);"),
     str_contains($i326Validity, "Inbox::record(\$db, \$owner, 'review_due',"), str_contains($i326Validity, "\$mail = \$choice === 'instant' && count(Mail::addresses((string) \$user['email'])) === 1;"),
@@ -764,11 +764,11 @@ preg_match('/CREATE TABLE ka_tasks \((.+?)\) ENGINE/s', $t327Schema, $t327Table)
 preg_match('/CREATE TABLE ka_tasks \((.+?)\) ENGINE/s', $t327Migration, $t327MigTable);
 $t327Columns = fn (string $sql): array => array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME)/', $l, $m) ? $m[1] : '', explode("\n", $sql))));
 check('3.27: ka_tasks in schema.sql and migration 0113 alike (columns, the three keys), in the names map, its moments in TimeZoneConversion::INSTANTS, DB version 113', [
-    $t327Columns($t327Table[1] ?? ''), $t327Columns($t327Table[1] ?? '') === $t327Columns($t327MigTable[1] ?? ''),
+    $t327Columns($t327Table[1] ?? ''), array_values(array_diff($t327Columns($t327Table[1] ?? ''), ['escalated_at'])) === $t327Columns($t327MigTable[1] ?? ''), // 3.42: escalated_at came with migration 0132
     preg_match_all('/KEY ix_tasks_(assignee \(assignee_id, done_at, due_at\)|target \(target\)|due \(done_at, notified_at\))/', $t327Table[1] ?? ''), Kaleta\Core\Names::english('tasks'),
     Kaleta\Core\TimeZoneConversion::INSTANTS['tasks'] ?? null, KALETA_DB_VERSION >= 113],
-    [['id', 'title', 'target', 'assignee_id', 'created_by', 'due_at', 'remind_at', 'notified_at', 'done_at', 'done_by', 'request_id', 'created_at', 'updated_at'], true, 3, 'tasks',
-        ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at'], true]);
+    [['id', 'title', 'target', 'assignee_id', 'created_by', 'due_at', 'remind_at', 'notified_at', 'done_at', 'done_by', 'request_id', 'escalated_at', 'created_at', 'updated_at'], true, 3, 'tasks',
+        ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at', 'escalated_at'], true]);
 $t327Due = Kaleta\Core\Inbox::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], ['kind' => 'task_due', 'actor_name' => 'Jana', 'excerpt' => 'Call back about the windows'],
     ['kind' => 'enquiry', 'id' => 12, 'title' => 'Contact', 'path' => ''], 'https://x/1', 'https://x/2');
 $t327Self = Kaleta\Core\Inbox::mail($reportSettings([]), ['jazyk' => 'cs', 'register' => ''], ['kind' => 'task_due', 'actor_name' => '', 'excerpt' => ''],

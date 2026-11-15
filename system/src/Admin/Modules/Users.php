@@ -48,7 +48,7 @@ final class Users extends Module
         $role = $this->request->getInt('role') > 0 ? $this->db->one('SELECT idr, uroven FROM {role} WHERE idr = ?', [$this->request->getInt('role')]) : null;
 
         return $this->form(['idu' => 0, 'user' => '', 'jmeno' => '', 'email' => '', 'url' => '', 'admin' => $role !== null ? (int) $role['uroven'] : Auth::AUTHOR,
-            'role' => $role !== null ? (int) $role['idr'] : null, 'blokovat' => 0, 'team_item_id' => null, 'pozice' => '', 'phone' => '']);
+            'role' => $role !== null ? (int) $role['idr'] : null, 'blokovat' => 0, 'team_item_id' => null, 'pozice' => '', 'phone' => '', 'department_id' => null, 'reports_to' => null]);
     }
 
     protected function actionEdit(): Response
@@ -118,6 +118,19 @@ final class Users extends Module
         }
         if ($data['email'] !== '' && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
             $errors['email'] = 'The e-mail address is not valid.';
+        }
+        // 3.42: the department and whom the user reports to (Core\Departments) – only when the form sent them
+        if (array_key_exists('department_id', $_POST)) {
+            $department = $r->postInt('department_id');
+            $data['department_id'] = $department > 0 && \Kaleta\Core\Departments::find($this->db, $department) !== null ? $department : null;
+        }
+        if (array_key_exists('reports_to', $_POST)) {
+            $data['reports_to'] = $r->postInt('reports_to') > 0 ? $r->postInt('reports_to') : null;
+            $refusal = \Kaleta\Core\Departments::reportingRefusal($this->db, $id, $data['reports_to']);
+            $stored = $id > 0 ? $this->db->value('SELECT reports_to FROM {uzivatele} WHERE idu = ?', [$id]) : null;
+            if ($refusal !== null && $data['reports_to'] !== ($stored !== null ? (int) $stored : null)) {
+                $errors['reports_to'] = $refusal; // a stored value that became odd (the manager was blocked) does not stop the save
+            }
         }
         if ($phone === null) {
             $errors['phone'] = 'The phone number may contain only digits, spaces and + ( ) / . -';
@@ -249,6 +262,98 @@ final class Users extends Module
         }
 
         return $this->back($revoked > 0 ? t('User saved. The account is unblocked; its Claude connections and personal tokens were revoked (%d) – Claude connects again only with the user\'s consent.', $revoked) : 'User saved.');
+    }
+
+    /**
+     * Departments (3.42, Core\Departments): the tree with each head and the number of members, and the form for one
+     * (?department=<id> edits it, otherwise a new one).
+     */
+    protected function actionDepartments(): Response
+    {
+        $tree = \Kaleta\Core\Departments::tree($this->db);
+        $members = [];
+        foreach ($this->db->all('SELECT department_id, COUNT(*) AS n FROM {uzivatele} WHERE blokovat = 0 AND department_id IS NOT NULL GROUP BY department_id') as $row) {
+            $members[(int) $row['department_id']] = (int) $row['n'];
+        }
+        $editing = \Kaleta\Core\Departments::find($this->db, $this->request->getInt('department'));
+
+        return $this->view('departments', 'Departments', ['tree' => $tree, 'members' => $members, 'people' => self::activePeople($this->db),
+            'editing' => $editing ?? ['id' => 0, 'name' => '', 'head_id' => null, 'parent_id' => null, 'enquiry_forms' => []],
+            'forms' => array_column($this->db->all('SELECT DISTINCT formular FROM {poptavky} WHERE formular <> \'\' ORDER BY formular LIMIT 100'), 'formular')]);
+    }
+
+    protected function actionDepartmentSave(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back('', 'departments');
+        }
+        $r = $this->request;
+        $id = $r->postInt('id');
+        $saved = \Kaleta\Core\Departments::save($this->db, $id, $r->post('name'), $r->postInt('head_id') ?: null, $r->postInt('parent_id') ?: null,
+            preg_split('/\R/u', $r->post('enquiry_forms')) ?: []);
+        if (is_string($saved)) {
+            return $this->back($saved, 'departments', $id > 0 ? ['department' => $id] : [], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'department_save', '#' . $saved . ' ' . mb_substr(trim($r->post('name')), 0, 100));
+
+        return $this->back('The department is saved.', 'departments');
+    }
+
+    protected function actionDepartmentDelete(): Response
+    {
+        $id = $this->request->postInt('id');
+        $department = $this->request->isPost() ? \Kaleta\Core\Departments::find($this->db, $id) : null;
+        if ($department !== null && \Kaleta\Core\Departments::delete($this->db, $id)) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'department_delete', '#' . $id . ' ' . $department['name']);
+
+            return $this->back('The department is removed. Its people belong to no department now.', 'departments');
+        }
+
+        return $this->back('', 'departments');
+    }
+
+    /** An absence of a user (3.42, Core\Absences) – administrators add anybody's; the person adds their own in My account. */
+    protected function actionAbsenceAdd(): Response
+    {
+        $r = $this->request;
+        $id = $r->postInt('idu');
+        if (!$r->isPost() || $this->db->value('SELECT 1 FROM {uzivatele} WHERE idu = ?', [$id]) === null) {
+            return $this->back();
+        }
+        $added = \Kaleta\Core\Absences::add($this->db, $id, $r->post('starts_on'), $r->post('ends_on'), $r->postInt('deputy_id') ?: null, $r->post('reason'), (int) $this->app->auth()->id());
+        if (is_string($added)) {
+            return $this->back($added, 'edit', ['id' => $id], 'chyba');
+        }
+        \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'absence_add', '#' . $id . ' ' . $r->post('starts_on') . ' – ' . $r->post('ends_on')); // the days only, never the reason
+
+        return Response::redirect($this->url('edit', ['id' => $id]) . '#absences');
+    }
+
+    protected function actionAbsenceDelete(): Response
+    {
+        $r = $this->request;
+        $id = $r->postInt('idu');
+        if ($r->isPost() && \Kaleta\Core\Absences::remove($this->db, $r->postInt('absence'))) {
+            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'absence_delete', '#' . $id);
+        }
+
+        return Response::redirect($this->url('edit', ['id' => $id]) . '#absences');
+    }
+
+    /**
+     * Active accounts by name, for the selects of the team hierarchy (head, reports to, deputy).
+     *
+     * @return array<int, string>
+     */
+    public static function activePeople(\Kaleta\Core\Db $db): array
+    {
+        $name = "IF(jmeno = '', user, jmeno)";
+        $out = [];
+        foreach ($db->all('SELECT idu, ' . $name . ' AS name FROM {uzivatele} WHERE blokovat = 0 ORDER BY ' . $db->sortText($name)) as $row) {
+            $out[(int) $row['idu']] = (string) $row['name'];
+        }
+
+        return $out;
     }
 
     /**
@@ -542,6 +647,10 @@ final class Users extends Module
             'teamChoices' => \Kaleta\Builder\TeamRecord::choices($this->db),
             'teamRecord' => $id > 0 ? \Kaleta\Builder\TeamRecord::forUser($this->db, $author) : null,
             'modules' => $configurable,
+            // 3.42: the team hierarchy – the departments, whom the user may report to, their absences
+            'departments' => \Kaleta\Core\Departments::tree($this->db),
+            'people' => array_filter(self::activePeople($this->db), fn (int $uid): bool => $uid !== $id, ARRAY_FILTER_USE_KEY),
+            'absences' => $id > 0 ? \Kaleta\Core\Absences::upcoming($this->db, $id) : [],
             'hasModules' => $this->request->isPost()
                 ? $this->request->postList('moduly')
                 : array_column($this->db->all('SELECT ident_modulu FROM {uzivatele_prava} WHERE fk_id_user = ?', [$id]), 'ident_modulu'),
