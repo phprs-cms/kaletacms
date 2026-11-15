@@ -50,14 +50,26 @@ final class Hours
      */
     public static function exceptions(Db $db, bool $pastToo = false): array
     {
+        // 3.42 (audit Q16): read once per request and day – a public page asks for them twice (Company details, structured data)
+        $key = spl_object_id($db) . '|' . ($pastToo ? 'all' : Clock::today());
+        if (isset(self::$read[$key])) {
+            return self::$read[$key];
+        }
         try {
             $rows = $db->all('SELECT * FROM {hours_exceptions} WHERE proposed = 0' . ($pastToo ? '' : ' AND date_to >= ?') . ' ORDER BY date_from, id LIMIT 200', $pastToo ? [] : [Clock::today()]);
         } catch (\Throwable) {
             return []; // before the 2.10 migration
         }
 
-        return array_map(self::row(...), $rows);
+        return self::$read[$key] = array_map(self::row(...), $rows);
     }
+
+    /**
+     * The applied exceptions this request already read (3.42, audit Q16); every write here forgets them.
+     *
+     * @var array<string, list<array{id: int, from: string, to: string, closed: bool, hours: string, note: string, notice_days: int}>>
+     */
+    private static array $read = [];
 
     /**
      * One exception by its id (past ones too – a sign may be printed after the fact), null when it does not exist.
@@ -303,6 +315,7 @@ final class Hours
             'note' => mb_substr(trim(strip_tags((string) ($data['note'] ?? ''))), 0, 150), 'notice_days' => max(0, min(60, (int) ($data['notice_days'] ?? 7))),
             'proposed' => !empty($data['proposed']) ? 1 : 0];
         $db = $app->db();
+        self::$read = [];
         if ($id > 0) {
             $db->update('hours_exceptions', $row, ['id' => $id]);
         } else {
@@ -321,6 +334,7 @@ final class Hours
     public static function apply(App $app, int $id): bool
     {
         $proposal = self::find($app->db(), $id, true);
+        self::$read = [];
         if ($proposal === null || $app->db()->update('hours_exceptions', ['proposed' => 0], ['id' => $id, 'proposed' => 1]) === 0) {
             return false;
         }
@@ -334,6 +348,7 @@ final class Hours
     /** Discards a proposed exception (3.2) – the site never used it. False when there is no such proposal. */
     public static function discard(App $app, int $id): bool
     {
+        self::$read = [];
         $discarded = $app->db()->delete('hours_exceptions', ['id' => $id, 'proposed' => 1]) > 0;
         if ($discarded) {
             \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
@@ -344,6 +359,7 @@ final class Hours
 
     public static function delete(App $app, int $id): bool
     {
+        self::$read = [];
         $deleted = $app->db()->delete('hours_exceptions', ['id' => $id]) > 0;
         if ($deleted) {
             \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);

@@ -34,7 +34,7 @@ $fieldNames = ['name' => 'name', 'phone' => 'phone', 'company' => 'company'];
 </ul>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-import-rows>
-<thead><tr><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('Phone')) ?></th><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('What happens')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('Phone')) ?></th><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('What happens')) ?></th></tr></thead>
 <tbody>
 <?php foreach (array_slice($plan['rows'], 0, Contacts::IMPORT_SAMPLE) as $row): [$label, $class] = $actions[$row['action']]; ?>
 <tr data-import-row="<?= e($row['action']) ?>">

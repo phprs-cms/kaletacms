@@ -76,7 +76,7 @@ $warn = array_values(array_filter($groups, fn (array $g): bool => $g['state'] !=
 		<option value="bad"<?= $severity === 'bad' ? ' selected' : '' ?>><?= e(t('Needs action')) ?></option>
 		<option value="warn"<?= $severity === 'warn' ? ' selected' : '' ?>><?= e(t('Warning')) ?></option>
 	</select></label>
-	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
 <?php if ($filtered): ?>
 	<a href="<?= e($module->url('')) ?>"><?= e(t('Clear filter')) ?></a>
 <?php endif ?>

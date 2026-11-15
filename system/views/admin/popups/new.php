@@ -21,5 +21,5 @@ use Kaleta\Builder\Popups;
 </div>
 </fieldset>
 <p class="napoveda"><?= e(t('The pop-up is created turned off and opens in the builder. It shows on the site once you publish it and turn it on.')) ?></p>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Založit a otevřít v builderu')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Create and open in the builder')) ?>"> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back')) ?></a></p>
 </form>

@@ -25,7 +25,7 @@
 </fieldset>
 <fieldset><legend><?= e(t('Customer')) ?></legend>
 <div class="radek"><label for="jmeno"><?= e(t('Name')) ?></label><div><input class="textpole siroke" id="jmeno" name="jmeno" required maxlength="150" value="<?= e((string) ($old['jmeno'] ?? '')) ?>"></div></div>
-<div class="radek"><label for="email"><?= e(t('E-mail')) ?></label><div><input class="textpole siroke" type="email" id="email" name="email" maxlength="190" value="<?= e((string) ($old['email'] ?? '')) ?>"><span class="napoveda"><?= e(t('With an e-mail the customer gets the confirmation, the cancel link and the reminder.')) ?></span></div></div>
+<div class="radek"><label for="email"><?= e(t('Email')) ?></label><div><input class="textpole siroke" type="email" id="email" name="email" maxlength="190" value="<?= e((string) ($old['email'] ?? '')) ?>"><span class="napoveda"><?= e(t('With an e-mail the customer gets the confirmation, the cancel link and the reminder.')) ?></span></div></div>
 <div class="radek"><label for="telefon"><?= e(t('Phone')) ?></label><div><input class="textpole" type="tel" id="telefon" name="telefon" maxlength="30" value="<?= e((string) ($old['telefon'] ?? '')) ?>"></div></div>
 <div class="radek"><label for="poznamka"><?= e(t('Note')) ?></label><div><textarea class="textbox nizky" id="poznamka" name="poznamka" rows="3" maxlength="1000"><?= e((string) ($old['poznamka'] ?? '')) ?></textarea></div></div>
 </fieldset>

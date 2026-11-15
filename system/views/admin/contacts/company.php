@@ -61,12 +61,12 @@
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis vypis-karty">
-<thead><tr><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('E-mail')) ?></th><th scope="col"><?= e(t('Phone')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th><th scope="col"><?= e(t('Last activity')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Phone')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th><th scope="col"><?= e(t('Last activity')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($contacts['rows'] as $c): ?>
 <tr data-contact="<?= (int) $c['id'] ?>">
 	<td><a href="<?= e($module->url('detail', ['id' => $c['id']])) ?>"><?= bdi(Kaleta\Core\Contacts::displayName($c)) ?></a></td>
-	<td data-popisek="<?= e(t('E-mail')) ?>"><?= $c['email'] !== '' ? '<a href="mailto:' . e($c['email']) . '">' . bdi($c['email']) . '</a>' : '' ?></td>
+	<td data-popisek="<?= e(t('Email')) ?>"><?= $c['email'] !== '' ? '<a href="mailto:' . e($c['email']) . '">' . bdi($c['email']) . '</a>' : '' ?></td>
 	<td data-popisek="<?= e(t('Phone')) ?>"><?= $c['phone'] !== '' ? '<a href="tel:' . e(preg_replace('/[^+\d]/', '', $c['phone']) ?? '') . '">' . bdi($c['phone']) . '</a>' : '' ?></td>
 	<td data-popisek="<?= e(t('Responsible person')) ?>"><?= $c['owner_id'] !== null ? e($owners[$c['owner_id']] ?? '') : '' ?></td>
 	<td data-popisek="<?= e(t('Last activity')) ?>"><?= $c['last_activity_at'] !== null ? e(format_date($c['last_activity_at'])) : '' ?></td>

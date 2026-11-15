@@ -51,7 +51,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <input type="hidden" name="copy_build" value="1">
 <?php endif ?>
 <div class="radek pres-celou">
-	<label for="titulek"><?= e(t('Název stránky')) ?></label>
+	<label for="titulek"><?= e(t('Page title')) ?></label>
 	<input class="textpole siroke titulek-pole" type="text" id="titulek" name="titulek" value="<?= e($page['titulek']) ?>" maxlength="200" required placeholder="<?= e(t('e.g. Garden design')) ?>"<?= $page['ids'] ? '' : ' autofocus' ?><?= $contentDir ?>><?= $error('titulek') ?>
 </div>
 <?php if ($choosing): ?>
@@ -108,7 +108,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	</select><span class="napoveda"><?= e(t('A subpage has an address under its parent (/services/kitchens) and appears in its breadcrumbs.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="seo_link"><?= e(t('Adresa')) ?></label>
+	<label for="seo_link"><?= e(t('URL')) ?></label>
 	<div><span class="napoveda-inline">/<?= e($prefix) ?></span><input class="textpole" type="text" id="seo_link" name="seo_link" value="<?= e($segment) ?>" maxlength="110" placeholder="<?= e(t('generated from the title, e.g. about-us')) ?>"><?= $error('seo_link') ?></div>
 </div>
 <details class="pokrocile"<?= $page['popis'] !== '' || $page['seo_titulek'] !== '' || $page['obrazek'] !== '' || $page['noindex'] || (string) ($page['canonical_url'] ?? '') !== '' || isset($errors['canonical_url']) || !empty($page['heslo_hash']) || isset($errors['heslo_stranky']) || array_filter($contentCheck ?? [], fn (array $r): bool => !$r['ok']) !== [] ? ' open' : '' ?>>
@@ -188,9 +188,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php if ($copyBuild): ?>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Create the translation and open the builder')) ?></button></p>
 <?php elseif ($choosing): ?>
-<p class="tlacitka"><span class="nova-jen-stavitel"><button class="tl" type="submit"><?= e(t('Create the page and open the builder')) ?></button></span><span class="nova-jen-text"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button></span></p>
+<p class="tlacitka"><span class="nova-jen-stavitel"><button class="tl" type="submit"><?= e(t('Create the page and open the builder')) ?></button></span><span class="nova-jen-text"><button class="tl" type="submit"><?= e(t('Save')) ?></button></span></p>
 <?php else: ?>
-<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Uložit')) ?></button><?php if (($page['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
+<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button><?php if (($page['stavba'] ?? null) === null): ?> <button class="navigace" type="submit" name="po_ulozeni" value="stavitel"><?= e(t('Save and open in the builder')) ?></button><?php endif ?></p>
 <?php endif ?>
 </form>
 <?php if ($ownerApart): // 3.24: the settings of a published page are an editor's, its responsible person anyone's with Pages ?>

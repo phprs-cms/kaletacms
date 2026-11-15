@@ -34,7 +34,7 @@ $field('verification_bing', 'Bing', 'text', 'The content value from the msvalida
 <p class="napoveda"><?= e(t('Then submit the sitemap address in Search Console:')) ?> <?= e($siteUrl) ?>sitemap.xml</p>
 </details>
 <details class="pokrocile">
-<summary><?= e(t('Pro pokročilé')) ?></summary>
+<summary><?= e(t('Advanced')) ?></summary>
 <?php
 $field('schema_org', 'schema.org structured data', 'ano');
 $field('indexnow', 'Notify search engines about new news (IndexNow)', 'ano', 'Bing, Seznam and Yandex will then index them within minutes.');

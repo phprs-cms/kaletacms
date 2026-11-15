@@ -1078,7 +1078,7 @@ class Settings extends Module
                     throw new \RuntimeException(t('The recovery key does not belong to this backup – check that it was copied in full, or use the key of the site the backup comes from. Nothing was restored.'));
                 }
             } catch (\RuntimeException $e) {
-                return $this->back(t('Obnova se nezdařila: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
+                return $this->back(t('The restore failed: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
             }
         }
         // 3.31.1: the backup being restored is held out of the rotation (also from a backup cron makes meanwhile), the safety
@@ -1105,7 +1105,7 @@ class Settings extends Module
                 // changed, so it is not "reverted" (a whole restore for nothing), and the needless safety backup goes
                 @unlink((string) Backup::path($safetyBackup));
 
-                return $this->back(t('Obnova se nezdařila: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
+                return $this->back(t('The restore failed: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
             }
             $reverted = false;
             if (isset($safetyBackup)) {
@@ -1119,7 +1119,7 @@ class Settings extends Module
             }
             \Kaleta\Front\Cache::clear();
 
-            return $this->back(t('Obnova se nezdařila: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
+            return $this->back(t('The restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
         }
         \Kaleta\Front\Cache::clear();
         // 3.19.1 (N82): the restore replaced the change log and the events with the backup's copies – the record of the

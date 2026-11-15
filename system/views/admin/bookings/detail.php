@@ -25,7 +25,7 @@ use Kaleta\Core\Booking;
 	<dt><?= e(t('Anonymised')) ?></dt><dd><?= e(format_date((string) $b['anonymised_at'], true)) ?> · <?= e(t('the row stays for statistics without the person')) ?></dd>
 <?php else: ?>
 	<dt><?= e(t('Name')) ?></dt><dd><?= e((string) $b['name']) ?></dd>
-	<dt><?= e(t('E-mail')) ?></dt><dd><?= (string) $b['email'] !== '' ? '<a href="mailto:' . e((string) $b['email']) . '">' . e((string) $b['email']) . '</a>' : '<span class="napoveda">—</span>' ?></dd>
+	<dt><?= e(t('Email')) ?></dt><dd><?= (string) $b['email'] !== '' ? '<a href="mailto:' . e((string) $b['email']) . '">' . e((string) $b['email']) . '</a>' : '<span class="napoveda">—</span>' ?></dd>
 	<dt><?= e(t('Phone')) ?></dt><dd><?= (string) $b['phone'] !== '' ? '<a href="tel:' . e(preg_replace('/[^+\d]/', '', (string) $b['phone']) ?? '') . '">' . e((string) $b['phone']) . '</a>' : '<span class="napoveda">—</span>' ?></dd>
 	<dt><?= e(t('Note')) ?></dt><dd><?= (string) $b['note'] !== '' ? nl2br(e((string) $b['note'])) : '<span class="napoveda">—</span>' ?></dd>
 <?php endif ?>

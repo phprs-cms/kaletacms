@@ -29,7 +29,7 @@ $canPublish = $app->auth()->canPublish();
 <div class="media">
 <nav class="media-slozky" aria-label="<?= e(t('Folders')) ?>">
 	<a href="<?= e($module->url()) ?>"<?= $isAll ? ' class="aktivni"' : '' ?>><?= e(t('All media')) ?></a>
-	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Nezařazené')) ?></a>
+	<a href="<?= e($module->url('', ['section' => 0])) ?>"<?= $filter['section'] === 0 ? ' class="aktivni"' : '' ?>><?= e(t('Uncategorized')) ?></a>
 	<a href="<?= e($module->url('', ['unused' => 1])) ?>"<?= $filter['unused'] ? ' class="aktivni"' : '' ?>><?= e(t('Unused')) ?></a>
 <?php if ($stagedCount > 0 || $filter['staged']): ?>
 	<a href="<?= e($module->url('', ['staged' => 1])) ?>"<?= $filter['staged'] ? ' class="aktivni"' : '' ?>><?= e(t('Waiting for approval')) ?> <small>(<?= $stagedCount ?>)</small></a>
@@ -42,7 +42,7 @@ $canPublish = $app->auth()->canPublish();
 	<form method="post" action="<?= e($module->url('folder')) ?>">
 		<?= $csrf ?>
 		<input class="textpole" type="text" name="nazev" placeholder="<?= e(t('new folder')) ?>" maxlength="100" required aria-label="<?= e(t('New folder name')) ?>">
-		<button class="navigace" type="submit"><?= e(t('Přidat')) ?></button>
+		<button class="navigace" type="submit"><?= e(t('Add')) ?></button>
 	</form>
 </nav>
 
@@ -82,7 +82,7 @@ $canPublish = $app->auth()->canPublish();
 		<option value="<?= e($key) ?>"<?= $filter['sort'] === $key ? ' selected' : '' ?>><?= e(t($sortName)) ?></option>
 <?php endforeach ?>
 	</select>
-	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
 </form>
 <?php if ($images === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'media', 'heading' => t('No images.'), 'text' => t('Upload your first photos with the form above – or drag them straight into the text in the editor.')]) ?>
@@ -108,7 +108,7 @@ $canPublish = $app->auth()->canPublish();
 			</ul></details>
 <?php endif ?>
 <?php if ($o['nahl_poloha'] !== ''): ?>
-			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Popis pro nevidomé (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
+			<input class="galerie-popis" type="text" value="<?= e((string) $o['nazev']) ?>" maxlength="150" placeholder="<?= e(t('Description for screen readers (alt)')) ?>" aria-label="<?= e(t('Description of image %s', $o['nazev'])) ?>" data-popis-media="<?= (int) $o['ido'] ?>" data-adresa="<?= e($module->url('save_caption')) ?>" form="">
 <?php endif ?>
 			<span><label><input type="checkbox" name="oznacene[]" value="<?= (int) $o['ido'] ?>"> <?= e(t('označit')) ?></label> &middot; <a href="<?= e($module->url('list', $params + ['edit' => $o['ido'], 'page' => $pageNumber])) ?>#uprav"><?= e(t('description')) ?></a></span>
 <?php if ($o['staged_at'] !== null): ?>
@@ -118,7 +118,7 @@ $canPublish = $app->auth()->canPublish();
 <?php if ($canPublish): ?>
 				<button class="navigace" type="submit" formaction="<?= e($module->url('approve')) ?>" name="ido" value="<?= (int) $o['ido'] ?>"><?= e(t('Publish file')) ?></button>
 <?php endif ?>
-				<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('discard')) ?>" name="ido" value="<?= (int) $o['ido'] ?>" data-potvrdit="<?= e(t('Delete the file? Drafts that use it will show it no more.')) ?>"><?= e(t('Smazat')) ?></button>
+				<button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('discard')) ?>" name="ido" value="<?= (int) $o['ido'] ?>" data-potvrdit="<?= e(t('Delete the file? Drafts that use it will show it no more.')) ?>"><?= e(t('Delete')) ?></button>
 			</span>
 <?php endif ?>
 		</figcaption>
@@ -134,7 +134,7 @@ $canPublish = $app->auth()->canPublish();
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit" name="provest" value="presun"><?= e(t('Move to folder')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Smazat')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="provest" value="smaz" data-potvrdit="<?= e(t('Really delete the selected files? Files the site still uses are skipped.')) ?>"><?= e(t('Delete')) ?></button>
 </p>
 </form>
 
@@ -152,7 +152,7 @@ $canPublish = $app->auth()->canPublish();
 		<label><?= e(t('Vertical')) ?> <input class="textpole" type="number" name="ohnisko_y" min="0" max="100" value="<?= $oy ?>" size="3"> %</label>
 		<span class="napoveda"><?= e(t('Click in the preview on what must stay visible when the photo is cropped to another shape (card, section background).')) ?></span></div></div>
 <?php endif ?>
-	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
+	<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <?php if (preg_match('/\.(jpg|png|webp)$/', $o['obr_poloha']) && $o['staged_at'] === null): ?>
 <form class="formular" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data">

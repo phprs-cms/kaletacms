@@ -42,7 +42,7 @@
 <?php endif ?>
 	<td><?php if ($v['publikovana']): ?><span class="stitek stitek-vydano"><?= e(t('variant')) ?></span><?php else: ?><span class="stitek stitek-koncept"><?= e(t('nepublikovaná')) ?></span><?php endif ?><?= $v['zmeny'] && $v['publikovana'] ? ' <span class="stitek stitek-koncept">' . e(t('unpublished changes')) . '</span>' : '' ?></td>
 	<td class="akce"><a href="<?= e($module->url('builder', $variantParams)) ?>"><?= e(t('Builder')) ?></a> · <a href="<?= e($module->url('templates', $variantParams)) ?>"><?= e(t('Start from a template')) ?></a> · <a href="<?= e($module->url('variant', $variantParams)) ?>"><?= e(t('Pages')) ?></a> ·
-		<form class="vradku" method="post" action="<?= e($module->url('template', $variantParams)) ?>" data-potvrdit="<?= e(t('Delete the variant? The selected pages will get the default version.')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		<form class="vradku" method="post" action="<?= e($module->url('template', $variantParams)) ?>" data-potvrdit="<?= e(t('Delete the variant? The selected pages will get the default version.')) ?>"><?= $csrf ?><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 <?php endforeach ?>

@@ -27,7 +27,7 @@
 <p class="smltxt"><?= e(t('Two levels: a category and its subcategories. A category page lists the items of the category and of its subcategories; an address can never be both a category and an item of this collection.')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Category')) ?></th><th scope="col"><?= e(t('Adresa')) ?></th><th scope="col"><?= e(t('Items')) ?></th><th scope="col"><?= e(t('Pořadí')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Category')) ?></th><th scope="col"><?= e(t('URL')) ?></th><th scope="col"><?= e(t('Items')) ?></th><th scope="col"><?= e(t('Order')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($tree as $c): $path = $k['seo_link'] . '/' . ($c['parent_slug'] !== '' ? $c['parent_slug'] . '/' : '') . $c['slug']; ?>
 <tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
@@ -43,7 +43,7 @@
 	<td class="akce"><?php if ($c['visible']): ?><a href="<?= e($app->url($path)) ?>" target="_blank" rel="noopener"><?= e(t('Show')) ?></a> · <?php endif ?>
 <?php if ($c['parent_id'] === null): ?>		<a href="<?= e($module->url('category', ['id' => $k['idk'], 'parent' => $c['id']])) ?>"><?= e(t('Add subcategory')) ?></a> · <?php endif ?>
 		<a href="<?= e($module->url('item', ['id' => $k['idk'], 'category' => $c['id']])) ?>"><?= e(t('Add item')) ?></a> ·
-		<form class="vradku" method="post" action="<?= e($module->url('delete_category')) ?>" data-potvrdit="<?= e(t('Delete the category in every language? Its items stay in the collection; its page disappears.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		<form class="vradku" method="post" action="<?= e($module->url('delete_category')) ?>" data-potvrdit="<?= e(t('Delete the category in every language? Its items stay in the collection; its page disappears.')) ?>"><?= $csrf ?><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

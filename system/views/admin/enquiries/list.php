@@ -49,7 +49,7 @@ $preview = function (string $data) use ($yes): string {
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
 	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="status" value="<?= e($filter) ?>">
 	<label><?= e(t('Search (name, e-mail, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
 <br>
 <?php if ($enquiries === [] && ($search !== '' || $filter !== '')): ?>
@@ -79,8 +79,8 @@ $preview = function (string $data) use ($yes): string {
 </table>
 </div>
 <p class="media-hromadne"><?= e(t('With selected:')) ?>
-	<button class="tl" type="submit" name="provest" value="vyridit"><?= e(t('Označit jako vyřízené')) ?></button>
-	<button class="navigace nebezpecne" type="submit" name="provest" value="smazat" data-potvrdit="<?= e(t('Delete the selected enquiries including attachments? This cannot be undone.')) ?>"><?= e(t('Smazat')) ?></button></p>
+	<button class="tl" type="submit" name="provest" value="vyridit"><?= e(t('Mark as resolved')) ?></button>
+	<button class="navigace nebezpecne" type="submit" name="provest" value="smazat" data-potvrdit="<?= e(t('Delete the selected enquiries including attachments? This cannot be undone.')) ?>"><?= e(t('Delete')) ?></button></p>
 </form>
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">

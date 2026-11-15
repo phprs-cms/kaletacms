@@ -32,7 +32,7 @@ $admin = $app->auth()->isAdmin();
 <form class="navigace-radek" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
 	<input type="hidden" name="module" value="subscribers">
 	<input class="textpole" type="search" name="search" value="<?= e($search) ?>" placeholder="<?= e(t('Search e-mail')) ?>" aria-label="<?= e(t('Search e-mail')) ?>">
-	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
 <?php if ($confirmed > 0): ?>
 	<a class="tl" href="<?= e($module->url('csv')) ?>"><?= e(t('Export confirmed (CSV)')) ?> · <?= $confirmed ?></a>
 <?php else: ?>
@@ -59,7 +59,7 @@ $admin = $app->auth()->isAdmin();
 <?php endif ?>
 	<td class="cislo"><?= e(format_date($o['datum'], true)) ?></td>
 	<td class="smltxt"><?= e($o['zdroj']) ?></td>
-	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

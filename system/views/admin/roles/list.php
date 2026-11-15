@@ -18,7 +18,7 @@
 <?= $app->view->render('admin/empty', ['icon' => 'uzivatele', 'heading' => t('No custom roles yet.'), 'action' => [$module->url('new'), t('New role')]]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Roles')) ?></th><th scope="col"><?= e(t('Sekce')) ?></th><th scope="col"><?= e(t('Uživatelů')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Roles')) ?></th><th scope="col"><?= e(t('Section')) ?></th><th scope="col"><?= e(t('Uživatelů')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($role as $r): ?>
 <tr>
@@ -26,7 +26,7 @@
 	<td><?= e(implode(', ', array_map(fn (string $i): string => t($names[$i] ?? $i), array_filter(explode(',', (string) $r['moduly']))))) ?></td>
 	<td class="cislo"><?= (int) $r['clenu'] ?></td>
 	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $r['idr']])) ?>"><?= e(t('Edit')) ?></a>
-		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the role? Its members will keep their current access.')) ?>"><?= $csrf ?><input type="hidden" name="idr" value="<?= (int) $r['idr'] ?>"><input type="hidden" name="nazev" value="<?= e($r['nazev']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form></td>
+		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the role? Its members will keep their current access.')) ?>"><?= $csrf ?><input type="hidden" name="idr" value="<?= (int) $r['idr'] ?>"><input type="hidden" name="nazev" value="<?= e($r['nazev']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

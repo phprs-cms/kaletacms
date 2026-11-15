@@ -62,7 +62,7 @@ $filtered = $kind !== '' || $filters['site'] > 0 || $filters['customer'] > 0 || 
 	</select></label>
 <?php endif ?>
 	<label><input type="checkbox" name="urgent" value="1"<?= $filters['urgent'] ? ' checked' : '' ?>> <?= e(t('only urgent')) ?></label>
-	<button class="navigace" type="submit"><?= e(t('Filtrovat')) ?></button>
+	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
 <?php if ($filtered): ?>
 	<a href="<?= e($module->url('inbox')) ?>"><?= e(t('Clear filter')) ?></a>
 <?php endif ?>

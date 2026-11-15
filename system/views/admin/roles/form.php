@@ -61,7 +61,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php if ($members !== []): ?>
 <p class="smltxt"><?= e(t('Saving also changes the permissions of these users:')) ?> <?= e(implode(', ', array_map(fn (array $u): string => $u['jmeno'] !== '' ? $u['jmeno'] : $u['user'], $members))) ?></p>
 <?php endif ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Uložit')) ?>"></p>
+<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>
 <?php if ($proofPasskey): ?>
 <script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>

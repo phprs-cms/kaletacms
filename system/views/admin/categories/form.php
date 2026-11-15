@@ -17,7 +17,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole siroke" type="text" id="nazev" name="nazev" value="<?= e($category['nazev']) ?>" maxlength="100" required><?= $error('nazev') ?></div>
 </div>
 <div class="radek">
-	<label for="seo_link"><?= e(t('Adresa')) ?></label>
+	<label for="seo_link"><?= e(t('URL')) ?></label>
 	<div><input class="textpole siroke" type="text" id="seo_link" name="seo_link" value="<?= e($category['seo_link']) ?>" maxlength="110" placeholder="<?= e(t('generated from the name')) ?>">
 	<span class="napoveda"><?= e(t('The part of the address after %s.', substr($app->url('novinky/kategorie/'), strlen($app->request->basePath())))) ?></span></div>
 </div>
@@ -27,7 +27,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<span class="napoveda"><?= e(t('Shown above the category\'s news list and used as the description for search engines.')) ?></span></div>
 </div>
 <div class="radek">
-	<label for="hodnost"><?= e(t('Pořadí')) ?></label>
+	<label for="hodnost"><?= e(t('Order')) ?></label>
 	<div><input class="textpole" type="number" id="hodnost" name="hodnost" value="<?= (int) $category['hodnost'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Higher number = higher in the list.')) ?></span></div>
 </div>

@@ -86,7 +86,7 @@ $developer = fn (string $detail): string => '<details><summary>' . e(t('Details 
 <fieldset>
 <legend><?= e(t('Database backups')) ?></legend>
 <details class="pokrocile"<?= $values['remote_backup'] !== 'vypnuto' ? ' open' : '' ?>>
-<summary><?= e(t('Off-site backup copies')) ?><?= $values['remote_backup'] !== 'vypnuto' ? ' – ' . e(t('zapnuté')) : '' ?></summary>
+<summary><?= e(t('Off-site backup copies')) ?><?= $values['remote_backup'] !== 'vypnuto' ? ' – ' . e(t('on')) : '' ?></summary>
 <p class="napoveda"><?= e(t('A backup on the same server as the site does not help if you lose the hosting. Each new database backup therefore uploads itself elsewhere, and the media/ folder is copied to the same place – only new and changed files, in the background.')) ?></p>
 <?php // 3.28 (D-W12, Core\RecoveryKey): the database leaves the server only encrypted – the copies wait until the recovery key is saved
 $remoteOn = $values['remote_backup'] !== 'vypnuto' && $values['remote_backup'] !== '';
@@ -151,7 +151,7 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <?php if ($backups !== []): ?>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Vytvořena')) ?></th><th scope="col"><?= e(t('Velikost')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Vytvořena')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php $filesSince = $app->settings()->get(Kaleta\Core\Applications::FILES_SINCE); ?>
 <?php foreach ($backups as $z):
@@ -161,7 +161,7 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 	<td><?= e($z['soubor']) ?><?php if ($missesCvs): ?> <span class="stitek" data-backup-misses-cvs title="<?= e(t('Older than the first encrypted CV of a job application on this site.')) ?>"><?= e(t('before the CVs')) ?></span><?php endif ?><?php if (Kaleta\Core\Backup::encrypted($z['soubor'])): // 3.31.1: uploaded back for a restore – it does not count as a backup made here ?> <span class="stitek" title="<?= e(t('An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.')) ?>"><?= e(t('uploaded copy')) ?></span><?php endif ?></td>
 	<td class="cislo"><?= e(format_date((new DateTimeImmutable())->setTimestamp((int) $z['cas']), true)) ?></td>
 	<td class="cislo"><?= format_count($z['velikost'] / 1024) ?> kB</td>
-	<td class="akce"><a href="<?= e($module->url('download_backup', ['file' => $z['soubor']])) ?>"><?= e(t('Download')) ?></a> · <button class="navigace" type="submit" formaction="<?= e($module->url('restore_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Restore the database from this backup? Everything added to the site since it was created (pages, news, enquiries, settings) will be lost. The current state is saved to a new backup first.') . ($missesCvs ? ' ' . t('This backup is older than the first encrypted CV of a job application here: applications received after it are not in it and their CVs cannot be opened after the restore (the files are removed after %d days); applications moved from Enquiries after it come back as enquiries, and their CVs open from the encrypted copies while the encryption key stays the same.', Kaleta\Core\Applications::ORPHAN_DAYS) : '')) ?>"><?= e(t('Restore')) ?></button> · <button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Delete backup?')) ?>"><?= e(t('Smazat')) ?></button></td>
+	<td class="akce"><a href="<?= e($module->url('download_backup', ['file' => $z['soubor']])) ?>"><?= e(t('Download')) ?></a> · <button class="navigace" type="submit" formaction="<?= e($module->url('restore_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Restore the database from this backup? Everything added to the site since it was created (pages, news, enquiries, settings) will be lost. The current state is saved to a new backup first.') . ($missesCvs ? ' ' . t('This backup is older than the first encrypted CV of a job application here: applications received after it are not in it and their CVs cannot be opened after the restore (the files are removed after %d days); applications moved from Enquiries after it come back as enquiries, and their CVs open from the encrypted copies while the encryption key stays the same.', Kaleta\Core\Applications::ORPHAN_DAYS) : '')) ?>"><?= e(t('Restore')) ?></button> · <button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Delete backup?')) ?>"><?= e(t('Delete')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>

@@ -58,7 +58,7 @@ $featuresUrl = $app->url('admin.php?module=extensions') . '#newsletter';
 $field('smtp_host', 'Server address', 'text', 'For example smtp.gmail.com, smtp.seznam.cz, smtp-relay.brevo.com or smtp.vasedomena.cz.', 'maxlength="120" placeholder="smtp.example.com" autocomplete="off"');
 ?>
 <div class="radek">
-	<label for="smtp_encryption"><?= e(t('Zabezpečení')) ?></label>
+	<label for="smtp_encryption"><?= e(t('Security')) ?></label>
 	<div><select id="smtp_encryption" name="smtp_encryption">
 		<option value="tls"<?= $values['smtp_encryption'] === 'tls' ? ' selected' : '' ?>><?= e(t('STARTTLS – port 587 (most common)')) ?></option>
 		<option value="ssl"<?= $values['smtp_encryption'] === 'ssl' ? ' selected' : '' ?>><?= e(t('SSL/TLS – port 465')) ?></option>

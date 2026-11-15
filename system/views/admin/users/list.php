@@ -37,9 +37,9 @@
 		/ <a href="<?= e($module->url('handover', ['id' => (int) $a['idu']])) ?>"><?= e(t('Hand over work')) ?></a>
 <?php endif ?>
 <?php if ((int) $a['idu'] !== $app->auth()->id() && isset($owned[(int) $a['idu']])): ?>
-		/ <a class="nebezpecne" href="<?= e($module->url('handover', ['id' => (int) $a['idu'], 'then' => 'delete'])) ?>"><?= e(t('Smazat')) ?></a>
+		/ <a class="nebezpecne" href="<?= e($module->url('handover', ['id' => (int) $a['idu'], 'then' => 'delete'])) ?>"><?= e(t('Delete')) ?></a>
 <?php elseif ((int) $a['idu'] !== $app->auth()->id()): ?>
-		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the user? Their news items will remain, without an author.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $a['idu'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Smazat')) ?></button></form>
+		/ <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Really delete the user? Their news items will remain, without an author.')) ?>"><?= $csrf ?><input type="hidden" name="idu" value="<?= (int) $a['idu'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 <?php endif ?>
 	</td>
 </tr>

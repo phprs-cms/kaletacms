@@ -42,7 +42,7 @@ $sources = ['enquiry' => 'from an enquiry', 'booking' => 'from a booking', 'subs
 	<a class="tl" href="<?= e($deals['newUrl']) ?>" data-record-new-deal><?= e(t('New deal')) ?></a>
 <?php endif ?>
 <?php if ($c['email'] !== ''): ?>
-	<a class="navigace" href="mailto:<?= e($c['email']) ?>" data-record-email><?= e(t('E-mail')) ?></a>
+	<a class="navigace" href="mailto:<?= e($c['email']) ?>" data-record-email><?= e(t('Email')) ?></a>
 <?php endif ?>
 <?php if ($phoneLink !== ''): ?>
 	<a class="navigace" href="tel:<?= e($phoneLink) ?>" data-record-call><?= e(t('Call')) ?></a>
@@ -103,7 +103,7 @@ $sources = ['enquiry' => 'from an enquiry', 'booking' => 'from a booking', 'subs
 	<dt><?= e(t('Company')) ?></dt><dd><a href="<?= e($module->url('company', ['id' => $company['id']])) ?>"><?= bdi($company['name']) ?></a></dd>
 <?php endif ?>
 <?php if ($c['email'] !== ''): ?>
-	<dt><?= e(t('E-mail')) ?></dt><dd><a href="mailto:<?= e($c['email']) ?>"><?= bdi($c['email']) ?></a></dd>
+	<dt><?= e(t('Email')) ?></dt><dd><a href="mailto:<?= e($c['email']) ?>"><?= bdi($c['email']) ?></a></dd>
 <?php endif ?>
 <?php if ($c['phone'] !== ''): ?>
 	<dt><?= e(t('Phone')) ?></dt><dd><a href="tel:<?= e($phoneLink) ?>"><?= bdi($c['phone']) ?></a></dd>

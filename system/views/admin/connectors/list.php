@@ -64,7 +64,7 @@
 	<div class="radek"><label for="c-<?= e($key . '-' . $name) ?>"><?= e(t($label)) ?></label><div><input class="textpole siroke" id="c-<?= e($key . '-' . $name) ?>" name="config[<?= e($name) ?>]" value="<?= e($config[$name] ?? '') ?>" maxlength="500"><?php if ($hint !== ''): ?> <span class="napoveda"><?= e(t($hint)) ?></span><?php endif ?></div></div>
 <?php endif ?>
 <?php endforeach ?>
-	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Uložit')) ?></button></p>
+	<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
 </details>
 <?php if ($key === Kaleta\Connectors\Google::KEY && $st['connected']): /* Search Console (Core\SearchData): the property is picked from the account's list */ ?>

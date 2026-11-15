@@ -115,7 +115,7 @@ $deletable = 0;
 	<?= $csrf ?>
 	<div class="tab-obal">
 	<table class="vypis cistka">
-	<thead><tr><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Popis pro nevidomé (alt)')) ?></th></tr></thead>
+	<thead><tr><th scope="col"></th><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Description for screen readers (alt)')) ?></th></tr></thead>
 	<tbody>
 <?php foreach ($withoutAlt as $o): ?>
 	<tr>

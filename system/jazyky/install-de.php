@@ -122,4 +122,9 @@ return [
     'Applications from your job openings apart from enquiries: their own list in Workspace for the people you choose, six statuses, CVs encrypted on the server, a retention of their own, and no customer record or deal.' => 'Bewerbungen auf Ihre Stellenangebote getrennt von Anfragen: eine eigene Liste im Arbeitsbereich für die Personen, die Sie wählen, sechs Status, auf dem Server verschlüsselte Lebensläufe, eine eigene Aufbewahrung und kein Kundendatensatz oder Deal.',
     'Quotes and internal prices' => 'Angebote und interne Preise',
     'Prices for your products that nobody outside sees, in one or more price lists, and numbered quotes made from them – from an enquiry or by hand, with VAT – in Workspace for the people you choose. Prices never reach the site, search, exports or blueprints.' => 'Preise für Ihre Produkte, die niemand von außen sieht, in einer oder mehreren Preislisten, und daraus nummerierte Angebote – aus einer Anfrage oder von Hand, mit MwSt. – im Arbeitsbereich für die Personen, die Sie wählen. Preise gelangen nie auf die Website, in die Suche, in Exporte oder Branchenvorlagen.',
+    'View the site' => 'Website ansehen',
+    'Username' => 'Benutzername',
+    'Shown with news posts.' => 'Wird bei News-Beiträgen angezeigt.',
+    'Password again' => 'Passwort wiederholen',
+    'Website language' => 'Sprache der Website',
 ];

@@ -20,12 +20,12 @@ $properties = array_merge($k['vlastnosti'], array_fill(0, 3, ['klic' => '', 'pop
 <p class="napoveda"><?= e(t('What can differ between uses of the component – heading, text, image, link. In the builder you insert them into the component with a {{key}} tag, then fill in a value for each use (empty = default).')) ?></p>
 <div class="tab-obal">
 <table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Typ')) ?></th><th scope="col"><?= e(t('Default value')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Label')) ?></th><th scope="col"><?= e(t('Type')) ?></th><th scope="col"><?= e(t('Default value')) ?></th><th scope="col"><?= e(t('Značka')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($properties as $i => $v): ?>
 <tr>
 	<td><input class="textpole" name="vlastnosti[<?= $i ?>][popisek]" value="<?= e($v['popisek']) ?>" maxlength="80" aria-label="<?= e(t('Label')) ?>"><input type="hidden" name="vlastnosti[<?= $i ?>][klic]" value="<?= e($v['klic']) ?>"></td>
-	<td><select name="vlastnosti[<?= $i ?>][typ]" aria-label="<?= e(t('Typ')) ?>">
+	<td><select name="vlastnosti[<?= $i ?>][typ]" aria-label="<?= e(t('Type')) ?>">
 <?php foreach (Components::TYPES as $type => $name): ?>
 		<option value="<?= e($type) ?>"<?= $v['typ'] === $type ? ' selected' : '' ?>><?= e(t($name)) ?></option>
 <?php endforeach ?>

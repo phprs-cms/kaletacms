@@ -20,7 +20,7 @@ $ownerId = (int) ($draft['owner_id'] ?? $c['owner_id'] ?? 0);
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-contact-form>
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
 	<div class="radek"><label for="kontakt-jmeno"><?= e(t('Full name')) ?></label><div><input class="textpole siroke" type="text" id="kontakt-jmeno" name="name" maxlength="150" value="<?= e($value('name')) ?>" autocomplete="off"></div></div>
-	<div class="radek"><label for="kontakt-email"><?= e(t('E-mail')) ?></label><div><input class="textpole siroke" type="email" id="kontakt-email" name="email" maxlength="190" value="<?= e($value('email')) ?>" autocomplete="off">
+	<div class="radek"><label for="kontakt-email"><?= e(t('Email')) ?></label><div><input class="textpole siroke" type="email" id="kontakt-email" name="email" maxlength="190" value="<?= e($value('email')) ?>" autocomplete="off">
 		<span class="napoveda"><?= e(t('One contact per e-mail address – new enquiries, bookings and subscriptions from it join this contact.')) ?></span></div></div>
 	<div class="radek"><label for="kontakt-telefon"><?= e(t('Phone')) ?></label><div><input class="textpole" type="tel" id="kontakt-telefon" name="phone" maxlength="40" value="<?= e($value('phone')) ?>" autocomplete="off"></div></div>
 	<div class="radek"><label for="kontakt-firma"><?= e(t('Company')) ?></label><div><select id="kontakt-firma" name="company_id"><option value="0">—</option>

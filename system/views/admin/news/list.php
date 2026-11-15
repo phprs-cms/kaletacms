@@ -60,7 +60,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 	</label>
 <?php endif ?>
 	<label><?= e(t('Headline contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" size="20"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filtrovat')) ?>">
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 	(<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
 <br>
@@ -81,7 +81,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <div class="tab-obal">
 <table class="vypis">
 <thead>
-<tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col" class="stred"><?= e(t('Select')) ?></th></tr>
+<tr><th scope="col"><?= e(t('Headline')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('In trash since')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col" class="stred"><?= e(t('Select')) ?></th></tr>
 </thead>
 <tbody>
 <?php foreach ($news as $c): ?>
@@ -110,7 +110,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <div class="tab-obal">
 <table class="vypis">
 <thead>
-<tr><th scope="col"><?= e(t('Titulek')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Publish date')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col"><?= e(t('Select')) ?></th></tr>
+<tr><th scope="col"><?= e(t('Headline')) ?></th><th scope="col"><?= e(t('Categories')) ?></th><th scope="col"><?= e(t('Author')) ?></th><th scope="col"><?= e(t('Publish date')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Actions')) ?></th><th scope="col"><?= e(t('Select')) ?></th></tr>
 </thead>
 <tbody>
 <?php foreach ($news as $c): ?>

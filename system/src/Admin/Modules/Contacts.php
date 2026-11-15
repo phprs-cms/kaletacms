@@ -494,7 +494,7 @@ final class Contacts extends Module
         }
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Number'), t('Full name'), t('E-mail'), t('Phone'), t('Company'), t('Responsible person'), t('Language'), t('Source'), t('First contact'),
+        fputcsv($f, [t('Number'), t('Full name'), t('Email'), t('Phone'), t('Company'), t('Responsible person'), t('Language'), t('Source'), t('First contact'),
             t('Last activity'), t('Enquiries'), t('Bookings'), t('Subscribed')], ';', '"', '');
         $last = 0;
         do {

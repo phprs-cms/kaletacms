@@ -36,7 +36,7 @@ foreach ($parents as $parent) {
 <input type="hidden" name="jazyk" value="<?= e($language) ?>">
 <div class="radek"><label for="name"><?= e(t('Název')) ?></label><div><input class="textpole siroke" id="name" name="name" value="<?= e($texts['name']) ?>" maxlength="200" required
 	placeholder="<?= e($language !== '' ? (string) ($category['texts']['']['name'] ?? '') : '') ?>"></div></div>
-<div class="radek"><label for="slug"><?= e(t('Adresa')) ?></label><div><input class="textpole" id="slug" name="slug" value="<?= e($texts['slug']) ?>" maxlength="160">
+<div class="radek"><label for="slug"><?= e(t('URL')) ?></label><div><input class="textpole" id="slug" name="slug" value="<?= e($texts['slug']) ?>" maxlength="160">
 	<span class="napoveda">/<?= $language !== '' ? e($language) . '/' : '' ?><?= e($k['seo_link']) ?>/<?= e($parentPath) ?>… <?= e(t('From the name if left empty. It cannot be the address of an item of this collection.')) ?></span></div></div>
 <div class="radek pres-celou"><label for="description"><?= e(t('Description')) ?></label><div><textarea class="textbox" id="description" name="description" rows="8" data-editor><?= e($texts['description']) ?></textarea>
 	<span class="napoveda"><?= e(t('Shown on the category page ({{popis}} in the category template) – an introduction for visitors and search engines.')) ?></span></div></div>
@@ -56,7 +56,7 @@ foreach ($parents as $parent) {
 </select><?php if ($hasChildren): ?><input type="hidden" name="parent_id" value="0"> <span class="napoveda"><?= e(t('It has subcategories, so it stays a top-level category.')) ?></span><?php endif ?></div></div>
 <div class="radek"><label for="image"><?= e(t('Image')) ?></label><div><input class="textpole siroke" id="image" name="image" value="<?= e($category['image']) ?>" maxlength="255" data-obrazek>
 	<span class="napoveda"><?= e(t('Shown on the category page and its card ({{obrazek}}) and when the page is shared.')) ?></span></div></div>
-<div class="radek"><label for="sort_order"><?= e(t('Pořadí')) ?></label><div><input class="textpole" type="number" id="sort_order" name="sort_order" value="<?= (int) $category['sort_order'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
+<div class="radek"><label for="sort_order"><?= e(t('Order')) ?></label><div><input class="textpole" type="number" id="sort_order" name="sort_order" value="<?= (int) $category['sort_order'] ?>" min="-9999" max="9999"><span class="napoveda"><?= e(t('Smaller number = earlier in the list.')) ?></span></div></div>
 <div class="radek"><span class="popisek"><?= e(t('Display')) ?></span><div class="volby"><label><input type="checkbox" name="visible" value="1"<?= $category['visible'] ? ' checked' : '' ?>> <?= e(t('published on the site')) ?></label>
 	<span class="napoveda"><?= e(t('A hidden category has no page and is in no list; its items stay where they are.')) ?></span></div></div>
 </fieldset>

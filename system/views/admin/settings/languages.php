@@ -7,7 +7,7 @@
 <fieldset>
 <legend><?= e(t('Languages')) ?></legend>
 <div class="radek">
-	<label for="site_language"><?= e(t('Jazyk webu')) ?></label>
+	<label for="site_language"><?= e(t('Site language')) ?></label>
 	<div><select id="site_language" name="site_language">
 <?php foreach (Kaleta\Core\Language::AVAILABLE as $code => [$languageName]): ?>
 		<option value="<?= e($code) ?>"<?= $values['site_language'] === $code ? ' selected' : '' ?>><?= e($languageName) ?><?= Kaleta\Core\Language::hasVisitorTexts($code) ? '' : ' – ' . e(t('visitor texts in English')) ?></option>
