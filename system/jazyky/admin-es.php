@@ -8913,4 +8913,9 @@ return [
     'Uncategorized' => 'Sin categoría',
     'The restore failed: %s' => 'La restauración falló: %s',
     'URL' => 'URL',
+    'Only chosen departments' => 'Solo los departamentos elegidos',
+    'departments only' => 'solo departamentos',
+    'Choose at least one department for a folder limited to departments.' => 'Elige al menos un departamento para una carpeta limitada a departamentos.',
+    'No departments yet – create them in Users → Departments to limit a folder to a team.' => 'Todavía no hay departamentos: créalos en Usuarios → Departamentos para limitar una carpeta a un equipo.',
+    'Only for a folder limited to departments – members of a department below a chosen one see it too.' => 'Solo para una carpeta limitada a departamentos: también la ven los miembros de un departamento por debajo del elegido.',
 ];

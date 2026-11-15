@@ -152,7 +152,7 @@ final class InternalFiles extends Module
             return $this->error('The folder does not exist.', 404);
         }
 
-        return $this->view('folder', $folder !== null ? $folder['name'] : 'New folder', ['folder' => $folder, 'roles' => Library::roles($this->db)]);
+        return $this->view('folder', $folder !== null ? $folder['name'] : 'New folder', ['folder' => $folder, 'roles' => Library::roles($this->db), 'departments' => Library::departments($this->db)]);
     }
 
     protected function actionFolderSave(): Response
@@ -162,7 +162,8 @@ final class InternalFiles extends Module
             return $this->back();
         }
         $saved = Library::saveFolder($this->app, ['name' => $this->request->post('name'), 'description' => $this->request->post('description'),
-            'audience' => $this->request->post('audience'), 'roles' => $this->request->postList('roles')], $id);
+            'audience' => $this->request->post('audience'), 'roles' => $this->request->postList('roles'),
+            'departments' => $this->request->postList('departments')], $id);
         if (is_string($saved)) {
             return $this->back(t($saved), 'folder', $id > 0 ? ['id' => $id] : [], 'chyba');
         }

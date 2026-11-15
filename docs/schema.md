@@ -1020,15 +1020,15 @@ Keys: `PRIMARY KEY (year)`.
 
 ## ka_internal_folders
 
-3.42: internal files (Core\InternalFiles, admin Workspace → Internal files) – a document library for the team that is never public: no page, search, sitemap, llms.txt, export, blueprint, page package, heartbeat or media picker reads these tables (a unit test keeps them inside the allowed classes). The files live in storage/internal-files/ under random names, outside media/, and are served only through the admin action with the right to the folder. A folder is seen by everyone with the section (audience all) or only by the custom roles in roles (audience roles); administrators see every folder.
+3.42: internal files (Core\InternalFiles, admin Workspace → Internal files) – a document library for the team that is never public: no page, search, sitemap, llms.txt, export, blueprint, page package, heartbeat or media picker reads these tables (a unit test keeps them inside the allowed classes). The files live in storage/internal-files/ under random names, outside media/, and are served only through the admin action with the right to the folder. A folder is seen by everyone with the section (audience all), only by the custom roles in roles (audience roles) or only by the members of the departments in roles and of the departments below them (audience depts); administrators see every folder.
 
 | Column | English | Type | Note |
 |---|---|---|---|
 | `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
 | `name` |  | VARCHAR(120) NOT NULL |  |
 | `description` |  | VARCHAR(500) NOT NULL DEFAULT '' |  |
-| `audience` |  | VARCHAR(10) NOT NULL DEFAULT 'all' | all \| roles |
-| `roles` |  | VARCHAR(500) NOT NULL DEFAULT '' | with audience roles: comma-separated ka_role ids |
+| `audience` |  | VARCHAR(10) NOT NULL DEFAULT 'all' | all \| roles \| depts |
+| `roles` |  | VARCHAR(500) NOT NULL DEFAULT '' | roles: comma-separated ka_role ids; depts: d<ka_departments.id>, comma-separated |
 | `created_by` |  | INT UNSIGNED NULL |  |
 | `created_at` |  | DATETIME NOT NULL |  |
 | `updated_at` |  | DATETIME NOT NULL |  |

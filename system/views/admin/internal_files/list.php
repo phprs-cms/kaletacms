@@ -5,8 +5,8 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\InternalFiles $module
  * @var string $csrf
- * @var list<array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}> $folders
- * @var array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}|null $current
+ * @var list<array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}> $folders
+ * @var array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}|null $current
  * @var array{folder: int, search: string, tag: string, status: string} $query
  * @var array{rows: list<array<string, mixed>>, total: int} $result
  * @var int $page
@@ -29,7 +29,7 @@ $here = array_filter(['folder' => $query['folder']]) + $filters;
 <nav class="zalozky" aria-label="<?= e(t('Folders')) ?>">
 	<a href="<?= e($module->url('', $filters)) ?>"<?= $current === null ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('All folders')) ?></a>
 <?php foreach ($folders as $f): ?>
-	<a href="<?= e($module->url('', ['folder' => $f['id']] + $filters)) ?>"<?= $current !== null && $current['id'] === $f['id'] ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($f['name']) ?> (<?= (int) $f['files'] ?>)<?= $f['audience'] === 'roles' ? ' <span class="stitek">' . e(t('roles only')) . '</span>' : '' ?></a>
+	<a href="<?= e($module->url('', ['folder' => $f['id']] + $filters)) ?>"<?= $current !== null && $current['id'] === $f['id'] ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($f['name']) ?> (<?= (int) $f['files'] ?>)<?= $f['audience'] === 'roles' ? ' <span class="stitek">' . e(t('roles only')) . '</span>' : ($f['audience'] === 'depts' ? ' <span class="stitek">' . e(t('departments only')) . '</span>' : '') ?></a>
 <?php endforeach ?>
 </nav>
 <?php if ($current !== null && ($current['description'] !== '' || $admin)): ?>

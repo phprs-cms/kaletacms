@@ -16,8 +16,9 @@ namespace Kaleta\Core;
  *    classes. The only way out is the admin action download (signed in, with the section and the folder: attachment,
  *    no-store, nosniff) and the MCP tools, which never pass the bytes – only the text of a small text document.
  *  - Who: the section internal_files (granted explicitly – after the update only administrators have it, others get it in
- *    Users or Roles). A folder is for everyone with the section (audience all) or only for chosen custom roles (audience
- *    roles; administrators always see every folder) – audienceMatches() is the one rule, the hook for departments later.
+ *    Users or Roles). A folder is for everyone with the section (audience all), only for chosen custom roles (audience
+ *    roles) or only for chosen departments and the departments below them (audience depts, Core\Departments; the ids are
+ *    stored as d<id> in the roles column); administrators always see every folder – audienceMatches() is the one rule.
  *    Folders are created, changed and deleted by administrators; files are uploaded, replaced and described by anyone who
  *    sees the folder; a file is deleted by an administrator or the person who uploaded it.
  *  - Uploads: the attachments of Media (Files::FILE_EXTENSIONS without fonts), images, Markdown and SVG (cleaned by
@@ -44,7 +45,7 @@ final class InternalFiles
     /** Rows per page of the list. */
     public const int PAGE = 50;
 
-    public const array AUDIENCES = ['all' => 'Everyone with Internal files', 'roles' => 'Only chosen roles'];
+    public const array AUDIENCES = ['all' => 'Everyone with Internal files', 'roles' => 'Only chosen roles', 'depts' => 'Only chosen departments'];
 
     public const array STATUSES = ['ready' => 'Ready', 'draft' => 'Draft'];
 
@@ -73,14 +74,15 @@ final class InternalFiles
     }
 
     /**
-     * Does a folder's audience include the user? The one rule of who sees a folder (pure): an administrator always; audience
-     * all = everyone with the section; audience roles = the user's custom role (ka_uzivatele.role) is one of the folder's.
-     * Departments (a later release) join here as one more audience – the callers stay as they are.
+     * Does a folder's audience include the user? The one rule of who sees a folder: an administrator always; audience
+     * all = everyone with the section; audience roles = the user's custom role (ka_uzivatele.role) is one of the folder's;
+     * audience depts = the user belongs to one of the folder's departments or a department below it (needs the database –
+     * without it nobody but an administrator matches).
      *
      * @param array<string, mixed> $folder a row of ka_internal_folders
      * @param array<string, mixed>|null $user a row of ka_uzivatele
      */
-    public static function audienceMatches(array $folder, ?array $user): bool
+    public static function audienceMatches(array $folder, ?array $user, ?Db $db = null): bool
     {
         if ($user === null) {
             return false;
@@ -88,7 +90,21 @@ final class InternalFiles
         if ((int) ($user['admin'] ?? -1) === Auth::ADMIN) {
             return true;
         }
-        if ((string) ($folder['audience'] ?? 'all') !== 'roles') {
+        $audience = (string) ($folder['audience'] ?? 'all');
+        if ($audience === 'depts') {
+            $userId = (int) ($user['idu'] ?? 0);
+            if ($db === null || $userId <= 0) {
+                return false;
+            }
+            foreach (self::departmentIds((string) ($folder['roles'] ?? '')) as $department) {
+                if (Departments::userIn($db, $userId, $department)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        if ($audience !== 'roles') {
             return true;
         }
         $role = (int) ($user['role'] ?? 0);
@@ -104,6 +120,23 @@ final class InternalFiles
     public static function roleIds(string $roles): array
     {
         return array_values(array_unique(array_filter(array_map('intval', explode(',', $roles)), fn (int $id): bool => $id > 0)));
+    }
+
+    /**
+     * The department ids of a folder's roles column – the d<id> items (pure).
+     *
+     * @return list<int>
+     */
+    public static function departmentIds(string $roles): array
+    {
+        $out = [];
+        foreach (explode(',', $roles) as $item) {
+            if (preg_match('/^d([1-9][0-9]*)$/', trim($item), $m) === 1 && !in_array((int) $m[1], $out, true)) {
+                $out[] = (int) $m[1];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -192,7 +225,7 @@ final class InternalFiles
     /**
      * The folders the signed-in user sees, A–Z, with the number of files in each.
      *
-     * @return list<array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}>
+     * @return list<array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}>
      */
     public static function folders(App $app): array
     {
@@ -202,7 +235,7 @@ final class InternalFiles
         $user = $app->auth()->user();
         $out = [];
         foreach ($app->db()->all('SELECT f.*, (SELECT COUNT(*) FROM {internal_files} x WHERE x.folder_id = f.id) AS files FROM {internal_folders} f ORDER BY f.name') as $row) {
-            if (self::audienceMatches($row, $user)) {
+            if (self::audienceMatches($row, $user, $app->db())) {
                 $out[] = self::folderOut($row);
             }
         }
@@ -213,7 +246,7 @@ final class InternalFiles
     /**
      * One folder the user sees, or null (not there, or not for them).
      *
-     * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}|null
+     * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}|null
      */
     public static function folder(App $app, int $id): ?array
     {
@@ -222,17 +255,18 @@ final class InternalFiles
         }
         $row = $app->db()->one('SELECT f.*, (SELECT COUNT(*) FROM {internal_files} x WHERE x.folder_id = f.id) AS files FROM {internal_folders} f WHERE f.id = ?', [$id]);
 
-        return $row !== null && self::audienceMatches($row, $app->auth()->user()) ? self::folderOut($row) : null;
+        return $row !== null && self::audienceMatches($row, $app->auth()->user(), $app->db()) ? self::folderOut($row) : null;
     }
 
     /**
      * @param array<string, mixed> $row
-     * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}
+     * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}
      */
     private static function folderOut(array $row): array
     {
         return ['id' => (int) $row['id'], 'name' => (string) $row['name'], 'description' => (string) $row['description'],
-            'audience' => (string) $row['audience'] === 'roles' ? 'roles' : 'all', 'roles' => self::roleIds((string) $row['roles']), 'files' => (int) ($row['files'] ?? 0)];
+            'audience' => in_array((string) $row['audience'], ['roles', 'depts'], true) ? (string) $row['audience'] : 'all', 'roles' => self::roleIds((string) $row['roles']),
+            'departments' => self::departmentIds((string) $row['roles']), 'files' => (int) ($row['files'] ?? 0)];
     }
 
     /**
@@ -251,10 +285,25 @@ final class InternalFiles
     }
 
     /**
+     * The departments a folder may be limited to (Core\Departments, a tree): id => name indented by its depth.
+     *
+     * @return array<int, string>
+     */
+    public static function departments(Db $db): array
+    {
+        $out = [];
+        foreach (Departments::tree($db) as $d) {
+            $out[$d['id']] = str_repeat('– ', $d['depth']) . $d['name'];
+        }
+
+        return $out;
+    }
+
+    /**
      * Creates or changes a folder (administrators only). Returns the folder or the English refusal.
      *
-     * @param array<string, mixed> $data name, description, audience, roles (list of ids or a comma-separated text)
-     * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}|string
+     * @param array<string, mixed> $data name, description, audience, roles and departments (lists of ids or comma-separated texts)
+     * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}|string
      */
     public static function saveFolder(App $app, array $data, int $id = 0): array|string
     {
@@ -272,15 +321,23 @@ final class InternalFiles
         if ($db->value('SELECT 1 FROM {internal_folders} WHERE name = ? AND id <> ?', [$name, $id]) !== null) {
             return 'A folder of that name already exists.';
         }
-        $audience = (string) ($data['audience'] ?? 'all') === 'roles' ? 'roles' : 'all';
-        $known = array_keys(self::roles($db));
-        $wanted = is_array($data['roles'] ?? null) ? implode(',', array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $data['roles'])) : (string) ($data['roles'] ?? '');
-        $roles = array_values(array_intersect(self::roleIds($wanted), $known));
+        $audience = in_array((string) ($data['audience'] ?? 'all'), ['roles', 'depts'], true) ? (string) $data['audience'] : 'all';
+        $list = fn (mixed $value): string => is_array($value) ? implode(',', array_map(fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $value)) : (is_scalar($value) ? (string) $value : '');
+        $roles = array_values(array_intersect(self::roleIds($list($data['roles'] ?? '')), array_keys(self::roles($db))));
         if ($audience === 'roles' && $roles === []) {
             return 'Choose at least one role for a folder limited to roles.';
         }
+        $departments = array_values(array_intersect(self::roleIds($list($data['departments'] ?? '')), array_keys(self::departments($db))));
+        if ($audience === 'depts' && $departments === []) {
+            return 'Choose at least one department for a folder limited to departments.';
+        }
+        $stored = match ($audience) {
+            'roles' => implode(',', $roles),
+            'depts' => implode(',', array_map(fn (int $id): string => 'd' . $id, $departments)),
+            default => '',
+        };
         $row = ['name' => $name, 'description' => mb_substr(trim((string) ($data['description'] ?? '')), 0, 500), 'audience' => $audience,
-            'roles' => $audience === 'roles' ? implode(',', $roles) : '', 'updated_at' => Clock::now()];
+            'roles' => $stored, 'updated_at' => Clock::now()];
         if ($id > 0) {
             $db->update('internal_folders', $row, ['id' => $id]);
         } else {
@@ -364,7 +421,7 @@ final class InternalFiles
         $db = $app->db();
         $row = $db->one('SELECT f.*, d.name AS folder_name, d.audience, d.roles, u.jmeno AS updated_by_name, c.jmeno AS created_by_name FROM {internal_files} f JOIN {internal_folders} d ON d.id = f.folder_id'
             . ' LEFT JOIN {uzivatele} u ON u.idu = f.updated_by LEFT JOIN {uzivatele} c ON c.idu = f.created_by WHERE f.id = ?', [$id]);
-        if ($row === null || !self::audienceMatches($row, $app->auth()->user())) {
+        if ($row === null || !self::audienceMatches($row, $app->auth()->user(), $app->db())) {
             return null;
         }
         $file = self::fileOut($row);

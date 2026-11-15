@@ -8893,4 +8893,9 @@ return [
     'Uncategorized' => 'Nicht zugeordnet',
     'The restore failed: %s' => 'Wiederherstellung fehlgeschlagen: %s',
     'Detail' => 'Detail',
+    'Only chosen departments' => 'Nur ausgewählte Abteilungen',
+    'departments only' => 'nur Abteilungen',
+    'Choose at least one department for a folder limited to departments.' => 'Wählen Sie für einen auf Abteilungen beschränkten Ordner mindestens eine Abteilung.',
+    'No departments yet – create them in Users → Departments to limit a folder to a team.' => 'Noch keine Abteilungen – legen Sie sie unter Benutzer → Abteilungen an, um einen Ordner auf ein Team zu beschränken.',
+    'Only for a folder limited to departments – members of a department below a chosen one see it too.' => 'Nur für einen auf Abteilungen beschränkten Ordner – auch Mitglieder einer Abteilung unterhalb einer ausgewählten sehen ihn.',
 ];

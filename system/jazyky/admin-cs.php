@@ -8486,4 +8486,9 @@ return [
     'Description for screen readers (alt)' => 'Popis pro nevidomé (alt)',
     'Uncategorized' => 'Nezařazené',
     'The restore failed: %s' => 'Obnova se nezdařila: %s',
+    'Only chosen departments' => 'Jen vybraná oddělení',
+    'departments only' => 'jen oddělení',
+    'Choose at least one department for a folder limited to departments.' => 'U složky omezené na oddělení vyberte aspoň jedno oddělení.',
+    'No departments yet – create them in Users → Departments to limit a folder to a team.' => 'Zatím žádná oddělení – vytvořte je v Uživatelé → Oddělení, chcete-li složku omezit na tým.',
+    'Only for a folder limited to departments – members of a department below a chosen one see it too.' => 'Jen u složky omezené na oddělení – vidí ji i členové oddělení pod vybraným.',
 ];

@@ -137,7 +137,7 @@ trait InternalFileTools
     /**
      * A folder the user sees, by its id or its exact name (case aside).
      *
-     * @param list<array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}> $folders
+     * @param list<array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}> $folders
      */
     private function internalFolder(mixed $wanted, array $folders): int
     {

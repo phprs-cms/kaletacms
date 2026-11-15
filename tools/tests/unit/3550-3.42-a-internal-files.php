@@ -20,6 +20,14 @@ check('3.42 A: InternalFiles::audienceMatches – everyone with the section for 
     InternalFiles::audienceMatches(['audience' => 'roles', 'roles' => ''], $i342Editor)],
     [true, true, false, true, false, false, false]);
 
+// 3.42 wiring: departments are one more audience (audience depts, ids stored as d<id> in the roles column); membership
+// needs the database (Departments::userIn, sub-departments included) – without it only an administrator matches
+check('3.42: InternalFiles::departmentIds reads only the d<id> items; role ids never take them; audience depts without the database is administrators only', [
+    InternalFiles::departmentIds('d3, d7,4,dx,d0,d3,7'), InternalFiles::roleIds('d3,d7'), InternalFiles::departmentIds('4,9'),
+    InternalFiles::audienceMatches(['audience' => 'depts', 'roles' => 'd3'], $i342Editor + ['idu' => 5]), InternalFiles::audienceMatches(['audience' => 'depts', 'roles' => 'd3'], $i342Admin),
+    InternalFiles::audienceMatches(['audience' => 'depts', 'roles' => 'd3'], null), array_key_exists('depts', InternalFiles::AUDIENCES)],
+    [[3, 7], [], [], false, true, false, true]);
+
 check('3.42 A: role ids, tags, names and extensions as stored (pure)', [
     InternalFiles::roleIds('4, 9,x,0,4,-2'), InternalFiles::tags(' contract, HR ,hr,, 2026 '), InternalFiles::tags(['a', "b\nc", '']), count(InternalFiles::tags(implode(',', range(1, 30)))),
     InternalFiles::safeName("../../etc/pass\x00wd.pdf"), InternalFiles::safeName('  Price list 2026.xlsx  '), InternalFiles::extension('Report.PDF'), InternalFiles::extension('page.html'),

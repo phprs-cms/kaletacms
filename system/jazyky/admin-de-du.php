@@ -1450,4 +1450,6 @@ return [
     'Enter the name of the department.' => 'Gib den Namen der Abteilung ein.',
     'Only these choices – never write health or other private details.' => 'Nur diese Auswahl – trag nie Gesundheits- oder andere private Angaben ein.',
     'Add the first one below, e.g. Sales or Production.' => 'Leg unten die erste an, z. B. Vertrieb oder Produktion.',
+    'Choose at least one department for a folder limited to departments.' => 'Wähle für einen auf Abteilungen beschränkten Ordner mindestens eine Abteilung.',
+    'No departments yet – create them in Users → Departments to limit a folder to a team.' => 'Noch keine Abteilungen – lege sie unter Benutzer → Abteilungen an, um einen Ordner auf ein Team zu beschränken.',
 ];

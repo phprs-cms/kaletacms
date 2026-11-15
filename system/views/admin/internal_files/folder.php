@@ -4,8 +4,9 @@
  *
  * @var Kaleta\Admin\Modules\InternalFiles $module
  * @var string $csrf
- * @var array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}|null $folder
+ * @var array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}|null $folder
  * @var array<int, string> $roles the custom roles, id => name
+ * @var array<int, string> $departments the departments as a tree, id => indented name
  */
 use Kaleta\Core\InternalFiles;
 
@@ -31,6 +32,13 @@ $audience = $folder['audience'] ?? 'all';
 <div class="radek"><span><?= e(t('Roles')) ?></span><div>
 <?php foreach ($roles as $id => $name): ?><label><input type="checkbox" name="roles[]" value="<?= (int) $id ?>"<?= in_array($id, $folder['roles'] ?? [], true) ? ' checked' : '' ?>> <?= e($name) ?></label> <?php endforeach ?>
 <span class="napoveda"><?= e(t('Only for a folder limited to roles. Administrators always see every folder; the section Internal files is given in Users or Roles.')) ?></span></div></div>
+<?php endif ?>
+<?php if ($departments === []): ?>
+<p class="smltxt"><?= e(t('No departments yet – create them in Users → Departments to limit a folder to a team.')) ?></p>
+<?php else: ?>
+<div class="radek"><span><?= e(t('Departments')) ?></span><div>
+<?php foreach ($departments as $id => $name): ?><label><input type="checkbox" name="departments[]" value="<?= (int) $id ?>"<?= in_array($id, $folder['departments'] ?? [], true) ? ' checked' : '' ?>> <?= e($name) ?></label> <?php endforeach ?>
+<span class="napoveda"><?= e(t('Only for a folder limited to departments – members of a department below a chosen one see it too.')) ?></span></div></div>
 <?php endif ?>
 </fieldset>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>">

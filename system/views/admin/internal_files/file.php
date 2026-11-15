@@ -7,7 +7,7 @@
  * @var Kaleta\Admin\Modules\InternalFiles $module
  * @var string $csrf
  * @var array<string, mixed> $file
- * @var list<array{id: int, name: string, description: string, audience: string, roles: list<int>, files: int}> $folders
+ * @var list<array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}> $folders
  * @var bool $mayDelete
  * @var string $limit
  */

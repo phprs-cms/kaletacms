@@ -134,4 +134,36 @@ for R342A_ID in $R342A_GENERAL $R342A_BOARD; do
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=internal_files&action=folder_delete" -d "_csrf=$TOKEN" -d "id=$R342A_ID"
 done
 expect "3.42 A: empty folders are deleted" "$(sq "SELECT COUNT(*) FROM ka_internal_folders WHERE name LIKE 'R342a%'")|$(sq "SELECT COUNT(*) FROM ka_internal_files")" "0|0"
+# 3.42 wiring: a folder for chosen departments – members see it, members of a department below see it, others do not
+R342A_DEPT=$(sq "INSERT INTO ka_departments (name, created_at, updated_at) VALUES ('R342a Sales', NOW(), NOW()); SELECT LAST_INSERT_ID();")
+R342A_SUBDEPT=$(sq "INSERT INTO ka_departments (name, parent_id, created_at, updated_at) VALUES ('R342a Export', $R342A_DEPT, NOW(), NOW()); SELECT LAST_INSERT_ID();")
+R342A_OTHERDEPT=$(sq "INSERT INTO ka_departments (name, created_at, updated_at) VALUES ('R342a Support', NOW(), NOW()); SELECT LAST_INSERT_ID();")
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=internal_files&action=folder_save" -d "_csrf=$TOKEN" -d "name=R342a Sales docs" -d audience=depts -d "departments[]=$R342A_DEPT" -d "roles[]=$R342A_ROLE"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=internal_files&action=folder_save" -d "_csrf=$TOKEN" -d "name=R342a No departments" -d audience=depts -d "departments[]=999999"
+R342A_SALES=$(sq "SELECT id FROM ka_internal_folders WHERE name = 'R342a Sales docs'")
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/r342a.html" "$B/admin.php?module=internal_files&action=folder&id=$R342A_SALES"
+expect "3.42: a folder for departments stores only the chosen known departments, needs one, and the form shows them ticked" \
+  "$(sq "SELECT CONCAT(audience, ':', roles) FROM ka_internal_folders WHERE id = '$R342A_SALES'")|$(sq "SELECT COUNT(*) FROM ka_internal_folders WHERE name = 'R342a No departments'")|$(grep -c "name=\"departments\[\]\" value=\"$R342A_DEPT\" checked" "$WORK/r342a.html")|$(grep -c "value=\"depts\" checked" "$WORK/r342a.html")" \
+  "depts:d$R342A_DEPT|0|1|1"
+printf 'sales targets R342a\n' > "$WORK/targets.txt"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=internal_files&action=upload" -F "_csrf=$TOKEN" -F "folder_id=$R342A_SALES" -F "file=@$WORK/targets.txt"
+R342A_TARGETS=$(sq "SELECT id FROM ka_internal_files WHERE folder_id = '$R342A_SALES' AND name = 'targets.txt'")
+sq "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) VALUES ($R342A_EVA, 'internal_files'); UPDATE ka_uzivatele SET role = $R342A_ROLE, department_id = $R342A_OTHERDEPT WHERE idu = $R342A_EVA" > /dev/null
+curl -s -b "$JAR_R342A" -c "$JAR_R342A" -o "$WORK/r342a.html" "$B/admin.php?module=internal_files"
+expect "3.42: a colleague of another department (even with a role the old audience knew) does not see the folder or its file" \
+  "$(grep -c 'R342a Sales docs' "$WORK/r342a.html")|$(curl -s -b "$JAR_R342A" -c "$JAR_R342A" -o /dev/null -w '%{http_code}' "$B/admin.php?module=internal_files&action=download&id=$R342A_TARGETS")" "0|404"
+sq "UPDATE ka_uzivatele SET department_id = $R342A_DEPT WHERE idu = $R342A_EVA" > /dev/null
+curl -s -b "$JAR_R342A" -c "$JAR_R342A" -o "$WORK/r342a.down" "$B/admin.php?module=internal_files&action=download&id=$R342A_TARGETS"
+expect "3.42: a member of the chosen department downloads the file" "$(cmp -s "$WORK/r342a.down" "$WORK/targets.txt" && echo same)" "same"
+sq "UPDATE ka_uzivatele SET role = NULL, department_id = $R342A_SUBDEPT WHERE idu = $R342A_EVA" > /dev/null
+curl -s -b "$JAR_R342A" -c "$JAR_R342A" -o "$WORK/r342a.html" "$B/admin.php?module=internal_files"
+curl -s -b "$JAR_R342A" -c "$JAR_R342A" -o "$WORK/r342a.down" "$B/admin.php?module=internal_files&action=download&id=$R342A_TARGETS"
+mcp_call "$R342A_EVATOKEN" list_internal_files '{"folder":"R342a Sales docs"}' > "$WORK/response"; mcp_text
+expect "3.42: a member of a department below the chosen one sees the folder (marked departments only), downloads the file, and MCP lists it" \
+  "$(grep -c 'R342a Sales docs' "$WORK/r342a.html" | sed 's/^[1-9][0-9]*$/yes/')|$(grep -c 'departments only' "$WORK/r342a.html" | sed 's/^[1-9][0-9]*$/yes/')|$(cmp -s "$WORK/r342a.down" "$WORK/targets.txt" && echo same)|$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); $f = array_column($j["folders"] ?? [], "audience", "name"); echo $f["R342a Sales docs"] ?? "-", "|", $j["files"][0]["name"] ?? "-";' -- "$WORK/text")" \
+  "yes|yes|same|depts|targets.txt"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=internal_files&action=delete" -d "_csrf=$TOKEN" -d "id=$R342A_TARGETS"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=internal_files&action=folder_delete" -d "_csrf=$TOKEN" -d "id=$R342A_SALES"
+sq "UPDATE ka_uzivatele SET department_id = NULL WHERE idu = $R342A_EVA; DELETE FROM ka_departments WHERE id IN ($R342A_DEPT, $R342A_SUBDEPT, $R342A_OTHERDEPT)" > /dev/null
+expect "3.42: the department folder is deleted" "$(sq "SELECT COUNT(*) FROM ka_internal_folders WHERE name LIKE 'R342a%'")" "0"
 sq "DELETE FROM ka_api_tokeny WHERE nazev LIKE 'r342a %'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R342A_EVA; DELETE FROM ka_uzivatele WHERE idu = $R342A_EVA; DELETE FROM ka_role WHERE idr = $R342A_ROLE" > /dev/null
