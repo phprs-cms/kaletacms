@@ -24,7 +24,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Parametry adresy (query) jsou vždy anglicky** (`preview_key`, `build`, `page`, `search`, `status`, `item`…) – v odkazech, formulářích s GET, `Request::get*()`,
   JS i testech; hodnoty a názvy polí v POST zůstávají, jak jsou. Dřívější české názvy fungují dál jako aliasy (`Request::LEGACY_QUERY`, `get*()`/`has()` je zkusí, když chybí anglický; odkazy v odeslaných e-mailech, záložky a sdílené náhledy se nikdy nerozbijí) – záznam z mapy se nemaže, nový odkaz píše jen anglicky. Hlídá to `tools/unit-tests.php` (seznam dřívějších českých názvů).
 - **Změna databáze = dva zápisy:** úplné schéma `system/sql/schema.sql` a migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
-  `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`). Výchozí stav je migrace 0001.
+  `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`) a pak `php tools/schema-doc.php`. Výchozí stav je migrace 0001.
 - **Rozšíření** (`Core\Extensions::CATALOG`) jsou vestavěné části Kalety. **Doplňky (add-ons, 3.0)** jiných vývojářů jsou
   v `extensions/<slug>/` a mluví jen přes `Kaleta\Extension\Api` (kontrakt `tools/contracts/extension-api.json`,
   návod `docs/EXTENSIONS.md`); kód se nikdy nenahrává z administrace ani nestahuje z internetu, zapíná je správce v Add-ons.
@@ -35,7 +35,7 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Rozšíření modulu a prvku:** `Module::EXTENSION` a `Element::EXTENSION` (novinky, poptavky, newsletter…). Vypnuté
   rozšíření: modul zmizí, prvek se nenabízí a na webu nevykreslí, sekce knihovny s ním se nenabízejí, trasy webu vrací 404.
   Nové rozšíření zapnuté ve výchozím stavu potřebuje migraci, která ho doplní webům s uloženým výběrem (viz 0016).
-- **Nastavení:** nová volba = klíč v `Settings::DEFAULTS` + typ v `Settings::FIELDS` + řádek `$pole(...)` ve `views/admin/settings/<zalozka>.php`.
+- **Nastavení:** nová volba = klíč v `Settings::DEFAULTS` + typ v `Settings::FIELDS` + řádek `$pole(...)` ve `views/admin/settings/<zalozka>.php`. `php tools/settings.php <klíč>` ukáže všechny seznamy (unit 3650).
 - **Nikdy `window.confirm()`** – v administraci atribut `data-potvrdit="text"`.
 - **Administrace má CSP `script-src 'self'`:** žádné inline skripty ani `on*=` atributy; chování do `image/admin.js` přes `data-` atributy.
 - **Prázdný výpis** v administraci přes `views/admin/empty.php`. Vzhled administrace je jediný (`image/admin.css`); změny kontroluj ve světlém
@@ -338,6 +338,14 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
   stejným otiskem a bez konceptu. Štítek „rozložení zatím nepřestavěné“ a záložka „Nepřestavěné rozložení“ (`status=layout`)
   ve Stránkách, MCP `list_pages` `layout_not_rebuilt`; každá úprava stavby příznak zruší. Otisk přestavěné stránky maže úloha
   `cleanup` (`ImportLayout::prune`, nikdy při GET).
+- **Interní soubory** (3.42, `Core\InternalFiles`, migrace 0131): knihovna dokumentů týmu, nikdy veřejná – soubory v `storage/internal-files/`,
+  stahování jen akcí administrace (příloha, no-store, nosniff); sekce se přiděluje výslovně, složka pro všechny se sekcí, vybrané role
+  nebo oddělení (`audienceMatches`, i pododdělení); tabulky jmenuje jen `Core\InternalFiles` (unit 3550); MCP `list_internal_files`,
+  `get_internal_file`, `save_internal_file` na vyžádání, bajty nikdy, spojení jen na koncepty píše koncepty.
+- **Hierarchie týmu** (3.42, migrace 0132): `Core\Departments` (API all/ofUser/withChildren/userIn), `Core\Absences` (pevné REASONS,
+  nikdy zdravotní údaje); kdo je dnes pryč, tomu `Inbox::record` přidá kopii pro `Absences::standIn` (zástup → nadřízený, jeden krok,
+  musí záznam otevřít), `standing_in_for`; poptávky z formuláře oddělení jdou vedoucímu; `Tasks::escalate` po 3 dnech; vlastnictví
+  záznamů se nikdy nemění; organigram v Můj účet; `list_colleagues` ho nese.
 - **Souhrn týmu (3.41, `Core\TeamSummary`):** Moje práce → Souhrn a MCP `team_summary` (sada Work) – jen počty za období pro sekce,
   které člověk smí otevřít; po lidech jen správce, ostatní vlastní řádek a součty (součty pro nesprávce i v měsíčním reportu až od `TeamSummary::MIN_PEOPLE` = 3 lidí s počítanou prací); měsíční report jen součty týmu bez jmen. Karta
   obchodu: dní v etapě (`Deals::stageSince`) a další krok (`Tasks::nextFor`).
@@ -363,6 +371,10 @@ jazykové modely. Návrh, rozhodnutí a fáze: `../kaleta-interni/NAVRH.md`. Či
 - **Tabulky ani sloupce se nikdy nepřejmenovávají do angličtiny** (rozhodnutí 21.–22. 10. a 10. 11. 2026, ROADMAP „Path to 4.0“);
   `Core\Names` jsou jen anglické aliasy. **Vrstvy kódu** (`docs/design/code-layers.md`, unit 3100): Core neodkazuje na
   Admin/Front/Builder/Fleet/Mcp, Mcp ne na `Admin\Modules`; zmrazený seznam výjimek jen ubývá.
+- **Kolekce v ceníku a připravené nabídky** (3.42): libovolná kolekce v ceníku (`quote_price_collections`, `Prices::mapping` – pole kódu,
+  jinak adresa položky; pole variant), předvolba Produkty vždy. `linesFromEnquiry` bere i položku stránky poptávky a hodnoty polí
+  jmenující produkt. `quote_auto_draft` (výchozí vypnuto) = koncept po odpovědi (`Quotes::afterResponse`), jeden na poptávku, zvonek
+  `quote_prepared` bez částky.
 - **Interní ceník a nabídky (3.38, migrace 0123):** `Core\Money` (jen celá čísla), `Core\Prices`, `Core\Quotes`, `Core\QuoteDelivery`;
   rozšíření a sekce `quotes` (přidělují se výslovně), oblast `prices_edit`. Ceny jen v `ka_prices`, nikdy v položce; pět tabulek smí
   jmenovat jen třídy z povolovacího seznamu (unit 2800). Číslo nabídky vzniká při prvním odeslání nebo Dokončení, počitadlo po rocích.

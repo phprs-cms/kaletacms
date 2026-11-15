@@ -2069,6 +2069,40 @@ Migration 0130 adds `ka_uzivatele.sign_in_epoch`; `KALETA_DB_VERSION` 130.
    this" warning. **CSP in previews:** draft builds, preview links, site and look previews and the popup/component canvases
    send `script-src 'self' 'nonce-…'` (`Csp::attribute()`, `Csp::withNonce()` for administrator-written code).
 
+## 3.42 – internal files, team hierarchy, collections in the price list (15 November 2026)
+
+Migrations 0131 (`ka_internal_folders`, `ka_internal_files`, `ka_internal_file_versions`) and 0132 (`ka_departments`,
+`ka_absences`, `department_id` and `reports_to` on `ka_uzivatele`, `standing_in_for` on `ka_notifications`, `escalated_at`
+on `ka_tasks`); `KALETA_DB_VERSION` 132.
+
+1. **Internal files.** Workspace → Internal files (`Core\InternalFiles`): a document library for the team that is never
+   public – folders, upload (Media's attachment types, images, Markdown; SVG cleaned or refused; HTML, PHP and scripts refused
+   by content), versions (Replace keeps every older one), description, tags, status draft/ready, search and a tag filter.
+   Files live in `storage/internal-files/` under random names, never under `media/`; download only through the admin action
+   (attachment, no-store, nosniff, a change-log line). The section is granted explicitly (only administrators after the
+   update); a folder is for everyone with the section, chosen custom roles or chosen departments (`audienceMatches` – members
+   and the departments below). Only `Core\InternalFiles` names the tables (unit leak check). MCP on demand: `list_internal_files`,
+   `get_internal_file` (text of txt/md/csv up to 200 kB, never other bytes), `save_internal_file` (drafts-only connections write
+   drafts only); no delete over MCP.
+2. **Team hierarchy.** `Core\Departments` (name, head, parent; Users → Departments), each account's department and whom it
+   reports to; `Core\Absences` (days, deputy, a reason from a fixed list – never health data) in Users and My account. While
+   someone is away today, every responsibility notification also goes to their stand-in (the deputy, else whom they report to)
+   marked "standing in for" (`Inbox::STAND_IN_KINDS`); a department may route new enquiries of named forms to its head or the
+   head's stand-in; `Tasks::escalate` tells whom the assignee reports to about a task three days overdue, once. Ownership of
+   records never changes. My account → Org chart (no script, printable). MCP `list_colleagues` gains `department`,
+   `reports_to`, `absent_until`, `deputy` and `departments`.
+3. **Collections in the internal price list and prepared quotes** (owner request of 15 November 2026). Quotes → Settings maps
+   any collection to the price list (`quote_price_collections`, `Prices::mapping` – a code field, else the item's address; an
+   optional variants field); the products preset stays as it was. The grid, the item's Internal prices box, the CSV export and
+   import, `findCode` and `list_prices` cover mapped items. `Quotes::linesFromEnquiry` also takes the item whose page sent the
+   enquiry and field values naming a product. `quote_auto_draft` (off by default) prepares one DRAFT quote per new enquiry
+   about products after the response (`Quotes::afterResponse`) and rings `quote_prepared` – never an amount.
+4. **Under the hood (T).** Every setting declared once (`Settings::DEFAULTS`/`FIELDS` consistent, unit 3650) with
+   `tools/settings.php <key>` showing every list; large settings read on first use. `docs/ARCHITECTURE.md` and a generated
+   `docs/schema.md` (`tools/schema-doc.php`, unit 3660), CONTRIBUTING brought up to date. Fewer queries on hot paths – the home
+   page 22 → 17, admin Pages 18 → 13 (the admin layout and the public page read the same rows once per request).
+   `tools/js-dictionaries.php` checks and fills the dictionaries of the admin scripts. 46 admin texts moved to an English source.
+
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 
 **No English renaming of tables or columns – not in 4.0 and not later.** The owner rejected it on 21 and 22 October 2026
