@@ -29,7 +29,17 @@ php tools/unit-tests.php          # unit tests, no database
 tools/test.sh                # clean install and a walk through site, admin, builder and MCP (needs MySQL;
                              # the database kaleta_test is dropped and created again)
 tools/test-english.sh        # the English installer, site and admin must contain no Czech
-tools/test-migrations.sh        # database upgrade from 1.0.0
+tools/test-migrations.sh     # database upgrade from 1.0.0 (MySQL and MariaDB in CI)
+php tools/contracts.php      # the MCP contract (tools/contracts/) may only grow
+```
+
+CI also runs these; run the one your change touches:
+
+```bash
+tools/test-browser.sh        # a clean install walked through in Chrome (admin, builder, site)
+tools/test-demo.sh           # the demo mode
+tools/test-update.sh         # an update from the previous release with a signed package
+tools/test-lighthouse.sh     # the Lighthouse budget of the starter sites
 ```
 
 Add a test for what you change – a unit test in `tools/tests/unit/`, or a check in `tools/tests/smoke/` for anything that
@@ -57,7 +67,7 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
   "now" in a unit test – use it for summer time and month ends instead of `time() - N * 86400`.
 - **Calendar days are dates, not 86 400 seconds.** `date('Y-m-d', strtotime('-70 days'))`, never `time() - 70 * 86400` (a summer-time
   change in between moves the date). A random value as a grep pattern needs `grep -F -e` (a base64url id may start with `-`).
-- **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+17`; run parallel suites with their own
+- **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+20`; run parallel suites with their own
   `PORT` and `DB_NAME` (for example `DB_NAME=mine_op PORT=9850 tools/test.sh`). Kill only the `php -S` you started.
 - **Never stop or restart MySQL** from a test or while suites run – other suites share it.
 - **No real-looking secrets.** Gitleaks scans the whole history: generate passwords and tokens at run time, or allow-list a
@@ -66,18 +76,30 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
 
 ## Code
 
-- PHP 8.3 (the oldest supported; PHPStan checks it, CI runs it) with `declare(strict_types=1)`, namespace `Kaleta\`. Match the surrounding code: identifiers and comments are
-  currently in Czech (moving to English is on the [roadmap](docs/ROADMAP.md)).
+- PHP 8.3 (the oldest supported; PHPStan checks it, CI runs it) with `declare(strict_types=1)`, namespace `Kaleta\`.
+  Identifiers and comments are English (since 1.4). Older table and column names, the keys of a build's JSON and a few
+  setting values stay Czech and are never renamed; new ones are English. [docs/schema.md](docs/schema.md) gives the
+  English meaning of every column.
+- Where code belongs, how a request runs and how to add a module, an MCP tool, a setting or a migration:
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Each namespace may call only certain others
+  ([docs/design/code-layers.md](docs/design/code-layers.md), checked by a unit test).
+- Comments say why, not when: a version number or an audit id in a comment helps only if it leads somewhere in the
+  repository.
 - No new runtime dependencies and no build step. CSS goes into the existing layers, JavaScript only where it is really
   needed.
 - Anything shown to visitors or administrators goes through `t()` and needs an English translation; `tools/find-czech.php`
   checks that no Czech leaks into the English interface.
-- Architecture notes for contributors (in Czech) are in [CLAUDE.md](CLAUDE.md).
+- A schema change: run `php tools/schema-doc.php` so `docs/schema.md` stays current (a unit test checks it). A new
+  setting: `php tools/settings.php <key>` shows every list that knows it.
+- The working rules for AI agents (in Czech) are in [CLAUDE.md](CLAUDE.md); everything a contributor needs is in English
+  in the files above.
 
 ## Translations
 
-Visitor texts live in `system/jazyky/<code>.php` (for example `de.php`), the English admin in `system/jazyky/admin-en.php`.
-A new language is one dictionary file keyed by the Czech source text; `tools/add-translations.py` adds entries. Languages without
+Visitor texts live in `system/jazyky/<code>.php` (for example `de.php`), the admin in `system/jazyky/admin-<code>.php`.
+The source text in `t()` is English and the dictionaries – Czech included (`cs.php`, `admin-cs.php`) – map it to the
+translation; a few older texts still have a Czech source, and `en.php` / `admin-en.php` translate those. A new language
+is one dictionary file; `tools/add-translations.py` adds entries. Languages without
 a dictionary fall back to English with dates in their own format. The admin and the installer speak Czech, English, German
 and Spanish (`admin-<code>.php`, `image/jazyky/admin-<code>.js`, `install-<code>.php`): a new admin text needs an entry in each,
 with the same placeholders – `tools/unit-tests.php` checks it.
