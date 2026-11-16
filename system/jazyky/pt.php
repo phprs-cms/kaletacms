@@ -2169,4 +2169,5 @@ O link funciona por %d dias.
     'May we keep your application? – %s' => 'Podemos guardar a sua candidatura? – %s',
     'Download PDF' => 'Descarregar PDF',
     'Page %1$s of %2$s' => 'Página %1$s de %2$s',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Até %d MB: PDF, documento Word ou OpenDocument, texto ou imagem (JPG, PNG).',
 ];

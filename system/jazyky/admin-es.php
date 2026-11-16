@@ -8757,4 +8757,5 @@ return [
     'The name of the update source does not resolve (%s).' => 'El nombre de la fuente de actualizaciones no se resuelve (%s).',
     'The update source %s leads to an address in a private or internal network. A custom update source must be an https address on a public server.' => 'La fuente de actualizaciones %s lleva a una dirección de una red privada o interna. Una fuente de actualizaciones propia debe ser una dirección https en un servidor público.',
     'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Cambie la fuente de actualizaciones en Ajustes → Copias de seguridad y actualizaciones, o déjela vacía para usar la oficial.',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Hasta %d MB: PDF, documento Word u OpenDocument, texto o imagen (JPG, PNG).',
 ];

@@ -8330,4 +8330,5 @@ return [
     'The name of the update source does not resolve (%s).' => 'Název zdroje aktualizací se nepodařilo přeložit na adresu (%s).',
     'The update source %s leads to an address in a private or internal network. A custom update source must be an https address on a public server.' => 'Zdroj aktualizací %s vede na adresu v soukromé nebo vnitřní síti. Vlastní zdroj aktualizací musí být adresa https na veřejném serveru.',
     'Change the update source in Settings → Backups and updates, or leave it empty for the official one.' => 'Změňte zdroj aktualizací v Nastavení → Zálohy a aktualizace, nebo ho nechte prázdný pro oficiální zdroj.',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
 ];

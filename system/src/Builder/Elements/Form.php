@@ -47,6 +47,17 @@ final class Form extends Element
     public const int HARD_MAX_ATTACHMENT_MB = 25;
 
     /**
+     * The file types a file field offers (its accept attribute): a job application form only the CV types the server keeps
+     * (Core\Applications::CV_EXTENSIONS), any other form the attachment types (Front\Forms checks the same lists). Pure.
+     *
+     * @return list<string>
+     */
+    public static function fileExtensions(bool $application): array
+    {
+        return $application ? \Kaleta\Core\Applications::CV_EXTENSIONS : self::ATTACHMENT_EXTENSIONS;
+    }
+
+    /**
      * The size limit of one attachment of a form, in bytes (3.7): its own limit in MB (1–25, default 10), never above what
      * the server accepts (the smaller of upload_max_filesize and post_max_size, Core\Files::limit).
      *
@@ -221,6 +232,10 @@ final class Form extends Element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('field', -1) : -1;
         [$steps, $stepTitle, $current] = [[], '', ''];
+        // a job application form (3.34, Core\Applications) takes only CV types: its file fields offer just those, so a visitor
+        // never picks a ZIP or a spreadsheet that the server would refuse after the whole form was sent
+        $application = in_array('soubor', array_column($o['pole'], 'typ'), true) && \Kaleta\Core\Applications::isOn($k->app->settings())
+            && \Kaleta\Core\Applications::isApplicationForm($o, $k->source, \Kaleta\Core\Jobs::sources($k->app->db()));
         foreach ($o['pole'] as $i => $field) {
             if ($field['typ'] === 'skryte') {
                 // the value is the form's own (Front\Forms) and the visitor normally neither sees nor sends it; on a collection item
@@ -237,7 +252,7 @@ final class Form extends Element
             $one = match ($field['typ']) {
                 'kosik' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'odhad' => self::estimateField($field, $o['pole']),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings()), self::attachmentLimit($o)),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings()), self::attachmentLimit($o), $application),
             };
             // a condition (2.12): the script shows the field only for the answer; without the script it is always shown
             $when = mb_strtolower(trim((string) ($field['kdyz_pole'] ?? '')));
@@ -309,7 +324,7 @@ final class Form extends Element
             . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-kosik-pole' . ($field['povinne'] ? ' data-povinne' : '') . '>' . $message . '</div>';
     }
 
-    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', int $attachmentLimit = self::MAX_ATTACHMENT): string
+    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', int $attachmentLimit = self::MAX_ATTACHMENT, bool $application = false): string
     {
         $id = 'f-' . $element . '-' . $i;
         $displayName = 'p' . $i;
@@ -352,8 +367,9 @@ final class Form extends Element
             'datum' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $required . $marking . '>',
             'cislo' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"'
                 . (self::price($field['cena_za_jednotku'] ?? '') != 0.0 ? ' data-cena-za="' . self::price($field['cena_za_jednotku']) . '"' : '') . $required . $marking . '>',
-            'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::ATTACHMENT_EXTENSIONS) . '"' . $required . $marking . '>'
-                . '<small class="ka-pole-napoveda">' . e(t('Up to %d MB: PDF, image, document or ZIP.', intdiv($attachmentLimit, 1048576))) . '</small>',
+            'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::fileExtensions($application)) . '"' . $required . $marking . '>'
+                . '<small class="ka-pole-napoveda">' . e($application ? t('Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).', intdiv($attachmentLimit, 1048576))
+                    : t('Up to %d MB: PDF, image, document or ZIP.', intdiv($attachmentLimit, 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too
             'tel' => '<input id="' . $id . '" name="' . $displayName . '" type="tel" autocomplete="tel" maxlength="30" pattern="' . self::PHONE_PATTERN . '" title="' . e(t('Phone number, for example +44 20 7946 0958.')) . '"' . $required . $marking . '>',
             default => '<input id="' . $id . '" name="' . $displayName . '" type="' . ($field['typ'] === 'email' ? 'email" autocomplete="email' : 'text' . self::autocomplete($field['popisek'])) . '" maxlength="300"' . $required . $marking . '>',

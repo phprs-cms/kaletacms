@@ -2141,4 +2141,5 @@ return [
     'May we keep your application? – %s' => 'Czy możemy zachować Twoją aplikację? – %s',
     'Download PDF' => 'Pobierz PDF',
     'Page %1$s of %2$s' => 'Strona %1$s z %2$s',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Do %d MB: PDF, dokument Word lub OpenDocument, tekst lub obraz (JPG, PNG).',
 ];
