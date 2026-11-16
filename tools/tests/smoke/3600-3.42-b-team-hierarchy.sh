@@ -55,14 +55,16 @@ check "3.42: the bell shows the stand-in line" 200 "/admin.php?action=inbox" "Za
 # every notification for the away head reaches them and a copy reaches the deputy – a mention stays theirs
 cat > "$WORK/h342-notify.php" <<'PHP'
 <?php return function (Kaleta\Core\App $app, array $a): string {
-    Kaleta\Core\Inbox::notify($app, (int) $a[0], 'task_due', 'task:999342', null, 'Call the customer back');
+    // a task about nothing (3.42 review M2: a task that exists – the deputy, an administrator, may open it)
+    $task = $app->db()->insert('tasks', ['title' => 'Call the customer back 342', 'assignee_id' => (int) $a[0], 'created_by' => (int) $a[0], 'created_at' => Kaleta\Core\Clock::now(), 'updated_at' => Kaleta\Core\Clock::now()]);
+    Kaleta\Core\Inbox::notify($app, (int) $a[0], 'task_due', 'task:' . $task, null, 'Call the customer back');
     Kaleta\Core\Inbox::notify($app, (int) $a[0], 'mention', 'page:999342', null, 'hello');
     return 'ok';
 };
 PHP
 h342_php "$WORK/h342-notify.php" "$H342_HEAD" > /dev/null
 expect "3.42: a task reminder of the away head goes to them and, marked, to the deputy; a mention only to them" \
-  "$(sq "SELECT GROUP_CONCAT(CONCAT(user_id = $H342_HEAD, ':', kind, ':', standing_in_for) ORDER BY id SEPARATOR ',') FROM ka_notifications WHERE target IN ('task:999342', 'page:999342')")" \
+  "$(sq "SELECT GROUP_CONCAT(CONCAT(user_id = $H342_HEAD, ':', kind, ':', standing_in_for) ORDER BY id SEPARATOR ',') FROM ka_notifications WHERE target IN ('task:$(sq "SELECT id FROM ka_tasks WHERE title = 'Call the customer back 342'")', 'page:999342')")" \
   "1:task_due:,0:task_due:Hana Head,1:mention:"
 
 # escalation: a task of the salesperson three days overdue goes once to the head they report to – the head is away, so the deputy gets the copy
@@ -105,6 +107,6 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&acti
 expect "3.42: a removed department leaves its people in none and lifts the one under it" \
   "$(sq "SELECT COUNT(*) FROM ka_departments WHERE id = $H342_DEP")|$(sq "SELECT IFNULL(department_id, '-') FROM ka_uzivatele WHERE idu = $H342_HEAD")|$(sq "SELECT IFNULL(parent_id, '-') FROM ka_departments WHERE id = $H342_SUB")" "0|-|-"
 
-sq "DELETE FROM ka_notifications WHERE target IN ('task:999342', 'page:999342', 'enquiry:$H342_ENQ') OR kind = 'escalated'; DELETE FROM ka_tasks WHERE title IN ('Send the offer 342', 'Ancient task 342');
+sq "DELETE FROM ka_notifications WHERE target IN ('task:$(sq "SELECT id FROM ka_tasks WHERE title = 'Call the customer back 342'")', 'page:999342', 'enquiry:$H342_ENQ') OR kind = 'escalated'; DELETE FROM ka_tasks WHERE title IN ('Send the offer 342', 'Ancient task 342', 'Call the customer back 342');
     DELETE FROM ka_absences WHERE user_id IN ($H342_HEAD, $H342_BOSS, $H342_SALES); DELETE FROM ka_departments; UPDATE ka_poptavky SET prirazeno = NULL WHERE idp = $H342_ENQ;
     DELETE FROM ka_uzivatele WHERE idu IN ($H342_HEAD, $H342_BOSS, $H342_SALES)" > /dev/null

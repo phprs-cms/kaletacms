@@ -97,9 +97,10 @@ final class Inbox
     {
         $note = self::insert($db, $userId, $kind, $target, $actorId, $excerpt, $standingInFor);
         if ($note !== null && $standingInFor === '' && in_array($kind, self::STAND_IN_KINDS, true)) {
-            // the stand-in must be able to open the place: the section of its kind (a task about nothing needs none)
-            $assignmentKind = self::TARGETS[self::parse($note['target'])[0] ?? ''] ?? null;
-            $standIn = Absences::standIn($db, $userId, fn (int $uid): bool => $uid !== $actorId && ($assignmentKind === null || Assignment::allowed($db, $assignmentKind, $uid)));
+            // the stand-in must be able to open the place (3.42 review M2: a task's record, or the task itself), and gets no
+            // second row of an event they were told of already in this request (review L7)
+            $standIn = Absences::standIn($db, $userId, fn (int $uid): bool => $uid !== $actorId && self::standInMayOpen($db, $note['target'], $uid)
+                && !isset(self::$recorded[$uid . '|' . $kind . '|' . $note['target']]));
             $copy = $standIn !== null ? self::insert($db, $standIn['id'], $kind, $target, $actorId, $excerpt, $standIn['for_name']) : null;
             if ($copy !== null && $app !== null && $copy['email'] === 'instant') {
                 self::mailNow($app, $copy);
@@ -107,6 +108,35 @@ final class Inbox
         }
 
         return $note;
+    }
+
+    /** @var array<string, true> "user|kind|target" of every row recorded in this request (review L7) */
+    private static array $recorded = [];
+
+    /**
+     * 3.42 review M2: may a stand-in open what a notification points to? A record: its section (Assignment::allowed). A
+     * task: its record's section, or – a task about nothing – the task itself (Tasks::mayChange: its assignee, its creator,
+     * an administrator); a task that is gone, or a place Kaleta does not know, gives no copy.
+     */
+    private static function standInMayOpen(Db $db, string $target, int $userId): bool
+    {
+        $parsed = self::parse($target);
+        if ($parsed === null) {
+            return false;
+        }
+        if ($parsed[0] !== 'task') {
+            return isset(self::TARGETS[$parsed[0]]) && Assignment::allowed($db, self::TARGETS[$parsed[0]], $userId);
+        }
+        $task = Tasks::find($db, $parsed[1]);
+        if ($task === null) {
+            return false;
+        }
+        $about = $task['target'] !== null ? self::parse($task['target']) : null;
+        if ($about !== null && isset(self::TARGETS[$about[0]])) {
+            return Assignment::allowed($db, self::TARGETS[$about[0]], $userId);
+        }
+
+        return $task['target'] === null && Tasks::mayChange($db, $task, $userId);
     }
 
     /** @return array{id: int, user: array<string, mixed>, kind: string, target: string, actor_name: string, excerpt: string, email: string, standing_in_for: string}|null */
@@ -128,6 +158,10 @@ final class Inbox
             $standingInFor = mb_substr($standingInFor, 0, 100);
             $id = $db->insert('notifications', ['user_id' => $userId, 'kind' => $kind, 'target' => $target, 'actor_id' => $actorId,
                 'actor_name' => mb_substr($actor, 0, 100), 'excerpt' => $excerpt, 'created_at' => Clock::now()] + ($standingInFor !== '' ? ['standing_in_for' => $standingInFor] : []));
+            if (count(self::$recorded) >= 5000) {
+                self::$recorded = []; // a long background run: the memory stays small
+            }
+            self::$recorded[$userId . '|' . $kind . '|' . $target] = true;
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return null;
@@ -452,7 +486,14 @@ final class Inbox
                 'task_due' => t('Task due: %s', $note['excerpt'] !== '' ? $note['excerpt'] : $where),
                 'escalated' => t('Overdue task of %s: %s', $actor, $note['excerpt'] !== '' ? $note['excerpt'] : $where), // 3.42
                 'deletion_due' => t('Will be deleted on %s: %s', $note['excerpt'], $where), // 3.34: the excerpt is the day
-                default => t('Review by today: “%s”', (string) ($place['title'] ?? $where)),
+                'review_due' => t('Review by today: “%s”', (string) ($place['title'] ?? $where)),
+                // 3.42 review M4: the quote kinds name the quote's number only; any other kind says what happened
+                'quote_prepared' => t('Draft quote prepared: %s', $where),
+                'quote_expiring' => t('Quote expires soon: %s', $where),
+                'quote_expired' => t('Quote expired: %s', $where),
+                'quote_accepted' => t('Quote accepted: %s', $where),
+                'quote_declined' => t('Quote declined: %s', $where),
+                default => self::what($note['kind'], $note['actor_name']),
             };
             $text = (($note['standing_in_for'] ?? '') !== '' ? self::standingIn((string) $note['standing_in_for']) . "\n\n" : '')
                 . self::what($note['kind'], $note['actor_name']) . ': ' . $where . "\n";

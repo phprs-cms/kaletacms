@@ -29,6 +29,9 @@ final class Departments
     /** The most forms a department names, and the longest name of one. */
     public const int FORMS = 20;
 
+    /** 3.42 review L1: the stored list of forms (one per line) is at most this long – ka_departments.enquiry_forms VARCHAR(1000). */
+    public const int FORMS_TOTAL = 1000;
+
     /** @var array<int, array{id: int, name: string, head_id: int|null, parent_id: int|null, enquiry_forms: list<string>}>|null for one request */
     private static ?array $cache = null;
 
@@ -154,7 +157,11 @@ final class Departments
         if ($headId !== null && $db->value('SELECT 1 FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [$headId]) === null) {
             return 'The head must be an active account.';
         }
-        $row = ['name' => $name, 'head_id' => $headId, 'parent_id' => $parentId, 'enquiry_forms' => implode("\n", self::forms($forms)), 'updated_at' => Clock::now()];
+        $formList = implode("\n", self::forms($forms));
+        if (mb_strlen($formList) > self::FORMS_TOTAL) {
+            return 'The names of the forms are too long together – at most 1,000 characters.';
+        }
+        $row = ['name' => $name, 'head_id' => $headId, 'parent_id' => $parentId, 'enquiry_forms' => $formList, 'updated_at' => Clock::now()];
         if ($id > 0) {
             $db->update('departments', $row, ['id' => $id]);
         } else {

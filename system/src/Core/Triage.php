@@ -60,6 +60,9 @@ final class Triage
             return false;
         }
         $db->update('poptavky', $changes + ['triaged_by' => mb_substr($by, 0, 40), 'triaged_at' => Clock::now()], ['idp' => $idp]);
+        if (($changes['kategorie'] ?? null) === 'spam') {
+            Quotes::dropPreparedDraft($db, $idp); // 3.42 review L6: no prepared quote for spam
+        }
 
         return true;
     }

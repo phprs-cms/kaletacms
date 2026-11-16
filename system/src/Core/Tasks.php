@@ -116,6 +116,9 @@ final class Tasks
             self::checkAssign($app, $byUserId, (int) $assignee, $target);
             $data['target'] = $target;
             $data['assignee_id'] = $assignee;
+            if ($assignee !== $task['assignee_id']) {
+                $data['escalated_at'] = null; // review L4: the new assignee's manager is told when it is overdue
+            }
         }
         foreach (['due_at', 'remind_at'] as $key) {
             if (array_key_exists($key, $fields)) {
@@ -124,6 +127,9 @@ final class Tasks
                 // from the admin's edit form never notifies a second time)
                 if (($data[$key] === null) !== ($task[$key] === null) || substr((string) $data[$key], 0, 16) !== substr((string) $task[$key], 0, 16)) {
                     $data['notified_at'] = null;
+                    if ($key === 'due_at') {
+                        $data['escalated_at'] = null; // review L4: a new due date may be escalated again
+                    }
                 }
             }
         }
@@ -161,7 +167,7 @@ final class Tasks
     {
         $task = self::mine($app, $id, $byUserId);
         $time = $task['due_at'] !== null ? substr($task['due_at'], 11, 5) : self::DEFAULT_TIME;
-        self::write($app->db(), $task, ['due_at' => Clock::day('+' . max(1, $days) . ' days') . ' ' . $time . ':00', 'remind_at' => null, 'notified_at' => null,
+        self::write($app->db(), $task, ['due_at' => Clock::day('+' . max(1, $days) . ' days') . ' ' . $time . ':00', 'remind_at' => null, 'notified_at' => null, 'escalated_at' => null,
             'done_at' => null, 'done_by' => null, 'updated_at' => Clock::now()]);
     }
 
@@ -571,7 +577,7 @@ final class Tasks
     public static function handOver(Db $db, int $from, ?int $to): int
     {
         try {
-            return $db->run('UPDATE {tasks} SET assignee_id = ?, notified_at = NULL, updated_at = ? WHERE assignee_id = ? AND done_at IS NULL', [$to, Clock::now(), $from])->rowCount();
+            return $db->run('UPDATE {tasks} SET assignee_id = ?, notified_at = NULL, escalated_at = NULL, updated_at = ? WHERE assignee_id = ? AND done_at IS NULL', [$to, Clock::now(), $from])->rowCount();
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return 0;
@@ -712,6 +718,7 @@ final class Tasks
         $moment = new \DateTimeImmutable($now);
         try {
             $due = $db->all('SELECT t.id, t.title, t.target, t.assignee_id, u.reports_to FROM {tasks} t JOIN {uzivatele} u ON u.idu = t.assignee_id'
+                . ' JOIN {uzivatele} m ON m.idu = u.reports_to AND m.blokovat = 0' // review L4: a blocked manager is skipped and the task stays unmarked
                 . ' WHERE t.done_at IS NULL AND t.escalated_at IS NULL AND u.reports_to IS NOT NULL AND u.reports_to <> t.assignee_id AND t.due_at <= ? AND t.due_at >= ?'
                 . ' ORDER BY t.due_at, t.id LIMIT ' . self::BATCH,
                 [$moment->modify('-' . self::ESCALATE_DAYS . ' days')->format('Y-m-d H:i:s'), $moment->modify('-' . self::ESCALATE_WINDOW . ' days')->format('Y-m-d H:i:s')]);
@@ -727,8 +734,10 @@ final class Tasks
             $manager = (int) $task['reports_to'];
             $parsed = $task['target'] !== null ? Inbox::parse((string) $task['target']) : null;
             $kind = $parsed !== null ? (Inbox::TARGETS[$parsed[0]] ?? null) : null;
-            $target = $parsed !== null && ($kind === null || Assignment::allowed($db, $kind, $manager)) ? (string) $task['target'] : 'task:' . (int) $task['id'];
-            Inbox::notify($app, $manager, 'escalated', $target, (int) $task['assignee_id'], (string) $task['title']);
+            $opens = $parsed !== null && ($kind === null || Assignment::allowed($db, $kind, $manager));
+            // review M2: a manager who cannot open the record gets the task and the generic line only – never its title
+            Inbox::notify($app, $manager, 'escalated', $opens ? (string) $task['target'] : 'task:' . (int) $task['id'], (int) $task['assignee_id'],
+                $opens || $parsed === null ? (string) $task['title'] : '');
             $sent++;
         }
 

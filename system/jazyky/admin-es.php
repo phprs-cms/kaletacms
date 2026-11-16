@@ -8943,4 +8943,11 @@ return [
     'Collections in the price list (%d)' => 'Colecciones en la lista de precios (%d)',
     'Internal prices belong to the items of a Products collection or of a collection an administrator adds to the price list (Collections in the price list), and to own rows such as installation or transport below.' => 'Los precios internos pertenecen a los elementos de una colección de Productos o de una colección que un administrador añade a la lista de precios (Colecciones en la lista de precios), y a filas propias como la instalación o el transporte de abajo.',
     '%s still without a price' => '%s aún sin precio',
+    'Draft quote prepared: %s' => 'Borrador de presupuesto preparado: %s',
+    'Quote expires soon: %s' => 'El presupuesto caduca pronto: %s',
+    'Quote expired: %s' => 'Presupuesto caducado: %s',
+    'Quote accepted: %s' => 'Presupuesto aceptado: %s',
+    'Quote declined: %s' => 'Presupuesto rechazado: %s',
+    'Only an administrator can move a file to a folder with other people in its audience.' => 'Solo un administrador puede mover un archivo a una carpeta que ven otras personas.',
+    'The names of the forms are too long together – at most 1,000 characters.' => 'Los nombres de los formularios son demasiado largos en conjunto: 1000 caracteres como máximo.',
 ];

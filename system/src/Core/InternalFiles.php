@@ -259,6 +259,25 @@ final class InternalFiles
     }
 
     /**
+     * Who a folder is for, comparable between folders (pure): all, or the roles or departments it is limited to, sorted.
+     *
+     * @param array{audience: string, roles: list<int>, departments: list<int>} $folder folderOut()
+     */
+    public static function audienceOf(array $folder): string
+    {
+        $roles = $folder['roles'];
+        $departments = $folder['departments'];
+        sort($roles);
+        sort($departments);
+
+        return match ($folder['audience']) {
+            'roles' => 'roles:' . implode(',', $roles),
+            'depts' => 'depts:' . implode(',', $departments),
+            default => 'all',
+        };
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}
      */
@@ -475,15 +494,20 @@ final class InternalFiles
         $sha = (string) hash_file('sha256', self::FOLDER . '/' . $disk);
         $me = $app->auth()->id() ?: null;
         $now = Clock::now();
-        $id = $app->db()->transaction(function (Db $db) use ($folderId, $name, $meta, $checked, $disk, $size, $sha, $me, $now, $originalName): int {
-            $id = $db->insert('internal_files', ['folder_id' => $folderId, 'name' => $name, 'description' => mb_substr(trim((string) ($meta['description'] ?? '')), 0, 5000),
-                'tags' => implode(',', self::tags($meta['tags'] ?? '')), 'status' => ($meta['status'] ?? 'ready') === 'draft' ? 'draft' : 'ready', 'extension' => $checked['extension'],
-                'size' => $size, 'version' => 1, 'created_by' => $me, 'created_at' => $now, 'updated_by' => $me, 'updated_at' => $now]);
-            $db->insert('internal_file_versions', ['file_id' => $id, 'version' => 1, 'path' => $disk, 'original_name' => self::safeName($originalName), 'extension' => $checked['extension'],
-                'size' => $size, 'sha256' => $sha, 'uploaded_by' => $me, 'uploaded_at' => $now]);
+        try {
+            $id = $app->db()->transaction(function (Db $db) use ($folderId, $name, $meta, $checked, $disk, $size, $sha, $me, $now, $originalName): int {
+                $id = $db->insert('internal_files', ['folder_id' => $folderId, 'name' => $name, 'description' => mb_substr(trim((string) ($meta['description'] ?? '')), 0, 5000),
+                    'tags' => implode(',', self::tags($meta['tags'] ?? '')), 'status' => ($meta['status'] ?? 'ready') === 'draft' ? 'draft' : 'ready', 'extension' => $checked['extension'],
+                    'size' => $size, 'version' => 1, 'created_by' => $me, 'created_at' => $now, 'updated_by' => $me, 'updated_at' => $now]);
+                $db->insert('internal_file_versions', ['file_id' => $id, 'version' => 1, 'path' => $disk, 'original_name' => self::safeName($originalName), 'extension' => $checked['extension'],
+                    'size' => $size, 'sha256' => $sha, 'uploaded_by' => $me, 'uploaded_at' => $now]);
 
-            return $id;
-        });
+                return $id;
+            });
+        } catch (\Throwable $e) {
+            @unlink(self::FOLDER . '/' . $disk); // review L5: no bytes without a file row
+            throw $e;
+        }
 
         return self::file($app, $id) ?? 'The file could not be saved.';
     }
@@ -511,13 +535,25 @@ final class InternalFiles
         $sha = (string) hash_file('sha256', self::FOLDER . '/' . $disk);
         $me = $app->auth()->id() ?: null;
         $now = Clock::now();
-        $app->db()->transaction(function (Db $db) use ($file, $checked, $disk, $size, $sha, $me, $now, $originalName): void {
-            $version = (int) $db->value('SELECT COALESCE(MAX(version), 0) FROM {internal_file_versions} WHERE file_id = ?', [$file['id']]) + 1;
-            $db->insert('internal_file_versions', ['file_id' => $file['id'], 'version' => $version, 'path' => $disk, 'original_name' => self::safeName($originalName),
-                'extension' => $checked['extension'], 'size' => $size, 'sha256' => $sha, 'uploaded_by' => $me, 'uploaded_at' => $now]);
-            $db->update('internal_files', ['version' => $version, 'extension' => $checked['extension'], 'size' => $size,
-                'name' => self::nameWithExtension((string) $file['name'], $checked['extension']), 'updated_by' => $me, 'updated_at' => $now], ['id' => $file['id']]);
-        });
+        try {
+            $app->db()->transaction(function (Db $db) use ($file, $checked, $disk, $size, $sha, $me, $now, $originalName): void {
+                // review L5: two replacements at once take turns on the file's row – each gets its own version number
+                if ($db->value('SELECT id FROM {internal_files} WHERE id = ? FOR UPDATE', [$file['id']]) === null) {
+                    throw new \DomainException('The file does not exist.');
+                }
+                $version = (int) $db->value('SELECT COALESCE(MAX(version), 0) FROM {internal_file_versions} WHERE file_id = ?', [$file['id']]) + 1;
+                $db->insert('internal_file_versions', ['file_id' => $file['id'], 'version' => $version, 'path' => $disk, 'original_name' => self::safeName($originalName),
+                    'extension' => $checked['extension'], 'size' => $size, 'sha256' => $sha, 'uploaded_by' => $me, 'uploaded_at' => $now]);
+                $db->update('internal_files', ['version' => $version, 'extension' => $checked['extension'], 'size' => $size,
+                    'name' => self::nameWithExtension((string) $file['name'], $checked['extension']), 'updated_by' => $me, 'updated_at' => $now], ['id' => $file['id']]);
+            });
+        } catch (\Throwable $e) {
+            @unlink(self::FOLDER . '/' . $disk); // review L5: no bytes without a version row
+            if ($e instanceof \DomainException) {
+                return $e->getMessage();
+            }
+            throw $e;
+        }
 
         return self::file($app, $id) ?? 'The file does not exist.';
     }
@@ -597,8 +633,15 @@ final class InternalFiles
             $row['status'] = (string) $data['status'];
         }
         if (array_key_exists('folder_id', $data) && (int) $data['folder_id'] !== $file['folder_id']) {
-            if (self::folder($app, (int) $data['folder_id']) === null) {
+            $target = self::folder($app, (int) $data['folder_id']);
+            if ($target === null) {
                 return 'Choose a folder you can see.';
+            }
+            // 3.42 review M3: a file goes to a folder with another audience (a wider one would show it to more people) only
+            // when an administrator moves it
+            $source = self::folder($app, $file['folder_id']);
+            if (!$app->auth()->isAdmin() && ($source === null || self::audienceOf($source) !== self::audienceOf($target))) {
+                return 'Only an administrator can move a file to a folder with other people in its audience.';
             }
             $row['folder_id'] = (int) $data['folder_id'];
         }

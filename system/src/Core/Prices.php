@@ -317,6 +317,7 @@ final class Prices
                 'variants' => in_array($e['variants'], array_column($options['variants'], 'key'), true) ? $e['variants'] : ''];
         }
         $app->settings()->set(self::MAPPING_SETTING, $clean === [] ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
+        self::$codeMemo = null;
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'settings', t('Collections in the price list: %d', count($clean)));
 
         return $clean;
@@ -468,6 +469,9 @@ final class Prices
      */
     public static function codeIndex(Db $db): array
     {
+        if (self::$codeScope > 0 && self::$codeMemo !== null) {
+            return self::$codeMemo;
+        }
         $index = [];
         foreach (self::productCollections($db) as $c) {
             if (!self::hasCodes($c)) {
@@ -486,8 +490,37 @@ final class Prices
                 }
             }
         }
+        if (self::$codeScope > 0) {
+            self::$codeMemo = $index;
+        }
 
         return $index;
+    }
+
+    /** @var array<string, array{item_id: int, variant_code: string}>|null codeIndex() inside withCodeIndex() */
+    private static ?array $codeMemo = null;
+
+    private static int $codeScope = 0;
+
+    /**
+     * 3.42 review M1: runs $work with codeIndex() built at most once – every findCode() inside reads the same index
+     * (an enquiry, a quote's lines, a batch of prices). The index is forgotten when the outermost call ends, so nothing
+     * saved later in the request (an item's code, the mapping) can be read stale; nothing inside may change codes.
+     *
+     * @template T
+     * @param callable(): T $work
+     * @return T
+     */
+    public static function withCodeIndex(callable $work): mixed
+    {
+        self::$codeScope++;
+        try {
+            return $work();
+        } finally {
+            if (--self::$codeScope === 0) {
+                self::$codeMemo = null;
+            }
+        }
     }
 
     /* ---------- saving ---------- */

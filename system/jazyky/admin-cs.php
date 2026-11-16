@@ -8516,4 +8516,11 @@ return [
     'Collections in the price list (%d)' => 'Kolekce v ceníku (%d)',
     'Internal prices belong to the items of a Products collection or of a collection an administrator adds to the price list (Collections in the price list), and to own rows such as installation or transport below.' => 'Interní ceny patří k položkám kolekce Produkty nebo kolekce, kterou správce přidá do ceníku (Kolekce v ceníku), a k vlastním řádkům, jako je montáž nebo doprava níže.',
     '%s still without a price' => '%s zatím bez ceny',
+    'Draft quote prepared: %s' => 'Připravený koncept nabídky: %s',
+    'Quote expires soon: %s' => 'Nabídka brzy vyprší: %s',
+    'Quote expired: %s' => 'Nabídka vypršela: %s',
+    'Quote accepted: %s' => 'Nabídka přijata: %s',
+    'Quote declined: %s' => 'Nabídka odmítnuta: %s',
+    'Only an administrator can move a file to a folder with other people in its audience.' => 'Soubor do složky, kterou vidí jiní lidé, může přesunout jen správce.',
+    'The names of the forms are too long together – at most 1,000 characters.' => 'Názvy formulářů jsou dohromady příliš dlouhé – nejvýš 1 000 znaků.',
 ];

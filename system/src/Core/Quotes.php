@@ -50,6 +50,10 @@ final class Quotes
     public const int MAX_LINES = 200;
     public const int HISTORY_MAX = 50;
 
+    /** 3.42 review M1: an enquiry's field values are read for products at most this many times, each value in at most PARTS_MAX parts. */
+    public const int LOOKUPS_MAX = 50;
+    public const int PARTS_MAX = 30;
+
     /** The longest values. */
     public const int TITLE_MAX = 200;
     public const int TEXT_MAX = 5000;
@@ -281,6 +285,17 @@ final class Quotes
      * @throws \DomainException with a translated reason; nothing is saved
      */
     public static function save(App $app, ?int $id, array $fields, int $byUserId, bool $fromClaude = false): array
+    {
+        return Prices::withCodeIndex(fn (): array => self::saveNow($app, $id, $fields, $byUserId, $fromClaude));
+    }
+
+    /**
+     * save() with the product codes read once (Prices::withCodeIndex – 3.42 review M1).
+     *
+     * @param array<string, mixed> $fields
+     * @return array{id: int, warnings: list<string>}
+     */
+    private static function saveNow(App $app, ?int $id, array $fields, int $byUserId, bool $fromClaude): array
     {
         $db = $app->db();
         $s = $app->settings();
@@ -1055,6 +1070,33 @@ final class Quotes
 
 
     /**
+     * 3.42 review L6: an enquiry sorted out as spam (Core\Triage::save – a person, Claude or the assistant) takes its
+     * automatically prepared draft along while nobody touched it: a draft without a number made by Kaleta itself
+     * (created_by NULL, prepareDraft()) that was never saved since (updated_at = created_at). Its lines, tasks and bells go
+     * too. Returns how many went.
+     */
+    public static function dropPreparedDraft(Db $db, int $enquiryId): int
+    {
+        try {
+            $ids = array_map('intval', array_column($db->all("SELECT id FROM {quotes} WHERE enquiry_id = ? AND status = 'draft' AND number IS NULL AND created_by IS NULL"
+                . ' AND sent_at IS NULL AND updated_at = created_at', [$enquiryId]), 'id'));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return 0; // before the quotes tables
+        }
+        foreach ($ids as $id) {
+            $db->transaction(function (Db $db) use ($id): void {
+                Tasks::forgetTargets($db, ['quote:' . $id]);
+                Inbox::forgetTargets($db, ['quote:' . $id]);
+                $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
+                $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
+            });
+        }
+
+        return count($ids);
+    }
+
+    /**
      * The lines of an enquiry basket, as the form stored them ("2 × Name – Variant (code)", Builder\Products::basketLines):
      * quantity, name, variant name and code. Other text is ignored (pure).
      *
@@ -1084,6 +1126,12 @@ final class Quotes
      * @return array{lines: list<array<string, mixed>>, matched: int, unmatched: int}
      */
     public static function linesFromEnquiry(App $app, int $enquiryId): array
+    {
+        return Prices::withCodeIndex(fn (): array => self::linesFromEnquiryNow($app, $enquiryId));
+    }
+
+    /** @return array{lines: list<array<string, mixed>>, matched: int, unmatched: int} */
+    private static function linesFromEnquiryNow(App $app, int $enquiryId): array
     {
         $db = $app->db();
         $enquiry = $db->one('SELECT data, zdroj, stranka FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
@@ -1130,8 +1178,9 @@ final class Quotes
         }
         if ($enquiry !== null) {
             $found = [];
+            $budget = self::LOOKUPS_MAX;
             foreach ($plain as $value) {
-                array_push($found, ...self::namedProducts($db, $value, $names));
+                array_push($found, ...self::namedProducts($db, $value, $names, $budget));
             }
             // the item of the page, unless a field already names it (or one of its variants)
             $page = self::pageItem($db, (string) $enquiry['zdroj'], (string) $enquiry['stranka']);
@@ -1180,17 +1229,18 @@ final class Quotes
      * @param array<string, array<string, mixed>>|null $names productNames(), loaded on first need
      * @return list<array{item_id: int, variant_code: string}>
      */
-    private static function namedProducts(Db $db, string $value, ?array &$names): array
+    private static function namedProducts(Db $db, string $value, ?array &$names, int &$budget): array
     {
         $value = trim($value);
-        if ($value === '' || mb_strlen($value) > 1000) {
+        if ($value === '' || mb_strlen($value) > 1000 || $budget <= 0) {
             return [];
         }
-        $one = function (string $text) use ($db, &$names): ?array {
+        $one = function (string $text) use ($db, &$names, &$budget): ?array {
             $text = trim($text);
-            if ($text === '' || mb_strlen($text) > 250) {
+            if ($text === '' || mb_strlen($text) > 250 || $budget <= 0) {
                 return null;
             }
+            $budget--;
             $hit = Prices::findCode($db, $text);
             if ($hit !== null) {
                 return $hit;
@@ -1215,7 +1265,7 @@ final class Quotes
             return [$whole];
         }
         $out = [];
-        foreach (preg_split('/\R|[,;]\s*/u', $value) ?: [] as $part) {
+        foreach (array_slice(preg_split('/\R|[,;]\s*/u', $value) ?: [], 0, self::PARTS_MAX) as $part) {
             $hit = $one($part);
             if ($hit !== null) {
                 $out[] = $hit;

@@ -193,6 +193,7 @@ final class Server
      */
     private function call(Tools $tools, string $name, array $arguments): array
     {
+        \Kaleta\Core\Menu::forget(); // 3.42 review L2: every tool reads the pages and menus as they are now (a batch writes in between)
         // the meta tools (3.10): callable on any connection, they only find tools and run them through this same method
         if ($name === 'find_tools') {
             $available = $this->available($tools);
