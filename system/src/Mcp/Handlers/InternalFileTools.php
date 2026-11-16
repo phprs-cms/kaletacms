@@ -106,16 +106,18 @@ trait InternalFileTools
         if (array_key_exists('folder', $a) && $a['folder'] !== null && $a['folder'] !== '') {
             $meta['folder_id'] = $this->internalFolder($a['folder'], InternalFiles::folders($this->app));
         }
+        $saved = $file;
         if ($content !== null) {
             $saved = InternalFiles::writeText($this->app, 0, $id, $content);
             if (is_string($saved)) {
                 throw new \DomainException($saved);
             }
         }
-        unset($meta['content']);
-        $saved = $meta !== [] ? InternalFiles::update($this->app, $id, $meta) : InternalFiles::file($this->app, $id);
-        if (!is_array($saved)) {
-            throw new \DomainException(is_string($saved) ? $saved : 'The file does not exist.');
+        if ($meta !== []) {
+            $saved = InternalFiles::update($this->app, $id, $meta);
+            if (is_string($saved)) {
+                throw new \DomainException($saved);
+            }
         }
 
         return ['file' => $this->internalFileOut($saved), 'next' => $content !== null ? 'New text saved as version ' . $saved['version'] . ' – the older versions stay.' : 'Saved.'];

@@ -33,7 +33,7 @@ final class Menu
      * visible pages of a language – per database connection. A list of pages asks for the main menu once per row and a
      * page with two menus read the pages twice; save() forgets the menus.
      *
-     * @var array<int, array{menus: array<string, ?string>, pages: array<string, list<array<string, mixed>>>}>
+     * @var array<int, array{menus?: array<string, ?string>, pages?: array<string, list<array<string, mixed>>>}>
      */
     private static array $read = [];
 
@@ -44,11 +44,13 @@ final class Menu
         if ($inDraft) {
             return $items === null ? null : self::sanitize($items);
         }
-        $menus = &self::$read[spl_object_id($db)]['menus'];
+        $id = spl_object_id($db);
         $key = $location . '|' . $language;
-        if (!isset($menus) || !array_key_exists($key, $menus)) {
+        $menus = self::$read[$id]['menus'] ?? [];
+        if (!array_key_exists($key, $menus)) {
             $value = $db->value('SELECT polozky FROM {menu} WHERE umisteni = ? AND jazyk = ?', [$location, $language]);
             $menus[$key] = $value === null ? null : (string) $value;
+            self::$read[$id]['menus'] = $menus;
         }
         $json = $menus[$key];
 
@@ -143,8 +145,12 @@ final class Menu
     {
         $db = $app->db();
         $pages = [];
-        $visible = &self::$read[spl_object_id($db)]['pages'][$language];
-        $visible ??= $db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ' . $db->sortText('titulek', $language === '' ? null : $language), [$language]);
+        $id = spl_object_id($db);
+        $visible = self::$read[$id]['pages'][$language] ?? null;
+        if ($visible === null) {
+            $visible = $db->all('SELECT ids, titulek, seo_link, v_menu FROM {stranky} WHERE zobrazit = 1 AND smazano IS NULL AND jazyk = ? ORDER BY poradi, ' . $db->sortText('titulek', $language === '' ? null : $language), [$language]);
+            self::$read[$id]['pages'][$language] = $visible;
+        }
         foreach ($visible as $s) {
             $pages[(int) $s['ids']] = $s;
         }

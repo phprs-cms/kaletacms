@@ -73,7 +73,7 @@ trait QuoteTools
                 // 3.42: the collections whose items are in the price list – the products preset ones and the ones an administrator mapped
                 + ['collections' => array_map(fn (array $c): array => ['id' => $c['idk'], 'name' => $c['nazev'], 'slug' => $c['seo_link'], 'source' => $c['preset'] ? 'products' : 'mapped']
                     + (!$c['preset'] && $c['code'] === '' ? ['code_from' => 'slug'] : []), $collections)]
-                + ($item > 0 ? [] : ['without_price' => $grid['missing'] ?? 0])
+                + ($item > 0 ? [] : ['without_price' => $grid['missing']])
                 + ($default !== null ? ['default_vat_rate' => $default] : ['next' => 'The default VAT rate is not set – an administrator sets it in Quotes → Settings.'])
                 + ['admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Prices::SECTION . '&action=prices&list=' . $list['id'])];
         }, 'admin-');

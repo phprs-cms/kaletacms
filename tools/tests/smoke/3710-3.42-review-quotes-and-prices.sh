@@ -59,6 +59,10 @@ expect "3.42 review L6: spam (Claude's or a person's sorting) deletes the prepar
 # (L3 + M4) a real form submission: the prepared quote's e-mail to its responsible person leaves with the response, under its own subject
 R342Q_NOTIFY=$(sq "SELECT notify_email FROM ka_uzivatele WHERE idu = $R342Q_ADMIN")
 sq "UPDATE ka_uzivatele SET notify_email = 'instant' WHERE idu = $R342Q_ADMIN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_auto_draft', '1')" > /dev/null
+# the mail leaves through the fake SMTP server – PHP's mail() has no sendmail on a CI runner and would fail the delivery
+R342Q_SMTP_PORT=${SMTP2_PORT:-$((PORT + 7))}; mkdir -p "$WORK/smtp-342q"
+command php "$ROOT/tools/fake-smtp.php" "$R342Q_SMTP_PORT" "$WORK/smtp-342q" > /dev/null 2>&1 & R342Q_SMTP_PID=$!
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$R342Q_SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')" > /dev/null
 background_jobs hold
 R342Q_MAIL0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_posta")
 R342Q_TIME=$(( $(date +%s) - 60 ))
@@ -67,10 +71,17 @@ sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 curl -s -o /dev/null -X POST "$B/form" -d "zdroj=$C342_SOURCE" -d "prvek=$C342_ELEMENT" -d zpet=/poptavka-342 -d "as_cas=$R342Q_TIME" -d "as_podpis=$R342Q_SIG" -d p0=LH-L2 -d p1=fyzio342@example.cz
 R342Q_ENQ_F=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE email = 'fyzio342@example.cz'"); R342Q_ENQ_F="${R342Q_ENQ_F:-0}"
 R342Q_QF=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_quotes WHERE enquiry_id = $R342Q_ENQ_F")
+# the sending runs after the response – a slow runner may still be at it when curl returns
+for _ in $(seq 1 30); do
+  [ "$(sq "SELECT COUNT(*) FROM ka_posta WHERE idp > $R342Q_MAIL0 AND odeslano IS NULL AND chyba = '' AND (predmet LIKE 'Draft quote prepared: %' OR predmet LIKE 'Připravený koncept nabídky: %')")" = 0 ] && break
+  sleep 0.2
+done
 expect "3.42 review L3 + M4: the prepared quote's e-mail is sent with the response (not left for the background jobs) and its subject names the prepared quote, not a review" \
   "$( [ "$R342Q_QF" -gt 0 ] && echo prepared)|$(sq "SELECT CONCAT(COUNT(*), '|', SUM(odeslano IS NOT NULL), '|', SUM(predmet LIKE '%Review%' OR predmet LIKE '%kontrole%')) FROM ka_posta WHERE idp > $R342Q_MAIL0 AND (predmet LIKE 'Draft quote prepared: %' OR predmet LIKE 'Připravený koncept nabídky: %')")" \
   "prepared|1|1|0"
 background_jobs resume
+kill "$R342Q_SMTP_PID" 2>/dev/null || true; wait "$R342Q_SMTP_PID" 2>/dev/null || true
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 sq "UPDATE ka_uzivatele SET notify_email = '$R342Q_NOTIFY' WHERE idu = $R342Q_ADMIN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_auto_draft', '0');
     DELETE FROM ka_quote_lines WHERE quote_id = $R342Q_QF; DELETE FROM ka_quotes WHERE id = $R342Q_QF; DELETE FROM ka_notifications WHERE target = 'quote:$R342Q_QF'" > /dev/null
 
