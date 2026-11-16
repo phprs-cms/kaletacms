@@ -3306,4 +3306,5 @@ return [
     'Download PDF' => 'Stáhnout PDF',
     'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
     'The update source leads to an address that is not allowed (%s).' => 'Zdroj aktualizací vede na adresu, která není povolená (%s).',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
 ];

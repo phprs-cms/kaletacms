@@ -2116,4 +2116,5 @@ return [
     'May we keep your application? – %s' => 'Môžeme vašu žiadosť uchovať? – %s',
     'Download PDF' => 'Stiahnuť PDF',
     'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Najviac %d MB: PDF, dokument Word alebo OpenDocument, text alebo obrázok (JPG, PNG).',
 ];

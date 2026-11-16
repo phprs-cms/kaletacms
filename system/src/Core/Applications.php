@@ -138,17 +138,39 @@ final class Applications
 
     /**
      * The position of a submission, looked up on the server: on a job's item page (the source is a jobs collection and the
-     * page an item of it) that item; on any other form the first field labelled like a position whose value names an open
+     * page an item of it) that item – since 3.41 also on the item page of any other collection, because a form there is an
+     * application form only by its Purpose, so the item is what the visitor applies for (a site that keeps its openings in
+     * a collection of its own, not one made from the jobs preset); on any other form the first field labelled like a position whose value names an open
      * job of a jobs collection (case-insensitive, the language's version first); otherwise none – a spontaneous application.
      * late = the job's closing date (valid_until) had passed (a cached page sent after the job hid itself).
      *
      * @param list<array{0: string, 1: string}> $data the stored fields
      * @return array{collection: ?int, item: ?int, title: string, late: bool}
      */
+    /**
+     * The collections a submission's position is looked up in (3.41): the jobs collections, and the collection whose item
+     * template the form is in (source kolekce:<idk>) when it is not one of them. Pure apart from $find, which reads that
+     * collection (idk, seo_link) or returns null when it is gone.
+     *
+     * @param list<array<string, mixed>> $jobCollections rows with idk and seo_link
+     * @param callable(int): ?array<string, mixed> $find
+     * @return list<array<string, mixed>>
+     */
+    public static function positionCollections(array $jobCollections, string $source, callable $find): array
+    {
+        if (preg_match('/^kolekce:(\d+)$/D', $source, $m) !== 1 || in_array((int) $m[1], array_map('intval', array_column($jobCollections, 'idk')), true)) {
+            return $jobCollections;
+        }
+        $own = $find((int) $m[1]);
+
+        return $own === null ? $jobCollections : [...$jobCollections, $own];
+    }
+
     public static function position(Db $db, string $source, string $back, array $data): array
     {
         $none = ['collection' => null, 'item' => null, 'title' => '', 'late' => false];
-        $collections = $db->all('SELECT idk, seo_link FROM {kolekce} WHERE preset = ?', [Jobs::PRESET]);
+        $collections = self::positionCollections($db->all('SELECT idk, seo_link FROM {kolekce} WHERE preset = ?', [Jobs::PRESET]), $source,
+            fn (int $idk): ?array => $db->one('SELECT idk, seo_link FROM {kolekce} WHERE idk = ?', [$idk]));
         if ($collections === []) {
             return $none;
         }

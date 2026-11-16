@@ -2804,4 +2804,5 @@ return [
     'Shown with news posts.' => 'Zobrazuje se u novinek.',
     'Password again' => 'Heslo znovu',
     'Website language' => 'Jazyk webu',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
 ];

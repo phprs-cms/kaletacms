@@ -2169,4 +2169,5 @@ The link works for %d days.
     'May we keep your application? – %s' => '我们可以保留您的申请吗？– %s',
     'Download PDF' => '下载 PDF',
     'Page %1$s of %2$s' => '第 %1$s 页，共 %2$s 页',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => '最大 %d MB：PDF、Word 或 OpenDocument 文档、文本或图片（JPG、PNG）。',
 ];

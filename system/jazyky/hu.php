@@ -2169,4 +2169,5 @@ A hivatkozás %d napig érvényes.
     'May we keep your application? – %s' => 'Megőrizhetjük a jelentkezését? – %s',
     'Download PDF' => 'PDF letöltése',
     'Page %1$s of %2$s' => '%1$s. oldal / %2$s',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Legfeljebb %d MB: PDF, Word- vagy OpenDocument-dokumentum, szöveg vagy kép (JPG, PNG).',
 ];

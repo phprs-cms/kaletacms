@@ -2146,4 +2146,5 @@ return [
     'May we keep your application? – %s' => 'Dürfen wir Ihre Bewerbung aufbewahren? – %s',
     'Download PDF' => 'PDF herunterladen',
     'Page %1$s of %2$s' => 'Seite %1$s von %2$s',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Höchstens %d MB: PDF, Word- oder OpenDocument-Dokument, Text oder Bild (JPG, PNG).',
 ];

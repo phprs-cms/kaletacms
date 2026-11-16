@@ -2169,4 +2169,5 @@ The link works for %d days.
     'May we keep your application? – %s' => 'هل يمكننا الاحتفاظ بطلبك؟ – %s',
     'Download PDF' => 'تنزيل PDF',
     'Page %1$s of %2$s' => 'الصفحة %1$s من %2$s',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'حتى %d ميغابايت: PDF أو مستند Word أو OpenDocument أو نص أو صورة (JPG، PNG).',
 ];

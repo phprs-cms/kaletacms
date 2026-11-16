@@ -224,9 +224,11 @@ final class Collections extends Module
             'listingPage' => $this->app->auth()->hasModule('pages') ? self::listingPage($this->app, $k) : null,
             // a document library (2.11): how often each document was downloaded, and its stable address
             'downloads' => \Kaleta\Core\Documents::fileField($k) !== null ? \Kaleta\Core\Documents::counts($this->db, (int) $k['idk']) : null,
-            // 3.34 B: a jobs collection – "Applications: new / all" per job, only for people with the section Applications
-            'applicationCounts' => ($k['preset'] ?? '') === \Kaleta\Core\Jobs::PRESET && isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])
-                ? \Kaleta\Core\Applications::countsByItem($this->db, (int) $k['idk']) : null,
+            // 3.34 B: a jobs collection – "Applications: new / all" per job, only for people with the section Applications;
+            // 3.41: also any other collection whose items have applications (an application form in its item template)
+            'applicationCounts' => isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])
+                && (($applicationCounts = \Kaleta\Core\Applications::countsByItem($this->db, (int) $k['idk'])) !== [] || ($k['preset'] ?? '') === \Kaleta\Core\Jobs::PRESET)
+                ? $applicationCounts : null,
             // 3.14: staff copy their own signature in My account – said on a people collection once someone is linked to a record
             'staffSignatures' => !$trash && \Kaleta\Builder\EmailSignature::isPeople($k)
                 && \Kaleta\Builder\TeamRecord::linked($this->db, $this->db->all('SELECT idu, email, team_item_id FROM {uzivatele} WHERE blokovat = 0')) !== [],

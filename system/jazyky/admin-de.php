@@ -8930,4 +8930,5 @@ return [
     'Quote declined: %s' => 'Angebot abgelehnt: %s',
     'Only an administrator can move a file to a folder with other people in its audience.' => 'Nur ein Administrator kann eine Datei in einen Ordner verschieben, den andere Personen sehen.',
     'The names of the forms are too long together – at most 1,000 characters.' => 'Die Namen der Formulare sind zusammen zu lang – höchstens 1.000 Zeichen.',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Bis zu %d MB: PDF, Word- oder OpenDocument-Dokument, Text oder Bild (JPG, PNG).',
 ];

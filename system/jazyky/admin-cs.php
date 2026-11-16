@@ -8523,4 +8523,5 @@ return [
     'Quote declined: %s' => 'Nabídka odmítnuta: %s',
     'Only an administrator can move a file to a folder with other people in its audience.' => 'Soubor do složky, kterou vidí jiní lidé, může přesunout jen správce.',
     'The names of the forms are too long together – at most 1,000 characters.' => 'Názvy formulářů jsou dohromady příliš dlouhé – nejvýš 1 000 znaků.',
+    'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
 ];
