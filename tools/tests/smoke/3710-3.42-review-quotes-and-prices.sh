@@ -80,11 +80,13 @@ R342Q_PAGE=$(sq "SELECT ids FROM ka_stranky WHERE ids = ${C342_PAGE:-0}")
 R342Q_TITLE=$(sq "SELECT titulek FROM ka_stranky WHERE ids = $R342Q_PAGE")
 sq "UPDATE ka_menu SET umisteni = 'paticka-342q' WHERE umisteni = 'paticka' AND jazyk = '';
     INSERT INTO ka_menu (umisteni, jazyk, polozky) VALUES ('paticka', '', '[{\"typ\":\"stranka\",\"text\":\"\",\"ids\":$R342Q_PAGE}]')" > /dev/null
-r342q_rpc() { printf '{"jsonrpc":"2.0","id":%s,"method":"tools/call","params":{"name":"%s","arguments":%s}}' "$1" "$2" "$3"; }
-curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary \
-  "[$(r342q_rpc 1 get_menu '{"location":"footer"}'),$(r342q_rpc 2 update_page "{\"id\":$R342Q_PAGE,\"title\":\"Poptavka 342 renamed\"}"),$(r342q_rpc 3 get_menu '{"location":"footer"}')]" > "$WORK/r342q-batch.json"
+php -r '$call = fn (int $id, string $tool, array $args): array => ["jsonrpc" => "2.0", "id" => $id, "method" => "tools/call", "params" => ["name" => $tool, "arguments" => $args]];
+  echo json_encode([$call(1, "get_menu", ["location" => "footer"]), $call(2, "update_page", ["id" => (int) $argv[1], "title" => "Poptavka 342 renamed"]), $call(3, "get_menu", ["location" => "footer"])]);' -- "$R342Q_PAGE" > "$WORK/r342q-batch-request.json"
+R342Q_RC=0
+curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' --data-binary "@$WORK/r342q-batch-request.json" -o "$WORK/r342q-batch.json" || R342Q_RC=$?
+[ "$R342Q_RC" = 0 ] || echo "  (the MCP batch request ended with curl code $R342Q_RC)"
 expect "3.42 review L2: a page renamed between two get_menu calls of one MCP batch shows its new title in the second" \
   "$(php -r '$r = array_column(json_decode((string) file_get_contents($argv[1]), true) ?: [], null, "id"); $t = fn (int $i): string => json_encode(json_decode((string) ($r[$i]["result"]["content"][0]["text"] ?? "{}"), true)["on_site"] ?? null, JSON_UNESCAPED_UNICODE);
     echo str_contains($t(1), "Poptavka 342 renamed") ? "new" : "old", "|", str_contains($t(3), "Poptavka 342 renamed") ? "new" : "old";' -- "$WORK/r342q-batch.json")" "old|new"
 sq "DELETE FROM ka_menu WHERE umisteni = 'paticka' AND jazyk = ''; UPDATE ka_menu SET umisteni = 'paticka' WHERE umisteni = 'paticka-342q' AND jazyk = ''" > /dev/null
-mcp update_page "{\"id\":$R342Q_PAGE,\"title\":\"$R342Q_TITLE\"}" > /dev/null
+mcp update_page "$(php -r 'echo json_encode(["id" => (int) $argv[1], "title" => $argv[2]], JSON_UNESCAPED_UNICODE);' -- "$R342Q_PAGE" "$R342Q_TITLE")" > /dev/null || true
