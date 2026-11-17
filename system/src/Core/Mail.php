@@ -242,6 +242,15 @@ final class Mail
                 [$attempt, date('Y-m-d H:i:s', time() + (self::RETRY_DELAYS[$attempt - 1] ?? 0) * 60), $z['idp'], $z['pokusu']])->rowCount() === 0) {
                 continue;
             }
+            // 3.44 review L5: right before sending, the message must still be there and its link alive – a quote withdrawn
+            // (Mail::withdraw) or a link that expired while the queue worked through the batch is not sent
+            if ($db->value('SELECT 1 FROM {posta} WHERE idp = ? AND odeslano IS NULL AND telo IS NOT NULL', [$z['idp']]) === null) {
+                continue;
+            }
+            if ((int) ($body['expires'] ?? 0) > 0 && (int) $body['expires'] <= time()) {
+                $db->run('UPDATE {posta} SET telo = NULL, dalsi_pokus = NULL, chyba = ? WHERE idp = ? AND odeslano IS NULL', [self::LINK_EXPIRED, $z['idp']]);
+                continue;
+            }
             // 3.32: a subject naming a person waits in the body (predmet holds the logged one) and goes with it once sent
             $files = [];
             foreach (is_array($body['prilohy'] ?? null) ? $body['prilohy'] : [] as $a) { // 3.40: the attachments wait in the body with the text

@@ -76,8 +76,11 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 <?php else: ?>
 <form method="post" action="<?= e($module->url('send')) ?>" class="formular" data-quote-send data-potvrdit="<?= e(t('Send this quote to %s now? It goes out as a real e-mail and cannot be taken back.', $draft['to'])) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
-<?php if (Kaleta\Core\Quotes::emailByClaude($quote) && Kaleta\Core\QuoteDelivery::claudeRefusal($app->db(), $quote) !== null): /* 3.44 (N146): a connection wrote this address */ ?>
+<?php $claudeRefusal = Kaleta\Core\QuoteDelivery::claudeRefusal($app->db(), $quote); ?>
+<?php if (Kaleta\Core\Quotes::emailByClaude($quote) && $claudeRefusal !== null): /* 3.44 (N146): a connection wrote this address */ ?>
 	<p class="hlaska hlaska-varovani" data-quote-email-by-claude><?= e(t('Claude wrote this e-mail address into the quote and it is not the address of the customer record or enquiry. Check it before you send.')) ?></p>
+<?php elseif ($claudeRefusal === Kaleta\Core\QuoteDelivery::CLAUDE_WROTE_ADDRESS): /* 3.44 review L2: through the customer record or an imported enquiry */ ?>
+	<p class="hlaska hlaska-varovani" data-quote-email-by-claude><?= e(t('A Claude connection wrote this e-mail address into the customer record or brought in the enquiry. Check it before you send.')) ?></p>
 <?php endif ?>
 	<div class="radek"><span class="popisek"><?= e(t('Recipient')) ?></span><div><strong data-quote-recipient><?= e($draft['to']) ?></strong>
 		<span class="napoveda"><?= e(t('The quote goes only to the customer’s e-mail – to send it elsewhere, change the customer in the quote.')) ?></span></div></div>

@@ -379,7 +379,10 @@ trait QuoteTools
             'updated_at' => $q['updated_at'], 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))], fn (mixed $v): bool => $v !== null && $v !== [])
             // 3.40 review L3: the customer typed customer_reason on the quote page; 3.44 (N144): the customer block, the title and the
             // lines come from an enquiry's form (a free line's name is a sentence of the visitor's message) or a connection
-            + \Kaleta\Mcp\Untrusted::mark(['customer', 'title', 'lines', ...($q['customer_reason'] !== null ? ['customer_reason'] : [])]);
+            + \Kaleta\Mcp\Untrusted::mark(['customer', 'title', 'lines', ...($q['customer_reason'] !== null ? ['customer_reason'] : []),
+                // 3.44 review L1: a drafts-only connection writes the intro, the terms and history notes of its drafts too
+                ...array_keys(array_filter(['intro' => $q['intro'] !== '', 'terms' => $q['terms'] !== '',
+                    'history' => array_filter($q['history'], fn (array $h): bool => ($h['note'] ?? '') !== '') !== []]))]);
     }
 
     /**

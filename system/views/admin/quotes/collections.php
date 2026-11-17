@@ -9,19 +9,19 @@
  * @var Kaleta\Admin\Modules\Quotes $module
  * @var string $csrf
  * @var string $back settings | prices
- * @var array<int, array{collection: int, code: string, variants: string}> $mapping
- * @var list<array{idk: int, name: string, preset: bool, items: int, code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}> $mappable
+ * @var array<int, array{collection: int, code: string, variants: string, basket?: bool}> $mapping
+ * @var list<array{idk: int, name: string, preset: bool, items: int, detail: bool, code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}> $mappable
  */
 ?>
 <form method="post" action="<?= e($module->url('collections_save')) ?>" id="price-collections" data-price-collections>
-	<?= $csrf ?><input type="hidden" name="back" value="<?= e($back) ?>">
+	<?= $csrf ?><input type="hidden" name="back" value="<?= e($back) ?>"><input type="hidden" name="basket_form" value="1">
 	<p class="napoveda"><?= e(t('Every item of a chosen collection gets a row in the price list with an empty price to fill in; enquiries sent from its detail page, or naming it in a field, lead to a prepared quote. The site never shows these prices.')) ?></p>
 <?php if ($mappable === []): ?>
 	<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No collections yet.'), 'text' => t('Create a collection of your products in Collections first.')]) ?>
 <?php else: ?>
 	<div class="tab-obal">
 	<table class="vypis vypis-karty">
-	<thead><tr><th scope="col"><?= e(t('In the price list')) ?></th><th scope="col"><?= e(t('Collection')) ?></th><th scope="col"><?= e(t('Product code')) ?></th><th scope="col"><?= e(t('Variants')) ?></th></tr></thead>
+	<thead><tr><th scope="col"><?= e(t('In the price list')) ?></th><th scope="col"><?= e(t('Collection')) ?></th><th scope="col"><?= e(t('Product code')) ?></th><th scope="col"><?= e(t('Variants')) ?></th><th scope="col"><?= e(t('In the enquiry basket')) ?></th></tr></thead>
 	<tbody>
 <?php foreach ($mappable as $c): $m = $mapping[$c['idk']] ?? null; $id = 'cenik-kolekce-' . $c['idk']; ?>
 	<tr data-price-collection="<?= $c['idk'] ?>">
@@ -42,6 +42,8 @@
 				<option value="<?= e($f['key']) ?>"<?= ($m['variants'] ?? '') === $f['key'] ? ' selected' : '' ?>><?= e($f['label']) ?></option>
 <?php endforeach ?>
 			</select><?php endif ?></td>
+		<td data-popisek="<?= e(t('In the enquiry basket')) ?>"><?php if ($c['preset']): ?><?= e(t('always (Products)')) ?><?php else: ?>
+			<label><input type="checkbox" name="basket_<?= $c['idk'] ?>" value="1"<?= ($m['basket'] ?? $c['detail']) ? ' checked' : '' ?>> <?= e(t('Visitors can add its items')) ?></label><?php endif ?></td>
 	</tr>
 <?php endforeach ?>
 	</tbody>

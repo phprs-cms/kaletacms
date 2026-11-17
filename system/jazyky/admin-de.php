@@ -8964,4 +8964,9 @@ return [
     'not set' => 'nicht festgelegt',
     'The customer gets the quote’s number and the link when you send it.' => 'Die Angebotsnummer und den Link erhält der Kunde beim Senden.',
     'Price (%s)' => 'Preis (%s)',
+    'Claude uses the customer’s price list or the default one – ask a person to choose another list in the admin.' => 'Claude verwendet die Preisliste des Kunden oder die Standardliste – eine andere Liste wählt ein Mensch in der Administration.',
+    'Line %1$d: “%2$s” is a product of the price list – give its item or code so its list price applies.' => 'Zeile %1$d: „%2$s“ ist ein Produkt der Preisliste – geben Sie seinen Eintrag oder Code an, damit sein Listenpreis gilt.',
+    'In the enquiry basket' => 'Im Anfragekorb',
+    'Visitors can add its items' => 'Besucher können ihre Einträge hinzufügen',
+    'A Claude connection wrote this e-mail address into the customer record or brought in the enquiry. Check it before you send.' => 'Eine Claude-Verbindung hat diese E-Mail-Adresse in den Kundendatensatz geschrieben oder mit der Anfrage eingebracht. Prüfen Sie sie vor dem Senden.',
 ];

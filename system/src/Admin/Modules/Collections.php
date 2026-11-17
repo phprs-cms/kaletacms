@@ -404,7 +404,9 @@ final class Collections extends Module
         }
 
         // 3.44 (N168 b): an item whose address is its code in the price list – a changed address is said out loud
-        $priceWarning = $previous !== null ? \Kaleta\Core\Prices::addressChangeWarning($this->db, $idp, (string) $previous['seo_link'], $seo) : null;
+        // 3.44 review L4 (b): only for someone who may open Quotes – the warning says that the item has an internal price
+        $priceWarning = $previous !== null && \Kaleta\Core\Prices::mayRead($this->db, $this->app->settings(), $this->app->auth()->id())
+            ? \Kaleta\Core\Prices::addressChangeWarning($this->db, $idp, (string) $previous['seo_link'], $seo) : null;
         if ($priceWarning !== null) {
             return $this->back(trim(t('The item was saved.') . ' ' . $priceWarning), 'item', ['id' => $k['idk'], 'item' => $idp], 'varovani');
         }

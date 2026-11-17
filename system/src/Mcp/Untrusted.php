@@ -42,7 +42,7 @@ final class Untrusted
         'move_deal' => ['title', 'contact', 'company'], 'list_tasks' => ['title'], 'save_task' => ['title'],
         'my_work' => ['tasks', 'enquiries_assigned', 'enquiries_unassigned', 'deals', 'quotes_drafts', 'quotes_waiting', 'quotes_expiring'], 'get_monthly_report' => ['report'],
         // 3.44 (N144): quotes made from enquiries – the customer block, the title and the lines (a free line's name is the visitor's sentence)
-        'list_quotes' => ['quotes'], 'get_quote' => ['customer', 'title', 'lines', 'customer_reason'], 'save_quote' => ['customer', 'title', 'lines'], 'send_quote' => ['to'],
+        'list_quotes' => ['quotes'], 'get_quote' => ['customer', 'title', 'lines', 'intro', 'terms', 'history', 'customer_reason'], 'save_quote' => ['customer', 'title', 'lines'], 'send_quote' => ['to'],
         // 3.44 (N149): every heartbeat writes a fleet site's name
         'list_sites' => ['sites'], 'get_site' => ['name', 'report'], 'fleet_inbox' => ['items'], 'fleet_report' => ['reports'], 'fleet_today' => ['items'],
         'fleet_health' => ['sites'], 'fleet_inventory' => ['sites'], 'fleet_calendar' => ['dates', 'recovery_keys'], 'fleet_plan' => ['sites', 'customer_tasks'],

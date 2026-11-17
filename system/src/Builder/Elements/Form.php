@@ -307,7 +307,7 @@ final class Form extends Element
         $list = '';
         if (preg_match('#^([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', $r->get('product'), $m) === 1) {
             $line = ['c' => $m[1], 'i' => $m[2], 'v' => mb_substr($r->get('variant'), 0, 100), 'q' => max(1, min(9999, $r->getInt('quantity', 1)))];
-            $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]));
+            $lines = \Kaleta\Builder\Products::basketLines($k->app->db(), (string) json_encode([$line]), true);
             if ($lines !== null && $lines !== []) {
                 $line['n'] = (string) $k->app->db()->value('SELECT p.nazev FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.zobrazit = 1 LIMIT 1', [$m[1], $m[2]]);
                 $prefill = (string) json_encode([$line], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

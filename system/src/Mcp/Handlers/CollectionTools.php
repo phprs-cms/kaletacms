@@ -386,7 +386,9 @@ trait CollectionTools
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
 
         // 3.44 (N168 b): the item's address is its code in the price list – a changed address is said (additive key)
-        $priceWarning = $previous !== null ? \Kaleta\Core\Prices::addressChangeWarning($db, $idp, (string) $previous['seo_link'], $seo) : null;
+        // 3.44 review L4 (b): only for someone who may open Quotes – the warning says that the item has an internal price
+        $priceWarning = $previous !== null && \Kaleta\Core\Prices::mayRead($db, $this->app->settings(), $this->app->auth()->id())
+            ? \Kaleta\Core\Prices::addressChangeWarning($db, $idp, (string) $previous['seo_link'], $seo) : null;
 
         return ['id' => $idp, 'kolekce' => $collection['seo_link'], 'neplatna_pole' => array_keys($errors)] + ($unknownKeys !== [] ? ['nezname_klice' => $unknownKeys] : []) + self::validityOutput($row)
             + ($priceWarning !== null ? ['price_warning' => $priceWarning] : [])

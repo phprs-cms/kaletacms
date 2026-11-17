@@ -247,6 +247,9 @@ final class QuoteDelivery
      *
      * @param array<string, mixed> $quote as Quotes::get returns it
      */
+    /** 3.44 review L2: claudeRefusal() when the address came from a Claude connection through the customer record or an imported enquiry */
+    public const string CLAUDE_WROTE_ADDRESS = 'The quote\'s e-mail was written by a Claude connection (a customer record saved or an enquiry imported over MCP), so it is not proven to be the customer\'s own address – Claude does not send to it. A person checks the address and sends the quote from the admin (Quotes → the quote → Send).';
+
     public static function claudeRefusal(Db $db, array $quote): ?string
     {
         $email = PersonalData::cleanAddress((string) $quote['customer']['email']);
@@ -279,7 +282,7 @@ final class QuoteDelivery
         }
         foreach ($byClaude as $address) {
             if ($address !== '' && PersonalData::cleanAddress($address) === $email) {
-                return 'The quote\'s e-mail was written by a Claude connection (a customer record saved or an enquiry imported over MCP), so it is not proven to be the customer\'s own address – Claude does not send to it. A person checks the address and sends the quote from the admin (Quotes → the quote → Send).';
+                return self::CLAUDE_WROTE_ADDRESS;
             }
         }
 

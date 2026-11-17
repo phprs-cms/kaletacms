@@ -158,11 +158,12 @@ final class Products
      * visible item of a products collection (the preset, or 3.44 one mapped to the price list) and a variant it has; the
      * text is rebuilt from the database ("2 × Name – Variant (code)"; an item of a mapped collection without a code field
      * has its address as its code, as in the price list). [] = an empty basket, null = not valid (too many lines, unknown
-     * products, a bad quantity).
+     * products, a bad quantity). 3.44 review M1: $forVisitor leaves the code of a mapped item out (the list on the form page
+     * shows the name and variant only – a mapped code may be an internal SKU); the stored enquiry keeps it.
      *
      * @return list<string>|null
      */
-    public static function basketLines(Db $db, string $json): ?array
+    public static function basketLines(Db $db, string $json, bool $forVisitor = false): ?array
     {
         if (trim($json) === '' || trim($json) === '[]') {
             return [];
@@ -193,6 +194,7 @@ final class Products
             $own = $fields['code'] !== '' ? trim((string) ($data[$fields['code']] ?? '')) : '';
             $own = $own === '' && ($collection['preset'] ?? '') !== 'products' ? (string) $item['seo_link'] : $own; // 3.44: a mapped item's address stands for its code
             $code = $match !== null && $match['code'] !== '' ? $match['code'] : ($match !== null ? '' : $own);
+            $code = $forVisitor && ($collection['preset'] ?? '') !== 'products' ? '' : $code;
             $out[] = $quantity . ' × ' . $item['nazev'] . ($variant !== '' ? ' – ' . $variant : '') . ($code !== '' ? ' (' . $code . ')' : '');
         }
 

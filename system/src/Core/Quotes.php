@@ -326,6 +326,14 @@ final class Quotes
             if ($list === null) {
                 throw new \DomainException(t('The price list does not exist.'));
             }
+            if ($fromClaude && $has('price_list_id') && $customerList === null) {
+                // 3.44 review M2: Claude prices from the customer's list or the default one – never a cheaper list of its choice
+                $allowed = array_filter([Prices::defaultList($db, $s)['id'], self::customerList($db, array_key_exists('contact_id', $sources['data']) ? $sources['data']['contact_id'] : ($quote['contact_id'] ?? null),
+                    array_key_exists('company_id', $sources['data']) ? $sources['data']['company_id'] : ($quote['company_id'] ?? null))['id'] ?? null]);
+                if (!in_array($list['id'], $allowed, true)) {
+                    throw new \DomainException(t('Claude uses the customer’s price list or the default one – ask a person to choose another list in the admin.'));
+                }
+            }
             if ($list['archived_at'] !== null && ($quote === null || $quote['price_list_id'] !== $list['id'])) {
                 throw new \DomainException(t('The price list %s is archived – choose another one.', $list['name']));
             }
@@ -397,7 +405,8 @@ final class Quotes
             if (!in_array($mode, Money::VAT_MODES, true)) {
                 throw new \DomainException(t('The VAT mode must be one of: %s.', implode(', ', Money::VAT_MODES)));
             }
-            if ($fromClaude && $has('vat_mode') && $mode === 'none' && $s->bool('quote_vat_payer') && $mode !== ($quote['vat_mode'] ?? 'standard')) {
+            if ($fromClaude && $has('vat_mode') && in_array($mode, ['none', 'reverse_charge'], true) && $s->bool('quote_vat_payer') && $mode !== ($quote['vat_mode'] ?? 'standard')) {
+                // 3.44 review M2: reverse charge leaves the VAT out of what the customer pays as well
                 // 3.44 (N143): a quote without VAT from a VAT payer lowers what the customer pays – a person decides it in the admin
                 throw new \DomainException(t('A quote without VAT from a firm that pays VAT – ask a person to set it in the admin.'));
             }
@@ -1117,19 +1126,32 @@ final class Quotes
             || $db->value('SELECT 1 FROM {quotes} WHERE enquiry_id = ? LIMIT 1', [$enquiryId]) !== null) {
             return null;
         }
-        // 3.44 (N168 a): at most AUTO_DRAFT_DAILY_MAX prepared drafts a day – a flood of enquiries naming products stays
-        // enquiries; the first one over the cap leaves one warning in the events of the day
-        $today = Clock::today() . ' 00:00:00';
-        if ((int) $db->value('SELECT COUNT(*) FROM {quotes} WHERE created_by IS NULL AND enquiry_id IS NOT NULL AND created_at >= ?', [$today]) >= self::AUTO_DRAFT_DAILY_MAX) {
-            if ($db->value("SELECT 1 FROM {events} WHERE type = 'quote.auto_draft_limit' AND created_at >= ? LIMIT 1", [$today]) === null) {
-                Events::record($db, 'quote.auto_draft_limit', 'warning', mb_substr(t('Draft quotes are no longer prepared today – %d were prepared already.', self::AUTO_DRAFT_DAILY_MAX), 0, 255), ['enquiry' => $enquiryId]);
-            }
-
-            return null;
-        }
         $found = self::linesFromEnquiry($app, $enquiryId);
         if ($found['matched'] === 0) {
             return null;
+        }
+        // 3.44 (N168 a): at most AUTO_DRAFT_DAILY_MAX prepared drafts a day – a flood of enquiries naming products stays
+        // enquiries; the first one over the cap leaves one warning in the events of the day. 3.44 review L4: counted under a
+        // lock in the marker quote_auto_drafts_day, so parallel enquiries cannot pass it together and a draft discarded with
+        // its spam enquiry still counts
+        $lock = $db->lockName('quote-auto-drafts');
+        if ((int) $db->value('SELECT GET_LOCK(?, 5)', [$lock]) !== 1) {
+            return null;
+        }
+        try {
+            $today = Clock::today();
+            [$day, $count] = array_pad(explode('|', (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'quote_auto_drafts_day'") ?? '')), 2, '0');
+            $count = $day === $today ? (int) $count : 0;
+            if ($count >= self::AUTO_DRAFT_DAILY_MAX) {
+                if ($db->value("SELECT 1 FROM {events} WHERE type = 'quote.auto_draft_limit' AND created_at >= ? LIMIT 1", [$today . ' 00:00:00']) === null) {
+                    Events::record($db, 'quote.auto_draft_limit', 'warning', mb_substr(t('Draft quotes are no longer prepared today – %d were prepared already.', self::AUTO_DRAFT_DAILY_MAX), 0, 255), ['enquiry' => $enquiryId]);
+                }
+
+                return null;
+            }
+            $s->set('quote_auto_drafts_day', $today . '|' . ($count + 1));
+        } finally {
+            $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
         }
         $owner = 0;
         $deal = Deals::openForEnquiry($db, $enquiryId);
@@ -1576,6 +1598,10 @@ final class Quotes
         if ($name === '') {
             throw new \DomainException(t('Line %d needs a name.', $n));
         }
+        if ($fromClaude && $itemId <= 0 && $price === null && self::namesProduct($db, $list['id'], $name, $code)) {
+            // 3.44 review M2: a free line named as a product has no list price to compare – the discount cap and the VAT rate would not apply
+            throw new \DomainException(t('Line %1$d: “%2$s” is a product of the price list – give its item or code so its list price applies.', $n, $name));
+        }
         $quantity = Money::quantity($input['quantity'] ?? ($stored['quantity'] ?? null));
         $discount = Money::percent($input['discount_percent'] ?? ($stored['discount_percent'] ?? null));
         // 3.44 (N143): Claude's price below the list price is a discount by another name – it counts against the same cap
@@ -1598,6 +1624,30 @@ final class Quotes
             'unit_price' => $given === null ? null : Money::toDecimal($given), 'list_price' => $listMinor === null ? null : Money::toDecimal($listMinor),
             'discount_percent' => Money::percentText($discount), 'vat_rate' => Money::percentText($rate),
             'line_net' => Money::toDecimal($given === null ? 0 : Money::lineNet($given, $quantity, $discount)), 'implied_discount' => $implied];
+    }
+
+    /**
+     * 3.44 review M2: does a free line's name (or its part before " – ", a variant) or code name a product of a products
+     * collection (the preset or mapped) or an own row of the price list? Claude must then give the item or the code.
+     */
+    private static function namesProduct(Db $db, int $priceListId, string $name, string $code): bool
+    {
+        $names = array_values(array_unique(array_filter([$name, trim(explode(' – ', $name)[0])])));
+        if ($code !== '' && Prices::findCode($db, $code) !== null) {
+            return true;
+        }
+        $collections = array_column(Prices::productCollections($db), 'idk');
+        $marks = implode(', ', array_fill(0, count($names), '?'));
+        if ($collections !== [] && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk IN (' . implode(', ', array_map('intval', $collections)) . ") AND smazano IS NULL AND nazev IN ($marks) LIMIT 1", $names) !== null) {
+            return true;
+        }
+        try {
+            return $db->value("SELECT 1 FROM {prices} WHERE price_list_id = ? AND item_id IS NULL AND (label IN ($marks)" . ($code !== '' ? ' OR code = ?' : '') . ') LIMIT 1',
+                [$priceListId, ...$names, ...($code !== '' ? [$code] : [])]) !== null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return false;
+        }
     }
 
     /**

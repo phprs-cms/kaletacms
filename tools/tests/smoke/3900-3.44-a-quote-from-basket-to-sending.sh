@@ -13,7 +13,7 @@ expect "3.44: Add to enquiry works on a mapped collection's item page – the pr
   "1|1|1|0|1"
 # without JavaScript the basket takes the product from the address (?product=…), checked like any basket line
 curl -s -o "$WORK/a344-prefill.html" "$B/produkty-342/gel-g3?product=produkty-342/gel-g3&quantity=4"
-expect "3.44: without JavaScript the basket field of a mapped item takes the product with its quantity (the address stands for the code)" "$(grep -c '<li>4 × Gel G3 (gel-g3)</li>' "$WORK/a344-prefill.html")" "1"
+expect "3.44: without JavaScript the basket field of a mapped item takes the product with its quantity (review M1: the visitor sees no mapped code)" "$(grep -c '<li>4 × Gel G3</li>' "$WORK/a344-prefill.html")|$(grep -c 'gel-g3)</li>' "$WORK/a344-prefill.html")" "1|0"
 
 # a real submission: two products with quantities in the basket, an instruction-shaped "1 × …" line in the message (N163)
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_auto_draft', '1')" > /dev/null
@@ -69,23 +69,18 @@ $app->applyTimezone();
 use Kaleta\Core\Quotes;
 $db = $app->db();
 $now = date('Y-m-d H:i:s');
-$list = (int) $db->value('SELECT id FROM {price_lists} WHERE is_default = 1 ORDER BY id LIMIT 1');
-$prepared = (int) $db->value('SELECT COUNT(*) FROM {quotes} WHERE created_by IS NULL AND enquiry_id IS NOT NULL AND created_at >= ?', [date('Y-m-d') . ' 00:00:00']);
-$filler = [];
-for ($i = $prepared; $i < Quotes::AUTO_DRAFT_DAILY_MAX; $i++) {
-    $filler[] = $db->insert('quotes', ['status' => 'draft', 'enquiry_id' => 999000 + $i, 'price_list_id' => $list, 'currency' => 'CZK', 'title' => 'cap 344', 'created_at' => $now, 'updated_at' => $now]);
-}
+// 3.44 review L4: the day's count is the marker quote_auto_drafts_day (discarded drafts count too)
+$app->settings()->set('quote_auto_drafts_day', Kaleta\Core\Clock::today() . '|' . Quotes::AUTO_DRAFT_DAILY_MAX);
 $enquiry = fn (): int => $db->insert('poptavky', ['datum' => $now, 'formular' => 'Poptávka 344 strop', 'email' => 'strop344@example.cz', 'stav' => 0, 'data' => json_encode([['Kód', 'LH-L2']])]);
 $events = fn (): int => (int) $db->value("SELECT COUNT(*) FROM {events} WHERE type = 'quote.auto_draft_limit' AND created_at >= ?", [date('Y-m-d') . ' 00:00:00']);
 $out = [Quotes::prepareDraft($app, $enquiry()) === null ? 'over:none' : 'over:draft', 'events:' . $events()];
 $out[] = Quotes::prepareDraft($app, $enquiry()) === null ? 'again:none' : 'again:draft';
 $out[] = 'events:' . $events();
-foreach ($filler as $id) {
-    $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
-}
+$app->settings()->set('quote_auto_drafts_day', Kaleta\Core\Clock::today() . '|' . (Quotes::AUTO_DRAFT_DAILY_MAX - 1));
 $out[] = Quotes::prepareDraft($app, $enquiry()) === null ? 'under:none' : 'under:draft';
 $db->run("DELETE FROM {quote_lines} WHERE quote_id IN (SELECT id FROM {quotes} WHERE enquiry_id IN (SELECT idp FROM {poptavky} WHERE email = 'strop344@example.cz'))");
 $db->run("DELETE FROM {quotes} WHERE enquiry_id IN (SELECT idp FROM {poptavky} WHERE email = 'strop344@example.cz')");
+$app->settings()->set('quote_auto_drafts_day', '');
 echo implode('|', $out);
 PHP
 expect "3.44 (N168 a): over the daily cap no draft is prepared and one warning event says so; under it again a draft is prepared" \

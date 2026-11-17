@@ -8556,4 +8556,9 @@ return [
     'not set' => 'nenastaveno',
     'The customer gets the quote’s number and the link when you send it.' => 'Číslo nabídky a odkaz zákazník dostane, až ji odešlete.',
     'Price (%s)' => 'Cena (%s)',
+    'Claude uses the customer’s price list or the default one – ask a person to choose another list in the admin.' => 'Claude používá ceník zákazníka nebo výchozí ceník – jiný ceník vybere člověk v administraci.',
+    'Line %1$d: “%2$s” is a product of the price list – give its item or code so its list price applies.' => 'Řádek %1$d: „%2$s“ je produkt z ceníku – uveďte jeho položku nebo kód, aby platila ceníková cena.',
+    'In the enquiry basket' => 'V košíku poptávky',
+    'Visitors can add its items' => 'Návštěvníci mohou přidávat její položky',
+    'A Claude connection wrote this e-mail address into the customer record or brought in the enquiry. Check it before you send.' => 'Tuto e-mailovou adresu zapsalo do záznamu zákazníka nebo přineslo s poptávkou připojení Clauda. Před odesláním ji zkontrolujte.',
 ];

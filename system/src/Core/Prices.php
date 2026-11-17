@@ -256,7 +256,7 @@ final class Prices
      * the code field ('' = the item's address is its code) and of the variants field ('' = none). A collection made from
      * the products preset needs no entry – it is always a products collection.
      *
-     * @return list<array{collection: int, code: string, variants: string}>
+     * @return list<array{collection: int, code: string, variants: string, basket?: bool}>
      */
     public static function mapping(Db $db): array
     {
@@ -273,7 +273,7 @@ final class Prices
     /**
      * The mapping as stored – a JSON list of {collection, code, variants}; anything else is dropped (pure).
      *
-     * @return list<array{collection: int, code: string, variants: string}>
+     * @return list<array{collection: int, code: string, variants: string, basket?: bool}>
      */
     public static function parseMapping(string $json): array
     {
@@ -285,7 +285,8 @@ final class Prices
                 continue;
             }
             $key = fn (string $k): string => is_string($entry[$k] ?? null) && preg_match('/^[a-z0-9_]{1,40}$/D', $entry[$k]) === 1 ? $entry[$k] : '';
-            $out[$id] = ['collection' => $id, 'code' => $key('code'), 'variants' => $key('variants')];
+            $out[$id] = ['collection' => $id, 'code' => $key('code'), 'variants' => $key('variants')]
+                + (is_bool($entry['basket'] ?? null) ? ['basket' => $entry['basket']] : []); // 3.44 review M1: offered in the enquiry basket (none = only with public item pages)
             if (count($out) >= self::MAPPED_MAX) {
                 break;
             }
@@ -299,8 +300,8 @@ final class Prices
      * collections already, a code field of a text or number type, a variants field of the variants or longer-text type.
      * One change-log line. Returns what was stored.
      *
-     * @param list<array{collection: int, code?: string, variants?: string}> $entries
-     * @return list<array{collection: int, code: string, variants: string}>
+     * @param list<array{collection: int, code?: string, variants?: string, basket?: bool}> $entries
+     * @return list<array{collection: int, code: string, variants: string, basket?: bool}>
      */
     public static function saveMapping(App $app, array $entries): array
     {
@@ -314,7 +315,7 @@ final class Prices
             }
             $options = self::mappableFields($c);
             $clean[] = ['collection' => $e['collection'], 'code' => in_array($e['code'], array_column($options['code'], 'key'), true) ? $e['code'] : '',
-                'variants' => in_array($e['variants'], array_column($options['variants'], 'key'), true) ? $e['variants'] : ''];
+                'variants' => in_array($e['variants'], array_column($options['variants'], 'key'), true) ? $e['variants'] : ''] + (isset($e['basket']) ? ['basket' => $e['basket']] : []);
         }
         $app->settings()->set(self::MAPPING_SETTING, $clean === [] ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
         self::$codeMemo = null;
@@ -346,7 +347,7 @@ final class Prices
         return $out;
     }
 
-    /** @var array{0: int, 1: array<int, array{collection: int, code: string, variants: string}>}|null mapping() by collection for one database (mappedFields) */
+    /** @var array{0: int, 1: array<int, array{collection: int, code: string, variants: string, basket?: bool}>, 2: bool}|null mapping() by collection for one database, and whether Quotes is on (mappedFields) */
     private static ?array $mappingMemo = null;
 
     /**
@@ -363,11 +364,29 @@ final class Prices
             return null;
         }
         if (self::$mappingMemo === null || self::$mappingMemo[0] !== spl_object_id($db)) {
-            self::$mappingMemo = [spl_object_id($db), array_column(self::mapping($db), null, 'collection')];
+            $extensions = (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'extensions'") ?? '');
+            self::$mappingMemo = [spl_object_id($db), array_column(self::mapping($db), null, 'collection'), in_array('quotes', explode(',', $extensions), true)];
+        }
+        // 3.44 review M1: only while Quotes is on, and only a collection offered in the basket – by default one with public item
+        // pages (detail); otherwise ?product=<collection>/<item> would list the names of an internal-only list to any visitor
+        $entry = self::$mappingMemo[1][(int) $collection['idk']] ?? null;
+        if (!self::$mappingMemo[2] || $entry === null || !self::offeredInBasket($entry, $collection)) {
+            return null;
         }
         $fields = self::fieldsOf($collection, self::$mappingMemo[1]);
 
         return $fields === null || $fields['preset'] ? null : ['code' => $fields['code'], 'variants' => $fields['variants']];
+    }
+
+    /**
+     * 3.44 review M1: is a mapped collection offered in the enquiry basket – its own choice, by default only with public item pages?
+     *
+     * @param array{basket?: bool} $entry
+     * @param array<string, mixed> $collection
+     */
+    public static function offeredInBasket(array $entry, array $collection): bool
+    {
+        return $entry['basket'] ?? (int) ($collection['detail'] ?? 0) === 1;
     }
 
     /**

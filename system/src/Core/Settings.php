@@ -268,6 +268,7 @@ final class Settings
         'smtp_provider' => '',         // 3.9: the mail service chosen in Settings → Mail (Core\MailServices); '' = derived from smtp_host
         'notification_check' => '0',   // when the check for newly published news items last ran
         'tasks_last_run' => '0',       // when cron last called /tasks (/ulohy) (newsletters are sent only while cron runs)
+        'quote_auto_drafts_day' => '',  // 3.44 review L4: "<date>|<count>" – the drafts Kaleta prepared that day, discarded ones too (Core\Quotes::prepareDraft)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'contacts_backfill' => '',     // 3.28 (Core\Contacts::backfill): how far the linking of older enquiries, bookings and subscribers got (JSON of the last ids)

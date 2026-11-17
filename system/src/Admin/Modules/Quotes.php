@@ -604,7 +604,8 @@ final class Quotes extends Module
         $entries = [];
         foreach (array_map('intval', $this->request->postList('collection')) as $idk) {
             if ($idk > 0) {
-                $entries[] = ['collection' => $idk, 'code' => $this->request->post('code_' . $idk), 'variants' => $this->request->post('variants_' . $idk)];
+                $entries[] = ['collection' => $idk, 'code' => $this->request->post('code_' . $idk), 'variants' => $this->request->post('variants_' . $idk)]
+                    + ($this->request->post('basket_form') === '1' ? ['basket' => $this->request->post('basket_' . $idk) === '1'] : []); // 3.44 review M1
             }
         }
         $saved = Prices::saveMapping($this->app, $entries);
@@ -618,7 +619,7 @@ final class Quotes extends Module
      * 3.42: the collections for the mapping form – every collection with its fields that can be a code or variants, whether
      * it is a products preset (always in the price list) and its saved mapping.
      *
-     * @return array{mapping: array<int, array{collection: int, code: string, variants: string}>, mappable: list<array{idk: int, name: string, preset: bool, items: int, code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}>}
+     * @return array{mapping: array<int, array{collection: int, code: string, variants: string, basket?: bool}>, mappable: list<array{idk: int, name: string, preset: bool, items: int, detail: bool, code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}>}
      */
     private function mappingChoices(): array
     {
@@ -626,7 +627,7 @@ final class Quotes extends Module
         $out = [];
         foreach (\Kaleta\Builder\Collections::all($this->db) as $c) {
             $fields = Prices::mappableFields($c);
-            $out[] = ['idk' => (int) $c['idk'], 'name' => (string) $c['nazev'], 'preset' => ($c['preset'] ?? '') === 'products', 'items' => (int) ($counts[$c['idk']] ?? 0)] + $fields;
+            $out[] = ['idk' => (int) $c['idk'], 'name' => (string) $c['nazev'], 'preset' => ($c['preset'] ?? '') === 'products', 'items' => (int) ($counts[$c['idk']] ?? 0), 'detail' => (int) ($c['detail'] ?? 0) === 1] + $fields;
         }
 
         return ['mapping' => array_column(Prices::mapping($this->db), null, 'collection'), 'mappable' => $out];
