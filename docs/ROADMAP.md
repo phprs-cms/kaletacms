@@ -6,9 +6,8 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.43 closed the open audit findings and made parallel work safer (locks and rails). Next comes 3.44 – quote from basket
-to sending – then the first steps for a new office, then privacy and backups. Each release lists what it brought in the
-changelog when it ships.
+3.44 finished quotes from the basket to sending. Next comes 3.45 – first quote, first week (the first steps for a new
+office) – then privacy and backups. Each release lists what it brought in the changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 

@@ -4,6 +4,35 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.44 – quote from basket to sending (17 November 2026)
+
+No migration; `KALETA_DB_VERSION` stays 132.
+
+1. **Basket for collections in the price list.** A collection mapped to the internal price list is a products collection
+   for the enquiry basket too (`Prices::mappedFields`): Add to enquiry with quantities, no Compare box, an item without a
+   code field has its address as its code – never a price. Offered in the basket only by its own choice in Quotes →
+   Settings (default: with public item pages) and only while Quotes is on; the visitor's list shows no mapped code. N163
+   basket lines of a quote come only from the basket field of the published form (`Products::basketLabels`). N168 at most
+   `Quotes::AUTO_DRAFT_DAILY_MAX` (50) prepared drafts a day, counted under a lock with discarded ones; a changed address of
+   a priced item whose address is its code warns (`price_warning`, only for people who may open Quotes).
+2. **My work and deals.** My work and MCP `my_work` list `quotes_drafts`, `quotes_waiting` and `quotes_expiring` (no
+   amounts); deals have a "No next step" filter (`list_deals` `next_step: "none"`), the next step on its own line of the card.
+3. **The quote editor.** `form[data-unsaved]` asks before a link loses changes (quote editor, price grid, stages); lines
+   move up and down and are removed with buttons (`Quotes::moveLine`); Save and send says what is missing; the send page
+   sums up the customer, total and validity with a preview of the e-mail; drafts are named "Draft quote – <title or customer>".
+4. **Claude.** The work set lists `list_quotes`, `get_quote`, `save_quote` and `mark_quote` while quotes are on
+   (`Catalog::WORK_FEATURES`, the work budget 54,000 bytes); the prompt `office_day`. One pass of the untrusted marker
+   (deals, tasks, `my_work`, the audit's 404s, the monthly report, CVs and notes, quotes with their texts, the fleet,
+   internal-file metadata); every new tool declares itself in `Untrusted::TOOLS` or `NONE` (unit 3960). N143 Claude's price
+   below the list counts against the discount limit; no lower VAT rate, no quote without VAT or with reverse charge from a
+   VAT payer, no free line named as a product, only the customer's or the default price list. N146 a drafts-only connection
+   changes only its user's drafts; the Send page warns about an address Claude wrote (also through a customer record).
+5. **Security.** N145 queued quote and talent-pool mails expire with their links; withdrawing, deleting or anonymising a
+   quote empties its queued mail, and the queue checks again right before sending. N164 moving an internal file to a wider
+   audience over MCP needs the two-step confirmation; Claude's reads of a document's text are in the change log.
+6. **Tests.** `tools/test.sh` counts every printed CHYBA per section, so a check run in a subshell can no longer end a
+   failing run with exit 0 (unit 3990).
+
 ## 3.43 – locks and rails: audit fixes, parallel CI, a slim CLAUDE.md (17 November 2026)
 
 No migration; `KALETA_DB_VERSION` stays 132.

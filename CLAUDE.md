@@ -29,6 +29,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   (odkazy v e-mailech a záložky se nerozbijí) – záznam se nemaže, nový odkaz píše jen anglicky (hlídá unit test).
 - **Tabulky v kódu přes `{novinky}`** (nebo anglicky `{news}`, `Core\Names`); nová tabulka = záznam v `system/sql/names.php` (unit test).
   Některé tabulky smí jmenovat jen vyjmenované třídy (ceny a nabídky unit 2800, interní soubory unit 3550).
+  Řádky košíku nabídky jen z pole košíku publikovaného formuláře (`Products::basketLabels`, smoke 3900).
 - **Změna databáze = dva zápisy:** úplné `system/sql/schema.sql` + migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
   `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`), pak `php tools/schema-doc.php`. Datová migrace je `.php`
   (vrací funkci `(Db, Settings)`) a má nejvyšší číslo svého vydání – starý kód aktualizace zná jen `.sql`. Přenositelně pro MySQL
@@ -131,6 +132,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   v `Translator::TOOLS`, nové hlášení v `MESSAGES`/`MESSAGE_PATTERNS`. Nový nástroj do sady z `Catalog` (nikdy `ESSENTIALS`), sady
   se vejdou do `Catalog::BUDGETS` (unit 2550). Kontrakt `php tools/contracts.php` jen přibývá; nic nesmí rozbít existující spojení.
 - Text zvenku (návštěvníci, uchazeči, cizí weby) jde do výsledku s `Mcp\Untrusted::mark`; adresy stahuje jen plné spojení (`Catalog::mayFetch`).
+  Každý nový nástroj MCP deklaruje v `Untrusted::TOOLS` (nebo `NONE`), zda vrací text zvenku (unit 3960).
 - Nástroj, který posílá e-mail mimo tým nebo trvale maže, patří do `Mcp\Confirmation::TOOLS`. Nová stránka je skrytá, nová novinka
   koncept; vydat jen na výslovný pokyn a s právem. Spojení jen na koncepty píše koncepty.
 - `update_settings` jen klíče z `MCP_SETTINGS`, hodnoty přes `Settings::verifyValue`.
