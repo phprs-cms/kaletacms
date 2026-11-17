@@ -6,11 +6,33 @@ What each released version brought, newest first. Owner decisions that set the d
 
 ## 3.45 – (in progress)
 
+No migration; `KALETA_DB_VERSION` stays 132.
+
 1. **Core no longer depends on Admin and Front for the change log and the page cache** (audit Q7 step 1).
    `Admin\ChangeLog` is now `Core\ChangeLog` and `Front\Cache` is `Core\PageCache`, with no change in behaviour. The
    frozen list of layer exceptions (`3100-…`) drops from 98 files and 245 references to 74 and 188, and the test caps
    both numbers. An update removes the old class files: the package brings them as "legacy" only for the request that
    installs it.
+2. **First steps of quotes.** For administrators Quotes opens with six first steps – company details, VAT and numbering, a
+   collection in the price list, prices, sending e-mail and a test quote – ticked from the data (`Quotes::setupFacts`) and
+   gone when done or hidden; Claude walks the same path with the MCP prompt `set_up_quotes`. Quotes → Price list set-up
+   (`setup`, administrators) is the one place to map collections, with the default texts and saved line sets; Settings is
+   one form; Internal prices has one empty state.
+3. **The office's first week.** After the first enquiry the dashboard lists the office's first steps (invite a colleague,
+   the e-mail signature, answer an enquiry, a follow-up); one Hide for every list (`hide_first_steps`, POST `list`, shared
+   view `admin/first_steps`). The role preset "Office / sales" and the base level "Team member"; a moved site shows "Move
+   your old site" or "Finish the move" (`Kernel::moveStep`).
+4. **The guide to the office in the administration.** `admin.php?action=guide` has chapters for My work and the team,
+   Customers, Pipeline, Quotes and internal prices, Applications, Internal files and Fleet, by the sections a person may
+   open; the guide link of an office section opens its chapter. The command palette has quick actions for the screens of
+   3.34–3.42 (and Price list set-up) by section rights, administrators' screens only for them; New quote posts.
+5. **English values in `update_settings`** (`Translator::SETTING_VALUES`): `dark_mode` off/dark, `ai_crawlers` allow/block,
+   `url_slash` without/with, `cookies_mode` none/built_in/external, and yes/on for yes/no settings – before, "yes" was
+   stored as off. Stored values stay Czech and Czech input works as before. The README is in three blocks.
+6. **Tests.** `ONLY=` and `FROM=` run part of the smoke test on a snapshot of an installed site (the sections they need run
+   as "(prep)"; not a release gate); a smoke run that stops before its end fails even when bash 3.2 reports 0. PHPStan
+   level 6 blocks (`missingType.iterableValue` ignored), templates are checked at level 2, and the level-8 count (400) is
+   reported without failing.
 
 ## 3.44 – quote from basket to sending (17 November 2026)
 

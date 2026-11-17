@@ -73,7 +73,7 @@ check('3.45 B (U70): the quick actions of 3.34–3.42 follow the sections and th
     $b345Quick(['my_work'], false), $b345Quick(['pages'], true), $b345Bad,
     array_column(Palette::EVERYONE, 1),
 ], [['New quote (POST)', 'Internal prices', 'Applications board', 'Talent pool', 'New user', 'Departments'],
-    ['New quote (POST)', 'Internal prices', 'Applications board', 'Talent pool', 'New folder', 'New user', 'Departments'],
+    ['New quote (POST)', 'Internal prices', 'Price list set-up', 'Applications board', 'Talent pool', 'New folder', 'New user', 'Departments'],
     ['Team summary'], ['New page'], [],
     ['action=account', 'action=account#absences', 'action=account&tab=colleagues', 'action=account&tab=org_chart', 'action=inbox', 'action=guide']]);
 // update_settings: English values besides the Czech ones – each English value lands on a valid Czech choice

@@ -22,7 +22,7 @@ final class Palette
         'pages' => [['New page', 'module=pages&action=new']],
         'contacts' => [['New customer', 'module=contacts&action=new'], ['Companies', 'module=contacts&action=companies']], // 3.28
         'pipeline' => [['New deal', 'module=pipeline&action=new'], ['Deals as a list', 'module=pipeline&view=list'], ['Deal stages', 'module=pipeline&action=stages', true]], // 3.31
-        'quotes' => [['New quote', 'module=quotes&action=create', false, true], ['Internal prices', 'module=quotes&action=prices']], // 3.38
+        'quotes' => [['New quote', 'module=quotes&action=create', false, true], ['Internal prices', 'module=quotes&action=prices'], ['Price list set-up', 'module=quotes&action=setup', true]], // 3.38, 3.45: set-up
         'applications' => [['Applications board', 'module=applications&action=board'], ['Talent pool', 'module=applications&action=pool']], // 3.34, 3.40
         'internal_files' => [['New folder', 'module=internal_files&action=folder', true]], // 3.42
         'my_work' => [['Team summary', 'module=my_work&action=summary'], ['Tasks of the team', 'module=my_work&action=team', true]], // 3.24, 3.27, 3.41

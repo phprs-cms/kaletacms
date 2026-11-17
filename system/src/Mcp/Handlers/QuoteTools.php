@@ -51,7 +51,7 @@ trait QuoteTools
                     }
                 }
                 if ($collection === 0) {
-                    throw new \InvalidArgumentException('No products collection is "' . mb_substr($wanted, 0, 60) . '". Use list_collections (preset products) – an administrator adds other collections to the price list in Quotes → Settings.');
+                    throw new \InvalidArgumentException('No products collection is "' . mb_substr($wanted, 0, 60) . '". Use list_collections (preset products) – an administrator adds other collections to the price list in Quotes → Price list set-up.');
                 }
             }
             $item = (int) ($a['item'] ?? 0);

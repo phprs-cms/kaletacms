@@ -164,7 +164,7 @@ final class Guide
             'online' => null,
             'steps' => [
                 'An administrator switches Quotes on in Features and gives the section to the people who make quotes, in Users or Roles.',
-                'In the settings of Quotes, set the numbering, how long a quote is valid and VAT, and choose which collections feed the price list.',
+                'In Settings of Quotes, set the numbering, how long a quote is valid and VAT; on Price list set-up, choose which collections feed the price list. Until they are done, First steps with quotes at the top of the list show what is missing.',
                 'Fill in Internal prices – a row for each product or variant, or your own rows; a CSV file can be imported. Changing prices needs the right “Quotes: change internal prices”.',
                 'Make a quote with New quote, or from an enquiry, a deal or a customer – the customer and the lines from the enquiry basket are filled in for you.',
                 'Send it by e-mail (it needs an SMTP server in Settings → Mail). The customer opens it by a private link and can download a PDF. The quote gets its number when it is first sent.',
