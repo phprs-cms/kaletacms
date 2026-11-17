@@ -9,8 +9,8 @@ namespace Kaleta\Core;
  * a connection has (read, drafts, full). They hold for every tool call, so an agent working through a long list of
  * requests cannot run away with the site.
  *
- *  - At most claude_change_limit changes per connection in an hour (0 = no limit). 3.43 (N167): a connection is its name
- *    AND the user – every user's "Claude" counts on its own, never against a colleague's.
+ *  - At most claude_change_limit changes per user in an hour (0 = no limit). 3.43 (N167, review L1): all Claude
+ *    connections of one user share the limit, never a colleague's; the undo session stays per connection label.
  *  - claude_destructive = 0: no destructive tool at all (deleting, trashing, discarding drafts, restoring old versions) –
  *    the user does those in the admin. Since 3.3.2 also the deleting, overwriting or sending calls of write tools
  *    (DESTRUCTIVE_CALLS).
@@ -102,13 +102,26 @@ final class Guardrails
     /**
      * The changes of a connection in the last hour: one per change-log row, a batch row counts its rows ("<n> rows").
      * 3.43 (N167): the rows of this user only – the display name alone ("Claude") is shared by every user's connector.
+     * 3.43 review (L1): every Claude row of the user counts, whatever the connection is called – a second token label is
+     * not a second limit. Without a signed-in user (never on /mcp) the connection name alone decides.
      */
     private static function changesInLastHour(App $app, string $connection): int
     {
         $batch = "'" . implode("','", [...array_keys(self::BATCH_ROWS), ...self::COUNTED_AFTER]) . "'";
+        [$where, $bind] = self::limitScope($app, $connection);
 
         return (int) $app->db()->value("SELECT COALESCE(SUM(CASE WHEN akce IN ($batch) AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0)"
-            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND kdo <=> ? AND cas > ?", [$connection, $app->auth()->user() !== null ? $app->auth()->id() : null, Clock::at('-1 hour')]);
+            . " FROM {protokol} WHERE modul = 'claude' AND $where AND cas > ?", [$bind, Clock::at('-1 hour')]);
+    }
+
+    /**
+     * Whose changes share one hourly limit: the signed-in user's (all their connections), else the connection name's.
+     *
+     * @return array{string, int|string}
+     */
+    private static function limitScope(App $app, string $connection): array
+    {
+        return $app->auth()->user() !== null ? ['kdo = ?', $app->auth()->id()] : ['via = ? AND kdo IS NULL', $connection];
     }
 
     /**
@@ -168,7 +181,7 @@ final class Guardrails
         $db = $app->db();
         $limited = $app->settings()->int('claude_change_limit') > 0;
         // per database, table prefix and connection: two sites on one MySQL server and two connections never wait for each other
-        $lock = substr('kaleta-guard-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix . '|' . $connection . '|' . $app->auth()->id()), 0, 64);
+        $lock = substr('kaleta-guard-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix . '|' . implode('|', self::limitScope($app, $connection))), 0, 64);
         if ($limited && (int) $db->value('SELECT GET_LOCK(?, ?)', [$lock, self::LOCK_SECONDS]) !== 1) {
             return 'Another change of this connection is being checked against the hourly limit right now. Try again in a moment.';
         }

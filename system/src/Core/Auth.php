@@ -87,6 +87,9 @@ final class Auth
      */
     private string $failedAccount = '';
 
+    /** 3.43 review (L2): whether the last second step was a real wrong attempt counted on the account (countError ran). */
+    private bool $countedSecondStep = false;
+
     public function __construct(private readonly Db $db, private readonly Session $session, private readonly ?Settings $settings = null)
     {
     }
@@ -409,6 +412,7 @@ final class Auth
      */
     public function verifyCode(string $code, string $ip): ?string
     {
+        $this->countedSecondStep = false;
         if (!$this->isAwaitingCode()) {
             return t('The sign-in has expired, please start again.');
         }
@@ -438,6 +442,7 @@ final class Auth
             if ($user !== null) {
                 // wrong codes are counted per account, not only per IP address: whoever knows the password must not try codes from many addresses
                 $this->countError($user);
+                $this->countedSecondStep = true;
             }
 
             return t('The code is not correct.');
@@ -576,6 +581,7 @@ final class Auth
      */
     public function verifyKey(array $response, string $siteUrl, string $ip): ?string
     {
+        $this->countedSecondStep = false;
         if (!$this->isAwaitingCode()) {
             return t('The sign-in has expired, please start again.');
         }
@@ -599,6 +605,7 @@ final class Auth
             $this->db->insert('kontrola_ip', ['ip_adresa' => Antispam::hash($ip), 'typ' => 'login', 'cas' => date('Y-m-d H:i:s')]);
             if ($user !== null) {
                 $this->countError($user);
+                $this->countedSecondStep = true;
             }
 
             return t($e->getMessage());
@@ -705,6 +712,15 @@ final class Auth
     public function failedAccount(): string
     {
         return $this->failedAccount;
+    }
+
+    /**
+     * 3.43 review (L2): whether the last verifyCode()/verifyKey() counted a wrong attempt on an account – only then is it
+     * worth a change-log row; an expired step or the attempt limit writes nothing (no unbounded rows from one form token).
+     */
+    public function countedSecondStep(): bool
+    {
+        return $this->countedSecondStep;
     }
 
     /** The user name of the account the last sign-in with a passkey was for – '' when the passkey is unknown. */

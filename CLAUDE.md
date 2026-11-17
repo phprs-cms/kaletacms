@@ -105,10 +105,12 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   Settings / `Vault`. Nikdy nečti `tools/klice/*.key` ani nevypisuj `config.php`.
 - **Přihlášení:** pravidla jen v `Core\SignInPolicy`; každá citlivá změna přes `Auth::freshProof(…)`, „současné heslo“ jen přes
   `Auth::confirmPassword`; každá změna druhého faktoru volá `Auth::newEpoch`; záložní kódy jen `Core\BackupCodes`.
-- **Akce administrace jen v kanonickém tvaru** (`Module::methodFor`); brána `LIVE_ACTIONS` porovnává metodu, ne text.
+- **Akce administrace jen v kanonickém tvaru** (`Module::methodFor`); brána vydávání `Module::LIVE_ACTIONS` porovnává metodu, ne text.
 - **Webhooky** jen `Core\Webhook` (fronta, podpis HMAC); adresy a klíče nikdy přes MCP. Testy míří na falešné servery
   (`*_test_url`, jen `http://127.0.0.1:<port>`, jen přes databázi).
-- **AI asistent:** odpověď modelu je nedůvěryhodný vstup; překlad bere od modelu jen text, výsledek je vždy koncept.
+- **AI asistent:** odpověď modelu je nedůvěryhodný vstup; překlad bere od modelu jen text, výsledek je vždy koncept; adresa API
+  jen z konstanty `KALETA_AI_URL`.
+- **Náhledy konceptů** jen podepsané (`Core\Preview`, jeden cíl, omezená platnost).
 - **Import z WordPressu a webu — co se nesmí rozvolnit** (unit testy): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah jen
   přes povolovací seznam značek; `ImageDownloader` jen z domény starého webu, jen veřejné IP, připnuté spojení, limity, nikdy SVG.
   Export jen nastavení ze `SiteExport::SETTINGS` (nikdy účty, hesla, klíče); import Kalety jen do prázdného webu a každý řádek přes sanitizéry.
@@ -131,7 +133,9 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 - Text zvenku (návštěvníci, uchazeči, cizí weby) jde do výsledku s `Mcp\Untrusted::mark`; adresy stahuje jen plné spojení (`Catalog::mayFetch`).
 - Nástroj, který posílá e-mail mimo tým nebo trvale maže, patří do `Mcp\Confirmation::TOOLS`. Nová stránka je skrytá, nová novinka
   koncept; vydat jen na výslovný pokyn a s právem. Spojení jen na koncepty píše koncepty.
-- Limit změn a undo Claude podle názvu připojení a uživatele (`AgentJournal::connectionLabel`).
+- `update_settings` jen klíče z `MCP_SETTINGS`, hodnoty přes `Settings::verifyValue`.
+- Hodinový limit změn Claude platí na uživatele (všechna jeho připojení); undo podle názvu připojení a uživatele
+  (`AgentJournal::connectionLabel`).
 
 ## Testy a vydání
 

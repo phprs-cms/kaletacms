@@ -665,9 +665,13 @@ final class Kernel
     /**
      * 3.43 (N160): a wrong second step (a code, a backup code, a passkey) is in the change log like a wrong password – the
      * kind and the account the password step found, never what was typed. Ten in a row lock the account (Auth::countError).
+     * Only an attempt the account counted is logged (3.43 review L2).
      */
     private function logFailedSecondStep(string $kind): void
     {
+        if (!$this->app->auth()->countedSecondStep()) {
+            return; // 3.43 review (L2): "sign-in expired" and "too many attempts" are not attempts – nothing to log
+        }
         $account = $this->app->auth()->failedAccount();
         ChangeLog::write($this->app, 'prihlaseni', 'neuspech', 'second step (' . $kind . ')' . ($account !== '' ? ', account: ' . mb_substr($account, 0, 40) : ''));
     }

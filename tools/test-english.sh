@@ -81,6 +81,10 @@ mkdir "$WORK/web"
 (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\0' "$f"; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web")
 cp "$WORK/web/install.php" "$WORK/install.php"
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
+# 3.43 review (L5): as in the smoke suite, PHP's mail() fails for every PHP process here (sendmail_path = false) – the
+# installs keep office@example.com, and a test must never hand a message to the machine's own sendmail
+mkdir -p "$WORK/php-ini"; printf '%s\n' 'sendmail_path = "false"' > "$WORK/php-ini/zz-kaleta-english.ini"
+export PHP_INI_SCAN_DIR="${PHP_INI_SCAN_DIR:-}:$WORK/php-ini" # an empty entry keeps PHP's own scan directory (extensions)
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 (cd "$WORK/web" && exec php -S "127.0.0.1:$PORT" system/dev-router.php > "$WORK/server.log" 2>&1) & SERVER_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0.3; done

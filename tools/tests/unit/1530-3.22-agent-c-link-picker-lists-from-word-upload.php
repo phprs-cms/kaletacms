@@ -108,7 +108,7 @@ check('[source-pin] 3.22 (C9): live actions of the appearance modules need canPu
     str_contains($c9Components, "Build::sanitize(['v' => Build::VERSION, 'deti' => [\$element]], \$this->app->auth()->isAdmin())"),
     (bool) preg_match('/function actionFromElement.+?canPublish\(\).+?Build::sanitize/s', $c9Components),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Menu.php'), "post('publikovat') === '1' && !\$this->app->auth()->canPublish()"),
-], [['template', 'save_variant', 'save', 'toggle', 'delete', 'save', 'delete'], true, true, true, true]);
+], [['template', 'save_variant', 'save', 'toggle', 'reset', 'delete', 'save', 'delete'], true, true, true, true]);
 // MCP (additive): the tools of these areas check the Appearance area, never the administrator role alone
 $c9Mcp = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/BuilderTools.php')
     . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/EnquiryAndPopupTools.php') . file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/PageTools.php');
