@@ -38,7 +38,7 @@ mcp save_quote '{"customer":{"name":"Rita 344","email":"rita344@example.cz"},"li
 mcp save_quote '{"customer":{"name":"Rita 344","email":"rita344@example.cz"},"vat_mode":"reverse_charge","lines":[{"code":"R344","quantity":"1"}]}' > "$WORK/r344-c"
 mcp save_quote "{\"customer\":{\"name\":\"Rita 344\",\"email\":\"rita344@example.cz\"},\"price_list\":\"$R344_CHEAP\",\"lines\":[]}" > "$WORK/r344-d"
 expect "3.44 review M2: Claude's free line named as a product or an own row, reverse charge from a VAT payer and a list of its choice are refused – no quote saved" \
-  "$(grep -c 'is a product of the price list' "$WORK/r344-a")|$(grep -c 'is a product of the price list' "$WORK/r344-b")|$(grep -c 'ask a person to set it in the admin' "$WORK/r344-c")|$(grep -c 'the customer.s price list or the default one' "$WORK/r344-d")|$(sq "SELECT COUNT(*) FROM ka_quotes")" \
+  "$(grep -c 'is a product of the price list' "$WORK/r344-a")|$(grep -c 'is a product of the price list' "$WORK/r344-b")|$(grep -c 'ask a person to set it in the admin' "$WORK/r344-c")|$(grep -c 'price list or the default one' "$WORK/r344-d")|$(sq "SELECT COUNT(*) FROM ka_quotes")" \
   "1|1|1|1|$R344_QUOTES"
 mcp save_quote '{"customer":{"name":"Rita 344","email":"rita344@example.cz"},"intro":"Hello Rita","lines":[{"code":"R344","quantity":"2"},{"name":"Travel 344","quantity":"1","unit_price":"300"}]}' > "$WORK/r344-e"
 R344_Q=$(sq "SELECT MAX(id) FROM ka_quotes WHERE customer_email = 'rita344@example.cz'"); R344_Q="${R344_Q:-0}"
