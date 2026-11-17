@@ -52,6 +52,10 @@ foreach ($unitRunnerRun as $unitRunnerFile) {
     require $unitRunnerFile;
 }
 $unitRunnerQuiet = false;
-// 3.36 T3 (Q6): the checks that pin the text of a product file are counted – the number may only go down
+// 3.36 T3 (Q6): the checks that pin the text of a product file are counted – the number may only go down; 3.43 B: a full
+// run also caps how many of them run (2610-… caps the places in the source, a pin in a loop runs more than once)
+if ($unitRunnerFilters === [] && defined('UNIT_SOURCE_PIN_RUN_CEILING')) {
+    check("3.43 B (Q6): no more source-pin checks run than before – {$sourcePins} now, at most " . UNIT_SOURCE_PIN_RUN_CEILING, $sourcePins <= UNIT_SOURCE_PIN_RUN_CEILING, true);
+}
 echo $errors === 0 ? "  ok     jednotkové testy ({$total}; {$sourcePins} of them pin source text)\n" : "  NALEZENO CHYB: {$errors} z {$total}\n";
 exit($errors === 0 ? 0 : 1);

@@ -79,4 +79,4 @@ expect "3.40 A MCP: send_quote attaches the PDF by the site's setting and says s
 kill "$A340_SMTP_PID" 2>/dev/null || true; wait "$A340_SMTP_PID" 2>/dev/null || true
 a340_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_contacts WHERE id = $A340_CONTACT; DELETE FROM ka_quote_counters; DELETE FROM ka_nastaveni WHERE promenna LIKE 'quote%';
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''), ('extensions', '$A340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES, ('extensions', '$A340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null

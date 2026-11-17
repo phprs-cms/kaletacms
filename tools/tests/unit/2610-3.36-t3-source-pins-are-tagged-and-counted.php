@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 /** The pins of 3.36.0 T3; lower it when you replace pins, never raise it. */
 const UNIT_SOURCE_PIN_CEILING = 305;
+/**
+ * 3.43 B (Q6): the pin checks a full run executes (a pin in a loop runs once per item) – the runner's "… of them pin source
+ * text". The 305 places above run 312 checks; tools/unit-tests.php fails a full run above this. Lower it with the other.
+ */
+const UNIT_SOURCE_PIN_RUN_CEILING = 312;
 
 $t3pAll = [];
 $t3pUntagged = [];

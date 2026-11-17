@@ -73,3 +73,37 @@ background_jobs_lock() { (cd "$WORK/web" && php -r 'require "system/bootstrap.ph
 # T4 (Q10): a second site of a section (the console, the site to move to …) is a test copy too – its config.php defines
 # KALETA_TEST_SEAMS, without which Core\TestSeams ignores the KALETA_* variables its server was started with
 test_seams() { php -r '$f = $argv[1]; $c = (string) file_get_contents($f); if (!str_contains($c, "KALETA_TEST_SEAMS")) { file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_TEST_SEAMS\x27, true);", $c, 1)); }' -- "$1/config.php"; }
+
+# 3.43 B (code-quality step 4): await_pids <pid>… waits for exactly these background jobs. Never a bare `wait` in a section
+# (nor `wait "${PIDS[@]}"` or an unquoted `wait $A $B`, which turn bare when the list is empty): the suite's php -S servers
+# and the mail sink are background jobs of this shell too, so a bare wait never returns (a run once hung for 20 hours).
+# 3830-… (unit) reads every section for it.
+await_pids() { [ "$#" -gt 0 ] || return 0; wait "$@"; }
+
+# 3.43 B (code-quality step 3): one mail sink for the whole suite. tools/fake-smtp.php listens on PORT+21 from here to the end
+# (cleanup stops it with the other background jobs) and writes every message to $MAIL_SINK_DIR; right after the install
+# (0040) mail_sink_default points the test site at it, so no section depends on whether the machine has a sendmail.
+# PHP's own mail() fails on every machine (sendmail_path = false for every PHP process of the suite, through an extra
+# ini directory), as it does on a CI runner without sendmail: a section that relied on mail() working fails locally too.
+# A section that tests the mail() mode on purpose sets it itself and switches back with $MAIL_SINK_VALUES (or restores
+# the rows it saved); after every section test.sh checks that the site is not left on mail() (mail_sink_guard).
+MAIL_SINK_PORT=$((PORT + 21)); MAIL_SINK_DIR="$WORK/mail-sink"; MAIL_SINK_ON=0; mkdir -p "$MAIL_SINK_DIR" "$WORK/php-ini"
+printf '%s\n' '; 3.43 B: mail() fails on every machine of the smoke suite, as on a CI runner without sendmail' 'sendmail_path = "false"' > "$WORK/php-ini/zz-kaleta-smoke.ini"
+export PHP_INI_SCAN_DIR="${PHP_INI_SCAN_DIR:-}:$WORK/php-ini" # an empty entry keeps PHP's own scan directory (extensions)
+command php "$ROOT/tools/fake-smtp.php" "$MAIL_SINK_PORT" "$MAIL_SINK_DIR" > "$WORK/mail-sink.log" 2>&1 & MAIL_SINK_PID=$!
+MAIL_SINK_VALUES="('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$MAIL_SINK_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', '')"
+# mail_sink_default: the test site sends through the suite's sink (0040 calls it after the install)
+mail_sink_default() {
+  "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES"
+  rm -f "$WORK"/web/storage/cache/stranky/*.html; MAIL_SINK_ON=1
+}
+# mail_sink_guard <section file>: after a section, the site still sends through a local SMTP sink (the suite's or a section's
+# own on 127.0.0.1), never through PHP's mail(); a section that left it there is named and the sink is set again
+mail_sink_guard() {
+  [ "$MAIL_SINK_ON" = 1 ] || return 0
+  kill -0 "$MAIL_SINK_PID" 2>/dev/null || { echo "  CHYBA  ${1##*/}: the suite's mail sink (tools/fake-smtp.php on port $MAIL_SINK_PORT) is not running: $(tail -n 3 "$WORK/mail-sink.log" | tr '\n' ' ')"; ERRORS=$((ERRORS+1)); MAIL_SINK_ON=0; return 0; }
+  local mode; mode=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'mail_mode'), 'mail'), '|', IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'smtp_host'), ''))" 2>/dev/null || echo '?')
+  [ "$mode" = 'smtp|127.0.0.1' ] && return 0
+  echo "  CHYBA  ${1##*/} left the test site on mail_mode|smtp_host = $mode – switch back with \$MAIL_SINK_VALUES (tools/tests/smoke/bootstrap.sh)"; ERRORS=$((ERRORS+1))
+  mail_sink_default
+}

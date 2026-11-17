@@ -20,6 +20,8 @@ echo "  ok     instalace"
 # the site under test never updates itself from the public channel: a security release there (auto_updates is on by default)
 # would overwrite the copy under test in the middle of the run – the updater tests below set their own fake channel
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('update_url', 'http://127.0.0.1:1/aktualizace.json') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('update_cache', 'update_attempt')"
+# 3.43 B: the test site sends its mail to the suite's sink (bootstrap.sh), never through PHP's mail()
+mail_sink_default
 grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: the installer shows the cron line with its own address (3.7: the English /tasks)" || { echo "  CHYBA  instalátor neukázal řádek pro cron"; ERRORS=$((ERRORS+1)); }
 [ ! -f "$WORK/web/install.php" ] && echo "  ok     instalátor se po sobě smazal" || { echo "  CHYBA  install.php po instalaci zůstal na místě"; ERRORS=$((ERRORS+1)); }
 # 3.19.1 (N83): config.php holds the database password and the encryption key – readable only by the site (PHP owns the folder here)

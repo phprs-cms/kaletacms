@@ -79,4 +79,4 @@ check "3.2 whistleblowing off: the public address is a 404 although the channel 
 check "3.2 whistleblowing off: the admin module is gone" 403 "/admin.php?module=whistleblowing"
 mcp site_info '{}' > "$WORK/response"; expect "3.2 whistleblowing off: MCP site_info no longer says the channel is on; the cases stay" "$([ "$(mcp_value whistleblowing)" = 1 ] && echo on || echo off)|$(sq "SELECT COUNT(*) > 0 FROM ka_whistleblowing_cases")" "off|1"
 kill "$SMTP_PID" 2>/dev/null || true
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES" > /dev/null

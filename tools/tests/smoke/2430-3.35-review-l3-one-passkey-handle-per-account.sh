@@ -11,7 +11,7 @@ for n in 1 2; do
 done
 curl -s -b "$WORK/jar-r430-1" -o "$WORK/r430-1" -X POST "$B/admin.php?action=account" -d "_csrf=$R430_T1" -d co=klic_moznosti --data-urlencode "soucasne=$PASSWORD" & R430_P1=$!
 curl -s -b "$WORK/jar-r430-2" -o "$WORK/r430-2" -X POST "$B/admin.php?action=account" -d "_csrf=$R430_T2" -d co=klic_moznosti --data-urlencode "soucasne=$PASSWORD" & R430_P2=$!
-wait "$R430_P1" "$R430_P2" # only these two – the servers of the run are background jobs too
+await_pids "$R430_P1" "$R430_P2" # only these two – the servers of the run are background jobs too
 R430_HANDLE=$(sq "SELECT passkey_handle FROM ka_uzivatele WHERE idu = $R430_USER")
 r430_id() { php -r '$o = json_decode((string) file_get_contents($argv[1]), true); echo $o["user"]["id"] ?? "none";' -- "$1"; }
 expect "3.35 review L3: both answers carry the handle the account keeps" "$([ "$(r430_id "$WORK/r430-1")" = "$R430_HANDLE" ] && echo same)|$([ "$(r430_id "$WORK/r430-2")" = "$R430_HANDLE" ] && echo same)|${#R430_HANDLE}" "same|same|22"

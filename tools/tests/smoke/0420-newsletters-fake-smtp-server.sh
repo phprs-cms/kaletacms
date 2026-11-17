@@ -151,5 +151,5 @@ expect "3.23 (C17): SMTP is tested once the server set accepted a message (the t
   "open|1|1|done|open"
 db "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('newsletter_service', 'smtp_password', 'smtp_provider')"
 kill "$SMTP_PID" 2>/dev/null || true
-db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
+db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
 

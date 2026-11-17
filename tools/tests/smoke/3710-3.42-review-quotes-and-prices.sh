@@ -81,7 +81,7 @@ expect "3.42 review L3 + M4: the prepared quote's e-mail is sent with the respon
   "prepared|1|1|0"
 background_jobs resume
 kill "$R342Q_SMTP_PID" 2>/dev/null || true; wait "$R342Q_SMTP_PID" 2>/dev/null || true
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES" > /dev/null
 sq "UPDATE ka_uzivatele SET notify_email = '$R342Q_NOTIFY' WHERE idu = $R342Q_ADMIN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_auto_draft', '0');
     DELETE FROM ka_quote_lines WHERE quote_id = $R342Q_QF; DELETE FROM ka_quotes WHERE id = $R342Q_QF; DELETE FROM ka_notifications WHERE target = 'quote:$R342Q_QF'" > /dev/null
 
