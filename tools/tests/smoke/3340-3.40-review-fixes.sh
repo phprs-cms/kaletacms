@@ -25,11 +25,14 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z 
 sq "INSERT INTO ka_price_lists (name, currency, is_default, created_at, updated_at) VALUES ('Euro R340', 'EUR', 0, '$(site_time)', '$(site_time)');
   INSERT INTO ka_quote_line_sets (name, content, currency, created_at, updated_at) VALUES ('Laser R340', '[{\"kind\":\"free\",\"code\":\"\",\"name\":\"Montáž R340\",\"unit\":\"h\",\"unit_price\":\"5000.00\",\"vat_rate\":\"21\",\"quantity\":\"1\",\"discount_percent\":\"0\"}]', 'CZK', '$(site_time)', '$(site_time)')" > /dev/null
 R340_EUR=$(sq "SELECT id FROM ka_price_lists WHERE name = 'Euro R340'"); R340_EUR="${R340_EUR:-0}"
-r340_quote() { mcp_call "$API_TOKEN" save_quote "{\"title\":\"$1\",\"price_list\":\"$2\",\"line_set\":\"Laser R340\"}" | php -r '$r = json_decode(stream_get_contents(STDIN), true); $j = json_decode((string) ($r["result"]["content"][0]["text"] ?? "{}"), true); echo implode(" ", array_map(fn ($l) => $l["name"] . ":" . ($l["unit_price"] ?? "none"), $j["quote"]["lines"] ?? [])), "|", (int) str_contains(implode(" ", $j["warnings"] ?? []), "saved in CZK");'; }
+# 3.44 review M2: Claude prices from the customer's list – the EUR quote is for a contact whose list is EUR
+sq "INSERT INTO ka_contacts (email, email_norm, name, source, price_list_id, created_at, updated_at) VALUES ('euro340@example.cz', 'euro340@example.cz', 'Euro R340', 'manual', $R340_EUR, '$(site_time)', '$(site_time)')" > /dev/null
+R340_EURC=$(sq "SELECT id FROM ka_contacts WHERE email = 'euro340@example.cz'"); R340_EURC="${R340_EURC:-0}"
+r340_quote() { mcp_call "$API_TOKEN" save_quote "{\"title\":\"$1\",$2,\"line_set\":\"Laser R340\"}" | php -r '$r = json_decode(stream_get_contents(STDIN), true); $j = json_decode((string) ($r["result"]["content"][0]["text"] ?? "{}"), true); echo implode(" ", array_map(fn ($l) => $l["name"] . ":" . ($l["unit_price"] ?? "none"), $j["quote"]["lines"] ?? [])), "|", (int) str_contains(implode(" ", $j["warnings"] ?? []), "saved in CZK");'; }
 expect "3.40 review M3: into a EUR quote the set's free line comes without a price and with a warning; into a CZK quote it keeps 5000" \
-  "$(r340_quote 'R340 EUR' "$R340_EUR")/$(r340_quote 'R340 CZK' "$(sq "SELECT id FROM ka_price_lists WHERE is_default = 1")")" "Montáž R340:none|1/Montáž R340:5000.00|0"
+    "$(r340_quote 'R340 EUR' "\"contact\":$R340_EURC")/$(r340_quote 'R340 CZK' "\"price_list\":\"$(sq "SELECT id FROM ka_price_lists WHERE is_default = 1")\"")" "Montáž R340:none|1/Montáž R340:5000.00|0"
 sq "DELETE FROM ka_quote_lines WHERE quote_id IN (SELECT id FROM ka_quotes WHERE title IN ('R340 EUR', 'R340 CZK')); DELETE FROM ka_quotes WHERE title IN ('R340 EUR', 'R340 CZK');
-  DELETE FROM ka_quote_line_sets WHERE name = 'Laser R340'; DELETE FROM ka_price_lists WHERE id = $R340_EUR; DELETE FROM ka_quote_counters" > /dev/null
+  DELETE FROM ka_quote_line_sets WHERE name = 'Laser R340'; DELETE FROM ka_contacts WHERE id = $R340_EURC; DELETE FROM ka_price_lists WHERE id = $R340_EUR; DELETE FROM ka_quote_counters" > /dev/null
 
 # M4: the tasks about a quote lose their titles when the quote is anonymised (retention or erasure) and go when it is deleted
 R340_ADMIN=$(sq "SELECT MIN(idu) FROM ka_uzivatele WHERE admin = 2 AND blokovat = 0")

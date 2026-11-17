@@ -326,6 +326,13 @@ final class Quotes
             if ($list === null) {
                 throw new \DomainException(t('The price list does not exist.'));
             }
+            if ($list['archived_at'] !== null && ($quote === null || $quote['price_list_id'] !== $list['id'])) {
+                throw new \DomainException(t('The price list %s is archived – choose another one.', $list['name']));
+            }
+            if ($quote !== null && $list['id'] !== $quote['price_list_id'] && $quote['lines'] !== []) {
+                // 3.38 review M1: lines kept by id keep the prices (and currency) of the old list – never a quote in one currency with numbers of another
+                throw new \DomainException(t('The price list of a quote with lines cannot change – remove the lines first, or start a new quote.'));
+            }
             if ($fromClaude && $has('price_list_id') && $customerList === null) {
                 // 3.44 review M2: Claude prices from the customer's list or the default one – never a cheaper list of its choice
                 $allowed = array_filter([Prices::defaultList($db, $s)['id'], self::customerList($db, array_key_exists('contact_id', $sources['data']) ? $sources['data']['contact_id'] : ($quote['contact_id'] ?? null),
@@ -333,13 +340,6 @@ final class Quotes
                 if (!in_array($list['id'], $allowed, true)) {
                     throw new \DomainException(t('Claude uses the customer’s price list or the default one – ask a person to choose another list in the admin.'));
                 }
-            }
-            if ($list['archived_at'] !== null && ($quote === null || $quote['price_list_id'] !== $list['id'])) {
-                throw new \DomainException(t('The price list %s is archived – choose another one.', $list['name']));
-            }
-            if ($quote !== null && $list['id'] !== $quote['price_list_id'] && $quote['lines'] !== []) {
-                // 3.38 review M1: lines kept by id keep the prices (and currency) of the old list – never a quote in one currency with numbers of another
-                throw new \DomainException(t('The price list of a quote with lines cannot change – remove the lines first, or start a new quote.'));
             }
             $data['price_list_id'] = $list['id'];
             $data['currency'] = $list['currency'];
