@@ -27,7 +27,7 @@ expect "3.35 B1: right after a sign-in the consent asks no password; full access
 expect "3.35 B1: the marker lives in the session as verified_at, and an old proof is pushed back" "$(s335a_age)" "1"
 S335A_N2=$(s335a_request aged); S335A_CSRF=$(csrf)
 expect "3.35 B1: without a fresh proof the consent shows the password field, with the hint" \
-  "$(grep -c 'id="oauth-heslo" name="soucasne"' "$WORK/response")|$(grep -c 'Needed only for “Can also publish”' "$WORK/response")" "1|1"
+  "$(grep -c 'id="oauth-heslo" name="soucasne"' "$WORK/response")|$(grep -c 'Needed to connect an application' "$WORK/response")" "1|1"
 expect "3.35 B1: full access without the password, or with a wrong one, issues no code and says why; the wrong one counts like a sign-in" \
   "$(s335a_consent "$S335A_N2" -d access=full)|$(grep -c 'enter your current password to allow it' "$WORK/consent")|$(grep -c 'value="full" checked' "$WORK/consent")|$(s335a_consent "$S335A_N2" -d access=full -d soucasne=wrong-password-1)|$(s335a_errors)" \
   "403 |1|1|403 |1"
@@ -39,8 +39,9 @@ expect "3.35 B1: a right password is a fresh proof too – the next full consent
 s335a_age > /dev/null
 S335A_N4=$(s335a_request drafts); S335A_CSRF=$(csrf)
 S335A_N5=$(s335a_request read)
-expect "3.35 B1: drafts and read stay one click without any password" \
-  "$(s335a_consent "$S335A_N4" -d access=drafts | grep -c '^302 .*code=')|$(s335a_consent "$S335A_N5" -d access=read | grep -c '^302 .*code=')|$(s335a_consent "$(s335a_request plain)" | grep -c '^302 .*code=')" "1|1|1"
+# 3.46 (N158, owner decision 7 of 16 Nov 2026): drafts and read no longer go in one click without a fresh proof (4130-…)
+expect "3.46 N158: drafts and read without a fresh proof issue no code either" \
+  "$(s335a_consent "$S335A_N4" -d access=drafts | cut -c1-3)|$(s335a_consent "$S335A_N5" -d access=read | cut -c1-3)|$(s335a_consent "$(s335a_request plain)" | cut -c1-3)" "403|403|403"
 # the code of a full consent gives a full connection; refresh tokens of connections that exist are untouched by the rule
 s335a_age > /dev/null; S335A_N6=$(s335a_request token)
 S335A_CODE=$(s335a_consent "$S335A_N6" -d access=full --data-urlencode "soucasne=$PASSWORD" | grep -o 'code=[a-f0-9]*' | sed 's/code=//' || true)

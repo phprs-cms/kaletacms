@@ -17,7 +17,7 @@ check('[source-pin] 3.35 review M2: every confirmation of My account goes throug
     (bool) preg_match("/function passwordRefused\(string \\\$wrong\): \?array\s*\{\s*return \\\$this->proofRefused\(\\\$wrong, 'password'\);/", $r352Account),
     (bool) preg_match("/function freshnessRefused\(string \\\$wrong\): \?array\s*\{\s*return \\\$this->proofRefused\(\\\$wrong, 'strong'\);/", $r352Account),
     str_contains($r352Account, "'passkey' => ['chyba', \\Kaleta\\Core\\Auth::PASSKEY_PROOF],"),
-    (bool) preg_match("/function fullAccessRefusal\(.*?->freshProof\(.*?'recent'\).*?'passkey' => self::FULL_ACCESS_PASSKEY/s", $r352Kernel),
+    (bool) preg_match("/function connectRefusal\(.*?->freshProof\(.*?'recent'\).*?'passkey' => self::CONNECT_PASSKEY/s", $r352Kernel),
     str_contains($r352Kernel, 'passkeyConfirmOnly'), str_contains($r352Kernel, "'passkeyOnly' => \$app->auth()->isPasskeyOnly(),"),
 ], [1, 0, true, true, true, true, false, true]);
 // every sensitive action of My account keeps its confirmation (e-mail, password, token, app on/off, passkeys, passkey only, codes)
@@ -30,7 +30,7 @@ check('[source-pin] 3.35 review M2: My account confirms with the passkey (the en
     str_contains($r352Account, "in_array(\$r->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)"),
     (bool) preg_match('/function confirmWithPasskey\(\): Response.*?confirmChallenge\(.*?->confirmWithPasskey\(.*?passkey_confirm/s', $r352Account),
     str_contains($r352View, 'data-klic-potvrdit'), substr_count($r352View, '<?= $proofNote ?>'),
-], [true, true, true, 8]);
+], [true, true, true, 9]); // 3.46 (N138): the start of the authenticator app too
 check('3.35 review M2: the new texts are translated (cs, de, es, de-du)', array_map(fn (string $code): array => Kaleta\Core\Language::runWith($code, fn (): array => [
     t(Kaleta\Core\Auth::PASSKEY_PROOF) !== Kaleta\Core\Auth::PASSKEY_PROOF, t(Kaleta\Admin\Account::PASSKEY_CONFIRM_FAILED) !== Kaleta\Admin\Account::PASSKEY_CONFIRM_FAILED,
 ], 'admin-'), ['cs', 'de', 'es']), [[true, true], [true, true], [true, true]]);

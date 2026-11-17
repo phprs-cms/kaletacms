@@ -16,7 +16,7 @@ file_put_contents("$i344Dir/a.sh", "echo '  ok     a'\necho '  CHYBA  a counted'
 file_put_contents("$i344Dir/b.sh", "echo '  ok     b'\n( echo '  CHYBA  b in a subshell'; ERRORS=\$((ERRORS+1)) )\necho x | { echo '  CHYBA  b in a pipe'; ERRORS=\$((ERRORS+1)); }\n");
 file_put_contents("$i344Dir/c.sh", "echo '  ok     c'\n");
 $i344Loop = $i344From === false || $i344To === false ? 'exit 7' : substr($i344Script, $i344From, $i344To + 6 - $i344From);
-file_put_contents("$i344Dir/run.sh", "set -euo pipefail\nWORK=" . escapeshellarg($i344Dir) . "; ERRORS=0\nmail_sink_guard() { :; }\nSMOKE_FILES=(\"\$WORK/a.sh\" \"\$WORK/b.sh\" \"\$WORK/c.sh\")\n"
+file_put_contents("$i344Dir/run.sh", "set -euo pipefail\nWORK=" . escapeshellarg($i344Dir) . "; ERRORS=0\nmail_sink_guard() { :; }\nproof_fresh() { :; }\nSMOKE_FILES=(\"\$WORK/a.sh\" \"\$WORK/b.sh\" \"\$WORK/c.sh\")\n"
     . $i344Loop . "echo \"ERRORS=\$ERRORS\"\n");
 $i344Out = (string) shell_exec('bash ' . escapeshellarg("$i344Dir/run.sh") . ' 2>&1');
 array_map('unlink', glob("$i344Dir/*") ?: []);

@@ -74,6 +74,8 @@
 		}
 
 		function done(j) {
+			// 3.46: "Confirm it is you" (views/admin/confirm.php) posts its form again once the passkey has confirmed it
+			if (formEl.hasAttribute('data-klic-odeslat')) { formEl.submit(); return; }
 			window.location.href = (j && j.kam) || window.location.href.split('#')[0];
 		}
 

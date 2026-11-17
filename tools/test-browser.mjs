@@ -6,6 +6,7 @@
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const require = createRequire(`${process.env.NODE_PATH}/`);
 const { chromium } = require('playwright-core');
@@ -46,11 +47,23 @@ const builderCanvasReady = (needSaved) => {
 const builderReady = (timeout = 15000) => page.waitForFunction(builderCanvasReady, false, { timeout });
 const builderSaved = (timeout = 20000) => page.waitForFunction(builderCanvasReady, true, { timeout });
 let steps = 0;
+// 3.46 (Admin\FreshProof, N127): every POST of an administrator's section needs a proof of who is at the keyboard within 10
+// minutes, and the walk takes longer. Before every step the signed-in person confirms, as they would type the password on
+// "Confirm it is you": proof() moves verified_at of the page's session to now; proof(true) pushes it back (the step of 3.46)
+const SESSION_DIR = execFileSync('php', ['-r', 'echo session_save_path() ?: sys_get_temp_dir();'], { encoding: 'utf8' });
+async function proof(aged = false) {
+  const cookie = (await context.cookies(BASE)).find((c) => c.name === 'kaleta');
+  const file = cookie ? `${SESSION_DIR}/sess_${cookie.value}` : '';
+  if (!file || !existsSync(file)) { return; }
+  const data = readFileSync(file, 'utf8');
+  if (data.includes('verified_at|i:')) { writeFileSync(file, data.replace(/verified_at\|i:\d+;/, `verified_at|i:${aged ? 1 : Math.floor(Date.now() / 1000)};`)); }
+}
 
 async function step(name, fn) {
   where = name;
   const before = errors.length;
   try {
+    await proof();
     await fn();
     await page.waitForTimeout(300);
   } catch (e) {
@@ -6121,6 +6134,31 @@ await step('3.45 A: the first steps of quotes, Price list set-up and the office\
     if (sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quotes_steps_hidden'").trim() !== '1') { throw new Error('Hide did not store the quotes\' setting'); }
   } finally {
     sql(`DELETE FROM ka_poptavky WHERE formular = 'Office B345'; DELETE FROM ka_nastaveni WHERE promenna IN (${keys}); INSERT INTO ka_nastaveni SELECT * FROM ka_b345_backup; DROP TABLE ka_b345_backup`);
+  }
+});
+
+// 3.46 (N127): a save of Settings without a recent proof stops at "Confirm it is you" with the typed value kept; the password
+// there saves it, and the next save within the window asks nothing
+await step('3.46 Settings save without a recent proof: Confirm it is you, then saved with the password', async () => {
+  const before = sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'agency_name'), '')").trim();
+  try {
+    await visit('/admin.php?module=settings&tab=agency');
+    await proof(true);
+    await page.fill('#agency_name', 'Agency B346');
+    await Promise.all([page.waitForNavigation(), page.locator('.tlacitka input.tl[type="submit"]').first().click()]);
+    if (!(await page.locator('#confirm-proof').count()) || !(await page.locator('#confirm-heslo').isVisible())) { throw new Error('no “Confirm it is you” after a save without a recent proof'); }
+    if (sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'agency_name'), '')").trim() !== before) { throw new Error('the change was saved before the proof'); }
+    if ((await page.locator('#confirm-proof input[type="hidden"][name="agency_name"]').getAttribute('value')) !== 'Agency B346') { throw new Error('the typed value is not in the confirmation form'); }
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/confirm-proof.png`, fullPage: true }); }
+    await page.fill('#confirm-heslo', PASSWORD);
+    await Promise.all([page.waitForNavigation(), page.locator('#confirm-proof button.tl[type="submit"]').click()]);
+    if (sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'agency_name'").trim() !== 'Agency B346') { throw new Error('the change was not saved after the password'); }
+    if (!page.url().includes('module=settings') || !(await page.locator('.hlaska-ok, .hlaska.hlaska-ok').count())) { throw new Error(`after the password the page is ${page.url()} without “Settings saved.”`); }
+    await page.fill('#agency_name', 'Agency B346 again');
+    await Promise.all([page.waitForNavigation(), page.locator('.tlacitka input.tl[type="submit"]').first().click()]);
+    if (await page.locator('#confirm-proof').count()) { throw new Error('the next save within the window asked again'); }
+  } finally {
+    sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('agency_name', '${before.replace(/'/g, "''")}')`);
   }
 });
 

@@ -78,6 +78,19 @@ background_jobs_lock() { (cd "$WORK/web" && php -r 'require "system/bootstrap.ph
 # KALETA_TEST_SEAMS, without which Core\TestSeams ignores the KALETA_* variables its server was started with
 test_seams() { php -r '$f = $argv[1]; $c = (string) file_get_contents($f); if (!str_contains($c, "KALETA_TEST_SEAMS")) { file_put_contents($f, preg_replace("/^<\?php/", "<?php define(\x27KALETA_TEST_SEAMS\x27, true);", $c, 1)); }' -- "$1/config.php"; }
 
+# 3.46 (Admin\FreshProof, N127): every POST of an administrator's section needs a proof of who is at the keyboard within
+# 10 minutes (Auth::VERIFIED_WINDOW), and the suite runs far longer than that. test.sh lets the suite's administrator ($JAR)
+# confirm before every section, as a person would type the password on "Confirm it is you": proof_fresh moves verified_at
+# of that session to now (only a signed-in session has it). A section that tests the refusal pushes the proof back itself
+# (proof_age, 4130-…) – within a section nothing renews it.
+SMOKE_SESSION_DIR=""
+proof_session_file() { local id; id=$(awk '$6 == "kaleta" {print $7}' "$1" 2>/dev/null | tail -1); [ -n "$id" ] || return 1
+  [ -n "$SMOKE_SESSION_DIR" ] || SMOKE_SESSION_DIR=$(command php -r 'echo session_save_path() ?: sys_get_temp_dir();'); printf '%s/sess_%s' "$SMOKE_SESSION_DIR" "$id"; }
+proof_fresh() { local f; f=$(proof_session_file "${1:-$JAR}") || return 0; [ -f "$f" ] && grep -q 'verified_at|i:' "$f" || return 0
+  sed -i.bak "s/verified_at|i:[0-9]*;/verified_at|i:$(date +%s);/" "$f" && rm -f "$f.bak"; }
+proof_age() { local f; f=$(proof_session_file "${1:-$JAR}") || return 0; [ -f "$f" ] || return 0
+  sed -i.bak -e 's/verified_at|i:[0-9]*;/verified_at|i:1;/' -e 's/strong_at|i:[0-9]*;/strong_at|i:1;/' "$f" && rm -f "$f.bak"; }
+
 # 3.43 B (code-quality step 4): await_pids <pid>… waits for exactly these background jobs. Never a bare `wait` in a section
 # (nor `wait "${PIDS[@]}"` or an unquoted `wait $A $B`, which turn bare when the list is empty): the suite's php -S servers
 # and the mail sink are background jobs of this shell too, so a bare wait never returns (a run once hung for 20 hours).

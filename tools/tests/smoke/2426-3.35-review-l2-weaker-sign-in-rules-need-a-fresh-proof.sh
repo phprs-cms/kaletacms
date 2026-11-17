@@ -18,11 +18,12 @@ sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'; REPLACE INTO ka
 r426_age "$JAR"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=security"
 expect "3.35 review L2: Security asks for the current password under its fields" "$(grep -c 'id="settings-soucasne-security"' "$WORK/response")" "1"
+# 3.46 (Admin\FreshProof): without a recent proof every save of Settings stops at "Confirm it is you" (403) – an unchanged one too
 expect "3.35 review L2: without the password – neither the two-factor rule nor turning passkeys only off is saved" \
-  "$(r426_save "$JAR" "&require_2fa=vsichni&signin_passkey_only=0")|$(r426_set)" "302|/1"
+  "$(r426_save "$JAR" "&require_2fa=vsichni&signin_passkey_only=0")|$(r426_set)" "403|/1"
 expect "3.35 review L2: a wrong password – not saved, counted like a wrong sign-in" \
-  "$(r426_save "$JAR" "&signin_passkey_only=0&soucasne=wrong-password-426")|$(r426_set)|$(sq "SELECT pocet_chyb FROM ka_uzivatele WHERE user = 'admin'")" "302|/1|1"
-expect "3.35 review L2: an unchanged save needs no password" "$(r426_save "$JAR" "")|$(r426_set)" "302|/1"
+  "$(r426_save "$JAR" "&signin_passkey_only=0&soucasne=wrong-password-426")|$(r426_set)|$(sq "SELECT pocet_chyb FROM ka_uzivatele WHERE user = 'admin'")" "403|/1|1"
+expect "3.46: an unchanged save needs the proof too" "$(r426_save "$JAR" "")|$(r426_set)" "403|/1"
 expect "3.35 review L2: with the password – passkeys only goes off" "$(r426_save "$JAR" "&signin_passkey_only=0&soucasne=$PASSWORD")|$(r426_set)" "302|/0"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'" > /dev/null
 
@@ -40,7 +41,7 @@ rm -f "$L1J"; p335_passkey "$L1J" "$WORK/pk426-a" 5 1 > /dev/null; r426_age "$L1
 curl -s -b "$L1J" -c "$L1J" -o "$WORK/response" "$B/admin.php?module=settings&tab=security"
 expect "3.35 review L2: a passkey-only administrator gets “Confirm with your passkey” (the form posts it to My account), no password field" \
   "$(grep -c 'id="settings-soucasne-security"' "$WORK/response")|$(grep -c 'data-klic-potvrdit' "$WORK/response")|$(grep -c 'data-klice="/admin.php?action=account"' "$WORK/response")|$(grep -c 'image/klice.js' "$WORK/response")" "0|1|1|1"
-expect "3.35 review L2: its right password does not confirm the change of the two-factor rule" "$(r426_save "$L1J" "&require_2fa=spravci&soucasne=$PASSWORD")|$(r426_set)" "302|/0"
+expect "3.35 review L2: its right password does not confirm the change of the two-factor rule" "$(r426_save "$L1J" "&require_2fa=spravci&soucasne=$PASSWORD")|$(r426_set)" "403|/0"
 P335_CSRF=$(csrf)
 curl -s -b "$L1J" -c "$L1J" -o "$WORK/r426-options" -X POST "$B/admin.php?action=account" -d "_csrf=$P335_CSRF" -d krok=passkey_confirm_options
 php "$WORK/pk335.php" assert "$WORK/pk426-a" "$P335_ORIGIN" 5 2 < "$WORK/r426-options" > "$WORK/r426-assertion"

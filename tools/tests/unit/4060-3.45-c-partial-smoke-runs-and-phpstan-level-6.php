@@ -76,7 +76,7 @@ $c345Tmp = sys_get_temp_dir() . '/kaleta-c345l-' . bin2hex(random_bytes(4));
 mkdir($c345Tmp);
 file_put_contents("$c345Tmp/a.sh", "echo '  CHYBA  a prepares'; ERRORS=\$((ERRORS+1))\n");
 file_put_contents("$c345Tmp/b.sh", "echo '  CHYBA  b selected'; ERRORS=\$((ERRORS+1))\n");
-file_put_contents("$c345Tmp/run.sh", "set -euo pipefail\nWORK=" . escapeshellarg($c345Tmp) . "; ERRORS=0; SMOKE_PREPARE=' a.sh'\nmail_sink_guard() { :; }\nSMOKE_FILES=(\"\$WORK/a.sh\" \"\$WORK/b.sh\")\n"
+file_put_contents("$c345Tmp/run.sh", "set -euo pipefail\nWORK=" . escapeshellarg($c345Tmp) . "; ERRORS=0; SMOKE_PREPARE=' a.sh'\nmail_sink_guard() { :; }\nproof_fresh() { :; }\nSMOKE_FILES=(\"\$WORK/a.sh\" \"\$WORK/b.sh\")\n"
     . ($c345From === false || $c345To === false ? 'exit 7' : substr($c345Script, $c345From, $c345To + 6 - $c345From)) . "echo \"ERRORS=\$ERRORS\"\n");
 $c345Loop = (string) shell_exec('bash ' . escapeshellarg("$c345Tmp/run.sh") . ' 2>&1');
 array_map('unlink', glob("$c345Tmp/*") ?: []);

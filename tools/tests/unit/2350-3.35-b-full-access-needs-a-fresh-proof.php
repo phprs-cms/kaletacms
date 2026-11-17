@@ -19,13 +19,13 @@ check('[source-pin] 3.35 B1: every completed sign-in and a right current passwor
     (bool) preg_match("/matchingPassword\(\\\$typed, \(string\) \\\$user\['password'\]\) !== null\) \{\s*\\\$this->markVerified\(\);/", $i335aAuth),
     str_contains($i335aAuth, "['idu', 'otisk', 'epoch', 'login_at', 'last_seen', self::VERIFIED_KEY]"),
 ], [true, true, true]);
-check('[source-pin] 3.35 B1: the consent asks for the password only for full access, through confirmPassword, and keeps the request on a refusal', [
-    str_contains($i335aKernel, "\$passwordError = \$access === 'full' ? self::fullAccessRefusal(\$app->auth()) : null;"), // 3.35 review M2: one rule, Auth::freshProof
-    (bool) preg_match("/function fullAccessRefusal\\(.*?->freshProof\\(.*?, 'recent'\\)/s", $i335aKernel) && (bool) preg_match('/function freshProof\(.*?recentlyVerified\(\).*?confirmPassword\(/s', $i335aAuth),
+check('[source-pin] 3.35 B1, 3.46 (N158): the consent asks for the proof for every new connection, through confirmPassword, and keeps the request on a refusal', [
+    str_contains($i335aKernel, "\$passwordError = self::connectRefusal(\$app->auth());"), // 3.35 review M2: one rule, Auth::freshProof; 3.46: any access
+    (bool) preg_match("/function connectRefusal\\(.*?->freshProof\\(.*?, 'recent'\\)/s", $i335aKernel) && (bool) preg_match('/function freshProof\(.*?recentlyVerified\(\).*?confirmPassword\(/s', $i335aAuth),
     // the request is forgotten only when the consent is denied or a code is issued
     substr_count($i335aKernel, 'OAuth::forgetRequest($app->session, $nonce)'),
     str_contains($i335aView, 'id="oauth-heslo" name="soucasne"'), str_contains($i335aView, '<?php if (!$verified && !$passkeyOnly):'),
 ], [true, true, 2, true, true]);
 check('3.35 B1: the refusal and the hint are translated', array_map(fn (string $code): array => Kaleta\Core\Language::runWith($code, fn (): array => [
-    t(Kaleta\Admin\Kernel::FULL_ACCESS_PASSWORD) !== Kaleta\Admin\Kernel::FULL_ACCESS_PASSWORD, t('Needed only for “Can also publish”. Drafts and reading need no password.') !== 'Needed only for “Can also publish”. Drafts and reading need no password.',
+    t(Kaleta\Admin\Kernel::CONNECT_PASSWORD) !== Kaleta\Admin\Kernel::CONNECT_PASSWORD, t('Needed to connect an application: you signed in or confirmed more than 10 minutes ago.') !== 'Needed to connect an application: you signed in or confirmed more than 10 minutes ago.',
 ], 'admin-'), ['cs', 'de', 'es']), [[true, true], [true, true], [true, true]]);

@@ -678,12 +678,20 @@ class Settings extends Module
         return $this->back(t('Backup %s is ready.', $file), '', ['tab' => 'backups']);
     }
 
+    /**
+     * 3.46 (I39): a backup holds every account and key of the site, so it goes out only on a POST – with the form token and,
+     * as every POST of Settings, a recent proof of the administrator (Admin\FreshProof). A link, a GET or a script on the
+     * public site in the administrator's browser gets nothing.
+     */
     protected function actionDownloadBackup(): Response
     {
         if (Backup::refusedInDemo()) {
             return $this->error(\Kaleta\Core\Demo::refusal(), 403);
         }
-        $path = Backup::path($this->request->get('file'));
+        if (!$this->request->isPost()) {
+            return $this->back('', '', ['tab' => 'backups']);
+        }
+        $path = Backup::path($this->request->post('soubor'));
         if ($path === null) {
             return $this->error('Backup does not exist.', 404);
         }

@@ -108,6 +108,7 @@ SMOKE_DONE=0 # 3.45: the cleanup trap fails a run that ends before the last line
 SECTION_N=0; exec 7>&1 # the suite's own stdout, for the cleanup trap while a section's output goes to its file
 for SMOKE_FILE in "${SMOKE_FILES[@]}"; do
   SECTION_N=$((SECTION_N+1)); SECTION_OUT="$WORK/section-$SECTION_N.out"; SECTION_ERRORS=$ERRORS
+  proof_fresh "${JAR:-}" # 3.46: the suite's administrator confirms who they are before each section (bootstrap.sh)
   # shellcheck disable=SC1090
   . "$SMOKE_FILE" >> "$SECTION_OUT"
   mail_sink_guard "$SMOKE_FILE" >> "$SECTION_OUT" # 3.43 B: no section leaves the site on PHP's mail() (bootstrap.sh)
