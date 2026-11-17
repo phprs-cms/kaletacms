@@ -983,7 +983,7 @@ final class Translator
         'quotes' => 'QUOTES: list_quotes and get_quote read quotes (a draft has no number until it is sent; drafts prepared from new enquiries wait in status draft); save_quote creates or changes a DRAFT '
             . 'from an enquiry, a deal, a contact or a company with the prices of the internal price list (list_prices) – never invent or guess a price: a line without a list price stays without one for a person, '
             . 'and a price below the list or a discount above the site\'s limit is refused. mark_quote records the customer\'s answer (it moves the deal only when the user asks). A person usually checks a draft and '
-            . 'sends it in the admin (the quote\'s admin link); send_quote e-mails the customer only after the user\'s explicit yes. The prompt office_day walks through enquiries, drafted replies, quotes and follow-ups.',
+            . 'sends it in the admin (the quote\'s admin link); send_quote e-mails the customer only after the user\'s explicit yes. The prompt office_day walks through enquiries, drafted replies, quotes and follow-ups; set_up_quotes through the set-up.',
         'fleet' => 'THE FLEET CONSOLE: list_sites shows the sites that report here, the ones needing attention first; get_site one site\'s last report and trends, fleet_today what needs attention today, '
             . 'fleet_inbox what waits across them, fleet_health every check of every site, fleet_inventory versions, PHP, database and features with where the newest release has reached, fleet_calendar '
             . 'certificate and domain dates, fleet_report the monthly report per customer and fleet_plan what to fix on which site with the address of each site\'s own connector (the prompt fleet_fix). '

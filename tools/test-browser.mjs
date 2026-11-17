@@ -5523,7 +5523,7 @@ await step('3.40 B quotes II: Accept / Decline on the quote page (1440 axe, 390 
       const p2 = await other.newPage(); watch(p2);
       try {
         for (const [what, url, root] of [['detail', `/admin.php?module=quotes&action=detail&id=${Number(quoteId)}`, '[data-quote-follow-up]'], ['company', `/admin.php?module=contacts&action=company&id=${company}`, '[data-quote-customer-list]'],
-          ['editor', `/admin.php?module=quotes&action=edit&id=${Number(draftId)}`, '[data-quote-line-sets]'], ['settings', '/admin.php?module=quotes&action=settings', '[data-quotes-line-sets]']]) {
+          ['editor', `/admin.php?module=quotes&action=edit&id=${Number(draftId)}`, '[data-quote-line-sets]'], ['setup', '/admin.php?module=quotes&action=setup', '[data-quotes-line-sets]']]) {
           await p2.goto(BASE + url, { waitUntil: 'networkidle' });
           if (!(await p2.locator(root).count())) { throw new Error(`the ${what} lacks ${root} (${scheme})`); }
           const sideways = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -5831,7 +5831,7 @@ await step('3.42 B: the team hierarchy – Users → Departments, the org chart 
   }
 });
 
-// 3.42 (agent C): any collection feeds the internal price list – the mapping on Quotes → Settings at 1440 and 390 px (light/dark,
+// 3.42 (agent C): any collection feeds the internal price list – the mapping on Quotes → Price list set-up (3.45) at 1440 and 390 px (light/dark,
 // axe), the prefilled grid with "still without a price", and an enquiry from the item's page → New quote arrives priced
 await step('3.42 C collections in the price list: the mapping (1440/390, light/dark, axe), the prefilled grid, a prepared quote from an enquiry', async () => {
   if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
@@ -5849,10 +5849,10 @@ await step('3.42 C collections in the price list: the mapping (1440/390, light/d
         const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
         const p2 = await other.newPage(); watch(p2);
         try {
-          await p2.goto(`${BASE}/admin.php?module=quotes&action=settings#price-collections`, { waitUntil: 'networkidle' });
+          await p2.goto(`${BASE}/admin.php?module=quotes&action=setup#price-collections`, { waitUntil: 'networkidle' });
           if (!(await p2.locator(`[data-price-collection="${idk}"] select[name="code_${idk}"]`).count())) { throw new Error(`the mapping row of the collection is missing (${label}, ${scheme})`); }
           const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on Quotes → Settings (${label}, ${scheme})`); }
+          if (wide > 1) { throw new Error(`${wide} px of sideways scroll on Quotes → Price list set-up (${label}, ${scheme})`); }
           if (SHOTS) { await p2.locator('[data-price-collections]').screenshot({ path: `${SHOTS}/342c-collections-${label}-${scheme}.png` }); }
         } finally {
           await other.close();
@@ -5864,16 +5864,19 @@ await step('3.42 C collections in the price list: the mapping (1440/390, light/d
       const axePage = await axeContext.newPage();
       for (const scheme of ['light', 'dark']) {
         await axePage.emulateMedia({ colorScheme: scheme });
-        await axePage.goto(`${BASE}/admin.php?module=quotes&action=settings`, { waitUntil: 'networkidle' });
-        await axePage.addScriptTag({ path: AXE });
-        const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [['[data-price-collections]', '[data-quotes-auto-draft]'], WCAG]);
-        if (found.violations.length) { throw new Error(`axe the mapping (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        // 3.45 (U62): the mapping is on Price list set-up, the automatic draft stays in Settings
+        for (const [action, root] of [['setup', '[data-price-collections]'], ['settings', '[data-quotes-auto-draft]']]) {
+          await axePage.goto(`${BASE}/admin.php?module=quotes&action=${action}`, { waitUntil: 'networkidle' });
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [[root], WCAG]);
+          if (found.violations.length) { throw new Error(`axe the mapping (${action}, ${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
       }
     } finally {
       await axeContext.close();
     }
     // the administrator ticks the collection, picks its code and variants fields and saves
-    await visit('/admin.php?module=quotes&action=settings');
+    await visit('/admin.php?module=quotes&action=setup');
     const row = page.locator(`[data-price-collection="${idk}"]`);
     await row.locator('input[name="collection[]"]').check();
     await row.locator(`select[name="code_${idk}"]`).selectOption('order_code');
@@ -6045,6 +6048,63 @@ await step('3.44 B quote editor: Up/Down and Remove in place, the unsaved-change
     sql(`DELETE FROM ka_quote_lines WHERE quote_id = ${id}; DELETE FROM ka_quotes WHERE id = ${id}; DELETE p FROM ka_prices p JOIN ka_kolekce_polozky i ON i.idp = p.item_id WHERE i.idk = ${Number(idk) || 0};`
       + ` DELETE FROM ka_kolekce_polozky WHERE idk = ${Number(idk) || 0}; DELETE FROM ka_kolekce WHERE seo_link = 'parts-c344';`
       + " UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
+// 3.45 A (CPO 3, U62, CPO 6): the first steps of quotes on the quote list, Price list set-up and the office's first steps on
+// the dashboard at 1440 and 375 px in light and dark – no sideways scroll, axe on each block; Hide puts the quotes' list away
+await step('3.45 A: the first steps of quotes, Price list set-up and the office\'s first steps (1440/375, light/dark, axe), Hide', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const keys = "'quotes_steps_hidden', 'office_steps_hidden', 'company_name', 'extensions'";
+  sql(`DROP TABLE IF EXISTS ka_b345_backup; CREATE TABLE ka_b345_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN (${keys});`
+    + " UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota);"
+    + " REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quotes_steps_hidden', '0'), ('office_steps_hidden', '0'), ('company_name', '');"
+    + " INSERT INTO ka_poptavky (datum, formular, email, data, stav) VALUES (NOW(), 'Office B345', 'office@b345.example', '[]', 0)");
+  try {
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 375, 812]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const [what, url, root] of [['quotes', '/admin.php?module=quotes', '.pruvodce-nabidky'], ['setup', '/admin.php?module=quotes&action=setup', '#price-collections'], ['dashboard', '/admin.php', 'main']]) {
+            await p2.goto(BASE + url, { waitUntil: 'networkidle' });
+            if (!(await p2.locator(root).count())) { throw new Error(`${what} lacks ${root} (${label}, ${scheme})`); }
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 1) { throw new Error(`${wide} px of sideways scroll on ${what} (${label}, ${scheme})`); }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/345a-${what}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 1440, height: 900 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        for (const [url, roots] of [['/admin.php?module=quotes', ['.pruvodce-nabidky', 'nav.zalozky']], ['/admin.php?module=quotes&action=setup', ['nav.zalozky', '[data-price-collections]', '[data-quotes-texts]']], ['/admin.php?module=quotes&action=prices', ['[data-prices-grid]']], ['/admin.php', ['details.pruvodce']]]) {
+          await axePage.goto(BASE + url, { waitUntil: 'networkidle' });
+          const present = [];
+          for (const r of roots) { if (await axePage.locator(r).count()) { present.push(r); } }
+          if (!present.length) { continue; }
+          await axePage.addScriptTag({ path: AXE });
+          const found = await axePage.evaluate(([inc, tags]) => window.axe.run({ include: inc.map((x) => [x]) }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [present, WCAG]);
+          if (found.violations.length) { throw new Error(`axe ${url} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+        }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // the steps lead somewhere real; Hide puts the quotes' list away and stays on Quotes
+    await visit('/admin.php?module=quotes');
+    if ((await page.locator('.pruvodce-nabidky .pruvodce-kroky li').count()) !== 6) { throw new Error('the first steps of quotes do not have six steps'); }
+    await Promise.all([page.waitForNavigation(), page.locator('.pruvodce-nabidky .pruvodce-skryt button').click()]);
+    if (!page.url().includes('module=quotes') || await page.locator('.pruvodce-nabidky').count()) { throw new Error('Hide did not put the first steps of quotes away'); }
+    if (sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quotes_steps_hidden'").trim() !== '1') { throw new Error('Hide did not store the quotes\' setting'); }
+  } finally {
+    sql(`DELETE FROM ka_poptavky WHERE formular = 'Office B345'; DELETE FROM ka_nastaveni WHERE promenna IN (${keys}); INSERT INTO ka_nastaveni SELECT * FROM ka_b345_backup; DROP TABLE ka_b345_backup`);
   }
 });
 

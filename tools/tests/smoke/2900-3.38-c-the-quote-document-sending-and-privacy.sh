@@ -141,8 +141,8 @@ expect "3.38 C (A-11): retention – an old quote anonymised (the number stays) 
   "$(cat "$WORK/c338-ret")" '{"drafts":1,"deleted":0,"anonymised":1}|/1|Nová Firma|0|{"drafts":0,"deleted":2,"anonymised":0}|0'
 
 # the default texts per language (administrators)
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=settings"
-grep -q 'data-quotes-texts' "$WORK/response" && grep -q 'name="quote_footer"' "$WORK/response" && echo "  ok     3.38 C: Quotes → Settings has the default texts" || { echo "  CHYBA  3.38 C: the texts form"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&action=setup"
+grep -q 'data-quotes-texts' "$WORK/response" && grep -q 'name="quote_footer"' "$WORK/response" && echo "  ok     3.38 C: Quotes → Price list set-up (3.45, was Settings) has the default texts" || { echo "  CHYBA  3.38 C: the texts form"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&action=texts_save" -d "_csrf=$(csrf)" --data-urlencode "quote_intro=Děkujeme za poptávku." -d quote_terms= -d quote_footer=
 expect "3.38 C: the default texts are saved" "$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna SEPARATOR ' ') FROM ka_nastaveni WHERE promenna IN ('quote_intro', 'quote_terms', 'quote_footer')")" "quote_footer= quote_intro=Děkujeme za poptávku. quote_terms="
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$C338_EXT')" > /dev/null

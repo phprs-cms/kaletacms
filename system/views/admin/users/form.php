@@ -22,7 +22,8 @@
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e(t($errors[$field])) . '</span>' : '';
 $role = [
-    0 => ['News author', 'Writes and edits their own news. An editor publishes them.'],
+    // 3.45 (CPO 6, R7): a neutral name – the base level is also the office worker who writes no news
+    0 => ['Team member', 'Works in the sections given to them (Detailed settings, or a role); writes and edits only their own news, which an editor publishes.'],
     1 => ['Editor', 'Manages all site content – pages, news, media – and publishes.'],
     2 => ['Administrator', 'Everything, including users, appearance and site settings.'],
 ];

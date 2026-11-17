@@ -196,6 +196,8 @@ Q338_EXT=$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$Q338_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$Q338_EXT"),quotes')"
 page "3.38: Quotes – Internal prices" "/admin.php?module=quotes&action=prices" 200 "$JAR"; grep -q 'data-prices-grid' "$WORK/page.html" || fail "English admin: Internal prices has no grid"
 page "3.38: Quotes – Settings" "/admin.php?module=quotes&action=settings" 200 "$JAR"
+page "3.45: Quotes – the list with its first steps" "/admin.php?module=quotes" 200 "$JAR"
+page "3.45: Quotes – Price list set-up" "/admin.php?module=quotes&action=setup" 200 "$JAR"; grep -q 'id="price-collections"' "$WORK/page.html" || fail "English admin: Price list set-up has no collections form"
 sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$Q338_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''"
 # 3.42: Internal files in English – the empty state, a folder with a file, the file's detail and the folder form
 page "3.42: Internal files – empty" "/admin.php?module=internal_files" 200 "$JAR"

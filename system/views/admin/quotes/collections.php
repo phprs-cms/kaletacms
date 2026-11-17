@@ -1,6 +1,6 @@
 <?php
 /**
- * Which collections feed the internal price list (3.42, administrators; on Quotes → Settings and Internal prices): any
+ * Which collections feed the internal price list (3.42, administrators; 3.45: on Quotes → Price list set-up only): any
  * collection, several at once – each with the field that holds the product code (none = the item's address is its code)
  * and, when it has a suitable field, the variants ("name | code | price" per line). A collection made from the products
  * preset is always in the price list. Only the mapping is stored (Prices::saveMapping) – the prices stay in the price tables.
@@ -8,7 +8,7 @@
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Quotes $module
  * @var string $csrf
- * @var string $back settings | prices
+ * @var string $back setup | prices
  * @var array<int, array{collection: int, code: string, variants: string, basket?: bool}> $mapping
  * @var list<array{idk: int, name: string, preset: bool, items: int, detail: bool, code: list<array{key: string, label: string}>, variants: list<array{key: string, label: string}>}> $mappable
  */

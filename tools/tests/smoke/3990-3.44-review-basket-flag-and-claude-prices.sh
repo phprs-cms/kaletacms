@@ -24,7 +24,7 @@ r344_map on; R344_FLAG=$(r344_basket)
 r344_ext "$R344_OFF"; R344_QUOTES_OFF=$(r344_basket); r344_ext "$R344_ON"
 expect "3.44 review M1: without item pages a mapped collection stays out of the basket; offered, the visitor sees the name without the code; never while Quotes is off" \
   "${R344_DEFAULT:-none}|${R344_FLAG:-none}|${R344_QUOTES_OFF:-none}" "none|<li>2 × Tajny dil 344</li>|none"
-check "3.44 review M1: Quotes → Settings has the basket column with the box ticked for a collection with item pages" 200 "/admin.php?module=quotes&action=settings" 'name="basket_form" value="1"'
+check "3.44 review M1: Quotes → Price list set-up has the basket column with the box ticked for a collection with item pages" 200 "/admin.php?module=quotes&action=setup" 'name="basket_form" value="1"'
 expect "3.44 review M1: … and the stored flag of the collection without item pages" \
   "$(grep -c "name=\"basket_$R344_IDK\" value=\"1\" checked" "$WORK/response")|$(sq "SELECT hodnota LIKE '%\"basket\":true%' FROM ka_nastaveni WHERE promenna = 'quote_price_collections'")" "1|1"
 

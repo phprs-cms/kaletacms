@@ -86,7 +86,8 @@ check('3.38: the feature quotes is off by default; the section is granted explic
     Kaleta\Core\Extensions::CATALOG['quotes'][2], Kaleta\Admin\Modules\Quotes::GRANTED_EXPLICITLY, Kaleta\Admin\Modules\Quotes::EXTENSION, Kaleta\Admin\Modules\Quotes::GROUP,
     array_search(Kaleta\Admin\Modules\Quotes::class, Kaleta\Admin\Kernel::MODULES, true) === array_search(Kaleta\Admin\Modules\Pipeline::class, Kaleta\Admin\Kernel::MODULES, true) + 1,
     array_intersect(['quotes', 'prices_edit'], [...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), ...Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::AUTHOR)]),
-    array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => array_intersect(['quotes', 'prices_edit'], $p[3]) !== []),
+    // 3.45 (CPO 6): the preset Office / sales offers the section Quotes (an administrator saves the role); prices stay nobody's default
+    array_keys(array_filter(Kaleta\Admin\Modules\Roles::PRESETS, fn (array $p): bool => array_intersect(['quotes', 'prices_edit'], $p[3]) !== [])) === ['office'] && !in_array('prices_edit', Kaleta\Admin\Modules\Roles::PRESETS['office'][3], true) ? [] : Kaleta\Admin\Modules\Roles::PRESETS,
     array_key_exists(Kaleta\Core\Auth::PRICES_AREA, Kaleta\Admin\Modules\Roles::configurable()), Kaleta\Core\Auth::PRICES_AREA, Prices::SECTION, Quotes::SECTION,
     in_array('quotes', Kaleta\Admin\Kernel::SITE_NEUTRAL_MODULES, true),
 ], [false, true, 'quotes', 'Workspace', true, [], [], true, 'prices_edit', 'quotes', 'quotes', true]);

@@ -44,14 +44,18 @@ final class Roles extends Module
      * (opening hours) – the client's most frequent edits. Roles saved before keep their sections. 3.28: whoever answers
      * enquiries has Customers too (as migration 0114 gives every role with Enquiries); 3.31: and the Pipeline of their deals
      * (as migration 0117 gives every role with Customers). 3.34: HR – job applications with the jobs collection, and nothing
-     * of the customers (the section Applications is never a default of a level).
+     * of the customers (the section Applications is never a default of a level). 3.45: "Enquiries only" became "Office /
+     * sales" with Bookings and Quotes.
      */
     public const array PRESETS = [
         'client' => ['Client', 'Edits pages, news, collection items, the menu, the footer and the opening hours, answers enquiries, sees the statistics and asks Claude for changes – design, settings and users stay with the agency.',
             Auth::EDITOR, ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'contacts', 'pipeline', 'stats', 'requests', 'business', Auth::APPEARANCE_AREA]],
         'writer' => ['Writer', 'Writes news for someone else to publish.', Auth::AUTHOR, ['news', 'tags']],
         'hr' => ['HR', 'Handles job applications – their statuses, replies, notes and tasks – and edits the job openings in Collections; sees nothing of enquiries or customers.', Auth::EDITOR, ['applications', 'collections', 'requests']],
-        'office' => ['Enquiries only', 'Handles enquiries from the site forms and the newsletter subscribers, and asks Claude for changes.', Auth::AUTHOR, ['enquiries', 'contacts', 'pipeline', 'subscribers', 'requests']],
+        // 3.45 (CPO 6, R7): the common office worker – enquiries, customers and deals, bookings and quotes (what is switched
+        // on; the form offers only existing sections), never the site's content or prices
+        'office' => ['Office / sales', 'Answers enquiries, keeps customers and deals, handles bookings and prepares quotes, and asks Claude for changes – the site\'s content, appearance and settings stay with others.',
+            Auth::AUTHOR, ['enquiries', 'contacts', 'pipeline', 'bookings', \Kaleta\Core\Prices::SECTION, 'subscribers', 'requests']],
     ];
 
     protected function actionNew(): Response
@@ -85,7 +89,7 @@ final class Roles extends Module
         $errors = [];
         if ($data['nazev'] === '') {
             $errors['nazev'] = 'Fill in the role name.';
-        } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Editor', 'Administrator']), true)
+        } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Team member', 'Editor', 'Administrator']), true)
             || $this->db->value('SELECT idr FROM {role} WHERE nazev = ? AND idr <> ?', [$data['nazev'], $id]) !== null) {
             $errors['nazev'] = 'A role with this name already exists.';
         }

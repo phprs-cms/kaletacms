@@ -137,7 +137,7 @@ trait QuoteSending
             return $this->error('Only an administrator can change the settings of quotes.', 403);
         }
         if (!$this->request->isPost()) {
-            return $this->back('', 'settings');
+            return $this->back('', 'setup');
         }
         $s = $this->app->settings();
         foreach (QuoteDelivery::textLanguages($s) as $language) {
@@ -151,7 +151,7 @@ trait QuoteSending
         }
         ChangeLog::write($this->app, Quotes::SECTION, 'settings', t('Default texts of quotes'));
 
-        return $this->back('The default texts of quotes were saved.', 'settings');
+        return $this->back('The default texts of quotes were saved.', 'setup');
     }
 
     /** Back to the send dialog, or to the quote's detail when the form came from there (back=detail). */
