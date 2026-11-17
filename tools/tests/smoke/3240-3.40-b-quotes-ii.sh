@@ -52,7 +52,7 @@ expect "3.40 B: Save as a set keeps the own row by its code (no price) and the f
 B340_LOC=$(b340_post save -d id=$B340_Q3 "${B340_WHO[@]}" -d line_set=$B340_SET -d next=line_set)
 expect "3.40 B: inserting the set into a quote of the default list prices the own row from that list now (100, not 80); the free line keeps its price" \
   "${B340_LOC##*\?}|$(sq "SELECT GROUP_CONCAT(CONCAT(name, ':', quantity, ':', unit_price) ORDER BY position SEPARATOR ' ') FROM ka_quote_lines WHERE quote_id = $B340_Q3")" \
-  "module=quotes&action=edit&id=$B340_Q3#lines|Servis 340:3.000:100.00 Doprava 340:1.000:250.00"
+  "module=quotes&action=edit&id=$B340_Q3#line-1|Servis 340:3.000:100.00 Doprava 340:1.000:250.00"
 check "3.40 B: the Settings tab lists the saved line sets" 200 "/admin.php?module=quotes&action=settings" "data-line-set=\"$B340_SET\""
 b340_post line_set_rename -d id=$B340_SET --data-urlencode "name=Servis a doprava 340" > /dev/null
 expect "3.40 B: an administrator renames a set; the change log names it, never a price" \

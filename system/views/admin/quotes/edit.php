@@ -8,6 +8,8 @@
  * the side column the customer (a contact or company fills the block, which stays editable), validity, VAT mode,
  * whole-quote discount, language, price list, responsible person and the deal with "set its value". The server computes
  * every total (image/admin.js asks action totals on change – no arithmetic in JavaScript); Save shows them too.
+ * 3.44 B: Up/Down and Remove buttons per line (in place with JavaScript, a save without it), the unsaved-changes guard
+ * (data-unsaved) and the check before Save and send (data-quote-send-check).
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Quotes $module
@@ -48,7 +50,7 @@ foreach ($lines as $line) {
     }
 }
 ?>
-<form method="post" action="<?= e($module->url('save')) ?>" id="quote-form" class="nabidka-editor" data-quote-editor data-quote-totals="<?= e($module->url('totals')) ?>">
+<form method="post" action="<?= e($module->url('save')) ?>" id="quote-form" class="nabidka-editor" data-quote-editor data-unsaved data-quote-totals="<?= e($module->url('totals')) ?>">
 <?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="updated_at" value="<?= e($q['updated_at']) ?>">
 <button type="submit" hidden tabindex="-1"><?= e(t('Save')) ?></button><?php /* Enter in a field saves – never sends */ ?>
 <div class="zaznam-lista" data-record-bar>
@@ -64,6 +66,15 @@ foreach ($lines as $line) {
 <?php endif ?>
 	</div></details>
 </div>
+</div>
+<div class="hlaska hlaska-chyba nabidka-kontrola" id="nabidka-kontrola" role="alert" tabindex="-1" data-quote-send-check hidden><?php /* 3.44 (U60): filled by image/admin.js before Save and send */ ?>
+	<p><strong><?= e(t('The quote cannot be sent yet:')) ?></strong></p>
+	<ul>
+		<li data-check="customer"><?= e(t('Fill in the customer – a name or a company.')) ?></li>
+		<li data-check="email"><?= e(t('The customer has no e-mail – finalise the quote and hand it over, or add the e-mail.')) ?></li>
+		<li data-check="lines"><?= e(t('Add at least one line to the quote.')) ?></li>
+		<li data-check="prices"><?= e(t('Fill the price of every line first.')) ?></li>
+	</ul>
 </div>
 <div class="zaznam-obal"><div class="zaznam">
 <div class="zaznam-hlavni">
@@ -82,15 +93,17 @@ foreach ($lines as $line) {
 <div class="tab-obal">
 <table class="vypis vypis-karty nabidka-radky">
 <thead><tr><th scope="col"><?= e(t('Item')) ?></th><th scope="col"><?= e(t('Quantity')) ?></th><th scope="col"><?= e(t('Unit')) ?></th><th scope="col"><?= e(t('Unit price')) ?></th>
-	<th scope="col"><?= e(t('Discount %')) ?></th><th scope="col"><?= e(t('VAT %')) ?></th><th scope="col" class="cislo"><?= e(t('Total')) ?></th><th scope="col"><?= e(t('Remove')) ?></th></tr></thead>
+	<th scope="col"><?= e(t('Discount %')) ?></th><th scope="col"><?= e(t('VAT %')) ?></th><th scope="col" class="cislo"><?= e(t('Total')) ?></th><th scope="col"><span class="navod-skryte"><?= e(t('Order and removal')) ?></span></th></tr></thead>
 <tbody>
 <?php foreach ($lines as $i => $line):
     $stored = array_key_exists('line_net', $line);
     $price = $line['unit_price'] === null ? '' : (string) $line['unit_price'];
     $unpriced = trim($price) === '';
-    $manual = $stored && $line['manual'];
+    // 3.44 (U58): a free line has no list price to differ from – the badge only on a product or an own row
+    $manual = $stored && $line['manual'] && ((string) $line['code'] !== '' || (string) ($line['item_id'] ?? '') !== '');
+    $removed = !empty($line['remove']);
     $n = $i + 1; ?>
-<tr data-quote-line="<?= (int) $line['id'] ?>"<?= $unpriced ? ' data-quote-unpriced' : '' ?>>
+<tr id="line-<?= $n ?>" data-quote-line="<?= (int) $line['id'] ?>"<?= $unpriced ? ' data-quote-unpriced' : '' ?><?= $removed ? ' class="nabidka-odebrano"' : '' ?>>
 	<td><input type="hidden" name="line_id[]" value="<?= (int) $line['id'] ?>"><input type="hidden" name="line_item[]" value="<?= e((string) ($line['item_id'] ?? '')) ?>"><input type="hidden" name="line_variant[]" value="<?= e((string) $line['variant_code']) ?>"><input type="hidden" name="line_code[]" value="<?= e((string) $line['code']) ?>">
 		<input class="textpole" type="text" name="line_name[]" value="<?= e((string) $line['name']) ?>" maxlength="<?= Quotes::NAME_MAX ?>" aria-label="<?= e(t('Line %d: name', $n)) ?>" required>
 		<input class="textpole nabidka-popis" type="text" name="line_description[]" value="<?= e((string) $line['description']) ?>" maxlength="<?= Quotes::DESCRIPTION_MAX ?>" aria-label="<?= e(t('Line %d: description', $n)) ?>" placeholder="<?= e(t('Description (optional)')) ?>">
@@ -109,17 +122,21 @@ foreach ($lines as $line) {
 <?php endif ?>
 	</select></td>
 	<td class="cislo" data-popisek="<?= e(t('Total')) ?>"><output data-quote-line-net><?= $stored && !$unpriced ? e($money((string) $line['line_net'])) : '' ?></output></td>
-	<td data-popisek="<?= e(t('Remove')) ?>"><label class="nabidka-odebrat"><input type="checkbox" name="line_remove[]" value="<?= $i ?>"<?= !empty($line['remove']) ? ' checked' : '' ?>> <span class="navod-skryte"><?= e(t('Remove line %d', $n)) ?></span></label></td>
+	<td class="nabidka-radek-akce" data-popisek="<?= e(t('Order and removal')) ?>"><input type="hidden" name="line_removed[]" value="<?= $removed ? '1' : '0' ?>"><?php /* 3.44 (U58): without JavaScript each button saves and the server moves or drops the line */ ?>
+		<span class="nabidka-posuny"><button class="navigace nabidka-posun" type="submit" name="line_move" value="<?= $i ?>:up" formnovalidate data-quote-move="up" aria-label="<?= e(t('Move line %d up', $n)) ?>" title="<?= e(t('Move up')) ?>"<?= $i === 0 ? ' disabled' : '' ?>>↑</button>
+		<button class="navigace nabidka-posun" type="submit" name="line_move" value="<?= $i ?>:down" formnovalidate data-quote-move="down" aria-label="<?= e(t('Move line %d down', $n)) ?>" title="<?= e(t('Move down')) ?>"<?= $i === count($lines) - 1 ? ' disabled' : '' ?>>↓</button></span>
+		<button class="navigace nebezpecne nabidka-odebrat" type="submit" name="line_drop" value="<?= $i ?>" formnovalidate data-quote-remove data-remove="<?= e(t('Remove')) ?>" data-undo="<?= e(t('Undo')) ?>"><span data-quote-remove-label><?= e($removed ? t('Undo') : t('Remove')) ?></span><span class="navod-skryte" data-quote-line-number> (<?= e(t('line %d', $n)) ?>)</span></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
+<p class="navod-skryte" role="status" data-quote-line-status></p>
 <?php endif ?>
 
 <fieldset class="nabidka-pridat" data-quote-add>
 <legend><?= e(t('Add a line')) ?></legend>
-<div class="zaznam-dvojice">
+<div class="zaznam-dvojice nabidka-pridat-radek">
 	<div class="zaznam-pole"><label for="nabidka-produkt"><?= e(t('Product of the price list')) ?></label><input class="textpole" type="text" id="nabidka-produkt" name="add_product" list="nabidka-produkty" autocomplete="off" placeholder="<?= e(t('Code or name')) ?>">
 		<datalist id="nabidka-produkty">
 <?php foreach ($products as $p): ?>
@@ -129,7 +146,7 @@ foreach ($lines as $line) {
 	<div class="zaznam-pole"><label for="nabidka-produkt-mnozstvi"><?= e(t('Quantity')) ?></label><input class="textpole cislo-kratke" type="text" inputmode="decimal" id="nabidka-produkt-mnozstvi" name="add_quantity" value="1"></div>
 </div>
 <?php if ($own !== []): ?>
-<div class="zaznam-dvojice">
+<div class="zaznam-dvojice nabidka-pridat-radek">
 	<div class="zaznam-pole"><label for="nabidka-vlastni"><?= e(t('Own row (installation, transport…)')) ?></label><select id="nabidka-vlastni" name="add_own"><option value="">—</option>
 <?php foreach ($own as $o): ?>
 		<option value="<?= e($o['code']) ?>"><?= e(($o['label'] !== '' ? $o['label'] : $o['code']) . ' · ' . Money::format($o['minor'], $list['currency'])) ?></option>
@@ -138,12 +155,12 @@ foreach ($lines as $line) {
 	<div class="zaznam-pole"><label for="nabidka-vlastni-mnozstvi"><?= e(t('Quantity')) ?></label><input class="textpole cislo-kratke" type="text" inputmode="decimal" id="nabidka-vlastni-mnozstvi" name="add_own_quantity" value="1"></div>
 </div>
 <?php endif ?>
-<div class="zaznam-dvojice">
+<div class="zaznam-dvojice nabidka-pridat-radek nabidka-pridat-volny">
 	<div class="zaznam-pole"><label for="nabidka-volny"><?= e(t('Free line')) ?></label><input class="textpole" type="text" id="nabidka-volny" name="add_free_name" maxlength="<?= Quotes::NAME_MAX ?>" placeholder="<?= e(t('Name')) ?>"></div>
 	<div class="zaznam-pole"><label for="nabidka-volny-cena"><?= e(t('Unit price')) ?></label><input class="textpole cislo-kratke" type="text" inputmode="decimal" id="nabidka-volny-cena" name="add_free_price"></div>
 	<div class="zaznam-pole"><label for="nabidka-volny-mnozstvi"><?= e(t('Quantity')) ?></label><input class="textpole cislo-kratke" type="text" inputmode="decimal" id="nabidka-volny-mnozstvi" name="add_free_quantity" value="1"></div>
 </div>
-<p class="tlacitka"><button class="navigace" type="submit" name="next" value="add" data-quote-add-line><?= e(t('Add to the quote')) ?></button></p>
+<p class="tlacitka"><button class="navigace" type="submit" name="next" value="add" data-quote-add-line><?= e(t('Add to the quote')) ?></button> <span class="napoveda"><?= e(t('Everything filled in here is added at once, in this order.')) ?></span></p>
 <p class="napoveda"><?= e(t('Prices come from the price list %s (%s) without VAT; a different price is kept as a manual price.', $list['name'], $list['currency'])) ?></p>
 </fieldset>
 
@@ -198,12 +215,12 @@ foreach ($lines as $line) {
 <h2 id="nabidka-zakaznik"><?= e(t('Customer')) ?></h2>
 <div class="zaznam-formular">
 <?php if ($canContacts): ?>
-	<div class="zaznam-pole"><label for="nabidka-kontakt"><?= e(t('Contact')) ?></label><select id="nabidka-kontakt" name="contact_id"><option value="0">—</option>
+	<div class="zaznam-pole"><label for="nabidka-kontakt"><?= e(t('Customer')) ?></label><select id="nabidka-kontakt" name="contact_id" data-saved="<?= (int) ($q['contact_id'] ?? 0) ?>"><option value="0">—</option>
 <?php foreach ($contacts as $cid => $name): ?>
 		<option value="<?= (int) $cid ?>"<?= (int) $v('contact_id', (string) ($q['contact_id'] ?? 0)) === (int) $cid ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>
 	</select></div>
-	<div class="zaznam-pole"><label for="nabidka-firma"><?= e(t('Company')) ?></label><select id="nabidka-firma" name="company_id"><option value="0">—</option>
+	<div class="zaznam-pole"><label for="nabidka-firma"><?= e(t('Company')) ?></label><select id="nabidka-firma" name="company_id" data-saved="<?= (int) ($q['company_id'] ?? 0) ?>"><option value="0">—</option>
 <?php foreach ($companies as $cid => $name): ?>
 		<option value="<?= (int) $cid ?>"<?= (int) $v('company_id', (string) ($q['company_id'] ?? 0)) === (int) $cid ? ' selected' : '' ?>><?= e($name) ?></option>
 <?php endforeach ?>

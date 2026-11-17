@@ -2,7 +2,7 @@
 /**
  * The quotes (3.38 B, Core\Quotes::list): number, title, customer, the net total with its currency, status, validity and
  * the responsible person; filters by status, person ("Mine", nobody, a person) and a word, or the record of a box; paging.
- * "Create a quote" makes an empty draft (POST); the empty state also says how to ask Claude. A card per quote on a phone.
+ * "New quote" makes an empty draft (POST); the empty state also says how to ask Claude. A card per quote on a phone.
  * Amounts appear only here, for people with the section – never in the change log, a bell or a report.
  *
  * @var Kaleta\Core\App $app
@@ -47,7 +47,7 @@ $today = Clock::today();
 	<label class="zakaznici-hledat"><span><?= e(t('Search')) ?></span> <input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" placeholder="<?= e(t('Number, title or customer')) ?>"></label>
 	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
 </form>
-<form method="post" action="<?= e($module->url('create')) ?>" data-quote-create><?= $csrf ?><button class="tl" type="submit"><?= e(t('Create a quote')) ?></button></form>
+<form method="post" action="<?= e($module->url('create')) ?>" data-quote-create><?= $csrf ?><button class="tl" type="submit"><?= e(t('New quote')) ?></button></form>
 </div>
 <?php if ($result['rows'] === [] && $filtered): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'clanek', 'heading' => t('No quote matches the filter.'), 'text' => t('Try another word or clear the filter.'), 'action' => [$module->url(), t('Clear filter')]]) ?>

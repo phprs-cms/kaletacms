@@ -3101,4 +3101,11 @@ window.KALETA_PREKLAD = {
 	"Status and Move: “%s”": "Status und Verschieben: „%s“",
 	"Status and Move": "Status und Verschieben",
 	"In this stage since today": "Seit heute in dieser Phase",
+	"You have changes that are not saved yet.": "Es gibt Änderungen, die noch nicht gespeichert sind.",
+	"Leave without saving": "Ohne Speichern verlassen",
+	"Stay on the page": "Auf der Seite bleiben",
+	"Save and open page %s": "Speichern und Seite %s öffnen",
+	"Line moved to position %s.": "Die Zeile steht jetzt an Position %s.",
+	"The line is removed when you save.": "Die Zeile wird beim Speichern entfernt.",
+	"The line stays.": "Die Zeile bleibt.",
 };

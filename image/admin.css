@@ -2091,7 +2091,7 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 	.zaznam-bok, .zaznam-fakta-prvni > .zaznam-bok { order: 0; margin: 0; }
 }
 .zaznam-hlavni > :first-child, .zaznam-hlavni > :first-child > h2:first-child, .zaznam-panel > h2:first-child, .zaznam-bok > .ukoly > h2:first-child { margin-top: 0; }
-.zaznam :is(#thread, #reply, #timeline, #history) { scroll-margin-top: 140px; }
+.zaznam :is(#thread, #reply, #timeline, #history, #lines, #line-sets, #tasks, #quotes, #move), table.nabidka-radky tr[id] { scroll-margin-top: 140px; }
 .zaznam-panel { min-width: 0; margin: 0; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .zaznam-panel > h2 { margin: 0 0 10px; font-size: 15px; }
 .zaznam-panel > :last-child { margin-bottom: 0; }
@@ -2122,6 +2122,13 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 table.ceny .textpole { width: 100%; min-width: 4.5em; max-width: 12em; }
 table.ceny td.cislo .textpole { text-align: right; }
 table.ceny tr.ceny-varianta td:first-child { padding-inline-start: 24px; color: var(--text-slaby); }
+/* 3.44 (U63): Save prices stays at the bottom of the window while the grid is on screen */
+.ceny-ulozit { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 16px 0 0; padding: 10px 0; border-top: 1px solid var(--linka); background: var(--podklad); }
+.ceny-ulozit .napoveda { margin: 0; }
+/* the pipeline stages: Remove as a visible choice of at least 40 px */
+.odebrat-volba { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 8px; cursor: pointer; }
+.odebrat-volba input { width: 20px; height: 20px; margin: 0; }
+dialog.potvrzeni > div { flex-wrap: wrap; }
 
 /* 3.38 B: quotes – the editor's lines (narrow fields, a card per line on a phone), Add a line, the totals and the document */
 @media (min-width: 641px) {
@@ -2141,6 +2148,37 @@ table.nabidka-radky td .stitek { margin-top: 4px; }
 @media (max-width: 640px) {
 	table.nabidka-radky td:first-child .textpole { min-width: 0; }
 }
+/* 3.44 (U58): the item gets the free width; Up, Down and Remove of a line are real buttons (at least 36 px), a removed line
+   stays greyed with Undo until Save; the quantity fields of Add a line are narrow; the check before Save and send */
+@media (min-width: 641px) {
+	table.nabidka-radky th:first-child { width: 34%; }
+	table.nabidka-radky th:last-child { width: 1%; }
+}
+table.nabidka-radky td:first-child .textpole[name="line_name[]"] { min-width: 14em; }
+@media (max-width: 640px) {
+	table.nabidka-radky td:first-child .textpole[name="line_name[]"] { min-width: 0; }
+}
+.nabidka-posuny { display: flex; gap: 4px; }
+.nabidka-radek-akce button { min-height: 36px; min-width: 36px; margin: 2px 0; padding: 4px 10px; }
+.nabidka-radek-akce .nabidka-odebrat { display: block; width: 100%; }
+.nabidka-radek-akce .nabidka-posun { padding-inline: 0; font-size: 16px; line-height: 1; }
+.nabidka-radek-akce button:disabled { opacity: 0.35; cursor: default; }
+tr.nabidka-odebrano > td:not(.nabidka-radek-akce) { opacity: 0.5; }
+tr.nabidka-odebrano > td:not(.nabidka-radek-akce) :is(input, select, output) { text-decoration: line-through; }
+.nabidka-pridat-radek { grid-template-columns: minmax(0, 1fr) 7rem; }
+.nabidka-pridat-volny { grid-template-columns: minmax(0, 1fr) 9rem 7rem; }
+@media (max-width: 480px) {
+	.nabidka-pridat-volny { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+	.nabidka-pridat-volny > :first-child { grid-column: 1 / -1; }
+}
+.nabidka-kontrola { margin: 0 0 16px; }
+.nabidka-kontrola ul { margin: 6px 0 0; padding-inline-start: 20px; }
+.nabidka-editor [aria-invalid="true"] { border-color: var(--chyba); box-shadow: 0 0 0 1px var(--chyba); }
+/* 3.44 (U61): the send dialog's summary and the folded preview of the e-mail */
+.nabidka-shrnuti { margin: 0 0 20px; }
+.nabidka-nahled-mailu > summary { min-height: 32px; cursor: pointer; font-weight: 600; }
+.nabidka-nahled-mailu[open] { padding: 10px 14px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.nabidka-nahled-text { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
 dl.nabidka-soucty { margin-top: 14px; }
 .nabidky-lista { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 16px; margin: 0 0 18px; }
 .nabidky-lista > .zakaznici-filtr { flex: 1 1 32rem; margin: 0; }

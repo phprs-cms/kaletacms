@@ -89,7 +89,7 @@ $field = function (string $name, string $value, string $label, string $extra = '
     'action' => [$module->url('prices', ['list' => $list['id']]), t('Clear filter')]]) ?>
 <?php endif ?>
 
-<form method="post" action="<?= e($module->url('prices_save')) ?>" data-prices-grid>
+<form method="post" action="<?= e($module->url('prices_save')) ?>" data-prices-grid<?= $canEdit ? ' data-unsaved' : '' ?>><?php /* 3.44 (U63): leaving with unsaved prices asks; a page link offers to save first */ ?>
 	<?= $csrf ?>
 	<input type="hidden" name="list" value="<?= $list['id'] ?>">
 <?php foreach (['collection' => $filter['collection'] ?: '', 'search' => $filter['search'], 'missing' => $filter['missing'] ? '1' : '', 'page' => $grid['page'] > 1 ? (string) $grid['page'] : ''] as $k => $v): if ($v !== '') { ?>
@@ -100,7 +100,7 @@ $field = function (string $name, string $value, string $label, string $extra = '
 	<p class="napoveda" data-prices-total><?= e(t('Products: %s', format_count($grid['total']))) ?><?php if (!$filter['missing'] && $grid['missing'] > 0): ?> · <a href="<?= e($module->url('prices', $query + ['missing' => '1'])) ?>" data-prices-missing><?= e(t('%s still without a price', format_count($grid['missing']))) ?></a><?php endif ?> · <?= e(t('Prices in %s, without VAT. An empty VAT rate = the default rate%s.', $list['currency'], $defaultRate !== null ? ' (' . Money::short($defaultRate) . ' %)' : '')) ?></p>
 	<div class="tab-obal">
 	<table class="vypis ceny">
-	<thead><tr><th scope="col"><?= e(t('Product')) ?></th><th scope="col"><?= e(t('Code')) ?></th><th scope="col" class="cislo"><?= e(t('Price')) ?></th><th scope="col"><?= e(t('Unit')) ?></th>
+	<thead><tr><th scope="col"><?= e(t('Product')) ?></th><th scope="col"><?= e(t('Code')) ?></th><th scope="col" class="cislo"><?= e(t('Price (%s)', $list['currency'])) ?></th><th scope="col"><?= e(t('Unit')) ?></th>
 		<th scope="col"><?= e(t('VAT %')) ?></th><th scope="col"><?= e(t('Internal note')) ?></th></tr></thead>
 	<tbody>
 <?php foreach ($grid['rows'] as $item): foreach ($item['lines'] as $line): $p = $line['price']; $label = $line['variant'] === '' ? $item['name'] : $item['name'] . ' – ' . ($line['name'] !== '' ? $line['name'] : $line['variant']); ?>
@@ -121,7 +121,7 @@ $field = function (string $name, string $value, string $label, string $extra = '
 <?php if ($grid['pages'] > 1): ?>
 	<p class="strankovani">
 <?php for ($n = 1; $n <= $grid['pages']; $n++): ?>
-		<?= $n === $grid['page'] ? '<strong>[' . $n . ']</strong>' : '<a href="' . e($module->url('prices', $query + ['page' => $n])) . '">' . $n . '</a>' ?>
+		<?= $n === $grid['page'] ? '<strong>[' . $n . ']</strong>' : '<a href="' . e($module->url('prices', $query + ['page' => $n])) . '" data-unsaved-page="' . $n . '">' . $n . '</a>' ?>
 <?php endfor ?>
 	</p>
 <?php endif ?>
@@ -132,7 +132,7 @@ $field = function (string $name, string $value, string $label, string $extra = '
 <?php if ($own !== [] || $canEdit): ?>
 	<div class="tab-obal">
 	<table class="vypis ceny" data-prices-own>
-	<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Code')) ?></th><th scope="col" class="cislo"><?= e(t('Price')) ?></th><th scope="col"><?= e(t('Unit')) ?></th>
+	<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Code')) ?></th><th scope="col" class="cislo"><?= e(t('Price (%s)', $list['currency'])) ?></th><th scope="col"><?= e(t('Unit')) ?></th>
 		<th scope="col"><?= e(t('VAT %')) ?></th><th scope="col"><?= e(t('Internal note')) ?></th></tr></thead>
 	<tbody>
 <?php foreach ($own as $o): ?>
@@ -160,7 +160,7 @@ $field = function (string $name, string $value, string $label, string $extra = '
 	</div>
 <?php endif ?>
 <?php if ($canEdit): ?>
-	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save prices')) ?></button> <span class="napoveda"><?= e(t('An empty price removes it.')) ?></span></p>
+	<p class="tlacitka ceny-ulozit" data-prices-save><button class="tl" type="submit"><?= e(t('Save prices')) ?></button> <span class="napoveda"><?= e(t('An empty price removes it.')) ?></span></p>
 <?php else: ?>
 	<p class="napoveda" data-prices-readonly><?= e(t('You can read the prices; changing them needs the permission “Quotes: change internal prices” (Users or Roles).')) ?></p>
 <?php endif ?>

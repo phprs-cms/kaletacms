@@ -40,9 +40,12 @@ trait QuoteSending
         }
         if (!$this->request->isPost()) {
             $user = $this->app->auth()->user() ?? [];
+            $signature = \Kaleta\Core\EnquiryReply::signature($this->app, $user);
 
             return $this->view('send', 'Send the quote', ['quote' => $quote, 'draft' => QuoteDelivery::draft($this->app, $quote), 'link' => QuoteDelivery::linkUrl($this->app, $quote),
-                'signature' => \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null, 'replyTo' => (string) ($user['email'] ?? ''),
+                'signature' => $signature !== null, 'replyTo' => (string) ($user['email'] ?? ''),
+                // 3.44 (U61): the folded preview of what the e-mail adds below the message (placeholders in the admin's language)
+                'mailTail' => $quote['status'] === 'draft' ? QuoteDelivery::previewTail($this->app, $quote, $signature, t('(the number it gets when sent)'), t('(the link to the quote)')) : '',
                 'pdf' => $this->pdfOf($quote) !== null, 'attachPdf' => $this->app->settings()->bool('quote_attach_pdf')]);
         }
         try {
