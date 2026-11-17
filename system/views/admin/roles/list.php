@@ -13,7 +13,7 @@
 	<a href="<?= e($module->url('new', ['preset' => $key])) ?>" title="<?= e(t($presetHelp)) ?>"><?= e(t($presetName)) ?></a><?= $key !== array_key_last(Kaleta\Admin\Modules\Roles::PRESETS) ? ' ·' : '' ?>
 <?php endforeach ?>
 </p>
-<p class="smltxt"><?= e(t('The built-in roles News author, Editor and Administrator are enough for most websites. A custom role is useful when someone should see only part of the administration – for example a salesperson only Enquiries.')) ?></p>
+<p class="smltxt"><?= e(t('The built-in roles Team member, Editor and Administrator are enough for most websites. A custom role is useful when someone should see only part of the administration – for example a salesperson only Enquiries.')) ?></p>
 <?php if ($role === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'uzivatele', 'heading' => t('No custom roles yet.'), 'action' => [$module->url('new'), t('New role')]]) ?>
 <?php else: ?>

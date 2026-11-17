@@ -156,7 +156,7 @@ $parity = [
         'prices_import' => 'admin: a CSV file of prices is uploaded and checked by a person before it is written',
         'prices_import_run' => 'admin: writing a checked CSV import is the decision of the person who checked it',
         'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',
-        'list_default' => 'admin: the default price list is the administrator\'s set-up', 'settings' => $readOnly,
+        'list_default' => 'admin: the default price list is the administrator\'s set-up', 'settings' => $readOnly, 'setup' => $readOnly, // 3.45 (U62): Price list set-up
         'settings_save' => 'admin: numbering, VAT, limits and retention of quotes are the administrator\'s set-up',
         'collections_save' => 'admin: which collections feed the internal price list is the administrator\'s set-up (3.42)',
         // 3.40: the tasks of a quote and "Remind me" are tasks (save_task, target quote:<id>); saved line sets are inserted by save_quote (line_set)
@@ -369,7 +369,7 @@ try {
 check('2.2: MCP prompts and resources', [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
     $promptError, array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), array_column(Kaleta\Mcp\Prompts::resources(), 'uri')],
     [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'launch_site', 'weekly_care', 'work_requests', 'scheduled_run', 'review_pending', 'office_day' /* 3.44 */, 'draft_blueprint',
-        'set_up_bookings', 'compliance_check', 'add_language_version', 'newsletter_release', 'fleet_fix'], ['kaleta://instructions', 'kaleta://overview']]);
+        'set_up_bookings', 'set_up_quotes' /* 3.45 */, 'compliance_check', 'add_language_version', 'newsletter_release', 'fleet_fix'], ['kaleta://instructions', 'kaleta://overview']]);
 // 2.8: when a job is due, and when an update counts as broken (only with a clear sign – never just because the site cannot reach itself)
 check('2.8: Scheduler::isDue', [Kaleta\Core\Scheduler::isDue(null, 300, 1000), Kaleta\Core\Scheduler::isDue(900, 0, 1000), Kaleta\Core\Scheduler::isDue(800, 300, 1000),
     Kaleta\Core\Scheduler::isDue(700, 300, 1000), Kaleta\Core\Scheduler::isDue(1000 - 86400 + 60, 86400, 1000)], [true, true, false, true, false]);

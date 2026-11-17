@@ -90,19 +90,19 @@ trait QuoteExtras
             return $this->error('Only an administrator can change the settings of quotes.', 403);
         }
         if (!$this->request->isPost()) {
-            return $this->back('', 'settings');
+            return $this->back('', 'setup');
         }
         try {
             $name = QuoteLineSets::cleanName($this->request->post('name'));
             $former = QuoteLineSets::rename($this->app, $this->request->postInt('id'), $name);
         } catch (\DomainException $e) {
-            return $this->back($e->getMessage(), 'settings', [], 'chyba');
+            return $this->back($e->getMessage(), 'setup', [], 'chyba');
         }
         if ($former !== $name) {
             ChangeLog::write($this->app, Quotes::SECTION, 'line_set', t('Line set “%1$s” renamed to “%2$s”', $former, $name));
         }
 
-        return Response::redirect($this->url('settings') . '#line-sets');
+        return Response::redirect($this->url('setup') . '#line-sets');
     }
 
     protected function actionLineSetDelete(): Response
@@ -111,7 +111,7 @@ trait QuoteExtras
             return $this->error('Only an administrator can change the settings of quotes.', 403);
         }
         if (!$this->request->isPost()) {
-            return $this->back('', 'settings');
+            return $this->back('', 'setup');
         }
         $name = QuoteLineSets::delete($this->app, $this->request->postInt('id'));
         if ($name !== null) {
@@ -119,7 +119,7 @@ trait QuoteExtras
             $this->app->session->flash('ok', t('The line set “%s” was deleted.', $name));
         }
 
-        return Response::redirect($this->url('settings') . '#line-sets');
+        return Response::redirect($this->url('setup') . '#line-sets');
     }
 
     /** "Remind me" done: for whom and when. */

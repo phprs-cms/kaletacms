@@ -90,7 +90,8 @@ $u37Dash = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/dashboard.ph
 $u37Connect = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/claude_connect.php');
 check('[source-pin] 3.32 (U37): the tiles come before the onboarding blocks, which are details (Connect Claude open for administrators, First steps while a step is left)', [
     strpos($u37Dash, '<div class="dlazdice">') < strpos($u37Dash, "render('admin/claude_connect'"), strpos($u37Dash, "render('admin/pending_review'") < strpos($u37Dash, '<div class="dlazdice">'),
-    str_contains($u37Dash, "<?= \$finished < count(\$firstSteps) ? ' open' : '' ?>"), str_contains($u37Connect, "<?= \$connect['admin'] ? ' open' : '' ?>"),
+    // 3.45: the lists of first steps are one partial (views/admin/first_steps.php) – the website's, the office's and the quotes'
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/first_steps.php'), "<?= \$finished < count(\$steps) ? ' open' : '' ?>"), str_contains($u37Connect, "<?= \$connect['admin'] ? ' open' : '' ?>"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/ask_claude.php'), '<details class="ask-claude-priklady-obal"><summary>'),
 ], [true, true, true, true, true]);
 // 3.32 (U46, U47, U49, U50): scrolling table wrappers become focusable regions, the cookie table is a listing, yes/no boxes

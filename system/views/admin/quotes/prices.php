@@ -19,8 +19,7 @@
  * @var bool $canEdit
  * @var bool $admin
  * @var array<string, mixed>|null $import
- * @var array<int, array{collection: int, code: string, variants: string}> $mapping 3.42, administrators only
- * @var list<array<string, mixed>> $mappable 3.42, administrators only
+ * @var bool $anyCollection 3.45: the site has a collection at all (the empty state's next step: choose it, or create one)
  */
 use Kaleta\Core\Deals;
 use Kaleta\Core\Money;
@@ -34,7 +33,8 @@ $field = function (string $name, string $value, string $label, string $extra = '
 ?>
 <?= $app->view->render('admin/quotes/tabs', ['module' => $module, 'current' => 'prices', 'admin' => $admin]) ?>
 <p class="napoveda"><?= e(t('Prices without VAT that nobody outside sees – no page, search, export or blueprint of the site reads them. Quotes take their prices from here.')) ?><?php if ($defaultRate === null && $admin): ?>
-	<a href="<?= e($module->url('settings')) ?>"><?= e(t('Set the default VAT rate.')) ?></a><?php endif ?></p>
+	<a href="<?= e($module->url('settings')) ?>"><?= e(t('Set the default VAT rate.')) ?></a><?php endif ?><?php if ($admin && $collections !== []): ?>
+	<a href="<?= e($module->url('setup') . '#price-collections') ?>" data-price-collections-link><?= e(t('Collections in the price list (%d)', count($collections))) ?></a><?php endif ?></p>
 
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="zakaznici-filtr" data-prices-filter>
 	<input type="hidden" name="module" value="<?= e($module::IDENT) ?>"><input type="hidden" name="action" value="prices">
@@ -74,16 +74,19 @@ $field = function (string $name, string $value, string $label, string $extra = '
 </section>
 <?php endif ?>
 
-<?php if ($admin): ?>
-<details class="pokrocile" data-price-collections-box<?= $collections === [] ? ' open' : '' ?>>
-<summary><?= e(t('Collections in the price list (%d)', count($collections))) ?></summary>
-<?= $app->view->render('admin/quotes/collections', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'back' => 'prices', 'mapping' => $mapping ?? [], 'mappable' => $mappable ?? []]) ?>
-</details>
+<?php if ($collections === []): // 3.45 (U62): one empty state with the next step – the mapping itself is on Price list set-up ?>
+<?php if (!$admin): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No products in the price list yet.'),
+    'text' => t('An administrator chooses which collection of products or services feeds the price list. Own rows such as installation or transport can be added below.')]) ?>
+<?php elseif ($anyCollection): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No products in the price list yet.'),
+    'text' => t('Choose the collection with your products or services – each item gets a row here with an empty price to fill in. Own rows such as installation or transport can be added below.'),
+    'action' => [$module->url('setup') . '#price-collections', t('Choose a collection')]]) ?>
+<?php else: ?>
+<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No products in the price list yet.'),
+    'text' => t('Create a collection of your products or services first, then choose it in Price list set-up. Own rows such as installation or transport can be added below.'),
+    'action' => [$app->url('admin.php?module=collections'), t('Go to Collections')]]) ?>
 <?php endif ?>
-
-<?php if ($collections === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No products yet.'),
-    'text' => t('Internal prices belong to the items of a Products collection or of a collection an administrator adds to the price list (Collections in the price list), and to own rows such as installation or transport below.')]) ?>
 <?php elseif ($grid['rows'] === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('No product matches the filter.'), 'text' => t('Try another word or clear the filter.'),
     'action' => [$module->url('prices', ['list' => $list['id']]), t('Clear filter')]]) ?>

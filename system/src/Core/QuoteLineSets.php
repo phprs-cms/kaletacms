@@ -20,7 +20,7 @@ namespace Kaleta\Core;
  *  - Inserting appends the set's lines after the draft's own lines (the draft's lines keep their prices); only a draft
  *    takes them, and Quotes::MAX_LINES still holds.
  *  - A name is unique: saving under an existing name replaces that set's lines. People with the section Quotes save and
- *    insert sets; administrators rename and delete them (Quotes → Settings).
+ *    insert sets; administrators rename and delete them (Quotes → Price list set-up).
  *  - Sets hold prices of free lines – business data: never journaled (AgentJournal::PERSONAL_TABLES), never exported, and
  *    only the classes of the quotes name the table (unit 3240). The admin (Admin\QuoteExtras) writes the change log.
  */
@@ -91,7 +91,7 @@ final class QuoteLineSets
         $lines = array_map(fn (array $l): array => self::stored($db, $l), $quote['lines']);
         $existing = $db->value('SELECT id FROM {quote_line_sets} WHERE name = ?', [$name]);
         if ($existing === null && (int) $db->value('SELECT COUNT(*) FROM {quote_line_sets}') >= self::MAX_SETS) {
-            throw new \DomainException(t('A site keeps at most %d line sets – delete one in Quotes → Settings first.', self::MAX_SETS));
+            throw new \DomainException(t('A site keeps at most %d line sets – delete one in Quotes → Price list set-up first.', self::MAX_SETS));
         }
         $now = Clock::now();
         $content = (string) json_encode($lines, JSON_UNESCAPED_UNICODE);
@@ -171,7 +171,7 @@ final class QuoteLineSets
         return $out;
     }
 
-    /** Renames a set (administrators, Quotes → Settings); returns the former name. @throws \DomainException */
+    /** Renames a set (administrators, Quotes → Price list set-up); returns the former name. @throws \DomainException */
     public static function rename(App $app, int $id, string $name): string
     {
         $db = $app->db();
@@ -191,7 +191,7 @@ final class QuoteLineSets
         return $set['name'];
     }
 
-    /** Deletes a set (administrators, Quotes → Settings); returns its name, or null when there was none. */
+    /** Deletes a set (administrators, Quotes → Price list set-up); returns its name, or null when there was none. */
     public static function delete(App $app, int $id): ?string
     {
         $db = $app->db();

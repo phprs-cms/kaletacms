@@ -126,6 +126,16 @@ final class Kernel
         'new_webhook_secret', 'processing_record', 'backup_key', 'backup_key_download', 'backup_key_confirm', 'backup_key_new', 'backup_key_use']; // 3.28: the recovery key
 
     /**
+     * 3.45: the lists of first steps Hide can hide (action hide_first_steps, POST list) => [the setting, where to go back].
+     * Hiding a list never reaches the site (SITE_NEUTRAL_ACTIONS).
+     */
+    public const array FIRST_STEP_LISTS = [
+        '' => ['first_steps_hidden', 'admin.php'],
+        'office' => ['office_steps_hidden', 'admin.php'],
+        'quotes' => [Modules\Quotes::STEPS_HIDDEN, 'admin.php?module=' . Modules\Quotes::IDENT],
+    ];
+
+    /**
      * In a section of SITE_CHANGING_MODULES, the actions that never reach the site ('' = the screens outside a section:
      * signing out, consent to an app, hiding First steps, the notifications behind the bell (3.26); My account is decided by
      * its form, see clearsPageCache). Each is a real action of its section (tools/unit-tests.php).
@@ -287,9 +297,11 @@ final class Kernel
             return $this->handleOAuthConsent();
         }
         if ($action === 'hide_first_steps' && $request->isPost() && $app->auth()->isAdmin()) {
-            $app->settings()->set('first_steps_hidden', '1');
+            // 3.45: one action for the three lists – the website's, the office's (CPO 6) and the first steps of quotes (CPO 3)
+            $list = self::FIRST_STEP_LISTS[$request->post('list')] ?? self::FIRST_STEP_LISTS[''];
+            $app->settings()->set($list[0], '1');
 
-            return Response::redirect($app->url('admin.php'));
+            return Response::redirect($app->url($list[1]));
         }
         if ($ident === '') {
             $update = $app->auth()->isAdmin() ? (new \Kaleta\Core\Updater($app->settings()))->state() : null;
@@ -481,6 +493,7 @@ final class Kernel
             // "Waiting for you" (3.2): drafts and proposals that wait for a person – only what this person may open
             'pending' => \Kaleta\Core\PendingReview::all($this->app, $modules),
             'firstSteps' => $this->firstSteps(),
+            'officeSteps' => $this->officeSteps($modules), // 3.45 (CPO 6)
             'warnings' => $warnings,
             // traffic for 14 days (own measurement without cookies)
             'traffic' => Extensions::isEnabled($this->app->settings(), 'statistika') && isset($modules['stats'])
@@ -528,7 +541,8 @@ final class Kernel
             // done only after the user's own choice: appearance and pages from the starter site do not count
             ['Give your site a face', 'Logo, main colour and fonts.', 'admin.php?module=appearance', $s->get('logo') !== '' || $s->bool('appearance_saved') || $s->get('brand_accent') !== ''],
             ['Fill in business details', 'Address, phone and opening hours appear on the contact page, in the footer and to search engines.', 'admin.php?module=business', $s->get('company_street') !== '' && ($s->get('company_phone') !== '' || $s->get('company_email') !== '' || $s->get('site_email') !== '')],
-            ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
+            // 3.45 (CPO 6, O3): a site being moved here gets the move instead of "Prepare your pages" (moveStep)
+            self::moveStep($app) ?? ['Prepare your pages', 'About us, Services, Contact – and pick the home page in Settings.', 'admin.php?module=pages', (int) $db->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1') >= 3 && $s->int('home_page') > 0
                 // 3.20 (C11): a person's edit (zmenil) – the installer stamps zmeneno on the starters now
                 && $db->value('SELECT 1 FROM {stranky} WHERE smazano IS NULL AND zobrazit = 1 AND zmenil IS NOT NULL LIMIT 1') !== null],
             ['Complete the privacy policy', 'The enquiry form collects personal data – visitors must know how you handle it. The page is prepared as a hidden draft: fill in the details in square brackets and publish it.', $privacyPage !== null ? 'admin.php?module=pages&action=edit&id=' . $privacyPage['ids'] : 'admin.php?module=pages',
@@ -553,6 +567,88 @@ final class Kernel
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
 
         return array_filter($result, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $result;
+    }
+
+    /**
+     * 3.45 (CPO 6, O3): the step of a site being moved here, in place of "Prepare your pages" – null for a site built here.
+     * A move is an import that has run (Core\MoveStatus, the block of Site audit) or the empty install for a move that has not
+     * imported yet (no sample pages recorded, only the Home placeholder). Done once every row of the move block is done.
+     *
+     * @return array{0: string, 1: string, 2: string, 3: bool}|null
+     */
+    public static function moveStep(App $app): ?array
+    {
+        $move = \Kaleta\Core\MoveStatus::summary($app);
+        if ($move === null) {
+            $emptyForMove = $app->settings()->get(\Kaleta\Core\StarterPages::SETTING) === '{}'
+                && (int) $app->db()->value('SELECT COUNT(*) FROM {stranky} WHERE smazano IS NULL') <= 2; // the Home placeholder and the privacy policy skeleton
+
+            return $emptyForMove ? ['Move your old site', 'Import the pages, news and addresses of the old site – ask Claude, or use Import and export (WordPress or any site).', 'admin.php?module=transfer', false] : null;
+        }
+        $open = array_values(array_filter($move['rows'], fn (array $r): bool => !$r['done']));
+
+        return ['Finish the move', $open === [] ? 'Every check of the move is done.' : t('Still open: %s.', implode('; ', array_column($open, 'label'))), 'admin.php?module=audit', $open === []];
+    }
+
+    /**
+     * 3.45 (CPO 6): the first steps of the office – shown to an administrator once the first enquiry has arrived (spam does
+     * not count), until they are done or hidden: invite a colleague, check the e-mail signature, answer an enquiry, set a
+     * follow-up. What is done is read from the data.
+     *
+     * @param array<string, class-string<Module>> $modules the sections the person may open
+     * @return list<array{nazev: string, popis: string, url: string, hotovo: bool}>
+     */
+    private function officeSteps(array $modules): array
+    {
+        $app = $this->app;
+        $done = $app->auth()->isAdmin() ? self::officeFacts($app, $modules, $app->auth()->user() ?? []) : null;
+
+        return $done === null ? [] : array_map(fn (array $k): array => ['nazev' => $k['title'], 'popis' => $k['text'], 'url' => $app->url($k['url']), 'hotovo' => $k['done']], self::officeChecklist($done));
+    }
+
+    /**
+     * 3.45 (CPO 6): what the office has done – null while the list is not offered (hidden, Enquiries off or no enquiry yet).
+     *
+     * @param array<string, class-string<Module>> $modules the sections the person may open
+     * @param array<string, mixed> $me the signed-in account (a row of ka_uzivatele)
+     * @return array{colleague: bool, signature: bool, reply: bool, follow_up: bool}|null
+     */
+    public static function officeFacts(App $app, array $modules, array $me): ?array
+    {
+        $s = $app->settings();
+        $db = $app->db();
+        if ($s->bool('office_steps_hidden') || !isset($modules['enquiries'])
+            || $db->value('SELECT 1 FROM {poptavky} WHERE ' . Modules\Enquiries::NOT_SPAM . ' AND ' . Modules\Enquiries::visible($db, $s, isset($modules[\Kaleta\Core\Applications::SECTION])) . ' LIMIT 1') === null) {
+            return null;
+        }
+
+        return [
+            'colleague' => (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0') > 1,
+            // the fallback signature is made from the account: with a position (or a template, or a Team record) it is the person's own
+            'signature' => trim((string) ($me['pozice'] ?? '')) !== '' || $s->get('email_signature_template') !== '' || \Kaleta\Builder\TeamRecord::forUser($db, $me) !== null,
+            'reply' => $db->value("SELECT 1 FROM {poptavky} WHERE stav > 0 OR (replies IS NOT NULL AND replies NOT IN ('', '[]')) LIMIT 1") !== null,
+            'follow_up' => $db->value('SELECT 1 FROM {tasks} LIMIT 1') !== null,
+        ];
+    }
+
+    /**
+     * 3.45 (CPO 6): the office's first steps in their order with their links (relative to admin.php); empty once every step
+     * is done. Pure – the facts come from officeSteps.
+     *
+     * @param array<string, bool> $done
+     * @return list<array{key: string, title: string, text: string, url: string, done: bool}>
+     */
+    public static function officeChecklist(array $done): array
+    {
+        $steps = [
+            ['colleague', 'Invite a colleague', 'Give whoever answers enquiries their own account – Roles has a ready-made Office / sales role.', 'admin.php?module=users&action=new'],
+            ['signature', 'Check your e-mail signature', 'Replies sent from Kaleta carry it – your position and phone make it yours.', 'admin.php?action=account&tab=signature'],
+            ['reply', 'Answer an enquiry', 'Open an enquiry and reply to it right here; the customer gets an e-mail and the enquiry is marked as handled.', 'admin.php?module=enquiries'],
+            ['follow_up', 'Set a follow-up', 'With a reply, choose “Follow up if they do not answer”, or add a task to an enquiry – it appears in My work on its day.', 'admin.php?module=enquiries'],
+        ];
+        $out = array_map(fn (array $k): array => ['key' => $k[0], 'title' => $k[1], 'text' => $k[2], 'url' => $k[3], 'done' => (bool) ($done[$k[0]] ?? false)], $steps);
+
+        return array_filter($out, fn (array $k): bool => !$k['done']) === [] ? [] : $out;
     }
 
     /** Where to go after sign-in: if an app connection via OAuth (the Claude connector) is waiting, straight to the consent, otherwise to the overview. */

@@ -15,6 +15,7 @@
  * @var array<int, string> $owners
  * @var bool $admin
  * @var int $me
+ * @var list<array{key: string, title: string, text: string, url: string, done: bool}> $steps 3.45 (CPO 3): the first steps of quotes (administrators, until done or hidden)
  */
 use Kaleta\Core\Clock;
 use Kaleta\Core\Money;
@@ -25,6 +26,10 @@ $filtered = $query !== [];
 $today = Clock::today();
 ?>
 <?= $app->view->render('admin/quotes/tabs', ['module' => $module, 'current' => 'list', 'admin' => $admin]) ?>
+<?php if ($steps !== []): ?>
+<?= $app->view->render('admin/first_steps', ['app' => $app, 'title' => t('First steps with quotes'), 'list' => 'quotes',
+    'steps' => array_map(fn (array $k): array => ['nazev' => $k['title'], 'popis' => $k['text'], 'url' => $app->url($k['url']), 'hotovo' => $k['done']], $steps)]) ?>
+<?php endif ?>
 <div class="nabidky-lista" data-quotes-bar>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="zakaznici-filtr" data-quotes-filter>
 	<input type="hidden" name="module" value="<?= e($module::IDENT) ?>">

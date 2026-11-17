@@ -552,6 +552,79 @@ final class Prompts
 
                 All four need the user's explicit request for that booking and `confirm` true.
                 MD],
+        // 3.45 (CPO 3): the path to the first quote – the same steps as the first steps at the top of Quotes in the admin
+        'set_up_quotes' => ['title' => 'Set up quotes', 'description' => 'Set up quotes for the office: company details, VAT and numbering, the products in the internal price list, their prices, sending e-mail, and a first test quote – nothing is sent without your explicit yes.',
+            'arguments' => [],
+            'terms' => [],
+            'text' => <<<'MD'
+                Task: set up quotes on this site, so the office can send its first quote this week. A quote takes its prices
+                from the internal price list, which nobody outside the team sees; the customer gets an e-mail with a link to
+                the document and, if the site allows it, accepts or declines it there. Kaleta takes no payments and makes no
+                invoices.
+
+                MD . self::RULES . <<<'MD'
+
+                - Quotes need the Quotes section: administrators have it, other users only when an administrator gives it.
+                  Changing a price needs the permission "Quotes: change internal prices" as well, and a full-access connection.
+                - Never invent or guess a price, a VAT rate, a discount or a customer. Ask the owner; a product without a
+                  price stays without one.
+                - Prices are business secrets: never put them on a page, a news item or a collection item.
+
+                Go through the steps in this order, tell the user after each one what is done and what waits for them, and
+                skip what `site_info`, `get_health` and the lists below show as done. The administration shows the same steps
+                at the top of Quotes until they are done.
+
+                ## 1. Switch the feature on
+
+                Quotes start switched off. If `site_info` does not list the quotes extension and the user wants it, call
+                `update_settings` with `extensions` – it takes the whole list, so keep every extension that is on now,
+                including claude, and add quotes.
+
+                ## 2. Company details
+
+                The quote document shows the company as the supplier: name, address, ID numbers, phone and e-mail. Ask the
+                owner for what is missing and save it with `update_settings` (company_name, company_street, company_city,
+                company_postcode, company_id, company_vat_id, company_phone, company_email). Never guess an ID number.
+
+                ## 3. VAT and numbering
+
+                The default VAT rate, the other rates offered on a line, whether the company is a VAT payer, the number format
+                and the validity are set by an administrator in Quotes → Settings – there is no tool for them. Ask the owner
+                for the rate and the format they use, and tell them where to set it. A price without its own rate takes the
+                default one.
+
+                ## 4. Products in the price list
+
+                `list_collections` shows the collections. A collection made from the products preset is always in the price
+                list; any other collection (services, machines, rooms) is added by an administrator in Quotes →
+                Price list set-up, with the field that holds the product code and, when it has one, the variants. If the products have
+                no collection yet, offer to create one with `create_collection` and fill it with the owner's real products –
+                then ask the administrator to choose it there. `list_prices` with `missing` true shows what is in the price
+                list without a price.
+
+                ## 5. Prices
+
+                With the owner's prices, save them with `save_price` – one price, or up to a batch in `prices` – by `item`
+                (or its `code`) and `variant`, `unit_price` without VAT, `unit` and `vat_rate` only where it differs from the
+                default. Services that are not products (installation, transport, training) are own rows: a `code` with a
+                `label`. Only prices the owner gave you, never an estimate.
+
+                ## 6. Sending e-mail
+
+                Quotes go out only through the site's mail server (SMTP), so they do not land in spam. `get_health` tells you
+                whether mail is set up; if not, an administrator fills it in Settings → Mail – there is no tool for the mail
+                server.
+
+                ## 7. A first test quote
+
+                Make a draft for the user themselves: a customer record with their own e-mail (`save_contact`, only with the
+                address they give you), then `save_quote` with that `contact` and two or three lines from the price list.
+                `get_quote` shows lines without a price and whether the draft can be sent. `send_quote` e-mails it – call it
+                first without `confirm` to show the user what would go out, and with `confirm` true only after their explicit
+                yes to that exact e-mail. Or give them the quote's admin link to check and send it there.
+
+                Afterwards the prompt office_day goes through enquiries, drafted replies, draft quotes and follow-ups.
+                MD],
         'compliance_check' => ['title' => 'Compliance check', 'description' => 'An EU compliance check: the record of processing, cookies, the privacy policy template, accessibility, and personal data requests. Templates, never legal advice.',
             'arguments' => [],
             'terms' => ['cookie_table', 'cookies_text_de', 'cookies_policy_url_de'],

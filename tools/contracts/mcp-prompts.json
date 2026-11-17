@@ -29,6 +29,7 @@
     "review_pending": [],
     "scheduled_run": [],
     "set_up_bookings": [],
+    "set_up_quotes": [],
     "translate_page": {
         "page_id": true,
         "language": true

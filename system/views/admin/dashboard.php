@@ -12,6 +12,8 @@
  * @var array<string, mixed>|null $ask "Ask Claude" (3.1), null without the Requests section or the Claude connection
  * @var array{url: string, admin: bool}|null $connect "Connect Claude" (3.5) until a Claude connection has ever called the site
  * @var list<array{kind: string, label: string, count: int, url: string, examples: list<string>}> $pending "Waiting for you" (3.2, Core\PendingReview)
+ * @var list<array{nazev: string, popis: string, url: string, hotovo: bool}> $firstSteps the website's first steps (Admin\Kernel::firstSteps)
+ * @var list<array{nazev: string, popis: string, url: string, hotovo: bool}> $officeSteps 3.45 (CPO 6): the office's first steps (Admin\Kernel::officeSteps)
  * @var string|null $confirmedSince the first day of browser-confirmed counting when older numbers exist (3.29.1, Front\Stats::confirmedSince)
  */
 ?>
@@ -48,18 +50,11 @@
 <?php elseif ($ask !== null): ?>
 <?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>
 <?php endif ?>
-<?php if (!empty($firstSteps)): $finished = count(array_filter($firstSteps, fn (array $k): bool => $k['hotovo'])); ?>
-<details class="pruvodce" aria-label="<?= e(t('First steps')) ?>"<?= $finished < count($firstSteps) ? ' open' : '' ?>><?php /* 3.32 (U37): folded to one line once every step is done */ ?>
-	<summary class="pruvodce-hlava">
-		<h2><?= e(t('First steps')) ?> <small><?= $finished ?> / <?= count($firstSteps) ?></small></h2>
-	</summary>
-	<form class="pruvodce-skryt" method="post" action="<?= e($app->url('admin.php?action=hide_first_steps')) ?>"><?= $app->session->csrfField() ?><button class="navigace" type="submit"><?= e(t('Hide')) ?></button></form>
-	<ol class="pruvodce-kroky">
-<?php foreach ($firstSteps as $k): ?>
-		<li class="<?= $k['hotovo'] ? 'hotovo' : '' ?>"><a href="<?= e($k['url']) ?>"><strong><?= e(t($k['nazev'])) ?></strong><span><?= e(t($k['popis'])) ?></span></a></li>
-<?php endforeach ?>
-	</ol>
-</details>
+<?php if (!empty($firstSteps)): ?>
+<?= $app->view->render('admin/first_steps', ['app' => $app, 'title' => t('First steps'), 'steps' => $firstSteps, 'list' => '']) ?>
+<?php endif ?>
+<?php if (!empty($officeSteps)): // 3.45 (CPO 6): the office's first steps, once the first enquiry has arrived ?>
+<?= $app->view->render('admin/first_steps', ['app' => $app, 'title' => t('First steps for the office'), 'steps' => $officeSteps, 'list' => 'office']) ?>
 <?php endif ?>
 <?php if ($connect !== null && $ask !== null): ?>
 <?= $app->view->render('admin/ask_claude', ['app' => $app, 'ask' => $ask]) ?>

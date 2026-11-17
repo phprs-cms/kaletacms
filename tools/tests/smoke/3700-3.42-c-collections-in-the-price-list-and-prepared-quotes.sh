@@ -19,8 +19,8 @@ c342_before_grid=$(grep -c "data-price-row=\"$C342_X1:" "$WORK/response" || true
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=item&id=$C342_IDK&item=$C342_X1"
 expect "3.42: an unmapped collection is not in the price list and its items have no Internal prices box" "$c342_before_grid|$(grep -c 'data-internal-prices' "$WORK/response")" "0|0"
 
-# the mapping in Quotes → Settings: any collection, its code field, its variants field (only suitable types are kept)
-check "3.42: Quotes → Settings offers every collection for the price list" 200 "/admin.php?module=quotes&action=settings" "data-price-collection=\"$C342_IDK\""
+# the mapping in Quotes → Price list set-up (3.45 U62, was Settings): any collection, its code field, its variants field (only suitable types are kept)
+check "3.42: Quotes → Price list set-up offers every collection for the price list" 200 "/admin.php?module=quotes&action=setup" "data-price-collection=\"$C342_IDK\""
 C342_CSRF=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&action=collections_save" -d "_csrf=$C342_CSRF" -d "collection[]=$C342_IDK" -d "code_$C342_IDK=popis" -d "variants_$C342_IDK=kod"
 expect "3.42: a code or variants field of an unsuitable type is not kept (html is no code, a short text no variants)" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quote_price_collections'")" "[{\"collection\":$C342_IDK,\"code\":\"\",\"variants\":\"\"}]"

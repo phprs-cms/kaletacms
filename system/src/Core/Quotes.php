@@ -1221,7 +1221,7 @@ final class Quotes
      * The lines a new quote of an enquiry starts with: every basket line of the enquiry matched to a product – by its code
      * (a variant's or the product's), then by its name (and the variant's name) in the products collections; what cannot be
      * matched becomes a free line with its text and quantity and no price. 3.42: then the item whose detail page the form
-     * was sent from (source kolekce:<idk> of a products collection – the products preset or one mapped in Quotes → Settings
+     * was sent from (source kolekce:<idk> of a products collection – the products preset or one mapped in Quotes → Price list set-up
      * – and the item's address in the page; left out when a basket line or a field names that item already), and every
      * form field whose value names a product by its name or code (case does not matter; a field with several values –
      * ticked boxes, lines – is read value by value), each once with quantity 1. The prices come from the price list when the quote is saved (save()), never from the enquiry.

@@ -36,8 +36,12 @@ use Kaleta\Core\Response;
  *    the default.
  *  - settings, settings_save (administrators): numbering and the next number, validity, VAT, the largest discount Claude
  *    may save, how long the customer's link works, retention, the deal value on sending; 3.42 the automatic draft.
+ *  - setup (administrators, 3.45 U62): "Price list set-up" – the collections in the price list, the default texts and the
+ *    saved line sets, so Settings is one form.
  *  - collections_save (administrators, 3.42): which collections feed the price list, their code and variants fields
- *    (Prices::saveMapping) – from Settings and from Internal prices.
+ *    (Prices::saveMapping) – on Price list set-up (3.45: the one place; Internal prices links to it).
+ *  - 3.45 (CPO 3): the list opens with the first steps of quotes for administrators (setupFacts, setupChecklist) until they
+ *    are done or hidden (Admin\Kernel action hide_first_steps with list=quotes).
  */
 final class Quotes extends Module
 {
@@ -90,6 +94,54 @@ final class Quotes extends Module
     /** The session key of a checked CSV import waiting for its confirmation. */
     private const string IMPORT_KEY = 'prices_import';
 
+    /** 3.45 (CPO 3): the setting an administrator sets with Hide on the first steps of quotes (Admin\Kernel, hide_first_steps). */
+    public const string STEPS_HIDDEN = 'quotes_steps_hidden';
+
+    /**
+     * 3.45 (CPO 3): what the path to the first quote has done, read from the data – the company on the document, VAT, a
+     * collection in the price list, a price, mail that can reach a customer (SMTP, as sending requires) and a quote that has
+     * gone out (sent or finalised – a draft prepared by itself does not count).
+     *
+     * @return array{company: bool, vat: bool, collection: bool, prices: bool, mail: bool, quote: bool}
+     */
+    public static function setupFacts(App $app): array
+    {
+        $s = $app->settings();
+        $db = $app->db();
+
+        return [
+            'company' => $s->get('company_name') !== '' && $s->get('company_street') !== '',
+            'vat' => !$s->bool('quote_vat_payer') || Prices::defaultVatRate($s) !== null,
+            'collection' => Prices::productCollections($db) !== [],
+            'prices' => $db->value('SELECT 1 FROM {prices} LIMIT 1') !== null,
+            'mail' => \Kaleta\Core\EnquiryReply::unavailable($s) === null,
+            'quote' => $db->value('SELECT 1 FROM {quotes} WHERE number IS NOT NULL AND number <> \'\' LIMIT 1') !== null,
+        ];
+    }
+
+    /**
+     * 3.45 (CPO 3): the first steps of quotes in their order, each with its link (relative to admin.php) and whether it is
+     * done; empty once every step is done. Pure – the facts come from setupFacts. The same path is the MCP prompt
+     * set_up_quotes.
+     *
+     * @param array<string, bool> $done setupFacts
+     * @return list<array{key: string, title: string, text: string, url: string, done: bool}>
+     */
+    public static function setupChecklist(array $done): array
+    {
+        $steps = [
+            ['company', 'Fill in your company details', 'Name, address and ID numbers – the quote document shows them as the supplier.', 'admin.php?module=business'],
+            ['vat', 'Set VAT and numbering', 'The default VAT rate (or that you are not a VAT payer) and how quotes are numbered.', 'admin.php?module=' . self::IDENT . '&action=settings'],
+            ['collection', 'Put your products in the price list', 'Choose the collection with your products or services; each item gets a row in Internal prices.', 'admin.php?module=' . self::IDENT . '&action=setup#price-collections'],
+            ['prices', 'Fill in prices', 'Internal prices without VAT, which only your team sees – and own rows such as installation or transport.', 'admin.php?module=' . self::IDENT . '&action=prices'],
+            ['mail', 'Set up sending e-mail', 'Quotes go to customers through your mail server (SMTP), so they do not land in spam.', 'admin.php?module=settings&tab=mail'],
+            ['quote', 'Send a test quote to yourself', 'Create a quote with “New quote”, send it to your own address and see what the customer gets.', 'admin.php?module=' . self::IDENT],
+        ];
+        $out = array_map(fn (array $k): array => ['key' => $k[0], 'title' => $k[1], 'text' => $k[2], 'url' => $k[3], 'done' => (bool) ($done[$k[0]] ?? false)], $steps);
+
+        return array_filter($out, fn (array $k): bool => !$k['done']) === [] ? [] : $out;
+    }
+
     /* ---------- the quotes (3.38 B) ---------- */
 
     /** The quote list: filters by status, the responsible person ("mine", nobody, a person), a word and a record (the box's "All"); paging. */
@@ -108,6 +160,7 @@ final class Quotes extends Module
 
         return $this->view('list', 'Quotes', ['filter' => $filter, 'query' => array_filter($filter, fn (int|string $v): bool => $v !== '' && $v !== 0 && $v !== 'all'), 'result' => $result,
             'people' => self::people($this->db), 'me' => $me, 'admin' => $this->app->auth()->isAdmin(),
+            'steps' => $this->app->auth()->isAdmin() && !$this->app->settings()->bool(self::STEPS_HIDDEN) ? self::setupChecklist(self::setupFacts($this->app)) : [], // 3.45 (CPO 3)
             'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($result['rows'], 'owner_id'))))]);
     }
 
@@ -377,10 +430,11 @@ final class Quotes extends Module
         $filter = ['collection' => $this->request->getInt('collection'), 'search' => $this->request->get('search'), 'missing' => $this->request->get('missing') === '1'];
         $page = max(1, $this->request->getInt('page', 1));
 
-        return $this->view('prices', 'Internal prices', ['lists' => $lists, 'list' => $list, 'filter' => $filter, 'grid' => Prices::grid($this->db, $list['id'], $filter, $page),
+        // 3.45 (U62): the section's name in the heading, the tab's name in the tab; the mapping of collections lives on Price list set-up
+        return $this->view('prices', 'Quotes', ['lists' => $lists, 'list' => $list, 'filter' => $filter, 'grid' => Prices::grid($this->db, $list['id'], $filter, $page),
             'own' => Prices::ownRows($this->db, $list['id']), 'collections' => Prices::productCollections($this->db), 'rates' => Prices::vatRates($s),
             'defaultRate' => Prices::defaultVatRate($s), 'canEdit' => $this->app->auth()->canEditPrices(), 'admin' => $this->app->auth()->isAdmin(),
-            'import' => $this->pendingImport($list['id'])] + ($this->app->auth()->isAdmin() ? $this->mappingChoices() : []));
+            'import' => $this->pendingImport($list['id']), 'anyCollection' => \Kaleta\Builder\Collections::all($this->db) !== []]);
     }
 
     /** The rows of the grid (and the own rows) as posted: only the ones that changed are written. */
@@ -582,19 +636,31 @@ final class Quotes extends Module
 
         return $this->view('settings', 'Quotes', ['values' => array_combine($keys, array_map(fn (string $k): string => $s->get($k), $keys)), 'next' => Store::nextNumber($this->db, $s),
             'people' => array_map(fn (array $u): string => (string) ($u['jmeno'] ?: $u['user']), $this->db->all('SELECT DISTINCT u.jmeno, u.user FROM {uzivatele} u JOIN {uzivatele_prava} p ON p.fk_id_user = u.idu'
-                . ' WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 ORDER BY u.jmeno', [Prices::SECTION, Auth::ADMIN])),
-            'lineSets' => QuoteLineSets::all($this->db), 'setOwners' => Assignment::labels($this->db, array_values(array_filter(array_column(QuoteLineSets::all($this->db), 'created_by'))))] // 3.40
-            + $this->mappingChoices()); // 3.42
+                . ' WHERE p.ident_modulu = ? AND u.admin <> ? AND u.blokovat = 0 ORDER BY u.jmeno', [Prices::SECTION, Auth::ADMIN]))]);
     }
 
     /**
-     * 3.42: which collections feed the price list (administrators; the form is on Settings and on Internal prices): a
+     * 3.45 (U62): Price list set-up (administrators) – what used to make Settings 3,000 px long: the collections in the price
+     * list (3.42), the default texts (3.38) and the saved line sets (3.40). Settings keeps the one form.
+     */
+    protected function actionSetup(): Response
+    {
+        if (!$this->app->auth()->isAdmin()) {
+            return $this->error('Only an administrator can change the settings of quotes.', 403);
+        }
+        $sets = QuoteLineSets::all($this->db);
+
+        return $this->view('setup', 'Quotes', ['lineSets' => $sets, 'setOwners' => Assignment::labels($this->db, array_values(array_filter(array_column($sets, 'created_by'))))] + $this->mappingChoices());
+    }
+
+    /**
+     * 3.42: which collections feed the price list (administrators; 3.45: the form is on Price list set-up): a
      * posted collection[] is mapped with its code_<idk> and variants_<idk> field; the products preset collections are
      * always products and are not posted.
      */
     protected function actionCollectionsSave(): Response
     {
-        $back = $this->request->post('back') === 'prices' ? 'prices' : 'settings';
+        $back = $this->request->post('back') === 'prices' ? 'prices' : 'setup'; // 3.45: an older form may still post back=prices
         if (!$this->app->auth()->isAdmin()) {
             return $this->error('Only an administrator can change the settings of quotes.', 403);
         }
@@ -1033,7 +1099,7 @@ final class Quotes extends Module
         }
         $item = Prices::item($app->db(), $itemId);
         if ($item === null || !$item['product']) {
-            return null; // 3.42: only items of a products collection – the products preset or one mapped in Quotes → Settings
+            return null; // 3.42: only items of a products collection – the products preset or one mapped in Quotes → Price list set-up
         }
 
         return ['item' => $item, 'lists' => Prices::lists($app->db()), 'prices' => Prices::ofItem($app->db(), $itemId), 'canEdit' => $app->auth()->canEditPrices(),
