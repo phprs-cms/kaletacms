@@ -616,7 +616,7 @@ final class Vault
         } catch (\Throwable $e) {
             return ['status' => 'error', 'error' => $e->getMessage()];
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'encryption key moved', 'values encrypted again: ' . $count . ($unreadable > 0 ? ', unreadable before and left as they were: ' . $unreadable : ''));
+        \Kaleta\Core\ChangeLog::write($app, 'settings', 'encryption key moved', 'values encrypted again: ' . $count . ($unreadable > 0 ? ', unreadable before and left as they were: ' . $unreadable : ''));
 
         return ['status' => 'moved', 'count' => $count, 'unreadable' => $unreadable];
     }

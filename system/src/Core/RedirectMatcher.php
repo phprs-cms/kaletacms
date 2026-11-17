@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 use Kaleta\Admin\Modules\Redirects;
 
 /**
@@ -172,7 +171,7 @@ final class RedirectMatcher
             $created++;
         }
         if ($created > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return 'created ' . $created;

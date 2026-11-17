@@ -1309,7 +1309,7 @@ final class SiteImport
         for ($i = 0; $i < 500 && Search::complete($this->db, 200) > 0; $i++) {
             // the search index of the imported news, 200 at a time
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 
     /** Removes the working folder of a finished import (the export file itself stays). */

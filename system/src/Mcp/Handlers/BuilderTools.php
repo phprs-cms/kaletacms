@@ -266,7 +266,7 @@ trait BuilderTools
         } else {
             $id = $db->insert('komponenty', $data + ['stavba_koncept' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
         $k = (array) \Kaleta\Builder\Components::byId($db, $id);
 
         return ['id' => $id, 'name' => $k['nazev'], 'properties' => $k['vlastnosti'], 'use' => '{"typ":"komponenta","obsah":{"komponenta":"' . $id . '","hodnoty":{}}}',
@@ -287,7 +287,7 @@ trait BuilderTools
 
         $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Components can be deleted only by an administrator, or an editor with the Appearance area.'); // 3.22 (C9)
         $need($db->delete('komponenty', ['idm' => $id]) > 0, 'The component does not exist. Use list_components.');
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['deleted' => $id];
     }
@@ -330,7 +330,7 @@ trait BuilderTools
             }
             Publisher::version($this->app, ['cast' => SiteParts::versionKey($type, $language, $variant)], $row['stavba'], null, $row['zmeneno']);
             $db->delete('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
 
             return ['cast' => $type, 'varianta' => $variant, 'stav' => 'varianta smazána – vybrané stránky mají výchozí podobu'];
         }
@@ -350,7 +350,7 @@ trait BuilderTools
             $rules['nadrazene'] = array_values(array_filter($rules['nadrazene'], fn (int $ids): bool => $db->value('SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = ? AND smazano IS NULL', [$ids, $language]) !== null));
         }
         $variant = SiteParts::saveVariant($db, $type, $language, $variant, $variantName, $pages, Language::ofContent($siteSettings, $language), $sent !== [] ? $rules : null);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['cast' => $type, 'jazyk' => $language, 'varianta' => $variant, 'nazev' => $variantName, 'stranky' => $pages] + $rules + [
             'stav' => 'uloženo – stavbu varianty uprav stavba_* s parametrem varianta a publikuj; do publikování platí výchozí podoba'];

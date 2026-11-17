@@ -295,7 +295,7 @@ final class Notices
             }
         }
         if ($posted + $takenDown > 0) {
-            \Kaleta\Front\Cache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
+            \Kaleta\Core\PageCache::clear(); // the board and the archive change; the item pages are never cached (Front\Kernel)
         }
 
         return 'posted ' . $posted . ', taken down ' . $takenDown;

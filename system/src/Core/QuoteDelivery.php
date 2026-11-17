@@ -175,7 +175,7 @@ final class QuoteDelivery
         }
         $db->update('quotes', ['token_hash' => null, 'history' => self::history($row['history'], ['at' => Clock::now(), 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'link_withdrawn'])], ['id' => $quoteId]);
         self::withdrawMail($db, [$quoteId]); // 3.44 (N145): a mail still waiting in the queue does not deliver the link after all
-        \Kaleta\Admin\ChangeLog::write($app, Quotes::SECTION, 'link', t('Quote %s: the customer’s link withdrawn', Quotes::label($row['number'] === null ? null : (string) $row['number'], $quoteId)));
+        \Kaleta\Core\ChangeLog::write($app, Quotes::SECTION, 'link', t('Quote %s: the customer’s link withdrawn', Quotes::label($row['number'] === null ? null : (string) $row['number'], $quoteId)));
 
         return true;
     }

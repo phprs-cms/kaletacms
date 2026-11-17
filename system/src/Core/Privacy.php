@@ -608,14 +608,14 @@ final class Privacy
         $id = $s->int('accessibility_statement_page');
         if ($id > 0 && $db->value('SELECT 1 FROM {stranky} WHERE ids = ? AND smazano IS NULL', [$id]) !== null) {
             $db->update('stranky', $record, ['ids' => $id]);
-            \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated #' . $id);
+            \Kaleta\Core\ChangeLog::write($app, 'pages', 'accessibility_statement', 'updated #' . $id);
 
             return $id;
         }
         $slug = \Kaleta\Admin\Modules\Pages::freeSlug($db, slugify($statement['title'], 110));
         $id = $db->insert('stranky', $record + ['seo_link' => $slug, 'zobrazit' => 0, 'v_menu' => 1, 'poradi' => 90]);
         $s->set('accessibility_statement_page', (string) $id);
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created #' . $id);
+        \Kaleta\Core\ChangeLog::write($app, 'pages', 'accessibility_statement', 'created #' . $id);
 
         return $id;
     }

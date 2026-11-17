@@ -54,7 +54,7 @@ final class ModalConversion
             }
         }
         if ($created > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $created;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Admin;
 
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 use Kaleta\Core\Firewall;

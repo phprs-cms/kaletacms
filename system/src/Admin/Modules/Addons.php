@@ -48,13 +48,13 @@ final class Addons extends Module
                 return $this->back($e->getMessage(), '', [], 'chyba');
             }
             // 3.19.1 (N87): which add-on, and which way (the event addon.enabled is recorded by Registry::enable)
-            \Kaleta\Admin\ChangeLog::write($this->app, 'addons', 'enabled', self::label($slug));
+            \Kaleta\Core\ChangeLog::write($this->app, 'addons', 'enabled', self::label($slug));
 
             return $this->back('The add-on is switched on.');
         }
         if (in_array($slug, Registry::enabled($this->app->settings()), true)) {
             Registry::disable($this->app, $slug); // records addon.disabled
-            \Kaleta\Admin\ChangeLog::write($this->app, 'addons', 'disabled', self::label($slug));
+            \Kaleta\Core\ChangeLog::write($this->app, 'addons', 'disabled', self::label($slug));
         }
 
         return $this->back('The add-on is switched off – its data stays.');

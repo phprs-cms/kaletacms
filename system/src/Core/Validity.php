@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 
 /**
  * True until and review by (2.10): content that is only true for a while hides itself, content that should be checked
@@ -67,7 +66,7 @@ final class Validity
             }
         }
         if ($hidden > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         $mailed = $owned !== [] ? self::remindOwners($app, $owned, $today) : 0;
 

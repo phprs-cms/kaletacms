@@ -72,7 +72,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   nic nevrstveného, žádné `!important`. Tmavý režim `:root[data-tmavy]` v `@media (prefers-color-scheme: dark)`. Společné prvky
   v `image/web.css`/`web.js` v `:where()` s nulovou vahou.
 - **Jazykové verze:** každý dotaz webu vypisující obsah filtruje `Language::siteColumn()`; `App::url()` přidává `/en/` jen adresám bez přípony.
-- **Cache stránek** jen pro nepřihlášené; `Auth::user()` nesmí na webu založit session anonymnímu návštěvníkovi. Nová sekce
+- **Cache stránek** (`Core\PageCache`) jen pro nepřihlášené; `Auth::user()` nesmí na webu založit session anonymnímu návštěvníkovi. Nová sekce
   administrace nebo zapisovací nástroj MCP = zařazení do `Admin\Kernel::SITE_CHANGING_MODULES`/`SITE_NEUTRAL_*` resp.
   `Catalog::SITE_NEUTRAL` (unit test); v pochybnostech maže.
 - **Adresa webu je nastavení `site_url`,** nikdy hlavička Host (`$app->request->origin()`).

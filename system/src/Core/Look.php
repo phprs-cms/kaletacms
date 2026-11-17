@@ -140,7 +140,7 @@ final class Look
                 unset($d['classes'][$name]);
                 $s->set('look_draft', $d === ['classes' => []] || $d === [] ? '' : (string) json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
             }
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
 
             return false;
         }
@@ -377,8 +377,8 @@ final class Look
         }
         unset($draft['menus']);
         $s->set('look_draft', $draft === [] ? '' : (string) json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish menus', mb_substr($summary[0], 0, 255));
+        \Kaleta\Core\PageCache::clear();
+        \Kaleta\Core\ChangeLog::write($app, 'appearance', 'publish menus', mb_substr($summary[0], 0, 255));
 
         return $summary;
     }
@@ -512,8 +512,8 @@ final class Look
             \Kaleta\Front\SiteIdentity::saveIcon($s, $draft['identity']['favicon']);
         }
         self::discard($s);
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
+        \Kaleta\Core\PageCache::clear();
+        \Kaleta\Core\ChangeLog::write($app, 'appearance', 'publish look', mb_substr(implode(' · ', $summary), 0, 255));
 
         return $summary;
     }
@@ -542,8 +542,8 @@ final class Look
             unset($draft['menus']);
         }
         $s->set('look_draft', $draft === [] ? '' : (string) json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'appearance', 'publish menu', mb_substr($summary[0], 0, 255));
+        \Kaleta\Core\PageCache::clear();
+        \Kaleta\Core\ChangeLog::write($app, 'appearance', 'publish menu', mb_substr($summary[0], 0, 255));
 
         return true;
     }

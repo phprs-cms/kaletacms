@@ -254,7 +254,7 @@ final class Enquiries extends Module
         } catch (\DomainException) {
             return null; // the reply went out; the buttons on the detail still offer the follow-up
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task follow-up added', '#' . $idp . ' (task #' . $task . ')');
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'task follow-up added', '#' . $idp . ' (task #' . $task . ')');
 
         return \Kaleta\Core\Tasks::find($this->db, $task)['due_at'] ?? null;
     }
@@ -358,7 +358,7 @@ final class Enquiries extends Module
 
                 return $this->back($e->getMessage(), 'detail', ['id' => $idp], 'chyba');
             }
-            \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'note added', '#' . $idp . ' (comment #' . $note['id'] . ')');
+            \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'note added', '#' . $idp . ' (comment #' . $note['id'] . ')');
             $this->app->session->flash('ok', 'The note was added.');
 
             return Response::redirect($this->url('detail', ['id' => $idp]) . '#thread'); // 3.37 (U26): back to the conversation, not the top
@@ -599,7 +599,7 @@ final class Enquiries extends Module
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
+        \Kaleta\Core\ChangeLog::write($this->app, 'enquiries', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="poptavky-' . date('Y-m-d') . '.csv"']);
     }
@@ -642,7 +642,7 @@ final class Enquiries extends Module
     {
         $idp = $this->request->postInt('idp');
         if ($this->request->isPost() && \Kaleta\Core\Privacy::anonymise($this->db, [$idp]) > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'enquiries', 'anonymise', '#' . $idp);
+            \Kaleta\Core\ChangeLog::write($this->app, 'enquiries', 'anonymise', '#' . $idp);
         }
 
         return $this->back('The enquiry was anonymised – the row stays for statistics without the person.', 'detail', ['id' => $idp]);

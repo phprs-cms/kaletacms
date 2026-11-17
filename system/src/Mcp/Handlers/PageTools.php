@@ -180,7 +180,7 @@ trait PageTools
             throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
         }
         $db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), (int) $page['ids']]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['id' => (int) $page['ids'], 'stav' => 'v koši – obnovit jde 30 dní v administraci (Stránky → Koš)'];
     }

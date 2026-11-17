@@ -172,11 +172,11 @@ final class News extends Module
                 'kategorie' => $this->db->update('novinky', ['tema' => (int) $category['idt'], 'jazyk' => $category['jazyk'], 'preklad_z' => $category['jazyk'] === '' ? null : $newsItem['preklad_z'], 'zmeneno' => $now], ['idc' => $id]),
                 default => $this->db->update('novinky', ['smazano' => $now, 'visible' => 0], ['idc' => $id]),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'bulk ' . ['vydat' => 'published', 'koncept' => 'back to draft', 'kategorie' => 'category', 'kos' => 'moved to trash'][$action], mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Core\ChangeLog::write($this->app, 'news', 'bulk ' . ['vydat' => 'published', 'koncept' => 'back to draft', 'kategorie' => 'category', 'kos' => 'moved to trash'][$action], mb_substr($newsItem['titulek'], 0, 80));
             $done++;
         }
         if ($done > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
             if ($action === 'vydat') {
                 \Kaleta\Core\Notifications::process($this->app); // newly published news items are announced (webhook, IndexNow)
             }
@@ -359,7 +359,7 @@ final class News extends Module
         $this->db->update('novinky', $data + ['zmeneno' => date('Y-m-d H:i:s')], ['idc' => $newsItem['idc']]);
         Media::recordUsage($this->db, (int) $newsItem['idc'], (string) $newsItem['obrazek'], $data['uvod'], $data['text']);
         \Kaleta\Core\Search::index($this->db, (int) $newsItem['idc']);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['titulek'], 0, 80));
+        \Kaleta\Core\ChangeLog::write($this->app, 'news', 'edited directly on the site', mb_substr($data['titulek'], 0, 80));
         if ($newsItem['visible'] && !$newsItem['noindex'] && strtotime((string) $newsItem['datum']) <= time()) {
             (new \Kaleta\Front\Seo($this->app))->indexNow($this->app->newsItemUrl($newsItem['seo_link'], $newsItem['jazyk']));
         }
@@ -447,7 +447,7 @@ final class News extends Module
         } catch (\RuntimeException $e) {
             return Response::json(['chyba' => t($e->getMessage())], 502);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', $task, mb_substr($this->request->post('titulek'), 0, 80));
+        \Kaleta\Core\ChangeLog::write($this->app, 'asistent', $task, mb_substr($this->request->post('titulek'), 0, 80));
 
         return Response::json($result);
     }
@@ -463,7 +463,7 @@ final class News extends Module
         if ($error !== null) {
             return $this->backToSocial($draft['idc'], $error, 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
+        \Kaleta\Core\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
 
         return $this->backToSocial($draft['idc'], 'The post draft is saved.');
     }
@@ -494,7 +494,7 @@ final class News extends Module
         if ($error !== null) {
             return $this->backToSocial((int) $newsItem['idc'], $error, 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', 'prispevky', mb_substr((string) $newsItem['titulek'], 0, 80));
+        \Kaleta\Core\ChangeLog::write($this->app, 'asistent', 'prispevky', mb_substr((string) $newsItem['titulek'], 0, 80));
 
         return $this->backToSocial((int) $newsItem['idc'], 'The assistant rewrote the drafts – read them before posting.');
     }
@@ -554,7 +554,7 @@ final class News extends Module
         } catch (\RuntimeException $e) {
             return $backToNewsItem(t($e->getMessage()));
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'asistent', 'preklad-' . $language, mb_substr($newsItem['titulek'], 0, 80));
+        \Kaleta\Core\ChangeLog::write($this->app, 'asistent', 'preklad-' . $language, mb_substr($newsItem['titulek'], 0, 80));
 
         // the draft takes everything that is not translated from the original (image, author…); not the counters
         $data = array_intersect_key($newsItem, array_flip(['obrazek', 'autor', 'noindex'])) + [
@@ -646,7 +646,7 @@ final class News extends Module
             }
             // trash: the news item disappears from the site and from lists, but can be restored for 30 days; it returns as a draft, never published by itself
             $moved += $this->db->update('novinky', ['smazano' => date('Y-m-d H:i:s'), 'visible' => 0], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'moved to trash', mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Core\ChangeLog::write($this->app, 'news', 'moved to trash', mb_substr($newsItem['titulek'], 0, 80));
         }
 
         return $this->back(t('News items moved to the trash: %d. They can be restored for 30 days (News → Trash).', $moved), type: $moved > 0 ? 'ok' : 'chyba');
@@ -665,7 +665,7 @@ final class News extends Module
                 continue;
             }
             $restored += $this->db->update('novinky', ['smazano' => null], ['idc' => $newsItem['idc']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['titulek'], 0, 80));
+            \Kaleta\Core\ChangeLog::write($this->app, 'news', 'restored from trash', mb_substr($newsItem['titulek'], 0, 80));
         }
 
         return $this->back(t('News items restored: %d. They are back as drafts.', $restored), '', ['status' => 'kos'], $restored > 0 ? 'ok' : 'chyba');
@@ -682,7 +682,7 @@ final class News extends Module
             $newsItem = $this->load((int) $id, true);
             if ($newsItem !== null) {
                 $deleted += $this->db->delete('novinky', ['idc' => $newsItem['idc']]);
-                \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'deleted permanently', mb_substr($newsItem['titulek'], 0, 80));
+                \Kaleta\Core\ChangeLog::write($this->app, 'news', 'deleted permanently', mb_substr($newsItem['titulek'], 0, 80));
             }
         }
 

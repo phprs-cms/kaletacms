@@ -71,7 +71,7 @@ final class Components extends Module
         } else {
             $id = $this->db->insert('komponenty', $data + ['stavba_koncept' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back('The component was saved.');
     }
@@ -80,7 +80,7 @@ final class Components extends Module
     {
         if ($this->request->isPost()) {
             $this->db->delete('komponenty', ['idm' => $this->request->postInt('idm')]);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $this->back('The component was deleted. Places where it was used will be empty.');

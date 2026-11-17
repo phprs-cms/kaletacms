@@ -312,7 +312,7 @@ final class GoogleBusiness
         $s->set('google_rating', is_numeric($rating) ? (string) round((float) $rating, 1) : '');
         $s->set('google_reviews', (string) max(0, (int) ($answer['json']['totalReviewCount'] ?? count($kept))));
         $s->set('google_reviews_synced', $now);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return null;
     }
@@ -393,6 +393,6 @@ final class GoogleBusiness
         foreach (['google_rating', 'google_reviews', 'google_reviews_synced', 'google_locations'] as $key) {
             $s->set($key, '');
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 }

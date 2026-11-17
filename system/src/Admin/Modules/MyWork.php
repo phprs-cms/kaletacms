@@ -76,7 +76,7 @@ final class MyWork extends Module
             return $this->back($e->getMessage(), type: 'chyba');
         }
         $task = Tasks::find($this->db, $id);
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_added', '#' . $id . ' ' . ($task['title'] ?? ''));
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'task_added', '#' . $id . ' ' . ($task['title'] ?? ''));
         $for = (int) ($task['assignee_id'] ?? 0);
 
         return $this->back($for === $this->app->auth()->id() ? 'The task was added.' : t('The task was added for %s – they are notified.', \Kaleta\Core\Assignment::label($this->db, $for)));
@@ -147,7 +147,7 @@ final class MyWork extends Module
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), 'team', type: 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_reassigned', self::logged($id, $task));
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'task_reassigned', self::logged($id, $task));
 
         return $this->back($to === $this->app->auth()->id() ? 'The task is yours now.'
             : t('The task was given to %s – they are notified.', \Kaleta\Core\Assignment::label($this->db, $to)), 'team');
@@ -168,7 +168,7 @@ final class MyWork extends Module
         }
         $task = Tasks::find($this->db, $id);
         $title = (string) ($task['title'] ?? '');
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, $done ? 'task_done' : 'task_reopened', self::logged($id, $task));
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, $done ? 'task_done' : 'task_reopened', self::logged($id, $task));
 
         return $this->back($done ? t('Task done: %s', $title) : t('Task open again: %s', $title));
     }
@@ -187,7 +187,7 @@ final class MyWork extends Module
             return $this->back($e->getMessage(), type: 'chyba');
         }
         $task = Tasks::find($this->db, $id);
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_snoozed', self::logged($id, $task));
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'task_snoozed', self::logged($id, $task));
 
         return $this->back(t('Task moved to %s.', format_date((string) ($task['due_at'] ?? ''))));
     }
@@ -216,7 +216,7 @@ final class MyWork extends Module
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), type: 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'task_edited', self::logged($id, Tasks::find($this->db, $id)));
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'task_edited', self::logged($id, Tasks::find($this->db, $id)));
 
         return $this->back('The task was saved.');
     }
@@ -239,7 +239,7 @@ final class MyWork extends Module
         if ($this->db->run('UPDATE {poptavky} SET prirazeno = ? WHERE idp = ? AND prirazeno IS NULL', [$me, $idp])->rowCount() !== 1) {
             return $this->back('Someone already handles this enquiry.', type: 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, self::IDENT, 'enquiry_taken', '#' . $idp);
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'enquiry_taken', '#' . $idp);
 
         return $this->back('The enquiry is yours now.');
     }

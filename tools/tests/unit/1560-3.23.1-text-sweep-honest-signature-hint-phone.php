@@ -69,18 +69,18 @@ check('[source-pin] 3.23.1 (N-C2): no Language::runWith(… ?: \'cs\') left; a n
 $nc3 = fn (array $post): int => Kaleta\Admin\Kernel::recordId(new Kaleta\Core\Request([], $post, []));
 check('3.23.1 (N-C3): the record of an admin form – id, idp… in that order, positive numbers only', [$nc3(['id' => '7']), $nc3(['idp' => '3', 'titulek' => 'X']), $nc3(['id' => '0', 'idr' => '5']), $nc3(['id' => 'x']), $nc3([])], [7, 3, 5, 0, 0]);
 check('[source-pin] 3.23.1 (N-C3): ChangeLog::wrote knows the areas written in this request; the Kernel forgets them before each action and skips its row after one or after a refusal (an error message)', [
-    Kaleta\Admin\ChangeLog::wrote('nc3-area'),
+    Kaleta\Core\ChangeLog::wrote('nc3-area'),
     (bool) preg_match('/ChangeLog::forget\(\);.*\$response = \(new \$class\(\$this\)\)->handle.*!ChangeLog::wrote\(\$ident, \.\.\.self::LOGS_AS\[\$ident\] \?\? \[\]\)\s*&& \(ChangeLog::isChangedAnyway\(\) \|\| !in_array\(\'chyba\', array_slice\(\$app->session->flashTypes\(\), \$flashes\), true\)\)/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php')),
 ], [false, true]);
 
 // N3231-1 (review of 3.23.1): an action that saved although it ends with an error message ("The settings are saved, but …",
 // an item saved with fields left empty, a backup whose off-site copy failed) still gets its row – the refusal rule must not hide it
-Kaleta\Admin\ChangeLog::forget();
-$n32311 = [Kaleta\Admin\ChangeLog::isChangedAnyway()];
-Kaleta\Admin\ChangeLog::changedAnyway();
-$n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
-Kaleta\Admin\ChangeLog::forget();
-$n32311[] = Kaleta\Admin\ChangeLog::isChangedAnyway();
+Kaleta\Core\ChangeLog::forget();
+$n32311 = [Kaleta\Core\ChangeLog::isChangedAnyway()];
+Kaleta\Core\ChangeLog::changedAnyway();
+$n32311[] = Kaleta\Core\ChangeLog::isChangedAnyway();
+Kaleta\Core\ChangeLog::forget();
+$n32311[] = Kaleta\Core\ChangeLog::isChangedAnyway();
 check('[source-pin] 3.23.1 review (N3231-1): a partial save marks the change, the Kernel forgets the mark before the next action; every "saved, but" error marks it', [...$n32311,
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), 'ChangeLog::changedAnyway();'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "ChangeLog::changedAnyway(); // the item is saved"),
@@ -89,16 +89,16 @@ check('[source-pin] 3.23.1 review (N3231-1): a partial save marks the change, th
 // N3231-2 (review of 3.23.1): a module whose action logs under another area (Business details → the 'settings' rows of Core\Hours,
 // Menu and Transfer → 'appearance' of Core\Look, Settings and Collections → 'pages' of the statement and the listing page) writes one row, not two
 $n32312 = new ReflectionClassConstant(Kaleta\Admin\Kernel::class, 'LOGS_AS');
-Kaleta\Admin\ChangeLog::forget();
-$n32312Before = Kaleta\Admin\ChangeLog::wrote('business', 'settings');
-(new ReflectionProperty(Kaleta\Admin\ChangeLog::class, 'written'))->setValue(null, ['settings' => true]); // what write() remembers of a 'settings' row
+Kaleta\Core\ChangeLog::forget();
+$n32312Before = Kaleta\Core\ChangeLog::wrote('business', 'settings');
+(new ReflectionProperty(Kaleta\Core\ChangeLog::class, 'written'))->setValue(null, ['settings' => true]); // what write() remembers of a 'settings' row
 check('[source-pin] 3.23.1 review (N3231-2): the areas a module logs under; wrote() takes several areas', [$n32312->getValue(), $n32312Before,
-    Kaleta\Admin\ChangeLog::wrote('business', ...$n32312->getValue()['business']), Kaleta\Admin\ChangeLog::wrote('business'),
+    Kaleta\Core\ChangeLog::wrote('business', ...$n32312->getValue()['business']), Kaleta\Core\ChangeLog::wrote('business'),
     array_values(array_diff(array_keys($n32312->getValue()), array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel::MODULES))),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Hours.php'), "ChangeLog::write(\$app, 'settings', 'hours_exception_delete'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), "ChangeLog::write(\$app, 'pages', 'accessibility_statement'"),
 ], [['business' => ['settings'], 'menu' => ['appearance'], 'transfer' => ['appearance'], 'settings' => ['pages'], 'collections' => ['pages']], false, true, false, [], true, true]);
-Kaleta\Admin\ChangeLog::forget();
+Kaleta\Core\ChangeLog::forget();
 
 // ---- 3.24 "Team-ready website", agent B: responsible people, Mine, the assignment e-mail, review reminders, draft attribution ----
 // the assignment e-mail: the recipient's admin language (the site's when none), the form name and a link – never the enquiry's fields
@@ -218,7 +218,7 @@ check('[source-pin] 3.24 T1: Catalog::isSiteNeutral – by the English or the Cz
     Kaleta\Mcp\Catalog::isSiteNeutral((string) Kaleta\Mcp\Translator::czech('resolve_draft_comment')), Kaleta\Mcp\Catalog::isSiteNeutral('save_build'),
     Kaleta\Mcp\Catalog::isSiteNeutral((string) Kaleta\Mcp\Translator::czech('save_build')), Kaleta\Mcp\Catalog::isSiteNeutral('confirm_booking'),
     Kaleta\Mcp\Catalog::isSiteNeutral('ext_shop_save'), Kaleta\Mcp\Catalog::isSiteNeutral('run_tool'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), "if (!Catalog::isSiteNeutral(\$tool)) {\n                    \\Kaleta\\Front\\Cache::clear();"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Server.php'), "if (!Catalog::isSiteNeutral(\$tool)) {\n                    \\Kaleta\\Core\\PageCache::clear();"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php'), '$app->auth()->user() !== null && self::clearsPageCache($request)'),
 ], [true, true, true, true, false, false, false, false, false, true, true]);
 

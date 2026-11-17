@@ -2,10 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Front;
-
-use Kaleta\Core\App;
-use Kaleta\Core\Response;
+namespace Kaleta\Core;
 
 /**
  * Full-page cache for visitors who are not signed in (files in storage/cache/stranky, valid for 5 minutes).
@@ -14,7 +11,7 @@ use Kaleta\Core\Response;
  * Mcp\Catalog::SITE_NEUTRAL).
  * Nothing personal is cached: signed-in administration users, previews.
  */
-final class Cache
+final class PageCache
 {
     private const string FOLDER = KALETA_ROOT . '/storage/cache/stranky';
     private const int LINK_LIFETIME = 300;
@@ -130,7 +127,7 @@ final class Cache
             return null;
         }
         $params = array_filter(array_keys($_GET), fn (int|string $k): bool => !preg_match(self::TRACKING_PARAMS, (string) $k));
-        if (array_diff($params, ['page', ...\Kaleta\Core\Request::LEGACY_QUERY['page']]) !== []) { // the old Czech name of the page number is the same page (Request alias)
+        if (array_diff($params, ['page', ...Request::LEGACY_QUERY['page']]) !== []) { // the old Czech name of the page number is the same page (Request alias)
             return null;
         }
         foreach (array_keys($_COOKIE) as $cookie) {
@@ -139,6 +136,6 @@ final class Cache
             }
         }
 
-        return self::FOLDER . '/' . md5($r->origin() . '|' . \Kaleta\Core\Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
+        return self::FOLDER . '/' . md5($r->origin() . '|' . Language::code() . '|' . $r->path() . '|' . $r->getInt('page', 1)) . '.html';
     }
 }

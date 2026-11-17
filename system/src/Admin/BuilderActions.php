@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Admin;
 
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\Language;
 use Kaleta\Core\Preview;
 use Kaleta\Core\Response;
@@ -538,7 +539,7 @@ trait BuilderActions
                     $this->db->update($table, $change, [$key => $r[$key]]);
                 }
             }
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
 
             return Response::json(['ok' => true, 'tridy' => $this->loadBuilderClasses(), 'nazev' => $new]);
         }

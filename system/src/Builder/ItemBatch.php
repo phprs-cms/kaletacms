@@ -353,7 +353,7 @@ final class ItemBatch
         if ($written) {
             // 3.12: items that were hidden before show their hidden categories (the first published item of a category)
             $categories = CollectionCategories::showForItems($db, array_map(fn (array $e): int => (int) ($e['previous']['zobrazit'] ?? 0) === 0 ? (int) ($e['id'] ?? 0) : 0, $plan), $app);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $plan;

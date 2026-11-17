@@ -429,7 +429,7 @@ final class ItemImport
             if ($state['pozice'] >= count($all)) {
                 $state['faze'] = $state['obrazky']['fronta'] !== [] ? 'obrazky' : 'hotovo';
                 @unlink(self::file((string) $state['id'], 'rows')); // every row is saved: the uploaded file is not kept (3.7, N37-25)
-                \Kaleta\Admin\ChangeLog::write($app, 'collections', 'import', mb_substr($collection['seo_link'] . ': ' . $state['pocty']['added'] . ' + ' . $state['pocty']['changed'], 0, 80));
+                \Kaleta\Core\ChangeLog::write($app, 'collections', 'import', mb_substr($collection['seo_link'] . ': ' . $state['pocty']['added'] . ' + ' . $state['pocty']['changed'], 0, 80));
             }
 
             return;
@@ -477,6 +477,6 @@ final class ItemImport
             $state['faze'] = 'hotovo';
             $state['obrazky']['fronta'] = [];
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 }

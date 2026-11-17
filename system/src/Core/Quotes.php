@@ -486,7 +486,7 @@ final class Quotes
 
             return $id;
         });
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, $quote === null ? 'create' : 'save', t('Quote %s', self::label($quote['number'] ?? null, $id)));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, $quote === null ? 'create' : 'save', t('Quote %s', self::label($quote['number'] ?? null, $id)));
 
         return ['id' => $id, 'warnings' => array_values(array_unique($warnings))];
     }
@@ -561,7 +561,7 @@ final class Quotes
 
             return $number;
         });
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, $action === 'sent' ? 'send' : 'finalise', ($action === 'sent' ? t('Quote %s sent', $number) : t('Quote %s finalised', $number)));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, $action === 'sent' ? 'send' : 'finalise', ($action === 'sent' ? t('Quote %s sent', $number) : t('Quote %s finalised', $number)));
 
         return self::get($db, $id); // PHPStan remembers the get() above as not null; the row is never deleted in between
     }
@@ -616,7 +616,7 @@ final class Quotes
             'decline_reason' => $status === 'declined' ? (string) $reason : null, 'updated_at' => $now,
             'history' => self::appended($quote['history'], ['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'status', 'from' => $quote['status'], 'to' => $status]
                 + ($status === 'declined' ? ['note' => (string) $reason] : []) + ($via === 'customer' ? ['via' => 'customer'] : []))], ['id' => $id]); // 3.40: the customer's own decision
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'status', $via === 'customer' ? t('Quote %1$s: %2$s by the customer', $quote['label'], t(self::STATUS_LABELS[$status]))
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'status', $via === 'customer' ? t('Quote %1$s: %2$s by the customer', $quote['label'], t(self::STATUS_LABELS[$status]))
             : t('Quote %1$s: %2$s', $quote['label'], t(self::STATUS_LABELS[$status])));
 
         return true;
@@ -810,7 +810,7 @@ final class Quotes
             return false;
         }
         $db->update($kind === 'company' ? 'companies' : 'contacts', ['price_list_id' => $listId > 0 ? $listId : null], ['id' => $id]);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'customer_list', $kind === 'company' ? t('Price list of the company #%s changed', (string) $id) : t('Price list of the customer #%s changed', (string) $id));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'customer_list', $kind === 'company' ? t('Price list of the company #%s changed', (string) $id) : t('Price list of the customer #%s changed', (string) $id));
 
         return true;
     }
@@ -865,7 +865,7 @@ final class Quotes
 
             return $newId;
         });
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'revise', t('Quote %s revised', (string) $quote['number']));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'revise', t('Quote %s revised', (string) $quote['number']));
 
         return $newId;
     }
@@ -888,7 +888,7 @@ final class Quotes
             $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
             $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
         });
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'delete', t('Quote %s deleted', $quote['label']));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'delete', t('Quote %s deleted', $quote['label']));
     }
 
     /**

@@ -54,7 +54,7 @@ final class Testimonials
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
             $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ' (e-mail)' : ''));
+        \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ' (e-mail)' : ''));
 
         return ['link' => $link, 'sent' => $sent];
     }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 
 /**
  * Moving enquiries of one form to job applications and back (3.34 B, the admin tool "Move by form" in Applications): for

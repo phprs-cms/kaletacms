@@ -137,7 +137,7 @@ final class Redirects extends Module
             $s = $this->app->settings();
             $s->set('redirect_auto', $this->request->post('redirect_auto') === '1' ? '1' : '0');
             $s->set('redirect_auto_threshold', (string) ($threshold >= 50 && $threshold <= 100 ? $threshold : \Kaleta\Core\RedirectMatcher::DEFAULT_THRESHOLD));
-            \Kaleta\Admin\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
+            \Kaleta\Core\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
         }
 
         return $this->back('Settings saved.');
@@ -219,8 +219,8 @@ final class Redirects extends Module
         @set_time_limit(120); // thousands of rows of a moved site
         $plan = RedirectRules::save($this->db, RedirectRules::parseCsv($csv));
         $counts = array_count_values(array_column($plan, 'status')) + ['added' => 0, 'changed' => 0, 'refused' => 0];
-        \Kaleta\Admin\ChangeLog::write($this->app, 'redirects', 'import', $counts['added'] . ' + ' . $counts['changed']);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\ChangeLog::write($this->app, 'redirects', 'import', $counts['added'] . ' + ' . $counts['changed']);
+        \Kaleta\Core\PageCache::clear();
         $this->app->session->flash($counts['refused'] > 0 ? 'chyba' : 'ok', t('Redirects imported: %d added, %d changed, %d refused.', $counts['added'], $counts['changed'], $counts['refused']));
 
         return Response::redirect($this->url());

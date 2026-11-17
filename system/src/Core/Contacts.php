@@ -698,7 +698,7 @@ final class Contacts
             return $moved;
         });
         self::markMerged($app->settings());
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'merge', '#' . $from . ' → #' . $into);
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'merge', '#' . $from . ' → #' . $into);
 
         return ['into' => $into, 'from' => $from, 'moved' => $moved];
     }

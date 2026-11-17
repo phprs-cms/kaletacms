@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Admin\Modules;
 
-use Kaleta\Admin\ChangeLog;
+use Kaleta\Core\ChangeLog;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Response;
 use Kaleta\Fleet\Acceptances;

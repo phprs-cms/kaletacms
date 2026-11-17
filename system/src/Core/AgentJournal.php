@@ -270,8 +270,8 @@ final class AgentJournal
         $user = $app->auth()->user();
         $db->update('agent_sessions', ['undone_at' => Clock::now(), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
+        \Kaleta\Core\PageCache::clear();
+        \Kaleta\Core\ChangeLog::write($app, 'changelog', 'undo_session', '#' . $sessionId . ' ' . $session['connection'] . ': ' . $result['restored'] . '/' . $result['removed'] . '/' . count($result['conflicts']));
         Events::record($db, 'claude.session_undone', 'info', t('A Claude session was undone: %d rows restored, %d removed, %d left because they changed since.', $result['restored'], $result['removed'], count($result['conflicts'])),
             ['session' => $sessionId, 'restored' => $result['restored'], 'removed' => $result['removed'], 'conflicts' => count($result['conflicts'])]);
 

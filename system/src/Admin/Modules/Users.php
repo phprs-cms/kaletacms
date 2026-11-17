@@ -246,13 +246,13 @@ final class Users extends Module
 
         if (is_array($handOver)) {
             $moved = Handover::handOver($this->db, $id, $handOver[0]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'save', '#' . $id . ' ' . $data['user'] . ' – ' . t('now responsible: %s – %s', $handOver[1], Handover::describe($moved) ?: '0'));
+            \Kaleta\Core\ChangeLog::write($this->app, 'users', 'save', '#' . $id . ' ' . $data['user'] . ' – ' . t('now responsible: %s – %s', $handOver[1], Handover::describe($moved) ?: '0'));
 
             return $this->back(t('User saved. Now responsible: %s – %s.', $handOver[1], Handover::describe($moved) ?: '0'));
         }
 
         if ($revoked > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'unblock_revoke', '#' . $id . ' ' . $data['user'] . ' – ' . $revoked);
+            \Kaleta\Core\ChangeLog::write($this->app, 'users', 'unblock_revoke', '#' . $id . ' ' . $data['user'] . ' – ' . $revoked);
         }
 
         if ($invite) {
@@ -294,7 +294,7 @@ final class Users extends Module
         if (is_string($saved)) {
             return $this->back($saved, 'departments', $id > 0 ? ['department' => $id] : [], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'department_save', '#' . $saved . ' ' . mb_substr(trim($r->post('name')), 0, 100));
+        \Kaleta\Core\ChangeLog::write($this->app, 'users', 'department_save', '#' . $saved . ' ' . mb_substr(trim($r->post('name')), 0, 100));
 
         return $this->back('The department is saved.', 'departments');
     }
@@ -304,7 +304,7 @@ final class Users extends Module
         $id = $this->request->postInt('id');
         $department = $this->request->isPost() ? \Kaleta\Core\Departments::find($this->db, $id) : null;
         if ($department !== null && \Kaleta\Core\Departments::delete($this->db, $id)) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'department_delete', '#' . $id . ' ' . $department['name']);
+            \Kaleta\Core\ChangeLog::write($this->app, 'users', 'department_delete', '#' . $id . ' ' . $department['name']);
 
             return $this->back('The department is removed. Its people belong to no department now.', 'departments');
         }
@@ -324,7 +324,7 @@ final class Users extends Module
         if (is_string($added)) {
             return $this->back($added, 'edit', ['id' => $id], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'absence_add', '#' . $id . ' ' . $r->post('starts_on') . ' – ' . $r->post('ends_on')); // the days only, never the reason
+        \Kaleta\Core\ChangeLog::write($this->app, 'users', 'absence_add', '#' . $id . ' ' . $r->post('starts_on') . ' – ' . $r->post('ends_on')); // the days only, never the reason
 
         return Response::redirect($this->url('edit', ['id' => $id]) . '#absences');
     }
@@ -334,7 +334,7 @@ final class Users extends Module
         $r = $this->request;
         $id = $r->postInt('idu');
         if ($r->isPost() && \Kaleta\Core\Absences::remove($this->db, $r->postInt('absence'))) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'absence_delete', '#' . $id);
+            \Kaleta\Core\ChangeLog::write($this->app, 'users', 'absence_delete', '#' . $id);
         }
 
         return Response::redirect($this->url('edit', ['id' => $id]) . '#absences');
@@ -434,7 +434,7 @@ final class Users extends Module
             return self::revokeAllConnections($this->db, $id);
         });
         if ($revoked > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'users', 'unblock_revoke', '#' . $id . ' – ' . $revoked);
+            \Kaleta\Core\ChangeLog::write($this->app, 'users', 'unblock_revoke', '#' . $id . ' – ' . $revoked);
         }
 
         return $this->back($revoked > 0 ? t('The account has been reactivated – the user can sign in again. Its Claude connections and personal tokens were revoked (%d); to keep them, untick the box in the user\'s form instead.', $revoked)
@@ -585,7 +585,7 @@ final class Users extends Module
             $this->removeAccount($id);
         }
         $what = Handover::describe($moved);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'users', $then === '' ? 'handover' : $then, '#' . $id . ' ' . $user['user'] . ' – ' . t('now responsible: %s – %s', $recipient[1], $what ?: '0'));
+        \Kaleta\Core\ChangeLog::write($this->app, 'users', $then === '' ? 'handover' : $then, '#' . $id . ' ' . $user['user'] . ' – ' . t('now responsible: %s – %s', $recipient[1], $what ?: '0'));
         $message = $what !== '' ? t('Now responsible: %s – %s.', $recipient[1], $what) : t('Nothing to hand over.');
 
         return $this->back($message . ($then === 'block' ? ' ' . t('The account is blocked – it cannot sign in to the administration.') : ($then === 'delete' ? ' ' . t('The user has been deleted. Their news items remain, without an author.') : '')));

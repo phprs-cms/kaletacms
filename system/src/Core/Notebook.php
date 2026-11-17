@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 
 /**
  * Agent notebook (2.15): notes the site keeps for whoever works on it next – Claude in a new conversation, or a

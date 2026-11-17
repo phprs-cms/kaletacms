@@ -109,7 +109,7 @@ final class PagePackage
             $created['komponenty']++;
         }
         if ($created !== ['tridy' => 0, 'komponenty' => 0]) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return [self::pointAt($pageBuild, $map), $created];

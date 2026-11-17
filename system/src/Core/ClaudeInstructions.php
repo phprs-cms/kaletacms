@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 
 /**
  * The instructions for Claude (claude_instructions, 3.15 N44): every connection gets them, so a change made once – by a

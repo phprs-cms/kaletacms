@@ -91,7 +91,7 @@ final class Subscribers extends Module
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'subscribers', 'export CSV', '');
+        \Kaleta\Core\ChangeLog::write($this->app, 'subscribers', 'export CSV', '');
 
         return new Response($csv, 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="odberatele-' . date('Y-m-d') . '.csv"']);
     }

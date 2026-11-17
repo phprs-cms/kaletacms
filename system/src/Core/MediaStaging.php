@@ -480,7 +480,7 @@ final class MediaStaging
                 $db->journal = $journal;
             }
             @unlink(self::checkFile((int) $row['ido']));
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
 
             return true;
         } finally {

@@ -146,7 +146,7 @@ trait QuoteTools
                 });
             });
             if ($counts['created'] + $counts['changed'] + $counts['removed'] > 0) {
-                \Kaleta\Admin\ChangeLog::write($this->app, Prices::SECTION, 'price', t('Internal prices changed in %1$s: %2$d', $list['name'], $counts['created'] + $counts['changed'] + $counts['removed']));
+                \Kaleta\Core\ChangeLog::write($this->app, Prices::SECTION, 'price', t('Internal prices changed in %1$s: %2$d', $list['name'], $counts['created'] + $counts['changed'] + $counts['removed']));
             }
 
             return ['price_list' => $this->priceListOut($list)] + array_filter($counts) + ['prices' => $out,

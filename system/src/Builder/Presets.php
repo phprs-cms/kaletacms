@@ -163,7 +163,7 @@ final class Presets
             'hidden_redirect' => $preset['redirect_hidden'] ? '/' . $seo : '', 'pole' => (string) json_encode($fields, JSON_UNESCAPED_UNICODE),
             'zmeneno' => date('Y-m-d H:i:s'), 'schema_org' => $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE),
             'stavba' => is_callable($preset['template']) && $preset['detail'] ? Build::toJson(self::itemTemplate($preset, $fields)) : null]);
-        \Kaleta\Admin\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
+        \Kaleta\Core\ChangeLog::write($app, 'collections', 'preset', $key . ': ' . $seo);
         $pageId = null;
         $extra = [];
         if ($withPage) {
@@ -198,7 +198,7 @@ final class Presets
         $build = self::listPage($preset, $name, $collectionSeo, $fields);
         $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $pageSeo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
             'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50] + \Kaleta\Admin\Modules\Pages::edited($app->auth()->id()));
-        \Kaleta\Admin\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
+        \Kaleta\Core\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
 
         return $pageId;
     }

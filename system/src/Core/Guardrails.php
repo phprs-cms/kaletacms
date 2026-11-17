@@ -190,7 +190,7 @@ final class Guardrails
             if ($refusal !== null) {
                 return $refusal;
             }
-            $id = \Kaleta\Admin\ChangeLog::write($app, 'claude', $tool, $description, $reason);
+            $id = \Kaleta\Core\ChangeLog::write($app, 'claude', $tool, $description, $reason);
             if ($id === 0 && $limited) {
                 return 'The change could not be recorded in the change log, so the hourly limit cannot be kept. Tell the user – the site needs a look.';
             }

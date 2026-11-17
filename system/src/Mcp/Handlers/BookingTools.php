@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Mcp\Handlers;
 
-use Kaleta\Admin\ChangeLog;
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\Booking;
 
 /**

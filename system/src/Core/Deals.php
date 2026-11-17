@@ -194,7 +194,7 @@ final class Deals
         $isDefault = array_keys(self::DEFAULT_STAGES) === array_column($clean, 'key') && array_column(self::DEFAULT_STAGES, 1) === array_column($clean, 'kind')
             && array_filter(array_column($clean, 'label')) === [];
         $app->settings()->set('pipeline_stages', $isDefault ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'stages', implode(', ', array_column($clean, 'key')));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'stages', implode(', ', array_column($clean, 'key')));
     }
 
     /**
@@ -566,7 +566,7 @@ final class Deals
 
                 return $id;
             });
-            \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'create', '#' . $id);
+            \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'create', '#' . $id);
             Contacts::touch($db, (int) ($data['contact_id'] ?? 0), $now);
         } else {
             $data = array_filter($data, fn (mixed $v, string $k): bool => $v !== ($deal[$k] ?? null), ARRAY_FILTER_USE_BOTH);
@@ -574,7 +574,7 @@ final class Deals
                 return $deal['id'];
             }
             $db->update('deals', $data + ['updated_at' => $now], ['id' => $deal['id']]);
-            \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'save', '#' . $deal['id']);
+            \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'save', '#' . $deal['id']);
             if (array_key_exists('contact_id', $data)) {
                 Contacts::touch($db, (int) $data['contact_id'], $now);
             }
@@ -620,7 +620,7 @@ final class Deals
             $db->update('deals', ['stage' => $to['key'], 'closed_at' => $closedAt, 'lost_reason' => $reason, 'lost_note' => $note, 'updated_at' => $now], ['id' => $deal['id']]);
             $db->insert('deal_stage_history', ['deal_id' => $deal['id'], 'from_stage' => $deal['stage'], 'to_stage' => $to['key'], 'at' => $now, 'user_id' => $byUserId > 0 ? $byUserId : null]);
         });
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'move', '#' . $deal['id'] . ' ' . $deal['stage'] . ' → ' . $to['key']);
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'move', '#' . $deal['id'] . ' ' . $deal['stage'] . ' → ' . $to['key']);
         Contacts::touch($db, (int) $deal['contact_id'], $now);
 
         return self::get($db, $id) ?? $deal;
@@ -758,7 +758,7 @@ final class Deals
             $db->delete('deals', ['id' => $id]);
         });
         Inbox::forgetTargets($db, ['deal:' . $id]);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'delete', '#' . $id);
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'delete', '#' . $id);
 
         return true;
     }

@@ -84,7 +84,7 @@ final class SigningKey
             // the database rolled back; the value this request keeps in memory is never written back (another rotation may have won)
             return ['status' => 'error', 'error' => $e->getMessage()];
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'new signing key', $count > 0 ? 'secrets encrypted again: ' . $count : '');
+        \Kaleta\Core\ChangeLog::write($app, 'settings', 'new signing key', $count > 0 ? 'secrets encrypted again: ' . $count : '');
         Events::record($app->db(), 'security.signing_key_rotated', 'warning', t('A new signing key was made: shared preview links and other signed links of the site stopped working.'),
             ['user' => (int) ($app->auth()->user()['idu'] ?? 0), 'resealed' => $count]);
 

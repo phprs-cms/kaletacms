@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Admin;
 
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\App;
 use Kaleta\Core\Migration;
 use Kaleta\Core\Response;
@@ -195,7 +196,7 @@ final class Kernel
         // assistant, build draft) and the team's work that never reaches the site (enquiries, notes, requests…, 3.24) do not –
         // otherwise the cache would be cold all the time during work. Signing in changes nothing either.
         if ($request->isPost() && $app->auth()->user() !== null && self::clearsPageCache($request)) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         $action = $request->get('action');
         // site URL: older installs do not have it yet - it is written from the URL the signed-in administrator works on

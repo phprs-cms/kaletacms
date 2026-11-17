@@ -230,7 +230,7 @@ final class Blueprint
         } else {
             $db->insert('blueprints', ['bkey' => $manifest['key'], 'nazev' => self::text($manifest['name']), 'manifest' => $json, 'applied_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
+        \Kaleta\Core\ChangeLog::write($app, 'blueprints', 'apply', self::text($manifest['name']));
         if ($newText !== '' && $newText !== $oldText && $newText !== $shipped) {
             ClaudeInstructions::changed($app, $oldText, $newText, self::text($manifest['name']));
         }
@@ -255,7 +255,7 @@ final class Blueprint
     {
         $done = $app->db()->delete('blueprints', ['bkey' => $key]) > 0;
         if ($done) {
-            \Kaleta\Admin\ChangeLog::write($app, 'blueprints', 'remove', $key);
+            \Kaleta\Core\ChangeLog::write($app, 'blueprints', 'remove', $key);
         }
 
         return $done;

@@ -323,7 +323,7 @@ trait MigrationTools
                     continue;
                 }
                 \Kaleta\Core\ImportLayout::markRebuilt($db, $id);
-                \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'layout marked done', mb_substr((string) $page['titulek'], 0, 80));
+                \Kaleta\Core\ChangeLog::write($this->app, 'pages', 'layout marked done', mb_substr((string) $page['titulek'], 0, 80));
                 $done[] = ['id' => $id, 'done' => true];
             }
         }

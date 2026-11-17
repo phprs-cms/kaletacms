@@ -21,7 +21,7 @@ JavaScript, no build step.
 1. **Boot.** `App::boot()` reads `config.php`, opens the database lazily (`Core\Db`), applies the site's time zone and the
    language. Settings come from `ka_nastaveni` through `Core\Settings` on first use (large values only when asked for).
 2. **Public site.** `Front\Kernel::handle()` checks stored redirects, maintenance and the firewall, answers a cache hit from
-   `Front\Cache` (anonymous visitors only), then routes by path: the home page, `/novinky/…` (the news slug is a setting),
+   `Core\PageCache` (anonymous visitors only), then routes by path: the home page, `/novinky/…` (the news slug is a setting),
    collections, pages by slug (`Modules\Pages::RESERVED_SLUGS` are taken), files like `sitemap.xml` or `llms.txt`. A page is
    a build (JSON tree) rendered by `Builder\Build::render()` inside the site parts (header, footer) into
    `system/views/front/base.php`; SEO tags and structured data come from `Front\Seo`.

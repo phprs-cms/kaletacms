@@ -37,11 +37,12 @@ uses, and neither of them reaches back into anything but Core.
 
 The test keeps a frozen list of the references that break the rule today (98 files on 12 November 2026, mostly Core
 writing `Admin\ChangeLog` – 44 files – and clearing `Front\Cache` – 13 files; Mcp calling static methods of admin
-modules – 17 files). A new reference fails the test; a reference that goes away must leave the list too, so it only
+modules – 17 files; 74 files and 188 references after step 1 in 3.45, and the test caps both numbers). A new reference fails the test; a reference that goes away must leave the list too, so it only
 shrinks. The planned steps (audit Q7), each done when a feature touches the code, never as one big change:
 
-1. `Admin\ChangeLog` → `Core\ChangeLog` and `Front\Cache` → `Core\PageCache` (search and replace; the updater removes
-   old class files) – about 70 % of the list.
+1. **Done in 3.45:** `Admin\ChangeLog` → `Core\ChangeLog` and `Front\Cache` → `Core\PageCache` (search and replace; the
+   release package carries the old class files as "legacy" for the request that installs it, and the new version deletes
+   them – `Updater::cleanUpObsolete`, `cleanUpRemoved`) – 57 of the 245 references.
 2. Static domain methods out of admin modules into the Core class they belong to (`Enquiries::deleteExpired`, the
    trash methods, what Mcp calls on `Modules\Pages`, `Media` and `Categories`).
 3. Splitting Core into sub-namespaces (`Core\Crm`, `Core\Import`…) only after that, if it still pays.

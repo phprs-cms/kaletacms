@@ -259,11 +259,11 @@ final class Pages extends Module
                 self::REBUILT => \Kaleta\Core\ImportLayout::markRebuilt($this->db, $id), // 3.36: off the queue of a move, the page itself unchanged
                 default => $this->db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ?', [\Kaleta\Core\Clock::now(), $id]),
             };
-            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash', self::REBUILT => 'layout marked done'][$action], mb_substr($page['titulek'], 0, 80));
+            \Kaleta\Core\ChangeLog::write($this->app, 'pages', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash', self::REBUILT => 'layout marked done'][$action], mb_substr($page['titulek'], 0, 80));
             $done++;
         }
         if ($done > 0 && $action !== self::REBUILT) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         $message = match ($action) {
             self::REBUILT => t('Pages taken off the list of layouts to rebuild: %d.', $done),
@@ -303,7 +303,7 @@ final class Pages extends Module
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
         $this->db->update('stranky', ['titulek' => $title, 'text' => $text] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
+        \Kaleta\Core\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('zpet'));
     }
@@ -506,7 +506,7 @@ final class Pages extends Module
         $after = \Kaleta\Core\Assignment::fromForm($this->db, 'page', $this->request->postInt('owner_id'), $before);
         if ($after !== $before) {
             $this->db->update('stranky', ['owner_id' => $after], ['ids' => $id]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'responsible person', '#' . $id . ' ' . mb_substr((string) $stored['titulek'], 0, 60) . ' → ' . ($after === null ? '—' : (\Kaleta\Core\Assignment::labels($this->db, [$after])[$after] ?? '')));
+            \Kaleta\Core\ChangeLog::write($this->app, 'pages', 'responsible person', '#' . $id . ' ' . mb_substr((string) $stored['titulek'], 0, 60) . ' → ' . ($after === null ? '—' : (\Kaleta\Core\Assignment::labels($this->db, [$after])[$after] ?? '')));
             if ($after !== null) {
                 \Kaleta\Core\Assignment::notify($this->app, 'page', $id, $after, $this->app->auth()->id());
             }

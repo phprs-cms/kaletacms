@@ -321,9 +321,9 @@ final class Hours
         } else {
             $db->insert('hours_exceptions', $row + ['created_at' => date('Y-m-d H:i:s')]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
+        \Kaleta\Core\ChangeLog::write($app, 'settings', $row['proposed'] === 1 ? 'hours_exception_proposed' : 'hours_exception', $from . '–' . $to);
         if ($row['proposed'] === 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
             GoogleBusiness::hoursChanged($app); // the Business Profile gets the exception (2.13)
         }
 
@@ -338,8 +338,8 @@ final class Hours
         if ($proposal === null || $app->db()->update('hours_exceptions', ['proposed' => 0], ['id' => $id, 'proposed' => 1]) === 0) {
             return false;
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\ChangeLog::write($app, 'settings', 'hours_exception_applied', $proposal['from'] . '–' . $proposal['to']);
+        \Kaleta\Core\PageCache::clear();
         GoogleBusiness::hoursChanged($app);
 
         return true;
@@ -351,7 +351,7 @@ final class Hours
         self::$read = [];
         $discarded = $app->db()->delete('hours_exceptions', ['id' => $id, 'proposed' => 1]) > 0;
         if ($discarded) {
-            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
+            \Kaleta\Core\ChangeLog::write($app, 'settings', 'hours_exception_discarded', '#' . $id);
         }
 
         return $discarded;
@@ -362,8 +362,8 @@ final class Hours
         self::$read = [];
         $deleted = $app->db()->delete('hours_exceptions', ['id' => $id]) > 0;
         if ($deleted) {
-            \Kaleta\Admin\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\ChangeLog::write($app, 'settings', 'hours_exception_delete', '#' . $id);
+            \Kaleta\Core\PageCache::clear();
             GoogleBusiness::hoursChanged($app);
         }
 

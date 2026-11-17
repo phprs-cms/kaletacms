@@ -64,7 +64,7 @@ final class Appearance extends Module
         $siteSettings->set('brand_accent', '');
         $siteSettings->set('brand_heading_font', 'vychozi');
         $siteSettings->set('brand_text_font', 'vychozi');
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back($inDraft || $identityInDraft ? 'Saved to the draft look – preview the whole site, then publish it.' : 'The site appearance has been saved.');
     }
@@ -104,7 +104,7 @@ final class Appearance extends Module
     {
         if ($this->request->isPost()) {
             Look::discard($this->app->settings());
-            \Kaleta\Admin\ChangeLog::write($this->app, 'appearance', 'discard look draft');
+            \Kaleta\Core\ChangeLog::write($this->app, 'appearance', 'discard look draft');
         }
 
         return $this->back('The unpublished look changes were discarded.');

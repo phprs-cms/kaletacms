@@ -57,7 +57,7 @@ final class Media extends Module
         if (!\Kaleta\Core\MediaStaging::promote($this->db, $file)) {
             return $this->back(t('The file could not be moved to the media folder – check the write permissions of media/.'), '', ['staged' => 1], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'approved', $file['obr_poloha']);
+        \Kaleta\Core\ChangeLog::write($this->app, 'media', 'approved', $file['obr_poloha']);
 
         return $this->back(t('The file is public: %s', $file['obr_poloha']), '', ['staged' => 1]);
     }
@@ -70,7 +70,7 @@ final class Media extends Module
             return $this->back('', '', ['staged' => 1]);
         }
         \Kaleta\Core\MediaStaging::discard($this->db, $file);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'discarded', $file['obr_poloha']);
+        \Kaleta\Core\ChangeLog::write($this->app, 'media', 'discarded', $file['obr_poloha']);
 
         return $this->back(t('Images deleted: %d.', 1), '', ['staged' => 1]);
     }
@@ -361,7 +361,7 @@ final class Media extends Module
             return $this->back(t($e->getMessage()), 'list', ['edit' => $ido], 'chyba');
         }
         $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back('The file has been replaced – the new version is shown everywhere it is used.', 'list', ['edit' => $ido]);
     }
@@ -377,7 +377,7 @@ final class Media extends Module
                 'autor' => mb_substr(trim($this->request->post('autor')), 0, 120),
                 'ohnisko' => $x === 50 && $y === 50 ? '' : $x . '% ' . $y . '%',
             ], ['ido' => $this->request->postInt('ido')]);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $this->back('Image description saved.');
@@ -391,7 +391,7 @@ final class Media extends Module
             return Response::json(['ok' => false, 'chyba' => t('You cannot edit this image.')], 403);
         }
         $this->db->update('media', ['nazev' => mb_substr(trim($this->request->post('popis')), 0, 150)], ['ido' => $ido]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return Response::json(['ok' => true]);
     }
@@ -439,8 +439,8 @@ final class Media extends Module
             $saved += $this->db->update('media', ['nazev' => $alt], ['ido' => (int) $ido, 'nazev' => '']);
         }
         if ($saved > 0) {
-            \Kaleta\Front\Cache::clear();
-            \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'alt texts in bulk', (string) $saved);
+            \Kaleta\Core\PageCache::clear();
+            \Kaleta\Core\ChangeLog::write($this->app, 'media', 'alt texts in bulk', (string) $saved);
         }
 
         return $this->back(t('Image descriptions saved: %d.', $saved), 'cleanup');
@@ -460,8 +460,8 @@ final class Media extends Module
             return $this->back(t($e->getMessage()), 'cleanup', [], 'chyba');
         }
         $this->db->update('media', $new + ['barva' => ''], ['ido' => $ido]);
-        \Kaleta\Front\Cache::clear();
-        \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'made smaller', $image['obr_poloha']);
+        \Kaleta\Core\PageCache::clear();
+        \Kaleta\Core\ChangeLog::write($this->app, 'media', 'made smaller', $image['obr_poloha']);
 
         return $this->back(t('The image is now %s px wide and takes %s.', (string) $new['obr_width'], \Kaleta\Core\Files::size($new['obr_vel'])), 'cleanup');
     }
@@ -498,7 +498,7 @@ final class Media extends Module
             $this->app->session->flash('chyba', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
         }
         if (!$move && $count > 0) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
+            \Kaleta\Core\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);
         }
 
         return $this->back($move ? t('Images moved: %d.', $count) : t('Images deleted: %d.', $count), $backTo, $move && $target ? ['section' => $target] : []);

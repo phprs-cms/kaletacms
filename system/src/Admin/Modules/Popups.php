@@ -99,7 +99,7 @@ final class Popups extends Module
             // true until and review by (2.10, Core\Validity): empty or not a date = none
             'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ], ['idpp' => $p['idpp']]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back('The pop-up settings were saved.');
     }
@@ -117,7 +117,7 @@ final class Popups extends Module
             return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'chyba');
         }
         $this->db->update('popupy', ['aktivni' => $p['aktivni'] ? 0 : 1], ['idpp' => $p['idpp']]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back($p['aktivni'] ? 'The pop-up is off – it no longer shows on the site.' : 'The pop-up is on and shows on the site according to its rules.', $action, $args);
     }
@@ -135,7 +135,7 @@ final class Popups extends Module
     {
         if ($this->request->isPost()) {
             $this->db->delete('popupy', ['idpp' => $this->request->postInt('idpp')]);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $this->back('The pop-up was deleted.');

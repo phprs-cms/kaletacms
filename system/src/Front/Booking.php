@@ -9,6 +9,7 @@ use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 use Kaleta\Core\Booking as Bookings;
 use Kaleta\Core\Captcha;
+use Kaleta\Core\PageCache;
 use Kaleta\Core\Response;
 
 /**
@@ -101,7 +102,7 @@ final class Booking
             return $redirect($error === 'taken' ? 'obsazeno' : (string) $error);
         }
         $antispam->write($r->ip(), 'rezervace', 0);
-        Cache::clear(); // the free times on the page changed
+        PageCache::clear(); // the free times on the page changed
 
         return $redirect($booking['status'] === 'pending' ? 'pending' : 'ok');
     }
@@ -134,7 +135,7 @@ final class Booking
         }
         if ($this->app->request->isPost() && $this->app->request->post('zrusit') === '1') {
             Bookings::cancel($this->app, $booking, 'customer');
-            Cache::clear();
+            PageCache::clear();
 
             return [t('Appointment cancelled'), $details . '<p>' . e(t('Your appointment is cancelled. You are welcome to book another time.')) . '</p>', 200];
         }
@@ -166,7 +167,7 @@ final class Booking
         if ($r->isPost() && $r->postInt('proposal') > 0) {
             $error = Bookings::acceptProposal($this->app, $booking, $r->postInt('proposal'));
             if ($error === null) {
-                Cache::clear();
+                PageCache::clear();
 
                 return [t('Your appointment is confirmed'), '<p>' . e(t('Thank you, your appointment is confirmed. A confirmation is on its way to your e-mail.')) . '</p>', 200];
             }

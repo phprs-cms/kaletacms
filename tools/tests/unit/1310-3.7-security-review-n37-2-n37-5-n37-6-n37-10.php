@@ -33,7 +33,7 @@ check('3.7 N37-10: slug and identifier patterns refuse a trailing newline', [
 // exceptions parse multi-line or header text, refuse what matches (D would let a value through), or are not this code's own
 $withoutD = [];
 $allowedWithoutD = ['system/bootstrap.php:', 'system/src/Core/Facts.php:13', 'system/src/Core/Facts.php:16', 'system/src/Core/Outbound.php:', 'system/src/Core/Assistant.php:', 'system/src/Core/WpTypes.php:',
-    'system/src/Core/Html.php:', 'system/src/Core/WebImport.php:', 'system/src/Core/RedirectRules.php:', 'system/src/Front/Cache.php:', 'system/src/Front/Company.php:'];
+    'system/src/Core/Html.php:', 'system/src/Core/WebImport.php:', 'system/src/Core/RedirectRules.php:', 'system/src/Core/PageCache.php:', 'system/src/Front/Company.php:'];
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(KALETA_SYSTEM, FilesystemIterator::SKIP_DOTS)) as $file37) {
     $path37 = $file37->getPathname();
     if (!str_ends_with($path37, '.php') || preg_match('#/(compat|Compat|jazyky)/#', $path37)) {

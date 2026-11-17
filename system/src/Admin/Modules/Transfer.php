@@ -81,7 +81,7 @@ final class Transfer extends Module
         }
         $result = \Kaleta\Core\StarterPages::removeSamples($this->db, $this->app->settings());
         if ($result['removed'] !== []) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'sample pages to the trash', implode(', ', $result['removed']));
+            \Kaleta\Core\ChangeLog::write($this->app, 'transfer', 'sample pages to the trash', implode(', ', $result['removed']));
         }
         // 3.33 review H1: a visible page recognised only by the titles of an older installation stays – the person checks it
         $kept = $result['kept'] === [] ? '' : ' ' . t('Kept, because only their titles suggest a sample page of an older installation – check them and delete them in Pages if they are: %s.', implode(', ', $result['kept']));
@@ -368,7 +368,7 @@ final class Transfer extends Module
         $default = Language::defaults($settings);
         $current = array_filter(explode(',', $settings->get('additional_languages')), fn (string $c): bool => isset(Language::AVAILABLE[$c]) && $c !== $default);
         $settings->set('additional_languages', implode(',', array_values(array_unique([...$current, $code]))));
-        \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'language version added for the import', $code);
+        \Kaleta\Core\ChangeLog::write($this->app, 'transfer', 'language version added for the import', $code);
     }
 
     /** Saves the options from the preview and starts the import. */
@@ -766,7 +766,7 @@ final class Transfer extends Module
                     $state['faze'] === 'data' ? $import->importData($state) : $import->importMedia($state);
                     if ($state['faze'] === 'hotovo') {
                         SiteImport::cleanUp($file);
-                        \Kaleta\Admin\ChangeLog::write($this->app, 'transfer', 'import of a Kaleta export', $file);
+                        \Kaleta\Core\ChangeLog::write($this->app, 'transfer', 'import of a Kaleta export', $file);
                     }
                 } catch (\RuntimeException $e) {
                     $error = self::message($e);

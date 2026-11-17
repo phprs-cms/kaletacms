@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Admin;
 
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\Assignment;
 use Kaleta\Core\Response;
 use Kaleta\Core\Tasks;

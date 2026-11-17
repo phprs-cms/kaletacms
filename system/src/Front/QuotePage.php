@@ -23,7 +23,7 @@ use Kaleta\Core\Response;
  *    rewrites what the customer has. Only the stylesheet is live. The labels are visitor texts in the quote's language
  *    (every visitor dictionary), right to left for Arabic with the amounts left to right.
  *  - The page is a document, not a site page: no header, menu, footer, pop-ups, statistics or cookie bar; never cached
- *    (Cache-Control: private, no-store – Front\Cache never stores it), noindex, nofollow, no referrer, its own strict CSP;
+ *    (Cache-Control: private, no-store – Core\PageCache never stores it), noindex, nofollow, no referrer, its own strict CSP;
  *    never in the sitemap, search or llms.txt; robots.txt disallows /quote/.
  *  - A wrong, withdrawn or expired token gets the site's 404 page with no detail and is not logged among the addresses
  *    not found (a token is no address); failed attempts count per network (Core\Antispam) and after

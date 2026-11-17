@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kaleta\Admin;
-
-use Kaleta\Core\App;
+namespace Kaleta\Core;
 
 /**
  * Change log: who did what in the admin and when, and – for Claude's changes – why (2.15: the reason a write tool was
@@ -29,7 +27,7 @@ final class ChangeLog
                 'modul' => mb_substr($module, 0, 30), 'akce' => mb_substr($action, 0, 40), 'popis' => mb_substr($description, 0, 255),
             ] + ($reason !== '' ? ['duvod' => mb_substr($reason, 0, 255)] : []));
             if (random_int(1, 100) === 1) {
-                $app->db()->run('DELETE FROM {protokol} WHERE cas < ?', [\Kaleta\Core\Clock::at('-180 days')]);
+                $app->db()->run('DELETE FROM {protokol} WHERE cas < ?', [Clock::at('-180 days')]);
             }
 
             return $id;

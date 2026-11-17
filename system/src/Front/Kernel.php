@@ -6,6 +6,7 @@ namespace Kaleta\Front;
 
 use Kaleta\Core\App;
 use Kaleta\Core\Language;
+use Kaleta\Core\PageCache;
 use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
 use Kaleta\Core\View;
@@ -202,7 +203,7 @@ final class Kernel
 
             return QuotePage::response($this->app, $m[1], $pdf) ?? $this->notFoundPage(404);
         }
-        if (($cached = Cache::load($this->app)) !== null) {
+        if (($cached = PageCache::load($this->app)) !== null) {
             return $cached;
         }
         $path = $request->path();
@@ -256,10 +257,10 @@ final class Kernel
             return new Response($seo->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
         if ($path === '/sitemap.xml') {
-            return new Response(Cache::text($this->app, 'sitemap', $seo->sitemapXml(...)), 200, ['Content-Type' => 'application/xml; charset=utf-8']);
+            return new Response(PageCache::text($this->app, 'sitemap', $seo->sitemapXml(...)), 200, ['Content-Type' => 'application/xml; charset=utf-8']);
         }
         if ($path === '/feed.json') {
-            $json = Cache::text($this->app, 'feed.json|' . Language::siteColumn(), fn (): string => (string) json_encode($seo->jsonFeed($this->news->listPublished(1, 20, true)[0]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $json = PageCache::text($this->app, 'feed.json|' . Language::siteColumn(), fn (): string => (string) json_encode($seo->jsonFeed($this->news->listPublished(1, 20, true)[0]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
             return new Response($json, 200, ['Content-Type' => 'application/feed+json; charset=utf-8']);
         }
@@ -270,7 +271,7 @@ final class Kernel
                 array_values(array_unique(array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings)))), time()), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
         if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
-            return new Response(Cache::text($this->app, 'llms|' . Language::siteColumn(), $seo->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return new Response(PageCache::text($this->app, 'llms|' . Language::siteColumn(), $seo->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
         $indexNowKey = $this->app->settings()->get('indexnow_key');
         if ($indexNowKey !== '' && $path === '/' . $indexNowKey . '.txt') {
@@ -1127,7 +1128,7 @@ final class Kernel
 
     private function rss(): Response
     {
-        $xml = Cache::text($this->app, 'rss|' . Language::siteColumn(), fn (): string => $this->view->render('rss', [
+        $xml = PageCache::text($this->app, 'rss|' . Language::siteColumn(), fn (): string => $this->view->render('rss', [
             'web' => $this->app->settings(),
             'novinky' => $this->news->listPublished(1, 20)[0],
             'adresa' => $this->app->request->origin() . $this->app->url(''),
@@ -1788,7 +1789,7 @@ final class Kernel
         // elements with a display condition (date, sign-in) are assembled anew every time – the cache would show them as they
         // were at the moment of saving
         if ($status === 200 && empty($meta['noindex']) && $this->app->request->get('preview') === '' && !($this->context?->withoutCache ?? false) && !Csp::active()) { // a preview's nonce never goes into the cache
-            Cache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
+            PageCache::save($this->app, $html, $newsItem === null ? null : (int) $newsItem['idc']);
         }
 
         if (!empty($meta['soukroma'])) {

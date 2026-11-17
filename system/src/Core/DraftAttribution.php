@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 
 /**
  * Who made the draft of a page (3.24, N-U6): builder autosaves are not stamped on the page (Modules\Pages::edited – the

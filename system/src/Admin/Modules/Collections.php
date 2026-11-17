@@ -150,7 +150,7 @@ final class Collections extends Module
         } else {
             $id = $this->db->insert('kolekce', $data);
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back('The collection was saved.', 'items', ['id' => $id]);
     }
@@ -282,8 +282,8 @@ final class Collections extends Module
         if (!$page['visible']) {
             // 3.20 (N320-4): stamped like every edit in Pages (when and who), logged as one page shown
             $this->db->update('stranky', ['zobrazit' => 1, 'show_on_publish' => 0, 'zverejnit_od' => null] + Pages::edited($auth->id()), ['ids' => $page['id']]);
-            \Kaleta\Admin\ChangeLog::write($this->app, 'pages', 'shown', mb_substr($page['title'], 0, 80));
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\ChangeLog::write($this->app, 'pages', 'shown', mb_substr($page['title'], 0, 80));
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $this->back(t('The page %s is published.', $page['path']), 'items', ['id' => $k['idk']]);
@@ -397,9 +397,9 @@ final class Collections extends Module
         // 3.12: the first published item shows its hidden categories – the person is told which (N312-3)
         $shown = (bool) $row['zobrazit'] && (int) ($previous['zobrazit'] ?? 0) === 0 ? CategoryTree::showForItems($this->db, [$idp], $this->app) : ['shown' => [], 'waiting' => []];
         Notices::recordSave($this->app, $k, $previous, $row, $idp);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
         if ($errors !== []) {
-            \Kaleta\Admin\ChangeLog::changedAnyway(); // the item is saved: the save is logged although the message is an error (3.23.1)
+            \Kaleta\Core\ChangeLog::changedAnyway(); // the item is saved: the save is logged although the message is an error (3.23.1)
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
 
@@ -453,12 +453,12 @@ final class Collections extends Module
             if ($action === 'zobrazit' && (int) $p['zobrazit'] === 0) {
                 $published[] = $idp;
             }
-            \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['seo_link'] . ': ' . $p['nazev'], 0, 80));
+            \Kaleta\Core\ChangeLog::write($this->app, 'collections', 'bulk ' . ['zobrazit' => 'shown', 'skryt' => 'hidden', 'jazyk' => 'language ' . ($language ?: 'default'), 'kos' => 'moved to trash'][$action], mb_substr($k['seo_link'] . ': ' . $p['nazev'], 0, 80));
             $done++;
         }
         $shown = CategoryTree::showForItems($this->db, $published, $this->app); // 3.12: the first published items show their hidden categories
         if ($done > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         $message = match ($action) {
             'zobrazit' => t('Items published: %d.', $done), 'skryt' => t('Items hidden: %d.', $done),
@@ -667,8 +667,8 @@ final class Collections extends Module
             return $this->back($e->getMessage(), 'category', ['id' => $k['idk']] + ($id > 0 ? ['category' => $id] : []) + ($language !== '' ? ['language' => $language] : []), 'chyba');
         }
         CategoryTree::markReview($this->app->settings(), $id, !$this->app->auth()->canPublish()); // a person who may publish has reviewed it (N312-3)
-        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'category saved', mb_substr($k['seo_link'] . ': ' . $r->post('name'), 0, 80));
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\ChangeLog::write($this->app, 'collections', 'category saved', mb_substr($k['seo_link'] . ': ' . $r->post('name'), 0, 80));
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back('The category was saved.', 'categories', ['id' => $k['idk']]);
     }
@@ -693,8 +693,8 @@ final class Collections extends Module
         } catch (\InvalidArgumentException $e) {
             return $this->back($e->getMessage(), 'categories', ['id' => $k['idk']], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'category deleted', $k['seo_link'] . ': #' . $r->postInt('id'));
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\ChangeLog::write($this->app, 'collections', 'category deleted', $k['seo_link'] . ': #' . $r->postInt('id'));
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back('The category was deleted; its items stay in the collection.', 'categories', ['id' => $k['idk']]);
     }
@@ -755,7 +755,7 @@ final class Collections extends Module
         KolekceObsahu::saveVersion($this->app, $item, $version);
         $this->db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $idp]);
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $this->back(t('The earlier version of the item is back; the one before it is in the history.') . $kept, 'item', ['id' => $idk, 'item' => $idp]);
     }
@@ -795,7 +795,7 @@ final class Collections extends Module
         if ($k === null || !Notices::isNotices($k)) {
             return $this->error('The collection is not an official notice board.', 404);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'collections', 'notice log CSV', $k['seo_link']);
+        \Kaleta\Core\ChangeLog::write($this->app, 'collections', 'notice log CSV', $k['seo_link']);
 
         return new Response(Notices::csv($this->db, $k), 200, ['Content-Type' => 'text/csv; charset=utf-8', 'Content-Disposition' => 'attachment; filename="' . $k['seo_link'] . '-log-' . date('Y-m-d') . '.csv"']);
     }
@@ -858,7 +858,7 @@ final class Collections extends Module
     public static function trashItem(\Kaleta\Core\Db $db, int $idp, int $idk): bool
     {
         $moved = $db->run('UPDATE {kolekce_polozky} SET smazano = ?, zobrazit = 0 WHERE idp = ? AND idk = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), $idp, $idk])->rowCount() > 0;
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return $moved;
     }

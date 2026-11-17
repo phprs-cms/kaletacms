@@ -233,7 +233,7 @@ class Settings extends Module
             || preg_match('/(?:<label for="' . preg_quote($key, '/') . '">|id="' . preg_quote($key, '/') . '">\s*<span class="popisek">)<\?= e\(t\(\'([^\']+)\'\)\) \?>/', $template, $m)
             ? '„' . t($m[1]) . '“' : $key, $errors);
         $this->app->session->set('konfigurace_chybne', ['tab' => $tab, 'pole' => $errors, 'hodnoty' => $given]);
-        \Kaleta\Admin\ChangeLog::changedAnyway(); // the other settings are saved: the save is logged (3.23.1)
+        \Kaleta\Core\ChangeLog::changedAnyway(); // the other settings are saved: the save is logged (3.23.1)
 
         return $this->back(t('These fields have an invalid format and were not saved: %s. Please correct them (they are highlighted); the other settings are saved.', implode(', ', $names))
             . ($reason !== '' ? ' ' . t($reason) : ''), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
@@ -431,7 +431,7 @@ class Settings extends Module
         }
         if (\Kaleta\Core\SignInPolicy::hostChanges($urlBefore, $settings->get('site_url')) && (int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0) {
             // 3.35 review M3: the passkeys of the old host no longer work – said at once, and in System status until they are replaced
-            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'site_host_change', \Kaleta\Core\Passkey::rpId($urlBefore) . ' → ' . \Kaleta\Core\Passkey::rpId($settings->get('site_url')));
+            \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'site_host_change', \Kaleta\Core\Passkey::rpId($urlBefore) . ' → ' . \Kaleta\Core\Passkey::rpId($settings->get('site_url')));
             $this->app->session->flash('info', t('The site moved to another host name: the passkeys registered for the old one no longer work. Their accounts sign in with the password and the second step until they add new passkeys in My account – add yours now.'));
         }
         \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $settings->get('claude_instructions'));
@@ -449,7 +449,7 @@ class Settings extends Module
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }
             if (($this->request->post('ai_key') !== '' || $this->request->post('ai_provider') !== $this->request->post('ai_poskytovatel_puvodni')) && $settings->get('ai_key') !== '' && ($keyError = (new \Kaleta\Core\Assistant($settings))->verifyKey()) !== null) {
-                \Kaleta\Admin\ChangeLog::changedAnyway(); // saved, only the key does not work: the save is logged (3.23.1)
+                \Kaleta\Core\ChangeLog::changedAnyway(); // saved, only the key does not work: the save is logged (3.23.1)
                 return $this->back(t('The settings are saved, but the assistant key does not work: %s', t($keyError)), '', static::IDENT === 'settings' ? ['tab' => $tab] : [], 'chyba');
             }
         }
@@ -606,11 +606,11 @@ class Settings extends Module
         }
         $this->app->applyTimezone(); // the rest of this request (the change log, the messages) runs on the new clock
         if (!$convert) {
-            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': saved dates keep their clock time');
+            \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': saved dates keep their clock time');
 
             return $this->back(t('The time zone is now %s. Dates already saved keep their clock time.', $to), '', ['tab' => 'general']);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': converting saved dates');
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'time_zone', $from . ' → ' . $to . ': converting saved dates');
         // a larger site: the first batches right away, under the background jobs' lock, so no job writes into a table
         // half converted; a failing table is skipped and reported, never an error page (N312-2)
         $state = null;
@@ -661,17 +661,17 @@ class Settings extends Module
         // 3.28: a database copy that waits for the recovery key does not hold up the media (the site's public files)
         $paused = $remote !== null && \Kaleta\Core\RemoteBackup::paused($this->app->settings());
         if ($remote !== null && !$paused) {
-            \Kaleta\Admin\ChangeLog::changedAnyway(); // the backup exists, only its copy failed: it is logged (3.23.1)
+            \Kaleta\Core\ChangeLog::changedAnyway(); // the backup exists, only its copy failed: it is logged (3.23.1)
             return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, t($remote)), '', ['tab' => 'backups'], 'chyba');
         }
         // the media go along (only new and changed files); what does not fit in this request continues in the background
         $media = \Kaleta\Core\RemoteBackup::syncMedia($this->app->settings(), 20);
         if ($media !== null) {
-            \Kaleta\Admin\ChangeLog::changedAnyway();
+            \Kaleta\Core\ChangeLog::changedAnyway();
             return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'chyba');
         }
         if ($paused) {
-            \Kaleta\Admin\ChangeLog::changedAnyway();
+            \Kaleta\Core\ChangeLog::changedAnyway();
             return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, (string) $remote), '', ['tab' => 'backups'], 'chyba');
         }
 
@@ -688,7 +688,7 @@ class Settings extends Module
             return $this->error('Backup does not exist.', 404);
         }
         // a backup holds every account and key of the site: who downloaded which one is in the change log (3.15, N42)
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup downloaded', basename($path));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'backup downloaded', basename($path));
         $this->sendFile($path, basename($path)); // streamed: a large backup does not have to fit in memory
     }
 
@@ -734,7 +734,7 @@ class Settings extends Module
         } catch (\Throwable $e) {
             return $this->back($e->getMessage(), '', ['tab' => 'backups'], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', $new ? 'recovery key created' : 'recovery key shown', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', $new ? 'recovery key created' : 'recovery key shown', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
 
         return $this->view('backup_key', 'Recovery key', ['key' => \Kaleta\Core\RecoveryKey::format($key)]);
     }
@@ -746,7 +746,7 @@ class Settings extends Module
         if (!$this->request->isPost() || !$this->app->auth()->isAdmin() || $key === null || \Kaleta\Core\RecoveryKey::state($this->app->settings()) === 'confirmed') {
             return $this->back('', '', ['tab' => 'backups']);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'recovery key downloaded', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'recovery key downloaded', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
         $host = (string) preg_replace('/[^a-z0-9.-]+/', '-', strtolower((string) parse_url($this->app->request->origin(), PHP_URL_HOST)));
 
         return new Response(\Kaleta\Core\RecoveryKey::document($key, $this->app->request->origin() . $this->app->url('')), 200, [
@@ -766,7 +766,7 @@ class Settings extends Module
             return $this->back(t('Tick that you have saved the recovery key – off-site copies start only then.'), '', ['tab' => 'backups'], 'chyba');
         }
         \Kaleta\Core\RecoveryKey::confirm($this->app->settings(), $key);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'recovery key confirmed', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'recovery key confirmed', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
 
         return $this->back(t('The recovery key is saved. From the next backup on, the off-site copies are encrypted with it – click “Create backup now” to send one right away.'), '', ['tab' => 'backups']);
     }
@@ -785,7 +785,7 @@ class Settings extends Module
         } catch (\Throwable $e) {
             return $this->back($e->getMessage(), '', ['tab' => 'backups'], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'new recovery key', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'new recovery key', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
 
         return $this->view('backup_key', 'Recovery key', ['key' => \Kaleta\Core\RecoveryKey::format($key)]);
     }
@@ -812,7 +812,7 @@ class Settings extends Module
         } catch (\Throwable $e) {
             return $this->back($e->getMessage(), '', ['tab' => 'backups'], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'recovery key put back', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'recovery key put back', 'id ' . \Kaleta\Core\BackupEncryption::keyId($key));
 
         return $this->back(t('The recovery key is back in place – the off-site copies go on with it.'), '', ['tab' => 'backups']);
     }
@@ -826,7 +826,7 @@ class Settings extends Module
         if (!\Kaleta\Core\Vault::protectConfig()) {
             return $this->back(t('The server did not allow Kaleta to change the mode of config.php. Set it to 0600 (or 0640) in your FTP client or the hosting\'s file manager.'), '', ['tab' => 'health'], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'config.php permissions', sprintf('%04o', \Kaleta\Core\Vault::configMode()));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'config.php permissions', sprintf('%04o', \Kaleta\Core\Vault::configMode()));
 
         return $this->back(t('config.php can now be read only by the site.'), '', ['tab' => 'health']);
     }
@@ -844,7 +844,7 @@ class Settings extends Module
                 'unsupported' => t('this server does not read the file'), default => t('the server refused to write it'),
             }), '', ['tab' => 'health'], 'chyba');
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', \Kaleta\Core\UploadLimit::fileName(), implode(', ', array_map(fn (string $k, string $v): string => $k . ' = ' . $v, array_keys(\Kaleta\Core\UploadLimit::WANTED), \Kaleta\Core\UploadLimit::WANTED)));
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', \Kaleta\Core\UploadLimit::fileName(), implode(', ', array_map(fn (string $k, string $v): string => $k . ' = ' . $v, array_keys(\Kaleta\Core\UploadLimit::WANTED), \Kaleta\Core\UploadLimit::WANTED)));
 
         return $this->back(t('%s has been written. The host reads it within a few minutes – then the new limit appears in System status.', \Kaleta\Core\UploadLimit::fileName()), '', ['tab' => 'health']);
     }
@@ -878,7 +878,7 @@ class Settings extends Module
         if ($this->request->isPost() && $path !== null && !Backup::refusedInDemo()) {
             unlink($path);
             // 3.19.1 (N82): which backup went, and who deleted it – also the safety backup made before a restore
-            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup deleted', basename($path));
+            \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'backup deleted', basename($path));
             \Kaleta\Core\Events::record($this->db, 'backup.deleted', 'info', t('Backup %s was deleted.', basename($path)), ['file' => basename($path), 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)]);
         }
 
@@ -999,7 +999,7 @@ class Settings extends Module
         if ($this->request->isPost()) {
             $on = $this->request->postBool('fleet_kit');
             $this->app->settings()->set('fleet_kit', $on ? '1' : '0');
-            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'fleet_kit', $on ? 'on' : 'off');
+            \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'fleet_kit', $on ? 'on' : 'off');
         }
 
         return $this->back('The choice about the shared kit is saved.', '', ['tab' => 'console']);
@@ -1011,7 +1011,7 @@ class Settings extends Module
         if ($this->request->isPost()) {
             $on = $this->request->postBool('fleet_request_titles');
             $this->app->settings()->set('fleet_request_titles', $on ? '1' : '0');
-            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'fleet_request_titles', $on ? 'on' : 'off');
+            \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'fleet_request_titles', $on ? 'on' : 'off');
         }
 
         return $this->back('The choice about request titles is saved.', '', ['tab' => 'console']);
@@ -1117,11 +1117,11 @@ class Settings extends Module
                     // the revert failed – the administrator runs it manually from the backup $safetyBackup
                 }
             }
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
 
             return $this->back(t('The restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
         }
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
         // 3.19.1 (N82): the restore replaced the change log and the events with the backup's copies – the record of the
         // restore itself is written now, into the restored database, so it is not lost with the rest
         $file = (string) basename((string) Backup::path($file));
@@ -1135,7 +1135,7 @@ class Settings extends Module
                 // the restore stands; the Backups tab asks for the key again
             }
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'backup restored', $file . ' (safety backup: ' . $safetyBackup . ')');
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'backup restored', $file . ' (safety backup: ' . $safetyBackup . ')');
         \Kaleta\Core\Events::record($this->db, 'backup.restored', 'warning', t('The database was restored from backup %s; the state before the restore is in backup %s.', $file, $safetyBackup),
             ['file' => $file, 'safety_backup' => $safetyBackup, 'statements' => $statementCount, 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)]);
 
@@ -1180,7 +1180,7 @@ class Settings extends Module
             return $this->back('', '', ['tab' => 'backups']);
         }
         (new Updater($this->app->settings()))->forgetSeen();
-        \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'forget update information');
+        \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'forget update information');
 
         return $this->back(t('The update history was reset; the next check accepts any update information signed by the publisher.'), '', ['tab' => 'backups']);
     }
@@ -1437,7 +1437,7 @@ class Settings extends Module
         if ($this->request->isPost()) {
             $this->app->settings()->set('webhook_secret', '', true); // a person asks for a new one (3.39 review M1)
             \Kaleta\Core\Webhook::secret($this->app->settings());
-            \Kaleta\Admin\ChangeLog::write($this->app, 'settings', 'new webhook secret');
+            \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'new webhook secret');
         }
 
         return $this->back('A new secret has been created. Paste it into every receiver that checks the signature.', '', ['tab' => 'webhooks']);

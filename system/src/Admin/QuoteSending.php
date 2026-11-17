@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Admin;
 
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\QuoteDelivery;
 use Kaleta\Core\Quotes;
 use Kaleta\Core\Response;

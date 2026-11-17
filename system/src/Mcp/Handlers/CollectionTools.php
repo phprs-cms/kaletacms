@@ -163,7 +163,7 @@ trait CollectionTools
             $changes['schema_org'] = self::collectionSchema($a['schema_org'], json_decode($changes['pole'] ?? '', true) ?: $collection['pole']);
         }
         $db->update('kolekce', $changes, ['idk' => $collection['idk']]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
         $newVersion = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$collection['idk']]);
 
         return ['kolekce' => $newVersion['seo_link'], 'nazev' => $newVersion['nazev'], 'detail' => (bool) $newVersion['detail'], 'admin_menu' => (bool) $newVersion['admin_menu'], 'icon' => self::collectionIconOut($newVersion['icon'] ?? null), 'presmerovat_skryte' => (string) $newVersion['hidden_redirect'], 'pole' => json_decode((string) $newVersion['pole'], true) ?: []];
@@ -188,7 +188,7 @@ trait CollectionTools
         $notices = Notices::count($db, $k); // an official notice board keeps its notices for good (2.11)
         $need($notices === 0, sprintf(Notices::REFUSAL_COLLECTION, $notices));
         \Kaleta\Builder\Collections::delete($db, (int) $k['idk']); // items, categories and templates go with it, step by step (3.12)
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['deleted' => $k['seo_link']];
     }
@@ -380,7 +380,7 @@ trait CollectionTools
         $shown = (int) ($row['zobrazit'] ?? $previous['zobrazit'] ?? 0) === 1 && (int) ($previous['zobrazit'] ?? 0) === 0
             ? CollectionCategories::showForItems($db, [$idp], $this->app) : ['shown' => [], 'waiting' => []];
         Notices::recordSave($this->app, $collection, $previous, $row, $idp); // the audit trail of a notice board (2.11)
-        \Kaleta\Front\Cache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
+        \Kaleta\Core\PageCache::clear(); // item pages, lists, the sitemap and llms.txt show the change at once (as after a save in the admin)
 
         // a key the collection does not have (a typo, „nazev“ in data instead of the parameter) would otherwise be silently dropped
         $unknownKeys = array_values(array_diff(array_keys(is_array($a['data'] ?? null) ? $a['data'] : []), array_column($collection['pole'], 'klic')));
@@ -517,7 +517,7 @@ trait CollectionTools
         \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
         $db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $id]);
         Notices::recordSave($this->app, $k, $item, $version, $id);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['restored' => $id, 'name' => $version['nazev'] ?? $item['nazev']] + ($kept !== null ? ['note' => $kept] : []);
     }
@@ -671,7 +671,7 @@ trait CollectionTools
         $id = Language::runWith('en', fn (): int => CollectionCategories::save($db, (int) $k['idk'], $id, $language, $input), 'admin-');
         // texts from a drafts-only connection wait for a person (N312-3): never shown with an item, only by a person
         CollectionCategories::markReview($this->app->settings(), $id, $draftsOnly || !$auth->canPublish());
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
         $saved = CollectionCategories::bySlug($db, (int) $k['idk'], (string) (CollectionCategories::byId($db, $id)['texts'][$language]['slug'] ?? ''), $language);
         $path = $saved !== null ? CollectionCategories::path((string) $k['seo_link'], $saved) : '';
 
@@ -701,7 +701,7 @@ trait CollectionTools
                 CollectionCategories::delete($db, (int) $k['idk'], $id);
             }
         }, 'admin-');
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['deleted' => $id] + ($language !== null && $language !== '' ? ['language' => $language] : []) + ['note' => 'The items of the category stay in the collection.'];
     }

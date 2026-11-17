@@ -351,7 +351,7 @@ final class Bookings extends Module
         $id = $this->db->insert('stranky', ['titulek' => $title, 'seo_link' => $slug, 'text' => '', 'zobrazit' => 0, 'show_on_publish' => 1, 'v_menu' => 1,
             'stavba_koncept' => \Kaleta\Builder\Build::toJson($build), 'zmeneno' => date('Y-m-d H:i:s')]);
         \Kaleta\Core\Menu::setPage($this->db, $id, '', true);
-        \Kaleta\Admin\ChangeLog::write($this->app, 'bookings', 'booking page created', $title);
+        \Kaleta\Core\ChangeLog::write($this->app, 'bookings', 'booking page created', $title);
 
         return Response::redirect($this->app->url('admin.php?module=pages&action=builder&id=' . $id));
     }
@@ -371,7 +371,7 @@ final class Bookings extends Module
             foreach (['booking_pending_thanks' => 'pending_thanks', 'booking_pending_mail' => 'pending_mail', 'booking_declined_mail' => 'declined_mail'] as $key => $field) {
                 $s->set($key, Booking::settingValue($key, $this->request->post($field)) ?? '');
             }
-            \Kaleta\Admin\ChangeLog::write($this->app, 'bookings', 'settings', '');
+            \Kaleta\Core\ChangeLog::write($this->app, 'bookings', 'settings', '');
         }
 
         return $this->back('Booking settings saved.');

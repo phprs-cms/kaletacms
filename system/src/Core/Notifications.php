@@ -139,7 +139,7 @@ final class Notifications
         $items = $db->run('UPDATE {kolekce_polozky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount();
         \Kaleta\Builder\CollectionCategories::showForItems($db, $due); // 3.12: their hidden categories too (logged as Kaleta's own change)
         if ($db->run('UPDATE {stranky} SET zobrazit = 1, zverejnit_od = NULL WHERE zverejnit_od IS NOT NULL AND zverejnit_od <= ? AND smazano IS NULL', [$now])->rowCount() + $items > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
             MediaStaging::promotePublished($db); // 3.15: the files waiting for approval they use go public with them
         }
         $newsItems = $db->all('SELECT idc, seo_link, jazyk, noindex FROM {novinky} WHERE visible = 1 AND datum <= ? AND oznameno IS NULL ORDER BY datum LIMIT 5', [$now]);
@@ -148,7 +148,7 @@ final class Notifications
             if ($db->run('UPDATE {novinky} SET oznameno = ? WHERE idc = ? AND oznameno IS NULL', [Clock::now(), $c['idc']])->rowCount() === 0) {
                 continue;
             }
-            \Kaleta\Front\Cache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
+            \Kaleta\Core\PageCache::clear(); // a scheduled news item has just gone out - the cached listing does not know it yet
             SocialDrafts::prepare($app, (int) $c['idc']); // post drafts for the chosen networks (2.13) – a person posts them
             if ($c['noindex'] || (int) $db->value('SELECT datum < ? FROM {novinky} WHERE idc = ?', [Clock::at('-2 days'), $c['idc']]) === 1) {
                 continue;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Fleet;
 
-use Kaleta\Admin\ChangeLog;
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\App;
 use Kaleta\Core\Events;
 use Kaleta\Core\Settings;

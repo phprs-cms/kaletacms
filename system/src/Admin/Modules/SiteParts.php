@@ -70,7 +70,7 @@ final class SiteParts extends Module
         if ($row !== null) {
             Publisher::version($this->app, ['cast' => CastiWebu::versionKey($type, $language, $variant)], $row['stavba'], null, $row['zmeneno']);
             $this->db->delete('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $this->back($variant !== '' ? 'The variant was deleted – the selected pages have the default version again.' : 'The site part is back to its default design. The previous design is in the history when you open it in the builder again.');
@@ -138,7 +138,7 @@ final class SiteParts extends Module
         $rules = ['novinky' => $this->request->post('novinky') === '1', 'vypis' => $this->request->post('vypis') === '1', 'kolekce' => $this->request->postList('kolekce'),
             'nadrazene' => array_map('intval', $this->request->postList('nadrazene'))];
         $variant = CastiWebu::saveVariant($this->db, $type, $language, $this->request->post('varianta'), $name, array_map('intval', $this->request->postList('stranky')), $this->contentLanguage($language), $rules);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return \Kaleta\Core\Response::redirect($this->url('builder', ['type' => $type, 'language' => $language, 'variant' => $variant]));
     }

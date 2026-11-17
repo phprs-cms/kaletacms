@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 use Kaleta\Builder\Build;
 
 /**
@@ -650,7 +649,7 @@ final class Facts
         }
         ChangeLog::write($app, 'facts', $existing === null ? 'create' : 'update', $key . ($language !== '' ? ' (' . $language . ')' : ''));
         self::$cache = [];
-        \Kaleta\Front\Cache::clear(); // cached pages show the new value right away
+        \Kaleta\Core\PageCache::clear(); // cached pages show the new value right away
 
         return null;
     }
@@ -661,7 +660,7 @@ final class Facts
         if ($deleted) {
             ChangeLog::write($app, 'facts', 'delete', $key);
             self::$cache = [];
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $deleted;

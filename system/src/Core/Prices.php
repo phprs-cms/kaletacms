@@ -145,7 +145,7 @@ final class Prices
         if ($id === null || $id <= 0) {
             $default = $db->value('SELECT 1 FROM {price_lists} WHERE is_default = 1 AND archived_at IS NULL') === null;
             $id = $db->insert('price_lists', ['name' => $name, 'currency' => $currency, 'is_default' => $default ? 1 : 0, 'note' => $note, 'archived_at' => null, 'created_at' => $now, 'updated_at' => $now]);
-            \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price list', t('Price list created: %s', $name));
+            \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price list', t('Price list created: %s', $name));
 
             return $id;
         }
@@ -154,7 +154,7 @@ final class Prices
             throw new \DomainException(t('The currency of a price list with prices or quotes cannot change – create a new list for %s.', $currency));
         }
         $db->update('price_lists', ['name' => $name, 'currency' => $currency, 'note' => $note, 'updated_at' => $now], ['id' => $id]);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price list', t('Price list changed: %s', $name));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price list', t('Price list changed: %s', $name));
 
         return $id;
     }
@@ -173,7 +173,7 @@ final class Prices
             throw new \DomainException(t('The default price list cannot be archived – make another list the default first.'));
         }
         $db->update('price_lists', ['archived_at' => $archive ? Clock::now() : null, 'updated_at' => Clock::now()], ['id' => $id]);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price list', ($archive ? t('Price list archived: %s', $list['name']) : t('Price list restored: %s', $list['name'])));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price list', ($archive ? t('Price list archived: %s', $list['name']) : t('Price list restored: %s', $list['name'])));
     }
 
     /** Makes a list that is not archived the default one. @throws \DomainException */
@@ -185,7 +185,7 @@ final class Prices
             throw new \DomainException(t('An archived price list cannot be the default.'));
         }
         $db->run('UPDATE {price_lists} SET is_default = (id = ?)', [$id]);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price list', t('Default price list: %s', $list['name']));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price list', t('Default price list: %s', $list['name']));
     }
 
     /**
@@ -320,7 +320,7 @@ final class Prices
         $app->settings()->set(self::MAPPING_SETTING, $clean === [] ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
         self::$codeMemo = null;
         self::$mappingMemo = null;
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'settings', t('Collections in the price list: %d', count($clean)));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'settings', t('Collections in the price list: %d', count($clean)));
 
         return $clean;
     }
@@ -651,7 +651,7 @@ final class Prices
             }
             $db->delete('prices', ['id' => (int) $existing['id']]);
             if ($log) {
-                \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price', t('Internal price removed: %s', $what));
+                \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price', t('Internal price removed: %s', $what));
             }
 
             return ['action' => 'removed', 'before' => $before, 'after' => null];
@@ -676,7 +676,7 @@ final class Prices
             $action = 'created';
         }
         if ($log) {
-            \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price', t('Internal price changed: %s', $what));
+            \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price', t('Internal price changed: %s', $what));
         }
         $after = $db->one('SELECT p.*, l.currency FROM {prices} p JOIN {price_lists} l ON l.id = p.price_list_id WHERE p.id = ?', [$id]);
 
@@ -848,7 +848,7 @@ final class Prices
         rewind($f);
         $csv = (string) stream_get_contents($f);
         fclose($f);
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price export', t('Internal prices exported: %s', $list['name']));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price export', t('Internal prices exported: %s', $list['name']));
 
         return $csv;
     }
@@ -986,7 +986,7 @@ final class Prices
                 $result[$done['action'] === 'removed' ? 'removed' : 'saved'] += in_array($done['action'], ['created', 'changed', 'removed'], true) ? 1 : 0;
             }
         });
-        \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'price import', t('Internal prices imported into %1$s: %2$d saved, %3$d removed, %4$d skipped', $list['name'], $result['saved'], $result['removed'], $result['skipped']));
+        \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'price import', t('Internal prices imported into %1$s: %2$d saved, %3$d removed, %4$d skipped', $list['name'], $result['saved'], $result['removed'], $result['skipped']));
 
         return $result;
     }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 
 /**
  * Job applications apart from enquiries (3.34, the feature "applications", table ka_applications, admin

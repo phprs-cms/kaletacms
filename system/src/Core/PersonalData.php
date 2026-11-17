@@ -192,7 +192,7 @@ final class PersonalData
     {
         $found = self::find($app->db(), $email, $app);
         unset($found['account']['idu']);
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
+        \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'personal_data_export', self::mask($email));
 
         return (string) json_encode(['site' => $app->settings()->get('site_name'), 'email' => $email, 'exported_at' => date('c')] + $found,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -239,7 +239,7 @@ final class PersonalData
             $erased['applications_held'] = count($heldApplications); // N7: additive – not erased, their files cannot be located
         }
         $kept = array_values(array_filter(array_map('intval', array_column($found['testimonials'], 'item_id'))));
-        \Kaleta\Admin\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
+        \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
 
         return ['erased' => $erased, 'kept_testimonials' => $kept];

@@ -249,12 +249,12 @@ final class Calendar
                     $data[$fields['end']] = $next[1];
                 }
                 $db->update('kolekce_polozky', ['data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE)], ['idp' => (int) $r['idp']]);
-                \Kaleta\Admin\ChangeLog::write($app, 'collections', 'event_next', $r['nazev'] . ': ' . $next[0]);
+                \Kaleta\Core\ChangeLog::write($app, 'collections', 'event_next', $r['nazev'] . ': ' . $next[0]);
                 $moved++;
             }
         }
         if ($moved > 0) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return 'moved ' . $moved;

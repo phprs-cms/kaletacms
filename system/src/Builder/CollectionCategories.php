@@ -155,9 +155,9 @@ final class CollectionCategories
         $shown = array_map(fn (array $r): string => (string) $r['name'], $hidden);
         $description = mb_substr(implode(', ', $shown), 0, 255);
         if ($app !== null) {
-            \Kaleta\Admin\ChangeLog::write($app, 'collections', 'category_shown', $description);
+            \Kaleta\Core\ChangeLog::write($app, 'collections', 'category_shown', $description);
         } else {
-            \Kaleta\Admin\ChangeLog::system($db, 'collections', 'category_shown', $description);
+            \Kaleta\Core\ChangeLog::system($db, 'collections', 'category_shown', $description);
         }
 
         return ['shown' => $shown, 'waiting' => $waitingNames];

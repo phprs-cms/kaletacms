@@ -25,7 +25,7 @@ namespace Kaleta\Core;
  *    (Core\Scheduler) – unless it fails: then the others run anyway and System status warns.
  *  - A value that would leave the DATETIME range stays as it is and is counted; a table that fails is skipped with its
  *    error on the progress row (both in the change log and on System status).
- *  - The start and the end are in the change log (Admin\ChangeLog).
+ *  - The start and the end are in the change log (Core\ChangeLog).
  *  - JSON is not walked: what stores moments inside JSON writes them as ISO 8601 with the offset (the archived monthly
  *    reports, Core\MonthlyReport::build since 3.16), which needs no conversion – the reader turns them into the new zone.
  */
@@ -380,7 +380,7 @@ final class TimeZoneConversion
      */
     public static function logFinished(App $app, array $state): void
     {
-        \Kaleta\Admin\ChangeLog::write($app, 'settings', 'time_zone_converted', $state['from'] . ' → ' . $state['to'] . ': ' . $state['values'] . ' values in ' . $state['tables'] . ' tables'
+        \Kaleta\Core\ChangeLog::write($app, 'settings', 'time_zone_converted', $state['from'] . ' → ' . $state['to'] . ': ' . $state['values'] . ' values in ' . $state['tables'] . ' tables'
             . ($state['ambiguous'] > 0 ? ', ' . $state['ambiguous'] . ' in the repeated hour of a daylight-saving change' : '')
             . ($state['out_of_range'] > 0 ? ', ' . $state['out_of_range'] . ' left as they were (outside the years 1000–9999 after the move)' : '')
             . ($state['failed'] !== [] ? ', not converted: ' . implode(', ', $state['failed']) : ''));

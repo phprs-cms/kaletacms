@@ -112,7 +112,7 @@ trait NewsTools
         $item = $db->one('SELECT idc, visible, autor FROM {novinky} WHERE idc = ? AND smazano IS NULL', [$id]) ?? throw new \InvalidArgumentException('The news item does not exist. Use list_news.');
         $need($auth->canPublish() || (!$item['visible'] && (int) $item['autor'] === $auth->id()), 'A published news item or someone else’s can be deleted only with the publishing permission.');
         $db->run('UPDATE {novinky} SET smazano = ?, visible = 0 WHERE idc = ?', [\Kaleta\Core\Clock::now(), $id]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return ['trashed' => $id, 'restore' => 'restore_from_trash with type news within 30 days'];
     }
@@ -149,7 +149,7 @@ trait NewsTools
         if ($error !== null) {
             throw new \DomainException($error);
         }
-        \Kaleta\Admin\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
+        \Kaleta\Core\ChangeLog::write($this->app, 'news', 'social draft', $draft['network'] . ' #' . $draft['idc']);
 
         return ['draft' => array_diff_key((array) SocialDrafts::find($db, $draft['id']), ['idc' => 1]), 'x_length' => $draft['network'] === 'x' ? SocialDrafts::xLength((string) ($a['text'] ?? '')) : null];
     }
@@ -217,7 +217,7 @@ trait NewsTools
                 \Kaleta\Admin\Modules\Redirects::add($db, \Kaleta\Core\Slug::redirectPath($db, 'novinky/kategorie/' . $c['seo_link'], (string) $c['jazyk']),
                     \Kaleta\Core\Slug::redirectPath($db, 'novinky/kategorie/' . $changes['seo_link'], (string) $c['jazyk']));
             }
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         $c = (array) $db->one('SELECT * FROM {kategorie} WHERE idt = ?', [$id]);
 

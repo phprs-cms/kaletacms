@@ -134,7 +134,7 @@ trait MediaTools
                 'autor' => isset($a['author']) ? mb_substr(trim((string) $a['author']), 0, 120) : null], fn (?string $v): bool => $v !== null);
             if ($changes !== []) {
                 $db->update('media', $changes, ['ido' => $id]);
-                \Kaleta\Front\Cache::clear();
+                \Kaleta\Core\PageCache::clear();
             }
 
             return ['id' => $id, 'path' => $file['obr_poloha'], 'changed' => array_keys($changes)];

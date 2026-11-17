@@ -115,7 +115,7 @@ final class Connectors
         } else {
             $db->update('connectors', $row, ['service' => $key]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
+        \Kaleta\Core\ChangeLog::write($app, 'connectors', 'save', $key);
     }
 
     /**
@@ -133,7 +133,7 @@ final class Connectors
         } else {
             $db->update('connectors', ['config' => (string) json_encode($merged, JSON_UNESCAPED_UNICODE)], ['service' => $key]);
         }
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'save', $key);
+        \Kaleta\Core\ChangeLog::write($app, 'connectors', 'save', $key);
     }
 
     private static function who(App $app): string
@@ -252,7 +252,7 @@ final class Connectors
         $app->db()->update('connectors', ['access_token' => null, 'refresh_token' => null, 'expires_at' => null, 'connected_at' => null, 'last_error' => '']
             + ($class::AUTH !== 'oauth' ? ['secret' => null] : []), ['service' => $key]);
         $class::disconnected($app);
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'disconnect', $key);
+        \Kaleta\Core\ChangeLog::write($app, 'connectors', 'disconnect', $key);
     }
 
     /* ---------- calls ---------- */

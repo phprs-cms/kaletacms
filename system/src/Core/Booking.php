@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\ChangeLog;
 use Kaleta\Front\Company;
 
 /**
@@ -246,7 +245,7 @@ final class Booking
             self::link($db, 'service_id', $id, 'staff_id', array_map('intval', $data['staff']), array_column(self::staff($db, false), 'id'));
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'service_create' : 'service_update', $name);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return self::service($db, $id) ?? [];
     }
@@ -325,7 +324,7 @@ final class Booking
             }
         }
         ChangeLog::write($app, 'bookings', $existing === null ? 'staff_create' : 'staff_update', $name);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return self::member($db, $id) ?? [];
     }
@@ -411,7 +410,7 @@ final class Booking
         }
         $app->db()->insert('booking_off', ['staff_id' => $staffId > 0 ? $staffId : null, 'off_from' => $range[0], 'off_to' => $range[1], 'note' => mb_substr(trim(strip_tags($note)), 0, 150)]);
         ChangeLog::write($app, 'bookings', 'off_create', ($staffId > 0 ? '#' . $staffId . ' ' : '') . $range[0] . ' – ' . $range[1]);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return null;
     }
@@ -421,7 +420,7 @@ final class Booking
         $deleted = $app->db()->delete('booking_off', ['id' => $id]) > 0;
         if ($deleted) {
             ChangeLog::write($app, 'bookings', 'off_delete', '#' . $id);
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         return $deleted;
@@ -452,7 +451,7 @@ final class Booking
         }
         $db->delete('booking_services', ['id' => $id]);
         ChangeLog::write($app, 'bookings', 'service_delete', '#' . $id);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return null;
     }
@@ -469,7 +468,7 @@ final class Booking
         }
         $db->delete('booking_staff', ['id' => $id]);
         ChangeLog::write($app, 'bookings', 'staff_delete', '#' . $id);
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
 
         return null;
     }

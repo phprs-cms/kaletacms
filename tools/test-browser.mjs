@@ -5926,7 +5926,7 @@ await step('3.44 A: the enquiry basket on a collection in the price list – Add
     if ($list === 0) { $list = Kaleta\\Core\\Prices::saveList($app, null, "Default A344", "CZK"); }
     $item = (int) $db->value("SELECT idp FROM {kolekce_polozky} WHERE seo_link = 'pump-a344'");
     Kaleta\\Core\\Prices::save($app, $list, ["item_id" => $item, "variant_code" => "PU-A344-B", "unit_price" => "76543.21"], 0, false);
-    Kaleta\\Front\\Cache::clear(); echo $idk;`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim();
+    Kaleta\\Core\\PageCache::clear(); echo $idk;`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim();
   const idk = Number(setup) || 0;
   try {
     for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {

@@ -4,6 +4,14 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.45 – (in progress)
+
+1. **Core no longer depends on Admin and Front for the change log and the page cache** (audit Q7 step 1).
+   `Admin\ChangeLog` is now `Core\ChangeLog` and `Front\Cache` is `Core\PageCache`, with no change in behaviour. The
+   frozen list of layer exceptions (`3100-…`) drops from 98 files and 245 references to 74 and 188, and the test caps
+   both numbers. An update removes the old class files: the package brings them as "legacy" only for the request that
+   installs it.
+
 ## 3.44 – quote from basket to sending (17 November 2026)
 
 No migration; `KALETA_DB_VERSION` stays 132.

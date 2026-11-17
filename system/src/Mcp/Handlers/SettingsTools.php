@@ -144,7 +144,7 @@ trait SettingsTools
             $stored[$key] = $clean;
         }
         if ($stored !== []) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         \Kaleta\Core\ClaudeInstructions::changed($this->app, $instructionsBefore, $siteSettings->get('claude_instructions'));
         if (isset($stored['company_hours'])) {
@@ -210,7 +210,7 @@ trait SettingsTools
                 $db->run('UPDATE {presmerovani} SET typ = ? WHERE z_adresy = ?', [(int) ($a['typ'] ?? 301) === 302 ? 302 : 301, $z]);
                 $db->delete('nenalezeno', ['cesta' => $z]);
             }
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
 
         // every missing address carries the page the visitor most likely meant (2.14, Core\RedirectMatcher)
@@ -249,7 +249,7 @@ trait SettingsTools
         $dryRun = !empty($a['dry_run']);
         $results = $dryRun ? \Kaleta\Core\RedirectRules::plan($this->app->db(), $input) : \Kaleta\Core\RedirectRules::save($this->app->db(), $input);
         if (!$dryRun) {
-            \Kaleta\Front\Cache::clear();
+            \Kaleta\Core\PageCache::clear();
         }
         $counts = array_count_values(array_column($results, 'status')) + ['added' => 0, 'changed' => 0, 'unchanged' => 0, 'refused' => 0];
 

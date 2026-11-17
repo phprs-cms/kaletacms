@@ -116,7 +116,7 @@ trait ContactTools
             throw new \DomainException($e->getMessage() . ' Nothing was saved.');
         }
         $contact = Contacts::find($db, $id) ?? throw new \DomainException('The contact does not exist.');
-        \Kaleta\Admin\ChangeLog::write($this->app, Contacts::SECTION, $created ? 'create' : 'save', '#' . $id);
+        \Kaleta\Core\ChangeLog::write($this->app, Contacts::SECTION, $created ? 'create' : 'save', '#' . $id);
         $company = $contact['company_id'] !== null ? Contacts::findCompany($db, $contact['company_id']) : null;
 
         return ['id' => $id, ($created ? 'created' : 'updated') => true, 'contact' => $this->contactOut($contact)]

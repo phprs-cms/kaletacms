@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kaleta\Mcp;
 
-use Kaleta\Admin\ChangeLog;
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\App;
 use Kaleta\Core\Response;
 use Kaleta\Core\Extensions;
@@ -271,7 +271,7 @@ final class Server
                     ChangeLog::describe($this->app, $logged, max(1, $tools->recordsCreated) . ' rows'); // what the step created (N37-26)
                 }
                 if (!Catalog::isSiteNeutral($tool)) {
-                    \Kaleta\Front\Cache::clear(); // 3.24 (T1): an enquiry, a note or a request never empties the page cache
+                    \Kaleta\Core\PageCache::clear(); // 3.24 (T1): an enquiry, a note or a request never empties the page cache
                 }
                 if (!$this->app->auth()->draftsOnly()) {
                     \Kaleta\Core\MediaStaging::promotePublished($db); // 3.15: files waiting for approval that published content now uses

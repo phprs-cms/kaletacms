@@ -30,7 +30,7 @@ final class Publisher
         $app->db()->run('UPDATE {stranky} SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1 AND smazano IS NULL AND (zverejnit_od IS NULL OR zverejnit_od <= ?)', [$page['ids'], $now]);
         $app->db()->run('UPDATE {stranky} SET show_on_publish = 0 WHERE ids = ? AND show_on_publish = 1 AND zverejnit_od > ?', [$page['ids'], $now]);
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 
     public static function part(App $app, array $row): void
@@ -40,7 +40,7 @@ final class Publisher
         self::version($app, ['cast' => SiteParts::versionKey($row['typ'], $row['jazyk'], $variant)], $row['stavba'], $new, $row['zmeneno'] ?? null);
         $app->db()->update('casti', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['typ' => $row['typ'], 'jazyk' => $row['jazyk'], 'varianta' => $variant]);
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 
     /**
@@ -53,7 +53,7 @@ final class Publisher
         self::version($app, ['cast' => Collections::templateKey($collection)], $collection['stavba'], $new, $collection['zmeneno'] ?? null);
         Collections::writeTemplate($app->db(), $collection, ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 
     /** Popup (versions under the key „popup:<idpp>“). */
@@ -63,7 +63,7 @@ final class Publisher
         self::version($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $new, $popup['zmeneno'] ?? null);
         $app->db()->update('popupy', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 
     /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
@@ -73,7 +73,7 @@ final class Publisher
         self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
-        \Kaleta\Front\Cache::clear();
+        \Kaleta\Core\PageCache::clear();
     }
 
     /** Saves the previous published version to the history. @param array{ids?: int|string, cast?: string} $target */

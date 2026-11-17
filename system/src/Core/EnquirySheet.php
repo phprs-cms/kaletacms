@@ -61,7 +61,7 @@ final class EnquirySheet
             return $answer['error'] !== '' ? $answer['error'] : t('Google did not return the sheet.');
         }
         Connectors::updateConfig($app->db(), Google::KEY, ['sheet_id' => $id]);
-        \Kaleta\Admin\ChangeLog::write($app, 'connectors', 'sheet', Google::KEY);
+        \Kaleta\Core\ChangeLog::write($app, 'connectors', 'sheet', Google::KEY);
 
         return '';
     }
