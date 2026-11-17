@@ -1,4 +1,8 @@
 echo "== instalace"
+# config_mode: the permissions of config.php (3.19.1, N83 – also 1400-…)
+config_mode() { php -r 'clearstatcache(); printf("%o", fileperms($argv[1]) & 0777);' -- "$WORK/web/config.php"; }
+# 3.45 (step 7): a partial run restored the installed site in 0020 – the helpers above are defined (1400-… uses config_mode), the install is not repeated
+if [ "${SMOKE_RESTORE:-0}" = 1 ]; then mail_sink_default; echo "  --     install skipped in a partial run (the snapshot of a previous run)"; return 0; fi
 # 3.13: the installer in Spanish – chosen by ?language=es and found in the browser's language, with no English left
 curl -s -o "$WORK/response" "$B/install.php?language=es"
 grep -q '<html lang="es">' "$WORK/response" && grep -q 'Base de datos' "$WORK/response" && grep -q '>Español</a>' "$WORK/response" \
@@ -25,7 +29,6 @@ mail_sink_default
 grep -qE '/tasks\?token=[a-f0-9]{32}' "$WORK/response" && echo "  ok     2.8: the installer shows the cron line with its own address (3.7: the English /tasks)" || { echo "  CHYBA  instalátor neukázal řádek pro cron"; ERRORS=$((ERRORS+1)); }
 [ ! -f "$WORK/web/install.php" ] && echo "  ok     instalátor se po sobě smazal" || { echo "  CHYBA  install.php po instalaci zůstal na místě"; ERRORS=$((ERRORS+1)); }
 # 3.19.1 (N83): config.php holds the database password and the encryption key – readable only by the site (PHP owns the folder here)
-config_mode() { php -r 'clearstatcache(); printf("%o", fileperms($argv[1]) & 0777);' -- "$WORK/web/config.php"; }
 expect "3.19.1 (N83): the installer wrote config.php with mode 600" "$(config_mode)" "600"
 # T1 (Q1): a PHP deprecation on a live site is logged once a day and the page goes on – a host's PHP upgrade is no HTTP 500.
 # The test copy then defines KALETA_STRICT_DEPRECATIONS, so any deprecation from here on fails the run as before.
@@ -48,4 +51,5 @@ expect "T1 (Q13): the error log line has the request, the version and a trace, a
   "$T1_CODE|$(printf '%s' "$T1_ROW" | grep -c 'RuntimeException: T1 probe for \[e-mail\] in t1-probe.php:1 · GET /t1-probe.php · Kaleta [0-9.]* · trace: #0 t1-probe.php:1 ')|$(printf '%s' "$T1_ROW" | grep -c "probe@example\|$T1_TOKEN" || true)" "500|1|0"
 rm -f "$WORK/web/t1-probe.php"
 php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 probe"))));' -- "$WORK/web/storage/log/chyby.log"
-
+# 3.45 (step 7): the installed site for the next partial run (ONLY= / FROM=, tools/test.sh)
+smoke_snapshot_save

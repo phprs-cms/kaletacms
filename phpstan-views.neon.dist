@@ -1,0 +1,22 @@
+# Static analysis of the templates (3.45, Q11 T6): php phpstan.phar analyse -c phpstan-views.neon.dist – level 2 over
+# system/views, blocking in CI next to phpstan.neon.dist (level 6 over the code).
+parameters:
+    level: 2
+    phpVersion: 80300
+    paths:
+        - system/views
+    bootstrapFiles:
+        - system/bootstrap.php
+    scanFiles:
+        - tools/phpstan-dom.php
+    tmpDir: storage/cache/phpstan-views
+    ignoreErrors:
+        # a template gets its variables from Core\View::render() (extract), listed in its docblock – PHPStan cannot see them
+        - identifier: variable.undefined
+        - identifier: nullCoalesce.variable
+        - identifier: isset.variable
+        # $source is an Import\Remote while the phase is "stahovani" (fetching) – the only phase that reads its steps
+        -
+            identifier: staticMethod.notFound
+            message: '#Kaleta\\Import\\Source::steps\(\)#'
+            path: system/views/admin/transfer/source-progress.php

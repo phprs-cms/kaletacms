@@ -1,5 +1,6 @@
 echo "== jednotkové testy"
-php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1))
+# 3.45 (step 7): a partial run (ONLY= / FROM=) leaves them to php tools/unit-tests.php unless it selects this section
+if [ "${SMOKE_UNIT:-1}" = 1 ]; then php "$ROOT/tools/unit-tests.php" || ERRORS=$((ERRORS+1)); else echo "  --     skipped in a partial run (php tools/unit-tests.php runs them)"; fi
 
 # sq <query>: one value from the test database (defined early: the collection menu checks of 3.18.3 use it too)
 sq() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N -e "$1"; }

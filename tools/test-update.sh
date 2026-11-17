@@ -68,7 +68,7 @@ cat > "$WORK/balicek.php" <<'PHP'
 [, $root, $site, $channel, $port, $newVersion] = $argv;
 require $root . '/system/src/Core/Signature.php';
 require $root . '/system/src/Core/Integrity.php';
-$exclude = '#^(tools/|docs/|integrations/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitattributes$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
+$exclude = '#^(tools/|docs/|integrations/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitattributes$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-views\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
 $unhashed = '#^(media|storage)/|^install\.php$#';
 $pair = sodium_crypto_sign_keypair();
 $sk = sodium_crypto_sign_secretkey($pair);
@@ -235,7 +235,7 @@ if [ "${MAINTENANCE:-0}" = 1 ]; then
 fi
 cmp -s "$ROOT/system/src/helpers.php" "$WORK/web/system/src/helpers.php" && grep -qF "KALETA_VERSION = '$NEW_VERSION'" "$WORK/web/system/bootstrap.php" && echo "  ok     new core in place" || { echo "  CHYBA  the core is not the new one"; ERRORS=$((ERRORS+1)); }
 LAST_MIGRATION=$(ls "$ROOT"/system/sql/migrace/[0-9]*-*.sql "$ROOT"/system/sql/migrace/[0-9]*-*.php 2>/dev/null | sed 's/.*\/\([0-9]*\)-.*/\1/' | sort -n | tail -1 | sed 's/^0*//')
-LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$|install\.php$|media/|storage/|image/ukazka/)' \
+LEFTOVERS=$(comm -23 <(sort "$WORK/stare-soubory.txt") <(sort "$WORK/nove-soubory.txt") | grep -vE '^(tools/|docs/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|phpstan\.neon\.dist$|phpstan-views\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$|install\.php$|media/|storage/|image/ukazka/)' \
   | while read -r s; do [ -e "$WORK/web/$s" ] && echo "$s"; done || true)
 [ -z "$LEFTOVERS" ] && echo "  ok     files dropped since $FROM are gone" || { echo "  CHYBA  files of $FROM left behind:"; echo "$LEFTOVERS" | head -10; ERRORS=$((ERRORS+1)); }
 INTEGRITY=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $k = Kaleta\Core\Integrity::check(); echo $k["stav"], " ", $k["info"];')

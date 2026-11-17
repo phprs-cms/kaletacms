@@ -126,7 +126,7 @@ if (!isset(Kaleta\Core\Signature::keys($publicKeyFile)[$keyId])) {
 if ($options['package'] === '') {
     // --- package from the files tracked by git
     $files = array_filter(explode("\n", (string) shell_exec('cd ' . escapeshellarg($root) . ' && git ls-files')));
-    $exclude = ['tools/', 'docs/', 'integrations/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitattributes', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'compose.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
+    $exclude = ['tools/', 'docs/', 'integrations/', '.github/', '.claude/', 'CLAUDE.md', '.gitignore', '.gitattributes', '.gitleaks.toml', '.git-blame-ignore-revs', 'phpstan.neon.dist', 'phpstan-views.neon.dist', 'phpstan-baseline.neon', 'docker/', 'Dockerfile', 'compose.yaml', '.dockerignore']; // the root CLAUDE.md is for development; layout/CLAUDE.md (layout rules) belongs in the package
     @mkdir($root . '/dist');
     $zipFile = $root . "/dist/kaleta-{$version}.zip";
     @unlink($zipFile);

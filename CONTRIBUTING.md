@@ -33,6 +33,14 @@ tools/test-migrations.sh     # database upgrade from 1.0.0 (MySQL and MariaDB in
 php tools/contracts.php      # the MCP contract (tools/contracts/) may only grow
 ```
 
+To reproduce a failing smoke section quickly, run part of `tools/test.sh`: `ONLY=1520 tools/test.sh` (one section by number;
+`ONLY=0060,quote` takes several numbers or parts of names), `FROM=1520 tools/test.sh` (that section and all after it). A partial
+run continues from a snapshot of the installed site that the previous run on the same checkout, `DB_NAME` and `PORT` saved,
+so it skips the install, the syntax check and the unit tests. 0060 (sign-in) and the earlier sections that define a helper or
+a variable the selected ones use run too, only to prepare (their failures show as `(prep)`); what an earlier section left in
+the database is not tracked – then add that section to `ONLY=` or use `FROM=`. It is never a gate (its last line says
+"partial run"), but every `CHYBA` of a selected section fails it. Details at the top of `tools/test.sh`.
+
 CI also runs these; run the one your change touches:
 
 ```bash
@@ -67,12 +75,13 @@ two PHP versions side by side. A test that only passes on your machine turns `ma
   "now" in a unit test – use it for summer time and month ends instead of `time() - N * 86400`.
 - **Calendar days are dates, not 86 400 seconds.** `date('Y-m-d', strtotime('-70 days'))`, never `time() - 70 * 86400` (a summer-time
   change in between moves the date). A random value as a grep pattern needs `grep -F -e` (a base64url id may start with `-`).
-- **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+20`; run parallel suites with their own
+- **Your own ports and database names.** `tools/test.sh` uses `PORT` to `PORT+21`; run parallel suites with their own
   `PORT` and `DB_NAME` (for example `DB_NAME=mine_op PORT=9850 tools/test.sh`). Kill only the `php -S` you started.
 - **Never stop or restart MySQL** from a test or while suites run – other suites share it.
 - **No real-looking secrets.** Gitleaks scans the whole history: generate passwords and tokens at run time, or allow-list a
   made-up value in `.gitleaks.toml`.
-- **Run PHPStan before you push** if you can (`phpstan analyse -c phpstan.neon.dist`); CI runs it on every change.
+- **Run PHPStan before you push** if you can (`phpstan analyse -c phpstan.neon.dist` – level 6 – and `-c phpstan-views.neon.dist`
+  for the templates, level 2); CI blocks on both and reports the count at level 8 without failing.
 
 ## Code
 

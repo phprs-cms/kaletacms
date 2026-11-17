@@ -84,19 +84,40 @@ jobs:
         run: tools/test-update.sh
         env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, FROM: v1.0.0 }
   phpstan:
-    # static analysis (phpstan.neon.dist): level 5 against PHP 8.3, the oldest supported (3.7); the findings of 2.1.0 in phpstan-baseline.neon – new code adds none
+    # static analysis (phpstan.neon.dist): level 6 against PHP 8.3, the oldest supported (3.7); the findings of 2.1.0 in phpstan-baseline.neon – new code adds none.
+    # 3.45 (Q11, T6): the templates too (phpstan-views.neon.dist, level 2); the count at level 8 is reported by phpstan-level8 below, not blocking
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
-      - name: PHPStan
+      - name: Download PHPStan
         # T1 (Q12): the download is checked against the digest of the release asset (GitHub's sha256 of 2.1.30) – to update,
-        # change the version and the digest together (gh api repos/phpstan/phpstan/releases/tags/<version>, assets[].digest)
+        # change the version and the digest together here and in phpstan-level8 (gh api repos/phpstan/phpstan/releases/tags/<version>, assets[].digest)
         run: |
           curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
           echo "9b75057f287c127c257ae0cdfce36b82b5fe75f40114de9ed8f2e6a0b03e8100  /tmp/phpstan.phar" | sha256sum -c -
-          php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+      - name: PHPStan (level 6)
+        run: php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --no-progress
+      - name: PHPStan – templates (level 2)
+        run: php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan-views.neon.dist --no-progress
+  phpstan-level8:
+    # 3.45 (Q11, T6): how far the code is from level 8 – a number in the job summary, never a red build (the job always passes)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with: { php-version: '8.4', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none }
+      - name: PHPStan level 8 (report only)
+        run: |
+          curl -sSL -o /tmp/phpstan.phar https://github.com/phpstan/phpstan/releases/download/2.1.30/phpstan.phar
+          echo "9b75057f287c127c257ae0cdfce36b82b5fe75f40114de9ed8f2e6a0b03e8100  /tmp/phpstan.phar" | sha256sum -c -
+          php -d memory_limit=2G /tmp/phpstan.phar analyse -c phpstan.neon.dist --level=8 --no-progress --error-format=json > /tmp/level8.json || true
+          php -r '$r = json_decode((string) file_get_contents("/tmp/level8.json"), true); $by = [];
+            foreach ($r["files"] ?? [] as $f) { foreach ($f["messages"] as $m) { $by[$m["identifier"] ?? "other"] = ($by[$m["identifier"] ?? "other"] ?? 0) + 1; } }
+            arsort($by); $top = implode(", ", array_map(fn ($k, $v) => "$k $v", array_keys($by), $by));
+            echo "PHPStan level 8 (same rules as the level 6 gate): " . (is_array($r) ? ($r["totals"]["file_errors"] ?? "?") . " findings – " . implode(", ", array_slice(explode(", ", $top), 0, 8)) : "no result") . PHP_EOL;' | tee -a "$GITHUB_STEP_SUMMARY"
   guards:
     # T1 (Q12): cheap checks that need no database – every JavaScript file parses, and no migration number is duplicated or
     # merged below one the previous release shipped (tools/check-migrations.php compares with the newest v* tag)

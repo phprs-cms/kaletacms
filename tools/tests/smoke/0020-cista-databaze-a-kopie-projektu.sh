@@ -3,6 +3,8 @@ MYSQL=(mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --init-command="SET time_zon
 "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
 mkdir "$WORK/web" && (cd "$ROOT" && git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' s; do if [ -e "$s" ]; then printf '%s\0' "$s"; fi; done | tar --null -T - -cf - | tar -xf - -C "$WORK/web") # soubory smazané a ještě nezapsané do gitu se nekopírují
 mkdir -p "$WORK/web/media" "$WORK/web/storage/log" "$WORK/web/storage/cache"
+# 3.45 (step 7): a partial run (ONLY= / FROM=, tools/test.sh) continues from the installed site of the snapshot (bootstrap.sh)
+if [ "${SMOKE_RESTORE:-0}" = 1 ]; then smoke_snapshot_restore; echo "  ok     3.45: the installed site restored from $SMOKE_SNAPSHOT_DIR"; fi
 CAPTCHA_PORT=$((PORT + 9)) # a fake CAPTCHA provider (2.6): Core\Captcha asks it instead of hCaptcha, Google or Cloudflare
 FAKE_PORT=$((PORT + 15)) # the fake of every outside service a connector talks to (2.13, tools/fake-services.php)
 mkdir "$WORK/fake" # T1 (Q4): the fake services write their logs and flags here, not in the system temp folder
