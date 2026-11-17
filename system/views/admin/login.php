@@ -47,10 +47,10 @@ $canonicalAdmin ??= '';
 <input type="hidden" name="krok" value="kod">
 <?php if ($steps['code']): ?>
 <p><?= e(t('Enter the six-digit code from your authenticator app. No phone? Use one of your backup codes.')) ?></p>
-<div class="login-pole"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+<div class="login-pole"><label for="kod"><?= e(t('Verification code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="<?= Kaleta\Core\BackupCodes::INPUT_MAX ?>" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" required autofocus></div>
 <?php else: // 3.35: an account with a passkey and no app (or "passkey only") – the passkey below, or a backup code ?>
 <p><?= e(t('Your account signs in with a passkey. Confirm with it below – or, if you lost it, enter one of your backup codes.')) ?></p>
-<div class="login-pole"><label for="kod"><?= e(t('Backup code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="12" autocomplete="one-time-code" required></div>
+<div class="login-pole"><label for="kod"><?= e(t('Backup code:')) ?></label> <input class="textpole" type="text" id="kod" name="kod" size="20" maxlength="<?= Kaleta\Core\BackupCodes::INPUT_MAX ?>" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" required></div>
 <?php endif ?>
 <p><input class="tl" type="submit" value="<?= e(t('Verify code')) ?>"></p>
 <?php elseif ($code): ?>

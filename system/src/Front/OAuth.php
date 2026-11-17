@@ -463,7 +463,7 @@ final class OAuth
         // a refresh token used again after its rotation: whoever holds it is not the client that rotated it, or the client
         // lost track – either way the connection ends and the person connects the application again
         $revoked = $db->delete('api_tokeny', ['klient' => (string) $client['client_id'], 'idu' => (int) $record['idu']]);
-        $db->delete('oauth_rotated', ['client_id' => (string) $client['client_id'], 'idu' => (int) $record['idu']]);
+        self::forgetRotations($db, (int) $record['idu'], (string) $client['client_id']); // the rotation records and the codes not yet redeemed (3.43, N158)
         Events::record($db, 'security.token_reuse', 'warning', t('A replaced refresh token of the connected application “%s” was used again, so all its tokens were revoked. If it was you, connect the application again.', (string) $client['nazev']),
             ['client' => (string) $client['client_id'], 'idu' => (int) $record['idu'], 'revoked' => $revoked]);
 
@@ -565,11 +565,15 @@ final class OAuth
      * Called wherever the connection's tokens go (a disconnect, a revocation, a password change or reset, the account
      * deleted): with no token left there is nothing for reuse detection to protect – an old refresh token then simply gets
      * invalid_grant – and the record no longer counts as the connection's last call (Core\ClaudeConnection).
+     * 3.43 (N158): the authorization codes not yet redeemed go too – a code approved a minute before a password change or
+     * a disconnect must not bring the connection back for the ten minutes it lives.
      */
     public static function forgetRotations(Db $db, int $userId, ?string $client = null): void
     {
+        $where = $client === null ? ['idu' => $userId] : ['idu' => $userId, 'client_id' => $client];
+        $db->delete('oauth_kody', $where);
         try {
-            $client === null ? $db->delete('oauth_rotated', ['idu' => $userId]) : $db->delete('oauth_rotated', ['idu' => $userId, 'client_id' => $client]);
+            $db->delete('oauth_rotated', $where);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             // before the 3.3.4 migration there are no records

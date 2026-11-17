@@ -9,7 +9,8 @@ namespace Kaleta\Core;
  * a connection has (read, drafts, full). They hold for every tool call, so an agent working through a long list of
  * requests cannot run away with the site.
  *
- *  - At most claude_change_limit changes per connection in an hour (0 = no limit).
+ *  - At most claude_change_limit changes per connection in an hour (0 = no limit). 3.43 (N167): a connection is its name
+ *    AND the user – every user's "Claude" counts on its own, never against a colleague's.
  *  - claude_destructive = 0: no destructive tool at all (deleting, trashing, discarding drafts, restoring old versions) –
  *    the user does those in the admin. Since 3.3.2 also the deleting, overwriting or sending calls of write tools
  *    (DESTRUCTIVE_CALLS).
@@ -98,13 +99,16 @@ final class Guardrails
     /** Seconds a call waits for another call of the same connection to pass the limit check (3.7, N37-20). */
     private const int LOCK_SECONDS = 10;
 
-    /** The changes of a connection in the last hour: one per change-log row, a batch row counts its rows ("<n> rows"). */
+    /**
+     * The changes of a connection in the last hour: one per change-log row, a batch row counts its rows ("<n> rows").
+     * 3.43 (N167): the rows of this user only – the display name alone ("Claude") is shared by every user's connector.
+     */
     private static function changesInLastHour(App $app, string $connection): int
     {
         $batch = "'" . implode("','", [...array_keys(self::BATCH_ROWS), ...self::COUNTED_AFTER]) . "'";
 
         return (int) $app->db()->value("SELECT COALESCE(SUM(CASE WHEN akce IN ($batch) AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0)"
-            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND cas > ?", [$connection, Clock::at('-1 hour')]);
+            . " FROM {protokol} WHERE modul = 'claude' AND via = ? AND kdo <=> ? AND cas > ?", [$connection, $app->auth()->user() !== null ? $app->auth()->id() : null, Clock::at('-1 hour')]);
     }
 
     /**
@@ -164,7 +168,7 @@ final class Guardrails
         $db = $app->db();
         $limited = $app->settings()->int('claude_change_limit') > 0;
         // per database, table prefix and connection: two sites on one MySQL server and two connections never wait for each other
-        $lock = substr('kaleta-guard-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix . '|' . $connection), 0, 64);
+        $lock = substr('kaleta-guard-' . hash('sha256', (string) $db->value('SELECT DATABASE()') . '|' . $db->prefix . '|' . $connection . '|' . $app->auth()->id()), 0, 64);
         if ($limited && (int) $db->value('SELECT GET_LOCK(?, ?)', [$lock, self::LOCK_SECONDS]) !== 1) {
             return 'Another change of this connection is being checked against the hourly limit right now. Try again in a moment.';
         }

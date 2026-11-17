@@ -222,6 +222,10 @@ final class Auth
         $this->db->update('uzivatele', $errorCount >= self::MAX_ERRORS
             ? ['pocet_chyb' => 0, 'zamceno_do' => date('Y-m-d H:i:s', time() + 900)]
             : ['pocet_chyb' => $errorCount], ['idu' => $user['idu']]);
+        if ($errorCount >= self::MAX_ERRORS) {
+            // 3.43 (N160): a lock is a warning the owner hears about (Alerts::WARNINGS) – the user id only, never what was typed
+            Events::record($this->db, 'security.account_locked', 'warning', t('An account was locked for 15 minutes after %d wrong passwords, codes or passkeys in a row (user #%d).', self::MAX_ERRORS, (int) $user['idu']), ['user' => (int) $user['idu']]);
+        }
 
         return $errorCount >= self::MAX_ERRORS;
     }
@@ -413,6 +417,7 @@ final class Auth
             return t('Too many attempts. Try again in 15 minutes.');
         }
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
+        $this->failedAccount = (string) ($user['user'] ?? ''); // 3.43 (N160): read only after a failure, which the change log records
         if ($user !== null && $user['zamceno_do'] !== null && strtotime($user['zamceno_do']) > time()) {
             $this->session->remove('idu_ceka');
 
@@ -583,6 +588,7 @@ final class Auth
         // 3.35 review M1: a lock after wrong passwords or codes does not stop the passkey step – a valid passkey signs in and
         // clears the lock (recordSignIn), a wrong one counts on as before; the code step (verifyCode) stays locked
         $user = $this->db->one('SELECT * FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $this->session->get('idu_ceka')['idu']]);
+        $this->failedAccount = (string) ($user['user'] ?? ''); // 3.43 (N160): for the change log after a failure
         $key = $user === null ? null : $this->db->one('SELECT * FROM {uzivatele_klice} WHERE idu = ? AND otisk_id = ?', [$user['idu'], hash('sha256', Passkey::fromB64((string) ($response['id'] ?? '')))]);
         try {
             if ($key === null) {
@@ -692,13 +698,16 @@ final class Auth
         return null;
     }
 
-    /** The user name of the account the last sign-in with a passkey was for – '' when the passkey is unknown. */
-    /** 3.41 (N117): the account the last failed password step was for – its stored user name, '' when no account matched. */
+    /**
+     * 3.41 (N117): the account the last failed password step was for – its stored user name, '' when no account matched;
+     * 3.43 (N160): also the account a failed second step (code, backup code, passkey) was for.
+     */
     public function failedAccount(): string
     {
         return $this->failedAccount;
     }
 
+    /** The user name of the account the last sign-in with a passkey was for – '' when the passkey is unknown. */
     public function passkeyAccount(): string
     {
         return $this->passkeyAccount;
@@ -1025,6 +1034,23 @@ final class Auth
         $authors = $this->managedAuthors();
 
         return ($authors === null || in_array((int) $newsItem['autor'], $authors, true)) && (empty($newsItem['visible']) || $this->canPublish());
+    }
+
+    /**
+     * Whether the signed-in person may see a news item before it is published (3.43, N159: `?preview=1` on the site) –
+     * the news section and an item they manage (an author only their own), as in the admin list; a published item
+     * needs no preview.
+     *
+     * @param array<string, mixed> $newsItem
+     */
+    public function canPreviewArticle(array $newsItem): bool
+    {
+        if (!$this->hasModule('news')) {
+            return false;
+        }
+        $authors = $this->managedAuthors();
+
+        return $authors === null || in_array((int) ($newsItem['autor'] ?? 0), $authors, true);
     }
 
     /**

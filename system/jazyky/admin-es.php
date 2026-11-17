@@ -8951,4 +8951,5 @@ return [
     'Only an administrator can move a file to a folder with other people in its audience.' => 'Solo un administrador puede mover un archivo a una carpeta que ven otras personas.',
     'The names of the forms are too long together – at most 1,000 characters.' => 'Los nombres de los formularios son demasiado largos en conjunto: 1000 caracteres como máximo.',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Hasta %d MB: PDF, documento Word u OpenDocument, texto o imagen (JPG, PNG).',
+    'An account was locked for 15 minutes after %d wrong passwords, codes or passkeys in a row (user #%d).' => 'Se bloqueó una cuenta durante 15 minutos tras %d contraseñas, códigos o llaves de acceso incorrectos seguidos (usuario #%d).',
 ];

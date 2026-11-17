@@ -164,7 +164,7 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 		<?= e(t('Cannot scan it? Add the account by typing the key:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($newSecret, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('On a phone you can tap here – the link opens your authenticator app.')) ?></a></small></li>
 	<li><?= e(t('Enter the six-digit code shown by the app:')) ?></li>
 </ol>
-<div class="radek"><label for="kod"><?= e(t('Code from the app')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="7" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
+<div class="radek"><label for="kod"><?= e(t('Code from the app')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
 <?php if ($passkeyOnly): ?>
 <?= $proofNote ?>
 <?php else: ?>

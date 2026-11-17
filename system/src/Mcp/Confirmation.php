@@ -100,15 +100,25 @@ final class Confirmation
             $draft = Language::runWith('en', static fn (): array => \Kaleta\Core\QuoteDelivery::draft($app, $quote), 'admin-');
             $subject = is_string($arguments['subject'] ?? null) && $arguments['subject'] !== '' ? $arguments['subject'] : (string) $draft['subject'];
             $message = is_string($arguments['message'] ?? null) && $arguments['message'] !== '' ? $arguments['message'] : (string) $draft['message'];
-            $gross = (int) ($quote['totals']['gross'] ?? 0);
 
-            return ['summary' => ['quote' => $id, 'to' => (string) $draft['to'], 'subject' => $subject, 'total' => \Kaleta\Core\Money::format($gross, (string) $quote['currency']),
+            return ['summary' => ['quote' => $id, 'to' => (string) $draft['to'], 'subject' => $subject, 'total' => self::quoteTotal($quote),
                 'valid_until' => $quote['valid_until']],
                 'fingerprint' => hash('sha256', (string) json_encode([$draft['to'], $subject, $message, $quote['currency'], $quote['totals'], $quote['lines'], $quote['customer'],
                     $quote['title'], $quote['intro'], $quote['terms'], $quote['valid_until'], $quote['vat_mode'], $quote['discount_percent']], JSON_UNESCAPED_UNICODE))];
         }
 
         return null;
+    }
+
+    /**
+     * The total the send_quote summary shows (3.43, N142): the quote's totals are DECIMAL texts ("15125.61"), Money::format
+     * takes minor units – the same conversion as everywhere else, never a cast that drops the decimals and two digits.
+     *
+     * @param array<string, mixed> $quote
+     */
+    public static function quoteTotal(array $quote): string
+    {
+        return \Kaleta\Core\Money::format(\Kaleta\Core\Money::fromDecimal($quote['totals']['gross'] ?? null) ?? 0, (string) ($quote['currency'] ?? ''));
     }
 
     /** The arguments as one text: keys sorted at every level, the reason and the code left out. */

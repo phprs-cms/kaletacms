@@ -37,7 +37,7 @@ $forget318 = [];
 foreach (['src/Front/OAuth.php', 'src/Admin/Account.php', 'src/Admin/Modules/Users.php', 'src/Admin/PasswordReset.php', 'src/Core/SecurityHygiene.php'] as $file318) {
     $forget318[] = substr_count((string) file_get_contents(KALETA_SYSTEM . '/' . $file318), 'forgetRotations(');
 }
-check('3.18 N318-3 the rotation records go with a revoked connection: password change, disconnect, admin revoke and account delete, reset, auto-revoke', $forget318, [2, 1, 2, 1, 1]);
+check('3.18 N318-3 the rotation records go with a revoked connection: password change, disconnect, admin revoke and account delete, reset, auto-revoke', $forget318, [3, 1, 2, 1, 1]); // 3.43 (N158): the token-reuse revocation forgets through it too (with the codes)
 
 // every 3.18 text of the indicator, the notices, the health check and the console is in every admin language
 $texts318 = [];

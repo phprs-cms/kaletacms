@@ -256,7 +256,7 @@ final class Server
             // every content row a change touches is journaled, so the whole Claude session can be undone (2.17, Core\AgentJournal)
             $db = $this->app->db();
             $db->journal = $writes && $tool !== 'undo_agent_session'
-                ? \Kaleta\Core\AgentJournal::start($db, (string) ($this->app->auth()->connection()['name'] ?? 'Claude'), Catalog::english($tool) ?? $name) : null;
+                ? \Kaleta\Core\AgentJournal::start($db, \Kaleta\Core\AgentJournal::connectionLabel((string) ($this->app->auth()->connection()['name'] ?? 'Claude'), (string) ($this->app->auth()->user()['user'] ?? '')), Catalog::english($tool) ?? $name) : null;
             try {
                 $result = $tools->call($tool, $arguments);
             } catch (\InvalidArgumentException | \DomainException $e) {

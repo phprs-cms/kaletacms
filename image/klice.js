@@ -53,6 +53,17 @@
 			buttons.forEach(function (b) { b.disabled = false; });
 		}
 
+		// 3.43 (U69): what a failure says – nothing when the person cancelled, the product's words for the browser's own
+		// refusals ("This is an invalid domain." and the like), the server's message otherwise
+		function failure(e) {
+			if (!e || e.name === 'NotAllowedError' || e.name === 'AbortError') { return ''; }
+			if (e.name === 'SecurityError' || e.name === 'NotSupportedError' || e.name === 'InvalidStateError') {
+				var unsupported = formEl.querySelector('[data-klic-nepodporuje]');
+				return unsupported ? unsupported.textContent : '';
+			}
+			return e.message || '';
+		}
+
 		function deliver(field) {
 			var data = new FormData();
 			data.append('_csrf', formEl.querySelector('input[name="_csrf"]').value);
@@ -88,8 +99,11 @@
 					return deliver({ krok: 'passkey', odpoved: JSON.stringify(assertion(k)) }).then(done);
 				}).catch(function (e) {
 					if (controller.signal.aborted || (e && e.name === 'AbortError')) { return; }
-					showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
-					if (chosen) { startConditional(); } // a refused passkey: the autofill is offered again (never in a loop of failing requests)
+					// 3.43 (U69): the silent offer stays silent until someone picks a passkey – a browser that cannot offer one here
+					// (an invalid domain, no HTTPS) shows nothing on a page nobody touched yet
+					if (!chosen) { return; }
+					showError(failure(e));
+					startConditional(); // a refused passkey: the autofill is offered again (never in a loop of failing requests)
 				}).then(function () { return null; });
 			});
 		}
@@ -118,7 +132,7 @@
 					}).then(function (k) {
 						return deliver({ krok: 'passkey_confirm', odpoved: JSON.stringify(assertion(k)) });
 					}).then(done).catch(function (e) {
-						showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+						showError(failure(e));
 					});
 					return;
 				}
@@ -131,7 +145,7 @@
 					}).then(function (k) {
 						return deliver({ krok: 'passkey', odpoved: JSON.stringify(assertion(k)) });
 					}).then(done).catch(function (e) {
-						showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+						showError(failure(e));
 						busy = false;
 						startConditional();
 					});
@@ -164,7 +178,7 @@
 					return deliver({ krok: 'klic', odpoved: JSON.stringify(assertion(k)) });
 				}).then(done).catch(function (e) {
 					// the user cancelling the dialog is not an error worth reporting
-					showError(e && e.name === 'NotAllowedError' ? '' : (e && e.message) || '');
+					showError(failure(e));
 				});
 			});
 		});

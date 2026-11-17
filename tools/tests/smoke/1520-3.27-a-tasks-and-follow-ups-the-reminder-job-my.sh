@@ -129,7 +129,7 @@ expect "3.27 toRequest: only with Ask Claude; the request carries the title and 
 # undo: a task Claude saves about a page is part of its session, one about an enquiry never enters the journal
 mcp_as "$T327_TA" save_task "{\"title\":\"Undo me T327\",\"target\":\"page:$T327_PAGE\"}" > /dev/null
 mcp_as "$T327_TA" save_task "{\"title\":\"Keep me T327\",\"target\":\"enquiry:$T327_ENQ\"}" > /dev/null
-T327_S=$(sq "SELECT id FROM ka_agent_sessions WHERE connection = 't327-admin' ORDER BY id DESC LIMIT 1")
+T327_S=$(sq "SELECT id FROM ka_agent_sessions WHERE connection LIKE 't327-admin %' ORDER BY id DESC LIMIT 1")
 expect "3.27 undo journal: the page task is journaled, the enquiry task is not" "$(sq "SELECT GROUP_CONCAT(tbl) FROM ka_agent_journal WHERE session_id = ${T327_S:-0} AND untracked IS NULL")" "tasks"
 mcp_as "$T327_TA" undo_agent_session "{\"id\":${T327_S:-0},\"confirm\":true}" > /dev/null
 expect "3.27 undo_agent_session: the page task is gone, the enquiry task stays" "$(sq "SELECT COUNT(*) FROM ka_tasks WHERE title = 'Undo me T327'")|$(sq "SELECT COUNT(*) FROM ka_tasks WHERE title = 'Keep me T327'")" "0|1"

@@ -65,7 +65,7 @@ expect "3.26: add_comment and list_comments leave the cached page" "$C326_CACHED
 setting page_cache "$C326_CACHE"
 mcp_as "$C326_UNDO" add_comment "{\"target\":\"page:$C326_PAGE\",\"text\":\"Undo me\"}" > /dev/null
 mcp_as "$C326_UNDO" add_comment "{\"target\":\"enquiry:$C326_ENQ\",\"text\":\"Personal – never journaled\"}" > /dev/null
-C326_S=$(sq "SELECT id FROM ka_agent_sessions WHERE connection = 'c326-undo' ORDER BY id DESC LIMIT 1")
+C326_S=$(sq "SELECT id FROM ka_agent_sessions WHERE connection LIKE 'c326-undo %' ORDER BY id DESC LIMIT 1")
 expect "3.26 undo journal: the page comment is journaled, the enquiry note is not" "$(sq "SELECT GROUP_CONCAT(tbl) FROM ka_agent_journal WHERE session_id = ${C326_S:-0} AND untracked IS NULL")" "comments"
 mcp_as "$C326_UNDO" undo_agent_session "{\"id\":${C326_S:-0},\"confirm\":true}" > /dev/null
 expect "3.26 undo_agent_session: the page comment is gone, the enquiry note stays" \
