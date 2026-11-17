@@ -61,7 +61,7 @@ expect "privacy template: a disclaimer and only the enabled features" "$(sq "SEL
 # streamed backup download and the media ZIP only on POST
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"; TOKEN=$(csrf)
 LAST_BACKUP=$(ls -t "$WORK"/web/storage/zalohy/ | grep '^kaleta-' | head -1)
-curl -s -b "$JAR" -o "$WORK/backup-download" "$B/admin.php?module=settings&action=download_backup&file=$LAST_BACKUP"
+curl -s -b "$JAR" -o "$WORK/backup-download" -X POST "$B/admin.php?module=settings&action=download_backup" -d "_csrf=$TOKEN" -d "soubor=$LAST_BACKUP" # 3.46 (I39): only a POST
 expect "a backup downloads whole (streamed)" "$(wc -c < "$WORK/backup-download" | tr -d ' ')" "$(wc -c < "$WORK/web/storage/zalohy/$LAST_BACKUP" | tr -d ' ')"
 expect "3.15 N42: a backup download is in the change log" "$(sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'settings' AND akce = 'backup downloaded' AND popis = '$LAST_BACKUP'")" "1"
 expect "the media ZIP is not built by a GET" "$(curl -s -b "$JAR" -o /dev/null -w '%{content_type}' "$B/admin.php?module=settings&action=media_backup" | tr 'A-Z' 'a-z')" "text/html; charset=utf-8"

@@ -16,6 +16,7 @@
  * @var string $newToken  token just created (shown only once)
  * @var string $mcpUrl
  * @var bool $fresh  a passkey or backup-code step a few minutes ago – passkey changes need no password (3.35)
+ * @var bool $recent  any proof a few minutes ago – setting up the authenticator app asks no password (3.46, N138)
  * @var bool $renewCodes  a passkey and no authenticator app – "New backup codes" is offered (3.35)
  * @var bool $passkeyOnly  the account signs in with a passkey only (its choice or the site's, Core\SignInPolicy)
  * @var bool $sitePasskeyOnly  the site requires passkeys of accounts that have one
@@ -24,6 +25,7 @@
  * @var bool $codesFromPasskey  the backup codes shown came with the first passkey
  */
 $fresh ??= false;
+$recent ??= false;
 $renewCodes ??= false;
 $passkeyOnly ??= false;
 $sitePasskeyOnly ??= false;
@@ -174,6 +176,11 @@ foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName
 <?php else: ?>
 <p><?= e(t('Your account is protected by a password only. With two-factor sign-in, nobody can sign in without your phone – even if they guess or steal the password.')) ?></p>
 <input type="hidden" name="co" value="totp_start">
+<?php if ($passkeyOnly): ?>
+<?= $proofNote ?>
+<?php elseif (!$recent): // 3.46 (N138): the new secret is made only after a proof ?>
+<div class="radek"><label for="start-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="start-heslo" name="soucasne" size="30" autocomplete="current-password" required><span class="napoveda"><?= e(t('Needed to set up two-factor sign-in.')) ?></span></div></div>
+<?php endif ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Turn on two-factor sign-in')) ?>"></p>
 <?php endif ?>
 </fieldset>

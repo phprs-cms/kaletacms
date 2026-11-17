@@ -23,14 +23,16 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&ta
 expect "3.35 review M3: General warns that passkeys follow the host, with the confirmation and the password field" \
   "$(grep -c 'name="site_url_confirm"' "$WORK/response")|$(grep -c 'id="settings-soucasne-general"' "$WORK/response")" "1|1"
 R418_NEW="http://localhost:${PORT}"
+# 3.46 (Admin\FreshProof): every save of Settings needs a recent proof first – with the password the host rule still holds
 expect "3.35 review M3: another host without the confirmation – not saved, the reason says why" \
-  "$(r418_save "&site_url=$R418_NEW")|$(r418_url)" "302|$R418_URL"
+  "$(r418_save "&site_url=$R418_NEW&soucasne=$(php -r 'echo rawurlencode($argv[1]);' -- "$PASSWORD")")|$(r418_url)" "302|$R418_URL"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=general"
 expect "3.35 review M3: … the message names the host change" "$(grep -c 'Tick the confirmation under the address\|Zaškrtněte potvrzení pod adresou' "$WORK/response")" "1"
-expect "3.35 review M3: confirmed but without the administrator's password – not saved" \
-  "$(r418_save "&site_url=$R418_NEW&site_url_confirm=1")|$(r418_url)" "302|$R418_URL"
+r418_age "$JAR"
+expect "3.35 review M3, 3.46: confirmed but without the administrator's password – not saved (Confirm it is you)" \
+  "$(r418_save "&site_url=$R418_NEW&site_url_confirm=1")|$(r418_url)" "403|$R418_URL"
 expect "3.35 review L6: the same host with an explicit default port, a trailing dot and slash is no host change – saved normalised" \
-  "$(r418_save "&site_url=$(php -r '$u = parse_url($argv[1]); echo $u["scheme"] . "://" . $u["host"] . ".:" . ($u["port"] ?? ($u["scheme"] === "https" ? 443 : 80)) . "/";' -- "$R418_URL")")|$(r418_url)" "302|$R418_URL"
+  "$(r418_save "&site_url=$(php -r '$u = parse_url($argv[1]); echo $u["scheme"] . "://" . $u["host"] . ".:" . ($u["port"] ?? ($u["scheme"] === "https" ? 443 : 80)) . "/";' -- "$R418_URL")&soucasne=$(php -r 'echo rawurlencode($argv[1]);' -- "$PASSWORD")")|$(r418_url)" "302|$R418_URL"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'" > /dev/null
 expect "3.35 review M3: confirmed and with the password – saved; the change log says so" \
   "$(r418_save "&site_url=$R418_NEW&site_url_confirm=1&soucasne=$PASSWORD")|$(r418_url)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'site_host_change'")" "302|$R418_NEW|1"

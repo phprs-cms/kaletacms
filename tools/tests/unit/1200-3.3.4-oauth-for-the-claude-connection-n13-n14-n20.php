@@ -20,7 +20,7 @@ check('3.3.4 N65: for an application outside Claude\'s hosts the access texts sp
     [false, true, false, true, true, true]);
 $kernelSource = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
 check('[source-pin] 3.3.4 N65, 3.11 UX310-2: drafts only is preselected for every new connection (Claude too); the consent view shows the host, the warning and the new mark', [
-    str_contains($kernelSource, "'selected' => 'drafts',"),
+    str_contains($kernelSource, "'selected' => \$passwordError !== null ? \\Kaleta\\Front\\OAuth::access(\$app->request->post('access') ?: 'drafts') : 'drafts',"), // 3.46: a refused consent keeps the chosen access
     array_map(fn (string $needle): bool => str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/oauth.php'), $needle),
         ['class="oauth-navrat"', "if (!\$claudeHost)", 'hlaska-varovani', "if (!\$approved)", 'name="request" value="<?= e($nonce) ?>"'])],
     [true, [true, true, true, true, true]]);

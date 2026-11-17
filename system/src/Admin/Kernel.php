@@ -299,6 +299,9 @@ final class Kernel
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();
         }
+        if ($action === 'confirm' && $ident === '') {
+            return FreshProof::confirm($this); // 3.46: the recent proof alone, after a form with files (FreshProof::page)
+        }
         if ($action === 'hide_first_steps' && $request->isPost() && $app->auth()->isAdmin()) {
             // 3.45: one action for the three lists – the website's, the office's (CPO 6) and the first steps of quotes (CPO 3)
             // 3.45 review L6: no list = the website's; an unknown one is refused, never the website's by mistake
@@ -341,6 +344,10 @@ final class Kernel
                 : $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 404);
         }
 
+        // 3.46 (N127, N136): every POST of an administrator's section needs a recent proof, except what FreshProof::EXEMPT names
+        if ($request->isPost() && FreshProof::required($ident, $class::ADMIN_ONLY, $action) && ($reason = FreshProof::refusal($app->auth())) !== null) {
+            return FreshProof::page($this, $reason);
+        }
         ChangeLog::forget();
         $flashes = $request->isPost() ? count($app->session->flashTypes()) : 0;
         $response = (new $class($this))->handle($action === '' ? 'list' : $action);
@@ -835,7 +842,7 @@ final class Kernel
         $siteUrl = $app->settings()->get('site_url') ?: $app->request->origin();
         // 3.35: "Confirm with your passkey" (image/klice.js, data-klic-potvrdit) – the fresh proof of an account that signs
         // in with a passkey: a challenge for the account's own passkeys, then their signature (Auth::confirmWithPasskey,
-        // markVerified). The page then reloads with the proof and full access asks for nothing more.
+        // markVerified). The page then reloads with the proof and the consent asks for nothing more.
         if ($isPost && in_array($app->request->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)) {
             if ($app->request->post('krok') === 'passkey_confirm_options') {
                 $options = $app->auth()->confirmChallenge($siteUrl);
@@ -868,16 +875,25 @@ final class Kernel
             // 3.10: the tool set (essentials by default on the page); a consent page from before 3.10 sends none: all tools, as before
             $toolSet = \Kaleta\Mcp\Catalog::toolSet($app->request->post('tool_set'));
             $toolSet = in_array($toolSet, \Kaleta\Mcp\Catalog::offered($app->settings()), true) ? $toolSet : 'essentials'; // 3.36: the fleet set only on a fleet site
-            // 3.35 (owner decision 11 Nov 2026): full access – publishing and deleting with this account – needs a fresh
-            // proof: the current password typed here, or a sign-in or confirmed password within Auth::VERIFIED_WINDOW (an
-            // account that signs in without a password signs in again). Drafts and read stay one click. The request waits
-            // in the session for another try; nothing is issued until the proof is there.
-            $passwordError = $access === 'full' ? self::fullAccessRefusal($app->auth()) : null;
+            // 3.46 (N158, owner decision 7 of 16 Nov 2026, replacing the one of 11 Nov): EVERY new connection – drafts and
+            // read too, not only full access – needs a fresh proof: the current password typed here, or a sign-in, a
+            // confirmed password or a passkey within Auth::VERIFIED_WINDOW (an account that signs in without a password
+            // signs in again). A held session alone (a stolen cookie, an unattended computer) must not mint a connection
+            // that outlives the sign-in. The request waits in the session for another try; nothing is issued until the
+            // proof is there. Connections that exist keep working: their refresh never comes here.
+            $passwordError = self::connectRefusal($app->auth());
             if ($passwordError === null) {
                 \Kaleta\Front\OAuth::forgetRequest($app->session, $nonce);
                 ChangeLog::write($app, 'claude', 'app_connect', mb_substr((string) $pending['nazev'] . ' (' . $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ')', 0, 100));
+                // a new application of this account: no token of it, and no code still waiting to be redeemed
+                $known = (int) $app->db()->value('SELECT (SELECT COUNT(*) FROM {api_tokeny} WHERE klient = ? AND idu = ?) + (SELECT COUNT(*) FROM {oauth_kody} WHERE client_id = ? AND idu = ?)',
+                    [(string) $pending['client_id'], $app->auth()->id(), (string) $pending['client_id'], $app->auth()->id()]) > 0;
+                $to = $oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet);
+                if (!$known) {
+                    $this->noticeOfNewConnection((string) $pending['nazev'], \Kaleta\Front\OAuth::host((string) $pending['redirect_uri']), $access);
+                }
 
-                return Response::redirect($oauth->issueCode($pending, $app->auth()->id(), $access, $toolSet));
+                return Response::redirect($to);
             }
         }
 
@@ -890,8 +906,9 @@ final class Kernel
             'registered' => $oauth->registeredAt((string) $pending['client_id']), // 3.41 (N123)
             // 3.11 (UX310-2, owner decision 11 Oct 2026): every new connection starts at drafts only – the "drafts you
             // approve" the installer and the site promise; publishing is one click away. Connections that exist keep their access.
-            'selected' => 'drafts',
-            // 3.35: why full access was refused just now (the view keeps full chosen), and whether a fresh proof is there
+            // 3.46: a refused consent keeps the access the person chose
+            'selected' => $passwordError !== null ? \Kaleta\Front\OAuth::access($app->request->post('access') ?: 'drafts') : 'drafts',
+            // 3.35, 3.46: why the connection was refused just now, and whether a fresh proof is there
             'passwordError' => $passwordError, 'verified' => $app->auth()->isPasskeyOnly() ? $app->auth()->isFreshlyVerified() : $app->auth()->recentlyVerified(),
             // 3.35: an account with a passkey may confirm with it (on the site's own host); one that signs in with a passkey
             // only is offered nothing else
@@ -912,34 +929,56 @@ final class Kernel
     }
 
     /**
-     * 3.35: why approving full access is refused now – null when the person proved who they are within
+     * 3.46 (N158, owner decision 7): an e-mail to the account when an application connects to it for the first time – who,
+     * where it returns and with which access, and what to do when it was not the owner. One message per new application of
+     * the account; reconnecting one it already has sends none.
+     */
+    private function noticeOfNewConnection(string $name, string $host, string $access): void
+    {
+        $app = $this->app;
+        $user = $app->auth()->user();
+        if ($user === null || (string) $user['email'] === '') {
+            return;
+        }
+        $site = $app->settings()->get('site_name');
+        $language = (string) ($user['jazyk'] ?? '') !== '' ? (string) $user['jazyk'] : \Kaleta\Core\Language::defaults($app->settings());
+        [$subject, $text] = \Kaleta\Core\Language::runWith($language, fn (): array => [
+            t('A new application was connected to your account') . ' – ' . $site,
+            t('Hello,') . "\n\n" . t('the application %s (%s) was connected with the access “%s” to the account %s in the administration of %s.', mb_substr($name, 0, 100), $host, t(\Kaleta\Front\OAuth::ACCESS_LABELS[$access] ?? $access), (string) $user['user'], $site)
+                . "\n\n" . t('If you did not connect it, disconnect it in My account → Connected applications and change your password – someone else may be using your account.'),
+        ], 'admin-');
+        \Kaleta\Core\Mail::send($app->settings(), (string) $user['email'], $subject, $text);
+    }
+
+    /**
+     * 3.35, 3.46: why approving a new connection is refused now – null when the person proved who they are within
      * Auth::VERIFIED_WINDOW or typed the right current password into the consent form (Auth::confirmPassword: the
      * sign-in's counter and lock).
      */
-    private static function fullAccessRefusal(\Kaleta\Core\Auth $auth): ?string
+    private static function connectRefusal(\Kaleta\Core\Auth $auth): ?string
     {
         // 3.35 review M2: Auth::freshProof – any proof within the window or the current password; an account that signs in
         // with a passkey only needs the strong proof (a passkey or backup-code step, or "Confirm with your passkey") on
         // every host – a right password typed elsewhere (verified_at) does not count for it
         return match ($auth->freshProof(is_string($_POST['soucasne'] ?? null) ? $_POST['soucasne'] : '', 'recent')) {
             'ok' => null,
-            'passkey' => self::FULL_ACCESS_PASSKEY, // an account that signs in with a passkey only confirms with it, never with a password
+            'passkey' => self::CONNECT_PASSKEY, // an account that signs in with a passkey only confirms with it, never with a password
             'locked' => \Kaleta\Core\Auth::CONFIRM_LOCKED,
-            default => self::FULL_ACCESS_PASSWORD,
+            default => self::CONNECT_PASSWORD,
         };
     }
 
     /** 3.35 review L1: the warning on every admin page while the escape hatch is in config.php. */
     public const string ESCAPE_HATCH_WARNING = 'Passkey sign-in rules are switched off: %s is in config.php, so passwords sign in without passkeys – administrators too. Register a passkey again in My account and then remove the line from config.php.';
 
-    /** 3.35: the answer when an account that signs in with a passkey only approves full access without a fresh proof. */
-    public const string FULL_ACCESS_PASSKEY = '“Can also publish” lets the application publish and delete with your account – confirm with your passkey to allow it, or choose “Drafts only”.';
+    /** 3.46 (N158): the answer when an account that signs in with a passkey only approves a connection without a fresh proof. */
+    public const string CONNECT_PASSKEY = 'Connecting an application needs a recent confirmation that it is you – confirm with your passkey to allow it.';
 
     /** 3.35: the answers of a passkey confirmation that did not succeed. */
-    public const string PASSKEY_CONFIRM_FAILED = 'The passkey did not confirm it. Try again, or choose “Drafts only”.';
+    public const string PASSKEY_CONFIRM_FAILED = 'The passkey did not confirm it. Try again.';
 
     public const string PASSKEY_CONFIRM_LOCKED = 'Too many failed attempts in a row – confirming is locked for 15 minutes. You stay signed in; nothing was changed.';
 
-    /** 3.35: the answer when full access is approved without a fresh proof. */
-    public const string FULL_ACCESS_PASSWORD = '“Can also publish” lets the application publish and delete with your account – enter your current password to allow it, or choose “Drafts only”. An account without a password signs in again and then starts connecting again in the application.';
+    /** 3.46 (N158): the answer when a connection is approved without a fresh proof. */
+    public const string CONNECT_PASSWORD = 'Connecting an application needs a recent confirmation that it is you – enter your current password to allow it. An account without a password signs in again and then starts connecting again in the application.';
 }

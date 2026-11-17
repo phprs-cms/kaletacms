@@ -275,8 +275,9 @@ final class Auth
      * Unix time in the session:
      * - VERIFIED_KEY: any proof – every completed sign-in (password, password and code, password and backup code, password
      *   and passkey, passkey alone – startSignIn), a right current password (confirmPassword) and a passkey confirmation
-     *   (Admin\Kernel, the OAuth consent of an account without a password). recentlyVerified() reads it: approving a new
-     *   Claude connection with full access (Admin\Kernel::handleOAuthConsent).
+     *   (Admin\Kernel, the OAuth consent of an account without a password). recentlyVerified() reads it: approving any new
+     *   connection (Admin\Kernel::handleOAuthConsent, 3.46 N158) and every POST of an administrator's section that
+     *   Admin\FreshProof::EXEMPT does not name (3.46, N127).
      * - STRONG_KEY: only a step that a stolen password and authenticator code cannot make – a passkey (the second step,
      *   the passkey-first sign-in, a passkey confirmation) or a backup code. A step with the code from the app does NOT
      *   count, nor does the password sign-in alone. isFreshlyVerified() reads it: adding or removing a passkey and changing

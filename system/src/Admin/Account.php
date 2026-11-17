@@ -180,6 +180,12 @@ final class Account
                         break;
                     }
                     if ($r->post('co') === 'totp_start') {
+                        // 3.46 (N138): not even the pending secret is stored without a proof – a sign-in or a confirmed
+                        // password a few minutes ago, or the current password typed now (a passkey for "passkey only")
+                        if (($message = $this->proofRefused('Enter your current password to set up two-factor sign-in. Nothing was changed.', 'recent')) !== null) {
+                            $app->session->remove('totp_nove');
+                            break;
+                        }
                         $app->session->set('totp_nove', Totp::newSecret());
                         break;
                     }
@@ -348,7 +354,7 @@ final class Account
      * (SignInPolicy::passkeyOnly) is never confirmed by its password here: only by a strong proof (a passkey or
      * backup-code step a few minutes ago, or "Confirm with your passkey"), the same rule as the OAuth consent.
      *
-     * @param 'password'|'strong' $accepts
+     * @param 'password'|'strong'|'recent' $accepts
      * @return array{0: string, 1: string}|null
      */
     private function proofRefused(string $wrong, string $accepts): ?array
@@ -576,6 +582,7 @@ final class Account
             'keys' => $keys,
             // 3.35: passkeys and how the account signs in (Core\SignInPolicy)
             'fresh' => $app->auth()->isFreshlyVerified(),
+            'recent' => $app->auth()->recentlyVerified(), // 3.46 (N138): setting up the app asks no password right after a proof
             'passkeyOnly' => SignInPolicy::passkeyOnly($user, $working, $app->settings()),
             'sitePasskeyOnly' => $app->settings()->get('signin_passkey_only') === '1' && !SignInPolicy::escapeHatch(),
             'workingPasskey' => SignInPolicy::hasWorkingPasskey($working),

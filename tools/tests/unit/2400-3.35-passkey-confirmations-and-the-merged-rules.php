@@ -40,7 +40,7 @@ check('[source-pin] 3.35: the consent confirms with the passkey (klice.js data-k
     str_contains($i340View, 'data-klic-potvrdit'), str_contains((string) file_get_contents(KALETA_ROOT . '/image/klice.js'), "button.hasAttribute('data-klic-potvrdit')"),
     str_contains($i340View, '<?php if (!$verified && !$passkeyOnly):'),
 ], [true, true, true, true]);
-$i340Texts = [Kaleta\Admin\Kernel::FULL_ACCESS_PASSKEY, Kaleta\Admin\Kernel::PASSKEY_CONFIRM_FAILED, Kaleta\Admin\Kernel::PASSKEY_CONFIRM_LOCKED, Kaleta\Admin\Account::RENEW_CODES_REFUSAL,
+$i340Texts = [Kaleta\Admin\Kernel::CONNECT_PASSKEY, Kaleta\Admin\Kernel::PASSKEY_CONFIRM_FAILED, Kaleta\Admin\Kernel::PASSKEY_CONFIRM_LOCKED, Kaleta\Admin\Account::RENEW_CODES_REFUSAL,
     'Confirm with your passkey', 'New backup codes', 'Your new backup codes', 'Enter your current password to create new backup codes. Nothing was changed.', 'new backup codes created', 'confirmed with a passkey'];
 check('3.35: the new texts are translated (cs, de, es)', array_map(fn (string $code): array => Kaleta\Core\Language::runWith($code, fn (): array => array_values(array_filter($i340Texts, fn (string $k): bool => t($k) === $k)), 'admin-'), ['cs', 'de', 'es']),
     [[], [], []]);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.31.2 (N100, N101): the second factor and a personal token need the current password; a password change revokes personal tokens by default ---------- */
 $a3312 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
-$a3312Case = fn (string $case): string => substr($a3312, (int) strpos($a3312, "case '" . $case . "':"), 2200);
+$a3312Case = fn (string $case): string => substr($a3312, (int) strpos($a3312, "case '" . $case . "':"), 2800); // 3.46: the start of the app asks for a proof too (N138)
 $a3312Verify = '$this->passwordRefused(\'';
 check('[source-pin] 3.31.2 N100: a new second factor is refused while one is set, and confirming one checks the password before the code and before anything is written', [
     (bool) preg_match("/case 'totp_start':\s+case 'totp_potvrd':/", $a3312),
