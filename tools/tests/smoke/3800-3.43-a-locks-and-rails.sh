@@ -60,7 +60,9 @@ sq "DELETE FROM ka_uzivatele_klice WHERE idu = $S343_PK; DELETE FROM ka_uzivatel
 S343_TA="kaleta_$(printf '43%.0s' $(seq 1 24))"; S343_TB="kaleta_$(printf '38%.0s' $(seq 1 24))"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) SELECT idu, 'Claude 3800', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$S343_TA")', '$(site_time)' FROM ka_uzivatele WHERE user = 'admin';
   INSERT INTO ka_api_tokeny (idu, nazev, otisk, vytvoren) VALUES ($S343_AUTHOR, 'Claude 3800', '$(php -r 'echo hash("sha256", $argv[1]);' -- "$S343_TB")', '$(site_time)')" > /dev/null
-setting claude_change_limit 1
+# the limit is per user (review L1): the administrator's earlier Claude changes count, so one change is left for them
+S343_ADMIN_USED=$(sq "SELECT COALESCE(SUM(CASE WHEN akce IN ('save_redirects','save_collection_items','importuj_web','import_wordpress') AND popis REGEXP '^[0-9]+ rows' THEN CAST(SUBSTRING_INDEX(popis, ' ', 1) AS UNSIGNED) ELSE 1 END), 0) FROM ka_protokol WHERE modul = 'claude' AND kdo = (SELECT idu FROM ka_uzivatele WHERE user = 'admin') AND cas > '$(site_time '-1 hour')'")
+setting claude_change_limit $((S343_ADMIN_USED + 1))
 S343_CAT=$(sq "SELECT nazev FROM ka_kategorie ORDER BY idt LIMIT 1")
 S343_A1=$(mcp_call "$S343_TA" create_news "{\"title\":\"Limit A 3800\",\"category\":\"$S343_CAT\"}" | grep -c 'reached the limit' || true)
 S343_B1=$(mcp_call "$S343_TB" create_news "{\"title\":\"Limit B 3800\",\"category\":\"$S343_CAT\"}" | grep -c 'reached the limit' || true)

@@ -5,7 +5,7 @@ sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp');
   INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES
     ('c3890', '$R343_HASH', 'Editor 3890', 'c3890@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0),
     ('a3890', '$R343_HASH', 'Author 3890', 'a3890@example.com', 'en', 0, '$(site_time)', '$(site_time)', 0);
-  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.x FROM ka_uzivatele JOIN (SELECT 'news' AS x UNION SELECT 'popups') m WHERE user IN ('c3890', 'a3890')" > /dev/null
+  INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.x FROM ka_uzivatele JOIN (SELECT 'news' AS x UNION SELECT 'appearance_area') m WHERE user IN ('c3890', 'a3890')" > /dev/null
 R343_EDITOR=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'c3890'")
 R343_AUTHOR=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'a3890'")
 
@@ -24,7 +24,7 @@ expect "3.43 review L1: the second token label of the same user does not get a s
 r343_set claude_change_limit 0
 sq "DELETE FROM ka_api_tokeny WHERE nazev LIKE 'Claude 3890%'; DELETE FROM ka_novinky WHERE titulek LIKE 'Limit 3890%'; DELETE FROM ka_agent_sessions WHERE connection LIKE 'Claude 3890%'" > /dev/null
 
-# L2: "sign-in expired" and "too many attempts" are not attempts – no change-log row, the account's counter stays
+# L2: "sign-in expired" and "too many attempts" are not attempts (the sign-in page speaks the site's admin language) – no change-log row, the account's counter stays
 R343_LOGS() { sq "SELECT COUNT(*) FROM ka_protokol WHERE modul = 'prihlaseni' AND akce = 'neuspech' AND popis LIKE 'second step%'"; }
 R343_BEFORE=$(R343_LOGS)
 rm -f "$WORK/jar-r343"; curl -s -c "$WORK/jar-r343" -b "$WORK/jar-r343" -o "$WORK/response" "$B/admin.php"
@@ -38,7 +38,7 @@ R343_IP=$(php -r 'echo substr(hash("sha256", "kaleta|127.0.0.1"), 0, 40);')
 sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cas) SELECT '$R343_IP', 'login', '$(site_time)' FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) n" > /dev/null
 for i in 1 2 3; do curl -s -c "$WORK/jar-r343" -b "$WORK/jar-r343" -o "$WORK/response" -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d krok=kod -d kod=0000-0000-0000-0000; done
 expect "3.43 review L2: past the attempt limit the step answers \"too many attempts\" without a log row or a counted error" \
-  "$(grep -c 'Too many attempts' "$WORK/response" || true)|$(R343_LOGS)|$(sq "SELECT pocet_chyb FROM ka_uzivatele WHERE idu = $R343_EDITOR")" "1|$R343_BEFORE|0"
+  "$(grep -c -e 'Too many attempts. Try again' -e 'Příliš mnoho pokusů. Zkuste' "$WORK/response" || true)|$(R343_LOGS)|$(sq "SELECT pocet_chyb FROM ka_uzivatele WHERE idu = $R343_EDITOR")" "1|$R343_BEFORE|0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp'); DELETE FROM ka_uzivatele_klice WHERE idu = $R343_EDITOR" > /dev/null
 
 # L4: resetting a pop-up's counters changes what the site reports at once – an author with the section is refused
