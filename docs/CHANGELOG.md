@@ -15,8 +15,8 @@ No migration; `KALETA_DB_VERSION` stays 132.
    letters (backup codes with dashes or spaces), the TOTP confirm field 12. N159 `?preview=1` shows an unpublished news item
    only with the news section and, for an author, only their own. N160 a wrong code, backup code or passkey at the second
    step is in the change log (never what was typed); a lock records `security.account_locked` (an alert warning, the user id
-   only). N167 the hourly change limit and the undo session of a Claude connection count per connection name and user
-   (`AgentJournal::connectionLabel`, e.g. "Claude · jana"). N158 (second half) revoking a user's connections also deletes
+   only). N167 the hourly change limit counts all of a user's Claude connections together; the undo session is per
+   connection name and user (`AgentJournal::connectionLabel`, e.g. "Claude · jana"). N158 (second half) revoking a user's connections also deletes
    their unredeemed authorization codes. U69 the silent passkey offer stays silent until a passkey is picked; browser
    refusals are shown in the product's words.
 2. **CI and smoke rails.** `.github/workflows/kontrola.yml` runs a matrix of suite × PHP (smoke, English, demo and browser
