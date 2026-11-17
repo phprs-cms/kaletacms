@@ -17,7 +17,7 @@ $addressForms = static function (string $text): int {
     return $count;
 };
 $scriptDictionary = static function (string $file): array {
-    return json_decode(rtrim(preg_replace('/^[^{]*/', '', (string) file_get_contents($file), 1), " \n;)"), true) ?? [];
+    return json_decode((string) preg_replace('/,\s*\}$/', '}', rtrim(preg_replace('/^[^{]*/', '', (string) file_get_contents($file), 1), " \n;)")), true) ?? [];
 };
 foreach (['admin-de', 'de', 'install-de'] as $set) {
     $base = require KALETA_ROOT . '/system/jazyky/' . $set . '.php';

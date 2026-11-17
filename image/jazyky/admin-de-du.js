@@ -423,5 +423,5 @@ Object.assign(window.KALETA_PREKLAD, {
 	"Not a valid colour. Use #hex, rgb(…) or oklch(…), or pick a colour of the site.": "Keine gültige Farbe. Gib #hex, rgb(…) oder oklch(…) ein oder wähle eine Farbe der Website.",
 	"Say why “%s” was lost, then press Move.": "Gib an, warum „%s“ verloren ging, und drück dann „Verschieben“.",
 	"Drag, or press Space to move with the arrow keys": "Zieh, oder drück die Leertaste und verschieb mit den Pfeiltasten",
-	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "„%s“ in %s aufgenommen. Wähl die Phase mit den Pfeiltasten; die Leertaste legt ihn ab, Esc bricht ab."
+	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "„%s“ in %s aufgenommen. Wähl die Phase mit den Pfeiltasten; die Leertaste legt ihn ab, Esc bricht ab.",
 });

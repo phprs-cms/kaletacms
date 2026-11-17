@@ -28,12 +28,13 @@ for radek in sys.stdin.read().splitlines():
     klic = js(cesky) + ':' if skript else php(cesky) + ' =>'
     if cesky == preklad or klic in obsah:
         continue
-    nove.append('\t' + js(cesky) + ': ' + js(preklad) if skript else '    ' + php(cesky) + ' => ' + php(preklad) + ',\n')
+    nove.append('\t' + js(cesky) + ': ' + js(preklad) + ',\n' if skript else '    ' + php(cesky) + ' => ' + php(preklad) + ',\n')
 if skript and nove:
-    # objekt window.KALETA_PREKLAD = { … }; – poslední položka nemá čárku, nové se připojí za ni
-    konec = obsah.rindex('};')
+    # every entry ends with a comma, the last one too (merge=union in .gitattributes relies on it); an older file whose
+    # last entry has none gets it here
+    konec = obsah.rindex('}')
     pred = obsah[:konec].rstrip()
-    obsah = pred + (',' if not pred.endswith('{') else '') + '\n' + ',\n'.join(nove) + '\n' + obsah[konec:]
+    obsah = pred + (',' if not pred.endswith(('{', ',')) else '') + '\n' + ''.join(nove) + obsah[konec:]
 elif nove:
     konec = obsah.rindex('];')
     obsah = obsah[:konec] + ''.join(nove) + obsah[konec:]

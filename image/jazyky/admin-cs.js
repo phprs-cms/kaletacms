@@ -2985,5 +2985,5 @@ window.KALETA_PREKLAD = {
 	"Stage and Move": "Fáze a přesun",
 	"Status and Move: “%s”": "Stav a přesun: „%s“",
 	"Status and Move": "Stav a přesun",
-	"In this stage since today": "V této etapě od dneška"
+	"In this stage since today": "V této etapě od dneška",
 };

@@ -3,7 +3,8 @@
  * Dictionaries of the admin scripts (3.42, audit Q18): php tools/js-dictionaries.php [--check|--fill]
  *
  * image/jazyky/admin-<code>.js hold the translations the admin scripts look up with T('English text'): one entry per line,
- * a tab, the JSON-escaped key, ": ", the JSON-escaped translation. Czech, German and Spanish translate the English source;
+ * a tab, the JSON-escaped key, ": ", the JSON-escaped translation and a comma (the last entry too, so that merge=union in
+ * .gitattributes never joins two entries without one). Czech, German and Spanish translate the English source;
  * admin-en.js translates the few texts that still have a Czech source; admin-de-du.js is an overlay (edited by hand).
  *
  *   (no option)  a report per language: entries, texts the scripts name literally, texts that reach the scripts from PHP
@@ -146,7 +147,7 @@ function kaleta_js_fill(string $root): array
         }
         if ($add !== []) {
             $content = (string) file_get_contents($file);
-            file_put_contents($file, (string) preg_replace('/"\s*,?(\s*\n\};\s*)$/', '",' . "\n" . implode(",\n", $add) . '$1', $content, 1));
+            file_put_contents($file, (string) preg_replace('/"\s*,?(\s*\n\};\s*)$/', '",' . "\n" . implode(",\n", $add) . ',$1', $content, 1));
         }
         $added[$code] = count($add);
     }

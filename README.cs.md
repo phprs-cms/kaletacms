@@ -8,7 +8,7 @@ stránek s výstupem na úrovni ručně psaného HTML, AI asistent a napojení C
 
 ![Builder Kalety: plátno je skutečná stránka, prvky vlevo, vlastnosti vpravo](docs/screenshots/admin-builder.png)
 
-> Web projektu: [kaletacms.com](https://kaletacms.com) · návod: [kaletacms.com/cs/navod](https://kaletacms.com/cs/navod) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md) · [pravidla vydávání](docs/RELEASE-POLICY.md) (anglicky)
+> Web projektu: [kaletacms.com](https://kaletacms.com) · návod: [kaletacms.com/cs/navod](https://kaletacms.com/cs/navod) · poslední verze: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · co bude dál: [roadmap](docs/ROADMAP.md) · [historie vydání](docs/CHANGELOG.md) (anglicky) · [pravidla vydávání](docs/RELEASE-POLICY.md) (anglicky)
 
 ## Co umí
 
@@ -68,7 +68,8 @@ php -S localhost:8080 system/dev-router.php
 
 Testy: `php tools/unit-tests.php` (jednotkové, bez databáze) a `tools/test.sh` (čistá instalace a průchod webem, administrací,
 builderem i MCP; potřebuje MySQL; `WEB=remeslo tools/test.sh` otestuje jiný ukázkový web). Pravidla pro přispěvatele
-a architektura jsou v [`CLAUDE.md`](CLAUDE.md).
+jsou v [`CONTRIBUTING.md`](CONTRIBUTING.md), architektura v [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (anglicky), pravidla pro AI
+agenty v [`CLAUDE.md`](CLAUDE.md).
 
 ## Podpora
 
