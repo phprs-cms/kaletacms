@@ -590,7 +590,10 @@ final class Collections
         }
         if ($db !== null && ($collection['preset'] ?? '') !== '') {
             $h += \Kaleta\Core\Calendar::values($db, $collection, $item, $url, date('Y-m-d H:i')); // an event's when, where, status, iCal (2.11)
-            $h += Products::values($collection, $item); // a product for the enquiry basket and comparison (2.11)
+        }
+        if ($db !== null) {
+            // a product for the enquiry basket and comparison (2.11); 3.44: also an item of a collection mapped to the price list
+            $h += Products::values($collection, $item, $db);
         }
         foreach (\Kaleta\Core\Notices::placeholders($collection, $item) as $key => $value) {
             $h[$key] ??= $value; // {{notice_status}} of an official notice board (2.11) – a field with that key wins

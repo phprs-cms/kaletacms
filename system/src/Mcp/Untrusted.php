@@ -40,7 +40,7 @@ final class Untrusted
         // 3.44 (N128): the 404 addresses of the audit, deals titled from enquiries, tasks about them, my_work, the monthly report
         'site_audit' => ['where', 'target'], 'list_deals' => ['title', 'contact', 'company'], 'save_deal' => ['title', 'contact', 'company'],
         'move_deal' => ['title', 'contact', 'company'], 'list_tasks' => ['title'], 'save_task' => ['title'],
-        'my_work' => ['tasks', 'enquiries_assigned', 'enquiries_unassigned', 'deals'], 'get_monthly_report' => ['report'],
+        'my_work' => ['tasks', 'enquiries_assigned', 'enquiries_unassigned', 'deals', 'quotes_drafts', 'quotes_waiting', 'quotes_expiring'], 'get_monthly_report' => ['report'],
         // 3.44 (N144): quotes made from enquiries – the customer block, the title and the lines (a free line's name is the visitor's sentence)
         'list_quotes' => ['quotes'], 'get_quote' => ['customer', 'title', 'lines', 'customer_reason'], 'save_quote' => ['customer', 'title', 'lines'], 'send_quote' => ['to'],
         // 3.44 (N149): every heartbeat writes a fleet site's name

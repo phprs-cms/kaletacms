@@ -1307,6 +1307,7 @@
             "company": "integer",
             "contact": "integer",
             "limit": "integer",
+            "next_step": "string",
             "owner": "string",
             "page": "integer",
             "search": "string",

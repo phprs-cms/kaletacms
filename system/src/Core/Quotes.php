@@ -1012,10 +1012,46 @@ final class Quotes
         return $db->run('UPDATE {quote_counters} SET last = ? WHERE year = ? AND last < ?', [$next - 1, $year, $next - 1])->rowCount() > 0;
     }
 
+    /**
+     * 3.44 (CPO 2): the quotes of one list of My work (Core\MyWork, MCP my_work) – the key ix_quotes_owner (owner_id, status) serves all three:
+     *  - quotes_drafts: my drafts, and the drafts Kaleta prepared from an enquiry with nobody responsible (reason prepared /
+     *    unowned) – the newest change first;
+     *  - quotes_waiting: my sent quotes with no decision QUOTE_WAITING_DAYS after sending whose validity does not end soon;
+     *  - quotes_expiring: my sent quotes whose validity ends within QUOTE_EXPIRING_DAYS (the expiry job closes them after).
+     * Rows name the quote by its number (a draft by #id), its title and the customer – never an amount.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function forMyWork(Db $db, string $list, int $userId, int $limit): array
+    {
+        $soon = Clock::day('+' . (MyWork::QUOTE_EXPIRING_DAYS - 1) . ' days');
+        [$where, $params, $order] = match ($list) {
+            'quotes_drafts' => ["status = 'draft' AND (owner_id = ? OR (owner_id IS NULL AND created_by IS NULL))", [$userId], 'updated_at DESC, id DESC'],
+            'quotes_waiting' => ["owner_id = ? AND status = 'sent' AND sent_at <= ? AND (valid_until IS NULL OR valid_until > ?)", [$userId, Clock::at('-' . MyWork::QUOTE_WAITING_DAYS . ' days'), $soon], 'sent_at, id'],
+            default => ["owner_id = ? AND status = 'sent' AND valid_until IS NOT NULL AND valid_until >= ? AND valid_until <= ?", [$userId, Clock::today(), $soon], 'valid_until, id'],
+        };
+        $rows = $db->all('SELECT id, number, title, customer_name, customer_company, owner_id, created_by, valid_until, sent_at, updated_at FROM {quotes} WHERE ' . $where
+            . ' ORDER BY ' . $order . ' LIMIT ' . max(1, min(200, $limit)), $params);
+
+        return array_map(fn (array $q): array => ['kind' => 'quote', 'id' => (int) $q['id'], 'title' => self::label($q['number'], (int) $q['id']), 'about' => (string) $q['title'],
+            'name' => trim((string) $q['customer_company']) !== '' ? (string) $q['customer_company'] : (string) $q['customer_name'],
+            'status' => $list === 'quotes_drafts' ? 'draft' : 'sent',
+            'reasons' => match ($list) {
+                'quotes_drafts' => array_values(array_filter([$q['created_by'] === null ? 'prepared' : '', $q['owner_id'] === null ? 'unowned' : ''])),
+                'quotes_waiting' => ['no_answer'],
+                default => ['expires'],
+            },
+            'valid_until' => $q['valid_until'] === null ? null : (string) $q['valid_until'], 'sent_at' => $q['sent_at'] === null ? null : (string) $q['sent_at'],
+            'date' => (string) ($list === 'quotes_drafts' ? $q['updated_at'] : ($q['sent_at'] ?? $q['updated_at'])), 'url' => self::adminPath((int) $q['id'])], $rows);
+    }
+
     /* ---------- from an enquiry ---------- */
 
     /** 3.42: the setting "prepare a draft quote for new enquiries about products" (off by default). */
     public const string AUTO_DRAFT_SETTING = 'quote_auto_draft';
+
+    /** 3.44 (N168 a): at most this many drafts are prepared automatically in one day. */
+    public const int AUTO_DRAFT_DAILY_MAX = 50;
 
     /** @var list<int> enquiries whose draft is prepared after the response (prepareLater) */
     private static array $preparing = [];
@@ -1066,7 +1102,8 @@ final class Quotes
      * enquiry is not spam, a job application or anonymised, no quote of it exists yet (one draft per enquiry, never
      * sent), and linesFromEnquiry() matched at least one product. Linked like "New quote" from the enquiry (its customer,
      * open deal); the responsible person is the enquiry's, else the deal's, contact's or company's, when they may open
-     * Quotes – they get a bell that names the quote only (no amount). Returns the new quote's id or null.
+     * Quotes – they get a bell that names the quote only (no amount). 3.44 (N168 a): at most AUTO_DRAFT_DAILY_MAX a day.
+     * Returns the new quote's id or null.
      */
     public static function prepareDraft(App $app, int $enquiryId): ?int
     {
@@ -1078,6 +1115,16 @@ final class Quotes
         $enquiry = $db->one('SELECT idp, kategorie, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, false), [$enquiryId]);
         if ($enquiry === null || in_array((string) $enquiry['kategorie'], ['spam', 'job'], true) || $enquiry['anonymizovano'] !== null
             || $db->value('SELECT 1 FROM {quotes} WHERE enquiry_id = ? LIMIT 1', [$enquiryId]) !== null) {
+            return null;
+        }
+        // 3.44 (N168 a): at most AUTO_DRAFT_DAILY_MAX prepared drafts a day – a flood of enquiries naming products stays
+        // enquiries; the first one over the cap leaves one warning in the events of the day
+        $today = Clock::today() . ' 00:00:00';
+        if ((int) $db->value('SELECT COUNT(*) FROM {quotes} WHERE created_by IS NULL AND enquiry_id IS NOT NULL AND created_at >= ?', [$today]) >= self::AUTO_DRAFT_DAILY_MAX) {
+            if ($db->value("SELECT 1 FROM {events} WHERE type = 'quote.auto_draft_limit' AND created_at >= ? LIMIT 1", [$today]) === null) {
+                Events::record($db, 'quote.auto_draft_limit', 'warning', mb_substr(t('Draft quotes are no longer prepared today – %d were prepared already.', self::AUTO_DRAFT_DAILY_MAX), 0, 255), ['enquiry' => $enquiryId]);
+            }
+
             return null;
         }
         $found = self::linesFromEnquiry($app, $enquiryId);
@@ -1168,9 +1215,14 @@ final class Quotes
     private static function linesFromEnquiryNow(App $app, int $enquiryId): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT data, zdroj, stranka FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
+        $enquiry = $db->one('SELECT data, zdroj, prvek, stranka FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
         $fields = json_decode((string) ($enquiry['data'] ?? ''), true);
         $fields = is_array($fields) ? $fields : [];
+        // 3.44 (N163): a visitor's submission of a site form gives basket lines only from its basket field (the labels of the
+        // form's basket fields in its published build) – a "1 × …" line typed into a message is plain text; an enquiry
+        // without a site form (added by staff or imported) is read as before
+        $fromForm = $enquiry !== null && (string) $enquiry['zdroj'] !== '' && (string) $enquiry['prvek'] !== '';
+        $basketLabels = $fromForm ? Prices::basketLabels($db, (string) $enquiry['zdroj'], (string) $enquiry['prvek'], (string) $enquiry['stranka']) : [];
         $lines = [];
         $matched = 0;
         $unmatched = 0;
@@ -1178,7 +1230,8 @@ final class Quotes
         $seen = [];
         $plain = [];
         foreach ($fields as $field) {
-            $basket = self::parseBasket(is_array($field) ? (string) ($field[1] ?? '') : '');
+            $isBasket = is_array($field) && (!$fromForm || (!isset($field[2]) && in_array((string) ($field[0] ?? ''), $basketLabels, true)));
+            $basket = $isBasket ? self::parseBasket((string) ($field[1] ?? '')) : [];
             if ($basket === [] && is_array($field) && !isset($field[2]) && is_scalar($field[1] ?? null)) {
                 $plain[] = (string) $field[1]; // 3.42: read below for product names and codes (an attachment – [2] – never)
             }

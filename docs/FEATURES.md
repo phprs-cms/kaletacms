@@ -342,6 +342,15 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   jinak adresa položky; pole variant), předvolba Produkty vždy. `linesFromEnquiry` bere i položku stránky poptávky a hodnoty polí
   jmenující produkt. `quote_auto_draft` (výchozí vypnuto) = koncept po odpovědi (`Quotes::afterResponse`), jeden na poptávku, zvonek
   `quote_prepared` bez částky.
+- **Košík pro kolekce v ceníku a nabídky v Moje práce** (3.44): `Products::fields($kolekce, $db)` a `basketLines()` berou i kolekci
+  napojenou na ceník (`Prices::mappedFields`, čteno jednou za požadavek) – „Přidat do poptávky“ v její šabloně položky, množství
+  v košíku, bez Porovnat (žádné parametry); adresa položky bez kódu je její kód. Řádky košíku jen z pole košíku formuláře
+  (`Products::basketLabels` z publikované stavby; poptávka bez formuláře webu se čte jako dřív, N163). Nejvýš
+  `Quotes::AUTO_DRAFT_DAILY_MAX` připravených konceptů denně, první odmítnutí = jedna událost `quote.auto_draft_limit` (N168 a);
+  změna adresy položky s cenou, jejíž adresa je kódem, varuje v administraci i v `save_collection_item` (`price_warning`, N168 b).
+  Moje práce a MCP `my_work`: `quotes_drafts` (moje a připravené bez odpovědné osoby), `quotes_waiting` (odeslané týden bez
+  rozhodnutí), `quotes_expiring` (platnost do 7 dní) – číslo a titulek, nikdy částka (`Quotes::forMyWork`). Obchody: filtr
+  „Bez dalšího kroku“ (`next=none`, MCP `list_deals` `next_step`).
 - **Interní ceník a nabídky (3.38, migrace 0123):** `Core\Money` (jen celá čísla), `Core\Prices`, `Core\Quotes`, `Core\QuoteDelivery`;
   rozšíření a sekce `quotes` (přidělují se výslovně), oblast `prices_edit`. Ceny jen v `ka_prices`, nikdy v položce; pět tabulek smí
   jmenovat jen třídy z povolovacího seznamu (unit 2800). Číslo nabídky vzniká při prvním odeslání nebo Dokončení, počitadlo po rocích.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 use Kaleta\Core\Db;
+use Kaleta\Core\Prices;
 
 /**
  * A product catalogue without a checkout (2.11): products with parameters to compare, variants, a datasheet and an
@@ -110,11 +111,20 @@ final class Products
         return array_values(array_filter(array_map(fn (string $l): string => trim(strip_tags($l)), preg_split('/\R/u', $text) ?: []), fn (string $l): bool => $l !== ''));
     }
 
-    /** The product fields of a collection made from the products preset: role => key ('' when gone); null otherwise. @return array<string, string>|null */
-    public static function fields(array $collection): ?array
+    /**
+     * The product fields of a collection: role => key ('' when gone or none). A collection made from the products preset has
+     * them all; 3.44 (owner decision 2): with $db, a collection an administrator mapped to the internal price list (Quotes →
+     * Settings, Core\Prices::mappedFields) is a products collection too – its code and variants fields (no parameters, image
+     * or public price), so its items go into the enquiry basket with quantities. null = not a products collection.
+     *
+     * @return array<string, string>|null
+     */
+    public static function fields(array $collection, ?Db $db = null): ?array
     {
         if (($collection['preset'] ?? '') !== 'products') {
-            return null;
+            $mapped = $db !== null ? Prices::mappedFields($db, $collection) : null;
+
+            return $mapped === null ? null : ['parameters' => '', 'variants' => $mapped['variants'], 'image' => '', 'code' => $mapped['code'], 'price' => '', 'price_note' => ''];
         }
         $out = [];
         foreach (self::ROLES as $role => [$key, $types]) {
@@ -126,26 +136,29 @@ final class Products
 
     /**
      * The internal _product value of a product (for the "Add to enquiry" element): collection, address, name and variant
-     * names as JSON. A key outside the placeholder pattern, so no text can show it.
+     * names as JSON; 3.44: "x" false when the collection has no parameters to compare (a mapped collection) – the element
+     * then leaves its Compare box out. A key outside the placeholder pattern, so no text can show it. Never a price.
      *
      * @return array<string, array{0: string, 1: string}>
      */
-    public static function values(array $collection, array $item): array
+    public static function values(array $collection, array $item, ?Db $db = null): array
     {
-        $fields = self::fields($collection);
+        $fields = self::fields($collection, $db);
         if ($fields === null || ($item['seo_link'] ?? '') === '') {
             return [];
         }
         $variants = $fields['variants'] !== '' ? array_column(self::variants((string) ($item['data'][$fields['variants']] ?? '')), 'name') : [];
 
-        return ['_product' => [(string) json_encode(['c' => (string) $collection['seo_link'], 'i' => (string) $item['seo_link'], 'n' => (string) $item['nazev'], 'v' => $variants],
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'text']];
+        return ['_product' => [(string) json_encode(['c' => (string) $collection['seo_link'], 'i' => (string) $item['seo_link'], 'n' => (string) $item['nazev'], 'v' => $variants]
+            + ($fields['parameters'] === '' ? ['x' => false] : []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'text']];
     }
 
     /**
      * The basket a visitor sends: JSON [{c: collection, i: item address, v: variant, q: quantity}]. Every line must be a
-     * visible item of a products collection and a variant it has; the text is rebuilt from the database ("2 × Name –
-     * Variant (code)"). [] = an empty basket, null = not valid (too many lines, unknown products, a bad quantity).
+     * visible item of a products collection (the preset, or 3.44 one mapped to the price list) and a variant it has; the
+     * text is rebuilt from the database ("2 × Name – Variant (code)"; an item of a mapped collection without a code field
+     * has its address as its code, as in the price list). [] = an empty basket, null = not valid (too many lines, unknown
+     * products, a bad quantity).
      *
      * @return list<string>|null
      */
@@ -162,11 +175,11 @@ final class Products
         foreach ($lines as $line) {
             $quantity = is_array($line) && is_int($line['q'] ?? null) ? $line['q'] : 0;
             $collection = is_array($line) && is_string($line['c'] ?? null) && preg_match('/^[a-z0-9-]{1,110}$/D', $line['c']) === 1 ? Collections::bySlug($db, $line['c']) : null;
-            $fields = $collection !== null ? self::fields($collection) : null;
+            $fields = $collection !== null ? self::fields($collection, $db) : null;
             if ($fields === null || $quantity < 1 || $quantity > 9999 || !is_string($line['i'] ?? null) || preg_match('/^[a-z0-9-]{1,160}$/D', $line['i']) !== 1) {
                 return null;
             }
-            $item = $db->one('SELECT nazev, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);
+            $item = $db->one('SELECT nazev, seo_link, data FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND zobrazit = 1 AND smazano IS NULL LIMIT 1', [(int) $collection['idk'], $line['i']]);
             if ($item === null) {
                 return null;
             }
@@ -177,11 +190,37 @@ final class Products
             if ($variant !== '' && $match === null) {
                 return null;
             }
-            $code = $match !== null ? $match['code'] : ($fields['code'] !== '' ? (string) ($data[$fields['code']] ?? '') : '');
+            $own = $fields['code'] !== '' ? trim((string) ($data[$fields['code']] ?? '')) : '';
+            $own = $own === '' && ($collection['preset'] ?? '') !== 'products' ? (string) $item['seo_link'] : $own; // 3.44: a mapped item's address stands for its code
+            $code = $match !== null && $match['code'] !== '' ? $match['code'] : ($match !== null ? '' : $own);
             $out[] = $quantity . ' × ' . $item['nazev'] . ($variant !== '' ? ' – ' . $variant : '') . ($code !== '' ? ' (' . $code . ')' : '');
         }
 
         return $out;
+    }
+
+    /**
+     * 3.44 (N163): the labels of the basket fields ("kosik") of a form in its PUBLISHED build – the source and element an
+     * enquiry stored, the site version taken from the page it was sent from (an item template has one build per language).
+     * [] when the form is gone or has no basket field. Core\Quotes reads basket lines only from these fields.
+     *
+     * @return list<string>
+     */
+    public static function basketLabels(Db $db, string $source, string $element, string $page): array
+    {
+        if ($source === '' || $element === '') {
+            return [];
+        }
+        $language = \Kaleta\Core\Language::splitPrefix((string) parse_url($page, PHP_URL_PATH))[0] ?? '';
+        $form = \Kaleta\Front\Forms::findElement($db, $source, $element, Elements\Form::TYPE, $language);
+        $labels = [];
+        foreach (is_array($form['obsah']['pole'] ?? null) ? $form['obsah']['pole'] : [] as $field) {
+            if (is_array($field) && ($field['typ'] ?? '') === 'kosik') {
+                $labels[] = (string) ($field['popisek'] ?? '');
+            }
+        }
+
+        return array_values(array_unique($labels));
     }
 
     /**

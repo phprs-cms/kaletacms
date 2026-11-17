@@ -4,7 +4,8 @@
  * to where the work is done. Nothing at all = the empty state. 3.27: the person's tasks first, grouped overdue / today /
  * upcoming / later, each with Done and the snooze buttons (one form, the buttons post with formaction); administrators get
  * the tabs Mine and Team; "New task" (folded) is the shared form views/admin/task_form.php. 3.31: the open deals the person
- * is responsible for (Core\Deals::forOwner) – title, stage, customer, expected close, overdue marked.
+ * is responsible for (Core\Deals::forOwner) – title, stage, customer, expected close, overdue marked. 3.44 (CPO 2): with
+ * Quotes, the person's drafts (and prepared ones nobody owns), sent ones waiting for an answer and those whose validity ends soon.
  *
  * @var array{action: string, people: array<int, string>, draft: string} $newTask
  * @var string $csrf
@@ -23,6 +24,9 @@ $headings = [
     'deals' => 'Deals you are responsible for', // 3.31
     'applications' => 'Job applications you are responsible for', // 3.34 B
     'applications_new' => 'New job applications nobody is responsible for',
+    'quotes_drafts' => 'Draft quotes', // 3.44 (CPO 2): mine and the prepared ones nobody is responsible for
+    'quotes_waiting' => 'Sent quotes without an answer',
+    'quotes_expiring' => 'Quotes whose validity ends soon',
 ];
 $reason = fn (string $code, array $row): string => match ($code) {
     'overdue' => t('Review overdue since %s', format_date((string) $row['review_by'])),
@@ -103,7 +107,7 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
 <?php endif ?>
 <?php if ($filled === [] && $tasks === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'moje', 'heading' => t('Nothing waits for you right now.'),
-    'text' => t('Your tasks, enquiries assigned to you, the pages and collection items you are responsible for when a review is due or changes wait unpublished, and your requests Claude answered appear here.'),
+    'text' => t('Your tasks, the enquiries, deals, job applications and quotes you are responsible for, the pages and collection items when a review is due or changes wait unpublished, and your requests Claude answered appear here.'),
     'action' => [$app->url('admin.php'), t('Go to the dashboard')]]) ?>
 <?php elseif ($filled !== []): ?>
 <p class="napoveda"><?= e(t('Every row opens the place where the work is done. You are responsible for a page or an item when its settings name you as the responsible person.')) ?></p>
@@ -146,6 +150,23 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
 	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi((string) $r['name'] !== '' ? (string) $r['name'] : t('Application #%s', (string) $r['id'])) ?></a><br><span class="smltxt"><?= e(t('Application #%s · %s', (string) $r['id'], $r['title'] !== '' ? $r['title'] : t('no position'))) ?></span></td>
 	<td><span class="stitek<?= $r['status'] === 'new' ? ' stitek-koncept' : '' ?>"><?= e(t(Kaleta\Core\Applications::STATUS_LABELS[$r['status']] ?? $r['status'])) ?></span></td>
 	<td class="cislo"><?= e(format_date($r['date'], true)) ?></td>
+</tr>
+<?php endforeach ?>
+</tbody>
+<?php elseif (str_starts_with($list, 'quotes_')): /* 3.44 (CPO 2): the number and the customer, the title under it – never an amount */ ?>
+<thead><tr><th scope="col"><?= e(t('Quotes')) ?></th><th scope="col"><?= e(t('What waits')) ?></th><th scope="col"><?= e(t($list === 'quotes_drafts' ? 'Updated' : ($list === 'quotes_waiting' ? 'Sent' : 'Valid until'))) ?></th></tr></thead>
+<tbody>
+<?php foreach ($rows as $r): ?>
+<tr data-quote="<?= (int) $r['id'] ?>">
+	<td><a href="<?= e($app->url($r['url'])) ?>"><?= bdi($r['name'] !== '' ? $r['name'] . ' · ' . $r['title'] : $r['title']) ?></a><?= $r['about'] !== '' ? '<br><span class="smltxt">' . bdi($r['about']) . '</span>' : '' ?></td>
+	<td><?php foreach ($r['reasons'] as $code): ?><span class="stitek<?= in_array($code, ['prepared', 'expires'], true) ? ' stitek-koncept' : '' ?>" data-quote-reason="<?= e($code) ?>"><?= e(match ($code) {
+	    'prepared' => t('Prepared from an enquiry'),
+	    'unowned' => t('Nobody is responsible'),
+	    'no_answer' => t('No answer for %d days', Kaleta\Core\Deals::daysSince((string) $r['sent_at'], Kaleta\Core\Clock::today())),
+	    'expires' => t('Valid until %s', format_date((string) $r['valid_until'])),
+	    default => $code,
+	}) ?></span> <?php endforeach ?><?= $r['reasons'] === [] ? '<span class="stitek">' . e(t('Draft')) . '</span>' : '' ?></td>
+	<td class="cislo"><?= e(format_date($list === 'quotes_expiring' ? (string) $r['valid_until'] : $r['date'], $list !== 'quotes_expiring')) ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

@@ -81,8 +81,8 @@ final class Pipeline extends Module
     {
         $me = $this->app->auth()->id();
         $filter = self::filter(['owner' => $this->request->get('owner'), 'contact' => $this->request->get('contact'), 'company' => $this->request->get('company'),
-            'search' => $this->request->get('search'), 'status' => $this->request->get('status'), 'view' => $this->request->get('view')]);
-        $where = ['owner' => $filter['owner'], 'contact' => $filter['contact'], 'company' => $filter['company'], 'search' => $filter['search']];
+            'search' => $this->request->get('search'), 'status' => $this->request->get('status'), 'view' => $this->request->get('view'), 'next' => $this->request->get('next')]);
+        $where = ['owner' => $filter['owner'], 'contact' => $filter['contact'], 'company' => $filter['company'], 'search' => $filter['search'], 'next' => $filter['next']];
         $stages = Deals::stages($this->app->settings());
         $modules = $this->kernel->modules();
         $data = ['filter' => $filter, 'query' => self::query($filter), 'stages' => $stages, 'admin' => $this->app->auth()->isAdmin(), 'me' => $me,
@@ -98,7 +98,8 @@ final class Pipeline extends Module
                 'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($result['rows'], 'owner_id'))))]);
         }
         $open = Deals::list($this->app, $where + ['status' => 'open'], 1, self::BOARD_MAX, $me);
-        $closed = Deals::list($this->app, $where + ['status' => 'closed'], 1, self::CLOSED_MAX, $me)['rows'];
+        // 3.44: "No next step" is about open deals – the closed columns stay empty under it
+        $closed = $filter['next'] === 'none' ? [] : Deals::list($this->app, $where + ['status' => 'closed'], 1, self::CLOSED_MAX, $me)['rows'];
         $deals = [...$open['rows'], ...$closed];
 
         return $this->view('board', 'Pipeline', $data + ['columns' => self::columns($stages, $deals, self::monthStart()), 'more' => max(0, $open['total'] - count($open['rows'])),
@@ -110,10 +111,11 @@ final class Pipeline extends Module
     /**
      * The filter of the board and the list from the query: owner '' (anyone) | mine | none | a user id; contact and company
      * ids; a word (at most 100 characters); the status of the list (Deals::STATUSES, open by default); the view (board |
-     * list). Anything else falls back to the default. Pure.
+     * list); 3.44: next = none – only the deals without an open task about them (no next step). Anything else falls back to
+     * the default. Pure.
      *
      * @param array<string, string> $q
-     * @return array{owner: string, contact: int, company: int, search: string, status: string, view: string}
+     * @return array{owner: string, contact: int, company: int, search: string, status: string, view: string, next: string}
      */
     public static function filter(array $q): array
     {
@@ -123,19 +125,20 @@ final class Pipeline extends Module
 
         return ['owner' => in_array($owner, ['mine', 'none'], true) || (ctype_digit($owner) && (int) $owner > 0) ? $owner : '',
             'contact' => $int('contact'), 'company' => $int('company'), 'search' => mb_substr(trim((string) ($q['search'] ?? '')), 0, 100),
-            'status' => in_array($status, Deals::STATUSES, true) ? $status : 'open', 'view' => ($q['view'] ?? '') === 'list' ? 'list' : 'board'];
+            'status' => in_array($status, Deals::STATUSES, true) ? $status : 'open', 'view' => ($q['view'] ?? '') === 'list' ? 'list' : 'board',
+            'next' => ($q['next'] ?? '') === 'none' ? 'none' : ''];
     }
 
     /**
      * The query of a filter without its defaults (for links, paging and the way back after a move). Pure.
      *
-     * @param array{owner: string, contact: int, company: int, search: string, status: string, view: string} $filter
+     * @param array{owner: string, contact: int, company: int, search: string, status: string, view: string, next?: string} $filter
      * @return array<string, int|string>
      */
     public static function query(array $filter): array
     {
         return array_filter(['view' => $filter['view'] === 'list' ? 'list' : '', 'owner' => $filter['owner'], 'contact' => $filter['contact'] ?: '', 'company' => $filter['company'] ?: '',
-            'search' => $filter['search'], 'status' => $filter['view'] === 'list' && $filter['status'] !== 'open' ? $filter['status'] : ''], fn (int|string $v): bool => $v !== '');
+            'search' => $filter['search'], 'status' => $filter['view'] === 'list' && $filter['status'] !== 'open' ? $filter['status'] : '', 'next' => $filter['next'] ?? ''], fn (int|string $v): bool => $v !== '');
     }
 
     /**

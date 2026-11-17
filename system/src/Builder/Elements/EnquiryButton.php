@@ -12,6 +12,9 @@ use Kaleta\Builder\Element;
  * product into the visitor's enquiry basket (their browser only), and a box to compare it with others. The basket is sent
  * with a Form that has a basket field – by default on the products list page (#poptavka).
  *
+ * 3.44: also on the pages and cards of a collection mapped to the internal price list (Builder\Products::fields) – without the
+ * Compare box, as such a collection has no parameters.
+ *
  * Without JavaScript the button opens the basket page with the product in the address, and the basket field takes it from
  * there; with it the product goes to the basket and the visitor stays on the page.
  */
@@ -72,7 +75,7 @@ final class EnquiryButton extends Element
             $html .= '<label for="' . $id . '-q">' . e(t('Quantity')) . '<input id="' . $id . '-q" name="quantity" type="number" value="1" min="1" max="9999" inputmode="numeric"></label>';
         }
         $html .= '<button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['text']) . '</button>';
-        if ($o['porovnani']) {
+        if ($o['porovnani'] && ($product['x'] ?? true) !== false) { // 3.44: a collection mapped to the price list has no parameters to compare
             $html .= '<label class="ka-porovnat"><input type="checkbox" data-porovnat> ' . e(t('Compare')) . '</label>';
         }
         $k->types['tlacitko'] = true;

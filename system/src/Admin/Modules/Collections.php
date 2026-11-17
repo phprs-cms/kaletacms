@@ -403,6 +403,12 @@ final class Collections extends Module
             return $this->back(t('The item is saved, but these fields had an invalid value and were left empty: %s', implode(', ', $errors)), 'item', ['id' => $k['idk'], 'item' => $idp], 'chyba');
         }
 
+        // 3.44 (N168 b): an item whose address is its code in the price list – a changed address is said out loud
+        $priceWarning = $previous !== null ? \Kaleta\Core\Prices::addressChangeWarning($this->db, $idp, (string) $previous['seo_link'], $seo) : null;
+        if ($priceWarning !== null) {
+            return $this->back(trim(t('The item was saved.') . ' ' . $priceWarning), 'item', ['id' => $k['idk'], 'item' => $idp], 'varovani');
+        }
+
         return $this->back(trim(t('The item was saved.') . ' ' . CategoryTree::shownMessage($shown)), 'items', ['id' => $k['idk']]);
     }
 
