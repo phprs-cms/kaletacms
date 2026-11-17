@@ -30,6 +30,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 - **Tabulky v kódu přes `{novinky}`** (nebo anglicky `{news}`, `Core\Names`); nová tabulka = záznam v `system/sql/names.php` (unit test).
   Některé tabulky smí jmenovat jen vyjmenované třídy (ceny a nabídky unit 2800, interní soubory unit 3550).
   Řádky košíku nabídky jen z pole košíku publikovaného formuláře (`Products::basketLabels`, smoke 3900).
+  První kroky: `views/admin/first_steps.php`; kolekce do ceníku mapuje jen Nabídky → Nastavení ceníku (`setup`).
 - **Změna databáze = dva zápisy:** úplné `system/sql/schema.sql` + migrace `system/sql/migrace/NNNN-popis.sql` + zvýšit
   `KALETA_DB_VERSION` v `system/bootstrap.php` (hlídá `tools/test.sh`), pak `php tools/schema-doc.php`. Datová migrace je `.php`
   (vrací funkci `(Db, Settings)`) a má nejvyšší číslo svého vydání – starý kód aktualizace zná jen `.sql`. Přenositelně pro MySQL
@@ -143,6 +144,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 
 - Po změně: `tools/test.sh` (lint, unit, čistá instalace, web, admin, MCP; databázi `kaleta_test` smaže), `tools/test-english.sh`,
   `tools/test-migrations.sh`, `tools/test-browser.sh`, `php tools/contracts.php`; jen unit: `php tools/unit-tests.php [číslo|část názvu]`.
+  Část sady `ONLY=`/`START=` (snímek instalace, není brána). PHPStan úroveň 6, šablony 2.
 - Nové téma = nový soubor `tools/tests/unit|smoke/NNNN-tema` s dalším volným číslem, nikdy připisovat do cizího.
 - **Žádné nové kontroly zdrojového textu** (`[source-pin]`, strop v unit 2610) – testuj chování. `catch (\PDOException $e)` volá
   `Db::rethrowUnlessMissing($e)` nebo řekne proč (unit 2600). Testovací přepínače jen přes `Core\TestSeams`; v unit testech

@@ -4,7 +4,7 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
-## 3.45 – (in progress)
+## 3.45 – first quote, first week (17 November 2026)
 
 No migration; `KALETA_DB_VERSION` stays 132.
 
