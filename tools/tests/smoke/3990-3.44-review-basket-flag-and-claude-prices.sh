@@ -13,9 +13,9 @@ r344_ext "$R344_ON"
 mcp create_collection '{"name":"Interni 344","slug":"interni-344","fields":[{"label":"Kod","type":"text"}]}' > /dev/null
 R344_IDK=$(sq "SELECT idk FROM ka_kolekce WHERE seo_link = 'interni-344'"); R344_IDK="${R344_IDK:-0}"
 mcp save_collection_item '{"collection":"interni-344","name":"Tajny dil 344","slug":"tajny-dil-344","values":{"kod":"SKU-INT-344"},"visible":true}' > /dev/null
-r344_map() { # <basket: default|on|off>: the mapping as it was plus interni-344
-  r344_php '$m = Kaleta\Core\Prices::mapping($db); $e = ["collection" => (int) $a[0], "code" => "kod", "variants" => ""] + ($a[1] === "default" ? [] : ["basket" => $a[1] === "on"]); $m[] = $e;
-    echo count(Kaleta\Core\Prices::saveMapping($app, $m));' "$R344_IDK" "$1" > /dev/null
+r344_map() { # <basket: default|on|off>: the mapping as it was plus interni-344 (the stored setting, as Quotes → Settings writes it)
+  local json; json=$(php -r '$m = json_decode($argv[1], true) ?: []; $e = ["collection" => (int) $argv[2], "code" => "kod", "variants" => ""] + ($argv[3] === "default" ? [] : ["basket" => $argv[3] === "on"]); $m[] = $e; echo json_encode($m);' -- "$R344_MAP" "$R344_IDK" "$1")
+  sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_price_collections', '$json')" > /dev/null
   rm -f "$WORK"/web/storage/cache/stranky/*.html
 }
 r344_basket() { curl -s "$B/produkty-342/gel-g3?product=interni-344/tajny-dil-344&quantity=2&r=$RANDOM" | grep -o '<li>2 × Tajny dil 344[^<]*</li>' | head -1; }
@@ -30,7 +30,7 @@ expect "3.44 review M1: … and the stored flag of the collection without item p
 
 # (M2) Claude's prices: a free line named as a product, reverse charge from a VAT payer, another price list
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_payer', '1')" > /dev/null
-R344_CHEAP=$(r344_php 'echo Kaleta\Core\Prices::saveList($app, null, "Levny 344", "CZK");')
+R344_CHEAP=$(r344_php 'echo Kaleta\Core\Prices::saveList($app, null, "Levny 344", "CZK");' 2>&1 || true); [ "$R344_CHEAP" -gt 0 ] 2>/dev/null || echo "  (saveList answered: ${R344_CHEAP:0:300})"
 r344_php 'Kaleta\Core\Prices::save($app, Kaleta\Core\Prices::defaultList($db, $app->settings())["id"], ["code" => "R344", "label" => "Service R344", "unit_price" => "5000"], 0); echo "ok";' > /dev/null 2>&1 || true
 R344_QUOTES=$(sq "SELECT COUNT(*) FROM ka_quotes")
 mcp save_quote '{"customer":{"name":"Rita 344","email":"rita344@example.cz"},"lines":[{"name":"Gel G3","quantity":"1","unit_price":"1"}]}' > "$WORK/r344-a"
@@ -51,7 +51,7 @@ expect "3.44 review M2 + L1: a product by its code and a free line of its own st
 mcp save_contact '{"name":"Rudolf 344","email":"rudolf344@example.cz"}' > /dev/null
 R344_CONTACT=$(sq "SELECT id FROM ka_contacts WHERE email = 'rudolf344@example.cz'"); R344_CONTACT="${R344_CONTACT:-0}"
 R344_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
-R344_QC=$(r344_php 'echo Kaleta\Core\Quotes::save($app, null, ["contact_id" => (int) $a[0], "lines" => [["code" => "R344", "quantity" => "1"]]], (int) $a[1])["id"];' "$R344_CONTACT" "$R344_ADMIN")
+R344_QC=$(r344_php 'echo Kaleta\Core\Quotes::save($app, null, ["contact_id" => (int) $a[0], "lines" => [["code" => "R344", "quantity" => "1"]]], (int) $a[1])["id"];' "$R344_CONTACT" "$R344_ADMIN" 2>&1 || true); [ "$R344_QC" -gt 0 ] 2>/dev/null || echo "  (Quotes::save answered: ${R344_QC:0:300})"
 check "3.44 review L2: the Send page warns about an address a Claude connection wrote into the customer record" 200 "/admin.php?module=quotes&action=send&id=${R344_QC:-0}" 'data-quote-email-by-claude'
 
 # clean up: the quotes, the contact, the price, the list, the collection, the mapping, the VAT setting and the extensions as they were
