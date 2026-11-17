@@ -24,7 +24,7 @@ $b336Json = fn (mixed $v): int => strlen((string) json_encode($v, JSON_UNESCAPED
 $b336Bytes = array_map(fn (array $list): int => $b336Json(['tools' => Discovery::essentials($b336All, 'full', $list)]), $b336Lists);
 check('3.36 B THE RULE: every focused set has a budget and its tools/list stays within it (full access, every feature)', [
     array_keys(Catalog::BUDGETS), array_keys(array_filter($b336Bytes, fn (int $bytes, string $set): bool => $bytes > Catalog::BUDGETS[$set], ARRAY_FILTER_USE_BOTH)),
-    max(Catalog::BUDGETS) <= 50000 /* the essentials' own 3.10 limit */],
+    Catalog::BUDGETS['essentials'] <= 50000 /* the essentials' own 3.10 limit */ && max(Catalog::BUDGETS) <= 54000 /* 3.44: the work set with quotes and applications on (unit 3960) */],
     [$b336Focused, [], true]);
 check('3.36 B: the essentials and the work set are unchanged – existing connections keep exactly what they list; no extension tool in the essentials', [
     Catalog::ESSENTIALS === ['site_info', 'list_pages', 'get_page', 'create_page', 'update_page', 'get_menu', 'save_menu', 'builder_schema', 'get_build',

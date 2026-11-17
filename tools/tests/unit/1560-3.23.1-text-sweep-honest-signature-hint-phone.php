@@ -569,7 +569,7 @@ $w326Json = fn (mixed $v): int => strlen((string) json_encode($v, JSON_UNESCAPED
 $w326Work = Kaleta\Mcp\Discovery::essentials($w326All, 'full', Kaleta\Mcp\Catalog::WORK);
 $w326Drafts = Kaleta\Mcp\Discovery::essentials(array_values(array_filter($w326All, fn (array $t): bool => Kaleta\Mcp\Catalog::allows('drafts', $t['name']))), 'drafts', Kaleta\Mcp\Catalog::WORK);
 check('3.26 (C, T12): the work tool set – catalog tools once each in catalog order, then find_tools and the runners; under 49,000 bytes; the essentials unchanged and in budget', [
-    Kaleta\Mcp\Catalog::TOOL_SETS, Kaleta\Mcp\Catalog::toolSet('work'), Kaleta\Mcp\Catalog::toolSet('Work'), Kaleta\Mcp\Catalog::listOf('work') === Kaleta\Mcp\Catalog::WORK,
+    Kaleta\Mcp\Catalog::TOOL_SETS, Kaleta\Mcp\Catalog::toolSet('work'), Kaleta\Mcp\Catalog::toolSet('Work'), Kaleta\Mcp\Catalog::listOf('work') === [...Kaleta\Mcp\Catalog::WORK, ...Kaleta\Mcp\Catalog::WORK_FEATURES['quotes']] /* 3.44: + the quote tools while quotes are on */,
     Kaleta\Mcp\Catalog::listOf('essentials') === Kaleta\Mcp\Catalog::ESSENTIALS, Kaleta\Mcp\Catalog::listOf('all'), Kaleta\Mcp\Catalog::listOf('anything'),
     array_values(array_diff(Kaleta\Mcp\Catalog::WORK, array_keys(Kaleta\Mcp\Catalog::TOOLS))), array_keys(array_filter(array_count_values(Kaleta\Mcp\Catalog::WORK), fn (int $n): bool => $n > 1)),
     array_column($w326Work, 'name') === [...array_values(array_intersect(array_column($w326All, 'name'), Kaleta\Mcp\Catalog::WORK)), 'find_tools', 'run_read_tool', 'run_tool', 'run_destructive_tool'],

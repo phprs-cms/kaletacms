@@ -163,6 +163,7 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 	    'status' => e(t(Quotes::STATUS_LABELS[$h['from'] ?? ''] ?? (string) ($h['from'] ?? '')) . ' → ' . t(Quotes::STATUS_LABELS[$h['to'] ?? ''] ?? (string) ($h['to'] ?? '')))
 	        . (($h['to'] ?? '') === 'declined' && isset(Deals::LOST_REASONS[(string) ($h['note'] ?? '')]) ? ' · ' . e(t(Deals::LOST_REASONS[(string) $h['note']])) : ''),
 	    'revision', 'replaced' => e(t($actions[$action], (string) ($h['note'] ?? ''))),
+	    'customer_email' => e(t(($h['via'] ?? '') === 'mcp' ? 'Customer’s e-mail changed by Claude' : 'Customer’s e-mail changed')), // 3.44 (N146)
 	    default => e(t($actions[$action] ?? $action)),
 	} ?></span>
 		<span class="napoveda"><?= e(format_date((string) ($h['at'] ?? ''), true)) ?><?= ($h['via'] ?? '') === 'customer' ? ' · ' . e(t('by the customer')) : $who(isset($h['by']) ? (int) $h['by'] : null) ?></span></li>

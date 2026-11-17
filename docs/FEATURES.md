@@ -206,7 +206,10 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   **Sady nástrojů (3.36):** každý nástroj z `Catalog::TOOLS` patří aspoň do jedné z `ESSENTIALS`, `WORK`, `MIGRATION`, `FLEET`,
   nebo do `ON_DEMAND` (jen sada all), nikdy do `ON_DEMAND` a zároveň jinam; ESSENTIALS nové nástroje neberou. Každá sada se vejde
   do `Catalog::BUDGETS` (hlídá unit 2550), Fleet se nabízí jen se zapnutým rozšířením (`SET_NEEDS`), nová spojení začínají na essentials.
-  Pokyny serveru: `Translator::instructions` + `INSTRUCTION_TASKS`/`INSTRUCTION_FEATURES`.
+  Pokyny serveru: `Translator::instructions` + `INSTRUCTION_TASKS`/`INSTRUCTION_FEATURES`. **3.44:** sada Work vypisuje navíc
+  `Catalog::WORK_FEATURES` (nástroje nabídek `list_quotes`, `get_quote`, `save_quote`, `mark_quote`) jen se zapnutým rozšířením; rozpočet
+  Work se všemi funkcemi 54 000 B, s jedinou z přihlášek a nabídek pod 49 000 B (unit 3960). Blok `quotes` v `INSTRUCTION_FEATURES`
+  a prompt `office_day` (Moje práce, poptávky s koncepty odpovědí, připravené nabídky, připomínky; nic se neodešle bez výslovného ano).
 - **Koncept vzhledu (od 1.7, `Core\Look`):** design system, změny a mazání existujících tříd a menu jdou do jednoho konceptu (`look_draft`
   v nastavení) – z Vzhledu webu, builderu, editoru menu i MCP (`update_design_system`, `save_classes`, `save_menu`); nová třída platí hned.
   Publikuje `Look::publish` (admin lišta `admin/look_bar`, MCP `publish_look`), předchozí vzhled jde do `ka_look_versions` (20), zpět
@@ -238,6 +241,9 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   v Uživatelích chtějí důkaz správce. `Catalog::mayFetch`: adresu stahuje jen plné spojení
   (`upload_file` url, nová média `save_collection_items`, `migration_report` a `read_old_page` v `Catalog::NEEDS`, nástroj doplňku s `openWorld`).
   Text zvenku jde do MCP s jedním `Mcp\Untrusted::mark([klíče])` – nový výsledek s textem návštěvníků, uchazečů či cizích webů ho musí nést.
+  **3.44:** `Untrusted::TOOLS` vyjmenuje nástroje, jejichž výsledek takový text nese (i text, který mohlo napsat spojení jen na koncepty –
+  interní soubory), nástroj novější než 3.44 se zapíše tam nebo do `Untrusted::NONE` (unit 3960); přesun interního souboru do složky
+  s širším publikem chce dvoukrokové potvrzení (`Confirmation` režim `widens`) a čtení textu dokumentu přes MCP jde do protokolu změn.
   `PersonalData` bere jen celou adresu (`ofEnquiry`, poznámka sloučení – značka `ka_contact_activities.merged_email`, starší podle znění
   `Contacts::mergeNoteNames` –, žádosti vlastní adresou); mezery všech druhů a velikost písmen nerozhodují (`PersonalData::cleanAddress`). Role bez práva
   vydávat pracuje v Kolekcích jen s koncepty (`Collections::isDraft`, i MCP přes každé spojení) a štítky nepřejmenuje ani nesmaže (`Tags::LIVE_ACTIONS`).
@@ -343,7 +349,10 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   `QuoteDelivery::send` (SMTP, vlastní adresa zákazníka). Protokol změn, zvonky ani reporty nikdy nenesou částky. MCP nástroje nabídek
   a cen jsou na vyžádání; `mark_quote` bere `decline_reason` (`reason` je ochranný argument serveru). `send_quote` odmítne adresu, kterou zapsalo
   spojení Clauda (`ka_contacts.email_by_agent_at`, migrace 0124) nebo importovaná poptávka; odkaz na nabídku je náhodný a znovu se ukáže
-  jen v relaci, která ho vytvořila.
+  jen v relaci, která ho vytvořila. **3.44:** cena od Clauda pod ceníkem je sleva pod stejným stropem `quote_max_discount`
+  (`Quotes::impliedDiscount`), nižší sazbu DPH ani nabídku bez DPH od plátce Claude nenastaví; spojení jen na koncepty mění jen koncepty
+  svého uživatele; změnu e-mailu zákazníka zapíše historie (`customer_email`, `via` mcp) a dialog Odeslat varuje (`Quotes::emailByClaude`);
+  e-mail nabídky i obnovy souhlasu v Přihláškách nese `expires`, stažení odkazu, smazání a anonymizace vyprázdní čekající kopii (`Mail::withdraw`).
 - **Stránky záznamů (3.37):** poptávka, obchod a zákazník mají jednu šablonu (lišta `.zaznam-lista`: zpět, stav, jedna hlavní
   akce, vedlejší, Další; `.zaznam` = hlavní sloupec + boční panely, na telefonu jeden sloupec). Poptávka má jeden formulář Vyřízení
   (`actionTriage`; třídění se stane osobním jen při změně). Karty na nástěnce skládají fázi a Přesunout za ⋯ jen pro myš.

@@ -351,6 +351,14 @@ final class Quotes
                 $data['customer_' . $key] = $value;
             }
         }
+        // 3.44 (N146): a change of the customer's e-mail goes into the history with who wrote it (via mcp = a Claude connection) –
+        // the Send dialog warns when a connection wrote the address a person is about to send to
+        $history = [];
+        $emailBefore = (string) ($quote['customer']['email'] ?? ($sources['fill']['email'] ?? ''));
+        if (isset($data['customer_email']) && is_array($fields['customer'] ?? null) && array_key_exists('email', $fields['customer'])
+            && PersonalData::cleanAddress($data['customer_email']) !== PersonalData::cleanAddress($emailBefore) && ($quote !== null || $fromClaude)) {
+            $history[] = ['at' => Clock::now(), 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'customer_email'] + ($fromClaude ? ['via' => 'mcp'] : []);
+        }
 
         // the responsible person
         if ($quote === null && !$has('owner_id')) {
@@ -389,6 +397,10 @@ final class Quotes
             if (!in_array($mode, Money::VAT_MODES, true)) {
                 throw new \DomainException(t('The VAT mode must be one of: %s.', implode(', ', Money::VAT_MODES)));
             }
+            if ($fromClaude && $has('vat_mode') && $mode === 'none' && $s->bool('quote_vat_payer') && $mode !== ($quote['vat_mode'] ?? 'standard')) {
+                // 3.44 (N143): a quote without VAT from a VAT payer lowers what the customer pays – a person decides it in the admin
+                throw new \DomainException(t('A quote without VAT from a firm that pays VAT – ask a person to set it in the admin.'));
+            }
             $data['vat_mode'] = $mode;
         }
         if (!$s->bool('quote_vat_payer') && ($data['vat_mode'] ?? $quote['vat_mode'] ?? 'none') !== 'none') {
@@ -423,7 +435,10 @@ final class Quotes
             // 3.38 review L4: Claude's cap is on what the customer gets – a line's discount and the whole-quote discount together
             $quoteDiscount = Money::percent($data['discount_percent'] ?? $quote['discount_percent'] ?? null);
             foreach ($current as $n => $l) {
-                self::checkDiscount(self::combinedDiscount(Money::percent($l['discount_percent']), $quoteDiscount), $s, true, $n + 1);
+                // 3.44 (N143): a price below the list counts too – a line Claude priced now, or one kept from before
+                $implied = max((int) ($l['implied_discount'] ?? 0), self::impliedDiscount(Money::fromDecimal($l['unit_price']), Money::fromDecimal($l['list_price'] ?? null)));
+                $line = self::combinedDiscount($implied, Money::percent($l['discount_percent']));
+                self::checkDiscount(self::combinedDiscount($line, $quoteDiscount), $s, true, $n + 1);
             }
         }
         $totals = self::computeTotals($current, (string) ($data['discount_percent'] ?? $quote['discount_percent'] ?? '0.00'), (string) ($data['vat_mode'] ?? $quote['vat_mode'] ?? 'standard'));
@@ -439,22 +454,23 @@ final class Quotes
         }
 
         $now = Clock::now();
-        $id = $db->transaction(function (Db $db) use ($quote, $data, $lines, $byUserId, $now): int {
+        $id = $db->transaction(function (Db $db) use ($quote, $data, $lines, $byUserId, $now, $history): int {
             // 3.38 review M2: the status is checked again under the row lock – a save that overlaps Send never changes a numbered quote
             if ($quote !== null && $db->value('SELECT status FROM {quotes} WHERE id = ? FOR UPDATE', [$quote['id']]) !== 'draft') {
                 throw new \DomainException(t('A sent quote is frozen – revise it to make a new draft.'));
             }
             if ($quote === null) {
                 $id = $db->insert('quotes', $data + ['status' => 'draft', 'number' => null, 'revision_of' => null, 'created_by' => $byUserId > 0 ? $byUserId : null, 'created_at' => $now, 'updated_at' => $now,
-                    'history' => (string) json_encode([['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'created']])]);
+                    'history' => (string) json_encode([['at' => $now, 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'created'], ...$history], JSON_UNESCAPED_UNICODE)]);
             } else {
                 $id = $quote['id'];
-                $db->update('quotes', $data + ['updated_at' => $now], ['id' => $id]);
+                $more = $history !== [] ? ['history' => self::appended($quote['history'], $history[0])] : [];
+                $db->update('quotes', $data + $more + ['updated_at' => $now], ['id' => $id]);
             }
             if ($lines !== null) {
                 $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
                 foreach ($lines as $position => $line) {
-                    unset($line['id'], $line['manual']);
+                    unset($line['id'], $line['manual'], $line['implied_discount']);
                     $db->insert('quote_lines', ['quote_id' => $id, 'position' => $position + 1] + $line);
                 }
             }
@@ -665,6 +681,23 @@ final class Quotes
         }, 'admin-');
     }
 
+    /**
+     * 3.44 (N146): was the customer's e-mail last written by a Claude connection (the newest "customer_email" entry of the
+     * history came over MCP)? A person's later change of the address clears it.
+     *
+     * @param array<string, mixed> $quote as get() returns it
+     */
+    public static function emailByClaude(array $quote): bool
+    {
+        foreach (array_reverse(is_array($quote['history'] ?? null) ? $quote['history'] : []) as $h) {
+            if (is_array($h) && ($h['action'] ?? '') === 'customer_email') {
+                return ($h['via'] ?? '') === 'mcp';
+            }
+        }
+
+        return false;
+    }
+
     /** Did the customer decide on this quote themself (an entry "by the customer"; with $status: the last change to it)? @param array<mixed> $history */
     public static function customerDecided(array $history, string $status = ''): bool
     {
@@ -841,6 +874,7 @@ final class Quotes
             throw new \DomainException(t('Only its author or an administrator deletes a draft; a numbered quote only an administrator.'));
         }
         $db->transaction(function (Db $db) use ($id): void {
+            QuoteDelivery::withdrawMail($db, [$id]); // 3.44 (N145): its e-mail still waiting in the queue goes with it
             Tasks::forgetTargets($db, ['quote:' . $id]); // 3.40 review M4: the tasks about it go with it
             $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
             $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
@@ -1491,16 +1525,39 @@ final class Quotes
         }
         $quantity = Money::quantity($input['quantity'] ?? ($stored['quantity'] ?? null));
         $discount = Money::percent($input['discount_percent'] ?? ($stored['discount_percent'] ?? null));
+        // 3.44 (N143): Claude's price below the list price is a discount by another name – it counts against the same cap
+        $implied = $fromClaude && array_key_exists('unit_price', $input) ? self::impliedDiscount($given, $listMinor) : 0;
+        if ($implied > 0 && self::combinedDiscount($implied, $discount) > self::maxDiscount($s)) {
+            throw new \DomainException(t('Line %1$d: the price is more than %2$s %% below the price list – ask a person to set it in the admin.', $n, Money::short(Money::percentText(self::maxDiscount($s)))));
+        }
         self::checkDiscount($discount, $s, $fromClaude);
+        $listRate = Money::percent($price['vat_rate'] ?? ($stored['vat_rate'] ?? Prices::defaultVatRate($s)));
         $rate = array_key_exists('vat_rate', $input) && !(is_string($input['vat_rate']) && trim($input['vat_rate']) === '') && $input['vat_rate'] !== null
-            ? Money::percent($input['vat_rate']) : Money::percent($price['vat_rate'] ?? ($stored['vat_rate'] ?? Prices::defaultVatRate($s)));
+            ? Money::percent($input['vat_rate']) : $listRate;
+        if ($fromClaude && $listMinor !== null && $rate < $listRate && $s->bool('quote_vat_payer')) {
+            // 3.44 (N143): a lower VAT rate than the price list's lowers what the customer pays – a person decides it in the admin
+            throw new \DomainException(t('Line %d: a lower VAT rate than the price list has – ask a person to set it in the admin.', $n));
+        }
 
         return ['id' => $stored['id'] ?? null, 'item_id' => $itemId > 0 ? $itemId : null, 'variant_code' => $variant, 'code' => $code, 'name' => $name,
             'description' => self::line($input['description'] ?? ($stored['description'] ?? ''), self::DESCRIPTION_MAX),
             'quantity' => Money::quantityText($quantity), 'unit' => array_key_exists('unit', $input) ? self::line($input['unit'], Prices::UNIT_MAX) : ($stored['unit'] ?? $unit),
             'unit_price' => $given === null ? null : Money::toDecimal($given), 'list_price' => $listMinor === null ? null : Money::toDecimal($listMinor),
             'discount_percent' => Money::percentText($discount), 'vat_rate' => Money::percentText($rate),
-            'line_net' => Money::toDecimal($given === null ? 0 : Money::lineNet($given, $quantity, $discount))];
+            'line_net' => Money::toDecimal($given === null ? 0 : Money::lineNet($given, $quantity, $discount)), 'implied_discount' => $implied];
+    }
+
+    /**
+     * 3.44 (N143, pure): the discount a price below the list price amounts to, in basis points rounded up (a product listed
+     * at 10 000 quoted at 7 999 = 20.01 %); 0 without a list price or at or above it.
+     */
+    public static function impliedDiscount(?int $price, ?int $list): int
+    {
+        if ($price === null || $list === null || $list <= 0 || $price >= $list) {
+            return 0;
+        }
+
+        return 10000 - intdiv(max(0, $price) * 10000, $list);
     }
 
     /** Lower-case product name => item, for matching basket lines by name (default language first). @return array<string, array<string, mixed>> */
@@ -1522,12 +1579,18 @@ final class Quotes
      */
     private static function checkDiscount(int $points, Settings $s, bool $fromClaude, int $line = 0): void
     {
-        $max = Money::percent(trim($s->get('quote_max_discount')) !== '' ? $s->get('quote_max_discount') : '20');
+        $max = self::maxDiscount($s);
         if ($fromClaude && $points > $max) {
             throw new \DomainException($line > 0
                 ? t('Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.', $line, Money::short(Money::percentText($max)))
                 : t('A discount above %s %% – ask a person to set it in the admin.', Money::short(Money::percentText($max))));
         }
+    }
+
+    /** The highest discount Claude may give, in basis points (quote_max_discount, default 20 %). */
+    private static function maxDiscount(Settings $s): int
+    {
+        return Money::percent(trim($s->get('quote_max_discount')) !== '' ? $s->get('quote_max_discount') : '20');
     }
 
     /**

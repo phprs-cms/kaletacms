@@ -174,6 +174,8 @@ trait DealTools
             + ($d['closed_at'] !== null ? ['closed_at' => substr((string) $d['closed_at'], 0, 16)] : [])
             + ($d['lost_reason'] !== null ? ['lost_reason' => $d['lost_reason']] + ($d['lost_note'] !== '' ? ['lost_note' => $d['lost_note']] : []) : [])
             + ($d['source_enquiry_id'] !== null ? ['enquiry' => $d['source_enquiry_id']] : [])
-            + ['created_at' => substr((string) $d['created_at'], 0, 16), 'admin_url' => $this->app->request->origin() . $this->app->url(Deals::adminPath($d['id']))];
+            + ['created_at' => substr((string) $d['created_at'], 0, 16), 'admin_url' => $this->app->request->origin() . $this->app->url(Deals::adminPath($d['id']))]
+            // 3.44 (N128): a deal made from an enquiry is titled with the visitor's own words; the customer's name and e-mail as typed
+            + \Kaleta\Mcp\Untrusted::mark(array_values(array_filter(['title', $contact !== null ? 'contact' : null, $d['company_id'] !== null ? 'company' : null])));
     }
 }

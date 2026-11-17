@@ -48,7 +48,7 @@ check('3.35: the new texts are translated (cs, de, es)', array_map(fn (string $c
 // 3.34 applications under B's rules
 $i340Apps = (string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ApplicationTools.php');
 check('[source-pin] 3.35 (N105): the application tools carry the one untrusted marker – the list names, the detail what the applicant wrote', [
-    str_contains($i340Apps, "Untrusted::mark(['applications'])"), str_contains($i340Apps, "Untrusted::mark(['name', 'email', 'phone', 'fields'])"), str_contains($i340Apps, "'untrusted' =>"),
+    str_contains($i340Apps, "Untrusted::mark(['applications'])"), str_contains($i340Apps, "Untrusted::mark(['name', 'email', 'phone', 'fields', 'attachments', 'notes'])") /* 3.44 (N128): + CV names and notes */, str_contains($i340Apps, "'untrusted' =>"),
 ], [true, true, false]);
 check('[source-pin] 3.35 (N94): personal-data requests find applications by their own whole address only – never one that merely contains it', [
     (bool) preg_match('/function ofEmail\(.*?WHERE email_norm = \? OR LOWER\(email\) = \?/s', (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Applications.php')),

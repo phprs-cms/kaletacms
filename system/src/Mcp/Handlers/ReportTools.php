@@ -47,7 +47,7 @@ trait ReportTools
             // 3.29.1 (additive): the month or the one it is compared with reaches across the switch to browser-confirmed counting
             'counting_changed' => ($since = \Kaleta\Core\ReportSummary::countingChanged(is_array($stored['data']['stats'] ?? null) ? $stored['data']['stats'] : null)) !== null
                 ? ['on' => $since, 'note' => 'From ' . $since . ' only visits confirmed by a visitor\'s browser are counted; earlier days include some bots, link previews and the team\'s own visits. A drop of visits or page views against the month before is fewer bots, not fewer people – do not report it as a decline.'] : null,
-        ], fn ($v): bool => $v !== null);
+        ], fn ($v): bool => $v !== null) + \Kaleta\Mcp\Untrusted::mark(['report']); // 3.44 (N128): campaigns, sources and search queries come from visitors' links and searches
     }
 
     private function onlyAdministrators(): void

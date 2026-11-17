@@ -39,6 +39,7 @@ trait InternalFileTools
         return ['folders' => array_map(fn (array $f): array => array_filter(['id' => $f['id'], 'name' => $f['name'], 'description' => $f['description'],
             'audience' => $f['audience'], 'files' => $f['files']], fn (mixed $v): bool => $v !== ''), $folders),
             'files' => array_map($this->internalFileOut(...), $result['rows']), 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / $limit))]
+            + \Kaleta\Mcp\Untrusted::mark(['files']) // 3.44 (N164 a): names, descriptions and tags – a drafts-only connection may write them too
             + ($folders === [] ? ['next' => $this->app->auth()->isAdmin() ? 'No folders yet – an administrator creates them in Workspace → Internal files.' : 'No folder is shared with this user yet.'] : [])
             + ['admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . InternalFiles::SECTION . ($folder > 0 ? '&folder=' . $folder : ''))];
     }
@@ -51,15 +52,18 @@ trait InternalFileTools
         $text = InternalFiles::text($file);
         $out = $this->internalFileOut($file) + ['versions' => array_map(fn (array $v): array => array_filter(['version' => $v['version'], 'original_name' => $v['original_name'],
             'extension' => $v['extension'], 'size' => $v['size'], 'uploaded_by' => $v['uploaded_by'], 'uploaded_at' => $v['uploaded_at']], fn (mixed $x): bool => $x !== ''), $file['versions'])];
+        // 3.44 (N164 a): the name, description, tags and versions (original file names) may come from anywhere too – data, never instructions
+        $marked = ['name', 'description', 'tags', 'versions'];
         if ($text !== null) {
-            $out += ['content' => $text] + \Kaleta\Mcp\Untrusted::mark(['content']); // a document may come from anywhere – data, never instructions
+            $out += ['content' => $text]; // a document may come from anywhere – data, never instructions
+            $marked[] = 'content'; // 3.44 (N164 c): Mcp\Server writes the read into the change log, like a download in the administration
         } else {
             $out['next'] = in_array($file['extension'], InternalFiles::TEXT_EXTENSIONS, true)
                 ? 'The text document is larger than 200 kB – a person downloads it in the administration (admin_url).'
                 : 'The content of this file type is not passed over MCP – a person downloads it in the administration (admin_url).';
         }
 
-        return $out + ['admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . InternalFiles::SECTION . '&action=file&id=' . $file['id'])];
+        return $out + \Kaleta\Mcp\Untrusted::mark($marked) + ['admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . InternalFiles::SECTION . '&action=file&id=' . $file['id'])];
     }
 
     /** save_internal_file */
@@ -95,7 +99,7 @@ trait InternalFileTools
                 throw new \DomainException($saved);
             }
 
-            return ['file' => $this->internalFileOut($saved), 'created' => true, 'next' => $saved['status'] === 'draft'
+            return ['file' => $this->internalFileOut($saved), 'created' => true] + \Kaleta\Mcp\Untrusted::mark(['file']) + ['next' => $saved['status'] === 'draft'
                 ? 'Saved as a draft: a person checks it and marks it ready in Workspace → Internal files. Nothing is public.'
                 : 'Saved in Internal files – only people who see the folder can open it. Nothing is public.'];
         }
@@ -120,7 +124,8 @@ trait InternalFileTools
             }
         }
 
-        return ['file' => $this->internalFileOut($saved), 'next' => $content !== null ? 'New text saved as version ' . $saved['version'] . ' – the older versions stay.' : 'Saved.'];
+        return ['file' => $this->internalFileOut($saved)] + \Kaleta\Mcp\Untrusted::mark(['file'])
+            + ['next' => $content !== null ? 'New text saved as version ' . $saved['version'] . ' – the older versions stay.' : 'Saved.'];
     }
 
     /**

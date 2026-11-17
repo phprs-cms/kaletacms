@@ -90,7 +90,7 @@ expect "3.42 A: MCP list_internal_files – the folders and the files of one, no
   "folders|Onboarding guide.md|HR|2|no path"
 mcp get_internal_file "{\"id\":$R342A_FILE}" > "$WORK/response"; mcp_text
 expect "3.42 A: MCP get_internal_file – the text of a small text document, marked as untrusted, with its versions" \
-  "$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo str_contains($j["content"] ?? "", "Version two") ? "text" : "-", "|", implode(",", $j["untrusted"] ?? []), "|", count($j["versions"] ?? []);' -- "$WORK/text")" "text|content|2"
+  "$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo str_contains($j["content"] ?? "", "Version two") ? "text" : "-", "|", implode(",", $j["untrusted"] ?? []), "|", count($j["versions"] ?? []);' -- "$WORK/text")" "text|name,description,tags,versions,content|2" # 3.44 (N164 a): the metadata too
 mcp save_internal_file '{"folder":"R342a General","name":"Price rules R342a","content":"# Price rules\n\nNever below cost.","tags":["sales"]}' > "$WORK/response"; mcp_text
 R342A_DOC=$(sq "SELECT id FROM ka_internal_files WHERE name = 'Price rules R342a.md'")
 expect "3.42 A: MCP save_internal_file creates a Markdown document (ready) that a person downloads too" \

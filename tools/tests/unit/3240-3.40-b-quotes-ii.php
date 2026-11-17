@@ -84,10 +84,10 @@ check('3.40 B: saved line sets – only Core\QuoteLineSets names their table; ne
 
 // MCP: additive only – a flag on list_quotes, a parameter on save_quote; the quote tools stay on demand
 $b340Defs = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
-check('3.40 B MCP: list_quotes takes line_sets (boolean), save_quote line_set (text); both tools stay on demand and outside the essentials', [
+check('3.40 B MCP: list_quotes takes line_sets (boolean), save_quote line_set (text); both tools in the work set (3.44, not on demand) and outside the essentials', [
     $b340Defs['list_quotes']['inputSchema']['properties']['line_sets']['type'] ?? null, $b340Defs['save_quote']['inputSchema']['properties']['line_set']['type'] ?? null,
     in_array('save_quote', Kaleta\Mcp\Catalog::ON_DEMAND, true), in_array('list_quotes', Kaleta\Mcp\Catalog::ON_DEMAND, true),
-    in_array('save_quote', Kaleta\Mcp\Catalog::ESSENTIALS, true)], ['boolean', 'string', true, true, false]);
+    in_array('save_quote', Kaleta\Mcp\Catalog::ESSENTIALS, true)], ['boolean', 'string', false, false, false]);
 
 // the customer's page posts to itself: its CSP allows forms to the site only (never elsewhere), still no script but the site's
 $b340Csp = Kaleta\Front\QuotePage::html('<p>x</p>')->headers['Content-Security-Policy'] ?? '';

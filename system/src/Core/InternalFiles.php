@@ -278,6 +278,27 @@ final class InternalFiles
     }
 
     /**
+     * 3.44 (N164 b, pure): would a file moved from $source to $target reach people the source folder did not show it to? All is
+     * wider than roles or departments; roles or departments are wider unless every one of the target's is among the source's;
+     * roles and departments are never compared (another kind of audience counts as wider).
+     *
+     * @param array{audience: string, roles: list<int>, departments: list<int>} $source folderOut()
+     * @param array{audience: string, roles: list<int>, departments: list<int>} $target folderOut()
+     */
+    public static function widens(array $source, array $target): bool
+    {
+        if ($source['audience'] === 'all') {
+            return false;
+        }
+        if ($target['audience'] !== $source['audience']) {
+            return true;
+        }
+        $key = $target['audience'] === 'depts' ? 'departments' : 'roles';
+
+        return array_diff($target[$key], $source[$key]) !== [];
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @return array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}
      */

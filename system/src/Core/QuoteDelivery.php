@@ -174,6 +174,7 @@ final class QuoteDelivery
             return false;
         }
         $db->update('quotes', ['token_hash' => null, 'history' => self::history($row['history'], ['at' => Clock::now(), 'by' => $byUserId > 0 ? $byUserId : null, 'action' => 'link_withdrawn'])], ['id' => $quoteId]);
+        self::withdrawMail($db, [$quoteId]); // 3.44 (N145): a mail still waiting in the queue does not deliver the link after all
         \Kaleta\Admin\ChangeLog::write($app, Quotes::SECTION, 'link', t('Quote %s: the customer’s link withdrawn', Quotes::label($row['number'] === null ? null : (string) $row['number'], $quoteId)));
 
         return true;
@@ -338,7 +339,10 @@ final class QuoteDelivery
                 $warnings[] = t('The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.');
             }
         }
-        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')), $file !== null ? [$file] : []);
+        // 3.44 (N145): the mail carries the customer's link – a queued copy goes when the link ends and a backup never keeps its body
+        $linkEnds = Clock::fromDb((string) ($db->value('SELECT token_expires_at FROM {quotes} WHERE id = ?', [$id]) ?? ''));
+        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')), $file !== null ? [$file] : [],
+            $linkEnds !== null ? $linkEnds->getTimestamp() : 0);
         $mailId = Mail::$lastId;
         if ($mailId !== null) {
             $db->update('quotes', ['sent_mail' => $mailId], ['id' => $id]);
@@ -590,6 +594,7 @@ final class QuoteDelivery
 
         return $db->transaction(function (Db $db) use ($ids): int {
             $in = implode(',', $ids);
+            self::withdrawMail($db, $ids); // 3.44 (N145): their mails still waiting in the queue go with them
             Tasks::forgetTargets($db, array_map(fn (int $id): string => 'quote:' . $id, $ids)); // 3.40 review M4: the tasks about them go too
             $db->run('DELETE FROM {quote_lines} WHERE quote_id IN (' . $in . ')');
 
@@ -611,6 +616,7 @@ final class QuoteDelivery
             return 0;
         }
         $now = Clock::now();
+        self::withdrawMail($db, $ids); // 3.44 (N145): a mail still waiting in the queue names the customer and carries the link
         Tasks::anonymiseTargets($db, array_map(fn (int $id): string => 'quote:' . $id, $ids));
 
         return $db->run("UPDATE {quotes} SET customer_name = '', customer_company = '', customer_address = '', customer_reg_no = '', customer_vat_id = '', customer_email = '',"
@@ -793,6 +799,21 @@ final class QuoteDelivery
     /* ---------- helpers ---------- */
 
     /** @return array<string, mixed>|null the columns of a quote this class works with */
+    /**
+     * 3.44 (N145): the e-mails of these quotes that wait in the mail queue lose their body (Mail::withdraw). Returns how many.
+     *
+     * @param list<int> $quoteIds
+     */
+    public static function withdrawMail(Db $db, array $quoteIds): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $quoteIds), fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return 0;
+        }
+
+        return Mail::withdraw($db, array_map('intval', array_column($db->all('SELECT sent_mail FROM {quotes} WHERE sent_mail IS NOT NULL AND id IN (' . implode(',', $ids) . ')'), 'sent_mail')));
+    }
+
     private static function row(Db $db, int $id): ?array
     {
         return $id > 0 ? $db->one('SELECT id, number, status, valid_until, snapshot, token_hash, token_expires_at, history, anonymised_at FROM {quotes} WHERE id = ?', [$id]) : null;

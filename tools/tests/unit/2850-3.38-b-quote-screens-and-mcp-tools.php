@@ -27,11 +27,12 @@ check('3.38 B: the list offers every status plus all and open; each status has i
 // MCP (design A8, A-6): four non-essential tools of the feature – save_quote saves drafts only, mark_quote changes a status;
 // on demand (the work set has no room under its budget and stays as it is), English on both sides
 $b338Tools = ['list_quotes', 'get_quote', 'save_quote', 'mark_quote'];
-check('3.38 B MCP: list_quotes and get_quote read, save_quote saves drafts, mark_quote writes; all need the feature quotes, live on demand only, English names, short titles', [
+// 3.44 (CPO 4): the four tools moved from on demand to the work set, listed while quotes are on (Catalog::WORK_FEATURES)
+check('3.38 B MCP: list_quotes and get_quote read, save_quote saves drafts, mark_quote writes; all need the feature quotes, in the work set (3.44), English names, short titles', [
     array_map(fn (string $t): array => Catalog::TOOLS[$t], $b338Tools), array_map(Catalog::setsOf(...), $b338Tools),
-    array_values(array_diff($b338Tools, Catalog::ON_DEMAND)), array_map(Translator::czech(...), $b338Tools),
+    array_values(array_intersect($b338Tools, Catalog::ON_DEMAND)), array_map(Translator::czech(...), $b338Tools),
     array_filter($b338Tools, fn (string $t): bool => mb_strlen(Catalog::TITLES[$t] ?? '') === 0 || mb_strlen(Catalog::TITLES[$t]) > 40),
-], [[['read', 'quotes'], ['read', 'quotes'], ['draft', 'quotes'], ['write', 'quotes']], [[], [], [], []], [], $b338Tools, []]);
+], [[['read', 'quotes'], ['read', 'quotes'], ['draft', 'quotes'], ['write', 'quotes']], [['work'], ['work'], ['work'], ['work']], [], $b338Tools, []]);
 check('3.38 B MCP: both write tools are site-neutral (a quote never changes a page), mark_quote is idempotent, none reaches outside the site', [
     Catalog::isSiteNeutral('save_quote'), Catalog::isSiteNeutral('mark_quote'), Catalog::isIdempotent('mark_quote'), Catalog::isIdempotent('save_quote'),
     array_values(array_filter($b338Tools, fn (string $t): bool => Catalog::isOpenWorld($t))),

@@ -296,6 +296,8 @@ trait SettingsTools
         if ($kind !== '') {
             $findings = array_values(array_filter($findings, fn (array $f): bool => $f['kind'] === $kind));
         }
+        // 3.44 (N128): a frequent 404 is an address any visitor can request – its finding marks where it was and its target
+        $findings = array_map(fn (array $f): array => $f['kind'] === 'not_found' ? $f + \Kaleta\Mcp\Untrusted::mark(['where', 'target']) : $f, $findings);
         $counts = array_count_values(array_column($findings, 'kind'));
         $out = ['total' => count($findings), 'by_kind' => $counts ?: new \stdClass(), 'findings' => $findings];
         if ($kind === '' || $kind === 'handover') {

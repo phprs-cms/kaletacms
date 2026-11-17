@@ -148,7 +148,7 @@ trait TaskTools
             + ($t['due_at'] !== null ? ['due' => substr($t['due_at'], 0, 16)] : [])
             + ($t['remind_at'] !== null ? ['remind' => substr($t['remind_at'], 0, 16)] : [])
             + ($t['target'] !== null ? ['about' => ['target' => $t['target']] + ($about !== null ? ['title' => $about['title']] + (isset($about['collection']) ? ['collection' => $about['collection']] : [])
-                + ['admin_url' => $origin . $this->app->url($about['url'])] : ['missing' => true])] : [])
+                + ['admin_url' => $origin . $this->app->url($about['url'])] + \Kaleta\Mcp\Untrusted::mark(['title']) /* 3.44 (N128): an enquiry's or a deal's title is the visitor's text */ : ['missing' => true])] : [])
             + ($t['created_by'] !== null && $t['created_by'] !== $t['assignee_id'] ? ['created_by' => Handover::person($db, $t['created_by'])] : [])
             + ($t['done_at'] !== null ? ['done_at' => substr($t['done_at'], 0, 16)] : [])
             + ($t['request_id'] !== null ? ['request_id' => $t['request_id']] : []);

@@ -237,7 +237,7 @@ final class Server
             // 3.39 (N105): a call that e-mails outside the team or erases for good runs only with the code of an earlier call
             // with exactly these arguments on this connection – the first one answers with the code and does nothing
             $english = Catalog::english($tool) ?? $name;
-            if (Confirmation::needed($english, $arguments)) {
+            if (Confirmation::needed($english, $arguments, $this->app)) {
                 $answer = $this->confirmationGate($english, $arguments, $confirmation);
                 if ($answer !== null) {
                     return ['content' => [['type' => 'text', 'text' => json_encode($answer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]]];
@@ -280,6 +280,10 @@ final class Server
             if (($czech ?? $name) === 'seznam_poptavek') {
                 // enquiries hold personal data: every read by Claude is in the change log, with how many it saw
                 ChangeLog::write($this->app, 'claude', 'list_enquiries', t('%d enquiries read', is_array($result) ? count($result) : 0));
+            }
+            if ($tool === 'get_internal_file' && is_array($result) && isset($result['content'], $result['id'])) {
+                // 3.44 (N164 c): a document's text read over MCP is in the change log, as every download in the administration
+                ChangeLog::write($this->app, \Kaleta\Core\InternalFiles::SECTION, 'download', t('Internal file #%d read by Claude', (int) $result['id']));
             }
             if ($unknownParams !== [] && is_array($result) && !array_is_list($result)) {
                 // a typo in a parameter name would otherwise get lost without a trace (the tool does not know it, so it skips it)

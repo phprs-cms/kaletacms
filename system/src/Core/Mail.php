@@ -169,6 +169,25 @@ final class Mail
     /** 3.41 (N114): the error a queued message gets when the link in it expired before it could be sent. */
     public const string LINK_EXPIRED = 'The link in the message expired before the message could be sent.';
 
+    /** 3.44 (N145): what the mail log says of a queued message whose quote was withdrawn, deleted or anonymised before it went out. */
+    public const string WITHDRAWN = 'The message was withdrawn before it could be sent.';
+
+    /**
+     * 3.44 (N145): drops the body of queued messages that have not gone out yet (a quote withdrawn, deleted or anonymised in
+     * the meantime): nothing more is sent and no later backup carries the link. Returns how many.
+     *
+     * @param list<int> $mailIds rows of ka_posta
+     */
+    public static function withdraw(Db $db, array $mailIds): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $mailIds), fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return 0;
+        }
+
+        return $db->run('UPDATE {posta} SET telo = NULL, dalsi_pokus = NULL, chyba = ? WHERE odeslano IS NULL AND telo IS NOT NULL AND idp IN (' . implode(',', $ids) . ')', [self::WITHDRAWN])->rowCount();
+    }
+
     /**
      * 3.41 (N114, pure): a row of ka_posta as a backup writes it – an unsent body that holds a live password or invitation
      * link (its "expires") is left out: the backup must not carry a working link, and after a restore the person asks again.

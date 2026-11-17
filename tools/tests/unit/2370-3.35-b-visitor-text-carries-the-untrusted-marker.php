@@ -32,7 +32,7 @@ check('3.35 B4 N105: every tool that hands Claude visitors\' text marks it – e
     $i335dMarks('ContactTools', 'toolGetContact', "Untrusted::mark(['contact', 'company', 'timeline'])"),
     $i335dMarks('ContactTools', 'toolListContacts', "Untrusted::mark(['contacts'])") && $i335dMarks('ContactTools', 'toolListContacts', "Untrusted::mark(['companies'])"),
     $i335dMarks('BookingTools', 'toolListBookings', "'untrusted' => ['bookings']"),
-    $i335dMarks('CommentTools', 'toolListComments', "in_array(\$type, ['enquiry', 'contact'], true) ? \\Kaleta\\Mcp\\Untrusted::mark(['comments'])"),
+    $i335dMarks('CommentTools', 'toolListComments', "in_array(\$type, ['enquiry', 'contact', 'application'], true) ? \\Kaleta\\Mcp\\Untrusted::mark(['comments'])"), // 3.44 (N128): an applicant's too
     $i335dMarks('BuilderTools', 'toolListDraftComments', "'untrusted' => ['comments']"),
     $i335dMarks('CollectionTools', 'toolListCollectionItems', "Untrusted::mark(['nazev', 'data'])") && $i335dMarks('CollectionTools', 'toolListCollectionItems', 'Testimonials::itemsFromAnswers('),
     $i335dMarks('SettingsTools', 'toolGetStats', "Untrusted::mark(['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries'])"),

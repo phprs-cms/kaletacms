@@ -8525,4 +8525,11 @@ return [
     'The names of the forms are too long together – at most 1,000 characters.' => 'Názvy formulářů jsou dohromady příliš dlouhé – nejvýš 1 000 znaků.',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
     'An account was locked for 15 minutes after %d wrong passwords, codes or passkeys in a row (user #%d).' => 'Účet byl zamčen na 15 minut po %d chybných heslech, kódech nebo přístupových klíčích za sebou (uživatel č. %d).',
+    'Line %d: a lower VAT rate than the price list has – ask a person to set it in the admin.' => 'Řádek %d: nižší sazba DPH, než má ceník – nastaví ji člověk v administraci.',
+    'Line %1$d: the price is more than %2$s %% below the price list – ask a person to set it in the admin.' => 'Řádek %1$d: cena je víc než %2$s %% pod ceníkem – nastaví ji člověk v administraci.',
+    'A quote without VAT from a firm that pays VAT – ask a person to set it in the admin.' => 'Nabídka bez DPH od firmy, která je plátcem DPH – nastaví ji člověk v administraci.',
+    'Claude wrote this e-mail address into the quote and it is not the address of the customer record or enquiry. Check it before you send.' => 'Tuto e-mailovou adresu zapsal do nabídky Claude a není to adresa ze záznamu zákazníka ani z poptávky. Před odesláním ji zkontrolujte.',
+    'Customer’s e-mail changed by Claude' => 'E-mail zákazníka změnil Claude',
+    'Customer’s e-mail changed' => 'E-mail zákazníka změněn',
+    'Internal file #%d read by Claude' => 'Interní soubor č. %d přečetl Claude',
 ];
