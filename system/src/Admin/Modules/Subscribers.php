@@ -45,6 +45,7 @@ final class Subscribers extends Module
         $o = $this->request->isPost() ? $this->db->one('SELECT email, stav FROM {odberatele} WHERE ido = ?', [$this->request->postInt('ido')]) : null;
         if ($o !== null) {
             $this->db->delete('odberatele', ['ido' => $this->request->postInt('ido')]);
+            \Kaleta\Core\RestoreLedger::record($this->db, 'unsubscribed', (string) $o['email']); // 3.46 (N156): a restore never brings them back
             if ((int) $o['stav'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
             }

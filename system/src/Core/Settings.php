@@ -245,6 +245,7 @@ final class Settings
         'remote_backup_status' => '', // "YYYY-MM-DD HH:MM|ok" or the error text
         'auto_backups' => '1',         // automatic database backup: daily when something changed, otherwise weekly
         'backup_media' => '1',         // copy media/ to the off-site target too, incrementally (1.8)
+        'backup_remote_days' => '90',  // 3.46 (N157): off-site database copies older than this many days are deleted after an upload; 0 = keep (a lifecycle rule of the bucket)
         'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
         'media_sync_check' => '0',     // when the background media copy last ran
         'backup_key_confirmed' => '',  // 3.28 (D-W12, Core\RecoveryKey): "key id|Y-m-d H:i" of the recovery key an administrator confirmed saving – never the key; '' = off-site copies wait
@@ -366,6 +367,14 @@ final class Settings
     public function db(): Db
     {
         return $this->db;
+    }
+
+    /** 3.46: forgets what this request read – after a restore replaced the settings table, the next read is fresh. */
+    public function reload(): void
+    {
+        $this->values = null;
+        $this->lazyRead = [];
+        $this->opened = [];
     }
 
     /** Default values that are text for visitors – they are translated into the site language until the administrator changes them. */

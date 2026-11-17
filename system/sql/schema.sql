@@ -2073,3 +2073,16 @@ CREATE TABLE ka_absences (
     KEY ix_absences_user (user_id, ends_on),
     KEY ix_absences_ends (ends_on)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.46 (N156): the restore ledger (Core\RestoreLedger) – what a database restore must never bring back. It is never written
+-- into a backup and a restore never touches it, so it outlives every restore: keyed fingerprints of erased and unsubscribed
+-- e-mail addresses (HMAC with the ledger's own key, never an address), the fingerprints of sign-in tokens and passkeys a
+-- restore already removed once, and the one-way ids of the site's signing keys (a backup of this site, not of another one).
+CREATE TABLE ka_restore_ledger (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    kind       VARCHAR(20) CHARACTER SET ascii NOT NULL,                 -- key | site | erased | unsubscribed | token | passkey
+    hash       CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,  -- the fingerprint (kind key: the ledger's own random key)
+    created_at DATETIME NOT NULL,                                        -- when it happened (erased and unsubscribed: reapplied only to a backup older than this)
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_restore_ledger (kind, hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

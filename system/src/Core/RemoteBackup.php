@@ -63,9 +63,10 @@ final class RemoteBackup
             }
             $encrypted = dirname($path) . '/.upload-' . bin2hex(random_bytes(6)) . BackupEncryption::EXTENSION;
             BackupEncryption::encryptFile($path, $encrypted, $key);
-            [$put, $close] = self::open($s);
+            [$put, $close, $list, $delete] = self::open($s);
             try {
                 $put(basename($path) . BackupEncryption::EXTENSION, $encrypted);
+                self::pruneRemote($s, $list, $delete, basename($path) . BackupEncryption::EXTENSION);
             } finally {
                 $close();
             }
@@ -90,6 +91,60 @@ final class RemoteBackup
         Events::record($s->db(), 'backup.failed', 'error', t('The off-site copy of the backup failed: %s', $text), ['file' => basename($path), 'offsite' => true]);
 
         return $error;
+    }
+
+    /**
+     * 3.46 (N157, owner decision 8): the off-site database copies older than backup_remote_days (90 by default; 0 = Kaleta
+     * deletes none – a lifecycle rule of the bucket does it) are deleted after a successful upload, in the same connection.
+     * Only Kaleta's own backup names in the backup folder itself, never the media/ folder or another file, never the copy
+     * just uploaded. A failure is an event and never fails the upload.
+     *
+     * @param callable(): list<string> $list
+     * @param callable(string): void $delete
+     */
+    private static function pruneRemote(Settings $s, callable $list, callable $delete, string $uploaded): int
+    {
+        $days = $s->int('backup_remote_days');
+        if ($days <= 0) {
+            return 0;
+        }
+        $deleted = 0;
+        try {
+            foreach (self::expired($list(), $days, Clock::at('-' . $days . ' days'), $uploaded) as $name) {
+                $delete($name);
+                $deleted++;
+            }
+        } catch (\Throwable $e) {
+            Events::record($s->db(), 'backup.prune_failed', 'warning', t('Old off-site copies of the backup could not be deleted: %s', self::failureText($e->getMessage(), $s)), ['offsite' => true]);
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Which off-site copies are past the retention (pure): Kaleta's encrypted backup names (….enc) made before $before (the
+     * site's wall time, from the name), never $keep.
+     *
+     * @param list<string> $names
+     * @return list<string>
+     */
+    public static function expired(array $names, int $days, string $before, string $keep = ''): array
+    {
+        if ($days <= 0) {
+            return [];
+        }
+        $out = [];
+        foreach ($names as $name) {
+            if (str_contains($name, '/')) {
+                continue; // never a file of another folder (media/)
+            }
+            $made = RestoreLedger::madeAt($name);
+            if ($name !== $keep && $made !== null && $made < $before && Backup::encrypted($name) && preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?\.enc$/D', $name) === 1) {
+                $out[] = $name;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -227,10 +282,10 @@ final class RemoteBackup
     }
 
     /**
-     * A connection to the target: a function that uploads one file under a path relative to the backup folder, and one
-     * that closes the connection.
+     * A connection to the target: a function that uploads one file under a path relative to the backup folder, one that
+     * closes the connection, and (3.46) one that lists the file names in the backup folder and one that deletes a file there.
      *
-     * @return array{0: callable(string, string): void, 1: callable(): void}
+     * @return array{0: callable(string, string): void, 1: callable(): void, 2: callable(): list<string>, 3: callable(string): void}
      */
     private static function open(Settings $s): array
     {
@@ -277,7 +332,7 @@ final class RemoteBackup
         ];
     }
 
-    /** @return array{0: callable(string, string): void, 1: callable(): void} */
+    /** @return array{0: callable(string, string): void, 1: callable(): void, 2: callable(): list<string>, 3: callable(string): void} */
     private static function ftp(Settings $s): array
     {
         if (self::ftpsVerified()) {
@@ -323,13 +378,24 @@ final class RemoteBackup
             }
         };
 
-        return [$put, fn () => @ftp_close($connection)];
+        $list = fn (): array => array_values(array_map('basename', array_map('strval', @ftp_nlist($connection, '.') ?: [])));
+        $delete = function (string $name) use ($connection): void {
+            if (!@ftp_delete($connection, $name)) {
+                throw new \RuntimeException(t('The file %s could not be deleted on the FTP server.', $name));
+            }
+        };
+
+        $close = function () use ($connection): void {
+            @ftp_close($connection);
+        };
+
+        return [$put, $close, $list, $delete];
     }
 
     /**
      * FTPS through cURL (3.19.1, N80): one handle for the whole run, so cURL keeps the control connection between files.
      *
-     * @return array{0: callable(string, string): void, 1: callable(): void}
+     * @return array{0: callable(string, string): void, 1: callable(): void, 2: callable(): list<string>, 3: callable(string): void}
      */
     private static function ftpsCurl(Settings $s): array
     {
@@ -352,7 +418,24 @@ final class RemoteBackup
             }
         };
 
-        return [$put, fn () => null]; // PHP 8: the handle (and the connection) closes when $put is released
+        // 3.46: listing and deleting in the backup folder – a handle of their own, never an upload
+        $folderUrl = rtrim(self::ftpUrl($host, $folder, ''), '/') . '/';
+        $command = function (array $options) use ($s, $host, $folder, $folderUrl): string {
+            $ch2 = curl_init();
+            curl_setopt_array($ch2, $options + [CURLOPT_URL => $folderUrl, CURLOPT_UPLOAD => false] + self::ftpsOptions($s->get('backup_user'), $s->get('backup_password')));
+            $out = curl_exec($ch2);
+            if ($out === false) {
+                throw new \RuntimeException(self::ftpsError(curl_errno($ch2), curl_error($ch2), (string) preg_replace('#^[a-z]+://|[:/].*$#iD', '', $host), $folder));
+            }
+
+            return is_string($out) ? $out : '';
+        };
+        $list = fn (): array => array_values(array_filter(array_map('trim', explode("\n", $command([CURLOPT_DIRLISTONLY => true]))), fn (string $n): bool => $n !== ''));
+        $delete = function (string $name) use ($command): void {
+            $command([CURLOPT_QUOTE => ['DELE ' . $name], CURLOPT_NOBODY => true]);
+        };
+
+        return [$put, fn () => null, $list, $delete]; // PHP 8: the handle (and the connection) closes when $put is released
     }
 
     /** What a failed FTPS upload through cURL means for the administrator (N80: a certificate that cannot be checked is named). */
@@ -371,7 +454,7 @@ final class RemoteBackup
         };
     }
 
-    /** @return array{0: callable(string, string): void, 1: callable(): void} */
+    /** @return array{0: callable(string, string): void, 1: callable(): void, 2: callable(): list<string>, 3: callable(string): void} */
     private static function s3(Settings $s): array
     {
         if (!function_exists('curl_init')) {
@@ -406,21 +489,65 @@ final class RemoteBackup
             }
         };
 
-        return [$put, fn () => null];
+        // 3.46: the bucket may carry a folder (bucket/folder): the listing asks the bucket for the names under the folder
+        [$bucketName, $prefix] = explode('/', $bucket, 2) + [1 => ''];
+        $prefix = $prefix !== '' ? trim($prefix, '/') . '/' : '';
+        $request = function (string $method, string $uri, array $query) use ($s, $host, $base): string {
+            ksort($query);
+            $queryString = implode('&', array_map(fn (string $k, string $v): string => rawurlencode($k) . '=' . rawurlencode($v), array_keys($query), $query));
+            $headers = self::signS3($method, $host, $uri, hash('sha256', ''), $s->get('backup_region') ?: 'us-east-1', $s->get('backup_user'), $s->get('backup_password'), time(), $queryString);
+            $ch = curl_init($base . $uri . ($queryString !== '' ? '?' . $queryString : ''));
+            curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60,
+                CURLOPT_PROTOCOLS => str_starts_with($base, 'https://') ? CURLPROTO_HTTPS : CURLPROTO_HTTP,
+                CURLOPT_HTTPHEADER => array_map(fn (string $k, string $v): string => $k . ': ' . $v, array_keys($headers), $headers)]);
+            $response = (string) curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            if ($code < 200 || $code >= 300) {
+                throw new \RuntimeException(t('The storage refused the request (code %s)', (string) $code) . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : '') . '.');
+            }
+
+            return $response;
+        };
+        $list = function () use ($request, $bucketName, $prefix): array {
+            $names = [];
+            $token = '';
+            for ($page = 0; $page < 20; $page++) {
+                $xml = $request('GET', '/' . rawurlencode($bucketName), ['list-type' => '2', 'prefix' => $prefix . 'kaleta-'] + ($token !== '' ? ['continuation-token' => $token] : []));
+                preg_match_all('#<Key>([^<]+)</Key>#', $xml, $m);
+                foreach ($m[1] as $key) {
+                    $key = html_entity_decode($key, ENT_QUOTES | ENT_XML1);
+                    if (str_starts_with($key, $prefix) && !str_contains(substr($key, strlen($prefix)), '/')) {
+                        $names[] = substr($key, strlen($prefix));
+                    }
+                }
+                $token = preg_match('#<NextContinuationToken>([^<]+)</NextContinuationToken>#', $xml, $t) === 1 ? html_entity_decode($t[1], ENT_QUOTES | ENT_XML1) : '';
+                if ($token === '') {
+                    break;
+                }
+            }
+
+            return $names;
+        };
+        $delete = function (string $name) use ($request, $bucket): void {
+            $request('DELETE', '/' . implode('/', array_map(rawurlencode(...), explode('/', $bucket . '/' . $name))), []);
+        };
+
+        return [$put, fn () => null, $list, $delete];
     }
 
     /**
-     * Request headers signed with AWS Signature Version 4 (service s3).
+     * Request headers signed with AWS Signature Version 4 (service s3). $query: the canonical query string (3.46: the
+     * listing) – names and values encoded and sorted by the caller.
      *
      * @return array<string, string>
      */
-    public static function signS3(string $method, string $host, string $uri, string $bodyHash, string $region, string $key, string $secret, int $time): array
+    public static function signS3(string $method, string $host, string $uri, string $bodyHash, string $region, string $key, string $secret, int $time, string $query = ''): array
     {
         $date = gmdate('Ymd\THis\Z', $time);
         $day = substr($date, 0, 8);
         $headers = ['host' => $host, 'x-amz-content-sha256' => $bodyHash, 'x-amz-date' => $date];
         $signedHeaders = implode(';', array_keys($headers));
-        $canonical = $method . "\n" . $uri . "\n\n" . implode('', array_map(fn (string $k, string $v): string => $k . ':' . $v . "\n", array_keys($headers), $headers)) . "\n" . $signedHeaders . "\n" . $bodyHash;
+        $canonical = $method . "\n" . $uri . "\n" . $query . "\n" . implode('', array_map(fn (string $k, string $v): string => $k . ':' . $v . "\n", array_keys($headers), $headers)) . "\n" . $signedHeaders . "\n" . $bodyHash;
         $scope = $day . '/' . $region . '/s3/aws4_request';
         $stringToSign = "AWS4-HMAC-SHA256\n" . $date . "\n" . $scope . "\n" . hash('sha256', $canonical);
         $k = hash_hmac('sha256', 'aws4_request', hash_hmac('sha256', 's3', hash_hmac('sha256', $region, hash_hmac('sha256', $day, 'AWS4' . $secret, true), true), true), true);

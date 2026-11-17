@@ -111,7 +111,7 @@ class Settings extends Module
             'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
         'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
         'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
-            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'auto_updates' => 'ano', 'update_channel' => 'vyber:latest|stable', 'update_url' => 'url'],
+            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'backup_remote_days' => 'cislo:0:3650', 'auto_updates' => 'ano', 'update_channel' => 'vyber:latest|stable', 'update_url' => 'url'],
         'firewall' => ['firewall_enabled' => 'ano', 'firewall_proxy' => 'vyber:|cloudflare', 'firewall_ips' => 'radky', 'firewall_countries' => 'vzor:/^[A-Za-z,;\s]{0,400}$/',
             'firewall_rate' => 'cislo:0:10000', 'firewall_probes' => 'ano'],
         'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
@@ -1097,6 +1097,8 @@ class Settings extends Module
     private function restoreHeld(string $file, ?string $entered, ?string $key): Response
     {
         try {
+            // 3.46 (N156): the sign-in state and the waiting queue rows of today, put back over the restored tables afterwards
+            $today = \Kaleta\Core\RestoreLedger::capture($this->db);
             $safetyBackup = Backup::create($this->db, 'predobnovou', false);
             $statementCount = Backup::restore($this->db, $file, Backup::encrypted($file) ? $key : null);
         } catch (\Throwable $e) {
@@ -1125,6 +1127,17 @@ class Settings extends Module
         // 3.19.1 (N82): the restore replaced the change log and the events with the backup's copies – the record of the
         // restore itself is written now, into the restored database, so it is not lost with the rest
         $file = (string) basename((string) Backup::path($file));
+        // 3.46 (N156): an older backup is brought up to this version first (its settings read fresh), then what a restore must
+        // never bring back is put back from today and the ledger
+        $this->app->settings()->reload();
+        try {
+            if (\Kaleta\Core\Migration::pending($this->app->settings(), \Kaleta\Core\Migration::latest())) {
+                \Kaleta\Core\Migration::apply($this->db, $this->app->settings());
+            }
+        } catch (\Throwable $e) {
+            \Kaleta\Core\Migration::writeError($e);
+        }
+        $kept = \Kaleta\Core\RestoreLedger::reapply($this->app, $today, \Kaleta\Core\RestoreLedger::madeAt($file));
         // 3.28: restored with a recovery key entered here – on a new server (no key of its own) or when it is the key the
         // restored database confirmed, it becomes this site's key, so the off-site copies go on with the key the owner keeps
         if ($entered !== null && Backup::encrypted($file) && (\Kaleta\Core\RecoveryKey::load() === null
@@ -1137,9 +1150,10 @@ class Settings extends Module
         }
         \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'backup restored', $file . ' (safety backup: ' . $safetyBackup . ')');
         \Kaleta\Core\Events::record($this->db, 'backup.restored', 'warning', t('The database was restored from backup %s; the state before the restore is in backup %s.', $file, $safetyBackup),
-            ['file' => $file, 'safety_backup' => $safetyBackup, 'statements' => $statementCount, 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)]);
+            ['file' => $file, 'safety_backup' => $safetyBackup, 'statements' => $statementCount, 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)] + $kept);
 
-        return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup), '', ['tab' => 'backups']);
+        return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup)
+            . ' ' . \Kaleta\Core\RestoreLedger::summary($kept), '', ['tab' => 'backups'], !empty($kept['failed']) ? 'chyba' : 'ok');
     }
 
     /** The id of the recovery key the database just restored had confirmed (3.28) – read fresh, the settings in memory are older. */

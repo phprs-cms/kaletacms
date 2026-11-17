@@ -424,6 +424,7 @@ final class Enquiries extends Module
             \Kaleta\Core\Deals::forgetEnquiries($this->db, $ids); // N331-2: a deal from one stays, without the link and (3.32) the person's words – before the rows go
             $this->db->run('DELETE FROM {poptavky} WHERE idp IN (' . $v . ')');
             \Kaleta\Core\Comments::forgetEnquiries($this->db, $ids);
+            \Kaleta\Core\PersonalData::forgetQueued($this->db, '', $ids); // 3.46 (N161)
 
             return $this->back(t('Enquiries deleted: %d.', count($ids)));
         }
@@ -525,6 +526,7 @@ final class Enquiries extends Module
             \Kaleta\Core\Deals::forgetEnquiries($this->db, [$this->request->postInt('idp')]); // N331-2: a deal from it stays, without the link and (3.32) the person's words – before the row goes
             $this->db->delete('poptavky', ['idp' => $this->request->postInt('idp')]);
             \Kaleta\Core\Comments::forgetEnquiries($this->db, [$this->request->postInt('idp')]);
+            \Kaleta\Core\PersonalData::forgetQueued($this->db, '', [$this->request->postInt('idp')]); // 3.46 (N161): no retry sends a deleted enquiry on
         }
 
         return $this->back('The enquiry was deleted.');
@@ -556,6 +558,7 @@ final class Enquiries extends Module
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
+            $message .= ' ' . $result['backup_horizon']['text']; // 3.46 (N157)
 
             return $this->back($message, 'personal');
         }

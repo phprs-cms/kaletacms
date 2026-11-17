@@ -95,6 +95,7 @@ final class Subscription
         }
         if ($action === 'unsubscribe') {
             $db->delete('odberatele', ['ido' => (int) $o['ido']]);
+            \Kaleta\Core\RestoreLedger::record($db, 'unsubscribed', (string) $o['email']); // 3.46 (N156): a restore never subscribes them again
             if ((int) $o['stav'] === 1) {
                 \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'odebrat'); // from the mailing service too
             }
@@ -103,6 +104,7 @@ final class Subscription
         }
         if ((int) $o['stav'] === 0) {
             $db->update('odberatele', ['stav' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['ido' => (int) $o['ido']]);
+            \Kaleta\Core\RestoreLedger::forget($db, 'unsubscribed', (string) $o['email']); // 3.46: subscribed again – a restore keeps it
             \Kaleta\Core\Contacts::later('subscriber', (int) $o['ido']); // 3.28: a confirmed subscription joins its customer after the response
             \Kaleta\Core\Newsletter::enqueue($this->app, (string) $o['email'], 'pridat'); // to the mailing service, sent by the background cleanup
         }

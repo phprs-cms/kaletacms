@@ -12,6 +12,13 @@ final class Backup
     public const string FOLDER = KALETA_ROOT . '/storage/zalohy';
     /** How many backups made here the rotation keeps – and, apart from them, how many encrypted copies uploaded back (3.31.1). */
     public const int KEEP = 10;
+    /**
+     * 3.46 (N157, owner decision 8): and none older than this many days – erased and expired personal data must not wait
+     * in a backup for long. An uploaded copy counts from its upload.
+     */
+    public const int KEEP_DAYS = 30;
+    /** 3.46 (N156): the table a backup never holds and a restore never touches (Core\RestoreLedger). */
+    public const string LEDGER = 'restore_ledger';
     /** The name of a backup file (3.28: also an encrypted off-site copy, ….enc). */
     private const string NAME = '/^kaleta-[0-9a-z-]+\.sql(\.gz)?(\.enc)?$/D';
     /** A hold (hold(), a restore under way) older than this was left by a request that died – the rotation ignores and deletes it. */
@@ -60,6 +67,9 @@ final class Backup
             throw new \RuntimeException(t('The backup found no tables of this site in the database, so none was made. Ask your hosting to check the database server\'s settings (sql_mode).'));
         }
         foreach ($tables as $table) {
+            if (Names::table(substr($table, strlen($db->prefix))) === self::LEDGER) {
+                continue; // 3.46 (N156): the restore ledger outlives every restore
+            }
             // temporary data is not backed up
             $structureOnly = in_array(Names::table(substr($table, strlen($db->prefix))), ['stat_navstevnici', 'kontrola_ip'], true); // also under the English names (3.15)
             $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(\PDO::FETCH_NUM)[1];
@@ -105,7 +115,7 @@ final class Backup
      */
     public static function prune(array $protect = []): void
     {
-        foreach (self::prunable(self::listAll(), [...$protect, ...self::held()]) as $old) {
+        foreach (self::prunable(self::listAll(), [...$protect, ...self::held()], time()) as $old) {
             @unlink(self::FOLDER . '/' . $old);
         }
     }
@@ -113,13 +123,14 @@ final class Backup
     /**
      * Which backups the rotation deletes (3.31.1, pure): the backups made here and the encrypted copies uploaded back
      * (….enc) rotate apart, each keeping its newest KEEP – an uploaded copy never pushes a backup made here out, nor the
-     * other way round, and the newest of each always stays; a name in $protect is never deleted.
+     * other way round; a name in $protect is never deleted. 3.46 (N157): with $now, a backup older than KEEP_DAYS goes too
+     * (also the newest – personal data erased on the site must not stay in a backup for longer).
      *
      * @param list<array{soubor:string, velikost:int, cas:int}> $backups newest first (listAll)
      * @param list<string> $protect
      * @return list<string>
      */
-    public static function prunable(array $backups, array $protect = []): array
+    public static function prunable(array $backups, array $protect = [], ?int $now = null): array
     {
         $groups = ['local' => [], 'uploaded' => []];
         foreach ($backups as $backup) {
@@ -130,6 +141,13 @@ final class Backup
             foreach (array_slice($files, self::KEEP) as $old) {
                 if (!in_array($old, $protect, true)) {
                     $delete[] = $old;
+                }
+            }
+        }
+        if ($now !== null) {
+            foreach ($backups as $backup) {
+                if ($backup['cas'] < $now - self::KEEP_DAYS * 86400 && !in_array($backup['soubor'], $protect, true) && !in_array($backup['soubor'], $delete, true)) {
+                    $delete[] = $backup['soubor'];
                 }
             }
         }
@@ -351,7 +369,8 @@ final class Backup
                     throw new \RuntimeException(t('The backup contains a foreign table %s – the restore was stopped.', $m[2]));
                 }
                 $tables += str_starts_with($statement, 'CREATE TABLE ') ? 1 : 0;
-                if ($apply !== null) {
+                // 3.46 (N156): a restore never touches the restore ledger, even when a file names it
+                if ($apply !== null && !(isset($m[2]) && Names::table(substr($m[2], strlen($prefix))) === self::LEDGER)) {
                     $apply($statement);
                 }
                 $statement = '';

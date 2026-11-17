@@ -91,12 +91,6 @@ parameters:
 			path: system/src/Core/Qr.php
 
 		-
-			message: '#^Method Kaleta\\Core\\RemoteBackup\:\:ftp\(\) should return array\{callable\(string, string\)\: void, callable\(\)\: void\} but returns array\{Closure\(string, string\)\: void, Closure\(\)\: bool\}\.$#'
-			identifier: return.type
-			count: 1
-			path: system/src/Core/RemoteBackup.php
-
-		-
 			message: '#^Negated boolean expression is always true\.$#'
 			identifier: booleanNot.alwaysTrue
 			count: 1

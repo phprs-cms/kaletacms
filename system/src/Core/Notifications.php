@@ -94,6 +94,12 @@ final class Notifications
                 }
             },
             fn () => $db->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-30 days')]),
+            fn () => PersonalData::sweepQueues($db), // 3.46 (N161): delivered and given-up webhook and connector bodies, every day – not only by chance
+            function (): void {
+                if (!Backup::refusedInDemo()) {
+                    Backup::prune(); // 3.46 (N157): no local backup older than Backup::KEEP_DAYS, also on a site that makes none
+                }
+            },
             function (): void {
                 // the states of imports and migration reports, the rows of item imports (3.7, N37-25) – never an uploaded export
                 try {
