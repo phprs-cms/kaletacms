@@ -1709,23 +1709,7 @@ return [
     'Please fill in your name.' => '请填写您的姓名。',
     'We can publish your words only with your consent.' => '只有经您同意，我们才能发布您的评价。',
     'Would you share your experience with %s?' => '您愿意分享与 %s 合作的体验吗？',
-    'Hello,
-
-thank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:
-
-%s
-
-The link works for %d days.
-
-%s' => '您好，
-
-感谢您与我们合作。您愿意写几句话谈谈您的体验吗？只需一分钟，且仅在您同意后我们才会发布：
-
-%s
-
-该链接 %d 天内有效。
-
-%s',
+    "Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s" => "您好，\n\n感谢您与我们合作。您愿意写几句话谈谈您的体验吗？只需一分钟，且仅在您同意后我们才会发布：\n\n%s\n\n该链接 %d 天内有效。\n\n%s",
     'A testimonial arrived – a hidden draft in %s.' => '收到一条客户评价——已在 %s 中存为隐藏草稿。',
     'What happens next' => '接下来会怎样',
     'We will reply today by %s.' => '我们将于今天 %s 前回复您。',

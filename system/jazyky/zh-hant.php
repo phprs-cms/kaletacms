@@ -1709,23 +1709,7 @@ return [
     'Please fill in your name.' => '請填寫您的姓名。',
     'We can publish your words only with your consent.' => '我們只有在取得您同意後才能發布您的分享。',
     'Would you share your experience with %s?' => '您願意分享與 %s 合作的經驗嗎？',
-    'Hello,
-
-thank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:
-
-%s
-
-The link works for %d days.
-
-%s' => '您好：
-
-感謝您與我們合作。您願意寫幾句話分享您的經驗嗎？只需要一分鐘，而且我們只會在取得您同意後才發布：
-
-%s
-
-此連結 %d 天內有效。
-
-%s',
+    "Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s" => "您好：\n\n感謝您與我們合作。您願意寫幾句話分享您的經驗嗎？只需要一分鐘，而且我們只會在取得您同意後才發布：\n\n%s\n\n此連結 %d 天內有效。\n\n%s",
     'A testimonial arrived – a hidden draft in %s.' => '收到一則推薦 – 已在 %s 中建立為隱藏草稿。',
     'What happens next' => '接下來的流程',
     'We will reply today by %s.' => '我們會在今天 %s 前回覆您。',

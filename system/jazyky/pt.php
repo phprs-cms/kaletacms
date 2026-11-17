@@ -1709,23 +1709,7 @@ return [
     'Please fill in your name.' => 'Preencha seu nome.',
     'We can publish your words only with your consent.' => 'Só podemos publicar seu depoimento com o seu consentimento.',
     'Would you share your experience with %s?' => 'Você compartilharia sua experiência com %s?',
-    'Hello,
-
-thank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:
-
-%s
-
-The link works for %d days.
-
-%s' => 'Olá,
-
-obrigado por trabalhar conosco. Você poderia escrever algumas palavras sobre a sua experiência? Leva um minuto, e só publicamos com o seu consentimento:
-
-%s
-
-O link funciona por %d dias.
-
-%s',
+    "Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s" => "Olá,\n\nobrigado por trabalhar conosco. Você poderia escrever algumas palavras sobre a sua experiência? Leva um minuto, e só publicamos com o seu consentimento:\n\n%s\n\nO link funciona por %d dias.\n\n%s",
     'A testimonial arrived – a hidden draft in %s.' => 'Chegou um depoimento – um rascunho oculto em %s.',
     'What happens next' => 'Próximos passos',
     'We will reply today by %s.' => 'Responderemos hoje até as %s.',

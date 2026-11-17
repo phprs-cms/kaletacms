@@ -288,23 +288,7 @@ return [
     'Please fill in your name.' => 'Bitte gib deinen Namen an.',
     'We can publish your words only with your consent.' => 'Wir können deine Worte nur mit deiner Einwilligung veröffentlichen.',
     'Would you share your experience with %s?' => 'Möchtest du von deiner Erfahrung mit %s erzählen?',
-    'Hello,
-
-thank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:
-
-%s
-
-The link works for %d days.
-
-%s' => 'Guten Tag,
-
-vielen Dank für die Zusammenarbeit. Würdest du ein paar Worte über deine Erfahrung schreiben? Es dauert eine Minute, und wir veröffentlichen sie nur mit deiner Einwilligung:
-
-%s
-
-Der Link gilt %d Tage.
-
-%s',
+    "Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s" => "Guten Tag,\n\nvielen Dank für die Zusammenarbeit. Würdest du ein paar Worte über deine Erfahrung schreiben? Es dauert eine Minute, und wir veröffentlichen sie nur mit deiner Einwilligung:\n\n%s\n\nDer Link gilt %d Tage.\n\n%s",
     '%s will reply.' => '%s wird dir antworten.',
     'Choose the before and after images in the Content panel.' => 'Wähle im Panel Inhalt die Bilder vorher und nachher.',
     'Add plans in the Content panel.' => 'Füge im Panel Inhalt Pakete hinzu.',

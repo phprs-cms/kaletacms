@@ -1709,23 +1709,7 @@ return [
     'Please fill in your name.' => 'Kérjük, adja meg a nevét.',
     'We can publish your words only with your consent.' => 'Véleményét csak az Ön hozzájárulásával tehetjük közzé.',
     'Would you share your experience with %s?' => 'Megosztaná tapasztalatait a(z) %s kapcsán?',
-    'Hello,
-
-thank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:
-
-%s
-
-The link works for %d days.
-
-%s' => 'Tisztelt Ügyfelünk!
-
-Köszönjük, hogy velünk dolgozott. Írna néhány szót a tapasztalatairól? Csak egy percet vesz igénybe, és kizárólag az Ön hozzájárulásával tesszük közzé:
-
-%s
-
-A hivatkozás %d napig érvényes.
-
-%s',
+    "Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s" => "Tisztelt Ügyfelünk!\n\nKöszönjük, hogy velünk dolgozott. Írna néhány szót a tapasztalatairól? Csak egy percet vesz igénybe, és kizárólag az Ön hozzájárulásával tesszük közzé:\n\n%s\n\nA hivatkozás %d napig érvényes.\n\n%s",
     'A testimonial arrived – a hidden draft in %s.' => 'Új ügyfélvélemény érkezett – rejtett piszkozatként itt: %s.',
     'What happens next' => 'Mi történik ezután',
     'We will reply today by %s.' => 'Legkésőbb ma %s óráig válaszolunk.',

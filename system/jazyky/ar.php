@@ -1709,23 +1709,7 @@ return [
     'Please fill in your name.' => 'يرجى إدخال اسمك.',
     'We can publish your words only with your consent.' => 'لا يمكننا نشر كلماتك إلا بموافقتك.',
     'Would you share your experience with %s?' => 'هل تودّ مشاركة تجربتك مع %s؟',
-    'Hello,
-
-thank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:
-
-%s
-
-The link works for %d days.
-
-%s' => 'مرحبًا،
-
-شكرًا لتعاملك معنا. هل تودّ كتابة بضع كلمات عن تجربتك؟ لن يستغرق الأمر سوى دقيقة، ولن ننشرها إلا بموافقتك:
-
-%s
-
-الرابط صالح لمدة %d يومًا.
-
-%s',
+    "Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s" => "مرحبًا،\n\nشكرًا لتعاملك معنا. هل تودّ كتابة بضع كلمات عن تجربتك؟ لن يستغرق الأمر سوى دقيقة، ولن ننشرها إلا بموافقتك:\n\n%s\n\nالرابط صالح لمدة %d يومًا.\n\n%s",
     'A testimonial arrived – a hidden draft in %s.' => 'وصلت شهادة عميل – كمسودة مخفية في %s.',
     'What happens next' => 'ماذا بعد',
     'We will reply today by %s.' => 'سنرد اليوم قبل %s.',

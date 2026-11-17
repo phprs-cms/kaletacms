@@ -6,8 +6,9 @@ declare(strict_types=1);
 
 /**
  * Problems of one dictionary file that a union merge can leave behind: a key written twice (PHP and JS keep the last one
- * silently, so a merged duplicate would hide a translation) and a last entry without its comma (two branches appending
- * after it would be joined without one).
+ * silently, so a merged duplicate would hide a translation), a last entry without its comma (two branches appending
+ * after it would be joined without one) and an entry that spans lines (union merges line by line, so such an entry could
+ * be torn apart – 3.43 review M1: multi-line texts use "\n").
  *
  * @return list<string>
  */
@@ -29,8 +30,15 @@ function c343_dictionary_problems(string $file): array
                 $depth--;
                 continue;
             }
+            if ($depth === 1 && is_array($token) && in_array($token[0], [T_START_HEREDOC, T_ENCAPSED_AND_WHITESPACE], true)) {
+                $problems[] = "entry spans lines – {$name}:{$token[2]}";
+                continue;
+            }
             if ($depth !== 1 || !is_array($token) || $token[0] !== T_CONSTANT_ENCAPSED_STRING) {
                 continue;
+            }
+            if (str_contains($token[1], "\n")) {
+                $problems[] = "entry spans lines – {$name}:{$token[2]} (write \\n)";
             }
             $next = $i + 1;
             while (isset($tokens[$next]) && is_array($tokens[$next]) && $tokens[$next][0] === T_WHITESPACE) {
@@ -74,15 +82,15 @@ check('3.43 C: no dictionary has a duplicate key or a last entry without its com
 // the check on what a careless union merge produces: the same key from both branches, and an entry appended after one without a comma
 $c343Dir = sys_get_temp_dir() . '/kaleta-c343-' . bin2hex(random_bytes(4));
 mkdir($c343Dir);
-file_put_contents($c343Dir . '/cs.php', "<?php\nreturn [\n    'Saved' => 'Uloženo',\n    'It\\'s new' => 'Nové',\n    \"It's new\" => 'Nové znovu',\n    'Saved' => 'Uloženo',\n];\n");
+file_put_contents($c343Dir . '/cs.php', "<?php\nreturn [\n    'Saved' => 'Uloženo',\n    'It\\'s new' => 'Nové',\n    \"It's new\" => 'Nové znovu',\n    'Saved' => 'Uloženo',\n    'Hello,\n\nbye' => 'Ahoj,\n\nmějte se',\n];\n");
 file_put_contents($c343Dir . '/admin-cs.js', "/* test */\nwindow.KALETA_PREKLAD = {\n\t\"Saved\": \"Uloženo\",\n\t\"Saved\": \"Uloženo\",\n\t\"New\": \"Nové\"\n};\n");
 file_put_contents($c343Dir . '/admin-es.php', "<?php\nreturn [\n    'Saved' => 'Guardado'\n];\n");
-check('3.43 C: the dictionary check names duplicates from either quoting and a last entry without its comma', [
+check('3.43 C: the dictionary check names duplicates from either quoting, an entry that spans lines and a last entry without its comma', [
     c343_dictionary_problems($c343Dir . '/cs.php'),
     c343_dictionary_problems($c343Dir . '/admin-cs.js'),
     c343_dictionary_problems($c343Dir . '/admin-es.php'),
 ], [
-    ["duplicate – cs.php:5 (first 4): It's new", 'duplicate – cs.php:6 (first 3): Saved'],
+    ["duplicate – cs.php:5 (first 4): It's new", 'duplicate – cs.php:6 (first 3): Saved', 'entry spans lines – cs.php:7 (write \\n)', 'entry spans lines – cs.php:9 (write \\n)'],
     ['duplicate – admin-cs.js:4 (first 3): Saved', 'last entry without a comma – admin-cs.js'],
     ['last entry without a comma – admin-es.php'],
 ]);
