@@ -5901,6 +5901,84 @@ await step('3.42 C collections in the price list: the mapping (1440/390, light/d
   }
 });
 
+await step('3.44 B quote editor: Up/Down and Remove in place, the unsaved-changes dialog (editor, price grid paging, stages), the check before Save and send, the send summary', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  sql("UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('quotes', hodnota);"
+    + " INSERT INTO ka_kolekce (nazev, seo_link, pole, detail, preset) VALUES ('Parts C344', 'parts-c344', '[{\"klic\":\"code\",\"popisek\":\"Code\",\"typ\":\"text\"}]', 1, 'products');"
+    + " INSERT INTO ka_price_lists (name, currency, is_default, note, created_at, updated_at) SELECT 'Standard C344', 'EUR', 1, '', NOW(), NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_price_lists WHERE is_default = 1)");
+  const idk = sql("SELECT idk FROM ka_kolekce WHERE seo_link = 'parts-c344'").trim();
+  // 55 parts: the grid has two pages (Core\Prices::PAGE = 50)
+  sql('INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) VALUES ' + Array.from({ length: 55 }, (_, i) => `(${Number(idk)}, 'Part C344 ${String(i + 1).padStart(2, '0')}', 'part-c344-${i + 1}', '{"code":"PC344-${i + 1}"}', NOW(), 1)`).join(', '));
+  let id = 0;
+  try {
+    await visit('/admin.php?module=quotes');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-create] button').click()]);
+    id = Number(new URL(page.url()).searchParams.get('id'));
+    if (!/^Draft quote/.test(((await page.locator('h1').first().textContent()) || '').trim())) { throw new Error('a draft is not titled "Draft quote"'); }
+    for (const [name, price] of [['Alpha C344', '10'], ['Beta C344', '20'], ['Gamma C344', '30']]) {
+      await page.locator('#nabidka-volny').fill(name); await page.locator('#nabidka-volny-cena').fill(price);
+      await Promise.all([page.waitForNavigation(), page.locator('[data-quote-add-line]').click()]);
+    }
+    if (new URL(page.url()).hash !== '#line-3') { throw new Error(`Add a line lands on ${new URL(page.url()).hash}, not on the new line`); }
+    const names = () => page.locator('input[name="line_name[]"]').evaluateAll((els) => els.map((e) => e.value).join(','));
+    // the keyboard: Down on the first line moves it and keeps the focus on the button; Remove greys the line until Save
+    await page.locator('[data-quote-line] [data-quote-move="down"]').first().focus();
+    await page.keyboard.press('Enter');
+    if ((await names()) !== 'Beta C344,Alpha C344,Gamma C344') { throw new Error(`Down did not move the line: ${await names()}`); }
+    if ((await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) !== 'Move line 2 down') { throw new Error('the focus did not stay on the moved line'); }
+    await page.locator('[data-quote-line]').nth(2).locator('[data-quote-remove]').click();
+    if (!(await page.locator('[data-quote-line].nabidka-odebrano').count()) || ((await page.locator('[data-quote-line]').nth(2).locator('[data-quote-remove]').textContent()) || '').indexOf('Undo') !== 0) { throw new Error('Remove did not mark the line with Undo'); }
+    const box = await page.locator('[data-quote-line]').nth(2).locator('[data-quote-remove]').boundingBox();
+    if (!box || box.height < 24 || box.width < 24) { throw new Error('the Remove button is smaller than 24 px'); }
+    // leaving by a link asks in the admin's dialog; Stay keeps the page
+    await page.locator('.zaznam-lista a.navigace').first().click();
+    await page.locator('dialog[data-unsaved-dialog][open]').waitFor({ timeout: 3000 });
+    await page.locator('[data-unsaved-stay]').click();
+    if (!page.url().includes(`id=${id}`)) { throw new Error('Stay left the editor'); }
+    // Save and send without a customer stops here with the reasons and the fields marked
+    await page.locator('[data-quote-send]').click();
+    if (!(await page.locator('[data-quote-send-check]').isVisible()) || !(await page.locator('#nabidka-c-name[aria-invalid="true"]').count()) || page.url().includes('action=send')) { throw new Error('Save and send did not check the customer first'); }
+    await page.locator('#nabidka-c-name').fill('Greta C344'); await page.locator('#nabidka-c-email').fill('greta-c344@example.com');
+    await Promise.all([page.waitForNavigation(), page.locator('[data-quote-send]').click()]);
+    const stored = sql(`SELECT GROUP_CONCAT(name ORDER BY position) FROM ka_quote_lines WHERE quote_id = ${id}`).trim();
+    if (stored !== 'Beta C344,Alpha C344') { throw new Error(`the order and the removal were not saved: ${stored}`); }
+    if (!(await page.locator('[data-quote-summary]').count()) || !/Greta C344/.test((await page.locator('[data-quote-summary]').textContent()) || '')) { throw new Error('the send page has no summary'); }
+    // the price grid: a typed price and a page link → Save and open page 2 saves it and opens page 2
+    await visit(`/admin.php?module=quotes&action=prices&collection=${Number(idk)}`);
+    await page.locator('[data-price-row] input[name="price[]"]').first().fill('12');
+    await page.locator('[data-unsaved-page="2"]').click();
+    await page.locator('dialog[data-unsaved-dialog][open] [data-unsaved-save]').waitFor({ timeout: 3000 });
+    await Promise.all([page.waitForNavigation(), page.locator('[data-unsaved-save]').click()]);
+    if (!page.url().includes('page=2') || sql(`SELECT COUNT(*) FROM ka_prices p JOIN ka_kolekce_polozky i ON i.idp = p.item_id WHERE i.idk = ${Number(idk)} AND p.unit_price = 12.00`).trim() !== '1') { throw new Error('Save and open page 2 did not save the price and open the page'); }
+    // the stages: a typed name and a tab link ask too; Leave without saving goes
+    await visit('/admin.php?module=pipeline&action=stages');
+    await page.locator('input[name="label[]"]').first().fill('Renamed C344');
+    await page.getByRole('link', { name: 'Board', exact: true }).first().click();
+    await page.locator('dialog[data-unsaved-dialog][open]').waitFor({ timeout: 3000 });
+    if (await page.locator('[data-unsaved-save]').isVisible()) { throw new Error('the stages offer to save and open a page'); }
+    await Promise.all([page.waitForNavigation(), page.locator('[data-unsaved-leave]').click()]);
+    if (sql("SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'pipeline_stages' AND hodnota LIKE '%Renamed C344%'").trim() !== '0') { throw new Error('leaving saved the stages'); }
+    // 390 px light and dark: no sideways scroll in the editor
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      const other = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: scheme, storageState: state, isMobile: true, hasTouch: true });
+      const p2 = await other.newPage(); watch(p2);
+      try {
+        await p2.goto(BASE + `/admin.php?module=quotes&action=edit&id=${id}`, { waitUntil: 'networkidle' });
+        const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (wide > 1) { throw new Error(`${wide} px of sideways scroll in the editor (390, ${scheme})`); }
+        if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/344b-quote-editor-phone-${scheme}.png`, fullPage: true }); }
+      } finally {
+        await other.close();
+      }
+    }
+  } finally {
+    sql(`DELETE FROM ka_quote_lines WHERE quote_id = ${id}; DELETE FROM ka_quotes WHERE id = ${id}; DELETE p FROM ka_prices p JOIN ka_kolekce_polozky i ON i.idp = p.item_id WHERE i.idk = ${Number(idk) || 0};`
+      + ` DELETE FROM ka_kolekce_polozky WHERE idk = ${Number(idk) || 0}; DELETE FROM ka_kolekce WHERE seo_link = 'parts-c344';`
+      + " UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
 await browser.close();
 if (errors.length) {
   console.log(`\nSCRIPT ERRORS: ${errors.length}\n  ` + [...new Set(errors)].join('\n  '));

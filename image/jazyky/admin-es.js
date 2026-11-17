@@ -3102,4 +3102,11 @@ window.KALETA_PREKLAD = {
 	"Status and Move: “%s”": "Estado y Mover: «%s»",
 	"Status and Move": "Estado y Mover",
 	"In this stage since today": "En esta etapa desde hoy",
+	"You have changes that are not saved yet.": "Tiene cambios que aún no se han guardado.",
+	"Leave without saving": "Salir sin guardar",
+	"Stay on the page": "Quedarse en la página",
+	"Save and open page %s": "Guardar y abrir la página %s",
+	"Line moved to position %s.": "La línea está ahora en la posición %s.",
+	"The line is removed when you save.": "La línea se elimina al guardar.",
+	"The line stays.": "La línea se queda.",
 };

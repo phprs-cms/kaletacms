@@ -14,6 +14,9 @@ namespace Kaleta\Core;
  *  - The people of the CRM are "Customers" (the menu, the list, "New customer"); the list's tabs are "People" and "Companies".
  *  - A deal is "Obchod" in Czech, so the enquiry kind Sales is "Prodej"; a lost deal or stage is "prohraná" (prohraný, prohra,
  *    prohrané) in every Czech sentence – 3.34 (owner decision) brought it back from the "ztracená" of 3.32.
+ *  - 3.44 (U59): the admin says "Quote" and the customer's document and e-mail say "Quotation" – deliberately, the customer's
+ *    word is the formal one. A draft is a "Draft quote" until sending gives it its number; making one is "New quote" everywhere;
+ *    the person a quote is for is the "Customer" (not "Contact").
  */
 final class Glossary
 {

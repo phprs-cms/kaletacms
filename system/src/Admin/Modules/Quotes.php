@@ -58,6 +58,24 @@ final class Quotes extends Module
     public const int DEAL_CHOICES = 300;
 
     /** The label of a status in lists, boxes and the bar (the colours of views/admin: koncept, plan, vydano, chyba). */
+    /**
+     * The name of a quote on its screens (3.44, U59): a numbered one is "<number> – <title>"; a draft has no number yet, so it is
+     * "Draft quote – <title, or the customer's company or name>" instead of "#12" (the list and MCP keep Quotes::label).
+     *
+     * @param array<string, mixed> $quote Store::get
+     */
+    public static function heading(array $quote): string
+    {
+        $title = trim((string) $quote['title']);
+        if ($quote['number'] !== null && $quote['number'] !== '') {
+            return $quote['number'] . ($title !== '' ? ' – ' . $title : '');
+        }
+        $customer = $quote['customer'] ?? [];
+        $about = $title !== '' ? $title : trim((string) (($customer['company'] ?? '') !== '' ? $customer['company'] : ($customer['name'] ?? '')));
+
+        return t('Draft quote') . ($about !== '' ? ' – ' . $about : '');
+    }
+
     public static function statusClass(string $status): string
     {
         return 'stitek' . match ($status) {
@@ -112,7 +130,7 @@ final class Quotes extends Module
     }
 
     /**
-     * A new draft (POST – "Create a quote" on the list, "New quote" in the box of an enquiry, a deal, a customer or a
+     * A new draft (POST – "New quote" on the list, "New quote" in the box of an enquiry, a deal, a customer or a
      * company): Store::save fills the customer, the open deal and the enquiry's basket lines (linesFromEnquiry) and checks
      * the sections (an enquiry needs Enquiries, a customer Customers, a deal the Pipeline); then the editor opens.
      */
@@ -220,7 +238,8 @@ final class Quotes extends Module
             // the send dialog and the e-mail are the next part's (action send); the box "set the deal value" travels along
             'send' => Response::redirect($this->url('send', ['id' => $quote['id']] + ((Store::get($this->db, $quote['id'])['deal_id'] ?? null) !== null ? ['deal_value' => $dealValue ? 1 : 0] : []))),
             'save_set' => Response::redirect($this->url('edit', ['id' => $quote['id']]) . '#line-sets'),
-            default => in_array($next, ['add', 'line_set'], true) ? Response::redirect($this->url('edit', ['id' => $quote['id']]) . '#lines') : $this->back('The quote was saved.', 'edit', ['id' => $quote['id']]),
+            default => in_array($next, ['add', 'line_set'], true) || $this->request->post('line_move') !== '' || $this->request->post('line_drop') !== ''
+                ? Response::redirect($this->url('edit', ['id' => $quote['id']]) . $this->lineAnchor($quote['id'], $next)) : $this->back('The quote was saved.', 'edit', ['id' => $quote['id']]),
         };
     }
 
@@ -246,7 +265,7 @@ final class Quotes extends Module
         $people = array_values(array_filter([$quote['owner_id'], $quote['created_by'], $quote['sent_by'], $quote['decided_by'], ...array_map(fn (array $h): ?int => isset($h['by']) ? (int) $h['by'] : null, $quote['history'])]));
         $list = Prices::priceList($this->db, $quote['price_list_id']);
 
-        return $this->view('detail', Store::label($quote['number'], $quote['id']) . ($quote['title'] !== '' ? ' – ' . $quote['title'] : ''), ['q' => $quote, 'deal' => $deal, 'enquiry' => $enquiry,
+        return $this->view('detail', self::heading($quote), ['q' => $quote, 'deal' => $deal, 'enquiry' => $enquiry,
             'dealStage' => $deal !== null ? Deals::stage($this->app->settings(), $deal['stage']) : null,
             'won' => array_values(array_filter($stages, fn (array $s): bool => $s['kind'] === 'won'))[0] ?? null,
             'lost' => array_values(array_filter($stages, fn (array $s): bool => $s['kind'] === 'lost'))[0] ?? null,
@@ -726,7 +745,7 @@ final class Quotes extends Module
             $languages[Language::column($s, $code)] = Language::AVAILABLE[$code][0] ?? $code;
         }
 
-        return $this->view('edit', Store::label($quote['number'], $quote['id']) . ($quote['title'] !== '' ? ' – ' . $quote['title'] : ''), ['q' => $quote, 'draft' => $draft,
+        return $this->view('edit', self::heading($quote), ['q' => $quote, 'draft' => $draft,
             'lines' => $lines ?? $quote['lines'], 'list' => $list, 'lists' => $lists, 'rates' => Prices::vatRates($s), 'defaultRate' => Prices::defaultVatRate($s),
             'products' => array_slice($products, 0, self::PRODUCT_CHOICES), 'own' => Prices::ownRows($this->db, $list['id']), 'people' => self::people($this->db, (int) $quote['owner_id']),
             'contacts' => $canContacts ? Pipeline::contactChoices($this->db, $quote['contact_id']) : [], 'companies' => $canContacts ? Pipeline::companyChoices($this->db, $quote['company_id']) : [],
@@ -744,16 +763,63 @@ final class Quotes extends Module
     private function postedLines(): array
     {
         $r = $this->request;
+        // a line is removed by its index in line_remove[] (before 3.44), its line_removed[] flag (the Remove button with
+        // JavaScript) or line_drop (the Remove button without it, which saves)
         $remove = array_map('intval', $r->postList('line_remove'));
+        if ($r->post('line_drop') !== '' && ctype_digit($r->post('line_drop'))) {
+            $remove[] = (int) $r->post('line_drop');
+        }
+        $flags = $r->postList('line_removed');
         $lines = [];
         foreach ($r->postList('line_name') as $i => $name) {
             $value = fn (string $key): string => trim((string) ($r->postList($key)[$i] ?? ''));
             $lines[] = ['id' => (int) $value('line_id'), 'item_id' => $value('line_item'), 'variant_code' => $value('line_variant'), 'code' => $value('line_code'), 'name' => trim((string) $name),
                 'description' => $value('line_description'), 'quantity' => $value('line_quantity'), 'unit' => $value('line_unit'), 'unit_price' => $value('line_price'),
-                'discount_percent' => $value('line_discount'), 'vat_rate' => $value('line_vat'), 'remove' => in_array($i, $remove, true)];
+                'discount_percent' => $value('line_discount'), 'vat_rate' => $value('line_vat'), 'remove' => in_array($i, $remove, true) || ($flags[$i] ?? '') === '1'];
         }
 
+        return self::moveLine($lines, $r->post('line_move'));
+    }
+
+    /**
+     * 3.44 (U58): Up or Down of a line without JavaScript – "<index>:up|down" swaps the line with its neighbour (the lines are
+     * saved in the posted order, Quotes::save numbers their positions). Anything else, or a move past either end, leaves them.
+     *
+     * @template T
+     * @param list<T> $lines
+     * @return list<T>
+     */
+    public static function moveLine(array $lines, string $move): array
+    {
+        if (preg_match('/^(\d{1,4}):(up|down)$/', $move, $m) !== 1) {
+            return $lines;
+        }
+        $from = (int) $m[1];
+        $to = $m[2] === 'up' ? $from - 1 : $from + 1;
+        if (!isset($lines[$from], $lines[$to])) {
+            return $lines;
+        }
+        [$lines[$from], $lines[$to]] = [$lines[$to], $lines[$from]];
+
         return $lines;
+    }
+
+    /**
+     * Where the editor lands after a save that stays in it (3.44, U58): the first line that was added (a set or Add a line –
+     * they go after the kept lines) or the line that was moved, so it is not under the sticky bar (image/admin.css gives the
+     * rows a scroll margin); else the lines.
+     */
+    private function lineAnchor(int $quoteId, string $next): string
+    {
+        $count = count(Store::get($this->db, $quoteId)['lines'] ?? []);
+        $kept = count(array_filter($this->postedLines(), fn (array $l): bool => !$l['remove'] && ($l['name'] !== '' || $l['item_id'] !== '' || $l['code'] !== '')));
+        if (preg_match('/^(\d{1,4}):(up|down)$/', $this->request->post('line_move'), $m) === 1) {
+            $at = $m[2] === 'up' ? (int) $m[1] : (int) $m[1] + 2;
+
+            return '#line-' . max(1, min($count, $at));
+        }
+
+        return in_array($next, ['add', 'line_set'], true) && $count > $kept ? '#line-' . ($kept + 1) : '#lines';
     }
 
     /** The scalar fields of the editor as posted (shown again after a refused save). @return array<string, string> */

@@ -14,6 +14,7 @@
  * @var string $replyTo the sender's e-mail
  * @var bool $pdf 3.40: can this quote be drawn as a PDF (Front\QuotePdf)
  * @var bool $attachPdf 3.40: the box "Attach the quote as a PDF" ticked by default (quote_attach_pdf)
+ * @var string $mailTail 3.44 (U61): what the e-mail adds below the message, for the preview ('' once sent)
  */
 $detail = $app->url(Kaleta\Core\Quotes::adminPath((int) $quote['id']));
 $sent = $quote['status'] !== 'draft';
@@ -21,7 +22,16 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
     . '&body=' . rawurlencode($draft['message'] . "\n\n" . $link) : null;
 ?>
 <p><a href="<?= e($detail) ?>"><?= e(t('Back to the quote')) ?></a> · <a href="<?= e($module->url('preview', ['id' => $quote['id']])) ?>" target="_blank" rel="noopener" data-quote-preview><?= e(t('Preview the document')) ?></a></p>
-<h2><?= e($quote['label']) ?><?= $quote['title'] !== '' ? ' · ' . e($quote['title']) : '' ?></h2>
+<h2><?= e($module::heading($quote)) ?></h2>
+<?php if (!$sent): /* 3.44 (U61): what leaves – the customer, the total and the validity */
+    $money = fn (string $decimal): string => Kaleta\Core\Money::format(Kaleta\Core\Money::fromDecimal($decimal), (string) $quote['currency']);
+    $who = trim(implode(' · ', array_filter([trim((string) $quote['customer']['company']), trim((string) $quote['customer']['name'])], fn (string $x): bool => $x !== ''))); ?>
+<dl class="poptavka nabidka-shrnuti" data-quote-summary>
+	<dt><?= e(t('Customer')) ?></dt><dd><?= $who !== '' ? bdi($who) : '<span class="stitek stitek-chyba">' . e(t('missing')) . '</span>' ?></dd>
+	<dt><?= e(t('Total')) ?></dt><dd><?= $quote['vat_mode'] === 'standard' ? e(t('%1$s with VAT (%2$s without VAT)', $money((string) $quote['totals']['gross']), $money((string) $quote['totals']['net']))) : e($money((string) $quote['totals']['net'])) ?></dd>
+	<dt><?= e(t('Valid until')) ?></dt><dd><?= $quote['valid_until'] !== null ? e(format_date((string) $quote['valid_until'])) : e(t('not set')) ?></dd>
+</dl>
+<?php endif ?>
 <?php if ($sent): ?>
 <section data-quote-sent aria-labelledby="nabidka-odkaz">
 	<p><?= e(t('Status: %s', t(Kaleta\Core\Quotes::STATUS_LABELS[$quote['status']] ?? $quote['status']))) ?><?= $quote['sent_at'] !== null ? ' · ' . e(t('sent on %s', format_date((string) $quote['sent_at'], true))) : '' ?></p>
@@ -73,6 +83,12 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 	<div class="radek"><label for="nabidka-zprava"><?= e(t('Message')) ?></label><div><textarea class="textbox" id="nabidka-zprava" name="message" rows="7" maxlength="<?= Kaleta\Core\QuoteDelivery::MAX_MESSAGE ?>" required><?= e($draft['message']) ?></textarea>
 		<span class="napoveda"><?= e(t('Below the message the e-mail adds the number, the validity, the total and the link to the quote.')) ?>
 		<?= e($signature ? ($replyTo !== '' ? t('Your e-mail signature is added; when the customer answers, it comes to you (%s).', $replyTo) : t('Your e-mail signature is added.')) : t('You have no e-mail signature yet, so the e-mail goes without one.')) ?></span></div></div>
+	<div class="radek"><span></span><div><details class="nabidka-nahled-mailu" data-quote-mail-preview data-number="<?= e(t('(the number it gets when sent)')) ?>"><summary><?= e(t('Preview of the e-mail')) ?></summary>
+		<p><strong><?= e(t('Subject')) ?>:</strong> <span data-quote-mail-subject><?= e(str_replace('{number}', t('(the number it gets when sent)'), $draft['subject'])) ?></span></p>
+		<div class="nabidka-nahled-text"><span data-quote-mail-message><?= e($draft['message']) ?></span>
+
+<?= e($mailTail) ?></div>
+		<p class="napoveda"><?= e(t('The customer gets the quote’s number and the link when you send it.')) ?></p></details></div></div>
 <?php if ($draft['deal']): ?>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="set_deal_value" value="1"<?= $draft['set_deal_value'] ? ' checked' : '' ?> data-quote-deal-value> <?= e(t('Set the deal value to the net total')) ?></label></div></div>
 <?php endif ?>

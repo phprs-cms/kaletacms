@@ -21,7 +21,7 @@ for ($i = 0, $free = min(Pipeline::NEW_STAGE_ROWS, Deals::MAX_STAGES - count($ro
 ?>
 <?= $app->view->render('admin/pipeline/tabs', ['module' => $module, 'current' => 'stages', 'query' => [], 'admin' => true]) ?>
 <p class="napoveda"><?= e(t('The stages a deal moves through, in their order. A won or lost stage closes the deal. The pipeline needs %d to %d stages: at least one open, exactly one won and at least one lost.', Deals::MIN_STAGES, Deals::MAX_STAGES)) ?></p>
-<form method="post" action="<?= e($module->url('stages_save')) ?>" data-stages-form>
+<form method="post" action="<?= e($module->url('stages_save')) ?>" data-stages-form data-unsaved>
 <?= $csrf ?>
 <div class="tab-obal">
 <table class="vypis vypis-karty obchody-etapy">
@@ -37,7 +37,7 @@ for ($i = 0, $free = min(Pipeline::NEW_STAGE_ROWS, Deals::MAX_STAGES - count($ro
 <?php endforeach ?>
 	</select></td>
 	<td class="cislo" data-popisek="<?= e(t('Deals')) ?>"><?= $row['key'] !== '' ? format_count($deals) : '' ?></td>
-	<td data-popisek="<?= e(t('Remove')) ?>"><?php if ($row['key'] === ''): ?><span class="napoveda"><?= e(t('new')) ?></span><?php elseif ($deals > 0): ?><span class="napoveda"><?= e(t('has deals')) ?></span><?php else: ?><label><input type="checkbox" name="remove[]" value="<?= $i ?>"> <span class="navod-skryte"><?= e(t('Remove “%s”', $row['label'])) ?></span></label><?php endif ?></td>
+	<td data-popisek="<?= e(t('Remove')) ?>"><?php if ($row['key'] === ''): ?><span class="napoveda"><?= e(t('new')) ?></span><?php elseif ($deals > 0): ?><span class="napoveda"><?= e(t('has deals')) ?></span><?php else: /* 3.44 (U58): a visible, 40 px tall choice instead of a bare 13 px box */ ?><label class="odebrat-volba"><input type="checkbox" name="remove[]" value="<?= $i ?>"> <span aria-hidden="true"><?= e(t('Remove')) ?></span><span class="navod-skryte"><?= e(t('Remove “%s”', $row['label'])) ?></span></label><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>

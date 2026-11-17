@@ -348,16 +348,66 @@
 		window.addEventListener('resize', function () { clearTimeout(markScrollers.t); markScrollers.t = setTimeout(markScrollers, 150); });
 	}
 
-	// Warning before leaving a form with unsaved changes
-	document.querySelectorAll('form.formular').forEach(function (form) {
-		var changed = false;
-		form.addEventListener('input', function () { changed = true; });
-		form.addEventListener('change', function () { changed = true; });
-		form.addEventListener('submit', function () { changed = false; });
-		window.addEventListener('beforeunload', function (e) {
-			if (changed) { e.preventDefault(); e.returnValue = ''; }
-		});
+	// Warning before leaving a form with unsaved changes: form.formular gets the browser's own question when the page is left;
+	// 3.44 (U63) form[data-unsaved] (the quote editor, the price grid, the pipeline stages) also asks in the admin's dialog when a
+	// link on the page is followed – Stay, Leave without saving, and Save and go on where the link says how (data-unsaved-page
+	// in the price grid: saves and opens that page). A submit that goes through (not stopped by a confirmation or a check) ends it.
+	var guardedForms = Array.prototype.slice.call(document.querySelectorAll('form.formular, form[data-unsaved]'));
+	var unsavedDialog = null;
+	guardedForms.forEach(function (form) {
+		var mark = function () {
+			form.kaletaChanged = true;
+			if (form.hasAttribute('data-unsaved')) { form.setAttribute('data-unsaved-changed', ''); }
+		};
+		form.addEventListener('input', mark);
+		form.addEventListener('change', mark);
 	});
+	if (guardedForms.length) {
+		// registered after the confirmation dialog's listener: a submit it (or another check) stopped keeps the changes marked
+		document.addEventListener('submit', function (e) {
+			if (!e.defaultPrevented && e.target.kaletaChanged) { e.target.kaletaChanged = false; e.target.removeAttribute('data-unsaved-changed'); }
+		});
+		window.addEventListener('beforeunload', function (e) {
+			if (guardedForms.some(function (f) { return f.kaletaChanged; })) { e.preventDefault(); e.returnValue = ''; }
+		});
+		document.addEventListener('click', function (e) {
+			var link = e.target.closest && e.target.closest('a[href]');
+			if (!link || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || link.target === '_blank' || link.hasAttribute('download')) { return; }
+			var href = link.getAttribute('href');
+			if (href.charAt(0) === '#' || /^(mailto|tel|javascript):/i.test(href)) { return; }
+			var form = guardedForms.filter(function (f) { return f.kaletaChanged && f.hasAttribute('data-unsaved'); })[0];
+			if (!form) { return; }
+			e.preventDefault();
+			if (!unsavedDialog) {
+				unsavedDialog = document.createElement('dialog');
+				unsavedDialog.className = 'potvrzeni';
+				unsavedDialog.setAttribute('data-unsaved-dialog', '');
+				unsavedDialog.innerHTML = '<p></p><div><button type="button" class="tl" data-unsaved-save></button> <button type="button" class="navigace nebezpecne" data-unsaved-leave></button> <button type="button" class="navigace" data-unsaved-stay></button></div>';
+				unsavedDialog.querySelector('p').textContent = T('You have changes that are not saved yet.');
+				unsavedDialog.querySelector('[data-unsaved-leave]').textContent = T('Leave without saving');
+				unsavedDialog.querySelector('[data-unsaved-stay]').textContent = T('Stay on the page');
+				unsavedDialog.querySelector('[data-unsaved-stay]').addEventListener('click', function () { unsavedDialog.close(); });
+				document.body.appendChild(unsavedDialog);
+			}
+			var save = unsavedDialog.querySelector('[data-unsaved-save]'), page = link.getAttribute('data-unsaved-page');
+			save.hidden = !page;
+			save.textContent = T('Save and open page %s').replace('%s', page || '');
+			save.onclick = function () {
+				unsavedDialog.close();
+				var field = form.querySelector('input[name="page"]');
+				if (!field) { field = document.createElement('input'); field.type = 'hidden'; field.name = 'page'; form.appendChild(field); }
+				field.value = page;
+				if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+			};
+			unsavedDialog.querySelector('[data-unsaved-leave]').onclick = function () {
+				unsavedDialog.close();
+				guardedForms.forEach(function (f) { f.kaletaChanged = false; });
+				window.location.href = link.href;
+			};
+			unsavedDialog.showModal();
+			(page ? save : unsavedDialog.querySelector('[data-unsaved-stay]')).focus();
+		});
+	}
 	/* ---------- small handlers instead of inline scripts (the admin has a Content-Security-Policy without 'unsafe-inline') ---------- */
 
 	// data-aktivni-kdyz="pole=hodnota": fields inside the block are enabled only when the form field has the given value
@@ -1026,5 +1076,89 @@
 		};
 		quoteEditor.addEventListener('input', quoteChanged);
 		quoteEditor.addEventListener('change', quoteChanged);
+
+		// 3.44 (U58): Up, Down and Remove of a line work in place (without them the buttons save and the server moves or drops the
+		// line). A moved row keeps the focus on its button and the names say its new number; a removed row stays greyed with
+		// Undo until Save, its hidden line_removed[] says so. The totals are asked again.
+		var quoteBody = quoteEditor.querySelector('[data-quote-lines] tbody');
+		var quoteStatus = quoteEditor.querySelector('[data-quote-line-status]');
+		var renumber = function () {
+			Array.prototype.forEach.call(quoteBody.rows, function (row, i) {
+				row.querySelectorAll('[aria-label]').forEach(function (el) { el.setAttribute('aria-label', el.getAttribute('aria-label').replace(/\d+/, String(i + 1))); });
+				row.querySelectorAll('[data-quote-line-number]').forEach(function (el) { el.textContent = el.textContent.replace(/\d+/, String(i + 1)); });
+				row.querySelectorAll('[data-quote-move], [data-quote-remove]').forEach(function (b) { b.value = b.value.replace(/^\d+/, String(i)); });
+				var up = row.querySelector('[data-quote-move="up"]'), down = row.querySelector('[data-quote-move="down"]');
+				if (up) { up.disabled = i === 0; }
+				if (down) { down.disabled = i === quoteBody.rows.length - 1; }
+			});
+		};
+		if (quoteBody) {
+			quoteBody.addEventListener('click', function (e) {
+				var button = e.target.closest('[data-quote-move], [data-quote-remove]');
+				if (!button) { return; }
+				e.preventDefault();
+				var row = button.closest('tr');
+				if (button.hasAttribute('data-quote-move')) {
+					var up = button.getAttribute('data-quote-move') === 'up';
+					var other = up ? row.previousElementSibling : row.nextElementSibling;
+					if (!other) { return; }
+					quoteBody.insertBefore(row, up ? other : other.nextElementSibling);
+					renumber();
+					if (button.disabled) { (row.querySelector('[data-quote-move]:not([disabled])') || button).focus(); } else { button.focus(); }
+					if (quoteStatus) { quoteStatus.textContent = T('Line moved to position %s.').replace('%s', String(Array.prototype.indexOf.call(quoteBody.rows, row) + 1)); }
+				} else {
+					var flag = row.querySelector('input[name="line_removed[]"]'), removed = flag.value !== '1';
+					flag.value = removed ? '1' : '0';
+					row.classList.toggle('nabidka-odebrano', removed);
+					button.querySelector('[data-quote-remove-label]').textContent = button.getAttribute(removed ? 'data-undo' : 'data-remove');
+					if (quoteStatus) { quoteStatus.textContent = removed ? T('The line is removed when you save.') : T('The line stays.'); }
+				}
+				quoteEditor.kaletaChanged = true;
+				quoteEditor.setAttribute('data-unsaved-changed', '');
+				clearTimeout(quoteTimer);
+				quoteTimer = setTimeout(quoteTotals, 100);
+			});
+		}
+
+		// 3.44 (U60): Save and send checks here what the send dialog would refuse – a customer, an e-mail, a line, a price on
+		// every line – marks the fields and says it above them; the server refuses the same (Quotes::sendRefusal) as the safety net
+		var quoteCheck = quoteEditor.querySelector('[data-quote-send-check]');
+		quoteEditor.addEventListener('submit', function (e) {
+			if (!quoteCheck) { return; }
+			quoteCheck.hidden = true;
+			quoteEditor.querySelectorAll('[aria-invalid="true"]').forEach(function (el) { el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby'); });
+			if (!e.submitter || !e.submitter.hasAttribute('data-quote-send')) { return; }
+			var value = function (name) { var el = quoteEditor.elements[name]; return el && el.value ? el.value.trim() : ''; };
+			var chosen = ['contact_id', 'company_id'].some(function (name) { var el = quoteEditor.elements[name]; return el && el.value !== '0' && el.value !== (el.getAttribute('data-saved') || '0'); });
+			var problems = [], fields = [];
+			if (!chosen && value('customer_name') === '' && value('customer_company') === '') { problems.push('customer'); fields.push('customer_name', 'customer_company'); }
+			if (!chosen && value('customer_email') === '') { problems.push('email'); fields.push('customer_email'); }
+			var rows = quoteBody ? Array.prototype.filter.call(quoteBody.rows, function (r) { return !r.classList.contains('nabidka-odebrano'); }) : [];
+			var adding = value('add_product') !== '' || value('add_own') !== '' || value('add_free_name') !== '';
+			if (!rows.length && !adding) { problems.push('lines'); }
+			var unpriced = rows.filter(function (r) { var p = r.querySelector('input[name="line_price[]"]'); return p && p.value.trim() === ''; });
+			if (unpriced.length) { problems.push('prices'); }
+			if (!problems.length) { return; }
+			e.preventDefault();
+			quoteCheck.querySelectorAll('[data-check]').forEach(function (li) { li.hidden = problems.indexOf(li.getAttribute('data-check')) === -1; });
+			quoteCheck.hidden = false;
+			var marked = fields.map(function (name) { return quoteEditor.elements[name]; }).filter(Boolean);
+			unpriced.forEach(function (r) { marked.push(r.querySelector('input[name="line_price[]"]')); });
+			marked.forEach(function (el) { el.setAttribute('aria-invalid', 'true'); el.setAttribute('aria-describedby', quoteCheck.id); });
+			quoteCheck.scrollIntoView({ block: 'center' });
+			(marked[0] || quoteCheck).focus({ preventScroll: true });
+		});
+	}
+
+	// 3.44 (U61): the send dialog's preview of the e-mail follows the subject and the message as they are typed
+	var mailPreview = document.querySelector('[data-quote-mail-preview]');
+	if (mailPreview) {
+		var sendForm = mailPreview.closest('form');
+		var mirror = function () {
+			var subject = sendForm && sendForm.elements.subject, message = sendForm && sendForm.elements.message;
+			if (subject) { mailPreview.querySelector('[data-quote-mail-subject]').textContent = subject.value.split('{number}').join(mailPreview.getAttribute('data-number')); }
+			if (message) { mailPreview.querySelector('[data-quote-mail-message]').textContent = message.value; }
+		};
+		if (sendForm) { sendForm.addEventListener('input', mirror); }
 	}
 })();

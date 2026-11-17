@@ -359,6 +359,21 @@ final class QuoteDelivery
             'deal_value_set' => $dealSet, 'warnings' => $warnings, 'pdf' => $file !== null];
     }
 
+    /**
+     * 3.44 (U61): what the e-mail adds below the message, for the send dialog's preview – the facts and the link line in the
+     * quote's language as mail() writes them, and the signature; $number and $link stand in for what sending makes.
+     *
+     * @param array<string, mixed> $quote as Quotes::get returns it
+     * @param array{text: string, html: string}|null $signature
+     */
+    public static function previewTail(App $app, array $quote, ?array $signature, string $number, string $link): string
+    {
+        $quote['number'] = $quote['number'] ?? $number;
+        [$plain] = Language::runWith(Language::ofContent($app->settings(), (string) $quote['language']), fn (): array => self::mail($quote, '', $link, $signature), '', $app->settings()->get('german_register'));
+
+        return ltrim($plain, "\n");
+    }
+
     /** The default subject in the current language: "Quotation {number} – <title>". @param array<string, mixed> $quote */
     public static function defaultSubject(array $quote): string
     {

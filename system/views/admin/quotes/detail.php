@@ -223,7 +223,7 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 <h2 id="nabidka-vazby"><?= e(t('Customer and deal')) ?></h2>
 <dl class="poptavka">
 <?php if ($q['contact_id'] !== null): ?>
-	<dt><?= e(t('Contact')) ?></dt><dd><?= $canContacts ? '<a href="' . e($app->url(Contacts::adminPath($q['contact_id']))) . '">' . bdi($q['customer']['name'] !== '' ? $q['customer']['name'] : '#' . $q['contact_id']) . '</a>' : bdi($q['customer']['name']) ?></dd>
+	<dt><?= e(t('Customer')) ?></dt><dd><?= $canContacts ? '<a href="' . e($app->url(Contacts::adminPath($q['contact_id']))) . '">' . bdi($q['customer']['name'] !== '' ? $q['customer']['name'] : '#' . $q['contact_id']) . '</a>' : bdi($q['customer']['name']) ?></dd>
 <?php endif ?>
 <?php if ($q['company_id'] !== null): ?>
 	<dt><?= e(t('Company')) ?></dt><dd><?= $canContacts ? '<a href="' . e($app->url(Contacts::companyAdminPath($q['company_id']))) . '">' . bdi($q['customer']['company'] !== '' ? $q['customer']['company'] : '#' . $q['company_id']) . '</a>' : bdi($q['customer']['company']) ?></dd>

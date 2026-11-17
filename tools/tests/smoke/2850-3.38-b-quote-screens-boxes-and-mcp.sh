@@ -42,7 +42,7 @@ expect "3.38 B: the editor's totals come from the server as typed, without savin
 Q350_LOC=$(q350_location save "${Q350_FORM[@]}" "${Q350_LINES[@]}" -d add_own=MONT338 -d add_own_quantity=2 -d next=add)
 expect "3.38 B: Save keeps the posted lines (a manual price marked), drops the removed one, adds the own row; a person may give 25 %" \
   "${Q350_LOC##*\?}|$(sq "SELECT GROUP_CONCAT(CONCAT(code, ':', unit_price, ':', IFNULL(list_price, '-'), ':', discount_percent) ORDER BY position SEPARATOR ' ') FROM ka_quote_lines WHERE quote_id = $Q350_ID")|$(sq "SELECT CONCAT(discount_percent, '|', manual_prices, '|', customer_company, '|', total_net) FROM ka_quotes WHERE id = $Q350_ID")" \
-  "module=quotes&action=edit&id=$Q350_ID#lines|L338-M:1000.00:1.00:0.00 T338:4800.00:4800.00:10.00 MONT338:1500.00:1500.00:0.00|25.00|1|Kupec350|6990.00"
+  "module=quotes&action=edit&id=$Q350_ID#line-3|L338-M:1000.00:1.00:0.00 T338:4800.00:4800.00:10.00 MONT338:1500.00:1500.00:0.00|25.00|1|Kupec350|6990.00"
 Q350_LOC=$(q350_location save -d id=$Q350_ID -d discount_percent=0 -d "line_id[]=" -d "line_item[]=" -d "line_variant[]=" -d "line_code[]=" -d "line_name[]=Bad" -d "line_description[]=" -d "line_quantity[]=1" -d "line_unit[]=" -d "line_price[]=abc" -d "line_discount[]=0" -d "line_vat[]=21.00")
 expect "3.38 B: a refused save shows the editor again with what was typed and changes nothing" "$Q350_LOC|$(grep -c 'value="abc"' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_quote_lines WHERE quote_id = $Q350_ID")" "|1|3"
 # Finalise without sending (with the deal-value box): the number, frozen, the deal takes the NET total (A-10)

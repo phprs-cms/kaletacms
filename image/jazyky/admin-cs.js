@@ -2986,4 +2986,11 @@ window.KALETA_PREKLAD = {
 	"Status and Move: “%s”": "Stav a přesun: „%s“",
 	"Status and Move": "Stav a přesun",
 	"In this stage since today": "V této etapě od dneška",
+	"You have changes that are not saved yet.": "Máte změny, které ještě nejsou uložené.",
+	"Leave without saving": "Odejít bez uložení",
+	"Stay on the page": "Zůstat na stránce",
+	"Save and open page %s": "Uložit a otevřít stranu %s",
+	"Line moved to position %s.": "Řádek je teď na pozici %s.",
+	"The line is removed when you save.": "Řádek se odebere, až uložíte.",
+	"The line stays.": "Řádek zůstává.",
 };
