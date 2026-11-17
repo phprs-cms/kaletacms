@@ -85,7 +85,8 @@ trait ApplicationTools
             // 3.40: the other applications from the same address – number, position, status (B13)
             + ($others !== []
                 ? ['other_applications' => array_map(fn (array $o): array => ['id' => $o['id'], 'position' => $o['job_title'] !== '' ? $o['job_title'] : null, 'status' => $o['status'], 'received_at' => substr($o['received_at'], 0, 10)], $others)] : [])
-            + \Kaleta\Mcp\Untrusted::mark(['name', 'email', 'phone', 'fields']) // 3.35 (N105): what the applicant wrote – the one marker of Mcp\Untrusted
+            // 3.35 (N105): what the applicant wrote – the one marker of Mcp\Untrusted; 3.44 (N128): the CV file names and the team's notes on it too
+            + \Kaleta\Mcp\Untrusted::mark(['name', 'email', 'phone', 'fields', 'attachments', 'notes'])
             + ['admin_url' => $this->app->request->origin() . $this->app->url(Applications::adminPath($application['id']))];
     }
 

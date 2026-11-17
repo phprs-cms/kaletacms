@@ -114,10 +114,12 @@ final class TalentPool
             $row = $byId[$id];
             $token = bin2hex(random_bytes(32));
             $now = Clock::now();
-            $db->update('applications', ['pool_token' => hash('sha256', $token), 'pool_token_until' => substr((string) $row['pool_until'], 0, 10) . ' 23:59:59', 'pool_renewal_sent_at' => $now], ['id' => $id]);
+            $until = substr((string) $row['pool_until'], 0, 10) . ' 23:59:59';
+            $db->update('applications', ['pool_token' => hash('sha256', $token), 'pool_token_until' => $until, 'pool_renewal_sent_at' => $now], ['id' => $id]);
             $mail = self::compose($app, $row, $token);
             Mail::send($s, Mail::addresses((string) $row['email'])[0], $mail['subject'], $mail['text'], '', Mail::addresses($s->get('site_email')) !== [] ? ['Reply-To' => Mail::addresses($s->get('site_email'))[0]] : [], true,
-                Language::runWith(Language::defaults($s), fn (): string => t('Renewal of the consent, application #%d: %s', $id, $s->get('site_name')), 'admin-')); // the log names nobody
+                Language::runWith(Language::defaults($s), fn (): string => t('Renewal of the consent, application #%d: %s', $id, $s->get('site_name')), 'admin-'), // the log names nobody
+                [], Clock::fromDb($until)?->getTimestamp() ?? 0); // 3.44 (N145): the consent link is a bearer link – a queued copy goes when it ends, a backup never keeps it
             $sent++;
         }
         if ($sent > 0) {

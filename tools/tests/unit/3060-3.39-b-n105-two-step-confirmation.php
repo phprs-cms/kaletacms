@@ -14,7 +14,8 @@ check('3.39 N105: when a call acts – confirm=true, send, every newsletter call
     Confirmation::needed('delete_popup', ['id' => 2]), Confirmation::needed('update_settings', ['confirm' => true]),
 ], [true, false, false, false, true, false, true, false, true, false, false]);
 check('3.39 N105: every tool of the list is a site tool that writes, and every tool that e-mails people outside the team is on it', [
-    array_values(array_filter(array_keys(Confirmation::TOOLS), fn (string $t): bool => !in_array(Catalog::access($t), ['write', 'destructive'], true))),
+    // 3.44 (N164 b): save_internal_file is draft-class – only its move of a file to a wider audience needs the code
+    array_values(array_filter(array_keys(Confirmation::TOOLS), fn (string $t): bool => !in_array(Catalog::access($t), ['write', 'destructive'], true) && $t !== 'save_internal_file')),
     array_values(array_diff(array_diff(Catalog::OPEN_WORLD, ['upload_file', 'import_website', 'migration_report', 'read_old_page', 'import_wordpress', 'save_collection_items']), array_keys(Confirmation::TOOLS))),
 ], [[], []]);
 $n105Key = bin2hex(random_bytes(32));

@@ -535,8 +535,12 @@ final class Catalog
      */
     public const array TOOL_SETS = ['all', 'essentials', 'work', 'migration', 'fleet'];
 
-    /** 3.36: the most bytes of a focused set's tools/list (its tools plus META, full access, every feature on). */
-    public const array BUDGETS = ['essentials' => 49000, 'work' => 49000, 'migration' => 49000, 'fleet' => 49000];
+    /**
+     * 3.36: the most bytes of a focused set's tools/list (its tools plus META, full access, every feature on). 3.44: the work
+     * set lists the quote tools while quotes are on (WORK_FEATURES), so with every feature on it may reach 54,000 bytes; with
+     * only one of applications and quotes on it stays under the 49,000 of 3.36 (unit 3960), and both are off by default.
+     */
+    public const array BUDGETS = ['essentials' => 49000, 'work' => 54000, 'migration' => 49000, 'fleet' => 49000];
 
     /** 3.36: a tool set offered only where its extension is on (a stored one keeps working anywhere – it only lists less). */
     public const array SET_NEEDS = ['fleet' => 'fleet'];
@@ -562,6 +566,14 @@ final class Catalog
         'assign', 'get_email_signature', 'list_colleagues', 'list_requests', 'update_request', 'read_notebook', 'write_notebook', 'list_pages', 'get_page', 'preview_link',
         'list_collections', 'list_collection_items', 'save_collection_item', 'list_tasks', 'save_task', 'complete_task', 'list_contacts', 'get_contact', 'save_contact',
         'log_activity', 'merge_contacts', 'list_deals', 'save_deal', 'move_deal', 'pipeline_summary', 'team_summary', 'list_applications', 'get_application', 'update_application', 'reply_to_application'];
+
+    /**
+     * 3.44 (CPO 4): the tools a "work" connection lists in addition to WORK while their feature is on – the extension's key
+     * => its tools. Tools of an extension that is off are never listed (Tools::listAll), so a site without quotes lists WORK
+     * as before; the application tools have been in WORK since 3.34 and are listed only while applications are on the same way.
+     * send_quote and the internal prices stay one find_tools away (a person usually checks and sends a draft in the admin).
+     */
+    public const array WORK_FEATURES = ['quotes' => ['list_quotes', 'get_quote', 'save_quote', 'mark_quote']];
 
     /**
      * The tools a "migration" connection lists (3.36): moving a site from another platform – the imports, read_old_page and
@@ -602,7 +614,7 @@ final class Catalog
         'decline_booking', 'propose_booking_times', 'list_pending_review', 'get_due_agent_runs', 'report_agent_run', 'translation_status', 'list_newsletters',
         'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
         'list_prices', 'save_price', 'send_quote', // 3.38: internal prices – one find_tools away (design A8: outside the essentials and the work set)
-        'list_quotes', 'get_quote', 'save_quote', 'mark_quote', // 3.38 B: quotes – the work set has no room left under its budget (and stays unchanged)
+        // 3.38 B: list_quotes, get_quote, save_quote and mark_quote moved to the work set in 3.44 (WORK_FEATURES, listed while quotes are on)
         'list_internal_files', 'get_internal_file', 'save_internal_file']; // 3.42: internal files – the work set is at its budget, one find_tools away
 
     /**
@@ -649,7 +661,7 @@ final class Catalog
     {
         return match (self::toolSet($set)) {
             'essentials' => self::ESSENTIALS,
-            'work' => self::WORK,
+            'work' => [...self::WORK, ...array_merge(...array_values(self::WORK_FEATURES))], // 3.44: an extension that is off lists none of its tools
             'migration' => self::MIGRATION,
             'fleet' => self::FLEET,
             default => null,

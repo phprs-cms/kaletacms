@@ -35,7 +35,7 @@ trait CommentTools
                 + ($c['edited'] !== null ? ['edited' => substr($c['edited'], 0, 16)] : []), $shown)]
             + (count($all) > $limit ? ['note' => 'The newest ' . $limit . ' of ' . count($all) . ' comments, oldest first; raise limit (up to 200) for more.'] : [])
             // 3.35 (N105): the team's notes on a visitor's enquiry or a customer quote what the visitor wrote
-            + (in_array($type, ['enquiry', 'contact'], true) ? \Kaleta\Mcp\Untrusted::mark(['comments']) : [])
+            + (in_array($type, ['enquiry', 'contact', 'application'], true) ? \Kaleta\Mcp\Untrusted::mark(['comments']) : []) // 3.44 (N128): and an applicant's
             + ['admin_url' => $this->threadUrl($type, $id)];
     }
 

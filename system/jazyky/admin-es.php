@@ -8952,4 +8952,11 @@ return [
     'The names of the forms are too long together – at most 1,000 characters.' => 'Los nombres de los formularios son demasiado largos en conjunto: 1000 caracteres como máximo.',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Hasta %d MB: PDF, documento Word u OpenDocument, texto o imagen (JPG, PNG).',
     'An account was locked for 15 minutes after %d wrong passwords, codes or passkeys in a row (user #%d).' => 'Se bloqueó una cuenta durante 15 minutos tras %d contraseñas, códigos o llaves de acceso incorrectos seguidos (usuario #%d).',
+    'Line %d: a lower VAT rate than the price list has – ask a person to set it in the admin.' => 'Línea %d: un tipo de IVA más bajo que el de la tarifa – lo fija una persona en la administración.',
+    'Line %1$d: the price is more than %2$s %% below the price list – ask a person to set it in the admin.' => 'Línea %1$d: el precio está más de un %2$s %% por debajo de la tarifa – lo fija una persona en la administración.',
+    'A quote without VAT from a firm that pays VAT – ask a person to set it in the admin.' => 'Un presupuesto sin IVA de una empresa sujeta al IVA – lo fija una persona en la administración.',
+    'Claude wrote this e-mail address into the quote and it is not the address of the customer record or enquiry. Check it before you send.' => 'Claude escribió esta dirección de correo en el presupuesto y no es la dirección de la ficha del cliente ni de la consulta. Compruébela antes de enviar.',
+    'Customer’s e-mail changed by Claude' => 'Correo del cliente cambiado por Claude',
+    'Customer’s e-mail changed' => 'Correo del cliente cambiado',
+    'Internal file #%d read by Claude' => 'Archivo interno n.º %d leído por Claude',
 ];

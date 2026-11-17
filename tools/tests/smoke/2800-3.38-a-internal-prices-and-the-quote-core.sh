@@ -139,11 +139,12 @@ $r = Quotes::save($app, $q['id'], ['lines' => $lines, 'discount_percent' => '10'
 $q = Quotes::get($db, $q['id']);
 $check('a person fills the price, a line discount and a whole-quote discount; a stale form is warned about; manual prices marked',
     [$q['totals']['net'], $q['totals']['unpriced'], $q['manual_prices'], $q['lines'][2]['manual'], $q['lines'][0]['manual'], count($r['warnings']) >= 1], ['258706.29', 0, true, true, false, true]);
-$check('Claude cannot save a discount above quote_max_discount, nor a price for a product the list has none for', [
+// 3.44 (N143): Claude's price of 1 for a listed variant is a discount over the cap – refused (it was kept as a manual price before)
+$check('Claude cannot save a discount above quote_max_discount, nor a price for a product the list has none for, nor a price far below the list', [
     $try(fn () => Quotes::save($app, $q['id'], ['discount_percent' => '25'], $admin, true)),
     Quotes::get($db, Quotes::save($app, null, ['price_list_id' => $eur, 'lines' => [['item_id' => $laser, 'unit_price' => '1']], 'customer' => ['name' => 'X']], $admin, true)['id'])['lines'][0]['unit_price'],
-    Quotes::get($db, Quotes::save($app, null, ['lines' => [['item_id' => $laser, 'variant_code' => 'L338-Z', 'unit_price' => '1']], 'customer' => ['name' => 'X']], $admin, true)['id'])['lines'][0]['manual']],
-    ['refused', null, true]);
+    $try(fn () => Quotes::save($app, null, ['lines' => [['item_id' => $laser, 'variant_code' => 'L338-Z', 'unit_price' => '1']], 'customer' => ['name' => 'X']], $admin, true))],
+    ['refused', null, 'refused']);
 $sent = Quotes::finalise($app, $q['id'], $admin);
 $check('Finalise assigns the first number of the year, freezes the snapshot and the history', [$sent['number'], $sent['status'], $sent['snapshot']['number'] ?? null,
     $sent['snapshot']['lines'][0]['unit_price'] ?? null, array_column($sent['history'], 'action')], [$year . '-0001', 'sent', $year . '-0001', '99000.50', ['created', 'finalised']]);

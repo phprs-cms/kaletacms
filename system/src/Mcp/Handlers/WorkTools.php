@@ -100,8 +100,10 @@ trait WorkTools
                 + ['admin_url' => $origin . $this->app->url($d['url'])], $deals);
         }
         $total = array_sum(array_map(count(...), $lists)) + count($tasks) + count($deals ?? []);
+        // 3.44 (N128): enquiries are titled by the visitor's name and words, deals made from them too, tasks name what they are about
+        $marked = array_values(array_intersect(['tasks', 'enquiries_assigned', 'enquiries_unassigned', 'deals'], array_keys($out)));
 
-        return $out + ['total' => $total,
+        return $out + ($marked !== [] ? \Kaleta\Mcp\Untrusted::mark($marked) : []) + ['total' => $total,
             'reasons' => 'tasks: group overdue | today | upcoming (7 days) | later (complete_task, save_task to snooze); overdue = the review date has passed, review = review due within ' . \Kaleta\Core\MyWork::REVIEW_DAYS . ' days, draft = unpublished changes, comments = unresolved comments on the draft, hidden = a hidden item changed lately',
             'next' => $total === 0 ? 'Nothing waits for this user.' : 'Tell the user what waits and where (admin_url). Enquiries contain personal data – open one with list_enquiries only when the user asks.'];
     }

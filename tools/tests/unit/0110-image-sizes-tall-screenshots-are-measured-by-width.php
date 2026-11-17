@@ -368,7 +368,7 @@ try {
 }
 check('2.2: MCP prompts and resources', [str_starts_with($promptText, 'Build a new page about kitchens for families.'), str_contains(Kaleta\Mcp\Prompts::get('build_page', ['topic' => 'x'])['messages'][0]['content']['text'], 'about x. First'),
     $promptError, array_column(Kaleta\Mcp\Prompts::listAll(), 'name'), array_column(Kaleta\Mcp\Prompts::resources(), 'uri')],
-    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'launch_site', 'weekly_care', 'work_requests', 'scheduled_run', 'review_pending', 'draft_blueprint',
+    [true, true, 'The prompt translate_page needs the argument language.', ['build_page', 'audit_and_fix', 'translate_page', 'write_news', 'migrate_site', 'launch_site', 'weekly_care', 'work_requests', 'scheduled_run', 'review_pending', 'office_day' /* 3.44 */, 'draft_blueprint',
         'set_up_bookings', 'compliance_check', 'add_language_version', 'newsletter_release', 'fleet_fix'], ['kaleta://instructions', 'kaleta://overview']]);
 // 2.8: when a job is due, and when an update counts as broken (only with a clear sign – never just because the site cannot reach itself)
 check('2.8: Scheduler::isDue', [Kaleta\Core\Scheduler::isDue(null, 300, 1000), Kaleta\Core\Scheduler::isDue(900, 0, 1000), Kaleta\Core\Scheduler::isDue(800, 300, 1000),

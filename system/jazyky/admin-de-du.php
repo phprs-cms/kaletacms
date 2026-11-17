@@ -1453,4 +1453,5 @@ return [
     'Choose at least one department for a folder limited to departments.' => 'Wähle für einen auf Abteilungen beschränkten Ordner mindestens eine Abteilung.',
     'No departments yet – create them in Users → Departments to limit a folder to a team.' => 'Noch keine Abteilungen – lege sie unter Benutzer → Abteilungen an, um einen Ordner auf ein Team zu beschränken.',
     'Create a collection of your products in Collections first.' => 'Lege zuerst unter Sammlungen eine Sammlung deiner Produkte an.',
+    'Claude wrote this e-mail address into the quote and it is not the address of the customer record or enquiry. Check it before you send.' => 'Claude hat diese E-Mail-Adresse in das Angebot geschrieben, und sie ist nicht die Adresse aus dem Kundendatensatz oder der Anfrage. Prüfe sie vor dem Senden.',
 ];

@@ -178,6 +178,7 @@ trait QuoteTools
             'owner' => Handover::person($db, $q['owner_id']), 'updated_at' => substr($q['updated_at'], 0, 16), 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))],
             fn (mixed $v): bool => $v !== null), $result['rows']), 'total' => $result['total'], 'page' => $result['page'], 'pages' => $result['pages'],
             'admin_url' => $this->app->request->origin() . $this->app->url('admin.php?module=' . Quotes::SECTION)]
+            + \Kaleta\Mcp\Untrusted::mark(['quotes']) // 3.44 (N144): titles and customers come from enquiries' forms
             + ($result['total'] === 0 ? ['next' => 'No quotes here. save_quote creates a draft (with enquiry: from its basket and customer).'] : [])
             // 3.40: the saved line sets save_quote inserts with line_set
             + (($a['line_sets'] ?? false) === true ? ['line_sets' => array_map(fn (array $set): array => ['id' => $set['id'], 'name' => $set['name'], 'lines' => $set['lines'], 'currency' => $set['currency']], \Kaleta\Core\QuoteLineSets::all($db))] : []);
@@ -200,8 +201,14 @@ trait QuoteTools
         $s = $this->app->settings();
         $self = $this->app->auth()->id();
         $id = (int) ($a['id'] ?? 0);
-        if ($id > 0 && Quotes::get($db, $id) === null) {
+        $existing = $id > 0 ? Quotes::get($db, $id) : null;
+        if ($id > 0 && $existing === null) {
             throw new \InvalidArgumentException('The quote does not exist. Use list_quotes.');
+        }
+        // 3.44 (N146): a drafts-only connection changes only the drafts its user created – never a colleague's draft or one the
+        // site prepared from an enquiry (created_by NULL), whose customer e-mail or lines a person would then send unawares
+        if ($existing !== null && $this->app->auth()->draftsOnly() && $existing['created_by'] !== $self) {
+            throw new \DomainException('A connection limited to drafts changes only the draft quotes its user created – a person changes this one in the admin, or Claude with full access. Nothing was saved.');
         }
         $fields = [];
         foreach (['enquiry' => 'enquiry_id', 'deal' => 'deal_id', 'contact' => 'contact_id', 'company' => 'company_id'] as $param => $key) {
@@ -370,7 +377,9 @@ trait QuoteTools
             'decided_by' => $q['decided_by_customer'] ? 'customer' : null, 'customer_reason' => $q['customer_reason'],
             'first_opened_at' => $q['first_opened_at'] !== null ? substr($q['first_opened_at'], 0, 16) : null,
             'updated_at' => $q['updated_at'], 'admin_url' => $this->app->request->origin() . $this->app->url(Quotes::adminPath($q['id']))], fn (mixed $v): bool => $v !== null && $v !== [])
-            + ($q['customer_reason'] !== null ? \Kaleta\Mcp\Untrusted::mark(['customer_reason']) : []); // 3.40 review L3: the customer typed it on the quote page
+            // 3.40 review L3: the customer typed customer_reason on the quote page; 3.44 (N144): the customer block, the title and the
+            // lines come from an enquiry's form (a free line's name is a sentence of the visitor's message) or a connection
+            + \Kaleta\Mcp\Untrusted::mark(['customer', 'title', 'lines', ...($q['customer_reason'] !== null ? ['customer_reason'] : [])]);
     }
 
     /**
@@ -455,6 +464,7 @@ trait QuoteTools
                 return ['id' => $id, 'sent' => false, 'to' => $draft['to'], 'subject' => $subject !== '' ? $subject : $draft['subject'], 'message' => $message !== '' ? $message : $draft['message'],
                     'currency' => $quote['currency'], 'totals' => ['net' => $quote['totals']['net'], 'vat' => $quote['totals']['vat'], 'gross' => $quote['totals']['gross']],
                     'valid_until' => $quote['valid_until'], 'set_deal_value' => $setDeal && $draft['deal'], 'attach_pdf' => $attach]
+                    + \Kaleta\Mcp\Untrusted::mark(['to']) // 3.44 (N144): the customer's address as the form or a connection wrote it
                     + ($why !== null ? ['cannot_send' => $why] : [])
                     + ['next' => $why !== null ? 'Tell the user why the quote cannot be sent yet.' : 'Show the user the recipient, subject, message and total. Send only when they explicitly ask: the same call with confirm=true.'];
             }

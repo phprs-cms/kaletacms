@@ -25,6 +25,7 @@
     "newsletter_release": {
         "topic": false
     },
+    "office_day": [],
     "review_pending": [],
     "scheduled_run": [],
     "set_up_bookings": [],
