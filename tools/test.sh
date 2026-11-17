@@ -26,10 +26,21 @@ done
 
 # shellcheck source=tests/smoke/bootstrap.sh
 . "$SMOKE_DIR/bootstrap.sh"
+# 3.44 (suite integrity): ERRORS counts only in this shell – a check run in a subshell (a pipe, $( ) or ( )) printed
+# CHYBA without counting it, and the suite once ended with exit 0. Each section's output goes to its own file first
+# (sourcing with a redirection is no subshell) and every printed failure is counted: test.sh exits non-zero whenever a
+# line starts with "  CHYBA  ". The cleanup trap prints the file of a section that ends the suite early (bootstrap.sh).
+SECTION_N=0
 for SMOKE_FILE in "${SMOKE_FILES[@]}"; do
+  SECTION_N=$((SECTION_N+1)); SECTION_OUT="$WORK/section-$SECTION_N.out"; SECTION_ERRORS=$ERRORS
   # shellcheck disable=SC1090
-  . "$SMOKE_FILE"
-  mail_sink_guard "$SMOKE_FILE" # 3.43 B: no section leaves the site on PHP's mail() (bootstrap.sh)
+  . "$SMOKE_FILE" >> "$SECTION_OUT"
+  mail_sink_guard "$SMOKE_FILE" >> "$SECTION_OUT" # 3.43 B: no section leaves the site on PHP's mail() (bootstrap.sh)
+  cat "$SECTION_OUT"; SECTION_PRINTED=$(grep -c '^  CHYBA  ' "$SECTION_OUT" || true); SECTION_OUT=
+  if [ "$SECTION_PRINTED" -gt $((ERRORS - SECTION_ERRORS)) ]; then
+    echo "  CHYBA  ${SMOKE_FILE##*/}: $SECTION_PRINTED failure(s) printed, $((ERRORS - SECTION_ERRORS)) counted – a check ran in a subshell (a pipe, \$( ) or ( )), where ERRORS does not count"
+    ERRORS=$((SECTION_ERRORS + SECTION_PRINTED + 1))
+  fi
 done
 
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
