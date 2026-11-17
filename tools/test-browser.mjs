@@ -5875,12 +5875,13 @@ await step('3.42 C collections in the price list: the mapping (1440/390, light/d
     // the administrator ticks the collection, picks its code and variants fields and saves
     await visit('/admin.php?module=quotes&action=settings');
     const row = page.locator(`[data-price-collection="${idk}"]`);
-    await row.locator('input[type="checkbox"]').check();
+    await row.locator('input[name="collection[]"]').check();
     await row.locator(`select[name="code_${idk}"]`).selectOption('order_code');
     await row.locator(`select[name="variants_${idk}"]`).selectOption('versions');
     await Promise.all([page.waitForNavigation(), page.locator('[data-price-collections] button[type="submit"]').click()]);
     const stored = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quote_price_collections'").trim();
-    if (stored !== `[{"collection":${Number(idk)},"code":"order_code","variants":"versions"}]`) { throw new Error(`the mapping saved: ${stored}`); }
+    // 3.44 review M1: the form stores the basket choice too (ticked by default only for a collection with item pages)
+    if (!new RegExp(`^\\[\\{"collection":${Number(idk)},"code":"order_code","variants":"versions","basket":(true|false)\\}\\]$`).test(stored)) { throw new Error(`the mapping saved: ${stored}`); }
     // the grid: every item with an empty price, its versions as variants; "still without a price" filters; a price is typed
     await visit(`/admin.php?module=quotes&action=prices&collection=${idk}`);
     if ((await page.locator(`[data-price-row^="${idp}:"]`).count()) !== 3) { throw new Error('the item and its two versions are not in the grid'); }
