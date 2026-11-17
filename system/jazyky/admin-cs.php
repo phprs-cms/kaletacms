@@ -8674,4 +8674,5 @@ return [
     'The built-in roles Team member, Editor and Administrator are enough for most websites. A custom role is useful when someone should see only part of the administration – for example a salesperson only Enquiries.' => 'Vestavěné role Člen týmu, Editor a Správce stačí většině webů. Vlastní role se hodí, když má někdo vidět jen část administrace – třeba obchodník jen Poptávky.',
     'A site keeps at most %d line sets – delete one in Quotes → Price list set-up first.' => 'Web uchová nejvýš %d sad řádků – nejdřív nějakou smažte v Nabídky → Nastavení ceníku.',
     'In Settings of Quotes, set the numbering, how long a quote is valid and VAT; on Price list set-up, choose which collections feed the price list. Until they are done, First steps with quotes at the top of the list show what is missing.' => 'V Nastavení Nabídek nastavte číslování, platnost nabídky a DPH; v Nastavení ceníku vyberte, které kolekce plní ceník. Dokud nejsou hotové, ukazují První kroky s nabídkami nad výpisem, co ještě chybí.',
+    'team member' => 'člen týmu',
 ];

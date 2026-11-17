@@ -12,13 +12,13 @@
 $guide = Kaleta\Admin\Guide::CHAPTERS;
 ?>
 <?php if ($chapter === null): ?>
-<div class="pruvodce">
-<p class="pruvodce-uvod"><?= e(t('Short chapters about the office part of Kaleta – customers, deals, quotes, job applications and the team. Each section also opens its own chapter with “How to use this” next to its heading.')) ?></p>
+<div class="navod-kapitola">
+<p class="navod-uvod"><?= e(t('Short chapters about the office part of Kaleta – customers, deals, quotes, job applications and the team. Each section also opens its own chapter with “How to use this” next to its heading.')) ?></p>
 </div>
 <?php if ($chapters === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'moje', 'heading' => t('No chapter for your sections yet.'), 'text' => t('The chapters follow the sections you may open. Ask an administrator for access.')]) ?>
 <?php else: ?>
-<ul class="pruvodce-kapitoly">
+<ul class="navod-kapitoly">
 <?php foreach ($chapters as $key): ?>
 	<li><a href="<?= e($app->url('admin.php?action=guide&chapter=' . $key)) ?>"><strong><?= e(t($guide[$key]['title'])) ?></strong><span><?= e(t($guide[$key]['summary'])) ?></span></a></li>
 <?php endforeach ?>
@@ -28,8 +28,8 @@ $guide = Kaleta\Admin\Guide::CHAPTERS;
     $c = $guide[$chapter];
     $section = array_values(array_filter($c['modules'], fn (string $m): bool => isset($modules[$m])))[0] ?? null;
 ?>
-<article class="pruvodce">
-<p class="pruvodce-uvod"><?= e(t($c['summary'])) ?></p>
+<article class="navod-kapitola">
+<p class="navod-uvod"><?= e(t($c['summary'])) ?></p>
 <h2><?= e(t('Step by step')) ?></h2>
 <ol>
 <?php foreach ($c['steps'] as $step): ?>
@@ -42,7 +42,7 @@ $guide = Kaleta\Admin\Guide::CHAPTERS;
 	<li><?= e(t($tip)) ?></li>
 <?php endforeach ?>
 </ul>
-<p class="pruvodce-dalsi">
+<p class="navod-dalsi">
 <?php if ($section !== null): ?>
 	<a class="tl" href="<?= e($app->url('admin.php?module=' . $section)) ?>"><?= e(t('Open %s', t($modules[$section]::NAME))) ?></a>
 <?php endif ?>

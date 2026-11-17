@@ -1488,6 +1488,22 @@ class Settings extends Module
         return $type !== null && !str_starts_with($type, 'tajne') && !str_starts_with($type, 'seznam');
     }
 
+    /** 3.45 review L8: the words a yes/no setting takes over MCP – on, then off; anything else is refused there (strictSwitch). */
+    public const array SWITCH_ON = ['1', 'true', 'ano', 'yes', 'on'];
+    public const array SWITCH_OFF = ['0', 'false', 'ne', 'no', 'off', ''];
+
+    /**
+     * 3.45 review L8: for a yes/no setting (type ano) a word that is neither on nor off – "enabled", "y", "ja" – which the
+     * form's checkbox handling would store as off. false for other settings and for a known word. The admin form is unchanged.
+     */
+    public static function strictSwitchRefuses(string $key, string $value): bool
+    {
+        $type = self::fieldType($key);
+
+        return $type !== null && explode(':', $type, 2)[0] === 'ano'
+            && !in_array(strtolower(trim($value)), [...self::SWITCH_ON, ...self::SWITCH_OFF], true);
+    }
+
     /**
      * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
      * cookies_text_de, cookies_policy_url_de – 3.9) has the type of its base. null = not a field of the admin form.
@@ -1520,7 +1536,7 @@ class Settings extends Module
             return null;
         }
 
-        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'ano', 'yes', 'on'], true)); // 3.45: yes/on from an English MCP call
+        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), self::SWITCH_ON, true)); // 3.45: yes/on from an English MCP call
     }
 
     private static function sanitize(string $type, string $value, bool $checked): ?string

@@ -6,10 +6,10 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$B345_O
 check "3.45 B: Quotes links to its chapter of the guide" 200 "/admin.php?module=quotes" 'action=guide&amp;chapter=quotes"'
 expect "3.45 B: the chapter link stays in the tab (no target, no “opens in a new tab”)" "$(grep -o 'class="navod-odkaz" href="[^"]*chapter=quotes"[^>]*>' "$WORK/response" | grep -c 'target=')" "0"
 check "3.45 B: Statistics keeps the online article" 200 "/admin.php?module=stats" 'kaletacms.com/'
-check "3.45 B: the guide's index lists the chapters of the sections the administrator opens" 200 "/admin.php?action=guide" 'class="pruvodce-kapitoly"'
+check "3.45 B: the guide's index lists the chapters of the sections the administrator opens" 200 "/admin.php?action=guide" 'class="navod-kapitoly"'
 expect "3.45 B: the index has Quotes, Applications, Customers, Pipeline and My work, and no guide link of its own" \
   "$(for c in quotes applications customers pipeline my-work; do grep -c "chapter=$c\"><strong>" "$WORK/response"; done | tr '\n' ' ')$(grep -c 'class="navod-odkaz"' "$WORK/response")" "1 1 1 1 1 0"
-check "3.45 B: a chapter has its steps and opens its section" 200 "/admin.php?action=guide&chapter=quotes" 'class="pruvodce-dalsi"'
+check "3.45 B: a chapter has its steps and opens its section" 200 "/admin.php?action=guide&chapter=quotes" 'class="navod-dalsi"'
 grep -q 'admin.php?module=quotes"' "$WORK/response" && grep -q '<ol>' "$WORK/response" \
   && echo "  ok     3.45 B: the chapter lists the steps and links to Quotes" || { echo "  CHYBA  3.45 B: the chapter's steps or its section link"; ERRORS=$((ERRORS+1)); }
 check "3.45 B: a chapter with an online article links to it" 200 "/admin.php?action=guide&chapter=customers" '/guide/customers" target="_blank"'

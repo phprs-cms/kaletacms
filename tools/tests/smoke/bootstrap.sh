@@ -112,15 +112,21 @@ mail_sink_guard() {
   mail_sink_default
 }
 
-# 3.45 (code-quality step 7): the installed site as a snapshot for partial runs (ONLY= / FROM=, tools/test.sh). A full run
+# 3.45 (code-quality step 7): the installed site as a snapshot for partial runs (ONLY= / START=, tools/test.sh). A full run
 # saves it at the end of the install section (0040); a partial run restores it in 0020 (the database from the dump, then the
 # files the installer wrote over a fresh copy of the checkout) and skips the install. The key covers what decides the
-# installed state – the installer, schema and migrations, starter sites, the setup sections and the database and port of
-# the run; any other change of the checkout reaches the restored site through the fresh copy. SNAPSHOT=fresh installs anew.
-SMOKE_SNAPSHOT_DIR="${SMOKE_SNAPSHOT_DIR:-${TMPDIR:-/tmp}/kaleta-smoke-snapshot-$(printf '%s' "$ROOT|$DB_HOST|$DB_PORT|$DB_NAME|$PORT" | command php -r 'echo substr(md5(stream_get_contents(STDIN)), 0, 12);')}"
+# installed state – the whole of system/ (schema, migrations, starter sites and every class the installer writes through –
+# 3.45 review L2), install.php, the setup sections and the database and port of the run; any other change of the checkout
+# reaches the restored site through the fresh copy. SNAPSHOT=fresh installs anew.
+# 3.45 review L1: the snapshot holds the test site's config.php and the admin's password – it lives in the user's own cache
+# (~/.cache, mode 700, owned by the user, never a shared temp directory) and the password is read as data, never sourced.
+SMOKE_SNAPSHOT_BASE="${XDG_CACHE_HOME:-$HOME/.cache}/kaleta-smoke"
+SMOKE_SNAPSHOT_DIR="${SMOKE_SNAPSHOT_DIR:-$SMOKE_SNAPSHOT_BASE/$(printf '%s' "$ROOT|$DB_HOST|$DB_PORT|$DB_NAME|$PORT" | command php -r 'echo substr(md5(stream_get_contents(STDIN)), 0, 12);')}"
+# a snapshot directory is used only when this user owns it and nobody else may read or write it
+smoke_snapshot_private() { [ -d "$1" ] && [ -O "$1" ] && [ ! -L "$1" ] && [ "$(command php -r 'echo substr(sprintf("%o", fileperms($argv[1])), -3);' -- "$1")" = 700 ]; }
 smoke_snapshot_key() {
   command php -r '$root = $argv[1]; $h = hash_init("sha256"); hash_update($h, $argv[2]);
-    foreach (["install.php", "system/src/Install", "system/sql", "system/blueprints", "system/presets", "tools/tests/smoke/bootstrap.sh"] as $p) {
+    foreach (["install.php", "system", "tools/tests/smoke/bootstrap.sh"] as $p) {
       $files = is_dir("$root/$p") ? iterator_to_array(new RecursiveIteratorIterator(new RecursiveDirectoryIterator("$root/$p", FilesystemIterator::SKIP_DOTS))) : [new SplFileInfo("$root/$p")];
       $paths = array_map(fn ($f) => $f->getPathname(), array_filter($files, fn ($f) => $f->isFile())); sort($paths);
       foreach ($paths as $f) { hash_update($h, substr($f, strlen($root)) . "\0" . file_get_contents($f) . "\0"); }
@@ -128,24 +134,25 @@ smoke_snapshot_key() {
     foreach (glob("$root/tools/tests/smoke/00[2-4]0-*.sh") ?: [] as $f) { hash_update($h, basename($f) . "\0" . file_get_contents($f) . "\0"); }
     echo hash_final($h);' -- "$ROOT" "${WEB:-firemni}|$DB_HOST|$DB_PORT|$DB_USER|$DB_NAME|$PORT"
 }
-smoke_snapshot_valid() { [ "${SNAPSHOT:-}" != fresh ] && [ -s "$SMOKE_SNAPSHOT_DIR/db.sql" ] && [ -s "$SMOKE_SNAPSHOT_DIR/site.tar" ] && [ "$(cat "$SMOKE_SNAPSHOT_DIR/key" 2>/dev/null)" = "$(smoke_snapshot_key)" ]; }
+smoke_snapshot_valid() { [ "${SNAPSHOT:-}" != fresh ] && smoke_snapshot_private "$SMOKE_SNAPSHOT_DIR" && [ -s "$SMOKE_SNAPSHOT_DIR/db.sql" ] && [ -s "$SMOKE_SNAPSHOT_DIR/site.tar" ] && [ "$(cat "$SMOKE_SNAPSHOT_DIR/key" 2>/dev/null)" = "$(smoke_snapshot_key)" ]; }
 # smoke_snapshot_save: after the install (0040) – not on CI, where every run starts from a clean runner
 smoke_snapshot_save() {
   [ -z "${CI:-}" ] && [ "${SNAPSHOT:-}" != off ] || return 0
   local tmp="$SMOKE_SNAPSHOT_DIR.tmp.$$" dump=(mysqldump -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --single-transaction --skip-comments --no-tablespaces --default-character-set=utf8mb4)
   [ -n "$DB_PASS" ] && dump+=(-p"$DB_PASS")
   case "$(mysqldump --help 2>/dev/null || true)" in *--set-gtid-purged*) dump+=(--set-gtid-purged=OFF) ;; esac # MySQL with GTIDs: a restore must not touch GTID_PURGED (MariaDB has no such option)
-  rm -rf "$tmp"; mkdir -p "$tmp"
+  (umask 077; mkdir -p "$SMOKE_SNAPSHOT_BASE"); chmod 700 "$SMOKE_SNAPSHOT_BASE" 2>/dev/null || true
+  smoke_snapshot_private "$SMOKE_SNAPSHOT_BASE" || { echo "  --     3.45: no snapshot for partial runs – $SMOKE_SNAPSHOT_BASE is not a private directory of this user"; return 0; }
+  rm -rf "$tmp"; (umask 077; mkdir "$tmp")
   if "${dump[@]}" "$DB_NAME" > "$tmp/db.sql" 2> "$tmp/dump.err" \
     && (cd "$WORK/web" && tar -cf "$tmp/site.tar" config.php media storage $([ -e .user.ini ] && echo .user.ini)) \
-    && printf 'PASSWORD=%q\n' "$PASSWORD" > "$tmp/vars.sh" && smoke_snapshot_key > "$tmp/key"; then
-    rm -f "$tmp/dump.err"; rm -rf "$SMOKE_SNAPSHOT_DIR"; mv "$tmp" "$SMOKE_SNAPSHOT_DIR"; echo "  ok     3.45: the installed site saved for partial runs (ONLY= / FROM=) in $SMOKE_SNAPSHOT_DIR"
+    && (umask 077; printf '%s' "$PASSWORD" > "$tmp/password") && smoke_snapshot_key > "$tmp/key"; then
+    rm -f "$tmp/dump.err"; rm -rf "$SMOKE_SNAPSHOT_DIR"; mv "$tmp" "$SMOKE_SNAPSHOT_DIR"; echo "  ok     3.45: the installed site saved for partial runs (ONLY= / START=) in $SMOKE_SNAPSHOT_DIR"
   else echo "  --     3.45: no snapshot for partial runs ($(head -c 200 "$tmp/dump.err" 2>/dev/null)) – a partial run installs anew"; rm -rf "$tmp"; fi
 }
 # smoke_snapshot_restore: in 0020 after the fresh copy of the checkout, before the site's server starts
 smoke_snapshot_restore() {
   "${MYSQL[@]}" "$DB_NAME" < "$SMOKE_SNAPSHOT_DIR/db.sql" || { echo "  CHYBA  3.45: the snapshot $SMOKE_SNAPSHOT_DIR does not load – run again with SNAPSHOT=fresh"; ERRORS=$((ERRORS+1)); exit 1; }
   tar -xf "$SMOKE_SNAPSHOT_DIR/site.tar" -C "$WORK/web"; rm -f "$WORK/web/install.php"
-  # shellcheck source=/dev/null
-  . "$SMOKE_SNAPSHOT_DIR/vars.sh"
+  PASSWORD=$(cat "$SMOKE_SNAPSHOT_DIR/password") # data, never a sourced script (3.45 review L1)
 }

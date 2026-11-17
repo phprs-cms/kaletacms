@@ -19,7 +19,7 @@ Both runners take the files in number order. A file whose name does not match `N
   calls. All files share one global scope (a later file may use a variable an earlier one prepared), so prefix your
   variables (`$i333…`) as before. `php tools/unit-tests.php 1790` runs just that file (any part of a file name works, e.g.
   `fleet`); what earlier files prepare for it (variables, the active language) is replayed first without counting.
-- **Partial smoke runs (3.45):** `ONLY=<number or part of a name>[,…]` and `FROM=<number or part of a name>` run part of
+- **Partial smoke runs (3.45):** `ONLY=<number or part of a name>[,…]` and `START=<number or part of a name>` run part of
   `tools/test.sh` on the snapshot of the installed site (top of `tools/test.sh`, `smoke_snapshot_*` in `bootstrap.sh`); the
   sections defining a helper (`name() {` at the start of a line) or an upper-case variable a selected one uses join the run to
   prepare it (`tools/smoke-needs.php`). A helper a later section uses belongs above the install's early `return` in `0040-…`

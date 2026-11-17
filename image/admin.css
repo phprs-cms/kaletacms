@@ -442,14 +442,14 @@ h3.stred {
 .navod-odkaz svg { flex: none; }
 .navod-skryte { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* 3.45: the guide to the office (admin/guide.php) – readable lines, the index as cards */
-.pruvodce { max-width: 72ch; }
-.pruvodce-uvod { margin: 0 0 16px; color: var(--text-slaby); font-size: 17px; }
-.pruvodce ol, .pruvodce ul { display: grid; gap: 8px; padding-inline-start: 1.4em; }
-.pruvodce-dalsi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 24px; }
-.pruvodce-kapitoly { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
-.pruvodce-kapitoly a { display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); text-decoration: none; transition: border-color .15s; }
-.pruvodce-kapitoly a:hover, .pruvodce-kapitoly a:focus-visible { border-color: var(--akcent); }
-.pruvodce-kapitoly span { color: var(--text-slaby); font-size: 14px; }
+.navod-kapitola { max-width: 72ch; }
+.navod-uvod { margin: 0 0 16px; color: var(--text-slaby); font-size: 17px; }
+.navod-kapitola ol, .navod-kapitola ul { display: grid; gap: 8px; padding-inline-start: 1.4em; }
+.navod-dalsi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 24px; }
+.navod-kapitoly { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.navod-kapitoly a { display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); text-decoration: none; transition: border-color .15s; }
+.navod-kapitoly a:hover, .navod-kapitoly a:focus-visible { border-color: var(--akcent); }
+.navod-kapitoly span { color: var(--text-slaby); font-size: 14px; }
 .napoveda-panel-nadpis {
 	margin: 4px 10px 6px;
 	color: var(--text-slaby);

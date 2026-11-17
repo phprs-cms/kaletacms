@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-/* ---------- 3.45 C (code-quality step 7): ONLY= and FROM= for tools/test.sh ---------- */
+/* ---------- 3.45 C (code-quality step 7): ONLY= and START= (3.45 review L3: was FROM=) for tools/test.sh ---------- */
 // smoke_select of test.sh runs as it is over made-up file names: which sections a partial run sources, whether it installs
 // (a setup section 0020–0040 selected) or restores the snapshot, whether it runs the unit tests, and that a pattern matching
 // no section fails instead of giving a green run of nothing.
@@ -12,7 +12,7 @@ $c345Files = ['0010-syntaxe-php.sh', '0020-cista-databaze.sh', '0030-jednotkove-
     '1500-3.26-comments.sh', '1520-3.27-a-tasks.sh', '2300-3.35-a-passkey-sign-in.sh', '2400-3.35-passkey-confirmations.sh', '3900-3.44-a-quote.sh'];
 $c345Run = function (string $only, string $from) use ($c345Select, $c345Files): string {
     $script = 'set -euo pipefail' . "\n" . $c345Select . 'SMOKE_FILES=(' . implode(' ', array_map(fn (string $f): string => escapeshellarg('/x/smoke/' . $f), $c345Files)) . ")\n"
-        . 'ONLY=' . escapeshellarg($only) . ' FROM=' . escapeshellarg($from) . "\n"
+        . 'ONLY=' . escapeshellarg($only) . ' START=' . escapeshellarg($from) . "\n"
         . 'if smoke_select > /dev/null; then s=0; else s=$?; fi; names=(); for f in "${SMOKE_FILES[@]}"; do names+=("${f##*/}"); done' . "\n"
         . 'echo "$s|${SMOKE_PARTIAL:-}|${SMOKE_SETUP_PICKED:-}|${SMOKE_UNIT:-}|${SMOKE_TOTAL:-}|${SMOKE_PREPARE:-}|$(printf "%s " "${names[@]}" | cut -c1-1000)"';
 
@@ -20,7 +20,7 @@ $c345Run = function (string $only, string $from) use ($c345Select, $c345Files): 
 };
 $c345Setup = '0020-cista-databaze.sh 0030-jednotkove-testy.sh 0040-instalace.sh ';
 $c345Prep = '0060-administrace.sh|' . $c345Setup . '0060-administrace.sh ';
-check('3.45 C (step 7): smoke_select – no ONLY/FROM keeps every section; ONLY takes numbers and parts of names (comma list); FROM starts at the first number >= it or a matching name; both combine; the setup sections and 0060 (sign-in, only preparing) stay', [
+check('3.45 C (step 7): smoke_select – no ONLY/START keeps every section; ONLY takes numbers and parts of names (comma list); START starts at the first number >= it or a matching name; both combine; the setup sections and 0060 (sign-in, only preparing) stay', [
     $c345Run('', ''),
     $c345Run('1520', ''),
     $c345Run('0060,passkey', ''),

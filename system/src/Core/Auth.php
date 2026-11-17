@@ -17,7 +17,7 @@ final class Auth
     public const int EDITOR = 1;
     public const int ADMIN = 2;
 
-    public const array TYPES = [self::AUTHOR => 'autor', self::EDITOR => 'editor', self::ADMIN => 'správce'];
+    public const array TYPES = [self::AUTHOR => 'team member', self::EDITOR => 'editor', self::ADMIN => 'správce']; // 3.45: level 0 is a team member (was 'autor')
 
     /**
      * The optional Appearance area of a role or a user (3.22, C9, owner decision D1): Menu, Site parts, Pop-ups and

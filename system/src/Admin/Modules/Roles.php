@@ -73,6 +73,9 @@ final class Roles extends Module
         return $role === null ? $this->error('The role does not exist.', 404) : $this->form($role);
     }
 
+    /** The names of the built-in levels, which a new role cannot take (in the admin's language). 3.45: Team member. */
+    public const array RESERVED_NAMES = ['News author', 'Team member', 'Editor', 'Administrator'];
+
     protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
@@ -89,7 +92,9 @@ final class Roles extends Module
         $errors = [];
         if ($data['nazev'] === '') {
             $errors['nazev'] = 'Fill in the role name.';
-        } elseif (in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), ['News author', 'Team member', 'Editor', 'Administrator']), true)
+        } elseif ((in_array(mb_strtolower($data['nazev']), array_map(fn (string $n): string => mb_strtolower(t($n)), self::RESERVED_NAMES), true)
+                // 3.45 review L4: a role that already has the name (made before it was reserved) can still be saved under it
+                && ($id <= 0 || mb_strtolower((string) $this->db->value('SELECT nazev FROM {role} WHERE idr = ?', [$id])) !== mb_strtolower($data['nazev'])))
             || $this->db->value('SELECT idr FROM {role} WHERE nazev = ? AND idr <> ?', [$data['nazev'], $id]) !== null) {
             $errors['nazev'] = 'A role with this name already exists.';
         }

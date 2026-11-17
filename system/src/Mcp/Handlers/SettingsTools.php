@@ -106,9 +106,16 @@ trait SettingsTools
                 $stored[$key] = $path;
                 continue;
             }
+            // 3.45 review L8: a yes/no setting refuses a word it does not know instead of storing it as off
+            if (is_scalar($value) && !is_bool($value) && preg_match(self::MCP_SETTINGS, $key)
+                && ($key === 'stats' ? !in_array(strtolower(trim((string) $value)), [...\Kaleta\Admin\Modules\Settings::SWITCH_ON, ...\Kaleta\Admin\Modules\Settings::SWITCH_OFF], true)
+                    : \Kaleta\Admin\Modules\Settings::strictSwitchRefuses($key, (string) $value))) {
+                $errors[$key] = 'A yes/no setting takes 1 or 0 (also true/false, yes/no, on/off).';
+                continue;
+            }
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
-                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'ano', 'yes', 'on'], true);
+                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), \Kaleta\Admin\Modules\Settings::SWITCH_ON, true);
                 $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['statistika']));
                 \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'statistika'] : $list);
                 $stored[$key] = $on ? '1' : '0';

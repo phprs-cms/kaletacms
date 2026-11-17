@@ -157,10 +157,14 @@ final class Quotes extends Module
             default => (int) $filter['owner'],
         };
         $result = Store::list($this->db, ['owner' => $owner] + $filter, max(1, $this->request->getInt('page', 1)), self::PAGE);
+        $steps = $this->app->auth()->isAdmin() && !$this->app->settings()->bool(self::STEPS_HIDDEN) ? self::setupChecklist(self::setupFacts($this->app)) : null; // 3.45 (CPO 3)
+        if ($steps === []) {
+            $this->app->settings()->set(self::STEPS_HIDDEN, '1'); // 3.45 review L7: complete – remembered, the facts stop being read
+        }
 
         return $this->view('list', 'Quotes', ['filter' => $filter, 'query' => array_filter($filter, fn (int|string $v): bool => $v !== '' && $v !== 0 && $v !== 'all'), 'result' => $result,
             'people' => self::people($this->db), 'me' => $me, 'admin' => $this->app->auth()->isAdmin(),
-            'steps' => $this->app->auth()->isAdmin() && !$this->app->settings()->bool(self::STEPS_HIDDEN) ? self::setupChecklist(self::setupFacts($this->app)) : [], // 3.45 (CPO 3)
+            'steps' => $steps ?? [],
             'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($result['rows'], 'owner_id'))))]);
     }
 

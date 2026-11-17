@@ -314,6 +314,22 @@ await step('3.5 dashboard: Connect Claude leads until Claude is connected, its C
   if (SHOTS) { await page.screenshot({ path: `${SHOTS}/dashboard-connect-claude.png`, fullPage: false }); }
 });
 
+await step('3.45 review M1: the first steps keep the full width and the grid of steps – no rule of the guide reaches them (1440 and 375 px)', async () => {
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await visit('/admin.php');
+    const box = await page.evaluate(() => {
+      const d = document.querySelector('details.pruvodce'), list = d && d.querySelector('.pruvodce-kroky');
+      if (!d || !list) { return null; }
+      const parent = d.parentElement, ps = getComputedStyle(parent), ls = getComputedStyle(list);
+      return { gap: d.getBoundingClientRect().width - (parent.clientWidth - parseFloat(ps.paddingLeft) - parseFloat(ps.paddingRight)), indent: ls.paddingInlineStart, rowGap: ls.rowGap, maxWidth: getComputedStyle(d).maxWidth };
+    });
+    if (box === null) { throw new Error('the dashboard has no first steps to measure'); }
+    if (Math.abs(box.gap) > 1 || box.indent !== '0px' || box.rowGap !== '10px' || box.maxWidth !== 'none') { throw new Error(`the first steps at ${width} px are not as in 3.44: ${JSON.stringify(box)}`); }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+});
+
 await step('3.24 N-U3/N-U4: New page starts in the builder – three choices, the text editor only for a text page, and the page title band is not offered twice', async () => {
   await visit('/admin.php?module=pages&action=new');
   const editor = page.locator('.radek.nova-jen-text');

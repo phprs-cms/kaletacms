@@ -301,7 +301,11 @@ final class Kernel
         }
         if ($action === 'hide_first_steps' && $request->isPost() && $app->auth()->isAdmin()) {
             // 3.45: one action for the three lists – the website's, the office's (CPO 6) and the first steps of quotes (CPO 3)
-            $list = self::FIRST_STEP_LISTS[$request->post('list')] ?? self::FIRST_STEP_LISTS[''];
+            // 3.45 review L6: no list = the website's; an unknown one is refused, never the website's by mistake
+            $list = self::FIRST_STEP_LISTS[$request->post('list')] ?? null;
+            if ($list === null) {
+                return $this->page('Error', $app->view->render('admin/error', ['text' => 'This page does not exist.']), 400);
+            }
             $app->settings()->set($list[0], '1');
 
             return Response::redirect($app->url($list[1]));
@@ -568,8 +572,13 @@ final class Kernel
                 \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : (isset($this->modules()['claude_settings']) ? 'admin.php?module=claude_settings#how-to-connect' : 'admin.php#pripojit-claude'), $connected]);
         }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
+        if (array_filter($result, fn (array $k): bool => !$k['hotovo']) === []) {
+            $s->set('first_steps_hidden', '1'); // 3.45 review L7: once complete, the facts are not read again on every visit
 
-        return array_filter($result, fn (array $k): bool => !$k['hotovo']) === [] ? [] : $result;
+            return [];
+        }
+
+        return $result;
     }
 
     /**
@@ -606,8 +615,22 @@ final class Kernel
         $app = $this->app;
         $done = $app->auth()->isAdmin() ? self::officeFacts($app, $modules, $app->auth()->user() ?? []) : null;
 
-        return $done === null ? [] : array_map(fn (array $k): array => ['nazev' => $k['title'], 'popis' => $k['text'], 'url' => $app->url($k['url']), 'hotovo' => $k['done']], self::officeChecklist($done));
+        if ($done === null) {
+            return [];
+        }
+        $steps = self::officeChecklist($done);
+        if ($steps === []) {
+            $app->settings()->set('office_steps_hidden', '1'); // 3.45 review L7: complete – remembered, the facts stop being read
+        }
+
+        return array_map(fn (array $k): array => ['nazev' => $k['title'], 'popis' => $k['text'], 'url' => $app->url($k['url']), 'hotovo' => $k['done']], $steps);
     }
+
+    /** 3.45 review M2: an enquiry that was answered – handled (status 2) or with a reply sent; status 1 is only "read". */
+    public const string OFFICE_REPLIED = "(stav = 2 OR (replies IS NOT NULL AND replies NOT IN ('', '[]')))";
+
+    /** 3.45 review M2: a follow-up – a task about an enquiry, a deal or a quote (Core\Tasks targets). */
+    public const string OFFICE_FOLLOW_UP = "(target LIKE 'enquiry:%' OR target LIKE 'deal:%' OR target LIKE 'quote:%')";
 
     /**
      * 3.45 (CPO 6): what the office has done – null while the list is not offered (hidden, Enquiries off or no enquiry yet).
@@ -620,8 +643,9 @@ final class Kernel
     {
         $s = $app->settings();
         $db = $app->db();
+        $real = Modules\Enquiries::NOT_SPAM . ' AND ' . Modules\Enquiries::visible($db, $s, isset($modules[\Kaleta\Core\Applications::SECTION]));
         if ($s->bool('office_steps_hidden') || !isset($modules['enquiries'])
-            || $db->value('SELECT 1 FROM {poptavky} WHERE ' . Modules\Enquiries::NOT_SPAM . ' AND ' . Modules\Enquiries::visible($db, $s, isset($modules[\Kaleta\Core\Applications::SECTION])) . ' LIMIT 1') === null) {
+            || $db->value('SELECT 1 FROM {poptavky} WHERE ' . $real . ' LIMIT 1') === null) {
             return null;
         }
 
@@ -629,8 +653,11 @@ final class Kernel
             'colleague' => (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE blokovat = 0') > 1,
             // the fallback signature is made from the account: with a position (or a template, or a Team record) it is the person's own
             'signature' => trim((string) ($me['pozice'] ?? '')) !== '' || $s->get('email_signature_template') !== '' || \Kaleta\Builder\TeamRecord::forUser($db, $me) !== null,
-            'reply' => $db->value("SELECT 1 FROM {poptavky} WHERE stav > 0 OR (replies IS NOT NULL AND replies NOT IN ('', '[]')) LIMIT 1") !== null,
-            'follow_up' => $db->value('SELECT 1 FROM {tasks} LIMIT 1') !== null,
+            // 3.45 review M2: answered = handled (status 2) or a reply sent – opening an enquiry only marks it read (status 1);
+            // spam and the enquiry twins of job applications do not count, as the gate above
+            'reply' => $db->value('SELECT 1 FROM {poptavky} WHERE ' . $real . ' AND ' . self::OFFICE_REPLIED . ' LIMIT 1') !== null,
+            // a follow-up is a task about an enquiry, a deal or a quote – not any task (a page's, or one from before)
+            'follow_up' => $db->value('SELECT 1 FROM {tasks} WHERE ' . self::OFFICE_FOLLOW_UP . ' LIMIT 1') !== null,
         ];
     }
 

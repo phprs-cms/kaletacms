@@ -12,15 +12,15 @@
 # Partial runs (3.45, code-quality step 7) – to reproduce a failing section in a minute, never as a release gate:
 #   ONLY=1520 tools/test.sh               only section 1520 (a four-digit pattern is a section's number)
 #   ONLY=0060,quote tools/test.sh         the sections whose number or name matches any of the comma-separated patterns
-#   FROM=1520 tools/test.sh               section 1520 and every section after it (the first number >= 1520, or a part of a name)
-#   FROM=1500 ONLY=passkey tools/test.sh  both: the matching sections from 1500 on
+#   START=1520 tools/test.sh               section 1520 and every section after it (the first number >= 1520, or a part of a name)
+#   START=1500 ONLY=passkey tools/test.sh  both: the matching sections from 1500 on
 # A partial run skips the syntax check (0010) and the unit tests (0030) unless it selects them, and continues from the
 # snapshot of the installed site that the last run on this checkout, database and port saved after 0040 (bootstrap.sh;
 # SNAPSHOT=fresh installs anew, SNAPSHOT=off saves none). Without a valid snapshot it installs and saves one. The sections
 # share state: 0060 (the admin signs in) always runs, and so does every earlier section that defines a helper or a variable
 # a selected one uses (tools/smoke-needs.php, listed with "+"). These only prepare the run: their failures are shown as
 # "(prep)" and not counted. A section that needs what an earlier one left in the database runs with it – ONLY=0280,0300 –
-# or with FROM=.
+# or with START=.
 # Every CHYBA of a selected section still counts and fails the run; a pattern that matches no section fails it too.
 set -euo pipefail
 
@@ -38,13 +38,13 @@ for SMOKE_FILE in "$SMOKE_DIR"/*; do
   esac
 done
 
-# 3.45 (step 7): smoke_select narrows SMOKE_FILES to ONLY= / FROM= (see the top). The setup sections up to the install (0040)
+# 3.45 (step 7): smoke_select narrows SMOKE_FILES to ONLY= / START= (see the top). The setup sections up to the install (0040)
 # stay – they start the servers and define the helpers – and so does 0060 (the admin signs in), but a partial run that selects none of 0020–0040 restores the
 # installed site instead of installing (SMOKE_RESTORE, decided below), runs the unit tests only when it selects 0030
 # (SMOKE_UNIT) and the syntax check only when it selects 0010. Sets SMOKE_PARTIAL (0|1), SMOKE_SETUP_PICKED, SMOKE_TOTAL and
 # SMOKE_PREPARE (0060 when it runs unselected).
 smoke_select() {
-  local only="${ONLY:-}" from="${FROM:-}" f name num pattern picked started=1 setup_last=40 kept=() matched=0 patterns=()
+  local only="${ONLY:-}" from="${START:-}" f name num pattern picked started=1 setup_last=40 kept=() matched=0 patterns=()
   SMOKE_TOTAL=${#SMOKE_FILES[@]}; SMOKE_PARTIAL=0; SMOKE_SETUP_PICKED=0; SMOKE_UNIT=1; SMOKE_PREPARE=
   [ -n "$only$from" ] || return 0
   SMOKE_PARTIAL=1; SMOKE_UNIT=0; [ -z "$from" ] || started=0; IFS=, read -ra patterns <<< "$only"
@@ -75,7 +75,7 @@ smoke_select() {
     elif [ "$num" -eq 60 ]; then kept+=("$f"); SMOKE_PREPARE="${name}" # 0060 signs in and switches the features on – nearly every section needs it
     fi
   done
-  if [ "$matched" = 0 ]; then echo "  CHYBA  ONLY=${only:-} FROM=${from:-}: no section matches – tools/tests/smoke/NNNN-<topic>.sh"; return 1; fi
+  if [ "$matched" = 0 ]; then echo "  CHYBA  ONLY=${only:-} START=${from:-}: no section matches – tools/tests/smoke/NNNN-<topic>.sh"; return 1; fi
   SMOKE_FILES=("${kept[@]}")
 }
 smoke_select || exit 1
@@ -84,7 +84,7 @@ smoke_select || exit 1
 . "$SMOKE_DIR/bootstrap.sh"
 SMOKE_RESTORE=0
 if [ "$SMOKE_PARTIAL" = 1 ]; then
-  echo "== partial run (ONLY=${ONLY:-} FROM=${FROM:-}): ${#SMOKE_FILES[@]} of $SMOKE_TOTAL sections, the setup sections included"
+  echo "== partial run (ONLY=${ONLY:-} START=${START:-}): ${#SMOKE_FILES[@]} of $SMOKE_TOTAL sections, the setup sections included"
   # a helper or a variable a selected section uses but a left-out section defines: that section runs too, and in turn what it
   # needs (tools/smoke-needs.php – static and approximate, like the unit runner's closure)
   SMOKE_NEEDED=$(command php "$ROOT/tools/smoke-needs.php" "$SMOKE_DIR" "${SMOKE_FILES[@]}")
@@ -127,5 +127,5 @@ done
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi
 SMOKE_DONE=1
 # 3.45: a partial run says so in its last line – it is no release gate
-SMOKE_SCOPE=""; [ "$SMOKE_PARTIAL" = 0 ] || SMOKE_SCOPE=" (partial run: ${#SMOKE_FILES[@]} of $SMOKE_TOTAL sections – ONLY=${ONLY:-} FROM=${FROM:-})"
+SMOKE_SCOPE=""; [ "$SMOKE_PARTIAL" = 0 ] || SMOKE_SCOPE=" (partial run: ${#SMOKE_FILES[@]} of $SMOKE_TOTAL sections – ONLY=${ONLY:-} START=${START:-})"
 echo; [ "$ERRORS" -eq 0 ] && echo "VŠE V POŘÁDKU$SMOKE_SCOPE" || { echo "NALEZENO CHYB: $ERRORS$SMOKE_SCOPE"; exit 1; }

@@ -16,11 +16,11 @@ For whoever runs the site: from installation through the page builder to connect
 6. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.
 
-The admin is at `/admin.php`. Roles: an **administrator** can do everything, an **editor** manages content, a **news
-author** writes their own news and may publish only with the publishing permission. In **Users → Roles** you can create
+The admin is at `/admin.php`. Roles: an **administrator** can do everything, an **editor** manages content, a **team
+member** works in the sections given to them (news only their own, published only with the publishing permission). In **Users → Roles** you can create
 **custom roles** – a named set of sections (for example “Sales” with Enquiries only); changing a role updates all its members.
 Three ready-made roles are a starting point: **Client** (pages, news, collections, enquiries and statistics – the look,
-settings and users stay with you), **Writer** (news for someone else to publish) and **Enquiries only**.
+settings and users stay with you), **Writer** (news for someone else to publish) and **Office / sales** (enquiries, customers, deals, bookings and quotes).
 
 **Help on every screen.** Next to the heading of each part of the admin, **How to use this** opens its article in this
 guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks

@@ -51,5 +51,5 @@ expect "T1 (Q13): the error log line has the request, the version and a trace, a
   "$T1_CODE|$(printf '%s' "$T1_ROW" | grep -c 'RuntimeException: T1 probe for \[e-mail\] in t1-probe.php:1 · GET /t1-probe.php · Kaleta [0-9.]* · trace: #0 t1-probe.php:1 ')|$(printf '%s' "$T1_ROW" | grep -c "probe@example\|$T1_TOKEN" || true)" "500|1|0"
 rm -f "$WORK/web/t1-probe.php"
 php -r '$f = $argv[1]; file_put_contents($f, implode("", array_filter(file($f) ?: [], fn ($r) => !str_contains($r, "T1 probe"))));' -- "$WORK/web/storage/log/chyby.log"
-# 3.45 (step 7): the installed site for the next partial run (ONLY= / FROM=, tools/test.sh)
+# 3.45 (step 7): the installed site for the next partial run (ONLY= / START=, tools/test.sh)
 smoke_snapshot_save
