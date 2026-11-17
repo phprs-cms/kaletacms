@@ -171,6 +171,7 @@ final class TimeZoneConversion
         'fleet_expiry_reminders' => ['expires'], // 3.30: the day a certificate or domain ends, as the site reported it
         'fleet_acceptances' => ['ends_on'], // 3.39: the last day an accepted state holds on the console
         'absences' => ['starts_on', 'ends_on'], // 3.42: the first and the last day of an absence
+        'restore_ledger' => ['created_at'], // 3.46: compared with the wall time in a backup's file name, which never moves
         // opening hours exceptions (holidays), appointments, days off and proposed times: a 10:00 appointment stays at 10:00
         'hours_exceptions' => ['date_from', 'date_to'],
         'bookings' => ['starts_at', 'ends_at'],

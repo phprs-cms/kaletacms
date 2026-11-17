@@ -34,11 +34,17 @@ namespace Kaleta\Core;
  *    their lines – the person's own quotes; erasing deletes their drafts and keeps a numbered quote as the firm's record
  *    without the person (the customer block, the frozen document and the customer's link go).
  *  - The change log and the event keep only a masked address and the counts, never the address itself.
+ *  - 3.46: waiting or failed webhook and connector deliveries of the person lose their body (N161); the restore ledger keeps
+ *    the address's keyed fingerprint, so restoring an older backup erases it again (N156); the result states how long the
+ *    data can still be in the backups (N157).
  *  - The undo journal of Claude sessions (Core\AgentJournal) does not journal these tables; entries an older release
  *    journaled are redacted on erasure (3.3.2), so undoing a session never brings erased data back.
  */
 final class PersonalData
 {
+    /** 3.46 (N161): days a given-up webhook or connector delivery keeps its body for the Retry button. */
+    public const int RETRY_DAYS = 7;
+
     /** The address as stored: trimmed, lower case; null when it is not an e-mail address. */
     public static function normalise(string $email): ?string
     {
@@ -202,7 +208,7 @@ final class PersonalData
      * Erases what the site keeps about the address (see the class comment); returns the counts of what was removed and
      * the ids of published testimonial items that stay.
      *
-     * @return array{erased: array<string, int>, kept_testimonials: list<int>}
+     * @return array{erased: array<string, int>, kept_testimonials: list<int>, backup_horizon: array{local_days: int, local_files: int, offsite: bool, offsite_days: int, text: string}}
      */
     public static function erase(App $app, string $email): array
     {
@@ -233,7 +239,14 @@ final class PersonalData
             $db->run('DELETE FROM {bookings} WHERE LOWER(email) = ?', [$email]); // upcoming ones too – the person asked to be forgotten
         }
         AgentJournal::forget($db, $email);
+        // 3.46 (N161): a webhook or connector delivery still waiting (or failed and kept for a retry) loses its body – a
+        // retry must never send the erased enquiry on; (N156) the ledger remembers the address, so a restore erases it again
+        $blanked = self::forgetQueued($db, $email, array_map('intval', array_column($found['enquiries'], 'idp')));
+        RestoreLedger::record($db, 'erased', $email);
         $erased = array_diff_key(self::counts($found), ['account' => 0, 'sync' => 0]);
+        if ($blanked > 0) {
+            $erased['deliveries'] = $blanked; // additive
+        }
         if ($heldApplications !== []) {
             $erased['applications'] = max(0, ($erased['applications'] ?? 0) - count($heldApplications));
             $erased['applications_held'] = count($heldApplications); // N7: additive – not erased, their files cannot be located
@@ -242,6 +255,102 @@ final class PersonalData
         \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
 
-        return ['erased' => $erased, 'kept_testimonials' => $kept];
+        return ['erased' => $erased, 'kept_testimonials' => $kept, 'backup_horizon' => self::backupHorizon($app->settings())];
+    }
+
+    /**
+     * 3.46 (N157): how long the erased data can still be in a backup – the local backups (Backup::KEEP files, none older than
+     * Backup::KEEP_DAYS days) and the off-site copies (backup_remote_days; 0 = Kaleta deletes none). A restore erases the
+     * address again (Core\RestoreLedger), so the data never comes back to the site.
+     *
+     * @return array{local_days: int, local_files: int, offsite: bool, offsite_days: int, text: string}
+     */
+    public static function backupHorizon(Settings $s): array
+    {
+        $offsite = RemoteBackup::isOn($s);
+        $days = $s->int('backup_remote_days');
+
+        return ['local_days' => Backup::KEEP_DAYS, 'local_files' => Backup::KEEP, 'offsite' => $offsite, 'offsite_days' => $offsite ? max(0, $days) : 0,
+            'text' => self::horizonText($offsite, $days)];
+    }
+
+    /** The backup horizon in words (the erase result, the processing record). */
+    public static function horizonText(bool $offsite, int $offsiteDays): string
+    {
+        return t('The erased data can stay in the backups for up to %d days (at most %d backups on this server).', Backup::KEEP_DAYS, Backup::KEEP)
+            . ($offsite ? ' ' . ($offsiteDays > 0 ? t('Off-site copies are deleted after %d days.', $offsiteDays) : t('Off-site copies are not deleted by Kaleta – the lifecycle rule of the storage decides.')) : '')
+            . ' ' . t('A restore of an older backup erases the address again.');
+    }
+
+    /**
+     * 3.46 (N161): blanks the body of every webhook delivery and connector delivery that carries the address (any value of
+     * its JSON is exactly the address) or one of the enquiries, and stops it – waiting, failed or given up. Returns how many.
+     *
+     * @param list<int> $enquiryIds
+     */
+    public static function forgetQueued(Db $db, string $email, array $enquiryIds): int
+    {
+        $email = self::cleanAddress($email);
+        $ids = array_flip($enquiryIds);
+        $count = 0;
+        foreach ([['webhook_deliveries', 'body', 'next_attempt = NULL, body = NULL'], ['connector_queue', 'payload', 'next_attempt = NULL, payload = NULL']] as [$table, $column, $blank]) {
+            try {
+                $rows = $db->all('SELECT id, ' . $column . ' AS b FROM {' . $table . '} WHERE ' . $column . ' IS NOT NULL');
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+                continue;
+            }
+            foreach ($rows as $row) {
+                $data = json_decode((string) $row['b'], true);
+                if (is_array($data) && self::queuedFor($data, $email, $ids)) {
+                    $count += $db->run('UPDATE {' . $table . '} SET ' . $blank . ' WHERE id = ?', [(int) $row['id']])->rowCount();
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Does a queued body belong to the person (pure)? Its enquiry id ("id" of an enquiry webhook, "enquiry" of a connector
+     * delivery) is one of theirs, or any of its values is exactly the address.
+     *
+     * @param array<mixed> $data
+     * @param array<int, mixed> $enquiryIds ids as keys
+     */
+    public static function queuedFor(array $data, string $email, array $enquiryIds): bool
+    {
+        $enquiry = ($data['udalost'] ?? '') === 'nova_poptavka' ? ($data['id'] ?? null) : ($data['enquiry'] ?? null);
+        if (is_int($enquiry) && $enquiry > 0 && isset($enquiryIds[$enquiry])) {
+            return true;
+        }
+        if ($email === '') {
+            return false;
+        }
+        $found = false;
+        array_walk_recursive($data, function (mixed $value) use ($email, &$found): void {
+            $found = $found || (is_string($value) && self::cleanAddress($value) === $email);
+        });
+
+        return $found;
+    }
+
+    /**
+     * 3.46 (N161): the daily sweep of the delivery queues – a delivered row has no body already; a given-up one keeps its
+     * body for RETRY_DAYS (the Retry button), then loses it; every row goes after 30 days.
+     */
+    public static function sweepQueues(Db $db): int
+    {
+        $count = 0;
+        foreach ([['webhook_deliveries', 'body', 'created', 'delivered'], ['connector_queue', 'payload', 'created_at', 'delivered_at']] as [$table, $column, $created, $delivered]) {
+            try {
+                $count += $db->run('UPDATE {' . $table . '} SET ' . $column . ' = NULL WHERE ' . $column . ' IS NOT NULL AND next_attempt IS NULL AND (' . $delivered . ' IS NOT NULL OR ' . $created . ' < ?)', [Clock::at('-' . self::RETRY_DAYS . ' days')])->rowCount();
+                $db->run('DELETE FROM {' . $table . '} WHERE ' . $created . ' < ?', [Clock::at('-30 days')]);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+            }
+        }
+
+        return $count;
     }
 }

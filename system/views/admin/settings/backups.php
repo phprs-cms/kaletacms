@@ -130,6 +130,7 @@ $field('backup_folder', 'Folder / bucket', 'text', 'FTP: folder for backups (cre
 $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. For Cloudflare R2 enter auto.', 'maxlength="40" style="width:180px"');
 ?>
 <?php $field('backup_media', 'Copy the media too', 'ano', 'Uploaded images and files go to the folder media/ of the same target. A file deleted on the site stays in the copy.'); ?>
+<?php $field('backup_remote_days', 'Keep off-site copies (days)', 'cislo', 'Database copies older than this are deleted from the target after each upload, so erased personal data does not stay there. 0 = Kaleta deletes none – then set a lifecycle rule on the bucket.', 'min="0" max="3650"'); ?>
 <?php if ($remoteStatus !== ''): [$when, $how] = explode('|', $remoteStatus, 2) + [1 => '']; ?>
 <p class="hlaska<?= $how === 'ok' ? ' hlaska-ok' : ' hlaska-chyba' ?>"><?= e(match ($how) {
     'ok' => t('The last copy was uploaded %s.', $when),
@@ -142,7 +143,7 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <?php endif ?>
 <p class="napoveda"><?= e(t('Save the settings, then click “Create backup now” – the copy uploads right away and you will see whether the connection works.')) ?></p>
 </details>
-<?php $field('auto_backups', 'Automatic backups', 'ano', 'Every day something changed on the site, otherwise once a week – while an administrator works in the administration or cron runs. The last 10 backups are kept.'); ?>
+<?php $field('auto_backups', 'Automatic backups', 'ano', 'Every day something changed on the site, otherwise once a week – while an administrator works in the administration or cron runs. The last 10 backups are kept, none older than 30 days.'); ?>
 <p><button class="tl" type="submit" formaction="<?= e($module->url('backup')) ?>"><?= e(t('Create backup now')) ?></button></p>
 <?php if ($keyOnRecord || array_filter($backups, fn (array $b): bool => Kaleta\Core\Backup::encrypted($b['soubor'])) !== []): // 3.28: an off-site copy uploaded back (….enc) ?>
 <div class="radek"><label for="recovery_key"><?= e(t('Recovery key')) ?></label><div><input class="textpole siroke" type="password" id="recovery_key" name="recovery_key" value="" autocomplete="off" spellcheck="false" placeholder="KBK1-…">
@@ -156,12 +157,14 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <?php $filesSince = $app->settings()->get(Kaleta\Core\Applications::FILES_SINCE); ?>
 <?php foreach ($backups as $z):
 	// 3.34 second review N9: a database backup older than the first encrypted CV or the move of applications misses what only the disk holds
-	$missesCvs = Kaleta\Core\Applications::backupMissesFiles((int) $z['cas'], $filesSince); ?>
+	$missesCvs = Kaleta\Core\Applications::backupMissesFiles((int) $z['cas'], $filesSince);
+	// 3.46 (N156): before the restore, what it loses since the backup and what it keeps from today
+	$undoes = Kaleta\Core\RestoreLedger::previewText(Kaleta\Core\RestoreLedger::preview($app->db(), Kaleta\Core\RestoreLedger::madeAt($z['soubor']))); ?>
 <tr>
 	<td><?= e($z['soubor']) ?><?php if ($missesCvs): ?> <span class="stitek" data-backup-misses-cvs title="<?= e(t('Older than the first encrypted CV of a job application on this site.')) ?>"><?= e(t('before the CVs')) ?></span><?php endif ?><?php if (Kaleta\Core\Backup::encrypted($z['soubor'])): // 3.31.1: uploaded back for a restore – it does not count as a backup made here ?> <span class="stitek" title="<?= e(t('An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.')) ?>"><?= e(t('uploaded copy')) ?></span><?php endif ?></td>
 	<td class="cislo"><?= e(format_date((new DateTimeImmutable())->setTimestamp((int) $z['cas']), true)) ?></td>
 	<td class="cislo"><?= format_count($z['velikost'] / 1024) ?> kB</td>
-	<td class="akce"><a href="<?= e($module->url('download_backup', ['file' => $z['soubor']])) ?>"><?= e(t('Download')) ?></a> · <button class="navigace" type="submit" formaction="<?= e($module->url('restore_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Restore the database from this backup? Everything added to the site since it was created (pages, news, enquiries, settings) will be lost. The current state is saved to a new backup first.') . ($missesCvs ? ' ' . t('This backup is older than the first encrypted CV of a job application here: applications received after it are not in it and their CVs cannot be opened after the restore (the files are removed after %d days); applications moved from Enquiries after it come back as enquiries, and their CVs open from the encrypted copies while the encryption key stays the same.', Kaleta\Core\Applications::ORPHAN_DAYS) : '')) ?>"><?= e(t('Restore')) ?></button> · <button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Delete backup?')) ?>"><?= e(t('Delete')) ?></button></td>
+	<td class="akce"><a href="<?= e($module->url('download_backup', ['file' => $z['soubor']])) ?>"><?= e(t('Download')) ?></a> · <button class="navigace" type="submit" formaction="<?= e($module->url('restore_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-restore-undoes data-potvrdit="<?= e(t('Restore the database from this backup? Everything added to the site since it was created (pages, news, enquiries, settings) will be lost. The current state is saved to a new backup first.') . ' ' . $undoes . ($missesCvs ? ' ' . t('This backup is older than the first encrypted CV of a job application here: applications received after it are not in it and their CVs cannot be opened after the restore (the files are removed after %d days); applications moved from Enquiries after it come back as enquiries, and their CVs open from the encrypted copies while the encryption key stays the same.', Kaleta\Core\Applications::ORPHAN_DAYS) : '')) ?>"><?= e(t('Restore')) ?></button> · <button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete_backup')) ?>" name="soubor" value="<?= e($z['soubor']) ?>" data-potvrdit="<?= e(t('Delete backup?')) ?>"><?= e(t('Delete')) ?></button></td>
 </tr>
 <?php endforeach ?>
 </tbody>

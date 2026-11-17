@@ -96,6 +96,7 @@ return [
     'internal_file_versions' => ['internal_file_versions', []],
     'departments' => ['departments', []], // 3.42
     'absences' => ['absences', []],
+    'restore_ledger' => ['restore_ledger', []], // 3.46: never in a backup (Core\RestoreLedger)
     // links, imports and statistics
     'nenalezeno' => ['not_found', ['cesta' => 'path', 'pocet' => 'hits', 'naposledy' => 'last_seen_at']],
     'odkazy_vadne' => ['broken_links', ['ido' => 'id']],
