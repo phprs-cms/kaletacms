@@ -558,6 +558,7 @@
 				var a = document.createElement('a');
 				a.href = p.u;
 				a.textContent = p.n;
+				if (p.p) { a.addEventListener('click', function (e) { e.preventDefault(); popupPost(p.u); }); } // 3.45: "New quote" is a POST
 				var s = document.createElement('small');
 				s.textContent = p.s;
 				a.appendChild(s);
@@ -573,6 +574,19 @@
 			}
 			var selected = popupList.querySelector('[aria-selected="true"]');
 			if (selected && selected.scrollIntoView) { selected.scrollIntoView({ block: 'nearest' }); }
+		};
+		// 3.45 (U70): a command that creates something (p: 1 in the palette data) goes as a POST form with the form token
+		var popupPost = function (url) {
+			var form = document.createElement('form');
+			form.method = 'post';
+			form.action = url;
+			var token = document.createElement('input');
+			token.type = 'hidden';
+			token.name = '_csrf';
+			token.value = palette.getAttribute('data-csrf') || '';
+			form.appendChild(token);
+			document.body.appendChild(form);
+			form.submit();
 		};
 		var popupOpen = function () {
 			if (palette.open) { return; }
@@ -647,7 +661,8 @@
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
 				var target = popupList.querySelector('[aria-selected="true"] a');
-				if (target) { window.location.href = target.href; }
+				var chosen = popupItems()[popupSelected];
+				if (target && chosen && chosen.p) { popupPost(target.href); } else if (target) { window.location.href = target.href; }
 			}
 		});
 		// show ⌘K on a Mac

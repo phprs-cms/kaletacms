@@ -47,6 +47,7 @@ trait SettingsTools
             // keys of 1.4.0 and older still work (nazev_webu, firma_email, nazev_webu_de…)
             $key = (string) $key;
             $key = \Kaleta\Core\OldSettingsKeys::current($key); // keys of 1.4.0 and older keep working over MCP
+            $value = \Kaleta\Mcp\Translator::settingValue($key, $value); // 3.45: English values (dark, allow, built_in…) besides the Czech ones
             if ($key === 'extensions' || $key === 'additional_languages') {
                 // lists (2.2): extensions switched on, further language versions of the site
                 $list = array_values(array_filter(array_map('trim', is_array($value) ? array_map('strval', $value) : explode(',', (string) $value))));
@@ -107,7 +108,7 @@ trait SettingsTools
             }
             if ($key === 'stats' && is_scalar($value)) {
                 // 3.2: the Statistics feature is the only switch – the old setting keeps working and switches the feature
-                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'ano'], true);
+                $on = is_bool($value) ? $value : in_array(strtolower(trim((string) $value)), ['1', 'true', 'ano', 'yes', 'on'], true);
                 $list = array_values(array_diff(\Kaleta\Core\Extensions::enabled($siteSettings), ['statistika']));
                 \Kaleta\Core\Extensions::save($siteSettings, $on ? [...$list, 'statistika'] : $list);
                 $stored[$key] = $on ? '1' : '0';
