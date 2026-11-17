@@ -1,11 +1,12 @@
 <?php
 /**
  * The filter of the board and the list (3.31): a word, the responsible person (mine, nobody, a person), the company, the
- * customer it was opened for (a chip that clears it) and – in the list – the status.
+ * customer it was opened for (a chip that clears it) and – in the list – the status. 3.44: "No next step" – only the open
+ * deals without an open task about them.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Pipeline $module
- * @var array{owner: string, contact: int, company: int, search: string, status: string, view: string} $filter
+ * @var array{owner: string, contact: int, company: int, search: string, status: string, view: string, next: string} $filter
  * @var array<int, string> $people
  * @var list<array<string, mixed>> $companies
  * @var string $contactName
@@ -15,7 +16,7 @@
  */
 use Kaleta\Admin\Modules\Pipeline;
 
-$filtered = $filter['search'] !== '' || $filter['owner'] !== '' || $filter['company'] > 0 || $filter['contact'] > 0 || ($filter['view'] === 'list' && $filter['status'] !== 'open');
+$filtered = $filter['search'] !== '' || $filter['owner'] !== '' || $filter['company'] > 0 || $filter['contact'] > 0 || $filter['next'] !== '' || ($filter['view'] === 'list' && $filter['status'] !== 'open');
 $clear = $filter['view'] === 'list' ? $module->url('', ['view' => 'list']) : $module->url();
 ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="zakaznici-filtr" data-pipeline-filter>
@@ -53,6 +54,7 @@ $clear = $filter['view'] === 'list' ? $module->url('', ['view' => 'list']) : $mo
 <?php endforeach ?>
 	</select></label>
 <?php endif ?>
+	<label class="obchody-bez-kroku"><input type="checkbox" name="next" value="none"<?= $filter['next'] === 'none' ? ' checked' : '' ?> data-pipeline-no-next> <span><?= e(t('No next step')) ?></span></label>
 	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filter')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($clear) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
 </form>
 <?php if ($filter['contact'] > 0): ?>

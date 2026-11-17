@@ -467,6 +467,9 @@
 		}
 	}
 	// imports in batches: the progress form submits itself (each submission is one batch) until the work is done
+	// 3.44 (U71): My work → Summary shows the chosen period at once (the Show button stays for use without JavaScript)
+	var summaryPeriod = document.querySelector('form[data-team-summary-period] select[name="period"]');
+	if (summaryPeriod) { summaryPeriod.addEventListener('change', function () { if (summaryPeriod.form.requestSubmit) { summaryPeriod.form.requestSubmit(); } else { summaryPeriod.form.submit(); } }); }
 	var autoSubmit = document.querySelector('form[data-auto-odeslat]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-odeslat'), 10) || 1200); }
 	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */
@@ -860,7 +863,13 @@
 				col.querySelector('[data-stage-cards]').prepend(card);
 				setStage(card, j.stage, true);
 				var days = card.querySelector('[data-deal-days]'); // 3.41: a new stage starts today
-				if (days) { days.textContent = T('In this stage since today'); }
+				if (days) { // 3.44 (U57): the short chip and its full text for screen readers and on hover
+					days.title = T('In this stage since today');
+					days.innerHTML = '';
+					var shown = document.createElement('span'); shown.setAttribute('aria-hidden', 'true'); shown.textContent = T('today');
+					var full = document.createElement('span'); full.className = 'navod-skryte'; full.textContent = days.title;
+					days.append(shown, full);
+				}
 				recount();
 				if (handle) { handle.focus(); }
 				say(j.zprava || T('Moved to %s.').replace('%s', stageName(col)));

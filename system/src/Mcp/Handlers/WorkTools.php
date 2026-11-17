@@ -57,7 +57,7 @@ trait WorkTools
         $origin = $this->app->request->origin();
         $row = function (array $r) use ($origin): array {
             $out = ['id' => $r['id'], 'title' => $r['title']];
-            foreach (['collection', 'about', 'status', 'priority', 'reasons', 'review_by', 'date'] as $key) {
+            foreach (['collection', 'about', 'status', 'priority', 'reasons', 'review_by', 'valid_until', 'date'] as $key) {
                 if (isset($r[$key]) && $r[$key] !== '' && $r[$key] !== []) {
                     $out[$key] = $key === 'date' ? substr((string) $r[$key], 0, 16) : $r[$key];
                 }
@@ -72,7 +72,8 @@ trait WorkTools
         $tasks = $lists['tasks'] ?? [];
         unset($lists['tasks']);
         $keys = ['assigned' => 'enquiries_assigned', 'unassigned' => 'enquiries_unassigned', 'pages' => 'pages', 'items' => 'items', 'requests' => 'requests', 'deals' => 'deals',
-            'applications' => 'applications_assigned', 'applications_new' => 'applications_unassigned']; // 3.34 B: additive keys
+            'applications' => 'applications_assigned', 'applications_new' => 'applications_unassigned', // 3.34 B: additive keys
+            'quotes_drafts' => 'quotes_drafts', 'quotes_waiting' => 'quotes_waiting', 'quotes_expiring' => 'quotes_expiring']; // 3.44: by number and title, never an amount or the customer
         // 3.34 B: job applications only while the site lets Claude read them; by number, position and status – never the name
         if (!$this->app->settings()->bool('applications_claude')) {
             unset($lists['applications'], $lists['applications_new']);
@@ -102,7 +103,7 @@ trait WorkTools
         $total = array_sum(array_map(count(...), $lists)) + count($tasks) + count($deals ?? []);
 
         return $out + ['total' => $total,
-            'reasons' => 'tasks: group overdue | today | upcoming (7 days) | later (complete_task, save_task to snooze); overdue = the review date has passed, review = review due within ' . \Kaleta\Core\MyWork::REVIEW_DAYS . ' days, draft = unpublished changes, comments = unresolved comments on the draft, hidden = a hidden item changed lately',
+            'reasons' => 'tasks: group overdue | today | upcoming (7 days) | later (complete_task, save_task to snooze); overdue = the review date has passed, review = review due within ' . \Kaleta\Core\MyWork::REVIEW_DAYS . ' days, draft = unpublished changes, comments = unresolved comments on the draft, hidden = a hidden item changed lately; quotes (3.44): prepared = a draft Kaleta made from an enquiry, unowned = nobody is responsible yet, no_answer = sent ' . \Kaleta\Core\MyWork::QUOTE_WAITING_DAYS . ' or more days ago without a decision, expires = the validity ends within ' . \Kaleta\Core\MyWork::QUOTE_EXPIRING_DAYS . ' days (get_quote, mark_quote)',
             'next' => $total === 0 ? 'Nothing waits for this user.' : 'Tell the user what waits and where (admin_url). Enquiries contain personal data – open one with list_enquiries only when the user asks.'];
     }
 

@@ -417,7 +417,7 @@ final class Deals
     /**
      * A page of deals. Filter keys: stage (a stage key), status (STATUSES; default open), owner (a user id; 'mine' with
      * $userId; 'none' or -1 = nobody; 0 / '' = anyone), contact (a contact id), company (a company id), search (a word in the
-     * title, the contact's name or e-mail or the company's name). Sorted: open ones by expected close (none last), then the
+     * title, the contact's name or e-mail or the company's name), next ('none' = no open task about the deal, 3.44). Sorted: open ones by expected close (none last), then the
      * newest; closed ones by when they closed.
      *
      * @param array<string, mixed> $filter
@@ -455,6 +455,10 @@ final class Deals
                 $where[] = $column . ' = ?';
                 $params[] = (int) $filter[$key];
             }
+        }
+        if (($filter['next'] ?? '') === 'none') {
+            // 3.44: no next step – no open task about the deal (the key ix_tasks_target)
+            $where[] = "NOT EXISTS (SELECT 1 FROM {tasks} t WHERE t.target = CONCAT('deal:', d.id) AND t.done_at IS NULL)";
         }
         $search = trim(is_scalar($filter['search'] ?? null) ? (string) $filter['search'] : '');
         if ($search !== '') {

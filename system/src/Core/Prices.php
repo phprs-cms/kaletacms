@@ -318,6 +318,7 @@ final class Prices
         }
         $app->settings()->set(self::MAPPING_SETTING, $clean === [] ? '' : (string) json_encode($clean, JSON_UNESCAPED_UNICODE));
         self::$codeMemo = null;
+        self::$mappingMemo = null;
         \Kaleta\Admin\ChangeLog::write($app, self::SECTION, 'settings', t('Collections in the price list: %d', count($clean)));
 
         return $clean;
@@ -343,6 +344,65 @@ final class Prices
         }
 
         return $out;
+    }
+
+    /** @var array{0: int, 1: array<int, array{collection: int, code: string, variants: string}>}|null mapping() by collection for one database (mappedFields) */
+    private static ?array $mappingMemo = null;
+
+    /**
+     * 3.44: the code and variants fields of a collection an administrator mapped to the price list – not one made from the
+     * products preset (Builder\Products::fields covers those) – or null. The site's pages ask for every item of a list, so
+     * the mapping is read once per request; saveMapping() forgets it.
+     *
+     * @param array<string, mixed> $collection idk, preset, pole (decoded)
+     * @return array{code: string, variants: string}|null
+     */
+    public static function mappedFields(Db $db, array $collection): ?array
+    {
+        if (($collection['preset'] ?? '') === 'products' || (int) ($collection['idk'] ?? 0) <= 0) {
+            return null;
+        }
+        if (self::$mappingMemo === null || self::$mappingMemo[0] !== spl_object_id($db)) {
+            self::$mappingMemo = [spl_object_id($db), array_column(self::mapping($db), null, 'collection')];
+        }
+        $fields = self::fieldsOf($collection, self::$mappingMemo[1]);
+
+        return $fields === null || $fields['preset'] ? null : ['code' => $fields['code'], 'variants' => $fields['variants']];
+    }
+
+    /**
+     * 3.44 (N163): the labels of the basket fields of the form an enquiry was sent with – from its PUBLISHED build, by the
+     * enquiry's source, element and page (the site version of an item template); [] when the form or its basket is gone.
+     *
+     * @return list<string>
+     */
+    public static function basketLabels(Db $db, string $source, string $element, string $page): array
+    {
+        return Products::basketLabels($db, $source, $element, $page);
+    }
+
+    /**
+     * 3.44 (N168 b): the warning after an item's address changed while it has a price and its address is its code in the
+     * price list (a collection mapped without a code field, or its code field empty) – a later price import by code would
+     * reach the item now at the old address. null when nothing changed, the item has no price or a code of its own.
+     */
+    public static function addressChangeWarning(Db $db, int $itemId, string $before, string $after): ?string
+    {
+        if ($before === '' || $before === $after) {
+            return null;
+        }
+        $item = self::item($db, $itemId);
+        if ($item === null || !$item['product'] || $item['code'] !== mb_substr($after, 0, self::CODE_MAX)) {
+            return null;
+        }
+        try {
+            $priced = $db->value('SELECT 1 FROM {prices} WHERE item_id = ? LIMIT 1', [$itemId]) !== null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return null; // before migration 0123
+        }
+
+        return $priced ? t('This item has an internal price and its address is its code in the price list: the code changed from “%s” to “%s”. Check the codes in the CSV files you import.', $before, $after) : null;
     }
 
     /** 3.42: is this collection a products collection (the products preset or mapped)? */

@@ -1453,4 +1453,6 @@ return [
     'Choose at least one department for a folder limited to departments.' => 'Wähle für einen auf Abteilungen beschränkten Ordner mindestens eine Abteilung.',
     'No departments yet – create them in Users → Departments to limit a folder to a team.' => 'Noch keine Abteilungen – lege sie unter Benutzer → Abteilungen an, um einen Ordner auf ein Team zu beschränken.',
     'Create a collection of your products in Collections first.' => 'Lege zuerst unter Sammlungen eine Sammlung deiner Produkte an.',
+    'Your tasks, the enquiries, deals, job applications and quotes you are responsible for, the pages and collection items when a review is due or changes wait unpublished, and your requests Claude answered appear here.' => 'Hier erscheinen deine Aufgaben, die Anfragen, Deals, Bewerbungen und Angebote, für die du verantwortlich bist, Seiten und Sammlungseinträge, sobald eine Prüfung ansteht oder unveröffentlichte Änderungen warten, und deine Anfragen, die Claude beantwortet hat.',
+    'This item has an internal price and its address is its code in the price list: the code changed from “%s” to “%s”. Check the codes in the CSV files you import.' => 'Dieser Eintrag hat einen internen Preis, und seine Adresse ist sein Code in der Preisliste: Der Code hat sich von „%s“ in „%s“ geändert. Prüfe die Codes in den CSV-Dateien, die du importierst.',
 ];

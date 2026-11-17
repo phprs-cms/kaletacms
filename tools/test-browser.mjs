@@ -5610,10 +5610,16 @@ await step('3.41 A: the deal card (days in the stage, next step), the deal detai
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit('/admin.php?module=pipeline');
     const line = async (id) => ((await page.locator(`#deal-${id} .obchod-krok`).innerText()) || '').replace(/\s+/g, ' ').trim();
-    if (!/^Days in this stage: 12 · Next: Call Olga about the delivery date A341 · /.test(await line(a))) { throw new Error('the card with a task says: ' + await line(a)); }
-    if ((await line(b)) !== 'Days in this stage: 3 · No next step') { throw new Error('the card without a task says: ' + await line(b)); }
+    // 3.44 (U57): the days are a chip in the row of value and close, the next step has its own line and is not cut off
+    if (!/^Next: Call Olga about the delivery date A341 · /.test(await line(a))) { throw new Error('the card with a task says: ' + await line(a)); }
+    if ((await line(b)) !== 'No next step') { throw new Error('the card without a task says: ' + await line(b)); }
+    const chip = async (id) => (await page.locator(`#deal-${id} [data-deal-days] [aria-hidden="true"]`).innerText()).trim();
+    if ((await chip(a)) !== '12 d' || (await chip(b)) !== '3 d') { throw new Error(`the day chips say ${await chip(a)} and ${await chip(b)}`); }
+    const cut = await page.locator(`#deal-${a} .obchod-krok`).evaluate((el) => el.scrollHeight > el.clientHeight + 1);
+    if (cut) { throw new Error('the next step of the card is still cut off at 1440 px'); }
     const cardHeight = (await page.locator(`#deal-${a}`).boundingBox()).height;
-    if (cardHeight > 190) { throw new Error(`the card with its next step is ${Math.round(cardHeight)} px tall`); }
+    // 3.44 (U57): the next step may take up to three lines instead of being cut off – the card grows by those lines only
+    if (cardHeight > 240) { throw new Error(`the card with its next step is ${Math.round(cardHeight)} px tall`); }
     // a keyboard move starts the stage today – the card says so without a reload
     await page.locator(`#deal-${b} .obchod-uchyt`).focus();
     await page.keyboard.press('Space');
@@ -5898,6 +5904,68 @@ await step('3.42 C collections in the price list: the mapping (1440/390, light/d
       + ` DELETE FROM ka_poptavky WHERE formular = 'Enquiry C342'; DELETE FROM ka_prices WHERE item_id = ${Number(idp) || 0}; DELETE FROM ka_kolekce_polozky WHERE idk = ${Number(idk) || 0};`
       + " DELETE FROM ka_kolekce WHERE seo_link = 'devices-c342'; DELETE FROM ka_nastaveni WHERE promenna = 'quote_price_collections';"
       + " UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+  }
+});
+
+// 3.44 A (owner decision 2): the enquiry basket works for a collection mapped to the internal price list – a visitor picks
+// a variant and a quantity with Add to enquiry on the item page (no Compare box: no parameters), the basket lists it, the
+// form sends it with the quantity (rebuilt by the server); 1440 and 390 px without sideways scroll, axe; never a price
+await step('3.44 A: the enquiry basket on a collection in the price list – Add to enquiry, the quantity, sending (1440/390, axe), never a price', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const setup = execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); $db = $app->db();
+    $ext = $app->settings()->get("extensions"); if (!in_array("quotes", explode(",", $ext), true)) { $app->settings()->set("extensions", trim($ext . ",quotes", ",")); }
+    $idk = $db->insert("kolekce", ["nazev" => "Pumps A344", "seo_link" => "pumps-a344", "detail" => 1, "preset" => "", "zmeneno" => date("Y-m-d H:i:s"),
+      "pole" => json_encode([["klic" => "order_code", "popisek" => "Order code", "typ" => "text"], ["klic" => "versions", "popisek" => "Versions", "typ" => "radky"]])]);
+    $db->insert("kolekce_polozky", ["idk" => $idk, "nazev" => "Pump A344", "seo_link" => "pump-a344", "datum" => date("Y-m-d H:i:s"), "zobrazit" => 1, "data" => json_encode(["order_code" => "PU-A344", "versions" => "Steel | PU-A344-S\\nBrass | PU-A344-B"])]);
+    $app->settings()->set("quote_price_collections", json_encode([["collection" => $idk, "code" => "order_code", "variants" => "versions"]]));
+    [$build] = Kaleta\\Builder\\Build::sanitize(["v" => 1, "deti" => [["typ" => "sekce", "deti" => [["typ" => "nadpis", "znacka" => "h1", "obsah" => ["text" => "{{nazev}}"]], ["typ" => "do_poptavky"],
+      ["typ" => "formular", "obsah" => ["nazev" => "Basket A344", "bez_captcha" => true, "pole" => [["popisek" => "Products", "typ" => "kosik", "povinne" => true], ["popisek" => "Email", "typ" => "email", "povinne" => true]]]]]]]]);
+    $db->update("kolekce", ["stavba" => Kaleta\\Builder\\Build::toJson($build)], ["idk" => $idk]);
+    $list = (int) $db->value("SELECT id FROM {price_lists} WHERE is_default = 1 ORDER BY id LIMIT 1");
+    if ($list === 0) { $list = Kaleta\\Core\\Prices::saveList($app, null, "Default A344", "CZK"); }
+    $item = (int) $db->value("SELECT idp FROM {kolekce_polozky} WHERE seo_link = 'pump-a344'");
+    Kaleta\\Core\\Prices::save($app, $list, ["item_id" => $item, "variant_code" => "PU-A344-B", "unit_price" => "76543.21"], 0, false);
+    Kaleta\\Front\\Cache::clear(); echo $idk;`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim();
+  const idk = Number(setup) || 0;
+  try {
+    for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+      const visitor = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+      const p2 = await visitor.newPage(); watch(p2);
+      try {
+        await p2.goto(`${BASE}/pumps-a344/pump-a344`, { waitUntil: 'networkidle' });
+        const button = p2.locator('form.ka-do-poptavky');
+        if (!(await button.count()) || await button.locator('[data-porovnat]').count()) { throw new Error(`Add to enquiry is missing or offers Compare (${label})`); }
+        if (/76543|76 543/.test(await p2.content())) { throw new Error(`the internal price is on the item page (${label})`); }
+        await button.locator('select[name="variant"]').selectOption('Brass');
+        await button.locator('input[name="quantity"]').fill('3');
+        await button.locator('button[type="submit"]').click();
+        await p2.locator('[data-kosik-seznam] li').first().waitFor({ timeout: 5000 });
+        const line = (await p2.locator('[data-kosik-seznam]').innerText()).replace(/\s+/g, ' ');
+        if (!/Pump A344/.test(line) || !/Brass/.test(line)) { throw new Error(`the basket lists: ${line} (${label})`); }
+        const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (wide > 1) { throw new Error(`${wide} px of sideways scroll on the item page with the basket (${label})`); }
+        if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/344a-basket-${label}.png`, fullPage: true }); }
+        if (label === 'desktop') {
+          await p2.addScriptTag({ path: AXE });
+          const found = await p2.evaluate(([tags]) => window.axe.run({ include: [['form.ka-do-poptavky'], ['.ka-kosik-pole']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [WCAG]);
+          if (found.violations.length) { throw new Error('axe the basket: ' + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+          await p2.locator('input[type="email"]').fill('pumps.a344@visitor.example');
+          await p2.waitForTimeout(4500); // the form's antispam wants a few seconds on the page
+          await Promise.all([p2.waitForNavigation(), p2.locator('form.ka-formular button[type="submit"], form[data-formular] button[type="submit"]').last().click()]);
+          // the mysql client may print × and – in another charset: the line is matched around them
+          const data = sql("SELECT data FROM ka_poptavky WHERE email = 'pumps.a344@visitor.example' ORDER BY idp DESC LIMIT 1");
+          if (!/"3 \S{1,3} Pump A344 \S{1,3} Brass \(PU-A344-B\)"/.test(data)) { throw new Error(`the enquiry has: ${data.slice(0, 300)}`); }
+          if (data.includes('76543')) { throw new Error('the enquiry carries the internal price'); }
+        }
+      } finally {
+        await visitor.close();
+      }
+    }
+  } finally {
+    sql(`DELETE FROM ka_poptavky WHERE email = 'pumps.a344@visitor.example'; DELETE p FROM ka_prices p JOIN ka_kolekce_polozky i ON i.idp = p.item_id WHERE i.idk = ${idk};`
+      + ` DELETE FROM ka_kolekce_polozky WHERE idk = ${idk}; DELETE FROM ka_kolekce WHERE idk = ${idk}; DELETE FROM ka_nastaveni WHERE promenna = 'quote_price_collections';`
+      + " UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'");
+    execFileSync('sh', ['-c', 'rm -f "$WEB_DIR"/storage/cache/stranky/*.html'], { env: process.env });
   }
 });
 

@@ -220,9 +220,9 @@ check('3.31 (B): the filter of the board and the list – unknown values fall ba
     $b331::filter([]), $b331::filter(['owner' => 'mine', 'contact' => '12', 'company' => 'x', 'search' => '  Web ', 'status' => 'won', 'view' => 'list']),
     $b331::filter(['owner' => '-1', 'status' => 'nonsense', 'view' => 'kanban', 'contact' => '-3']), $b331::filter(['owner' => '7'])['owner'], mb_strlen($b331::filter(['search' => str_repeat('a', 300)])['search']),
     $b331::query($b331::filter(['owner' => 'none', 'status' => 'won'])), $b331::query($b331::filter(['view' => 'list', 'status' => 'open', 'company' => '4']))],
-    [['owner' => '', 'contact' => 0, 'company' => 0, 'search' => '', 'status' => 'open', 'view' => 'board'],
-        ['owner' => 'mine', 'contact' => 12, 'company' => 0, 'search' => 'Web', 'status' => 'won', 'view' => 'list'],
-        ['owner' => '', 'contact' => 0, 'company' => 0, 'search' => '', 'status' => 'open', 'view' => 'board'], '7', 100,
+    [['owner' => '', 'contact' => 0, 'company' => 0, 'search' => '', 'status' => 'open', 'view' => 'board', 'next' => ''], // 3.44: next (no next step)
+        ['owner' => 'mine', 'contact' => 12, 'company' => 0, 'search' => 'Web', 'status' => 'won', 'view' => 'list', 'next' => ''],
+        ['owner' => '', 'contact' => 0, 'company' => 0, 'search' => '', 'status' => 'open', 'view' => 'board', 'next' => ''], '7', 100,
         ['owner' => 'none'], ['view' => 'list', 'company' => 4]]);
 $b331Deal = fn (int $id, string $stage, ?string $value, ?string $currency, ?string $closed = null): array => ['id' => $id, 'stage' => $stage, 'value' => $value, 'currency' => $currency, 'closed_at' => $closed];
 $b331Columns = $b331::columns(Kaleta\Core\Deals::parseStages(''), [$b331Deal(1, 'new', '12500.50', 'CZK'), $b331Deal(2, 'new', '0.70', 'CZK'), $b331Deal(3, 'new', '99.99', 'EUR'), $b331Deal(4, 'new', null, null),

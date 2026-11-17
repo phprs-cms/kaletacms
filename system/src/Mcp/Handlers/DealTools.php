@@ -28,7 +28,8 @@ trait DealTools
         $self = $this->app->auth()->id();
         $limit = max(1, min(100, (int) ($a['limit'] ?? 25)));
         $filter = ['status' => is_string($a['status'] ?? null) ? strtolower(trim($a['status'])) : 'open', 'stage' => is_string($a['stage'] ?? null) ? trim($a['stage']) : '',
-            'contact' => (int) ($a['contact'] ?? 0), 'company' => (int) ($a['company'] ?? 0), 'search' => is_scalar($a['search'] ?? null) ? (string) $a['search'] : ''];
+            'contact' => (int) ($a['contact'] ?? 0), 'company' => (int) ($a['company'] ?? 0), 'search' => is_scalar($a['search'] ?? null) ? (string) $a['search'] : '',
+            'next' => ($a['next_step'] ?? '') === 'none' ? 'none' : '']; // 3.44: no next step, as the board's filter
         if (!in_array($filter['status'], Deals::STATUSES, true)) {
             throw new \InvalidArgumentException('status must be ' . implode(' | ', Deals::STATUSES) . '.');
         }

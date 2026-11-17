@@ -26,7 +26,7 @@ $to = substr($summary['to'], 11) === '00:00:00' ? (new DateTimeImmutable($summar
 	</select></label>
 	<button class="navigace" type="submit"><?= e(t('Show')) ?></button>
 </form>
-<p class="napoveda"><?= e(t('%s – %s. Counts only – never hours or money. Open enquiries and open and overdue tasks are counted as they are now, everything else within the period.', format_date(substr($summary['from'], 0, 10)), format_date($to))) ?>
+<p class="napoveda"><?= e(t('%s – %s. Counts only – never hours or money. Open enquiries and open and overdue tasks are counted as they are now, everything else within the period.', format_date(substr($summary['from'], 0, 10)), format_date($to))) ?> <?php /* 3.44 (U71): a space between the two sentences – PHP eats the newline after ?> */ ?>
 <?= e($team ? t('Only administrators see the counts of each person; the monthly report shows the team’s totals without names.') : t('You see your own counts and the team’s totals.')) ?></p>
 <section class="moje-prace" data-list="summary" aria-labelledby="moje-souhrn">
 <h2 id="moje-souhrn"><?= e(t('Team summary')) ?></h2>

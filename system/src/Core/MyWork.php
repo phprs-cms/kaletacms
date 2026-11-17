@@ -21,6 +21,8 @@ namespace Kaleta\Core;
  *    the tile counts only those whose expected close has passed (an open deal is not work due every day).
  *  - (3.34 B) with the section Applications: the undecided job applications they are responsible for, and the new ones
  *    nobody is responsible for yet – by number and position (the name only on the screen, never in the MCP result).
+ *  - (3.44, CPO 2) with the section Quotes: my draft quotes and the prepared ones nobody is responsible for, my sent quotes
+ *    without an answer after a week, and my sent quotes whose validity ends within a week – never an amount.
  *
  * Every query starts from an indexed column (prirazeno + stav, owner_id, requests of one author) and is capped by LIMIT.
  */
@@ -53,7 +55,14 @@ final class MyWork
 
     /** The lists and the section (Module::IDENT) each needs. */
     public const array LISTS = ['assigned' => 'enquiries', 'unassigned' => 'enquiries', 'pages' => 'pages', 'items' => 'collections', 'requests' => 'requests', 'deals' => 'pipeline',
-        'applications' => 'applications', 'applications_new' => 'applications']; // 3.34 B: the undecided job applications one is responsible for, and the new ones nobody is
+        'applications' => 'applications', 'applications_new' => 'applications', // 3.34 B: the undecided job applications one is responsible for, and the new ones nobody is
+        'quotes_drafts' => 'quotes', 'quotes_waiting' => 'quotes', 'quotes_expiring' => 'quotes']; // 3.44 (CPO 2): drafts, sent without an answer, validity ending soon
+
+    /** 3.44: a sent quote without a decision this many days after sending is waiting for an answer (as its follow-up task). */
+    public const int QUOTE_WAITING_DAYS = Quotes::FOLLOW_UP_DAYS;
+
+    /** 3.44: a sent quote whose validity ends within this many days (today included) is listed as expiring. */
+    public const int QUOTE_EXPIRING_DAYS = 7;
 
     /**
      * The lists of one person. Only the lists of sections in $modules are present; each row has id, title, url (relative
@@ -185,6 +194,10 @@ final class MyWork
 
                 return array_map(fn (array $r): array => ['kind' => 'application', 'id' => (int) $r['id'], 'title' => (string) $r['job_title'], 'name' => (string) $r['name'],
                     'status' => (string) $r['status'], 'date' => (string) $r['received_at'], 'url' => Applications::adminPath((int) $r['id'])], $rows);
+            case 'quotes_drafts':
+            case 'quotes_waiting':
+            case 'quotes_expiring':
+                return Quotes::forMyWork($db, $list, $userId, self::LIMIT); // 3.44: the quotes tables are read only by Core\Quotes (unit 2800)
             case 'requests':
                 // the person's own requests where the last message is Claude's; a finished or declined one only for REQUEST_DAYS
                 $rows = $db->all("SELECT r.id, r.title, r.status, r.updated_at FROM {requests} r WHERE r.author_id = ? AND (r.status IN ('new', 'in_progress') OR r.done_at >= ?)"

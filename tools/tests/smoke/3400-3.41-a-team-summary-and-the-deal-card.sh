@@ -69,9 +69,10 @@ expect "3.41 A: the monthly report carries the team's totals – how many people
 
 # the deal card: days in the stage and the next step
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/r341a.html" "$B/admin.php?module=pipeline"
-expect "3.41 A: an open card says how many days the deal is in its stage (since its latest move) and that it has no next step" \
+expect "3.41 A: an open card says how many days the deal is in its stage (since its latest move) and that it has no next step (3.44 U57: the days a chip, the next step its own line)" \
   "$(php -r '$d = new DOMDocument(); @$d->loadHTML((string) file_get_contents($argv[1])); $x = new DOMXPath($d); $c = $x->query("//li[@data-deal=\"" . $argv[2] . "\"]//p[@class=\"obchod-krok\"]");
-  echo $c->length === 1 ? preg_replace("/\s+/u", " ", trim($c->item(0)->textContent)) : "-";' -- "$WORK/r341a.html" "$R341A_DEAL")" "Dní v této etapě: 12 · Žádný další krok"
+  $days = $x->query("//li[@data-deal=\"" . $argv[2] . "\"]//span[@data-deal-days]");
+  echo $c->length === 1 ? preg_replace("/\s+/u", " ", trim($c->item(0)->textContent)) : "-", "|", $days->length === 1 ? $days->item(0)->getAttribute("title") : "-";' -- "$WORK/r341a.html" "$R341A_DEAL")" "Žádný další krok|Dní v této etapě: 12"
 mcp save_task "{\"title\":\"Call back R341a\",\"target\":\"deal:$R341A_DEAL\",\"due\":\"$(site_date '+2 days')\"}" > /dev/null
 mcp save_task "{\"title\":\"Later R341a\",\"target\":\"deal:$R341A_DEAL\"}" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/r341a.html" "$B/admin.php?module=pipeline"
