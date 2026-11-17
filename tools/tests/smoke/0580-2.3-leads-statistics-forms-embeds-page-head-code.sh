@@ -127,8 +127,11 @@ mcp site_audit '{"kind":"accessibility"}' > "$WORK/response"; mcp_text
 contains -q 'click here' "$WORK/text" && contains -q 'header cells' "$WORK/text" && contains -q 'accessibility statement' "$WORK/text" && echo "  ok     site audit: link texts, tables and the accessibility statement" || { echo "  CHYBA  accessibility audit"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
 # 2.4 for agencies: a ready-made role, whom to ask for help, the check before handing the site over
 check "2.4: ready-made Client role fills the form" 200 "/admin.php?module=roles&action=new&preset=client" 'name="nazev" value="Klient"'
+# 3.43 B: "SMTP missing" needs the site on PHP's mail() on purpose (the suite sends through its sink), switched back after
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
 mcp site_audit '{"kind":"handover"}' > "$WORK/response"; mcp_text
 contains -qE '"handover": ?"agency"' "$WORK/text" && contains -qE '"handover": ?"smtp"' "$WORK/text" && echo "  ok     hand-over check: agency contact and SMTP missing" || { echo "  CHYBA  hand-over audit"; head -c 500 "$WORK/text"; ERRORS=$((ERRORS+1)); }
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES" > /dev/null
 mcp update_settings '{"settings":{"agency_name":"Studio Test","agency_email":"help@studio.example","agency_phone":"+420 777 123 456"}}' > /dev/null
 curl -s -o "$WORK/response" "$B/admin.php"
 grep -q 'Studio Test' "$WORK/response" && grep -q 'mailto:help@studio.example' "$WORK/response" && grep -q 'tel:+420777123456' "$WORK/response" && echo "  ok     sign-in screen shows whom to ask for help" || { echo "  CHYBA  agency contact on the sign-in screen"; ERRORS=$((ERRORS+1)); }

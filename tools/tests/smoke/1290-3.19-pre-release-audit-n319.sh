@@ -42,7 +42,7 @@ sq "DELETE FROM ka_presmerovani WHERE z_adresy IN ('kolize-n319', 'kolize%2Dn319
 # N319-3: Settings → General runs migration 0106 under the migration lock – two at once wait for each other, both end well
 (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::enableEverywhere($app->db(), $app->settings()));' > "$WORK/enable319a.txt") & E319A=$!
 (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); echo json_encode(Kaleta\Core\Slug::enableEverywhere($app->db(), $app->settings()));' > "$WORK/enable319b.txt") & E319B=$!
-wait $E319A $E319B
+await_pids "$E319A" "$E319B"
 expect "3.19 (N319-3): two runs of the switch at once – both done, the recorded failure cleared, the site on" \
   "$(cat "$WORK/enable319a.txt")|$(cat "$WORK/enable319b.txt")|$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'slugs_per_language'), '|', hodnota) FROM ka_nastaveni WHERE promenna = 'slugs_switch_failed'")" "null|null|1|"
 # N319-8: create_collection with a preset checks the icon before anything is created

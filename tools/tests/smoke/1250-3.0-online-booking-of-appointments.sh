@@ -212,6 +212,6 @@ check "3.2.3 bookings off: new bookings are not taken" 404 "/_booking/slots?serv
 check "3.2 bookings off: no admin module" 403 "/admin.php?module=bookings"
 mcp list_bookings '{}' > "$WORK/response"
 contains -q 'switched off on this site' "$WORK/response" && expect "3.2 bookings off: list_bookings says so; the services and bookings stay" "$(sq "SELECT CONCAT((SELECT COUNT(*) > 0 FROM ka_booking_services), '|', (SELECT COUNT(*) > 0 FROM ka_bookings))")" "1|1" || { echo "  CHYBA  list_bookings with the feature off"; head -c 300 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'delete'), ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'delete'), $MAIL_SINK_VALUES" > /dev/null
 if [ -n "$BK_MONTHS" ]; then sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '$BK_MONTHS')" > /dev/null; else sq "DELETE FROM ka_nastaveni WHERE promenna = 'enquiries_months'" > /dev/null; fi
 

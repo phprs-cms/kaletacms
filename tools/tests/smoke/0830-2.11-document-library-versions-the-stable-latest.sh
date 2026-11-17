@@ -55,4 +55,4 @@ expect "gated: the link redirects to the file and counts the download of the doc
 case "${GATE_LINK: -1}" in a) TAMPERED="${GATE_LINK%?}b";; *) TAMPERED="${GATE_LINK%?}a";; esac
 expect "gated: a tampered token is not found" "$(curl -s -A 'Mozilla/5.0 test' -o /dev/null -w '%{http_code}' "$TAMPERED")|$(curl -s -o /dev/null -w '%{http_code}' "$B/download/nonsense.token.here")" "404|404"
 kill "$SMTP_PID" 2>/dev/null || true
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES" > /dev/null

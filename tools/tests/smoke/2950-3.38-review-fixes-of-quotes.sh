@@ -76,7 +76,7 @@ expect "3.38 review M3: the address of an enquiry import_enquiries brought in is
   "$(grep -c 'written by a Claude connection' "$WORK/response")|$(sq "SELECT status FROM ka_quotes WHERE id = ${R338_QI:-0}")|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=quotes&action=send&id=${R338_QI:-0}")" \
   "1|draft|200"
 kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || true
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_poptavky WHERE idp = $R338_IMP; DELETE FROM ka_contacts WHERE id = $R338_FAKE" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_poptavky WHERE idp = $R338_IMP; DELETE FROM ka_contacts WHERE id = $R338_FAKE" > /dev/null
 
 # L1: a random token per link – a link made twice in one second differs, a withdrawn one never comes back; the plain link only in the session that made it
 r338_php '$q = Kaleta\Core\Quotes::finalise($app, Kaleta\Core\Quotes::save($app, null, ["customer" => ["name" => "Odkaz 338r"], "lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100"]]], 0)["id"], 0)["id"];
@@ -120,7 +120,7 @@ curl -s -b "$JAR_R338" -c "$JAR_R338" -o /dev/null -X POST "$B/admin.php?module=
 expect "3.38 review L3: a sender without the Pipeline sends the quote, but a forged set_deal_value leaves the deal's value alone" \
   "$(sq "SELECT status FROM ka_quotes WHERE id = $R338_QD")|$(sq "SELECT IFNULL(value, 'none') FROM ka_deals WHERE id = $R338_DEAL")" "sent|none"
 kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || true
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R338_USER; DELETE FROM ka_uzivatele WHERE idu = $R338_USER;
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R338_USER; DELETE FROM ka_uzivatele WHERE idu = $R338_USER;
   DELETE FROM ka_deal_stage_history WHERE deal_id = $R338_DEAL; DELETE FROM ka_deals WHERE id = $R338_DEAL" > /dev/null
 
 # L4: over MCP the cap (quote_max_discount, 20 %) is on a line's discount and the quote's discount together

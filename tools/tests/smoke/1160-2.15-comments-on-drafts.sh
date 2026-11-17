@@ -50,4 +50,4 @@ sq "INSERT INTO ka_kontrola_ip (ip_adresa, typ, cil, cas) SELECT SUBSTRING(SHA2(
 expect "comments: the eleventh comment from one address in ten minutes is refused" "$(dc_post -d "klic=$DC_KEY" -d jmeno=Client -d text=Again | sed 's/.*comment=//;s/#.*//')|$(sq "SELECT COUNT(*) FROM ka_draft_comments WHERE target = 'stranka:$DC_PAGE'")" "limit|2"
 mcp nahled_odkaz "{\"id\":$DC_PAGE,\"komentare\":true}" > "$WORK/response"; mcp_text
 contains -q 'preview_key=[0-9]*k\.' "$WORK/text" && contains -q '"komentare":true' "$WORK/text" && echo "  ok     MCP: preview_link with comments: true gives a commenting link" || { echo "  CHYBA  preview_link comments"; head -c 300 "$WORK/text"; ERRORS=$((ERRORS+1)); }
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''); DELETE FROM ka_kontrola_ip WHERE typ = 'komentar'" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_kontrola_ip WHERE typ = 'komentar'" > /dev/null

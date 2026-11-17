@@ -2,6 +2,7 @@
 # Kaleta - smoke test: a clean install into a temporary copy and a pass through the main pages.
 # Runs locally and in GitHub Actions. Takes the database from environment variables:
 #   DB_HOST (127.0.0.1) DB_PORT (3306) DB_NAME (kaleta_test) DB_USER (root) DB_PASS (empty) PORT (8099) WEB (firemni | remeslo | poradenstvi)
+# Ports PORT … PORT+21 (PORT+21 = the suite's mail sink, tools/fake-smtp.php – bootstrap.sh).
 # The database DB_NAME is DROPPED during the test and created again.
 #
 # The checks live in tools/tests/smoke: bootstrap.sh (the settings above, the clean-up trap, the first helpers), then
@@ -28,6 +29,7 @@ done
 for SMOKE_FILE in "${SMOKE_FILES[@]}"; do
   # shellcheck disable=SC1090
   . "$SMOKE_FILE"
+  mail_sink_guard "$SMOKE_FILE" # 3.43 B: no section leaves the site on PHP's mail() (bootstrap.sh)
 done
 
 if [ -s "$WORK/web/storage/log/chyby.log" ]; then echo "== záznam chyb aplikace:"; cat "$WORK/web/storage/log/chyby.log"; ERRORS=$((ERRORS+1)); fi

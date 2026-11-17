@@ -10,6 +10,10 @@ permissions:
   contents: read
 jobs:
   test:
+    # 3.43 B (Q12, step 2): every suite is its own job – a flaky suite re-runs alone and the suites run side by side. Each job
+    # starts from a clean runner with its own MySQL; what used to run in one job per PHP version still runs on the same versions:
+    # smoke, English, demo and browser on 8.3/8.4/8.5, Lighthouse on 8.4. The step prints its time (and writes it to the summary).
+    name: ${{ matrix.suite }} (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     # the PHP side runs in a zone with summer time while the MySQL service stays in UTC: a test (or code) that mixes
     # MySQL's NOW() with what PHP wrote with date() fails every run, not only around midnight (INV-36)
@@ -17,11 +21,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # smoke = tools/test.sh (clean install and a pass through the pages), english = no Czech in the English admin,
+        # demo = demo mode, snapshot and the hourly reset, browser = admin, builder, editors and the public site in Chrome
+        suite: [smoke, english, demo, browser]
         php: ['8.3', '8.4', '8.5'] # 8.3 = KALETA_MIN_PHP, the oldest supported (3.7): it runs the HTML5 DOM from system/compat
-        # setup-php turns on opcache.jit = 1235 (per function on hot counters): on 8.3 that mode crashes PHP on builder pages after a
-        # while – an engine bug of 8.3 that Health::riskyJit() reports on a site. 8.3 runs with PHP's default tracing JIT instead.
         include:
+          # setup-php turns on opcache.jit = 1235 (per function on hot counters): on 8.3 that mode crashes PHP on builder pages after a
+          # while – an engine bug of 8.3 that Health::riskyJit() reports on a site. 8.3 runs with PHP's default tracing JIT instead.
           - { php: '8.3', jit: tracing }
+          # the output budget (Lighthouse on every starter site) on 8.4 only, as before the split
+          - { suite: lighthouse, php: '8.4' }
     services:
       mysql:
         image: mysql:8.4
@@ -32,22 +41,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with: { php-version: '${{ matrix.php }}', extensions: 'pdo_mysql, mbstring, gd, zip, sodium, intl, exif', coverage: none, ini-values: "date.timezone=Europe/Prague${{ matrix.jit && format(', opcache.jit={0}', matrix.jit) || '' }}" }
-      - name: Kouřový test (čistá instalace a průchod stránkami)
-        run: tools/test.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
-      - name: Anglická administrace bez češtiny
-        run: tools/test-english.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
-      - name: Public demo (demo mode, snapshot and the hourly reset)
-        run: tools/test-demo.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root }
-      - name: Browser test (admin, builder, editors, public site in Chrome)
-        run: tools/test-browser.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, CHROME: /usr/bin/google-chrome }
-      - name: Output budget (Lighthouse on every starter site)
-        if: matrix.php == '8.4'
-        run: tools/test-lighthouse.sh
-        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, CHROME: /usr/bin/google-chrome }
+      - name: ${{ matrix.suite }}
+        env: { DB_HOST: 127.0.0.1, DB_USER: root, DB_PASS: root, CHROME: /usr/bin/google-chrome, SUITE: '${{ matrix.suite }}', KALETA_CI_PHP: '${{ matrix.php }}' }
+        run: |
+          case "$SUITE" in
+            smoke) script=tools/test.sh ;;
+            english|demo|browser|lighthouse) script="tools/test-$SUITE.sh" ;;
+            *) echo "unknown suite $SUITE"; exit 1 ;;
+          esac
+          start=$(date +%s)
+          trap 'took=$(( $(date +%s) - start )); printf "%s on PHP %s: %dm %02ds\n" "$SUITE" "$KALETA_CI_PHP" $((took / 60)) $((took % 60)) | tee -a "$GITHUB_STEP_SUMMARY"' EXIT
+          "$script"
   migrace:
     # aktualizace databáze starší verze na současnou (tools/test-migrations.sh) na MySQL i MariaDB, jaké mívají hostingy
     runs-on: ubuntu-latest

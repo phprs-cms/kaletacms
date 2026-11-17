@@ -28,7 +28,7 @@ expect "3.40 statistics: HR sees twelve months and the position with its counts 
 # Reject and send the rejection: refused without SMTP; with it each one gets the template, no e-mail = rejected only, rejected already = left alone
 C340_B=$(c340_app "'', '', NULL, '', '[]', 'reviewed', '$(site_time)', '$(site_time)'")
 C340_C=$(c340_app "'Carl C340', 'carl-c340@example.com', 'carl-c340@example.com', '', '[]', 'rejected', '$(site_time)', '$(site_time)'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', '')" > /dev/null # mail() on purpose: refused without SMTP
 c340_post "$C340_JH" bulk -d do=reject_reply -d "ids[]=$C340_A" -d "ids[]=$C340_B" -d reply_reason=position_filled > /dev/null
 expect "3.40 bulk rejection: without SMTP nothing changes" "$(sq "SELECT GROUP_CONCAT(status ORDER BY id) FROM ka_applications WHERE id IN ($C340_A, $C340_B)")" "interview,reviewed"
 [ -z "${SMTP_PID:-}" ] || kill "$SMTP_PID" 2>/dev/null || true

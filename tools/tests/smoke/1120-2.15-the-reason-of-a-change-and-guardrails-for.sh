@@ -51,7 +51,7 @@ for i in $(seq 1 30); do curl -s -o /dev/null "$RACE2/" && break; sleep 0.2; don
 setting claude_change_limit $(( $(claude_used "$LIMIT_VIA") + 5 ))
 RACE2_LOG=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
 RACERS=(); for i in 1 2 3 4 5 6 7 8 9 10; do curl -s -m 60 -o "$WORK/race-limit-$i" -X POST "$RACE2/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' \
-  --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"save_redirects\",\"arguments\":{\"redirects\":[{\"from\":\"/r20-$i-a\",\"to\":\"/x\"},{\"from\":\"/r20-$i-b\",\"to\":\"/x\"}]}}}" & RACERS+=($!); done; wait "${RACERS[@]}" || true
+  --data-binary "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"save_redirects\",\"arguments\":{\"redirects\":[{\"from\":\"/r20-$i-a\",\"to\":\"/x\"},{\"from\":\"/r20-$i-b\",\"to\":\"/x\"}]}}}" & RACERS+=($!); done; await_pids "${RACERS[@]}" || true
 pkill -P "$RACE2_PID" 2>/dev/null || true; kill "$RACE2_PID" 2>/dev/null || true; RACE2_PID= # the workers first, they outlive their parent
 RACE2_OK=0; RACE2_REFUSED=0
 for i in 1 2 3 4 5 6 7 8 9 10; do

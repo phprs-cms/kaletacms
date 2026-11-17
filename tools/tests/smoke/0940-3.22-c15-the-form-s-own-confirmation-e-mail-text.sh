@@ -24,4 +24,4 @@ sq "DELETE FROM ka_poptavky WHERE email IN ('vlastni322@example.cz', 'vychozi322
 kill "$SMTP_PID" 2>/dev/null || true
 C10_REST=${C10_USER#*|}; C10_TEAM=${C10_REST#*|}
 sq "UPDATE ka_uzivatele SET email = '${C10_REST%%|*}', team_item_id = ${C10_TEAM:-NULL} WHERE idu = $C10_IDU; DELETE FROM ka_poptavky WHERE idp IN ($C10, $C10Q, $C10N); DELETE FROM ka_posta WHERE komu IN ('hana@example.cz', 'odmitnout@example.cz');
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('smtp_host', ''), ('mail_reply_to', '')" > /dev/null
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES, ('mail_reply_to', '')" > /dev/null

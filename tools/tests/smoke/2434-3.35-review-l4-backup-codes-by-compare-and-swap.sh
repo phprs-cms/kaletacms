@@ -16,14 +16,14 @@ sq "UPDATE ka_uzivatele SET totp_zalozni = JSON_ARRAY(SHA2('$R434_A', 256), SHA2
 r434_wait "$WORK/jar-r434-1"; R434_T1=$R434_T; r434_wait "$WORK/jar-r434-2"; R434_T2=$R434_T
 curl -s -b "$WORK/jar-r434-1" -c "$WORK/jar-r434-1" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R434_T1" -d krok=kod -d "kod=$R434_A" & R434_P1=$!
 curl -s -b "$WORK/jar-r434-2" -c "$WORK/jar-r434-2" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R434_T2" -d krok=kod -d "kod=$R434_B" & R434_P2=$!
-wait "$R434_P1" "$R434_P2"
+await_pids "$R434_P1" "$R434_P2"
 expect "3.35 review L4: two codes at the same moment – both sign in, neither comes back (an older list keeps its format)" \
   "$(p335_signed_in "$WORK/jar-r434-1")|$(p335_signed_in "$WORK/jar-r434-2")|$(r434_codes)|$(sq "SELECT LOCATE(SHA2('$R434_A', 256), totp_zalozni) + LOCATE(SHA2('$R434_B', 256), totp_zalozni) FROM ka_uzivatele WHERE idu = $R434_USER")" "1|1|1|0"
 sq "DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
 r434_wait "$WORK/jar-r434-3"; R434_T3=$R434_T; r434_wait "$WORK/jar-r434-4"; R434_T4=$R434_T
 curl -s -b "$WORK/jar-r434-3" -c "$WORK/jar-r434-3" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R434_T3" -d krok=kod -d "kod=$R434_C" & R434_P1=$!
 curl -s -b "$WORK/jar-r434-4" -c "$WORK/jar-r434-4" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R434_T4" -d krok=kod -d "kod=$R434_C" & R434_P2=$!
-wait "$R434_P1" "$R434_P2"
+await_pids "$R434_P1" "$R434_P2"
 expect "3.35 review L4: the same code twice at the same moment signs in once" "$(( $(p335_signed_in "$WORK/jar-r434-3") + $(p335_signed_in "$WORK/jar-r434-4") ))|$(r434_codes)" "1|0"
 # new codes from My account – right after a backup-code sign-in no password is needed
 sq "UPDATE ka_uzivatele SET totp_zalozni = JSON_ARRAY(SHA2('$R434_A', 256)), pocet_chyb = 0 WHERE idu = $R434_USER; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
