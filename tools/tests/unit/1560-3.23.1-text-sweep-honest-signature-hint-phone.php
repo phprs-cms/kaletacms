@@ -228,7 +228,7 @@ $w324Idents = array_map(fn (string $c): string => $c::IDENT, Kaleta\Admin\Kernel
 $w324Db = new Kaleta\Core\Db('mysql:host=127.0.0.1;dbname=none', '', ''); // never connects: "me" and "none" ask nothing
 check('3.24: My work is a core module for every signed-in user – no role section, no default right, a guide link; its lists and the hand-over kinds name real sections', [
     Kaleta\Admin\Modules\MyWork::FOR_ALL_USERS, Kaleta\Admin\Modules\MyWork::EXTENSION, isset(Kaleta\Admin\Modules\Roles::configurable()['my_work']),
-    in_array('my_work', Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), true), isset(Kaleta\Admin\Guide::MODULES['my_work']),
+    in_array('my_work', Kaleta\Admin\Modules\Users::defaultModules(Kaleta\Core\Auth::EDITOR), true), Kaleta\Admin\Guide::forScreen('my_work', '', '', 'en') !== null, // 3.45: its own chapter in the administration
     array_values(array_diff(array_values(Kaleta\Core\MyWork::LISTS), $w324Idents)), array_values(array_diff(array_column(Kaleta\Core\Handover::KINDS, 0), $w324Idents)),
     Kaleta\Core\Handover::KINDS['enquiry'][1] === Kaleta\Admin\Modules\Enquiries::EXTENSION, Kaleta\Admin\Kernel::MODULES[0],
 ], [true, '', false, false, true, [], [], true, Kaleta\Admin\Modules\MyWork::class]);

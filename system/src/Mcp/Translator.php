@@ -195,9 +195,9 @@ final class Translator
             ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'],
                 'comments' => ['komentare', 'true = whoever opens the link can click an element and write a comment with their name (page drafts only; read them with list_draft_comments)']]],
         'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply straight away; logo and favicon go to the draft look (publish_look). Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), news_slug (the first part of the news URLs in every language, e.g. blog gives /blog/…; empty = the default novinky or news; the old URLs redirect), news_title (the heading of the news list in the default language, e.g. Aktuality with news_slug aktuality; empty = News in the site language), social_facebook|instagram|x|youtube|linkedin (URL), '
-            . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0), dark_mode (vypnuto = light only | auto = by device | tmavy = always dark), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
+            . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0; yes/no works too), dark_mode (off = light only | auto = by device | dark = always dark; the stored values vypnuto | auto | tmavy work too), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
             . 'Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["novinky","poptavky","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]), '
-            . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (povolit | zakazat), url_slash (bez | s | html), robots_extra, verification_google, verification_bing, cookies_mode (zadna | vestavena | externi), cookies_text, cookies_policy_url (cookies_text_de, cookies_policy_url_de… = the cookie bar of a language version; empty = as in the default language), cookies_log (1/0), cookies_log_months, '
+            . 'indexing, schema_org, llms_txt, markdown_news, indexnow (1/0), ai_crawlers (allow | block; also povolit | zakazat), url_slash (without | with | html; also bez | s | html), robots_extra, verification_google, verification_bing, cookies_mode (none | built_in | external; also zadna | vestavena | externi), cookies_text, cookies_policy_url (cookies_text_de, cookies_policy_url_de… = the cookie bar of a language version; empty = as in the default language), cookies_log (1/0), cookies_log_months, '
             . 'stats (1/0), ga4_id, plausible_domain, security_contact, claude_instructions, captcha_provider (hcaptcha | recaptcha | turnstile | empty), captcha_site_key, captcha_fail_open (1/0) – the CAPTCHA secret key is set only in the administration. Online booking: booking_lead_hours, booking_horizon_days, booking_cancel_hours, booking_reminder_hours, booking_hold_hours (how long a request for a service that requires confirmation holds its time), booking_pending_thanks, booking_pending_mail, booking_declined_mail (own texts, empty = the built-in one; {name} = the customer\'s name). Code that runs on the site (head_code, marketing_code, cookies_external_code) and the script hosts gtm_id, matomo_url and matomo_id (since 3.3.2) are set only in the administration. '
             . 'Screen mode (2.11, a TV in the reception rotating slides): screen_mode (1/0), screen_seconds (5–60 per slide), screen_collections (list of collection addresses), screen_news, screen_hours, screen_clock (1/0); the result has them under "screen" – the secret address is shown only in the administration (Settings → General). Without the parameter it returns the current values.',
             ['settings' => ['nastaveni', '{"key":"value"}']]],
@@ -383,6 +383,24 @@ final class Translator
         'company_city' => 'company_city', 'company_postcode' => 'company_postcode', 'company_country' => 'company_country', 'company_phone' => 'company_phone', 'company_email' => 'company_email',
         'company_hours' => 'company_hours', 'company_map' => 'company_map', 'company_gps' => 'company_gps',
     ];
+
+    /**
+     * 3.45: the English values update_settings accepts besides the stored Czech ones (setting => English => Czech). Input only:
+     * the stored value and the result keep the Czech value, so the output does not change; a Czech value works as before.
+     * A yes/no setting takes yes and on as well as 1, true and ano (Admin\Modules\Settings::verifyValue).
+     */
+    public const array SETTING_VALUES = [
+        'dark_mode' => ['off' => 'vypnuto', 'light' => 'vypnuto', 'dark' => 'tmavy'], // auto stays auto
+        'ai_crawlers' => ['allow' => 'povolit', 'block' => 'zakazat'],
+        'url_slash' => ['without' => 'bez', 'with' => 's'], // html stays html
+        'cookies_mode' => ['none' => 'zadna', 'built_in' => 'vestavena', 'external' => 'externi'],
+    ];
+
+    /** The stored (Czech) value of a setting for an English one of SETTING_VALUES; anything else unchanged (3.45). */
+    public static function settingValue(string $key, mixed $value): mixed
+    {
+        return is_string($value) ? (self::SETTING_VALUES[$key][strtolower(trim($value))] ?? $value) : $value;
+    }
 
     /** Result keys Czech => English. */
     private const array KEYS = [

@@ -16,7 +16,10 @@ final class Guide
     /** Languages the guide is written in; other admin languages get the English one. */
     public const array LANGUAGES = ['en', 'cs', 'de'];
 
-    /** module => article#anchor; '' is the Dashboard, 'account' is My account */
+    /**
+     * module => article#anchor; '' is the Dashboard, 'account' is My account. The office sections (quotes, applications,
+     * internal_files, my_work) have no article online: their link opens a chapter in the administration (CHAPTERS, 3.45).
+     */
     public const array MODULES = [
         '' => 'first-steps#the-dashboard',
         'account' => 'claude-connect',
@@ -35,10 +38,7 @@ final class Guide
         'enquiries' => 'forms#enquiries',
         'contacts' => 'customers', // 3.28: Customers (own guide article since 3.31.1)
         'pipeline' => 'pipeline', // 3.31: Pipeline (own guide article since 3.31.1)
-        'quotes' => 'pipeline', // 3.38: quotes and internal prices – until the guide has its own article
-        'applications' => 'forms#enquiries', // 3.34: job applications – until the guide has its own article
         'bookings' => 'bookings',
-        'internal_files' => 'customers', // 3.42: internal files – until the guide has its own article
         'requests' => 'claude-operator', // 2.15: requests to Claude; 3.2: the article that describes Ask Claude
         'subscribers' => 'newsletter',
         'newsletters' => 'newsletter#send-newsletters-from-kaleta',
@@ -61,7 +61,6 @@ final class Guide
         'extensions' => 'extensions',
         'addons' => 'addons',
         'fleet' => 'fleet-console',
-        'my_work' => 'users-roles', // 3.24: My work – until the guide has its own article on working as a team
     ];
 
     /** Settings tab => article#anchor */
@@ -99,16 +98,175 @@ final class Guide
         'collections' => 'collection-lists',
     ];
 
+    /**
+     * The guide to the office part in the administration itself (3.45, CPO 5): a chapter per section, plain and short, for
+     * a person who has never used a CRM. It opens at admin.php?action=guide&chapter=<key> (Admin\GuidePage); the heading
+     * link of each section of `modules` leads there instead of the online article, and `online` (an article of MODULES)
+     * adds "More in the online guide" at the end. Every text is English with its translations in the admin dictionaries.
+     *
+     * @var array<string, array{title: string, summary: string, modules: list<string>, online: ?string, steps: list<string>, tips: list<string>}>
+     */
+    public const array CHAPTERS = [
+        'my-work' => [
+            'title' => 'My work and the team',
+            'summary' => 'What waits for you today, and how the team shares the work.',
+            'modules' => ['my_work'],
+            'online' => null,
+            'steps' => [
+                'My work lists what waits for you: your tasks first, then the enquiries you handle, quotes to finish or follow up, the pages and items you are responsible for and the answers to your requests to Claude. Each row opens the place where the work is done.',
+                'Add a task with New task – for yourself or for a colleague, with a due date and a reminder. Complete a task or snooze it right in the list.',
+                'Give an enquiry, a deal, a quote, a page or an item to a colleague with Responsible person. They get a notification behind the bell. Being responsible never hides the record from anybody else.',
+                'Summary shows how much the team did in a period – only counts. Administrators also have the Team tab with everybody’s open tasks and the tasks nobody has.',
+            ],
+            'tips' => [
+                'Going on holiday? Add an absence with a deputy in My account. While you are away, a copy of your notifications goes to the deputy.',
+                'My account → Org chart shows the departments, positions and work phones of your colleagues. Administrators create departments in Users → Departments.',
+                'Ask Claude “What is waiting for me today?” – it reads My work and can prepare replies, but sends nothing without your yes.',
+            ],
+        ],
+        'customers' => [
+            'title' => 'Customers',
+            'summary' => 'One record per customer across enquiries, bookings and newsletter sign-ups.',
+            'modules' => ['contacts'],
+            'online' => 'customers',
+            'steps' => [
+                'A customer appears by itself when somebody sends an enquiry, books an appointment or signs up for the newsletter – one record per e-mail address. You can also add one with New customer.',
+                'The page of a customer shows everything in one timeline: enquiries, bookings, deals, quotes and the team’s log of calls, meetings, e-mails and notes.',
+                'People of one firm belong to a company (the Companies tab). A company has its own page with its people and deals.',
+                'Two records of one person? An administrator merges them with Merge with… on the page of a customer – always a decision of a person, never automatic.',
+            ],
+            'tips' => [
+                'Ctrl K (⌘K on a Mac) finds a customer by name, e-mail or company from anywhere in the administration.',
+                'Customers hold personal data: they are kept as long as the enquiries and are never shown on the site.',
+            ],
+        ],
+        'pipeline' => [
+            'title' => 'Pipeline',
+            'summary' => 'Deals from the first contact to won or lost, on one board.',
+            'modules' => ['pipeline'],
+            'online' => 'pipeline',
+            'steps' => [
+                'Create a deal with New deal, or with Create deal on an enquiry – the form is filled in from the enquiry.',
+                'The board has a column for each stage. Move a card by dragging it, with the keyboard (Space, the arrows, Space) or with the stage menu on the card.',
+                'Won and Lost close a deal. Lost asks for the reason, so you learn why deals slip away.',
+                'Each deal keeps its stage history, the enquiry it came from, the customer, its quotes and the team’s comments and tasks.',
+            ],
+            'tips' => [
+                'Plan the next step as a task on the deal. The filter “No next step” shows the deals nobody is moving.',
+                'Administrators rename, add and reorder the stages in Stages.',
+                'Reports and summaries count deals, never their values.',
+            ],
+        ],
+        'quotes' => [
+            'title' => 'Quotes and internal prices',
+            'summary' => 'Prices only your team sees, and quotes your customer opens by a private link.',
+            'modules' => ['quotes'],
+            'online' => null,
+            'steps' => [
+                'An administrator switches Quotes on in Features and gives the section to the people who make quotes, in Users or Roles.',
+                'In the settings of Quotes, set the numbering, how long a quote is valid and VAT, and choose which collections feed the price list.',
+                'Fill in Internal prices – a row for each product or variant, or your own rows; a CSV file can be imported. Changing prices needs the right “Quotes: change internal prices”.',
+                'Make a quote with New quote, or from an enquiry, a deal or a customer – the customer and the lines from the enquiry basket are filled in for you.',
+                'Send it by e-mail (it needs an SMTP server in Settings → Mail). The customer opens it by a private link and can download a PDF. The quote gets its number when it is first sent.',
+            ],
+            'tips' => [
+                'The settings can prepare a draft quote for each new enquiry about products – you check it and send it.',
+                'Mark a quote accepted or declined yourself, or let the customer decide on its page when the settings allow it.',
+                'Claude can prepare quotes as drafts. It sends one only when you ask, and never goes below your largest discount.',
+            ],
+        ],
+        'applications' => [
+            'title' => 'Applications',
+            'summary' => 'Applications from your job pages, kept apart from enquiries and customers.',
+            'modules' => ['applications'],
+            'online' => null,
+            'steps' => [
+                'Applications come from the forms on your job pages and from forms whose Purpose is “Job application”. CVs are stored encrypted.',
+                'An administrator chooses who may open them: tick Applications in Users, or give the ready-made role HR in Roles.',
+                'The list opens on the applications not decided yet. Waiting shows new ones without a reply for more than a week.',
+                'Move an application through New, Reviewed, Interview, Offer and Hired – or Rejected, with a reason. The Board shows the applications of one position in columns.',
+                'Reply from a template – received, invitation, rejection – and the status moves with it. The templates for each language are in the settings of Applications.',
+            ],
+            'tips' => [
+                'The Talent pool keeps people who agreed to hear about future openings, until their consent runs out.',
+                'Applications are deleted automatically after the period in the settings; each one shows the day.',
+                'Statistics show twelve months of counts, never people.',
+            ],
+        ],
+        'internal-files' => [
+            'title' => 'Internal files',
+            'summary' => 'The team’s documents – price lists, contracts, manuals – never on the public site.',
+            'modules' => ['internal_files'],
+            'online' => null,
+            'steps' => [
+                'An administrator creates folders and decides who sees each one: everybody with the section, chosen roles or departments.',
+                'Upload a file into a folder with a description and tags, so colleagues find it by a word.',
+                'Replace keeps the older versions, and each of them can still be downloaded. The status says whether a document is still valid.',
+                'Files are downloaded only through the administration – they never get a public address.',
+            ],
+            'tips' => [
+                'Only an empty folder can be deleted. A file is deleted by an administrator or by whoever uploaded it.',
+                'Claude can find files by their name and description, but never gets their contents.',
+            ],
+        ],
+        'fleet' => [
+            'title' => 'Fleet: all your sites on one screen',
+            'summary' => 'For agencies and IT teams who look after several Kaleta sites.',
+            'modules' => ['fleet'],
+            'online' => 'fleet-console',
+            'steps' => [
+                'Pair a site: make a pairing key here and paste it on the other site in Settings → Reporting to a console.',
+                'Today shows first what needs attention – a failed backup, an update waiting, a certificate about to expire.',
+                'The inbox collects what waits on every site. Each site keeps its history and its tasks.',
+                'Sites belong to customers: the console makes a monthly report for each customer and sends alerts by your rules.',
+            ],
+            'tips' => [
+                'Accept a known state of one check with a note and a last day – it stops alerting until then.',
+                'New versions reach the sites in rings, so your test sites get them first.',
+            ],
+        ],
+    ];
+
+    /** The chapter of the guide in the administration for a section, or null (3.45). */
+    public static function chapterFor(string $module): ?string
+    {
+        foreach (self::CHAPTERS as $key => $chapter) {
+            if (in_array($module, $chapter['modules'], true)) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The chapters a person sees in the index and the palette: those of the sections they may open (3.45).
+     *
+     * @param list<string> $modules the sections the person may open
+     * @return list<string>
+     */
+    public static function chaptersFor(array $modules): array
+    {
+        return array_keys(array_filter(self::CHAPTERS, fn (array $c): bool => array_intersect($c['modules'], $modules) !== []));
+    }
+
     public static function url(string $article, string $language): string
     {
         return self::BASE . (in_array($language, self::LANGUAGES, true) && $language !== 'en' ? '/' . $language : '') . '/guide/' . $article;
     }
 
-    /** The guide to the open screen, or null. $module '' = Dashboard, 'account' = My account. */
+    /**
+     * The guide to the open screen, or null. $module '' = Dashboard, 'account' = My account. A section with a chapter in the
+     * administration (CHAPTERS) gets its relative address admin.php?action=guide&chapter=… (3.45); every other link is the
+     * absolute address of the online article.
+     */
     public static function forScreen(string $module, string $action, string $tab, string $language): ?string
     {
         if ($action === 'builder') {
             return self::url(self::BUILDER[$module] ?? 'builder-basics', $language);
+        }
+        if (($chapter = self::chapterFor($module)) !== null) {
+            return 'admin.php?action=guide&chapter=' . $chapter;
         }
         if ($module === 'settings') {
             return self::url(self::SETTINGS[$tab] ?? self::SETTINGS['general'], $language);

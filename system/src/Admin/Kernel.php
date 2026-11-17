@@ -283,6 +283,9 @@ final class Kernel
         if ($action === 'inbox' && $ident === '') {
             return (new InboxPage($this))->handle(); // 3.26: the notifications behind the bell – every signed-in user, no menu item
         }
+        if ($action === 'guide' && $ident === '') {
+            return (new GuidePage($this))->handle(); // 3.45: the guide to the office – every signed-in user, no menu item, GET only
+        }
         if ($action === 'oauth') {
             return $this->handleOAuthConsent();
         }

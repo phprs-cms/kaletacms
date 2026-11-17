@@ -33,19 +33,9 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     foreach ($modules as $ident => $class) {
         $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('module=' . $ident), 's' => t($class::GROUP)];
     }
-    $quick = [
-        'pages' => [['New page', 'module=pages&action=new']],
-        'contacts' => [['New customer', 'module=contacts&action=new'], ['Companies', 'module=contacts&action=companies']], // 3.28
-        'pipeline' => [['New deal', 'module=pipeline&action=new'], ['Deals as a list', 'module=pipeline&view=list']], // 3.31
-        'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
-        'categories' => [['New category', 'module=categories&action=new']],
-        'users' => [['New user', 'module=users&action=new']],
-        'transfer' => [['Import from WordPress', 'module=transfer']],
-    ];
-    foreach ($quick as $ident => $items) {
-        foreach (isset($modules[$ident]) ? $items : [] as [$name, $query]) {
-            $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)];
-        }
+    // 3.45 (U70): the quick actions live in Admin\Palette – per section, some for administrators only; "New quote" is a POST
+    foreach (Kaleta\Admin\Palette::quick(array_keys($modules), $app->auth()->isAdmin()) as [$name, $query, $ident, $post]) {
+        $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)] + ($post ? ['p' => 1] : []);
     }
     // every collection's items by its name (3.18.3) – also those left out of the menu
     foreach ($collections as $collection) {
@@ -59,13 +49,19 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     foreach (isset($modules['pages']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, ' . $app->db()->sortText('titulek') . ' LIMIT 300') : [] as $pageRow) {
         $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Page')];
     }
-    $statements[] = ['n' => t('My account'), 'u' => $adminUrl('action=account'), 's' => ''];
-    $statements[] = ['n' => t('Notifications'), 'u' => $adminUrl('action=inbox'), 's' => '']; // 3.26
+    // My account and its tabs, Notifications (3.26) and the guide (3.45) – every signed-in user; a chapter of the guide per section the person may open
+    foreach (Kaleta\Admin\Palette::EVERYONE as [$name, $query]) {
+        $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => ''];
+    }
+    foreach (Kaleta\Admin\Guide::chaptersFor(array_keys($modules)) as $chapterKey) {
+        $statements[] = ['n' => t(Kaleta\Admin\Guide::CHAPTERS[$chapterKey]['title']), 'u' => $adminUrl('action=guide&chapter=' . $chapterKey), 's' => t('Guide')];
+    }
     $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
 }
 // 3.26: the bell – unread notifications of the signed-in person (Core\Inbox, one COUNT over its key); not at the two-factor gate
 $bell = $user !== null && empty($gated) ? Kaleta\Core\Inbox::unreadCount($app->db(), (int) $user['idu']) : null;
 $onInbox = $active === '' && (string) $app->request->get('action') === 'inbox';
+$onGuide = $active === '' && (string) $app->request->get('action') === 'guide'; // 3.45: the guide itself needs no guide link
 // 3.18: whether Claude is connected (Core\ClaudeConnection) – for whoever may use Ask Claude or the Claude settings, with the
 // Claude connection on and not in the public demo (as Ask Claude on the dashboard); it never breaks the frame
 $claudeChip = null;
@@ -176,7 +172,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?><?= isset($modules['contacts']) ? ' data-contacts="' . e($app->url('admin.php?module=contacts&action=search_json')) . '"' : '' /* 3.28: customers by name, e-mail or company */ ?><?= isset($modules['pipeline']) ? ' data-deals="' . e($app->url('admin.php?module=pipeline&action=search_json')) . '"' : '' /* 3.31: deals by title, customer or company */ ?><?= isset($modules['applications']) ? ' data-applications="' . e($app->url('admin.php?module=applications&action=search_json')) . '"' : '' /* 3.34 B: job applications by number, name or position – only with the section */ ?>>
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>" data-csrf="<?= e($app->session->csrfToken()) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?><?= isset($modules['contacts']) ? ' data-contacts="' . e($app->url('admin.php?module=contacts&action=search_json')) . '"' : '' /* 3.28: customers by name, e-mail or company */ ?><?= isset($modules['pipeline']) ? ' data-deals="' . e($app->url('admin.php?module=pipeline&action=search_json')) . '"' : '' /* 3.31: deals by title, customer or company */ ?><?= isset($modules['applications']) ? ' data-applications="' . e($app->url('admin.php?module=applications&action=search_json')) . '"' : '' /* 3.34 B: job applications by number, name or position – only with the section */ ?>>
 	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
@@ -187,11 +183,11 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 <?php if (Kaleta\Core\Demo::active()): ?>
 <p class="hlaska hlaska-varovani" role="status"><?= e(t('Public demo: everything you change here is reset in %s minutes. E-mail, imports, updates, users and the Claude connection are switched off.', (string) max(1, (int) ceil(Kaleta\Core\Demo::secondsToReset() / 60)))) ?></p>
 <?php endif ?>
-<?php if ($heading !== ''): $guide = $user !== null && !$onInbox ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
+<?php if ($heading !== ''): $guide = $user !== null && !$onInbox && !$onGuide ? Kaleta\Admin\Guide::forScreen($active === '' && $app->request->get('action') === 'account' ? 'account' : $active, '', (string) $app->request->get('tab'), Kaleta\Core\Language::code()) : null; ?>
 <div class="zahlavi-stranky">
 <h1><?= e($heading) ?></h1>
 <?php if ($guide !== null): ?>
-<?= $app->view->render('admin/guide_link', ['url' => $guide]) ?>
+<?= $app->view->render('admin/guide_link', ['url' => str_starts_with($guide, 'admin.php') ? $app->url($guide) : $guide, 'inApp' => str_starts_with($guide, 'admin.php')]) ?>
 <?php endif ?>
 </div>
 <?php endif ?>

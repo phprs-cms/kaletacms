@@ -374,3 +374,10 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   Fronta rozvržení: `ImportLayout::markRebuilt` (Stránky „Layout done“, hromadně `rebuilt`) a MCP `layout_queue` (`old_url` je jen nápověda).
 - **Export stránky** (`kaleta-stranka` verze 2) nese sdílené třídy a komponenty (`Builder\PagePackage`); import doplní chybějící třídy (existující
   nepřepíše) a komponenty, stejnou komponentu (název, vlastnosti, stavba bez id) použije znovu.
+- **Návod ke kanceláři (3.45, `Admin\Guide::CHAPTERS`, `Admin\GuidePage`, `admin.php?action=guide`):** kapitola pro Moji práci a tým,
+  Zákazníky, Obchody, Nabídky a interní ceny, Žádosti o místo, Interní soubory a Konzoli webů – krátké kroky a „dobré vědět“, texty
+  přes `t()` ve slovnících administrace. Odkaz „Jak s tím pracovat“ těchto sekcí otevře kapitolu ve stejné záložce
+  (`Guide::forScreen` vrací relativní adresu), kapitola s článkem na webu (`online`) na něj odkáže. Rejstřík i paleta ukazují jen
+  kapitoly sekcí, které člověk smí otevřít. Rychlé akce palety jsou v `Admin\Palette` (sekce, jen pro správce, POST – „Nová nabídka“
+  odejde formulářem s tokenem z `data-csrf`). `update_settings` bere i anglické hodnoty (`Mcp\Translator::SETTING_VALUES`: dark,
+  allow/block, without/with, none/built_in/external; ano/ne i yes/on), uloží a vrátí české.

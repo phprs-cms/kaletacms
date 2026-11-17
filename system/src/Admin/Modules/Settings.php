@@ -1520,7 +1520,7 @@ class Settings extends Module
             return null;
         }
 
-        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'ano'], true));
+        return self::sanitize($type, trim($value), in_array(strtolower(trim($value)), ['1', 'true', 'ano', 'yes', 'on'], true)); // 3.45: yes/on from an English MCP call
     }
 
     private static function sanitize(string $type, string $value, bool $checked): ?string
