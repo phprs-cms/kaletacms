@@ -18,7 +18,7 @@ r344_map() { # <basket: default|on|off>: the mapping as it was plus interni-344 
   sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_price_collections', '$json')" > /dev/null
   rm -f "$WORK"/web/storage/cache/stranky/*.html
 }
-r344_basket() { curl -s "$B/produkty-342/gel-g3?product=interni-344/tajny-dil-344&quantity=2&r=$RANDOM" | grep -o '<li>2 × Tajny dil 344[^<]*</li>' | head -1; }
+r344_basket() { curl -s "$B/produkty-342/gel-g3?product=interni-344/tajny-dil-344&quantity=2&r=$RANDOM" | { grep -o '<li>2 × Tajny dil 344[^<]*</li>' || true; } | head -1; }
 r344_map default; R344_DEFAULT=$(r344_basket)
 r344_map on; R344_FLAG=$(r344_basket)
 r344_ext "$R344_OFF"; R344_QUOTES_OFF=$(r344_basket); r344_ext "$R344_ON"
