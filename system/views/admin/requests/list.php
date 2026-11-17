@@ -39,7 +39,7 @@ $tag = fn (string $status): string => '<span class="stitek' . match ($status) { 
 <?php foreach ($requests as $r): ?>
 <?php $late = $overdue !== null && $r['status'] === 'new' && (string) $r['created_at'] < $overdue; ?>
 <tr<?= in_array($r['status'], ['done', 'declined'], true) ? ' class="nevydany"' : ($late ? ' class="ceka-dlouho"' : '') ?>>
-	<td><a href="<?= e($module->url('detail', ['id' => (int) $r['id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $late ? ' <span class="stitek stitek-chyba">' . e(t('waiting over %d hours', ClaudeConnection::WAIT_HOURS)) . '</span>' : '' ?><?= $r['attachments'] !== [] ? ' <span class="smltxt">(' . e(t('%d attachments', count($r['attachments']))) . ')</span>' : '' ?><br><span class="smltxt"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
+	<td><a href="<?= e($module->url('detail', ['id' => (int) $r['id']])) ?>"><strong><?= e((string) $r['title']) ?></strong></a><?= $late ? ' <span class="stitek stitek-chyba">' . e(t('waiting over %d hours', ClaudeConnection::WAIT_HOURS)) . '</span>' : '' ?><?php $attached = count($r['files']) + count(array_filter($r['attachments'], fn (int $ido): bool => !in_array($ido, array_column($r['files'], 'media'), true))); ?><?= $attached > 0 ? ' <span class="smltxt">(' . e(t('%d attachments', $attached)) . ')</span>' : '' ?><br><span class="smltxt"><?= e(mb_strimwidth((string) $r['text'], 0, 120, '…')) ?></span></td>
 	<td><?= e((string) $r['author']) ?></td>
 	<td><?= $tag((string) $r['status']) ?></td>
 	<td><?= e(format_date((string) $r['created_at'], true)) ?></td>

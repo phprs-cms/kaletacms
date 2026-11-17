@@ -97,5 +97,5 @@ check('[source-pin] 3.31.1: upload() records backup.failed once per failed copy 
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Backup.php'), "'backup.failed'"), isset(Kaleta\Core\Events::TYPES['backup.failed']), in_array('backup.copy_paused', Kaleta\Core\Alerts::WARNINGS, true),
     array_map(fn (string $code): array => array_values(array_diff(['The off-site copy of the backup failed: %s', 'The off-site copy of the media failed: %s'],
         array_keys(require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php'))), ['cs', 'de', 'es'])],
-    [1, true, true, 2, true, 2, true, true, [[], [], []]]);
+    [1, true, true, 3, true, 2, true, true, [[], [], []]]); // 3.46: the copy of the private folders records its failure when it starts too
 

@@ -95,6 +95,7 @@ $keyOnRecord = Kaleta\Core\RecoveryKey::confirmedId($app->settings()) !== '' && 
 <div id="recovery-key-state" class="hlaska<?= $recoveryState === 'confirmed' ? ' hlaska-ok' : ($remoteOn ? ' hlaska-chyba' : '') ?>">
 	<p><?= e(Kaleta\Core\RecoveryKey::describe($recoveryState, $remoteOn)) ?><?= $recoveryState === 'confirmed' && $keyConfirmedAt !== '' ? ' ' . e(t('Recovery key saved %s.', $keyConfirmedAt)) : '' ?></p>
 	<p class="napoveda"><?= e(t('The database (pages, enquiries, contacts, accounts) is encrypted. The media are copied as they are – they are the site\'s public files, which any visitor can open by their address.')) ?></p>
+	<p class="napoveda"><?= e(t('Private files – CVs, internal files, whistleblowing attachments and the attachments of requests and enquiries – are copied to the folder private/, each one encrypted with the recovery key.')) ?></p>
 <?php if ($recoveryState !== 'confirmed'): ?>
 	<p><button class="tl" type="submit" formaction="<?= e($module->url('backup_key')) ?>"><?= e(t('Show and save the recovery key')) ?></button></p>
 <?php else: ?>
@@ -139,6 +140,15 @@ $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. F
 <?php endif ?>
 <?php if ($mediaStatus !== '' && $values['backup_media'] === '1'): [$when, $how, $waiting] = explode('|', $mediaStatus, 3) + [1 => '', 2 => '0']; ?>
 <p class="hlaska<?= $how === 'ok' ? ((int) $waiting === 0 ? ' hlaska-ok' : '') : ' hlaska-chyba' ?>"><?= e($how !== 'ok' ? t('Media: the last attempt %s failed: %s', $when, t($how)) : ((int) $waiting === 0 ? t('Media: the copy is complete (checked %s).', $when) : t('Media: %d files are still waiting – the copy continues in the background.', (int) $waiting))) ?></p>
+<?php endif ?>
+<?php $privateStatus = $app->settings()->get('remote_private_status'); // 3.46 (N165): the private folders, encrypted
+if ($privateStatus !== '' && $remoteOn): [$when, $how, $waiting] = explode('|', $privateStatus, 3) + [1 => '', 2 => '0']; ?>
+<p class="hlaska<?= $how === 'ok' ? ((int) $waiting === 0 ? ' hlaska-ok' : '') : ($how === Kaleta\Core\RemoteBackup::PAUSED ? '' : ' hlaska-chyba') ?>"><?= e(match (true) {
+    $how === Kaleta\Core\RemoteBackup::PAUSED => t('Private files: waiting for the recovery key – nothing private leaves the server unencrypted.'),
+    $how !== 'ok' => t('Private files: the last attempt %s failed: %s', $when, t($how)),
+    (int) $waiting === 0 => t('Private files: the encrypted copy is complete (checked %s).', $when),
+    default => t('Private files: %d files are still waiting – the copy continues in the background.', (int) $waiting),
+}) ?></p>
 <?php endif ?>
 <p class="napoveda"><?= e(t('Save the settings, then click “Create backup now” – the copy uploads right away and you will see whether the connection works.')) ?></p>
 </details>

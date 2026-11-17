@@ -9,6 +9,11 @@ namespace Kaleta\Core;
  * templates, the onboarding pack. Folders, files with a description and tags, versions (replacing a file keeps the
  * older ones), a search by name, description and tags.
  *
+ *  - Sealed at rest (3.46, N165): every version is encrypted like the CVs of job applicants (Core\SealedFiles, the Vault
+ *    purpose "internal_files") – its own key in ka_internal_file_versions.file_key (sealed, resealed when the Vault key moves
+ *    or rotates, Vault::SEALED) and wrapped in the file's header. Whoever reads the disk or a file-level hosting backup no
+ *    longer reads the documents. Versions from before 3.46 are sealed in place by migration 0134 (sealPending(); a version
+ *    whose file_key is empty is read as it is until then, checked against its sha256). size and sha256 describe the content.
  *  - Never public: the files live in storage/internal-files/YYYY/MM/<random>.bin (deny-all .htaccess there and in
  *    storage/, nginx.example.conf denies storage/), never under media/, and the rows in ka_internal_folders,
  *    ka_internal_files and ka_internal_file_versions. No page, search, sitemap, llms.txt, site export, blueprint, page
@@ -35,6 +40,9 @@ final class InternalFiles
 
     /** Where the files are on disk – outside the web root's public paths. */
     public const string FOLDER = KALETA_ROOT . '/storage/internal-files';
+
+    /** The Vault purpose of the sealed files and of their keys in file_key (3.46). */
+    public const string FILE_PURPOSE = 'internal_files';
 
     /** The largest file (bytes); the server's upload limit may be lower (Files::limit). */
     public const int MAX_BYTES = 100 * 1024 * 1024;
@@ -467,7 +475,8 @@ final class InternalFiles
         $file = self::fileOut($row);
         $file['created_by_name'] = (string) ($row['created_by_name'] ?? '');
         $file['versions'] = array_map(fn (array $v): array => ['version' => (int) $v['version'], 'original_name' => (string) $v['original_name'], 'extension' => (string) $v['extension'],
-            'size' => (int) $v['size'], 'sha256' => (string) $v['sha256'], 'uploaded_by' => (string) ($v['uploaded_by_name'] ?? ''), 'uploaded_at' => (string) $v['uploaded_at'], 'path' => (string) $v['path']],
+            'size' => (int) $v['size'], 'sha256' => (string) $v['sha256'], 'uploaded_by' => (string) ($v['uploaded_by_name'] ?? ''), 'uploaded_at' => (string) $v['uploaded_at'], 'path' => (string) $v['path'],
+            'id' => (int) $v['id'], 'file_key' => (string) ($v['file_key'] ?? '')],
             $db->all('SELECT v.*, u.jmeno AS uploaded_by_name FROM {internal_file_versions} v LEFT JOIN {uzivatele} u ON u.idu = v.uploaded_by WHERE v.file_id = ? ORDER BY v.version DESC', [$id]));
 
         return $file;
@@ -507,21 +516,20 @@ final class InternalFiles
             return $checked;
         }
         $name = self::nameWithExtension(self::safeName((string) ($meta['name'] ?? '')) ?: self::safeName($originalName), $checked['extension']);
-        $disk = self::write($checked['content'], $path);
-        if ($disk === null) {
+        $written = self::write($app->settings(), $checked['content'], $path);
+        if ($written === null) {
             return 'The file could not be saved.';
         }
-        $size = (int) filesize(self::FOLDER . '/' . $disk);
-        $sha = (string) hash_file('sha256', self::FOLDER . '/' . $disk);
+        ['path' => $disk, 'key' => $fileKey, 'size' => $size, 'sha256' => $sha] = $written;
         $me = $app->auth()->id() ?: null;
         $now = Clock::now();
         try {
-            $id = $app->db()->transaction(function (Db $db) use ($folderId, $name, $meta, $checked, $disk, $size, $sha, $me, $now, $originalName): int {
+            $id = $app->db()->transaction(function (Db $db) use ($folderId, $name, $meta, $checked, $disk, $fileKey, $size, $sha, $me, $now, $originalName): int {
                 $id = $db->insert('internal_files', ['folder_id' => $folderId, 'name' => $name, 'description' => mb_substr(trim((string) ($meta['description'] ?? '')), 0, 5000),
                     'tags' => implode(',', self::tags($meta['tags'] ?? '')), 'status' => ($meta['status'] ?? 'ready') === 'draft' ? 'draft' : 'ready', 'extension' => $checked['extension'],
                     'size' => $size, 'version' => 1, 'created_by' => $me, 'created_at' => $now, 'updated_by' => $me, 'updated_at' => $now]);
                 $db->insert('internal_file_versions', ['file_id' => $id, 'version' => 1, 'path' => $disk, 'original_name' => self::safeName($originalName), 'extension' => $checked['extension'],
-                    'size' => $size, 'sha256' => $sha, 'uploaded_by' => $me, 'uploaded_at' => $now]);
+                    'size' => $size, 'sha256' => $sha, 'file_key' => $fileKey, 'uploaded_by' => $me, 'uploaded_at' => $now]);
 
                 return $id;
             });
@@ -548,23 +556,22 @@ final class InternalFiles
         if (is_string($checked)) {
             return $checked;
         }
-        $disk = self::write($checked['content'], $path);
-        if ($disk === null) {
+        $written = self::write($app->settings(), $checked['content'], $path);
+        if ($written === null) {
             return 'The file could not be saved.';
         }
-        $size = (int) filesize(self::FOLDER . '/' . $disk);
-        $sha = (string) hash_file('sha256', self::FOLDER . '/' . $disk);
+        ['path' => $disk, 'key' => $fileKey, 'size' => $size, 'sha256' => $sha] = $written;
         $me = $app->auth()->id() ?: null;
         $now = Clock::now();
         try {
-            $app->db()->transaction(function (Db $db) use ($file, $checked, $disk, $size, $sha, $me, $now, $originalName): void {
+            $app->db()->transaction(function (Db $db) use ($file, $checked, $disk, $fileKey, $size, $sha, $me, $now, $originalName): void {
                 // review L5: two replacements at once take turns on the file's row – each gets its own version number
                 if ($db->value('SELECT id FROM {internal_files} WHERE id = ? FOR UPDATE', [$file['id']]) === null) {
                     throw new \DomainException('The file does not exist.');
                 }
                 $version = (int) $db->value('SELECT COALESCE(MAX(version), 0) FROM {internal_file_versions} WHERE file_id = ?', [$file['id']]) + 1;
                 $db->insert('internal_file_versions', ['file_id' => $file['id'], 'version' => $version, 'path' => $disk, 'original_name' => self::safeName($originalName),
-                    'extension' => $checked['extension'], 'size' => $size, 'sha256' => $sha, 'uploaded_by' => $me, 'uploaded_at' => $now]);
+                    'extension' => $checked['extension'], 'size' => $size, 'sha256' => $sha, 'file_key' => $fileKey, 'uploaded_by' => $me, 'uploaded_at' => $now]);
                 $db->update('internal_files', ['version' => $version, 'extension' => $checked['extension'], 'size' => $size,
                     'name' => self::nameWithExtension((string) $file['name'], $checked['extension']), 'updated_by' => $me, 'updated_at' => $now], ['id' => $file['id']]);
             });
@@ -693,16 +700,19 @@ final class InternalFiles
             if ($disk !== null && is_file($disk)) {
                 @unlink($disk);
             }
+            foreach ($disk !== null ? (glob($disk . '.*.sealing') ?: []) : [] as $leftover) {
+                @unlink($leftover); // a sealed copy an interrupted run of 0134 left beside it
+            }
         }
 
         return null;
     }
 
     /**
-     * A version of a file the user sees, for the download: the disk path, the Content-Type and the name; null when the
-     * file, the version or its bytes are not there. $version 0 = the current one.
+     * A version of a file the user sees, for the download: the content (3.46: decrypted in memory), the Content-Type and the
+     * name; null when the file, the version or its bytes are not there or do not open. $version 0 = the current one.
      *
-     * @return array{path: string, type: string, name: string}|null
+     * @return array{content: string, type: string, name: string}|null
      */
     public static function download(App $app, int $id, int $version = 0): ?array
     {
@@ -712,35 +722,133 @@ final class InternalFiles
         }
         foreach ($file['versions'] as $v) {
             if ($v['version'] === ($version > 0 ? $version : $file['version'])) {
-                $disk = self::diskPath($v['path']);
-                if ($disk === null || !is_file($disk)) {
+                $content = self::versionContent($app->settings(), $v);
+                if ($content === null) {
                     return null;
                 }
                 $base = pathinfo((string) $file['name'], PATHINFO_FILENAME);
 
-                return ['path' => $disk, 'type' => self::contentType($v['extension']), 'name' => ($v['version'] === $file['version'] ? $base : $base . ' (v' . $v['version'] . ')') . '.' . $v['extension']];
+                return ['content' => $content, 'type' => self::contentType($v['extension']), 'name' => ($v['version'] === $file['version'] ? $base : $base . ' (v' . $v['version'] . ')') . '.' . $v['extension']];
             }
         }
 
         return null;
     }
 
-    /** The text of a file's current version when it is a text document of at most MAX_TEXT bytes, else null. */
-    public static function text(array $file): ?string
+    /**
+     * The text of a file's current version when it is a text document of at most MAX_TEXT bytes, else null.
+     *
+     * @param array<string, mixed> $file file()
+     */
+    public static function text(Settings $s, array $file): ?string
     {
         if (!in_array((string) $file['extension'], self::TEXT_EXTENSIONS, true) || (int) $file['size'] > self::MAX_TEXT) {
             return null;
         }
         foreach ($file['versions'] ?? [] as $v) {
             if ($v['version'] === $file['version']) {
-                $disk = self::diskPath((string) $v['path']);
-                $text = $disk !== null && is_file($disk) ? file_get_contents($disk) : false;
+                $text = self::versionContent($s, $v);
 
                 return is_string($text) && mb_check_encoding($text, 'UTF-8') ? $text : null;
             }
         }
 
         return null;
+    }
+
+    /**
+     * The content of one version (3.46): sealed – opened with the key in file_key or of the file's header; from before 3.46
+     * and not sealed yet (file_key empty) – read as it is. Either way it must match the version's sha256, so a file whose
+     * key is gone is never handed out as ciphertext. Null when gone or unreadable.
+     *
+     * @param array<string, mixed> $version an entry of file()['versions'] (path, sha256, file_key)
+     */
+    public static function versionContent(Settings $s, array $version): ?string
+    {
+        $disk = self::diskPath((string) ($version['path'] ?? ''));
+        if ($disk === null) {
+            return null;
+        }
+        $stored = (string) ($version['file_key'] ?? '');
+        $key = $stored !== '' ? Vault::openFor($s, self::FILE_PURPOSE, $stored) : null;
+        if (!SealedFiles::roomFor((int) ($version['size'] ?? 0))) {
+            return null;
+        }
+
+        return SealedFiles::read($s, self::FILE_PURPOSE, $disk, $key, $stored === '', (string) ($version['sha256'] ?? ''));
+    }
+
+    /**
+     * Seals the versions from before 3.46 in place (migration 0134, then the daily clean-up for what is left): every version
+     * whose file_key is empty – the file is sealed under the same name (SealedFiles::sealInPlace: only when its content
+     * still has the version's sha256, never twice, the plain file replaced only after the sealed copy opened to the same
+     * content), then file_key is written only while it is still empty and the path the same. A run killed in between leaves
+     * a sealed file with an empty file_key: it opens by its header, and the next run takes its key from there. A file that
+     * cannot be sealed (gone, changed, too large for the memory) stays as it is. Stops at $deadline (microtime) or after $max
+     * files. $stopAfter (tests): 1 = the sealed copy left beside the file, 2 = the file sealed, file_key not written.
+     *
+     * @return array{sealed: int, failed: int, left: bool}
+     */
+    public static function sealPending(Settings $s, float $deadline, int $max = PHP_INT_MAX, int $stopAfter = 0): array
+    {
+        if (!SealedFiles::lock($s->db())) {
+            return ['sealed' => 0, 'failed' => 0, 'left' => true]; // another run seals now – this one goes on next time
+        }
+        try {
+            return self::sealPendingLocked($s, $deadline, $max, $stopAfter);
+        } finally {
+            SealedFiles::unlock($s->db());
+        }
+    }
+
+    /**
+     * sealPending() under the lock of the file work.
+     *
+     * @return array{sealed: int, failed: int, left: bool}
+     */
+    private static function sealPendingLocked(Settings $s, float $deadline, int $max, int $stopAfter): array
+    {
+        $db = $s->db();
+        $out = ['sealed' => 0, 'failed' => 0, 'left' => false];
+        $after = 0;
+        while (true) {
+            try {
+                $rows = $db->all('SELECT id, path, sha256 FROM {internal_file_versions} WHERE file_key IS NULL AND id > ? ORDER BY id LIMIT 200', [$after]);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+
+                return $out; // before migration 0131
+            }
+            if ($rows === []) {
+                return $out;
+            }
+            foreach ($rows as $row) {
+                $after = (int) $row['id'];
+                $disk = self::diskPath((string) $row['path']);
+                if ($disk === null || !is_file($disk)) {
+                    continue; // gone – the download says so, as before
+                }
+                if ($out['sealed'] + $out['failed'] >= $max || microtime(true) > $deadline) {
+                    $out['left'] = true;
+
+                    return $out;
+                }
+                $key = SealedFiles::sealInPlace($s, self::FILE_PURPOSE, $disk, (string) $row['sha256'], $stopAfter);
+                if ($key === null) {
+                    $out['failed']++;
+                    continue;
+                }
+                $out['sealed']++;
+                if ($stopAfter === 2) {
+                    continue;
+                }
+                $updated = $db->run('UPDATE {internal_file_versions} SET file_key = ? WHERE id = ? AND file_key IS NULL AND path = ?',
+                    [Vault::seal(Vault::key($s, self::FILE_PURPOSE), $key), (int) $row['id'], (string) $row['path']])->rowCount();
+                if ($updated !== 1 && $db->value('SELECT 1 FROM {internal_file_versions} WHERE path = ?', [(string) $row['path']]) === null) {
+                    @unlink($disk); // the version went meanwhile – nobody lists the file any more
+                }
+            }
+        }
     }
 
     /** The disk path of a stored path, or null when it is not one this class writes (pure apart from the constant). */
@@ -758,28 +866,28 @@ final class InternalFiles
     }
 
     /**
-     * Writes a file under a new random name in this month's folder – the cleaned content when given, else a copy of the
-     * source (written beside and renamed, so a half-written file never has the final name); returns the stored path or null.
+     * Writes a file sealed (3.46, N165) under a new random name in this month's folder – the cleaned content when given, else
+     * the content of the source – and returns the stored path, the file's own key sealed for file_key, and the size and
+     * sha256 of the content; null when it cannot be written (or the server's memory is too small to encrypt it).
+     *
+     * @return array{path: string, key: string, size: int, sha256: string}|null
      */
-    private static function write(?string $content, string $source): ?string
+    private static function write(Settings $s, ?string $content, string $source): ?array
     {
-        $month = date('Y/m');
-        $dir = self::FOLDER . '/' . $month;
-        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        if (!SealedFiles::roomFor($content !== null ? strlen($content) : (int) @filesize($source))) {
             return null;
         }
-        if (!is_file(self::FOLDER . '/.htaccess')) {
-            @file_put_contents(self::FOLDER . '/.htaccess', "Require all denied\nDeny from all\n"); // storage/ has one too – a second line of defence
-        }
-        $path = $month . '/' . bin2hex(random_bytes(16)) . '.bin';
-        $part = self::FOLDER . '/' . $path . '.part';
-        $written = $content !== null ? file_put_contents($part, $content) === strlen($content) : @copy($source, $part);
-        if (!$written || !rename($part, self::FOLDER . '/' . $path)) {
-            @unlink($part);
-
+        $content ??= @file_get_contents($source);
+        if (!is_string($content)) {
             return null;
         }
+        $path = date('Y/m') . '/' . bin2hex(random_bytes(16)) . '.bin';
+        $key = SealedFiles::write($s, self::FILE_PURPOSE, $content, self::FOLDER . '/' . $path);
+        if ($key === null) {
+            return null;
+        }
+        SealedFiles::protect(self::FOLDER); // storage/ has one too – a second line of defence
 
-        return $path;
+        return ['path' => $path, 'key' => Vault::seal(Vault::key($s, self::FILE_PURPOSE), $key), 'size' => strlen($content), 'sha256' => hash('sha256', $content)];
     }
 }

@@ -32,7 +32,12 @@ use Kaleta\Builder\Elements\Form;
  *    records an event for every case whose deadline is due, and deletes closed cases after the retention period.
  *  - Deliberately NOT over MCP: no tool reads, lists or writes cases (Mcp\Tools). Claude only learns from site_info whether
  *    the channel is on. The tables are not in the site export (Core\SiteExport) – a report is not content of the site.
- *  - Attachments live in storage/oznameni/ (not reachable from the web), separate from the enquiry attachments.
+ *  - Attachments live in storage/oznameni/ (not reachable from the web), separate from the enquiry attachments. 3.46 (N162):
+ *    sealed at rest like the CVs of job applicants (Core\SealedFiles, the Vault purpose "whistleblowing"): a random .bin per
+ *    file, its own key kept in the sealed attachment list (resealed with the reports when the key moves or rotates) and
+ *    wrapped in its header. An administrator who is not a reader, FTP access or a file-level hosting backup no longer
+ *    reads the evidence or its document metadata. Files of reports from before 3.46 are sealed in place by migration 0134
+ *    (sealPending(), and the daily job for whatever is left); a file is read through attachment() only, sealed or not yet.
  */
 final class Whistleblowing
 {
@@ -59,6 +64,8 @@ final class Whistleblowing
     /** Wrong codes from one address per hour before the follow-up form refuses to check more. */
     public const int WRONG_CODES_PER_HOUR = 10;
     public const string FOLDER = KALETA_ROOT . '/storage/oznameni';
+    /** The Vault purpose of the sealed attachments (3.46) – the same as the reports: the list with the files' keys is sealed under it. */
+    public const string FILE_PURPOSE = 'whistleblowing';
     /**
      * Reports in one hour on the whole channel (3.3.2) after which new ones are marked as received during a flood (3.3.3):
      * still accepted – a script must not shut genuine reporters out – but easy for the readers to tell apart.
@@ -289,12 +296,19 @@ final class Whistleblowing
         $flood = self::isFlood($db);
         $attachments = [];
         foreach ($uploads as [$tmp, $extension, $original, $size]) {
-            $path = date('Y') . '/' . bin2hex(random_bytes(16)) . '.' . $extension;
-            $target = self::FOLDER . '/' . $path;
-            if ((is_dir(dirname($target)) || mkdir(dirname($target), 0775, true)) && move_uploaded_file($tmp, $target)) {
-                $attachments[] = ['name' => $original, 'path' => $path, 'size' => $size];
+            // 3.46 (N162): sealed at rest under its own key, a random .bin – the extension and the file's time say nothing
+            $path = date('Y') . '/' . bin2hex(random_bytes(16)) . '.bin';
+            $plain = @file_get_contents($tmp);
+            $key = is_string($plain) ? SealedFiles::write($s, self::FILE_PURPOSE, $plain, self::FOLDER . '/' . $path) : null;
+            if (is_string($plain)) {
+                sodium_memzero($plain);
+            }
+            @unlink($tmp);
+            if ($key !== null) {
+                $attachments[] = ['name' => $original, 'path' => $path, 'size' => $size, 'ext' => $extension, 'key' => $key, 'sealed' => true];
             }
         }
+        SealedFiles::protect(self::FOLDER);
         $code = self::newCode();
         $now = date('Y-m-d H:i:s');
         $contactText = trim($name) !== '' || trim($contact) !== '' ? trim(mb_substr(trim($name), 0, 200) . "\n" . mb_substr(trim($contact), 0, 500)) : '';
@@ -440,7 +454,7 @@ final class Whistleblowing
 
     /**
      * @param array<string, mixed> $case
-     * @return array{text: string, contact: string, attachments: list<array{name: string, path: string, size: int}>}
+     * @return array{text: string, contact: string, attachments: list<array<string, mixed>>} attachments: name, path, size, and since 3.46 key and sealed
      */
     public static function contents(Settings $settings, array $case): array
     {
@@ -489,12 +503,113 @@ final class Whistleblowing
         return true;
     }
 
-    /** The file of an attachment by its index, or null (the stored path is validated – nothing outside the folder). */
+    /**
+     * The file of an attachment, or null (the stored path is validated – nothing outside the folder). A sealed one is a
+     * random .bin (3.46), one from before 3.46 keeps its extension – sealed in place by migration 0134 or still plain.
+     *
+     * @param array<string, mixed> $attachment
+     */
     public static function attachmentPath(array $attachment): ?string
     {
         $path = (string) ($attachment['path'] ?? '');
 
         return preg_match('#^\d{4}/[a-f0-9]{32}\.[a-z0-9]{2,5}$#D', $path) && is_file(self::FOLDER . '/' . $path) ? self::FOLDER . '/' . $path : null;
+    }
+
+    /**
+     * The content of an attachment, decrypted in memory (3.46, N162) – only for a reader's download in the administration,
+     * never for MCP or a public address. A sealed file opens with the key of the list or of its header; a file from before
+     * 3.46 that is not sealed yet is read as it is (the list says it was never sealed). Null when it is gone or unreadable.
+     *
+     * @param array<string, mixed> $attachment an entry of contents()['attachments']
+     */
+    public static function attachment(Settings $settings, array $attachment): ?string
+    {
+        $path = self::attachmentPath($attachment);
+
+        return $path === null ? null : SealedFiles::read($settings, self::FILE_PURPOSE, $path, is_string($attachment['key'] ?? null) ? $attachment['key'] : null, empty($attachment['sealed']));
+    }
+
+    /**
+     * Seals the attachments of reports from before 3.46 in place (migration 0134, then the daily job for what is left):
+     * every case whose list can be opened, every entry not marked sealed – the file is sealed under the same name
+     * (SealedFiles::sealInPlace: never twice, the plain file replaced only after the sealed copy opened to the same
+     * content), then the list names its key, written only when the list is still the one this run read. A run killed in
+     * between leaves a sealed file the list calls plain: it opens by its header, and the next run takes its key from there.
+     * A file that cannot be sealed (gone, too large for the memory) stays as it is. Stops at $deadline (microtime) or after
+     * $max files. $stopAfter (tests): 1 = the sealed copy left beside the file, 2 = the file sealed, the list not updated.
+     *
+     * @return array{sealed: int, failed: int, left: bool}
+     */
+    public static function sealPending(Settings $settings, float $deadline, int $max = PHP_INT_MAX, int $stopAfter = 0): array
+    {
+        if (!SealedFiles::lock($settings->db())) {
+            return ['sealed' => 0, 'failed' => 0, 'left' => true]; // another run seals now – this one goes on next time
+        }
+        try {
+            return self::sealPendingLocked($settings, $deadline, $max, $stopAfter);
+        } finally {
+            SealedFiles::unlock($settings->db());
+        }
+    }
+
+    /**
+     * sealPending() under the lock of the file work.
+     *
+     * @return array{sealed: int, failed: int, left: bool}
+     */
+    private static function sealPendingLocked(Settings $settings, float $deadline, int $max, int $stopAfter): array
+    {
+        $db = $settings->db();
+        $out = ['sealed' => 0, 'failed' => 0, 'left' => false];
+        $after = 0;
+        while (true) {
+            try {
+                $rows = $db->all('SELECT id, attachments FROM {whistleblowing_cases} WHERE attachments IS NOT NULL AND id > ? ORDER BY id LIMIT 100', [$after]);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+
+                return $out; // no channel on this database
+            }
+            if ($rows === []) {
+                break;
+            }
+            foreach ($rows as $row) {
+                $after = (int) $row['id'];
+                $json = self::decrypt($settings, (string) $row['attachments']);
+                $list = $json !== null ? json_decode($json, true) : null;
+                if (!is_array($list)) {
+                    continue; // the list cannot be opened (another key) – its files stay as they are
+                }
+                $changed = false;
+                foreach ($list as $i => $a) {
+                    if (!is_array($a) || !empty($a['sealed']) || ($path = self::attachmentPath($a)) === null) {
+                        continue;
+                    }
+                    if ($out['sealed'] + $out['failed'] >= $max || microtime(true) > $deadline) {
+                        $out['left'] = true;
+                        break;
+                    }
+                    $key = SealedFiles::sealInPlace($settings, self::FILE_PURPOSE, $path, '', $stopAfter);
+                    if ($key === null) {
+                        $out['failed']++;
+                        continue;
+                    }
+                    $list[$i] = ['key' => $key, 'sealed' => true] + $a;
+                    $changed = true;
+                    $out['sealed']++;
+                }
+                if ($changed && $stopAfter !== 2) {
+                    $db->run('UPDATE {whistleblowing_cases} SET attachments = ? WHERE id = ? AND attachments = ?',
+                        [self::encrypt($settings, (string) json_encode(array_values($list), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)), (int) $row['id'], (string) $row['attachments']]);
+                }
+                if ($out['left']) {
+                    return $out;
+                }
+            }
+        }
+
+        return $out;
     }
 
     /* ---------- the daily job: reminders and retention ---------- */
@@ -517,6 +632,9 @@ final class Whistleblowing
             }
         }
         self::forgetAddresses($db);
+        // 3.46 (N162): attachments from before 3.46 that migration 0134 could not seal yet, and leftovers of an interrupted run
+        self::sealPending($s, microtime(true) + 10.0);
+        SealedFiles::sweepLeftovers(self::FOLDER);
         $months = $s->int('whistleblowing_retention_months') ?: self::DEFAULT_RETENTION_MONTHS;
         $purged = 0;
         foreach ($db->all("SELECT * FROM {whistleblowing_cases} WHERE status = 'closed' AND closed_at IS NOT NULL AND closed_at < ?", [Clock::monthsAgo($months)]) as $case) {
@@ -537,6 +655,9 @@ final class Whistleblowing
             $path = self::attachmentPath($attachment);
             if ($path !== null) {
                 @unlink($path);
+            }
+            foreach (glob(self::FOLDER . '/' . (string) $attachment['path'] . '.*.sealing') ?: [] as $leftover) {
+                @unlink($leftover); // a sealed copy an interrupted run of 0134 left beside it
             }
         }
         $app->db()->delete('whistleblowing_messages', ['case_id' => (int) $case['id']]);

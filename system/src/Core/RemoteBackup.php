@@ -14,14 +14,23 @@ namespace Kaleta\Core;
  *
  * Since 3.28 (D-W12) the database backup leaves the server only encrypted at rest (Core\BackupEncryption under the
  * recovery key, Core\RecoveryKey). The media copy stays as it is: media/ is the site's public folder – every file in it
- * is served to any visitor by its address – and the customer data are in the database. Private files (enquiry
- * attachments in storage/prilohy/, whistleblowing attachments in storage/oznameni/) are not copied off the server at all;
- * whatever private folder joins the off-site copy later must go through BackupEncryption too.
+ * is served to any visitor by its address – and the customer data are in the database. Since 3.46 (N165) the private
+ * folders (PRIVATE_FOLDERS: CVs, internal files, whistleblowing attachments, the attachments of requests to Claude, enquiry
+ * attachments) go to the same target too, under private/, incrementally like the media (syncPrivate) – but every file
+ * only encrypted at rest with BackupEncryption under the recovery key, as <path>.enc, never in the clear; until the
+ * recovery key is saved nothing private leaves the server. Most of them are sealed on the disk already (Core\SealedFiles):
+ * restoring them needs the recovery key for the copy and the site's vault_key (config.php) for the content.
  */
 final class RemoteBackup
 {
     /** Which media files are already copied (path => "size:mtime") and to which target. */
     public const string MEDIA_MANIFEST = Backup::FOLDER . '/media-kopie.json';
+
+    /** Which private files are already copied (path => "size:mtime") and to which target under which recovery key (3.46). */
+    public const string PRIVATE_MANIFEST = Backup::FOLDER . '/private-kopie.json';
+
+    /** The private folders of the off-site copy (3.46, N165), relative to the site root – each file encrypted (syncPrivate). */
+    public const array PRIVATE_FOLDERS = ['storage/applications', 'storage/internal-files', 'storage/oznameni', 'storage/requests', 'storage/prilohy'];
 
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;
@@ -212,10 +221,120 @@ final class RemoteBackup
         return $error;
     }
 
-    /** From background tasks: at most once an hour, or right away while files are still waiting. */
+    /**
+     * The files of the private folders (3.46): relative path => size; the deny-all .htaccess, hidden files and the
+     * half-written copies of a run in progress (.part, .sealing) are left out.
+     *
+     * @return array<string, int>
+     */
+    public static function privateFiles(string $root = KALETA_ROOT): array
+    {
+        $files = [];
+        foreach (self::PRIVATE_FOLDERS as $folder) {
+            if (!is_dir($root . '/' . $folder)) {
+                continue;
+            }
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root . '/' . $folder, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                $path = $folder . '/' . ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen($root . '/' . $folder))), '/');
+                if ($file->isFile() && !$file->isLink() && !preg_match('#(^|/)\.|\.(part|sealing)$#i', $path)) {
+                    $files[$path] = (int) $file->getSize();
+                }
+            }
+        }
+        ksort($files);
+
+        return $files;
+    }
+
+    /**
+     * Incremental copy of the private folders off the server (3.46, N165) into the folder private/ of the same target: only
+     * new and changed files, each encrypted at rest with BackupEncryption under the recovery key first (a temporary
+     * .enc in storage/zalohy/, deleted afterwards) and uploaded as <path>.enc. Nothing leaves the server until the
+     * recovery key is saved (the status says "paused"); a new target or a new recovery key gets everything again. A file
+     * deleted on the site stays in the copy. Runs for at most $seconds. Status: remote_private_status = "Y-m-d H:i|ok,
+     * paused or error|files waiting".
+     *
+     * @return string|null error text, null = done, nothing to do, or paused for the recovery key
+     */
+    public static function syncPrivate(Settings $s, int $seconds = 20): ?string
+    {
+        if (!self::isOn($s)) {
+            return null;
+        }
+        $files = self::privateFiles();
+        $key = RecoveryKey::ready($s) ? RecoveryKey::load() : null;
+        if ($key === null) {
+            $s->set('remote_private_status', date('Y-m-d H:i') . '|' . self::PAUSED . '|' . count($files));
+
+            return null; // the database copy says why (upload()); nothing private leaves the server unencrypted
+        }
+        $target = sha1($s->get('remote_backup') . '|' . $s->get('backup_host') . '|' . $s->get('backup_folder') . '|' . BackupEncryption::keyId($key));
+        $manifest = is_file(self::PRIVATE_MANIFEST) ? json_decode((string) file_get_contents(self::PRIVATE_MANIFEST), true) : null;
+        if (!is_array($manifest) || ($manifest['cil'] ?? '') !== $target) {
+            $manifest = ['cil' => $target, 'soubory' => []]; // a new target or recovery key gets everything
+        }
+        $pending = [];
+        foreach ($files as $path => $size) {
+            $signature = $size . ':' . (int) @filemtime(KALETA_ROOT . '/' . $path);
+            if (($manifest['soubory'][$path] ?? '') !== $signature) {
+                $pending[$path] = $signature;
+            }
+        }
+        $error = null;
+        $done = 0;
+        if ($pending !== []) {
+            $start = microtime(true);
+            if (!is_dir(Backup::FOLDER)) {
+                @mkdir(Backup::FOLDER, 0775, true);
+            }
+            try {
+                [$put, $close] = self::open($s);
+                try {
+                    foreach ($pending as $path => $signature) {
+                        if (microtime(true) - $start > $seconds) {
+                            break;
+                        }
+                        $encrypted = Backup::FOLDER . '/.upload-' . bin2hex(random_bytes(6)) . BackupEncryption::EXTENSION;
+                        try {
+                            BackupEncryption::encryptFile(KALETA_ROOT . '/' . $path, $encrypted, $key);
+                            $put('private/' . $path . BackupEncryption::EXTENSION, $encrypted);
+                        } finally {
+                            @unlink($encrypted);
+                        }
+                        $manifest['soubory'][$path] = $signature;
+                        $done++;
+                    }
+                } finally {
+                    $close();
+                }
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+            file_put_contents(self::PRIVATE_MANIFEST, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES), LOCK_EX);
+        }
+        $failing = !in_array(explode('|', $s->get('remote_private_status'))[1] ?? '', ['', 'ok', self::PAUSED], true);
+        $text = $error === null ? 'ok' : self::failureText($error, $s);
+        $s->set('remote_private_status', date('Y-m-d H:i') . '|' . $text . '|' . (count($pending) - $done));
+        if ($error !== null && !$failing) {
+            Events::record($s->db(), 'backup.failed', 'error', t('The off-site copy of the private files failed: %s', $text), ['offsite' => true, 'private' => true]);
+        }
+
+        return $error;
+    }
+
+    /** From background tasks: at most once an hour, or right away while files are still waiting – the media and (3.46) the private folders. */
     public static function syncMediaInBackground(Settings $s, int $seconds): void
     {
-        if (!self::isOn($s) || !$s->bool('backup_media')) {
+        if (!self::isOn($s)) {
+            return;
+        }
+        $waitingPrivate = (int) (explode('|', $s->get('remote_private_status'))[2] ?? 0);
+        $paused = (explode('|', $s->get('remote_private_status'))[1] ?? '') === self::PAUSED;
+        if ((($waitingPrivate > 0 && !$paused) || time() - $s->int('private_sync_check') >= self::MEDIA_INTERVAL)) {
+            $s->set('private_sync_check', (string) time());
+            self::syncPrivate($s, $seconds);
+        }
+        if (!$s->bool('backup_media')) {
             return;
         }
         $waiting = (int) (explode('|', $s->get('remote_media_status'))[2] ?? 0);

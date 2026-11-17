@@ -670,6 +670,12 @@ class Settings extends Module
             \Kaleta\Core\ChangeLog::changedAnyway();
             return $this->back(t('Backup %s is ready, but the media could not be copied: %s', $file, t($media)), '', ['tab' => 'backups'], 'chyba');
         }
+        // 3.46 (N165): the private folders go along, each file encrypted under the recovery key (only new and changed ones)
+        $private = \Kaleta\Core\RemoteBackup::syncPrivate($this->app->settings(), 20);
+        if ($private !== null) {
+            \Kaleta\Core\ChangeLog::changedAnyway();
+            return $this->back(t('Backup %s is ready, but the private files could not be copied: %s', $file, t($private)), '', ['tab' => 'backups'], 'chyba');
+        }
         if ($paused) {
             \Kaleta\Core\ChangeLog::changedAnyway();
             return $this->back(t('Backup %s is ready, but the off-site copy could not be uploaded: %s', $file, (string) $remote), '', ['tab' => 'backups'], 'chyba');

@@ -156,12 +156,13 @@ final class Whistleblowing extends Module
             return $case;
         }
         $attachment = Channel::contents($this->app->settings(), $case)['attachments'][$this->request->getInt('index')] ?? null;
-        $path = $attachment !== null ? Channel::attachmentPath($attachment) : null;
-        if ($path === null) {
+        // 3.46 (N162): sealed at rest – opened in memory for the reader, never served from the disk
+        $content = $attachment !== null ? Channel::attachment($this->app->settings(), $attachment) : null;
+        if ($content === null) {
             return $this->error('The attachment no longer exists.', 404);
         }
 
-        return new Response((string) file_get_contents($path), 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',
+        return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',
             'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode((string) $attachment['name'])]);
     }
 }

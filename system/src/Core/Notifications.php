@@ -77,6 +77,10 @@ final class Notifications
         self::runEach([
             fn () => Jobs::purgeApplications($app), // applications to job openings first: they usually have a shorter retention (2.11)
             fn () => Applications::purge($app), // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
+            function () use ($app): void { // 3.46 (N165): internal files migration 0134 could not seal yet, and leftovers of an interrupted run
+                InternalFiles::sealPending($app->settings(), microtime(true) + 10.0);
+                SealedFiles::sweepLeftovers(InternalFiles::FOLDER);
+            },
             fn () => TalentPool::sendRenewals($app), // 3.40: before the consent for future openings lapses, the applicant may keep or delete the application
             function () use ($app, $s): void {
                 \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);

@@ -2925,6 +2925,7 @@
             "id": "integer",
             "links": "array",
             "note": "string",
+            "place_files": "array",
             "status": "string"
         },
         "required": [

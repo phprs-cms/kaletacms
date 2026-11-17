@@ -123,7 +123,9 @@ final class InternalFiles extends Module
         }
         ChangeLog::write($this->app, Library::SECTION, 'download', t('Internal file #%d downloaded', $id));
 
-        $this->sendFile($file['path'], $file['name'], $file['type']);
+        // 3.46 (N165): sealed at rest – the content is opened in memory, never served from the disk
+        return new Response($file['content'], 200, ['Content-Type' => $file['type'], 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',
+            'Content-Disposition' => 'attachment; filename="' . str_replace(['"', "\r", "\n"], '', $file['name']) . '"; filename*=UTF-8\'\'' . rawurlencode($file['name'])]);
     }
 
     protected function actionDelete(): Response
