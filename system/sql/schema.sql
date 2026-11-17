@@ -1000,11 +1000,12 @@ CREATE TABLE ka_internal_file_versions (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     file_id       INT UNSIGNED NOT NULL,
     version       INT UNSIGNED NOT NULL,
-    path          VARCHAR(80) CHARACTER SET ascii NOT NULL,              -- YYYY/MM/<32 hex>.bin under storage/internal-files
+    path          VARCHAR(80) CHARACTER SET ascii NOT NULL,              -- YYYY/MM/<32 hex>.bin under storage/internal-files (sealed since 3.46)
     original_name VARCHAR(200) NOT NULL DEFAULT '',
     extension     VARCHAR(10) CHARACTER SET ascii NOT NULL DEFAULT '',
     size          BIGINT UNSIGNED NOT NULL DEFAULT 0,
     sha256        CHAR(64) CHARACTER SET ascii NOT NULL DEFAULT '',
+    file_key      TEXT NULL,                                             -- 3.46: the file's own key, sealed (Vault::SEALED); NULL = from before 3.46, not sealed yet (migration 0134)
     uploaded_by   INT UNSIGNED NULL,
     uploaded_at   DATETIME NOT NULL,
     PRIMARY KEY (id),
@@ -1803,7 +1804,8 @@ CREATE TABLE ka_requests (
     title       VARCHAR(190) NOT NULL,
     text        TEXT NOT NULL,
     about       VARCHAR(500) NOT NULL DEFAULT '',        -- what it is about: page:<ids> | news:<idc> | item:<idp> | a URL | ''
-    attachments VARCHAR(255) NOT NULL DEFAULT '[]',      -- JSON list of ka_media.ido (up to 5)
+    attachments VARCHAR(255) NOT NULL DEFAULT '[]',      -- JSON list of ka_media.ido (up to 5 – before 3.46, and the private files Claude placed on the site)
+    files       TEXT NULL,                               -- 3.46: the private attachments, a sealed JSON list [{name, ext, size, path, key, media}] (files in storage/requests/)
     status      VARCHAR(12) NOT NULL DEFAULT 'new',      -- new | in_progress | done | declined
     done_at     DATETIME NULL,                           -- when it was marked done or declined
     PRIMARY KEY (id),

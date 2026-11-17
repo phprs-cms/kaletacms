@@ -29,6 +29,8 @@ final class Vault
         'whistleblowing_cases' => ['whistleblowing', 'id', ['text', 'contact', 'attachments']],
         'whistleblowing_messages' => ['whistleblowing', 'id', ['text']],
         'applications' => ['applications', 'id', ['attachments']], // 3.34: the list of a job application's CVs with each file's own key (Core\Applications)
+        'internal_file_versions' => ['internal_files', 'id', ['file_key']], // 3.46 (N165): each internal file's own key (Core\InternalFiles)
+        'requests' => ['requests', 'id', ['files']], // 3.46: the private attachments of a request with each file's own key (Core\Requests)
     ];
 
     /**

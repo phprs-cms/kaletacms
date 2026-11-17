@@ -13,6 +13,10 @@
 /storage/zalohy/
 /storage/backup-key.php
 /storage/applications/
+/storage/oznameni/
+/storage/internal-files/
+/storage/requests/
+/storage/prilohy/
 /storage/import/*
 !/storage/import/.htaccess
 !/storage/import/.gitkeep

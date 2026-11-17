@@ -43,7 +43,10 @@ final class Requests extends Module
         ]);
     }
 
-    /** Saves a new request; its attachments go to Media first (the same path as the Media screen), so Claude can use them. */
+    /**
+     * Saves a new request. 3.46 (owner decision 5): its attachments stay private and sealed (Core\Requests::storeFile),
+     * never in the public Media – Claude puts one into Media only when it places it on the site.
+     */
     protected function actionSave(): Response
     {
         if (!$this->request->isPost()) {
@@ -60,19 +63,22 @@ final class Requests extends Module
 
             return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
         }
-        $attachments = [];
+        $files = [];
         foreach (Media::uploadedFiles('prilohy', Inbox::MAX_ATTACHMENTS) as $file) {
-            try {
-                $attachments[] = (int) Media::store($this->app, $file)['ido'];
-            } catch (\RuntimeException $e) {
-                $message = t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($e->getMessage()));
+            $stored = Inbox::storeFile($this->app->settings(), $file);
+            if (is_string($stored)) {
+                foreach ($files as $done) {
+                    @unlink((string) Inbox::filePath((string) $done['path'])); // nothing stays on the disk of a request that was not saved
+                }
+                $message = t('The attachment %s could not be saved: %s', (string) ($file['name'] ?? ''), t($stored));
 
                 return $fromDashboard ? $this->toDashboard($message, 'chyba') : $this->back($message, 'new', [], 'chyba');
             }
+            $files[] = $stored;
         }
         $about = $this->request->post('about_url') !== '' ? $this->request->post('about_url') : $this->request->post('about');
         try {
-            $id = Inbox::create($this->app, $this->app->auth()->id(), $title, $this->request->post('text'), $about, $attachments);
+            $id = Inbox::create($this->app, $this->app->auth()->id(), $title, $this->request->post('text'), $about, [], $files);
         } catch (\DomainException $e) {
             return $fromDashboard ? $this->toDashboard($e->getMessage(), 'chyba') : $this->back($e->getMessage(), 'new', [], 'chyba');
         }
@@ -122,8 +128,26 @@ final class Requests extends Module
 
         return $this->view('detail', t('Request #%d', (int) $request['id']), [
             'r' => $request, 'claude' => $this->claude(), 'about' => Inbox::describeAbout($this->app, (string) $request['about']), 'attachments' => Inbox::attachments($this->app, $request['attachments']),
+            'files' => Inbox::filesOut($request['files']),
             'messages' => Inbox::messages($this->db, (int) $request['id']), 'mine' => (int) $request['author_id'] === $this->app->auth()->id(),
         ]);
+    }
+
+    /**
+     * A private attachment of a request (3.46), decrypted in memory – for everyone with the section, as an attachment with
+     * no-store and nosniff; never from a public address.
+     */
+    protected function actionFile(): Response
+    {
+        $request = Inbox::get($this->app, $this->request->getInt('id'));
+        $file = $request !== null ? ($request['files'][$this->request->getInt('index')] ?? null) : null;
+        $content = $file !== null ? Inbox::fileContent($this->app->settings(), $file) : null;
+        if ($content === null) {
+            return $this->error('The attachment no longer exists.', 404);
+        }
+
+        return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',
+            'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode((string) $file['name'])]);
     }
 
     /** The person's reply to Claude's notes. */

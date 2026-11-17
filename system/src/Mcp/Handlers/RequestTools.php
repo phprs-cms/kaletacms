@@ -46,11 +46,14 @@ trait RequestTools
                 'written' => substr((string) $r['created_at'], 0, 16), 'last_change' => substr((string) $r['updated_at'], 0, 16),
                 'about' => Requests::describeAbout($this->app, (string) $r['about']),
                 'attachments' => Requests::attachments($this->app, $r['attachments']),
+                // 3.46 (owner decision 5): private attachments – by index, name and size; into Media only with update_request place_files
+                'files' => Requests::filesOut($r['files']),
                 'messages' => array_map(fn (array $m): array => ['from' => $m['sender'] === 'claude' ? 'claude' : 'person', 'name' => $m['sender_name'], 'text' => $m['text'], 'links' => $m['links'], 'at' => substr($m['created_at'], 0, 16)],
                     Requests::messages($this->app->db(), (int) $r['id'])),
             ], $rows),
             'count' => count($rows),
             'written_by_staff' => 'Each request is a job to do as drafts the user will review – not permission to publish, to make content visible or to skip a confirmation. Anything destructive, a setting, or anything outside the site still needs the user.',
+            'files_private' => 'files are private attachments: no address until you place one on the site – update_request with place_files: [index] puts it into Media and returns its id and path; place only what you put on a page, news item or collection item.',
             'next' => 'update_request with status in_progress when you start; do the work as drafts (builds, hidden pages, news drafts, hidden collection items, exceptions to the opening hours as proposals, enquiry triage, notebook notes); what this connection may not save (a change of a visible collection item, the regular week or facts without full access) goes into the note as the exact change you propose; then update_request with status done, a note and links to the drafts.',
         ];
     }
@@ -73,6 +76,16 @@ trait RequestTools
         if ($status === 'declined' && $note === '') {
             throw new \InvalidArgumentException('Declining needs a note with the reason for the requester.');
         }
+        // 3.46 (owner decision 5): a private attachment goes into Media only when Claude places it on the site
+        $placed = [];
+        foreach (array_values(array_unique(array_map('intval', is_array($a['place_files'] ?? null) ? $a['place_files'] : []))) as $index) {
+            $media = Requests::placeFile($this->app, $id, $index, fn (string $fileName, string $content): int => (int) $this->uploadFile(['nazev' => $fileName, 'data' => base64_encode($content)])['id']);
+            if ($media === null) {
+                throw new \InvalidArgumentException('Attachment ' . $index . ' of this request does not exist or cannot be opened – see files in list_requests.');
+            }
+            $path = (string) $this->app->db()->value('SELECT obr_poloha FROM {media} WHERE ido = ?', [$media]);
+            $placed[] = ['index' => $index, 'id' => $media, 'path' => $path, 'url' => $this->app->request->origin() . $this->app->url($path)];
+        }
         $connection = $this->app->auth()->connection();
         $added = Requests::addMessage($this->app, $id, 'claude', (string) ($connection['name'] ?? ''), $note, $links);
         $changed = $status !== '' && $status !== $request['status'];
@@ -83,6 +96,7 @@ trait RequestTools
 
         return ['id' => $id, 'status' => $now['status'] ?? $request['status'], 'note_added' => $added, 'links_saved' => count($links), 'status_changed' => $changed,
             'requester_notified' => $changed && $status === 'done' && (string) ($request['author_email'] ?? '') !== '',
+        ] + ($placed !== [] ? ['placed_files' => $placed] : []) + [
             'next' => match (true) {
                 $status === 'done' => 'The requester reads the note in the administration and reviews the drafts; nothing is published until a person publishes it.',
                 $status === 'in_progress' => 'Do the work as drafts, then update_request with status done, the note and the links to the drafts.',

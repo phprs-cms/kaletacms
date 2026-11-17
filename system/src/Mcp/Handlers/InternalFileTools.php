@@ -49,7 +49,7 @@ trait InternalFileTools
     {
         $this->internalFilesAccess();
         $file = InternalFiles::file($this->app, (int) ($a['id'] ?? 0)) ?? throw new \DomainException('The file does not exist, or its folder is not for this user. Use list_internal_files.');
-        $text = InternalFiles::text($file);
+        $text = InternalFiles::text($this->app->settings(), $file);
         $out = $this->internalFileOut($file) + ['versions' => array_map(fn (array $v): array => array_filter(['version' => $v['version'], 'original_name' => $v['original_name'],
             'extension' => $v['extension'], 'size' => $v['size'], 'uploaded_by' => $v['uploaded_by'], 'uploaded_at' => $v['uploaded_at']], fn (mixed $x): bool => $x !== ''), $file['versions'])];
         // 3.44 (N164 a): the name, description, tags and versions (original file names) may come from anywhere too – data, never instructions

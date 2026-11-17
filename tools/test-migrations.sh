@@ -384,4 +384,40 @@ migrate > /dev/null
 expect_sql_value "3.34 third review F3 (0120): ten minutes after it was first seen the probe is stale and the move goes on" "$(f3_state)" "1|0||1"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_applications; DELETE FROM ka_kolekce WHERE idk = 9351; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('update_probe', ''), ('applications_probe_seen', '')"
 
+# 3.46 (0134): private files from before 3.46 sealed in place – a site as 3.45 left it: a whistleblowing case with a plain
+# attachment and an internal file version without file_key. Under an older release's code only the two columns come; then
+# runs cut short (one file, then a run killed after the file was sealed and before its row took the key – the plan's gate
+# "interrupted data migration"), the run that finishes, and one more that changes nothing. The files live in this checkout's
+# storage/ (KALETA_ROOT) under random names and go at the end.
+M346_Y=$(date +%Y); M346_WB="$M346_Y/$(php -r 'echo bin2hex(random_bytes(16));').pdf"; M346_IF="$(date +%Y/%m)/$(php -r 'echo bin2hex(random_bytes(16));').bin"
+mkdir -p "$ROOT/storage/oznameni/$M346_Y" "$ROOT/storage/internal-files/$(date +%Y/%m)"
+printf '%%PDF-1.4 m346 evidence\n' > "$ROOT/storage/oznameni/$M346_WB"; printf 'm346 contract, confidential\n' > "$ROOT/storage/internal-files/$M346_IF"
+m346_php() { php -r 'require $argv[1] . "/system/bootstrap.php"; $db = new Kaleta\Core\Db(sprintf("mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4", $argv[2], (int) $argv[3], $argv[6]), $argv[4], $argv[5]); $s = new Kaleta\Core\Settings($db); $a = array_slice($argv, 7); '"$1" -- "$ROOT" "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASS" "$OLD" "${@:2}"; }
+"${MYSQL[@]}" "$OLD" -e "ALTER TABLE ka_internal_file_versions DROP COLUMN file_key; ALTER TABLE ka_requests DROP COLUMN files; DELETE FROM ka_whistleblowing_cases; DELETE FROM ka_internal_file_versions; DELETE FROM ka_internal_files;
+  INSERT INTO ka_internal_folders (id, name, audience, roles, created_at, updated_at) VALUES (9346, 'M346', 'all', '', '$(site_time)', '$(site_time)');
+  INSERT INTO ka_internal_files (id, folder_id, name, description, tags, status, extension, size, version, created_at, updated_at) VALUES (9346, 9346, 'contract.txt', '', '', 'ready', 'txt', 28, 1, '$(site_time)', '$(site_time)');
+  INSERT INTO ka_internal_file_versions (id, file_id, version, path, original_name, extension, size, sha256, uploaded_at) VALUES (9346, 9346, 1, '$M346_IF', 'contract.txt', 'txt', 28, '$(php -r 'echo hash_file("sha256", $argv[1]);' -- "$ROOT/storage/internal-files/$M346_IF")', '$(site_time)');
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('data_migrations_unfinished', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0134-seal-private-files,', ',')) WHERE promenna = 'data_migrations'"
+m346_php '$db->insert("whistleblowing_cases", ["id" => 9346, "number" => "1998-9346", "created_at" => date("Y-m-d H:i:s"), "status" => "received", "feedback_due" => date("Y-m-d H:i:s"), "text" => Kaleta\Core\Whistleblowing::encrypt($s, "Old"),
+  "attachments" => Kaleta\Core\Whistleblowing::encrypt($s, json_encode([["name" => "evidence.pdf", "path" => $a[0], "size" => 24]])), "code_hash" => str_repeat("c", 64)]);' "$M346_WB"
+m346_state() { echo "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$OLD' AND ((TABLE_NAME = 'ka_internal_file_versions' AND COLUMN_NAME = 'file_key') OR (TABLE_NAME = 'ka_requests' AND COLUMN_NAME = 'files'))), '|', IFNULL((SELECT file_key IS NOT NULL FROM ka_internal_file_versions WHERE id = 9346), '-'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'))" 2>/dev/null)|$(head -c 4 "$ROOT/storage/oznameni/$M346_WB")/$(head -c 4 "$ROOT/storage/internal-files/$M346_IF")|$(m346_php '$c = $db->one("SELECT * FROM {whistleblowing_cases} WHERE id = 9346"); $at = Kaleta\Core\Whistleblowing::contents($s, $c)["attachments"][0];
+  $v = $db->one("SELECT * FROM {internal_file_versions} WHERE id = 9346"); echo empty($at["sealed"]) ? "plain" : "sealed", ":", Kaleta\Core\Whistleblowing::attachment($s, $at) === file_get_contents($a[0]) ? "=" : "!", "/", Kaleta\Core\InternalFiles::versionContent($s, $v) === file_get_contents($a[1]) ? "=" : "!";' "$ROOT/storage/oznameni/$M346_WB.orig" "$ROOT/storage/internal-files/$M346_IF.orig" 2>&1)"; }
+cp "$ROOT/storage/oznameni/$M346_WB" "$ROOT/storage/oznameni/$M346_WB.orig"; cp "$ROOT/storage/internal-files/$M346_IF" "$ROOT/storage/internal-files/$M346_IF.orig"
+migrate_with 'define("KALETA_MIGRATION_AS_OLD_CODE", true);' > /dev/null
+expect_sql_value "3.46 (0134): under an older release's code only the structure – both columns, the files still plain, the migration unfinished" "$(m346_state)" "2|0|0134-seal-private-files|%PDF/m346|plain:=/="
+migrate_with 'define("KALETA_MIGRATION_ROWS", 1);' > /dev/null
+expect_sql_value "3.46 (0134): a run cut short after one file – the attachment sealed and listed with its key, the internal file still plain, unfinished" "$(m346_state)" "2|0|0134-seal-private-files|KCV1/m346|sealed:=/="
+migrate_with 'define("KALETA_MIGRATION_STOP_AFTER", 2);' > /dev/null
+expect_sql_value "3.46 (0134) interrupted: killed after the internal file was sealed and before its row took the key – sealed on the disk, file_key empty, it still opens (its header), unfinished" "$(m346_state)" "2|0|0134-seal-private-files|KCV1/KCV1|sealed:=/="
+M346_SUM=$(cat "$ROOT/storage/oznameni/$M346_WB" "$ROOT/storage/internal-files/$M346_IF" | php -r 'echo hash("sha256", stream_get_contents(STDIN));')
+migrate > /dev/null
+expect_sql_value "3.46 (0134): the next run finishes – the key taken from the header, the file not sealed twice, nothing lost, done" \
+  "$(m346_state)|$(cat "$ROOT/storage/oznameni/$M346_WB" "$ROOT/storage/internal-files/$M346_IF" | php -r 'echo hash("sha256", stream_get_contents(STDIN));' | grep -c "$M346_SUM")" "2|1||KCV1/KCV1|sealed:=/=|1"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0134-seal-private-files,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql_value "3.46 (0134): run again – nothing changes, no copy left beside the files" \
+  "$(m346_state)|$(cat "$ROOT/storage/oznameni/$M346_WB" "$ROOT/storage/internal-files/$M346_IF" | php -r 'echo hash("sha256", stream_get_contents(STDIN));' | grep -c "$M346_SUM")|$(find "$ROOT/storage/oznameni" "$ROOT/storage/internal-files" -name '*.sealing' | wc -l | tr -d ' ')" "2|1||KCV1/KCV1|sealed:=/=|1|0"
+rm -f "$ROOT/storage/oznameni/$M346_WB"* "$ROOT/storage/internal-files/$M346_IF"*
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_whistleblowing_cases WHERE id = 9346; DELETE FROM ka_internal_file_versions WHERE id = 9346; DELETE FROM ka_internal_files WHERE id = 9346; DELETE FROM ka_internal_folders WHERE id = 9346"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

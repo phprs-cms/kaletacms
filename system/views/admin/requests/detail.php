@@ -9,6 +9,7 @@
  * @var array<string, mixed> $r the request with 'author' and decoded 'attachments'
  * @var array{type: string, id: ?int, title: string, url: string}|null $about
  * @var list<array{id: int, name: string, url: string, size: string, image: bool}> $attachments
+ * @var list<array{index: int, name: string, size: string, image: bool, media: int}> $files private attachments (3.46)
  * @var list<array{id: int, sender: string, sender_name: string, text: string, links: list<array{label: string, url: string}>, created_at: string}> $messages
  * @var bool $mine the signed-in user wrote it
  * @var array{state: string, last_call: ?string, pickup: ?string, stalled_since: ?string} $claude whether requests reach Claude now (3.18)
@@ -31,8 +32,12 @@ $moves = Requests::TRANSITIONS[$r['status']] ?? [];
 	<dt><?= e(t('It is about')) ?></dt><dd><?= $about['url'] !== '' ? '<a href="' . e($about['url']) . '" target="_blank" rel="noopener">' . e($about['title']) . '</a>' : e($about['title']) ?><?= $about['type'] !== 'url' ? ' <span class="smltxt">(' . e(t(match ($about['type']) { 'page' => 'page', 'news' => 'news item', default => 'collection item' })) . ')</span>' : '' ?></dd>
 <?php endif ?>
 	<dt><?= e(t('Text')) ?></dt><dd><?= nl2br(e((string) $r['text'])) ?></dd>
+<?php if ($files !== []): // 3.46: private and encrypted until Claude places one on the site ?>
+	<dt><?= e(t('Attachments')) ?></dt><dd><?php foreach ($files as $f): ?><a href="<?= e($module->url('file', ['id' => (int) $r['id'], 'index' => $f['index']])) ?>"><?= e($f['name']) ?></a> <span class="smltxt">(<?= e($f['size']) ?>)</span><br><?php endforeach ?>
+	<span class="napoveda"><?= e(t('Kept private and encrypted – Claude puts a file into Media only when it places it on the site.')) ?></span></dd>
+<?php endif ?>
 <?php if ($attachments !== []): ?>
-	<dt><?= e(t('Attachments')) ?></dt><dd><?php foreach ($attachments as $a): ?><a href="<?= e($a['url']) ?>" target="_blank" rel="noopener"><?= e($a['name']) ?></a> <span class="smltxt">(<?= e($a['size']) ?>)</span><br><?php endforeach ?>
+	<dt><?= e($files !== [] ? t('In Media') : t('Attachments')) ?></dt><dd><?php foreach ($attachments as $a): ?><a href="<?= e($a['url']) ?>" target="_blank" rel="noopener"><?= e($a['name']) ?></a> <span class="smltxt">(<?= e($a['size']) ?>)</span><br><?php endforeach ?>
 	<span class="napoveda"><?= e(t('Saved in Media – Claude places them on the site from there.')) ?></span></dd>
 <?php endif ?>
 </dl>

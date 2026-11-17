@@ -1208,7 +1208,7 @@ final class Applications
     /* ---------- files ---------- */
 
     /** The first bytes of a sealed CV (3.34 second review N1/N9): the length of the wrapped key, the key wrapped with the Vault key, then the file. */
-    public const string FILE_MAGIC = 'KCV1';
+    public const string FILE_MAGIC = SealedFiles::MAGIC;
 
     /** Days an encrypted file no application lists stays before the daily clean-up removes it (an interrupted run, a restored backup). */
     public const int ORPHAN_DAYS = 7;
@@ -1254,22 +1254,14 @@ final class Applications
         if (preg_match('#^\d{4}/\d{2}/[a-f0-9]{32}\.bin$#D', $path) !== 1) {
             return null;
         }
-        $key = sodium_crypto_secretbox_keygen();
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-        $wrapped = Vault::seal(self::wrapKey($s), $key);
-        $blob = self::FILE_MAGIC . pack('n', strlen($wrapped)) . $wrapped . $nonce . sodium_crypto_secretbox($plain, $nonce, $key);
-        $target = self::FOLDER . '/' . $path;
-        $temporary = $target . '.' . bin2hex(random_bytes(4)) . '.part';
-        if ((!is_dir(dirname($target)) && !@mkdir(dirname($target), 0770, true) && !is_dir(dirname($target)))
-            || @file_put_contents($temporary, $blob, LOCK_EX) !== strlen($blob) || !@rename($temporary, $target)) {
-            @unlink($temporary);
-
+        $key = SealedFiles::write($s, self::SECTION, $plain, self::FOLDER . '/' . $path); // 3.46: the format and crypto moved to Core\SealedFiles unchanged
+        if ($key === null) {
             return null;
         }
         self::protectFolder();
         self::markFilesSince($s);
 
-        return base64_encode($key);
+        return $key;
     }
 
     /** Since when CVs of job applications are kept encrypted here (unix time; the first sealed file or move – 3.34 second review N9). */
@@ -1299,42 +1291,13 @@ final class Applications
         return ctype_digit($filesSince) && (int) $filesSince > 0 && $backupTime < (int) $filesSince;
     }
 
-    /** The key that wraps the per-file keys in the files' headers: the Vault key of the purpose, the key in the database while config.php has none (M5). */
-    private static function wrapKey(Settings $s): string
-    {
-        return Vault::state($s) === 'missing' ? Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION) : Vault::key($s, self::SECTION);
-    }
-
     /**
      * The per-file key of a sealed file from its header (N9): unwrapped with the Vault key, the key in the database or the
-     * previous signing key; null when none opens it or the file has no header.
+     * previous signing key; null when none opens it or the file has no header (Core\SealedFiles::headerKey).
      */
     public static function headerKey(Settings $s, string $file): ?string
     {
-        $raw = @file_get_contents($file, false, null, 0, 600);
-        $length = is_string($raw) ? self::headerLength($raw) : null;
-        if ($length === null) {
-            return null;
-        }
-        $wrapped = substr((string) $raw, 6, $length);
-        [$previous] = Vault::previousKey($s);
-        foreach (array_unique(array_filter([Vault::key($s, self::SECTION), Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION),
-            $previous !== null ? Vault::derive($previous, self::SECTION) : null])) as $candidate) {
-            $key = Vault::open($candidate, $wrapped);
-            if ($key !== null && strlen($key) === SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
-                return base64_encode($key);
-            }
-        }
-
-        return null;
-    }
-
-    /** The length of the wrapped key in a sealed file's header, null when the file has no header. Pure. */
-    private static function headerLength(string $raw): ?int
-    {
-        $length = str_starts_with($raw, self::FILE_MAGIC) && strlen($raw) > 6 ? unpack('n', substr($raw, 4, 2)) : false;
-
-        return is_array($length) && is_int($length[1] ?? null) ? $length[1] : null;
+        return SealedFiles::headerKey($s, self::SECTION, $file);
     }
 
     /**
@@ -1346,28 +1309,8 @@ final class Applications
         if (!is_file($file) && is_file($file . self::ORPHAN_SUFFIX)) {
             @rename($file . self::ORPHAN_SUFFIX, $file); // F1: set aside by the sweep, wanted again (a newer backup restored)
         }
-        $raw = is_file($file) ? @file_get_contents($file) : false;
-        if (!is_string($raw)) {
-            return null;
-        }
-        $length = self::headerLength($raw);
-        $body = $length !== null ? substr($raw, 6 + $length) : $raw;
-        if (strlen($body) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            return null;
-        }
-        foreach ([$key, null] as $try) {
-            $candidate = $try ?? self::headerKey($s, $file);
-            $raw64 = $candidate !== null ? base64_decode($candidate, true) : false;
-            if ($raw64 === false || strlen($raw64) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
-                continue;
-            }
-            $plain = sodium_crypto_secretbox_open(substr($body, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($body, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $raw64);
-            if ($plain !== false) {
-                return $plain;
-            }
-        }
 
-        return null;
+        return SealedFiles::open($s, self::SECTION, $file, $key);
     }
 
     /**
@@ -1383,9 +1326,7 @@ final class Applications
     /** A deny-all .htaccess in the folder (storage/ has one too – a second line of defence on a misconfigured host). */
     private static function protectFolder(): void
     {
-        if (!is_file(self::FOLDER . '/.htaccess')) {
-            @file_put_contents(self::FOLDER . '/.htaccess', "Require all denied\nDeny from all\n");
-        }
+        SealedFiles::protect(self::FOLDER);
     }
 
     /**

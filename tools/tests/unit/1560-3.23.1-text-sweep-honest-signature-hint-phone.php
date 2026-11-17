@@ -84,7 +84,7 @@ $n32311[] = Kaleta\Core\ChangeLog::isChangedAnyway();
 check('[source-pin] 3.23.1 review (N3231-1): a partial save marks the change, the Kernel forgets the mark before the next action; every "saved, but" error marks it', [...$n32311,
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), 'ChangeLog::changedAnyway();'),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "ChangeLog::changedAnyway(); // the item is saved"),
-], [false, true, false, 5, 1]); // 3.28: a backup whose database copy waits for the recovery key is a fifth "saved, but"
+], [false, true, false, 6, 1]); // 3.28: a backup whose database copy waits for the recovery key is a fifth "saved, but"; 3.46: one whose private files were not copied the sixth
 
 // N3231-2 (review of 3.23.1): a module whose action logs under another area (Business details → the 'settings' rows of Core\Hours,
 // Menu and Transfer → 'appearance' of Core\Look, Settings and Collections → 'pages' of the statement and the listing page) writes one row, not two

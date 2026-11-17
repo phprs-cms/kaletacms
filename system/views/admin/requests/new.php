@@ -38,7 +38,7 @@ $reachable = Kaleta\Core\ClaudeConnection::reachable($claude);
 </select>
 	<input class="textpole siroke" type="text" name="about_url" maxlength="500" placeholder="<?= e(t('or paste the address, e.g. /price-list')) ?>" aria-label="<?= e(t('Address of the page it is about')) ?>"></div></div>
 <div class="radek"><label for="req-files"><?= e(t('Attachments')) ?></label><div><input type="file" id="req-files" name="prilohy[]" multiple>
-	<span class="napoveda"><?= e(t('Up to %d files – a PDF, a photo, a document (%s each at most). They are saved to Media, so Claude can place them on the site.', $maxAttachments, $limit)) ?></span></div></div>
+	<span class="napoveda"><?= e(t('Up to %d files – a PDF, a photo, a document (%s each at most). They stay private and encrypted; Claude puts one into Media only when it places it on the site.', $maxAttachments, $limit)) ?></span></div></div>
 </fieldset>
 <p class="tlacitka"><button class="<?= $reachable ? 'tl' : 'navigace' ?>" type="submit"><?= e($reachable ? t('Save the request') : t('Save for later')) ?></button></p>
 </form>
