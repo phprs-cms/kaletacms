@@ -620,6 +620,8 @@ final class Kernel
             if ($error === null) {
                 ChangeLog::write($app, 'prihlaseni', 'login', t('with a passkey'));
                 $this->noticesAfterSignIn();
+            } else {
+                $this->logFailedSecondStep('passkey');
             }
 
             return Response::json($error === null ? ['ok' => true, 'kam' => $this->resolveAfterSignIn()] : ['chyba' => $error], $error === null ? 200 : 401);
@@ -640,6 +642,8 @@ final class Kernel
                 // 3.41 (N117): only the name of an existing account – what was typed may be a password typed into the wrong field
                 $account = $app->auth()->failedAccount();
                 ChangeLog::write($app, 'prihlaseni', 'neuspech', $account !== '' ? 'account: ' . mb_substr($account, 0, 40) : 'unknown account');
+            } elseif ($error !== null) {
+                $this->logFailedSecondStep('code');
             }
         }
 
@@ -656,6 +660,16 @@ final class Kernel
             'passkeyHost' => \Kaleta\Core\SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $url),
             'canonicalAdmin' => rtrim($url, '/') . $app->url('admin.php'),
         ]), $error === null ? 200 : 401);
+    }
+
+    /**
+     * 3.43 (N160): a wrong second step (a code, a backup code, a passkey) is in the change log like a wrong password – the
+     * kind and the account the password step found, never what was typed. Ten in a row lock the account (Auth::countError).
+     */
+    private function logFailedSecondStep(string $kind): void
+    {
+        $account = $this->app->auth()->failedAccount();
+        ChangeLog::write($this->app, 'prihlaseni', 'neuspech', 'second step (' . $kind . ')' . ($account !== '' ? ', account: ' . mb_substr($account, 0, 40) : ''));
     }
 
     /**

@@ -104,7 +104,7 @@ foreach ($c9Area as $c9Class) {
 $c9Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Module.php');
 $c9Components = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Components.php');
 check('[source-pin] 3.22 (C9): live actions of the appearance modules need canPublish, a component from the builder keeps Custom HTML only for an administrator', [
-    $c9Live, (bool) preg_match('/in_array\(\$action, static::LIVE_ACTIONS, true\) && \$this->request->isPost\(\) && !\$this->app->auth\(\)->canPublish\(\)/', $c9Module),
+    $c9Live, (bool) preg_match('/self::isLiveAction\(static::LIVE_ACTIONS, \$method\) && \$this->request->isPost\(\) && !\$this->app->auth\(\)->canPublish\(\)/', $c9Module), // 3.43 (N155): the gate compares the resolved method
     str_contains($c9Components, "Build::sanitize(['v' => Build::VERSION, 'deti' => [\$element]], \$this->app->auth()->isAdmin())"),
     (bool) preg_match('/function actionFromElement.+?canPublish\(\).+?Build::sanitize/s', $c9Components),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Menu.php'), "post('publikovat') === '1' && !\$this->app->auth()->canPublish()"),

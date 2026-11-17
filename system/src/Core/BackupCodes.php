@@ -17,6 +17,12 @@ final class BackupCodes
     public const int COUNT = 8;
 
     /**
+     * How many characters a second-step field takes (3.43, N126): a code of the list is 19 with its dashes, more when it is
+     * typed with spaces, pasted with a space around it or an older code – the field must never cut one off.
+     */
+    public const int INPUT_MAX = 40;
+
+    /**
      * A new list: the codes to show once, and what is stored.
      *
      * @return array{0: list<string>, 1: string}

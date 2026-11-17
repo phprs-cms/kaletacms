@@ -99,15 +99,50 @@ abstract class Module
 
     public function handle(string $action): Response
     {
-        $method = 'action' . str_replace('_', '', ucwords($action, '_'));
-        if (!preg_match('/^[a-z][a-z_]*$/D', $action) || !method_exists($this, $method)) {
+        $method = self::methodFor($this, $action);
+        if ($method === null) {
             return $this->error('Unknown action.', 404);
         }
-        if (in_array($action, static::LIVE_ACTIONS, true) && $this->request->isPost() && !$this->app->auth()->canPublish()) {
+        if (self::isLiveAction(static::LIVE_ACTIONS, $method) && $this->request->isPost() && !$this->app->auth()->canPublish()) {
             return $this->back(self::LIVE_REFUSAL, type: 'chyba');
         }
 
         return $this->$method();
+    }
+
+    /**
+     * The method an action name runs, or null (3.43, N155): only the canonical spelling – lower-case words joined by one
+     * underscore – and only when it names the method exactly. PHP finds methods case-insensitively, so without the round
+     * trip `save_`, `save__` or `de_lete` would run actionSave / actionDelete under a name no gate knows.
+     */
+    public static function methodFor(object $module, string $action): ?string
+    {
+        if (!preg_match('/^[a-z]+(?:_[a-z]+)*$/D', $action)) {
+            return null;
+        }
+        $method = 'action' . str_replace('_', '', ucwords($action, '_'));
+        if (!method_exists($module, $method) || (new \ReflectionMethod($module, $method))->getName() !== $method) {
+            return null;
+        }
+
+        return $method;
+    }
+
+    /**
+     * Whether the resolved method belongs to one of the LIVE_ACTIONS (3.43, N155) – the gate compares methods, the same
+     * thing that runs, never the raw text of the request.
+     *
+     * @param list<string> $live
+     */
+    public static function isLiveAction(array $live, string $method): bool
+    {
+        foreach ($live as $action) {
+            if (strcasecmp('action' . str_replace('_', '', ucwords($action, '_')), $method) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string, mixed> $data */

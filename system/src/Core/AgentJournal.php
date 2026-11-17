@@ -57,6 +57,18 @@ final class AgentJournal
     }
 
     /**
+     * The connection a session belongs to (3.43, N167): the connection's name and the user who connected it – every user's
+     * "Claude" connector has its own session, so undoing one never takes back a colleague's concurrent work. Shown as is in
+     * the list of sessions ("Claude · jana").
+     */
+    public static function connectionLabel(string $name, string $user): string
+    {
+        $name = trim($name) !== '' ? trim($name) : 'Claude';
+
+        return $user === '' ? mb_substr($name, 0, 100) : mb_substr(mb_substr($name, 0, 60) . ' · ' . $user, 0, 100);
+    }
+
+    /**
      * Starts journaling one tool call of a connection: finds the connection's open session (a change within SESSION_GAP
      * minutes) or opens a new one. Returns null when the tables are not there yet (before the migration).
      */

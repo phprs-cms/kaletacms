@@ -1037,8 +1037,13 @@ final class Kernel
 
     private function newsItem(string $seo): Response
     {
-        $preview = $this->app->request->get('preview') === '1' && $this->app->auth()->user() !== null;
+        // 3.43 (N159): an unpublished news item only for whoever may edit it – the news section and, for an author, their own
+        $preview = $this->app->request->get('preview') === '1' && $this->app->auth()->user() !== null && $this->app->auth()->hasModule('news');
         $newsItem = $this->news->bySlug($seo, $preview);
+        if ($preview && $newsItem !== null && !$this->app->auth()->canPreviewArticle($newsItem)) {
+            $preview = false;
+            $newsItem = $this->news->bySlug($seo);
+        }
         if ($newsItem === null) {
             return $this->notFound();
         }

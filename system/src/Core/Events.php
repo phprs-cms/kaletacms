@@ -45,6 +45,7 @@ final class Events
         'task.recovered' => 'A background job works again.',
         'security.account_suspended' => 'An unused account was suspended.',
         'security.connection_revoked' => 'An unused Claude connection was revoked.',
+        'security.account_locked' => 'An account was locked for 15 minutes after ten wrong passwords, codes or passkeys in a row (3.43; the user id only, never what was typed).',
         'security.token_reuse' => 'A refresh token of a connected application was used again after it had been replaced, so every token of that application for that user was revoked (the client id, the user id and how many tokens went) – the person connects the application again (3.3.4).',
         'security.signing_key_rotated' => 'An administrator made a new signing key (3.19.1): every shared preview link and other link the site signed stopped working (the user, and how many stored secrets were encrypted again).',
         'firewall.blocked' => 'An address was blocked for a while (it probed for other systems).',
