@@ -4,6 +4,63 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.46 – privacy and backups (18 November 2026)
+
+Migrations 0133 and 0134; `KALETA_DB_VERSION` is 134.
+
+1. **A restore never brings back what was taken away** (N156). The restore ledger `ka_restore_ledger` (migration 0133,
+   `Core\RestoreLedger`) is never written into a backup and no restore touches it: keyed fingerprints of erased and
+   unsubscribed addresses (never an address), the tokens and passkeys a restore already removed once, and the one-way ids
+   of the site's signing keys. Before a restore every Restore button says what it loses since the backup and what it
+   keeps from today. After a restore of a backup of this site the sign-in state of today comes back (passwords, blocks,
+   two-step sign-in, sign-in epochs, tokens, passkeys, OAuth codes, connectors), accounts removed since the backup come
+   back blocked, and erasures and unsubscribes recorded after the backup are applied again. Restored mail, webhook and
+   connector queue rows that are not still waiting today are stopped ("Restored from a backup – not sent again"). An older
+   backup is brought up to this version first (its migrations, 0134 included); a backup of another installation keeps its
+   own accounts.
+2. **Backups by age** (N157, owner decision 8). Local backups keep at most 10 files and none older than 30 days
+   (`Backup::KEEP_DAYS`, also from the daily job, on a site that makes none). After an upload, off-site copies older than
+   `backup_remote_days` (Settings → Backups, default 90, 0 = Kaleta deletes none – a lifecycle rule of the bucket does) are
+   deleted over S3 and FTPS – only Kaleta's encrypted backup names, never `media/` or `private/`. The erase result and the
+   processing record state the backup horizon. Erase, Delete and bulk delete of enquiries blank the queued webhook and
+   connector bodies of the person; the daily sweep blanks given-up ones after 7 days (N161).
+3. **"Confirm it is you" for the administrator's sections** (N127, N136, `Admin\FreshProof`). Every POST of an admin-only
+   section (Settings and its screens, Users, Roles, Integrations, Add-ons, Import and export, the console…) needs a
+   sign-in, a confirmed password or a passkey within the last 10 minutes; otherwise the same form comes back with a
+   password field (or the passkey button) and nothing is lost or changed before the proof. A form with files confirms
+   through `admin.php?action=confirm`; a script gets JSON. What goes without is named in `FreshProof::EXEMPT` (the look,
+   redirects, blueprints, undo, checks and previews of Settings, a backup and its copy to the target already set, import
+   batches, revoking connections…). The pending TOTP secret is stored only after a proof (N138). The backup download is a
+   button of the form – POST with the form token and the proof only (I39).
+4. **Connecting Claude needs a fresh proof at any access level** (N158, owner decision 7). Every OAuth consent – read and
+   drafts too – asks for the password or the passkey without a recent proof, and the account gets an e-mail when an
+   application connects to it for the first time. Existing tokens and refreshes are untouched.
+5. **Private files sealed at rest** (N162, N165, `Core\SealedFiles` – the CV format and crypto of 3.34, taken out of
+   `Core\Applications` unchanged). Whistleblowing attachments are random `.bin` files sealed like the CVs; internal files
+   are sealed with their own key (`ka_internal_file_versions.file_key`, resealed by the Vault) and open in memory. Migration
+   0134 (`.php`) adds the columns under any code and seals the files of before 3.46 in place only under the 3.46 code,
+   never during an update probe, in short runs under a lock: a file whose header this site's key opens is never sealed
+   again, the plain file is replaced only after the sealed copy opened to the same content, nothing is deleted. A sealed
+   file whose row still says plain (an interrupted run, a restored backup of before 0134) opens by its header key, and the
+   daily job takes the key back.
+6. **"Ask Claude" attachments stay private** (owner decision 5). The attachments of a request are sealed in
+   `storage/requests` (`ka_requests.files`), downloaded by the people of the section, never in the public Media – Claude
+   puts one into Media only when it places it on the site (`update_request` `place_files`).
+7. **Private folders in the encrypted off-site copy** (`RemoteBackup::syncPrivate`). The CVs, internal files,
+   whistleblowing, request and enquiry attachments go to `private/<path>.enc` on the backup target, each file encrypted
+   under the recovery key and never before it is saved; Backups shows the state of the copy.
+8. **Tests.** Unit and smoke 4100 (restore ledger, retention), 4130 (fresh proof; the suite confirms before each section
+   and test-browser per step), 4160 (sealed files, the interrupted 0134 in test-migrations) and 4190 (a backup of before
+   0134 restored after the files were sealed).
+
+**Upgrade notes.** Migrations 0133 (the restore ledger) and 0134 (sealing the existing private files) run with the update;
+0134 seals in the background over the next requests and the daily job and is safe to run again. Administrators see a new
+"Confirm it is you" step for administrator settings when they signed in or confirmed more than 10 minutes ago, and when
+connecting Claude at any access level (read only and drafts too); existing Claude connections and their tokens are
+unaffected. Backups are kept for at most 30 days on the server, and off-site copies are pruned after 90 days (setting
+`backup_remote_days`, 0 = never). "Ask Claude" attachments now stay private until Claude places them in Media. The backup
+download in Settings → Backups is now a button (a POST), no longer a link.
+
 ## 3.45 – first quote, first week (17 November 2026)
 
 No migration; `KALETA_DB_VERSION` stays 132.

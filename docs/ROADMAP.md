@@ -6,8 +6,11 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.45 gave a new office its first steps – the first quote and the first week – and a guide in the administration. Next
-comes 3.46 – privacy and backups. Each release lists what it brought in the changelog when it ships.
+3.46 closed the privacy and backup findings: a restore keeps today's sign-ins, erasures and unsubscribes, backups are kept by
+age, administrator settings and new Claude connections ask "Confirm it is you", and private files are sealed at rest and
+copied off-site encrypted. A security re-audit of 3.46 and a restore and erasure trial on a copy of a real site come
+first; then 3.47 – one pattern (the screens of 3.38–3.42 get the patterns of 3.37). Each release lists what it brought
+in the changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 

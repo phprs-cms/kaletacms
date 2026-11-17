@@ -1,13 +1,13 @@
 # Kaleta
 
-Open-source CMS pro **firemní weby** (stránky, novinky, builder, kolekce, formuláře, CRM pro každý den) s napojením na
+Open-source CMS pro **firemní weby** (stránky, novinky, builder, kolekce, formuláře, CRM) s napojením na
 jazykové modely. Čisté PHP 8.3+ bez frameworku a bez Composeru (PSR-4 autoloader v `system/bootstrap.php`), MySQL/MariaDB
-přes PDO, serverové HTML + trocha vanilla JS. Mapa kódu a „jak přidat …“: **`docs/ARCHITECTURE.md`**; popis funkcí po
-částech: **`docs/FEATURES.md`**; schéma: `docs/schema.md`; vrstvy: `docs/design/code-layers.md`; testy: `tools/tests/README.md`.
+přes PDO, serverové HTML + trocha vanilla JS. Mapa kódu a „jak přidat …“: **`docs/ARCHITECTURE.md`**; funkce:
+**`docs/FEATURES.md`**; schéma: `docs/schema.md`; vrstvy: `docs/design/code-layers.md`; testy: `tools/tests/README.md`.
 Návrh a rozhodnutí: `../kaleta-interni/NAVRH.md`; co vyšlo: `docs/CHANGELOG.md`; co bude: `docs/ROADMAP.md`.
 
-Tento soubor nese jen závazná pravidla a má strop **16 KB** (unit 3870). Popis nové funkce patří do `docs/FEATURES.md`
-nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo, které hlídá test.
+Jen závazná pravidla, strop **16 KB** (unit 3870). Popis funkce do `docs/FEATURES.md` či `ARCHITECTURE.md`,
+poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlídané testem.
 
 **Veřejně (README, texty, commity) se na projekt, ze kterého jádro vzniklo, neodkazuje.**
 
@@ -24,7 +24,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   starší tabulky a sloupce (`idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel), klíče staveb (JSON)
   a design systému, CSS třídy a `data-` atributy administrace; na hranici MCP je překládá `Mcp\Translator` a `Mcp\Vocabulary`.
   **Tabulky ani sloupce se nikdy nepřejmenovávají** (ROADMAP „Path to 4.0“); nové tabulky, sloupce a nastavení jsou anglicky.
-- **Parametry adresy (query) vždy anglicky** (`preview_key`, `build`, `page`, `search`, `status`, `item`…) v odkazech, GET formulářích,
+- **Parametry adresy (query) vždy anglicky** (`preview_key`, `build`, `page`, `search`…) v odkazech, GET formulářích,
   `Request::get*()`, JS i testech; hodnoty a názvy polí v POST zůstávají. Dřívější české názvy jsou aliasy v `Request::LEGACY_QUERY`
   (odkazy v e-mailech a záložky se nerozbijí) – záznam se nemaže, nový odkaz píše jen anglicky (hlídá unit test).
 - **Tabulky v kódu přes `{novinky}`** (nebo anglicky `{news}`, `Core\Names`); nová tabulka = záznam v `system/sql/names.php` (unit test).
@@ -42,7 +42,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 - **Vrstvy kódu:** Core neodkazuje na Admin/Front/Builder/Fleet/Mcp, Mcp ne na `Admin\Modules`; pravidlo dat patří do Core
   (unit 3100, zmrazený seznam výjimek jen ubývá).
 - **Rozšíření** (`Core\Extensions::CATALOG`, `Module::EXTENSION`, `Element::EXTENSION`) jsou vestavěná; vypnuté = modul zmizí,
-  prvek se nenabízí ani nevykreslí, sekce knihovny s ním se nenabízejí, trasy vrací 404. Nové rozšíření zapnuté ve výchozím stavu
+  prvek ani sekce knihovny s ním se nenabízejí, prvek se nevykreslí, trasy vrací 404. Nové rozšíření zapnuté ve výchozím stavu
   potřebuje migraci (viz 0016). **Doplňky** jiných vývojářů jen v `extensions/<slug>/` přes `Kaleta\Extension\Api` (`docs/EXTENSIONS.md`);
   kód se nikdy nenahrává z administrace ani nestahuje z internetu.
 - **Role:** správce (2), editor (1 – veškerý obsah, vydává), autor novinek (0 – jen své, nevydává); `Auth::canPublish()`,
@@ -61,7 +61,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   Úplnost hlídají unit testy. Doplňuj `tools/add-translations.py <soubor>` (stdin `English|překlad`); `admin-de-du.*` ručně.
   Hodnoty formulářů se nepřekládají.
 - **Slovníky se slučují `merge=union`** (`.gitattributes`): jedna položka = jeden řádek a **každá končí čárkou, i poslední** před
-  `];`/`};`. Duplicitní klíč nebo poslední položka bez čárky shodí unit 3860 – po sloučení větví ho pusť.
+  `];`/`};`. Duplicitní klíč nebo chybějící čárka shodí unit 3860 – pusť ho po sloučení větví.
 - `tools/test-english.sh` (i v CI): anglický instalátor, web i administrace bez češtiny (`tools/find-czech.php`, `--js`).
   Stránky startovacích webů musí projít kontrolou před publikováním (unit test).
 
@@ -89,7 +89,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   na webu se vadný prvek vynechá, nikdy výjimka. Jeden prvek = jedna značka. Třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`, `Html::safe`).
 - **Prvek** = třída v `Builder\Elements\` zapsaná v `Build::ELEMENTS`, základní CSS do vrstvy `stavitel` přes `:where()`; nový prvek,
   pole, vlastnost stylu nebo token = záznam v `Mcp\Vocabulary` (unit test převádí knihovnu tam a zpět).
-- **Výpočet tokenů design systému jen v PHP** (`DesignSystem`, náhled akcí `nahled`), nikdy duplikovat v JS. Vlastní CSS tříd přes
+- **Výpočet tokenů design systému jen v PHP** (`DesignSystem`, akce `nahled`), nikdy v JS. Vlastní CSS tříd přes
   `Style::customCss()` (bez `url()`, bloků, `@`).
 - **Publikování** přes `Builder\Publisher` (verze v `ka_stavba_revize`, text bez rozložení `Build::asText`). Koncept vzhledu (`Core\Look`):
   změny design systému, existujících tříd a menu jdou do `look_draft`, publikuje `Look::publish`.
@@ -107,11 +107,13 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   Settings / `Vault`. Nikdy nečti `tools/klice/*.key` ani nevypisuj `config.php`.
 - **Přihlášení:** pravidla jen v `Core\SignInPolicy`; každá citlivá změna přes `Auth::freshProof(…)`, „současné heslo“ jen přes
   `Auth::confirmPassword`; každá změna druhého faktoru volá `Auth::newEpoch`; záložní kódy jen `Core\BackupCodes`.
+  POST správcovského modulu hlídá `Admin\FreshProof`; výjimky jen v `FreshProof::EXEMPT`.
+- Obnova zálohy nevrátí, co drží `Core\RestoreLedger` (nikdy v záloze); soukromé soubory jen `Core\SealedFiles`.
 - **Akce administrace jen v kanonickém tvaru** (`Module::methodFor`); brána vydávání `Module::LIVE_ACTIONS` porovnává metodu, ne text.
 - **Webhooky** jen `Core\Webhook` (fronta, podpis HMAC); adresy a klíče nikdy přes MCP. Testy míří na falešné servery
   (`*_test_url`, jen `http://127.0.0.1:<port>`, jen přes databázi).
 - **AI asistent:** odpověď modelu je nedůvěryhodný vstup; překlad bere od modelu jen text, výsledek je vždy koncept; adresa API
-  jen z konstanty `KALETA_AI_URL`.
+  jen z `KALETA_AI_URL`.
 - **Náhledy konceptů** jen podepsané (`Core\Preview`, jeden cíl, omezená platnost).
 - **Import z WordPressu a webu — co se nesmí rozvolnit** (unit testy): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah jen
   přes povolovací seznam značek; `ImageDownloader` jen z domény starého webu, jen veřejné IP, připnuté spojení, limity, nikdy SVG.
@@ -122,11 +124,11 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 - **CRM a reporty:** souhrny jsou počty, nikdy hodiny ani částky (měsíční report jen počty obchodů); ceny jen v `ka_prices`.
 - **Flotila:** konzole nikdy nesahá do webů, odkazy jsou obyčejné odkazy; heartbeat nese počty, data, výčty a krátké systémové texty,
   nikdy osobní údaje; konzole ohraničí každý nový klíč.
-- **Žádné mazání při GET** – úklid patří do úlohy Scheduleru (`trash`, `cleanup`).
+- **Žádné mazání při GET** – úklid patří do Scheduleru (úlohy `trash`, `cleanup`).
 
 ## MCP
 
-- MCP (`/mcp`) je hlavní cesta, jak se na Kaletě stavějí weby – **co jde v administraci, musí jít i tady** (mapa `$parity` v unit testech:
+- MCP (`/mcp`) je hlavní cesta stavby webů – **co jde v administraci, musí jít i tady** (mapa `$parity` v unit testech:
   čtení, nástroj, nebo „admin: důvod“). Vlastní PHP šablony ani kód přes MCP nikdy; žádný nástroj nesmí zapisovat mimo obsah,
   spouštět kód ani dotaz.
 - **Rozhraní je anglické** (`Mcp\Translator`, `Mcp\Vocabulary`); české názvy jsou skryté aliasy. Nový nástroj nebo parametr = záznam
@@ -142,7 +144,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 
 ## Testy a vydání
 
-- Po změně: `tools/test.sh` (lint, unit, čistá instalace, web, admin, MCP; databázi `kaleta_test` smaže), `tools/test-english.sh`,
+- Po změně: `tools/test.sh` (lint, unit, instalace, web, admin, MCP; smaže `kaleta_test`), `tools/test-english.sh`,
   `tools/test-migrations.sh`, `tools/test-browser.sh`, `php tools/contracts.php`; jen unit: `php tools/unit-tests.php [číslo|část názvu]`.
   Část sady `ONLY=`/`START=` (snímek instalace, není brána). PHPStan úroveň 6, šablony 2.
 - Nové téma = nový soubor `tools/tests/unit|smoke/NNNN-tema` s dalším volným číslem, nikdy připisovat do cizího.
@@ -153,7 +155,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 - **Kouřový test:** jeden falešný SMTP celé sady (PORT+21, `test.sh` používá PORT…PORT+21), `mail()` v sadě vždy selže; sekce,
   která zkouší `mail()`, ho nastaví sama a vrátí `$MAIL_SINK_VALUES`. Nikdy holé `wait` – jen `wait "$PID"` nebo `await_pids` (unit 3830).
 - Žádné tokeny ani klíče tvaru tajemství v testech (gitleaks) – skládat za běhu. Nikdy nezastavovat MySQL.
-- Vývoj: `php -S 127.0.0.1:8095 system/dev-router.php`, databáze `kaleta_dev`, `config.php` není v gitu. Snímky: `tools/screenshots.sh`.
+- Vývoj: `php -S 127.0.0.1:8095 system/dev-router.php`, DB `kaleta_dev`, `config.php` není v gitu. Snímky: `tools/screenshots.sh`.
 - **Vydání:** `KALETA_VERSION` v `system/bootstrap.php`, `php tools/release.php <verze> --url=…` (`docs/RELEASING.md`), záznam do
   `docs/CHANGELOG.md` (nahoru); tento soubor se při vydání nemění. Veřejné klíče `system/aktualizace.pub`, soukromé jen mimo repozitář.
-  Kanál aktualizací `https://kaletacms.com/aktualizace.json`, repozitář `github.com/phprs-cms/kaletacms`.
+  Kanál `https://kaletacms.com/aktualizace.json`, repozitář `github.com/phprs-cms/kaletacms`.
