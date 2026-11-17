@@ -105,6 +105,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   Settings / `Vault`. Nikdy nečti `tools/klice/*.key` ani nevypisuj `config.php`.
 - **Přihlášení:** pravidla jen v `Core\SignInPolicy`; každá citlivá změna přes `Auth::freshProof(…)`, „současné heslo“ jen přes
   `Auth::confirmPassword`; každá změna druhého faktoru volá `Auth::newEpoch`; záložní kódy jen `Core\BackupCodes`.
+- **Akce administrace jen v kanonickém tvaru** (`Module::methodFor`); brána `LIVE_ACTIONS` porovnává metodu, ne text.
 - **Webhooky** jen `Core\Webhook` (fronta, podpis HMAC); adresy a klíče nikdy přes MCP. Testy míří na falešné servery
   (`*_test_url`, jen `http://127.0.0.1:<port>`, jen přes databázi).
 - **AI asistent:** odpověď modelu je nedůvěryhodný vstup; překlad bere od modelu jen text, výsledek je vždy koncept.
@@ -130,6 +131,7 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
 - Text zvenku (návštěvníci, uchazeči, cizí weby) jde do výsledku s `Mcp\Untrusted::mark`; adresy stahuje jen plné spojení (`Catalog::mayFetch`).
 - Nástroj, který posílá e-mail mimo tým nebo trvale maže, patří do `Mcp\Confirmation::TOOLS`. Nová stránka je skrytá, nová novinka
   koncept; vydat jen na výslovný pokyn a s právem. Spojení jen na koncepty píše koncepty.
+- Limit změn a undo Claude podle názvu připojení a uživatele (`AgentJournal::connectionLabel`).
 
 ## Testy a vydání
 
@@ -140,6 +142,8 @@ nebo `docs/ARCHITECTURE.md`, poznámky k vydání jen do `docs/CHANGELOG.md` –
   `Db::rethrowUnlessMissing($e)` nebo řekne proč (unit 2600). Testovací přepínače jen přes `Core\TestSeams`; v unit testech
   `Clock::freeze()`; smoke používá `background_jobs` a nikdy nezapisuje `notification_check`; zámky MySQL přes `$db->lockName()`;
   rozpočty dotazů `X-Kaleta-Queries` (smoke 2610).
+- **Kouřový test:** jeden falešný SMTP celé sady (PORT+21, `test.sh` používá PORT…PORT+21), `mail()` v sadě vždy selže; sekce,
+  která zkouší `mail()`, ho nastaví sama a vrátí `$MAIL_SINK_VALUES`. Nikdy holé `wait` – jen `wait "$PID"` nebo `await_pids` (unit 3830).
 - Žádné tokeny ani klíče tvaru tajemství v testech (gitleaks) – skládat za běhu. Nikdy nezastavovat MySQL.
 - Vývoj: `php -S 127.0.0.1:8095 system/dev-router.php`, databáze `kaleta_dev`, `config.php` není v gitu. Snímky: `tools/screenshots.sh`.
 - **Vydání:** `KALETA_VERSION` v `system/bootstrap.php`, `php tools/release.php <verze> --url=…` (`docs/RELEASING.md`), záznam do

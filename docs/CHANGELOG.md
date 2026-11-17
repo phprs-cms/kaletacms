@@ -4,6 +4,31 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.43 – locks and rails: audit fixes, parallel CI, a slim CLAUDE.md (17 November 2026)
+
+No migration; `KALETA_DB_VERSION` stays 132.
+
+1. **Audit findings (locks).** N155 an admin action runs only under its canonical name (`Module::methodFor` – `save_`,
+   `delete__`, `de_lete` or `DELETE` are unknown actions, 404); the `LIVE_ACTIONS` gate compares the resolved method, so an
+   author cannot get past "only editors publish" by spelling an action differently. N142 the `send_quote` confirmation shows
+   the quote's real total (`Money::fromDecimal`), not a hundredth of it. N126 second-step fields take 40 characters and
+   letters (backup codes with dashes or spaces), the TOTP confirm field 12. N159 `?preview=1` shows an unpublished news item
+   only with the news section and, for an author, only their own. N160 a wrong code, backup code or passkey at the second
+   step is in the change log (never what was typed); a lock records `security.account_locked` (an alert warning, the user id
+   only). N167 the hourly change limit and the undo session of a Claude connection count per connection name and user
+   (`AgentJournal::connectionLabel`, e.g. "Claude · jana"). N158 (second half) revoking a user's connections also deletes
+   their unredeemed authorization codes. U69 the silent passkey offer stays silent until a passkey is picked; browser
+   refusals are shown in the product's words.
+2. **CI and smoke rails.** `.github/workflows/kontrola.yml` runs a matrix of suite × PHP (smoke, English, demo and browser
+   on 8.3/8.4/8.5, Lighthouse on 8.4), each its own job with its own MySQL, with the step time in the job summary. The smoke
+   suite has one fake SMTP sink (`tools/fake-smtp.php` on PORT+21, `tools/test.sh` uses PORT…PORT+21); `mail()` fails in the
+   suite on every machine and `mail_sink_guard` names a section that leaves the site on it. `await_pids` replaces bare `wait`
+   (unit 3830). A full unit run caps the number of source-pin checks too.
+3. **Rails for agents.** Dictionaries merge by union (`.gitattributes`); every entry ends with a comma, also the last one
+   of the admin script dictionaries (unit 3860: duplicate keys, the last comma). CLAUDE.md holds the binding rules only
+   (59.8 KB → 15.6 KB, cap 16 KB in unit 3870); feature notes moved to `docs/FEATURES.md`, the release history to this
+   changelog and `docs/ROADMAP.md` is short.
+
 ## 3.42 – internal files, team hierarchy, collections in the price list (15 November 2026)
 
 Migrations 0131 (`ka_internal_folders`, `ka_internal_files`, `ka_internal_file_versions`) and 0132 (`ka_departments`,
