@@ -68,7 +68,7 @@ cat > "$WORK/balicek.php" <<'PHP'
 [, $root, $site, $channel, $port, $newVersion] = $argv;
 require $root . '/system/src/Core/Signature.php';
 require $root . '/system/src/Core/Integrity.php';
-$exclude = '#^(tools/|docs/|integrations/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
+$exclude = '#^(tools/|docs/|integrations/|\.github/|\.claude/|CLAUDE\.md$|\.gitignore$|\.gitattributes$|\.gitleaks\.toml$|\.git-blame-ignore-revs$|phpstan\.neon\.dist$|phpstan-baseline\.neon$|docker/|Dockerfile$|compose\.yaml$|\.dockerignore$)#';
 $unhashed = '#^(media|storage)/|^install\.php$#';
 $pair = sodium_crypto_sign_keypair();
 $sk = sodium_crypto_sign_secretkey($pair);

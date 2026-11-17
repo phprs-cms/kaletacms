@@ -8,7 +8,7 @@ whose output reads like hand-written HTML, an AI assistant, Claude over MCP, and
 
 ![The Kaleta builder: the canvas is the real page, elements on the left, properties on the right](docs/screenshots/admin-builder.png)
 
-> Project website: [kaletacms.com](https://kaletacms.com) · guide: [kaletacms.com/guide](https://kaletacms.com/guide) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md) · [release policy](docs/RELEASE-POLICY.md)
+> Project website: [kaletacms.com](https://kaletacms.com) · guide: [kaletacms.com/guide](https://kaletacms.com/guide) · latest version: [GitHub Releases](https://github.com/phprs-cms/kaletacms/releases/latest) · what comes next: [roadmap](docs/ROADMAP.md) · [changelog](docs/CHANGELOG.md) · [release policy](docs/RELEASE-POLICY.md)
 
 ## Features
 
@@ -92,7 +92,8 @@ Tests: `php tools/unit-tests.php` (unit, no database) and `tools/test.sh` (clean
 builder and MCP; needs MySQL; `WEB=remeslo tools/test.sh` tests another starter site). `tools/test-lighthouse.sh` holds every
 starter site to the output budget; `php tools/contracts.php` shows changes of the public contracts (MCP tools, design tokens,
 builder elements); static analysis is PHPStan with `phpstan.neon.dist`. How to contribute is in
-[`CONTRIBUTING.md`](CONTRIBUTING.md); architecture notes are in [`CLAUDE.md`](CLAUDE.md) (Czech).
+[`CONTRIBUTING.md`](CONTRIBUTING.md); the architecture is in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), the working rules for AI agents in [`CLAUDE.md`](CLAUDE.md) (Czech).
 
 ## Support
 

@@ -581,5 +581,5 @@ window.KALETA_PREKLAD = {
 	"Kdo dostane odkaz, uvidí koncept bez přihlášení – i změny, které uděláte později. Vyhledávače ho neindexují.": "Anyone with the link can see the draft without signing in – including changes you make later. Search engines do not index it.",
 	"Platnost": "Valid for",
 	"Pozadí": "Background",
-	"Linka": "Line"
+	"Linka": "Line",
 };

@@ -1,0 +1,8 @@
+# Translation dictionaries: two branches that each add strings would conflict on every merge (they all append before the
+# closing line). With merge=union git keeps the lines of both sides. That is safe because every entry is one line ending
+# with a comma – also the last one before `];` / `};` – so the closing line is shared context and never doubled.
+# What union cannot see: both sides adding the same key, or changing the same entry differently (both versions stay).
+# tools/tests/unit/3860-… fails on a duplicate key and on a last entry without its comma; php -l / the dictionary
+# tests catch anything else. After a union merge, run php tools/unit-tests.php 3860.
+system/jazyky/*.php merge=union
+image/jazyky/*.js merge=union

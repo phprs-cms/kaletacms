@@ -31,7 +31,7 @@ check('3.42 Q18: the check names the odd line, the missing texts and the lost pl
     ['missing – admin-cs.js: New text %s (image/admin.js)', 'not an entry – admin-de.js:4: 	broken line', 'missing – admin-de.js: New text %s (image/admin.js)', 'placeholders differ – admin-es.js: New text %s'],
     ['cs' => 1, 'de' => 0, 'es' => 0],
     [['Saved' => 'Uloženo', 'New text %s' => 'Nový text %s'], []],
-    "\t\"Saved\": \"Uloženo\",\n\t\"New text %s\": \"Nový text %s\"\n};\n",
+    "\t\"Saved\": \"Uloženo\",\n\t\"New text %s\": \"Nový text %s\",\n};\n",
 ]);
 array_map('unlink', [...glob($q18Root . '/image/jazyky/*'), ...glob($q18Root . '/image/*.js'), ...glob($q18Root . '/system/jazyky/*')]);
 array_map('rmdir', [$q18Root . '/image/jazyky', $q18Root . '/image', $q18Root . '/system/jazyky', $q18Root . '/system', $q18Root]);

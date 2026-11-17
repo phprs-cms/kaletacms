@@ -3100,5 +3100,5 @@ window.KALETA_PREKLAD = {
 	"Stage and Move": "Phase und Verschieben",
 	"Status and Move: “%s”": "Status und Verschieben: „%s“",
 	"Status and Move": "Status und Verschieben",
-	"In this stage since today": "Seit heute in dieser Phase"
+	"In this stage since today": "Seit heute in dieser Phase",
 };
