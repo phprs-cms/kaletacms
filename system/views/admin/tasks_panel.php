@@ -30,7 +30,7 @@ foreach ($fields as $name => $value) {
 }
 $open = array_values(array_filter($tasks, fn (array $t): bool => $t['done_at'] === null));
 $done = array_values(array_filter($tasks, fn (array $t): bool => $t['done_at'] !== null));
-$row = function (array $t) use ($app, $csrf, $hidden, $action, $claude, $requestUrl, $me): string {
+$row = function (array $t) use ($csrf, $hidden, $action, $claude, $requestUrl, $me): string {
     $title = $t['title'] !== '' ? $t['title'] : t('(no title)');
     $form = fn (string $op, string $inner, string $extra = ''): string => '<form class="vradku" method="post" action="' . e($action) . '"' . $extra . '>' . $csrf . $hidden
         . '<input type="hidden" name="task" value="' . (int) $t['id'] . '"><input type="hidden" name="op" value="' . e($op) . '">' . $inner . '</form>';

@@ -1,6 +1,8 @@
-# Static analysis (2.1): php phpstan.phar analyse – CI downloads PHPStan, the site itself needs no Composer
+# Static analysis (2.1): php phpstan.phar analyse – CI downloads PHPStan, the site itself needs no Composer.
+# 3.45 (Q11, T6): level 6 blocks a merge; CI also reports the count at level 8 (not blocking) and checks the templates
+# with phpstan-views.neon.dist (level 2).
 parameters:
-    level: 5
+    level: 6
     # the oldest PHP Kaleta runs on (KALETA_MIN_PHP, 3.7): a function or syntax of a newer PHP fails the analysis
     phpVersion: 80300
     paths:
@@ -20,6 +22,10 @@ parameters:
             identifier: require.fileNotFound
             path: system/src/Core/App.php
             reportUnmatched: false
+        # level 6 asks for the value type of every array (array<string, mixed>, list<int>…) – 825 places in 3.45. New code
+        # should give one; until the old ones have it, this one rule of level 6 is off (code-quality re-audit, step 8)
+        -
+            identifier: missingType.iterableValue
 includes:
     # findings of 2.1.0 (mostly type annotations, none a known bug) – new code must not add any; remove entries as they are fixed
     - phpstan-baseline.neon

@@ -9,13 +9,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
 cleanup() { local status=$?; [ -z "${SECTION_OUT:-}" ] || { exec 1>&7; cat "$SECTION_OUT" 2>/dev/null || true; } # 3.44: a section that ended the suite early – its output, then ours on the real stdout (fd 7, test.sh)
+  # 3.45: bash 3.2 (macOS) leaves the suite with status 0 when set -u stops it in a sourced section (an unbound variable) –
+  # a run that did not reach its end fails (SMOKE_DONE: test.sh sets 0 before the first section and 1 after the last)
+  if [ "$status" -eq 0 ] && [ "${SMOKE_DONE:-1}" = 0 ]; then echo "  CHYBA  the suite stopped before its end (status 0) – an unbound variable or an exit in a section; the lines above say where"; status=1; fi
   if [ "$status" -ne 0 ] && [ -s "$WORK/server.log" ]; then echo "== the last lines of the site's server log (exit $status; an empty reply = the PHP process died)"; tail -n 25 "$WORK/server.log"; fi
   [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true
   # T1 (Q4): every background server still running – all are background jobs of this shell (the fake S3, AI, webhook,
   # old-console, probe, second-site and source servers were missing from the old list of names), so an early exit under
   # set -e leaves none listening; the fake services' logs live in $WORK, removed with it
   local pid; for pid in $(jobs -p); do kill "$pid" 2>/dev/null || true; done
-  rm -rf "${WORK:?}"; }
+  rm -rf "${WORK:?}"; exit "$status"; }
 trap cleanup EXIT
 # Clocks (INV-36): the site runs on its own time zone (Europe/Prague – bootstrap.php and the Czech installer), the database
 # in UTC (the MySQL service on CI; this script's sessions are forced to UTC below, so a local run fails the same way).
@@ -107,4 +110,42 @@ mail_sink_guard() {
   [ "$mode" = 'smtp|127.0.0.1' ] && return 0
   echo "  CHYBA  ${1##*/} left the test site on mail_mode|smtp_host = $mode – switch back with \$MAIL_SINK_VALUES (tools/tests/smoke/bootstrap.sh)"; ERRORS=$((ERRORS+1))
   mail_sink_default
+}
+
+# 3.45 (code-quality step 7): the installed site as a snapshot for partial runs (ONLY= / FROM=, tools/test.sh). A full run
+# saves it at the end of the install section (0040); a partial run restores it in 0020 (the database from the dump, then the
+# files the installer wrote over a fresh copy of the checkout) and skips the install. The key covers what decides the
+# installed state – the installer, schema and migrations, starter sites, the setup sections and the database and port of
+# the run; any other change of the checkout reaches the restored site through the fresh copy. SNAPSHOT=fresh installs anew.
+SMOKE_SNAPSHOT_DIR="${SMOKE_SNAPSHOT_DIR:-${TMPDIR:-/tmp}/kaleta-smoke-snapshot-$(printf '%s' "$ROOT|$DB_HOST|$DB_PORT|$DB_NAME|$PORT" | command php -r 'echo substr(md5(stream_get_contents(STDIN)), 0, 12);')}"
+smoke_snapshot_key() {
+  command php -r '$root = $argv[1]; $h = hash_init("sha256"); hash_update($h, $argv[2]);
+    foreach (["install.php", "system/src/Install", "system/sql", "system/blueprints", "system/presets", "tools/tests/smoke/bootstrap.sh"] as $p) {
+      $files = is_dir("$root/$p") ? iterator_to_array(new RecursiveIteratorIterator(new RecursiveDirectoryIterator("$root/$p", FilesystemIterator::SKIP_DOTS))) : [new SplFileInfo("$root/$p")];
+      $paths = array_map(fn ($f) => $f->getPathname(), array_filter($files, fn ($f) => $f->isFile())); sort($paths);
+      foreach ($paths as $f) { hash_update($h, substr($f, strlen($root)) . "\0" . file_get_contents($f) . "\0"); }
+    }
+    foreach (glob("$root/tools/tests/smoke/00[2-4]0-*.sh") ?: [] as $f) { hash_update($h, basename($f) . "\0" . file_get_contents($f) . "\0"); }
+    echo hash_final($h);' -- "$ROOT" "${WEB:-firemni}|$DB_HOST|$DB_PORT|$DB_USER|$DB_NAME|$PORT"
+}
+smoke_snapshot_valid() { [ "${SNAPSHOT:-}" != fresh ] && [ -s "$SMOKE_SNAPSHOT_DIR/db.sql" ] && [ -s "$SMOKE_SNAPSHOT_DIR/site.tar" ] && [ "$(cat "$SMOKE_SNAPSHOT_DIR/key" 2>/dev/null)" = "$(smoke_snapshot_key)" ]; }
+# smoke_snapshot_save: after the install (0040) – not on CI, where every run starts from a clean runner
+smoke_snapshot_save() {
+  [ -z "${CI:-}" ] && [ "${SNAPSHOT:-}" != off ] || return 0
+  local tmp="$SMOKE_SNAPSHOT_DIR.tmp.$$" dump=(mysqldump -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" --single-transaction --skip-comments --no-tablespaces --default-character-set=utf8mb4)
+  [ -n "$DB_PASS" ] && dump+=(-p"$DB_PASS")
+  case "$(mysqldump --help 2>/dev/null || true)" in *--set-gtid-purged*) dump+=(--set-gtid-purged=OFF) ;; esac # MySQL with GTIDs: a restore must not touch GTID_PURGED (MariaDB has no such option)
+  rm -rf "$tmp"; mkdir -p "$tmp"
+  if "${dump[@]}" "$DB_NAME" > "$tmp/db.sql" 2> "$tmp/dump.err" \
+    && (cd "$WORK/web" && tar -cf "$tmp/site.tar" config.php media storage $([ -e .user.ini ] && echo .user.ini)) \
+    && printf 'PASSWORD=%q\n' "$PASSWORD" > "$tmp/vars.sh" && smoke_snapshot_key > "$tmp/key"; then
+    rm -f "$tmp/dump.err"; rm -rf "$SMOKE_SNAPSHOT_DIR"; mv "$tmp" "$SMOKE_SNAPSHOT_DIR"; echo "  ok     3.45: the installed site saved for partial runs (ONLY= / FROM=) in $SMOKE_SNAPSHOT_DIR"
+  else echo "  --     3.45: no snapshot for partial runs ($(head -c 200 "$tmp/dump.err" 2>/dev/null)) – a partial run installs anew"; rm -rf "$tmp"; fi
+}
+# smoke_snapshot_restore: in 0020 after the fresh copy of the checkout, before the site's server starts
+smoke_snapshot_restore() {
+  "${MYSQL[@]}" "$DB_NAME" < "$SMOKE_SNAPSHOT_DIR/db.sql" || { echo "  CHYBA  3.45: the snapshot $SMOKE_SNAPSHOT_DIR does not load – run again with SNAPSHOT=fresh"; ERRORS=$((ERRORS+1)); exit 1; }
+  tar -xf "$SMOKE_SNAPSHOT_DIR/site.tar" -C "$WORK/web"; rm -f "$WORK/web/install.php"
+  # shellcheck source=/dev/null
+  . "$SMOKE_SNAPSHOT_DIR/vars.sh"
 }
