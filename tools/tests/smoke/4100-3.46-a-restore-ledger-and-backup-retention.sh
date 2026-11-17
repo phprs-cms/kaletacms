@@ -23,10 +23,11 @@ sq "INSERT INTO ka_posta (komu, predmet, telo, vytvoreno, dalsi_pokus) VALUES ('
 R346_M1=$(sq "SELECT idp FROM ka_posta WHERE predmet = 'R346 M1'"); R346_M2=$(sq "SELECT idp FROM ka_posta WHERE predmet = 'R346 M2'")
 R346_W1=$(sq "SELECT MAX(id) FROM ka_webhook_deliveries WHERE event = 'r346'"); R346_C1=$(sq "SELECT MAX(id) FROM ka_connector_queue WHERE action = 'r346.test'")
 
-# the backup, made "two days ago" (its name and its time) and – an older version – before migration 0133
+# the backup, made "two days ago" (its name and its time) and – an older version – before migrations 0133 and 0134
+R346_DBV=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'") # the version of this code (134 since 0134) – the restore brings the backup up to it
 R346_MADE=$(r346_php 'echo Kaleta\Core\Backup::create($db, "r346", false);')
 R346_FILE="kaleta-$(site_time '-2 days' Ymd-His)-r346-$(R346_HEX 4).sql.gz"; R346_DIR="$WORK/web/storage/zalohy"
-gzip -dc "$R346_DIR/$R346_MADE" | php -r '$s = stream_get_contents(STDIN); $n = 0; echo str_replace("'"'db_version','133'"'", "'"'db_version','132'"'", $s, $n); fwrite(STDERR, (string) $n);' 2> "$WORK/r346-n" | gzip > "$R346_DIR/$R346_FILE"
+gzip -dc "$R346_DIR/$R346_MADE" | php -r '$s = stream_get_contents(STDIN); $n = 0; echo str_replace("\x27db_version\x27,\x27" . $argv[1] . "\x27", "\x27db_version\x27,\x27132\x27", $s, $n); fwrite(STDERR, (string) $n);' -- "$R346_DBV" 2> "$WORK/r346-n" | gzip > "$R346_DIR/$R346_FILE"
 rm -f "$R346_DIR/$R346_MADE"; touch -t "$(site_time '-2 days' YmdHi)" "$R346_DIR/$R346_FILE"
 expect "3.46 N156: the backup never holds the restore ledger; the older backup says db_version 132" \
   "$(gzip -dc "$R346_DIR/$R346_FILE" | grep -c 'restore_ledger' || true)|$(cat "$WORK/r346-n")" "0|1"
@@ -61,8 +62,8 @@ R346_LEDGER_BEFORE=$(sq "SELECT COUNT(*) FROM ka_restore_ledger")
 # --- the restore of the older backup ---
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=restore_backup" -d "_csrf=$(csrf)" -d "soubor=$R346_FILE"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
-expect "3.46: the older backup is restored, brought up to this version (0133 again) and the message says what was kept; the administrator stays signed in" \
-  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")|$(grep -c 'Databáze byla obnovena ze zálohy' "$WORK/response" || true)|$(grep -c 'Ponecháno z dneška' "$WORK/response" || true)" "133|1|1"
+expect "3.46: the older backup is restored, brought up to this version (0133 and 0134 again) and the message says what was kept; the administrator stays signed in" \
+  "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")|$(grep -c 'Databáze byla obnovena ze zálohy' "$WORK/response" || true)|$(grep -c 'Ponecháno z dneška' "$WORK/response" || true)" "$R346_DBV|1|1"
 expect "3.46 N156: today's sign-in security – the revoked token and passkey stay gone, the password and the block of today, the removed account comes back blocked without its token" \
   "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk IN ('$R346_T1', '$R346_T2')")|$(sq "SELECT COUNT(*) FROM ka_uzivatele_klice WHERE otisk_id = '$R346_P1'")|$(sq "SELECT CONCAT(password, '/', blokovat) FROM ka_uzivatele WHERE idu = $R346_KEEP")|$(sq "SELECT blokovat FROM ka_uzivatele WHERE idu = $R346_GONE")" \
   "0|0|$R346_NEWHASH/1|1"

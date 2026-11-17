@@ -59,8 +59,10 @@ final class FreshProof
     /**
      * Settings (and Status, Features, Claude settings, which share its actions): an update check, a domain check, the
      * cookie scan, a test e-mail or webhook to the address already set, the report preview, a new backup on this server and
-     * the copy of the public media to the target already set, the accessibility statement as a hidden draft, the opening
-     * hours exceptions (open to Business details too).
+     * its copy to the target already set (the public media, and – 3.46 – the private folders, each file encrypted under the
+     * recovery key, never before it is saved), the accessibility statement as a hidden draft, the opening hours exceptions
+     * (open to Business details too). Saving the backup target or backup_remote_days, restoring, deleting and downloading a
+     * backup are not here: they need the proof.
      */
     private const array SETTINGS_EXEMPT = ['check', 'domain_check', 'cookie_scan', 'test_mail', 'test_webhook', 'retry_webhook',
         'report_preview', 'report_rebuild', 'backup', 'media_backup', 'accessibility_statement',
