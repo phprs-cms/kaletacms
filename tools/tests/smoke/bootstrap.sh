@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DB_HOST="${DB_HOST:-127.0.0.1}"; DB_PORT="${DB_PORT:-3306}"; DB_NAME="${DB_NAME:-kaleta_test}"; DB_USER="${DB_USER:-root}"; DB_PASS="${DB_PASS:-}"; PORT="${PORT:-8099}"
 WORK="$(mktemp -d)"; JAR="$WORK/cookies.txt"; B="http://127.0.0.1:$PORT"; ERRORS=0
-cleanup() { local status=$?; [ -z "${SECTION_OUT:-}" ] || cat "$SECTION_OUT" 2>/dev/null || true # 3.44: the output of a section that ended the suite early (test.sh)
+cleanup() { local status=$?; [ -z "${SECTION_OUT:-}" ] || { exec 1>&7; cat "$SECTION_OUT" 2>/dev/null || true; } # 3.44: a section that ended the suite early – its output, then ours on the real stdout (fd 7, test.sh)
   if [ "$status" -ne 0 ] && [ -s "$WORK/server.log" ]; then echo "== the last lines of the site's server log (exit $status; an empty reply = the PHP process died)"; tail -n 25 "$WORK/server.log"; fi
   [ -z "${RACE_PID:-}" ] || pkill -P "$RACE_PID" 2>/dev/null || true; [ -z "${RACE2_PID:-}" ] || pkill -P "$RACE2_PID" 2>/dev/null || true
   # T1 (Q4): every background server still running – all are background jobs of this shell (the fake S3, AI, webhook,

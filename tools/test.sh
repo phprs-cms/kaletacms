@@ -30,7 +30,7 @@ done
 # CHYBA without counting it, and the suite once ended with exit 0. Each section's output goes to its own file first
 # (sourcing with a redirection is no subshell) and every printed failure is counted: test.sh exits non-zero whenever a
 # line starts with "  CHYBA  ". The cleanup trap prints the file of a section that ends the suite early (bootstrap.sh).
-SECTION_N=0
+SECTION_N=0; exec 7>&1 # the suite's own stdout, for the cleanup trap while a section's output goes to its file
 for SMOKE_FILE in "${SMOKE_FILES[@]}"; do
   SECTION_N=$((SECTION_N+1)); SECTION_OUT="$WORK/section-$SECTION_N.out"; SECTION_ERRORS=$ERRORS
   # shellcheck disable=SC1090
