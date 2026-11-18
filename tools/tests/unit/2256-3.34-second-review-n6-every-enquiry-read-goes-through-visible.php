@@ -10,8 +10,7 @@ declare(strict_types=1);
 $n6Exempt = [
     'src/Core/PersonalData.php' => [
         'FROM {poptavky} WHERE LOWER(email) = ?' => 'an administrator\'s export or erasure reaches every enquiry of the address',
-        'SELECT idp, data FROM {poptavky} WHERE idp IN' => 'the files of the enquiries the erasure found (deleteAttachments keeps what an application lists)',
-        'SELECT data FROM {poptavky} WHERE data LIKE' => 'the addresses a restore checks against the ledger (candidates, 3.46.1) – the erasure reaches every enquiry of the address'],
+        'SELECT idp, data FROM {poptavky} WHERE idp IN' => 'the files of the enquiries the erasure found (deleteAttachments keeps what an application lists)'],
     'src/Core/Deals.php' => [
         'SELECT DISTINCT p.idp FROM {poptavky} p JOIN {deals}' => 'the retention asks which enquiries a deal holds – ids only',
         'SELECT idp, formular, tema, zdroj, email, data FROM {poptavky} WHERE idp IN' => 'the neutral title of deals whose enquiries go (forgetEnquiries) – the callers chose the rows'],

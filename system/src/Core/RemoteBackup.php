@@ -35,6 +35,9 @@ final class RemoteBackup
     /** 3.46.1 (re-audit M4): failed deletions of a private copy after which it counts as "could not be deleted" (still tried). */
     public const int DELETE_TRIES = 3;
 
+    /** 3.46.1 (N2): at most this many deletions of private copies per run – the uploads after them always get their turn. */
+    public const int DELETES_PER_RUN = 200;
+
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;
 
@@ -376,7 +379,7 @@ final class RemoteBackup
             try {
                 [, $close, , $delete] = self::open($s);
                 try {
-                    foreach ($due as $path) {
+                    foreach (array_slice($due, 0, self::DELETES_PER_RUN) as $path) { // 3.46.1 (N2): the rest next time
                         if (!self::isPrivatePath($path)) { // 3.46.1 (re-audit L9): a tampered manifest deletes nothing outside private/
                             unset($manifest['soubory'][$path], $manifest['smazano'][$path], $manifest['nesmazano'][$path]);
                             continue;
@@ -623,7 +626,8 @@ final class RemoteBackup
 
         $list = fn (): array => array_values(array_map('basename', array_map('strval', @ftp_nlist($connection, '.') ?: [])));
         $delete = function (string $name) use ($connection): void {
-            if (!@ftp_delete($connection, $name)) {
+            // 3.46.1 (N2): a file that is not there (deleted by hand, never on this server) counts as deleted
+            if (!@ftp_delete($connection, $name) && in_array(basename($name), array_map('basename', array_map('strval', @ftp_nlist($connection, dirname($name)) ?: [])), true)) {
                 throw new \RuntimeException(t('The file %s could not be deleted on the FTP server.', $name));
             }
         };
@@ -676,8 +680,18 @@ final class RemoteBackup
         $list = fn (): array => array_values(array_filter(array_map('trim', explode("\n", $command([CURLOPT_DIRLISTONLY => true]))), fn (string $n): bool => $n !== ''));
         // review M6: cURL sends QUOTE commands right after the sign-in, before it changes into the folder of the address – the
         // DELE names the file by its full path (ftpDeleteCommand), so it deletes in the backup folder and nowhere else
-        $delete = function (string $name) use ($command, $folder): void {
-            $command([CURLOPT_QUOTE => [self::ftpDeleteCommand($folder, $name)], CURLOPT_NOBODY => true]);
+        $delete = function (string $name) use ($command, $folder, $host, $s): void {
+            try {
+                $command([CURLOPT_QUOTE => [self::ftpDeleteCommand($folder, $name)], CURLOPT_NOBODY => true]);
+            } catch (\RuntimeException $e) {
+                // 3.46.1 (N2): a DELE refused because the file is not there (deleted by hand, never on this server) counts as
+                // deleted – the file itself is asked for, and only "no such file" (cURL 78) lets it go
+                $probe = curl_init();
+                curl_setopt_array($probe, [CURLOPT_URL => self::ftpUrl($host, $folder, $name), CURLOPT_NOBODY => true, CURLOPT_UPLOAD => false] + self::ftpsOptions($s->get('backup_user'), $s->get('backup_password')));
+                if (curl_exec($probe) !== false || curl_errno($probe) !== 78 /* CURLE_REMOTE_FILE_NOT_FOUND */) {
+                    throw $e;
+                }
+            }
         };
 
         return [$put, fn () => null, $list, $delete]; // PHP 8: the handle (and the connection) closes when $put is released
@@ -748,7 +762,7 @@ final class RemoteBackup
             $response = (string) curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             if ($code < 200 || $code >= 300) {
-                throw new \RuntimeException(t('The storage refused the request (code %s)', (string) $code) . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : '') . '.');
+                throw new \RuntimeException(t('The storage refused the request (code %s)', (string) $code) . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : '') . '.', $code);
             }
 
             return $response;
@@ -774,7 +788,13 @@ final class RemoteBackup
             return $names;
         };
         $delete = function (string $name) use ($request, $bucket): void {
-            $request('DELETE', '/' . implode('/', array_map(rawurlencode(...), explode('/', $bucket . '/' . $name))), []);
+            try {
+                $request('DELETE', '/' . implode('/', array_map(rawurlencode(...), explode('/', $bucket . '/' . $name))), []);
+            } catch (\RuntimeException $e) {
+                if ($e->getCode() !== 404) { // 3.46.1 (N2): an object that is not there counts as deleted
+                    throw $e;
+                }
+            }
         };
 
         return [$put, fn () => null, $list, $delete];

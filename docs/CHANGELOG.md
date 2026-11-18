@@ -39,15 +39,23 @@ stays 134.
    for more than an hour goes with the backup rotation (L2); the settings of Applications need the proof (L4); "Retry
    failed transfers" leaves the rows a restore stopped (L5); deleting a whistleblowing case looks for leftovers only beside
    a checked path (L9).
-7. **Tests.** Unit 4200 and smoke 4200–4201: a person erased by a field, a merge note and a queued body and an application
+7. **The release review** (N1–N4). The addresses a restore checks are read in batches of 500 rows by primary key and
+   compared with the ledger as they come (`PersonalData::candidates()` is a generator) – a site with tens of thousands of
+   enquiries no longer runs out of memory in the restore; a source that cannot be read is logged and skipped, the others
+   are still read. A deletion of an off-site copy answered with "no such file" (FTPS) or 404 (S3) counts as done, and at
+   most 200 private copies are deleted per run. The restore lock is named per database (`Db::lockName('restore')`), so
+   another site on the same MySQL server never makes this administration wait.
+8. **Tests.** Unit 4200 and smoke 4200–4202: a person erased by a field, a merge note and a queued body and an application
    deleted by its applicant stay gone after a restore; the administration answers 503 during a restore and a blocked
    administrator is not let in by a dead restore; the head code of a page; a new recovery key and a target that refuses
-   deletions.
+   deletions, then answers "no such object"; 20 000 enquiries read within 48M; a source with a missing column.
 
 Left for 3.47 (need a decision or a design): reconciling the private copy against a listing of the target (also after a
 new server), carrying webhook addresses, the backup target, add-ons and internal-folder audiences, the allow-list of
 statement shapes in a restore (L3), the site mark outside the database (L6), the wording of the erase result by the date of
-the update and a warning for stalled uploads (L7), ledger times independent of the wall clock (L8b), the retention of
+the update and a warning for stalled uploads (L7), carrying pending off-site deletions over a reset only for the same
+host and folder and an attempt counter in the guard (review N1, N2), a deleted application remembered with its date
+(review N5), ledger times independent of the wall clock (L8b), the retention of
 `ka_odber_fronta` and `erase()` deleting its rows (L5), and the two "sent" flags of L10.
 
 **Upgrade notes.** No migration. While a restore runs, the administration answers "A restore of the database is under way"

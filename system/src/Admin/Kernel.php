@@ -415,7 +415,6 @@ final class Kernel
         return $modules;
     }
 
-    /** Wraps the content in the common admin frame (menu, sign-in bar, messages). */
     /**
      * 3.46.1 (re-audit M2): the answer to every administration request while another request restores the database – no
      * account is read (they are the backup's until the restore puts today's back), in the site's language.
@@ -423,7 +422,8 @@ final class Kernel
     private function restoring(): Response
     {
         $this->app->auth()->forgetForBackground(); // nothing after this answer (admin.php) reads an account either
-        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$code = \Kaleta\Core\Language::base(\Kaleta\Core\Language::defaults($this->app->settings()))]) ? $code : 'cs', 'admin-');
+        $code = \Kaleta\Core\Language::base(\Kaleta\Core\Language::defaults($this->app->settings()));
+        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$code]) ? $code : 'cs', 'admin-');
         $text = t('A restore of the database is under way. Try again in a minute.');
         if (str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
             return new Response((string) json_encode(['ok' => false, 'chyba' => $text], JSON_UNESCAPED_UNICODE), 503, ['Content-Type' => 'application/json', 'Retry-After' => '60']);
@@ -434,6 +434,7 @@ final class Kernel
             503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '60']);
     }
 
+    /** Wraps the content in the common admin frame (menu, sign-in bar, messages). */
     public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;

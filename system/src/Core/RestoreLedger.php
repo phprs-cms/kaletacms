@@ -364,12 +364,12 @@ final class RestoreLedger
     /** The database lock a restore holds from its start to the end of its reapply (one restore at a time, per database and prefix). */
     public static function lock(Db $db, int $wait = 0): bool
     {
-        return (int) $db->value('SELECT GET_LOCK(?, ?)', ['kaleta_restore_' . $db->prefix, $wait]) === 1;
+        return (int) $db->value('SELECT GET_LOCK(?, ?)', [$db->lockName('restore'), $wait]) === 1; // 3.46.1 (N3): per database, not per server
     }
 
     public static function unlock(Db $db): void
     {
-        $db->value('SELECT RELEASE_LOCK(?)', ['kaleta_restore_' . $db->prefix]);
+        $db->value('SELECT RELEASE_LOCK(?)', [$db->lockName('restore')]);
     }
 
     /**
@@ -1031,9 +1031,16 @@ final class RestoreLedger
         $key = self::key($db);
         $done = ['erased' => self::applicationsDeleted($app, $key, $wanted), 'unsubscribed' => 0];
         // 3.46.1 (re-audit M1): the addresses of every place PersonalData::find() looks – a person found only through a form
-        // field, a merge note or a queued body is erased again too
+        // field, a merge note or a queued body is erased again too; (N1) read in batches and compared as they come, each
+        // address handled once
+        $handled = [];
         foreach (PersonalData::candidates($db) as $email) {
-            $kinds = $wanted[self::keyedHash($key, $email)] ?? [];
+            $hash = self::keyedHash($key, $email);
+            if (!isset($wanted[$hash]) || isset($handled[$hash])) {
+                continue;
+            }
+            $handled[$hash] = true;
+            $kinds = $wanted[$hash];
             if (in_array('erased', $kinds, true)) {
                 PersonalData::erase($app, $email);
                 $done['erased']++;
@@ -1063,11 +1070,16 @@ final class RestoreLedger
             return 0;
         }
         $ids = [];
-        foreach (self::attempt(fn (): array => $app->db()->all("SELECT id, email FROM {applications} WHERE email <> ''"), []) as $r) {
-            if (in_array(self::APPLICATION_DELETED, $wanted[self::keyedHash($key, self::applicationSubject((int) $r['id'], (string) $r['email']))] ?? [], true)) {
-                $ids[] = (int) $r['id'];
+        $last = 0;
+        do { // 3.46.1 (N1): in batches, like the candidates
+            $rows = self::attempt(fn (): array => $app->db()->all("SELECT id, email FROM {applications} WHERE id > ? AND email <> '' ORDER BY id LIMIT " . PersonalData::CANDIDATE_BATCH, [$last]), []);
+            foreach ($rows as $r) {
+                $last = (int) $r['id'];
+                if (in_array(self::APPLICATION_DELETED, $wanted[self::keyedHash($key, self::applicationSubject((int) $r['id'], (string) $r['email']))] ?? [], true)) {
+                    $ids[] = (int) $r['id'];
+                }
             }
-        }
+        } while (count($rows) === PersonalData::CANDIDATE_BATCH);
         if ($ids !== []) {
             Applications::delete($app, $ids, false, $held);
         }
