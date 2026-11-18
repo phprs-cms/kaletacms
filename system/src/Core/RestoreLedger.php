@@ -26,6 +26,12 @@ namespace Kaleta\Core;
  */
 final class RestoreLedger
 {
+    /**
+     * 3.46.1 (re-audit M1): the kind of a record for an application its applicant deleted through the talent-pool link – the
+     * fingerprint of its number and address (applicationSubject), so a restore deletes that application again and nothing else.
+     */
+    public const string APPLICATION_DELETED = 'application_deleted';
+
     /** The error of a queue row a restore stopped (stored as data, like the other delivery errors). */
     public const string STOPPED = 'Restored from a backup – not sent again.';
 
@@ -42,7 +48,12 @@ final class RestoreLedger
      * carried too, see signingKeys().
      */
     public const array CARRIED_SETTINGS = ['require_2fa', 'signin_passkey_only', 'webhook_secret', 'site_key_secret', 'fleet_console_url', 'fleet_console_key',
-        'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_answers_bound', 'fleet_last_ts', 'backup_site_id'];
+        'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_answers_bound', 'fleet_last_ts', 'backup_site_id',
+        // 3.46.1 (re-audit M5): who reads the whistleblowing channel, the rules of Claude connections, the secrets of cron, the
+        // health check and the screen, the firewall and the CAPTCHA – access taken away or tightened since stays so
+        'whistleblowing_readers', 'claude_destructive', 'claude_protected_pages', 'claude_apps_only', 'claude_change_limit', 'tasks_token', 'health_token', 'screen_secret',
+        'firewall_enabled', 'firewall_ips', 'firewall_countries', 'firewall_probes', 'firewall_rate', 'firewall_proxy',
+        'captcha_provider', 'captcha_site_key', 'captcha_secret', 'captcha_fail_open'];
 
     /** Review M4: the settings that say "sent already" for a period – today's value stays when it is later than the backup's. */
     public const array SENT_MARKERS = ['report_last_month', 'fleet_digest_sent', 'inbox_digest_day'];
@@ -78,10 +89,6 @@ final class RestoreLedger
         'odber_fronta' => ['idf', 'dalsi IS NOT NULL', 'dalsi = NULL, chyba = ?', "CONCAT(vytvoreno, '|', email)"],
     ];
 
-    /** Where the addresses an erasure may have to find again live after a restore: table => column. */
-    private const array ADDRESSES = ['poptavky' => 'email', 'odberatele' => 'email', 'contacts' => 'email', 'bookings' => 'email', 'testimonial_requests' => 'email',
-        'posta' => 'komu', 'applications' => 'email', 'quotes' => 'customer_email'];
-
     /**
      * Review M2: the state of today written before a restore starts, deleted when the restore and its reapply are over. A
      * request that dies in between (a time or memory limit, a deploy) leaves it, and the next request finishes the reapply
@@ -108,6 +115,26 @@ final class RestoreLedger
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // before migration 0133
         }
+    }
+
+    /** 3.46.1 (re-audit M1): an application deleted at its applicant's request (TalentPool::remove) – a restore deletes it again. */
+    public static function recordApplication(Db $db, int $id, string $email): void
+    {
+        if ($id <= 0 || PersonalData::cleanAddress($email) === '') {
+            return;
+        }
+        try {
+            $db->run('INSERT INTO {restore_ledger} (kind, hash, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)',
+                [self::APPLICATION_DELETED, self::keyedHash(self::key($db), self::applicationSubject($id, $email)), Clock::now()]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0133
+        }
+    }
+
+    /** What the fingerprint of a deleted application is made of: its number and its address (cleaned). Pure. */
+    public static function applicationSubject(int $id, string $email): string
+    {
+        return 'application:' . $id . '|' . PersonalData::cleanAddress($email);
     }
 
     /** A new confirmed subscription after an unsubscribe: a restore must not remove it again. */
@@ -365,10 +392,13 @@ final class RestoreLedger
             }
             $file = (string) $state['file'];
             $madeAt = is_string($state['made_at'] ?? null) ? $state['made_at'] : self::madeAt($file);
-            $done = self::reapplyFirst($app, $state['today'], $file);
-            self::migrate($app);
-            $done = self::merge($done, self::reapplyAfter($app, $state['today'], $madeAt));
             $half = ($state['phase'] ?? '') !== 'restored';
+            // 3.46.1 (re-audit L1): a restore that died before the batch with the signing key left none – this site's then
+            $today = ['half' => $half] + $state['today'];
+            $done = self::reapplyFirst($app, $today, $file);
+            self::migrate($app);
+            $done = self::merge($done, self::reapplyAfter($app, $today, $madeAt));
+            Backup::sweepLeftovers(0, false); // 3.46.1 (re-audit L2): the decrypted copy the dead restore left (this request holds the lock)
             Events::record($db, 'backup.restored', $half ? 'error' : 'warning', $half
                 ? t('A restore from backup %s stopped before its end; what it must never bring back was put back afterwards. The database may be half restored – restore backup %s (the state before) or %s again.', $file, (string) $state['safety'], $file)
                 : t('The database was restored from backup %s; the state before the restore is in backup %s.', $file, (string) $state['safety']), ['file' => $file, 'safety_backup' => (string) $state['safety'], 'finished_later' => true, 'half' => $half] + $done);
@@ -406,7 +436,7 @@ final class RestoreLedger
     {
         $db = $app->db();
         $app->settings()->reload();
-        $done = ['same_site' => self::sameSite($db, $before['site'])];
+        $done = ['same_site' => self::sameSite($db, $before['site'], (bool) ($before['half'] ?? false))];
         $failed = [];
         $step = self::stepper($done, $failed);
         $step('queues', fn (): array => ['queue_rows_stopped' => self::stopQueues($db, $before['queues'])]);
@@ -441,7 +471,7 @@ final class RestoreLedger
         $done = [];
         $failed = [];
         $step = self::stepper($done, $failed);
-        if (self::sameSite($db, $before['site'])) {
+        if (self::sameSite($db, $before['site'], (bool) ($before['half'] ?? false))) {
             $step('accounts', fn (): array => ['accounts_again' => self::accounts($db, $before['accounts'], (int) ($before['user'] ?? 0))['accounts_kept']]);
             $step('rights', fn (): array => ['rights_again' => self::rights($db, $before['rights'] ?? [], $before['accounts'])]);
             $step('settings', fn (): array => ['settings_again' => self::settings($db, $before['settings'] ?? [])]);
@@ -538,7 +568,7 @@ final class RestoreLedger
         $queries = [
             'lost' => ['enquiries' => ['poptavky', 'datum', ''], 'applications' => ['applications', 'received_at', ''], 'bookings' => ['bookings', 'created_at', ''],
                 'subscribers' => ['odberatele', 'datum', ''], 'changes' => ['protokol', 'cas', '']],
-            'kept' => ['erasures' => ['restore_ledger', 'created_at', "kind = 'erased'"], 'unsubscribes' => ['restore_ledger', 'created_at', "kind = 'unsubscribed'"]],
+            'kept' => ['erasures' => ['restore_ledger', 'created_at', "kind IN ('erased', '" . self::APPLICATION_DELETED . "')"], 'unsubscribes' => ['restore_ledger', 'created_at', "kind = 'unsubscribed'"]],
         ];
         $since = array_map(fn (?string $t): string => $t ?? '1000-01-01 00:00:00', $times);
         $out = array_map(fn (?string $t): array => ['lost' => [], 'kept' => [], 'known' => $t !== null], $times);
@@ -579,8 +609,19 @@ final class RestoreLedger
         if ($preview['known'] ?? true) {
             $text .= ' ' . t('It applies again %d erasures of personal data and %d unsubscribes made since.', $preview['kept']['erasures'], $preview['kept']['unsubscribes']);
         }
+        // 3.46.1 (re-audit M5, L8a): what the restore cannot know or leaves to the backup on purpose
+        $text .= ' ' . t('Erasures and unsubscribes made before the update to Kaleta 3.46 are not on record.');
+        if ($origin !== 'other') {
+            $text .= ' ' . self::backupsOwnText();
+        }
 
         return $text . ' ' . t('Queued e-mails, webhooks, newsletters and deliveries from the backup are not sent again.');
+    }
+
+    /** 3.46.1 (re-audit M5): the settings a restore of this site's backup leaves as they are in the backup – to check afterwards. */
+    public static function backupsOwnText(): string
+    {
+        return t('Webhook addresses, the off-site backup target, add-ons and who may open each internal folder are as they are in the backup – check them after the restore.');
     }
 
     /** reapply() in words, for the message after a restore. @param array<string, int|bool|string> $done */
@@ -594,6 +635,9 @@ final class RestoreLedger
         } elseif (($done['signing_key'] ?? '') === 'backup') {
             $text .= ' ' . t('The signing key is the backup\'s: the stored secrets could not be encrypted again with today\'s key.');
         }
+        if ($done['same_site'] ?? false) {
+            $text .= ' ' . self::backupsOwnText(); // 3.46.1 (re-audit M5)
+        }
 
         return $text;
     }
@@ -603,12 +647,13 @@ final class RestoreLedger
      * restore or any earlier one, by migration 0133 and by every new key – review L1).
      *
      * @param list<string> $before the keys of the site before the restore
+     * @param bool $half a restore that died half-way (re-audit L1): no key yet means the settings table is not restored – this site
      */
-    private static function sameSite(Db $db, array $before): bool
+    private static function sameSite(Db $db, array $before, bool $half = false): bool
     {
         $restored = self::siteKeys($db);
         if ($restored === []) {
-            return false;
+            return $half;
         }
         $known = array_merge($before, self::attempt(fn (): array => array_map('strval', array_column($db->all("SELECT hash FROM {restore_ledger} WHERE kind = 'site'"), 'hash')), []));
 
@@ -971,15 +1016,17 @@ final class RestoreLedger
     {
         $db = $app->db();
         $wanted = [];
-        foreach ($db->all("SELECT kind, hash FROM {restore_ledger} WHERE kind IN ('erased', 'unsubscribed')" . ($madeAt !== null ? ' AND created_at > ?' : ''), $madeAt !== null ? [$madeAt] : []) as $r) {
+        foreach ($db->all("SELECT kind, hash FROM {restore_ledger} WHERE kind IN ('erased', 'unsubscribed', '" . self::APPLICATION_DELETED . "')" . ($madeAt !== null ? ' AND created_at > ?' : ''), $madeAt !== null ? [$madeAt] : []) as $r) {
             $wanted[(string) $r['hash']][] = (string) $r['kind'];
         }
         if ($wanted === []) {
             return ['erased' => 0, 'unsubscribed' => 0];
         }
         $key = self::key($db);
-        $done = ['erased' => 0, 'unsubscribed' => 0];
-        foreach (self::addresses($db) as $email) {
+        $done = ['erased' => self::applicationsDeleted($app, $key, $wanted), 'unsubscribed' => 0];
+        // 3.46.1 (re-audit M1): the addresses of every place PersonalData::find() looks – a person found only through a form
+        // field, a merge note or a queued body is erased again too
+        foreach (PersonalData::candidates($db) as $email) {
             $kinds = $wanted[self::keyedHash($key, $email)] ?? [];
             if (in_array('erased', $kinds, true)) {
                 PersonalData::erase($app, $email);
@@ -998,20 +1045,28 @@ final class RestoreLedger
         return $done;
     }
 
-    /** @return list<string> the distinct addresses (cleaned) of the tables an erasure reaches */
-    private static function addresses(Db $db): array
+    /**
+     * 3.46.1 (re-audit M1): an application its applicant deleted through the talent-pool link after the backup was made
+     * (recordApplication) is deleted again – the application alone, as the applicant asked, not everything about the address.
+     *
+     * @param array<string, list<string>> $wanted fingerprint => kinds
+     */
+    private static function applicationsDeleted(App $app, string $key, array $wanted): int
     {
-        $all = [];
-        foreach (self::ADDRESSES as $table => $column) {
-            foreach (self::attempt(fn (): array => $db->all('SELECT DISTINCT ' . $column . ' AS a FROM {' . $table . '} WHERE ' . $column . " <> ''"), []) as $r) {
-                $email = PersonalData::cleanAddress((string) $r['a']);
-                if ($email !== '') {
-                    $all[$email] = true;
-                }
+        if (!in_array(self::APPLICATION_DELETED, array_merge(...array_values($wanted)), true)) {
+            return 0;
+        }
+        $ids = [];
+        foreach (self::attempt(fn (): array => $app->db()->all("SELECT id, email FROM {applications} WHERE email <> ''"), []) as $r) {
+            if (in_array(self::APPLICATION_DELETED, $wanted[self::keyedHash($key, self::applicationSubject((int) $r['id'], (string) $r['email']))] ?? [], true)) {
+                $ids[] = (int) $r['id'];
             }
         }
+        if ($ids !== []) {
+            Applications::delete($app, $ids, false, $held);
+        }
 
-        return array_keys($all);
+        return count($ids);
     }
 
     private static function insert(Db $db, string $kind, string $hash): void

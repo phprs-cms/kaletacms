@@ -926,6 +926,17 @@ final class Auth
         $this->connection = null;
     }
 
+    /**
+     * 3.46.1 (re-audit M2): the account row this request read is read again on the next use – after a restore finished in
+     * this request put today's accounts back over the backup's.
+     */
+    public function forgetUser(): void
+    {
+        $this->user = false;
+        $this->modules = null;
+        $this->connection = null;
+    }
+
     /** Sign-in without a session - for requests authenticated by a token (MCP). */
     public function signInAs(array $user): void
     {

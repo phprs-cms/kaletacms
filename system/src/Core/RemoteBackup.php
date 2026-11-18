@@ -32,6 +32,9 @@ final class RemoteBackup
     /** The private folders of the off-site copy (3.46, N165), relative to the site root – each file encrypted (syncPrivate). */
     public const array PRIVATE_FOLDERS = ['storage/applications', 'storage/internal-files', 'storage/oznameni', 'storage/requests', 'storage/prilohy'];
 
+    /** 3.46.1 (re-audit M4): failed deletions of a private copy after which it counts as "could not be deleted" (still tried). */
+    public const int DELETE_TRIES = 3;
+
     /** Seconds between background runs of the media copy when nothing is waiting. */
     private const int MEDIA_INTERVAL = 3600;
 
@@ -355,7 +358,7 @@ final class RemoteBackup
         $target = sha1($s->get('remote_backup') . '|' . $s->get('backup_host') . '|' . $s->get('backup_folder') . '|' . BackupEncryption::keyId($key));
         $manifest = is_file(self::PRIVATE_MANIFEST) ? json_decode((string) file_get_contents(self::PRIVATE_MANIFEST), true) : null;
         if (!is_array($manifest) || ($manifest['cil'] ?? '') !== $target) {
-            $manifest = ['cil' => $target, 'soubory' => []]; // a new target or recovery key gets everything
+            $manifest = self::resetManifest(is_array($manifest) ? $manifest : null, $target, $files); // a new target or recovery key gets everything
         }
         $pending = [];
         foreach ($files as $path => $size) {
@@ -374,15 +377,21 @@ final class RemoteBackup
                 [, $close, , $delete] = self::open($s);
                 try {
                     foreach ($due as $path) {
+                        if (!self::isPrivatePath($path)) { // 3.46.1 (re-audit L9): a tampered manifest deletes nothing outside private/
+                            unset($manifest['soubory'][$path], $manifest['smazano'][$path], $manifest['nesmazano'][$path]);
+                            continue;
+                        }
                         try {
                             $delete('private/' . $path . BackupEncryption::EXTENSION);
                         } catch (\Throwable $e) {
+                            // a passing failure is tried again next time; 3.46.1 (re-audit M4): after DELETE_TRIES the entry stays as
+                            // failed – tried again on every run and shown in Settings → Backups, never dropped as gone
                             $tries = (int) ($manifest['nesmazano'][$path] ?? 0) + 1;
-                            if ($tries < 3) { // a passing failure is tried again next time; after three the copy is given up as gone already
-                                $manifest['nesmazano'][$path] = $tries;
+                            $manifest['nesmazano'][$path] = $tries;
+                            if ($tries < self::DELETE_TRIES) {
                                 $error ??= $e->getMessage();
-                                continue;
                             }
+                            continue;
                         }
                         unset($manifest['soubory'][$path], $manifest['smazano'][$path], $manifest['nesmazano'][$path]);
                     }
@@ -434,6 +443,49 @@ final class RemoteBackup
         }
 
         return $error;
+    }
+
+    /**
+     * The manifest of a new target or recovery key (pure): every file is copied again – 3.46.1 (re-audit M4): but a file copied
+     * before and gone from the site since stays on the list with the day it went (and its failed deletions), so its copy is
+     * still deleted after backup_remote_days instead of being forgotten.
+     *
+     * @param array<string, mixed>|null $old the manifest so far
+     * @param array<string, int> $files the files on the disk now
+     * @return array<string, mixed>
+     */
+    public static function resetManifest(?array $old, string $target, array $files): array
+    {
+        $carried = $old !== null ? array_diff_key((array) ($old['soubory'] ?? []), $files) : [];
+
+        return ['cil' => $target, 'soubory' => $carried, 'smazano' => array_intersect_key((array) ($old['smazano'] ?? []), $carried),
+            'nesmazano' => array_intersect_key((array) ($old['nesmazano'] ?? []), $carried)];
+    }
+
+    /** Is $path (relative to the site root) a file of one of the private folders – no "..", no backslash? Pure. */
+    public static function isPrivatePath(string $path): bool
+    {
+        if (str_contains($path, '\\') || preg_match('#(^|/)\.\.?(/|$)#', $path) === 1) {
+            return false;
+        }
+        foreach (self::PRIVATE_FOLDERS as $folder) {
+            if (str_starts_with($path, $folder . '/') && strlen($path) > strlen($folder) + 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 3.46.1 (re-audit M4): how many private files the off-site copy could not delete DELETE_TRIES times in a row (the target
+     * refuses deletion – credentials that may write only); Settings → Backups shows the number.
+     */
+    public static function undeletedPrivate(): int
+    {
+        $manifest = is_file(self::PRIVATE_MANIFEST) ? json_decode((string) file_get_contents(self::PRIVATE_MANIFEST), true) : null;
+
+        return is_array($manifest) ? count(array_filter((array) ($manifest['nesmazano'] ?? []), fn (mixed $tries): bool => (int) $tries >= self::DELETE_TRIES)) : 0;
     }
 
     /** From background tasks: at most once an hour, or right away while files are still waiting – the media and (3.46) the private folders. */

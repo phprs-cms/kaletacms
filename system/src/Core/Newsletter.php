@@ -71,10 +71,13 @@ final class Newsletter
         return $count;
     }
 
-    /** Retry abandoned tasks right away. */
+    /**
+     * Retry abandoned tasks right away – 3.46.1 (re-audit L5): not the rows a restore stopped (RestoreLedger::STOPPED): they are
+     * the backup's queue, which went out before or was replaced since.
+     */
     public static function retry(App $app): int
     {
-        return $app->db()->run('UPDATE {odber_fronta} SET dalsi = ?, pokusy = 0 WHERE dalsi IS NULL', [Clock::now()])->rowCount();
+        return $app->db()->run('UPDATE {odber_fronta} SET dalsi = ?, pokusy = 0 WHERE dalsi IS NULL AND chyba <> ?', [Clock::now(), RestoreLedger::STOPPED])->rowCount();
     }
 
     /** Sends the tasks whose turn has come (called by the background cleanup). @return int number processed */

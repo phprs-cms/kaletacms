@@ -145,6 +145,71 @@ final class PersonalData
     }
 
     /**
+     * 3.46.1 (re-audit M1): every address find() can meet on the site – the candidates a restore checks against the ledger's
+     * fingerprints before it erases again (RestoreLedger::people; the erasure itself is erase(), so find() decides what goes).
+     * It follows find(): the senders of enquiries and the whole values of their fields, subscribers, customer records and
+     * the addresses their merge notes name (the marker merged_email, and the address in Kaleta's older wording), bookings,
+     * testimonial requests, the mail queue, job applications, quotes, and any value of a waiting or kept webhook or
+     * connector body (forgetQueued). Cleaned, distinct, only values with an "@". A table an older backup lacks is skipped.
+     *
+     * @return list<string>
+     */
+    public static function candidates(Db $db): array
+    {
+        $all = [];
+        $add = function (mixed $value) use (&$all): void {
+            if (is_string($value) && str_contains($value, '@')) {
+                $email = self::cleanAddress($value);
+                if ($email !== '' && strlen($email) <= 320) {
+                    $all[$email] = true;
+                }
+            }
+        };
+        $read = function (string $sql) use ($db): array {
+            try {
+                return $db->all($sql);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+
+                return [];
+            }
+        };
+        foreach (['poptavky' => 'email', 'odberatele' => 'email', 'contacts' => 'email', 'bookings' => 'email', 'testimonial_requests' => 'email',
+            'posta' => 'komu', 'applications' => 'email', 'quotes' => 'customer_email', 'contact_activities' => 'merged_email'] as $table => $column) {
+            foreach ($read('SELECT DISTINCT ' . $column . ' AS a FROM {' . $table . '} WHERE ' . $column . " <> ''") as $r) {
+                $add($r['a']);
+            }
+        }
+        // an enquiry is the person's when one of its fields is exactly the address (ofEnquiry) – a form whose e-mail is an
+        // ordinary text field stores no sender
+        foreach ($read("SELECT data FROM {poptavky} WHERE data LIKE '%@%'") as $r) {
+            foreach ((array) (json_decode((string) $r['data'], true) ?: []) as $field) {
+                $add(is_array($field) ? ($field[1] ?? null) : null);
+            }
+        }
+        // Kaleta's merge note from before the marker: "Merged with the contact #12 (jana@example.com)." in any language
+        foreach ($read("SELECT text FROM {contact_activities} WHERE kind = 'note' AND text LIKE '%@%'") as $r) {
+            if (preg_match_all('/\(([^\s()]+@[^\s()]+)\)/u', (string) $r['text'], $m) > 0) {
+                foreach ($m[1] as $value) {
+                    $add($value);
+                }
+            }
+        }
+        foreach ([['webhook_deliveries', 'body'], ['connector_queue', 'payload']] as [$table, $column]) {
+            foreach ($read('SELECT ' . $column . ' AS b FROM {' . $table . '} WHERE ' . $column . " LIKE '%@%'") as $r) {
+                $data = json_decode((string) $r['b'], true);
+                if (is_array($data)) {
+                    array_walk_recursive($data, function (mixed $value) use ($add): void {
+                        $add($value);
+                    });
+                }
+            }
+        }
+
+        return array_map('strval', array_keys($all));
+    }
+
+    /**
      * The customer records for the file (3.28): what the contact holds, its company's name, the team's log, comments and tasks.
      *
      * @param list<int> $ids

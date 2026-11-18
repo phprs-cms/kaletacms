@@ -2265,7 +2265,7 @@ Keys: `PRIMARY KEY (id)`; `KEY ix_absences_user (user_id, ends_on)`; `KEY ix_abs
 | Column | English | Type | Note |
 |---|---|---|---|
 | `id` |  | INT UNSIGNED NOT NULL AUTO_INCREMENT |  |
-| `kind` |  | VARCHAR(20) NOT NULL | key \| site \| erased \| unsubscribed \| token \| passkey \| account_lost \| token_lost \| passkey_lost (review L2: taken away by a restore, not revoked) |
+| `kind` |  | VARCHAR(20) NOT NULL | key \| site \| erased \| unsubscribed \| application_deleted (3.46.1) \| token \| passkey \| account_lost \| token_lost \| passkey_lost (review L2: taken away by a restore, not revoked) |
 | `hash` |  | CHAR(64) NOT NULL | the fingerprint (kind key: the ledger's own random key) |
 | `created_at` |  | DATETIME NOT NULL | when it happened – the last time (erased and unsubscribed: reapplied to every backup older than this) |
 

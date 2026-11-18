@@ -209,6 +209,25 @@ final class Backup
         foreach (self::prunable(self::listAll(), [...$protect, ...self::held()], time()) as $old) {
             @unlink(self::FOLDER . '/' . $old);
         }
+        self::sweepLeftovers();
+    }
+
+    /**
+     * 3.46.1 (re-audit L2): the temporary files a request killed by a time or memory limit leaves behind – the decrypted copy of
+     * a restore (.restore-<hex>.sql, .sql.gz: a whole plain dump) and the encrypted file of an off-site upload
+     * (.upload-<hex>.enc, only with $uploads – one may be on its way in another request) – older than $olderThan seconds.
+     * Their names are outside the rotation, so nothing else sees them.
+     */
+    public static function sweepLeftovers(int $olderThan = 3600, bool $uploads = true): int
+    {
+        $count = 0;
+        foreach ([...(glob(self::FOLDER . '/.restore-*.sql*') ?: []), ...($uploads ? (glob(self::FOLDER . '/.upload-*' . BackupEncryption::EXTENSION) ?: []) : [])] as $file) {
+            if (preg_match('#/\.(restore-[a-f0-9]+\.sql(\.gz)?|upload-[a-f0-9]+\.enc)$#D', $file) === 1 && is_file($file) && (int) @filemtime($file) <= time() - $olderThan && @unlink($file)) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**

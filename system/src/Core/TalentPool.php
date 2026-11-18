@@ -189,7 +189,7 @@ final class TalentPool
             return null;
         }
         try {
-            return $db->one('SELECT id, name, job_title, language, pool_until FROM {applications} WHERE pool_token = ? AND pool_token_until >= ? AND pool_until IS NOT NULL', [hash('sha256', $token), Clock::now()]);
+            return $db->one('SELECT id, name, email, job_title, language, pool_until FROM {applications} WHERE pool_token = ? AND pool_token_until >= ? AND pool_until IS NOT NULL', [hash('sha256', $token), Clock::now()]);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return null; // before migration 0129
@@ -239,6 +239,7 @@ final class TalentPool
             return false;
         }
         Applications::delete($app, [$id], false, $held);
+        RestoreLedger::recordApplication($db, $id, (string) ($row['email'] ?? '')); // 3.46.1 (re-audit M1): a restore deletes it again
         Applications::log($app, 'deleted_by_applicant', '#' . $id);
         Events::record($db, 'application.deleted_by_applicant', $held === [] ? 'info' : 'warning', $held === []
             ? sprintf('Application #%d was deleted at the applicant\'s request (the renewal e-mail).', $id)

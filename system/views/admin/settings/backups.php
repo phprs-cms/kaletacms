@@ -152,6 +152,9 @@ if ($privateStatus !== '' && $remoteOn): [$when, $how, $waiting] = explode('|', 
     default => t('Private files: %d files are still waiting – the copy continues in the background.', (int) $waiting),
 }) ?></p>
 <?php endif ?>
+<?php if ($remoteOn && ($undeleted = Kaleta\Core\RemoteBackup::undeletedPrivate()) > 0): // 3.46.1 (re-audit M4) ?>
+<p class="hlaska hlaska-chyba"><?= e(t('Private files: %d files removed from the site could not be deleted from the off-site copy – the target refuses deletion. Allow deleting in the folder private/, or delete them there by hand; Kaleta keeps trying.', $undeleted)) ?></p>
+<?php endif ?>
 <p class="napoveda"><?= e(t('Save the settings, then click “Create backup now” – the copy uploads right away and you will see whether the connection works.')) ?></p>
 </details>
 <?php $field('auto_backups', 'Automatic backups', 'ano', 'Every day something changed on the site, otherwise once a week – while an administrator works in the administration or cron runs. The last 10 backups are kept, none older than 30 days.'); ?>

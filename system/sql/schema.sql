@@ -2082,7 +2082,7 @@ CREATE TABLE ka_absences (
 -- restore already removed once, and the one-way ids of the site's signing keys (a backup of this site, not of another one).
 CREATE TABLE ka_restore_ledger (
     id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    kind       VARCHAR(20) CHARACTER SET ascii NOT NULL,                 -- key | site | erased | unsubscribed | token | passkey | account_lost | token_lost | passkey_lost (review L2: taken away by a restore, not revoked)
+    kind       VARCHAR(20) CHARACTER SET ascii NOT NULL,                 -- key | site | erased | unsubscribed | application_deleted (3.46.1) | token | passkey | account_lost | token_lost | passkey_lost (review L2: taken away by a restore, not revoked)
     hash       CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,  -- the fingerprint (kind key: the ledger's own random key)
     created_at DATETIME NOT NULL,                                        -- when it happened – the last time (erased and unsubscribed: reapplied to every backup older than this)
     PRIMARY KEY (id),

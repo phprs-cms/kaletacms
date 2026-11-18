@@ -380,6 +380,12 @@ final class Pages extends Module
         if ($this->app->auth()->isAdmin() && !\Kaleta\Core\Demo::active()) {
             // code in <head> of this page only (2.3); never in the public demo – administrators, like the code for the whole site
             $data['kod_hlavicky'] = trim((string) ($_POST['kod_hlavicky'] ?? '')) !== '' ? mb_substr((string) $_POST['kod_hlavicky'], 0, 20000) : null;
+            // 3.46.1 (re-audit M3): it runs on the site's own origin like the code for the whole site – a change needs the same
+            // recent proof (Admin\FreshProof); saving the page with the code as it is does not ask
+            $storedCode = $id > 0 ? (string) ($this->db->value('SELECT kod_hlavicky FROM {stranky} WHERE ids = ?', [$id]) ?? '') : '';
+            if ((string) ($data['kod_hlavicky'] ?? '') !== $storedCode && ($reason = \Kaleta\Admin\FreshProof::refusal($this->app->auth())) !== null) {
+                return \Kaleta\Admin\FreshProof::page($this->kernel, $reason);
+            }
         }
         // scheduled publishing: only for a hidden page with a future time; a past time publishes the page right away
         $from = strtotime(str_replace('T', ' ', $r->post('zverejnit_od'))) ?: null;

@@ -674,9 +674,10 @@ final class Whistleblowing
     {
         foreach (self::contents($app->settings(), $case)['attachments'] as $attachment) {
             $path = self::attachmentPath($attachment);
-            if ($path !== null) {
-                @unlink($path);
+            if ($path === null) {
+                continue; // 3.46.1 (re-audit L9): a path that fails the check is never used to look for leftovers either
             }
+            @unlink($path);
             foreach (glob(self::FOLDER . '/' . (string) $attachment['path'] . '.*.sealing') ?: [] as $leftover) {
                 @unlink($leftover); // a sealed copy an interrupted run of 0134 left beside it
             }

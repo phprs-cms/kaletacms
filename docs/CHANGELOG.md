@@ -4,6 +4,57 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.46.1 – restore and erasure fixes (18 November 2026)
+
+The findings of the security re-audit of 3.46 that close a promise of the release. No database change; `KALETA_DB_VERSION`
+stays 134.
+
+1. **A restore erases a person everywhere the erasure found them** (re-audit M1). The addresses a restore checks against
+   the ledger come from `PersonalData::candidates()`, which follows `find()`: besides the senders and recipients of the
+   eight columns before, the whole values of enquiry fields (a form whose e-mail is an ordinary text field), the addresses
+   merge notes name (`contact_activities.merged_email` and Kaleta's older wording) and any value of a waiting or kept
+   webhook or connector body. An application its applicant deleted through the talent-pool link
+   (`TalentPool::remove`) is recorded in the ledger (`RestoreLedger::APPLICATION_DELETED`, the fingerprint of its number
+   and address) and a restore deletes that application again – the application alone, not everything about the address.
+2. **The administration waits for a restore** (re-audit M2). `Admin\Kernel` runs `RestoreLedger::guard()` before any
+   account is read; a request that finishes a dead restore forgets the row it may have read (`Auth::forgetUser()`), and
+   while another request restores, every administration request – the sign-in page too – answers 503 "A restore of the
+   database is under way" without reading an account, as `/mcp`, the API and cron did.
+3. **A page's own head code needs the proof** (re-audit M3). Saving a page whose "Code in the head of this page" changed
+   asks "Confirm it is you" like the code for the whole site; saving with the code as it is does not ask. Site parts,
+   pop-ups and collections have no raw-code field (the HTML element filters scripts); everything else that runs on the
+   site's own origin is a setting and needed the proof already.
+4. **Off-site deletions are never forgotten** (re-audit M4, first part). A new recovery key or backup target copies the
+   private files again but keeps the files still to be deleted off-site (with the day they went,
+   `RemoteBackup::resetManifest`). A copy the target refuses to delete three times stays listed as not deleted, is tried
+   again on every run and Settings → Backups shows how many there are; the manifest deletes only paths inside the
+   private folders (re-audit L9).
+5. **More of today survives a restore** (re-audit M5, first part). `CARRIED_SETTINGS` adds the readers of the
+   whistleblowing channel, the rules of Claude connections (`claude_destructive`, `claude_protected_pages`,
+   `claude_apps_only`, `claude_change_limit`), the secrets of cron, the health check and the screen, the firewall and the
+   CAPTCHA. The restore preview and its summary say that webhook addresses, the off-site backup target, add-ons and the
+   audiences of internal folders are the backup's, and that erasures before 3.46 are not on record (re-audit L8a).
+6. **Smaller fixes.** A dead restore whose settings table was not restored yet keeps today's sign-in (re-audit L1); the
+   decrypted copy of a dead restore is deleted when the restore is finished, and every `.restore-*` and `.upload-*` left
+   for more than an hour goes with the backup rotation (L2); the settings of Applications need the proof (L4); "Retry
+   failed transfers" leaves the rows a restore stopped (L5); deleting a whistleblowing case looks for leftovers only beside
+   a checked path (L9).
+7. **Tests.** Unit 4200 and smoke 4200–4201: a person erased by a field, a merge note and a queued body and an application
+   deleted by its applicant stay gone after a restore; the administration answers 503 during a restore and a blocked
+   administrator is not let in by a dead restore; the head code of a page; a new recovery key and a target that refuses
+   deletions.
+
+Left for 3.47 (need a decision or a design): reconciling the private copy against a listing of the target (also after a
+new server), carrying webhook addresses, the backup target, add-ons and internal-folder audiences, the allow-list of
+statement shapes in a restore (L3), the site mark outside the database (L6), the wording of the erase result by the date of
+the update and a warning for stalled uploads (L7), ledger times independent of the wall clock (L8b), the retention of
+`ka_odber_fronta` and `erase()` deleting its rows (L5), and the two "sent" flags of L10.
+
+**Upgrade notes.** No migration. While a restore runs, the administration answers "A restore of the database is under way"
+for up to a minute. Saving a page with a changed head code and saving the settings of Applications ask for a recent
+confirmation. After a restore, the readers of the whistleblowing channel, Claude's rules, the cron, health and screen
+secrets, the firewall and the CAPTCHA settings stay as they are today.
+
 ## 3.46 – privacy and backups (18 November 2026)
 
 Migrations 0133 and 0134; `KALETA_DB_VERSION` is 134.

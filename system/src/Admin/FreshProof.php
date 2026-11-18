@@ -71,13 +71,16 @@ final class FreshProof
     /**
      * Review L3: the administrator-only actions of sections that are not the administrator's alone – they need the proof too
      * (by module and action): who reads the whistleblowing channel and its settings, which internal folders exist and who
-     * sees them, the erasure of a person's data (a restore never brings it back) and the retention periods of enquiries.
-     * A unit test fails for an entry naming a module or an action that does not exist.
+     * sees them, the erasure of a person's data (a restore never brings it back), the retention periods of enquiries and
+     * (3.46.1) the settings of Applications. A page's own head code asks in Pages::actionSave() when it changes (3.46.1, re-audit
+     * M3). A unit test fails for an entry naming a module or an action that does not exist.
      */
     public const array ADMIN_ACTIONS = [
         'whistleblowing' => ['settings'],
         'internal_files' => ['folder_save', 'folder_delete'],
         'enquiries' => ['personal', 'settings'],
+        // 3.46.1 (re-audit L4): the administrator's settings of Applications – their webhook, Claude's access and the retention
+        'applications' => ['settings_save'],
     ];
 
     /** The field of the forms that carries the current password (the same as My account, Users and the OAuth consent). */

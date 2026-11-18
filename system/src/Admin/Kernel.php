@@ -189,6 +189,17 @@ final class Kernel
         $app = $this->app;
         $request = $app->request;
         \Kaleta\Extension\Registry::boot($app); // add-ons (3.0): their admin pages and tools
+        // 3.46 review M2, 3.46.1 (re-audit M2): before any sign-in is read – a restore whose request died is finished first
+        // (and the account row read before it forgotten); while another request restores, the accounts are the backup's,
+        // so the administration answers nothing until it is over
+        $app->applyTimezone();
+        $restore = \Kaleta\Core\RestoreLedger::guard($app);
+        if ($restore === 'running') {
+            return $this->restoring();
+        }
+        if ($restore === 'finished') {
+            $app->auth()->forgetUser();
+        }
 
         // admin language: the user's choice (My account); the sign-in page follows the site language. It is set first so that even the message about an expired form is translated
         // (a regional site language such as de-at gives the administration of its language)
@@ -215,7 +226,6 @@ final class Kernel
         }
         $request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
-        \Kaleta\Core\RestoreLedger::guard($app); // 3.46 review M2: a restore whose request died is finished first – before any sign-in is checked
         \Kaleta\Core\Collation::setLanguage(\Kaleta\Core\Language::defaults($app->settings())); // lists sort in the site's alphabet (3.12)
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
@@ -406,6 +416,24 @@ final class Kernel
     }
 
     /** Wraps the content in the common admin frame (menu, sign-in bar, messages). */
+    /**
+     * 3.46.1 (re-audit M2): the answer to every administration request while another request restores the database – no
+     * account is read (they are the backup's until the restore puts today's back), in the site's language.
+     */
+    private function restoring(): Response
+    {
+        $this->app->auth()->forgetForBackground(); // nothing after this answer (admin.php) reads an account either
+        \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$code = \Kaleta\Core\Language::base(\Kaleta\Core\Language::defaults($this->app->settings()))]) ? $code : 'cs', 'admin-');
+        $text = t('A restore of the database is under way. Try again in a minute.');
+        if (str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
+            return new Response((string) json_encode(['ok' => false, 'chyba' => $text], JSON_UNESCAPED_UNICODE), 503, ['Content-Type' => 'application/json', 'Retry-After' => '60']);
+        }
+
+        return new Response('<!doctype html><html lang="' . e(\Kaleta\Core\Language::code()) . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">'
+            . '<title>' . e($text) . '</title><p style="font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem">' . e($text) . '</p></html>',
+            503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '60']);
+    }
+
     public function page(string $heading, string $content, int $status = 200): Response
     {
         $app = $this->app;
