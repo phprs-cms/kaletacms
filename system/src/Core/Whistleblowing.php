@@ -617,6 +617,21 @@ final class Whistleblowing
         return $out;
     }
 
+    /**
+     * Review N2: may any report still have an attachment from before 3.46? Cheap and on the safe side – whether a list is
+     * sealed needs the key, so any report with attachments counts until a pass (SealedFiles::sealAll) got through.
+     */
+    public static function unsealedLeft(Db $db): bool
+    {
+        try {
+            return $db->value('SELECT 1 FROM {whistleblowing_cases} WHERE attachments IS NOT NULL LIMIT 1') !== null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+
+            return false; // no channel on this database
+        }
+    }
+
     /* ---------- the daily job: reminders and retention ---------- */
 
     /** Scheduler job 'whistleblowing': an event for every due deadline, and closed cases past the retention period deleted. */

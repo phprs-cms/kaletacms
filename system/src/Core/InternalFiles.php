@@ -852,6 +852,18 @@ final class InternalFiles
         }
     }
 
+    /** Review N2: is any version still without its own key (from before 3.46, not sealed yet)? Cheap. */
+    public static function unsealedLeft(Db $db): bool
+    {
+        try {
+            return $db->value('SELECT 1 FROM {internal_file_versions} WHERE file_key IS NULL LIMIT 1') !== null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+
+            return false; // before migration 0131
+        }
+    }
+
     /** The disk path of a stored path, or null when it is not one this class writes (pure apart from the constant). */
     public static function diskPath(string $path): ?string
     {

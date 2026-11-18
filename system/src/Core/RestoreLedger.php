@@ -42,7 +42,7 @@ final class RestoreLedger
      * carried too, see signingKeys().
      */
     public const array CARRIED_SETTINGS = ['require_2fa', 'signin_passkey_only', 'webhook_secret', 'site_key_secret', 'fleet_console_url', 'fleet_console_key',
-        'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_answers_bound', 'fleet_last_ts'];
+        'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_answers_bound', 'fleet_last_ts', 'backup_site_id'];
 
     /** Review M4: the settings that say "sent already" for a period – today's value stays when it is later than the backup's. */
     public const array SENT_MARKERS = ['report_last_month', 'fleet_digest_sent', 'inbox_digest_day'];
@@ -233,7 +233,7 @@ final class RestoreLedger
         }
         $accounts = [];
         foreach (self::attempt(fn (): array => $db->all('SELECT * FROM {uzivatele}'), []) as $row) {
-            $accounts[(int) $row['idu']] = array_intersect_key($row, array_flip([...self::ACCOUNT_COLUMNS, 'user']));
+            $accounts[(int) $row['idu']] = array_intersect_key($row, array_flip([...self::ACCOUNT_COLUMNS, 'user', 'jmeno'])); // jmeno: only to put the restoring account back
         }
         $rights = [];
         foreach (self::attempt(fn (): array => $db->all('SELECT fk_id_user, ident_modulu FROM {uzivatele_prava}'), []) as $row) {
@@ -670,8 +670,20 @@ final class RestoreLedger
         foreach (array_keys(array_diff_key($before, $restored)) as $id) {
             self::insert($db, 'account_lost', hash('sha256', 'account:' . $id));
         }
-        if ($user > 0 && (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin = 2 AND blokovat = 0') === 0) {
-            $db->update('uzivatele', ['blokovat' => 0], ['idu' => $user]); // never a site without an administrator who can sign in
+        // review N1: the account that restores is there afterwards – put back from today (credentials, level, role, e-mail; its
+        // rights follow in rights()) when the backup is older than it; and the site keeps an administrator who can sign in
+        if ($user > 0 && !isset($restored[$user]) && isset($before[$user])) {
+            $row = ['idu' => $user] + array_intersect_key($before[$user], array_flip(array_intersect([...self::ACCOUNT_COLUMNS, 'user', 'jmeno'], $columns)));
+            try {
+                $db->insert('uzivatele', $row);
+            } catch (\PDOException) {
+                // any database error here is the sign-in name another restored account holds (unique) – it comes back under a free one
+                $db->insert('uzivatele', ['user' => mb_substr((string) $row['user'], 0, 30) . '-' . $user] + $row);
+            }
+            $restored[$user] = true;
+        }
+        if ($user > 0 && isset($restored[$user]) && (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin = 2 AND blokovat = 0') === 0) {
+            $db->update('uzivatele', ['blokovat' => 0, 'admin' => 2], ['idu' => $user]); // never a site without an administrator who can sign in
         }
 
         return ['accounts_kept' => $kept, 'accounts_blocked' => $blocked];

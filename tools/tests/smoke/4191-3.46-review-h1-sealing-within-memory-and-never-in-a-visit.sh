@@ -1,7 +1,7 @@
 echo "== 3.46 review H1: sealing and opening a large private file fit the memory budget; a file that killed a run is skipped; a visitor's request never seals"
 # a command-line PHP with a fixed memory limit, the site's app ready: h1_php LIMIT 'code' args…
 h1_php() { local limit="$1"; shift; (cd "$WORK/web" && php -d "memory_limit=$limit" -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); $db = $app->db(); $s = $app->settings(); $a = array_slice($argv, 1); '"$1" -- "${@:2}"); }
-H1_KEYS="'private_files_sealing', 'private_files_skipped', 'data_migrations', 'data_migrations_unfinished'"
+H1_KEYS="'private_files_sealing', 'private_files_skipped', 'private_files_unsealed', 'data_migrations', 'data_migrations_unfinished'"
 sq "DROP TABLE IF EXISTS ka_h1_backup; CREATE TABLE ka_h1_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ($H1_KEYS)" > /dev/null
 sq "INSERT INTO ka_internal_folders (name, audience, created_at, updated_at) VALUES ('H1 Folder', 'all', '$(site_time)', '$(site_time)')" > /dev/null
 H1_FOLDER=$(sq "SELECT id FROM ka_internal_folders WHERE name = 'H1 Folder'")
@@ -42,11 +42,18 @@ H1_VISIT=$(h1_plain h1-visit.bin 1)
 sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM CONCAT(hodnota, ',0134-seal-private-files')) WHERE promenna = 'data_migrations_unfinished';
   REPLACE INTO ka_nastaveni (promenna, hodnota) SELECT 'data_migrations_unfinished', '0134-seal-private-files' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished')" > /dev/null
 H1_PAGE=$(curl -s -o /dev/null -w '%{http_code}' "$B/")
-expect "3.46 review H1: a visitor's page request with 0134 unfinished answers and seals nothing – the migration stays unfinished" \
-  "$H1_PAGE|$(sq "SELECT file_key IS NULL FROM ka_internal_file_versions WHERE id = $H1_VISIT")|$(sq "SELECT hodnota LIKE '%0134-seal-private-files%' FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'")" "200|1|1"
+h1_pending() { h1_php 128M 'echo Kaleta\Core\Migration::pending($s) ? "pending" : "done";'; }
+expect "3.46 review H1/N2: a visitor's page request with 0134 unfinished answers and seals nothing – the migration is finished for good, the files left are named by the flag" \
+  "$H1_PAGE|$(sq "SELECT file_key IS NULL FROM ka_internal_file_versions WHERE id = $H1_VISIT")|$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), '') LIKE '%0134%'")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'private_files_unsealed'")|$(h1_pending)" "200|1|0|1|done"
+H1_PAGE=$(curl -s -o /dev/null -w '%{http_code}' "$B/")
+expect "3.46 review N2: the next visitor's request runs no migration – nothing pending, the file still waits for the administration" \
+  "$H1_PAGE|$(h1_pending)|$(sq "SELECT file_key IS NULL FROM ka_internal_file_versions WHERE id = $H1_VISIT")" "200|done|1"
 curl -s -b "$JAR" -o /dev/null "$B/admin.php"
-expect "3.46 review H1: the administrator's next request seals it and finishes the migration" \
-  "$(h1_head "$H1_VISIT")|$(sq "SELECT file_key IS NOT NULL FROM ka_internal_file_versions WHERE id = $H1_VISIT")|$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations_unfinished'), '') LIKE '%0134%'")" "KCV1|1|0"
+expect "3.46 review N2: the administrator's next request seals it and clears the flag (a full pass)" \
+  "$(h1_head "$H1_VISIT")|$(sq "SELECT file_key IS NOT NULL FROM ka_internal_file_versions WHERE id = $H1_VISIT")|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'private_files_unsealed'")" "KCV1|1|"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('private_files_unsealed', '1')" > /dev/null
+h1_php 128M 'Kaleta\Core\Notifications::purgePersonalData($app, true);' > /dev/null 2>&1 || true
+expect "3.46 review N2: the daily job clears the flag too once a pass got through" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'private_files_unsealed'")" ""
 
 # clean up
 for H1_ID in $H1_BIG $H1_DEAD $H1_VISIT; do rm -f "$WORK/web/storage/internal-files/$(sq "SELECT path FROM ka_internal_file_versions WHERE id = $H1_ID")"; done

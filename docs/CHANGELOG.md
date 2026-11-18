@@ -51,14 +51,16 @@ Migrations 0133 and 0134; `KALETA_DB_VERSION` is 134.
    under the recovery key and never before it is saved; Backups shows the state of the copy.
 8. **After the release review.** Sealing and opening a private file hold at most two copies of it in memory (the budget
    is three), a download too large for `memory_limit` gets a message instead of a fatal error, a file a run died on is
-   skipped until the limit is raised (`private_files_skipped`), and a visitor's page request never seals – the
-   administration, cron and the daily job do. The state of today is written before a restore starts
+   skipped until the limit is raised (`private_files_skipped`), and a visitor's page request never seals: it finishes 0134
+   with the structure and leaves the files to the administration, cron and the daily job (`private_files_unsealed`), so no
+   later visit runs a migration for them. The state of today is written before a restore starts
    (`storage/zalohy/.restore-state`): the security part is put back right after the tables, before the migrations, and a
    restore whose request died is finished by the next request; while one runs, tokens and cron get 503 and nothing is
    sent. A restore also keeps today's level, role, section rights and e-mail of each account, the sign-in rules, the
    console pairing and the signing key (both keys in the ledger, also on every new key), keeps sent newsletters, publishing
-   announcements, reminders and report markers sent, and matches accounts by id; undoing a restore with its safety backup
-   brings back what the restore took away. A second erasure or unsubscribe moves its record forward. Removed private files
+   announcements, reminders and report markers sent, and matches accounts by id; the administrator who restores keeps
+   their account even when the backup is older than it, and the site always keeps an active administrator; undoing a
+   restore with its safety backup brings back what the restore took away. A second erasure or unsubscribe moves its record forward. Removed private files
    leave the off-site copy after `backup_remote_days`; the off-site prune deletes only this site's names (a mark in new
    backup names) and the FTPS delete names the full path. Whistleblowing readers, internal folders, the erasure of
    personal data and the retention of enquiries ask for the proof too (`FreshProof::ADMIN_ACTIONS`), a second manual backup
@@ -66,8 +68,8 @@ Migrations 0133 and 0134; `KALETA_DB_VERSION` is 134.
    (time and key), never promises today's sign-in for another installation and runs seven queries for the whole list.
 9. **Tests.** Unit and smoke 4100 (restore ledger, retention), 4130 (fresh proof; the suite confirms before each section
    and test-browser per step), 4160 (sealed files, the interrupted 0134 in test-migrations), 4190 (a backup of before
-   0134 restored after the files were sealed) and 4191–4193 (the review: memory at 128M, the dead restore, the undo, the
-   off-site private retention, the proof of the shared sections).
+   0134 restored after the files were sealed) and 4191–4194 (the review: memory at 128M, the dead restore, the undo, the
+   off-site private retention, the proof of the shared sections, a handed-over site restored by its new owner).
 
 **Upgrade notes.** Migrations 0133 (the restore ledger) and 0134 (sealing the existing private files) run with the update;
 0134 seals in the background over the next requests and the daily job and is safe to run again. Administrators see a new

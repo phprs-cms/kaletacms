@@ -66,8 +66,11 @@ return static function (Db $db, Settings $settings): void {
     }
     // 3.46 review H1: never inside a visitor's page request – the administration, cron (/ulohy) and the daily job seal, each
     // within its time budget, so a large file never costs a visitor's page its memory
+    // review N2: there the migration is finished for good – the files left are named by the flag private_files_unsealed, which
+    // the administrator's requests and the daily job clear once they sealed them; a visitor's request never runs it again
     if (\Kaleta\Core\Migration::$visitor) {
-        $finish(true);
+        $settings->set('private_files_unsealed', \Kaleta\Core\SealedFiles::workLeft($db) ? '1' : '');
+        $finish(false);
 
         return;
     }
@@ -114,6 +117,9 @@ return static function (Db $db, Settings $settings): void {
         } catch (\Throwable) {
             // a record never stops the migration
         }
+    }
+    if (!$left && $settings->get('private_files_unsealed') !== '') {
+        $settings->set('private_files_unsealed', ''); // review N2: a full pass of the administration or cron – nothing left for the flag
     }
     $finish($left);
 };

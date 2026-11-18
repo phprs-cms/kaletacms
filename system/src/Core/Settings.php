@@ -135,6 +135,7 @@ final class Settings
         'applications_probe_seen' => '', // 3.34 third review F3: sha256 of an update probe without update_probe_at (an older release's updater)|unix time 0120 first saw it
         'private_files_probe_seen' => '', // 3.46: the same for migration 0134 (sealing the private files waits while an update checks itself)
         'private_files_sealing' => '', // 3.46 review H1: the private file a run seals right now (Core\SealedFiles::SEALING) – left set only by a run that died on it
+        'private_files_unsealed' => '', // 3.46 review N2: '1' = private files of before 3.46 may still wait for sealing (SealedFiles::UNSEALED) – the admin's requests and the daily job seal and clear it
         'private_files_skipped' => '', // 3.46 review H1: files a run died on, "id|memory_limit" per line – skipped until the limit is raised (SealedFiles::SKIPPED)
         'applications_swept_on' => '', // 3.34 third review F2: the day the clean-up last swept storage/applications for orphans (once a day)
         'applications_files_since' => '', // 3.34 second review N9: unix time of the first sealed CV or move of applications – the restore screen warns about older backups

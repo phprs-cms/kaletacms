@@ -251,6 +251,11 @@ final class Kernel
             }
         }
 
+        // 3.46 review N2: the private files a visitor's request left to seal (migration 0134) – the administrator's requests seal them
+        if ($app->auth()->isAdmin() && $app->settings()->get(\Kaleta\Core\SealedFiles::UNSEALED) === '1') {
+            \Kaleta\Core\SealedFiles::sealAll($app->settings(), 10.0);
+        }
+
         // 3.39 (N106): the first administrator request of a new version seals the secrets still in plain text (the daily
         // security task does it too) – after the migrations, which widen the TOTP column (0126)
         if ($newVersion && !Migration::pending($app->settings(), Migration::latest())) {

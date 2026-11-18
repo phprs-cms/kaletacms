@@ -114,7 +114,7 @@ final class Notifications
             // 3.46 (N165): internal files migration 0134 could not seal yet, and leftovers of an interrupted run – last (review H1):
             // the retention deletions above never wait for it
             function () use ($app): void {
-                InternalFiles::sealPending($app->settings(), microtime(true) + 10.0);
+                SealedFiles::sealAll($app->settings(), 10.0); // review N2: clears private_files_unsealed once a pass got through
                 SealedFiles::sweepLeftovers(InternalFiles::FOLDER);
             },
         ]);

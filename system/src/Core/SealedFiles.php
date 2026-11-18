@@ -215,6 +215,54 @@ final class SealedFiles
         return $key;
     }
 
+    /**
+     * Review N2: '1' while a pass over the private files of before 3.46 is still due – set by migration 0134 when a visitor's
+     * request finished it with the structure only; the administrator's requests and the daily job seal (sealAll) and clear
+     * it once a pass got through every file. Visitors' requests never run the migration again for it.
+     */
+    public const string UNSEALED = 'private_files_unsealed';
+
+    /**
+     * Is there possibly anything of before 3.46 to seal? Cheap: an internal file version without its key, or any report with
+     * attachments (whether they are sealed needs the key – the first pass tells).
+     */
+    public static function workLeft(Db $db): bool
+    {
+        return InternalFiles::unsealedLeft($db) || Whistleblowing::unsealedLeft($db);
+    }
+
+    /**
+     * Review N2: one pass over the private files of before 3.46 (whistleblowing attachments, then internal files) within
+     * $seconds; when it got through every file, UNSEALED is cleared. Returns whether it did.
+     */
+    public static function sealAll(Settings $s, float $seconds): bool
+    {
+        $probe = (string) $s->db()->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe'");
+        $probeAt = (int) $s->db()->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'update_probe_at'");
+        if ($probe !== '') {
+            if ($probeAt <= 0) { // a probe an older release's updater wrote: counted from when it was first seen (as migration 0134 does)
+                [$seenHash, $seenAt] = array_pad(explode('|', $s->get('private_files_probe_seen'), 2), 2, '');
+                $probeAt = hash_equals($seenHash, hash('sha256', $probe)) ? (int) $seenAt : 0;
+                if ($probeAt <= 0) {
+                    $probeAt = time();
+                    $s->set('private_files_probe_seen', hash('sha256', $probe) . '|' . $probeAt);
+                }
+            }
+            if (time() - $probeAt < 600) {
+                return false; // never while an update checks itself – an update that rolls back must find the files as its code reads them
+            }
+        }
+        $deadline = microtime(true) + $seconds;
+        $reports = Whistleblowing::sealPending($s, $deadline);
+        $files = $reports['left'] ? ['left' => true] : InternalFiles::sealPending($s, $deadline);
+        $done = !$reports['left'] && !$files['left'];
+        if ($done && $s->get(self::UNSEALED) !== '') {
+            $s->set(self::UNSEALED, '');
+        }
+
+        return $done;
+    }
+
     /** The setting that names the file a run is sealing right now (review H1): left set only by a request that died on it. */
     public const string SEALING = 'private_files_sealing';
 
