@@ -215,6 +215,7 @@ final class Kernel
         }
         $request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
+        \Kaleta\Core\RestoreLedger::guard($app); // 3.46 review M2: a restore whose request died is finished first – before any sign-in is checked
         \Kaleta\Core\Collation::setLanguage(\Kaleta\Core\Language::defaults($app->settings())); // lists sort in the site's alphabet (3.12)
         if ($app->auth()->user() === null) {
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
@@ -345,7 +346,7 @@ final class Kernel
         }
 
         // 3.46 (N127, N136): every POST of an administrator's section needs a recent proof, except what FreshProof::EXEMPT names
-        if ($request->isPost() && FreshProof::required($ident, $class::ADMIN_ONLY, $action) && ($reason = FreshProof::refusal($app->auth())) !== null) {
+        if ($request->isPost() && (FreshProof::required($ident, $class::ADMIN_ONLY, $action) || FreshProof::requiredNow($ident, $action)) && ($reason = FreshProof::refusal($app->auth())) !== null) {
             return FreshProof::page($this, $reason);
         }
         ChangeLog::forget();

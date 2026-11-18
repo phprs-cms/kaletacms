@@ -96,6 +96,7 @@ $keyOnRecord = Kaleta\Core\RecoveryKey::confirmedId($app->settings()) !== '' && 
 	<p><?= e(Kaleta\Core\RecoveryKey::describe($recoveryState, $remoteOn)) ?><?= $recoveryState === 'confirmed' && $keyConfirmedAt !== '' ? ' ' . e(t('Recovery key saved %s.', $keyConfirmedAt)) : '' ?></p>
 	<p class="napoveda"><?= e(t('The database (pages, enquiries, contacts, accounts) is encrypted. The media are copied as they are – they are the site\'s public files, which any visitor can open by their address.')) ?></p>
 	<p class="napoveda"><?= e(t('Private files – CVs, internal files, whistleblowing attachments and the attachments of requests and enquiries – are copied to the folder private/, each one encrypted with the recovery key.')) ?></p>
+	<p class="napoveda"><?= e(t('To open the private files of the copy after losing this server, keep both the recovery key and the line vault_key of config.php: the sealed files open only with that key too.')) ?></p>
 <?php if ($recoveryState !== 'confirmed'): ?>
 	<p><button class="tl" type="submit" formaction="<?= e($module->url('backup_key')) ?>"><?= e(t('Show and save the recovery key')) ?></button></p>
 <?php else: ?>
@@ -131,7 +132,7 @@ $field('backup_folder', 'Folder / bucket', 'text', 'FTP: folder for backups (cre
 $field('backup_region', 'Region (S3 only)', 'text', 'For example eu-central-1. For Cloudflare R2 enter auto.', 'maxlength="40" style="width:180px"');
 ?>
 <?php $field('backup_media', 'Copy the media too', 'ano', 'Uploaded images and files go to the folder media/ of the same target. A file deleted on the site stays in the copy.'); ?>
-<?php $field('backup_remote_days', 'Keep off-site copies (days)', 'cislo', 'Database copies older than this are deleted from the target after each upload, so erased personal data does not stay there. 0 = Kaleta deletes none – then set a lifecycle rule on the bucket.', 'min="0" max="3650"'); ?>
+<?php $field('backup_remote_days', 'Keep off-site copies (days)', 'cislo', 'Database copies of this site older than this, and private files removed from the site that long ago, are deleted from the target, so erased personal data does not stay there. Only the copies this site uploaded since 3.46 are deleted – never another site\'s in the same folder (give each site its own) and never older ones. 0 = Kaleta deletes none – then set a lifecycle rule on the bucket.', 'min="0" max="3650"'); ?>
 <?php if ($remoteStatus !== ''): [$when, $how] = explode('|', $remoteStatus, 2) + [1 => '']; ?>
 <p class="hlaska<?= $how === 'ok' ? ' hlaska-ok' : ' hlaska-chyba' ?>"><?= e(match ($how) {
     'ok' => t('The last copy was uploaded %s.', $when),
@@ -164,12 +165,15 @@ if ($privateStatus !== '' && $remoteOn): [$when, $how, $waiting] = explode('|', 
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('File')) ?></th><th scope="col"><?= e(t('Vytvořena')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
-<?php $filesSince = $app->settings()->get(Kaleta\Core\Applications::FILES_SINCE); ?>
-<?php foreach ($backups as $z):
+<?php $filesSince = $app->settings()->get(Kaleta\Core\Applications::FILES_SINCE);
+// 3.46 (N156): before the restore, what it loses since the backup and what it keeps from today – review L9: seven queries for
+// the whole list; review L8: the time from the backup's first line, the promise of today's sign-in only for this site's backup
+$backupTimes = array_map(fn (array $b): ?string => Kaleta\Core\RestoreLedger::backupTime($b['soubor']), $backups);
+$previews = Kaleta\Core\RestoreLedger::previewMany($app->db(), array_values($backupTimes)); ?>
+<?php foreach (array_values($backups) as $backupIndex => $z):
 	// 3.34 second review N9: a database backup older than the first encrypted CV or the move of applications misses what only the disk holds
 	$missesCvs = Kaleta\Core\Applications::backupMissesFiles((int) $z['cas'], $filesSince);
-	// 3.46 (N156): before the restore, what it loses since the backup and what it keeps from today
-	$undoes = Kaleta\Core\RestoreLedger::previewText(Kaleta\Core\RestoreLedger::preview($app->db(), Kaleta\Core\RestoreLedger::madeAt($z['soubor']))); ?>
+	$undoes = Kaleta\Core\RestoreLedger::previewText($previews[$backupIndex], Kaleta\Core\RestoreLedger::backupOrigin($app->db(), $z['soubor'])); ?>
 <tr>
 	<td><?= e($z['soubor']) ?><?php if ($missesCvs): ?> <span class="stitek" data-backup-misses-cvs title="<?= e(t('Older than the first encrypted CV of a job application on this site.')) ?>"><?= e(t('before the CVs')) ?></span><?php endif ?><?php if (Kaleta\Core\Backup::encrypted($z['soubor'])): // 3.31.1: uploaded back for a restore – it does not count as a backup made here ?> <span class="stitek" title="<?= e(t('An encrypted off-site copy uploaded back for a restore. It does not count as a backup made on this server.')) ?>"><?= e(t('uploaded copy')) ?></span><?php endif ?></td>
 	<td class="cislo"><?= e(format_date((new DateTimeImmutable())->setTimestamp((int) $z['cas']), true)) ?></td>

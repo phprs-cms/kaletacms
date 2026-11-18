@@ -29,24 +29,53 @@ final class RestoreLedger
     /** The error of a queue row a restore stopped (stored as data, like the other delivery errors). */
     public const string STOPPED = 'Restored from a backup – not sent again.';
 
-    /** The columns of an account that carry the sign-in state of today over a restore. */
+    /**
+     * The columns of an account that carry the state of today over a restore: the sign-in state, and (review M3) the level,
+     * the custom role and the e-mail the password reset goes to.
+     */
     private const array ACCOUNT_COLUMNS = ['password', 'blokovat', 'blokovano_automaticky', 'pocet_chyb', 'zamceno_do', 'obnova_otisk', 'obnova_cas', 'totp_tajemstvi',
-        'totp_zalozni', 'passkey_handle', 'passkey_only', 'sign_in_epoch'];
+        'totp_zalozni', 'passkey_handle', 'passkey_only', 'sign_in_epoch', 'admin', 'role', 'email'];
+
+    /**
+     * Review M3: the settings of the sign-in rules and the console pairing that are today's after a restore (the stored values
+     * as they are – a sealed one stays sealed under today's key). The signing key (secret_key, secret_key_previous) is
+     * carried too, see signingKeys().
+     */
+    public const array CARRIED_SETTINGS = ['require_2fa', 'signin_passkey_only', 'webhook_secret', 'site_key_secret', 'fleet_console_url', 'fleet_console_key',
+        'fleet_console_name', 'fleet_site_id', 'fleet_updates', 'fleet_answers_bound', 'fleet_last_ts'];
+
+    /** Review M4: the settings that say "sent already" for a period – today's value stays when it is later than the backup's. */
+    public const array SENT_MARKERS = ['report_last_month', 'fleet_digest_sent', 'inbox_digest_day'];
+
+    /**
+     * Review M4: the columns that say a row's e-mail or announcement went out – table => [id column, columns]. A restored row
+     * whose column is empty while today's says sent takes today's value, so nothing goes out a second time.
+     *
+     * @var array<string, array{0: string, 1: list<string>}>
+     */
+    public const array SENT_FLAGS = [
+        'novinky' => ['idc', ['oznameno']],                      // the publishing announcement (webhook, IndexNow)
+        'applications' => ['id', ['pool_renewal_sent_at']],     // the talent-pool renewal e-mail
+        'bookings' => ['id', ['reminded_at', 'hold_reminded_at']], // booking reminders
+        'tasks' => ['id', ['notified_at', 'escalated_at']],     // task reminders and escalations
+        'notifications' => ['id', ['emailed_at']],              // the e-mails of the bell
+    ];
 
     /** The credentials of an outside-service connection (ka_connectors) that are today's after a restore. */
     private const array CONNECTOR_COLUMNS = ['account', 'client_id', 'secret', 'access_token', 'refresh_token', 'expires_at', 'scopes', 'connected_at', 'connected_by'];
 
     /**
-     * The queues a restore must not send again: table => [id column, "waiting" condition, what stops a row].
+     * The queues a restore must not send again: table => [id column, "waiting" condition, what stops a row, what tells one
+     * row from another besides its id (review L9: after an earlier restore an id can be given to another message)].
      *
-     * @var array<string, array{0: string, 1: string, 2: string}>
+     * @var array<string, array{0: string, 1: string, 2: string, 3: string}>
      */
     public const array QUEUES = [
-        'posta' => ['idp', 'odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus IS NOT NULL', 'dalsi_pokus = NULL, chyba = ?'],
-        'webhook_deliveries' => ['id', 'next_attempt IS NOT NULL AND body IS NOT NULL', 'next_attempt = NULL, error = ?'],
-        'connector_queue' => ['id', 'next_attempt IS NOT NULL', 'next_attempt = NULL, last_error = ?'],
-        'newsletter_queue' => ['id', 'next_attempt IS NOT NULL', 'next_attempt = NULL, error = ?'],
-        'odber_fronta' => ['idf', 'dalsi IS NOT NULL', 'dalsi = NULL, chyba = ?'],
+        'posta' => ['idp', 'odeslano IS NULL AND telo IS NOT NULL AND dalsi_pokus IS NOT NULL', 'dalsi_pokus = NULL, chyba = ?', "CONCAT(vytvoreno, '|', komu)"],
+        'webhook_deliveries' => ['id', 'next_attempt IS NOT NULL AND body IS NOT NULL', 'next_attempt = NULL, error = ?', "CONCAT(created, '|', event)"],
+        'connector_queue' => ['id', 'next_attempt IS NOT NULL', 'next_attempt = NULL, last_error = ?', "CONCAT(created_at, '|', action)"],
+        'newsletter_queue' => ['id', 'next_attempt IS NOT NULL', 'next_attempt = NULL, error = ?', "CONCAT(newsletter_id, '|', subscriber_id)"],
+        'odber_fronta' => ['idf', 'dalsi IS NOT NULL', 'dalsi = NULL, chyba = ?', "CONCAT(vytvoreno, '|', email)"],
     ];
 
     /** Where the addresses an erasure may have to find again live after a restore: table => column. */
@@ -54,8 +83,19 @@ final class RestoreLedger
         'posta' => 'komu', 'applications' => 'email', 'quotes' => 'customer_email'];
 
     /**
-     * Records an erased or unsubscribed address (its keyed fingerprint only). The first record stays – it says when it
-     * happened, and a restore reapplies it to every backup older than that.
+     * Review M2: the state of today written before a restore starts, deleted when the restore and its reapply are over. A
+     * request that dies in between (a time or memory limit, a deploy) leaves it, and the next request finishes the reapply
+     * (guard()). It holds no more than the safety backup next to it (password hashes, sealed secrets); the folder is never
+     * served (storage/, its own deny-all .htaccess).
+     */
+    public const string STATE_FILE = Backup::FOLDER . '/.restore-state';
+
+    /** True while another request restores the database (guard() found its lock): no sending and no token in this request. */
+    public static bool $busy = false;
+
+    /**
+     * Records an erased or unsubscribed address (its keyed fingerprint only). Review M1: the LAST time counts – an address
+     * erased or unsubscribed again moves its record forward, so a restore reapplies it to every backup made before that.
      */
     public static function record(Db $db, string $kind, string $email): void
     {
@@ -64,7 +104,7 @@ final class RestoreLedger
             return;
         }
         try {
-            $db->run('INSERT IGNORE INTO {restore_ledger} (kind, hash, created_at) VALUES (?, ?, ?)', [$kind, self::fingerprint($db, $email), Clock::now()]);
+            $db->run('INSERT INTO {restore_ledger} (kind, hash, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)', [$kind, self::fingerprint($db, $email), Clock::now()]);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // before migration 0133
         }
@@ -92,7 +132,13 @@ final class RestoreLedger
         return hash_hmac('sha256', $email, $key);
     }
 
-    /** The ledger's own random key – made the first time it is needed, kept in the ledger (outside every backup). */
+    /**
+     * The ledger's own random key – made the first time it is needed, kept in the ledger (outside every backup). Review L7,
+     * judged: the key stays next to the fingerprints. A setting would travel with every backup, and a key derived from the
+     * Vault key in config.php would change the fingerprints when that key moves (a site without it at first) – the records
+     * made before would no longer match. So whoever reads the live database can test addresses against the fingerprints;
+     * the backups – what leaves the server – never hold either.
+     */
     private static function key(Db $db): string
     {
         $key = (string) $db->value("SELECT hash FROM {restore_ledger} WHERE kind = 'key' ORDER BY id LIMIT 1");
@@ -102,6 +148,14 @@ final class RestoreLedger
         }
 
         return $key;
+    }
+
+    /** Review L1: a signing key the site used (a new one, the one it replaced) – a backup made under it is this site's. */
+    public static function recordSiteKey(Db $db, string $key): void
+    {
+        if ($key !== '') {
+            self::attempt(fn () => self::insert($db, 'site', hash('sha256', $key)), null);
+        }
     }
 
     /**
@@ -118,55 +172,343 @@ final class RestoreLedger
     }
 
     /**
-     * The sign-in state and the waiting queue rows of the site right before a restore. The site's signing keys go into the
-     * ledger at once, so the backup about to be restored is recognised as this site's.
-     *
-     * @return array{site: list<string>, accounts: array<int, array<string, mixed>>, tokens: list<string>, passkeys: list<string>, codes: list<string>, connectors: array<string, array<string, mixed>>, queues: array<string, list<int>>}
+     * Review L8: when a backup was made – the earlier of the time its first line states (Backup::header, also of a decrypted
+     * copy during a restore) and the time in its name; the file's time only when neither says. The earlier time reapplies
+     * more erasures, never fewer, so a renamed copy cannot skip one. Null when nothing tells (then all are reapplied).
      */
-    public static function capture(Db $db): array
+    public static function backupTime(string $file, ?string $headerTime = null): ?string
+    {
+        $path = Backup::path(basename($file));
+        $headerTime ??= $path !== null ? (Backup::header($path)['made'] ?? null) : null;
+        $times = array_filter([$headerTime, self::madeAt($file)]);
+        if ($times !== []) {
+            return min($times);
+        }
+
+        return $path !== null ? date('Y-m-d H:i:s', (int) filemtime($path)) : null;
+    }
+
+    /**
+     * Review L8: whose backup this is by the key its first line names – 'site' (a signing key the ledger knows), 'other' (one
+     * it does not know) or 'unknown' (an encrypted copy or a backup from before 3.46, whose first line names no key).
+     */
+    public static function backupOrigin(Db $db, string $file): string
+    {
+        $path = Backup::path(basename($file));
+        $key = $path !== null ? (Backup::header($path)['key'] ?? null) : null;
+        if ($key === null) {
+            return 'unknown';
+        }
+        foreach (self::knownSiteKeys($db) as $hash) {
+            if (str_starts_with($hash, $key)) {
+                return 'site';
+            }
+        }
+
+        return 'other';
+    }
+
+    /** @return list<string> the one-way ids of every signing key the site is known to have used (the ledger and today's) */
+    private static function knownSiteKeys(Db $db): array
+    {
+        return array_values(array_unique(array_merge(self::siteKeys($db), self::attempt(fn (): array => array_map('strval', array_column($db->all("SELECT hash FROM {restore_ledger} WHERE kind = 'site'"), 'hash')), []))));
+    }
+
+    /**
+     * The state of the site right before a restore: the sign-in state, the rights, the signing key and the carried settings,
+     * the newsletters, what was sent since the backup ($madeAt) and the waiting queue rows. The site's signing keys go into
+     * the ledger at once, so the backup about to be restored is recognised as this site's.
+     *
+     * @return array<string, mixed>
+     */
+    public static function capture(Db $db, ?string $madeAt = null, int $user = 0): array
     {
         $site = self::siteKeys($db);
         foreach ($site as $hash) {
             self::attempt(fn () => self::insert($db, 'site', $hash), null); // before migration 0133 the keys are compared in memory only
         }
         $queues = [];
-        foreach (self::QUEUES as $table => [$id, $waiting]) {
-            $queues[$table] = self::attempt(fn (): array => array_map('intval', array_column($db->all('SELECT ' . $id . ' AS id FROM {' . $table . '} WHERE ' . $waiting), 'id')), []);
+        foreach (self::QUEUES as $table => [$id, $waiting, , $sign]) {
+            $queues[$table] = self::attempt(fn (): array => array_map(fn (array $r): string => $r['id'] . '|' . $r['s'], $db->all('SELECT ' . $id . ' AS id, ' . $sign . ' AS s FROM {' . $table . '} WHERE ' . $waiting)), []);
         }
         $accounts = [];
         foreach (self::attempt(fn (): array => $db->all('SELECT * FROM {uzivatele}'), []) as $row) {
             $accounts[(int) $row['idu']] = array_intersect_key($row, array_flip([...self::ACCOUNT_COLUMNS, 'user']));
         }
+        $rights = [];
+        foreach (self::attempt(fn (): array => $db->all('SELECT fk_id_user, ident_modulu FROM {uzivatele_prava}'), []) as $row) {
+            $rights[(int) $row['fk_id_user']][] = (string) $row['ident_modulu'];
+        }
         $connectors = [];
         foreach (self::attempt(fn (): array => $db->all('SELECT * FROM {connectors}'), []) as $row) {
             $connectors[(string) $row['service']] = array_intersect_key($row, array_flip(self::CONNECTOR_COLUMNS));
         }
+        $settings = self::attempt(fn (): array => $db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(',', array_fill(0, count(self::CARRIED_SETTINGS) + count(self::SENT_MARKERS) + 2, '?')) . ')',
+            [...self::CARRIED_SETTINGS, ...self::SENT_MARKERS, 'secret_key', 'secret_key_previous']), []);
+        $flags = [];
+        foreach (self::SENT_FLAGS as $table => [$id, $columns]) {
+            foreach ($columns as $column) {
+                $flags[$table][$column] = self::attempt(fn (): array => $db->pairs('SELECT ' . $id . ', ' . $column . ' FROM {' . $table . '} WHERE ' . $column . ' IS NOT NULL' . ($madeAt !== null ? ' AND ' . $column . ' >= ?' : ''), $madeAt !== null ? [$madeAt] : []), []);
+            }
+        }
 
         return [
             'site' => $site,
+            'user' => $user,
             'accounts' => $accounts,
+            'rights' => $rights,
             'tokens' => self::attempt(fn (): array => array_map('strval', array_column($db->all('SELECT otisk FROM {api_tokeny}'), 'otisk')), []),
             'passkeys' => self::attempt(fn (): array => array_map('strval', array_column($db->all('SELECT otisk_id FROM {uzivatele_klice}'), 'otisk_id')), []),
             'codes' => self::attempt(fn (): array => array_map('strval', array_column($db->all('SELECT otisk FROM {oauth_kody}'), 'otisk')), []),
             'connectors' => $connectors,
+            'settings' => $settings,
+            'newsletters' => self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count FROM {newsletters}'), []),
+            'flags' => $flags,
             'queues' => $queues,
         ];
     }
 
     /**
-     * After a restore: today's sign-in state over the restored tables (a backup of this site only), the erasures and
-     * unsubscribes recorded after the backup was made, and the restored queue rows stopped. Each part runs on its own –
-     * one that fails (an old backup without a table) does not keep the others from running. Returns what was done.
+     * Review M2: writes the state of today and the restore under way to STATE_FILE (mode 0600) – before the restore touches
+     * a table. $phase 'restoring' until Backup::restore() is over, then 'restored'.
      *
-     * @param array{site: list<string>, accounts: array<int, array<string, mixed>>, tokens: list<string>, passkeys: list<string>, codes: list<string>, connectors: array<string, array<string, mixed>>, queues: array<string, list<int>>} $before capture()
+     * @param array<string, mixed> $today capture()
+     */
+    public static function begin(array $today, string $file, string $safetyBackup, ?string $madeAt): void
+    {
+        self::writeState(['phase' => 'restoring', 'file' => basename($file), 'safety' => $safetyBackup, 'made_at' => $madeAt, 'started' => time(), 'today' => $today], Backup::UNTOUCHED);
+    }
+
+    /** The restore itself is over (review M2): the next request knows the tables are the backup's, not half of them. */
+    public static function restored(?string $madeAt = null): void
+    {
+        $state = self::readState();
+        if ($state !== null) {
+            $state['phase'] = 'restored';
+            $state['made_at'] = $madeAt ?? $state['made_at'];
+            try {
+                self::writeState($state);
+            } catch (\RuntimeException $e) {
+                ErrorLog::write(ErrorLog::exception($e)); // the restore is done; the state of today is still there for a later request
+            }
+        }
+    }
+
+    /** The restore and its reapply are over: the state of today is not needed any more. */
+    public static function end(): void
+    {
+        @unlink(self::STATE_FILE);
+    }
+
+    /** @param array<string, mixed> $state */
+    private static function writeState(array $state, int $code = 0): void
+    {
+        if (!is_dir(Backup::FOLDER)) {
+            @mkdir(Backup::FOLDER, 0775, true);
+        }
+        $temporary = self::STATE_FILE . '.' . bin2hex(random_bytes(4));
+        $old = umask(0077);
+        try {
+            if (@file_put_contents($temporary, serialize($state), LOCK_EX) === false || !@rename($temporary, self::STATE_FILE)) {
+                @unlink($temporary);
+                throw new \RuntimeException('The state before the restore could not be written to storage/zalohy – check the write permissions. Nothing was restored.', $code);
+            }
+        } finally {
+            umask($old);
+        }
+        @chmod(self::STATE_FILE, 0600);
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function readState(): ?array
+    {
+        $raw = is_file(self::STATE_FILE) ? @file_get_contents(self::STATE_FILE) : false;
+        $state = is_string($raw) ? @unserialize($raw, ['allowed_classes' => false]) : false;
+
+        return is_array($state) && is_array($state['today'] ?? null) ? $state : null;
+    }
+
+    /** The database lock a restore holds from its start to the end of its reapply (one restore at a time, per database and prefix). */
+    public static function lock(Db $db, int $wait = 0): bool
+    {
+        return (int) $db->value('SELECT GET_LOCK(?, ?)', ['kaleta_restore_' . $db->prefix, $wait]) === 1;
+    }
+
+    public static function unlock(Db $db): void
+    {
+        $db->value('SELECT RELEASE_LOCK(?)', ['kaleta_restore_' . $db->prefix]);
+    }
+
+    /**
+     * Review M2, at the start of every request (Front\Kernel, Admin\Kernel): 'none' – no restore left a state; 'running' –
+     * another request restores right now (it holds the lock): this request sends nothing and accepts no token (self::$busy);
+     * 'finished' – a restore whose request died left its state: the reapply runs now, before anything else, and the event
+     * says so.
+     */
+    public static function guard(App $app): string
+    {
+        if (!is_file(self::STATE_FILE)) {
+            return 'none';
+        }
+        $db = $app->db();
+        if (!self::lock($db)) {
+            self::$busy = true;
+
+            return 'running';
+        }
+        try {
+            $state = self::readState();
+            if ($state === null) {
+                self::end();
+
+                return 'none';
+            }
+            $file = (string) $state['file'];
+            $madeAt = is_string($state['made_at'] ?? null) ? $state['made_at'] : self::madeAt($file);
+            $done = self::reapplyFirst($app, $state['today'], $file);
+            self::migrate($app);
+            $done = self::merge($done, self::reapplyAfter($app, $state['today'], $madeAt));
+            $half = ($state['phase'] ?? '') !== 'restored';
+            Events::record($db, 'backup.restored', $half ? 'error' : 'warning', $half
+                ? t('A restore from backup %s stopped before its end; what it must never bring back was put back afterwards. The database may be half restored – restore backup %s (the state before) or %s again.', $file, (string) $state['safety'], $file)
+                : t('The database was restored from backup %s; the state before the restore is in backup %s.', $file, (string) $state['safety']), ['file' => $file, 'safety_backup' => (string) $state['safety'], 'finished_later' => true, 'half' => $half] + $done);
+            self::end();
+
+            return 'finished';
+        } finally {
+            self::unlock($db);
+        }
+    }
+
+    /** The pending migrations of a restored older backup (its settings read fresh). */
+    public static function migrate(App $app): void
+    {
+        $app->settings()->reload();
+        try {
+            if (Migration::pending($app->settings(), Migration::latest())) {
+                Migration::apply($app->db(), $app->settings());
+            }
+        } catch (\Throwable $e) {
+            Migration::writeError($e);
+        }
+        $app->settings()->reload();
+    }
+
+    /**
+     * Right after Backup::restore(), before the migrations (review M2): the queues stopped, today's sign-in state, rights,
+     * signing key and carried settings over the restored tables (a backup of this site only), the newsletters and the sent
+     * markers – the tables they touch exist in every backup since 1.x; a part that fails is retried by reapplyAfter().
+     *
+     * @param array<string, mixed> $before capture()
      * @return array<string, int|bool>
+     */
+    public static function reapplyFirst(App $app, array $before, string $file = ''): array
+    {
+        $db = $app->db();
+        $app->settings()->reload();
+        $done = ['same_site' => self::sameSite($db, $before['site'])];
+        $failed = [];
+        $step = self::stepper($done, $failed);
+        $step('queues', fn (): array => ['queue_rows_stopped' => self::stopQueues($db, $before['queues'])]);
+        if ($done['same_site']) {
+            $step('accounts', fn (): array => self::accounts($db, $before['accounts'], (int) ($before['user'] ?? 0)));
+            $step('rights', fn (): array => ['rights_kept' => self::rights($db, $before['rights'] ?? [], $before['accounts'])]);
+            $step('tokens', fn (): array => ['tokens_removed' => self::removeGone($db, 'api_tokeny', 'otisk', 'token', $before['tokens'])]);
+            $step('passkeys', fn (): array => ['passkeys_removed' => self::removeGone($db, 'uzivatele_klice', 'otisk_id', 'passkey', $before['passkeys'])]);
+            $step('codes', fn (): array => ['codes_removed' => self::removeCodes($db, $before['codes'])]);
+            $step('connectors', fn (): array => ['connections_kept' => self::connectors($db, $before['connectors'])]);
+            $step('signing_key', fn (): array => self::signingKeys($app, $before['settings'] ?? []));
+            $step('settings', fn (): array => ['settings_kept' => self::settings($db, $before['settings'] ?? [])]);
+        }
+        $step('newsletters', fn (): array => ['newsletters_stopped' => self::newsletters($db, $before['newsletters'] ?? [])]);
+        $step('sent', fn (): array => ['sent_flags_kept' => self::sentFlags($db, $before['flags'] ?? [], $before['settings'] ?? [])]);
+        $app->settings()->reload();
+        $done['failed_first'] = $failed;
+
+        return $done;
+    }
+
+    /**
+     * After the migrations: the accounts once more (a column an older backup lacked exists now), the erasures and
+     * unsubscribes recorded after the backup was made, and what failed before the migrations once more.
+     *
+     * @param array<string, mixed> $before capture()
+     * @return array<string, int|bool>
+     */
+    public static function reapplyAfter(App $app, array $before, ?string $madeAt): array
+    {
+        $db = $app->db();
+        $done = [];
+        $failed = [];
+        $step = self::stepper($done, $failed);
+        if (self::sameSite($db, $before['site'])) {
+            $step('accounts', fn (): array => ['accounts_again' => self::accounts($db, $before['accounts'], (int) ($before['user'] ?? 0))['accounts_kept']]);
+            $step('rights', fn (): array => ['rights_again' => self::rights($db, $before['rights'] ?? [], $before['accounts'])]);
+            $step('settings', fn (): array => ['settings_again' => self::settings($db, $before['settings'] ?? [])]);
+        }
+        $step('queues', fn (): array => ['queue_rows_again' => self::stopQueues($db, $before['queues'])]);
+        $step('sent', fn (): array => ['sent_flags_again' => self::sentFlags($db, $before['flags'] ?? [], $before['settings'] ?? [])]);
+        $step('people', fn (): array => self::people($app, $madeAt));
+        $step('returned', fn (): array => ['returned' => self::forgetReturned($db)]);
+        $app->settings()->reload();
+        $done['failed_after'] = $failed;
+
+        return $done;
+    }
+
+    /**
+     * Both halves in one answer for the summary and the event: the counts of the first, the people of the second; failed
+     * only when a part failed after the migrations too (or was never retried).
+     *
+     * @param array<string, mixed> $first
+     * @param array<string, mixed> $after
+     * @return array<string, int|bool>
+     */
+    public static function merge(array $first, array $after): array
+    {
+        $retried = ['accounts', 'rights', 'settings', 'queues', 'sent']; // run again after the migrations – their result there counts
+        $failed = array_values(array_unique([...array_diff((array) ($first['failed_first'] ?? []), $retried), ...(array) ($after['failed_after'] ?? [])]));
+        unset($first['failed_first'], $after['failed_after']);
+        $done = $first + array_intersect_key($after, array_flip(['erased', 'unsubscribed']));
+        $done['failed'] = $failed !== [];
+        $done['failed_parts'] = implode(', ', $failed);
+
+        return $done;
+    }
+
+    /**
+     * After a restore in one call (what a later request finishes, and the tests): reapplyFirst, the migrations, reapplyAfter;
+     * a part that could not be put back is an event.
+     *
+     * @param array<string, mixed> $before capture()
+     * @return array<string, int|bool|string>
      */
     public static function reapply(App $app, array $before, ?string $madeAt): array
     {
-        $db = $app->db();
-        $done = ['same_site' => self::sameSite($db, $before['site'])];
-        $failed = [];
-        $step = function (string $name, callable $fn) use (&$done, &$failed): void {
+        $first = self::reapplyFirst($app, $before);
+        self::migrate($app);
+        $done = self::merge($first, self::reapplyAfter($app, $before, $madeAt));
+        self::reportFailed($app->db(), $done);
+
+        return $done;
+    }
+
+    /** @param array<string, mixed> $done merge() */
+    public static function reportFailed(Db $db, array $done): void
+    {
+        if (!empty($done['failed'])) {
+            Events::record($db, 'backup.restore_ledger_failed', 'error', t('After the restore, some of what the restore must not bring back could not be checked (%s). Look at the error log and restore again if needed.', (string) $done['failed_parts']), ['parts' => (string) $done['failed_parts']]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $done
+     * @param list<string> $failed
+     * @return callable(string, callable(): array<string, mixed>): void
+     */
+    private static function stepper(array &$done, array &$failed): callable
+    {
+        return function (string $name, callable $fn) use (&$done, &$failed): void {
             try {
                 $done += $fn();
             } catch (\Throwable $e) {
@@ -174,60 +516,74 @@ final class RestoreLedger
                 $failed[] = $name;
             }
         };
-        $step('queues', fn (): array => ['queue_rows_stopped' => self::stopQueues($db, $before['queues'])]);
-        if ($done['same_site']) {
-            $step('accounts', fn (): array => self::accounts($db, $before['accounts']));
-            $step('tokens', fn (): array => ['tokens_removed' => self::removeGone($db, 'api_tokeny', 'otisk', 'token', $before['tokens'])]);
-            $step('passkeys', fn (): array => ['passkeys_removed' => self::removeGone($db, 'uzivatele_klice', 'otisk_id', 'passkey', $before['passkeys'])]);
-            $step('codes', fn (): array => ['codes_removed' => self::removeCodes($db, $before['codes'])]);
-            $step('connectors', fn (): array => ['connections_kept' => self::connectors($db, $before['connectors'])]);
-        }
-        $step('people', fn (): array => self::people($app, $madeAt));
-        $done['failed'] = $failed !== [];
-        if ($failed !== []) {
-            Events::record($db, 'backup.restore_ledger_failed', 'error', t('After the restore, some of what the restore must not bring back could not be checked (%s). Look at the error log and restore again if needed.', implode(', ', $failed)), ['parts' => $failed]);
-        }
-
-        return $done;
     }
 
     /**
-     * What a restore of a backup made at $madeAt loses and what it keeps (shown before the restore). Counts only.
+     * What a restore of a backup made at $madeAt loses and what it keeps (shown before the restore). Counts only. Review L9:
+     * the Backups tab asks for all its rows at once (previewMany) – seven queries for the whole list, not seven per row.
      *
-     * @return array{lost: array<string, int>, kept: array<string, int>}
+     * @return array{lost: array<string, int>, kept: array<string, int>, known: bool}
      */
     public static function preview(Db $db, ?string $madeAt): array
     {
-        $since = $madeAt ?? '9999-12-31 23:59:59';
-        $count = fn (string $sql): int => (int) self::attempt(fn (): mixed => $db->value($sql, [$since]), 0);
-
-        return [
-            'lost' => [
-                'enquiries' => $count('SELECT COUNT(*) FROM {poptavky} WHERE datum > ?'),
-                'applications' => $count('SELECT COUNT(*) FROM {applications} WHERE received_at > ?'),
-                'bookings' => $count('SELECT COUNT(*) FROM {bookings} WHERE created_at > ?'),
-                'subscribers' => $count('SELECT COUNT(*) FROM {odberatele} WHERE datum > ?'),
-                'changes' => $count('SELECT COUNT(*) FROM {protokol} WHERE cas > ?'),
-            ],
-            'kept' => [
-                'erasures' => $count("SELECT COUNT(*) FROM {restore_ledger} WHERE kind = 'erased' AND created_at > ?"),
-                'unsubscribes' => $count("SELECT COUNT(*) FROM {restore_ledger} WHERE kind = 'unsubscribed' AND created_at > ?"),
-            ],
-        ];
+        return self::previewMany($db, [$madeAt])[0];
     }
 
-    /** preview() in words, for the confirmation of a restore. @param array{lost: array<string, int>, kept: array<string, int>} $preview */
-    public static function previewText(array $preview): string
+    /**
+     * @param list<string|null> $times when each backup was made (null = unknown)
+     * @return list<array{lost: array<string, int>, kept: array<string, int>, known: bool}>
+     */
+    public static function previewMany(Db $db, array $times): array
+    {
+        $queries = [
+            'lost' => ['enquiries' => ['poptavky', 'datum', ''], 'applications' => ['applications', 'received_at', ''], 'bookings' => ['bookings', 'created_at', ''],
+                'subscribers' => ['odberatele', 'datum', ''], 'changes' => ['protokol', 'cas', '']],
+            'kept' => ['erasures' => ['restore_ledger', 'created_at', "kind = 'erased'"], 'unsubscribes' => ['restore_ledger', 'created_at', "kind = 'unsubscribed'"]],
+        ];
+        $since = array_map(fn (?string $t): string => $t ?? '1000-01-01 00:00:00', $times);
+        $out = array_map(fn (?string $t): array => ['lost' => [], 'kept' => [], 'known' => $t !== null], $times);
+        if ($times === []) {
+            return [];
+        }
+        foreach ($queries as $group => $items) {
+            foreach ($items as $name => [$table, $column, $where]) {
+                $sums = implode(', ', array_map(fn (int $i): string => 'COALESCE(SUM(' . $column . ' > ?), 0) AS c' . $i, array_keys($since)));
+                $row = self::attempt(fn (): ?array => $db->one('SELECT ' . $sums . ' FROM {' . $table . '}' . ($where !== '' ? ' WHERE ' . $where : ''), $since), null);
+                foreach (array_keys($since) as $i) {
+                    $out[$i][$group][$name] = (int) ($row['c' . $i] ?? 0);
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * preview() in words, for the confirmation of a restore. Review L8: an unknown time says so instead of counts, and the
+     * sign-in promise is made only for a backup of this site ($origin backupOrigin(): 'site', 'other', 'unknown').
+     *
+     * @param array{lost: array<string, int>, kept: array<string, int>, known?: bool} $preview
+     */
+    public static function previewText(array $preview, string $origin = 'site'): string
     {
         $lost = $preview['lost'];
+        $text = ($preview['known'] ?? true)
+            ? t('Since this backup, the restore loses %d enquiries, %d job applications, %d bookings, %d newsletter sign-ups and %d changes in the change log.',
+                $lost['enquiries'], $lost['applications'], $lost['bookings'], $lost['subscribers'], $lost['changes'])
+            : t('It is not known when this backup was made: everything added to the site since then is lost, and every erasure and unsubscribe on record is applied again.');
+        $text .= ' ' . match ($origin) {
+            'other' => t('The backup comes from another installation: its accounts, passwords and connections come back as they are in it.'),
+            'unknown' => t('If the backup comes from this site, the restore keeps the sign-in security of today (revoked tokens and connections, blocked or removed accounts, changed passwords, roles and e-mails, two-step sign-in and passkeys).'),
+            default => t('It keeps the sign-in security of today (revoked tokens and connections, blocked or removed accounts, changed passwords, roles and e-mails, two-step sign-in and passkeys).'),
+        };
+        if ($preview['known'] ?? true) {
+            $text .= ' ' . t('It applies again %d erasures of personal data and %d unsubscribes made since.', $preview['kept']['erasures'], $preview['kept']['unsubscribes']);
+        }
 
-        return t('Since this backup, the restore loses %d enquiries, %d job applications, %d bookings, %d newsletter sign-ups and %d changes in the change log.',
-            $lost['enquiries'], $lost['applications'], $lost['bookings'], $lost['subscribers'], $lost['changes'])
-            . ' ' . t('It keeps the sign-in security of today (revoked tokens and connections, blocked or removed accounts, changed passwords, two-step sign-in and passkeys), %d erasures of personal data and %d unsubscribes made since. Queued e-mails, webhooks and deliveries from the backup are not sent again.',
-                $preview['kept']['erasures'], $preview['kept']['unsubscribes']);
+        return $text . ' ' . t('Queued e-mails, webhooks, newsletters and deliveries from the backup are not sent again.');
     }
 
-    /** reapply() in words, for the message after a restore. @param array<string, int|bool> $done */
+    /** reapply() in words, for the message after a restore. @param array<string, int|bool|string> $done */
     public static function summary(array $done): string
     {
         $text = t('Kept from today: %d tokens and %d passkeys the backup had were removed, %d accounts kept their current sign-in, %d accounts the backup had are blocked; %d erasures and %d unsubscribes applied again; %d queued deliveries from the backup stopped.',
@@ -235,6 +591,8 @@ final class RestoreLedger
             (int) ($done['erased'] ?? 0), (int) ($done['unsubscribed'] ?? 0), (int) ($done['queue_rows_stopped'] ?? 0));
         if (!($done['same_site'] ?? false)) {
             $text .= ' ' . t('The backup comes from another installation, so its accounts and connections stay as they are in it.');
+        } elseif (($done['signing_key'] ?? '') === 'backup') {
+            $text .= ' ' . t('The signing key is the backup\'s: the stored secrets could not be encrypted again with today\'s key.');
         }
 
         return $text;
@@ -242,7 +600,7 @@ final class RestoreLedger
 
     /**
      * Is the restored database a backup of this site? Its signing key is one the ledger knows (recorded before this
-     * restore or any earlier one, and by migration 0133).
+     * restore or any earlier one, by migration 0133 and by every new key – review L1).
      *
      * @param list<string> $before the keys of the site before the restore
      */
@@ -267,55 +625,145 @@ final class RestoreLedger
     }
 
     /**
-     * The accounts: one that exists today (the same id and sign-in name) gets today's password, block, two-step sign-in and
-     * sign-in epoch; one that is gone today (removed since the backup) stays blocked.
+     * The accounts (review L2: by their id alone – a sign-in name changed since does not make an account "removed"): one
+     * that exists today gets today's sign-in state, level, role and e-mail (and its sign-in name when no other account holds
+     * it); one that is gone today stays blocked – unless an earlier restore took it away (it was never removed: undoing
+     * a restore with its safety backup), and never the account that runs the restore. A site is never left without an
+     * active administrator: the restoring account is unblocked then.
      *
      * @param array<int, array<string, mixed>> $before
      * @return array{accounts_kept: int, accounts_blocked: int}
      */
-    private static function accounts(Db $db, array $before): array
+    private static function accounts(Db $db, array $before, int $user): array
     {
         $columns = array_map('strval', array_column($db->all('SHOW COLUMNS FROM {uzivatele}'), 'Field'));
+        $lost = self::remembered($db, 'account_lost');
         $kept = 0;
         $blocked = 0;
+        $restored = [];
         foreach ($db->all('SELECT idu, user, blokovat FROM {uzivatele}') as $row) {
             $id = (int) $row['idu'];
+            $restored[$id] = true;
             $today = $before[$id] ?? null;
-            if ($today !== null && (string) $today['user'] === (string) $row['user']) {
+            if ($today !== null) {
                 $data = array_intersect_key($today, array_flip(array_intersect(self::ACCOUNT_COLUMNS, $columns)));
                 if ($data !== []) {
                     $db->update('uzivatele', $data, ['idu' => $id]);
                     $kept++;
                 }
-            } elseif ((int) $row['blokovat'] === 0) {
+                if ((string) $today['user'] !== (string) $row['user']) {
+                    try {
+                        $db->update('uzivatele', ['user' => (string) $today['user']], ['idu' => $id]);
+                    } catch (\PDOException) {
+                        // any database error here (the name is another restored account's – unique) only keeps the backup's name
+                    }
+                }
+            } elseif (isset($lost[hash('sha256', 'account:' . $id)])) {
+                // taken away by a restore, back with its undo – as it was (the record goes at the end, forgetReturned())
+            } elseif ((int) $row['blokovat'] === 0 && $id !== $user) {
                 $db->update('uzivatele', ['blokovat' => 1], ['idu' => $id]);
                 $db->delete('api_tokeny', ['idu' => $id]);
                 $blocked++;
             }
+        }
+        // accounts of today the backup does not have: a later restore (the undo with the safety backup) brings them back unblocked
+        foreach (array_keys(array_diff_key($before, $restored)) as $id) {
+            self::insert($db, 'account_lost', hash('sha256', 'account:' . $id));
+        }
+        if ($user > 0 && (int) $db->value('SELECT COUNT(*) FROM {uzivatele} WHERE admin = 2 AND blokovat = 0') === 0) {
+            $db->update('uzivatele', ['blokovat' => 0], ['idu' => $user]); // never a site without an administrator who can sign in
         }
 
         return ['accounts_kept' => $kept, 'accounts_blocked' => $blocked];
     }
 
     /**
-     * Removes the restored rows of a sign-in table whose fingerprint is not there today or that a restore removed before;
-     * the ledger remembers them.
+     * Review M3: the section rights of the accounts that exist today are today's (a person whose sections were taken away
+     * since the backup does not get them back).
+     *
+     * @param array<int, list<string>> $rights
+     * @param array<int, array<string, mixed>> $accounts
+     */
+    private static function rights(Db $db, array $rights, array $accounts): int
+    {
+        $count = 0;
+        foreach (array_map('intval', array_column($db->all('SELECT idu FROM {uzivatele}'), 'idu')) as $id) {
+            if (!isset($accounts[$id])) {
+                continue;
+            }
+            $db->delete('uzivatele_prava', ['fk_id_user' => $id]);
+            foreach ($rights[$id] ?? [] as $module) {
+                $db->run('INSERT IGNORE INTO {uzivatele_prava} (fk_id_user, ident_modulu) VALUES (?, ?)', [$id, $module]);
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Removes the restored rows of a sign-in table that are not there today (revoked or removed since the backup) or that a
+     * restore removed before; the ledger remembers them. Review L2: a row today has and the backup lacks was taken away by
+     * this restore, not revoked – it is remembered as such (<kind>_lost), so undoing the restore with its safety backup
+     * keeps it instead of removing it for good.
      *
      * @param list<string> $today
      */
     private static function removeGone(Db $db, string $table, string $column, string $kind, array $today): int
     {
-        $remembered = array_flip(array_map('strval', array_column($db->all('SELECT hash FROM {restore_ledger} WHERE kind = ?', [$kind]), 'hash')));
+        $remembered = self::remembered($db, $kind);
+        $lost = self::remembered($db, $kind . '_lost');
         $today = array_flip($today);
         $removed = 0;
-        foreach (array_map('strval', array_column($db->all('SELECT ' . $column . ' AS h FROM {' . $table . '}'), 'h')) as $hash) {
-            if (!isset($today[$hash]) || isset($remembered[$hash])) {
+        $restored = array_map('strval', array_column($db->all('SELECT ' . $column . ' AS h FROM {' . $table . '}'), 'h'));
+        foreach ($restored as $hash) {
+            if (isset($remembered[$hash])) {
+                $removed += $db->delete($table, [$column => $hash]);
+            } elseif (isset($lost[$hash]) && !isset($today[$hash])) {
+                // a restore took it away, its undo brings it back (the record goes at the end, forgetReturned())
+            } elseif (!isset($today[$hash])) {
                 $removed += $db->delete($table, [$column => $hash]);
                 self::insert($db, $kind, $hash);
             }
         }
+        foreach (array_keys(array_diff_key($today, array_flip($restored))) as $hash) {
+            self::insert($db, $kind . '_lost', (string) $hash);
+        }
 
         return $removed;
+    }
+
+    /**
+     * Review L2, at the very end of a reapply: what a restore took away and this restore brought back (an account, a token, a
+     * passkey that exists again) is no longer remembered as taken away. Returns how many records went.
+     */
+    private static function forgetReturned(Db $db): int
+    {
+        $count = 0;
+        foreach (['account_lost' => fn (): array => array_map(fn (array $r): string => hash('sha256', 'account:' . $r['idu']), $db->all('SELECT idu FROM {uzivatele}')),
+            'token_lost' => fn (): array => array_map('strval', array_column($db->all('SELECT otisk FROM {api_tokeny}'), 'otisk')),
+            'passkey_lost' => fn (): array => array_map('strval', array_column($db->all('SELECT otisk_id FROM {uzivatele_klice}'), 'otisk_id'))] as $kind => $present) {
+            $remembered = self::remembered($db, $kind);
+            foreach ($present() as $hash) {
+                if (isset($remembered[$hash])) {
+                    self::forgetHash($db, $kind, $hash);
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    /** @return array<string, int> the hashes the ledger holds for $kind */
+    private static function remembered(Db $db, string $kind): array
+    {
+        return array_flip(array_map('strval', array_column(self::attempt(fn (): array => $db->all('SELECT hash FROM {restore_ledger} WHERE kind = ?', [$kind]), []), 'hash')));
+    }
+
+    private static function forgetHash(Db $db, string $kind, string $hash): void
+    {
+        self::attempt(fn () => $db->run('DELETE FROM {restore_ledger} WHERE kind = ? AND hash = ?', [$kind, $hash]), null);
     }
 
     /** @param list<string> $today OAuth codes waiting today – any other restored one goes */
@@ -350,18 +798,151 @@ final class RestoreLedger
     }
 
     /**
-     * Stops every restored queue row that is not waiting today too.
+     * Review M3 (owner's call: today's key stays): the signing key of today over the restored one, so links signed before a
+     * rotation stay withdrawn – both are recorded in the ledger. While the key is the base of the encryption (Vault state
+     * 'database') the restored secrets are encrypted again from the backup's key to today's, in one transaction; when that
+     * would leave a value unreadable, or the encryption key is half moved or missing, the backup's key stays (the summary
+     * says so).
      *
-     * @param array<string, list<int>> $today
+     * @param array<string, string> $settings capture()['settings']
+     * @return array{signing_key: string}
+     */
+    private static function signingKeys(App $app, array $settings): array
+    {
+        $db = $app->db();
+        $today = (string) ($settings['secret_key'] ?? '');
+        $restored = (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'secret_key'");
+        self::recordSiteKey($db, $restored);
+        if ($today === '' || hash_equals($today, $restored)) {
+            return ['signing_key' => 'same'];
+        }
+        $app->settings()->reload();
+        $state = Vault::state($app->settings());
+        if ($state === 'pending' || $state === 'missing') {
+            return ['signing_key' => 'backup'];
+        }
+        try {
+            $db->transaction(function (Db $db) use ($state, $restored, $today, $settings): void {
+                if ($state === 'database' && $restored !== '') {
+                    $previous = explode('|', (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'secret_key_previous'"), 2)[0];
+                    $previous = preg_match('/^[a-f0-9]{64}$/D', $previous) === 1 ? $previous : null;
+                    $before = Vault::unreadable($db, $restored, $previous);
+                    [, $unreadable] = Vault::resealAll($db, $restored, $today, $previous);
+                    if ($unreadable > $before) {
+                        throw new \RuntimeException('values would stay unreadable');
+                    }
+                }
+                $db->run('REPLACE INTO {nastaveni} (promenna, hodnota) VALUES (?, ?)', ['secret_key', $today]);
+                $db->run('REPLACE INTO {nastaveni} (promenna, hodnota) VALUES (?, ?)', ['secret_key_previous', (string) ($settings['secret_key_previous'] ?? '')]);
+            });
+        } catch (\Throwable $e) {
+            ErrorLog::write(ErrorLog::exception($e));
+
+            return ['signing_key' => 'backup'];
+        }
+
+        return ['signing_key' => 'today'];
+    }
+
+    /**
+     * Review M3: the sign-in rules and the console pairing are today's (CARRIED_SETTINGS) – a rule switched on since the
+     * backup stays on, a console unpaired since stays unpaired.
+     *
+     * @param array<string, string> $settings capture()['settings']
+     */
+    private static function settings(Db $db, array $settings): int
+    {
+        $count = 0;
+        foreach (self::CARRIED_SETTINGS as $key) {
+            if (array_key_exists($key, $settings)) {
+                $db->run('REPLACE INTO {nastaveni} (promenna, hodnota) VALUES (?, ?)', [$key, (string) $settings[$key]]);
+            } else {
+                $db->run('DELETE FROM {nastaveni} WHERE promenna = ?', [$key]);
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Review M4: a newsletter that exists today keeps today's state (sent stays sent, with its counts); one the backup has
+     * scheduled or sending and today's site does not (deleted since) goes back to a draft – a restore never sends a
+     * newsletter to the list a second time.
+     *
+     * @param list<array<string, mixed>> $today
+     */
+    private static function newsletters(Db $db, array $today): int
+    {
+        $byId = [];
+        foreach ($today as $n) {
+            $byId[(int) $n['id']] = $n;
+        }
+        $changed = 0;
+        foreach ($db->all('SELECT id, status FROM {newsletters}') as $row) {
+            $id = (int) $row['id'];
+            if (isset($byId[$id])) {
+                $data = array_diff_key($byId[$id], ['id' => 0]);
+                $changed += $db->update('newsletters', $data, ['id' => $id]) > 0 ? 1 : 0;
+            } elseif (in_array((string) $row['status'], ['scheduled', 'sending'], true)) {
+                $changed += $db->update('newsletters', ['status' => 'draft', 'scheduled_at' => null], ['id' => $id]);
+            }
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Review M4: what went out since the backup stays sent – the restored rows of SENT_FLAGS take today's value where theirs
+     * is empty, and the SENT_MARKERS settings keep today's when it is later.
+     *
+     * @param array<string, array<string, array<int|string, string>>> $flags capture()['flags']
+     * @param array<string, string> $settings capture()['settings']
+     */
+    private static function sentFlags(Db $db, array $flags, array $settings): int
+    {
+        $count = 0;
+        foreach (self::SENT_FLAGS as $table => [$id, $columns]) {
+            foreach ($columns as $column) {
+                foreach ($flags[$table][$column] ?? [] as $rowId => $value) {
+                    $count += (int) self::attempt(fn (): int => $db->run('UPDATE {' . $table . '} SET ' . $column . ' = ? WHERE ' . $id . ' = ? AND ' . $column . ' IS NULL', [$value, $rowId])->rowCount(), 0);
+                }
+            }
+        }
+        foreach (self::SENT_MARKERS as $key) {
+            $mine = (string) ($settings[$key] ?? '');
+            if ($mine !== '' && $mine > (string) $db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [$key])) {
+                $db->run('REPLACE INTO {nastaveni} (promenna, hodnota) VALUES (?, ?)', [$key, $mine]);
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Stops every restored queue row that is not waiting today too – the same id and the same message (review L9).
+     *
+     * @param array<string, list<string>> $today "id|signature" per waiting row
      */
     public static function stopQueues(Db $db, array $today): int
     {
         $stopped = 0;
-        foreach (self::QUEUES as $table => [$id, $waiting, $stop]) {
-            $stopped += (int) self::attempt(function () use ($db, $table, $id, $waiting, $stop, $today): int {
-                $keep = array_map('intval', $today[$table] ?? []);
+        foreach (self::QUEUES as $table => [$id, $waiting, $stop, $sign]) {
+            $stopped += (int) self::attempt(function () use ($db, $table, $id, $waiting, $stop, $sign, $today): int {
+                $keep = array_flip(array_map('strval', $today[$table] ?? []));
+                $ids = [];
+                foreach ($db->all('SELECT ' . $id . ' AS id, ' . $sign . ' AS s FROM {' . $table . '} WHERE ' . $waiting) as $r) {
+                    if (!isset($keep[$r['id'] . '|' . $r['s']])) {
+                        $ids[] = (int) $r['id'];
+                    }
+                }
+                $count = 0;
+                foreach (array_chunk($ids, 500) as $chunk) {
+                    $count += $db->run('UPDATE {' . $table . '} SET ' . $stop . ' WHERE ' . $id . ' IN (' . implode(',', $chunk) . ')', [self::STOPPED])->rowCount();
+                }
 
-                return $db->run('UPDATE {' . $table . '} SET ' . $stop . ' WHERE ' . $waiting . ($keep !== [] ? ' AND ' . $id . ' NOT IN (' . implode(',', $keep) . ')' : ''), [self::STOPPED])->rowCount();
+                return $count;
             }, 0);
         }
 

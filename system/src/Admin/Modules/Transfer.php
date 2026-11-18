@@ -823,7 +823,12 @@ final class Transfer extends Module
      */
     protected function actionDownload(): Response
     {
-        $path = SiteExport::path($this->request->get('file'));
+        // 3.46 review L5: like the backup download (I39) – only a POST with the form token and, as every POST of this section,
+        // a recent proof (Admin\FreshProof); a link or a GET hands out nothing
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $path = SiteExport::path($this->request->post('soubor'));
         if ($path === null) {
             return $this->error('The export does not exist.', 404);
         }

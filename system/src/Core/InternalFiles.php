@@ -811,6 +811,7 @@ final class InternalFiles
         $db = $s->db();
         $out = ['sealed' => 0, 'failed' => 0, 'left' => false];
         $after = 0;
+        SealedFiles::takeOverDeadRun($s); // review H1: a file that killed the previous run is skipped, never tried first again
         while (true) {
             try {
                 $rows = $db->all('SELECT id, path, sha256 FROM {internal_file_versions} WHERE file_key IS NULL AND id > ? ORDER BY id LIMIT 200', [$after]);
@@ -825,15 +826,15 @@ final class InternalFiles
             foreach ($rows as $row) {
                 $after = (int) $row['id'];
                 $disk = self::diskPath((string) $row['path']);
-                if ($disk === null || !is_file($disk)) {
-                    continue; // gone – the download says so, as before
+                if ($disk === null || !is_file($disk) || SealedFiles::skipped($s, 'internal_files:' . $row['id'])) {
+                    continue; // gone – the download says so, as before; or it killed a run (review H1)
                 }
                 if ($out['sealed'] + $out['failed'] >= $max || microtime(true) > $deadline) {
                     $out['left'] = true;
 
                     return $out;
                 }
-                $key = SealedFiles::sealInPlace($s, self::FILE_PURPOSE, $disk, (string) $row['sha256'], $stopAfter);
+                $key = SealedFiles::sealGuarded($s, 'internal_files:' . $row['id'], self::FILE_PURPOSE, $disk, (string) $row['sha256'], $stopAfter);
                 if ($key === null) {
                     $out['failed']++;
                     continue;

@@ -81,11 +81,15 @@ final class Kernel
         $app->request->setOrigin($app->settings()->get('site_url'));
         $app->applyTimezone();
         \Kaleta\Extension\Registry::boot($app); // add-ons (3.0)
+        // 3.46 review M2: a restore whose request died is finished before anything else; one under way in another request
+        // makes this request send nothing and accept no token (handle())
+        \Kaleta\Core\RestoreLedger::guard($app);
         // after a system update (automatic too) the database is updated right on the first visit, not only after the
         // administrator signs in
         if (\Kaleta\Core\Migration::pending($app->settings())) {
             if (!in_array($app->request->path(), ['/tasks', '/ulohy'], true)) {
                 \Kaleta\Core\Migration::$seconds = \Kaleta\Core\Migration::VISITOR_SECONDS; // 3.34 third review F2: a visitor waits ~2 s at most, cron does the rest
+                \Kaleta\Core\Migration::$visitor = true; // 3.46 review H1: no file work in a visitor's request
             }
             // a failed migration must not bring down the whole site: it is logged and the site keeps running (database
             // changes are additive only); the administrator sees it in the administration and can install a fix
@@ -148,6 +152,10 @@ final class Kernel
         // 2.8: the firewall of the public site (off by default; never admin.php)
         if (($refused = \Kaleta\Core\Firewall::check($this->app)) !== null) {
             return $refused;
+        }
+        // 3.46 review M2: while another request restores the database, no token is accepted and no cron run sends anything
+        if (\Kaleta\Core\RestoreLedger::$busy && (preg_match('#^/(mcp|oauth|api|ulohy|tasks|\.well-known/oauth)#', $request->path()) || ($request->serverValues()['HTTP_AUTHORIZATION'] ?? '') !== '')) {
+            return new Response('{"error":"A restore of the database is under way – try again in a minute."}', 503, ['Content-Type' => 'application/json', 'Retry-After' => '60']);
         }
         // the public demo (2.6) offers no Claude connection: anyone could connect to the shared admin
         if (\Kaleta\Core\Demo::active() && preg_match('#^/(mcp|oauth|\.well-known/oauth|\.well-known/openid)#', $request->path())) {

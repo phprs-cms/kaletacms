@@ -274,7 +274,7 @@ $last = $done[0] ?? null;
 	<td><?= e($x['soubor']) ?></td>
 	<td class="cislo"><?= e(Kaleta\Core\Files::size($x['velikost'])) ?></td>
 	<td class="cislo"><?= e(format_date(date('Y-m-d H:i:s', $x['cas']), true)) ?></td>
-	<td class="akce"><a href="<?= e($module->url('download', ['file' => $x['soubor']])) ?>"><?= e(t('Download')) ?></a>
+	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('download')) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($x['soubor']) ?>"><button class="navigace" type="submit"><?= e(t('Download')) ?></button></form>
 		<form class="vradku" method="post" action="<?= e($module->url('delete_export')) ?>" data-potvrdit="<?= e(t('Delete the export %s?', $x['soubor'])) ?>"><?= $csrf ?><input type="hidden" name="soubor" value="<?= e($x['soubor']) ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>

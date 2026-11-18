@@ -24,11 +24,11 @@ check('3.46 integration: the private downloads of C live in sections that are no
 ], [false, false, false, false]);
 // A's off-site pruning never deletes C's encrypted private copies (private/<path>.enc) nor the media, only backup names past the days
 $u4190Before = Kaleta\Core\Clock::at('-90 days');
-$u4190Old = 'kaleta-20200101-000000-auto-abcd1234.sql.gz.enc';
+$u4190Old = 'kaleta-20200101-000000-auto-abcd1234-s0a1b2c3d.sql.gz.enc';
 check('3.46 integration: backup_remote_days prunes only old encrypted backups – never private/ or media/', Kaleta\Core\RemoteBackup::expired([
     $u4190Old, 'private/storage/internal-files/2020/01/' . str_repeat('a', 32) . '.bin.enc', 'private/storage/applications/kaleta-20200101-000000-auto-x.sql.gz.enc',
-    'media/2020/01/photo.jpg', 'kaleta-20200101-000000-auto-abcd1234.sql.gz',
-], 90, $u4190Before), [$u4190Old]);
+    'media/2020/01/photo.jpg', 'kaleta-20200101-000000-auto-abcd1234-s0a1b2c3d.sql.gz',
+], 90, $u4190Before, '', 's0a1b2c3d'), [$u4190Old]);
 // the ledger is never in a backup and the private folders are copied off-site encrypted, the ledger is not a private folder
 check('3.46 integration: the ledger stays out of backups; the sealed columns of C are resealed by the Vault; the private folders hold the sealed files', [
     Kaleta\Core\Backup::LEDGER, isset(Kaleta\Core\Vault::SEALED['internal_file_versions'], Kaleta\Core\Vault::SEALED['requests']),

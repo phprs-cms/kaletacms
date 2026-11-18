@@ -68,6 +68,18 @@ final class FreshProof
         'report_preview', 'report_rebuild', 'backup', 'media_backup', 'accessibility_statement',
         'hours_add', 'hours_delete', 'hours_apply', 'hours_discard'];
 
+    /**
+     * Review L3: the administrator-only actions of sections that are not the administrator's alone – they need the proof too
+     * (by module and action): who reads the whistleblowing channel and its settings, which internal folders exist and who
+     * sees them, the erasure of a person's data (a restore never brings it back) and the retention periods of enquiries.
+     * A unit test fails for an entry naming a module or an action that does not exist.
+     */
+    public const array ADMIN_ACTIONS = [
+        'whistleblowing' => ['settings'],
+        'internal_files' => ['folder_save', 'folder_delete'],
+        'enquiries' => ['personal', 'settings'],
+    ];
+
     /** The field of the forms that carries the current password (the same as My account, Users and the OAuth consent). */
     public const string FIELD = 'soucasne';
 
@@ -75,11 +87,20 @@ final class FreshProof
     public static function required(string $ident, bool $adminOnly, string $action): bool
     {
         if (!$adminOnly) {
-            return false;
+            return in_array($action, self::ADMIN_ACTIONS[$ident] ?? [], true);
         }
         $exempt = self::EXEMPT[$ident] ?? [];
 
         return !in_array('*', $exempt, true) && !in_array($action === '' ? 'list' : $action, $exempt, true);
+    }
+
+    /**
+     * Review L4: an exempt action that needs the proof right now – "Create backup now" again within Backup::MANUAL_PAUSE of
+     * the last manual backup (ten clicks from a held session would push every earlier backup out of the rotation).
+     */
+    public static function requiredNow(string $ident, string $action): bool
+    {
+        return $action === 'backup' && in_array('backup', self::EXEMPT[$ident] ?? [], true) && \Kaleta\Core\Backup::recentManual();
     }
 
     /**

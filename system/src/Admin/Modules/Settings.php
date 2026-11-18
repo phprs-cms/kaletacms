@@ -1110,15 +1110,36 @@ class Settings extends Module
     /** The restore itself (actionRestoreBackup, with the backup held out of the rotation). */
     private function restoreHeld(string $file, ?string $entered, ?string $key): Response
     {
+        // 3.46 review M2: one restore at a time, and the lock tells every other request that one is under way
+        if (!\Kaleta\Core\RestoreLedger::lock($this->db)) {
+            return $this->back(t('Another restore is under way. Wait for it to finish, then try again. Nothing was restored.'), '', ['tab' => 'backups'], 'chyba');
+        }
         try {
-            // 3.46 (N156): the sign-in state and the waiting queue rows of today, put back over the restored tables afterwards
-            $today = \Kaleta\Core\RestoreLedger::capture($this->db);
+            return $this->restoreLocked($file, $entered, $key);
+        } finally {
+            \Kaleta\Core\RestoreLedger::unlock($this->db);
+        }
+    }
+
+    /** restoreHeld() under the restore lock. */
+    private function restoreLocked(string $file, ?string $entered, ?string $key): Response
+    {
+        $ledger = \Kaleta\Core\RestoreLedger::class;
+        $madeAt = $ledger::backupTime($file);
+        try {
+            // 3.46 (N156): the state of today, put back over the restored tables afterwards – review M2: written to a file before
+            // a table changes, so a request that dies in the middle leaves it for the next request to finish
+            $today = $ledger::capture($this->db, $madeAt, (int) ($this->app->auth()->user()['idu'] ?? 0));
             $safetyBackup = Backup::create($this->db, 'predobnovou', false);
+            $ledger::begin($today, $file, $safetyBackup, $madeAt);
             $statementCount = Backup::restore($this->db, $file, Backup::encrypted($file) ? $key : null);
+            $madeAt = $ledger::backupTime($file, Backup::$restoredMadeAt); // review L8: the first line of the restored file too
+            $ledger::restored($madeAt);
         } catch (\Throwable $e) {
             if (isset($safetyBackup) && $e instanceof \RuntimeException && $e->getCode() === Backup::UNTOUCHED) {
                 // 3.28 (N328-2): an encrypted backup refused before a statement ran (a damaged or cut-off file) – the database never
                 // changed, so it is not "reverted" (a whole restore for nothing), and the needless safety backup goes
+                $ledger::end();
                 @unlink((string) Backup::path($safetyBackup));
 
                 return $this->back(t('The restore failed: %s', $e->getMessage()), '', ['tab' => 'backups'], 'chyba');
@@ -1133,6 +1154,9 @@ class Settings extends Module
                     // the revert failed – the administrator runs it manually from the backup $safetyBackup
                 }
             }
+            if ($reverted || !isset($today)) {
+                $ledger::end(); // today's state is back (or nothing changed) – nothing for a later request to put back
+            }
             \Kaleta\Core\PageCache::clear();
 
             return $this->back(t('The restore failed: %s', t($e->getMessage())) . ' ' . ($reverted ? t('The database is back in its state before the restore.') : (isset($safetyBackup) ? t('The state before the restore is in backup %s – please restore it.', $safetyBackup) : '')), '', ['tab' => 'backups'], 'chyba');
@@ -1141,17 +1165,13 @@ class Settings extends Module
         // 3.19.1 (N82): the restore replaced the change log and the events with the backup's copies – the record of the
         // restore itself is written now, into the restored database, so it is not lost with the rest
         $file = (string) basename((string) Backup::path($file));
-        // 3.46 (N156): an older backup is brought up to this version first (its settings read fresh), then what a restore must
-        // never bring back is put back from today and the ledger
-        $this->app->settings()->reload();
-        try {
-            if (\Kaleta\Core\Migration::pending($this->app->settings(), \Kaleta\Core\Migration::latest())) {
-                \Kaleta\Core\Migration::apply($this->db, $this->app->settings());
-            }
-        } catch (\Throwable $e) {
-            \Kaleta\Core\Migration::writeError($e);
-        }
-        $kept = \Kaleta\Core\RestoreLedger::reapply($this->app, $today, \Kaleta\Core\RestoreLedger::madeAt($file));
+        // 3.46 review M2: what a restore must never bring back is put back first – the queues, the sign-in state, the rights,
+        // the signing key, the newsletters – then an older backup is brought up to this version, then the rest (the people)
+        $first = $ledger::reapplyFirst($this->app, $today, $file);
+        $ledger::migrate($this->app);
+        $kept = $ledger::merge($first, $ledger::reapplyAfter($this->app, $today, $madeAt));
+        $ledger::reportFailed($this->db, $kept);
+        $ledger::end();
         // 3.28: restored with a recovery key entered here – on a new server (no key of its own) or when it is the key the
         // restored database confirmed, it becomes this site's key, so the off-site copies go on with the key the owner keeps
         if ($entered !== null && Backup::encrypted($file) && (\Kaleta\Core\RecoveryKey::load() === null
@@ -1167,7 +1187,7 @@ class Settings extends Module
             ['file' => $file, 'safety_backup' => $safetyBackup, 'statements' => $statementCount, 'user' => (int) ($this->app->auth()->user()['idu'] ?? 0)] + $kept);
 
         return $this->back(t('The database has been restored from the backup (statements: %d). The state before the restore is saved in backup %s.', $statementCount, $safetyBackup)
-            . ' ' . \Kaleta\Core\RestoreLedger::summary($kept), '', ['tab' => 'backups'], !empty($kept['failed']) ? 'chyba' : 'ok');
+            . ' ' . $ledger::summary($kept), '', ['tab' => 'backups'], !empty($kept['failed']) ? 'chyba' : 'ok');
     }
 
     /** The id of the recovery key the database just restored had confirmed (3.28) – read fresh, the settings in memory are older. */

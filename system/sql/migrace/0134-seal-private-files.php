@@ -18,6 +18,10 @@
  * a visitor's request) and puts its name into data_migrations_unfinished until nothing is left (the 0120 pattern), under
  * the lock of the file work (SealedFiles::lock) – never two runs at once.
  *
+ * Review H1: a visitor's page request (Migration::$visitor) writes only the structure; the files are sealed from the
+ * administration, cron and the daily job. A file a run died on (memory or time) is skipped by the next run
+ * (SealedFiles::takeOverDeadRun) until the memory limit is raised.
+ *
  * Under the code of an older release (the update request of 3.45 or older runs this file with its own classes) only the
  * structure is written; and nothing is sealed while an update checks itself (update_probe, at most 10 minutes): an update
  * that rolls back must find the files as its code reads them. The sealing starts on the first request of the 3.46 code.
@@ -56,6 +60,13 @@ return static function (Db $db, Settings $settings): void {
     $current = !defined('KALETA_MIGRATION_AS_OLD_CODE') && in_array($name, \Kaleta\Core\Migration::DATA, true) && class_exists(\Kaleta\Core\SealedFiles::class)
         && method_exists(\Kaleta\Core\Whistleblowing::class, 'sealPending') && method_exists(\Kaleta\Core\InternalFiles::class, 'sealPending');
     if (!$current) {
+        $finish(true);
+
+        return;
+    }
+    // 3.46 review H1: never inside a visitor's page request – the administration, cron (/ulohy) and the daily job seal, each
+    // within its time budget, so a large file never costs a visitor's page its memory
+    if (\Kaleta\Core\Migration::$visitor) {
         $finish(true);
 
         return;

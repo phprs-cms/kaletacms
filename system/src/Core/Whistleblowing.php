@@ -527,7 +527,11 @@ final class Whistleblowing
     {
         $path = self::attachmentPath($attachment);
 
-        return $path === null ? null : SealedFiles::read($settings, self::FILE_PURPOSE, $path, is_string($attachment['key'] ?? null) ? $attachment['key'] : null, empty($attachment['sealed']));
+        if ($path === null || !SealedFiles::roomFor((int) @filesize($path))) {
+            return null; // review H1: too large for the memory this request may use – refused, never a fatal error
+        }
+
+        return SealedFiles::read($settings, self::FILE_PURPOSE, $path, is_string($attachment['key'] ?? null) ? $attachment['key'] : null, empty($attachment['sealed']));
     }
 
     /**
@@ -563,6 +567,7 @@ final class Whistleblowing
         $db = $settings->db();
         $out = ['sealed' => 0, 'failed' => 0, 'left' => false];
         $after = 0;
+        SealedFiles::takeOverDeadRun($settings); // review H1: a file that killed the previous run is skipped, never tried first again
         while (true) {
             try {
                 $rows = $db->all('SELECT id, attachments FROM {whistleblowing_cases} WHERE attachments IS NOT NULL AND id > ? ORDER BY id LIMIT 100', [$after]);
@@ -583,14 +588,14 @@ final class Whistleblowing
                 }
                 $changed = false;
                 foreach ($list as $i => $a) {
-                    if (!is_array($a) || !empty($a['sealed']) || ($path = self::attachmentPath($a)) === null) {
+                    if (!is_array($a) || !empty($a['sealed']) || ($path = self::attachmentPath($a)) === null || SealedFiles::skipped($settings, 'whistleblowing:' . $a['path'])) {
                         continue;
                     }
                     if ($out['sealed'] + $out['failed'] >= $max || microtime(true) > $deadline) {
                         $out['left'] = true;
                         break;
                     }
-                    $key = SealedFiles::sealInPlace($settings, self::FILE_PURPOSE, $path, '', $stopAfter);
+                    $key = SealedFiles::sealGuarded($settings, 'whistleblowing:' . $a['path'], self::FILE_PURPOSE, $path, '', $stopAfter);
                     if ($key === null) {
                         $out['failed']++;
                         continue;
@@ -632,9 +637,6 @@ final class Whistleblowing
             }
         }
         self::forgetAddresses($db);
-        // 3.46 (N162): attachments from before 3.46 that migration 0134 could not seal yet, and leftovers of an interrupted run
-        self::sealPending($s, microtime(true) + 10.0);
-        SealedFiles::sweepLeftovers(self::FOLDER);
         $months = $s->int('whistleblowing_retention_months') ?: self::DEFAULT_RETENTION_MONTHS;
         $purged = 0;
         foreach ($db->all("SELECT * FROM {whistleblowing_cases} WHERE status = 'closed' AND closed_at IS NOT NULL AND closed_at < ?", [Clock::monthsAgo($months)]) as $case) {
@@ -644,6 +646,10 @@ final class Whistleblowing
         if ($purged > 0) {
             Events::record($db, 'whistleblowing.purged', 'info', t('%d closed whistleblowing cases past the retention period of %d months were deleted.', $purged, $months), ['count' => $purged, 'months' => $months]);
         }
+        // 3.46 (N162): attachments from before 3.46 that migration 0134 could not seal yet, and leftovers of an interrupted run –
+        // after the retention (review H1: a file too large for the memory never keeps the deletions from running)
+        self::sealPending($s, microtime(true) + 10.0);
+        SealedFiles::sweepLeftovers(self::FOLDER);
 
         return 'reminded ' . $reminded . ', purged ' . $purged;
     }

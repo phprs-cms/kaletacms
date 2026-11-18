@@ -84,7 +84,7 @@ final class Webhook
     /** After the page was sent (index.php, admin.php): delivers the calls stored during this request. */
     public static function afterResponse(App $app): void
     {
-        if (!self::$pending) {
+        if (!self::$pending || RestoreLedger::$busy) { // 3.46 review M2: nothing goes out while another request restores the database
             return;
         }
         self::$pending = false;

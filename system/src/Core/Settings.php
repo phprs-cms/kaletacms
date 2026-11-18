@@ -134,6 +134,8 @@ final class Settings
         'applications_move_deferred' => '', // 3.34 second review N5: '1' = an older release's update request wrote the state of migration 0120, the 3.34 code moves
         'applications_probe_seen' => '', // 3.34 third review F3: sha256 of an update probe without update_probe_at (an older release's updater)|unix time 0120 first saw it
         'private_files_probe_seen' => '', // 3.46: the same for migration 0134 (sealing the private files waits while an update checks itself)
+        'private_files_sealing' => '', // 3.46 review H1: the private file a run seals right now (Core\SealedFiles::SEALING) – left set only by a run that died on it
+        'private_files_skipped' => '', // 3.46 review H1: files a run died on, "id|memory_limit" per line – skipped until the limit is raised (SealedFiles::SKIPPED)
         'applications_swept_on' => '', // 3.34 third review F2: the day the clean-up last swept storage/applications for orphans (once a day)
         'applications_files_since' => '', // 3.34 second review N9: unix time of the first sealed CV or move of applications – the restore screen warns about older backups
         'imported_recheck' => '',      // imported content checked again with today's sanitizers, JSON state (Core\ImportRecheck, 3.3.3)
@@ -249,6 +251,7 @@ final class Settings
         'backup_remote_days' => '90',  // 3.46 (N157): off-site database copies older than this many days are deleted after an upload; 0 = keep (a lifecycle rule of the bucket)
         'remote_media_status' => '',   // "YYYY-MM-DD HH:MM|ok or error|files waiting"
         'media_sync_check' => '0',     // when the background media copy last ran
+        'backup_site_id' => '',        // 3.46 review L6: this site's mark in its backup names (Backup::siteMark, s + 8 hex) – the off-site prune deletes only names with it
         'remote_private_status' => '', // 3.46: the off-site copy of the private folders, "YYYY-MM-DD HH:MM|ok, paused or error|files waiting"
         'private_sync_check' => '0',   // 3.46: when the background copy of the private folders last ran
         'backup_key_confirmed' => '',  // 3.28 (D-W12, Core\RecoveryKey): "key id|Y-m-d H:i" of the recovery key an administrator confirmed saving – never the key; '' = off-site copies wait

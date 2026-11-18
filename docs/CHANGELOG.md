@@ -49,17 +49,40 @@ Migrations 0133 and 0134; `KALETA_DB_VERSION` is 134.
 7. **Private folders in the encrypted off-site copy** (`RemoteBackup::syncPrivate`). The CVs, internal files,
    whistleblowing, request and enquiry attachments go to `private/<path>.enc` on the backup target, each file encrypted
    under the recovery key and never before it is saved; Backups shows the state of the copy.
-8. **Tests.** Unit and smoke 4100 (restore ledger, retention), 4130 (fresh proof; the suite confirms before each section
-   and test-browser per step), 4160 (sealed files, the interrupted 0134 in test-migrations) and 4190 (a backup of before
-   0134 restored after the files were sealed).
+8. **After the release review.** Sealing and opening a private file hold at most two copies of it in memory (the budget
+   is three), a download too large for `memory_limit` gets a message instead of a fatal error, a file a run died on is
+   skipped until the limit is raised (`private_files_skipped`), and a visitor's page request never seals – the
+   administration, cron and the daily job do. The state of today is written before a restore starts
+   (`storage/zalohy/.restore-state`): the security part is put back right after the tables, before the migrations, and a
+   restore whose request died is finished by the next request; while one runs, tokens and cron get 503 and nothing is
+   sent. A restore also keeps today's level, role, section rights and e-mail of each account, the sign-in rules, the
+   console pairing and the signing key (both keys in the ledger, also on every new key), keeps sent newsletters, publishing
+   announcements, reminders and report markers sent, and matches accounts by id; undoing a restore with its safety backup
+   brings back what the restore took away. A second erasure or unsubscribe moves its record forward. Removed private files
+   leave the off-site copy after `backup_remote_days`; the off-site prune deletes only this site's names (a mark in new
+   backup names) and the FTPS delete names the full path. Whistleblowing readers, internal folders, the erasure of
+   personal data and the retention of enquiries ask for the proof too (`FreshProof::ADMIN_ACTIONS`), a second manual backup
+   within five minutes too, and the site export downloads by a POST. The restore preview reads the backup's first line
+   (time and key), never promises today's sign-in for another installation and runs seven queries for the whole list.
+9. **Tests.** Unit and smoke 4100 (restore ledger, retention), 4130 (fresh proof; the suite confirms before each section
+   and test-browser per step), 4160 (sealed files, the interrupted 0134 in test-migrations), 4190 (a backup of before
+   0134 restored after the files were sealed) and 4191–4193 (the review: memory at 128M, the dead restore, the undo, the
+   off-site private retention, the proof of the shared sections).
 
 **Upgrade notes.** Migrations 0133 (the restore ledger) and 0134 (sealing the existing private files) run with the update;
 0134 seals in the background over the next requests and the daily job and is safe to run again. Administrators see a new
 "Confirm it is you" step for administrator settings when they signed in or confirmed more than 10 minutes ago, and when
 connecting Claude at any access level (read only and drafts too); existing Claude connections and their tokens are
-unaffected. Backups are kept for at most 30 days on the server, and off-site copies are pruned after 90 days (setting
-`backup_remote_days`, 0 = never). "Ask Claude" attachments now stay private until Claude places them in Media. The backup
-download in Settings → Backups is now a button (a POST), no longer a link.
+unaffected; after 10 minutes every save of an administrator's section asks for the password again (a form with a file:
+confirm, then choose the file again). Backups are kept for at most 30 days on the server – the first daily job after the
+update deletes every older local backup, safety backups included, so download what must be kept before updating – and
+off-site copies are pruned after 90 days (setting `backup_remote_days`, 0 = never; only copies this site uploads from now
+on, never another site's in a shared folder or older copies). "Ask Claude" attachments now stay private until Claude
+places them in Media. The backup download in Settings → Backups and the export download in Import and export are buttons
+(a POST), no longer links. After a restore, Claude connections that refreshed their token since the backup must connect
+again. Once sealing has run there is no manual way back to 3.45 – its code serves sealed files as they are on the disk;
+updating again makes them readable. To open the private files of an off-site copy after losing the server, keep the
+recovery key and the `vault_key` line of `config.php`.
 
 ## 3.45 – first quote, first week (17 November 2026)
 

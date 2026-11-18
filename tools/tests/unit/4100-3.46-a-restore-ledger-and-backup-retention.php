@@ -52,15 +52,16 @@ check('3.46 N157: no local backup older than 30 days (also the newest uploaded c
 ], [10, 30, ['kaleta-a-3.sql.gz', 'kaleta-a-4.sql.gz.enc'], ['kaleta-a-4.sql.gz.enc'], [], []]);
 
 // N157: off-site copies past backup_remote_days (90; 0 = keep) – only Kaleta's encrypted names, never the one just uploaded
-$r346Names = ['kaleta-20260801-030000-auto-a1b2c3d4.sql.gz.enc', 'kaleta-20261101-030000-auto-b1b2c3d4.sql.gz.enc', 'kaleta-20260801-030000-auto-c1b2c3d4.sql.gz',
-    'media/kaleta-20260101-030000-x.sql.gz.enc', 'kaleta-20260701-030000-rucni-d1b2c3d4.sql.enc', 'notes.txt'];
-check('3.46 N157: RemoteBackup::expired – encrypted backup names older than the limit, not another file, not the uploaded one, nothing with 0 days', [
+$r346Names = ['kaleta-20260801-030000-auto-a1b2c3d4-s0a1b2c3d.sql.gz.enc', 'kaleta-20261101-030000-auto-b1b2c3d4-s0a1b2c3d.sql.gz.enc', 'kaleta-20260801-030000-auto-c1b2c3d4-s0a1b2c3d.sql.gz',
+    'media/kaleta-20260101-030000-x-s0a1b2c3d.sql.gz.enc', 'kaleta-20260701-030000-rucni-d1b2c3d4-s0a1b2c3d.sql.enc', 'notes.txt',
+    'kaleta-20260701-030000-auto-e1b2c3d4.sql.gz.enc', 'kaleta-20260701-030000-auto-f1b2c3d4-s99999999.sql.gz.enc'];
+check('3.46 N157: RemoteBackup::expired – encrypted backup names of this site older than the limit, not another file, not the uploaded one, nothing with 0 days (review L6: not without this site\'s mark)', [
     Kaleta\Core\Settings::DEFAULTS['backup_remote_days'], (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue()['backups']['backup_remote_days'] ?? null,
-    Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00'),
-    Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00', 'kaleta-20260701-030000-rucni-d1b2c3d4.sql.enc'),
-    Kaleta\Core\RemoteBackup::expired($r346Names, 0, '2026-10-01 00:00:00'),
-], ['90', 'cislo:0:3650', ['kaleta-20260801-030000-auto-a1b2c3d4.sql.gz.enc', 'kaleta-20260701-030000-rucni-d1b2c3d4.sql.enc'],
-    ['kaleta-20260801-030000-auto-a1b2c3d4.sql.gz.enc'], []]);
+    Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00', '', 's0a1b2c3d'),
+    Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00', 'kaleta-20260701-030000-rucni-d1b2c3d4-s0a1b2c3d.sql.enc', 's0a1b2c3d'),
+    Kaleta\Core\RemoteBackup::expired($r346Names, 0, '2026-10-01 00:00:00', '', 's0a1b2c3d'), Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00'),
+], ['90', 'cislo:0:3650', ['kaleta-20260801-030000-auto-a1b2c3d4-s0a1b2c3d.sql.gz.enc', 'kaleta-20260701-030000-rucni-d1b2c3d4-s0a1b2c3d.sql.enc'],
+    ['kaleta-20260801-030000-auto-a1b2c3d4-s0a1b2c3d.sql.gz.enc'], [], []]);
 
 // the S3 signature: the listing signs its query string; without one the signature is the one of 1.8 (0150 pins it)
 $r346Sig = fn (string $q): string => Kaleta\Core\RemoteBackup::signS3('GET', 's3.example.com', '/bucket', hash('sha256', ''), 'eu-central-1', 'AKID', 'secret', 1_700_000_000, $q)['Authorization'];

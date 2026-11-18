@@ -25,6 +25,15 @@ final class Backup
     private const int HOLD_SECONDS = 3600;
 
     /**
+     * Review L4: "Create backup now" goes without a fresh proof (FreshProof::EXEMPT), but not again within this many seconds of
+     * the last manual backup – ten clicks from a held session must not push every earlier backup out of the rotation.
+     */
+    public const int MANUAL_PAUSE = 300;
+
+    /** Review L8: the time the first line of the file just restored stated (restore() sets it), the site's wall time; null = none. */
+    public static ?string $restoredMadeAt = null;
+
+    /**
      * The code of a restore's \RuntimeException thrown before the database was touched (3.28, N328-2): an encrypted backup
      * with no key, a wrong key, or a damaged or cut-off file – the caller must not "revert" a database that never changed.
      */
@@ -52,13 +61,17 @@ final class Backup
             throw new \RuntimeException('The folder storage/zalohy cannot be created - check the write permissions.');
         }
         $gz = function_exists('gzopen');
-        $file = 'kaleta-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '.sql' . ($gz ? '.gz' : '');
+        // review L6: the name carries this site's mark (s + 8 hex, siteMark()) – the off-site prune deletes only names with it
+        $file = 'kaleta-' . date('Ymd-His') . '-' . preg_replace('/[^a-z0-9]/', '', $reason) . '-' . bin2hex(random_bytes(4)) . '-' . self::siteMark($db) . '.sql' . ($gz ? '.gz' : '');
         $path = self::FOLDER . '/' . $file;
         $f = $gz ? gzopen($path, 'wb6') : fopen($path, 'wb');
         $write = fn (string $s) => $gz ? gzwrite($f, $s) : fwrite($f, $s);
 
         $pdo = $db->pdo();
-        $write("-- Kaleta " . KALETA_VERSION . " - database backup " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
+        // review L8: the first line says when (ISO 8601) and under which signing key (the first 16 hex of its sha256 – never the
+        // key) the backup was made; a restore and the Backups tab read it instead of trusting the file name
+        $signing = (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'secret_key'");
+        $write("-- Kaleta " . KALETA_VERSION . " - database backup " . date('c') . ($signing !== '' ? ' key ' . substr(hash('sha256', $signing), 0, 16) : '') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n");
         $tables = $db->run('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE ? ORDER BY table_name', [addcslashes($db->prefix, '_%') . '%'])->fetchAll(\PDO::FETCH_COLUMN);
         if ($tables === []) {
             // 3.19.1 (N81): a backup without a table is never "ready" – it would be uploaded, counted and restored as if it were one
@@ -104,6 +117,84 @@ final class Backup
         }
 
         return $file;
+    }
+
+    /**
+     * Review L6: this site's mark in the names of its backups – "s" and the 8 hex of the setting backup_site_id, made the
+     * first time it is needed. It travels with a restored database, so a copy of this site restored elsewhere carries it
+     * too (two installations that share one off-site folder must not share one database – see the field's hint).
+     */
+    public static function siteMark(Db $db): string
+    {
+        try {
+            $id = (string) $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'backup_site_id'");
+            if (preg_match('/^[a-f0-9]{8}$/D', $id) !== 1) {
+                $id = bin2hex(random_bytes(4));
+                $db->run("REPLACE INTO {nastaveni} (promenna, hodnota) VALUES ('backup_site_id', ?)", [$id]);
+            }
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            $id = '00000000'; // no settings table yet (a test database) – a mark no site has
+        }
+
+        return 's' . $id;
+    }
+
+    /**
+     * Review L8: what the first line of a backup says – when it was made (the site's wall time) and the start of the
+     * sha256 of the signing key it was made under (null each when the line does not say: an encrypted copy, a backup made
+     * before 3.46).
+     *
+     * @return array{made: ?string, key: ?string}
+     */
+    public static function header(string $path): array
+    {
+        $none = ['made' => null, 'key' => null];
+        if (self::encrypted($path) || !is_file($path)) {
+            return $none;
+        }
+        $gz = str_ends_with($path, '.gz');
+        if ($gz && !function_exists('gzopen')) {
+            return $none;
+        }
+        $f = $gz ? @gzopen($path, 'rb') : @fopen($path, 'rb');
+        if ($f === false) {
+            return $none;
+        }
+        $first = (string) ($gz ? gzgets($f, 400) : fgets($f, 400));
+        $gz ? gzclose($f) : fclose($f);
+
+        return self::parseHeader($first);
+    }
+
+    /** @return array{made: ?string, key: ?string} the first line of a backup read (pure apart from the time zone) */
+    public static function parseHeader(string $first): array
+    {
+        if (preg_match('/^-- Kaleta \S+ - database backup (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2})(?: key ([a-f0-9]{16}))?\s*$/D', $first, $m) !== 1) {
+            return ['made' => null, 'key' => null];
+        }
+        try {
+            $made = (new \DateTimeImmutable($m[1]))->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('Y-m-d H:i:s');
+        } catch (\Exception) {
+            $made = null; // not a time after all – the name decides
+        }
+
+        return ['made' => $made, 'key' => ($m[2] ?? '') !== '' ? $m[2] : null];
+    }
+
+    /** Review L4: was a manual backup made within the last $seconds? */
+    public static function recentManual(int $seconds = self::MANUAL_PAUSE): bool
+    {
+        foreach (self::listLocal() as $backup) {
+            if ($backup['cas'] < time() - $seconds) {
+                return false; // newest first
+            }
+            if (str_contains($backup['soubor'], '-rucni-')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -355,6 +446,9 @@ final class Backup
         if (!str_starts_with($first, '-- Kaleta ')) {
             throw new \RuntimeException('The file is not a backup created by Kaleta.');
         }
+        if ($apply !== null) {
+            self::$restoredMadeAt = self::parseHeader(rtrim($first, "\r\n"))['made'];
+        }
         $statement = '';
         $count = 0;
         $tables = 0;
@@ -369,8 +463,9 @@ final class Backup
                     throw new \RuntimeException(t('The backup contains a foreign table %s – the restore was stopped.', $m[2]));
                 }
                 $tables += str_starts_with($statement, 'CREATE TABLE ') ? 1 : 0;
-                // 3.46 (N156): a restore never touches the restore ledger, even when a file names it
-                if ($apply !== null && !(isset($m[2]) && Names::table(substr($m[2], strlen($prefix))) === self::LEDGER)) {
+                // 3.46 (N156): a restore never touches the restore ledger, even when a file names it – review L7: in any statement
+                // (DELETE, UPDATE, TRUNCATE, RENAME … of a file made by hand), not only the three shapes create() writes
+                if ($apply !== null && !self::namesLedger($statement, $prefix)) {
                     $apply($statement);
                 }
                 $statement = '';
@@ -387,6 +482,18 @@ final class Backup
         }
 
         return $count;
+    }
+
+    /**
+     * Does a statement of a backup name the restore ledger (review L7)? Its head – up to the values of an INSERT – is
+     * searched for the table under the prefix, quoted or not. Pure.
+     */
+    public static function namesLedger(string $statement, string $prefix): bool
+    {
+        $head = preg_split('/\bVALUES\b/i', $statement, 2)[0] ?? $statement;
+        $names = array_unique([$prefix . self::LEDGER, $prefix . Names::english(self::LEDGER)]);
+
+        return preg_match('/(?<![A-Za-z0-9_$])(' . implode('|', array_map(fn (string $n): string => preg_quote($n, '/'), $names)) . ')(?![A-Za-z0-9_$])/i', $head) === 1;
     }
 
     /**

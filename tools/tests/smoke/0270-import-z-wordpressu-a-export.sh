@@ -60,7 +60,7 @@ check "složka importu není přístupná z webu" 403 /storage/import/wordpress-
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=export" -d "_csrf=$TOKEN"
 check "export webu je v seznamu" 200 "/admin.php?module=transfer" "action=download"
 EXPORT=$(grep -o 'export-[0-9]*-[0-9]*-[0-9a-f]*\.[a-z]*' "$WORK/response" | head -1)
-curl -s -b "$JAR" -o "$WORK/export" "$B/admin.php?module=transfer&action=download&file=$EXPORT"
+curl -s -b "$JAR" -o "$WORK/export" -X POST "$B/admin.php?module=transfer&action=download" -d "_csrf=$(csrf)" -d "soubor=$EXPORT" # 3.46 review L5: only a POST
 if [ "${EXPORT##*.}" = zip ]; then unzip -p "$WORK/export" obsah.json > "$WORK/obsah.json" 2>/dev/null || true; else cp "$WORK/export" "$WORK/obsah.json"; fi
 grep -q '"format":"kaleta-export"' "$WORK/obsah.json" && grep -q '"novinky"' "$WORK/obsah.json" && ! grep -qE '"password"|smtp_heslo|tajny_klic|ai_klic' "$WORK/obsah.json" && echo "  ok     export obsahuje data a žádná tajemství" || { echo "  CHYBA  export"; ERRORS=$((ERRORS+1)); }
 grep -q '"kolekce_polozky":\[' "$WORK/obsah.json" && grep -q 'Jana Nováková' "$WORK/obsah.json" && grep -q '"tridy":\[' "$WORK/obsah.json" && grep -q '"casti":\[' "$WORK/obsah.json" && ! grep -q 'Chci kuchyň' "$WORK/obsah.json" \

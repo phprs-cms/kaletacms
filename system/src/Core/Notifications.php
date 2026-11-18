@@ -15,6 +15,9 @@ final class Notifications
     public static function runInBackground(App $app): void
     {
         $s = $app->settings();
+        if (RestoreLedger::$busy) {
+            return; // 3.46 review M2: nothing is sent while another request restores the database
+        }
         if (time() - $s->int('notification_check') < 60 || Updater::installedNow()) {
             return; // N3261-1: never right after an update in the same process – the next request runs them with the new code
         }
@@ -77,10 +80,6 @@ final class Notifications
         self::runEach([
             fn () => Jobs::purgeApplications($app), // applications to job openings first: they usually have a shorter retention (2.11)
             fn () => Applications::purge($app), // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
-            function () use ($app): void { // 3.46 (N165): internal files migration 0134 could not seal yet, and leftovers of an interrupted run
-                InternalFiles::sealPending($app->settings(), microtime(true) + 10.0);
-                SealedFiles::sweepLeftovers(InternalFiles::FOLDER);
-            },
             fn () => TalentPool::sendRenewals($app), // 3.40: before the consent for future openings lapses, the applicant may keep or delete the application
             function () use ($app, $s): void {
                 \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
@@ -111,6 +110,12 @@ final class Notifications
                 } catch (\RuntimeException) {
                     // no storage/import folder and none can be made: nothing to clean
                 }
+            },
+            // 3.46 (N165): internal files migration 0134 could not seal yet, and leftovers of an interrupted run – last (review H1):
+            // the retention deletions above never wait for it
+            function () use ($app): void {
+                InternalFiles::sealPending($app->settings(), microtime(true) + 10.0);
+                SealedFiles::sweepLeftovers(InternalFiles::FOLDER);
             },
         ]);
     }

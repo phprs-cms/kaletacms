@@ -105,8 +105,9 @@ final class RemoteBackup
     /**
      * 3.46 (N157, owner decision 8): the off-site database copies older than backup_remote_days (90 by default; 0 = Kaleta
      * deletes none – a lifecycle rule of the bucket does it) are deleted after a successful upload, in the same connection.
-     * Only Kaleta's own backup names in the backup folder itself, never the media/ folder or another file, never the copy
-     * just uploaded. A failure is an event and never fails the upload.
+     * Only Kaleta's own backup names of this site (review L6: its mark, Backup::siteMark) in the backup folder itself, never
+     * the media/ or private/ folder or another file, never the copy just uploaded; copies uploaded before 3.46 (no mark) and
+     * unencrypted copies from before 3.28 stay – Kaleta never deletes them silently. A failure is an event and never fails the upload.
      *
      * @param callable(): list<string> $list
      * @param callable(string): void $delete
@@ -119,7 +120,7 @@ final class RemoteBackup
         }
         $deleted = 0;
         try {
-            foreach (self::expired($list(), $days, Clock::at('-' . $days . ' days'), $uploaded) as $name) {
+            foreach (self::expired($list(), $days, Clock::at('-' . $days . ' days'), $uploaded, Backup::siteMark($s->db())) as $name) {
                 $delete($name);
                 $deleted++;
             }
@@ -137,9 +138,9 @@ final class RemoteBackup
      * @param list<string> $names
      * @return list<string>
      */
-    public static function expired(array $names, int $days, string $before, string $keep = ''): array
+    public static function expired(array $names, int $days, string $before, string $keep = '', string $mark = ''): array
     {
-        if ($days <= 0) {
+        if ($days <= 0 || preg_match('/^s[a-f0-9]{8}$/D', $mark) !== 1) {
             return [];
         }
         $out = [];
@@ -148,7 +149,9 @@ final class RemoteBackup
                 continue; // never a file of another folder (media/)
             }
             $made = RestoreLedger::madeAt($name);
-            if ($name !== $keep && $made !== null && $made < $before && Backup::encrypted($name) && preg_match('/^kaleta-[0-9a-z-]+\.sql(\.gz)?\.enc$/D', $name) === 1) {
+            // review L6: only this site's names (its mark before .sql) – a neighbour sharing the folder, a copy kept by hand under
+            // another name and the unencrypted copies from before 3.28 are never deleted by Kaleta
+            if ($name !== $keep && $made !== null && $made < $before && Backup::encrypted($name) && preg_match('/^kaleta-[0-9a-z-]+-' . $mark . '\.sql(\.gz)?\.enc$/D', $name) === 1) {
                 $out[] = $name;
             }
         }
@@ -277,6 +280,30 @@ final class RemoteBackup
     }
 
     /**
+     * Review M5 (pure): which copied private files are gone from the site and since when, and which of them are due for
+     * deletion from the copy – gone for at least $days days ($days 0 = never). A file that came back is no longer gone.
+     *
+     * @param array<string, string> $copied the manifest's files (path => signature)
+     * @param array<string, int> $gone path => when it was first missed
+     * @param array<string, int> $files the files on the disk now
+     * @return array{0: array<string, int>, 1: list<string>}
+     */
+    public static function privateGone(array $copied, array $gone, array $files, int $days, int $now): array
+    {
+        $gone = array_intersect_key($gone, $copied);
+        foreach (array_keys($copied) as $path) {
+            if (isset($files[$path])) {
+                unset($gone[$path]);
+            } else {
+                $gone[$path] ??= $now;
+            }
+        }
+        $due = $days > 0 ? array_map('strval', array_keys(array_filter($gone, fn (int $at): bool => $at <= $now - $days * 86400))) : [];
+
+        return [$gone, $due];
+    }
+
+    /**
      * The files of the private folders (3.46): relative path => size; the deny-all .htaccess, hidden files and the
      * half-written copies of a run in progress (.part, .sealing) are left out.
      *
@@ -305,8 +332,10 @@ final class RemoteBackup
      * Incremental copy of the private folders off the server (3.46, N165) into the folder private/ of the same target: only
      * new and changed files, each encrypted at rest with BackupEncryption under the recovery key first (a temporary
      * .enc in storage/zalohy/, deleted afterwards) and uploaded as <path>.enc. Nothing leaves the server until the
-     * recovery key is saved (the status says "paused"); a new target or a new recovery key gets everything again. A file
-     * deleted on the site stays in the copy. Runs for at most $seconds. Status: remote_private_status = "Y-m-d H:i|ok,
+     * recovery key is saved (the status says "paused"); a new target or a new recovery key gets everything again. Review M5:
+     * a file deleted on the site (an erased applicant's CV, a removed internal file) is deleted from the copy too, after
+     * backup_remote_days like the database copies that may still name it (0 = never); the manifest remembers since when it
+     * is gone. Runs for at most $seconds. Status: remote_private_status = "Y-m-d H:i|ok,
      * paused or error|files waiting".
      *
      * @return string|null error text, null = done, nothing to do, or paused for the recovery key
@@ -335,8 +364,38 @@ final class RemoteBackup
                 $pending[$path] = $signature;
             }
         }
+        [$gone, $due] = self::privateGone((array) ($manifest['soubory'] ?? []), (array) ($manifest['smazano'] ?? []), $files, $s->int('backup_remote_days'), time());
+        $goneChanged = $gone !== ($manifest['smazano'] ?? []);
+        $manifest['smazano'] = $gone;
         $error = null;
         $done = 0;
+        if ($due !== []) {
+            try {
+                [, $close, , $delete] = self::open($s);
+                try {
+                    foreach ($due as $path) {
+                        try {
+                            $delete('private/' . $path . BackupEncryption::EXTENSION);
+                        } catch (\Throwable $e) {
+                            $tries = (int) ($manifest['nesmazano'][$path] ?? 0) + 1;
+                            if ($tries < 3) { // a passing failure is tried again next time; after three the copy is given up as gone already
+                                $manifest['nesmazano'][$path] = $tries;
+                                $error ??= $e->getMessage();
+                                continue;
+                            }
+                        }
+                        unset($manifest['soubory'][$path], $manifest['smazano'][$path], $manifest['nesmazano'][$path]);
+                    }
+                } finally {
+                    $close();
+                }
+            } catch (\Throwable $e) {
+                $error = $e->getMessage();
+            }
+            file_put_contents(self::PRIVATE_MANIFEST, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES), LOCK_EX);
+        } elseif ($goneChanged && $pending === []) {
+            file_put_contents(self::PRIVATE_MANIFEST, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES), LOCK_EX); // since when a file is gone
+        }
         if ($pending !== []) {
             $start = microtime(true);
             if (!is_dir(Backup::FOLDER)) {
@@ -363,7 +422,7 @@ final class RemoteBackup
                     $close();
                 }
             } catch (\Throwable $e) {
-                $error = $e->getMessage();
+                $error ??= $e->getMessage();
             }
             file_put_contents(self::PRIVATE_MANIFEST, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES), LOCK_EX);
         }
@@ -431,6 +490,19 @@ final class RemoteBackup
         $parts = array_values(array_filter(explode('/', trim($folder, '/') . '/' . $remote), fn (string $p): bool => $p !== ''));
 
         return 'ftp://' . $host . '/' . (trim($folder, '/') !== '' ? '%2F' : '') . implode('/', array_map(rawurlencode(...), $parts));
+    }
+
+    /**
+     * The FTP command that deletes $name (a file of the backup folder, or private/… below it) – review M6: with the folder's
+     * absolute path, as the address of an upload names it (ftpUrl: %2F), because cURL sends it before changing into the
+     * folder; without a folder the name is relative to the sign-in folder, where the uploads go. Pure.
+     */
+    public static function ftpDeleteCommand(string $folder, string $name): string
+    {
+        $folder = trim($folder, '/');
+        $name = ltrim(str_replace(["\r", "\n"], '', $name), '/');
+
+        return 'DELE ' . ($folder !== '' ? '/' . $folder . '/' : '') . $name;
     }
 
     /**
@@ -550,8 +622,10 @@ final class RemoteBackup
             return is_string($out) ? $out : '';
         };
         $list = fn (): array => array_values(array_filter(array_map('trim', explode("\n", $command([CURLOPT_DIRLISTONLY => true]))), fn (string $n): bool => $n !== ''));
-        $delete = function (string $name) use ($command): void {
-            $command([CURLOPT_QUOTE => ['DELE ' . $name], CURLOPT_NOBODY => true]);
+        // review M6: cURL sends QUOTE commands right after the sign-in, before it changes into the folder of the address – the
+        // DELE names the file by its full path (ftpDeleteCommand), so it deletes in the backup folder and nowhere else
+        $delete = function (string $name) use ($command, $folder): void {
+            $command([CURLOPT_QUOTE => [self::ftpDeleteCommand($folder, $name)], CURLOPT_NOBODY => true]);
         };
 
         return [$put, fn () => null, $list, $delete]; // PHP 8: the handle (and the connection) closes when $put is released

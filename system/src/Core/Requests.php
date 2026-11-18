@@ -252,8 +252,11 @@ final class Requests
     public static function fileContent(Settings $s, array $file): ?string
     {
         $disk = self::filePath((string) ($file['path'] ?? ''));
+        if ($disk === null || !SealedFiles::roomFor((int) @filesize($disk))) {
+            return null; // review H1: too large for the memory this request may use – refused, never a fatal error
+        }
 
-        return $disk === null ? null : SealedFiles::open($s, self::FILE_PURPOSE, $disk, is_string($file['key'] ?? null) ? $file['key'] : null);
+        return SealedFiles::open($s, self::FILE_PURPOSE, $disk, is_string($file['key'] ?? null) ? $file['key'] : null);
     }
 
     /** The private attachments for MCP and the screens: index, name, size, image – never a path or a key. @return list<array{index: int, name: string, size: string, image: bool, media: int}> */
@@ -287,7 +290,9 @@ final class Requests
         if ((int) ($file['media'] ?? 0) > 0 && $db->value('SELECT 1 FROM {media} WHERE ido = ?', [(int) $file['media']]) !== null) {
             return (int) $file['media'];
         }
-        $content = self::fileContent($s, $file);
+        // review H1: the MCP upload adds a base64 copy and its decoded twin on top of the content – budgeted as two files
+        $disk = self::filePath((string) ($file['path'] ?? ''));
+        $content = $disk !== null && SealedFiles::roomFor(2 * (int) @filesize($disk)) ? self::fileContent($s, $file) : null;
         if ($content === null) {
             return null;
         }

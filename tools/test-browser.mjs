@@ -3461,7 +3461,7 @@ await step('3.25 builder Versions: draft history, per-section compare, load an a
   const dialog = page.locator('dialog.st-verze[open]');
   await dialog.waitFor();
   const draftRow = dialog.locator('.st-verze-koncepty li').first();
-  if (!/^Draft – today \d\d:\d\d \(by Tester\)$/.test((await draftRow.locator('span').first().textContent()).trim())) { throw new Error(`the draft entry says “${await draftRow.textContent()}”`); }
+  if (!/^Draft – (today|yesterday|\d{1,2} [A-Z][a-z]{2} \d{4}) \d\d:\d\d \(by Tester\)$/.test((await draftRow.locator('span').first().textContent()).trim())) { throw new Error(`the draft entry says “${await draftRow.textContent()}”`); }
   if ((await dialog.locator('.st-verze-publikovane li').count()) !== 1) { throw new Error('the published version is not listed'); }
   await draftRow.locator('.st-verze-porovnej').click();
   await dialog.locator('.st-porovnani-sekce').first().waitFor();

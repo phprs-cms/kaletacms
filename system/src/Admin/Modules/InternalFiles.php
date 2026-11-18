@@ -119,6 +119,11 @@ final class InternalFiles extends Module
         $id = $this->request->getInt('id');
         $file = Library::download($this->app, $id, $this->request->getInt('version'));
         if ($file === null) {
+            $listed = Library::file($this->app, $id);
+            if ($listed !== null && !\Kaleta\Core\SealedFiles::roomFor((int) $listed['size'])) { // review H1: a message, never a fatal error
+                return $this->error('The file is too large to open with the memory this server allows a request (memory_limit). Ask your hosting to raise it.', 503);
+            }
+
             return $this->error('The file does not exist, or its folder is not for you.', 404);
         }
         ChangeLog::write($this->app, Library::SECTION, 'download', t('Internal file #%d downloaded', $id));

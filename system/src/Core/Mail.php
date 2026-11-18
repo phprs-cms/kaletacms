@@ -209,7 +209,7 @@ final class Mail
     /** After the page was sent (admin.php): delivers what later() queued in this request; what fails waits for a retry. */
     public static function afterResponse(App $app): void
     {
-        if (!self::$pending) {
+        if (!self::$pending || RestoreLedger::$busy) { // 3.46 review M2: nothing goes out while another request restores the database
             return;
         }
         self::$pending = false;

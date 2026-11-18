@@ -33,10 +33,21 @@ final class SealedFiles
         $key = sodium_crypto_secretbox_keygen();
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $wrapped = Vault::seal(self::wrapKey($s, $purpose), $key);
-        $blob = self::MAGIC . pack('n', strlen($wrapped)) . $wrapped . $nonce . sodium_crypto_secretbox($plain, $nonce, $key);
+        $header = self::MAGIC . pack('n', strlen($wrapped)) . $wrapped . $nonce;
+        // 3.46 review H1: the header and the ciphertext are written one after the other – never joined into a third copy
+        // of the content in memory (the plain content and the ciphertext are the peak: twice the file)
+        $cipher = sodium_crypto_secretbox($plain, $nonce, $key);
         $temporary = $file . '.' . bin2hex(random_bytes(4)) . '.part';
-        if ((!is_dir(dirname($file)) && !@mkdir(dirname($file), 0770, true) && !is_dir(dirname($file)))
-            || @file_put_contents($temporary, $blob, LOCK_EX) !== strlen($blob) || !@rename($temporary, $file)) {
+        $written = false;
+        if (is_dir(dirname($file)) || @mkdir(dirname($file), 0770, true) || is_dir(dirname($file))) {
+            $handle = @fopen($temporary, 'xb');
+            if ($handle !== false) {
+                $written = @fwrite($handle, $header) === strlen($header) && @fwrite($handle, $cipher) === strlen($cipher);
+                $written = @fclose($handle) && $written;
+            }
+        }
+        unset($cipher);
+        if (!$written || !@rename($temporary, $file)) {
             @unlink($temporary);
 
             return null;
@@ -95,17 +106,22 @@ final class SealedFiles
             return null;
         }
         $length = self::headerLength($raw);
-        $body = $length !== null ? substr($raw, 6 + $length) : $raw;
-        if (strlen($body) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
+        $offset = $length !== null ? 6 + $length : 0;
+        if (strlen($raw) - $offset <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
             return null;
         }
+        // 3.46 review H1: one copy of the ciphertext straight from the file, the file itself freed before decrypting – the
+        // peak is the ciphertext and the content (twice the file), not five copies
+        $nonce = substr($raw, $offset, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+        $cipher = substr($raw, $offset + SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+        unset($raw);
         foreach ([$key, null] as $try) {
             $candidate = $try ?? ($length !== null ? self::headerKey($s, $purpose, $file) : null);
             $raw64 = $candidate !== null ? base64_decode($candidate, true) : false;
             if ($raw64 === false || strlen($raw64) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
                 continue;
             }
-            $plain = sodium_crypto_secretbox_open(substr($body, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), substr($body, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $raw64);
+            $plain = sodium_crypto_secretbox_open($cipher, $nonce, $raw64);
             if ($plain !== false) {
                 return $plain;
             }
@@ -160,16 +176,12 @@ final class SealedFiles
      */
     public static function sealInPlace(Settings $s, string $purpose, string $file, string $sha256 = '', int $stopAfter = 0): ?string
     {
-        if (!is_file($file)) {
-            return null;
+        if (!is_file($file) || !self::roomFor((int) @filesize($file))) {
+            return null; // gone, or too large for the memory this request may use – left as it is (review H1: checked before any read)
         }
         $existing = self::headerKey($s, $purpose, $file);
         if ($existing !== null && self::open($s, $purpose, $file, $existing) !== null) {
             return $existing; // 1. sealed already
-        }
-        $size = (int) @filesize($file);
-        if (!self::roomFor($size)) {
-            return null;
         }
         $plain = @file_get_contents($file);
         if (!is_string($plain) || ($sha256 !== '' && !hash_equals($sha256, hash('sha256', $plain)))) {
@@ -181,14 +193,16 @@ final class SealedFiles
             return null;
         }
         $hash = hash('sha256', $plain);
+        sodium_memzero($plain); // review H1: only the hash is kept while the copy is verified
+        unset($plain);
         $check = self::open($s, $purpose, $copy, $key);
-        $header = self::headerKey($s, $purpose, $copy);
-        if ($check === null || $header === null || !hash_equals($hash, hash('sha256', $check))) {
+        $same = $check !== null && hash_equals($hash, hash('sha256', $check));
+        unset($check);
+        if (!$same || self::headerKey($s, $purpose, $copy) === null) {
             @unlink($copy);
 
             return null;
         }
-        sodium_memzero($plain);
         if ($stopAfter === 1) {
             return null;
         }
@@ -199,6 +213,63 @@ final class SealedFiles
         }
 
         return $key;
+    }
+
+    /** The setting that names the file a run is sealing right now (review H1): left set only by a request that died on it. */
+    public const string SEALING = 'private_files_sealing';
+
+    /** The files a run died on, "id|memory_limit in bytes" per line – skipped until the memory limit is raised above that. */
+    public const string SKIPPED = 'private_files_skipped';
+
+    /**
+     * Before a run of sealPending (review H1): a file named in SEALING killed the previous run (a memory or time limit no
+     * try/catch can catch) – it goes to SKIPPED with the memory limit of that time, an event says so, and no run tries it
+     * first again. It stays readable as it is.
+     */
+    public static function takeOverDeadRun(Settings $s): void
+    {
+        $dead = $s->get(self::SEALING);
+        if ($dead === '') {
+            return;
+        }
+        $lines = array_filter(explode("\n", $s->get(self::SKIPPED)), static fn (string $l): bool => $l !== '' && !str_starts_with($l, $dead . '|'));
+        $lines[] = $dead . '|' . self::bytes((string) ini_get('memory_limit'));
+        $s->set(self::SKIPPED, implode("\n", array_slice($lines, -200)));
+        $s->set(self::SEALING, '');
+        try {
+            Events::record($s->db(), 'files.seal_failed', 'warning', t('A private file could not be sealed – the request ran out of memory or time on it (%s). It stays readable as it is; raise memory_limit and it is tried again.', $dead), ['file' => $dead]);
+        } catch (\Throwable) {
+            // a record never stops the work
+        }
+    }
+
+    /** Does a run skip this file (it killed a run before, and the memory limit is not higher now)? */
+    public static function skipped(Settings $s, string $id): bool
+    {
+        foreach (explode("\n", $s->get(self::SKIPPED)) as $line) {
+            [$name, $limit] = array_pad(explode('|', $line, 2), 2, '0');
+            if ($name === $id) {
+                $now = self::bytes((string) ini_get('memory_limit'));
+
+                return $now >= 0 && $now <= (int) $limit;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * sealInPlace() with the guard of review H1: the file's id is written into SEALING before and cleared after, so a run a
+     * fatal error ends on this file is noticed by the next one (takeOverDeadRun) instead of dying on it again.
+     */
+    public static function sealGuarded(Settings $s, string $id, string $purpose, string $file, string $sha256 = '', int $stopAfter = 0): ?string
+    {
+        $s->set(self::SEALING, $id);
+        try {
+            return self::sealInPlace($s, $purpose, $file, $sha256, $stopAfter);
+        } finally {
+            $s->set(self::SEALING, '');
+        }
     }
 
     /** Leftover copies of sealInPlace() (.sealing) and write() (.part) in a folder tree, older than an hour – removed. Returns how many. */
@@ -240,8 +311,10 @@ final class SealedFiles
     }
 
     /**
-     * Is there memory to seal or open a file of $bytes (the content, the sealed copy and the opened check are in memory at
-     * once)? The limit is raised when PHP lets it; false when it stays too low – the caller leaves the file as it is.
+     * Is there memory to seal or open a file of $bytes? 3.46 review H1: write(), open() and sealInPlace() hold at most two
+     * copies of the content at once (the content and its ciphertext; smoke 4191 measures it); the budget is three copies
+     * and 32 MB for the rest of the request. The limit is raised when PHP lets it; false when it stays too low – the
+     * caller leaves the file as it is (or refuses the download with a message), never a fatal error.
      */
     public static function roomFor(int $bytes): bool
     {

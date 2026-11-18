@@ -33,7 +33,7 @@ final class SigningKey
     ];
 
     /** What the confirmation adds below the list (N3191-11). */
-    public const string NOTE = 'Restoring a backup made before the new key brings the old key back. Claude connections are not affected – their tokens do not depend on this key.';
+    public const string NOTE = 'Restoring a backup made before the new key keeps the new key (since 3.46). Claude connections are not affected – their tokens do not depend on this key.';
 
     /** @return array{status: 'rotated'|'vault'|'held'|'error', count?: int, error?: string} vault = the encryption key is half moved or missing; held = CV lists still held under the key in the database (N10) */
     public static function rotate(App $app): array
@@ -77,6 +77,10 @@ final class SigningKey
                 // N3191-2: a request that read the settings before this commit may still seal one value with the old key –
                 // Vault::openFor() tries it while the key is in the database, and the next rotation reseals with it too
                 $settings->set('secret_key_previous', $old . '|' . time());
+                // review L1: both keys in the restore ledger – a backup made under any key this site ever used is this site's,
+                // however many rotations ago (the ledger outlives restores; a backup never holds it)
+                RestoreLedger::recordSiteKey($db, $old);
+                RestoreLedger::recordSiteKey($db, $new);
 
                 return $count;
             });

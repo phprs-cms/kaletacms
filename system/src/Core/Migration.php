@@ -38,6 +38,13 @@ final class Migration
     /** The budget of a data migration's continuation inside a visitor's page request. */
     public const float VISITOR_SECONDS = 2.0;
 
+    /**
+     * 3.46 review H1: true inside a visitor's page request (Front\Kernel) – a data migration then writes only the structure
+     * and leaves file work (0134 seals private files) to the administration, cron and the daily job, so a visitor's request
+     * never holds a large file in memory.
+     */
+    public static bool $visitor = false;
+
     /** MySQL errors that mean "this change is already in the database": a table, column, index or foreign key exists, a dropped column or index is missing. */
     private const array ALREADY_APPLIED = [1050, 1060, 1061, 1022, 1826, 1091];
 

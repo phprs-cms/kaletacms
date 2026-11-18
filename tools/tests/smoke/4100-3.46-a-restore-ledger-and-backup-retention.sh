@@ -119,7 +119,8 @@ http_response_code(200); return true;
 PHP
 (cd "$WORK/s346" && exec php -S "127.0.0.1:$S346_PORT" router.php > /dev/null 2>&1) & S346_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$S346_PORT/ping" && break; sleep 0.2; done
-R346_R_OLD="kaleta-$(site_time '-100 days' Ymd-His)-auto-aaaa1111.sql.gz.enc"; R346_R_NEW="kaleta-$(site_time '-10 days' Ymd-His)-auto-bbbb2222.sql.gz.enc"; R346_R_PLAIN="kaleta-$(site_time '-100 days' Ymd-His)-auto-cccc3333.sql.gz"
+R346_MARK=$(r346_php 'echo Kaleta\Core\Backup::siteMark($db);') # review L6: only this site's names are pruned
+R346_R_OLD="kaleta-$(site_time '-100 days' Ymd-His)-auto-aaaa1111-$R346_MARK.sql.gz.enc"; R346_R_NEW="kaleta-$(site_time '-10 days' Ymd-His)-auto-bbbb2222-$R346_MARK.sql.gz.enc"; R346_R_PLAIN="kaleta-$(site_time '-100 days' Ymd-His)-auto-cccc3333-$R346_MARK.sql.gz"
 touch "$WORK/s346/sub/$R346_R_OLD" "$WORK/s346/sub/$R346_R_NEW" "$WORK/s346/sub/$R346_R_PLAIN"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('remote_backup', 's3'), ('backup_host', 's3.example.com'), ('backup_user', 'AKID346'), ('backup_password', 'secret-346'), ('backup_folder', 'r346-bucket/sub'),
   ('backup_region', 'eu-central-1'), ('backup_test_url', 'http://127.0.0.1:$S346_PORT'), ('backup_remote_days', '90')" > /dev/null

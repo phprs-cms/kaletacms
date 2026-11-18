@@ -278,7 +278,7 @@ final class PersonalData
     public static function horizonText(bool $offsite, int $offsiteDays): string
     {
         return t('The erased data can stay in the backups for up to %d days (at most %d backups on this server).', Backup::KEEP_DAYS, Backup::KEEP)
-            . ($offsite ? ' ' . ($offsiteDays > 0 ? t('Off-site copies are deleted after %d days.', $offsiteDays) : t('Off-site copies are not deleted by Kaleta – the lifecycle rule of the storage decides.')) : '')
+            . ($offsite ? ' ' . ($offsiteDays > 0 ? t('Off-site copies – the database and the private files removed from the site – are deleted after %d days.', $offsiteDays) : t('Off-site copies are not deleted by Kaleta – the lifecycle rule of the storage decides.')) : '')
             . ' ' . t('A restore of an older backup erases the address again.');
     }
 

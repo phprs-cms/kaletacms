@@ -75,7 +75,7 @@
 
 		function done(j) {
 			// 3.46: "Confirm it is you" (views/admin/confirm.php) posts its form again once the passkey has confirmed it
-			if (formEl.hasAttribute('data-klic-odeslat')) { formEl.submit(); return; }
+			if (formEl.hasAttribute('data-klic-odeslat')) { HTMLFormElement.prototype.submit.call(formEl); return; } // review L9: a field named submit never shadows it
 			window.location.href = (j && j.kam) || window.location.href.split('#')[0];
 		}
 
