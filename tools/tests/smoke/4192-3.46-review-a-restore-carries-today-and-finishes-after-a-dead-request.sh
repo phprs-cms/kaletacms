@@ -69,7 +69,7 @@ sq "DELETE FROM ka_api_tokeny WHERE otisk = '$R192_DEADTOKEN'" > /dev/null # rev
 r192_php '$file = $a[0]; $made = Kaleta\Core\RestoreLedger::backupTime($file); $today = Kaleta\Core\RestoreLedger::capture($db, $made, (int) $a[1]);
   Kaleta\Core\RestoreLedger::begin($today, $file, $a[2], $made); Kaleta\Core\Backup::restore($db, $file); Kaleta\Core\RestoreLedger::restored($made); /* the request dies here */' "$R192_DEAD2" "$R192_ADMIN" "$R192_DEAD" > /dev/null
 expect "3.46 review M2: the request died – the revoked token is back in the tables and the state of today waits in storage/zalohy (0600)" \
-  "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = '$R192_DEADTOKEN'")|$([ -f "$R192_DIR/.restore-state" ] && stat -f '%Lp' "$R192_DIR/.restore-state" 2>/dev/null || stat -c '%a' "$R192_DIR/.restore-state")" "1|600"
+  "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = '$R192_DEADTOKEN'")|$(php -r 'echo is_file($argv[1]) ? decoct(fileperms($argv[1]) & 0777) : "none";' -- "$R192_DIR/.restore-state")" "1|600"
 R192_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$B/")
 expect "3.46 review M2: the next request (a visitor's) finishes the reapply first – the token is gone, the state file too, the event says it was finished later" \
   "$R192_CODE|$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = '$R192_DEADTOKEN'")|$([ -f "$R192_DIR/.restore-state" ] && echo left || echo gone)|$(sq "SELECT JSON_EXTRACT(data, '$.finished_later') FROM ka_events WHERE type = 'backup.restored' ORDER BY id DESC LIMIT 1")" \
