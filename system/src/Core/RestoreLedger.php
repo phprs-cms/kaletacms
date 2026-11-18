@@ -125,10 +125,16 @@ final class RestoreLedger
         }
         try {
             $db->run('INSERT INTO {restore_ledger} (kind, hash, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)',
-                [self::APPLICATION_DELETED, self::keyedHash(self::key($db), self::applicationSubject($id, $email)), Clock::now()]);
+                [self::APPLICATION_DELETED, self::applicationFingerprint($db, $id, $email), Clock::now()]);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // before migration 0133
         }
+    }
+
+    /** The keyed fingerprint of a deleted application (its number and address) – what recordApplication() stores. */
+    public static function applicationFingerprint(Db $db, int $id, string $email): string
+    {
+        return self::keyedHash(self::key($db), self::applicationSubject($id, $email));
     }
 
     /** What the fingerprint of a deleted application is made of: its number and its address (cleaned). Pure. */

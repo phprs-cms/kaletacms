@@ -25,7 +25,7 @@ mv "$R200_DIR/$R200_MADE" "$R200_DIR/$R200_FILE"; touch -t "$(site_time '-2 minu
 # deletes the application through the talent-pool link, a reader is taken off the channel, Claude's deletions and the cron secret change
 r200_php 'foreach (["r200-field@example.cz", "r200-merged@example.cz", "r200-queued@example.cz"] as $e) { Kaleta\Core\PersonalData::erase($app, $e); } echo Kaleta\Core\TalentPool::remove($app, $a[0]) ? "removed" : "kept";' "$R200_TOKEN" > "$WORK/r200-erase"
 expect "3.46.1 re-audit M1: erased today – the field-only enquiry, the merged customer record and the queued body; the applicant's deletion is on record" \
-  "$(cat "$WORK/r200-erase")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = $R200_ENQ")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = $R200_CONTACT")|$(sq "SELECT body IS NULL FROM ka_webhook_deliveries WHERE id = $R200_DELIVERY")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE id = $R200_APP")|$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'application_deleted'")" \
+  "$(cat "$WORK/r200-erase")|$(sq "SELECT COUNT(*) FROM ka_poptavky WHERE idp = $R200_ENQ")|$(sq "SELECT COUNT(*) FROM ka_contacts WHERE id = $R200_CONTACT")|$(sq "SELECT body IS NULL FROM ka_webhook_deliveries WHERE id = $R200_DELIVERY")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE id = $R200_APP")|$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'application_deleted' AND hash = '$(r200_php 'echo Kaleta\Core\RestoreLedger::applicationFingerprint($db, (int) $a[0], "r200-applicant@example.cz");' "$R200_APP")'")" \
   "removed|0|0|1|0|1"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('whistleblowing_readers', '9999'), ('claude_destructive', '0'), ('tasks_token', 'r200-new-token'), ('webhook_url', 'https://example.invalid/r200-new')" > /dev/null
 
@@ -89,5 +89,4 @@ expect "3.46.1 re-audit M3: the same head code saves without asking; a new one a
 # clean up (the proof is renewed by the suite before the next section)
 rm -f "$R200_DIR/$R200_FILE" "$R200_DIR/$R200_DEAD" "$R200_DIR/$R200_SAFE" "$R200_DIR/.restore-state" "$R200_JAR"
 sq "DELETE FROM ka_uzivatele WHERE user = 'r200admin'; DELETE FROM ka_odber_fronta WHERE email LIKE 'r200-%'; DELETE FROM ka_webhook_deliveries WHERE event = 'r200'; DELETE FROM ka_contacts WHERE name = 'R200 colleague';
-  DELETE FROM ka_restore_ledger WHERE kind = 'application_deleted';
   DELETE FROM ka_nastaveni WHERE promenna IN ($R200_KEYS); INSERT INTO ka_nastaveni SELECT * FROM ka_r200_backup; DROP TABLE ka_r200_backup" > /dev/null

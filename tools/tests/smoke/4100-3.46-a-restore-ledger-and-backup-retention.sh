@@ -52,8 +52,9 @@ expect "3.46 N156: the unsubscribe link and the erasure go into the ledger as ke
   "$R346_CODE|$(sq "SELECT COUNT(*) FROM ka_odberatele WHERE email = 'r346-unsub@example.cz'")|$(r346_php 'echo (int) $db->value("SELECT COUNT(*) FROM {restore_ledger} WHERE (kind = ? AND hash = ?) OR (kind = ? AND hash = ?)", ["unsubscribed", Kaleta\Core\RestoreLedger::fingerprint($db, "r346-unsub@example.cz"), "erased", Kaleta\Core\RestoreLedger::fingerprint($db, "R346-erase@example.cz")]);')|$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE hash LIKE '%r346%'")" "200|0|2|0"
 
 # --- before the restore: the Backups tab says what it loses and what it keeps ---
+# 3.46.1: the applications their applicants deleted count among the erasures
 R346_MADE_AT=$(r346_php 'echo Kaleta\Core\RestoreLedger::madeAt($a[0]);' "$R346_FILE")
-R346_ERASURES=$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'erased' AND created_at > '$R346_MADE_AT'"); R346_UNSUBS=$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'unsubscribed' AND created_at > '$R346_MADE_AT'")
+R346_ERASURES=$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind IN ('erased', 'application_deleted') AND created_at > '$R346_MADE_AT'"); R346_UNSUBS=$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'unsubscribed' AND created_at > '$R346_MADE_AT'")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
 expect "3.46 N156: the Restore button of the backup says what the restore loses since it and keeps from today" \
   "$(grep "value=\"$R346_FILE\" data-restore-undoes" "$WORK/response" | grep -c "Od této zálohy obnova ztratí .* $R346_ERASURES výmazů osobních údajů a $R346_UNSUBS odhlášení odběru od té doby" || true)" "1"

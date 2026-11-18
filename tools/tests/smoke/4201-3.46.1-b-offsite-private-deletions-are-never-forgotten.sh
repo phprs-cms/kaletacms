@@ -39,9 +39,9 @@ expect "3.46.1 re-audit M4: after a new recovery key the pending deletion is kep
 # --- the target refuses deletion three times: the file stays listed as not deleted, the next run still tries, Settings → Backups says so
 r201_php 'Kaleta\Core\RemoteBackup::syncPrivate($s, 60); Kaleta\Core\RemoteBackup::syncPrivate($s, 60); Kaleta\Core\RemoteBackup::syncPrivate($s, 60);' > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/r201-backups" "$B/admin.php?module=settings&tab=backups"
-expect "3.46.1 re-audit M4: after three refused deletions the file is still listed (tried on every run), counted as not deleted and shown in Settings → Backups" \
-  "$(r201_manifest | cut -d/ -f1,2)|$(r201_php 'echo Kaleta\Core\RemoteBackup::undeletedPrivate();')|$(grep -c "^DELETE /r201/private/$R201_PATH.enc$" "$WORK/s3-r201/requests.log" || true)|$(grep -q -e 'could not be deleted from the off-site copy' -e 'nešlo smazat z kopie mimo server' "$WORK/r201-backups" && echo shown || echo no)" \
-  "listed/gone|1|4|shown"
+expect "3.46.1 re-audit M4: after three refused deletions the file is still listed (tried on every run – an administration request may run the copy too), counted as not deleted and shown in Settings → Backups" \
+  "$(r201_manifest | cut -d/ -f1,2)|$(r201_php 'echo Kaleta\Core\RemoteBackup::undeletedPrivate();')|$([ "$(grep -c "^DELETE /r201/private/$R201_PATH.enc$" "$WORK/s3-r201/requests.log" || true)" -ge 4 ] && echo tried || echo not)|$(grep -q -e 'could not be deleted from the off-site copy' -e 'nešlo smazat z kopie mimo server' "$WORK/r201-backups" && echo shown || echo no)" \
+  "listed/gone|1|tried|shown"
 kill "$R201_PID" 2> /dev/null || true
 
 # clean up
