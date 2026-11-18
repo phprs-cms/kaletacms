@@ -16,7 +16,7 @@ sq "INSERT INTO ka_newsletters (subject, intro, status, scheduled_at, created) V
 R192_NEWS=$(sq "SELECT MAX(id) FROM ka_newsletters WHERE subject = 'R192 newsletter'"); R192_ENQ=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE formular = 'R192 form'")
 R192_ARTICLE=$(sq "SELECT COALESCE(MAX(idc), 0) FROM ka_novinky"); sq "UPDATE ka_novinky SET oznameno = NULL WHERE idc = $R192_ARTICLE" > /dev/null
 r192_php 'Kaleta\Core\RestoreLedger::record($db, "erased", "r192-twice@example.cz");' > /dev/null
-sq "UPDATE ka_restore_ledger SET created_at = '$(site_time '-10 days')' WHERE kind = 'erased' AND created_at >= '$(site_time '-1 minute')'" > /dev/null
+sq "UPDATE ka_restore_ledger SET created_at = '$(site_time '-10 days')' WHERE kind = 'erased' AND hash = '$(r192_php 'echo Kaleta\Core\RestoreLedger::fingerprint($db, "r192-twice@example.cz");')'" > /dev/null
 R192_MADE=$(r192_php 'echo Kaleta\Core\Backup::create($db, "r192", false);')
 R192_FILE="kaleta-$(site_time '-2 minutes' Ymd-His)-r192-$(R192_HEX 4)-$(r192_php 'echo Kaleta\Core\Backup::siteMark($db);').sql.gz"
 mv "$R192_DIR/$R192_MADE" "$R192_DIR/$R192_FILE"; touch -t "$(site_time '-2 minutes' YmdHi)" "$R192_DIR/$R192_FILE"
@@ -26,7 +26,8 @@ expect "3.46 review L8/L6: the backup's first line names when and under which ke
 # --- after the backup: erased again, demoted, a new address, the passkey-only rule switched on, a newsletter sent, the news announced, a new
 # signing key, and an account (with a token) made since
 r192_php 'Kaleta\Core\PersonalData::erase($app, "r192-twice@example.cz");' > /dev/null
-expect "3.46 review M1: the second erasure moves the ledger's record forward" "$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'erased' AND created_at > '$(site_time '-2 minutes')'")" "1"
+R192_FP=$(r192_php 'echo Kaleta\Core\RestoreLedger::fingerprint($db, "r192-twice@example.cz");')
+expect "3.46 review M1: the second erasure moves the ledger's record forward" "$(sq "SELECT COUNT(*) FROM ka_restore_ledger WHERE kind = 'erased' AND hash = '$R192_FP' AND created_at > '$(site_time '-2 minutes')'")" "1"
 sq "UPDATE ka_uzivatele SET admin = 0 WHERE idu = $R192_DEMOTE; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R192_DEMOTE; INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) VALUES ($R192_DEMOTE, 'news');
   UPDATE ka_uzivatele SET email = 'r192-new@example.cz' WHERE idu = $R192_MAIL; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('signin_passkey_only', '1');
   UPDATE ka_newsletters SET status = 'sent', started_at = '$R192_NOW', finished_at = '$R192_NOW', recipients = 3, sent_count = 3 WHERE id = $R192_NEWS; UPDATE ka_novinky SET oznameno = '$R192_NOW' WHERE idc = $R192_ARTICLE;
