@@ -45,9 +45,11 @@ final class FileSignature
 
     /**
      * Markup in a text file that a browser would show as a page or run – what libmagic calls text/html, and more (3.46.2
-     * review L3): any doctype, images, styles, frames, SVG, a link to javascript: and an on…= handler inside a tag.
+     * review L3): any doctype, images, styles, frames, SVG, a link to javascript: and an on…= handler inside a tag. The two
+     * tag patterns stop at the next < and after 2000 characters (3.47 N171): unbounded, a file of many "<a " took seconds
+     * per check without the JIT and could end at the backtrack limit, which no longer counts as plain text either.
      */
-    private const string MARKUP = '/<\?php|<\?=|<script|<html|<!doctype|<svg|<iframe|<frame|<body|<object|<embed|<img[\s\/>]|<style|<link[\s\/>]|<meta[\s\/>]|<a\s[^>]*javascript:|<[a-z][^>]*\son[a-z]+\s*=/i';
+    private const string MARKUP = '/<\?php|<\?=|<script|<html|<!doctype|<svg|<iframe|<frame|<body|<object|<embed|<img[\s\/>]|<style|<link[\s\/>]|<meta[\s\/>]|<a\s[^<>]{0,2000}javascript:|<[a-z][^<>]{0,2000}\son[a-z]+\s*=/i';
 
     /** The content type of the file for the extension it claims, '' when the bytes do not confirm it. */
     public static function sniff(string $path, string $extension): string
@@ -115,7 +117,7 @@ final class FileSignature
     /** Text without markup a browser would run (pure). */
     public static function isPlainText(string $head, int $size): bool
     {
-        return self::isText($head, $size) && preg_match(self::MARKUP, $head) !== 1;
+        return self::isText($head, $size) && preg_match(self::MARKUP, $head) === 0; // false (an error) is no proof of plain text
     }
 
     private static function withoutBom(string $text): string

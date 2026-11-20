@@ -24,7 +24,7 @@
 	var LANGUAGE = document.documentElement.lang || 'cs'; // date and time format by the page language
 	var time = function (t, timeOnly) { return window.kaletaCas ? window.kaletaCas(t, timeOnly) : new Date(t).toLocaleString(LANGUAGE); }; // image/admin.js
 
-	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+	function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;'); }
 
 	// Error notice in a custom dialog - embedded browsers suppress the system alert() just like confirm().
 	var noticeDialog = null;

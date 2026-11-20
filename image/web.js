@@ -42,7 +42,7 @@
 	} catch (e) { texts = {}; }
 	/* without the attribute (a custom template loads the script differently) the texts stay English */
 	function T(text) { return typeof texts[text] === 'string' && texts[text] !== '' ? texts[text] : text; }
-	function E(value) { return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+	function E(value) { return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;'); }
 	function A(text) { return E(T(text)); }
 	/* a right-to-left page (<html dir="rtl">, Arabic): the arrow keys and swipes follow the reading direction, and numbers keep
 	   the Western digits the server writes */
