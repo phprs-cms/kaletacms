@@ -1,6 +1,6 @@
 echo "== 3.46.2: a job application with a CV on a server without fileinfo – stored, never a 500; a check that throws answers \"not stored\"; System status names sodium and fileinfo"
 u4230_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
-u4230_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/u4230-form.html" | head -1 | sed 's/.*value="//;s/"$//'; }
+u4230_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/u4230-form.html" | head -1 | sed 's/.*value="//;s/"$//' || true; }
 U4230_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 sq "DROP TABLE IF EXISTS ka_u4230_ext; CREATE TABLE ka_u4230_ext AS SELECT * FROM ka_nastaveni WHERE promenna = 'extensions'" > /dev/null
 case ",$U4230_EXT," in *,applications,*) ;; *) sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$U4230_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$U4230_EXT"),applications')" > /dev/null ;; esac
@@ -11,14 +11,15 @@ U4230_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = ${U4230_IDK:-0} 
 
 # a second server on the same site that works as a host without the fileinfo extension (the test switch of Core\Files)
 U4230_PORT=$((PORT + 24)); U4230_B="http://127.0.0.1:$U4230_PORT"
+for i in $(seq 1 100); do curl -s -o /dev/null "$U4230_B/" || break; sleep 0.2; done # the port is free again (4201's fake S3 used it)
 (cd "$WORK/web" && KALETA_NO_FILEINFO=1 exec php -S "127.0.0.1:$U4230_PORT" system/dev-router.php > "$WORK/server-u4230.log" 2>&1) & U4230_PID=$!
-for i in $(seq 1 30); do curl -s -o /dev/null "$U4230_B/" && break; sleep 0.2; done
+for i in $(seq 1 100); do curl -s -o /dev/null "$U4230_B/" && break; sleep 0.2; done
 expect "3.46.2: the test server really works without fileinfo (the switch answers on a test copy only)" \
   "$(cd "$WORK/web" && KALETA_NO_FILEINFO=1 php -r 'require "system/bootstrap.php"; require "config.php"; echo Kaleta\Core\Files::hasFileinfo() ? "finfo" : "sniffer";')|$(cd "$WORK/web" && KALETA_NO_FILEINFO=1 php -r 'require "system/bootstrap.php"; echo Kaleta\Core\Files::hasFileinfo() ? "finfo" : "sniffer";')" \
   "sniffer|finfo"
 
 rm -f "$WORK"/web/storage/cache/stranky/*.html
-curl -s -o "$WORK/u4230-form.html" "$U4230_B/$U4230_SLUG/welder-u4230"
+curl -s -o "$WORK/u4230-form.html" "$U4230_B/$U4230_SLUG/welder-u4230" || true
 U4230_SRC=$(u4230_field zdroj); U4230_EL=$(u4230_field prvek); U4230_TIME=$(u4230_field as_cas); U4230_SIG=$(u4230_field as_podpis)
 printf '%%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%%%EOF\n%% CV of Jana U4230\n' > "$WORK/u4230-cv.pdf"
 printf 'MZ\220\000\003\000\000\000This program cannot be run in DOS mode' > "$WORK/u4230-setup.pdf"

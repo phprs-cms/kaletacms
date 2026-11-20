@@ -1,6 +1,6 @@
 echo "== 3.46.2 (B): form notification e-mails carry a signed download link per file (never the file) – sign-in and the section still decide, links expire, downloads are logged"
 u4240_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
-u4240_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/u4240-form.html" | head -1 | sed 's/.*value="//;s/"$//'; }
+u4240_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/u4240-form.html" | head -1 | sed 's/.*value="//;s/"$//' || true; }
 u4240_login() { curl -s -c "$2" -b "$2" -o "$WORK/response" "$B/admin.php"; curl -s -b "$2" -c "$2" -o /dev/null -w '%{redirect_url}' -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d "user=$1" --data-urlencode "password=$PASSWORD"; }
 # the newest message of the sink for an address since the mark: the headers and every base64 part decoded
 u4240_eml() { php -r '[$h, $b] = explode("\r\n\r\n", (string) file_get_contents($argv[1]), 2) + [1 => ""]; echo $h, "\n"; preg_match_all("/base64\r\n\r\n([A-Za-z0-9+\/=\r\n]+)/", $b, $p);
