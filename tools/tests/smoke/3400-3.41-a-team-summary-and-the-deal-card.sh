@@ -9,6 +9,10 @@ R341A_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSW
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES ('r341a-eva', '$R341A_HASH', 'Eva R341a', 'eva-r341a@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off');
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m FROM ka_uzivatele, (SELECT 'pipeline' AS m UNION SELECT 'enquiries') x WHERE user = 'r341a-eva'" > /dev/null
 R341A_EVA=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341a-eva'")
+# 3.46.2: a third colleague with work this week, so the team's totals (shown from three people, review L3) never depend on
+# what earlier sections happened to leave inside the 7 days (their fixed dates drift out of the window)
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES ('r341a-ota', '$R341A_HASH', 'Ota R341a', 'ota-r341a@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off')" > /dev/null
+R341A_OTA=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r341a-ota'")
 # what happened this week: Eva completed two tasks and has one overdue, answered one enquiry twice (one count) and moved a deal;
 # the administrator completed one task; a deal Eva is responsible for was won
 R341A_STAGE=$(r341a_php 'echo Kaleta\Core\Deals::firstStage($app->settings());')
@@ -18,6 +22,7 @@ sq "INSERT INTO ka_tasks (title, assignee_id, created_by, due_at, done_at, done_
   ('R341a done 2', $R341A_EVA, $R341A_EVA, NULL, '$(site_time '-2 days')', $R341A_EVA, '$(site_time '-3 days')', '$(site_time)'),
   ('R341a overdue', $R341A_EVA, $R341A_ADMIN, '$(site_time '-3 days')', NULL, NULL, '$(site_time '-4 days')', '$(site_time)'),
   ('R341a admin done', $R341A_ADMIN, $R341A_ADMIN, NULL, '$(site_time '-1 day')', $R341A_ADMIN, '$(site_time '-2 days')', '$(site_time)'),
+  ('R341a Ota done', $R341A_OTA, $R341A_OTA, NULL, '$(site_time '-1 day')', $R341A_OTA, '$(site_time '-2 days')', '$(site_time)'),
   ('R341a long ago', $R341A_EVA, $R341A_EVA, NULL, '$(site_time '-40 days')', $R341A_EVA, '$(site_time '-41 days')', '$(site_time)');
   INSERT INTO ka_protokol (cas, kdo, jmeno, modul, akce, popis) VALUES ('$(site_time '-1 day')', $R341A_EVA, 'Eva R341a', 'enquiries', 'reply', '#934101'),
   ('$(site_time '-1 day')', $R341A_EVA, 'Eva R341a', 'enquiries', 'reply', '#934101 (queued)')" > /dev/null
@@ -84,4 +89,4 @@ expect "3.41 A: the deal detail says how long it is in the stage and its next st
   "$(grep -c 'data-deal-age>dní: 12' "$WORK/r341a.html")|$(grep -o 'data-deal-next><a href="#tasks">Call back R341a</a>' "$WORK/r341a.html" | wc -l | tr -d ' ')" "1|1"
 
 sq "DELETE FROM ka_tasks WHERE title LIKE '%R341a%'; DELETE FROM ka_protokol WHERE popis LIKE '#934101%'; DELETE FROM ka_deal_stage_history WHERE deal_id IN ($R341A_DEAL, $R341A_DONE);
-  DELETE FROM ka_deals WHERE id IN ($R341A_DEAL, $R341A_DONE); DELETE FROM ka_api_tokeny WHERE idu = $R341A_EVA; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R341A_EVA; DELETE FROM ka_uzivatele WHERE idu = $R341A_EVA" > /dev/null
+  DELETE FROM ka_deals WHERE id IN ($R341A_DEAL, $R341A_DONE); DELETE FROM ka_api_tokeny WHERE idu = $R341A_EVA; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $R341A_EVA; DELETE FROM ka_uzivatele WHERE idu IN ($R341A_EVA, $R341A_OTA)" > /dev/null
