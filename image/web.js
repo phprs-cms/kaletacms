@@ -479,6 +479,21 @@
 	document.querySelectorAll('form[data-formular]').forEach(function (f) {
 		var key = 'ka-formular-' + f.getAttribute('data-formular');
 		var wait = f.querySelector('input[data-cekat]');
+		// 3.47: a file over the form's limit (data-max-bytes) or files over the server's limit of the whole form (data-max-post,
+		// less 64 kB for the other fields) – the browser's own validation stops the submit and says why, nothing is uploaded
+		var maxPost = parseInt(f.getAttribute('data-max-post') || '0', 10);
+		f.addEventListener('change', function (e) {
+			if (!e.target || e.target.type !== 'file') { return; }
+			var total = 0, last = null;
+			f.querySelectorAll('input[type=file][data-max-bytes]').forEach(function (input) {
+				var limit = parseInt(input.getAttribute('data-max-bytes'), 10), tooLarge = false;
+				Array.prototype.forEach.call(input.files || [], function (file) { total += file.size; tooLarge = tooLarge || file.size > limit; });
+				input.setCustomValidity(tooLarge ? f.getAttribute('data-file-too-large') || '' : '');
+				if (!tooLarge && input.files && input.files.length) { last = input; }
+			});
+			if (maxPost > 0 && last && total > maxPost - 65536) { last.setCustomValidity(f.getAttribute('data-files-too-large') || ''); }
+			if (!e.target.checkValidity()) { e.target.reportValidity(); }
+		});
 		f.addEventListener('submit', function (e) {
 			var values = {};
 			Array.prototype.forEach.call(f.elements, function (p) {

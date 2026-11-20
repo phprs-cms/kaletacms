@@ -1501,4 +1501,6 @@ return [
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Dem Server fehlt die PHP-Erweiterung sodium, daher können verschlüsselte Daten weder gespeichert noch gelesen werden. Bitte deinen Hosting-Anbieter, sie zu aktivieren.',
     'This download link is not valid. Open the record in the administration – the file is there.' => 'Dieser Download-Link ist ungültig. Öffne den Eintrag in der Administration – die Datei ist dort.',
     'This download link has expired. Open the record in the administration – the file is there.' => 'Dieser Download-Link ist abgelaufen. Öffne den Eintrag in der Administration – die Datei ist dort.',
+    'The form allows attachments up to %d MB, but this server accepts %s per file – larger files are refused. Lower the limit, or ask the hosting to raise upload_max_filesize and post_max_size.' => 'Das Formular erlaubt Anhänge bis %d MB, dieser Server nimmt aber %s pro Datei an – größere Dateien werden abgelehnt. Senk das Limit oder bitte den Hoster, upload_max_filesize und post_max_size zu erhöhen.',
+    'The form has %d file fields of up to %d MB each, but this server accepts %s for the whole form.' => 'Das Formular hat %d Dateifelder mit je bis zu %d MB, dieser Server nimmt aber %s für das ganze Formular an.',
 ];

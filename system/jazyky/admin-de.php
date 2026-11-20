@@ -9171,4 +9171,6 @@ return [
     'CV downloaded (file %d), application #%s' => 'Lebenslauf heruntergeladen (Datei %d), Bewerbung Nr. %s',
     'Attachment downloaded (field %d), enquiry #%s' => 'Anhang heruntergeladen (Feld %d), Anfrage Nr. %s',
     'Notification e-mails about applications from the form “%s” went to %s and may have carried the details (when the full details were switched on) – copies in their mailboxes are outside Kaleta.' => 'Benachrichtigungs-E-Mails zu Bewerbungen aus dem Formular „%s“ gingen an %s und können die Angaben enthalten haben (wenn alle Angaben eingeschaltet waren) – Kopien in deren Postfächern liegen außerhalb von Kaleta.',
+    'The form allows attachments up to %d MB, but this server accepts %s per file – larger files are refused. Lower the limit, or ask the hosting to raise upload_max_filesize and post_max_size.' => 'Das Formular erlaubt Anhänge bis %d MB, dieser Server nimmt aber %s pro Datei an – größere Dateien werden abgelehnt. Senken Sie das Limit oder bitten Sie den Hoster, upload_max_filesize und post_max_size zu erhöhen.',
+    'The form has %d file fields of up to %d MB each, but this server accepts %s for the whole form.' => 'Das Formular hat %d Dateifelder mit je bis zu %d MB, dieser Server nimmt aber %s für das ganze Formular an.',
 ];

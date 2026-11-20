@@ -2158,4 +2158,8 @@ return [
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Egy űrlappal küldött fájlt nem sikerült ellenőrizni, ezért a beküldés nem lett mentve (%s).',
     'Uploaded files' => 'Feltöltött fájlok',
     'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'A hivatkozások csak annak a kollégának nyitják meg a fájlokat, aki bejelentkezett az adminisztrációba, és hozzáfér a rekordhoz; egy továbbított hivatkozás %d nap után nem működik.',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => 'A fájlok túl nagyok, ezért semmi sem lett elküldve. Egy fájl legfeljebb %d MB lehet, az összes fájl együtt legfeljebb %d MB.',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Ez a fájl nem küldhető el: nagyobb, mint %d MB, vagy olyan típusú, amelyet az űrlap nem fogad el.',
+    'The file is larger than %d MB.' => 'A fájl nagyobb, mint %d MB.',
+    'The files are larger than %d MB together.' => 'A fájlok együtt nagyobbak, mint %d MB.',
 ];

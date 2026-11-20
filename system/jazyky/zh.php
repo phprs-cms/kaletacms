@@ -2158,4 +2158,8 @@ return [
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => '无法检查随表单发送的文件，因此提交未被保存（%s）。',
     'Uploaded files' => '上传的文件',
     'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => '这些链接仅为已登录管理后台并有权访问该记录的同事打开文件；转发的链接副本在 %d 天后失效。',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => '文件太大，因此未发送任何内容。单个文件最大 %d MB，所有文件合计最大 %d MB。',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => '无法发送此文件：它超过 %d MB，或者是表单不接受的类型。',
+    'The file is larger than %d MB.' => '文件超过 %d MB。',
+    'The files are larger than %d MB together.' => '文件合计超过 %d MB。',
 ];

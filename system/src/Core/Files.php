@@ -83,16 +83,34 @@ final class Files
     /** How many bytes one uploaded file can have: the smaller of upload_max_filesize and post_max_size (0 = no limit). */
     public static function limit(): int
     {
-        $bytes = static function (string $ini): int {
-            $number = (int) $ini;
-
-            return $number <= 0 ? 0 : $number * match (strtolower(substr(trim($ini), -1))) {
-                'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
-            };
-        };
-        $limits = array_filter([$bytes((string) ini_get('upload_max_filesize')), $bytes((string) ini_get('post_max_size'))]);
+        $limits = array_filter([self::iniBytes((string) ini_get('upload_max_filesize')), self::iniBytes((string) ini_get('post_max_size'))]);
 
         return $limits === [] ? 0 : min($limits);
+    }
+
+    /** A size from php.ini ("8M", "512K", "1G") in bytes; 0 = no limit. */
+    private static function iniBytes(string $ini): int
+    {
+        $number = (int) $ini;
+
+        return $number <= 0 ? 0 : $number * match (strtolower(substr(trim($ini), -1))) {
+            'g' => 1024 ** 3, 'm' => 1024 ** 2, 'k' => 1024, default => 1,
+        };
+    }
+
+    /** The largest request body the server accepts (post_max_size) in bytes, 0 = no limit (3.47). */
+    public static function postLimit(): int
+    {
+        return self::iniBytes((string) ini_get('post_max_size'));
+    }
+
+    /**
+     * Was a request body over post_max_size (3.47)? PHP then empties $_POST and $_FILES, and a form would look as if nothing
+     * was sent. Equal is still accepted; 0 = no limit. Pure.
+     */
+    public static function overPostLimit(int $contentLength, int $postMax): bool
+    {
+        return $postMax > 0 && $contentLength > $postMax;
     }
 
     /** The limit for humans: „2 MB“ instead of the shorthand from php.ini („2M“). */

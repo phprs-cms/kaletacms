@@ -389,4 +389,8 @@ return [
     'when you applied for %s, you agreed that we keep your application until %s and contact you about other openings.' => 'bei deiner Bewerbung auf %s hast du eingewilligt, dass wir deine Bewerbung bis %s aufbewahren und dich über andere Stellen informieren.',
     'May we keep your application? – %s' => 'Dürfen wir deine Bewerbung aufbewahren? – %s',
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Dem Server fehlt die PHP-Erweiterung sodium, daher können verschlüsselte Daten weder gespeichert noch gelesen werden. Bitte deinen Hosting-Anbieter, sie zu aktivieren.',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => 'Die Dateien sind zu groß, daher wurde nichts gesendet. Eine Datei darf höchstens %d MB haben, alle Dateien zusammen höchstens %d MB.',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Diese Datei kann nicht gesendet werden: Sie ist größer als %d MB oder hat einen Typ, den das Formular nicht annimmt.',
+    'The file is larger than %d MB.' => 'Die Datei ist größer als %d MB.',
+    'The files are larger than %d MB together.' => 'Die Dateien sind zusammen größer als %d MB.',
 ];

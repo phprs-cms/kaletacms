@@ -65,11 +65,52 @@ final class Form extends Element
      */
     public static function attachmentLimit(array $content): int
     {
+        return self::effectiveLimit($content, \Kaleta\Core\Files::limit());
+    }
+
+    /**
+     * The form's own limit of one attachment in bytes (its property in MB, 1–25, default 10), before the server's. Pure.
+     *
+     * @param array<string, mixed> $content the form element's content
+     */
+    public static function ownLimit(array $content): int
+    {
         $mb = (int) (is_numeric($content['max_priloha'] ?? null) ? $content['max_priloha'] : self::MAX_ATTACHMENT / 1048576);
-        $own = max(1, min(self::HARD_MAX_ATTACHMENT_MB, $mb)) * 1048576;
-        $server = \Kaleta\Core\Files::limit();
+
+        return max(1, min(self::HARD_MAX_ATTACHMENT_MB, $mb)) * 1048576;
+    }
+
+    /**
+     * The limit of one attachment under a server that accepts $server bytes per file (0 = no limit). Pure.
+     *
+     * @param array<string, mixed> $content the form element's content
+     */
+    public static function effectiveLimit(array $content, int $server): int
+    {
+        $own = self::ownLimit($content);
 
         return $server > 0 ? min($own, $server) : $own;
+    }
+
+    /**
+     * Where a form posts (3.47): a form with a file field carries its id, source and page in the address, so a body over
+     * post_max_size – PHP then empties $_POST and $_FILES – still finds its way back to the form (Front\Forms::process).
+     * The query names are English (form, source, back). Pure.
+     */
+    public static function action(string $url, bool $hasFile, string $id, string $source, string $back): string
+    {
+        return $hasFile ? $url . (str_contains($url, '?') ? '&' : '?') . 'form=' . rawurlencode($id) . '&source=' . rawurlencode($source) . '&back=' . rawurlencode($back) : $url;
+    }
+
+    /**
+     * The attributes of a form with a file field for the browser's size check (3.47, image/web.js): the server's limit of the
+     * whole body and the two messages, already translated – nothing is sent before the visitor knows it is too large. Pure.
+     */
+    public static function limitAttributes(int $perFile, int $perPost): string
+    {
+        return ($perPost > 0 ? ' data-max-post="' . $perPost . '"' : '')
+            . ' data-file-too-large="' . e(t('The file is larger than %d MB.', max(1, intdiv($perFile, 1048576)))) . '"'
+            . ($perPost > 0 ? ' data-files-too-large="' . e(t('The files are larger than %d MB together.', max(1, intdiv($perPost, 1048576)))) . '"' : '');
     }
 
     public static function properties(): array
@@ -193,7 +234,7 @@ final class Form extends Element
     }
 
     /** Message after sending by the code in the url (?form=<id>&result=<code>) – the text never comes from the url. */
-    public static function messages(string $code): string
+    public static function messages(string $code, int $perFile = 0, int $perPost = 0): string
     {
         return match ($code) {
             'pole' => t('Please check the highlighted field.'),
@@ -205,6 +246,9 @@ final class Form extends Element
             'uzavreno' => t('Registration is closed.'),
             'soubory' => t('Please attach at most %d files.', \Kaleta\Core\Applications::MAX_FILES), // 3.34 review low (c): an application form
             'ulozeni' => t('Your CV could not be stored, so nothing was sent. Please try again later.'),
+            // 3.47: the body was over post_max_size – the numbers come from the published form and the server, never from the address
+            'size' => t('The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.',
+                max(1, intdiv($perFile, 1048576)), max(1, intdiv($perPost > 0 ? $perPost : $perFile, 1048576))),
             default => t('The message could not be sent. Please try again.'),
         };
     }
@@ -229,7 +273,7 @@ final class Form extends Element
             return '<div' . Text::withClass($a, 'ka-formular-hotovo') . $id . ' role="status"><p>' . e(self::messages($registration === 'full' ? 'plno' : 'uzavreno')) . '</p></div>';
         }
         $k->types['tlacitko'] = true; // the form button looks like the Button element
-        $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result)) . '</p>' : '';
+        $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result, self::attachmentLimit($o), \Kaleta\Core\Files::postLimit())) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('field', -1) : -1;
         [$steps, $stepTitle, $current] = [[], '', ''];
         // a job application form (3.34, Core\Applications) takes only CV types: its file fields offer just those, so a visitor
@@ -270,11 +314,15 @@ final class Form extends Element
         $antispam = new Antispam($k->app->db(), $k->app->settings());
 
         // data-formular: after an error image/web.js puts back into the fields what the visitor filled in (only their browser keeps it)
-        $files = in_array('soubor', array_column($o['pole'], 'typ'), true) ? ' enctype="multipart/form-data"' : '';
+        // 3.47: a form with a file field names itself in its address (a body over post_max_size comes back to it) and tells the
+        // browser the limits (data-max-bytes on each file field, data-max-post on the form)
+        $hasFile = in_array('soubor', array_column($o['pole'], 'typ'), true);
+        $files = $hasFile ? ' enctype="multipart/form-data"' . self::limitAttributes(self::attachmentLimit($o), \Kaleta\Core\Files::postLimit()) : '';
+        $back = $k->app->url($r->path());
 
-        return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e($k->url('formular')) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
+        return '<form' . Text::withClass($a, 'ka-formular') . $id . ' method="post" action="' . e(self::action($k->url('formular'), $hasFile, (string) $p['id'], $k->source, $back)) . '"' . $files . ' data-formular="' . e($p['id']) . '"' . ($result !== '' ? ' data-obnovit' : '') . '>'
             . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e($p['id']) . '">'
-            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
+            . '<input type="hidden" name="zpet" value="' . e($back) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
             . $html
             . self::poolConsent($o, $p['id'])
@@ -333,7 +381,11 @@ final class Form extends Element
         $labelText = e($field['popisek']);
         // a field the server rejected: marked and with a message that aria-describedby points to
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
-        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e($field['typ'] === 'email' ? t('Enter a valid e-mail address.') : t('Please fill in this field correctly.')) . '</span>' : '';
+        $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e(match ($field['typ']) {
+            'email' => t('Enter a valid e-mail address.'),
+            'soubor' => t('This file cannot be sent: it is larger than %d MB or of a type the form does not accept.', max(1, intdiv($attachmentLimit, 1048576))), // 3.47
+            default => t('Please fill in this field correctly.'),
+        }) . '</span>' : '';
         if ($field['typ'] === 'souhlas') {
             $link = $privacyPolicy !== '' ? ' <a class="ka-pole-zasady" href="' . e($privacyPolicy) . '" target="_blank" rel="noopener" aria-label="' . e(t('Privacy policy') . ' (' . t('open in a new window') . ')') . '">' . e(t('Privacy policy')) . ' <span aria-hidden="true">↗</span></a>' : '';
 
@@ -367,7 +419,7 @@ final class Form extends Element
             'datum' => '<input id="' . $id . '" name="' . $displayName . '" type="date"' . $required . $marking . '>',
             'cislo' => '<input id="' . $id . '" name="' . $displayName . '" type="number" step="any" inputmode="decimal"'
                 . (self::price($field['cena_za_jednotku'] ?? '') != 0.0 ? ' data-cena-za="' . self::price($field['cena_za_jednotku']) . '"' : '') . $required . $marking . '>',
-            'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::fileExtensions($application)) . '"' . $required . $marking . '>'
+            'soubor' => '<input id="' . $id . '" name="' . $displayName . '" type="file" accept=".' . implode(',.', self::fileExtensions($application)) . '" data-max-bytes="' . $attachmentLimit . '"' . $required . $marking . '>'
                 . '<small class="ka-pole-napoveda">' . e($application ? t('Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).', intdiv($attachmentLimit, 1048576))
                     : t('Up to %d MB: PDF, image, document or ZIP.', intdiv($attachmentLimit, 1048576))) . '</small>',
             // phone: the same rule as on the server (Front\Forms), the browser checks it right away; the pattern is valid with the v flag too

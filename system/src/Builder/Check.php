@@ -71,6 +71,55 @@ final class Check
     }
 
     /**
+     * Forms whose attachment limit the server would not honour (3.47): a form allowing larger files than this server
+     * accepts per file, and a form whose file fields together may send more than the server accepts for the whole request.
+     * The server's limits are passed in (Core\Files::limit, Core\Files::postLimit; 0 = none), so the result never depends on
+     * the php.ini of whoever runs it – builds() stays free of it. Pure.
+     *
+     * @param array<string, mixed> $build sanitized build
+     * @return list<array{id: ?string, zprava: string}>
+     */
+    public static function formLimits(array $build, int $perFile, int $perPost): array
+    {
+        $findings = [];
+        $walk = static function (array $children) use (&$walk, &$findings, $perFile, $perPost): void {
+            foreach ($children as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $o = is_array($p['obsah'] ?? null) ? $p['obsah'] : [];
+                $files = ($p['typ'] ?? '') === Elements\Form::TYPE && is_array($o['pole'] ?? null)
+                    ? count(array_filter($o['pole'], static fn (mixed $f): bool => is_array($f) && ($f['typ'] ?? '') === 'soubor')) : 0;
+                if ($files > 0) {
+                    $id = isset($p['id']) ? (string) $p['id'] : null;
+                    $own = Elements\Form::ownLimit($o);
+                    if ($perFile > 0 && $own > $perFile) {
+                        $findings[] = ['id' => $id, 'zprava' => t('The form allows attachments up to %d MB, but this server accepts %s per file – larger files are refused. Lower the limit, or ask the hosting to raise upload_max_filesize and post_max_size.',
+                            intdiv($own, 1048576), self::megabytes($perFile))];
+                    }
+                    $each = Elements\Form::effectiveLimit($o, $perFile);
+                    if ($perPost > 0 && $files * $each > $perPost) {
+                        $findings[] = ['id' => $id, 'zprava' => t('The form has %d file fields of up to %d MB each, but this server accepts %s for the whole form.',
+                            $files, max(1, intdiv($each, 1048576)), self::megabytes($perPost))];
+                    }
+                }
+                if (is_array($p['deti'] ?? null)) {
+                    $walk($p['deti']);
+                }
+            }
+        };
+        $walk(is_array($build['deti'] ?? null) ? $build['deti'] : []);
+
+        return $findings;
+    }
+
+    /** A server limit for people: "2 MB" for whole megabytes, otherwise as Core\Files::size writes it. */
+    private static function megabytes(int $bytes): string
+    {
+        return $bytes % 1048576 === 0 ? intdiv($bytes, 1048576) . ' MB' : \Kaleta\Core\Files::size($bytes);
+    }
+
+    /**
      * Collection lists and item templates (3.9.2): a list of a missing collection or category shows only its empty text, and
      * {{key}} that the collection does not have stays empty on the site – both look fine in the draft JSON and break the page.
      *

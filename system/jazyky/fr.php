@@ -2140,4 +2140,8 @@ return [
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Un fichier envoyé avec un formulaire n’a pas pu être vérifié, l’envoi n’a donc pas été enregistré (%s).',
     'Uploaded files' => 'Fichiers envoyés',
     'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'Les liens n’ouvrent les fichiers que pour un collègue connecté à l’administration ayant accès à la fiche ; une copie transférée d’un lien cesse de fonctionner après %d jours.',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => 'Les fichiers sont trop volumineux, rien n’a donc été envoyé. Un fichier peut faire au maximum %d Mo, tous les fichiers ensemble au maximum %d Mo.',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Ce fichier ne peut pas être envoyé : il dépasse %d Mo ou son type n’est pas accepté par le formulaire.',
+    'The file is larger than %d MB.' => 'Le fichier dépasse %d Mo.',
+    'The files are larger than %d MB together.' => 'Les fichiers dépassent %d Mo au total.',
 ];

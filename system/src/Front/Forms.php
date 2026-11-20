@@ -54,6 +54,9 @@ final class Forms
         if (!$r->isPost()) {
             return new Response('', 405, ['Allow' => 'POST']);
         }
+        if ($_POST === [] && $_FILES === [] && \Kaleta\Core\Files::overPostLimit((int) ($r->serverValues()['CONTENT_LENGTH'] ?? 0), \Kaleta\Core\Files::postLimit())) {
+            return $this->tooLarge();
+        }
         $source = $r->post('zdroj');
         $back = $r->post('zpet');
         $back = preg_match('#^/[^\s\\\\]*$#D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
@@ -312,6 +315,22 @@ final class Forms
         $nextSteps = NextSteps::text($app, $content);
 
         return (string) ($content['dekujeme'] ?? '') . ($nextSteps !== '' ? "\n\n" . $nextSteps : '');
+    }
+
+    /**
+     * A body over post_max_size (3.47): PHP emptied $_POST and $_FILES, so the form is found by the query its address carries
+     * (Form::action – form, source, back) in the published build, and the visitor goes back to it with the result "size"
+     * (the message names the limits of the form and the server). Nothing is stored, mailed or counted. An unknown form goes
+     * back to the page without a result, a page that is not a path of this site to the home page.
+     */
+    private function tooLarge(): Response
+    {
+        $r = $this->app->request;
+        $back = $r->get('back');
+        $back = preg_match('#^/[^\s\\\\]*$#D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+        $element = $this->element($r->get('source'), $r->get('form'));
+
+        return Response::redirect($element === null ? $back : $back . '?form=' . rawurlencode((string) $element['id']) . '&result=size#' . Form::anchor($element), 303);
     }
 
     /** Form from the published build of a page or site part. @return array<string, mixed>|null */

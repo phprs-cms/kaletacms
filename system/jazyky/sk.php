@@ -2121,4 +2121,8 @@ return [
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Súbor odoslaný formulárom sa nepodarilo skontrolovať, preto sa odoslanie neuložilo (%s).',
     'Uploaded files' => 'Nahrané súbory',
     'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'Odkazy otvoria súbory len kolegovi prihlásenému do administrácie s prístupom k záznamu; preposlaná kópia odkazu prestane fungovať po %d dňoch.',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => 'Súbory sú príliš veľké, preto sa nič neodoslalo. Jeden súbor môže mať najviac %d MB, všetky súbory spolu najviac %d MB.',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Tento súbor nemožno odoslať: je väčší ako %d MB alebo je to typ, ktorý formulár neprijíma.',
+    'The file is larger than %d MB.' => 'Súbor je väčší ako %d MB.',
+    'The files are larger than %d MB together.' => 'Súbory majú spolu viac ako %d MB.',
 ];

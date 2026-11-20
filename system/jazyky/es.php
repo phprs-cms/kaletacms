@@ -2147,4 +2147,8 @@ return [
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Un archivo enviado con un formulario no se pudo comprobar, así que el envío no se guardó (%s).',
     'Uploaded files' => 'Archivos subidos',
     'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'Los enlaces abren los archivos solo para un compañero que haya iniciado sesión en la administración con acceso al registro; una copia reenviada de un enlace deja de funcionar a los %d días.',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => 'Los archivos son demasiado grandes, por eso no se ha enviado nada. Un archivo puede tener como máximo %d MB y todos los archivos juntos, %d MB.',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Este archivo no se puede enviar: supera los %d MB o es de un tipo que el formulario no acepta.',
+    'The file is larger than %d MB.' => 'El archivo supera los %d MB.',
+    'The files are larger than %d MB together.' => 'Los archivos superan juntos los %d MB.',
 ];

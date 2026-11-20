@@ -2158,4 +2158,8 @@ return [
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'تعذّر فحص ملف أُرسل مع نموذج، لذلك لم يُحفظ الإرسال (%s).',
     'Uploaded files' => 'الملفات المرفوعة',
     'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'تفتح الروابط الملفات فقط لزميل سجّل الدخول إلى الإدارة ولديه صلاحية الوصول إلى السجل؛ وتتوقف النسخة المُعاد توجيهها من الرابط عن العمل بعد %d يومًا.',
+    'The files are too large, so nothing was sent. One file can have up to %d MB, all files together up to %d MB.' => 'الملفات كبيرة جدًا، لذلك لم يُرسَل أي شيء. يمكن أن يصل حجم الملف الواحد إلى %d ميغابايت، وحجم جميع الملفات معًا إلى %d ميغابايت.',
+    'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'لا يمكن إرسال هذا الملف: حجمه أكبر من %d ميغابايت أو نوعه لا يقبله النموذج.',
+    'The file is larger than %d MB.' => 'حجم الملف أكبر من %d ميغابايت.',
+    'The files are larger than %d MB together.' => 'حجم الملفات معًا أكبر من %d ميغابايت.',
 ];

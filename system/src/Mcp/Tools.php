@@ -1353,7 +1353,8 @@ final class Tools
         // 3.11 (UX310-1): sample content of a starter site or a template first – placeholders and sample texts to replace
         $findings = array_slice([...($target['druh'] !== 'kolekce' ? \Kaleta\Builder\SampleContent::findings($build) : []),
             ...\Kaleta\Builder\Check::builds($build, $target['druh'] === 'stranka'),
-            ...\Kaleta\Builder\Check::collections($this->app->db(), $build, $collection)], 0, \Kaleta\Builder\Check::MAX);
+            ...\Kaleta\Builder\Check::collections($this->app->db(), $build, $collection),
+            ...\Kaleta\Builder\Check::formLimits($build, \Kaleta\Core\Files::limit(), \Kaleta\Core\Files::postLimit())], 0, \Kaleta\Builder\Check::MAX); // 3.47
 
         return $findings === [] ? [] : ['kontrola' => $findings];
     }

@@ -127,7 +127,7 @@ final class Audit
                 $this->add('sample', $where, t('The page text still has placeholders in square brackets (%s) – fill them in or delete them.', implode(', ', array_slice(array_unique($m[0]), 0, 3))), $edit, $url, $target);
             }
             if ($build !== null) {
-                foreach ([...Check::builds($build, true, 50), ...Check::collections($db, $build, null, 50)] as $c) {
+                foreach ([...Check::builds($build, true, 50), ...Check::collections($db, $build, null, 50), ...Check::formLimits($build, Files::limit(), Files::postLimit())] as $c) {
                     $this->add('build', $where, $c['zprava'], 'admin.php?module=pages&action=builder&id=' . (int) $p['ids'], $url, $target, $c['id']);
                 }
             }
@@ -166,7 +166,8 @@ final class Audit
             $where = t('Site part “%s”', trim($c['typ'] . ' ' . $c['varianta'] . ' ' . $c['jazyk']));
             $edit = 'admin.php?module=parts&action=builder&type=' . rawurlencode((string) $c['typ']) . ($c['varianta'] !== '' ? '&variant=' . rawurlencode((string) $c['varianta']) : '') . '&language=' . rawurlencode((string) $c['jazyk']);
             $this->links((string) $c['stavba'], $where, $edit, null, ['part' => (string) $c['typ']]);
-            foreach (Check::builds((array) Build::fromJson((string) $c['stavba']), false, 50) as $f) {
+            $partBuild = (array) Build::fromJson((string) $c['stavba']);
+            foreach ([...Check::builds($partBuild, false, 50), ...Check::formLimits($partBuild, Files::limit(), Files::postLimit())] as $f) {
                 $this->add('build', $where, $f['zprava'], $edit, null, ['part' => (string) $c['typ']], $f['id']);
             }
         }

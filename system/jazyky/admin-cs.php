@@ -8763,4 +8763,6 @@ return [
     'CV downloaded (file %d), application #%s' => 'Životopis stažen (soubor %d), žádost č. %s',
     'Attachment downloaded (field %d), enquiry #%s' => 'Příloha stažena (pole %d), poptávka č. %s',
     'Notification e-mails about applications from the form “%s” went to %s and may have carried the details (when the full details were switched on) – copies in their mailboxes are outside Kaleta.' => 'E-maily s upozorněním na žádosti z formuláře „%s“ odešly na %s a mohly obsahovat údaje (pokud bylo zapnuté uvádění všech údajů) – kopie v jejich schránkách jsou mimo Kaletu.',
+    'The form allows attachments up to %d MB, but this server accepts %s per file – larger files are refused. Lower the limit, or ask the hosting to raise upload_max_filesize and post_max_size.' => 'Formulář povoluje přílohy až do %d MB, ale tento server přijme %s na soubor – větší soubory odmítne. Snižte limit, nebo požádejte hosting o zvýšení upload_max_filesize a post_max_size.',
+    'The form has %d file fields of up to %d MB each, but this server accepts %s for the whole form.' => 'Formulář má %d polí pro soubory po nejvýše %d MB, ale tento server přijme za celý formulář %s.',
 ];
