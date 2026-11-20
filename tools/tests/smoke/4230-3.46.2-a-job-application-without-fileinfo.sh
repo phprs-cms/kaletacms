@@ -4,10 +4,9 @@ u4230_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/u4230-form.html" |
 U4230_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 sq "DROP TABLE IF EXISTS ka_u4230_ext; CREATE TABLE ka_u4230_ext AS SELECT * FROM ka_nastaveni WHERE promenna = 'extensions'" > /dev/null
 case ",$U4230_EXT," in *,applications,*) ;; *) sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$U4230_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$U4230_EXT"),applications')" > /dev/null ;; esac
-mcp create_collection '{"preset":"jobs","name":"Jobs U4230"}' > "$WORK/response"
-U4230_IDK=$(sq "SELECT MAX(idk) FROM ka_kolekce WHERE preset = 'jobs'"); U4230_SLUG=$(sq "SELECT seo_link FROM ka_kolekce WHERE idk = ${U4230_IDK:-0}")
-mcp save_collection_item "{\"collection\":\"$U4230_SLUG\",\"name\":\"Welder U4230\",\"slug\":\"welder-u4230\",\"visible\":true}" > /dev/null
-U4230_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = ${U4230_IDK:-0} AND seo_link = 'welder-u4230'")
+# the jobs collection and its open job straight through PHP (after the restores of 4190–4202 the suite's MCP token is the backup's)
+U4230_IDK=$(u4230_php '[$id] = Kaleta\Builder\Presets::createWithPage($app, "jobs", "Jobs U4230", false) ?? [0]; $app->db()->insert("kolekce_polozky", ["idk" => $id, "nazev" => "Welder U4230", "seo_link" => "welder-u4230", "data" => "{}", "zobrazit" => 1, "jazyk" => "", "datum" => date("Y-m-d H:i:s"), "poradi" => 0]); echo $id;')
+U4230_SLUG=$(sq "SELECT seo_link FROM ka_kolekce WHERE idk = ${U4230_IDK:-0}"); U4230_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = ${U4230_IDK:-0} AND seo_link = 'welder-u4230'")
 
 # a second server on the same site that works as a host without the fileinfo extension (the test switch of Core\Files)
 U4230_PORT=$((PORT + 24)); U4230_B="http://127.0.0.1:$U4230_PORT"

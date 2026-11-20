@@ -13,9 +13,9 @@ sq "DROP TABLE IF EXISTS ka_u4240_set; CREATE TABLE ka_u4240_set AS SELECT * FRO
 U4240_ON="$([ -z "$U4240_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$U4240_EXT" | sed 's/,applications//g'),applications"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$U4240_ON'), ('applications_notify_full', '0')" > /dev/null
 [ -n "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")" ] || sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_email', 'web-u4240@example.com')" > /dev/null # a sender (a partial run starts without one)
-mcp create_collection '{"preset":"jobs","name":"Jobs U4240"}' > "$WORK/response"
-U4240_IDK=$(sq "SELECT MAX(idk) FROM ka_kolekce WHERE preset = 'jobs'"); U4240_SLUG=$(sq "SELECT seo_link FROM ka_kolekce WHERE idk = ${U4240_IDK:-0}")
-mcp save_collection_item "{\"collection\":\"$U4240_SLUG\",\"name\":\"Fitter U4240\",\"slug\":\"fitter-u4240\",\"visible\":true}" > /dev/null
+# the jobs collection and its open job straight through PHP (after the restores of 4190–4202 the suite's MCP token is the backup's)
+U4240_IDK=$(u4240_php '[$id] = Kaleta\Builder\Presets::createWithPage($app, "jobs", "Jobs U4240", false) ?? [0]; $app->db()->insert("kolekce_polozky", ["idk" => $id, "nazev" => "Fitter U4240", "seo_link" => "fitter-u4240", "data" => "{}", "zobrazit" => 1, "jazyk" => "", "datum" => date("Y-m-d H:i:s"), "poradi" => 0]); echo $id;')
+U4240_SLUG=$(sq "SELECT seo_link FROM ka_kolekce WHERE idk = ${U4240_IDK:-0}"); U4240_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = ${U4240_IDK:-0} AND seo_link = 'fitter-u4240'")
 # the form of the job page: a visible recipient and a hidden copy
 u4240_php '$db = $app->db(); $b = Kaleta\Builder\Build::fromJson($db->value("SELECT stavba FROM {kolekce} WHERE idk = ?", ['"${U4240_IDK:-0}"'])); $f = function (?array &$nodes) use (&$f): void { if ($nodes === null) { return; } foreach ($nodes as &$n) { if (($n["typ"] ?? "") === "formular") { $n["obsah"]["prijemce"] = "hr-u4240@example.com"; $n["obsah"]["skryta_kopie"] = "bcc-u4240@example.com"; $n["obsah"]["potvrzeni"] = ""; } if (isset($n["deti"])) { $f($n["deti"]); } } }; $f($b["deti"]); $db->update("kolekce", ["stavba" => json_encode($b, JSON_UNESCAPED_UNICODE)], ["idk" => '"${U4240_IDK:-0}"']);' > /dev/null
 # Hana may open Applications only, Olga Enquiries only
@@ -85,8 +85,8 @@ U4240_LOG0=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
 expect "3.46.2: the enquiry link – Hana (Applications only) 403, Olga (Enquiries) the file, logged; a changed signature 403" \
   "$(curl -s -b "$U4240_JH" -o "$WORK/response" -w '%{http_code}' "$B$U4240_EPATH")|$(curl -s -b "$U4240_JO" -o "$WORK/u4240-got.pdf" -w '%{http_code}' "$B$U4240_EPATH")|$(grep -c 'bytes-u4240' "$WORK/u4240-got.pdf")|$(sq "SELECT CONCAT(jmeno, '|', modul, '|', akce, '|', popis LIKE '%#$U4240_E%') FROM ka_protokol WHERE idp > $U4240_LOG0 ORDER BY idp DESC LIMIT 1")|$(curl -s -b "$U4240_JO" -o /dev/null -w '%{http_code}' "$B${U4240_EPATH%?}x")" \
   "403|200|1|Olga U4240|enquiries|attachment|1|403"
-expect "3.46.2: find_personal_data names where notification e-mails with the details went" \
-  "$(mcp find_personal_data '{"email":"petra-u4240@example.com"}' | grep -c 'hr-u4240@example.com' | sed 's/^[1-9][0-9]*$/yes/')" "yes"
+expect "3.46.2: find_personal_data (Forms::notificationCopies) names where notification e-mails with the details went" \
+  "$(u4240_php 'echo implode(" ", Kaleta\Front\Forms::notificationCopies($app, Kaleta\Core\PersonalData::find($app->db(), "petra-u4240@example.com", $app)));' | grep -c 'hr-u4240@example.com' | sed 's/^[1-9][0-9]*$/yes/')" "yes"
 
 # clean-up: the records, the files, the users, the collection and the settings as they were
 [ "${U4240_A:-0}" -gt 0 ] && u4240_php '$ids = array_map("intval", array_column($app->db()->all("SELECT id FROM {applications} WHERE email = ?", ["petra-u4240@example.com"]), "id")); Kaleta\Core\Applications::delete($app, $ids, false);' > /dev/null 2>&1 || true
