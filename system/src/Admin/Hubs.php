@@ -12,6 +12,7 @@ namespace Kaleta\Admin;
  *  - Features: the built-in features and the add-ons
  *  - Claude: the settings (instructions, guardrails, connections), Ask Claude, scheduled runs, the notebook, the sessions
  *  - Newsletter (3.25): the newsletters and their subscribers
+ *  - Users (3.47, U67): the users, the roles and the departments
  */
 final class Hubs
 {
@@ -21,6 +22,7 @@ final class Hubs
         'features' => [['extensions', '', 'Features'], ['addons', '', 'Add-ons']],
         'claude' => [['claude_settings', '', 'Claude settings'], ['requests', '', 'Ask Claude'], ['schedules', '', 'Scheduled runs'], ['notebook', '', 'Notebook'], ['changelog', 'sessions', 'Claude sessions']],
         'newsletter' => [['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], // 3.25
+        'users' => [['users', '', 'Users'], ['roles', '', 'Roles'], ['users', 'departments', 'Departments']], // 3.47 (U67)
     ];
 
     /**

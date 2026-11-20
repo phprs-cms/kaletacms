@@ -29,7 +29,7 @@ grep -q 'data-kopirovat="#mcp-adresa-prehled"' "$WORK/response" && grep -q "<cod
   && echo "  ok     3.5: the card has the MCP address with Copy and warns that the site is not on HTTPS" || { echo "  CHYBA  3.5: connect card"; ERRORS=$((ERRORS+1)); }
 check "3.5: Claude settings have the address with Copy and the connection state" 200 "/admin.php?module=claude_settings" 'data-kopirovat="#mcp-adresa-nastaveni"'
 grep -q 'Claude není připojený' "$WORK/response" && grep -q 'class="hlaska claude-panel hlaska-chyba"' "$WORK/response" && echo "  ok     3.5, 3.18: Claude settings say Claude is not connected (the status panel)" || { echo "  CHYBA  3.5: Claude settings state"; ERRORS=$((ERRORS+1)); }
-check "3.5: My account has the address with Copy" 200 "/admin.php?action=account" 'data-kopirovat="#mcp-adresa-ucet"'
+check "3.5: My account has the address with Copy" 200 "/admin.php?action=account&tab=claude" 'data-kopirovat="#mcp-adresa-ucet"'
 check "3.9.1: the admin footer links to the support page (Buy Me a Coffee)" 200 "/admin.php?action=account" 'href="https://buymeacoffee.com/Kaletacms"'
 check "3.29: the support link in the admin footer asks to support the development of Kaleta CMS" 200 "/admin.php?action=account" 'Podpořte vývoj Kaleta CMS</a></footer>'
 # 3.9.2 N67: an update never touches media/, so migration 0084 does – it replaces a media/.htaccess Kaleta shipped (here the

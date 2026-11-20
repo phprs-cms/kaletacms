@@ -13,7 +13,7 @@
  * @var array<string, string> $modules the sections the person may open (3.32: Core\RecordTitle::place names a record only for them)
  */
 $icon = require __DIR__ . '/icons.php';
-$kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje', 'fleet_expiry' => 'web', 'escalated' => 'moje'];
+$kindIcon = ['mention' => 'komentare', 'comment' => 'komentare', 'assigned' => 'moje', 'review_due' => 'audit', 'task_due' => 'moje', 'fleet_expiry' => 'web', 'escalated' => 'moje', 'deputy_named' => 'uzivatele', 'absence_added' => 'uzivatele'];
 $emailNote = match ($email) {
     'daily' => t('You get one e-mail summary a day, in the morning.'),
     'off' => t('You get no e-mail about them – they are only here.'),

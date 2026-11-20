@@ -19,7 +19,7 @@ check "3.45 B: the dashboard carries the palette with the form token" 200 "/admi
 B345_PALETTE=$(php -r '$h = file_get_contents($argv[1]); preg_match("~<script type=\"application/json\" id=\"paleta-data\">(.*?)</script>~s", $h, $m); preg_match("~data-csrf=\"([a-f0-9]+)\"~", $h, $c);
   $d = json_decode($m[1] ?? "[]", true) ?: []; $u = fn (array $x): string => preg_replace("~^.*admin\.php\??~", "", $x["u"]);
   $post = array_values(array_filter($d, fn (array $x): bool => !empty($x["p"])));
-  echo implode(" ", array_map($u, $post)), "|", count(array_filter($d, fn (array $x): bool => in_array($u($x), ["module=quotes&action=prices", "module=applications&action=board", "module=users&action=departments", "action=account&tab=org_chart", "action=account#absences", "action=guide&chapter=quotes"], true))), "|", $c[1] ?? "";' -- "$WORK/response")
+  echo implode(" ", array_map($u, $post)), "|", count(array_filter($d, fn (array $x): bool => in_array($u($x), ["module=quotes&action=prices", "module=applications&action=board", "module=users&action=departments", "action=account&tab=colleagues&view=departments", "action=account&tab=absence", "action=guide&chapter=quotes"], true))), "|", $c[1] ?? "";' -- "$WORK/response")
 expect "3.45 B: only New quote posts; Internal prices, the board, Departments, the org chart, absences and the chapter are there" "${B345_PALETTE%|*}" "module=quotes&action=create|6"
 B345_DRAFTS=$(sq "SELECT COUNT(*) FROM ka_quotes WHERE status = 'draft'")
 B345_CODE=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?module=quotes&action=create" -d "_csrf=${B345_PALETTE##*|}")

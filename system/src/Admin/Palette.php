@@ -35,9 +35,9 @@ final class Palette
     /** The screens of every signed-in user outside the sections: My account and its tabs (3.42: the team, absences). */
     public const array EVERYONE = [
         ['My account', 'action=account'],
-        ['My absences', 'action=account#absences'],
+        ['My absences', 'action=account&tab=absence'], // 3.47 (U68): My account in tabs
         ['Colleagues', 'action=account&tab=colleagues'],
-        ['Org chart', 'action=account&tab=org_chart'],
+        ['Org chart', 'action=account&tab=colleagues&view=departments'],
         ['Notifications', 'action=inbox'],
         ['Guide to the office', 'action=guide'],
     ];

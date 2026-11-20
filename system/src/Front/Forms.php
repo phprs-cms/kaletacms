@@ -64,7 +64,8 @@ final class Forms
         if ($element === null) {
             return Response::redirect($back, 303);
         }
-        $redirectUri = fn (string $result, int $field = -1): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . '#' . Form::anchor($element), 303);
+        // 3.47: empty=1 – a required field was left out (a file field then says so, not that the file was refused)
+        $redirectUri = fn (string $result, int $field = -1, bool $empty = false): Response => Response::redirect($back . '?form=' . rawurlencode($element['id']) . '&result=' . $result . ($field >= 0 ? '&field=' . $field : '') . ($empty ? '&empty=1' : '') . '#' . Form::anchor($element), 303);
 
         $antispam = new Antispam($this->app->db(), $this->app->settings());
         $reason = $antispam->reason($r, 'formular|' . $source . '|' . $element['id']);
@@ -137,7 +138,7 @@ final class Forms
                     }
                 }
                 if (!$uploaded && $field['povinne']) {
-                    return $redirectUri('pole', $i);
+                    return $redirectUri('pole', $i, true);
                 }
                 $data[] = [$field['popisek'], $uploaded ? mb_substr(basename((string) $file['name']), 0, 120) . ' (' . \Kaleta\Core\Files::size((int) $file['size']) . ')' : ''];
                 if ($uploaded) {

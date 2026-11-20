@@ -1,8 +1,11 @@
 <?php
 /**
- * My account.
+ * My account (3.47, U68: the shell of the tabs my details, absence, sign-in and security, Claude – the backup codes just made,
+ * "Confirm with your passkey" on the tabs with guarded forms, then the tab's partial account_<tab>; signature and colleagues
+ * have their own views).
  *
  * @var Kaleta\Core\App $app
+ * @var string $tab  '' = my details, 'absence', 'security', 'claude' (Admin\Account::TABS)
  * @var array<string, mixed> $user
  * @var string $csrf
  * @var list<array<string, mixed>> $keys the account's sign-in keys (passkeys)
@@ -34,12 +37,13 @@ $passkeyHost ??= true;
 $siteRpId ??= '';
 // 3.35 review M3: a passkey registered for another host of the site (before the site address moved) works nowhere here
 $elsewhere = static fn (array $k): bool => $siteRpId !== '' && (string) ($k['rp_id'] ?? '') !== '' && (string) $k['rp_id'] !== $siteRpId;
-$action = e($app->url('admin.php?action=account'));
+$tab ??= '';
+$action = e($app->url(Kaleta\Admin\Account::path($tab))); // 3.47 (U68): every form posts to its own tab
 // 3.35 review M2: an account that signs in with a passkey only is never confirmed by its password (Auth::freshProof) –
 // its forms show no password field, only this note; the strong proof comes from "Confirm with your passkey" below
 $proofNote = '<p class="napoveda">' . e(t($fresh ? 'You confirmed it with your passkey a moment ago – no password is needed for the next few minutes.' : 'You sign in with a passkey only: confirm with your passkey at the top of this page first – your password does not confirm changes here.')) . '</p>';
 ?>
-<?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => '']) ?>
+<?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => $tab]) ?>
 <?php if ($backupCodes !== []): ?>
 <div class="hlaska hlaska-ok">
 <?php if (!empty($codesRenewed)): ?>
@@ -53,7 +57,8 @@ $proofNote = '<p class="napoveda">' . e(t($fresh ? 'You confirmed it with your p
 </div>
 <?php endif ?>
 
-<?php if ($passkeyOnly && !$fresh): // 3.35 review M2: the strong proof of a passkey-only account (Auth::confirmWithPasskey) ?>
+<?php $confirmForm = $passkeyOnly && !$fresh && in_array($tab, ['', 'security', 'claude'], true); // 3.47: only on the tabs with guarded forms ?>
+<?php if ($confirmForm): // 3.35 review M2: the strong proof of a passkey-only account (Auth::confirmWithPasskey) ?>
 <form class="formular" method="post" action="<?= $action ?>" data-klice="<?= $action ?>" id="confirm-passkey">
 <?= $csrf ?>
 <fieldset><legend><?= e(t('Confirm with your passkey')) ?></legend>
@@ -64,286 +69,10 @@ $proofNote = '<p class="napoveda">' . e(t($fresh ? 'You confirmed it with your p
 </fieldset>
 </form>
 <?php endif ?>
-<form class="formular" method="post" action="<?= $action ?>">
-<?= $csrf ?><input type="hidden" name="co" value="profil">
-<fieldset><legend><?= e(t('My details')) ?></legend>
-<div class="radek"><span class="popisek"><?= e(t('User name')) ?></span><div><?= e($user['user']) ?> <span class="napoveda"><?= e(t('Changed by an administrator in Users.')) ?></span></div></div>
-<div class="radek"><label for="jmeno"><?= e(t('Jméno')) ?></label><div><input class="textpole siroke" type="text" id="jmeno" name="jmeno" value="<?= e($user['jmeno']) ?>" maxlength="100"><span class="napoveda"><?= e(t('Shown with news items on the site.')) ?></span></div></div>
-<div class="radek"><label for="email"><?= e(t('Email')) ?></label><input class="textpole siroke" type="email" id="email" name="email" value="<?= e($user['email']) ?>" maxlength="190"></div>
-<?php if ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php else: ?>
-<div class="radek"><label for="email-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="email-heslo" name="soucasne" size="30" autocomplete="current-password"><span class="napoveda"><?= e(t('Needed only when you change the e-mail – a password reset goes there. The old address gets a notice.')) ?></span></div></div>
-<?php endif ?>
-<div class="radek"><label for="url"><?= e(t('My website')) ?></label><input class="textpole siroke" type="url" id="url" name="url" value="<?= e($user['url']) ?>" maxlength="255" placeholder="https://"></div>
-<div class="radek"><label for="pozice"><?= e(t('Position in the company')) ?></label><div><input class="textpole siroke" type="text" id="pozice" name="pozice" value="<?= e($user['pozice']) ?>" maxlength="100" placeholder="<?= e(t('e.g. head of sales')) ?>"><span class="napoveda"><?= e(t('Shown to your colleagues and in your e-mail signature.')) ?></span></div></div>
-<div class="radek"><label for="phone"><?= e(t('Work phone')) ?></label><div><input class="textpole" type="tel" id="phone" name="phone" value="<?= e((string) ($user['phone'] ?? '')) ?>" maxlength="30" autocomplete="tel" placeholder="+420 777 123 456"><span class="napoveda"><?= e(t('Shown to your colleagues and in your e-mail signature. Without it, the signature has the company phone.')) ?></span></div></div>
-<div class="radek"><label for="foto"><?= e(t('My photo')) ?></label><div><input class="textpole siroke" type="text" id="foto" name="foto" value="<?= e($user['foto']) ?>" maxlength="255" data-obrazek><span class="napoveda"><?= e(t('A square photo, 300 × 300 px is enough.')) ?></span></div></div>
-<div class="radek"><label for="bio"><?= e(t('A few sentences about me')) ?></label><div><textarea class="textbox nizky" id="bio" name="bio" rows="4" maxlength="1200"><?= e((string) $user['bio']) ?></textarea><span class="napoveda"><?= e(t('Shown as a short profile under your news items. What you do in the company and your background.')) ?></span></div></div>
-<div class="radek"><label for="jazyk"><?= e(t('Administration language')) ?></label><div><select id="jazyk" name="jazyk">
 <?php
-// the selected language is the one the admin actually runs in (without an own choice, the site language, if the admin supports it)
-$adminLanguage = Kaleta\Core\Language::base($user['jazyk'] ?: Kaleta\Core\Language::defaults($app->settings()));
-$adminLanguage = isset(Kaleta\Core\Language::ADMIN_LANGUAGES[$adminLanguage]) ? $adminLanguage : 'cs';
-foreach (Kaleta\Core\Language::ADMIN_LANGUAGES as $languageCode => $languageName): ?>
-	<option value="<?= e($languageCode) ?>"<?= $adminLanguage === $languageCode ? ' selected' : '' ?>><?= e($languageName) ?></option>
-<?php endforeach ?>
-</select><span class="napoveda">Language · Jazyk</span></div></div>
-<?php if ($adminLanguage === 'de'): ?>
-<div class="radek"><label for="register"><?= e(t('Form of address in German')) ?></label><div><select id="register" name="register">
-	<option value="formal"<?= ($user['register'] ?? '') !== 'informal' ? ' selected' : '' ?>><?= e(t('Formal (Sie)')) ?></option>
-	<option value="informal"<?= ($user['register'] ?? '') === 'informal' ? ' selected' : '' ?>><?= e(t('Informal (du)')) ?></option>
-</select><span class="napoveda"><?= e(t('How the German administration addresses you. The texts for visitors have their own setting in Settings.')) ?></span></div></div>
-<?php endif ?>
-</fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save details')) ?>"></p>
-</form>
-
-<form class="formular" method="post" action="<?= $action ?>" id="notifications">
-<?= $csrf ?><input type="hidden" name="co" value="notifications">
-<fieldset><legend><?= e(t('Notifications by e-mail')) ?></legend>
-<p class="napoveda"><?= e(t('Notifications tell you when a colleague mentions you, comments on what you are responsible for or assigns you something, and when a review date comes. They are always under the bell at the top of the administration; here you choose whether they also come by e-mail.')) ?></p>
-<?php $notifyEmail = Kaleta\Core\Inbox::emailMode((string) ($user['notify_email'] ?? '')); ?>
-<div class="radek"><span class="popisek" id="notify_email_popisek"><?= e(t('Email')) ?></span><div role="radiogroup" aria-labelledby="notify_email_popisek">
-<div class="karty-volby karty-volby-text">
-<?php foreach ([
-    'instant' => ['Right away', 'One e-mail for each notification, as it happens.'],
-    'daily' => ['Once a day', 'One summary in the morning (around 8:00) of what you have not read yet.'],
-    'off' => ['Never', 'No e-mail – only the bell in the administration.'],
-] as $key => [$name, $description]): ?>
-	<label class="karta-volba"><input type="radio" name="notify_email" value="<?= e($key) ?>"<?= $notifyEmail === $key ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>
-<?php endforeach ?>
-</div>
-<?php if (Kaleta\Core\Mail::addresses((string) $user['email']) === []): ?>
-<span class="napoveda"><?= e(t('Your account has no e-mail address – add it above, otherwise notifications are only under the bell.')) ?></span>
-<?php endif ?>
-</div></div>
-</fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save the choice')) ?>"></p>
-</form>
-
-<?= $app->view->render('admin/absences', ['app' => $app, 'csrf' => $csrf, 'absences' => $absences ?? [], 'people' => $people ?? [], 'addUrl' => $app->url('admin.php?action=account'), 'deleteUrl' => $app->url('admin.php?action=account'),
-    'hidden' => '<input type="hidden" name="co" value="absence_add">', 'deleteHidden' => '<input type="hidden" name="co" value="absence_delete">']) // 3.42 ?>
-
-<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
-<?= $csrf ?><input type="hidden" name="co" value="heslo">
-<fieldset><legend><?= e(t('Change password')) ?></legend>
-<?php if ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php else: ?>
-<div class="radek"><label for="soucasne"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="soucasne" name="soucasne" size="30" autocomplete="current-password" required></div></div>
-<?php endif ?>
-<div class="radek"><label for="nove"><?= e(t('New password')) ?></label><div><input class="textpole" type="password" id="nove" name="nove" size="30" minlength="10" autocomplete="new-password" required><span class="napoveda"><?= e(t('At least 10 characters.')) ?></span></div></div>
-<div class="radek"><label for="nove2"><?= e(t('New password again')) ?></label><div><input class="textpole" type="password" id="nove2" name="nove2" size="30" autocomplete="new-password" required></div></div>
-<?php if ($tokens !== []): ?>
-<div class="radek"><span class="popisek"><?= e(t('Connections')) ?></span><div class="volby"><input type="hidden" name="zrusit_tokeny" value="0"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked> <?= e(t('also revoke connection tokens (Claude, API)')) ?></label>
-	<span class="napoveda"><?= e(t('A token works without the password and without two-factor sign-in. If you are changing the password because you suspect misuse, leave this ticked and create the connection again afterwards.')) ?></span></div></div>
-<?php endif ?>
-<?php if ($apps !== []): ?>
-<p class="napoveda"><?= e(t('Apps connected to this account (the Claude connector) are disconnected with the new password – connect them again in the Claude app.')) ?></p>
-<?php endif ?>
-</fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Změnit heslo')) ?>"></p>
-</form>
-
-<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
-<?= $csrf ?>
-<fieldset id="two-factor"><legend><?= e(t('Two-factor sign-in')) ?></legend>
-<?php if ($user['totp_tajemstvi'] !== ''): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('on')) ?></span> <?= e(t('When signing in you enter a code from the app in addition to your password. Backup codes left: %d.', $codesLeft)) ?></p>
-<input type="hidden" name="co" value="totp_vypni">
-<?php if ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php else: ?>
-<div class="radek"><label for="vyp-heslo"><?= e(t('Password to confirm')) ?></label><div><input class="textpole" type="password" id="vyp-heslo" name="soucasne" size="30" autocomplete="current-password" required></div></div>
-<?php endif ?>
-<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Turn off two-factor sign-in')) ?></button></p>
-<?php elseif ($newSecret !== ''): ?>
-<input type="hidden" name="co" value="totp_potvrd">
-<ol>
-	<li><?= e(t('In your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Aegis…) add a new account by scanning the QR code:')) ?><br>
-		<span class="totp-qr"><?= Kaleta\Core\Qr::svg($uri, t('QR code for the authenticator app')) ?></span><br>
-		<?= e(t('Cannot scan it? Add the account by typing the key:')) ?><br><code class="totp-klic"><?= e(trim(chunk_split($newSecret, 4, ' '))) ?></code><br><small><a href="<?= e($uri) ?>"><?= e(t('On a phone you can tap here – the link opens your authenticator app.')) ?></a></small></li>
-	<li><?= e(t('Enter the six-digit code shown by the app:')) ?></li>
-</ol>
-<div class="radek"><label for="kod"><?= e(t('Code from the app')) ?></label><div><input class="textpole" type="text" id="kod" name="kod" size="12" maxlength="12" inputmode="numeric" autocomplete="one-time-code" required autofocus></div></div>
-<?php if ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php else: ?>
-<div class="radek"><label for="zap-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="zap-heslo" name="soucasne" size="30" autocomplete="current-password" required><span class="napoveda"><?= e(t('Needed to turn on two-factor sign-in.')) ?></span></div></div>
-<?php endif ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Confirm and turn on')) ?>"></p>
-<?php else: ?>
-<p><?= e(t('Your account is protected by a password only. With two-factor sign-in, nobody can sign in without your phone – even if they guess or steal the password.')) ?></p>
-<input type="hidden" name="co" value="totp_start">
-<?php if ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php elseif (!$recent): // 3.46 (N138): the new secret is made only after a proof ?>
-<div class="radek"><label for="start-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="start-heslo" name="soucasne" size="30" autocomplete="current-password" required><span class="napoveda"><?= e(t('Needed to set up two-factor sign-in.')) ?></span></div></div>
-<?php endif ?>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Turn on two-factor sign-in')) ?>"></p>
-<?php endif ?>
-</fieldset>
-</form>
-
-<?php
-// 3.35: passkeys for every account – the sign-in without a password, and the second step after the password. The rename
-// forms stand outside the main form (no nesting): each row's field and button belong to theirs through the form attribute.
-$oldKeys = array_values(array_filter($keys, static fn (array $k): bool => empty($k['discoverable'])));
-foreach ($keys as $k): ?>
-<form id="klic-prejmenuj-<?= (int) $k['idk'] ?>" method="post" action="<?= $action ?>"><?= $csrf ?><input type="hidden" name="co" value="klic_prejmenuj"><input type="hidden" name="idk" value="<?= (int) $k['idk'] ?>"></form>
-<?php endforeach ?>
-<form class="formular" method="post" action="<?= $action ?>" data-klice="<?= $action ?>">
-<?= $csrf ?>
-<fieldset id="passkeys"><legend><?= e(t('Passkeys')) ?></legend>
-<p><?= e(t('Sign in with your fingerprint, face, screen lock or a security key – without a user name and password. With your password, a passkey is the second step: once you have one, a password alone never signs you in.')) ?></p>
-<?php if (!$passkeyHost): ?>
-<p class="hlaska hlaska-varovani"><?= e(t('Passkeys work only at the main address of the site:')) ?> <a href="<?= e(rtrim($app->settings()->get('site_url'), '/') . $app->url('admin.php?action=account')) ?>"><?= e(rtrim($app->settings()->get('site_url'), '/')) ?></a></p>
-<?php endif ?>
-<?php if ($sitePasskeyOnly && !$workingPasskey): ?>
-<p class="hlaska hlaska-varovani"><?= e(t('This site asks everyone to sign in with a passkey. Add one for this device below – until then you sign in as before.')) ?></p>
-<?php endif ?>
-<?php if (array_filter($keys, $elsewhere) !== []): ?>
-<p class="hlaska hlaska-varovani"><?= e(t('Some of your passkeys were registered for another address of the site and do not work here – the site address has changed since. Remove them and add a passkey from this device again.')) ?></p>
-<?php endif ?>
-<?php if ($oldKeys !== []): ?>
-<p class="hlaska hlaska-varovani"><?= e(t('A passkey marked “second step only” was added before passkeys could sign in on their own. To sign in with it without a password, register it again on that device – the button in its row replaces it.')) ?></p>
-<?php endif ?>
-<?php if ($keys !== []): ?>
-<div class="tab-obal">
-<table class="vypis">
-<caption class="navod-skryte"><?= e(t('Your passkeys')) ?></caption>
-<thead><tr><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Added')) ?></th><th scope="col"><?= e(t('Last used')) ?></th><th scope="col"><?= e(t('Signs in')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
-<tbody>
-<?php foreach ($keys as $k): $kid = (int) $k['idk']; ?>
-<tr>
-	<td><input class="textpole" type="text" name="nazev" form="klic-prejmenuj-<?= $kid ?>" value="<?= e($k['nazev']) ?>" maxlength="80" size="18" aria-label="<?= e(t('Name of the passkey %s', (string) $k['nazev'])) ?>"> <button class="navigace" type="submit" form="klic-prejmenuj-<?= $kid ?>"><?= e(t('Rename')) ?></button></td>
-	<td class="cislo"><?= e(format_date((string) $k['vytvoreno'])) ?></td>
-	<td class="cislo"><?= $k['pouzito'] !== null ? e(format_date((string) $k['pouzito'])) : '–' ?></td>
-	<td><?= $elsewhere($k) ? '<span class="stitek">' . e(t('another address: %s', (string) $k['rp_id'])) . '</span>' : (!empty($k['discoverable']) ? '<span class="stitek stitek-vydano">' . e(t('without a password')) . '</span>' : '<span class="stitek">' . e(t('second step only')) . '</span>') ?></td>
-	<td class="akce"><?php if (empty($k['discoverable'])): ?><button class="navigace" type="button" data-klic-pridat data-nahradit="<?= $kid ?>"><?= e(t('Register again')) ?></button> <?php endif ?><button class="navigace nebezpecne" type="submit" name="idk" value="<?= $kid ?>" data-potvrdit="<?= e(t('Remove this passkey? It will no longer sign you in.')) ?>"><?= e(t('Delete')) ?></button></td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
-</div>
-<input type="hidden" name="co" value="klic_smaz">
-<p class="napoveda"><?= e(t('Backup codes left: %d. Each works once after your password when you do not have your passkey.', $codesLeft)) ?></p>
-<?php endif ?>
-<div class="radek"><label for="klic-nazev"><?= e(t('Device name')) ?></label><div><input class="textpole" type="text" id="klic-nazev" name="nazev" size="30" maxlength="80" placeholder="<?= e(t('e.g. MacBook, phone')) ?>"></div></div>
-<?php if ($fresh): ?>
-<p class="napoveda"><?= e(t('You confirmed your sign-in with a passkey or a backup code a moment ago – no password is needed to add or remove a passkey for the next few minutes.')) ?></p>
-<?php elseif ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php else: ?>
-<div class="radek"><label for="klic-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="klic-heslo" name="soucasne" size="30" autocomplete="current-password" data-klic-heslo><span class="napoveda"><?= e(t('Needed to add or remove a passkey – or sign in again with your passkey and do it within a few minutes.')) ?></span></div></div>
-<?php endif ?>
-<p class="tlacitka"><button class="navigace" type="button" data-klic-pridat><?= e(t('Add a passkey from this device')) ?></button></p>
-<p class="hlaska hlaska-chyba" data-klic-chyba hidden role="alert"></p>
-<p class="napoveda" data-klic-nepodporuje hidden><?= e(t('This browser does not support passkeys, or the site is not running on HTTPS.')) ?></p>
-</fieldset>
-</form>
-<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
-<?php if ($renewCodes): // 3.35: new backup codes for an account with a passkey and without the app ?>
-<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
-<?= $csrf ?><input type="hidden" name="co" value="backup_codes_new">
-<fieldset id="backup-codes"><legend><?= e(t('Backup codes')) ?></legend>
-<p><?= e(t('Backup codes left: %d.', $codesLeft)) ?> <?= e(t('Lost them or used most of them? New codes replace them all – the old ones stop working at once. The new codes are shown only once.')) ?></p>
-<?php if ($passkeyOnly && !$fresh): ?>
-<?= $proofNote ?>
-<?php elseif (!$fresh): ?>
-<div class="radek"><label for="kody-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="kody-heslo" name="soucasne" size="30" autocomplete="current-password"><span class="napoveda"><?= e(t('Needed to create new backup codes – or sign in again with your passkey and do it within a few minutes.')) ?></span></div></div>
-<?php endif ?>
-<p class="tlacitka"><button class="navigace" type="submit" data-potvrdit="<?= e(t('Create new backup codes? The old ones will stop working.')) ?>"><?= e(t('New backup codes')) ?></button></p>
-</fieldset>
-</form>
-<?php endif ?>
-<?php if ($workingPasskey): ?>
-<form class="formular" method="post" action="<?= $action ?>" autocomplete="off">
-<?= $csrf ?><input type="hidden" name="co" value="passkey_only">
-<fieldset id="passkey-only"><legend><?= e(t('Passkey only')) ?></legend>
-<?php if ($sitePasskeyOnly): ?>
-<p><span class="stitek stitek-vydano"><?= e(t('on')) ?></span> <?= e(t('This site requires it: you sign in with your passkey. After your password only the passkey or a backup code finishes the sign-in.')) ?></p>
-<?php else: ?>
-<div class="radek"><span class="popisek"><?= e(t('Sign-in')) ?></span><div class="volby"><input type="hidden" name="passkey_only" value="0"><label><input type="checkbox" name="passkey_only" value="1"<?= $passkeyOnly ? ' checked' : '' ?> aria-describedby="passkey-only-napoveda"> <?= e(t('sign in with a passkey only')) ?></label>
-	<span class="napoveda" id="passkey-only-napoveda"><?= e(t('Your password then never signs you in with the code from the app: after it only your passkey or a backup code finishes the sign-in. You can still change or reset the password. Lost your passkey and the backup codes? An administrator can reset your passkeys.')) ?></span></div></div>
-<?php if ($passkeyOnly && !$fresh): ?>
-<?= $proofNote ?>
-<?php elseif (!$fresh): ?>
-<div class="radek"><label for="passkey-only-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="passkey-only-heslo" name="soucasne" size="30" autocomplete="current-password"></div></div>
-<?php endif ?>
-<p class="tlacitka"><button class="navigace" type="submit"><?= e(t('Save the choice')) ?></button></p>
-<?php endif ?>
-</fieldset>
-</form>
-<?php endif ?>
-
-<?php if ($claude): ?>
-<?php // the buttons of the listed connections (switch, disconnect, revoke) belong to this form through their form attribute:
-// the form below then has "Create token" as its only button, so Enter in the token name creates the token (3.10 audit, N310-7) ?>
-<form id="claude-connections" method="post" action="<?= $action ?>"><?= $csrf ?></form>
-<form class="formular" method="post" action="<?= $action ?>">
-<?= $csrf ?>
-<fieldset id="claude"><legend><?= e(t('Claude connection')) ?></legend>
-<?php if ($newToken !== ''): ?>
-<div class="hlaska hlaska-ok">
-	<p><strong><?= e(t('The token has been created.')) ?></strong> <?= e(t('Copy it now – it will not be shown again.')) ?></p>
-	<p><code class="totp-klic"><?= e($newToken) ?></code></p>
-	<p><?= e(t('In Claude Code, run:')) ?></p>
-	<p><code class="totp-klic" style="font-size:12px">claude mcp add --transport http kaleta <?= e($mcpUrl) ?> --header "Authorization: Bearer <?= e($newToken) ?>"</code></p>
-	<p class="napoveda"><?= e(t('In the Claude app you do not need a token: add a custom connector with the address %s and confirm access by signing in.', $mcpUrl)) ?></p>
-</div>
-<?php endif ?>
-<p><?= e(t('The easiest way is to add a custom connector in the Claude app with the address %s – Claude sends you here to sign in and confirm access, no token to copy. The token below is for Claude Code and other tools without sign-in.', $mcpUrl)) ?></p>
-<?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-ucet']) ?>
-<?php $accessLabel = array_map(fn (string $label): string => t($label), Kaleta\Front\OAuth::ACCESS_LABELS); ?>
-<?php
-// 3.10: the tool set of a connection and the button that switches it ("<set>:token:<id>" or "<set>:app:<client_id>")
-// 3.26: a "work" connection (D-W10); 3.36: migration and fleet – one folded choice of every set offered on this site
-$toolSetNames = ['essentials' => t('essentials'), 'work' => t('work tools'), 'migration' => t('migration tools'), 'fleet' => t('fleet tools'), 'all' => t('all tools')];
-$toolSetLabel = fn (string $set): string => '<span class="stitek">' . e($toolSetNames[Kaleta\Mcp\Catalog::toolSet($set)]) . '</span>';
-$toolSetSwitch = function (string $set, string $target) use ($app, $toolSetNames): string {
-    $set = Kaleta\Mcp\Catalog::toolSet($set);
-    $buttons = '';
-    foreach (Kaleta\Mcp\Catalog::offered($app->settings(), $set) as $other) {
-        if ($other !== $set) {
-            $buttons .= '<button class="navigace" type="submit" form="claude-connections" name="tool_set_switch" value="' . e($other . ':' . $target) . '">' . e($toolSetNames[$other]) . '</button>';
-        }
-    }
-
-    return '<details class="sada-nastroju"><summary>' . e(t('Change the tool set')) . '</summary><div>' . $buttons . '</div></details>';
-};
+$partial = ['' => 'account_details', 'absence' => 'account_absence', 'security' => 'account_security', 'claude' => 'account_claude'][$tab] ?? 'account_details';
+echo $app->view->render('admin/' . $partial, array_diff_key(get_defined_vars(), ['__file' => true, '__data' => true, 'view' => true]));
 ?>
-<?php if ($apps !== []): ?>
-<h2><?= e(t('Connected applications')) ?></h2>
-<?php foreach ($apps as $a): ?>
-<div class="napojeni"><span class="stitek"><?= e($a['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$a['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $a['tool_set']) ?> <?= e(t('connected %s', format_date($a['vytvoren']))) ?>, <?= e($a['pouzit'] ? t('naposledy použita %s', format_date($a['pouzit'], true)) : t('not used yet')) ?>
-	<?= $toolSetSwitch((string) $a['tool_set'], 'app:' . $a['klient']) ?>
-	<button class="navigace nebezpecne" type="submit" form="claude-connections" name="odpojit_klient" value="<?= e($a['klient']) ?>" data-potvrdit="<?= e(t('Disconnect the application? It will not get into the website until you allow it again.')) ?>"><?= e(t('Disconnect')) ?></button></div>
-<?php endforeach ?>
-<?php endif ?>
-<p><?= e(t('Claude will work with the site')) ?> <strong><?= e(t('in your name and with your permissions')) ?></strong>: <?= e(t((int) $user['admin'] === 2 ? 'write and edit pages and news, and manage categories, collections and the look of the site.' : 'write and edit news.')) ?> <?= e(t('With “Drafts only”, pages and news stay drafts until you publish them; with “Can also publish”, Claude publishes when you ask it to. All its changes are in the Change log.')) ?></p>
-<h2><?= e(t('Personal tokens (Claude Code and other tools)')) ?></h2>
-<p class="napoveda"><?= e(t('For tools without sign-in. Protect a token like a password.')) ?></p>
-<?php foreach ($tokens as $t): ?>
-<div class="napojeni"><span class="stitek"><?= e($t['nazev']) ?></span> <span class="stitek"><?= e($accessLabel[$t['access']] ?? $accessLabel['read']) ?></span> <?= $toolSetLabel((string) $t['tool_set']) ?> <?= e(t('created %s', format_date($t['vytvoren']))) ?>, <?= e($t['pouzit'] ? t('naposledy použit %s', format_date($t['pouzit'], true)) : t('zatím nepoužit')) ?>,
-	<?= $t['expirace'] === null ? e(t('no expiry')) : ($t['expirace'] < date('Y-m-d H:i:s') ? '<strong>' . e(t('expired %s', format_date($t['expirace']))) . '</strong>' : e(t('valid until %s', format_date($t['expirace'])))) ?>
-	<?= $toolSetSwitch((string) $t['tool_set'], 'token:' . (int) $t['idt']) ?>
-	<button class="navigace nebezpecne" type="submit" form="claude-connections" name="smaz_token" value="<?= (int) $t['idt'] ?>" data-potvrdit="<?= e(t('Revoke the token? Claude will no longer be able to sign in with it.')) ?>"><?= e(t('Revoke token')) ?></button></div>
-<?php endforeach ?>
-<div class="radek"><label for="token-nazev"><?= e(t('Name of the new token')) ?></label><div><input class="textpole" type="text" id="token-nazev" name="nazev" maxlength="100" size="30" placeholder="<?= e(t('e.g. Claude on my laptop')) ?>"></div></div>
-<div class="radek"><label for="token-platnost"><?= e(t('Valid for')) ?></label><div><select id="token-platnost" name="platnost">
-<?php foreach (Kaleta\Admin\Account::TOKEN_LIFETIMES as $days): ?>
-	<option value="<?= $days ?>"<?= $days === 365 ? ' selected' : '' ?>><?= e($days === 0 ? t('no expiry') : ($days === 365 ? t('1 year') : t('%d days', $days))) ?></option>
-<?php endforeach ?>
-</select><span class="napoveda"><?= e(t('An expired token stops working on its own; you then create a new one. A token nobody uses for %d days is reported in System status.', Kaleta\Core\SecurityHygiene::CONNECTION_DAYS)) ?></span></div></div>
-<?= $app->view->render('admin/connection-access', ['role' => t(Kaleta\Core\Auth::TYPES[(int) $user['admin']] ?? ''), 'selected' => 'full', 'toolSet' => 'all', 'toolSets' => Kaleta\Mcp\Catalog::offered($app->settings())]) ?>
-<?php if ($passkeyOnly): ?>
-<?= $proofNote ?>
-<?php else: ?>
-<div class="radek"><label for="token-heslo"><?= e(t('Current password')) ?></label><div><input class="textpole" type="password" id="token-heslo" name="soucasne" size="30" autocomplete="current-password" required><span class="napoveda"><?= e(t('Needed to create a token – a token works without the password and without two-factor sign-in.')) ?></span></div></div>
-<?php endif ?>
-<p class="tlacitka"><button class="tl" type="submit" name="co" value="token_novy"><?= e(t('Create token')) ?></button></p>
-</fieldset>
-</form>
+<?php if ($tab === 'security' || $confirmForm): ?>
+<script src="<?= e($app->url('image/klice.js')) ?>?v=<?= e(KALETA_VERSION) ?>" defer></script>
 <?php endif ?>

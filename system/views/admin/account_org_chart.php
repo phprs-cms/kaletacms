@@ -10,7 +10,14 @@
  */
 $me = $app->auth()->id();
 $name = fn (?int $id): string => $id !== null && isset($colleagues[$id]) ? (string) $colleagues[$id]['name'] : '';
-$person = function (array $c, bool $head = false) use ($app, $me, $name): string {
+// 3.47 (U67): a person gets one full card – drawn again (the head of a second department, a head from another department),
+// only a short line with the name and "Head"
+$shown = [];
+$person = function (array $c, bool $head = false) use ($app, $me, $name, &$shown): string {
+    if (isset($shown[$c['id']])) {
+        return '<li class="kolega kolega-znovu"><div><strong>' . bdi((string) $c['name']) . '</strong>' . ($head ? ' <span class="stitek">' . e(t('Head')) . '</span>' : '') . '</div></li>';
+    }
+    $shown[$c['id']] = true;
     $html = '<li class="kolega">';
     $html .= $c['photo'] !== '' ? '<img class="kolega-foto" src="' . e($app->request->basePath() . '/' . ltrim((string) $c['photo'], '/')) . '" alt="" width="48" height="48" loading="lazy">'
         : '<span class="avatar kolega-foto" aria-hidden="true">' . e(mb_strtoupper(mb_substr((string) $c['name'], 0, 1))) . '</span>';
@@ -43,7 +50,8 @@ $top = array_values(array_filter($chart['departments'], fn (array $d): bool => $
 $branch = function (array $departments) use (&$branch, $children, $colleagues, $person): string {
     $html = '<ul class="organigram">';
     foreach ($departments as $d) {
-        $html .= '<li class="organigram-oddeleni"><section aria-labelledby="oddeleni-' . $d['id'] . '"><h2 id="oddeleni-' . $d['id'] . '">' . bdi($d['name']) . '</h2>';
+        $level = min(4, 2 + $d['depth']); // 3.47 (U67): the heading follows the depth
+        $html .= '<li class="organigram-oddeleni"><section aria-labelledby="oddeleni-' . $d['id'] . '"><h' . $level . ' id="oddeleni-' . $d['id'] . '">' . bdi($d['name']) . '</h' . $level . '>';
         $people = $d['members'];
         if ($d['head'] !== null && !in_array($d['head'], array_column($people, 'id'), true) && isset($colleagues[$d['head']])) {
             array_unshift($people, $colleagues[$d['head']]); // a head from another department is still shown here first
@@ -57,7 +65,12 @@ $branch = function (array $departments) use (&$branch, $children, $colleagues, $
     return $html . '</ul>';
 };
 ?>
-<?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => 'org_chart']) ?>
+<?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => 'colleagues']) ?>
+<?php // 3.47 (U67): one Colleagues tab – A–Z or by department (the org chart of 3.42) ?>
+<nav class="zalozky" aria-label="<?= e(t('Colleagues')) ?>">
+	<a href="<?= e($app->url(Kaleta\Admin\Account::path('colleagues'))) ?>"><?= e(t('A–Z')) ?></a>
+	<a href="<?= e($app->url(Kaleta\Admin\Account::path('colleagues') . '&view=departments')) ?>" class="aktivni" aria-current="true"><?= e(t('By department')) ?></a>
+</nav>
 <p class="napoveda"><?= e(t('Departments, their heads and who reports to whom. Administrators set them in Users → Departments; who is away and their deputy each person adds in My account.')) ?></p>
 <?php if ($chart['departments'] === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'uzivatele', 'heading' => t('No departments yet.'),

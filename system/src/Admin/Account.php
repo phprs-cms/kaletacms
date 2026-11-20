@@ -15,11 +15,62 @@ use Kaleta\Core\Totp;
  * My account: own name and e-mail, password change, two-factor sign-in, the own e-mail signature (3.14, tab=signature) and
  * the colleagues (3.37, tab=colleagues).
  * Available to every signed-in user.
+ *
+ * 3.47 (U68): six tabs (TABS) – my details, absence, sign-in and security, Claude (only with the extension on), my e-mail
+ * signature and colleagues (with the org chart as its second view; tab=org_chart stays an alias). Every form posts to its
+ * tab, and a POST returns to the tab of its step (CO_TABS) whatever the address says. Old links with a fragment
+ * (#claude, #two-factor, #passkeys…) are taken to their tab by image/admin.js (data-account-tabs).
  */
 final class Account
 {
     /** How long a new personal token is valid, in days (0 = no expiry); the default is a year (2.8). */
     public const array TOKEN_LIFETIMES = [30, 90, 365, 0];
+
+    /** 3.47 (U68): the tabs of My account in their order; '' = my details. */
+    public const array TABS = ['', 'absence', 'security', 'claude', 'signature', 'colleagues'];
+
+    /** 3.47 (U68): the tab each step of My account (the posted co, or the button that stands for it) belongs to. */
+    public const array CO_TABS = [
+        'profil' => '', 'notifications' => '',
+        'absence_add' => 'absence', 'absence_delete' => 'absence',
+        'heslo' => 'security', 'totp_start' => 'security', 'totp_potvrd' => 'security', 'totp_vypni' => 'security', 'klic_moznosti' => 'security',
+        'klic_uloz' => 'security', 'klic_smaz' => 'security', 'klic_prejmenuj' => 'security', 'passkey_only' => 'security', 'backup_codes_new' => 'security',
+        'token_novy' => 'claude', 'token_smaz' => 'claude', 'tool_set' => 'claude', 'aplikace_odpojit' => 'claude',
+    ];
+
+    /** 3.47 (U68): old fragment links of My account => the tab that now holds them (image/admin.js, data-account-tabs). */
+    public const array FRAGMENT_TABS = ['claude' => 'claude', 'two-factor' => 'security', 'passkeys' => 'security', 'backup-codes' => 'security',
+        'passkey-only' => 'security', 'confirm-passkey' => 'security', 'absences' => 'absence'];
+
+    /** 3.47 (U68): the tab of a step of My account; an unknown step belongs to my details. Pure. */
+    public static function tabFor(string $step): string
+    {
+        return self::CO_TABS[$step] ?? '';
+    }
+
+    /** 3.47 (U68): the address of a tab of My account (relative, for App::url), with an optional fragment. Pure. */
+    public static function path(string $tab, string $fragment = ''): string
+    {
+        return 'admin.php?action=account' . ($tab !== '' ? '&tab=' . $tab : '') . ($fragment !== '' ? '#' . $fragment : '');
+    }
+
+    /**
+     * 3.47 (U68): the tab a request asks for – an unknown one, or Claude with the extension off, is my details; the org chart
+     * of 3.42 is the Colleagues tab by department. Returns [tab, colleagues view]. Pure.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function requestedTab(string $tab, string $view, bool $claude): array
+    {
+        if ($tab === 'org_chart') {
+            return ['colleagues', 'departments'];
+        }
+        if (!in_array($tab, self::TABS, true) || ($tab === 'claude' && !$claude)) {
+            return ['', ''];
+        }
+
+        return [$tab, $tab === 'colleagues' && $view === 'departments' ? 'departments' : ''];
+    }
 
     public function __construct(private readonly Kernel $kernel)
     {
@@ -32,13 +83,15 @@ final class Account
         $db = $app->db();
         $user = $app->auth()->user();
         $data = ['backupCodes' => [], 'newSecret' => '', 'newToken' => ''];
+        $step = ''; // 3.47 (U68): the step of a POST – its tab is where the answer goes
 
         if ($r->isPost() && in_array($r->post('krok'), ['passkey_confirm_options', 'passkey_confirm'], true)) {
             return $this->confirmWithPasskey();
         }
         if ($r->isPost()) {
             $message = null;
-            switch ($r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('co')))) {
+            $step = $r->postInt('smaz_token') > 0 ? 'token_smaz' : ($r->post('odpojit_klient') !== '' ? 'aplikace_odpojit' : ($r->post('tool_set_switch') !== '' ? 'tool_set' : $r->post('co')));
+            switch ($step) {
                 case 'profil':
                     if ($r->post('email') !== '' && filter_var($r->post('email'), FILTER_VALIDATE_EMAIL) === false) {
                         $message = ['chyba', 'The e-mail address is not valid.'];
@@ -71,6 +124,9 @@ final class Account
                 case 'absence_add':
                     // 3.42: my own absence with a deputy (Core\Absences) – administrators add anybody's in Users
                     $added = \Kaleta\Core\Absences::add($db, (int) $user['idu'], $r->post('starts_on'), $r->post('ends_on'), $r->postInt('deputy_id') ?: null, $r->post('reason'), (int) $user['idu']);
+                    if (is_int($added)) {
+                        \Kaleta\Core\Absences::announce($app, $added, (int) $user['idu']); // 3.47 (N166): the deputy's bell – the days only
+                    }
                     $message = is_string($added) ? ['chyba', $added] : ['ok', 'The absence is saved.'];
                     break;
                 case 'absence_delete':
@@ -127,7 +183,7 @@ final class Account
                         'expirace' => $days > 0 ? date('Y-m-d H:i:s', time() + $days * 86400) : null]);
                     ChangeLog::write($app, 'ucet', 'claude_token', $access . ($toolSet !== 'all' ? ', ' . $toolSet : '') . ($days > 0 ? ', ' . $days . ' days' : ', no expiry'));
                     // the token is shown only now - hence no redirect
-                    return $this->page(['newToken' => $token] + $data);
+                    return $this->page(['newToken' => $token] + $data, 'claude');
                 case 'token_smaz':
                     $db->delete('api_tokeny', ['idt' => $r->postInt('smaz_token'), 'idu' => $user['idu']]);
                     $message = ['ok', 'Token revoked.'];
@@ -207,7 +263,7 @@ final class Account
                     ChangeLog::write($app, 'ucet', 'two_factor_on');
                     $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 (N116): the other sign-ins end
                     // the backup codes are shown only now - hence no redirect
-                    return $this->page(['backupCodes' => $codes] + $data);
+                    return $this->page(['backupCodes' => $codes] + $data, 'security');
                 case 'klic_moznosti':
                 case 'klic_uloz':
                     return $this->key($r->post('co') === 'klic_uloz', $user);
@@ -267,7 +323,7 @@ final class Account
                     $app->auth()->newEpoch((int) $user['idu'], true); // 3.41 review L2: new codes are a second-factor change – the other sign-ins end
                     ChangeLog::write($app, 'ucet', 'backup_codes_new');
 
-                    return $this->page(['backupCodes' => $codes, 'codesFromPasskey' => true, 'codesRenewed' => true] + $data);
+                    return $this->page(['backupCodes' => $codes, 'codesFromPasskey' => true, 'codesRenewed' => true] + $data, 'security');
                 case 'totp_vypni':
                     if (($message = $this->passwordRefused('Enter the correct password to turn it off.')) !== null) {
                         break;
@@ -284,29 +340,31 @@ final class Account
             if ($message !== null) {
                 $app->session->flash(...$message);
 
-                return Response::redirect($app->url('admin.php?action=account'));
+                // 3.47 (U68): back to the tab of the step, whatever the address of the form said
+                return Response::redirect($app->url(self::path(self::tabFor($step))));
             }
         }
 
-        if ($r->get('tab') === 'signature') {
+        // a POST without a redirect (setting up the app shows its QR code) stays on the tab of its step
+        [$tab, $view] = self::requestedTab($r->isPost() ? self::tabFor($step) : $r->get('tab'), $r->isPost() ? '' : $r->get('view'), Extensions::isEnabled($app->settings(), 'claude'));
+        if ($tab === 'signature') {
             return $this->signature();
         }
-        if ($r->get('tab') === 'colleagues') {
-            return $this->colleagues();
-        }
-        if ($r->get('tab') === 'org_chart') {
-            return $this->orgChart();
+        if ($tab === 'colleagues') {
+            return $view === 'departments' ? $this->orgChart() : $this->colleagues();
         }
 
         // 3.35: backup codes created with the first passkey are shown once, on the page the registration returns to
-        $shown = $app->session->get('backup_codes_show');
-        $app->session->remove('backup_codes_show');
-        if (is_array($shown) && $shown !== []) {
-            $data['backupCodes'] = array_values(array_map('strval', $shown));
-            $data['codesFromPasskey'] = true;
+        if ($tab === 'security') {
+            $shown = $app->session->get('backup_codes_show');
+            $app->session->remove('backup_codes_show');
+            if (is_array($shown) && $shown !== []) {
+                $data['backupCodes'] = array_values(array_map('strval', $shown));
+                $data['codesFromPasskey'] = true;
+            }
         }
 
-        return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data);
+        return $this->page(['newSecret' => (string) $app->session->get('totp_nove', '')] + $data, $tab);
     }
 
     /** 3.35: why new backup codes are refused – the account has no passkey, or it has the authenticator app. */
@@ -426,7 +484,7 @@ final class Account
 
     /**
      * Colleagues (3.37, Core\Colleagues): everyone with an active account – name, position, work phone, e-mail and photo –
-     * for every signed-in user, whatever sections they may open.
+     * for every signed-in user, whatever sections they may open. 3.47 (U67): A–Z here, by department in orgChart().
      */
     private function colleagues(): Response
     {
@@ -441,6 +499,7 @@ final class Account
     /**
      * The org chart (3.42, Core\Colleagues::chart): the departments as a tree with their head and people, who reports to whom
      * and who is away today – work data of active accounts only, for every signed-in user. Plain HTML, printable.
+     * 3.47 (U67): the Colleagues tab by department (tab=colleagues&view=departments; tab=org_chart is an alias).
      */
     private function orgChart(): Response
     {
@@ -540,7 +599,8 @@ final class Account
         }
         $app->session->flash('ok', 'The passkey has been added. Next time you can sign in with it alone – without your user name and password – and it is the second step after your password.');
 
-        return Response::json(['ok' => true]);
+        // 3.47 (U68): back to its tab – without a fragment, so the security tab itself reloads (a fragment alone would not)
+        return Response::json(['ok' => true, 'kam' => $app->url(self::path('security'))]);
     }
 
     /**
@@ -566,16 +626,22 @@ final class Account
         \Kaleta\Core\Mail::send($app->settings(), $old, $subject, $text);
     }
 
-    /** @param array<string, mixed> $data */
-    private function page(array $data): Response
+    /**
+     * One tab of My account with its forms (3.47, U68: only what the tab needs is read – the passkeys for security, the
+     * absences for absence, the tokens and connected applications for security and Claude).
+     *
+     * @param array<string, mixed> $data
+     */
+    private function page(array $data, string $tab = ''): Response
     {
         $app = $this->kernel->app;
         $user = (array) $app->db()->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$app->auth()->id()]);
-        $keys = $app->auth()->accountKeys((int) $user['idu']);
+        $keys = $tab === 'security' ? $app->auth()->accountKeys((int) $user['idu']) : [];
         $working = $app->auth()->workingKeys((int) $user['idu']); // 3.35 review M3: only the passkeys of this host count
+        $connections = in_array($tab, ['security', 'claude'], true);
 
         return $this->kernel->page('My account', $app->view->render('admin/account', $data + [
-            'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(),
+            'app' => $app, 'user' => $user, 'csrf' => $app->session->csrfField(), 'tab' => $tab,
             'uri' => $data['newSecret'] !== '' ? Totp::uri($data['newSecret'], $user['user'], $app->settings()->get('site_name')) : '',
             'codesLeft' => \Kaleta\Core\BackupCodes::count($user['totp_zalozni'] !== null ? (string) $user['totp_zalozni'] : null), // 3.35 review L4: both formats
             'claude' => Extensions::isEnabled($app->settings(), 'claude'),
@@ -590,12 +656,12 @@ final class Account
             'renewCodes' => self::mayRenewBackupCodes($user, $keys), // 3.35: "New backup codes"
             'passkeyHost' => SignInPolicy::hostMatches((string) ($app->request->serverValues()['HTTP_HOST'] ?? ''), $app->settings()->get('site_url') ?: $app->request->origin()),
             // 3.42: my absences and who may stand in (Core\Absences)
-            'absences' => \Kaleta\Core\Absences::upcoming($app->db(), (int) $user['idu']),
-            'people' => array_filter(\Kaleta\Admin\Modules\Users::activePeople($app->db()), fn (int $uid): bool => $uid !== (int) $user['idu'], ARRAY_FILTER_USE_KEY),
-            'tokens' => $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]),
+            'absences' => $tab === 'absence' ? \Kaleta\Core\Absences::upcoming($app->db(), (int) $user['idu']) : [],
+            'people' => $tab === 'absence' ? array_filter(\Kaleta\Admin\Modules\Users::activePeople($app->db()), fn (int $uid): bool => $uid !== (int) $user['idu'], ARRAY_FILTER_USE_KEY) : [],
+            'tokens' => $connections ? $app->db()->all("SELECT * FROM {api_tokeny} WHERE idu = ? AND druh = 'token' ORDER BY idt DESC", [$user['idu']]) : [],
             // apps connected via OAuth (the Claude connector): one item per client, valid while it has a refresh token
             // the tool set of an application is the one of its newest token (3.10; a new consent may have chosen another)
-            'apps' => $app->db()->all("SELECT klient, MAX(nazev) AS nazev, ELT(MIN(FIELD(access, 'full', 'drafts', 'read')), 'full', 'drafts', 'read') AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
+            'apps' => !$connections ? [] : $app->db()->all("SELECT klient, MAX(nazev) AS nazev, ELT(MIN(FIELD(access, 'full', 'drafts', 'read')), 'full', 'drafts', 'read') AS access, SUBSTRING_INDEX(GROUP_CONCAT(tool_set ORDER BY idt DESC), ',', 1) AS tool_set, MIN(vytvoren) AS vytvoren, MAX(pouzit) AS pouzit FROM {api_tokeny} WHERE idu = ? AND klient IS NOT NULL AND expirace > ? GROUP BY klient ORDER BY MIN(vytvoren) DESC",
                 [$user['idu'], date('Y-m-d H:i:s')]),
             'mcpUrl' => $app->request->origin() . $app->url('mcp'),
         ]));

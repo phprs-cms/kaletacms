@@ -7,7 +7,7 @@
  * @var array<string, string> $names  section ident => name
  */
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=users')) ?>"><?= e(t('Back to users')) ?></a> <a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New role')) ?></a></p>
+<p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New role')) ?></a></p><?php // 3.47 (U67): the users are a tab of the hub ?>
 <p class="smltxt"><?= e(t('Start from a ready-made role:')) ?>
 <?php foreach (Kaleta\Admin\Modules\Roles::PRESETS as $key => [$presetName, $presetHelp]): ?>
 	<a href="<?= e($module->url('new', ['preset' => $key])) ?>" title="<?= e(t($presetHelp)) ?>"><?= e(t($presetName)) ?></a><?= $key !== array_key_last(Kaleta\Admin\Modules\Roles::PRESETS) ? ' ·' : '' ?>

@@ -31,7 +31,8 @@ final class Inbox
         'quote_expiring', 'quote_expired', // 3.38: a sent quote the person is responsible for expires soon / has expired (Core\QuoteDelivery::run, target 'quote:<id>')
         'quote_accepted', 'quote_declined', // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
         'escalated', // 3.42: a task of someone who reports to the person is overdue (Core\Tasks::escalate)
-        'quote_prepared']; // 3.42: a draft quote was prepared from a new enquiry about products (Core\Quotes::prepareDraft) – never an amount
+        'quote_prepared', // 3.42: a draft quote was prepared from a new enquiry about products (Core\Quotes::prepareDraft) – never an amount
+        'deputy_named', 'absence_added']; // 3.47 (N166): named as deputy / an administrator recorded my absence (Core\Absences::announce) – the days only, no target
 
     /**
      * 3.42: the kinds a stand-in also gets while the person is away today (Core\Absences::standIn – the deputy, else whom the
@@ -240,7 +241,7 @@ final class Inbox
         return ['rows' => array_map(fn (array $r): array => ['id' => (int) $r['id'], 'kind' => (string) $r['kind'], 'target' => (string) $r['target'],
             'actor_id' => $r['actor_id'] !== null ? (int) $r['actor_id'] : null, 'actor_name' => (string) $r['actor_name'], 'excerpt' => (string) $r['excerpt'],
             'standing_in_for' => (string) $r['standing_in_for'], 'created_at' => (string) $r['created_at'], 'read_at' => $r['read_at'] !== null ? (string) $r['read_at'] : null,
-            'place' => $places[(string) $r['target']] ?? null], $rows), 'more' => $more];
+            'place' => $places[(string) $r['target']] ?? self::accountPlace((string) $r['kind'])], $rows), 'more' => $more];
     }
 
     /**
@@ -251,14 +252,14 @@ final class Inbox
     public static function one(Db $db, int $userId, int $id): ?array
     {
         try {
-            $row = $db->one('SELECT id, target, read_at FROM {notifications} WHERE id = ? AND user_id = ?', [$id, $userId]);
+            $row = $db->one('SELECT id, kind, target, read_at FROM {notifications} WHERE id = ? AND user_id = ?', [$id, $userId]);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return null;
         }
 
         return $row === null ? null : ['id' => (int) $row['id'], 'target' => (string) $row['target'], 'read_at' => $row['read_at'] !== null ? (string) $row['read_at'] : null,
-            'place' => self::places($db, [(string) $row['target']])[(string) $row['target']] ?? null];
+            'place' => self::places($db, [(string) $row['target']])[(string) $row['target']] ?? self::accountPlace((string) $row['kind'])];
     }
 
     /** Marks one notification of the user as read. Returns whether it changed. */
@@ -398,6 +399,22 @@ final class Inbox
     }
 
     /**
+     * 3.47 (N166): the place of a notification without a target that points to My account – being named as deputy leads to the
+     * Colleagues tab, an absence recorded for me to my absences; null for any other
+     * kind. Pure.
+     *
+     * @return array{kind: string, id: int, title: string, path: string}|null
+     */
+    public static function accountPlace(string $kind): ?array
+    {
+        return match ($kind) {
+            'deputy_named' => ['kind' => 'account', 'id' => 0, 'title' => '', 'path' => 'admin.php?action=account&tab=colleagues'],
+            'absence_added' => ['kind' => 'account', 'id' => 0, 'title' => '', 'path' => 'admin.php?action=account&tab=absence'],
+            default => null,
+        };
+    }
+
+    /**
      * A target string as [kind, id] – "enquiry:12", "page:5", "item:9", "task:3" (3.27), "contact:4", "company:2" (3.28),
      * "fleet_site:4", "fleet_customer:2" (3.30: console tasks, calendar reminders), "deal:7" (3.31), "application:5" (3.34); null for anything else. Pure.
      *
@@ -429,6 +446,8 @@ final class Inbox
             'quote_declined' => t('The customer declined a quote'),
             'escalated' => t('A task of %s is overdue', $actor), // 3.42
             'quote_prepared' => t('A draft quote was prepared from an enquiry'), // 3.42
+            'deputy_named' => t('%s named you as deputy', $actor), // 3.47 (N166)
+            'absence_added' => t('%s recorded an absence for you', $actor),
             default => $kind,
         };
     }
@@ -460,6 +479,7 @@ final class Inbox
             // 3.34: the number and the position only – never the applicant
             'application' => t('Application #%s · %s', (string) $place['id'], (string) $place['title'] !== '' ? (string) $place['title'] : t('no position')),
             'quote' => t('Quote %s', (string) $place['title']), // 3.38: the number only
+            'account' => t('My account'), // 3.47 (N166): a note about an absence
             default => t('(no longer available)'),
         };
     }
@@ -569,8 +589,9 @@ final class Inbox
                 continue;
             }
             $places = self::places($db, array_map(fn (array $r): string => (string) $r['target'], $rows));
+            $place = fn (array $r): ?array => $places[(string) $r['target']] ?? self::accountPlace((string) $r['kind']); // 3.47 (N166)
             $notes = array_map(fn (array $r): array => ['kind' => (string) $r['kind'], 'actor_name' => (string) $r['actor_name'], 'excerpt' => (string) $r['excerpt'],
-                'standing_in_for' => (string) $r['standing_in_for'], 'place' => $places[(string) $r['target']] ?? null, 'url' => isset($places[(string) $r['target']]) ? $base . $app->url('admin.php?action=inbox&open=' . (int) $r['id']) : ''], $rows);
+                'standing_in_for' => (string) $r['standing_in_for'], 'place' => $place($r), 'url' => $place($r) !== null ? $base . $app->url('admin.php?action=inbox&open=' . (int) $r['id']) : ''], $rows);
             [$subject, $text] = self::digest($s, $user, $notes, $base . $app->url('admin.php?action=inbox'), $base . $app->url('admin.php?action=account#notifications'));
             Mail::send($s, (string) $user['email'], $subject, $text); // a background job: a failure is queued for a retry
             self::markEmailed($db, array_map(fn (array $r): int => (int) $r['id'], $rows));
@@ -624,7 +645,7 @@ final class Inbox
             return;
         }
         $db = $app->db();
-        $place = self::places($db, [$note['target']])[$note['target']] ?? null;
+        $place = self::places($db, [$note['target']])[$note['target']] ?? self::accountPlace($note['kind']); // 3.47 (N166)
         if ($place === null) {
             return;
         }

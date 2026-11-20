@@ -19,7 +19,7 @@ $accessNames = array_map(fn (string $label): string => t($label), Kaleta\Front\O
 	<li><?= e(t('Enter this address:')) ?><?= $app->view->render('admin/mcp_address', ['url' => $mcpUrl, 'id' => 'mcp-adresa-nastaveni']) ?></li>
 	<li><?= e(t('Claude sends you here to sign in. You choose what it may do: drafts only, which you publish (recommended), also publish, or only read.')) ?></li>
 </ol>
-<p class="napoveda"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http kaleta <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
+<p class="napoveda"><?= e(t('In Claude Code, just run:')) ?> <code>claude mcp add --transport http kaleta <?= e($mcpUrl) ?></code>. <?= e(t('Connected applications and personal tokens for other tools are in')) ?> <a href="<?= e($app->url('admin.php?action=account&tab=claude')) ?>"><?= e(t('My account')) ?></a>.
 <?= e(t('In a subfolder, the Claude app finds the sign-in on its own; for a tool that does not, use a personal token.')) ?></p>
 <?php if (!empty($instructionsChange)): // 3.15 (N44): the last change, shown once to the administrator who opens the settings ?>
 <div class="hlaska hlaska-varovani" id="zmena-pokynu"><p><?= e(t('The instructions for Claude changed – check them.')) ?> <?= e(Kaleta\Core\ClaudeInstructions::who($instructionsChange)) ?></p>
@@ -86,6 +86,6 @@ $listedIds = array_map(fn (array $page): int => (int) $page['ids'], $protectable
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
-<p class="napoveda"><?= e(t('Each person creates and revokes their own connections in')) ?> <a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('My account')) ?></a>.
+<p class="napoveda"><?= e(t('Each person creates and revokes their own connections in')) ?> <a href="<?= e($app->url('admin.php?action=account&tab=claude')) ?>"><?= e(t('My account')) ?></a>.
 <?php // 3.20 (C6): tokens stay in My account – the Connections box says where ?>
-<a href="<?= e($app->url('admin.php?action=account#claude')) ?>"><?= e(t('Create a personal token – My account')) ?></a></p>
+<a href="<?= e($app->url('admin.php?action=account&tab=claude')) ?>"><?= e(t('Create a personal token – My account')) ?></a></p>

@@ -1,6 +1,6 @@
 echo "== 2.17: scheduled Claude runs (Core\\AgentSchedules) – the site keeps the schedule, a routine in Claude does the runs as drafts"
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=schedules"; TOKEN=$(csrf)
-grep -q 'get_due_agent_runs' "$WORK/response" && grep -q "$B/mcp" "$WORK/response" && grep -q 'action=account#claude' "$WORK/response" && echo "  ok     schedules: the Set up in Claude panel has the routine prompt with the MCP address and the link to the tokens" || { echo "  CHYBA  schedules panel"; ERRORS=$((ERRORS+1)); }
+grep -q 'get_due_agent_runs' "$WORK/response" && grep -q "$B/mcp" "$WORK/response" && grep -q 'action=account&amp;tab=claude' "$WORK/response" && echo "  ok     schedules: the Set up in Claude panel has the routine prompt with the MCP address and the link to the tokens" || { echo "  CHYBA  schedules panel"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=schedules&action=save" -d "_csrf=$TOKEN" -d id=0 --data-urlencode "name=Weekly review" -d task=review --data-urlencode "text=Only the Services pages." -d cadence=weekly -d weekday=1 -d monthday=1 -d "time=07:00" -d active=1
 SCHED=$(sq "SELECT id FROM ka_agent_schedules WHERE name = 'Weekly review'"); SCHED="${SCHED:-0}"
 expect "schedules: saved, active, next due the coming Monday 07:00" "$(sq "SELECT CONCAT(active, '|', cadence, '|', day, '|', time, '|', next_due > '$(site_time)', '|', DAYOFWEEK(next_due), '|', TIME(next_due)) FROM ka_agent_schedules WHERE id = $SCHED")" "1|weekly|1|07:00|1|2|07:00:00"

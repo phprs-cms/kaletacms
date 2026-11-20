@@ -38,7 +38,7 @@ expect "3.35 review M3: confirmed and with the password – saved; the change lo
   "$(r418_save "&site_url=$R418_NEW&site_url_confirm=1&soucasne=$PASSWORD")|$(r418_url)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE akce = 'site_host_change'")" "302|$R418_NEW|1"
 P2="$WORK/jar-r418-2"; rm -f "$P2"
 expect "3.35 review M3: the passkey of the old host no longer counts – pk418 signs in with the password alone, never a dead end" "$(r418_password "$P2")|$(p335_signed_in "$P2")" "302|1"
-curl -s -b "$P2" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$P2" -o "$WORK/response" "$B/admin.php?action=account&tab=security"
 expect "3.35 review M3: My account marks the passkey of the other address" "$(grep -c "another address: $R418_HOST\|jiná adresa: $R418_HOST" "$WORK/response")" "1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=status"
 expect "3.35 review M3: System status reports passkeys of another host name" "$(grep -q 'Passkeys of another address\|Klíče jiné adresy' "$WORK/response" && echo shown)" "shown"

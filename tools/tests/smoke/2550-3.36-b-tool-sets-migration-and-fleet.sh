@@ -10,7 +10,7 @@ b336_init() { curl -s -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content
 b336_has() { php -r '$t = $argv[1]; $at = 0; foreach (array_slice($argv, 2) as $n) { $p = strpos($t, $n, $at); if ($p === false) { echo "no"; exit; } $at = $p; } echo "yes";' -- "$@"; }
 b336_first() { php -r '$t = $argv[1]; $at = []; foreach (array_slice($argv, 2) as $h) { if (($p = strpos($t, $h)) !== false) { $at[$h] = $p; } } asort($at); echo implode(">", array_keys($at));' -- "$@"; }
 B336_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; B336_CSRF=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"; B336_CSRF=$(csrf)
 contains -q 'name="tool_set" value="migration"' "$WORK/response" && ! contains -q 'name="tool_set" value="fleet"' "$WORK/response" && contains -q 'Stěhování – pro přesun webu' "$WORK/response" \
   && echo "  ok     3.36 B: a new token offers the migration set; the fleet set only on a fleet site" || { echo "  CHYBA  3.36 B: the sets of a new token"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$B336_CSRF" -d co=token_novy -d "nazev=b336 migration" -d access=full -d tool_set=migration --data-urlencode "soucasne=$PASSWORD"
@@ -27,7 +27,7 @@ expect "3.36 B: the instructions of a migration connection say what its list hol
 mcp_as "$B336_TOKEN" site_info '{}' > "$WORK/response"; mcp_text
 expect "3.36 B: site_info shows the tool set of the connection" "$(php -r 'echo json_decode(file_get_contents($argv[1]), true)["connection"]["tool_set"] ?? "";' -- "$WORK/text")" "migration"
 # My account: one folded choice of the other sets; a switch to work, a refused switch to fleet (not a fleet site)
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"
 contains -q 'nástroje pro stěhování' "$WORK/response" && contains -q "value=\"work:token:$B336_IDT\"" "$WORK/response" && contains -q "value=\"essentials:token:$B336_IDT\"" "$WORK/response" \
   && contains -q "value=\"all:token:$B336_IDT\"" "$WORK/response" && ! contains -q "value=\"fleet:token:$B336_IDT\"" "$WORK/response" && ! contains -q "value=\"migration:token:$B336_IDT\"" "$WORK/response" \
   && echo "  ok     3.36 B: My account labels the migration token and offers every other set except fleet" || { echo "  CHYBA  3.36 B: My account switch"; ERRORS=$((ERRORS+1)); }
@@ -42,7 +42,7 @@ expect "3.36 B: a work connection's instructions start the tasks with the daily 
   "$(b336_first "$B336_TEXT" 'DAILY WORK' 'BUILDING A SITE' 'MOVING A SITE')|$(b336_has "$B336_TEXT" save_contact list_deals complete_task)" "DAILY WORK>BUILDING A SITE>MOVING A SITE|yes"
 # a fleet site: the set is offered, switched to and lists the console; the instructions put the console first
 sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',fleet') WHERE promenna = 'extensions'" > /dev/null
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"
 contains -q "value=\"fleet:token:$B336_IDT\"" "$WORK/response" && contains -q 'name="tool_set" value="fleet"' "$WORK/response" \
   && echo "  ok     3.36 B: on a fleet site My account and a new token offer the fleet set" || { echo "  CHYBA  3.36 B: fleet set offered"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$B336_CSRF" -d "tool_set_switch=fleet:token:$B336_IDT"

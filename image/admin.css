@@ -1535,9 +1535,14 @@ label.galerie-vyfotit { display: none; }
 .nepritomnosti li + li { margin-top: 6px; }
 .organigram { list-style: none; margin: 0; padding: 0; }
 .organigram .organigram { margin-inline-start: clamp(8px, 3vw, 24px); padding-inline-start: clamp(8px, 2vw, 16px); border-inline-start: 2px solid var(--linka, #d0d5dd); }
-.organigram-oddeleni > section > h2, .organigram-zbytek > h2 { margin: 20px 0 4px; font-size: 1.15rem; }
+.organigram-oddeleni > section > :is(h2, h3, h4), .organigram-zbytek > h2 { margin: 20px 0 4px; font-size: 1.15rem; }
+.organigram-oddeleni > section > :is(h3, h4) { font-size: 1.05rem; } /* 3.47 (U67): the heading follows the depth */
+.kolega-znovu { padding-block: 8px; } /* 3.47 (U67): a person shown a second time – the name and "Head" only */
+/* 3.47 (N166): a folder of internal files shows the roles only for "chosen roles" and the departments only for "chosen departments" */
+.okruh-slozky:not(:has(input[name="audience"][value="roles"]:checked)) .okruh-role,
+.okruh-slozky:not(:has(input[name="audience"][value="depts"]:checked)) .okruh-oddeleni { display: none; }
 @media print {
-  body:has(.organigram, .organigram-zbytek) :is(.hlavicka, .preskocit, .zalozky, .napoveda) { display: none; }
+  body:has(.organigram, .organigram-zbytek) :is(.hlavicka, .preskocit, .zalozky, .zalozky-vyber, .napoveda) { display: none; }
   body:has(.organigram, .organigram-zbytek) .kolega { break-inside: avoid; }
 }
 .kolegove { list-style: none; margin: 16px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }

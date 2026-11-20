@@ -70,7 +70,7 @@ expect "3.46: action=confirm with the password goes back to the section, and onl
 # N138: setting up the authenticator app – not even the pending secret without a proof
 T4130_JAR="$WORK/jar-t4130"; rm -f "$T4130_JAR"
 curl -s -c "$T4130_JAR" -o "$WORK/response" "$B/admin.php"; curl -s -b "$T4130_JAR" -c "$T4130_JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=t4130 --data-urlencode "password=$PASSWORD"
-t4130_account() { curl -s -b "$T4130_JAR" -c "$T4130_JAR" -o "$WORK/response" "$B/admin.php?action=account"; csrf; }
+t4130_account() { curl -s -b "$T4130_JAR" -c "$T4130_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; csrf; } # 3.47: the security tab
 proof_age "$T4130_JAR"; T4130_U=$(t4130_account)
 expect "3.46 N138: without a recent proof the start form asks for the password" "$(grep -c 'id="start-heslo"' "$WORK/response")" "1"
 curl -s -b "$T4130_JAR" -c "$T4130_JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$T4130_U" -d co=totp_start; t4130_account > /dev/null

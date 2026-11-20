@@ -53,7 +53,7 @@ final class InternalFiles
     /** Rows per page of the list. */
     public const int PAGE = 50;
 
-    public const array AUDIENCES = ['all' => 'Everyone with Internal files', 'roles' => 'Only chosen roles', 'depts' => 'Only chosen departments'];
+    public const array AUDIENCES = ['all' => 'Everyone with Internal files', 'roles' => 'Only chosen roles', 'depts' => 'Only chosen departments and all departments below them']; // 3.47 (N166): as Core\Departments shares it
 
     public const array STATUSES = ['ready' => 'Ready', 'draft' => 'Draft'];
 

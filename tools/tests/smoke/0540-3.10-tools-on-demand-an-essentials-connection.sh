@@ -79,7 +79,7 @@ mcp_as "$ESS_ACCESS" find_tools "{\"query\":\"$(printf 'redirect %.0s' $(seq 1 3
 contains -q 'The find_tools query is too long – at most 200 characters and 20 words' "$WORK/response" && contains -q '"isError":true' "$WORK/response" && contains -q 'find_tools takes at most 30 names at a time (31 given)' "$WORK/response2" \
   && echo "  ok     3.10 N310-8: find_tools refuses a query over 200 characters or 20 words and more than 30 names, with the limit" || { echo "  CHYBA  3.10: find_tools limits"; head -c 300 "$WORK/response"; head -c 300 "$WORK/response2"; ERRORS=$((ERRORS+1)); }
 # personal tokens: all tools by default, the essentials when chosen; My account shows and switches the tool set
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; ACCOUNT_CSRF=$(csrf)
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"; ACCOUNT_CSRF=$(csrf)
 contains -q 'name="tool_set" value="all" checked' "$WORK/response" && echo "  ok     3.10: a new personal token preselects all tools" || { echo "  CHYBA  3.10: personal token default"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials" -d access=full -d tool_set=essentials --data-urlencode "soucasne=$PASSWORD"
 ESS_TOKEN=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)
@@ -88,7 +88,7 @@ expect "3.10: a personal token with the essentials lists them" "$(sq "SELECT too
 for a in read drafts; do curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -X POST "$B/admin.php?action=account" -d "_csrf=$ACCOUNT_CSRF" -d co=token_novy -d "nazev=Claude essentials $a" -d access=$a -d tool_set=essentials --data-urlencode "soucasne=$PASSWORD"
   printf -v "ESS_$a" '%s' "$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1 || true)"; done
 expect "3.10 N310-6: the runners of read-only and drafts-only essentials connections" "$(mcp_list "$ESS_read" | cut -d'|' -f2)|$(mcp_list "$ESS_drafts" | cut -d'|' -f2)" "find_tools,run_read_tool|find_tools,run_read_tool,run_tool,run_destructive_tool"
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"
 # N310-7: the form of a new token has "Create token" as its only button – the buttons of the listed connections belong to their own form
 expect "3.10 N310-7: Enter in the token name can only create a token" "$(php -r '$d = new DOMDocument(); @$d->loadHTML(file_get_contents($argv[1])); $x = new DOMXPath($d);
   $own = []; foreach ($x->query("//form[.//input[@id=\"token-nazev\"]]//button[not(@form) and not(@type=\"button\")]") as $b) { $own[] = $b->getAttribute("value"); }

@@ -23,6 +23,7 @@ final class Roles extends Module
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
     public const string PARENT = 'users';
+    public const string HUB = 'users'; // 3.47 (U67)
 
     /** Levels of a custom role (administrator cannot be a custom role – that is the built-in role Administrator). */
     public const array LEVELS = [

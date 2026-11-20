@@ -75,7 +75,7 @@ check('3.45 B (U70): the quick actions of 3.34–3.42 follow the sections and th
 ], [['New quote (POST)', 'Internal prices', 'Applications board', 'Talent pool', 'New user', 'Departments'],
     ['New quote (POST)', 'Internal prices', 'Price list set-up', 'Applications board', 'Talent pool', 'New folder', 'New user', 'Departments'],
     ['Team summary'], ['New page'], [],
-    ['action=account', 'action=account#absences', 'action=account&tab=colleagues', 'action=account&tab=org_chart', 'action=inbox', 'action=guide']]);
+    ['action=account', 'action=account&tab=absence', 'action=account&tab=colleagues', 'action=account&tab=colleagues&view=departments', 'action=inbox', 'action=guide']]); // 3.47: the tabs of My account
 // update_settings: English values besides the Czech ones – each English value lands on a valid Czech choice
 $b345Valid = [];
 foreach (Translator::SETTING_VALUES as $b345Key => $b345Map) {

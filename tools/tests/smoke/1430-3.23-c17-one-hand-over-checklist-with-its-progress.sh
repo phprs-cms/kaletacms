@@ -55,7 +55,7 @@ sq "UPDATE ka_role SET moduly = '$C17_KLIENT_MODULES' WHERE idr = $C17_KLIENT_ID
 C17_ME=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'") # the MCP token of the test is the admin's
 C17_2FA=$(sq "SELECT CONCAT(totp_tajemstvi, '|', (SELECT COUNT(*) FROM ka_uzivatele_klice k WHERE k.idu = u.idu)) FROM ka_uzivatele u WHERE idu = ${C17_ME:-0}")
 expect "3.23.1 (N-C9): the administrator's own two-step finding links My account, the anchor exists there" \
-  "$( [ "$C17_2FA" = '|0' ] && { c17_fix two_step | grep -q 'admin.php?action=account#two-factor The administrator' && echo own || echo "$(c17_fix two_step)"; } || echo own)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account"; grep -c '<fieldset id="two-factor">' "$WORK/response")" "own|1"
+  "$( [ "$C17_2FA" = '|0' ] && { c17_fix two_step | grep -q 'admin.php?action=account&tab=security#two-factor The administrator' && echo own || echo "$(c17_fix two_step)"; } || echo own)|$(curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; grep -c '<fieldset id="two-factor">' "$WORK/response")" "own|1"
 C17_STEPS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'first_steps_hidden'"); setting first_steps_hidden 0
 C17_PRIVACY=$(sq "SELECT ids FROM ka_stranky WHERE smazano IS NULL AND jazyk = '' AND (seo_link = 'zasady-ochrany-osobnich-udaju' OR seo_link LIKE '%privacy%') ORDER BY seo_link = 'zasady-ochrany-osobnich-udaju' DESC, ids LIMIT 1")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php"

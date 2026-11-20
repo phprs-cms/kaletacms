@@ -21,10 +21,10 @@ q340_password "$Q1" > /dev/null
 P335_CSRF=$(p335_page "$Q1" "?action=account")
 expect "3.35: no passkey yet – My account offers no new backup codes" "$(grep -c 'name="co" value="backup_codes_new"' "$WORK/response")" "0"
 expect "3.35: the first passkey of pk340 is registered with the password" "$(p335_register "$Q1" "$WORK/pk340-a" 69 --data-urlencode "soucasne=$PASSWORD")|$(sq "SELECT COUNT(*) FROM ka_uzivatele_klice WHERE idu = $Q340_USER AND discoverable = 1")" "200|200|1"
-p335_page "$Q1" "?action=account" > /dev/null # the codes of the first passkey are shown here once
+p335_page "$Q1" "?action=account&tab=security" > /dev/null # the codes of the first passkey are shown here once
 Q340_OLD="q340o-$(openssl rand -hex 2)k"
 sq "UPDATE ka_uzivatele SET totp_zalozni = JSON_ARRAY(SHA2('$Q340_OLD', 256)) WHERE idu = $Q340_USER" > /dev/null
-P335_CSRF=$(p335_page "$Q1" "?action=account")
+P335_CSRF=$(p335_page "$Q1" "?action=account&tab=security")
 expect "3.35: a passkey and no app – My account offers “New backup codes”, asking for the password (a password sign-in is not fresh)" \
   "$(grep -c 'name="co" value="backup_codes_new"' "$WORK/response")|$(grep -c 'id="kody-heslo"' "$WORK/response")|$(grep -c 'Create new backup codes? The old ones will stop working.' "$WORK/response")" "1|1|1"
 Q340_BEFORE=$(q340_codes)

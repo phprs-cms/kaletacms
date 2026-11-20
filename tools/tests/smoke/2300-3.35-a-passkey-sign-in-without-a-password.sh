@@ -62,7 +62,7 @@ expect "3.35 A: another host name of the site gets no passkey sign-in, only a li
 
 # an account without a passkey: the password alone, as before; the passkey can be added without two-factor sign-in
 expect "3.35 A: no passkey, no app – the password alone signs in" "$(p335_password "$J1")|$(p335_signed_in "$J1")" "302|1"
-P335_CSRF=$(p335_page "$J1" "?action=account")
+P335_CSRF=$(p335_page "$J1" "?action=account&tab=security")
 expect "3.35 A: My account shows the passkey section without two-factor sign-in; a challenge only with the current password" \
   "$(grep -c 'data-klic-pridat' "$WORK/response")|$(p335_account "$J1" -d co=klic_moznosti)|$(p335_account "$J1" -d co=klic_moznosti -d soucasne=wrong-password-1)" "1|403|403"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE idu = $P335_USER" > /dev/null
@@ -71,9 +71,9 @@ expect "3.35 A: the options ask for a discoverable passkey with user verificatio
   "$(grep -o '"residentKey":"required"' "$WORK/p335-reg-options")|$(grep -o '"userVerification":"required"' "$WORK/p335-reg-options")|$(sq "SELECT LENGTH(passkey_handle) = 22 AND passkey_handle <> CAST(idu AS CHAR) FROM ka_uzivatele WHERE idu = $P335_USER")|$(php -r '$o = json_decode(file_get_contents($argv[1]), true); echo $o["user"]["id"] === $argv[2] ? "same" : "other";' -- "$WORK/p335-reg-options" "$(sq "SELECT passkey_handle FROM ka_uzivatele WHERE idu = $P335_USER")")" \
   '"residentKey":"required"|"userVerification":"required"|1|same'
 expect "3.35 A: a passkey with UV is registered as discoverable; the first one brings eight backup codes, shown once" \
-  "$(p335_register "$J1" "$WORK/pk335-a" 69 --data-urlencode "soucasne=$PASSWORD")|$(sq "SELECT CONCAT(COUNT(*), '/', MAX(discoverable), '/', MAX(nazev)) FROM ka_uzivatele_klice WHERE idu = $P335_USER")|$(sq "SELECT JSON_LENGTH(totp_zalozni, '\$.codes') FROM ka_uzivatele WHERE idu = $P335_USER")|$(p335_page "$J1" "?action=account" > /dev/null; grep -o '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response" | wc -l | tr -d ' ')|$(p335_page "$J1" "?action=account" > /dev/null; grep -c '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response")" \
+  "$(p335_register "$J1" "$WORK/pk335-a" 69 --data-urlencode "soucasne=$PASSWORD")|$(sq "SELECT CONCAT(COUNT(*), '/', MAX(discoverable), '/', MAX(nazev)) FROM ka_uzivatele_klice WHERE idu = $P335_USER")|$(sq "SELECT JSON_LENGTH(totp_zalozni, '\$.codes') FROM ka_uzivatele WHERE idu = $P335_USER")|$(p335_page "$J1" "?action=account&tab=security" > /dev/null; grep -o '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response" | wc -l | tr -d ' ')|$(p335_page "$J1" "?action=account&tab=security" > /dev/null; grep -c '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response")" \
   "200|200|1/1/Laptop 335|8|8|0"
-p335_page "$J1" "?action=account" > /dev/null; P335_CODES=($(grep -o '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response" || true))
+p335_page "$J1" "?action=account&tab=security" > /dev/null; P335_CODES=($(grep -o '[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}' "$WORK/response" || true))
 # the codes were shown once already – take them from a fresh registration on a throw-away account instead: set known ones
 P335_BACKUP="b335a-$(openssl rand -hex 2)x"; P335_BACKUP2="b335b-$(openssl rand -hex 2)y"; P335_BACKUP3="b335c-$(openssl rand -hex 2)z"
 sq "UPDATE ka_uzivatele SET totp_zalozni = JSON_ARRAY(SHA2('$P335_BACKUP', 256), SHA2('$P335_BACKUP2', 256), SHA2('$P335_BACKUP3', 256)) WHERE idu = $P335_USER" > /dev/null
@@ -137,7 +137,7 @@ expect "3.35 A: passkey only needs a fresh confirmation; with the password it is
   "302|0|302|1|1"
 J6="$WORK/jar-p335-6"; rm -f "$J6"
 expect "3.35 A: passkey only – after the password the code from the app is refused, the field asks for a backup code" \
-  "$(p335_password "$J6")|$(grep -c 'Backup code:\|Záložní kód:' "$WORK/response")|$(p335_code "$J6" "$(p335_totp 1)")|$(p335_signed_in "$J6")" "200|1|401|0"
+  "$(p335_password "$J6")|$(grep -c '>Backup code<\|>Záložní kód<' "$WORK/response")|$(p335_code "$J6" "$(p335_totp 1)")|$(p335_signed_in "$J6")" "200|1|401|0"
 expect "3.35 A: passkey only – a backup code after the password is the way back" "$(p335_password "$J6")|$(p335_code "$J6" "$P335_BACKUP2")|$(p335_signed_in "$J6")" "200|302|1"
 expect "3.35 A: passkey only – the passkey alone still signs in" "$(rm -f "$WORK/jar-p335-7"; p335_passkey "$WORK/jar-p335-7" "$WORK/pk335-a" 5 20)|$(p335_signed_in "$WORK/jar-p335-7")" "200|1"
 # a password-reset e-mail changes the password only – the account keeps its second step
@@ -162,7 +162,7 @@ expect "3.35 A: the site requires passkeys – an account with one is passkey-on
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'admin'; DELETE FROM ka_kontrola_ip WHERE typ IN ('login', 'totp')" > /dev/null
 J10="$WORK/jar-p335-10"; rm -f "$J10"; t=$(p335_page "$J10")
 expect "3.35 A: the site requires passkeys – an account without one signs in as before and hears it should add one" \
-  "$(curl -s -b "$J10" -c "$J10" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d user=admin --data-urlencode "password=$PASSWORD")|$(curl -s -b "$J10" -o "$WORK/response" "$B/admin.php?action=account"; grep -c 'in My account – until\|v Mém účtu – do té doby' "$WORK/response")|$(grep -c 'below – until\|níže klíč pro toto' "$WORK/response")" "302|1|1"
+  "$(curl -s -b "$J10" -c "$J10" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d user=admin --data-urlencode "password=$PASSWORD")|$(curl -s -b "$J10" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; grep -c 'in My account – until\|v Mém účtu – do té doby' "$WORK/response")|$(grep -c 'below – until\|níže klíč pro toto' "$WORK/response")" "302|1|1"
 php -r '$f = $argv[1]; file_put_contents($f, preg_replace("/^<\?php/", "<?php\ndefine(\x27KALETA_PASSKEY_ONLY_OFF\x27, true); // p335\n", (string) file_get_contents($f), 1));' -- "$WORK/web/config.php"; sleep 3 # the opcache of the test server revalidates files every 2 s
 J11="$WORK/jar-p335-11"; rm -f "$J11"
 expect "3.35 A: KALETA_PASSKEY_ONLY_OFF in config.php switches passkey only off – the password and the app's code work again" \
@@ -186,7 +186,7 @@ php "$WORK/pk335.php" assert "$WORK/pk335-old" "$P335_ORIGIN" 1 2 < "$WORK/p335-
 expect "3.35 A: the older passkey keeps working as the second step after the password (without UV, as before)" \
   "$(grep -cF -e "$P335_OLD_ID" "$WORK/p335-options")|$(curl -s -b "$J12" -c "$J12" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$t" -d krok=klic --data-urlencode "odpoved@$WORK/p335-assertion")|$(p335_signed_in "$J12")" "1|200|1"
 P335_OLD_IDK=$(sq "SELECT idk FROM ka_uzivatele_klice WHERE otisk_id = '$P335_OLD_HASH'")
-P335_CSRF=$(p335_page "$J12" "?action=account")
+P335_CSRF=$(p335_page "$J12" "?action=account&tab=security")
 expect "3.35 A: My account marks it \"second step only\" with a \"Register again\" button; registering again (fresh after the passkey step) replaces it" \
   "$(grep -c "data-nahradit=\"$P335_OLD_IDK\"" "$WORK/response")|$(p335_register "$J12" "$WORK/pk335-b" 69 -d "nahradit=$P335_OLD_IDK" -d nazev=)|$(sq "SELECT COUNT(*) FROM ka_uzivatele_klice WHERE idk = $P335_OLD_IDK")|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(discoverable), '/', SUM(nazev = 'Old key')) FROM ka_uzivatele_klice WHERE idu = $P335_USER")" \
   "1|200|200|0|2/2/1"

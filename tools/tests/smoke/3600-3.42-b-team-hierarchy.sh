@@ -11,12 +11,12 @@ H342_FORM=$(sq "SELECT formular FROM ka_poptavky WHERE zdroj = '$FORM_SOURCE' AN
 # Users → Departments: a department with a head and the contact form, one under it; a circle is refused
 check "3.42: Users → Departments opens with the empty state" 200 "/admin.php?module=users&action=departments" "Zatím žádná oddělení."
 H342_CSRF=$(h342_csrf "admin.php?module=users&action=departments")
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=department_save" -d "_csrf=$H342_CSRF" -d id=0 --data-urlencode "name=Sales 342" -d "head_id=$H342_HEAD" -d parent_id= --data-urlencode "enquiry_forms=$H342_FORM"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=department_save" -d "_csrf=$H342_CSRF" -d id=0 --data-urlencode "name=Sales 342" -d "head_id=$H342_HEAD" -d parent_id= --data-urlencode "enquiry_forms[]=$H342_FORM"
 H342_DEP=$(sq "SELECT id FROM ka_departments WHERE name = 'Sales 342'"); H342_DEP="${H342_DEP:-0}"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=department_save" -d "_csrf=$H342_CSRF" -d id=0 --data-urlencode "name=Export 342" -d head_id= -d "parent_id=$H342_DEP" -d enquiry_forms=
 H342_SUB=$(sq "SELECT id FROM ka_departments WHERE name = 'Export 342'"); H342_SUB="${H342_SUB:-0}"
 expect "3.42: a department keeps its head, parent and forms" "$(sq "SELECT CONCAT(head_id = $H342_HEAD, '|', IFNULL(parent_id, '-'), '|', enquiry_forms) FROM ka_departments WHERE id = $H342_DEP")|$(sq "SELECT parent_id FROM ka_departments WHERE id = $H342_SUB")" "1|-|$H342_FORM|$H342_DEP"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=department_save" -d "_csrf=$H342_CSRF" -d "id=$H342_DEP" --data-urlencode "name=Sales 342" -d "head_id=$H342_HEAD" -d "parent_id=$H342_SUB" --data-urlencode "enquiry_forms=$H342_FORM"
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&action=department_save" -d "_csrf=$H342_CSRF" -d "id=$H342_DEP" --data-urlencode "name=Sales 342" -d "head_id=$H342_HEAD" -d "parent_id=$H342_SUB" --data-urlencode "enquiry_forms[]=$H342_FORM"
 expect "3.42: a department cannot go under a department below it (a circle)" "$(sq "SELECT IFNULL(parent_id, '-') FROM ka_departments WHERE id = $H342_DEP")" "-"
 check "3.42: the tree lists the sub-department indented" 200 "/admin.php?module=users&action=departments" "– <a href="
 
@@ -81,12 +81,12 @@ background_jobs resume
 # the org chart: departments nested, head first, reports to, away until with the deputy – never the reason
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=org_chart"
 grep -q 'class="organigram"' "$WORK/response" && grep -q 'Sales 342' "$WORK/response" && grep -q 'Export 342' "$WORK/response" && grep -q 'Nadřízený: Boris Boss' "$WORK/response" \
-  && grep -q 'Pryč do' "$WORK/response" && grep -q 'action=account&amp;tab=org_chart' "$WORK/response" && ! grep -q 'Dovolená' "$WORK/response" && ! grep -q '<script' <(sed -n '/<main/,/<\/main>/p' "$WORK/response") \
+  && grep -q 'Pryč do' "$WORK/response" && grep -q 'tab=colleagues&amp;view=departments" class="aktivni"' "$WORK/response" && ! grep -q 'Dovolená' "$WORK/response" && ! grep -q '<script' <(sed -n '/<main/,/<\/main>/p' "$WORK/response") \
   && echo "  ok     3.42: the org chart shows the departments, who reports to whom and who is away – no reason, no script" || { echo "  CHYBA  3.42: the org chart"; ERRORS=$((ERRORS+1)); }
 [ "$(grep -o '<ul class="organigram">' "$WORK/response" | wc -l | tr -d ' ')" -ge 2 ] && echo "  ok     3.42: a sub-department is a nested list" || { echo "  CHYBA  3.42: nesting of the org chart"; ERRORS=$((ERRORS+1)); }
 
 # My account: one's own absence, added and removed
-H342_CSRF=$(h342_csrf "admin.php?action=account")
+H342_CSRF=$(h342_csrf "admin.php?action=account&tab=absence")
 grep -q 'id="absences"' "$WORK/response" && echo "  ok     3.42: My account has the own absences" || { echo "  CHYBA  3.42: absences in My account"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$H342_CSRF" -d co=absence_add -d "starts_on=$(site_date '+10 days')" -d "ends_on=$(site_date '+12 days')" -d reason=training -d "deputy_id=$H342_BOSS"
 H342_OWN=$(sq "SELECT id FROM ka_absences WHERE user_id = $H342_ADM"); H342_OWN="${H342_OWN:-0}"
@@ -107,6 +107,6 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=users&acti
 expect "3.42: a removed department leaves its people in none and lifts the one under it" \
   "$(sq "SELECT COUNT(*) FROM ka_departments WHERE id = $H342_DEP")|$(sq "SELECT IFNULL(department_id, '-') FROM ka_uzivatele WHERE idu = $H342_HEAD")|$(sq "SELECT IFNULL(parent_id, '-') FROM ka_departments WHERE id = $H342_SUB")" "0|-|-"
 
-sq "DELETE FROM ka_notifications WHERE target IN ('task:$(sq "SELECT id FROM ka_tasks WHERE title = 'Call the customer back 342'")', 'page:999342', 'enquiry:$H342_ENQ') OR kind = 'escalated'; DELETE FROM ka_tasks WHERE title IN ('Send the offer 342', 'Ancient task 342', 'Call the customer back 342');
+sq "DELETE FROM ka_notifications WHERE target IN ('task:$(sq "SELECT id FROM ka_tasks WHERE title = 'Call the customer back 342'")', 'page:999342', 'enquiry:$H342_ENQ') OR kind IN ('escalated', 'deputy_named', 'absence_added'); DELETE FROM ka_tasks WHERE title IN ('Send the offer 342', 'Ancient task 342', 'Call the customer back 342');
     DELETE FROM ka_absences WHERE user_id IN ($H342_HEAD, $H342_BOSS, $H342_SALES); DELETE FROM ka_departments; UPDATE ka_poptavky SET prirazeno = NULL WHERE idp = $H342_ENQ;
     DELETE FROM ka_uzivatele WHERE idu IN ($H342_HEAD, $H342_BOSS, $H342_SALES)" > /dev/null

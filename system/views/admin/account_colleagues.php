@@ -9,6 +9,11 @@
 $me = $app->auth()->id();
 ?>
 <?= $app->view->render('admin/account_tabs', ['app' => $app, 'current' => 'colleagues']) ?>
+<?php // 3.47 (U67): one Colleagues tab – A–Z or by department (the org chart of 3.42) ?>
+<nav class="zalozky" aria-label="<?= e(t('Colleagues')) ?>">
+	<a href="<?= e($app->url(Kaleta\Admin\Account::path('colleagues'))) ?>" class="aktivni" aria-current="true"><?= e(t('A–Z')) ?></a>
+	<a href="<?= e($app->url(Kaleta\Admin\Account::path('colleagues') . '&view=departments')) ?>"><?= e(t('By department')) ?></a>
+</nav>
 <p class="napoveda"><?= e(t('Everyone with an account on this site. Each of them fills in their position and work phone in My account.')) ?></p>
 <ul class="kolegove">
 <?php foreach ($colleagues as $c): ?>

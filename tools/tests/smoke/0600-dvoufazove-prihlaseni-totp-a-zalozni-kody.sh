@@ -20,8 +20,8 @@ expect "3.3.2: wrong codes add up across sign-ins with the right password" "$("$
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET pocet_chyb = 0 WHERE user = 'autor'"
 # 3.3.3 (N56): a stolen session alone adds no passkey and moves no e-mail – both need the current password; the old address hears of a change
 account_post() { curl -s -b "$WORK/jar7" -c "$WORK/jar7" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=account" -d "_csrf=$N56_CSRF" "$@"; }
-curl -s -b "$WORK/jar7" -c "$WORK/jar7" -o "$WORK/response" "$B/admin.php?action=account"; N56_CSRF=$(csrf)
-grep -q 'id="klic-heslo"' "$WORK/response" && grep -q 'id="email-heslo"' "$WORK/response" && echo "  ok     3.3.3: My account asks for the password next to the e-mail and the passkey" || { echo "  CHYBA  My account: password fields for the e-mail and the passkey"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$WORK/jar7" -c "$WORK/jar7" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; N56_CSRF=$(csrf)
+grep -q 'id="klic-heslo"' "$WORK/response" && grep -q 'id="email-heslo"' <(curl -s -b "$WORK/jar7" "$B/admin.php?action=account") && echo "  ok     3.3.3: My account asks for the password next to the e-mail and the passkey" || { echo "  CHYBA  My account: password fields for the e-mail and the passkey"; ERRORS=$((ERRORS+1)); }
 expect "3.3.3: a passkey challenge only with the current password" "$(account_post -d co=klic_moznosti)|$(account_post -d co=klic_moznosti -d soucasne=wrong-password-1)|$(account_post -d co=klic_moznosti --data-urlencode "soucasne=$PASSWORD")|$(grep -c '"challenge"' "$WORK/response")" "403|403|200|1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_uzivatele SET email = 'autor-puvodni@example.cz', jazyk = '' WHERE user = 'autor'; DELETE FROM ka_posta WHERE komu = 'autor-puvodni@example.cz'"
 account_post -d co=profil -d jmeno=Autor -d email=utocnik@example.cz > /dev/null

@@ -293,7 +293,7 @@ final class Kernel
         if ($app->auth()->isMissingRequired2fa($app->settings()) && !in_array($action, ['account', 'token'], true)) {
             $app->session->flash('chyba', t('This site requires two-factor sign-in. Please turn it on below – until then the administration is locked.'));
 
-            return Response::redirect($app->url('admin.php?action=account'));
+            return Response::redirect($app->url('admin.php?action=account&tab=security#two-factor')); // 3.47 (U68): its tab
         }
         if (\Kaleta\Core\SignInPolicy::escapeHatch() && $app->auth()->isAdmin() && !$request->isPost()) {
             // 3.35 review L1: the escape hatch takes the passkey rules away for administrators too – said on every page
@@ -615,7 +615,7 @@ final class Kernel
         if (\Kaleta\Core\Extensions::isEnabled($s, 'claude') && ($connected || \Kaleta\Core\Demo::active())) {
             array_unshift($steps, ['Connect Claude', 'Build and edit the site by talking to Claude. In the Claude app, add a custom connector with your site address followed by /mcp – My account shows the exact address.',
                 // 3.20 (C6): once connected the dashboard card is gone, so the step leads to the one "how to connect" place
-                \Kaleta\Core\Demo::active() ? 'admin.php?action=account#claude' : (isset($this->modules()['claude_settings']) ? 'admin.php?module=claude_settings#how-to-connect' : 'admin.php#pripojit-claude'), $connected]);
+                \Kaleta\Core\Demo::active() ? 'admin.php?action=account&tab=claude' : (isset($this->modules()['claude_settings']) ? 'admin.php?module=claude_settings#how-to-connect' : 'admin.php#pripojit-claude'), $connected]);
         }
         $result = array_map(fn (array $k): array => ['nazev' => $k[0], 'popis' => $k[1], 'url' => $app->url($k[2]), 'hotovo' => (bool) $k[3]], $steps);
         if (array_filter($result, fn (array $k): bool => !$k['hotovo']) === []) {

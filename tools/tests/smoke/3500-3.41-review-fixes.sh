@@ -32,7 +32,7 @@ R341_A="$WORK/jar-r341-a"; R341_B="$WORK/jar-r341-b"; rm -f "$R341_A" "$R341_B" 
 R341_T=$(p335_page "$R341_A"); curl -s -b "$R341_A" -c "$R341_A" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$R341_T" -d user=r341pk --data-urlencode "password=$PASSWORD"
 P335_CSRF=$(p335_page "$R341_A" "?action=account")
 R341_REG=$(p335_register "$R341_A" "$WORK/pk341" 69 --data-urlencode "soucasne=$PASSWORD")
-p335_page "$R341_A" "?action=account" > /dev/null # the codes of the first passkey are shown here once
+p335_page "$R341_A" "?action=account&tab=security" > /dev/null # the codes of the first passkey are shown here once
 R341_PKIN=$(p335_passkey "$R341_B" "$WORK/pk341" 5 1)
 R341_BOTH="$(p335_signed_in "$R341_A")$(p335_signed_in "$R341_B")"
 R341_EPOCH0=$(sq "SELECT sign_in_epoch FROM ka_uzivatele WHERE idu = $R341_PK")

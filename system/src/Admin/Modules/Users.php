@@ -20,6 +20,7 @@ final class Users extends Module
     public const string GROUP = 'Administration';
     public const string ICON = 'uzivatele';
     public const bool ADMIN_ONLY = true;
+    public const string HUB = 'users'; // 3.47 (U67): Users, Roles and Departments as tabs
 
     protected function actionList(): Response
     {
@@ -277,9 +278,38 @@ final class Users extends Module
         }
         $editing = \Kaleta\Core\Departments::find($this->db, $this->request->getInt('department'));
 
-        return $this->view('departments', 'Departments', ['tree' => $tree, 'members' => $members, 'people' => self::activePeople($this->db),
-            'editing' => $editing ?? ['id' => 0, 'name' => '', 'head_id' => null, 'parent_id' => null, 'enquiry_forms' => []],
-            'forms' => array_column($this->db->all('SELECT DISTINCT formular FROM {poptavky} WHERE formular <> \'\' ORDER BY formular LIMIT 100'), 'formular')]);
+        $editing ??= ['id' => 0, 'name' => '', 'head_id' => null, 'parent_id' => null, 'enquiry_forms' => []];
+        $sent = array_column($this->db->all('SELECT DISTINCT formular FROM {poptavky} WHERE formular <> \'\' ORDER BY formular LIMIT 100'), 'formular');
+
+        return $this->view('departments', 'Departments', ['tree' => $tree, 'members' => $members, 'people' => self::activePeople($this->db), 'editing' => $editing,
+            // 3.47 (U67): the forms to tick – of the published site, those that sent enquiries, and those saved earlier
+            'forms' => self::departmentForms(array_column(\Kaleta\Core\Privacy::forms($this->app), 'name'), array_map('strval', $sent), $editing['enquiry_forms'])]);
+    }
+
+    /**
+     * 3.47 (U67): the forms a department may take new enquiries from, each once (case-insensitive) – the forms of the published
+     * site, those that sent enquiries and those saved earlier – with whether enquiries came from it yet. Pure.
+     *
+     * @param list<string> $site
+     * @param list<string> $sent
+     * @param list<string> $saved
+     * @return array<string, bool> name => enquiries came from it
+     */
+    public static function departmentForms(array $site, array $sent, array $saved): array
+    {
+        $withEnquiries = array_fill_keys(array_map('mb_strtolower', $sent), true);
+        $out = [];
+        $seen = [];
+        foreach ([...$saved, ...$site, ...$sent] as $form) {
+            $form = mb_substr(trim((string) preg_replace('/\s+/u', ' ', $form)), 0, 120); // as Departments::forms stores it
+            if ($form !== '' && !isset($seen[mb_strtolower($form)]) && count($out) < 300) {
+                $seen[mb_strtolower($form)] = true;
+                $out[$form] = isset($withEnquiries[mb_strtolower($form)]);
+            }
+        }
+        ksort($out, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $out;
     }
 
     protected function actionDepartmentSave(): Response
@@ -290,7 +320,7 @@ final class Users extends Module
         $r = $this->request;
         $id = $r->postInt('id');
         $saved = \Kaleta\Core\Departments::save($this->db, $id, $r->post('name'), $r->postInt('head_id') ?: null, $r->postInt('parent_id') ?: null,
-            preg_split('/\R/u', $r->post('enquiry_forms')) ?: []);
+            $r->postList('enquiry_forms')); // 3.47 (U67): ticked boxes
         if (is_string($saved)) {
             return $this->back($saved, 'departments', $id > 0 ? ['department' => $id] : [], 'chyba');
         }
@@ -324,6 +354,7 @@ final class Users extends Module
         if (is_string($added)) {
             return $this->back($added, 'edit', ['id' => $id], 'chyba');
         }
+        \Kaleta\Core\Absences::announce($this->app, $added, (int) $this->app->auth()->id()); // 3.47 (N166): the deputy and the person – the days only
         \Kaleta\Core\ChangeLog::write($this->app, 'users', 'absence_add', '#' . $id . ' ' . $r->post('starts_on') . ' – ' . $r->post('ends_on')); // the days only, never the reason
 
         return Response::redirect($this->url('edit', ['id' => $id]) . '#absences');

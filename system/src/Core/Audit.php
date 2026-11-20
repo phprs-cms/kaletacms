@@ -518,7 +518,7 @@ final class Audit
         $me = (int) $this->app->auth()->id();
         $row('two_step', t('Administrators use two-step sign-in'), 'admin.php?module=users', array_map(fn (array $u): array => $finding(
             t('The administrator %s signs in without two-step sign-in or a passkey.', SecurityHygiene::displayName($u)),
-            (int) $u['idu'] === $me ? 'admin.php?action=account#two-factor' : 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'two_step', ['user' => (int) $u['idu']]), $hygiene['two_step']));
+            (int) $u['idu'] === $me ? 'admin.php?action=account&tab=security#two-factor' : 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'two_step', ['user' => (int) $u['idu']]), $hygiene['two_step']));
         $row('unused_access', t('No unused accounts or Claude connections'), 'admin.php?module=users', [
             ...array_map(fn (array $u): array => $finding(t('The account %s has not been used for %d days (last activity %s) – block it, or let the automatic suspension do it.', SecurityHygiene::displayName($u), SecurityHygiene::daysAgo((string) $u['last']), format_date((string) $u['last'])),
                 'admin.php?module=users&action=edit&id=' . (int) $u['idu'], 'unused_account', ['user' => (int) $u['idu']]), $hygiene['unused_accounts']),

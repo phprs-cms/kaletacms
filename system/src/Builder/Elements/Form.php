@@ -275,6 +275,7 @@ final class Form extends Element
         $k->types['tlacitko'] = true; // the form button looks like the Button element
         $html = $result !== '' ? '<p class="ka-formular-chyba" role="alert">' . e(self::messages($result, self::attachmentLimit($o), \Kaleta\Core\Files::postLimit())) . '</p>' : '';
         $invalid = $result === 'pole' ? $r->getInt('field', -1) : -1;
+        $leftOut = $invalid >= 0 && $r->get('empty') === '1'; // 3.47: a required file left out is not a refused file
         [$steps, $stepTitle, $current] = [[], '', ''];
         // a job application form (3.34, Core\Applications) takes only CV types: its file fields offer just those, so a visitor
         // never picks a ZIP or a spreadsheet that the server would refuse after the whole form was sent
@@ -296,7 +297,7 @@ final class Form extends Element
             $one = match ($field['typ']) {
                 'kosik' => self::basketField($field, $i, $p['id'], $i === $invalid, $k),
                 'odhad' => self::estimateField($field, $o['pole']),
-                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings()), self::attachmentLimit($o), $application),
+                default => self::fields($field, $i, $p['id'], $i === $invalid, \Kaleta\Core\Privacy::policyUrl($k->app->settings()), self::attachmentLimit($o), $application, $leftOut),
             };
             // a condition (2.12): the script shows the field only for the answer; without the script it is always shown
             $when = mb_strtolower(trim((string) ($field['kdyz_pole'] ?? '')));
@@ -372,7 +373,7 @@ final class Form extends Element
             . '<input type="hidden" name="p' . $i . '" value="' . e($prefill) . '" data-kosik-pole' . ($field['povinne'] ? ' data-povinne' : '') . '>' . $message . '</div>';
     }
 
-    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', int $attachmentLimit = self::MAX_ATTACHMENT, bool $application = false): string
+    private static function fields(array $field, int $i, string $element, bool $error = false, string $privacyPolicy = '', int $attachmentLimit = self::MAX_ATTACHMENT, bool $application = false, bool $leftOut = false): string
     {
         $id = 'f-' . $element . '-' . $i;
         $displayName = 'p' . $i;
@@ -383,7 +384,8 @@ final class Form extends Element
         $marking = $error ? ' aria-invalid="true" aria-describedby="' . $id . '-chyba" autofocus' : '';
         $message = $error ? '<span class="ka-pole-chyba" id="' . $id . '-chyba">' . e(match ($field['typ']) {
             'email' => t('Enter a valid e-mail address.'),
-            'soubor' => t('This file cannot be sent: it is larger than %d MB or of a type the form does not accept.', max(1, intdiv($attachmentLimit, 1048576))), // 3.47
+            // 3.47: only a file that was sent and refused; a required file left out gets the common message
+            'soubor' => $leftOut ? t('Please fill in this field correctly.') : t('This file cannot be sent: it is larger than %d MB or of a type the form does not accept.', max(1, intdiv($attachmentLimit, 1048576))),
             default => t('Please fill in this field correctly.'),
         }) . '</span>' : '';
         if ($field['typ'] === 'souhlas') {

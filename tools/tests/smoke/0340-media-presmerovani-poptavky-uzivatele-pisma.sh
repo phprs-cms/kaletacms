@@ -36,12 +36,12 @@ check "uživatelé ukazují vlastní roli" 200 "/admin.php?module=users" "Obchod
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('require_2fa', 'spravci') ON DUPLICATE KEY UPDATE hodnota = 'spravci'"
 code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=pages"); case "$code" in "302 "*action=account*) echo "  ok     povinné dvoufázové přihlášení pustí jen do Můj účet";; *) echo "  CHYBA  vynucení 2FA: $code"; ERRORS=$((ERRORS+1));; esac
 # 3.19 (N3183-2): at the gate My account is drawn without the module menu, the collection links and the quick-search palette
-code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account")
+code=$(curl -s -b "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account&tab=security")
 expect "3.19 (N3183-2): at the two-factor gate My account shows no module menu, no collection link and no quick search" \
   "$code|$(grep -c 'id="paleta-data"' "$WORK/response")|$(grep -c 'data-paleta' "$WORK/response")|$(grep -c 'class="menu-kolekce' "$WORK/response")|$(grep -c 'module=pages' "$WORK/response")|$(grep -c 'totp_start' "$WORK/response")" "200|0|0|0|0|1"
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'require_2fa'"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=totp_start
-curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"
 grep -q '<svg class="qr"' "$WORK/response" && grep -q 'class="totp-klic"' "$WORK/response" && echo "  ok     zapnutí 2FA ukáže QR kód i klíč k ručnímu zadání" || { echo "  CHYBA  QR kód při zapínání 2FA"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = JSON_SET(IF(hodnota = '' OR hodnota IS NULL, '{}', hodnota), '$.vlastni_pisma', JSON_ARRAY(JSON_OBJECT('nazev', 'Znacka Sans', 'soubor', 'media/2026/01/znacka.woff2', 'tucny', '')), '$.pismo_titulky', 'vlastni-1') WHERE promenna = 'design_system'"
 rm -f "$WORK"/web/storage/cache/stranky/*.html

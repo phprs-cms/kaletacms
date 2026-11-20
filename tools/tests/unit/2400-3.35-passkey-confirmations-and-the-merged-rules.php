@@ -29,7 +29,7 @@ check('3.35: “New backup codes” only for an account with a passkey and witho
 $i340Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 check('[source-pin] 3.35: new backup codes need the fresh confirmation, replace all the old ones and are shown once (no redirect)', [
     (bool) preg_match("/case 'backup_codes_new':.*?mayRenewBackupCodes\(.*?freshnessRefused\(.*?Totp::backupCodes\(\);\s*if \(!\\\$app->auth\(\)->replaceBackupCodes\(\(int\) \\\$user\['idu'\], \\\$json\)\).*?return \\\$this->page\(\['backupCodes' => \\\$codes/s", $i340Account),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php'), '<input type="hidden" name="co" value="backup_codes_new">'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/account_security.php'), '<input type="hidden" name="co" value="backup_codes_new">'), // 3.47: the security tab
 ], [true, true]);
 
 // the OAuth consent: passkey confirmation

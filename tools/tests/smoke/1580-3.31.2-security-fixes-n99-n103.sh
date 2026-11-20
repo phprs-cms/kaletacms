@@ -30,9 +30,9 @@ curl -s -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php"; curl -s -b "$S3312_J
 s3312_account() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' -X POST "$B/admin.php?action=account" -d "_csrf=$S3312_CSRF" "$@"; }
 s3312_totp() { printf '%s' "$(totp_plain "$S3312_USER")"; sq "SELECT CONCAT('/', IFNULL(IFNULL(JSON_LENGTH(totp_zalozni, '\$.codes'), JSON_LENGTH(totp_zalozni)), 0)) FROM ka_uzivatele WHERE idu = $S3312_USER"; } # 3.35 review L4: {"codes": […]} or the older list
 s3312_code() { php -r 'require $argv[1] . "/system/src/Core/Totp.php"; echo Kaleta\Core\Totp::code($argv[2], intdiv(time(), 30));' -- "$ROOT" "$1"; }
-curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; S3312_CSRF=$(csrf)
 s3312_account -d co=totp_start > /dev/null
-curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"
 S3312_SECRET=$(grep -o '<code class="totp-klic">[A-Z2-7 ]*</code>' "$WORK/response" | head -1 | sed 's/<[^>]*>//g' | tr -d ' ')
 expect "3.31.2 N100: turning two-factor sign-in on shows the key and asks for the current password" "$([ ${#S3312_SECRET} -ge 16 ] && echo key)|$(grep -c 'id="zap-heslo" name="soucasne"' "$WORK/response")" "key|1"
 expect "3.31.2 N100: without the password, or with a wrong one, a right code turns nothing on" \
@@ -41,18 +41,18 @@ expect "3.31.2 N100: with the password and the code it is on, with its backup co
   "$(s3312_account -d co=totp_potvrd -d "kod=$(s3312_code "$S3312_SECRET")" --data-urlencode "soucasne=$PASSWORD")|$([ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo on)" "200|on"
 # the attack of the audit: the session posts a new secret and confirms it – with or without the password, the owner's factor stays
 s3312_account -d co=totp_start > /dev/null
-curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"
 expect "3.31.2 N100: with the second factor on, a new secret is not issued or confirmed – the app and the backup codes of the owner stay" \
   "$(grep -c 'totp_potvrd' "$WORK/response")|$(s3312_account -d co=totp_potvrd -d kod=123456)|$(s3312_account -d co=totp_potvrd -d kod=123456 --data-urlencode "soucasne=$PASSWORD")|$([ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo kept)|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE kdo = $S3312_USER AND akce = 'two_factor_on'")" \
   "0|302|302|kept|1"
 # recovery: turning it off with the password still works, and so does setting it up again afterwards
 expect "3.31.2 N100: turning it off asks for the password as before; then it can be set up again" \
-  "$(s3312_account -d co=totp_vypni -d soucasne=wrong-password-1 > /dev/null; [ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo kept)|$(s3312_account -d co=totp_vypni --data-urlencode "soucasne=$PASSWORD" > /dev/null; s3312_totp)|$(s3312_account -d co=totp_start > /dev/null; curl -s -b "$S3312_JAR" "$B/admin.php?action=account" | grep -c 'name="co" value="totp_potvrd"')" \
+  "$(s3312_account -d co=totp_vypni -d soucasne=wrong-password-1 > /dev/null; [ "$(s3312_totp)" = "$S3312_SECRET/8" ] && echo kept)|$(s3312_account -d co=totp_vypni --data-urlencode "soucasne=$PASSWORD" > /dev/null; s3312_totp)|$(s3312_account -d co=totp_start > /dev/null; curl -s -b "$S3312_JAR" "$B/admin.php?action=account&tab=security" | grep -c 'name="co" value="totp_potvrd"')" \
   "kept|/0|1"
 # N101: a personal token needs the current password; a password change revokes the account's personal tokens unless the box is
 # unticked (zrusit_tokeny=0) – a request without the field revokes too. Tokens of other accounts and OAuth clients of others stay.
 sq "UPDATE ka_uzivatele SET totp_tajemstvi = '', totp_zalozni = NULL WHERE idu = $S3312_USER" > /dev/null
-curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"; S3312_CSRF=$(csrf)
 s3312_tokens() { sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = $S3312_USER AND druh = 'token'"; }
 expect "3.31.2 N101: the token form asks for the current password; without it, or with a wrong one, no token is created (also full access without expiry)" \
   "$(grep -c 'id="token-heslo" name="soucasne"' "$WORK/response")|$(s3312_account -d co=token_novy -d nazev=s3312-a -d access=full -d platnost=0)|$(s3312_account -d co=token_novy -d nazev=s3312-a -d access=full -d platnost=0 -d soucasne=wrong-password-1)|$(grep -c 'kaleta_[a-f0-9]\{48\}' "$WORK/response")|$(s3312_tokens)" \
@@ -63,9 +63,9 @@ S3312_PERSONAL=$(grep -o 'kaleta_[a-f0-9]\{48\}' "$WORK/response" | head -1)
 s3312_works() { curl -s -o /dev/null -w '%{http_code}' -X POST "$B/mcp" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'; }
 S3312_OTHERS=$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE idu <> $S3312_USER")
 S3312_NEW="Changed-$(openssl rand -hex 8)"
-s3312_password() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf); s3312_account -d co=heslo --data-urlencode "soucasne=$1" --data-urlencode "nove=$2" --data-urlencode "nove2=$2" "${@:3}" > /dev/null; }
+s3312_password() { curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; S3312_CSRF=$(csrf); s3312_account -d co=heslo --data-urlencode "soucasne=$1" --data-urlencode "nove=$2" --data-urlencode "nove2=$2" "${@:3}" > /dev/null; }
 expect "3.31.2 N101: the password form sends zrusit_tokeny=0 when the box is unticked, and the box is ticked" \
-  "$(curl -s -b "$S3312_JAR" "$B/admin.php?action=account" | grep -c '<input type="hidden" name="zrusit_tokeny" value="0"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked>')" "1"
+  "$(curl -s -b "$S3312_JAR" "$B/admin.php?action=account&tab=security" | grep -c '<input type="hidden" name="zrusit_tokeny" value="0"><label><input type="checkbox" name="zrusit_tokeny" value="1" checked>')" "1"
 s3312_password "$PASSWORD" "$S3312_NEW" -d zrusit_tokeny=0
 expect "3.31.2 N101: the box unticked – the personal token survives the password change and still works" "$(s3312_tokens)|$(s3312_works "$S3312_PERSONAL")" "1|200"
 s3312_password "$S3312_NEW" "$PASSWORD"
@@ -75,7 +75,7 @@ expect "3.31.2 N101: a password change without the field revokes the account's p
 # row (in any of its forms) lock the account for 15 minutes; an empty field is not counted; the session stays and says why;
 # the right password changes nothing while the lock lasts, and a new sign-in is refused like any locked one
 sq "UPDATE ka_uzivatele SET jazyk = 'en', pocet_chyb = 0, zamceno_do = NULL WHERE idu = $S3312_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
-curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; S3312_CSRF=$(csrf)
 s3312_errors() { sq "SELECT CONCAT(pocet_chyb, '/', zamceno_do IS NOT NULL) FROM ka_uzivatele WHERE idu = $S3312_USER"; }
 S3312_EMPTY="$(s3312_account -d co=token_novy -d nazev=s3312-c > /dev/null; s3312_errors)"
 for i in 1 2 3 4 5 6 7 8; do s3312_account -d co=token_novy -d nazev=s3312-c -d "soucasne=wrong-password-$i" > /dev/null; done
@@ -85,13 +85,13 @@ s3312_account -d co=profil -d jmeno=s3312 -d email=s3312-other@example.com -d so
 expect "3.31.2 review: a wrong current password counts like a wrong sign-in (token, password, e-mail forms alike), an empty one does not; the tenth locks the account" \
   "$S3312_EMPTY|$S3312_NINE|$(s3312_errors)|$(sq "SELECT email FROM ka_uzivatele WHERE idu = $S3312_USER")" "0/0|9/0|0/1|s3312@example.com"
 expect "3.31.2 review: the lock does not sign the person out – the page opens and says what happened" \
-  "$(curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account")|$(grep -c 'changes that need your password are locked for 15 minutes. You stay signed in' "$WORK/response")" "200|1"
+  "$(curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?action=account&tab=security")|$(grep -c 'changes that need your password are locked for 15 minutes. You stay signed in' "$WORK/response")" "200|1"
 S3312_CSRF=$(csrf); S3312_PW_BEFORE=$(sq "SELECT password FROM ka_uzivatele WHERE idu = $S3312_USER")
 expect "3.31.2 review: while locked, the right password creates no token and changes no password; a new sign-in is refused" \
   "$(s3312_account -d co=token_novy -d nazev=s3312-c --data-urlencode "soucasne=$PASSWORD")|$(s3312_tokens)|$(s3312_account -d co=heslo --data-urlencode "soucasne=$PASSWORD" --data-urlencode "nove=$S3312_NEW" --data-urlencode "nove2=$S3312_NEW" > /dev/null; [ "$(sq "SELECT password FROM ka_uzivatele WHERE idu = $S3312_USER")" = "$S3312_PW_BEFORE" ] && echo same)|$(curl -s -c "$WORK/jar-s3312b" -o "$WORK/response" "$B/admin.php"; curl -s -b "$WORK/jar-s3312b" -c "$WORK/jar-s3312b" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=s3312 --data-urlencode "password=$PASSWORD")" \
   "302|0|same|401"
 sq "UPDATE ka_uzivatele SET pocet_chyb = 0, zamceno_do = NULL WHERE idu = $S3312_USER; DELETE FROM ka_kontrola_ip WHERE typ = 'login'" > /dev/null
-curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account"; S3312_CSRF=$(csrf)
+curl -s -b "$S3312_JAR" -c "$S3312_JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=security"; S3312_CSRF=$(csrf)
 expect "3.31.2 review: after the lock the right password works again and resets nothing it should not" \
   "$(s3312_account -d co=token_novy -d nazev=s3312-c -d access=read --data-urlencode "soucasne=$PASSWORD")|$(s3312_tokens)|$(s3312_errors)" "200|1|0/0"
 sq "DELETE FROM ka_api_tokeny WHERE idu = $S3312_USER AND nazev = 's3312-c'" > /dev/null

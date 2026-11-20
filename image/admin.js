@@ -768,6 +768,28 @@
 			}
 		}
 	}
+	// 3.47 (U68): My account in tabs – an old link with a fragment (#claude, #two-factor, #passkeys…) arrives on my details
+	// without a tab; data-account-tabs is {fragment: address of its tab}. Same origin, path and query only, as above.
+	var accountTabs = document.querySelector('[data-account-tabs]');
+	if (accountTabs && location.hash.length > 1 && !/[?&]tab=/.test(location.search)) {
+		var accountId = '', accountTo = null, accountUrl = null;
+		try { accountId = decodeURIComponent(location.hash.slice(1)); accountTo = JSON.parse(accountTabs.getAttribute('data-account-tabs'))[accountId]; } catch (e) { accountTo = null; }
+		if (typeof accountTo === 'string' && accountTo !== '' && !document.getElementById(accountId)) {
+			try { accountUrl = new URL(accountTo, location.href); } catch (e) { accountUrl = null; }
+			if (accountUrl && accountUrl.origin === location.origin && (accountUrl.protocol === 'https:' || accountUrl.protocol === 'http:')) {
+				location.replace(accountUrl.pathname.replace(/^\/+/, '/') + accountUrl.search + '#' + encodeURIComponent(accountId));
+			}
+		}
+	}
+	// 3.47 (U68): the first day of an absence is the earliest last day – input[data-date-min-for] names the id of the last day,
+	// which gets the minimum and, when it is empty or earlier, the same day
+	document.addEventListener('change', function (e) {
+		var from = e.target.closest && e.target.closest('input[data-date-min-for]');
+		var to = from ? document.getElementById(from.getAttribute('data-date-min-for')) : null;
+		if (!to || from.value === '') { return; }
+		to.min = from.value;
+		if (to.value === '' || to.value < from.value) { to.value = from.value; }
+	});
 	// 3.26: "@" in a comment offers the colleagues who may open the record – textarea[data-mentions] carries them as JSON
 	// [{id, user, name}] (only those the server would accept; it checks again). Typing "@ja" lists the matches under the
 	// field (by name or sign-in name, without diacritics); arrows move, Enter or Tab inserts "@signin-name ", Esc closes the

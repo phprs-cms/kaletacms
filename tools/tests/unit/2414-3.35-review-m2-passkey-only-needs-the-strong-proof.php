@@ -7,7 +7,8 @@ declare(strict_types=1);
 $r352Auth = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Auth.php');
 $r352Account = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Account.php');
 $r352Kernel = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Kernel.php');
-$r352View = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/account.php');
+// 3.47 (U68): My account is a shell with one partial per tab
+$r352View = implode("\n", array_map(fn (string $view): string => (string) file_get_contents(KALETA_SYSTEM . '/views/admin/' . $view . '.php'), ['account', 'account_details', 'account_security', 'account_claude']));
 check('[source-pin] 3.35 review M2: Auth::freshProof – a passkey-only account only with the strong proof, the password not even checked', [
     (bool) preg_match("/function freshProof\(.*?if \(\\\$this->isPasskeyOnly\(\)\) \{\s*return \\\$this->isFreshlyVerified\(\) \? 'ok' : 'passkey';\s*\}.*?return \\\$this->confirmPassword\(\\\$typed\);/s", $r352Auth),
     (bool) preg_match('/function isPasskeyOnly\(.*?SignInPolicy::passkeyOnly\(/s', $r352Auth),

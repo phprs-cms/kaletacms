@@ -244,7 +244,7 @@ await step('OAuth consent: the access choices are cards, the labels are pills', 
 // and revoke buttons are listed above it (they belong to another form, so they are never the form's default button)
 await step('account: Enter in the token name creates the token, with tokens listed too', async () => {
   for (const name of ['Enter token 1', 'Enter token 2']) {
-    await visit('/admin.php?action=account');
+    await visit('/admin.php?action=account&tab=claude');
     await page.fill('#token-nazev', name);
     await page.fill('#token-heslo', PASSWORD); // 3.31.2 (N101): a token needs the current password
     await Promise.all([page.waitForNavigation(), page.press('#token-nazev', 'Enter')]);
@@ -258,7 +258,7 @@ await step('account: Enter in the token name creates the token, with tokens list
 // 3.36 (B): the tool set of a connection changes through one folded choice of every other set offered on the site (fleet only
 // on a fleet site); it fits a phone and reads in dark mode
 await step('3.36 account: a token changes to the migration tools through the folded choice (1440 and 390 px, dark mode)', async () => {
-  await visit('/admin.php?action=account');
+  await visit('/admin.php?action=account&tab=claude');
   const choice = page.locator('#claude .napojeni', { hasText: 'Enter token 1' }).locator('details.sada-nastroju');
   await choice.locator('summary').click();
   const offered = (await choice.locator('button').allTextContents()).map((t) => t.trim()).join('|');
@@ -890,7 +890,7 @@ await step('3.20 C4/C6/C22: hints link their menu paths, one "connect Claude" de
   }
   await visit('/admin.php?module=claude_settings');
   if (!(await page.locator('#how-to-connect').count())) { throw new Error('Claude settings have no #how-to-connect'); }
-  if (!(await hrefs('Create a personal token – My account')).some((href) => /action=account#claude$/.test(href))) { throw new Error('the Connections box does not lead to My account for a token'); }
+  if (!(await hrefs('Create a personal token – My account')).some((href) => /action=account&tab=claude$/.test(href))) { throw new Error('the Connections box does not lead to My account for a token'); }
   await visit('/admin.php?module=audit');
   if (!(await hrefs('Decisions written down in the Notebook')).some((href) => /module=notebook$/.test(href))) { throw new Error('the Site audit does not link the Notebook'); }
   // 3.23 (C17): one hand-over checklist – the progress says "x of y done" and matches the ticked rows; no folded client questions
@@ -4984,7 +4984,7 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
     await p.fill('input[name="user"]', 'admin');
     await p.fill('input[name="password"]', PASSWORD);
     await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
-    await p.goto(local + '/admin.php?action=account', { waitUntil: 'networkidle' });
+    await p.goto(local + '/admin.php?action=account&tab=security', { waitUntil: 'networkidle' });
     await p.fill('#klic-nazev', 'Virtual authenticator');
     await p.fill('#klic-heslo', PASSWORD);
     await Promise.all([p.waitForNavigation(), p.click('#passkeys [data-klic-pridat]:not([data-nahradit])')]);
@@ -5017,10 +5017,14 @@ await step('3.35 A: passkey registration, passwordless sign-in and conditional U
     await Promise.all([p.waitForNavigation(), p.keyboard.press('Enter')]);
     if (await p.locator('input[name="user"]').count()) { throw new Error('the passkey button did not sign in'); }
     if (logged() !== before + 1) { throw new Error(`change log of the sign-in with the button: ${logged()} after ${before}`); }
-    if (SHOTS) { await p.goto(local + '/admin.php?action=account', { waitUntil: 'networkidle' }); await p.locator('#passkeys').screenshot({ path: `${SHOTS}/335a-passkeys.png` }); }
+    if (SHOTS) { await p.goto(local + '/admin.php?action=account&tab=security', { waitUntil: 'networkidle' }); await p.locator('#passkeys').screenshot({ path: `${SHOTS}/335a-passkeys.png` }); }
     // the password of an account with a passkey needs the second step – the page offers the passkey (and a backup code)
     await p.goto(local + '/admin.php', { waitUntil: 'networkidle' });
     await Promise.all([p.waitForNavigation(), p.click('.menu-logout button')]);
+    // 3.47 (U69): this browser signed in with a passkey – on the sign-in page the passkey is the primary button now
+    if ((await p.getAttribute('[data-klic-bezhesla]', 'class')) !== 'tl' || (await p.getAttribute('[data-login-password]', 'class')) !== 'navigace') {
+      throw new Error('the remembered passkey did not become the primary button on the sign-in page');
+    }
     await p.fill('input[name="user"]', 'admin');
     await p.fill('input[name="password"]', PASSWORD);
     await Promise.all([p.waitForNavigation(), p.press('input[name="password"]', 'Enter')]);
@@ -5841,7 +5845,7 @@ await step('3.42 B: the team hierarchy – Users → Departments, the org chart 
     }
     // an own absence in My account at phone width: two dates, a reason from the list, the deputy
     await page.setViewportSize({ width: 390, height: 844 });
-    await visit('/admin.php?action=account');
+    await visit('/admin.php?action=account&tab=absence');
     const from = sql('SELECT CURDATE() + INTERVAL 7 DAY').trim();
     const to = sql('SELECT CURDATE() + INTERVAL 9 DAY').trim();
     await page.fill('#absence-from', from);
@@ -6159,6 +6163,70 @@ await step('3.46 Settings save without a recent proof: Confirm it is you, then s
     if (await page.locator('#confirm-proof').count()) { throw new Error('the next save within the window asked again'); }
   } finally {
     sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('agency_name', '${before.replace(/'/g, "''")}')`);
+  }
+});
+
+// 3.47 A (U68, U69): My account in six tabs – at 390 px the row gives way to a select (light/dark, no sideways scroll, axe); an
+// old link with a fragment (#claude) goes on to its tab; a browser that never signed in with a passkey gets the password as
+// the one primary button on the sign-in page
+await step('3.47 A My account: the tabs at 390 px (light/dark, axe), the #claude link goes to its tab, one primary button on sign-in', async () => {
+  const state = await context.storageState();
+  const tabs = ['', 'absence', 'security', 'claude', 'signature', 'colleagues'];
+  for (const scheme of ['light', 'dark']) {
+    const other = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: scheme, storageState: state, isMobile: true, hasTouch: true });
+    const p2 = await other.newPage(); watch(p2);
+    try {
+      for (const tab of tabs) {
+        await p2.goto(`${BASE}/admin.php?action=account${tab ? '&tab=' + tab : ''}`, { waitUntil: 'networkidle' });
+        if (!(await p2.locator('form.zalozky-vyber #ucet-zalozka').isVisible()) || (await p2.locator('nav.zalozky[aria-label="My account"]').isVisible())) {
+          throw new Error(`the tab select does not replace the row at 390 px (${tab || 'details'}, ${scheme})`);
+        }
+        if ((await p2.locator('#ucet-zalozka').inputValue()) !== tab) { throw new Error(`the select does not show the tab ${tab || 'details'}`); }
+        const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (wide > 1) { throw new Error(`${wide} px of sideways scroll on My account (${tab || 'details'}, ${scheme})`); }
+        if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/347a-account-${tab || 'details'}-${scheme}.png`, fullPage: true }); }
+      }
+      await Promise.all([p2.waitForNavigation(), p2.selectOption('#ucet-zalozka', 'security')]);
+      if (!/tab=security/.test(p2.url()) || !(await p2.locator('#two-factor').count())) { throw new Error(`the select did not open the security tab: ${p2.url()}`); }
+    } finally {
+      await other.close();
+    }
+  }
+  // an old link: #claude on my details goes to the Claude tab; #notifications stays on my details
+  await visit('/admin.php?action=account#claude');
+  await page.waitForURL(/tab=claude#claude$/, { timeout: 10000 });
+  if (!(await page.locator('#claude').count())) { throw new Error('the Claude tab has no #claude'); }
+  await visit('/admin.php?action=account#notifications');
+  if (/tab=/.test(page.url()) || !(await page.locator('#notifications').count())) { throw new Error(`#notifications left my details: ${page.url()}`); }
+  // the absence form: the first day becomes the earliest last day
+  await visit('/admin.php?action=account&tab=absence');
+  const day = sql('SELECT CURDATE() + INTERVAL 20 DAY').trim();
+  await page.fill('#absence-from', day);
+  await page.locator('#absence-from').dispatchEvent('change');
+  if ((await page.locator('#absence-to').inputValue()) !== day || (await page.locator('#absence-to').getAttribute('min')) !== day) { throw new Error('the first day does not guide the last one'); }
+  const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 390, height: 844 } });
+  try {
+    const axePage = await axeContext.newPage();
+    for (const scheme of ['light', 'dark']) {
+      await axePage.emulateMedia({ colorScheme: scheme });
+      for (const tab of ['', 'absence', 'security']) {
+        await axePage.goto(`${BASE}/admin.php?action=account${tab ? '&tab=' + tab : ''}`, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([tags]) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [WCAG]);
+        if (found.violations.length) { throw new Error(`axe My account ${tab || 'details'} (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    }
+  } finally {
+    await axeContext.close();
+  }
+  // signed out, without a passkey used here before: the password is the one primary button
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB' });
+  try {
+    const p3 = await fresh.newPage(); watch(p3);
+    await p3.goto(BASE + '/admin.php', { waitUntil: 'networkidle' });
+    if ((await p3.locator('.login-karta .tl').count()) !== 1 || !(await p3.locator('[data-login-password].tl').count())) { throw new Error('the sign-in page has not exactly one primary button, the password'); }
+  } finally {
+    await fresh.close();
   }
 });
 

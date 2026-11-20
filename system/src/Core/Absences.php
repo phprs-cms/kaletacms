@@ -145,6 +145,41 @@ final class Absences
     }
 
     /**
+     * 3.47 (N166): the bell about a new absence – the deputy learns they were named ('deputy_named'), and the person learns
+     * that an administrator recorded an absence for them ('absence_added'). The excerpt is the person's name and the days
+     * (Y-m-d – the same in every language), never the reason. Nobody is told of their own act (Inbox drops actor = user), so
+     * a person naming themselves nothing is told; whoever adds their own absence gets no bell, their deputy does – the
+     * tripwire for a session that is not theirs. Never throws (Inbox::notify).
+     */
+    public static function announce(App $app, int $absenceId, int $byUserId): void
+    {
+        $db = $app->db();
+        try {
+            $row = $db->one('SELECT id, user_id, starts_on, ends_on, deputy_id, reason FROM {absences} WHERE id = ?', [$absenceId]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return;
+        }
+        if ($row === null) {
+            return;
+        }
+        $a = self::row($row);
+        $excerpt = self::announcement(Assignment::label($db, $a['user_id'], false), $a['starts_on'], $a['ends_on']);
+        if ($a['deputy_id'] !== null) {
+            Inbox::notify($app, $a['deputy_id'], 'deputy_named', '', $byUserId, $excerpt);
+        }
+        if ($byUserId !== $a['user_id']) {
+            Inbox::notify($app, $a['user_id'], 'absence_added', '', $byUserId, $excerpt);
+        }
+    }
+
+    /** 3.47 (N166): the excerpt of the bell about an absence – the name and the days, never the reason. Pure. */
+    public static function announcement(string $name, string $from, string $to): string
+    {
+        return ($name !== '' ? $name . ': ' : '') . $from . ' – ' . $to;
+    }
+
+    /**
      * Why the days cannot be an absence (English), or null when they can: both dates, the end not before the start nor
      * before today, at most MAX_DAYS days. Pure.
      */

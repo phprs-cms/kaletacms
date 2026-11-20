@@ -208,7 +208,7 @@ $role = [
 <?php endif ?>
 <?php if ($author['idu'] && !$author['blokovat']): // 3.42: absences with a deputy (Core\Absences) ?>
 <?= $app->view->render('admin/absences', ['app' => $app, 'csrf' => $csrf, 'absences' => $absences ?? [], 'people' => $people ?? [],
-    'addUrl' => $module->url('absence_add'), 'deleteUrl' => $module->url('absence_delete'),
+    'addUrl' => $module->url('absence_add'), 'deleteUrl' => $module->url('absence_delete'), 'own' => false,
     'hidden' => '<input type="hidden" name="idu" value="' . (int) $author['idu'] . '">', 'deleteHidden' => '<input type="hidden" name="idu" value="' . (int) $author['idu'] . '">']) ?>
 <?php endif ?>
 <?php if ($author['idu'] && ($connections ?? []) !== []): ?>

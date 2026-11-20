@@ -17,7 +17,7 @@ check('[source-pin] 3.31.2 N101: a token is made only after the password check; 
     array_map(Kaleta\Admin\Account::keepsTokens(...), ['0', '1', '', 'off', 'false']),
     str_contains($a3312Case('heslo'), "self::keepsTokens(\$r->post('zrusit_tokeny')) ? 0 : \$db->delete('api_tokeny', ['idu' => \$user['idu'], 'druh' => 'token'])"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Users.php'), "\$revokeTokens = !\\Kaleta\\Admin\\Account::keepsTokens(\$r->post('zrusit_tokeny'));"),
-    array_map(fn (string $view): int => substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/' . $view), '<input type="hidden" name="zrusit_tokeny" value="0">'), ['account.php', 'users/form.php']),
+    array_map(fn (string $view): int => substr_count((string) file_get_contents(KALETA_SYSTEM . '/views/admin/' . $view), '<input type="hidden" name="zrusit_tokeny" value="0">'), ['account_security.php', 'users/form.php']), // 3.47: the security tab
     // OAuth connections end with every password change as before (N39-1) – that line did not become optional
     str_contains($a3312Case('heslo'), '\Kaleta\Front\OAuth::revokeConnections($db, (int) $user[\'idu\'])')],
     [true, [true, false, false, false, false], true, true, [1, 1], true]);

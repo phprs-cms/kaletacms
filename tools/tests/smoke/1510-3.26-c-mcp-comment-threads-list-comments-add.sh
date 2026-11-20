@@ -81,12 +81,12 @@ contains -q '"runner":"run_tool"' "$WORK/text" && echo "  ok     3.26 work tool 
 curl -s -X POST "$B/mcp" -H "Authorization: Bearer $C326_WORK" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' > "$WORK/response"
 contains -q 'YOUR TOOL LIST HOLDS THE WORK TOOLS' "$WORK/response" && echo "  ok     3.26 work tool set: the server instructions say what the list holds" || { echo "  CHYBA  3.26 work instructions"; ERRORS=$((ERRORS+1)); }
 # My account: a new token may take the work tool set (Advanced), the list labels it, the switch goes to all tools
-check "3.26 My account: the work tool set is offered for a new token, a work connection is labelled" 200 "/admin.php?action=account" 'name="tool_set" value="work"'
+check "3.26 My account: the work tool set is offered for a new token, a work connection is labelled" 200 "/admin.php?action=account&tab=claude" 'name="tool_set" value="work"'
 TOKEN=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?action=account" -d "_csrf=$TOKEN" -d co=token_novy -d nazev=c326-new -d access=drafts -d tool_set=work -d platnost=30 --data-urlencode "soucasne=$PASSWORD"
 expect "3.26 My account: the new token keeps the work tool set" "$(sq "SELECT CONCAT(access, '/', tool_set) FROM ka_api_tokeny WHERE nazev = 'c326-new'")" "drafts/work"
 C326_NEW=$(sq "SELECT idt FROM ka_api_tokeny WHERE nazev = 'c326-new'")
-curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account"
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"
 # 3.36: the label is the pill; the other tokens' folded choice offers the work set as a button too
 expect "3.26 My account: the work token is labelled and its switch goes to all tools" "$(grep -c '<span class="stitek">pracovní nástroje</span>' "$WORK/response")|$(grep -c "value=\"all:token:$C326_NEW\"" "$WORK/response")" "1|1"
 sq "DELETE FROM ka_api_tokeny WHERE nazev LIKE 'c326-%'; DELETE FROM ka_comments WHERE target IN ('page:$C326_PAGE', 'enquiry:$C326_ENQ', 'item:$C326_ITEM'); DELETE FROM ka_stranky WHERE seo_link = 'c326-page';
