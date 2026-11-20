@@ -20,7 +20,8 @@ output only grows (`notification_copies`), no builder shape changes.
    file claims only when its bytes confirm it: PDF `%PDF-`, OLE (doc, xls, ppt), ZIP for docx/xlsx/pptx with a
    `[Content_Types].xml` naming the main part of the kind and nothing macro-enabled and no `vbaProject.bin`, ODF and EPUB
    by their `mimetype` entry, RTF, JPEG, PNG, GIF, WebP, SVG as text, audio, video and fonts by their signatures, and text
-   types (txt, md, csv, gpx, ics) as UTF-8 without NUL bytes and without page markup. A program (MZ, ELF, Mach-O) or a
+   types (txt, md, csv, gpx, ics) as UTF-8 without NUL bytes and without page markup (a doctype, `<script>`, `<img>`,
+   `<style>`, `<iframe>`, `<svg>`, a `javascript:` link or an `on…=` handler in a tag). A program (MZ, ELF, Mach-O) or a
    `#!` script is refused whatever its name; anything the allowlist cannot confirm is refused like a wrong type from
    finfo. It covers every attachment type of Media, every CV type and every type of Internal files.
 3. **A form never ends in an error page over a file check.** `Front\Forms::process()` catches anything the check of a CV
@@ -41,8 +42,10 @@ output only grows (`notification_copies`), no builder shape changes.
 7. **Form notification e-mails carry a download link per file** (Applications and Enquiries, forms in pop-ups too) –
    never the file. `Core\FileLink` signs a link to the existing download of the record (`module=applications|enquiries`,
    `action=attachment`) with the site's secret key over the section, the record, the file and an expiry 30 days ahead.
-   The signature never serves a file by itself: the download still needs a signed-in user with the section (and an
-   enquiry the user may see); a changed link answers 403, an expired one 410 with a link to the record. A signed-out user
+   The link opens the file for a signed-in colleague with the section (and an enquiry the user may see) – exactly as the
+   download button of the record does; the signature never serves a file by itself and only makes a forwarded copy of
+   the link expire: a changed link answers 403, an expired one 410 with a link to the record. A colleague with access can
+   still download the file from the record (or from the link without its signature), so the expiry is no access control. A signed-out user
    signs in and lands on the link (`Admin\Kernel::rememberLink`, rebuilt from its own parameters only). A download from
    a link gets a neutral name (`application-<id>-<n>.pdf`), `nosniff` and no caching; every download – from a link or
    the record – is in the change log (who, which record, which file); an application's CV checks the memory first
@@ -55,7 +58,8 @@ output only grows (`notification_copies`), no builder shape changes.
    never had them.
 9. **Personal data.** The record of processing says what the notifications carry and that files go only as links;
    `find_personal_data` and `erase_personal_data` (and the erasure in the administration) name where notification e-mails
-   with the details went (`notification_copies`: the form and its current recipients). The setting stays admin-only
+   with the details went (`notification_copies`: the form and its current recipients – for applications "may have
+   carried the details", since the state of the setting at the time is not stored). The setting stays admin-only
    (not in `MCP_SETTINGS`); Claude never gets the files or the links. Unit 4240, smoke 4240.
 
 ## 3.46.1 – restore and erasure fixes (18 November 2026)

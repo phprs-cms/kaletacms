@@ -102,6 +102,13 @@ $u4230Refused = [
     'HTML named .pdf' => [$u4230File('page.pdf', '<!DOCTYPE html><html><body><script>alert(1)</script></body></html>'), 'pdf'],
     'HTML named .txt' => [$u4230File('page.txt', "Hello\n<script>alert(1)</script>\n"), 'txt'],
     'PHP named .csv' => [$u4230File('code.csv', "a;b\n<?php echo 1; ?>\n"), 'csv'],
+    'an image tag named .txt' => [$u4230File('img.txt', "Hello\n<IMG SRC=x>\n"), 'txt'],
+    'a javascript: link named .csv' => [$u4230File('link.csv', "a;b\n<a href=\"JavaScript:alert(1)\">x</a>\n"), 'csv'],
+    'a style block named .md' => [$u4230File('style.md', "# Notes\n<style>body{}</style>\n"), 'md'],
+    'an iframe named .txt' => [$u4230File('frame.txt', "<iframe src=//x></iframe>"), 'txt'],
+    'an inline SVG named .ics' => [$u4230File('svg.ics', "BEGIN:VCALENDAR\r\n<svg onload=alert(1)>\r\nEND:VCALENDAR\r\n"), 'ics'],
+    'an on…= handler in a tag named .txt' => [$u4230File('handler.txt', "<div onmouseover = \"alert(1)\">x</div>"), 'txt'],
+    'a doctype named .txt' => [$u4230File('doctype.txt', "<!DOCTYPE foo>\nplain"), 'txt'],
     'a text file with a NUL byte' => [$u4230File('nul.txt', "abc\0def"), 'txt'],
     'a text file that is not UTF-8' => [$u4230File('latin.txt', "P\xF8\xEDli\xB9 \xBElu\xBBou\xE8k\xFD k\xF9\xF2"), 'txt'],
     'an SVG named .gpx' => [$u4230Cases['svg'], 'gpx'],
@@ -111,6 +118,10 @@ $u4230Refused = [
 ];
 check('3.46.2: the allowlist refuses what it cannot confirm (programs, scripts, wrong signatures, ZIPs that are no such document, macros, markup, binary or non-UTF-8 text)',
     array_keys(array_filter($u4230Refused, fn (array $case): bool => FileSignature::sniff($case[0], $case[1]) !== '')), []);
+check('3.46.2 review L3: plain text that mentions things stays text – an e-mail address, a less-than sign, an "onboarding=" outside a tag, a link to https', [
+    FileSignature::sniff($u4230File('plain1.txt', "Write to eva@example.com if a < b.\nonboarding=yes\nhttps://example.com/a?b=1\n"), 'txt'),
+    FileSignature::sniff($u4230File('plain2.csv', "name;note\nEva;<3 the team\n"), 'csv'),
+], ['text/plain', 'text/csv']);
 check('3.46.2: a text head cut inside a multi-byte character still counts as UTF-8 when the file goes on', [
     FileSignature::isText('Dobrý den ' . substr('ž', 0, 1), 100), FileSignature::isText('Dobrý den ' . substr('ž', 0, 1), 12), FileSignature::isProgram('MZ'), FileSignature::isProgram('%PDF-'),
 ], [true, false, true, false]);

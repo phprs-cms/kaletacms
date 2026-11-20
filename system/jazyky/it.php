@@ -2146,5 +2146,5 @@ return [
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Al server manca l’estensione PHP sodium, quindi i dati cifrati non possono essere né salvati né letti. Chieda al suo provider di hosting di attivarla.',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Non è stato possibile verificare un file inviato con un modulo, quindi l’invio non è stato salvato (%s).',
     'Uploaded files' => 'File caricati',
-    'The links work for %d days and only for someone signed in to the administration with access to the record.' => 'I link funzionano per %d giorni e solo per chi ha effettuato l’accesso all’amministrazione con accesso al record.',
+    'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'I link aprono i file solo per un collega che ha effettuato l’accesso all’amministrazione con accesso al record; una copia inoltrata di un link smette di funzionare dopo %d giorni.',
 ];

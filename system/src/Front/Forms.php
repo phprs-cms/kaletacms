@@ -477,9 +477,10 @@ final class Forms
 
     /**
      * Where notification e-mails with the person's details went (3.46.2, for find_personal_data and erase_personal_data):
-     * one line per form of the found enquiries – and of the applications while their notification carries the full details
-     * (applications_notify_full) – with the recipients the published form names now. Copies in those mailboxes are outside
-     * Kaleta; the erasure cannot reach them. Empty when nothing was found.
+     * one line per form of the found enquiries – their notification always carries every field – and of the found
+     * applications, whose notification carried the details only while "full details" was on (review L7: the state at the
+     * time is not stored, so they "may have been sent"); with the recipients the published form names now. Copies in those
+     * mailboxes are outside Kaleta; the erasure cannot reach them. Empty when nothing was found.
      *
      * @param array<string, mixed> $found Core\PersonalData::find()
      * @return list<string>
@@ -487,25 +488,27 @@ final class Forms
     public static function notificationCopies(App $app, array $found): array
     {
         $db = $app->db();
-        $forms = []; // "source|element" => [source, element, the form's name]
+        $forms = []; // "kind|source|element" => [kind, source, element, the form's name]
         $enquiries = array_map('intval', array_column((array) ($found['enquiries'] ?? []), 'idp'));
         foreach (array_chunk($enquiries, 500) as $chunk) {
             foreach ($db->all('SELECT zdroj, prvek, formular FROM {poptavky} WHERE idp IN (' . implode(',', $chunk) . ')') as $r) {
-                $forms[$r['zdroj'] . '|' . $r['prvek']] = [(string) $r['zdroj'], (string) $r['prvek'], (string) $r['formular']];
+                $forms['e|' . $r['zdroj'] . '|' . $r['prvek']] = ['e', (string) $r['zdroj'], (string) $r['prvek'], (string) $r['formular']];
             }
         }
-        $applications = $app->settings()->bool('applications_notify_full') ? array_map('intval', array_column((array) ($found['applications'] ?? []), 'id')) : [];
+        $applications = array_map('intval', array_column((array) ($found['applications'] ?? []), 'id'));
         foreach (array_chunk($applications, 500) as $chunk) {
             foreach ($db->all('SELECT source, element, form FROM {applications} WHERE id IN (' . implode(',', $chunk) . ')') as $r) {
-                $forms[$r['source'] . '|' . $r['element']] = [(string) $r['source'], (string) $r['element'], (string) $r['form']];
+                $forms['a|' . $r['source'] . '|' . $r['element']] = ['a', (string) $r['source'], (string) $r['element'], (string) $r['form']];
             }
         }
         $out = [];
-        foreach ($forms as [$source, $element, $name]) {
+        foreach ($forms as [$kind, $source, $element, $name]) {
             $form = self::findElement($db, $source, $element, 'formular');
             [$to, $bcc] = $form === null ? [[], []] : self::recipients((string) ($form['obsah']['prijemce'] ?? ''), (string) ($form['obsah']['skryta_kopie'] ?? ''), $app->settings()->get('site_email'));
-            $out[] = t('Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.', $name,
-                [...$to, ...$bcc] !== [] ? implode(', ', [...$to, ...$bcc]) : t('the recipients of the form'));
+            $who = [...$to, ...$bcc] !== [] ? implode(', ', [...$to, ...$bcc]) : t('the recipients of the form');
+            $out[] = $kind === 'e'
+                ? t('Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.', $name, $who)
+                : t('Notification e-mails about applications from the form “%s” went to %s and may have carried the details (when the full details were switched on) – copies in their mailboxes are outside Kaleta.', $name, $who);
         }
 
         return $out;

@@ -2157,5 +2157,5 @@ return [
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'A szerverről hiányzik a PHP sodium kiterjesztése, ezért titkosított adatot sem menteni, sem olvasni nem lehet. Kérje meg a tárhelyszolgáltatót, hogy kapcsolja be.',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Egy űrlappal küldött fájlt nem sikerült ellenőrizni, ezért a beküldés nem lett mentve (%s).',
     'Uploaded files' => 'Feltöltött fájlok',
-    'The links work for %d days and only for someone signed in to the administration with access to the record.' => 'A hivatkozások %d napig működnek, és csak annak, aki bejelentkezett az adminisztrációba, és hozzáfér a rekordhoz.',
+    'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'A hivatkozások csak annak a kollégának nyitják meg a fájlokat, aki bejelentkezett az adminisztrációba, és hozzáfér a rekordhoz; egy továbbított hivatkozás %d nap után nem működik.',
 ];

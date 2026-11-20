@@ -45,9 +45,9 @@ check('3.46.2: a downloaded file gets a neutral name – the kind, the record an
 ], ['application-12-1.pdf', 'enquiry-7-4.docx', 'enquiry-7-1', 'application-1-2']);
 
 $u4240Text = Kaleta\Core\Language::runWith('en', fn (): string => FileLink::text([['label' => 'CV', 'name' => 'cv.pdf', 'url' => 'https://example.com/admin.php?x=1'], ['label' => '', 'name' => 'b.docx', 'url' => 'https://example.com/y']]));
-check('3.46.2: the e-mail lists each file with its link and says the links need signing in and expire; no files = no lines', [
+check('3.46.2: the e-mail lists each file with its link and says the links open only for a signed-in colleague with access and a forwarded copy expires; no files = no lines', [
     $u4240Text, FileLink::text([]), FileLink::DAYS,
-], ["Uploaded files:\nCV: cv.pdf\nhttps://example.com/admin.php?x=1\n\nb.docx\nhttps://example.com/y\nThe links work for 30 days and only for someone signed in to the administration with access to the record.", '', 30]);
+], ["Uploaded files:\nCV: cv.pdf\nhttps://example.com/admin.php?x=1\n\nb.docx\nhttps://example.com/y\nThe links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after 30 days.", '', 30]);
 
 $u4240Settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();
 (new ReflectionProperty(Kaleta\Core\Settings::class, 'values'))->setValue($u4240Settings, ['site_name' => 'Hartsteel']);

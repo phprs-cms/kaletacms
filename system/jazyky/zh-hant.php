@@ -2157,5 +2157,5 @@ return [
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => '伺服器缺少 PHP 擴充 sodium，因此無法儲存或讀取加密資料。請聯絡您的主機服務商啟用它。',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => '無法檢查隨表單傳送的檔案，因此提交未被儲存（%s）。',
     'Uploaded files' => '上傳的檔案',
-    'The links work for %d days and only for someone signed in to the administration with access to the record.' => '這些連結在 %d 天內有效，且僅限已登入管理後台並有權存取該記錄的人使用。',
+    'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => '這些連結僅為已登入管理後台並有權存取該記錄的同事開啟檔案；轉寄的連結副本在 %d 天後失效。',
 ];

@@ -392,7 +392,7 @@ final class Privacy
             t('Tasks of the team about an enquiry (a follow-up, a call back) are kept with the enquiry: deleted with it, their title blanked when it is anonymised.'),
             t('Recipients: the people with access to Enquiries in the administration%s.', $s->get('webhook_enquiries') !== '' ? ', ' . t('a webhook at %s', (string) parse_url($s->get('webhook_enquiries'), PHP_URL_HOST)) : ''),
             // 3.46.2: what the notification carries, and that files never leave the site with it
-            t('The notification e-mail to the recipients named above carries every field of the form; copies stay in their mailboxes, out of reach of the erasure in Kaleta. Uploaded files are never attached – the e-mail has a download link per file that works for %d days and only for someone signed in with access to Enquiries.', FileLink::DAYS),
+            t('The notification e-mail to the recipients named above carries every field of the form; copies stay in their mailboxes, out of reach of the erasure in Kaleta. Uploaded files are never attached – the e-mail has a download link per file that opens only for someone signed in with access to Enquiries; a forwarded copy of a link stops working after %d days.', FileLink::DAYS),
         ])];
         // 3.28: the customer records (Core\Contacts) – built from the enquiries, bookings and subscriptions above
         $contactMonths = Contacts::months($s);
@@ -449,7 +449,7 @@ final class Privacy
                 $s->bool('applications_notify_full')
                     ? t('The notification e-mail to the recipients of the application forms (Enquiries and form messages above) carries the applicant’s full details; copies stay in their mailboxes, out of reach of the erasure in Kaleta.')
                     : t('The notification e-mail to the recipients of the application forms names the position and links the application – nothing of the applicant.'),
-                t('CVs are never attached to e-mails: the notification has a download link per CV that works for %d days and only for someone signed in with access to Applications.', FileLink::DAYS),
+                t('CVs are never attached to e-mails: the notification has a download link per CV that opens only for someone signed in with access to Applications; a forwarded copy of a link stops working after %d days.', FileLink::DAYS),
                 ...($s->bool('applications_claude') ? [t('The fields of an application (never the CV) pass to Claude through the connection of a user with access to Applications.')] : []),
                 ...(preg_match('#^https://#i', $s->get(TalentPool::WEBHOOK_SETTING)) === 1 ? [t('Each new application is announced to %s by a webhook – its number and position only, nothing of the applicant.', (string) parse_url($s->get(TalentPool::WEBHOOK_SETTING), PHP_URL_HOST))] : []), // 3.40
             ]];

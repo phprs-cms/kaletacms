@@ -106,6 +106,6 @@ final class FileLink
         }
         $lines = array_map(fn (array $f): string => ($f['label'] !== '' ? $f['label'] . ': ' : '') . $f['name'] . "\n" . $f['url'], $files);
 
-        return t('Uploaded files') . ":\n" . implode("\n\n", $lines) . "\n" . t('The links work for %d days and only for someone signed in to the administration with access to the record.', self::DAYS);
+        return t('Uploaded files') . ":\n" . implode("\n\n", $lines) . "\n" . t('The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.', self::DAYS);
     }
 }

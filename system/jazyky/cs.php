@@ -3310,5 +3310,5 @@ return [
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Server nemá rozšíření PHP sodium, takže šifrovaná data nejde uložit ani přečíst. Požádejte poskytovatele hostingu o jeho zapnutí.',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Soubor odeslaný formulářem nešlo zkontrolovat, proto se odeslání neuložilo (%s).',
     'Uploaded files' => 'Nahrané soubory',
-    'The links work for %d days and only for someone signed in to the administration with access to the record.' => 'Odkazy platí %d dní a jen pro přihlášeného do administrace s přístupem k záznamu.',
+    'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'Odkazy otevřou soubory jen kolegovi přihlášenému do administrace s přístupem k záznamu; přeposlaná kopie odkazu přestane fungovat po %d dnech.',
 ];

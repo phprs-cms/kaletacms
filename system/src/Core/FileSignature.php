@@ -43,8 +43,11 @@ final class FileSignature
     /** A ZIP-based document is read whole without ZipArchive only up to this size. */
     private const int ZIP_SCAN = 64 * 1024 * 1024;
 
-    /** Markup in a text file that a browser would show as a page or run. */
-    private const string MARKUP = '/<\?php|<\?=|<script|<html|<!doctype\s+html|<svg|<iframe|<body|<object|<embed/i';
+    /**
+     * Markup in a text file that a browser would show as a page or run – what libmagic calls text/html, and more (3.46.2
+     * review L3): any doctype, images, styles, frames, SVG, a link to javascript: and an on…= handler inside a tag.
+     */
+    private const string MARKUP = '/<\?php|<\?=|<script|<html|<!doctype|<svg|<iframe|<frame|<body|<object|<embed|<img[\s\/>]|<style|<link[\s\/>]|<meta[\s\/>]|<a\s[^>]*javascript:|<[a-z][^>]*\son[a-z]+\s*=/i';
 
     /** The content type of the file for the extension it claims, '' when the bytes do not confirm it. */
     public static function sniff(string $path, string $extension): string

@@ -2157,5 +2157,5 @@ return [
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'يفتقر الخادم إلى امتداد PHP ‏sodium، لذا لا يمكن حفظ البيانات المشفرة أو قراءتها. اطلب من مزود الاستضافة تفعيله.',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'تعذّر فحص ملف أُرسل مع نموذج، لذلك لم يُحفظ الإرسال (%s).',
     'Uploaded files' => 'الملفات المرفوعة',
-    'The links work for %d days and only for someone signed in to the administration with access to the record.' => 'تعمل الروابط لمدة %d يومًا، وفقط لمن سجّل الدخول إلى الإدارة ولديه صلاحية الوصول إلى السجل.',
+    'The links open the files only for a colleague signed in to the administration with access to the record; a forwarded copy of a link stops working after %d days.' => 'تفتح الروابط الملفات فقط لزميل سجّل الدخول إلى الإدارة ولديه صلاحية الوصول إلى السجل؛ وتتوقف النسخة المُعاد توجيهها من الرابط عن العمل بعد %d يومًا.',
 ];
