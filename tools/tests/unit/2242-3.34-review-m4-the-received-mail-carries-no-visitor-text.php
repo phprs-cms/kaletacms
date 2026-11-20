@@ -18,5 +18,5 @@ check('[source-pin] 3.34 review M4: the automatic compose drops a name that is n
     str_contains(Applications::compose($m4Settings, $m4Spam, 'received', true)['text'], 'spam.example'),
     str_starts_with(Applications::compose($m4Settings, ['name' => 'Jana Nováková'] + $m4Spam, 'received', true)['text'], 'Hello Jana Nováková,'),
     str_contains(Applications::compose($m4Settings, $m4Spam, 'received')['text'], 'spam.example'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Applications.php'), "\$mail = self::compose(\$s, \$row, 'received', true);")],
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationReplies.php'), "\$mail = self::compose(\$s, \$row, 'received', true);")],
     [true, false, true, true, true]);

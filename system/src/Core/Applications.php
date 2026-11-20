@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-
 /**
  * Job applications apart from enquiries (3.34, the feature "applications", table ka_applications, admin
  * Modules\Applications in the Workspace group). An application is not a kind of enquiry: enquiries are read in dozens of
@@ -20,20 +19,19 @@ namespace Kaleta\Core;
  * the sender) and e-mails the form's recipients the position and a link only (unless applications_notify_full). It never
  * creates a customer record, never offers a deal, never runs triage, webhooks or the "enquiry received" event.
  *
- * CVs (checkUpload, sealFile, attachment): a narrow list of types (CV_EXTENSIONS), the detected content must fit the
- * extension (Files::mimeOf: finfo, or the signature allowlist without it) and never be HTML, PHP, a script or a program (Files::forbiddenContent). Each file is encrypted with
- * its own random key (sodium secretbox) into storage/applications/YYYY/MM/<random>.bin, outside the web root; the keys,
- * names and sizes live in the attachments column, sealed with the Vault key of the purpose "applications"
- * (Vault::SEALED – moved and resealed with the other secrets when the key moves or rotates). Files are read only through
- * attachment() by the admin action of a person with the section; MCP never gets a file. Applications moved from
- * enquiries (migration 0120) keep their old files until sealPending() (the daily clean-up) seals them.
+ * Since 3.47 the work around it lives in four classes, and every public member that moved keeps a forward here (the block at
+ * the end), so callers and migration 0120 are unchanged:
+ *  - Core\ApplicationFiles – the CVs: what an upload may be (checkUpload, CV_EXTENSIONS), the files sealed at rest under
+ *    storage/applications (sealFile, openSealed), the sealed list of a row (attachments), the download (attachment) and
+ *    the daily sealing and sweep (sealPending, sweepOrphans, resealHeld);
+ *  - Core\ApplicationRetention – how long an application stays (deletionDate, expired), the warning to its responsible
+ *    person, the confirmation for moved applications and the daily clean-up (purge);
+ *  - Core\ApplicationReplies – the templates, the "received" confirmation, a reply and the bulk rejection;
+ *  - Core\ApplicationMove (moves either way, movingCondition) and Core\ApplicationCounts (the monthly counts).
  *
  * Statuses (STATUSES): any may follow any; hired and rejected decide (decided_at), reopening clears it; every change is in
- * the history column (HISTORY_MAX) and counts as activity. Retention (expired(), purge() from the daily clean-up): a
- * decided application goes applications_months after its decision, an undecided one after applications_months without
- * any activity, and the consent for future openings keeps it at least until pool_until. Seven days before an undecided one
- * goes, its responsible person gets one notification (deletion_due). Deleting removes the files first, then the row and
- * the comments, tasks and notifications about it (target application:<id>).
+ * the history column (HISTORY_MAX) and counts as activity. Deleting removes the files first, then the row and the
+ * comments, tasks and notifications about it (target application:<id>).
  *
  * Applications are never journalled for undo (AgentJournal::PERSONAL_TABLES), never in the site export, blueprints or the
  * fleet heartbeat, and never passed to the site's AI assistant. Notifications to colleagues name an application only by
@@ -60,39 +58,8 @@ final class Applications
     /** Why an application was rejected => label. */
     public const array REJECT_REASONS = ['not_suitable' => 'Not suitable', 'position_filled' => 'Position filled', 'withdrew' => 'Withdrew', 'no_response' => 'No response', 'other' => 'Other'];
 
-    /** The file types an application accepts (no archives, spreadsheets or drawings). */
-    public const array CV_EXTENSIONS = ['pdf', 'doc', 'docx', 'odt', 'rtf', 'txt', 'jpg', 'jpeg', 'png'];
-
-    /** extension => the content types finfo (or Core\FileSignature without it) may report for it. */
-    public const array CONTENT_TYPES = [
-        'pdf' => ['application/pdf'],
-        'doc' => ['application/msword', 'application/vnd.ms-word', 'application/vnd.ms-office', 'application/cdfv2', 'application/x-ole-storage', 'application/octet-stream'],
-        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
-        'odt' => ['application/vnd.oasis.opendocument.text', 'application/zip', 'application/octet-stream'],
-        'rtf' => ['text/rtf', 'application/rtf', 'text/plain'],
-        'txt' => ['text/plain'],
-        'jpg' => ['image/jpeg'],
-        'jpeg' => ['image/jpeg'],
-        'png' => ['image/png'],
-    ];
-
-    /** At most this many file fields of one application are stored. */
-    public const int MAX_FILES = 3;
-
-    /** Where the sealed files live (not reachable from the web, like storage/prilohy). */
-    public const string FOLDER = KALETA_ROOT . '/storage/applications';
-
-    /** Where the files of enquiries were (the applications moved by migration 0120 until sealPending()). */
-    public const string OLD_FOLDER = KALETA_ROOT . '/storage/prilohy';
-
     /** The status changes kept per application. */
     public const int HISTORY_MAX = 50;
-
-    /** Days before an undecided application is deleted when its responsible person is told (once). */
-    public const int WARN_DAYS = 7;
-
-    /** Files sealPending() seals per run (the daily clean-up). */
-    public const int SEAL_BATCH = 200;
 
     /** A field whose label names the position on a general form ("Position", "Pozice", "Stelle"…). */
     public const string POSITION_LABEL = '/(position|pozice|pracovn[ií] m[ií]sto|job|stelle|puesto|vacan|nab[ií]dk)/iu';
@@ -113,26 +80,6 @@ final class Applications
     public static function isApplicationForm(array $content, string $source, array $jobSources): bool
     {
         return ($content['ucel'] ?? '') === self::PURPOSE || in_array($source, $jobSources, true);
-    }
-
-    /**
-     * The extension of an uploaded file when an application may keep it, null when it is refused: the type must be in
-     * CV_EXTENSIONS, the detected content must fit it and never be HTML, PHP, a script, SVG or a program.
-     */
-    public static function checkUpload(string $tmpPath, string $originalName): ?string
-    {
-        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        if (!in_array($extension, self::CV_EXTENSIONS, true) || !is_file($tmpPath) || Files::forbiddenContent($tmpPath, $extension)) {
-            return null;
-        }
-
-        return self::contentFits($extension, Files::mimeOf($tmpPath, $extension)) ? $extension : null;
-    }
-
-    /** Does a detected content type fit the extension (CONTENT_TYPES)? Pure. */
-    public static function contentFits(string $extension, string $type): bool
-    {
-        return in_array(strtolower($type), self::CONTENT_TYPES[$extension] ?? [], true);
     }
 
     /**
@@ -365,266 +312,6 @@ final class Applications
             . "\n\n—\n" . t('Open it in the administration (Applications): %s', $url);
 
         return [$subject, $text];
-    }
-
-    /* ---------- replies and templates (3.34 B) ---------- */
-
-    /**
-     * The reply templates (owner request B: a "received" confirmation, an invitation and a rejection), English source texts
-     * of the visitor dictionaries – each language of the site has them in its own words (system/jazyky/<code>.php). The
-     * administrator may rewrite them per language (application_templates, the Settings tab); a language without its own text
-     * uses these. Placeholders: {{name}}, {{position}}, {{company}}.
-     */
-    public const array TEMPLATES = [
-        'received' => ['We have received your application', "Hello {{name}},\n\nthank you for your application for {{position}}. We have received it and will get back to you as soon as we have looked at it.\n\nKind regards\n{{company}}"],
-        'interview' => ['Invitation to an interview – {{position}}', "Hello {{name}},\n\nthank you for your application for {{position}}. We would like to invite you to an interview. Please reply to this e-mail with a few times that suit you.\n\nKind regards\n{{company}}"],
-        'rejection' => ['Your application – {{position}}', "Hello {{name}},\n\nthank you for your interest and for your application for {{position}}. After careful consideration we have decided not to continue with your application this time. We wish you every success.\n\nKind regards\n{{company}}"],
-    ];
-
-    /** template key => its label in the administration. */
-    public const array TEMPLATE_LABELS = ['received' => 'Application received', 'interview' => 'Invitation to an interview', 'rejection' => 'Rejection'];
-
-    /** The longest template text and subject an administrator may store. */
-    public const int TEMPLATE_MAX = 5000;
-
-    /**
-     * The stored templates (application_templates): language code => template key => {subject, text}; anything that is not
-     * a known language code, key or a pair of strings is dropped. Pure.
-     *
-     * @return array<string, array<string, array{subject: string, text: string}>>
-     */
-    public static function storedTemplates(string $json): array
-    {
-        $list = json_decode($json, true);
-        $out = [];
-        foreach (is_array($list) ? $list : [] as $language => $templates) {
-            if (!is_string($language) || preg_match('/^' . Language::TAG . '$/D', $language) !== 1 || !is_array($templates)) {
-                continue;
-            }
-            foreach (self::TEMPLATES as $key => $_) {
-                $t = $templates[$key] ?? null;
-                if (is_array($t) && is_string($t['subject'] ?? null) && is_string($t['text'] ?? null) && trim($t['text']) !== '') {
-                    $out[$language][$key] = ['subject' => mb_substr(trim($t['subject']), 0, EnquiryReply::MAX_SUBJECT), 'text' => mb_substr(str_replace("\r\n", "\n", $t['text']), 0, self::TEMPLATE_MAX)];
-                }
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * One template in a language (a code of the site's languages): the administrator's own text, otherwise the built-in one
-     * in that language. Placeholders stay unfilled (fill()).
-     *
-     * @return array{subject: string, text: string, own: bool}
-     */
-    public static function template(Settings $s, string $key, string $language): array
-    {
-        $own = self::storedTemplates($s->get('application_templates'))[$language][$key] ?? null;
-        if ($own !== null) {
-            return $own + ['own' => true];
-        }
-        [$subject, $text] = self::TEMPLATES[$key] ?? self::TEMPLATES['received'];
-
-        return Language::runWith($language, fn (): array => ['subject' => t($subject), 'text' => t($text), 'own' => false]);
-    }
-
-    /**
-     * A template with its placeholders filled: {{name}} (an empty name takes its comma or space with it – "Hello," not
-     * "Hello ,"), {{position}} and {{company}}. Pure.
-     *
-     * @param array{name: string, position: string, company: string} $vars
-     */
-    public static function fill(string $text, array $vars): string
-    {
-        if (trim($vars['name']) === '') {
-            $text = str_replace([', {{name}}', ' {{name}}', '{{name}}'], '', $text);
-        }
-
-        return str_replace(['{{name}}', '{{position}}', '{{company}}'], [trim($vars['name']), $vars['position'], $vars['company']], $text);
-    }
-
-    /** The language an application was sent in (its site version), as a code: '' = the default language of the site. */
-    public static function languageOf(Settings $s, array $application): string
-    {
-        $language = (string) ($application['language'] ?? '');
-
-        return $language !== '' && preg_match('/^' . Language::TAG . '$/D', $language) === 1 ? $language : Language::defaults($s);
-    }
-
-    /**
-     * A template ready for one application: in its language, with its name, position (or "a position with us") and the
-     * company (Business details, else the site name).
-     *
-     * $automatic (3.34 review M4): the text goes out without a person reading it first (the "received" confirmation) – the
-     * name only when it passes safeName(), otherwise none; the position is always the job's own title from the server.
-     *
-     * @param array<string, mixed> $application a row (name, job_title, language)
-     * @return array{subject: string, text: string}
-     */
-    public static function compose(Settings $s, array $application, string $key, bool $automatic = false): array
-    {
-        $language = self::languageOf($s, $application);
-        $template = self::template($s, $key, $language);
-        $vars = ['name' => $automatic ? self::safeName((string) ($application['name'] ?? '')) : (string) ($application['name'] ?? ''),
-            'position' => (string) ($application['job_title'] ?? '') !== '' ? (string) $application['job_title'] : Language::runWith($language, fn (): string => t('a position with us')),
-            'company' => $s->get('company_name') !== '' ? $s->get('company_name') : $s->get('site_name')];
-
-        return ['subject' => self::fill($template['subject'], $vars), 'text' => self::fill($template['text'], $vars)];
-    }
-
-    /** The longest name an automatic e-mail carries (safeName). */
-    public const int SAFE_NAME_MAX = 60;
-
-    /**
-     * A name an automatic e-mail may carry (3.34 review M4 – the form could otherwise send any text to any address): letters,
-     * spaces, hyphens and apostrophes only, at most SAFE_NAME_MAX characters; anything else gives ''. Pure.
-     */
-    public static function safeName(string $name): string
-    {
-        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
-
-        return $name !== '' && mb_strlen($name) <= self::SAFE_NAME_MAX && preg_match("/^\\p{L}[\\p{L}\\p{M} '’-]*$/uD", $name) === 1 ? $name : '';
-    }
-
-    /**
-     * The "received" confirmation to the applicant (3.34 B) – only when the form sends no confirmation of its own (its
-     * property potvrzeni, sent by Front\Forms) and the address is valid. The mail log keeps "Application received: <site>",
-     * never a name or the position (the rule of 3.32's form notifications). Never fails the submission. 3.34 review M4: it
-     * carries no text the visitor typed – the name only when safeName() lets it through, the position is the job's title.
-     *
-     * @param array<string, mixed> $content the Form element's content
-     */
-    public static function confirmReceipt(App $app, array $content, int $id, string $email): bool
-    {
-        $to = Mail::addresses($email);
-        if (!empty($content['potvrzeni']) || count($to) !== 1) {
-            return false;
-        }
-        $s = $app->settings();
-        $row = $app->db()->one('SELECT name, job_title, language FROM {applications} WHERE id = ?', [$id]);
-        if ($row === null) {
-            return false;
-        }
-        $mail = self::compose($s, $row, 'received', true); // M4: no visitor text but a plain name
-        $from = $s->get('site_email');
-
-        return Mail::send($s, $to[0], $mail['subject'], $mail['text'], '', Mail::addresses($from) !== [] ? ['Reply-To' => Mail::addresses($from)[0]] : [], true,
-            Language::runWith(Language::defaults($s), fn (): string => t('Application received: %s', $s->get('site_name')), 'admin-')); // the log is read in the administration
-    }
-
-    /**
-     * Sends a reply to the applicant's own address as the signed-in user (an administration user with the section, or the
-     * user of an MCP connection) – the machinery of enquiry replies (Core\EnquiryReply): SMTP only, From = the site, Reply-To =
-     * the user, their e-mail signature below the text, the reply kept on the application (replies). $setStatus moves the
-     * application with it (rejected with $reason); without one a new application becomes reviewed. Nobody responsible yet =
-     * the person who answered, when they may be. The mail log and the events never name the applicant: the log subject is
-     * "Reply to application #N: <site>". Throws \DomainException with a message for the person when it cannot be sent.
-     *
-     * @param 'admin'|'mcp' $via
-     * @return array{status: 'sent'|'queued', error: string, to: string, status_set: ?string}
-     */
-    public static function reply(App $app, int $id, string $subject, string $text, ?string $setStatus, string $reason, string $via = 'admin'): array
-    {
-        $db = $app->db();
-        $s = $app->settings();
-        $row = $db->one('SELECT id, email, name, job_title, language, status, assignee_id, replies FROM {applications} WHERE id = ?', [$id]) ?? throw new \DomainException('The application does not exist.');
-        if ($setStatus !== null && $setStatus !== '' && !in_array($setStatus, self::STATUSES, true)) {
-            throw new \DomainException('Unknown status.');
-        }
-        $to = Mail::addresses((string) $row['email']);
-        if (count($to) !== 1) {
-            throw new \DomainException('This application has no e-mail address to reply to – call the applicant, and note it in the internal note.');
-        }
-        $blocked = EnquiryReply::unavailable($s);
-        if ($blocked !== null) {
-            throw new \DomainException($blocked);
-        }
-        $text = trim(mb_substr(str_replace("\r\n", "\n", $text), 0, EnquiryReply::MAX_TEXT));
-        if (mb_strlen($text) < 2) {
-            throw new \DomainException('Write the reply first.');
-        }
-        $subject = trim(mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $subject), 0, EnquiryReply::MAX_SUBJECT));
-        $subject = $subject !== '' ? $subject : self::compose($s, $row, 'received')['subject'];
-
-        $user = $app->auth()->user() ?? [];
-        $name = trim((string) ($user['jmeno'] ?? '')) !== '' ? trim((string) $user['jmeno']) : (string) ($user['user'] ?? 'admin');
-        $replyTo = Mail::addresses((string) ($user['email'] ?? ''));
-        $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
-        $signature = EnquiryReply::signature($app, $user);
-        $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '');
-        $html = $signature !== null ? EnquiryReply::html($text, $signature['html']) : '';
-        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Reply to application #%d: %s', $id, $s->get('site_name')));
-        $error = $ok ? '' : Mail::$error;
-        $now = Clock::now();
-        $entry = ['at' => $now, 'by' => mb_substr($name, 0, 100), 'by_id' => (int) ($user['idu'] ?? 0), 'to' => $to[0], 'reply_to' => $headers['Reply-To'] ?? '',
-            'subject' => $subject, 'text' => $text, 'mail' => (int) (Mail::$lastId ?? 0), 'status' => $ok ? 'sent' : 'queued', 'error' => mb_substr($error, 0, 255), 'via' => $via];
-        $replies = array_slice([...EnquiryReply::decode($row['replies']), $entry], -EnquiryReply::KEEP);
-        $changes = ['replies' => (string) json_encode($replies, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), 'last_activity_at' => $now];
-        $me = (int) ($user['idu'] ?? 0);
-        if ($row['assignee_id'] === null && $me > 0 && Assignment::allowed($db, 'application', $me)) {
-            $changes['assignee_id'] = $me; // who answered handles it, unless someone already does
-        }
-        $db->update('applications', $changes, ['id' => $id]);
-        $target = $setStatus !== null && $setStatus !== '' ? $setStatus : ($row['status'] === 'new' ? 'reviewed' : null);
-        $statusSet = $target !== null && self::setStatus($app, $id, $target, $reason, $me) ? $target : null;
-        ChangeLog::write($app, self::SECTION, 'reply', '#' . $id . ($ok ? '' : ' (queued)'));
-        // the application and who sent it – never the address, the name or the text
-        Events::record($db, 'application.replied', $ok ? 'info' : 'warning', mb_substr(t('%s replied to application #%d.', $name, $id), 0, 255), ['application' => $id, 'via' => $via]);
-
-        return ['status' => $ok ? 'sent' : 'queued', 'error' => $error, 'to' => $to[0], 'status_set' => $statusSet];
-    }
-
-    /** Applications one bulk rejection answers at most (rejectWithTemplate). */
-    public const int BULK_MAX = 100;
-
-    /**
-     * Rejects applications at once with the rejection template (3.40, design B6 "bulk: reject with the rejection template"):
-     * each one gets the template in its own language, filled with its name and position, sent by reply() – the signed-in
-     * user's signature, the reply and the status change on its own history. An application already rejected or hired is
-     * left alone and counted as skipped (no second rejection e-mail, never a rejection of a new colleague – 3.40 review M2);
-     * one without an e-mail address is only rejected. Throws \DomainException before anything
-     * changes when the site cannot send replies (no SMTP, no sender) or nothing is selected.
-     *
-     * @param list<int> $ids
-     * @return array{sent: int, queued: int, no_email: int, skipped: int}
-     */
-    public static function rejectWithTemplate(App $app, array $ids, string $reason, string $via = 'admin'): array
-    {
-        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0))), 0, self::BULK_MAX);
-        if ($ids === []) {
-            throw new \DomainException('Select at least one application.');
-        }
-        $s = $app->settings();
-        $blocked = EnquiryReply::unavailable($s);
-        if ($blocked !== null) {
-            throw new \DomainException($blocked);
-        }
-        $reason = isset(self::REJECT_REASONS[$reason]) ? $reason : 'other';
-        $out = ['sent' => 0, 'queued' => 0, 'no_email' => 0, 'skipped' => 0];
-        $me = $app->auth()->id();
-        foreach ($app->db()->all('SELECT id, name, email, job_title, language, status FROM {applications} WHERE id IN (' . implode(',', $ids) . ') ORDER BY id') as $row) {
-            $id = (int) $row['id'];
-            if (in_array($row['status'], self::DECIDED, true)) {
-                $out['skipped']++; // 3.40 review M2: a hired applicant is never rejected nor e-mailed by a bulk rejection
-                continue;
-            }
-            if (count(Mail::addresses((string) $row['email'])) !== 1) {
-                self::setStatus($app, $id, 'rejected', $reason, $me);
-                $out['no_email']++;
-                continue;
-            }
-            $mail = self::compose($s, $row, 'rejection', true); // nobody reads each text: the name only when it is a plain name (M4)
-            try {
-                $result = self::reply($app, $id, $mail['subject'], $mail['text'], 'rejected', $reason, $via);
-            } catch (\DomainException) {
-                $out['skipped']++; // deleted meanwhile
-                continue;
-            }
-            $out[$result['status'] === 'sent' ? 'sent' : 'queued']++;
-        }
-
-        return $out;
     }
 
     /* ---------- reading ---------- */
@@ -880,32 +567,6 @@ final class Applications
         }
 
         return $out;
-    }
-
-    /**
-     * While migration 0120 still moves job enquiries (3.34 review M3 – a large site moves over several requests): the SQL
-     * condition on ka_poptavky that leaves out the enquiries still to move (job sources, idp up to applications_move_until),
-     * so nobody without Applications reads them in Enquiries meanwhile; null when nothing is moving. The sources are numbers
-     * read from the database, written into the SQL as literals. $table: the name or alias the query gives ka_poptavky. Read
-     * through Admin\Modules\Enquiries::visible() (3.34 second review N6).
-     */
-    public static function movingCondition(Db $db, Settings $s, string $table = '{poptavky}'): ?string
-    {
-        $until = $s->get('applications_move_until');
-        if (!ctype_digit($until) || (int) $until <= 0) {
-            return null;
-        }
-        $sources = Jobs::sources($db);
-
-        return $sources === [] ? null : 'NOT (' . $table . ".zdroj IN ('" . implode("','", $sources) . "') AND " . $table . '.idp <= ' . (int) $until . ')';
-    }
-
-    /** How many job enquiries migration 0120 has still to move (the notice on the list); 0 when nothing is moving. */
-    public static function movingLeft(Db $db, Settings $s): int
-    {
-        $condition = self::movingCondition($db, $s);
-
-        return $condition === null ? 0 : (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE NOT (' . $condition . ')');
     }
 
     /** New applications nobody has looked at (the menu badge). */
@@ -1207,931 +868,6 @@ final class Applications
         return $count;
     }
 
-    /**
-     * The files of an application row on disk (N7): what attachment_paths names, and what the list names when it opens;
-     * null when the list cannot be opened and the row has no attachment_paths – its files cannot be located.
-     *
-     * @param array<string, mixed> $row attachments, attachment_paths
-     * @return list<string>|null
-     */
-    private static function rowFiles(Settings $s, array $row): ?array
-    {
-        $locked = self::attachmentsLocked($s, $row['attachments'] ?? null);
-        if ($locked && ($row['attachment_paths'] ?? null) === null) {
-            return null;
-        }
-
-        return array_values(array_unique([...self::pathFiles($row['attachment_paths'] ?? null), ...($locked ? [] : self::pathFiles(self::paths(self::attachments($s, $row['attachments'] ?? null))))]));
-    }
-
-    /* ---------- files ---------- */
-
-    /** The first bytes of a sealed CV (3.34 second review N1/N9): the length of the wrapped key, the key wrapped with the Vault key, then the file. */
-    public const string FILE_MAGIC = SealedFiles::MAGIC;
-
-    /** Days an encrypted file no application lists stays before the daily clean-up removes it (an interrupted run, a restored backup). */
-    public const int ORPHAN_DAYS = 7;
-
-    /**
-     * The suffix of an encrypted file the sweep set aside (3.34 third review F1): an old file no row lists is renamed to it
-     * and its time set to now – it goes only ORPHAN_DAYS after that, and comes back the moment a row lists it again
-     * (sweepOrphans()) or something opens it (openSealed()). A restored backup never costs a CV its seven days.
-     */
-    public const string ORPHAN_SUFFIX = '.orphan';
-
-    /**
-     * Encrypts a file into FOLDER under a new random key and returns where it is and the key (base64). 3.34 second review
-     * N1: the source is never removed here – the caller removes it once the row lists the sealed copy (receive(), and
-     * sealEntry() only after the copy opened with the key the row holds). $target: the place under FOLDER – sealedTarget()
-     * for a CV moved from storage/prilohy, so an interrupted run finds its copy again; a random one otherwise. Null when
-     * the source cannot be read or the copy cannot be written (writeSealed()).
-     *
-     * @return array{path: string, key: string}|null
-     */
-    public static function sealFile(Settings $s, string $source, ?string $target = null): ?array
-    {
-        $plain = @file_get_contents($source);
-        if (!is_string($plain)) {
-            return null;
-        }
-        $path = $target ?? date('Y/m') . '/' . bin2hex(random_bytes(16)) . '.bin';
-        $key = self::writeSealed($s, $plain, $path);
-        sodium_memzero($plain);
-
-        return $key === null ? null : ['path' => $path, 'key' => $key];
-    }
-
-    /**
-     * Writes a sealed file at $path under FOLDER (3.34 second review N1/N9): FILE_MAGIC, the length of the wrapped key (2
-     * bytes), the per-file key wrapped with the Vault key of the purpose (wrapKey()), the nonce and the secretbox – written
-     * next to its place and renamed, so the name never holds half a file. The wrapped key makes a sealed file openable with
-     * the Vault key alone when its row lost the key (a restored backup older than the sealing, an interrupted run). Returns
-     * the per-file key (base64), null when it cannot be written.
-     */
-    public static function writeSealed(Settings $s, string $plain, string $path): ?string
-    {
-        if (preg_match('#^\d{4}/\d{2}/[a-f0-9]{32}\.bin$#D', $path) !== 1) {
-            return null;
-        }
-        $key = SealedFiles::write($s, self::SECTION, $plain, self::FOLDER . '/' . $path); // 3.46: the format and crypto moved to Core\SealedFiles unchanged
-        if ($key === null) {
-            return null;
-        }
-        self::protectFolder();
-        self::markFilesSince($s);
-
-        return $key;
-    }
-
-    /** Since when CVs of job applications are kept encrypted here (unix time; the first sealed file or move – 3.34 second review N9). */
-    public const string FILES_SINCE = 'applications_files_since';
-
-    /**
-     * The first CV sealed or the first application moved from Enquiries (N9): from then on a database backup older than
-     * that misses what only the files on disk hold – the restore screen says so.
-     */
-    public static function markFilesSince(Settings $s): void
-    {
-        try {
-            if ($s->get(self::FILES_SINCE) === '') {
-                $s->set(self::FILES_SINCE, (string) time());
-            }
-        } catch (\PDOException $e) {
-            ErrorLog::write(ErrorLog::exception($e)); // logged, but a marker never fails the sealing of a CV
-        }
-    }
-
-    /**
-     * Restoring a backup made at $backupTime loses what only the disk holds (N9): the backup is older than the first sealed
-     * CV or move. Pure.
-     */
-    public static function backupMissesFiles(int $backupTime, string $filesSince): bool
-    {
-        return ctype_digit($filesSince) && (int) $filesSince > 0 && $backupTime < (int) $filesSince;
-    }
-
-    /**
-     * The per-file key of a sealed file from its header (N9): unwrapped with the Vault key, the key in the database or the
-     * previous signing key; null when none opens it or the file has no header (Core\SealedFiles::headerKey).
-     */
-    public static function headerKey(Settings $s, string $file): ?string
-    {
-        return SealedFiles::headerKey($s, self::SECTION, $file);
-    }
-
-    /**
-     * The content of a sealed file: with the key the row holds (base64), otherwise with the key of its header (headerKey());
-     * null when it is gone or neither opens it. A file without the header (sealed before it) opens with the row's key only.
-     */
-    public static function openSealed(Settings $s, string $file, ?string $key): ?string
-    {
-        if (!is_file($file) && is_file($file . self::ORPHAN_SUFFIX)) {
-            @rename($file . self::ORPHAN_SUFFIX, $file); // F1: set aside by the sweep, wanted again (a newer backup restored)
-        }
-
-        return SealedFiles::open($s, self::SECTION, $file, $key);
-    }
-
-    /**
-     * Where the sealed copy of a CV moved from storage/prilohy goes (N1/N9): the same month folder and a name derived from
-     * its old path – a run that stopped after writing it, and a database restored from a backup older than the sealing,
-     * find the copy again. Pure.
-     */
-    public static function sealedTarget(string $oldPath): string
-    {
-        return substr($oldPath, 0, 7) . '/' . substr(hash('sha256', 'kaleta-cv|' . $oldPath), 0, 32) . '.bin';
-    }
-
-    /** A deny-all .htaccess in the folder (storage/ has one too – a second line of defence on a misconfigured host). */
-    private static function protectFolder(): void
-    {
-        SealedFiles::protect(self::FOLDER);
-    }
-
-    /**
-     * The file of an attachment on disk, or null (the stored path is validated – nothing outside the two folders).
-     *
-     * @param array<string, mixed> $attachment a raw entry of the sealed list
-     */
-    public static function filePath(array $attachment): ?string
-    {
-        $path = (string) ($attachment['path'] ?? '');
-        if (!empty($attachment['sealed'])) {
-            return preg_match('#^\d{4}/\d{2}/[a-f0-9]{32}\.bin$#D', $path) === 1 ? self::FOLDER . '/' . $path : null;
-        }
-
-        return preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', $path) === 1 ? self::OLD_FOLDER . '/' . $path : null;
-    }
-
-    /**
-     * Where the files of an attachment list are, in plain words (3.34 second review N7 – the column attachment_paths): the
-     * sealed copies (bin) and the CVs still in storage/prilohy (old – unsealed ones, and the old place a sealed one came
-     * from). Random names only, nothing of the person: whatever happens to the sealed list (the encryption key), the files
-     * can always be found and removed. Null when there are none. Pure.
-     *
-     * @param list<array<string, mixed>> $list raw entries
-     */
-    public static function paths(array $list): ?string
-    {
-        $out = ['bin' => [], 'old' => []];
-        foreach ($list as $a) {
-            $path = (string) ($a['path'] ?? '');
-            if (!empty($a['sealed'])) {
-                $out['bin'][] = $path;
-                if (is_string($a['from'] ?? null) && $a['from'] !== '') {
-                    $out['old'][] = $a['from'];
-                }
-            } elseif ($path !== '') {
-                $out['old'][] = $path;
-            }
-        }
-
-        return $out['bin'] === [] && $out['old'] === [] ? null : (string) json_encode($out, JSON_UNESCAPED_SLASHES);
-    }
-
-    /**
-     * The files on disk a row's attachment_paths names (validated as filePath() does): the sealed copies, the CVs in
-     * storage/prilohy and the copy an interrupted run may have written for them (sealedTarget()). Pure apart from nothing.
-     *
-     * @return list<string>
-     */
-    public static function pathFiles(mixed $paths): array
-    {
-        $list = is_string($paths) ? json_decode($paths, true) : null;
-        $files = [];
-        foreach (is_array($list) && is_array($list['bin'] ?? null) ? $list['bin'] : [] as $path) {
-            $files[] = self::filePath(['path' => (string) $path, 'sealed' => true]);
-        }
-        foreach (is_array($list) && is_array($list['old'] ?? null) ? $list['old'] : [] as $path) {
-            $files[] = self::filePath(['path' => (string) $path, 'sealed' => false]);
-            $files[] = preg_match('#^\d{4}/\d{2}/#', (string) $path) === 1 ? self::filePath(['path' => self::sealedTarget((string) $path), 'sealed' => true]) : null;
-        }
-
-        return array_values(array_unique(array_filter($files, 'is_string')));
-    }
-
-    /**
-     * The content of the attachment number $index of an application, decrypted in memory, with its original name; null
-     * when there is none or its file is gone or cannot be opened. Only for the admin download of a person with the
-     * section – never for MCP or a public address. N9: a sealed file opens with the key of its header when the row's key
-     * does not open it; a CV still waiting in storage/prilohy whose plain file is gone opens from the copy an earlier run
-     * sealed (sealedTarget()).
-     *
-     * @return array{name: string, content: string}|null
-     */
-    /**
-     * The name and size of one attachment, without opening it (3.46.2: the download checks the memory first); null when
-     * there is none.
-     *
-     * @return array{name: string, size: int}|null
-     */
-    public static function attachmentInfo(App $app, int $id, int $index): ?array
-    {
-        $row = $app->db()->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
-        $a = $row !== null ? (self::attachments($app->settings(), $row['attachments'] ?? null)[$index] ?? null) : null;
-
-        return $a === null ? null : ['name' => (string) ($a['name'] ?? ''), 'size' => (int) ($a['size'] ?? 0)];
-    }
-
-    public static function attachment(App $app, int $id, int $index): ?array
-    {
-        $s = $app->settings();
-        $row = $app->db()->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
-        $a = $row !== null ? (self::attachments($s, $row['attachments'] ?? null)[$index] ?? null) : null;
-        $path = $a !== null ? self::filePath($a) : null;
-        if ($a === null || $path === null) {
-            return null;
-        }
-        if (empty($a['sealed'])) {
-            $raw = is_file($path) ? @file_get_contents($path) : false;
-            $raw = is_string($raw) ? $raw : self::openSealed($s, self::FOLDER . '/' . self::sealedTarget((string) $a['path']), null);
-
-            return $raw === null ? null : ['name' => (string) $a['name'], 'content' => $raw];
-        }
-        $plain = self::openSealed($s, $path, is_string($a['key'] ?? null) ? $a['key'] : null);
-
-        return $plain === null ? null : ['name' => (string) $a['name'], 'content' => $plain];
-    }
-
-    /**
-     * The raw attachment list of a row (with paths and keys – stays inside this class and the download): the sealed JSON
-     * opened with the Vault key of the purpose; a plain JSON list is read too (migration 0120 on a server where sealing
-     * was not possible). Unreadable = no attachments.
-     *
-     * @return list<array<string, mixed>>
-     */
-    public static function attachments(Settings $s, mixed $stored): array
-    {
-        if (!is_string($stored) || $stored === '') {
-            return [];
-        }
-        $json = str_starts_with($stored, '[') ? $stored : self::openList($s, $stored);
-        $list = $json !== null ? json_decode($json, true) : null;
-
-        return is_array($list) ? array_values(array_filter($list, 'is_array')) : [];
-    }
-
-    /** The JSON of a sealed attachment list, null when it cannot be opened (a DB_SEALED one with the key kept in the database). */
-    private static function openList(Settings $s, string $stored): ?string
-    {
-        if (str_starts_with($stored, self::DB_SEALED)) {
-            $sealed = substr($stored, strlen(self::DB_SEALED));
-            [$previous] = Vault::previousKey($s);
-
-            return Vault::open(Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION), $sealed) ?? ($previous !== null ? Vault::open(Vault::derive($previous, self::SECTION), $sealed) : null);
-        }
-
-        return Vault::openFor($s, self::SECTION, $stored);
-    }
-
-    /**
-     * An attachment list is stored but cannot be opened – the encryption key (Vault) is not the one it was sealed with
-     * (3.34 review M2, M5): never "no attachments", and nothing may move or delete as if there were none.
-     */
-    public static function attachmentsLocked(Settings $s, mixed $stored): bool
-    {
-        return is_string($stored) && $stored !== '' && !str_starts_with($stored, '[') && self::openList($s, $stored) === null;
-    }
-
-    /**
-     * The attachment list as stored: sealed JSON, null when there is none.
-     *
-     * @param list<array<string, mixed>> $list
-     */
-    public static function encodeAttachments(Settings $s, array $list): ?string
-    {
-        if ($list === []) {
-            return null;
-        }
-        $json = (string) json_encode($list, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if (Vault::state($s) === 'missing') {
-            // M5: the data belongs to a key config.php does not have – a list sealed now would be lost once the key is put back.
-            // It is sealed with the key kept in the database instead, marked (DB_SEALED), and sealPending() reseals it once the
-            // key is back; the event says so (receive()).
-            return self::DB_SEALED . Vault::seal(Vault::derive((new Antispam($s->db(), $s))->key(), self::SECTION), $json);
-        }
-
-        return Vault::seal(Vault::key($s, self::SECTION), $json);
-    }
-
-    /** The mark of a list sealed with the database key while the Vault key was missing (encodeAttachments). */
-    public const string DB_SEALED = 'db:';
-
-    /**
-     * Applications whose attachment list cannot be opened (3.34 review M5 – System status): how many; 0 before 0119.
-     */
-    public static function lockedCount(App $app): int
-    {
-        $s = $app->settings();
-        $count = 0;
-        try {
-            foreach ($app->db()->all('SELECT attachments FROM {applications} WHERE attachments IS NOT NULL') as $row) {
-                $count += self::attachmentsLocked($s, $row['attachments']) ? 1 : 0;
-            }
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0;
-        }
-
-        return $count;
-    }
-
-    /**
-     * The database lock the file work of applications takes (3.34 second review N4): sealPending() and a move of
-     * applications either way never run at the same time. $wait seconds; false when another holds it.
-     */
-    public static function lockFiles(Db $db, int $wait): bool
-    {
-        return (int) $db->value('SELECT GET_LOCK(' . self::LOCK_NAME . ', ' . max(0, $wait) . ')', [$db->prefix]) === 1;
-    }
-
-    public static function unlockFiles(Db $db): void
-    {
-        $db->run('SELECT RELEASE_LOCK(' . self::LOCK_NAME . ')', [$db->prefix]);
-    }
-
-    /**
-     * The name of that lock (3.34 third review F8): MySQL locks are server-wide, so it carries the database and the table
-     * prefix – two sites on one server with the same prefix never wait for each other. Hashed: at most 64 characters.
-     */
-    private const string LOCK_NAME = "CONCAT('kaleta_cv_', LEFT(SHA2(CONCAT(IFNULL(DATABASE(), ''), '|', ?), 256), 40))"; // SHA2: newer MySQL has no SHA1
-
-    /**
-     * Seals the files of applications moved from enquiries (migration 0120, the move by form: still in storage/prilohy,
-     * sealed false) – at most $limit files per run, from the daily clean-up. 3.34 review M1: the rows are walked with an
-     * id cursor (the setting applications_seal_after), so a row whose file is gone or cannot be sealed does not hold the
-     * others back; at the end the cursor starts over. A file that is gone stays listed (the download says it no longer
-     * exists). 3.34 second review N1: every file goes through sealEntry() – crash-safe, an interrupted run is finished by
-     * the next one – and the run ends with sweepOrphans() (third review F2: once a day); N4: under lockFiles(), never while a move runs. Returns how many
-     * files were sealed.
-     */
-    public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
-    {
-        $db = $app->db();
-        try {
-            if (!self::lockFiles($db, 0)) {
-                return 0; // N4: a move runs – the next clean-up seals
-            }
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0;
-        }
-        try {
-            return self::sealPendingLocked($app, $limit);
-        } finally {
-            self::unlockFiles($db);
-        }
-    }
-
-    /** sealPending() under the lock. */
-    private static function sealPendingLocked(App $app, int $limit): int
-    {
-        $db = $app->db();
-        $s = $app->settings();
-        $sealed = 0;
-        $after = $s->int('applications_seal_after');
-        while (true) {
-            try {
-                $rows = $db->all('SELECT id, attachments FROM {applications} WHERE source_enquiry_id IS NOT NULL AND attachments IS NOT NULL AND id > ? ORDER BY id LIMIT 200', [$after]);
-            } catch (\PDOException $e) {
-                Db::rethrowUnlessMissing($e);
-                return 0;
-            }
-            if ($rows === []) {
-                $s->set('applications_seal_after', '0'); // the end: the next run starts over (rows moved since)
-                break;
-            }
-            foreach ($rows as $row) {
-                $list = self::attachments($s, $row['attachments']);
-                // unsealed ones, and sealed ones whose plain file an interrupted run left in storage/prilohy
-                $waiting = array_keys(array_filter($list, fn (array $a): bool => empty($a['sealed'])
-                    || (is_string($a['from'] ?? null) && $a['from'] !== '' && is_file((string) self::filePath(['path' => $a['from'], 'sealed' => false])))));
-                if ($sealed > 0 && count(array_filter($waiting, fn (int $i): bool => empty($list[$i]['sealed']))) > $limit - $sealed) {
-                    $s->set('applications_seal_after', (string) $after); // this row whole next time
-                    break 2;
-                }
-                foreach ($waiting as $i) {
-                    $sealed += in_array(self::sealEntry($app, (int) $row['id'], $i), ['sealed', 'recovered'], true) ? 1 : 0;
-                }
-                $after = (int) $row['id'];
-            }
-            $s->set('applications_seal_after', (string) $after);
-        }
-        if ($s->get('applications_swept_on') !== Clock::today()) { // 3.34 third review F2: the sweep reads every row – once a day, not on every cron run
-            $s->set('applications_swept_on', Clock::today());
-            self::sweepOrphans($app);
-        }
-
-        return $sealed;
-    }
-
-    /**
-     * One file of an application sealed, crash-safe (3.34 second review N1). The steps, each one safe to be the last a
-     * killed request ran:
-     *  1. the sealed copy is written at sealedTarget() of its old path (written next to it and renamed) – a copy an earlier
-     *     run left there is taken when it opens to the same content;
-     *  2. the row's list names the copy with its key and the old path (from) – only when the list is still the one this run
-     *     read (N4: a move back or a delete meanwhile wins, a copy written for nothing goes);
-     *  3. the copy is opened with the key the row now holds and compared with the original;
-     *  4. only then the plain file in storage/prilohy goes.
-     * A plain file that is gone is taken back from a copy an earlier run sealed (a database restored from a backup older
-     * than the sealing – the key from the copy's header); an entry sealed already whose plain file is still there (a run
-     * killed after step 2 or 3) is checked and the plain file removed, or – when the copy does not open to it – listed
-     * plain again. $steps (tests): the run stops after this step, as a killed request would.
-     *
-     * @return 'sealed'|'recovered'|'cleaned'|'reverted'|'gone'|'failed'|'changed'|'skip'|'stopped'
-     */
-    public static function sealEntry(App $app, int $id, int $index, int $steps = 4): string
-    {
-        $db = $app->db();
-        $s = $app->settings();
-        $row = $db->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
-        if ($row === null || self::attachmentsLocked($s, $row['attachments'])) {
-            return 'skip';
-        }
-        $list = self::attachments($s, $row['attachments']);
-        $a = $list[$index] ?? null;
-        if ($a === null) {
-            return 'skip';
-        }
-        if (!empty($a['sealed'])) {
-            return self::cleanLeftover($app, $id, $index, $list, (string) $row['attachments']);
-        }
-        $oldFile = self::filePath($a);
-        if ($oldFile === null) {
-            return 'skip';
-        }
-        $target = self::sealedTarget((string) $a['path']);
-        $targetFile = self::FOLDER . '/' . $target;
-        $plain = is_file($oldFile) ? @file_get_contents($oldFile) : false;
-        $wrote = false;
-        if (!is_string($plain)) {
-            // gone from storage/prilohy: a copy sealed by an earlier run (a restored backup) is taken back
-            $key = is_file($targetFile) ? self::headerKey($s, $targetFile) : null;
-            if ($key === null || self::openSealed($s, $targetFile, $key) === null) {
-                return 'gone';
-            }
-            $plain = null;
-        } else {
-            $key = is_file($targetFile) ? self::headerKey($s, $targetFile) : null; // a copy an interrupted run left
-            $existing = $key !== null ? self::openSealed($s, $targetFile, $key) : null;
-            if ($existing === null || !hash_equals(hash('sha256', $plain), hash('sha256', $existing))) {
-                $key = self::writeSealed($s, $plain, $target);
-                $wrote = true;
-                if ($key === null) {
-                    return 'failed';
-                }
-            }
-        }
-        if ($steps < 2) {
-            return 'stopped';
-        }
-        $list[$index] = ['path' => $target, 'key' => $key, 'sealed' => true, 'from' => (string) $a['path']] + $a;
-        if ($db->run('UPDATE {applications} SET attachments = ?, attachment_paths = ? WHERE id = ? AND attachments = ?',
-            [self::encodeAttachments($s, $list), self::paths($list), $id, (string) $row['attachments']])->rowCount() !== 1) {
-            if ($wrote && $db->value('SELECT 1 FROM {applications} WHERE id = ?', [$id]) === null) {
-                @unlink($targetFile); // the application went meanwhile – nobody lists the copy
-            }
-
-            return 'changed';
-        }
-        if ($steps < 3) {
-            return 'stopped';
-        }
-        $now = $db->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
-        $stored = $now !== null ? (self::attachments($s, $now['attachments'])[$index] ?? null) : null;
-        $check = $stored !== null && ($stored['path'] ?? '') === $target ? self::openSealed($s, $targetFile, is_string($stored['key'] ?? null) ? $stored['key'] : null) : null;
-        if ($check === null || ($plain !== null && !hash_equals(hash('sha256', $plain), hash('sha256', $check)))) {
-            return 'failed'; // the plain file stays; the next run lists it plain again (cleanLeftover)
-        }
-        if ($steps < 4 || $plain === null) {
-            return $plain === null ? 'recovered' : 'stopped';
-        }
-        @unlink($oldFile);
-
-        return 'sealed';
-    }
-
-    /**
-     * A sealed entry whose old plain file is still in storage/prilohy (a run killed between steps 2 and 4 of sealEntry()):
-     * the plain file goes when the sealed copy opens to the same content; otherwise the entry is listed plain again, so
-     * nothing depends on a copy that does not open.
-     *
-     * @param list<array<string, mixed>> $list
-     * @return 'cleaned'|'reverted'|'changed'|'skip'
-     */
-    private static function cleanLeftover(App $app, int $id, int $index, array $list, string $stored): string
-    {
-        $s = $app->settings();
-        $a = $list[$index];
-        $from = is_string($a['from'] ?? null) ? $a['from'] : '';
-        $oldFile = $from !== '' ? self::filePath(['path' => $from, 'sealed' => false]) : null;
-        $plain = $oldFile !== null && is_file($oldFile) ? @file_get_contents($oldFile) : false;
-        if (!is_string($plain)) {
-            return 'skip';
-        }
-        $file = self::filePath($a);
-        $sealed = $file !== null ? self::openSealed($s, $file, is_string($a['key'] ?? null) ? $a['key'] : null) : null;
-        if ($sealed !== null && hash_equals(hash('sha256', $plain), hash('sha256', $sealed))) {
-            @unlink((string) $oldFile);
-
-            return 'cleaned';
-        }
-        $list[$index] = ['field' => $a['field'] ?? -1, 'name' => $a['name'] ?? '', 'size' => $a['size'] ?? 0, 'ext' => $a['ext'] ?? '', 'path' => $from, 'sealed' => false];
-
-        return $app->db()->run('UPDATE {applications} SET attachments = ?, attachment_paths = ? WHERE id = ? AND attachments = ?',
-            [self::encodeAttachments($s, $list), self::paths($list), $id, $stored])->rowCount() === 1 ? 'reverted' : 'changed';
-    }
-
-    /**
-     * Encrypted files no application lists (3.34 second review N1 – a run killed after writing a copy, a move back killed
-     * before it removed the sealed copy, an upload whose row was never stored, a database restored from an older backup),
-     * and half-written ones (.part). 3.34 third review F1: age alone never removes a CV – an unlisted .bin older than
-     * ORPHAN_DAYS is set aside (renamed to ORPHAN_SUFFIX, its time set to now) and removed only once it has stayed unlisted
-     * for ORPHAN_DAYS more; a set-aside file a row lists again is put back. A .part older than ORPHAN_DAYS goes at once.
-     * What a row lists is read from attachment_paths (always readable) – while a row without it has a list that cannot be
-     * opened (what it lists is unknown), only files whose header this site's key opens are taken. The copy sealedTarget()
-     * would give a CV still waiting in storage/prilohy – of an application or of an enquiry (N9: a restored backup takes it
-     * back) – counts as listed; F2: the enquiries are read only when a file is still unlisted after the applications. Returns
-     * how many files went.
-     */
-    public static function sweepOrphans(App $app): int
-    {
-        $s = $app->settings();
-        $cutoff = time() - self::ORPHAN_DAYS * 86400;
-        $files = array_filter(glob(self::FOLDER . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [], 'is_file');
-        $aside = array_filter($files, fn (string $f): bool => str_ends_with($f, '.bin' . self::ORPHAN_SUFFIX));
-        $old = array_filter($files, fn (string $f): bool => (str_ends_with($f, '.bin') || str_ends_with($f, '.part')) && (int) @filemtime($f) < $cutoff);
-        if ($old === [] && $aside === []) {
-            return 0;
-        }
-        $listed = [];
-        $unknown = false;
-        try {
-            foreach ($app->db()->all('SELECT attachments, attachment_paths FROM {applications} WHERE attachments IS NOT NULL OR attachment_paths IS NOT NULL') as $row) {
-                if ($row['attachment_paths'] === null && self::attachmentsLocked($s, $row['attachments'])) {
-                    $unknown = true; // what it lists is unknown – only files this site's key opens can be orphans then
-                    continue;
-                }
-                $paths = $row['attachment_paths'] ?? self::paths(self::attachments($s, $row['attachments']));
-                foreach (self::pathFiles($paths) as $file) {
-                    $listed[$file] = true;
-                }
-            }
-            // F2: the enquiries are read only for a file the applications leave unlisted
-            $candidates = array_filter([...$old, ...array_map(fn (string $f): string => substr($f, 0, -strlen(self::ORPHAN_SUFFIX)), $aside)],
-                fn (string $f): bool => str_ends_with($f, '.bin') && !isset($listed[$f]));
-            // N9: an enquiry restored from a backup older than the sealing opens its CV from the copy (Enquiries::actionAttachment)
-            $after = 0;
-            while ($candidates !== [] && ($enquiries = $app->db()->all('SELECT idp, data FROM {poptavky} WHERE idp > ? ORDER BY idp LIMIT 500', [$after])) !== []) {
-                foreach ($enquiries as $e) {
-                    $after = (int) $e['idp'];
-                    foreach (json_decode((string) $e['data'], true) ?: [] as $field) {
-                        if (is_array($field) && is_string($field[2] ?? null) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', $field[2]) === 1) {
-                            $listed[self::FOLDER . '/' . self::sealedTarget($field[2])] = true;
-                        }
-                    }
-                }
-            }
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0;
-        }
-        $removed = 0;
-        foreach ($aside as $file) {
-            $original = substr($file, 0, -strlen(self::ORPHAN_SUFFIX));
-            if (isset($listed[$original])) {
-                is_file($original) ? @unlink($file) : @rename($file, $original); // listed again (a newer backup restored): back
-            } elseif (($mtime = (int) @filemtime($file)) > 0 && $mtime < $cutoff && (!$unknown || self::headerKey($s, $file) !== null)) {
-                $removed += @unlink($file) ? 1 : 0; // unlisted for ORPHAN_DAYS since it was set aside
-            }
-        }
-        foreach ($old as $file) {
-            if (str_ends_with($file, '.part')) {
-                $removed += @unlink($file) ? 1 : 0;
-            } elseif (!isset($listed[$file]) && (!$unknown || self::headerKey($s, $file) !== null) && @touch($file)) {
-                // F1: the seven days count from now, not from when the file was written. Touch first and only then set
-                // the file aside, so a set-aside file never keeps its old time (a failed touch leaves it where it is).
-                @rename($file, $file . self::ORPHAN_SUFFIX);
-            }
-        }
-
-        return $removed;
-    }
-
-    /**
-     * Lists sealed with the database key while the Vault key was missing (DB_SEALED) are sealed again with the proper key
-     * once it is back (3.34 review M5 – the daily clean-up). Returns how many.
-     */
-    public static function resealHeld(App $app): int
-    {
-        $s = $app->settings();
-        if (Vault::state($s) === 'missing') {
-            return 0;
-        }
-        $done = 0;
-        try {
-            $rows = $app->db()->all("SELECT id, attachments FROM {applications} WHERE attachments LIKE 'db:%' LIMIT 500");
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0;
-        }
-        foreach ($rows as $row) {
-            $json = self::openList($s, (string) $row['attachments']);
-            $list = $json !== null ? json_decode($json, true) : null;
-            if (is_array($list)) {
-                $app->db()->update('applications', ['attachments' => self::encodeAttachments($s, array_values(array_filter($list, 'is_array')))], ['id' => (int) $row['id']]);
-                $done++;
-            }
-        }
-
-        return $done;
-    }
-
-    /** CV lists still held under the key in the database (DB_SEALED – 3.34 second review N10: SigningKey::rotate refuses while any is left). */
-    public static function heldCount(Db $db): int
-    {
-        try {
-            return (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE attachments LIKE 'db:%'");
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0;
-        }
-    }
-
-    /**
-     * How many CVs moved from enquiries still wait in storage/prilohy to be sealed (3.34 review M1 – the settings tab says
-     * so): unsealed entries whose file is still there.
-     */
-    public static function unsealedCount(App $app): int
-    {
-        $s = $app->settings();
-        $count = 0;
-        try {
-            foreach ($app->db()->all('SELECT attachments FROM {applications} WHERE source_enquiry_id IS NOT NULL AND attachments IS NOT NULL') as $row) {
-                foreach (self::attachments($s, $row['attachments']) as $a) {
-                    $path = empty($a['sealed']) ? self::filePath($a) : null;
-                    $count += $path !== null && is_file($path) ? 1 : 0;
-                }
-            }
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0; // before migration 0119
-        }
-
-        return $count;
-    }
-
-    /* ---------- retention ---------- */
-
-    /**
-     * The marker (a setting) an administrator sets by saving Applications → Settings (3.34 review H1) – 3.34 second review
-     * N8: the highest application id confirmed then. A moved application (source_enquiry_id) above it waits for the next
-     * confirmation; a later move by anyone gates only the rows it moved.
-     */
-    public const string RETENTION_CONFIRMED = 'applications_retention_confirmed';
-
-    /** The highest application id whose retention an administrator confirmed (N8); 0 = none. */
-    public static function confirmedUpTo(Settings $s): int
-    {
-        $value = $s->get(self::RETENTION_CONFIRMED);
-
-        return ctype_digit($value) ? (int) $value : 0;
-    }
-
-    /** An administrator saved Applications → Settings: every application there now is confirmed (N8). */
-    public static function confirmRetention(App $app): void
-    {
-        $app->settings()->set(self::RETENTION_CONFIRMED, (string) (int) $app->db()->value('SELECT MAX(id) FROM {applications}'));
-    }
-
-    /**
-     * The moved applications that wait for the confirmation (above confirmedUpTo()): how many, and when the first of them
-     * moved (moved_at) – System status notes it after UNCONFIRMED_DAYS (N8). 0 and null before migration 0119.
-     *
-     * @return array{count: int, since: ?string}
-     */
-    public static function unconfirmed(App $app): array
-    {
-        try {
-            $row = $app->db()->one('SELECT COUNT(*) AS n, MIN(moved_at) AS since FROM {applications} WHERE source_enquiry_id IS NOT NULL AND id > ?', [self::confirmedUpTo($app->settings())]);
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return ['count' => 0, 'since' => null];
-        }
-
-        return ['count' => (int) ($row['n'] ?? 0), 'since' => is_string($row['since'] ?? null) ? $row['since'] : null];
-    }
-
-    /** Days moved applications may wait for the confirmation before System status notes it (N8). */
-    public const int UNCONFIRMED_DAYS = 30;
-
-    /**
-     * The retention a site starts with when its job enquiries become applications (3.34 review H1 – an update never
-     * shortens it): job_applications_months when it was set, otherwise the site's enquiries_months (0 = keep stays keep).
-     * Pure.
-     */
-    public static function startingRetention(int $jobMonths, int $enquiryMonths): int
-    {
-        return max(0, min(120, $jobMonths > 0 ? $jobMonths : $enquiryMonths));
-    }
-
-    /**
-     * Applications are moving in from Enquiries (migration 0120 – it does the same itself –, the move by form, one enquiry):
-     * a site that never stored applications_months starts at startingRetention() instead of the default; the rows just
-     * moved wait for an administrator's confirmation – N8: only they (new ids lie above the confirmed one; a confirmation
-     * that reaches them – ids used again after a restore – is lowered below the first of them).
-     *
-     * @param list<int> $movedIds
-     */
-    public static function adoptRetention(Db $db, Settings $s, array $movedIds = []): void
-    {
-        if ($db->value("SELECT 1 FROM {nastaveni} WHERE promenna = 'applications_months'") === null) {
-            $s->set('applications_months', (string) self::startingRetention($s->int('job_applications_months'), $s->int('enquiries_months')));
-        }
-        $first = $movedIds === [] ? null : min($movedIds);
-        if ($first !== null && self::confirmedUpTo($s) >= $first) {
-            $s->set(self::RETENTION_CONFIRMED, (string) max(0, $first - 1));
-        }
-    }
-
-    /**
-     * What waits for the confirmation (the notice on the settings tab and the list): how many applications moved from
-     * Enquiries the clean-up would delete today, and the day before which they had their last activity (or decision);
-     * null when the retention is off or nothing moved and unconfirmed (N8) is past it.
-     *
-     * @return array{count: int, before: string, months: int}|null
-     */
-    public static function awaitingConfirmation(App $app): ?array
-    {
-        $s = $app->settings();
-        $months = $s->int('applications_months');
-        if ($months <= 0) {
-            return null;
-        }
-        $today = Clock::today();
-        $before = (new \DateTimeImmutable($today))->modify('-' . $months . ' months')->format('Y-m-d');
-        try {
-            $rows = $app->db()->all('SELECT id, decided_at, last_activity_at, pool_until FROM {applications} WHERE source_enquiry_id IS NOT NULL AND id > ? AND COALESCE(decided_at, last_activity_at) < ?',
-                [self::confirmedUpTo($s), $before . ' 23:59:59']);
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return null; // before migration 0119
-        }
-        $count = count(self::expired($rows, $months, $today));
-
-        return $count > 0 ? ['count' => $count, 'before' => $before, 'months' => $months] : null;
-    }
-
-    /**
-     * The day an application will be deleted (Y-m-d), null when the retention is off (0 months): a decided one
-     * applications_months after its decision, an undecided one after that long without activity – and never before
-     * pool_until. Pure.
-     *
-     * @param array<string, mixed> $row decided_at, last_activity_at, pool_until
-     */
-    public static function deletionDate(array $row, int $months): ?string
-    {
-        if ($months <= 0) {
-            return null;
-        }
-        $from = is_string($row['decided_at'] ?? null) && $row['decided_at'] !== '' ? (string) $row['decided_at'] : (string) ($row['last_activity_at'] ?? '');
-        if ($from === '') {
-            return null;
-        }
-        $day = (new \DateTimeImmutable(substr($from, 0, 10)))->modify('+' . $months . ' months')->format('Y-m-d');
-        $pool = is_string($row['pool_until'] ?? null) ? substr((string) $row['pool_until'], 0, 10) : '';
-
-        return $pool !== '' && $pool > $day ? (new \DateTimeImmutable($pool))->modify('+1 day')->format('Y-m-d') : $day;
-    }
-
-    /**
-     * The ids of the applications past their retention on $today (deletionDate() on or before it). Pure.
-     *
-     * @param list<array<string, mixed>> $rows id, decided_at, last_activity_at, pool_until
-     * @return list<int>
-     */
-    public static function expired(array $rows, int $months, string $today): array
-    {
-        $out = [];
-        foreach ($rows as $r) {
-            $day = self::deletionDate($r, $months);
-            if ($day !== null && $day <= $today) {
-                $out[] = (int) $r['id'];
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * The undecided applications with a responsible person that will be deleted within WARN_DAYS and were not announced
-     * yet. Pure.
-     *
-     * 3.40 (B8, B15 "the reminder refined"): $warned maps an id to the deletion day it was announced for (the column
-     * deletion_warned_on) – an application whose deletion moved (a note, a reply, a renewed consent) and comes close again
-     * is announced again for its new day; true = announced for an unknown day (a deletion_due bell entry from 3.34), never
-     * again. $hired: a hired application is announced too, so its responsible person takes what belongs in the personnel
-     * file first (B8 "Hired people"); a rejected one never is.
-     *
-     * @param list<array<string, mixed>> $rows id, decided_at, last_activity_at, pool_until, assignee_id (status with $hired)
-     * @param array<int, true|string> $warned ids already announced => true or the day announced
-     * @return list<array{id: int, assignee: int, day: string}>
-     */
-    public static function dueForWarning(array $rows, int $months, string $today, array $warned, bool $hired = false): array
-    {
-        $limit = (new \DateTimeImmutable($today))->modify('+' . self::WARN_DAYS . ' days')->format('Y-m-d');
-        $out = [];
-        foreach ($rows as $r) {
-            $day = self::deletionDate($r, $months);
-            $announced = $warned[(int) $r['id']] ?? null;
-            $open = ($r['decided_at'] ?? null) === null || ($hired && ($r['status'] ?? '') === 'hired');
-            if ($day !== null && $day > $today && $day <= $limit && $open && (int) ($r['assignee_id'] ?? 0) > 0 && ($announced === null || (is_string($announced) && $announced !== $day))) {
-                $out[] = ['id' => (int) $r['id'], 'assignee' => (int) $r['assignee_id'], 'day' => $day];
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * The daily clean-up (Notifications::purgePersonalData): seals moved files, warns the responsible people of the
-     * undecided applications that go within a week, deletes those past their retention with their files, comments, tasks
-     * and notifications, and records the count (change log, event applications.purged – as before 3.34). Runs while the
-     * feature is off too: stored applications keep their retention. An application moved from Enquiries (source_enquiry_id)
-     * is neither warned about nor deleted until an administrator saved Applications → Settings after it moved
-     * (RETENTION_CONFIRMED – the highest id confirmed, N8).
-     * Returns how many were deleted.
-     */
-    public static function purge(App $app): int
-    {
-        $db = $app->db();
-        try {
-            $db->value('SELECT 1 FROM {applications} LIMIT 1');
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0; // before migration 0119
-        }
-        self::sealPending($app);
-        self::resealHeld($app); // M5: lists held under the database key while the Vault key was missing
-        self::forgetTwins($app); // F4: enquiry twins a restored backup brought back go, before a deleted application lets one surface
-        $months = $app->settings()->int('applications_months');
-        if ($months <= 0) {
-            return 0;
-        }
-        $today = Clock::today();
-        // 3.34 review H1: what moved in from Enquiries waits until an administrator confirmed the retention (Settings tab)
-        // N8: a moved application only up to the highest id an administrator confirmed
-        $warnedColumn = self::hasWarnedColumn($db);
-        $rows = $db->all('SELECT id, status, decided_at, last_activity_at, pool_until, assignee_id' . $warnedColumn . ' FROM {applications} WHERE COALESCE(decided_at, last_activity_at) < ?'
-            . ' AND (source_enquiry_id IS NULL OR id <= ' . self::confirmedUpTo($app->settings()) . ')',
-            [(new \DateTimeImmutable($today))->modify('-' . $months . ' months')->modify('+' . (self::WARN_DAYS + 1) . ' days')->format('Y-m-d')]);
-        // 3.40: the day announced (deletion_warned_on); a bell entry of 3.34 without it counts as announced for good
-        $warned = array_fill_keys(array_map(fn (array $r): int => (int) substr((string) $r['target'], 12), $db->all("SELECT target FROM {notifications} WHERE kind = 'deletion_due' AND target LIKE 'application:%'")), true);
-        foreach ($rows as $r) {
-            if (is_string($r['deletion_warned_on'] ?? null)) {
-                $warned[(int) $r['id']] = substr($r['deletion_warned_on'], 0, 10);
-            }
-        }
-        foreach (self::dueForWarning($rows, $months, $today, $warned, true) as $due) {
-            if (Assignment::allowed($db, 'application', $due['assignee'])) { // review low (a): only someone who may open Applications
-                Inbox::notify($app, $due['assignee'], 'deletion_due', self::target($due['id']), null, format_date($due['day']));
-                if ($warnedColumn !== '') {
-                    $db->update('applications', ['deletion_warned_on' => $due['day']], ['id' => $due['id']]); // announced once per deletion day
-                }
-            }
-        }
-        $expired = self::expired($rows, $months, $today);
-        if ($expired !== []) {
-            // M5: an application whose CV list cannot be opened (the encryption key) and whose files cannot be located waits –
-            // deleting it would orphan its CVs; 3.34 third review F5: one with attachment_paths goes (delete() finds its files, N7)
-            $locked = array_map('intval', array_column(array_filter($db->all('SELECT id, attachments, attachment_paths FROM {applications} WHERE id IN (' . implode(',', $expired) . ')'),
-                fn (array $r): bool => self::rowFiles($app->settings(), $r) === null), 'id'));
-            $expired = array_values(array_diff($expired, $locked));
-        }
-        if ($expired === []) {
-            return 0;
-        }
-        $count = self::delete($app, $expired, false);
-        ChangeLog::write($app, self::SECTION, 'purge', sprintf('%d past the retention of %d months', $count, $months));
-        Events::record($db, 'applications.purged', 'info', t('%d job applications older than %d months were deleted, including the CVs.', $count, $months), ['count' => $count, 'months' => $months]);
-
-        return $count;
-    }
-
-    /** ', deletion_warned_on' once migration 0129 added the column, '' before (the clean-up of an update in progress). */
-    private static function hasWarnedColumn(Db $db): string
-    {
-        try {
-            $db->value('SELECT deletion_warned_on FROM {applications} LIMIT 1');
-
-            return ', deletion_warned_on';
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return '';
-        }
-    }
-
     /* ---------- personal data, reports ---------- */
 
     /**
@@ -2166,88 +902,332 @@ final class Applications
         }, $rows);
     }
 
-    /**
-     * The month's recruitment for the monthly report (B10): received (and the top five positions by count), invited to an
-     * interview, hired, rejected (status changes in the month, from the history), and how many undecided still wait for
-     * the first reply. Counts and position titles only; null when nothing happened or the table is missing.
-     *
-     * @return array{received: int, positions: list<array{title: string, n: int}>, interview: int, hired: int, rejected: int, waiting: int}|null
-     */
+    /* ---------- forwards (3.47): the members that moved to ApplicationFiles, ApplicationRetention, ApplicationReplies,
+       ApplicationMove and ApplicationCounts keep their old names here, so callers, migration 0120 and the tests are unchanged ---------- */
+
+    public const array CV_EXTENSIONS = ApplicationFiles::CV_EXTENSIONS;
+    public const array CONTENT_TYPES = ApplicationFiles::CONTENT_TYPES;
+    public const int MAX_FILES = ApplicationFiles::MAX_FILES;
+    public const string FOLDER = ApplicationFiles::FOLDER;
+    public const string OLD_FOLDER = ApplicationFiles::OLD_FOLDER;
+    public const int SEAL_BATCH = ApplicationFiles::SEAL_BATCH;
+    public const string FILE_MAGIC = ApplicationFiles::FILE_MAGIC;
+    public const int ORPHAN_DAYS = ApplicationFiles::ORPHAN_DAYS;
+    public const string ORPHAN_SUFFIX = ApplicationFiles::ORPHAN_SUFFIX;
+    public const string FILES_SINCE = ApplicationFiles::FILES_SINCE;
+    public const string DB_SEALED = ApplicationFiles::DB_SEALED;
+    public const int WARN_DAYS = ApplicationRetention::WARN_DAYS;
+    public const string RETENTION_CONFIRMED = ApplicationRetention::RETENTION_CONFIRMED;
+    public const int UNCONFIRMED_DAYS = ApplicationRetention::UNCONFIRMED_DAYS;
+    public const array TEMPLATES = ApplicationReplies::TEMPLATES;
+    public const array TEMPLATE_LABELS = ApplicationReplies::TEMPLATE_LABELS;
+    public const int TEMPLATE_MAX = ApplicationReplies::TEMPLATE_MAX;
+    public const int SAFE_NAME_MAX = ApplicationReplies::SAFE_NAME_MAX;
+    public const int BULK_MAX = ApplicationReplies::BULK_MAX;
+
+    /** @see ApplicationFiles::checkUpload() */
+    public static function checkUpload(string $tmpPath, string $originalName): ?string
+    {
+        return ApplicationFiles::checkUpload($tmpPath, $originalName);
+    }
+
+    /** @see ApplicationFiles::contentFits() */
+    public static function contentFits(string $extension, string $type): bool
+    {
+        return ApplicationFiles::contentFits($extension, $type);
+    }
+
+    /** @see ApplicationFiles::sealFile() */
+    public static function sealFile(Settings $s, string $source, ?string $target = null): ?array
+    {
+        return ApplicationFiles::sealFile($s, $source, $target);
+    }
+
+    /** @see ApplicationFiles::writeSealed() */
+    public static function writeSealed(Settings $s, string $plain, string $path): ?string
+    {
+        return ApplicationFiles::writeSealed($s, $plain, $path);
+    }
+
+    /** @see ApplicationFiles::markFilesSince() */
+    public static function markFilesSince(Settings $s): void
+    {
+        ApplicationFiles::markFilesSince($s);
+    }
+
+    /** @see ApplicationFiles::backupMissesFiles() */
+    public static function backupMissesFiles(int $backupTime, string $filesSince): bool
+    {
+        return ApplicationFiles::backupMissesFiles($backupTime, $filesSince);
+    }
+
+    /** @see ApplicationFiles::headerKey() */
+    public static function headerKey(Settings $s, string $file): ?string
+    {
+        return ApplicationFiles::headerKey($s, $file);
+    }
+
+    /** @see ApplicationFiles::openSealed() */
+    public static function openSealed(Settings $s, string $file, ?string $key): ?string
+    {
+        return ApplicationFiles::openSealed($s, $file, $key);
+    }
+
+    /** @see ApplicationFiles::sealedTarget() */
+    public static function sealedTarget(string $oldPath): string
+    {
+        return ApplicationFiles::sealedTarget($oldPath);
+    }
+
+    /** @see ApplicationFiles::filePath() */
+    public static function filePath(array $attachment): ?string
+    {
+        return ApplicationFiles::filePath($attachment);
+    }
+
+    /** @see ApplicationFiles::paths() */
+    public static function paths(array $list): ?string
+    {
+        return ApplicationFiles::paths($list);
+    }
+
+    /** @see ApplicationFiles::pathFiles() */
+    public static function pathFiles(mixed $paths): array
+    {
+        return ApplicationFiles::pathFiles($paths);
+    }
+
+    /** @see ApplicationFiles::attachmentInfo() */
+    public static function attachmentInfo(App $app, int $id, int $index): ?array
+    {
+        return ApplicationFiles::attachmentInfo($app, $id, $index);
+    }
+
+    /** @see ApplicationFiles::attachment() */
+    public static function attachment(App $app, int $id, int $index): ?array
+    {
+        return ApplicationFiles::attachment($app, $id, $index);
+    }
+
+    /** @see ApplicationFiles::attachments() */
+    public static function attachments(Settings $s, mixed $stored): array
+    {
+        return ApplicationFiles::attachments($s, $stored);
+    }
+
+    /** @see ApplicationFiles::attachmentsLocked() */
+    public static function attachmentsLocked(Settings $s, mixed $stored): bool
+    {
+        return ApplicationFiles::attachmentsLocked($s, $stored);
+    }
+
+    /** @see ApplicationFiles::encodeAttachments() */
+    public static function encodeAttachments(Settings $s, array $list): ?string
+    {
+        return ApplicationFiles::encodeAttachments($s, $list);
+    }
+
+    /** @see ApplicationFiles::lockedCount() */
+    public static function lockedCount(App $app): int
+    {
+        return ApplicationFiles::lockedCount($app);
+    }
+
+    /** @see ApplicationFiles::lockFiles() */
+    public static function lockFiles(Db $db, int $wait): bool
+    {
+        return ApplicationFiles::lockFiles($db, $wait);
+    }
+
+    /** @see ApplicationFiles::unlockFiles() */
+    public static function unlockFiles(Db $db): void
+    {
+        ApplicationFiles::unlockFiles($db);
+    }
+
+    /** @see ApplicationFiles::sealPending() */
+    public static function sealPending(App $app, int $limit = self::SEAL_BATCH): int
+    {
+        return ApplicationFiles::sealPending($app, $limit);
+    }
+
+    /** @see ApplicationFiles::sealEntry() */
+    public static function sealEntry(App $app, int $id, int $index, int $steps = 4): string
+    {
+        return ApplicationFiles::sealEntry($app, $id, $index, $steps);
+    }
+
+    /** @see ApplicationFiles::sweepOrphans() */
+    public static function sweepOrphans(App $app): int
+    {
+        return ApplicationFiles::sweepOrphans($app);
+    }
+
+    /** @see ApplicationFiles::resealHeld() */
+    public static function resealHeld(App $app): int
+    {
+        return ApplicationFiles::resealHeld($app);
+    }
+
+    /** @see ApplicationFiles::heldCount() */
+    public static function heldCount(Db $db): int
+    {
+        return ApplicationFiles::heldCount($db);
+    }
+
+    /** @see ApplicationFiles::unsealedCount() */
+    public static function unsealedCount(App $app): int
+    {
+        return ApplicationFiles::unsealedCount($app);
+    }
+
+    /** @see ApplicationRetention::confirmedUpTo() */
+    public static function confirmedUpTo(Settings $s): int
+    {
+        return ApplicationRetention::confirmedUpTo($s);
+    }
+
+    /** @see ApplicationRetention::confirmRetention() */
+    public static function confirmRetention(App $app): void
+    {
+        ApplicationRetention::confirmRetention($app);
+    }
+
+    /** @see ApplicationRetention::unconfirmed() */
+    public static function unconfirmed(App $app): array
+    {
+        return ApplicationRetention::unconfirmed($app);
+    }
+
+    /** @see ApplicationRetention::startingRetention() */
+    public static function startingRetention(int $jobMonths, int $enquiryMonths): int
+    {
+        return ApplicationRetention::startingRetention($jobMonths, $enquiryMonths);
+    }
+
+    /** @see ApplicationRetention::adoptRetention() */
+    public static function adoptRetention(Db $db, Settings $s, array $movedIds = []): void
+    {
+        ApplicationRetention::adoptRetention($db, $s, $movedIds);
+    }
+
+    /** @see ApplicationRetention::awaitingConfirmation() */
+    public static function awaitingConfirmation(App $app): ?array
+    {
+        return ApplicationRetention::awaitingConfirmation($app);
+    }
+
+    /** @see ApplicationRetention::deletionDate() */
+    public static function deletionDate(array $row, int $months): ?string
+    {
+        return ApplicationRetention::deletionDate($row, $months);
+    }
+
+    /** @see ApplicationRetention::expired() */
+    public static function expired(array $rows, int $months, string $today): array
+    {
+        return ApplicationRetention::expired($rows, $months, $today);
+    }
+
+    /** @see ApplicationRetention::dueForWarning() */
+    public static function dueForWarning(array $rows, int $months, string $today, array $warned, bool $hired = false): array
+    {
+        return ApplicationRetention::dueForWarning($rows, $months, $today, $warned, $hired);
+    }
+
+    /** @see ApplicationRetention::purge() */
+    public static function purge(App $app): int
+    {
+        return ApplicationRetention::purge($app);
+    }
+
+    /** @see ApplicationReplies::storedTemplates() */
+    public static function storedTemplates(string $json): array
+    {
+        return ApplicationReplies::storedTemplates($json);
+    }
+
+    /** @see ApplicationReplies::template() */
+    public static function template(Settings $s, string $key, string $language): array
+    {
+        return ApplicationReplies::template($s, $key, $language);
+    }
+
+    /** @see ApplicationReplies::fill() */
+    public static function fill(string $text, array $vars): string
+    {
+        return ApplicationReplies::fill($text, $vars);
+    }
+
+    /** @see ApplicationReplies::languageOf() */
+    public static function languageOf(Settings $s, array $application): string
+    {
+        return ApplicationReplies::languageOf($s, $application);
+    }
+
+    /** @see ApplicationReplies::compose() */
+    public static function compose(Settings $s, array $application, string $key, bool $automatic = false): array
+    {
+        return ApplicationReplies::compose($s, $application, $key, $automatic);
+    }
+
+    /** @see ApplicationReplies::safeName() */
+    public static function safeName(string $name): string
+    {
+        return ApplicationReplies::safeName($name);
+    }
+
+    /** @see ApplicationReplies::confirmReceipt() */
+    public static function confirmReceipt(App $app, array $content, int $id, string $email): bool
+    {
+        return ApplicationReplies::confirmReceipt($app, $content, $id, $email);
+    }
+
+    /** @see ApplicationReplies::reply() */
+    public static function reply(App $app, int $id, string $subject, string $text, ?string $setStatus, string $reason, string $via = 'admin'): array
+    {
+        return ApplicationReplies::reply($app, $id, $subject, $text, $setStatus, $reason, $via);
+    }
+
+    /** @see ApplicationReplies::rejectWithTemplate() */
+    public static function rejectWithTemplate(App $app, array $ids, string $reason, string $via = 'admin'): array
+    {
+        return ApplicationReplies::rejectWithTemplate($app, $ids, $reason, $via);
+    }
+
+    /** @see ApplicationMove::movingCondition() */
+    public static function movingCondition(Db $db, Settings $s, string $table = '{poptavky}'): ?string
+    {
+        return ApplicationMove::movingCondition($db, $s, $table);
+    }
+
+    /** @see ApplicationMove::movingLeft() */
+    public static function movingLeft(Db $db, Settings $s): int
+    {
+        return ApplicationMove::movingLeft($db, $s);
+    }
+
+    /** @see ApplicationCounts::monthCounts() */
     public static function monthCounts(Db $db, string $from, string $to): ?array
     {
-        $counted = ApplicationCounts::month($db, $from, $to); // 3.40: the counts survive the retention
-        if ($counted !== null) {
-            try {
-                $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [$to]);
-            } catch (\PDOException $e) {
-                Db::rethrowUnlessMissing($e);
-                $waiting = 0;
-            }
-            if ($counted['received'] + $counted['interview'] + $counted['hired'] + $counted['rejected'] + $waiting === 0) {
-                return null;
-            }
-
-            return ['received' => $counted['received'], 'positions' => $counted['positions'], 'interview' => $counted['interview'], 'hired' => $counted['hired'],
-                'rejected' => $counted['rejected'], 'waiting' => $waiting];
-        }
-        try {
-            $received = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE received_at >= ? AND received_at < ?', [$from, $to]);
-            $positions = array_map(fn (array $r): array => ['title' => (string) $r['title'], 'n' => (int) $r['n']],
-                $db->all("SELECT job_title AS title, COUNT(*) AS n FROM {applications} WHERE received_at >= ? AND received_at < ? AND job_title <> '' GROUP BY job_title ORDER BY n DESC, job_title LIMIT 5", [$from, $to]));
-            $moves = array_fill_keys(['interview', 'hired', 'rejected'], 0);
-            foreach ($db->all('SELECT history FROM {applications} WHERE status_at >= ? AND history IS NOT NULL', [$from]) as $r) {
-                foreach (self::movesIn((string) $r['history'], $from, $to) as $status) {
-                    if (isset($moves[$status])) {
-                        $moves[$status]++;
-                    }
-                }
-            }
-            $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [$to]);
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return null;
-        }
-        if ($received + array_sum($moves) + $waiting === 0) {
-            return null;
-        }
-
-        return ['received' => $received, 'positions' => $positions] + $moves + ['waiting' => $waiting];
+        return ApplicationCounts::monthCounts($db, $from, $to);
     }
 
-    /**
-     * The day job applications started to be counted apart from enquiries (3.34 B), when it falls between $from and $to –
-     * the first move of applications out of the enquiries (event applications.moved) or the first application that came
-     * straight in, whichever is earlier; null otherwise (the monthly report then compares enquiries as before).
-     */
+    /** @see ApplicationCounts::countingChanged() */
     public static function countingChanged(Db $db, string $from, string $to): ?string
     {
-        try {
-            $moved = $db->value("SELECT MIN(created_at) FROM {events} WHERE type = 'applications.moved'");
-            $first = $db->value('SELECT MIN(received_at) FROM {applications} WHERE source_enquiry_id IS NULL');
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return null;
-        }
-        $start = min(array_filter([is_string($moved) ? $moved : null, is_string($first) ? $first : null]) ?: ['']);
-
-        return $start !== '' && $start >= $from && $start < $to ? substr($start, 0, 10) : null;
+        return ApplicationCounts::countingChanged($db, $from, $to);
     }
 
-    /**
-     * The statuses an application reached between $from and $to (each once), from its history JSON. Pure.
-     *
-     * @return list<string>
-     */
+    /** @see ApplicationCounts::movesIn() */
     public static function movesIn(string $history, string $from, string $to): array
     {
-        $list = json_decode($history, true);
-        $out = [];
-        foreach (is_array($list) ? $list : [] as $change) {
-            if (is_array($change) && is_string($change['at'] ?? null) && is_string($change['to'] ?? null) && $change['at'] >= $from && $change['at'] < $to) {
-                $out[$change['to']] = true;
-            }
-        }
+        return ApplicationCounts::movesIn($history, $from, $to);
+    }
 
-        return array_keys($out);
+    /** @see ApplicationFiles::rowFiles() */
+    public static function rowFiles(Settings $s, array $row): ?array
+    {
+        return ApplicationFiles::rowFiles($s, $row);
     }
 }

@@ -14,7 +14,7 @@ namespace Kaleta\Core;
  *
  * To applications – each enquiry in one transaction, the steps of migration 0120: the row with source_enquiry_id, the
  * fields without file paths, the CVs listed as still in storage/prilohy (sealed false – the daily clean-up seals them,
- * Applications::sealPending), the position looked up on the server (Applications::position), the status (new → new,
+ * ApplicationFiles::sealPending), the position looked up on the server (Applications::position), the status (new → new,
  * read → reviewed, resolved → reviewed with a note), the replies, the responsible person, the old single note as an internal
  * note, the latest of receipt, reply and note as its last activity; comments, tasks and notifications follow to
  * application:<id>; a deal made from it loses the link (Deals::forgetEnquiries); the enquiry goes; a customer record made
@@ -147,7 +147,7 @@ final class ApplicationMove
                 $data[] = [(string) $field[0], (string) $field[1]];
                 $path = is_string($field[2] ?? null) ? $field[2] : '';
                 if (preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.([a-z0-9]{2,5})$#D', $path, $m) === 1) {
-                    $file = Applications::OLD_FOLDER . '/' . $path;
+                    $file = ApplicationFiles::OLD_FOLDER . '/' . $path;
                     $files[] = ['field' => count($data) - 1, 'name' => (string) (preg_replace('/ \([^)]*\)$/', '', (string) $field[1]) ?: basename($path)), 'size' => is_file($file) ? (int) filesize($file) : 0,
                         'ext' => $m[1], 'path' => $path, 'sealed' => false];
                 }
@@ -168,7 +168,7 @@ final class ApplicationMove
                         'received_at' => (string) $e['datum'], 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],
                         'form' => mb_substr((string) $e['formular'], 0, 120), 'source' => (string) $e['zdroj'], 'element' => (string) $e['prvek'], 'page' => (string) $e['stranka'], 'language' => '',
                         'name' => mb_substr($people['name'], 0, 150), 'email' => mb_substr($email, 0, 190), 'email_norm' => PersonalData::normalise($email), 'phone' => mb_substr($people['phone'], 0, 40),
-                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => Applications::encodeAttachments($app->settings(), $files), 'attachment_paths' => Applications::paths($files),
+                        'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE), 'attachments' => ApplicationFiles::encodeAttachments($app->settings(), $files), 'attachment_paths' => ApplicationFiles::paths($files),
                         'status' => self::statusFromEnquiry((int) $e['stav']), 'status_at' => (string) $e['datum'], 'assignee_id' => $e['prirazeno'] !== null ? (int) $e['prirazeno'] : null,
                         'replies' => $e['replies'], 'late' => $position['late'] ? 1 : 0, 'last_activity_at' => $activity, 'source_enquiry_id' => $idp,
                         'source_contact_id' => $e['contact_id'] !== null ? (int) $e['contact_id'] : null, 'moved_at' => $now,
@@ -202,8 +202,8 @@ final class ApplicationMove
         Applications::keepToSection($db, $ids); // review low (a): no responsible person or bell entry outside the section
         $removed = self::forgetLoneContacts($db);
         if ($moved > 0) {
-            Applications::markFilesSince($app->settings()); // N9: a backup older than this misses the move
-            Applications::adoptRetention($db, $app->settings(), $ids); // 3.34 review H1: never the default 6 months; N8: the rows moved now wait for an administrator's confirmation
+            ApplicationFiles::markFilesSince($app->settings()); // N9: a backup older than this misses the move
+            ApplicationRetention::adoptRetention($db, $app->settings(), $ids); // 3.34 review H1: never the default 6 months; N8: the rows moved now wait for an administrator's confirmation
             self::record($app, 'to applications', $moved, $deals, $removed);
         }
 
@@ -283,13 +283,13 @@ final class ApplicationMove
      */
     private static function locked(Db $db, callable $work): mixed
     {
-        if (!Applications::lockFiles($db, self::LOCK_WAIT)) {
+        if (!ApplicationFiles::lockFiles($db, self::LOCK_WAIT)) {
             throw new \DomainException('Another move or the encryption of CVs is running right now – try again in a minute.');
         }
         try {
             return $work();
         } finally {
-            Applications::unlockFiles($db);
+            ApplicationFiles::unlockFiles($db);
         }
     }
 
@@ -355,7 +355,7 @@ final class ApplicationMove
         $db = $app->db();
         $a = Applications::decode($s, $row);
         $id = $a['id'];
-        if (Applications::attachmentsLocked($s, $row['attachments'] ?? null)) {
+        if (ApplicationFiles::attachmentsLocked($s, $row['attachments'] ?? null)) {
             return false; // the list of CVs cannot be opened (the encryption key) – moving would lose them
         }
         $data = array_values(array_filter($a['data'], fn (mixed $f): bool => is_array($f) && is_scalar($f[0] ?? null) && is_scalar($f[1] ?? null)));
@@ -367,7 +367,7 @@ final class ApplicationMove
                 @unlink($file); // the plain copies of an application that stays
             }
         };
-        foreach (Applications::attachments($s, $row['attachments'] ?? null) as $i => $raw) {
+        foreach (ApplicationFiles::attachments($s, $row['attachments'] ?? null) as $i => $raw) {
             $field = (int) ($raw['field'] ?? -1);
             if (!isset($data[$field])) {
                 $data[] = [(string) ($raw['name'] ?? 'CV'), (string) ($raw['name'] ?? '')]; // a file without its field keeps a field of its own
@@ -377,10 +377,10 @@ final class ApplicationMove
                 $data[$field][2] = (string) ($raw['path'] ?? ''); // still in storage/prilohy (moved from an enquiry, not sealed yet)
                 continue;
             }
-            $file = Applications::attachment($app, $id, (int) $i);
+            $file = ApplicationFiles::attachment($app, $id, (int) $i);
             $extension = preg_match('/^[a-z0-9]{2,5}$/D', (string) ($raw['ext'] ?? '')) === 1 ? (string) $raw['ext'] : 'bin';
             $path = date('Y/m') . '/' . bin2hex(random_bytes(12)) . '.' . $extension;
-            $target = Applications::OLD_FOLDER . '/' . $path;
+            $target = ApplicationFiles::OLD_FOLDER . '/' . $path;
             if ($file === null || (!is_dir(dirname($target)) && !@mkdir(dirname($target), 0770, true)) || @file_put_contents($target, $file['content'], LOCK_EX) === false) {
                 $forget($written);
 
@@ -394,9 +394,9 @@ final class ApplicationMove
                 return false;
             }
             $data[$field][2] = $path;
-            $sealedFiles[] = Applications::filePath($raw);
+            $sealedFiles[] = ApplicationFiles::filePath($raw);
             if (is_string($raw['from'] ?? null) && $raw['from'] !== '') {
-                $sealedFiles[] = Applications::filePath(['path' => $raw['from'], 'sealed' => false]); // a plain file an interrupted sealing left (N1)
+                $sealedFiles[] = ApplicationFiles::filePath(['path' => $raw['from'], 'sealed' => false]); // a plain file an interrupted sealing left (N1)
             }
         }
         try {
@@ -491,5 +491,33 @@ final class ApplicationMove
             . ($contacts > 0 ? '; customer records made only by them deleted: ' . $contacts : '');
         ChangeLog::write($app, Applications::SECTION, 'move', mb_substr($text, 0, 255));
         Events::record($app->db(), 'applications.moved', 'info', mb_substr($text, 0, 255), ['moved' => $moved, 'direction' => $direction, 'deals' => array_values(array_unique($deals)), 'contacts_deleted' => $contacts]);
+    }
+
+    /* ---------- moved from Core\Applications (3.47) ---------- */
+
+    /**
+     * While migration 0120 still moves job enquiries (3.34 review M3 – a large site moves over several requests): the SQL
+     * condition on ka_poptavky that leaves out the enquiries still to move (job sources, idp up to applications_move_until),
+     * so nobody without Applications reads them in Enquiries meanwhile; null when nothing is moving. The sources are numbers
+     * read from the database, written into the SQL as literals. $table: the name or alias the query gives ka_poptavky. Read
+     * through Admin\Modules\Enquiries::visible() (3.34 second review N6).
+     */
+    public static function movingCondition(Db $db, Settings $s, string $table = '{poptavky}'): ?string
+    {
+        $until = $s->get('applications_move_until');
+        if (!ctype_digit($until) || (int) $until <= 0) {
+            return null;
+        }
+        $sources = Jobs::sources($db);
+
+        return $sources === [] ? null : 'NOT (' . $table . ".zdroj IN ('" . implode("','", $sources) . "') AND " . $table . '.idp <= ' . (int) $until . ')';
+    }
+
+    /** How many job enquiries migration 0120 has still to move (the notice on the list); 0 when nothing is moving. */
+    public static function movingLeft(Db $db, Settings $s): int
+    {
+        $condition = self::movingCondition($db, $s);
+
+        return $condition === null ? 0 : (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE NOT (' . $condition . ')');
     }
 }

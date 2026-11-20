@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.34 third review F2: a big site – the sweep, the index of source_contact_id, the move inside a visit ---------- */
 $f2Root = KALETA_ROOT . '/system';
-$f2Apps = (string) file_get_contents($f2Root . '/src/Core/Applications.php');
+$f2Apps = (string) file_get_contents($f2Root . '/src/Core/ApplicationFiles.php');
 check('3.34 third review F2: the sweep runs from the clean-up once a day and reads enquiries only for a file the applications leave unlisted',
     [str_contains($f2Apps, "if (\$s->get('applications_swept_on') !== Clock::today()) {"), str_contains($f2Apps, 'while ($candidates !== [] && ($enquiries = ')],
     [true, true]);

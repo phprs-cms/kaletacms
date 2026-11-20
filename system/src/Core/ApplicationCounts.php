@@ -58,7 +58,7 @@ final class ApplicationCounts
         $from = substr($now, 0, 7) . '-01 00:00:00';
         $to = (new \DateTimeImmutable($from))->modify('+1 month')->format('Y-m-d H:i:s');
 
-        return !in_array($status, Applications::movesIn(is_string($history) ? $history : '', $from, $to), true);
+        return !in_array($status, self::movesIn(is_string($history) ? $history : '', $from, $to), true);
     }
 
     /**
@@ -172,5 +172,92 @@ final class ApplicationCounts
         uksort($positions, fn (string $a, string $b): int => [$positions[$b], $a] <=> [$positions[$a], $b]);
 
         return $out + ['positions' => array_map(fn (string $title, int $n): array => ['title' => $title, 'n' => $n], array_keys(array_slice($positions, 0, 5, true)), array_slice($positions, 0, 5, true))];
+    }
+
+    /* ---------- moved from Core\Applications (3.47) ---------- */
+
+    /**
+     * The month's recruitment for the monthly report (B10): received (and the top five positions by count), invited to an
+     * interview, hired, rejected (status changes in the month, from the history), and how many undecided still wait for
+     * the first reply. Counts and position titles only; null when nothing happened or the table is missing.
+     *
+     * @return array{received: int, positions: list<array{title: string, n: int}>, interview: int, hired: int, rejected: int, waiting: int}|null
+     */
+    public static function monthCounts(Db $db, string $from, string $to): ?array
+    {
+        $counted = self::month($db, $from, $to); // 3.40: the counts survive the retention
+        if ($counted !== null) {
+            try {
+                $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [$to]);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+                $waiting = 0;
+            }
+            if ($counted['received'] + $counted['interview'] + $counted['hired'] + $counted['rejected'] + $waiting === 0) {
+                return null;
+            }
+
+            return ['received' => $counted['received'], 'positions' => $counted['positions'], 'interview' => $counted['interview'], 'hired' => $counted['hired'],
+                'rejected' => $counted['rejected'], 'waiting' => $waiting];
+        }
+        try {
+            $received = (int) $db->value('SELECT COUNT(*) FROM {applications} WHERE received_at >= ? AND received_at < ?', [$from, $to]);
+            $positions = array_map(fn (array $r): array => ['title' => (string) $r['title'], 'n' => (int) $r['n']],
+                $db->all("SELECT job_title AS title, COUNT(*) AS n FROM {applications} WHERE received_at >= ? AND received_at < ? AND job_title <> '' GROUP BY job_title ORDER BY n DESC, job_title LIMIT 5", [$from, $to]));
+            $moves = array_fill_keys(['interview', 'hired', 'rejected'], 0);
+            foreach ($db->all('SELECT history FROM {applications} WHERE status_at >= ? AND history IS NOT NULL', [$from]) as $r) {
+                foreach (self::movesIn((string) $r['history'], $from, $to) as $status) {
+                    if (isset($moves[$status])) {
+                        $moves[$status]++;
+                    }
+                }
+            }
+            $waiting = (int) $db->value("SELECT COUNT(*) FROM {applications} WHERE status = 'new' AND replies IS NULL AND received_at < ?", [$to]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return null;
+        }
+        if ($received + array_sum($moves) + $waiting === 0) {
+            return null;
+        }
+
+        return ['received' => $received, 'positions' => $positions] + $moves + ['waiting' => $waiting];
+    }
+
+    /**
+     * The day job applications started to be counted apart from enquiries (3.34 B), when it falls between $from and $to –
+     * the first move of applications out of the enquiries (event applications.moved) or the first application that came
+     * straight in, whichever is earlier; null otherwise (the monthly report then compares enquiries as before).
+     */
+    public static function countingChanged(Db $db, string $from, string $to): ?string
+    {
+        try {
+            $moved = $db->value("SELECT MIN(created_at) FROM {events} WHERE type = 'applications.moved'");
+            $first = $db->value('SELECT MIN(received_at) FROM {applications} WHERE source_enquiry_id IS NULL');
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return null;
+        }
+        $start = min(array_filter([is_string($moved) ? $moved : null, is_string($first) ? $first : null]) ?: ['']);
+
+        return $start !== '' && $start >= $from && $start < $to ? substr($start, 0, 10) : null;
+    }
+
+    /**
+     * The statuses an application reached between $from and $to (each once), from its history JSON. Pure.
+     *
+     * @return list<string>
+     */
+    public static function movesIn(string $history, string $from, string $to): array
+    {
+        $list = json_decode($history, true);
+        $out = [];
+        foreach (is_array($list) ? $list : [] as $change) {
+            if (is_array($change) && is_string($change['at'] ?? null) && is_string($change['to'] ?? null) && $change['at'] >= $from && $change['at'] < $to) {
+                $out[$change['to']] = true;
+            }
+        }
+
+        return array_keys($out);
     }
 }

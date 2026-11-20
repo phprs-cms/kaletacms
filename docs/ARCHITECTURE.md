@@ -66,6 +66,7 @@ importers will need it too. An admin module reads the request, calls Core and re
 | Admin CSS and JS | `image/admin.css`, `image/admin.js`; the page builder `image/stavitel.js` + `stavitel.css` |
 | Site CSS and JS | `image/sablona.css` (frame), `image/web.css` + `image/web.js` (shared elements) |
 | MCP contract | `tools/contracts/*.json` (`php tools/contracts.php` – changes must be additive) |
+| Job applications | `Core\Applications` (intake, reading, status and deletion) with `Core\ApplicationFiles` (the sealed CVs), `Core\ApplicationRetention` (deadlines and the daily clean-up), `Core\ApplicationReplies` (templates and replies), `Core\ApplicationMove` and `Core\ApplicationCounts`; the old names stay as forwards on `Core\Applications` (3.47) |
 | Add-ons of other developers | `extensions/<slug>/`, talking only to `Kaleta\Extension\Api` ([EXTENSIONS.md](EXTENSIONS.md)) |
 | Tests | `tools/tests/unit/` and `tools/tests/smoke/` ([README](../tools/tests/README.md)), browser suite `tools/test-browser.sh` |
 

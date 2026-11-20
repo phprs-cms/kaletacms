@@ -9,7 +9,7 @@ check('3.34 review H1: the starting retention – job_applications_months when s
     Applications::startingRetention(4, 24), Applications::startingRetention(0, 24), Applications::startingRetention(0, 0), Applications::startingRetention(0, 36), Applications::startingRetention(200, 0)],
     [4, 24, 0, 36, 120]);
 $h1Migration = (string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0120-applications-move.php');
-$h1Store = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Applications.php');
+$h1Store = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationRetention.php');
 $h1Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Applications.php');
 check('[source-pin] 3.34 review H1: migration 0120 takes enquiries_months when job_applications_months is 0 and clears the confirmation when something moved', [
     str_contains($h1Migration, "\$jobMonths > 0 ? \$jobMonths : (int) \$settings->get('enquiries_months')"),
@@ -19,7 +19,7 @@ check('[source-pin] 3.34 review H1: migration 0120 takes enquiries_months when j
 check('[source-pin] 3.34 review H1: the clean-up leaves moved applications alone until confirmed; saving the settings confirms; a move by form asks again', [
     str_contains($h1Store, "' AND (source_enquiry_id IS NULL OR id <= ' . self::confirmedUpTo(\$app->settings()) . ')'"),
     str_contains($h1Module, "Store::confirmRetention(\$this->app);"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php'), 'Applications::adoptRetention($db, $app->settings(), $ids);'),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationMove.php'), 'ApplicationRetention::adoptRetention($db, $app->settings(), $ids);'),
     array_key_exists(Applications::RETENTION_CONFIRMED, Kaleta\Core\Settings::DEFAULTS) && Kaleta\Core\Settings::DEFAULTS[Applications::RETENTION_CONFIRMED] === ''],
     [true, true, true, true]);
 check('[source-pin] 3.34 review H1: the settings tab and the list say how many moved applications wait and since when', [
