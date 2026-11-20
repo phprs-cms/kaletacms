@@ -559,7 +559,7 @@ final class QuoteDelivery
             return $done; // before migration 0123
         }
         $done['drafts'] = self::delete($db, $drafts);
-        $months = max(0, $s->int('quotes_months'));
+        $months = Retention::effective($s, 'quotes'); // 3.48 B
         if ($months > 0) {
             // 3.38 review L6: deleting takes the anonymised ones too (erased by a request, or kept while the site anonymised)
             $anonymise = $s->get('enquiries_expiry') === 'anonymise';

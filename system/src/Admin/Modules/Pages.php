@@ -33,7 +33,7 @@ final class Pages extends Module
         'odber', 'tasks', 'subscription', 'form', 'consent', 'conversion'];
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
-    public const int TRASH_DAYS = 30;
+    public const int TRASH_DAYS = \Kaleta\Core\Retention::TRASH_DAYS; // 3.48 B: one number for every trash
 
     /**
      * The status tabs of the list (3.20, C1) – query status=<key>, English like every query value; 'kos' is the trash from

@@ -1,4 +1,83 @@
-<?php /** The "Soukromí a cookies" (Privacy and cookies) tab. */ ?>
+<?php
+/**
+ * The "Soukromí a cookies" (Privacy and cookies) tab. 3.48 B (U40): first how long the site keeps personal data – every
+ * period of Core\Retention in one place ($retentionRows); a shorter one is confirmed on its own screen (Settings::actionRetention).
+ *
+ * @var list<array{key: string, label: string, value: int, unit: string, zero: string, editable: bool, feature_on: bool, setting: string, effective: int, row: array<string, mixed>}> $retentionRows
+ */
+$retentionRows ??= [];
+// the hint of each period – the texts its section's form had before 3.48
+$retentionHints = [
+    'enquiries_months' => 'Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.',
+    'job_applications_months' => 'Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.',
+    'contacts_months' => 'A customer record (Customers) with no enquiry, booking, reply, logged contact, comment or task for this long is anonymised – its name, e-mail, phone and notes go. 0 = keep.',
+    'quotes_months' => 'Counted from the last change of status; then the quote goes the way of old enquiries (deleted or without the person). 0 = keep.',
+    'applications_months' => 'A decided application (hired or rejected) is deleted this many months after the decision, an undecided one after this long without any activity – with its CVs, notes and tasks. 0 = keep.',
+    'applications_pool_months' => 'Only when the form offers the consent (its property in the builder) and the applicant ticks it.',
+    'whistleblowing_retention_months' => 'Closed cases are deleted with their attachments and messages; open cases are kept. Check the retention period your national law requires.',
+    'cookies_log_months' => 'Older records are deleted automatically. 0 = keep.',
+];
+$retentionInput = function (array $r) use ($values, $invalidFields, $retentionHints): void {
+    $row = $r['row'];
+    $key = $r['setting'];
+    $zero = isset($retentionHints[$key]) ? t($retentionHints[$key]) : '';
+    echo '<div class="radek"><label for="' . e($key) . '">' . e(t($r['label'])) . '</label><div><input class="textpole" type="number" id="' . e($key) . '" name="' . e($key) . '" value="'
+        . e($values[$key] ?? (string) $r['value']) . '" min="' . (int) $row['min'] . '" max="' . (int) $row['max'] . '" size="4"'
+        . (in_array($key, $invalidFields, true) ? ' aria-invalid="true"' : '') . '> ' . e($r['unit'] === 'days' ? t('days') : t('months'))
+        . ($zero !== '' ? '<span class="napoveda">' . e($zero) . '</span>' : '') . '</div></div>';
+    if ($r['key'] === 'enquiries') {
+        $expiry = ($values['enquiries_expiry'] ?? '') === 'anonymise' ? 'anonymise' : 'delete';
+        echo '<div class="radek"><span class="popisek">' . e(t('After that period')) . '</span><div class="volby volby-radky">';
+        foreach (['delete' => 'delete them including attachments', 'anonymise' => 'anonymise them – the row stays for statistics (date, form, page, topic, kind) without the name, e-mail, phone, message and attachments'] as $choice => $text) {
+            echo '<label><input type="radio" name="enquiries_expiry" value="' . e($choice) . '"' . ($expiry === $choice ? ' checked' : '') . '> ' . e(t($text)) . '</label>';
+        }
+        echo '<span class="napoveda">' . e(t('The same for bookings and quotes.')) . '</span></div></div>';
+    }
+};
+$retentionOn = array_filter($retentionRows, fn (array $r): bool => $r['editable'] && $r['feature_on']);
+$retentionOff = array_filter($retentionRows, fn (array $r): bool => $r['editable'] && !$r['feature_on']);
+?>
+<?php if ($retentionRows !== []): ?>
+<fieldset id="retention">
+<legend><?= e(t('How long data is kept')) ?></legend>
+<p class="napoveda"><?= e(t('Personal data should not be kept longer than necessary. The daily clean-up deletes or anonymises what is past its period. A shorter period is confirmed on the next screen before anything changes.')) ?></p>
+<?php foreach ($retentionOn as $r): ?>
+<?php $retentionInput($r) ?>
+<?php if ($r['key'] === 'applications'): /* the administrator sees the period: saving confirms it for the applications moved in from Enquiries (3.34 review H1) */ ?>
+<input type="hidden" name="retention_shown[]" value="applications">
+<?php endif ?>
+<?php endforeach ?>
+<?php foreach ($retentionRows as $r): ?>
+<?php if ($r['key'] === 'bookings' && $r['feature_on']): ?>
+<div class="radek"><span class="popisek"><?= e(t('Bookings')) ?></span><div><?= e(t('Bookings: as enquiries')) ?> (<?= e(Kaleta\Core\Retention::label($r['effective'], $r['unit'])) ?>)</div></div>
+<?php elseif (!$r['editable'] && isset($r['row']['edit'])): ?>
+<div class="radek"><span class="popisek"><?= e(t($r['label'])) ?></span><div><?= e(Kaleta\Core\Retention::label($r['effective'], $r['unit'])) ?> – <a href="<?= e($app->url('admin.php?' . $r['row']['edit'])) ?>"><?= e(t('change')) ?></a></div></div>
+<?php endif ?>
+<?php endforeach ?>
+<details class="pokrocile">
+<summary><?= e(t('Kept for a fixed time')) ?></summary>
+<div class="tab-obal">
+<table class="vypis">
+<thead><tr><th scope="col"><?= e(t('What')) ?></th><th scope="col"><?= e(t('Kept')) ?></th></tr></thead>
+<tbody>
+<?php foreach (Kaleta\Core\Retention::FIXED as [$what, $number, $unit]): ?>
+	<tr><td><?= e(t($what)) ?></td><td><?= e(Kaleta\Core\Retention::label($number, $unit)) ?></td></tr>
+<?php endforeach ?>
+</tbody>
+</table>
+</div>
+</details>
+<?php if ($retentionOff !== []): ?>
+<details class="pokrocile"<?= array_intersect(array_column($retentionOff, 'setting'), $invalidFields) !== [] ? ' open' : '' ?>>
+<summary><?= e(t('Periods of features that are off')) ?></summary>
+<p class="napoveda"><?= e(t('They still apply to the data the site stored while the feature was on.')) ?></p>
+<?php foreach ($retentionOff as $r): ?>
+<?php $retentionInput($r) ?>
+<?php endforeach ?>
+</details>
+<?php endif ?>
+</fieldset>
+<?php endif ?>
 <fieldset>
 <legend><?= e(t('Cookie bar')) ?></legend>
 <div class="karty-volby karty-volby-text">
@@ -43,7 +122,7 @@ $field('cookies_external_code', 'External service code', 'kod', 'The script from
 $field('marketing_code', 'Marketing codes', 'kod', 'Meta Pixel, Sklik retargeting, Google Ads… Runs only after marketing consent is given.', 'spellcheck="false"');
 $field('lead_attribution', 'Remember where leads came from', 'ano', 'The first page of a visit, its campaign and the site that sent the visitor go with enquiries and newsletter sign-ups (Statistics → Campaigns). Only for visitors who allow marketing in the cookie bar – turning it on adds that choice to the bar.');
 $field('cookies_log', 'Log consents', 'ano', 'Time, a random identifier and the chosen categories – no IP address. Evidence in case of an audit.');
-$field('cookies_log_months', 'Keep consent records (months)', 'cislo', 'Older records are deleted automatically. 0 = keep.', 'min="0" max="120"');
+// 3.48 B: how long the records are kept is in “How long data is kept” at the top (cookies_log_months)
 ?>
 </details>
 <fieldset>

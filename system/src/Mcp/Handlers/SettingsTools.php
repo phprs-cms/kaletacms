@@ -148,7 +148,11 @@ trait SettingsTools
                 $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
                 continue;
             }
-            $siteSettings->set($key, $clean);
+            if (\Kaleta\Core\Retention::keyOf($key) !== null) {
+                \Kaleta\Core\Retention::saveUnconfirmed($this->app, 'settings', [$key => $clean]); // 3.48 B: a shorter period goes to the change log with both values
+            } else {
+                $siteSettings->set($key, $clean);
+            }
             $stored[$key] = $clean;
         }
         if ($stored !== []) {
@@ -401,6 +405,7 @@ trait SettingsTools
         $sections = \Kaleta\Core\Privacy::processingRecord($this->app);
 
         return ['markdown' => \Kaleta\Core\Privacy::markdown($sections, t('Record of processing')), 'sections' => count($sections),
+            'retention' => \Kaleta\Core\Retention::mcpRows($this->app->settings()), // 3.48 B (additive): {key, label, value, unit, zero, editable, feature_on}
             'note' => 'A template assembled from the configuration, not legal advice: the owner reviews it, adds what the site does not know (paper files, other systems) and keeps it with their documentation. Printable in Settings → Privacy and cookies → Record of processing.'];
     }
 

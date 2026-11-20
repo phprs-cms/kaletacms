@@ -33,8 +33,9 @@
 	<div class="radek"><label for="nabidky-sleva"><?= e(t('Largest discount Claude may save (%)')) ?></label><div><input class="textpole cislo-kratke" type="text" inputmode="decimal" id="nabidky-sleva" name="quote_max_discount" value="<?= e($values['quote_max_discount']) ?>">
 		<span class="napoveda"><?= e(t('Above it only a person sets the discount here in the admin. Claude never invents a price – a product without an internal price gets a line without a price.')) ?></span></div></div>
 	<div class="radek"><label for="nabidky-odkaz"><?= e(t('The customer’s link works after the validity (days)')) ?></label><div><input class="textpole cislo-kratke" type="number" id="nabidky-odkaz" name="quote_link_days" min="1" max="365" value="<?= (int) $values['quote_link_days'] ?>"></div></div>
-	<div class="radek"><label for="nabidky-mesice"><?= e(t('Keep quotes (months)')) ?></label><div><input class="textpole cislo-kratke" type="number" id="nabidky-mesice" name="quotes_months" min="0" max="120" value="<?= (int) $values['quotes_months'] ?>">
-		<span class="napoveda"><?= e(t('Counted from the last change of status; then the quote goes the way of old enquiries (deleted or without the person). 0 = keep.')) ?></span></div></div>
+	<?php // 3.48 B (U40): the period is set in Settings → Privacy and cookies with the others ?>
+	<div class="radek"><span class="popisek"><?= e(t('Keep quotes')) ?></span><div><?= $app->view->render('admin/retention_line', ['app' => $app, 'key' => 'quotes']) ?>
+		<span class="napoveda"><?= e(t('Counted from the last change of status; then the quote goes the way of old enquiries (deleted or without the person).')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_set_deal_value" value="1"<?= $values['quote_set_deal_value'] === '1' ? ' checked' : '' ?>> <?= e(t('Sending a quote sets the value of its deal to the net total')) ?></label>
 		<span class="napoveda"><?= e(t('The default of the checkbox in the send dialog. Won or lost is only offered, never set by itself.')) ?></span></div></div>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="quote_attach_pdf" value="1"<?= ($values['quote_attach_pdf'] ?? '1') === '1' ? ' checked' : '' ?> data-quote-attach-pdf-default> <?= e(t('Attach the quote as a PDF to the e-mail')) ?></label>

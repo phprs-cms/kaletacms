@@ -993,7 +993,7 @@ final class Contacts
     /** The contacts' retention in months (0 = keep): contacts_months. */
     public static function months(Settings $s): int
     {
-        return max(0, $s->int('contacts_months'));
+        return Retention::effective($s, 'customers'); // 3.48 B
     }
 
     /**

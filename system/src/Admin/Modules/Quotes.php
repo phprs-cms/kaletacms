@@ -758,7 +758,10 @@ final class Quotes extends Module
         $s->set(Store::AUTO_DRAFT_SETTING, $this->request->postBool(Store::AUTO_DRAFT_SETTING) ? '1' : '0'); // 3.42
         $s->set('quote_valid_days', (string) max(1, min(365, $this->request->postInt('quote_valid_days', 30))));
         $s->set('quote_link_days', (string) max(1, min(365, $this->request->postInt('quote_link_days', 30))));
-        $s->set('quotes_months', (string) max(0, min(120, $this->request->postInt('quotes_months', 36))));
+        if ($this->request->hasPost('quotes_months')) {
+            // 3.48 B (U40): set in Settings → Privacy and cookies; a page of 3.47 still open posts it (until 3.50), a form without it leaves it
+            \Kaleta\Core\Retention::saveUnconfirmed($this->app, Prices::SECTION, ['quotes_months' => (string) max(0, min(120, $this->request->postInt('quotes_months', 36)))]);
+        }
         $next = $this->request->postInt('quote_next_number');
         $message = 'The settings of quotes were saved.';
         if ($next > 0) {

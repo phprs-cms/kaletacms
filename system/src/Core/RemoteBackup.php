@@ -120,7 +120,7 @@ final class RemoteBackup
      */
     private static function pruneRemote(Settings $s, callable $list, callable $delete, string $uploaded): int
     {
-        $days = $s->int('backup_remote_days');
+        $days = Retention::effective($s, 'offsite_backups'); // 3.48 B
         if ($days <= 0) {
             return 0;
         }
@@ -370,7 +370,7 @@ final class RemoteBackup
                 $pending[$path] = $signature;
             }
         }
-        [$gone, $due] = self::privateGone((array) ($manifest['soubory'] ?? []), (array) ($manifest['smazano'] ?? []), $files, $s->int('backup_remote_days'), time());
+        [$gone, $due] = self::privateGone((array) ($manifest['soubory'] ?? []), (array) ($manifest['smazano'] ?? []), $files, Retention::effective($s, 'offsite_backups'), time());
         $goneChanged = $gone !== ($manifest['smazano'] ?? []);
         $manifest['smazano'] = $gone;
         $error = null;

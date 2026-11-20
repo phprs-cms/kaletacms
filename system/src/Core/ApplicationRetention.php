@@ -31,7 +31,7 @@ final class ApplicationRetention
         return ctype_digit($value) ? (int) $value : 0;
     }
 
-    /** An administrator saved Applications → Settings: every application there now is confirmed (N8). */
+    /** An administrator saved Applications → Settings, or the Applications period in Settings → Privacy and cookies (3.48 B): every application there now is confirmed (N8). */
     public static function confirmRetention(App $app): void
     {
         $app->settings()->set(self::RETENTION_CONFIRMED, (string) (int) $app->db()->value('SELECT MAX(id) FROM {applications}'));
@@ -207,7 +207,7 @@ final class ApplicationRetention
         ApplicationFiles::sealPending($app);
         ApplicationFiles::resealHeld($app); // M5: lists held under the database key while the Vault key was missing
         Applications::forgetTwins($app); // F4: enquiry twins a restored backup brought back go, before a deleted application lets one surface
-        $months = $app->settings()->int('applications_months');
+        $months = Retention::effective($app->settings(), 'applications'); // 3.48 B
         if ($months <= 0) {
             return 0;
         }

@@ -30,6 +30,7 @@ final class Palette
         'categories' => [['New category', 'module=categories&action=new']],
         'users' => [['New user', 'module=users&action=new'], ['Departments', 'module=users&action=departments']], // 3.42: departments
         'transfer' => [['Import from WordPress', 'module=transfer']],
+        'settings' => [['Settings of sections', 'module=settings&tab=sections'], ['Retention periods', 'module=settings&tab=cookies#retention']], // 3.48 B (U70, U40)
     ];
 
     /** The screens of every signed-in user outside the sections: My account and its tabs (3.42: the team, absences). */

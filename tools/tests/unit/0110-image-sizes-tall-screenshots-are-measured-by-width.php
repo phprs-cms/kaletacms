@@ -75,7 +75,8 @@ $settingsParity = ['list' => $readOnly, 'save' => 'update_settings', 'download_b
     'report_rebuild' => 'admin: rebuilding an archived month replaces the stored report with what the data still hold (3.16) – the administrator decides after the warning',
     'cookie_scan' => 'admin: the cookie scan runs daily on its own (2.14); Claude reads the table in processing_record', 'processing_record' => 'processing_record',
     'accessibility_statement' => 'admin: the draft page is the administrator’s step (2.14); Claude reads the text with accessibility_statement',
-    'time_zone' => 'admin: the time zone and converting the saved dates are the administrator’s decision (3.12) – update_settings does not change the zone'];
+    'time_zone' => 'admin: the time zone and converting the saved dates are the administrator’s decision (3.12) – update_settings does not change the zone',
+    'retention' => 'admin: a shorter period is confirmed on a screen by the administrator; cookies_log_months alone is also set by update_settings and a shorter value is logged'];
 // 3.28: the MCP tools of Customers come with agent A's branch; until both are merged the admin actions name them as admin-only
 // (after the merge this falls back to the plain tool names – the lead may inline them)
 $contactTool = fn (string $tool): string => in_array($tool, Kaleta\Mcp\Translator::names(), true) ? $tool : 'admin: ' . $tool . ' (the MCP tool of 3.28)';
@@ -676,6 +677,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
+            'retention_shown', // 3.48 B: the Applications period was on the Privacy tab – saving it confirms the moved applications (Settings::actionSave)
             'site_url_confirm', 'soucasne', // 3.35 review M3: a new host of the site address – the confirmation and the fresh proof (Settings::signInChangeRefusal)
             'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
             'general_split', // 3.23 (C12): the marker of the split General form – Settings::actionSave then saves only the General fields

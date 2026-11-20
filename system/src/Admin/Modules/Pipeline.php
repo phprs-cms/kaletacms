@@ -500,7 +500,8 @@ final class Pipeline extends Module
         if (!$this->request->isPost()) {
             return $this->back('', 'stages');
         }
-        $rows = self::stageRows($this->request->postList('key'), $this->request->postList('label'), $this->request->postList('kind'), $this->request->postList('order'), $this->request->postList('remove'));
+        $shift = $this->request->post('shift'); // 3.48 B (U31): "Move up" / "Move down" of a row saves the new order at once
+        $rows = self::stageRows($this->request->postList('key'), $this->request->postList('label'), $this->request->postList('kind'), $this->request->postList('order'), $this->request->postList('remove'), $shift);
         try {
             Deals::saveStages($this->app, $rows);
         } catch (\DomainException $e) {
@@ -509,13 +510,15 @@ final class Pipeline extends Module
             return $this->back($e->getMessage(), 'stages', [], 'chyba');
         }
 
-        return $this->back('The stages were saved.', 'stages');
+        return $this->back($shift !== '' ? 'The order of the stages was saved.' : 'The stages were saved.', 'stages');
     }
 
     /**
      * The rows of the stage editor as Deals::saveStages takes them: the parallel lists of the form (row i = key[i], label[i],
      * kind[i], order[i]), sorted by their number (rows without one keep their place after the numbered ones, ties keep the
-     * form's order), without the rows whose index is in $remove and the empty new rows. Pure.
+     * form's order), without the rows whose index is in $remove and the empty new rows. 3.48 B (U31): $shift "up:<i>" or
+     * "down:<i>" (the buttons of row i) swaps that row with its neighbour in the result; a shift past either end, of a removed
+     * or an empty row changes nothing. Pure.
      *
      * @param list<string> $keys
      * @param list<string> $labels
@@ -524,7 +527,7 @@ final class Pipeline extends Module
      * @param list<string> $remove
      * @return list<array{key: string, label: string, kind: string}>
      */
-    public static function stageRows(array $keys, array $labels, array $kinds, array $orders, array $remove): array
+    public static function stageRows(array $keys, array $labels, array $kinds, array $orders, array $remove, string $shift = ''): array
     {
         $rows = [];
         foreach ($labels as $i => $label) {
@@ -538,6 +541,13 @@ final class Pipeline extends Module
                 'row' => ['key' => $key, 'label' => mb_substr($label, 0, Deals::LABEL_MAX), 'kind' => in_array($kinds[$i] ?? '', Deals::KINDS, true) ? $kinds[$i] : 'open']];
         }
         usort($rows, fn (array $a, array $b): int => [$a['sort'], $a['i']] <=> [$b['sort'], $b['i']]);
+        if (preg_match('/^(up|down):(\d{1,3})$/D', $shift, $m) === 1) {
+            $at = array_search((int) $m[2], array_column($rows, 'i'), true);
+            $to = $at === false ? -1 : $at + ($m[1] === 'up' ? -1 : 1);
+            if ($at !== false && isset($rows[$to])) {
+                [$rows[$at], $rows[$to]] = [$rows[$to], $rows[$at]];
+            }
+        }
 
         return array_column($rows, 'row');
     }

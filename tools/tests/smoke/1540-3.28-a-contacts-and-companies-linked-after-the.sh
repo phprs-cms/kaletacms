@@ -96,7 +96,7 @@ expect "3.28 hand-over: Jana's customer is counted and moves" \
 
 # retention: the contacts' period sits next to the enquiries'; an expiring enquiry leaves "first contact" in the summary; a
 # contact with no activity for the period is anonymised (its log keeps kind and time, its links go)
-check "3.28: Enquiries → settings shows the customers' retention" 200 "/admin.php?module=enquiries" 'name="contacts_months"'
+check "3.28: the customers' retention is offered (3.48 B: in Settings → Privacy and cookies)" 200 "/admin.php?module=settings&tab=cookies" 'name="contacts_months"'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=0 -d po_uplynuti=delete -d contacts_months=12
 expect "3.28: … saved" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'contacts_months'")" "12"
 t328_php "Kaleta\Core\Contacts::logActivity(\$app, ${T328_C3:-0}, 'note', 'Old note T328', ['idu' => $T328_ADMIN, 'jmeno' => 'Admin'], '$(site_time '-18 months' 'Y-m-d H:i')');" > /dev/null

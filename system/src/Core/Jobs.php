@@ -77,7 +77,9 @@ final class Jobs
     /** Deletes the applications past their retention, including the CVs; returns how many. */
     public static function purgeApplications(App $app): int
     {
-        $months = $app->settings()->int('job_applications_months');
+        // 3.48 B: the stored period, not the effective one – 0 = like other enquiries, which Enquiries::deleteExpired handles
+        // (and anonymises when the site says so)
+        $months = Retention::value($app->settings(), 'job_enquiries');
         if ($months <= 0) {
             return 0;
         }

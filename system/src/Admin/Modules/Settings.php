@@ -31,7 +31,7 @@ class Settings extends Module
      * shows only when an agency is named or the site is paired (visibleTabs). Every setting key and POST field stays.
      */
     public const array TABS = [
-        'general' => 'General', 'languages' => 'Languages', 'company' => 'Company', 'seo' => 'SEO and GEO',
+        'general' => 'General', 'sections' => 'Settings of sections', 'languages' => 'Languages', 'company' => 'Company', 'seo' => 'SEO and GEO',
         'analytics' => 'Analytics', 'cookies' => 'Privacy and cookies', 'mail' => 'Mail', 'reports' => 'Reports', 'webhooks' => 'Webhooks', 'backups' => 'Backups and updates',
         'security' => 'Security', 'firewall' => 'Firewall', 'agency' => 'Agency', 'console' => 'Reporting to a console', 'health' => 'System status',
     ];
@@ -98,7 +98,12 @@ class Settings extends Module
             'plausible_domain' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'kod', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
         ],
         'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'vzor:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120', 'accessibility_toolbar' => 'ano',
-            'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano'],
+            'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano',
+            // 3.48 B (U40): every retention period in one place (Core\Retention::PERIODS); a shorter one is confirmed on its own
+            // screen (actionRetention). The sections' own forms keep saving them under their old field names until 3.50.
+            'enquiries_months' => 'cislo:0:120', 'job_applications_months' => 'cislo:0:120', 'contacts_months' => 'cislo:0:120', 'quotes_months' => 'cislo:0:120',
+            'applications_months' => 'cislo:0:120', 'enquiries_expiry' => 'vyber:delete|anonymise', 'applications_pool_months' => 'cislo:1:60', 'whistleblowing_retention_months' => 'cislo:1:120'],
+        'sections' => [], // 3.48 B (U70): links to the settings that live in the sections (Admin\SectionSettings), nothing to save
         'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
             'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
             'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES], // 3.9: the mail service; MailServices::settle() fills its server after the save
@@ -324,6 +329,8 @@ class Settings extends Module
                 'kitError' => $settings->get('fleet_kit_error'), 'kitWaiting' => \Kaleta\Fleet\Kit::waiting($this->db, $settings),
                 'titles' => $settings->bool('fleet_request_titles'), // 3.16: request titles in the heartbeat
             ] : [],
+            'retentionRows' => $tab === 'cookies' ? \Kaleta\Core\Retention::rows($settings) : [], // 3.48 B (U40)
+            'sectionLinks' => $tab === 'sections' ? \Kaleta\Admin\SectionSettings::links(array_keys($this->kernel->modules())) : [], // 3.48 B (U70)
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > ? GROUP BY kategorie ORDER BY pocet DESC", [\Kaleta\Core\Clock::at('-30 days')]) : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
             'cookieScan' => $tab === 'cookies' ? \Kaleta\Core\Privacy::lastScan($settings) : [],
@@ -345,6 +352,7 @@ class Settings extends Module
         $zoneBefore = $settings->get('time_zone');
         $instructionsBefore = $settings->get('claude_instructions'); // 3.15 (N44): a change goes to the change log and the dashboard
         $newZone = ''; // 3.12: a new time zone is confirmed on its own screen (actionTimeZone)
+        $retention = []; // 3.48 B: the retention periods posted – compared with the stored ones after the loop (Core\Retention)
         $fields = $this->fields($tab);
         if ($tab === 'general' && static::IDENT === 'settings' && !$this->request->postBool('general_split')) {
             // 3.23 (C12): the single General form of 3.22 and older (no marker) still saves everything it showed
@@ -422,12 +430,39 @@ class Settings extends Module
                 $clean = null; // the length and the system addresses are checked here, the message says why
                 $reason = $slugError;
             }
-            if ($clean === null) {
+            if ($clean === null || (($period = \Kaleta\Core\Retention::keyOf($key)) !== null && !\Kaleta\Core\Retention::allowed(\Kaleta\Core\Retention::PERIODS[$period], (int) $clean))) {
                 $errors[] = $key;
                 $given[$key] = mb_substr($value, 0, 2000); // returned to the form for correction (secret keys not)
                 continue;
             }
+            if ($key === 'enquiries_expiry' || \Kaleta\Core\Retention::keyOf($key) !== null) {
+                $retention[$key] = $clean; // saved below: at once, or – when the data would go sooner – after the confirmation
+                continue;
+            }
             $settings->set($key, $clean);
+        }
+        // 3.48 B (U40): a longer period is saved at once; one that makes data go sooner waits for its own screen (actionRetention)
+        $retentionPending = [];
+        $harsher = \Kaleta\Core\Retention::harsherSettings(\Kaleta\Core\Retention::changes($settings, $retention));
+        foreach ($retention as $key => $clean) {
+            if (in_array($key, $harsher, true)) {
+                $retentionPending[$key] = $clean;
+            } else {
+                $settings->set($key, $clean);
+            }
+        }
+        if ($tab === 'cookies' && in_array('applications', $this->request->postList('retention_shown'), true) && !isset($retentionPending['applications_months'])) {
+            // the Applications row was on the page (the feature is on): the administrator saw the period – the applications
+            // moved in from Enquiries follow it now (3.34 review H1, N8); any other save confirms nothing
+            \Kaleta\Core\Applications::confirmRetention($this->app);
+        }
+        if ($retentionPending !== [] && $errors !== []) {
+            foreach ($retentionPending as $key => $clean) {
+                $errors[] = $key;
+                $given[$key] = $clean;
+            }
+            $reason = t('A shorter retention is confirmed on its own screen – save again once the other fields are correct.');
+            $retentionPending = [];
         }
         if (\Kaleta\Core\SignInPolicy::hostChanges($urlBefore, $settings->get('site_url')) && (int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0) {
             // 3.35 review M3: the passkeys of the old host no longer work – said at once, and in System status until they are replaced
@@ -479,6 +514,9 @@ class Settings extends Module
             // 3.12 (UX310-12): a language Kaleta has no visitor texts for – said right after saving, not only in a help line
             $this->app->session->flash('info', t('Visitors of %s see the site texts (Search, Read more, the cookie bar…) in English – Kaleta has no translation of them yet. Your pages and news are in the language you write them in.',
                 implode(', ', $english)));
+        }
+        if ($errors === [] && $retentionPending !== []) {
+            return $this->back(t('Settings saved. A shorter retention period makes data go sooner – confirm it below.'), 'retention', $retentionPending, 'info');
         }
         if ($errors === [] && $newZone !== '') {
             // 3.12 (data model §6): the dates are wall time – the next screen offers to convert them or to keep their clock time
@@ -637,6 +675,55 @@ class Settings extends Module
             ? t('The time zone is now %s. Saved dates were converted: %d values in %d tables.', $to, $state['values'], $state['tables'])
                 . ($state['out_of_range'] + count($state['failed']) > 0 ? ' ' . t('Some were left as they were – see the time zone below and System status.') : '')
             : t('The time zone is now %s. Saved dates are being converted in the background – the progress is under the time zone below.', $to), '', ['tab' => 'general']);
+    }
+
+    /**
+     * 3.48 B (U40): a shorter retention period, confirmed on its own screen the way the time zone is. The GET carries the
+     * proposed numbers in the address (numbers only, never a session); the screen lists each change, its consequences
+     * (bookings follow the enquiries, a job period that inherits them) and how many records are past the new limit today.
+     * The POST validates the values again against Core\Retention::PERIODS (the range, the floor – a value outside is refused,
+     * never clamped), compares them with what is stored now and saves; every shortened period goes to the change log.
+     */
+    protected function actionRetention(): Response
+    {
+        if (static::IDENT !== 'settings') {
+            return $this->back();
+        }
+        $settings = $this->app->settings();
+        [$proposed, $invalid] = \Kaleta\Core\Retention::parse($this->request->isPost() ? $_POST : $_GET);
+        if ($invalid !== []) {
+            return $this->back(t('The retention periods were not changed: a value is outside its range (%s).', implode(', ', $invalid)), '', ['tab' => 'cookies'], 'chyba');
+        }
+        $changes = \Kaleta\Core\Retention::changes($settings, $proposed);
+        if ($proposed === [] || $changes === []) {
+            return $this->back($this->request->isPost() ? t('Nothing to change – the retention periods are as proposed.') : '', '', ['tab' => 'cookies']);
+        }
+        if (!$this->request->isPost()) {
+            $past = [];
+            foreach ($changes as $change) {
+                if ($change['harsher'] && $change['key'] !== 'enquiries_expiry') {
+                    $past[$change['key']] = \Kaleta\Core\Retention::pastLimit($this->db, $settings, $change['key'], (int) $change['to']);
+                }
+            }
+
+            return $this->view('retention_confirm', 'Shorter retention', ['proposed' => $proposed, 'changes' => $changes, 'past' => $past]);
+        }
+        if ($this->request->post('choice') !== 'apply') {
+            return $this->back(t('The retention periods were not changed.'), '', ['tab' => 'cookies']);
+        }
+        foreach ($proposed as $key => $value) {
+            $settings->set($key, $value);
+        }
+        foreach ($changes as $change) {
+            if ($change['harsher'] && !$change['consequence']) {
+                \Kaleta\Core\ChangeLog::write($this->app, 'settings', 'retention', \Kaleta\Core\Retention::changeLine($change));
+            }
+        }
+        if (isset($proposed['applications_months'])) {
+            \Kaleta\Core\Applications::confirmRetention($this->app); // the administrator saw the period of applications on this screen
+        }
+
+        return $this->back(t('The shorter retention is saved. The daily clean-up applies it to the data already stored.'), '', ['tab' => 'cookies']);
     }
 
     /**

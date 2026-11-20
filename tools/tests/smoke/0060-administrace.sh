@@ -135,7 +135,7 @@ expect "3.23.1 review (N3231-1): Settings saved with an invalid field – the fi
 # leaves every setting as it was; the phone select offers the same tabs
 TABS3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /tab=([a-z_]+)"/g) if /<nav class="zalozky"[^>]*>(.*?)<\/nav>/s')
 SELECT3231=$(curl -s -b "$JAR" "$B/admin.php?module=settings&tab=general" | perl -0ne 'print join(" ", $1 =~ /<option value="([a-z_]+)"/g) if /<select id="zalozka-vyber"[^>]*>(.*?)<\/select>/s')
-expect "3.23.1 (N-C12): the phone select of Settings offers the same tabs as the row, 13 of them" "$SELECT3231|$(echo "$TABS3231" | wc -w | tr -d ' ')" "$TABS3231|13"
+expect "3.23.1 (N-C12): the phone select of Settings offers the same tabs as the row, 14 of them (3.48 B: Settings of sections)" "$SELECT3231|$(echo "$TABS3231" | wc -w | tr -d ' ')" "$TABS3231|14"
 # pass 1 may only add the default of a key never saved before (a fresh secret too); pass 2 must change nothing at all.
 # The background jobs that run after an admin response would write their own clocks (link_check_time …) during the round:
 # they are held for it (T4, background_jobs), so every setting is compared – none is left out

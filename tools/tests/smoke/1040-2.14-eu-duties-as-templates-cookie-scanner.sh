@@ -26,7 +26,8 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries"
 expect "T1 (Q5): opening Enquiries runs no retention (the expired enquiry is untouched)" "$(sq "SELECT CONCAT(email, '|', anonymizovano IS NULL) FROM ka_poptavky WHERE idp = $F17_OLD")" "stary@example.com|1"
 run_job cleanup > /dev/null
 expect "2.14: retention with anonymise keeps the row – date, form, page, topic and kind stay, the person is blank" "$(sq "SELECT CONCAT(formular, '|', stranka, '|', tema, '|', kategorie, '|', email, '|', data, '|', anonymizovano IS NOT NULL) FROM ka_poptavky WHERE idp = $F17_OLD")" 'Servis 2.14|/video-2-14|Video|sales||[["Jméno",""],["E-mail",""],["Zpráva",""]]|1'
-grep -q 'name="po_uplynuti" value="anonymise" checked' "$WORK/response" && echo "  ok     2.14: the enquiry settings remember anonymise" || { echo "  CHYBA  2.14 enquiry settings"; ERRORS=$((ERRORS+1)); }
+curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=cookies" # 3.48 B: the periods are on the Privacy tab
+grep -q 'name="enquiries_expiry" value="anonymise" checked' "$WORK/response" && echo "  ok     2.14: the enquiry settings remember anonymise" || { echo "  CHYBA  2.14 enquiry settings"; ERRORS=$((ERRORS+1)); }
 F17_NEW=$(sq "INSERT INTO ka_poptavky (datum, formular, stranka, email, data, stav) VALUES ('$(site_time)', 'Servis 2.14', '/video-2-14', 'novy@example.com', '[[\"Jméno\",\"Nový Zákazník\"],[\"E-mail\",\"novy@example.com\"]]', 0); SELECT LAST_INSERT_ID()")
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$F17_NEW"
 grep -q 'action=anonymise' "$WORK/response" && echo "  ok     2.14: the enquiry detail offers Anonymise" || { echo "  CHYBA  2.14 no Anonymise action in the detail"; ERRORS=$((ERRORS+1)); }

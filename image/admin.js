@@ -884,7 +884,9 @@
 	// (selector of the live region), guideId (the instructions the handle points to), texts, after(card, json, col) (optional).
 	function boardBehaviour(board, cfg) {
 		var boardSay = document.querySelector(cfg.announce);
+		var boardLine = cfg.message ? document.querySelector(cfg.message) : null; // 3.48 B (U30): the same words, visible
 		var say = function (text) {
+			if (boardLine) { boardLine.textContent = text; boardLine.hidden = false; }
 			if (!boardSay) { return; }
 			boardSay.textContent = '';
 			setTimeout(function () { boardSay.textContent = text; }, 50); // emptied first, so the same message twice is read twice
@@ -912,9 +914,21 @@
 		};
 		var place = function (card, col) {
 			var from = card.closest(cfg.column);
-			var handle = card.querySelector('.obchod-uchyt');
 			if (!col || from === col) { say(cfg.texts.stays.replace('%s', columnName(from))); return; }
 			if (cfg.needsReason(col)) {
+				// 3.48 B (U30): one server-rendered popover asks for the reason – Move sends it, Cancel leaves the card
+				var pop = cfg.popover ? document.querySelector(cfg.popover) : null;
+				if (pop && pop.showPopover) {
+					pending = { card: card, col: col };
+					var popTitle = pop.querySelector('[data-board-pop-title]');
+					if (popTitle) { popTitle.textContent = cfg.texts.reason.replace('%s', cardTitle(card)); }
+					var popSelect = pop.querySelector('select');
+					if (popSelect) { popSelect.selectedIndex = 0; }
+					pop.showPopover();
+					if (popSelect) { popSelect.focus(); }
+					say(cfg.texts.reason.replace('%s', cardTitle(card)));
+					return;
+				}
 				// the card's own form asks for the reason, Move finishes
 				setColumn(card, col.getAttribute(cfg.columnKey), false);
 				var fold = card.querySelector('details.obchod-vice');
@@ -924,11 +938,15 @@
 				say(cfg.texts.reason.replace('%s', cardTitle(card)));
 				return;
 			}
+			send(card, col, '');
+		};
+		var send = function (card, col, reason) {
+			var handle = card.querySelector('.obchod-uchyt');
 			var form = card.querySelector(cfg.form);
 			var data = new FormData(form);
 			data.set(cfg.field, col.getAttribute(cfg.columnKey));
 			data.set('format', 'json');
-			data.delete(cfg.reasonField);
+			if (reason) { data.set(cfg.reasonField, reason); } else { data.delete(cfg.reasonField); }
 			card.classList.add('obchod-presouva');
 			fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				card.classList.remove('obchod-presouva');
@@ -944,6 +962,31 @@
 				say(cfg.texts.failed);
 			});
 		};
+		// 3.48 B (U30): the reason popover – Move sends the card with the chosen reason; Cancel (popovertargetaction) or Esc leaves it
+		var pending = null;
+		var reasonPop = cfg.popover ? document.querySelector(cfg.popover) : null;
+		if (reasonPop) {
+			var popMove = reasonPop.querySelector('[data-board-pop-move]');
+			if (popMove) {
+				popMove.addEventListener('click', function () {
+					var chosen = reasonPop.querySelector('select');
+					if (!pending || !chosen || !chosen.value) { if (chosen) { chosen.focus(); } return; }
+					var job = pending;
+					pending = null;
+					reasonPop.hidePopover();
+					send(job.card, job.col, chosen.value);
+				});
+			}
+			reasonPop.addEventListener('toggle', function (e) {
+				if (e.newState === 'closed' && pending) {
+					var card = pending.card;
+					pending = null;
+					say(cfg.texts.stays.replace('%s', columnName(card.closest(cfg.column))));
+					var h = card.querySelector('.obchod-uchyt');
+					if (h) { h.focus(); }
+				}
+			});
+		}
 		// the mouse: drag a card to a column
 		var dragged = null;
 		Array.prototype.forEach.call(board.querySelectorAll(cfg.card), function (card) {
@@ -1082,6 +1125,7 @@
 			column: 'section[data-stage]', columnKey: 'data-stage', card: '[data-deal]', form: 'form[data-deal-move]', field: 'stage', reasonField: 'lost_reason',
 			needsReason: function (col) { return col.getAttribute('data-kind') === 'lost'; },
 			label: '[data-stage-label]', count: '[data-stage-count]', cards: '[data-stage-cards]', empty: '[data-stage-empty]', announce: '[data-pipeline-announce]', guideId: 'obchody-navod',
+			popover: '[data-pipeline-reason]', message: '[data-pipeline-message]', // 3.48 B (U30)
 			texts: { stays: T('The deal stays in %s.'), reason: T('Say why “%s” was lost, then press Move.'), failed: T('The deal could not be moved.'), fold: T('Stage and Move: “%s”'), foldTitle: T('Stage and Move') },
 			after: function (card) {
 				var days = card.querySelector('[data-deal-days]'); // 3.41: a new stage starts today
@@ -1103,6 +1147,7 @@
 			column: 'section[data-board-status]', columnKey: 'data-board-status', card: '[data-board-card]', form: 'form[data-board-move]', field: 'status', reasonField: 'reject_reason',
 			needsReason: function (col) { return col.hasAttribute('data-board-needs-reason'); },
 			label: '[data-board-label]', count: '[data-board-count]', cards: '[data-board-cards]', empty: '[data-board-empty]', announce: '[data-board-announce]', guideId: 'uchazeci-navod',
+			popover: '[data-board-reason]', message: '[data-board-message]', // 3.48 B (U30)
 			texts: { stays: T('The application stays in %s.'), reason: T('Say why “%s” was rejected, then press Move.'), failed: T('The application could not be moved.'), fold: T('Status and Move: “%s”'), foldTitle: T('Status and Move') },
 			// 3.47 review F4: the chips of the old status go with it – "waiting" belongs to New, the reason to Rejected
 			after: function (card, j) {

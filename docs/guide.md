@@ -287,7 +287,9 @@ connection. Webhook addresses and the secret are never available over the Claude
 Submitted messages are in **Workspace → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
 in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
-contain personal data, so they are deleted automatically after a set number of months (24 by default).
+contain personal data, so they are deleted automatically after a set number of months (24 by default). Every retention period –
+enquiries, job applications, customers, quotes, bookings, whistleblowing cases, consent records – is set in one place,
+**Settings → Privacy and cookies → How long data is kept**; a shorter period is confirmed on its own screen first.
 
 **Where leads came from.** Turn on **Settings → Cookies → Remember where leads came from** and every enquiry and newsletter
 sign-up also records the **first page of the visit**, its campaign and the site that sent the visitor – even when the form

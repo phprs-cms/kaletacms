@@ -1335,12 +1335,12 @@ final class Booking
     public static function purge(App $app): int
     {
         $s = $app->settings();
-        $months = $s->int('enquiries_months');
+        $months = Retention::effective($s, 'bookings'); // 3.48 B: follows the enquiries
         if ($months <= 0) {
             return 0;
         }
         try {
-            if ($s->get('enquiries_expiry') === 'anonymise') {
+            if (Retention::anonymises($s)) {
                 return $app->db()->run("UPDATE {bookings} SET name = '', email = '', phone = '', note = '', anonymised_at = ? WHERE anonymised_at IS NULL AND ends_at < ?", [Clock::now(), Clock::monthsAgo($months)])->rowCount();
             }
 

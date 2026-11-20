@@ -142,7 +142,7 @@ final class TalentPool
         $s = $app->settings();
         $language = Applications::languageOf($s, $row);
         $link = self::link($app, $token, $language);
-        $months = max(1, $s->int('applications_pool_months'));
+        $months = Retention::effective($s, 'talent_pool'); // 3.48 B
         $company = $s->get('company_name') !== '' ? $s->get('company_name') : $s->get('site_name');
 
         return Language::runWith($language, function () use ($row, $link, $months, $company): array {
@@ -207,7 +207,7 @@ final class TalentPool
         if ($row === null) {
             return null;
         }
-        $until = Clock::day('+' . max(1, $app->settings()->int('applications_pool_months')) . ' months');
+        $until = Clock::day('+' . Retention::effective($app->settings(), 'talent_pool') . ' months');
         $now = Clock::now();
         // compare-and-swap on the token: two clicks (or two tabs) renew once
         if ($db->run('UPDATE {applications} SET pool_consent_at = ?, pool_until = ?, pool_token = NULL, pool_token_until = NULL, last_activity_at = ? WHERE id = ? AND pool_token = ?',

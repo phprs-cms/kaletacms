@@ -79,7 +79,7 @@ $movedFields = $tab === 'general' ? array_map(fn (string $to): string => $module
 <input type="hidden" name="tab" value="<?= e($tab) ?>">
 <?php if ($tab === 'general' && $module::IDENT === 'settings'): ?><input type="hidden" name="general_split" value="1"><?php /* 3.23: only the General fields – Settings::actionSave */ endif ?>
 <?php require __DIR__ . '/' . $tab . '.php'; ?>
-<?php if (!in_array($tab, ['health', 'console'], true)): ?>
+<?php if (!in_array($tab, ['health', 'console', 'sections'], true)): ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>
 <?php endif ?>
 </form>

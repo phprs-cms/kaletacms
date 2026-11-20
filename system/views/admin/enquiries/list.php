@@ -92,20 +92,12 @@ $preview = function (string $data) use ($yes): string {
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url('csv')) ?>"><?= e(t('Download all enquiries (CSV)')) ?></a></p>
 <?php endif ?>
 <?php if ($app->auth()->isAdmin()): ?>
-<form class="formular" method="post" action="<?= e($module->url('settings')) ?>" data-potvrdit="<?= e(t('Enquiries older than the given number of months will be permanently deleted right away – including attachments. Save anyway?')) ?>">
+<form class="formular" method="post" action="<?= e($module->url('settings')) ?>">
 <?= $csrf ?>
-<div class="radek"><label for="mesice"><?= e(t('Delete enquiries older than')) ?></label><div><input class="textpole" type="number" id="mesice" name="mesice" value="<?= $months ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
-<span class="napoveda"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.')) ?></span></div></div>
-<div class="radek"><span class="popisek"><?= e(t('After that period')) ?></span><div class="volby volby-radky">
-<?php foreach (['delete' => 'delete them including attachments', 'anonymise' => 'anonymise them – the row stays for statistics (date, form, page, topic, kind) without the name, e-mail, phone, message and attachments'] as $key => $labelText): ?>
-	<label><input type="radio" name="po_uplynuti" value="<?= $key ?>"<?= $expiry === $key ? ' checked' : '' ?>> <?= e(t($labelText)) ?></label>
-<?php endforeach ?>
-</div></div>
-<div class="radek"><label for="mesice-uchazeci"><?= e(t('Delete job applications after')) ?></label><div><input class="textpole" type="number" id="mesice-uchazeci" name="mesice_uchazeci" value="<?= $applicationMonths ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
-<span class="napoveda"><?= e(t('Applications sent from the pages of a Job openings collection carry CVs and are usually kept only for a limited time after the selection. 0 = like other enquiries.')) ?><?= $suggestion !== null ? ' ' . e(t('Usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
-<div class="radek"><label for="contacts-months"><?= e(t('Anonymise customers inactive for')) ?></label><div><input class="textpole" type="number" id="contacts-months" name="contacts_months" value="<?= (int) ($contactMonths ?? 24) ?>" min="0" max="120" size="4"> <?= e(t('months')) ?>
-<span class="napoveda"><?= e(t('A customer record (Customers) with no enquiry, booking, reply, logged contact, comment or task for this long is anonymised – its name, e-mail, phone and notes go. 0 = keep.')) ?></span></div></div>
-<div class="radek"><span></span><div><label><input type="checkbox" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
+<?php // 3.48 B (U40): the periods of enquiries, job applications and customers are set in Settings → Privacy and cookies ?>
+<div class="radek"><span class="popisek"><?= e(t('Enquiries')) ?></span><div><?= $app->view->render('admin/retention_line', ['app' => $app, 'key' => 'enquiries']) ?>
+<span class="napoveda"><?= e(t('Enquiries contain personal data – they should not be kept longer than necessary.')) ?><?= $suggestion !== null ? ' ' . e(t('Job applications: usual practice in %s: %d months – check with your lawyer.', $suggestion[0], $suggestion[1])) : '' ?></span></div></div>
+<div class="radek"><span></span><div><label><input type="checkbox" id="triage_assistant" name="triage_assistant" value="1"<?= $app->settings()->bool('triage_assistant') ? ' checked' : '' ?>> <?= e(t('Sort new enquiries with the writing assistant')) ?></label>
 <span class="napoveda"><?= $module->hint(t('The assistant suggests the kind, the priority and a reply; the text of each enquiry is then sent to the AI provider chosen in Features – mention it in your privacy policy. Claude can sort enquiries over its connection without this.')) ?></span></div></div>
 <?php // 3.12 (UX310-25): one Save for the whole form, below it – beside the job-applications field it looked as if it saved only that ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save settings')) ?>"></p>

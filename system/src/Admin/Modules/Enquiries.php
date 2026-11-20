@@ -580,18 +580,26 @@ final class Enquiries extends Module
         return $this->view('personal', t('Personal data request'), ['email' => $email ?? '', 'found' => $email !== null ? \Kaleta\Core\PersonalData::find($this->db, $email, $this->app) : null]);
     }
 
-    /** Saving the periods after which enquiries and job applications delete themselves (administrator only). */
+    /**
+     * The settings of Enquiries (administrator only): the writing assistant. 3.48 B (U40): the retention periods moved to
+     * Settings → Privacy and cookies – a page of 3.47 still open posts them under their old names (mesice, mesice_uchazeci,
+     * po_uplynuti, contacts_months) and they are saved as before, a shorter one written to the change log; a form without
+     * them leaves every period as it is. 3.50 drops the old fields.
+     */
     protected function actionSettings(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->isAdmin()) {
-            $this->app->settings()->set('enquiries_months', (string) max(0, min(120, $this->request->postInt('mesice'))));
-            $this->app->settings()->set('job_applications_months', (string) max(0, min(120, $this->request->postInt('mesice_uchazeci'))));
-            if ($this->request->hasPost('contacts_months')) {
-                // 3.28: the customers' retention, next to the enquiries' (a form from before 3.28 leaves it as it is)
-                $this->app->settings()->set('contacts_months', (string) max(0, min(120, $this->request->postInt('contacts_months'))));
+            $legacy = [];
+            foreach (['mesice' => 'enquiries_months', 'mesice_uchazeci' => 'job_applications_months', 'contacts_months' => 'contacts_months'] as $field => $setting) {
+                if ($this->request->hasPost($field)) {
+                    $legacy[$setting] = (string) max(0, min(120, $this->request->postInt($field)));
+                }
             }
+            if ($this->request->hasPost('po_uplynuti')) {
+                $legacy['enquiries_expiry'] = $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete';
+            }
+            \Kaleta\Core\Retention::saveUnconfirmed($this->app, 'enquiries', $legacy);
             $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
-            $this->app->settings()->set('enquiries_expiry', $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete');
         }
 
         return $this->back('Enquiry settings saved.');
@@ -625,7 +633,7 @@ final class Enquiries extends Module
     public static function deleteExpired(\Kaleta\Core\Db $db, \Kaleta\Core\Settings $siteSettings): void
     {
         \Kaleta\Core\Comments::sweep($db); // 3.25: notes of an enquiry some other path deleted
-        $months = $siteSettings->int('enquiries_months');
+        $months = \Kaleta\Core\Retention::effective($siteSettings, 'enquiries'); // 3.48 B
         if ($months <= 0) {
             return;
         }

@@ -76,34 +76,46 @@ final class Notifications
             return;
         }
         $s->set('data_cleanup', (string) time());
-        $db = $app->db();
-        self::runEach([
-            fn () => Jobs::purgeApplications($app), // applications to job openings first: they usually have a shorter retention (2.11)
-            fn () => Applications::purge($app), // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
-            fn () => TalentPool::sendRenewals($app), // 3.40: before the consent for future openings lapses, the applicant may keep or delete the application
-            function () use ($app, $s): void {
-                \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $s);
+        self::runEach(self::cleanups($app));
+    }
+
+    /**
+     * 3.48 B: the steps of the daily personal-data clean-up by name – a period of Core\Retention (PERIODS or FIXED) or a
+     * sweep that is no period (Retention::SWEEPS); unit 4330 holds every name to one of them. Each step reads its number
+     * from the registry.
+     *
+     * @return array<string, \Closure(): mixed>
+     */
+    public static function cleanups(App $app): array
+    {
+        // each step opens the settings and the database itself – listing the steps touches neither (unit 4330)
+        return [
+            'job_enquiries' => fn () => Jobs::purgeApplications($app), // applications to job openings first: they usually have a shorter retention (2.11)
+            'applications' => fn () => Applications::purge($app), // 3.34: the applications apart from enquiries – after the decision or without activity, with their sealed CVs
+            'talent_pool' => fn () => TalentPool::sendRenewals($app), // 3.40: before the consent for future openings lapses, the applicant may keep or delete the application
+            'enquiries' => function () use ($app): void {
+                \Kaleta\Admin\Modules\Enquiries::deleteExpired($app->db(), $app->settings());
             },
-            fn () => Booking::purge($app), // bookings follow the same retention (3.0)
-            fn () => QuoteDelivery::purge($app), // 3.38 (A-11): quotes after quotes_months the way of old enquiries, drafts after 6 months
-            fn () => Contacts::purge($app), // 3.28: customers with no activity for contacts_months are anonymised
-            function (): void {
+            'bookings' => fn () => Booking::purge($app), // bookings follow the same retention (3.0)
+            'quotes' => fn () => QuoteDelivery::purge($app), // 3.38 (A-11): quotes after quotes_months the way of old enquiries, drafts after 6 months
+            'customers' => fn () => Contacts::purge($app), // 3.28: customers with no activity for contacts_months are anonymised
+            'customer_imports' => function (): void {
                 \Kaleta\Admin\Modules\Contacts::sweepImports(); // N328-5: an uploaded customers CSV nobody confirmed (personal data) goes after a day, not only when Import is opened again
             },
-            function () use ($db, $s): void {
-                if ($s->int('cookies_log_months') > 0) {
+            'consents' => function () use ($app): void {
+                if (($months = Retention::effective($app->settings(), 'consents')) > 0) {
                     // records of cookie consents should not be kept forever
-                    $db->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($s->int('cookies_log_months'))]);
+                    $app->db()->run('DELETE FROM {souhlasy} WHERE cas < ?', [Clock::monthsAgo($months)]);
                 }
             },
-            fn () => $db->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-30 days')]),
-            fn () => PersonalData::sweepQueues($db), // 3.46 (N161): delivered and given-up webhook and connector bodies, every day – not only by chance
-            function (): void {
+            'unconfirmed_signups' => fn () => $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-' . Retention::UNCONFIRMED_SIGNUP_DAYS . ' days')]),
+            'queues' => fn () => PersonalData::sweepQueues($app->db()), // 3.46 (N161): delivered and given-up webhook and connector bodies, every day – not only by chance
+            'local_backups' => function (): void {
                 if (!Backup::refusedInDemo()) {
                     Backup::prune(); // 3.46 (N157): no local backup older than Backup::KEEP_DAYS, also on a site that makes none
                 }
             },
-            function (): void {
+            'imports' => function (): void {
                 // the states of imports and migration reports, the rows of item imports (3.7, N37-25) – never an uploaded export
                 try {
                     WpFile::purgeOld(WpFile::folder(), time());
@@ -113,11 +125,11 @@ final class Notifications
             },
             // 3.46 (N165): internal files migration 0134 could not seal yet, and leftovers of an interrupted run – last (review H1):
             // the retention deletions above never wait for it
-            function () use ($app): void {
+            'sealing' => function () use ($app): void {
                 SealedFiles::sealAll($app->settings(), 10.0); // review N2: clears private_files_unsealed once a pass got through
                 SealedFiles::sweepLeftovers(InternalFiles::FOLDER);
             },
-        ]);
+        ];
     }
 
     /**
@@ -125,7 +137,7 @@ final class Notifications
      * (applications, customers …) must not keep the others (enquiries, bookings, consents, sign-ups) from running. Each
      * failure is logged; the first is thrown on at the end, so the job is still recorded as failed and System status warns.
      *
-     * @param list<callable(): mixed> $steps
+     * @param array<array-key, callable(): mixed> $steps
      */
     public static function runEach(array $steps): void
     {

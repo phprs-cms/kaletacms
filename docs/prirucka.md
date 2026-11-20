@@ -223,7 +223,9 @@ ani tajný klíč nejsou přes napojení na Clauda dostupné.
 Odeslané zprávy jsou v **Pracoviště → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
 stránce, na kterou vede reklama nebo newsletter, poptávka ukáže i **kampaň** z adresy (`utm_source`, `utm_medium`, `utm_campaign`…) –
 v administraci, v e-mailu s upozorněním, v CSV i ve webhooku, bez cookies.
-Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou.
+Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou. Všechny lhůty uchování –
+poptávky, žádosti o práci, zákazníci, nabídky, rezervace, oznámení, záznamy souhlasů – se nastavují na jednom místě,
+**Nastavení → Soukromí a cookies → Jak dlouho se data uchovávají**; kratší lhůtu je nejdřív potřeba potvrdit.
 
 **Odkud poptávky přišly.** Zapněte **Nastavení → Cookies → Pamatovat si, odkud poptávky přišly** a každá poptávka i přihláška
 k odběru uloží i **první stránku návštěvy**, její kampaň a web, ze kterého návštěvník přišel – i když je formulář na jiné

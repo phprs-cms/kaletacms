@@ -3243,7 +3243,7 @@ await step('3.23.1 item 12: each Settings tab saved with its Save button keeps t
   sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('agency_name', 'Studio 3231')"); // the console tab is in the row too
   await visit('/admin.php?module=settings&tab=general');
   const tabs = await page.locator('nav.zalozky a').evaluateAll((links) => links.map((a) => new URL(a.href).searchParams.get('tab')));
-  if (tabs.length !== 13) { throw new Error(`the row has ${tabs.length} tabs: ${tabs.join(', ')}`); }
+  if (tabs.length !== 14) { throw new Error(`the row has ${tabs.length} tabs: ${tabs.join(', ')}`); } // 3.48 B: Settings of sections (no Save button – skipped below)
   // mysql -N escapes line breaks and tabs inside a value, so one line is one setting
   // 3.24 (T11): the admin runs the light background jobs after its answer, so their bookkeeping (notification_check and the
   // other *_check/_time/_at stamps – Core\AgentJournal::BOOKKEEPING) moves on its own while the tabs are saved; it is no setting
@@ -4281,13 +4281,17 @@ await step('3.31 pipeline: the board – keyboard move with an announcement, dra
     if (counts[0] !== before[0] - 1 || counts[1] !== before[1] + 1 || !(await page.locator('section[data-stage="new"] [data-stage-sums]').innerText()).includes('€480')) { // 3.32 (U29): the live total reads like the server's (no .00)
       throw new Error(`the counts and sums did not follow: ${before} → ${counts}`); }
     if (await page.evaluate(() => !document.activeElement.classList.contains('obchod-uchyt'))) { throw new Error('the focus did not stay on the moved card'); }
-    // dragging to Lost: the card's form shows the reason, focused; nothing is saved yet
+    // dragging to Lost: 3.48 B (U30) – one popover asks for the reason, focused, and the visible line says so; nothing is saved yet
     await page.locator(`#deal-${b}`).dragTo(page.locator('section[data-stage="lost"]'));
-    await page.locator(`#deal-${b} select[name="lost_reason"]`).waitFor({ state: 'visible', timeout: 3000 });
-    if ((await page.evaluate(() => document.activeElement.name)) !== 'lost_reason') { throw new Error('the reason is not focused after a drop on Lost'); }
+    await page.locator('[data-pipeline-reason]').waitFor({ state: 'visible', timeout: 3000 });
+    if ((await page.evaluate(() => document.activeElement.id)) !== 'obchody-duvod-vyber') { throw new Error('the reason is not focused after a drop on Lost'); }
+    if (!(await page.locator('[data-pipeline-message]').isVisible()) || !/lost/.test(await page.locator('[data-pipeline-message]').innerText())) { throw new Error('the board does not say visibly why it waits'); }
     if (sql(`SELECT stage FROM ka_deals WHERE id = ${b}`).trim() !== 'new') { throw new Error('a drop on Lost saved without a reason'); }
-    await page.selectOption(`#deal-${b} select[name="lost_reason"]`, 'timing');
-    await Promise.all([page.waitForNavigation(), page.locator(`#deal-${b} form button[type="submit"]`).click()]);
+    if (SHOTS) { await page.screenshot({ path: `${SHOTS}/348-board-reason.png` }); }
+    await page.selectOption('#obchody-duvod-vyber', 'timing');
+    await page.locator('[data-pipeline-reason] [data-board-pop-move]').click();
+    await page.locator(`section[data-stage="lost"] #deal-${b}`).waitFor({ timeout: 5000 });
+    if (await page.locator('[data-pipeline-reason]').isVisible()) { throw new Error('the reason popover stays open after Move'); }
     if (sql(`SELECT CONCAT(stage, '/', lost_reason) FROM ka_deals WHERE id = ${b}`).trim() !== 'lost/timing') { throw new Error('Move with the reason did not lose the deal'); }
     if (SHOTS) { await page.screenshot({ path: `${SHOTS}/331-board.png`, fullPage: true }); }
     const state = await context.storageState();
@@ -4344,7 +4348,7 @@ await step('3.31.1: a stage with deals keeps its kind; the certificates\' remind
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit('/admin.php?module=pipeline&action=stages');
     await page.selectOption('tr[data-stage-row="qualified"] select[name="kind[]"]', 'lost');
-    await Promise.all([page.waitForNavigation(), page.locator('form[data-stages-form] button[type="submit"]').click()]);
+    await Promise.all([page.waitForNavigation(), page.locator('form[data-stages-form] p.tlacitka button[type="submit"]').click()]);
     if (!/The kind of the stage “Qualified” cannot change while deals are in it \(1\).*It can change only when all its deals already fit the new kind/s.test(await page.locator('.hlaska-chyba').innerText())) { throw new Error('the editor does not refuse the kind change with the count and the hint'); }
     if ((await page.locator('tr[data-stage-row="qualified"] select[name="kind[]"]').inputValue()) !== 'lost') { throw new Error('the refused form lost what was typed'); }
     if (sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'pipeline_stages'), '')").trim() !== '') { throw new Error('the refused stages were saved'); }
@@ -4969,9 +4973,13 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
     await page.keyboard.press('Space');
     for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowRight'); }
     await page.keyboard.press('Space');
-    await page.locator(`#application-${rosa} select[name="reject_reason"]`).waitFor({ state: 'visible', timeout: 3000 });
-    if ((await page.evaluate(() => document.activeElement.name)) !== 'reject_reason') { throw new Error('the reason is not focused after a move to Rejected'); }
+    // 3.48 B (U30): the reason popover of the board, focused; Cancel leaves the card where it was
+    await page.locator('[data-board-reason]').waitFor({ state: 'visible', timeout: 3000 });
+    if ((await page.evaluate(() => document.activeElement.id)) !== 'uchazeci-duvod-vyber') { throw new Error('the reason is not focused after a move to Rejected'); }
     if (sql(`SELECT status FROM ka_applications WHERE id = ${rosa}`).trim() !== 'new') { throw new Error('a move to Rejected saved without a reason'); }
+    await page.locator('[data-board-reason] button[popovertargetaction="hide"]').click();
+    await page.waitForFunction(() => /stays/.test(document.querySelector('[data-board-message]').textContent));
+    if (await page.locator('[data-board-reason]').isVisible() || sql(`SELECT status FROM ka_applications WHERE id = ${rosa}`).trim() !== 'new') { throw new Error('Cancel did not leave the application'); }
     // All positions: each card names its position
     await visit('/admin.php?module=applications&action=board&job=all');
     if ((await page.locator('[data-board-position]', { hasText: 'Painter B347' }).count()) !== 1) { throw new Error('All positions does not name the position on the card'); }
@@ -6348,6 +6356,57 @@ await step('3.47 A My account: the tabs at 390 px (light/dark, axe), the #claude
     if ((await p3.locator('.login-karta .tl').count()) !== 1 || !(await p3.locator('[data-login-password].tl').count())) { throw new Error('the sign-in page has not exactly one primary button, the password'); }
   } finally {
     await fresh.close();
+  }
+});
+
+// 3.48 B (U40, U70, U31): the Privacy tab starts with How long data is kept; a shorter period goes to its own screen and is
+// saved only from there; Settings of sections; the stage arrows move a stage without numbers (1440 and 390 px, light and
+// dark, no sideways scroll, axe clean)
+await step('3.48 B: How long data is kept and the shorter-retention screen, Settings of sections, the stage arrows (1440 and 390 px, light/dark, axe)', async () => {
+  const months = sql("SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'), '')").trim();
+  try {
+    sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '24')");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=settings&tab=cookies');
+    if (!(await page.locator('fieldset#retention input#enquiries_months').count())) { throw new Error('the Privacy tab has no retention block with the enquiries period'); }
+    await page.fill('#enquiries_months', '12');
+    await Promise.all([page.waitForNavigation(), page.locator('form.formular > p.tlacitka input.tl[type="submit"]').last().click()]);
+    if (!/action=retention&enquiries_months=12/.test(page.url()) || !(await page.locator('[data-retention-confirm] [data-retention-harsher]').count())) { throw new Error(`a shorter period did not lead to its screen: ${page.url()}`); }
+    if (sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'").trim() !== '24') { throw new Error('the shorter period was saved before the confirmation'); }
+    const confirmUrl = new URL(page.url()).pathname + new URL(page.url()).search;
+    await Promise.all([page.waitForNavigation(), page.locator('[data-retention-confirm] button[value="apply"]').click()]);
+    if (sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'").trim() !== '12') { throw new Error('Shorten the retention did not save it'); }
+    await visit('/admin.php?module=pipeline&action=stages');
+    const first = await page.locator('tr[data-stage-row] input[name="key[]"]').first().inputValue();
+    await Promise.all([page.waitForNavigation(), page.locator('button[name="shift"][value="down:0"]').click()]);
+    if ((await page.locator('tr[data-stage-row] input[name="key[]"]').nth(1).inputValue()) !== first) { throw new Error('Move down did not move the first stage'); }
+    const box = await page.locator('button[name="shift"][value="up:1"]').boundingBox();
+    if (!box || box.height < 40 || box.width < 40) { throw new Error('the arrow buttons are smaller than 40 px'); }
+    await Promise.all([page.waitForNavigation(), page.locator('button[name="shift"][value="up:1"]').click()]); // and back
+    if ((await page.locator('tr[data-stage-row] input[name="key[]"]').first().inputValue()) !== first) { throw new Error('Move up did not move the stage back'); }
+    sql("REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '24')");
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      for (const [label, width, height] of [['desktop', 1440, 900], ['phone', 390, 844]]) {
+        const other = await browser.newContext({ viewport: { width, height }, locale: 'en-GB', colorScheme: scheme, storageState: state, bypassCSP: true, ...(width < 500 ? { isMobile: true, hasTouch: true } : {}) });
+        const p2 = await other.newPage(); watch(p2);
+        try {
+          for (const url of ['/admin.php?module=settings&tab=cookies', confirmUrl, '/admin.php?module=settings&tab=sections', '/admin.php?module=pipeline&action=stages']) {
+            await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+            const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (wide > 1) { throw new Error(`${wide} px of sideways scroll on ${url} (${label}, ${scheme})`); }
+            await p2.addScriptTag({ path: AXE });
+            const found = await p2.evaluate(([tags]) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [WCAG]);
+            if (found.violations.length) { throw new Error(`axe ${url} (${label}, ${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+            if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/348b-${url.replace(/[^a-z0-9]+/gi, '-').slice(11, 60)}-${label}-${scheme}.png`, fullPage: true }); }
+          }
+        } finally {
+          await other.close();
+        }
+      }
+    }
+  } finally {
+    sql(/^\d+$/.test(months) ? `REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '${months}')` : "DELETE FROM ka_nastaveni WHERE promenna = 'enquiries_months'");
   }
 });
 

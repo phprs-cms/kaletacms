@@ -26,13 +26,14 @@ use Kaleta\Core\Applications as Store;
 <?php endif ?>
 	<h2><?= e(t('Retention')) ?></h2>
 <?php if ($awaiting !== null): ?>
-	<p class="hlaska hlaska-varovani" data-applications-retention-pending><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you save these settings; then the daily clean-up deletes them with their CVs. Set 0 to keep them.', format_count($awaiting['count']), format_date($awaiting['before']), $awaiting['months'])) ?></p>
+	<p class="hlaska hlaska-varovani" data-applications-retention-pending><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you save these settings or the periods in Settings → Privacy and cookies; then the daily clean-up deletes them with their CVs. Set 0 there to keep them.', format_count($awaiting['count']), format_date($awaiting['before']), $awaiting['months'])) ?></p>
 <?php elseif (!$confirmed): ?>
-	<p class="napoveda" data-applications-retention-pending><?= e(t('Check the retention and save: applications moved from Enquiries are not deleted until an administrator saves these settings.')) ?></p>
+	<p class="napoveda" data-applications-retention-pending><?= e(t('Check the retention and save: applications moved from Enquiries are not deleted until an administrator saves these settings or the periods in Settings → Privacy and cookies.')) ?></p>
 <?php endif ?>
-	<div class="radek"><label for="uchazeci-mesice"><?= e(t('Delete applications after (months)')) ?></label><div><input class="textpole kratke" type="number" id="uchazeci-mesice" name="applications_months" min="0" max="120" value="<?= (int) $values['months'] ?>">
-		<span class="napoveda"><?= e(t('A decided application (hired or rejected) is deleted this many months after the decision, an undecided one after this long without any activity – with its CVs, notes and tasks. 0 = keep.')) ?><?= $practice !== null ? ' ' . e($practice) : '' ?></span></div></div>
-	<div class="radek"><label for="uchazeci-zasoba"><?= e(t('Consent for future openings keeps an application (months)')) ?></label><div><input class="textpole kratke" type="number" id="uchazeci-zasoba" name="applications_pool_months" min="1" max="60" value="<?= (int) $values['pool'] ?>">
+	<?php // 3.48 B (U40): the periods are set in Settings → Privacy and cookies; shown here as lines, so whoever saves sees them ?>
+	<div class="radek"><span class="popisek"><?= e(t('Delete applications after')) ?></span><div><?= $app->view->render('admin/retention_line', ['app' => $app, 'key' => 'applications']) ?>
+		<span class="napoveda"><?= e(t('A decided application (hired or rejected) is deleted this many months after the decision, an undecided one after this long without any activity – with its CVs, notes and tasks.')) ?><?= $practice !== null ? ' ' . e($practice) : '' ?></span></div></div>
+	<div class="radek"><span class="popisek"><?= e(t('Consent for future openings keeps an application')) ?></span><div><?= $app->view->render('admin/retention_line', ['app' => $app, 'key' => 'talent_pool']) ?>
 		<span class="napoveda"><?= e(t('Only when the form offers the consent (its property in the builder) and the applicant ticks it.')) ?> <?= e(t('%d days before the consent lapses, the applicant gets an e-mail with two links: keep the application for this long again, or delete it now. Without an answer it follows the normal retention.', Kaleta\Core\TalentPool::RENEW_DAYS)) ?></span></div></div>
 	<h2><?= e(t('Notifications and Claude')) ?></h2>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="applications_notify_full" value="1"<?= $values['full'] ? ' checked' : '' ?>> <?= e(t('Include the applicant’s full details in the notification e-mail')) ?></label>

@@ -905,7 +905,7 @@ check('[source-pin] 3.28 (N328-3): linking a new address scans no table until th
 check('[source-pin] 3.28 (N328-7): the retention counts the team\'s comments and tasks about a customer as activity – an open task is never blanked by it, and the processing record and the setting say so', [
     str_contains($k328Src, '$team = self::teamActivity($db, $id);'), str_contains($k328Src, 'self::touch($db, $id, min($team, Clock::now()));'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Privacy.php'), 'logged contact, comment or task).'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/list.php'), 'logged contact, comment or task for this long')], [true, true, true, true]);
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/cookies.php'), 'logged contact, comment or task for this long')], [true, true, true, true]); // 3.48 B: the period moved to Settings → Privacy and cookies
 check('[source-pin] 3.28: the timeline is bounded – the default and the most, every source limited, newest first; get_contact shows at most 50 entries, each text at most 200 characters', [
     $k328::TIMELINE, $k328::TIMELINE_MAX, str_contains($k328Src, '$limit = max(1, min(self::TIMELINE_MAX, $limit));'), substr_count($k328Src, "LIMIT ' . \$limit, [\$id]"),
     str_contains($k328Src, "return array_slice(array_map("), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "\$limit = max(0, min(50, (int) (\$a['timeline'] ?? 20)));"),

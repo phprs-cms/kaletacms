@@ -383,11 +383,11 @@ final class Privacy
             $forms[] = t('Form “%s” on %s: fields %s; notification to %s%s', $f['name'], $f['where'], implode(', ', array_map(fn (array $field): string => $field['label'] . ' (' . t($field['type']) . ')', $f['fields'])),
                 ($f['recipient'] !== '' ? $f['recipient'] : t('the site e-mail')) . ($f['bcc'] !== '' ? ' ' . t('(hidden copy to %s)', $f['bcc']) : ''), $f['confirmation'] ? '; ' . t('the sender gets a confirmation e-mail') : '');
         }
-        $months = $s->int('enquiries_months');
+        $months = Retention::effective($s, 'enquiries'); // 3.48 B
         $sections[] = ['heading' => t('Enquiries and form messages'), 'lines' => array_merge($forms !== [] ? $forms : [t('No form on the published site.')], [
             t('Purpose: answering the enquiry and the business relationship that follows. Legal basis: performance of a contract or steps before it (Art. 6(1)(b)), legitimate interest in answering.'),
             $months > 0 ? t('Retention: %d months, then %s automatically.', $months, t($s->get('enquiries_expiry') === 'anonymise' ? 'anonymised (the row stays for statistics without the person)' : 'deleted including attachments'))
-                : t('Retention: not limited – set it in Enquiries → Settings.'),
+                : t('Retention: not limited – set it in Settings → Privacy and cookies.'),
             t('Internal notes of the team on an enquiry (who wrote them and when) are kept with the enquiry: deleted with it, their text blanked when it is anonymised.'),
             t('Tasks of the team about an enquiry (a follow-up, a call back) are kept with the enquiry: deleted with it, their title blanked when it is anonymised.'),
             t('Recipients: the people with access to Enquiries in the administration%s.', $s->get('webhook_enquiries') !== '' ? ', ' . t('a webhook at %s', (string) parse_url($s->get('webhook_enquiries'), PHP_URL_HOST)) : ''),
@@ -416,7 +416,7 @@ final class Privacy
                 t('Customer records: %d. One record per e-mail address across its enquiries, bookings and newsletter subscription; the team adds a name, phone, company, a summary, a responsible person, a log of calls, meetings and e-mails, comments and tasks.', $contactCount),
                 t('Purpose: looking after the business relationship with customers and prospects. Legal basis: legitimate interest (Art. 6(1)(f)) and steps before or under a contract (Art. 6(1)(b)).'),
                 $contactMonths > 0 ? t('Retention: anonymised automatically after %d months without any activity (a new enquiry, booking, reply, logged contact, comment or task).', $contactMonths)
-                    : t('Retention: not limited – set it in Enquiries → Settings.'),
+                    : t('Retention: not limited – set it in Settings → Privacy and cookies.'),
                 t('Two different e-mail addresses are never merged automatically; a company is suggested from the e-mail domain, never for free-mail addresses.'),
                 ...($dealsOn ? [t('Deals with customers: %d. A deal names the customer, the enquiry it came from, a responsible person, a value and its stage. A customer with an open deal is not anonymised; the enquiries of a deal are kept while it is open and for the enquiries’ retention after it closes. Erasing a customer keeps their deals without the person.', $dealCount)] : []),
                 t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
@@ -425,13 +425,13 @@ final class Privacy
         $quoteCount = QuoteDelivery::withCustomer($db);
         if (Quotes::isOn($s) || $quoteCount > 0) {
             // 3.38: quotes (Core\Quotes, Core\QuoteDelivery) – counts only, never money
-            $quoteMonths = max(0, $s->int('quotes_months'));
+            $quoteMonths = Retention::effective($s, 'quotes');
             $sections[] = ['heading' => t('Quotes'), 'lines' => [
                 t('Quotes with a customer: %d. A quote holds the customer’s name, company, address, registration and VAT numbers and e-mail, copied from the customer record or the enquiry.', $quoteCount),
                 t('Purpose: steps before a contract at the customer’s request. Legal basis: Art. 6(1)(b); for companies legitimate interest (Art. 6(1)(f)).'),
                 $quoteMonths > 0 ? t('Retention: %d months after the last change of status, then %s automatically; drafts not touched for %d months are deleted.', $quoteMonths,
                     t($s->get('enquiries_expiry') === 'anonymise' ? 'kept without the person (number, lines and totals stay)' : 'deleted'), QuoteDelivery::DRAFT_MONTHS)
-                    : t('Retention: not limited – set it in Quotes → Settings; drafts not touched for %d months are deleted.', QuoteDelivery::DRAFT_MONTHS),
+                    : t('Retention: not limited – set it in Settings → Privacy and cookies; drafts not touched for %d months are deleted.', QuoteDelivery::DRAFT_MONTHS),
                 t('A customer with a quote waiting for an answer is not anonymised; erasing a customer keeps a numbered quote without the person.'),
                 t('Recipients: the people with access to Quotes in the administration; the customer through the link in the e-mail, which works for %d days after the validity and can be withdrawn at once. Quotes are not part of the site export and never shown on the site.', max(1, $s->int('quote_link_days'))),
                 // 3.40: the customer's answer on the quote page and "first opened on" – both only when switched on
@@ -445,8 +445,8 @@ final class Privacy
             $sections[] = ['heading' => t('Job applications'), 'lines' => [
                 t('Applications: %d. They arrive from the job pages and from forms meant for job applications, apart from enquiries – no customer record, no deal.', (int) $db->value('SELECT COUNT(*) FROM {applications}')),
                 $applicationMonths > 0 ? t('Retention: deleted %d months after the decision, or after %d months without any activity, including the CVs.', $applicationMonths, $applicationMonths)
-                    : t('Retention: not limited – set it with the applications.'),
-                t('With the applicant’s consent an application is kept for future openings for %d months.', max(1, $s->int('applications_pool_months'))),
+                    : t('Retention: not limited – set it in Settings → Privacy and cookies.'),
+                t('With the applicant’s consent an application is kept for future openings for %d months.', Retention::effective($s, 'talent_pool')),
                 t('%d days before that consent lapses, the applicant is asked by e-mail whether to keep the application for another period or delete it now.', TalentPool::RENEW_DAYS), // 3.40
                 t('Legal basis: steps before a contract (Art. 6(1)(b)) for the selection; consent (Art. 6(1)(a)) only for keeping the application for future openings.'),
                 t('Recipients: the people with access to Applications in the administration. The CVs are stored encrypted and are never part of the site export.'),

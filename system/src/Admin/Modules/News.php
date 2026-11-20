@@ -699,7 +699,7 @@ final class News extends Module
     /** The trash empties itself: news items older than 30 days are deleted permanently (called by Admin\Kernel on entering the admin). */
     public static function emptyTrash(\Kaleta\Core\Db $db): int
     {
-        return $db->run('DELETE FROM {novinky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-30 days')])->rowCount();
+        return $db->run('DELETE FROM {novinky} WHERE smazano < ?', [\Kaleta\Core\Clock::at('-' . \Kaleta\Core\Retention::TRASH_DAYS . ' days')])->rowCount();
     }
 
     /**

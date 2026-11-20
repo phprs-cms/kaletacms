@@ -20,7 +20,9 @@ final class MenuPaths
      */
     private const array PATHS = [
         [['Settings', 'Backups and updates'], 'settings', 'module=settings&tab=backups'],
+        [['Settings', 'Privacy and cookies', 'How long data is kept'], 'settings', 'module=settings&tab=cookies#retention'], // 3.48 B (U40)
         [['Settings', 'Privacy and cookies'], 'settings', 'module=settings&tab=cookies'],
+        [['Settings', 'Settings of sections'], 'settings', 'module=settings&tab=sections'], // 3.48 B (U70)
         [['Settings', 'SEO and GEO'], 'settings', 'module=settings&tab=seo'],
         [['Settings', 'General'], 'settings', 'module=settings&tab=general'],
         // 3.23 (C12, C8): the tabs that left General, and the console tab under its new name

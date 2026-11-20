@@ -47,7 +47,7 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 <?php if (!$isReader): ?><p class="smltxt"><?= e(t('You are not among the readers, so the cases do not open for you.')) ?></p><?php endif ?>
 <?php endif ?>
 <?php if ($isAdmin): ?>
-<h2><?= e(t('Setup')) ?></h2>
+<h2 id="wb-setup"><?= e(t('Setup')) ?></h2>
 <form class="formular" method="post" action="<?= e($module->url('settings')) ?>">
 <?= $csrf ?>
 <div class="radek"><span></span><div><label><input type="checkbox" name="enabled" value="1"<?= $on ? ' checked' : '' ?>> <?= e(t('The channel is on')) ?></label>
@@ -61,7 +61,8 @@ $waiting = count(array_filter($cases, fn (array $c): bool => $c['status'] !== 'c
 	<label class="blok"><input type="checkbox" name="readers[]" value="<?= (int) $u['idu'] ?>"<?= in_array((int) $u['idu'], $readerIds, true) ? ' checked' : '' ?>> <?= e((string) ($u['jmeno'] !== '' ? $u['jmeno'] : $u['user'])) ?><?= $u['email'] !== '' ? ' <span class="smltxt">' . e((string) $u['email']) . '</span>' : ' <span class="smltxt">' . e(t('no e-mail – will not be notified')) . '</span>' ?></label>
 <?php endforeach ?>
 	<span class="napoveda"><?= e(t('Only these people open the reports – other administrators see case numbers and dates. A new report is announced to them by e-mail with the case number only.')) ?></span></div></fieldset>
-<div class="radek"><label for="wb-retention"><?= e(t('Delete closed cases after')) ?></label><div><input class="textpole" type="number" id="wb-retention" name="retention" value="<?= (int) $retention ?>" min="1" max="120" size="4"> <?= e(t('months')) ?>
+<?php // 3.48 B (U40): the period is set in Settings → Privacy and cookies with the others; this line says it and links there ?>
+<div class="radek"><span class="popisek"><?= e(t('Delete closed cases after')) ?></span><div><?= $app->view->render('admin/retention_line', ['app' => $app, 'key' => 'whistleblowing']) ?>
 	<span class="napoveda"><?= e(t('Closed cases are deleted with their attachments and messages; open cases are kept. Check the retention period your national law requires.')) ?></span></div></div>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>"></p>
 </form>

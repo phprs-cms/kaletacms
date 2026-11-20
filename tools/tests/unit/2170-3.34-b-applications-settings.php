@@ -7,7 +7,8 @@ $s337Module = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/App
 $s337View = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/applications/settings.php');
 check('[source-pin] 3.34 B: the settings tab – administrators only; the four settings, the templates per language, who has the section', [
     substr_count($s337Module, "return \$this->error('Only an administrator can change the settings of applications.', 403);"),
-    array_map(fn (string $key): bool => str_contains($s337View, 'name="' . $key . '"'), ['applications_months', 'applications_pool_months', 'applications_notify_full', 'applications_claude']),
+    // 3.48 B: the two periods are lines here (set in Settings → Privacy and cookies, Core\Retention), the switches stay
+    [str_contains($s337View, "'key' => 'applications'"), str_contains($s337View, "'key' => 'talent_pool'"), str_contains($s337View, 'name="applications_notify_full"'), str_contains($s337View, 'name="applications_claude"')],
     str_contains($s337View, 'name="<?= e($field) ?>_text"'), str_contains($s337View, 'data-applications-people'),
     array_map(fn (string $key): bool => array_key_exists($key, Kaleta\Core\Settings::DEFAULTS), ['applications_months', 'applications_pool_months', 'applications_notify_full', 'applications_claude', 'application_templates'])],
     [2, [true, true, true, true], true, true, [true, true, true, true, true]]);

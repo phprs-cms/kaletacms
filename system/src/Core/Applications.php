@@ -223,7 +223,7 @@ final class Applications
             $attachments[] = ['field' => (int) $index, 'name' => mb_substr($original, 0, 120), 'size' => $size, 'ext' => $extension] + $stored + ['sealed' => true];
         }
         $consentText = trim(is_string($content['souhlas_uchovani'] ?? null) ? $content['souhlas_uchovani'] : '');
-        $poolMonths = max(1, $s->int('applications_pool_months'));
+        $poolMonths = Retention::effective($s, 'talent_pool'); // 3.48 B
         try {
             $id = $db->insert('applications', [
                 'received_at' => $now, 'job_collection_id' => $position['collection'], 'job_item_id' => $position['item'], 'job_title' => $position['title'],

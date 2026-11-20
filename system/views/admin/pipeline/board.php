@@ -41,6 +41,9 @@ $sums = fn (array $sums): string => implode(' · ', array_map(fn (string $cur, s
     'text' => t('A deal is what a customer may buy – it moves from New to Won or Lost. Create one here, or with “Create deal” on an enquiry or a customer.'),
     'action' => [$module->url('new'), t('New deal')]]) ?>
 <?php else: ?>
+<?php if ($total === 0): /* 3.48 B (U42): a filter that matches nothing says so once, above the board – the columns stay quiet */ ?>
+<p class="hlaska hlaska-info" data-pipeline-no-match><?= e(t('No deal matches')) ?> – <a href="<?= e($module->url('')) ?>"><?= e(t('Clear filter')) ?></a></p>
+<?php endif ?>
 <?php if ($more > 0): ?>
 <p class="hlaska hlaska-info"><?= e(t('The board shows the first %d open deals – %d more are in the list.', Pipeline::BOARD_MAX, $more)) ?> <a href="<?= e($module->url('', ['view' => 'list'] + $query)) ?>"><?= e(t('Open the list')) ?></a></p>
 <?php endif ?>
@@ -63,9 +66,24 @@ $sums = fn (array $sums): string => implode(' · ', array_map(fn (string $cur, s
     'today' => $today, 'canContacts' => $canContacts, 'since' => $since[(int) $d['id']] ?? null, 'next' => $next['deal:' . (int) $d['id']] ?? null]) ?>
 <?php endforeach ?>
 		</ol>
+<?php if ($total > 0): ?>
 		<p class="obchody-prazdne napoveda" data-stage-empty<?= $col['count'] > 0 ? ' hidden' : '' ?>><?= e(t('No deal here.')) ?></p>
+<?php endif ?>
 	</section>
 <?php endforeach ?>
 </div>
 <p class="navod-skryte" aria-live="polite" data-pipeline-announce></p>
+<?php /* 3.48 B (U30): what the board says, also visible; the reason a drop on a lost column asks for (image/admin.js) – without script the card's own form does it */ ?>
+<p class="napoveda tabule-zprava" data-pipeline-message hidden aria-hidden="true"></p>
+<div class="tabule-duvod" id="obchody-duvod" popover data-pipeline-reason aria-labelledby="obchody-duvod-nadpis">
+	<p id="obchody-duvod-nadpis" data-board-pop-title><?= e(t('Why it was lost')) ?></p>
+	<label for="obchody-duvod-vyber"><?= e(t('Why it was lost')) ?></label>
+	<select id="obchody-duvod-vyber">
+		<option value=""><?= e(t('Why it was lost…')) ?></option>
+<?php foreach (Deals::LOST_REASONS as $key => $label): ?>
+		<option value="<?= e($key) ?>"><?= e(t($label)) ?></option>
+<?php endforeach ?>
+	</select>
+	<p class="tlacitka"><button class="tl" type="button" data-board-pop-move><?= e(t('Move')) ?></button> <button class="navigace" type="button" popovertarget="obchody-duvod" popovertargetaction="hide"><?= e(t('Cancel')) ?></button></p>
+</div>
 <?php endif ?>

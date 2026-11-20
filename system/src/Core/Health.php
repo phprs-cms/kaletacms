@@ -173,7 +173,7 @@ final class Health
         // 3.34 second review N8: moved applications that have waited long for an administrator to confirm their retention
         $waiting = $siteSettings->int('applications_months') > 0 ? Applications::unconfirmed($app) : ['count' => 0, 'since' => null];
         if ($waiting['count'] > 0 && $waiting['since'] !== null && $waiting['since'] < Clock::at('-' . Applications::UNCONFIRMED_DAYS . ' days')) {
-            $add(t('Operation'), t('Retention of job applications'), 'varovani', t('%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Applications → Settings.', $waiting['count'], Applications::UNCONFIRMED_DAYS));
+            $add(t('Operation'), t('Retention of job applications'), 'varovani', t('%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Settings → Privacy and cookies or Applications → Settings.', $waiting['count'], Applications::UNCONFIRMED_DAYS));
         }
         if (SignInPolicy::escapeHatch()) {
             // 3.35 review L1: the escape hatch switches every passkey rule off, for administrators too

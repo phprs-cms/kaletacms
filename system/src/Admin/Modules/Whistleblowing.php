@@ -67,7 +67,8 @@ final class Whistleblowing extends Module
             return $this->back();
         }
         $readers = array_map('intval', array_filter($this->request->postList('readers'), 'is_numeric'));
-        Channel::saveSetup($this->app, $this->request->postBool('enabled'), $readers, $this->request->post('intro'), $this->request->postInt('retention', Channel::DEFAULT_RETENTION_MONTHS));
+        // 3.48 B (U40): the period is set in Settings → Privacy and cookies; a page of 3.47 still open posts it (until 3.50)
+        Channel::saveSetup($this->app, $this->request->postBool('enabled'), $readers, $this->request->post('intro'), $this->request->hasPost('retention') ? $this->request->postInt('retention', Channel::DEFAULT_RETENTION_MONTHS) : null);
 
         return $this->back($readers === [] && $this->request->postBool('enabled') ? 'Saved. Choose at least one reader – until then nobody can open the reports.' : 'Saved.');
     }

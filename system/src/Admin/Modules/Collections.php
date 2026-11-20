@@ -871,7 +871,7 @@ final class Collections extends Module
     /** Items longer than 30 days in the trash are deleted permanently (with pages and news, on an admin visit), their team threads with them (3.26). */
     public static function emptyTrash(\Kaleta\Core\Db $db): void
     {
-        $before = \Kaleta\Core\Clock::at('-30 days');
+        $before = \Kaleta\Core\Clock::at('-' . \Kaleta\Core\Retention::TRASH_DAYS . ' days');
         $ids = array_map(fn (array $r): int => (int) $r['idp'], $db->all('SELECT idp FROM {kolekce_polozky} WHERE smazano < ?', [$before]));
         if ($ids !== []) {
             $db->run('DELETE FROM {kolekce_polozky} WHERE smazano < ?', [$before]);

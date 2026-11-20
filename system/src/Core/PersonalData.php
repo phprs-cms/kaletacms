@@ -278,7 +278,7 @@ final class PersonalData
      * Erases what the site keeps about the address (see the class comment); returns the counts of what was removed and
      * the ids of published testimonial items that stay.
      *
-     * @return array{erased: array<string, int>, kept_testimonials: list<int>, backup_horizon: array{local_days: int, local_files: int, offsite: bool, offsite_days: int, text: string}}
+     * @return array{erased: array<string, int>, kept_testimonials: list<int>, backup_horizon: array{local_days: int, local_files: int, offsite: bool, offsite_days: int, text: string}, kept: list<array{what: string, until: string, reason: string}>}
      */
     public static function erase(App $app, string $email): array
     {
@@ -325,7 +325,8 @@ final class PersonalData
         \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
 
-        return ['erased' => $erased, 'kept_testimonials' => $kept, 'backup_horizon' => self::backupHorizon($app->settings())];
+        // 3.48 B (legal hold, reserved): what the law keeps despite the request – [{what, until, reason}]; a later release fills it
+        return ['erased' => $erased, 'kept_testimonials' => $kept, 'backup_horizon' => self::backupHorizon($app->settings()), 'kept' => []];
     }
 
     /**

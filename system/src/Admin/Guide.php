@@ -66,6 +66,7 @@ final class Guide
     /** Settings tab => article#anchor */
     public const array SETTINGS = [
         'general' => 'first-steps',
+        'sections' => 'first-steps', // 3.48 B (U70): where the settings of the sections are
         'languages' => 'languages#how-language-versions-work', // 3.23 (C12): the tabs that left General
         'security' => 'users-roles',
         'agency' => 'first-steps',

@@ -28,7 +28,9 @@ grep -q 'Bez uzaverky' "$WORK/response" && ! grep -q 'Truhl' "$WORK/response" &&
   && echo "  ok     MCP: site_audit kind job lists only the visible job without a closing date, with its target" || { echo "  CHYBA  site_audit job"; head -c 600 "$WORK/response"; ERRORS=$((ERRORS+1)); }
 check "Administration → Site audit lists the job opening without a closing date" 200 "/admin.php?module=audit" "Bez uzaverky"
 # the retention of applications next to the enquiries retention, with the usual practice of the company country as a hint
-check "jobs: Enquiries offers the retention of job applications with the usual practice for the company country" 200 "/admin.php?module=enquiries" 'name="mesice_uchazeci" value="0"'
+# 3.48 B: the period is set in Settings → Privacy and cookies; Enquiries keeps the hint with the usual practice
+check "jobs: Settings → Privacy and cookies offers the retention of job applications (0 = as enquiries)" 200 "/admin.php?module=settings&tab=cookies" 'name="job_applications_months" value="0"'
+check "jobs: Enquiries names the usual practice for the company country beside the retention line" 200 "/admin.php?module=enquiries" 'data-retention="enquiries"'
 grep -q 'CZ: 6' "$WORK/response" && echo "  ok     jobs: the hint names the country and the months" || { echo "  CHYBA  retention hint"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=3
 expect "jobs: the retention of applications is saved next to the enquiries retention" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'job_applications_months'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'))")" "3|24"

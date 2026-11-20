@@ -1979,7 +1979,15 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 .obchody-box-seznam li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
 .obchody-box .tlacitka, .obchod-box form { margin: 0; }
 a.obchod-odznak { display: inline-block; margin-top: 4px; text-decoration: none; }
-.obchody-etapy .obchody-poradi { width: 5em; }
+/* 3.48 B (U31): the stages move with two 40 px arrow buttons instead of order numbers */
+.etapa-posun { display: inline-flex; gap: 4px; }
+.etapa-posun button { min-width: 40px; min-height: 40px; padding: 0 8px; }
+/* 3.48 B (U30): the reason a drop on a lost or rejected column asks for, and the visible line of what the board says */
+.tabule-duvod { max-width: min(26rem, calc(100vw - 32px)); padding: 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); }
+.tabule-duvod::backdrop { background: color-mix(in oklch, var(--text) 20%, transparent); }
+.tabule-duvod label { display: block; margin: 0 0 4px; font-weight: 600; }
+.tabule-duvod select { width: 100%; min-height: 40px; }
+.tabule-zprava { margin: 8px 0 0; }
 @media (max-width: 760px) {
 	.obchody-tabule { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); overflow: visible; }
 }
