@@ -4,6 +4,93 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.47 – one pattern: the screens of 3.38–3.42 on the patterns of 3.37, forms that name their file limits (20 November 2026)
+
+The screens of 3.38–3.42 get the patterns of 3.37 (tabs, the record bar and two columns, one primary button, the shared
+filter bar), forms with files tell the visitor their limits instead of losing the submission, and the findings of the
+security audit of 20 November are closed. No database change; `KALETA_DB_VERSION` stays 134. MCP output only grows: the
+check list of `get_build` and `save_build` carries form-limit findings; no tool, parameter or builder shape changes.
+
+1. **`Core\Applications` split by seam.** `Core\ApplicationFiles` holds the CV checks, the sealed files and their lists,
+   the download, the daily sealing and the sweep; `Core\ApplicationRetention` the deadlines, the confirmation of moved
+   applications and the daily clean-up; `Core\ApplicationReplies` the templates, the received confirmation, replies and the
+   bulk rejection. `movingCondition` and `movingLeft` moved to `ApplicationMove`, `monthCounts`, `countingChanged` and
+   `movesIn` to `ApplicationCounts`. Intake, reading, status changes and deletion stay in `Core\Applications`, which keeps
+   a typed forward and an alias constant for every moved member, so callers, migration 0120 and
+   `tools/test-migrations.sh` are unchanged. Behaviour is unchanged; unit 4250 compares every forward's signature and
+   every alias constant with its target through reflection. The code map in `docs/ARCHITECTURE.md` names the classes.
+2. **A form with files over the server's limit returns to the form.** When a visitor sent more than `post_max_size`, PHP
+   emptied `$_POST` and `$_FILES` and the form landed on the home page. A form with a file field now posts to
+   `/form?form=<id>&source=<source>&back=<page>` (`Form::action`); `Front\Forms` finds the element in the published build
+   and sends the visitor back with `result=size`, whose message names the form's limit per file and the server's for the
+   whole form ("One file can have up to X MB, all files together up to Y MB"). Nothing is stored, mailed or counted; an
+   unknown form goes back to the page, a back address that is not a path of the site goes home
+   (`Core\Files::postLimit`, `Files::overPostLimit`). A refused file field says the file is too large or of a type the form
+   does not accept; a required file field left out says "Please fill in this field correctly." (`empty=1`). **A web server
+   that refuses the body itself** (nginx `client_max_body_size` answering 413, or a similar limit of Apache or a proxy)
+   never reaches PHP, so Kaleta cannot send the visitor back – there only the browser check helps.
+3. **The browser checks sizes first.** Each file field carries `data-max-bytes`, the form `data-max-post` and two
+   translated messages; `image/web.js` sets a custom validity on change ("The file is larger than X MB.", "The files are
+   larger than X MB together." – the second only for several files), so the browser blocks the submit and says why. The
+   four hooks are reserved against custom attributes.
+4. **The audit and Claude name limits the server cannot honour.** `Check::formLimits` (pure, the server's limits passed
+   in) reports a form allowing more per file than the server accepts and file fields that together exceed
+   `post_max_size`; the site audit (pages and site parts, kind `build`) and the check list of `get_build`/`save_build`
+   carry it. `Check::builds` is unchanged. Unit and smoke 4280; the four web strings in the 13 site dictionaries.
+5. **My account in six tabs** (`Admin\Account::TABS`): my details, absence, sign-in and security, Claude (only with the
+   extension on), my e-mail signature and colleagues. Every form posts to its tab and a POST returns to the tab of its step
+   whatever the address said (`Account::CO_TABS`); only what a tab shows is read. Old links with a fragment (`#claude`,
+   `#two-factor`, `#passkeys`, `#backup-codes`, `#passkey-only`, `#absences`) are taken to their tab by
+   `image/admin.js` (`data-account-tabs`), so links in older e-mails keep working; `#notifications` stays on my details.
+   On a phone the tabs are a select. All in-product links point to the tabs; a new passkey returns to the security tab.
+6. **Users as a hub.** Users, Roles and Departments are one hub (`Admin\Hubs`). A department has Edit before Remove and
+   takes new enquiries from forms ticked as boxes (the site's forms, those that sent enquiries and those saved earlier, the
+   last marked "no enquiries yet"). Colleagues shows A–Z or by department; the org chart is that view and
+   `tab=org_chart` still answers. A head of two departments has one full card, then a short line.
+7. **One primary button on sign-in.** The sign-in page has one primary button in every state: the password by default,
+   the passkey in a browser that signed in with one here before. The flag is one `localStorage` entry (`kaleta-passkey`,
+   read and written in try/catch) on the administration's sign-in page only – no cookie, nothing on the server – and it is
+   set only after a sign-in without a password, not after a passkey used as the second step (`image/klice.js`).
+8. **A bell for the deputy.** Being named as deputy (`deputy_named`) and an absence recorded by an administrator
+   (`absence_added`) ring the bell through `Absences::announce`. The note carries the name and the dates, never the reason,
+   and leads to My account (`Inbox::accountPlace`, in the list, the opened note, the instant e-mail and the daily summary).
+   Whoever adds their own absence gets no bell; the deputy does.
+9. **Folder audience.** A folder of Internal files says "and all departments below them" and shows the roles or
+   departments only for the matching choice (CSS `:has`).
+10. **Applications on the record template.** The application page uses the record bar and two columns of 3.37: the status,
+    Reply and More (consent withdrawn, Delete for administrators) in the bar, the person as the page title (name, else
+    e-mail, else "Application #N"). One Handling form (new action `handling`, parity `update_application`) saves the
+    status, its reason and the responsible person – and writes only what the page changed: it carries what the form
+    showed, so a colleague's move on the board or a new assignee meanwhile is never reverted. `status` and `assign` stay
+    for the board. The list names its tab strips, shows the status tabs as a select on a phone, shows the bar of selected
+    rows only once a row is ticked (CSS only) and names the buttons by what they do (Assign, Reason when rejected).
+    **"Move by form" left the tab strip** and is linked from Applications → Settings.
+11. **One board script.** `image/admin.js` has one `boardBehaviour(board, cfg)` for the Pipeline and Applications; the
+    Pipeline keeps its sums and "today" chip, Applications get drag and the keyboard. Status answers `format=json`
+    (`{ok, status, zprava}` or `{ok: false, chyba}` with 400). The board takes `job=all` ("All positions"; the board's own
+    check – `filter()` stays the list's and MCP's) and each card then names its position. A column count keeps "N more"
+    for the cards the server left out (`data-board-more`) after a move, and a moved card loses the "waiting" chip, the
+    overdue look and the reject reason of its old status.
+12. **Internal files.** The shared filter bar, the permanent banner moved into the empty states and the upload form, a
+    head row with the folders (a select above five), Upload files as a details button and New folder. The upload takes
+    several files, also from All folders with a folder to choose, and answers "Stored: N" with each refusal named; one
+    change-log line per file. The file page has a bar with Preview, Download and More (Delete out of the Save form) and two
+    columns. Preview (new action `preview`, parity admin) shows a raster image up to 10 MB or a text document inline with
+    `nosniff`, `no-store` and a sandbox policy, with a change-log line; PDF, SVG and anyone who does not see the folder get
+    404.
+13. **Security audit of 20 November.** N171: the `javascript:` and `on…=` patterns of `FileSignature::MARKUP` look at most
+    2000 characters ahead and take "/" as a separator (`<p/onmouseover=`, `<a/href="javascript:`); a tag still open after
+    2000 characters counts as markup and a PCRE error no longer counts as plain text – 64 KB of `<a ` took 12 s per check
+    without the JIT, now well under a second. I50: `E()` of `image/web.js` and `esc()` of `image/editor.js` also escape `'`
+    and `>`. I51: the version compare and the comments the builder inserts as HTML are escaped on the server, and
+    `Csp::withNonce` is called only with the four administrator settings, none writable through MCP (rules over the tree,
+    no new source pin).
+14. Dead admin styles removed (`.uchazec-detail/-hlavni/-bok`, `.obchody-bez-kroku`, `.napoveda-panel-nadpis`,
+    `.obchod-posun`); a rule over the tree checks that every class `admin.css` styles is written somewhere. Tests: unit
+    4250–4291, smoke 4260–4291, new screens in `test-english`, browser steps for the My account tabs at 390 px (light and
+    dark, axe), the sign-in button, the Applications board (drag and keyboard), the application page, two files uploaded
+    at once and the browser size check of a form file. New admin strings in admin-cs, -de, -es and -de-du.
+
 ## 3.46.2 – file checks without fileinfo, download links in form e-mails (20 November 2026)
 
 A hotfix for hosts without the PHP extension fileinfo: on such a host every job application with a CV ended in a fatal
