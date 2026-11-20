@@ -195,6 +195,7 @@ trait EnquiryAndPopupTools
         $found = \Kaleta\Core\PersonalData::find($this->app->db(), $email, $this->app);
 
         return ['email' => $email, 'found' => \Kaleta\Core\PersonalData::counts($found), 'enquiry_ids' => array_map('intval', array_column($found['enquiries'], 'idp')),
+            'notification_copies' => \Kaleta\Front\Forms::notificationCopies($this->app, $found), // 3.46.2
             'next' => 'Tell the user what was found. The file for the person: Enquiries → Personal data request in the administration. Erase only when the user asks: erase_personal_data.'];
     }
 
@@ -205,10 +206,12 @@ trait EnquiryAndPopupTools
         if (($a['confirm'] ?? false) !== true) {
             throw new \InvalidArgumentException('Erasing needs confirm=true – only when the user asked for it.');
         }
+        $copies = \Kaleta\Front\Forms::notificationCopies($this->app, \Kaleta\Core\PersonalData::find($this->app->db(), $email, $this->app)); // 3.46.2: before they go
         $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
 
-        return $result + ['note' => trim(($result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : '')
-            . (($result['erased']['applications_held'] ?? 0) > 0 ? ' ' . $result['erased']['applications_held'] . ' job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located – tell the user to put the vault_key line back into config.php, then erase again.' : ''))];
+        return $result + ['notification_copies' => $copies, 'note' => trim(($result['kept_testimonials'] !== [] ? 'Published testimonials of the person stay (collection items ' . implode(', ', $result['kept_testimonials']) . ') – ask the user whether to remove them too.' : '')
+            . (($result['erased']['applications_held'] ?? 0) > 0 ? ' ' . $result['erased']['applications_held'] . ' job application(s) were not erased: their CV list cannot be opened (encryption key) and their files cannot be located – tell the user to put the vault_key line back into config.php, then erase again.' : '')
+            . ($copies !== [] ? ' Notification e-mails with the details went to the recipients in notification_copies – tell the user the copies in those mailboxes are not erased.' : ''))];
     }
 
     private function personalDataEmail(array $a): string

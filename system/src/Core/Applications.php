@@ -304,7 +304,7 @@ final class Applications
         // the position and the form, never the sender (as enquiry.received)
         Events::record($db, 'application.received', 'info', t('Application #%d for “%s” from the form “%s”', $id, $position['title'] !== '' ? $position['title'] : t('no position'), mb_substr((string) ($content['nazev'] ?? ''), 0, 80)),
             ['application' => $id, 'job' => $position['item'], 'form' => (string) ($element['id'] ?? ''), 'source' => $source]);
-        self::notifyRecipients($app, $id, $content, $position['title'], $data, $email);
+        self::notifyRecipients($app, $id, $content, $position['title'], $data, $email, $attachments);
         self::confirmReceipt($app, $content, $id, $email); // 3.34 B: when the form sends no confirmation of its own
         TalentPool::webhook($app, $id, $position); // 3.40: the optional webhook application.received – the number and the position only
 
@@ -316,33 +316,50 @@ final class Applications
      * link; the fields only when applications_notify_full is on. Reply-To is the applicant only then too – a plain
      * notification carries nothing of the person.
      *
+     * 3.46.2: every CV as a download link (Core\FileLink – signed, 30 days, it needs signing in with the section), never
+     * attached; the hidden copies (Bcc) go as separate messages without the links.
+     *
      * @param array<string, mixed> $content
      * @param list<array{0: string, 1: string}> $data
+     * @param list<array<string, mixed>> $attachments the sealed files as stored (field, name), in the order of their index
      */
-    private static function notifyRecipients(App $app, int $id, array $content, string $position, array $data, string $email): void
+    private static function notifyRecipients(App $app, int $id, array $content, string $position, array $data, string $email, array $attachments = []): void
     {
         $s = $app->settings();
         [$to, $bcc] = \Kaleta\Front\Forms::recipients((string) ($content['prijemce'] ?? ''), (string) ($content['skryta_kopie'] ?? ''), $s->get('site_email'));
         if ($to === []) {
             return;
         }
-        [$subject, $text] = self::notification($s, $id, $position, $s->bool('applications_notify_full') ? $data : [], rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url(self::adminPath($id)));
-        $headers = ($s->bool('applications_notify_full') && $email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
-        Mail::send($s, implode(', ', $to), $subject, $text, '', $headers, true, $subject);
+        $files = [];
+        foreach ($attachments as $index => $a) {
+            $files[] = ['label' => (string) ($data[(int) ($a['field'] ?? -1)][0] ?? ''), 'name' => (string) ($a['name'] ?? ''), 'url' => FileLink::url($app, self::SECTION, $id, $index)];
+        }
+        $full = $s->bool('applications_notify_full');
+        $record = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url(self::adminPath($id));
+        [$subject, $text] = self::notification($s, $id, $position, $full ? $data : [], $record, FileLink::text($files));
+        $replyTo = $full && $email !== '' ? ['Reply-To' => $email] : [];
+        Mail::send($s, implode(', ', $to), $subject, $text, '', $replyTo, true, $subject);
+        [, $copy] = self::notification($s, $id, $position, $full ? $data : [], $record);
+        foreach ($bcc as $address) {
+            Mail::send($s, $address, $subject, $copy, '', $replyTo, true, $subject); // each hidden recipient alone – nobody sees the others
+        }
     }
 
     /**
      * Subject and text of the notification of a new application: the number, the position and the link; the fields only
      * when given (applications_notify_full). Pure apart from the dictionaries.
      *
+     * $files (3.46.2) = the download links of the CVs (FileLink::text), before the link of the record.
+     *
      * @param list<array{0: string, 1: string}> $data
      * @return array{0: string, 1: string}
      */
-    public static function notification(Settings $s, int $id, string $position, array $data, string $url): array
+    public static function notification(Settings $s, int $id, string $position, array $data, string $url, string $files = ''): array
     {
         $subject = $position !== '' ? t('New application for %s: %s', $position, $s->get('site_name')) : t('New application: %s', $s->get('site_name'));
         $text = ($position !== '' ? t('A new application #%d for the position “%s” arrived.', $id, $position) : t('A new application #%d arrived (no position).', $id))
             . ($data !== [] ? "\n\n" . implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data)) : '')
+            . ($files !== '' ? "\n\n" . $files : '')
             . "\n\n—\n" . t('Open it in the administration (Applications): %s', $url);
 
         return [$subject, $text];
@@ -1400,6 +1417,20 @@ final class Applications
      *
      * @return array{name: string, content: string}|null
      */
+    /**
+     * The name and size of one attachment, without opening it (3.46.2: the download checks the memory first); null when
+     * there is none.
+     *
+     * @return array{name: string, size: int}|null
+     */
+    public static function attachmentInfo(App $app, int $id, int $index): ?array
+    {
+        $row = $app->db()->one('SELECT attachments FROM {applications} WHERE id = ?', [$id]);
+        $a = $row !== null ? (self::attachments($app->settings(), $row['attachments'] ?? null)[$index] ?? null) : null;
+
+        return $a === null ? null : ['name' => (string) ($a['name'] ?? ''), 'size' => (int) ($a['size'] ?? 0)];
+    }
+
     public static function attachment(App $app, int $id, int $index): ?array
     {
         $s = $app->settings();

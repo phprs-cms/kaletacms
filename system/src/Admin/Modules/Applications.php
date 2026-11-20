@@ -196,14 +196,25 @@ final class Applications extends Module
     protected function actionAttachment(): Response
     {
         $id = $this->request->getInt('id');
-        $file = Store::attachment($this->app, $id, $this->request->getInt('index'));
+        $index = $this->request->getInt('index');
+        // 3.46.2: the link of a notification e-mail – signed and valid for 30 days; the sign-in and the section still apply
+        if (($refusal = $this->fileLinkRefusal($id, $index, $this->url('detail', ['id' => $id]))) !== null) {
+            return $refusal;
+        }
+        $info = Store::attachmentInfo($this->app, $id, $index);
+        if ($info !== null && !\Kaleta\Core\SealedFiles::roomFor($info['size'])) { // a message, never a fatal error (as Internal files)
+            return $this->error('The file is too large to open with the memory this server allows a request (memory_limit). Ask your hosting to raise it.', 503);
+        }
+        $file = Store::attachment($this->app, $id, $index);
         if ($file === null) {
             return $this->error('The attachment no longer exists.', 404);
         }
-        ChangeLog::write($this->app, Store::SECTION, 'attachment', t('CV downloaded, application #%s', (string) $id));
+        ChangeLog::write($this->app, Store::SECTION, 'attachment', t('CV downloaded, application #%s, file %d', (string) $id, $index + 1)
+            . ($this->request->get('sig') !== '' ? ' ' . t('(the link from the notification e-mail)') : ''));
 
         return new Response($file['content'], 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',
-            'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($file['name'] !== '' ? $file['name'] : 'attachment')]);
+            'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($this->request->get('sig') !== '' // 3.46.2: a neutral name for a download from an e-mail link
+                ? \Kaleta\Core\FileLink::neutralName('application', $id, $index, $file['name']) : ($file['name'] !== '' ? $file['name'] : 'attachment'))]);
     }
 
     protected function actionStatus(): Response
@@ -399,7 +410,11 @@ final class Applications extends Module
         $s->set(\Kaleta\Core\TalentPool::WEBHOOK_SETTING, $webhook); // 3.40: the number and the position only
         $s->set('applications_months', (string) max(0, min(120, $this->request->postInt('applications_months'))));
         $s->set('applications_pool_months', (string) max(1, min(60, $this->request->postInt('applications_pool_months'))));
-        $s->set('applications_notify_full', $this->request->postBool('applications_notify_full') ? '1' : '0');
+        $full = $this->request->postBool('applications_notify_full');
+        if ($full !== $s->bool('applications_notify_full')) { // 3.46.2: the change log says when the details started or stopped leaving the site
+            ChangeLog::write($this->app, Store::SECTION, 'settings', $full ? t('The notification e-mail carries the applicant’s full details') : t('The notification e-mail carries the position and the links only'));
+        }
+        $s->set('applications_notify_full', $full ? '1' : '0');
         $s->set('applications_claude', $this->request->postBool('applications_claude') ? '1' : '0');
         $posted = [];
         foreach (self::siteLanguages($s) as $code => $_) {

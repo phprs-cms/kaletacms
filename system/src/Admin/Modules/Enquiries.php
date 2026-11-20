@@ -393,6 +393,11 @@ final class Enquiries extends Module
     /** Form attachment for download (only for a signed-in user with access to enquiries). */
     protected function actionAttachment(): Response
     {
+        // 3.46.2: the link of a notification e-mail – signed and valid for 30 days; the sign-in, the section and the record's
+        // visibility still apply
+        if (($refusal = $this->fileLinkRefusal($this->request->getInt('id'), $this->request->getInt('field'), $this->url('detail', ['id' => $this->request->getInt('id')]))) !== null) {
+            return $refusal;
+        }
         $p = $this->findVisible($this->request->getInt('id'), 'data');
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;
@@ -404,9 +409,13 @@ final class Enquiries extends Module
             return $this->error('The attachment no longer exists.', 404);
         }
         $displayName = preg_replace('/ \([^)]*\)$/', '', (string) $item[1]) ?: basename($path);
+        // 3.46.2: every download is in the change log – who (the log's user), which enquiry, which field
+        \Kaleta\Core\ChangeLog::write($this->app, 'enquiries', 'attachment', t('Attachment downloaded, enquiry #%s, field %d', (string) $this->request->getInt('id'), $this->request->getInt('field') + 1)
+            . ($this->request->get('sig') !== '' ? ' ' . t('(the link from the notification e-mail)') : ''));
 
-        return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff',
-            'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($displayName)]);
+        return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',
+            'Content-Disposition' => "attachment; filename*=UTF-8''" . rawurlencode($this->request->get('sig') !== '' // 3.46.2: a neutral name for a download from an e-mail link
+                ? \Kaleta\Core\FileLink::neutralName('enquiry', $this->request->getInt('id'), $this->request->getInt('field'), $path) : $displayName)]);
     }
 
     /** In bulk: mark as handled, or delete (including attachments). */
@@ -551,6 +560,7 @@ final class Enquiries extends Module
             if (!$this->request->postBool('potvrzeno')) {
                 return $this->back('Tick that you want to erase the data.', 'personal', [], 'chyba');
             }
+            $copies = \Kaleta\Front\Forms::notificationCopies($this->app, \Kaleta\Core\PersonalData::find($this->db, $email, $this->app)); // 3.46.2: before they go
             $result = \Kaleta\Core\PersonalData::erase($this->app, $email);
             $message = t('Erased: %d enquiries, %d subscriptions, %d e-mails in the queue, %d testimonial requests.', $result['erased']['enquiries'], $result['erased']['subscriber'], $result['erased']['mail'], $result['erased']['testimonials'])
                 . (($result['erased']['applications'] ?? 0) > 0 ? ' ' . t('Job applications erased: %d.', $result['erased']['applications']) : '') // 3.34
@@ -559,6 +569,7 @@ final class Enquiries extends Module
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
             $message .= ' ' . $result['backup_horizon']['text']; // 3.46 (N157)
+            $message .= $copies !== [] ? ' ' . implode(' ', $copies) : '';
 
             return $this->back($message, 'personal');
         }

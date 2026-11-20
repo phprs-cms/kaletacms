@@ -4,11 +4,12 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
-## 3.46.2 – file checks without fileinfo (20 November 2026)
+## 3.46.2 – file checks without fileinfo, download links in form e-mails (20 November 2026)
 
 A hotfix for hosts without the PHP extension fileinfo: on such a host every job application with a CV ended in a fatal
-error (`Class "finfo" not found`) before anything was stored, so the applications were lost. No database change;
-`KALETA_DB_VERSION` stays 134, and no MCP or builder shape changes.
+error (`Class "finfo" not found`) before anything was stored, so the applications were lost. With it, the notification
+e-mails of forms carry a signed download link per uploaded file. No database change; `KALETA_DB_VERSION` stays 134; MCP
+output only grows (`notification_copies`), no builder shape changes.
 
 1. **One place asks what a file is.** `Files::mimeOf($path, $extension)` is the only caller of finfo; the five places that
    called `new \finfo` themselves (`Files::forbiddenContent`, `Applications::checkUpload` twice, `InternalFiles::check`,
@@ -37,6 +38,25 @@ error (`Class "finfo" not found`) before anything was stored, so the application
    .docx, a macro-enabled content type as .docx …; `Files::mimeOf` with and without finfo; the guard on finfo callers;
    the installer rows), smoke 4230 (a second test server with the switch `KALETA_NO_FILEINFO` of `Core\TestSeams` takes a
    job application with a PDF CV and stores it, refuses a program named .pdf, never answers 500).
+7. **Form notification e-mails carry a download link per file** (Applications and Enquiries, forms in pop-ups too) –
+   never the file. `Core\FileLink` signs a link to the existing download of the record (`module=applications|enquiries`,
+   `action=attachment`) with the site's secret key over the section, the record, the file and an expiry 30 days ahead.
+   The signature never serves a file by itself: the download still needs a signed-in user with the section (and an
+   enquiry the user may see); a changed link answers 403, an expired one 410 with a link to the record. A signed-out user
+   signs in and lands on the link (`Admin\Kernel::rememberLink`, rebuilt from its own parameters only). A download from
+   a link gets a neutral name (`application-<id>-<n>.pdf`), `nosniff` and no caching; every download – from a link or
+   the record – is in the change log (who, which record, which file); an application's CV checks the memory first
+   (`SealedFiles::roomFor`, 503 with a message).
+8. **What the e-mails contain.** An enquiry's notification lists every field as before, then the links. An application's
+   notification names the position, the record and the links; with "Include the applicant's full details in the
+   notification e-mail" (Applications → Settings, `applications_notify_full`, existing, off by default) it lists the
+   fields too, and the setting warns that copies stay in the recipients' mailboxes; a change of it is in the change log.
+   The hidden copies (Bcc) now go as separate messages, one per address, without the links; the visitor's confirmation
+   never had them.
+9. **Personal data.** The record of processing says what the notifications carry and that files go only as links;
+   `find_personal_data` and `erase_personal_data` (and the erasure in the administration) name where notification e-mails
+   with the details went (`notification_copies`: the form and its current recipients). The setting stays admin-only
+   (not in `MCP_SETTINGS`); Claude never gets the files or the links. Unit 4240, smoke 4240.
 
 ## 3.46.1 – restore and erasure fixes (18 November 2026)
 

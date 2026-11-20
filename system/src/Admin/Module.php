@@ -192,6 +192,28 @@ abstract class Module
         return $this->kernel->page('Error', $this->app->view->render('admin/error', ['text' => $text]), $status);
     }
 
+    /**
+     * A download opened from the link of a notification e-mail (3.46.2, Core\FileLink): null = go on (no link, or a valid
+     * one – the section and the record are still checked as for any download), else the answer – 403 for a changed link,
+     * 410 with a link to the record for an expired one. The signature never replaces the sign-in or the rights.
+     */
+    protected function fileLinkRefusal(int $id, int $file, string $detailUrl): ?Response
+    {
+        if ($this->request->get('sig') === '' && $this->request->get('expires') === '') {
+            return null;
+        }
+        $state = \Kaleta\Core\FileLink::check(\Kaleta\Core\FileLink::key($this->app), static::IDENT, $id, $file, $this->request->getInt('expires'), $this->request->get('sig'), time());
+        if ($state === 'ok') {
+            return null;
+        }
+        if ($state === 'invalid') {
+            return $this->error('This download link is not valid. Open the record in the administration – the file is there.', 403);
+        }
+
+        return $this->kernel->page('Error', $this->app->view->render('admin/error', ['text' => 'This download link has expired. Open the record in the administration – the file is there.',
+            'link' => ['text' => t('Open the record'), 'url' => $detailUrl]]), 410);
+    }
+
     public function app(): App
     {
         return $this->app;

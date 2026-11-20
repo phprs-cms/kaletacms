@@ -2138,4 +2138,6 @@ return [
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Jusqu\'à %d Mo : PDF, document Word ou OpenDocument, texte ou image (JPG, PNG).',
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Il manque au serveur l’extension PHP sodium : les données chiffrées ne peuvent être ni enregistrées ni lues. Demandez à votre hébergeur de l’activer.',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Un fichier envoyé avec un formulaire n’a pas pu être vérifié, l’envoi n’a donc pas été enregistré (%s).',
+    'Uploaded files' => 'Fichiers envoyés',
+    'The links work for %d days and only for someone signed in to the administration with access to the record.' => 'Les liens fonctionnent pendant %d jours et uniquement pour une personne connectée à l’administration ayant accès à la fiche.',
 ];

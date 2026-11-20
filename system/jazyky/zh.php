@@ -2156,4 +2156,6 @@ return [
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => '最大 %d MB：PDF、Word 或 OpenDocument 文档、文本或图片（JPG、PNG）。',
     'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => '服务器缺少 PHP 扩展 sodium，因此无法保存或读取加密数据。请联系您的主机服务商启用它。',
     'A file sent with a form could not be checked, so the submission was not stored (%s).' => '无法检查随表单发送的文件，因此提交未被保存（%s）。',
+    'Uploaded files' => '上传的文件',
+    'The links work for %d days and only for someone signed in to the administration with access to the record.' => '这些链接在 %d 天内有效，且仅限已登录管理后台并有权访问该记录的人使用。',
 ];

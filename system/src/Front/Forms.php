@@ -435,13 +435,25 @@ final class Forms
         }
         $url = rtrim($siteSettings->get('site_url') !== '' ? $siteSettings->get('site_url') : $this->app->request->origin(), '/');
         // what it was about comes first (2.12): the reader knows the service or product before the message
-        $text = ($about !== '' ? t('Topic') . ":\n" . $about . "\n\n" : '')
+        // 3.46.2: every uploaded file as a download link (Core\FileLink – signed, 30 days, it needs signing in with Enquiries),
+        // never attached; the hidden copies (Bcc) go as separate messages without the links
+        $files = [];
+        foreach ($data as $index => $d) {
+            if (isset($d[2]) && $d[2] !== '') {
+                $files[] = ['label' => (string) $d[0], 'name' => (string) preg_replace('/ \([^)]*\)$/', '', (string) $d[1]), 'url' => \Kaleta\Core\FileLink::url($this->app, 'enquiries', $idp, (int) $index)];
+            }
+        }
+        $body = fn (string $links): string => ($about !== '' ? t('Topic') . ":\n" . $about . "\n\n" : '')
             . implode("\n\n", array_map(fn (array $d): string => $d[0] . ":\n" . $d[1], $data))
+            . ($links !== '' ? "\n\n" . $links : '')
             . ($campaign !== '' ? "\n\n" . t('Campaign') . ":\n" . self::campaignText($campaign) : '')
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
-        $headers = ($email !== '' ? ['Reply-To' => $email] : []) + ($bcc !== [] ? ['Bcc' => implode(', ', $bcc)] : []);
+        $headers = $email !== '' ? ['Reply-To' => $email] : [];
         [$subject, $base] = self::notificationSubject((string) $element['obsah']['nazev'], $siteSettings->get('site_name'), $email, $data);
-        Mail::send($siteSettings, implode(', ', $to), $subject, $text, '', $headers, true, $base); // the log keeps the base only
+        Mail::send($siteSettings, implode(', ', $to), $subject, $body(\Kaleta\Core\FileLink::text($files)), '', $headers, true, $base); // the log keeps the base only
+        foreach ($bcc as $address) {
+            Mail::send($siteSettings, $address, $subject, $body(''), '', $headers, true, $base); // each hidden recipient alone – nobody sees the others
+        }
     }
 
     /**
@@ -461,6 +473,42 @@ final class Forms
         $base = t('%s: %s', $form, $site);
 
         return [$base . ($who !== '' ? ' – ' . $who : ''), $base];
+    }
+
+    /**
+     * Where notification e-mails with the person's details went (3.46.2, for find_personal_data and erase_personal_data):
+     * one line per form of the found enquiries – and of the applications while their notification carries the full details
+     * (applications_notify_full) – with the recipients the published form names now. Copies in those mailboxes are outside
+     * Kaleta; the erasure cannot reach them. Empty when nothing was found.
+     *
+     * @param array<string, mixed> $found Core\PersonalData::find()
+     * @return list<string>
+     */
+    public static function notificationCopies(App $app, array $found): array
+    {
+        $db = $app->db();
+        $forms = []; // "source|element" => [source, element, the form's name]
+        $enquiries = array_map('intval', array_column((array) ($found['enquiries'] ?? []), 'idp'));
+        foreach (array_chunk($enquiries, 500) as $chunk) {
+            foreach ($db->all('SELECT zdroj, prvek, formular FROM {poptavky} WHERE idp IN (' . implode(',', $chunk) . ')') as $r) {
+                $forms[$r['zdroj'] . '|' . $r['prvek']] = [(string) $r['zdroj'], (string) $r['prvek'], (string) $r['formular']];
+            }
+        }
+        $applications = $app->settings()->bool('applications_notify_full') ? array_map('intval', array_column((array) ($found['applications'] ?? []), 'id')) : [];
+        foreach (array_chunk($applications, 500) as $chunk) {
+            foreach ($db->all('SELECT source, element, form FROM {applications} WHERE id IN (' . implode(',', $chunk) . ')') as $r) {
+                $forms[$r['source'] . '|' . $r['element']] = [(string) $r['source'], (string) $r['element'], (string) $r['form']];
+            }
+        }
+        $out = [];
+        foreach ($forms as [$source, $element, $name]) {
+            $form = self::findElement($db, $source, $element, 'formular');
+            [$to, $bcc] = $form === null ? [[], []] : self::recipients((string) ($form['obsah']['prijemce'] ?? ''), (string) ($form['obsah']['skryta_kopie'] ?? ''), $app->settings()->get('site_email'));
+            $out[] = t('Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.', $name,
+                [...$to, ...$bcc] !== [] ? implode(', ', [...$to, ...$bcc]) : t('the recipients of the form'));
+        }
+
+        return $out;
     }
 
     /**

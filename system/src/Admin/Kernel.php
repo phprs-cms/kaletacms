@@ -228,6 +228,10 @@ final class Kernel
         $app->applyTimezone();
         \Kaleta\Core\Collation::setLanguage(\Kaleta\Core\Language::defaults($app->settings())); // lists sort in the site's alphabet (3.12)
         if ($app->auth()->user() === null) {
+            if (!$request->isPost()) {
+                $this->rememberLink();
+            }
+
             return $action === 'password' ? (new PasswordReset($app))->handle() : $this->login();
         }
         if ($action === 'password' && ($request->get('token') !== '' || $request->post('token') !== '')) {
@@ -729,6 +733,15 @@ final class Kernel
         if (\Kaleta\Front\OAuth::pendingRequests($this->app->session) !== []) {
             return $this->app->url('admin.php?action=oauth');
         }
+        $link = $this->app->session->get(self::LINK_AFTER_SIGN_IN);
+        if (is_string($link)) {
+            $this->app->session->set(self::LINK_AFTER_SIGN_IN, null);
+            parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+            $again = \Kaleta\Core\FileLink::fromQuery($query); // rebuilt once more – only a file link of the administration
+            if ($again !== null) {
+                return $this->app->url($again);
+            }
+        }
 
         return $this->app->url(self::landsOnMyWork($this->app->auth()->isAdmin(), $this->modules()) ? 'admin.php?module=my_work' : 'admin.php');
     }
@@ -752,6 +765,27 @@ final class Kernel
         }
 
         return true;
+    }
+
+    /** The session key of the download link a signed-out user opened (3.46.2): the sign-in goes on to it. */
+    private const string LINK_AFTER_SIGN_IN = 'link_after_sign_in';
+
+    /**
+     * A signed-out user opened the download link of a notification e-mail (Core\FileLink): it is kept – rebuilt from its own
+     * parameters, so only that link of the administration – and the sign-in goes on to it (resolveAfterSignIn).
+     */
+    private function rememberLink(): void
+    {
+        $query = [];
+        foreach (['module', 'action', 'id', 'index', 'field', 'expires', 'sig'] as $name) {
+            if ($this->app->request->has($name)) {
+                $query[$name] = $this->app->request->get($name);
+            }
+        }
+        $link = \Kaleta\Core\FileLink::fromQuery($query);
+        if ($link !== null) {
+            $this->app->session->set(self::LINK_AFTER_SIGN_IN, $link);
+        }
     }
 
     private function login(): Response

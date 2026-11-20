@@ -37,6 +37,8 @@ $n6Exempt = [
     // 3.42: the team hierarchy – form names only, and the enquiry the form has just stored
     'src/Core/Departments.php' => ['SELECT idp, formular, prirazeno FROM {poptavky} WHERE idp = ?' => 'the form of the enquiry the form has just stored (assignEnquiry)'],
     'src/Admin/Modules/Users.php' => ['SELECT DISTINCT formular FROM {poptavky}' => 'the names of forms only – a hint in Users → Departments, never an enquiry'],
+    // 3.46.2: where the notification e-mails of the enquiries an erasure or export found went
+    'src/Front/Forms.php' => ['SELECT zdroj, prvek, formular FROM {poptavky} WHERE idp IN' => 'the forms of the enquiries PersonalData::find() found for an administrator – the source, element and name only'],
 ];
 $n6Missing = [];
 $n6Used = [];
