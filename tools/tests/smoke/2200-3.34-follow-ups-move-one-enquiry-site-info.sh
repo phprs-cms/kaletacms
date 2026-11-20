@@ -1,6 +1,6 @@
 echo "== 3.34 follow-ups: Move to Applications on one enquiry, site_info features.applications, the list_enquiries hint for kind job"
 T340_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$T340_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$T340_EXT"),applications')" > /dev/null
+features +applications
 T340=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, email, data, stav, kategorie, triaged_by) VALUES ('$(site_time '-2 days')', 'Contact T340', 'stranka:1', 'x', '/contact', 'vera-t340@example.com',
   '[[\"Name\",\"Vera T340\"],[\"Message\",\"I would like to work for you\"]]', 1, 'job', 'person'); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_comments (target, kind, author_name, text, via, created_at) VALUES ('enquiry:$T340', 'note', 'Admin', 'Strong profile T340', 'admin', '$(site_time)')" > /dev/null
@@ -33,7 +33,7 @@ T340_B=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, em
   '[[\"Name\",\"Ota T340\"]]', 0, 'job', 'person'); SELECT LAST_INSERT_ID();")
 mcp list_enquiries '{"category":"job","search":"t340"}' > "$WORK/response"; mcp_text
 T340_HINT=$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo str_contains($d[0]["applications_hint"] ?? "", "list_applications") ? "hint" : "none";' -- "$WORK/text")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$T340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+features --exact "$T340_EXT"
 mcp list_enquiries '{"category":"job","search":"t340"}' > "$WORK/response"; mcp_text
 expect "3.34 follow-up list_enquiries: kind job points to list_applications with the feature on, says nothing with it off" \
   "$T340_HINT|$(php -r '$d = json_decode(file_get_contents($argv[1]), true); echo isset($d[0]["applications_hint"]) ? "hint" : "none";' -- "$WORK/text")" "hint|none"

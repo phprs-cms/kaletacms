@@ -74,7 +74,7 @@ expect "3.15 N42: with config.php writable one press writes a new key into it an
   "$(grep -c 'Šifrovací klíč je teď v config.php' "$WORK/response")|$(grep -c "'vault_key' => '[0-9a-f]\{64\}'" "$WORK/web/config.php")|$([ "$(vault key)" != "$VAULT_NEW" ] && [ "$(vault key)" != "$VAULT_FIRST" ] && echo new)|$(grep -c "'prefix' =>" "$WORK/web/config.php")|$(vault read)" \
   "1|1|new|1|$VAULT_PLAIN"
 # 3.2: the feature switched off closes the channel even with its own switch on; the cases stay
-sq "UPDATE ka_nastaveni SET hodnota = '$WB_EXT' WHERE promenna = 'extensions'" > /dev/null
+features --exact "$WB_EXT"
 check "3.2 whistleblowing off: the public address is a 404 although the channel is set up" 404 "/_report"
 check "3.2 whistleblowing off: the admin module is gone" 403 "/admin.php?module=whistleblowing"
 mcp site_info '{}' > "$WORK/response"; expect "3.2 whistleblowing off: MCP site_info no longer says the channel is on; the cases stay" "$([ "$(mcp_value whistleblowing)" = 1 ] && echo on || echo off)|$(sq "SELECT COUNT(*) > 0 FROM ka_whistleblowing_cases")" "off|1"

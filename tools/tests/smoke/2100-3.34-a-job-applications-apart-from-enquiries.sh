@@ -15,7 +15,7 @@ T334_JH="$WORK/t334-hana.jar"; T334_JO="$WORK/t334-olga.jar"; t334_login t334-ha
 # the feature off: the section is not there, even for Hana
 expect "3.34: with the feature off the section answers as unknown, also for a person who has it" "$(curl -s -b "$T334_JH" -o /dev/null -w '%{http_code}' "$B/admin.php?module=applications")" "403"
 T334_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$T334_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$T334_EXT"),applications')" > /dev/null
+features +applications
 # a jobs collection with one open job (its item page carries the application form with a CV)
 mcp create_collection '{"preset":"jobs","name":"Jobs T334"}' > "$WORK/response"; T334_IDK=$(sq "SELECT MAX(idk) FROM ka_kolekce WHERE preset = 'jobs'"); T334_SLUG=$(sq "SELECT seo_link FROM ka_kolekce WHERE idk = ${T334_IDK:-0}")
 mcp save_collection_item "{\"collection\":\"$T334_SLUG\",\"name\":\"Technician T334\",\"slug\":\"technician-t334\",\"visible\":true}" > /dev/null
@@ -145,4 +145,4 @@ expect "3.34 move: run again, nothing moves twice" "$(sq "SELECT COUNT(*) FROM k
 # the monthly report counts (counts and positions only); 3.40: from ka_application_counts – the interview of the erased application still counts
 expect "3.34 monthly report: recruitment counts – no person" \
   "$(t334_php '$c = Kaleta\Core\Applications::monthCounts($app->db(), date("Y-m-01 00:00:00"), date("Y-m-d H:i:s", strtotime("first day of next month 00:00"))); echo $c === null ? "null" : ($c["interview"] . "|" . (str_contains(json_encode($c), "@") ? "leak" : "ok"));')" "1|ok"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$T334_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''; DELETE FROM ka_applications WHERE email LIKE '%-t334@example.com' OR source_enquiry_id = ${T334_EQ:-0}" > /dev/null
+features --exact "$T334_EXT"; sq "DELETE FROM ka_applications WHERE email LIKE '%-t334@example.com' OR source_enquiry_id = ${T334_EQ:-0}" > /dev/null

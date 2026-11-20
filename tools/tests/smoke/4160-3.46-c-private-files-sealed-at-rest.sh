@@ -8,7 +8,7 @@ C346_KEYS="'extensions', 'whistleblowing_enabled', 'whistleblowing_readers', 're
 sq "DROP TABLE IF EXISTS ka_c346_backup; CREATE TABLE ka_c346_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ($C346_KEYS)" > /dev/null
 C346_EXT=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'), '')")
 C346_ON=$(php -r '$e = array_filter(explode(",", $argv[1] !== "" && $argv[1] !== "-" ? $argv[1] : "novinky,poptavky,statistika,presmerovani,claude")); array_push($e, "whistleblowing", "internal_files"); echo implode(",", array_unique($e));' -- "$C346_EXT")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$C346_ON'), ('whistleblowing_enabled', '1'), ('whistleblowing_readers', '$C346_ADMIN'); DELETE FROM ka_kontrola_ip WHERE typ IN ('oznameni', 'oznameni-den')" > /dev/null
+features "$C346_ON"; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('whistleblowing_enabled', '1'), ('whistleblowing_readers', '$C346_ADMIN'); DELETE FROM ka_kontrola_ip WHERE typ IN ('oznameni', 'oznameni-den')" > /dev/null
 printf '%%PDF-1.4\n%% C346 evidence – the warehouse records\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%%%EOF\n' > "$WORK/c346-evidence.pdf"
 
 # --- N162: a new report's attachment is sealed on the disk; the reader downloads the original

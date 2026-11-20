@@ -58,7 +58,8 @@ final class Handover
 
     /**
      * Who may take work of these sections: active accounts that may open every one of them (administrators always),
-     * by name; $except (the leaver) is left out.
+     * by name; $except (the leaver) is left out. 3.48: a section whose feature is off is skipped – its records move with the
+     * rest (ownership is data; the right is checked when the section is opened again), it no longer leaves nobody to choose.
      *
      * @param list<string> $sections Module::IDENT values
      * @return array<int, string> idu => name
@@ -71,13 +72,17 @@ final class Handover
         $out = null;
         foreach ($sections as $section) {
             $kind = array_search($section, Assignment::KINDS, true);
-            if (!is_string($kind) || !self::sectionOn($siteSettings, $section)) {
+            if (!is_string($kind)) {
                 return [];
+            }
+            if (!self::sectionOn($siteSettings, $section)) {
+                continue;
             }
             // who may be chosen for each kind is Assignment::candidates – the recipient must be one for every kind
             $candidates = Assignment::candidates($db, $kind);
             $out = $out === null ? $candidates : array_intersect_key($out, $candidates);
         }
+        $out ??= self::eligible($db, $siteSettings, [], $except); // every section switched off: anyone active
         unset($out[$except]);
 
         return $out;
@@ -278,6 +283,9 @@ final class Handover
         }
         if ($section === Quotes::SECTION) {
             return Quotes::isOn($siteSettings); // 3.40: quotes (follow-up tasks) only while the feature is on
+        }
+        if ($section === Contacts::SECTION || $section === Deals::SECTION) {
+            return Extensions::isEnabled($siteSettings, $section === Deals::SECTION ? 'pipeline' : 'customers'); // 3.48: features of their own
         }
         foreach (self::KINDS as [$ident, $extension]) {
             if ($ident === $section) {

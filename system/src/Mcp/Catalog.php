@@ -224,17 +224,17 @@ final class Catalog
         'complete_task' => ['write', ''],
         // Contacts and companies (3.28, Core\Contacts): the customer memory of the site – personal data, never shown on the
         // site and never journaled for undo (AgentJournal::PERSONAL_TABLES); merging two contacts cannot be taken back
-        'list_contacts' => ['read', ''],
-        'get_contact' => ['read', ''],
-        'save_contact' => ['write', ''],
-        'log_activity' => ['write', ''],
-        'merge_contacts' => ['destructive', ''],
+        'list_contacts' => ['read', 'customers'],
+        'get_contact' => ['read', 'customers'],
+        'save_contact' => ['write', 'customers'],
+        'log_activity' => ['write', 'customers'],
+        'merge_contacts' => ['destructive', 'customers'],
         // The lean pipeline (3.31, Core\Deals): deals point to customers – never shown on the site and never journaled for
         // undo; deleting a deal stays in the administration (administrators)
-        'list_deals' => ['read', ''],
-        'save_deal' => ['write', ''],
-        'move_deal' => ['write', ''],
-        'pipeline_summary' => ['read', ''],
+        'list_deals' => ['read', 'pipeline'],
+        'save_deal' => ['write', 'pipeline'],
+        'move_deal' => ['write', 'pipeline'],
+        'pipeline_summary' => ['read', 'pipeline'],
         // Job applications (3.34, Core\Applications): personal data of applicants for people with the section Applications, only
         // while the site lets Claude read them (applications_claude); a CV is never passed; never journaled for undo
         'list_applications' => ['read', 'applications'],

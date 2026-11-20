@@ -21,7 +21,7 @@ sq "DELETE FROM ka_application_counts WHERE job_item_id = 9341; DELETE FROM ka_n
 
 # M3: a set saved in CZK inserted into a EUR quote – the free line comes without a price, with a warning (MCP)
 R340_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$R340_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$R340_EXT"),quotes')" > /dev/null
+features +quotes
 sq "INSERT INTO ka_price_lists (name, currency, is_default, created_at, updated_at) VALUES ('Euro R340', 'EUR', 0, '$(site_time)', '$(site_time)');
   INSERT INTO ka_quote_line_sets (name, content, currency, created_at, updated_at) VALUES ('Laser R340', '[{\"kind\":\"free\",\"code\":\"\",\"name\":\"Montáž R340\",\"unit\":\"h\",\"unit_price\":\"5000.00\",\"vat_rate\":\"21\",\"quantity\":\"1\",\"discount_percent\":\"0\"}]', 'CZK', '$(site_time)', '$(site_time)')" > /dev/null
 R340_EUR=$(sq "SELECT id FROM ka_price_lists WHERE name = 'Euro R340'"); R340_EUR="${R340_EUR:-0}"
@@ -92,4 +92,4 @@ sq "DELETE FROM ka_contacts WHERE id = $(cut -d'|' -f4 <<< "$R340_SEND"); DELETE
   DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from', 'quote_vat_rate'); INSERT INTO ka_nastaveni SELECT * FROM ka_r340_saved; DROP TABLE ka_r340_saved" > /dev/null
 
 # (the extensions as they were before this section)
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+features --exact "$R340_EXT"

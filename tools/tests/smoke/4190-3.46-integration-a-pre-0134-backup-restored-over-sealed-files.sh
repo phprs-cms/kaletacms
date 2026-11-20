@@ -6,7 +6,7 @@ I346_KEYS="'extensions', 'whistleblowing_enabled', 'whistleblowing_readers'"
 sq "DROP TABLE IF EXISTS ka_i346_backup; CREATE TABLE ka_i346_backup AS SELECT * FROM ka_nastaveni WHERE promenna IN ($I346_KEYS)" > /dev/null
 I346_EXT=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'), '')")
 I346_ON=$(php -r '$e = array_filter(explode(",", $argv[1] !== "" && $argv[1] !== "-" ? $argv[1] : "novinky,poptavky,statistika,presmerovani,claude")); array_push($e, "whistleblowing", "internal_files"); echo implode(",", array_unique($e));' -- "$I346_EXT")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$I346_ON'), ('whistleblowing_enabled', '1'), ('whistleblowing_readers', '$I346_ADMIN')" > /dev/null
+features "$I346_ON"; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('whistleblowing_enabled', '1'), ('whistleblowing_readers', '$I346_ADMIN')" > /dev/null
 printf '%%PDF-1.4\n%% I346 evidence\ntrailer << >>\n%%%%EOF\n' > "$WORK/i346-evidence.pdf"
 printf 'I346 contract – kept private across a restore\n' > "$WORK/i346-contract.txt"
 

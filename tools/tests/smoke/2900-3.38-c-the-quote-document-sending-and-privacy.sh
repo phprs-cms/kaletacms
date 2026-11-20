@@ -1,6 +1,6 @@
 echo "== 3.38 C: the customer's quote (a signed link, never public), sending, send_quote, the expiry job, retention and personal data"
 C338_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$C338_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$C338_EXT"),quotes')" > /dev/null
+features +quotes
 C338_SMTP=$((PORT + 3)); mkdir -p "$WORK/smtp-c338"; command php "$ROOT/tools/fake-smtp.php" "$C338_SMTP" "$WORK/smtp-c338" > /dev/null 2>&1 & C338_SMTP_PID=$!
 C338_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'"); C338_OLD_EMAIL=$(sq "SELECT email FROM ka_uzivatele WHERE idu = $C338_ADMIN")
 sq "UPDATE ka_uzivatele SET email = 'obchod338@firma.example' WHERE idu = $C338_ADMIN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$C338_SMTP'),
@@ -95,10 +95,10 @@ expect "3.38 C MCP: with confirm on a full connection the quote goes to the cust
   "$(grep -c '"sent":true' "$WORK/text")|$(grep -c '"status":"sent"' "$WORK/text")|$(sq "SELECT CONCAT(status, '|', number IS NOT NULL, '|', token_hash IS NOT NULL) FROM ka_quotes WHERE id = $C338_Q3")|$(grep -l '^X-Rcpt-To: zakaznik338@example.cz' "$WORK"/smtp-c338/*.eml | wc -l | tr -d ' ')" \
   "1|1|sent|1|1|2"
 F=$(grep -l "^X-Rcpt-To: zakaznik338@example.cz" "$WORK"/smtp-c338/*.eml 2>/dev/null | tail -1 || true); C338_LINK3=$( { [ -n "$F" ] && c338_eml "$F"; } | grep -o "$B/quote/[a-f0-9]\{64\}" | head -1)
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$C338_EXT')" > /dev/null
+features --exact "$C338_EXT"
 expect "3.38 C: with the feature off the section is gone, yet a customer's link still opens" \
   "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=quotes&action=send&id=$C338_Q3")|$(curl -s -o /dev/null -w '%{http_code}' "${C338_LINK3:-$B/quote/none}")" "403|200"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$C338_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$C338_EXT"),quotes')" > /dev/null
+features +quotes
 
 # the expiry job: a sent quote past its validity expires (the document says so), its owner gets a bell without an amount; a reminder once
 sq "UPDATE ka_quotes SET valid_until = '$(site_date '-1 day')' WHERE id = $C338_Q1; UPDATE ka_quotes SET valid_until = '$(site_date '+2 days')' WHERE id = $C338_Q3; DELETE FROM ka_notifications WHERE target LIKE 'quote:%'" > /dev/null
@@ -145,11 +145,11 @@ curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=quotes&acti
 grep -q 'data-quotes-texts' "$WORK/response" && grep -q 'name="quote_footer"' "$WORK/response" && echo "  ok     3.38 C: Quotes → Price list set-up (3.45, was Settings) has the default texts" || { echo "  CHYBA  3.38 C: the texts form"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=quotes&action=texts_save" -d "_csrf=$(csrf)" --data-urlencode "quote_intro=Děkujeme za poptávku." -d quote_terms= -d quote_footer=
 expect "3.38 C: the default texts are saved" "$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota) ORDER BY promenna SEPARATOR ' ') FROM ka_nastaveni WHERE promenna IN ('quote_intro', 'quote_terms', 'quote_footer')")" "quote_footer= quote_intro=Děkujeme za poptávku. quote_terms="
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$C338_EXT')" > /dev/null
+features --exact "$C338_EXT"
 
 # clean up
 kill "$C338_SMTP_PID" 2>/dev/null || true; wait "$C338_SMTP_PID" 2>/dev/null || true
 c338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $C338_OWNER; DELETE FROM ka_uzivatele WHERE idu = $C338_OWNER; DELETE FROM ka_api_tokeny WHERE nazev = 'c338 drafts'; DELETE FROM ka_notifications WHERE target LIKE 'quote:%';
   DELETE FROM ka_deal_stage_history WHERE deal_id = $C338_DEAL; DELETE FROM ka_deals WHERE id = $C338_DEAL; DELETE FROM ka_quote_counters; DELETE FROM ka_nastaveni WHERE promenna LIKE 'quote%' OR promenna = 'enquiries_expiry';
-  UPDATE ka_uzivatele SET email = '$C338_OLD_EMAIL' WHERE idu = $C338_ADMIN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  UPDATE ka_uzivatele SET email = '$C338_OLD_EMAIL' WHERE idu = $C338_ADMIN; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES" > /dev/null

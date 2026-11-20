@@ -1762,6 +1762,12 @@ form.moje-predat select { max-width: 100%; }
 .zakaznici-hlava { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0 0 16px; }
 .zakaznici-hlava .zalozky { margin: 0; }
 .zakaznici-akce { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+/* 3.48 (decision 6): one row of tabs – a hub screen's own set-up links are a small group on the right (Quotes: Price list
+   set-up, Settings; the Pipeline: Stages), and the Pipeline's board and list are a switch of the view, the current one framed */
+.hlava-odkazy { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 16px; margin: 0 0 16px; font-size: 14px; }
+.zakaznici-hlava .hlava-odkazy { margin: 0 0 0 auto; }
+.hlava-odkazy a[aria-current] { color: var(--text); font-weight: 600; text-decoration: none; }
+.zakaznici-akce a.navigace[aria-current] { border-color: var(--text); }
 .zakaznici-filtr { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; margin: 0 0 18px; }
 .zakaznici-filtr label { display: grid; gap: 4px; min-width: 0; font-size: 13px; }
 .zakaznici-filtr label > span { font-weight: 600; color: var(--text-slaby); }

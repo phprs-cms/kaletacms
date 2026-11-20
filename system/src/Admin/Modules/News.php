@@ -612,6 +612,13 @@ final class News extends Module
     }
 
     /** Broken links found by the background check (Core\Links) – since 2.14 across news items, page builds and collection items. */
+    /** 3.48: opened as Site care → Broken links, the screen shows the tabs of the Addresses hub (Redirects · Broken links). */
+    protected function hubTabs(): string
+    {
+        return $this->request->get('module') === 'broken_links'
+            ? \Kaleta\Admin\Hubs::tabs('addresses', $this->kernel->modules(), 'broken_links', '', $this->app->url(...)) : parent::hubTabs();
+    }
+
     protected function actionLinks(): Response
     {
         if ($this->request->isPost()) {

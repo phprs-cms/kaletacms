@@ -66,7 +66,7 @@ $aboutText = fn (array $about): string => isset($about['name'], $modules[Kaleta\
 <tbody>
 <?php foreach ($unassigned as $r): ?>
 <tr id="task-<?= (int) $r['id'] ?>" data-task="<?= (int) $r['id'] ?>">
-	<td><?= e($r['title'] !== '' ? $r['title'] : t('(no title)')) ?><?php if ($r['about'] !== null): ?><br><a class="smltxt" href="<?= e($app->url($r['about']['url'])) ?>"><?= e($aboutText($r['about'])) ?></a><?php endif ?></td>
+	<td><?= e($r['title'] !== '' ? $r['title'] : t('(no title)')) ?><?php if ($r['about'] !== null && Kaleta\Core\Inbox::switchedOff($app->settings(), (string) $r['about']['kind'])): ?><br><span class="smltxt"><?= e($aboutText($r['about'])) ?> <?= e(t('(section switched off)')) ?></span><?php elseif ($r['about'] !== null): ?><br><a class="smltxt" href="<?= e($app->url($r['about']['url'])) ?>"><?= e($aboutText($r['about'])) ?></a><?php endif ?></td>
 	<td class="cislo"><?= $r['due_at'] === null ? '<span class="smltxt">' . e(t('no date')) . '</span>' : ($r['group'] === 'overdue' ? '<span class="stitek stitek-koncept">' . e($due($r['due_at'])) . '</span>' : e($due($r['due_at']))) ?></td>
 	<td><?= e((string) $r['was']) ?></td>
 	<td class="akce"><?php if ($r['people'] === []): ?><span class="smltxt"><?= e(t('Nobody can be given this task now – what it is about is gone, in the trash or switched off.')) ?></span><?php else: ?>

@@ -41,7 +41,7 @@ B336_TEXT=$(b336_init "$B336_TOKEN")
 expect "3.36 B: a work connection's instructions start the tasks with the daily work (customers, deals, tasks)" \
   "$(b336_first "$B336_TEXT" 'DAILY WORK' 'BUILDING A SITE' 'MOVING A SITE')|$(b336_has "$B336_TEXT" save_contact list_deals complete_task)" "DAILY WORK>BUILDING A SITE>MOVING A SITE|yes"
 # a fleet site: the set is offered, switched to and lists the console; the instructions put the console first
-sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',fleet') WHERE promenna = 'extensions'" > /dev/null
+features +fleet
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?action=account&tab=claude"
 contains -q "value=\"fleet:token:$B336_IDT\"" "$WORK/response" && contains -q 'name="tool_set" value="fleet"' "$WORK/response" \
   && echo "  ok     3.36 B: on a fleet site My account and a new token offer the fleet set" || { echo "  CHYBA  3.36 B: fleet set offered"; ERRORS=$((ERRORS+1)); }
@@ -50,7 +50,7 @@ B336_TEXT=$(b336_init "$B336_TOKEN")
 expect "3.36 B: a fleet connection lists the console tools and hears about the console first" \
   "$(sq "SELECT tool_set FROM ka_api_tokeny WHERE idt = ${B336_IDT:-0}")|$(php -r '$n = explode(",", $argv[1]); echo implode(",", array_values(array_diff(["list_sites", "get_site", "fleet_today", "fleet_plan", "fleet_calendar", "find_tools"], $n))), "|", implode(",", array_intersect(["build_from_html", "import_wordpress"], $n));' -- "$(b336_names "$B336_TOKEN")")|$(b336_first "$B336_TEXT" 'THE FLEET CONSOLE' 'BUILDING A SITE')" \
   "fleet|||THE FLEET CONSOLE>BUILDING A SITE"
-sq "UPDATE ka_nastaveni SET hodnota = '$B336_EXT' WHERE promenna = 'extensions'" > /dev/null
+features --exact "$B336_EXT"
 # without the extension a stored fleet set keeps working – it only lists less – and My account still shows it
 expect "3.36 B: after the fleet extension is off, the fleet connection still works and keeps its set" \
   "$(b336_has "$(b336_names "$B336_TOKEN")" site_info find_tools)|$(sq "SELECT tool_set FROM ka_api_tokeny WHERE idt = ${B336_IDT:-0}")" "yes|fleet"

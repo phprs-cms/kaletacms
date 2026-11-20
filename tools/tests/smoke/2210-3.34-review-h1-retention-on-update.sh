@@ -1,7 +1,7 @@
 echo "== 3.34 review H1: moved applications are not purged before an administrator confirms the retention"
 # the review sections (2210–2249) switch the feature on for themselves and put the site's choice back at their end
-r334_on() { R334_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'"); sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$R334_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$R334_EXT"),applications')" > /dev/null; }
-r334_off() { sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R334_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null; }
+r334_on() { R334_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'"); features +applications; }
+r334_off() { features --exact "$R334_EXT"; }
 r334_on
 # an application moved from an enquiry and an ordinary one, both quiet for two years; the retention 6 months, not confirmed yet
 sq "UPDATE ka_applications SET source_enquiry_id = NULL WHERE source_enquiry_id = 92101; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_months', '6'), ('applications_retention_confirmed', '')" > /dev/null

@@ -9,9 +9,9 @@ u4240_mail() { local f; f=$(grep -l "^X-Rcpt-To: $1" "$MAIL_SINK_DIR"/*.eml 2>/d
 u4240_mark() { U4240_MARK=$(find "$MAIL_SINK_DIR" -name '*.eml' 2>/dev/null | sort | tail -1 || true); U4240_MARK=${U4240_MARK:-$MAIL_SINK_DIR/0000.eml}; }
 u4240_link() { u4240_mail "$1" | grep -o "https\?://[^ ]*action=attachment[^ ]*" | head -1 || true; }
 U4240_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "DROP TABLE IF EXISTS ka_u4240_set; CREATE TABLE ka_u4240_set AS SELECT * FROM ka_nastaveni WHERE promenna IN ('extensions', 'applications_notify_full', 'site_email')" > /dev/null
+sq "DROP TABLE IF EXISTS ka_u4240_set; CREATE TABLE ka_u4240_set AS SELECT * FROM ka_nastaveni WHERE promenna IN ('applications_notify_full', 'site_email')" > /dev/null
 U4240_ON="$([ -z "$U4240_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$U4240_EXT" | sed 's/,applications//g'),applications"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$U4240_ON'), ('applications_notify_full', '0')" > /dev/null
+features "$U4240_ON"; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_notify_full', '0')" > /dev/null
 [ -n "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_email'")" ] || sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_email', 'web-u4240@example.com')" > /dev/null # a sender (a partial run starts without one)
 # the jobs collection and its open job straight through PHP (after the restores of 4190–4202 the suite's MCP token is the backup's)
 U4240_IDK=$(u4240_php '[$id] = Kaleta\Builder\Presets::createWithPage($app, "jobs", "Jobs U4240", false) ?? [0]; $app->db()->insert("kolekce_polozky", ["idk" => $id, "nazev" => "Fitter U4240", "seo_link" => "fitter-u4240", "data" => "{}", "zobrazit" => 1, "jazyk" => "", "datum" => date("Y-m-d H:i:s"), "poradi" => 0]); echo $id;')
@@ -74,7 +74,7 @@ curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=s
 expect "3.46.2: the Applications settings warn that copies stay in the recipients' mailboxes" "$(grep -c 'nedosáhne\|does not reach them' "$WORK/response" | sed 's/^[1-9][0-9]*$/yes/')" "yes"
 
 # --- the same form as an enquiry form (Applications off): every field, then the link to the enquiry's file
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$(echo "$U4240_ON" | sed 's/,applications//')')" > /dev/null
+features "$U4240_ON" -applications
 u4240_mark; U4240_E0=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_poptavky")
 u4240_page; U4240_R=$(u4240_submit); U4240_E=$(sq "SELECT IFNULL(MAX(idp), 0) FROM ka_poptavky WHERE idp > $U4240_E0")
 U4240_ELINK=$(u4240_link hr-u4240@example.com); U4240_EPATH="/${U4240_ELINK#*://*/}"
@@ -93,5 +93,5 @@ expect "3.46.2: find_personal_data (Forms::notificationCopies) names where notif
 for U4240_F in $(sq "SELECT data FROM ka_poptavky WHERE idp > $U4240_E0" | grep -o '[0-9]\{4\}/[0-9]\{2\}/[a-f0-9]\{24\}\.pdf'); do rm -f "$WORK/web/storage/prilohy/$U4240_F"; done
 sq "DELETE FROM ka_applications WHERE email = 'petra-u4240@example.com'; DELETE FROM ka_poptavky WHERE idp > $U4240_E0; DELETE FROM ka_kolekce_polozky WHERE idk = ${U4240_IDK:-0}; DELETE FROM ka_kolekce WHERE idk = ${U4240_IDK:-0};
   DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN (SELECT idu FROM ka_uzivatele WHERE user IN ('u4240-hana', 'u4240-olga')); DELETE FROM ka_uzivatele WHERE user IN ('u4240-hana', 'u4240-olga');
-  DELETE FROM ka_nastaveni WHERE promenna IN ('extensions', 'applications_notify_full', 'site_email'); INSERT INTO ka_nastaveni SELECT * FROM ka_u4240_set; DROP TABLE ka_u4240_set; DELETE FROM ka_kontrola_ip" > /dev/null
+  DELETE FROM ka_nastaveni WHERE promenna IN ('applications_notify_full', 'site_email'); INSERT INTO ka_nastaveni SELECT * FROM ka_u4240_set; DROP TABLE ka_u4240_set; DELETE FROM ka_kontrola_ip" > /dev/null; features --exact "$U4240_EXT"
 rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/u4240-cv.pdf" "$WORK/u4240-got.pdf" "$WORK/u4240-form.html" "$WORK/u4240-headers" "$U4240_JH" "$U4240_JO" "$U4240_JN"

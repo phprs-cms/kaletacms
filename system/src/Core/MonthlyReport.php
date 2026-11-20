@@ -304,12 +304,16 @@ final class MonthlyReport
 
     /**
      * The pipeline of the month (3.31, Core\Deals::monthCounts): new deals, won and lost ones, and how many deals reached
-     * each stage, with the stages' names in the site's language – counts only, never values. Null without deals.
+     * each stage, with the stages' names in the site's language – counts only, never values. Null without deals, and with
+     * the Pipeline switched off (3.48).
      *
      * @return array{new: int, won: int, lost: int, stages: list<array{key: string, label: string, n: int}>}|null
      */
     private static function pipeline(App $app, string $from, string $to): ?array
     {
+        if (!Extensions::isEnabled($app->settings(), 'pipeline')) {
+            return null;
+        }
         $counts = Deals::monthCounts($app, $from, $to);
         if ($counts === null) {
             return null;

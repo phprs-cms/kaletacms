@@ -116,9 +116,12 @@ $inMenu = isset($modules[$active]) && $modules[$active]::PARENT !== '' && isset(
 $menuFlat = Kaleta\Admin\MenuGroups::flat($modules);
 $menuItem = function (string $ident, int &$badge) use ($modules, $app, $icon, $inMenu, $currentCollection, $menuCollections, $moreCollections): string {
     $class = $modules[$ident];
-    try { $badge = $class::badge($app); } catch (\Throwable) { $badge = 0; } // 3.15: a count never breaks the menu
+    $badge = 0;
+    foreach (Kaleta\Admin\MenuGroups::members($modules, $ident) as $member) { // 3.48: an item of a hub counts the screens under it too
+        try { $badge += $modules[$member]::badge($app); } catch (\Throwable) {} // 3.15: a count never breaks the menu
+    }
     $here = $ident === $inMenu && !($ident === 'collections' && $currentCollection > 0);
-    $html = '<li' . ($here ? ' class="aktivni"' : '') . '><a href="' . e($app->url('admin.php?module=' . $ident)) . '"' . ($here ? ' aria-current="page"' : '') . '>' . $icon($class::ICON) . e(t($class::NAME))
+    $html = '<li' . ($here ? ' class="aktivni"' : '') . '><a href="' . e($app->url('admin.php?module=' . $ident)) . '"' . ($here ? ' aria-current="page"' : '') . '>' . $icon($class::ICON) . e(t($class::menuName($modules)))
         . ($badge > 0 ? ' <span class="menu-pocet" aria-hidden="true">' . ($badge > 99 ? '99+' : $badge) . '</span><span class="navod-skryte"> – ' . e(t('%d new', $badge)) . '</span>' : '') . '</a></li>' . "\n";
     foreach ($ident === 'collections' ? $menuCollections : [] as $collection) {
         $here = $collection['id'] === $currentCollection;

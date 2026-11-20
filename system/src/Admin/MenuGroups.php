@@ -74,6 +74,18 @@ final class MenuGroups
         return self::count($modules) <= self::FLAT_LIMIT;
     }
 
+    /**
+     * The modules one menu item stands for (3.48): itself and the screens hidden under it (PARENT) that the person opens –
+     * the layout adds up their badges, so "Sales" counts the quotes as well as the deals.
+     *
+     * @param array<string, class-string<Module>> $modules
+     * @return list<string>
+     */
+    public static function members(array $modules, string $ident): array
+    {
+        return [$ident, ...array_keys(array_filter($modules, fn (string $class, string $key): bool => $key !== $ident && $class::PARENT === $ident, ARRAY_FILTER_USE_BOTH))];
+    }
+
     /** The group's key for the browser's memory of open groups and for data attributes: "Site care" → "site-care". */
     public static function key(string $group): string
     {

@@ -122,6 +122,15 @@ button.galerie-polozka:hover, button.galerie-polozka:focus-visible { border-colo
 .rozsireni-karta strong { font-size: 14px; color: var(--ed-text); }
 .rozsireni-karta:has(input:checked) { border-color: var(--ed-akcent); }
 .rozsireni-karta input { margin-top: 3px; }
+/* 3.48 (decision 3): the profiles above the cards – three links that tick a set (the Save stores it); a feature another
+   one needs says so while that one is ticked; who sees the CRM sections */
+.rozsireni-profily { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 0 0 14px; }
+.rozsireni-profil { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid var(--ed-linka); border-radius: var(--ed-radius); background: var(--ed-plocha); color: var(--ed-text-slaby); font-size: 13px; text-decoration: none; }
+.rozsireni-profil strong { color: var(--ed-text); font-size: 14px; }
+.rozsireni-profil:hover, .rozsireni-profil[aria-current] { border-color: var(--ed-akcent); text-decoration: none; }
+.rozsireni-potreba { display: none; margin-top: 6px; font-weight: 600; }
+.rozsireni-seznam:has(input[value="pipeline"]:checked) .rozsireni-potreba { display: block; }
+.rozsireni-vidi { display: block; margin-top: 6px; }
 
 /* my account */
 /* 2FA QR code: always black on white (in dark mode too – that is how apps read it), shrinks on a narrow display */

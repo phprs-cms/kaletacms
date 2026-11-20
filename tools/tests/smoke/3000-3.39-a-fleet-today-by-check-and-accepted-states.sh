@@ -3,7 +3,7 @@ echo "== 3.39 A: the fleet console's Today grouped by check, accepting a state o
 # alert e-mails off so the job fleet_alerts only drops the stale acceptances
 A339_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 A339_ALERTS=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'alerts_enabled'")
-sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',fleet') WHERE promenna = 'extensions'" > /dev/null
+features +fleet
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('alerts_enabled', '0') ON DUPLICATE KEY UPDATE hodnota = '0'" > /dev/null
 # a339_beat <off-site status>: a 3.29+ report with every part – the off-site copy as given, the cookie scan never ran (amber)
 a339_beat() { php -r 'echo json_encode(["version" => "3.39.0", "last_backup" => time() - 3600, "cron_last_run" => time() - 600, "auto_updates" => true,
@@ -92,5 +92,5 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=fleet&acti
 expect "3.39: an accepted outage is stored; removing the site removes it" "$(sq "SELECT COUNT(*) FROM ka_fleet_sites WHERE id = $A339_DOWN")|$(sq "SELECT COUNT(*) FROM ka_fleet_acceptances")" "0|0"
 
 sq "DELETE FROM ka_fleet_acceptances; DELETE FROM ka_fleet_sites WHERE public_key IN ('down339akey', 'bakery339akey', 'smith339akey');" > /dev/null
-sq "UPDATE ka_nastaveni SET hodnota = '$A339_EXT' WHERE promenna = 'extensions'" > /dev/null
+features --exact "$A339_EXT"
 if [ -n "$A339_ALERTS" ]; then sq "UPDATE ka_nastaveni SET hodnota = '$A339_ALERTS' WHERE promenna = 'alerts_enabled'" > /dev/null; else sq "DELETE FROM ka_nastaveni WHERE promenna = 'alerts_enabled'" > /dev/null; fi

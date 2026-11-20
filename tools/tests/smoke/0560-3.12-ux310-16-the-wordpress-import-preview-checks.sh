@@ -1,5 +1,5 @@
 echo "== 3.12 (UX310-16): the WordPress import preview checks the export's language against the site"
-sq "DROP TABLE IF EXISTS ka_test_312; CREATE TABLE ka_test_312 AS SELECT * FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions')" > /dev/null
+sq "DROP TABLE IF EXISTS ka_test_312; CREATE TABLE ka_test_312 AS SELECT * FROM ka_nastaveni WHERE promenna IN ('additional_languages')" > /dev/null; EXT312=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 cat > "$WORK/ux16-de.xml" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wp="http://wordpress.org/export/1.2/" xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -24,5 +24,5 @@ check "3.12 UX310-16: with German on the site, the next preview sends the export
 contains -q 'data-import-jazyk="version"' "$WORK/response" && ! contains -q 'value="add:de"' "$WORK/response" && echo "  ok     3.12 UX310-16: no warning and no offer to add a language the site has" || { echo "  CHYBA  3.12 UX310-16: language version case"; ERRORS=$((ERRORS+1)); }
 check "3.12 UX310-17: Import and export keeps the last import with a way back to its next steps" 200 "/admin.php?module=transfer" 'class="hlaska import-posledni"'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=transfer&action=delete_file" -d "_csrf=$TOKEN" -d soubor=ux16-de.xml
-sq "DELETE FROM ka_stranky WHERE seo_link LIKE 'ueber-uns-ux16%'; DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_312; DROP TABLE ka_test_312" > /dev/null
+sq "DELETE FROM ka_stranky WHERE seo_link LIKE 'ueber-uns-ux16%'; DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_312; DROP TABLE ka_test_312" > /dev/null; features --exact "$EXT312"
 

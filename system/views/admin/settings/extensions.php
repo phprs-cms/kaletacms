@@ -16,6 +16,11 @@ $extensionSettings = [
     'jazyky' => [[$adminUrl('module=settings&tab=languages#additional_languages'), 'Choose languages']],
     'asistent' => [['#asistent', 'Provider, key and model']],
     'whistleblowing' => [[$adminUrl('module=whistleblowing'), 'Channel set-up and readers']],
+    // 3.48: the CRM, quotes and applications lead to their screens and settings too
+    'customers' => [[$adminUrl('module=contacts'), 'Customers'], [$adminUrl('module=contacts&action=companies'), 'Companies']],
+    'pipeline' => [[$adminUrl('module=pipeline'), 'Pipeline'], [$adminUrl('module=pipeline&action=stages'), 'Deal stages']],
+    'quotes' => [[$adminUrl('module=quotes'), 'Quotes'], [$adminUrl('module=quotes&action=prices'), 'Internal prices'], [$adminUrl('module=quotes&action=setup'), 'Price list set-up'], [$adminUrl('module=quotes&action=settings'), 'Settings']],
+    'applications' => [[$adminUrl('module=applications'), 'Applications'], [$adminUrl('module=applications&action=settings'), 'Settings']],
     'claude' => [[$adminUrl('module=claude_settings#how-to-connect'), 'How to connect Claude']], // 3.20 (C6): one destination
 ];
 if (in_array('bookings', $enabledExtensions, true) && in_array(false, Kaleta\Core\Booking::setup($app->db()), true)) {
@@ -23,11 +28,39 @@ if (in_array('bookings', $enabledExtensions, true) && in_array(false, Kaleta\Cor
     array_unshift($extensionSettings['bookings'], [$adminUrl('module=bookings'), 'Set up Bookings →']);
 }
 ?>
+<?php
+// 3.48 (decision 3): a profile is a preselection – the link only ticks its features (GET), the Save below stores them; the
+// notice names what the choice would switch off, with the records each holds
+$profile = $app->request->get('profile');
+$chosen = isset(Extensions::PROFILES[$profile]) ? Kaleta\Admin\Modules\Extensions::preselect($app->settings(), $profile, $enabledExtensions) : null;
+$ticked = $chosen['keys'] ?? $enabledExtensions;
+$profileHints = ['website' => 'Pages, news, statistics, redirects and the Claude connection – a presentation of the company.',
+    'enquiries' => 'The website and forms with the Enquiries inbox.',
+    'office' => 'Enquiries with customers, the pipeline of deals and quotes – the daily work of a front office.'];
+?>
+<nav class="rozsireni-profily" aria-label="<?= e(t('Profiles')) ?>" data-feature-profiles>
+<?php foreach (Extensions::PROFILES as $key => $label): ?>
+	<a class="rozsireni-profil" href="<?= e($app->url('admin.php?module=extensions&profile=' . $key)) ?>"<?= $profile === $key ? ' aria-current="true"' : '' ?>><strong><?= e(t($label)) ?></strong><span><?= e(t($profileHints[$key])) ?></span></a>
+<?php endforeach ?>
+</nav>
+<?php if ($chosen !== null):
+    $going = array_map(function (string $key) use ($app): string {
+        $n = Kaleta\Admin\Modules\Extensions::records($app->db(), $key);
+        return $n > 0 ? t('%s (%d records)', t(Extensions::CATALOG[$key][0]), $n) : t(Extensions::CATALOG[$key][0]);
+    }, $chosen['off']); ?>
+<p class="hlaska hlaska-varovani" role="status" data-profile-notice><?= e($going !== [] ? t('Not saved yet. This choice switches off: %s', implode(', ', $going)) : t('Not saved yet.')) ?> <?= e(t('Their records stay; the sections only leave the menu.')) ?></p>
+<?php endif ?>
 <div class="rozsireni-seznam">
-<?php foreach (Extensions::CATALOG as $key => [$name, $description]): $isEnabled = in_array($key, $enabledExtensions, true); ?>
+<?php foreach (Extensions::CATALOG as $key => [$name, $description]): $isEnabled = in_array($key, $enabledExtensions, true); $isTicked = in_array($key, $ticked, true); ?>
 	<div class="rozsireni-karta">
-		<input type="checkbox" id="rozsireni-<?= e($key) ?>" name="rozsireni[]" value="<?= e($key) ?>"<?= $isEnabled ? ' checked' : '' ?>>
+		<input type="checkbox" id="rozsireni-<?= e($key) ?>" name="rozsireni[]" value="<?= e($key) ?>"<?= $isTicked ? ' checked' : '' ?>>
 		<span><label for="rozsireni-<?= e($key) ?>"><strong><?= e(t($name)) ?></strong><br><?= e($key === 'novinky' ? t($description, $app->url('novinky')) : t($description)) ?></label>
+<?php foreach (Extensions::REQUIRES as $needs => $needed): if ($needed === $key): ?>
+			<span class="rozsireni-potreba smltxt"><?= e(t('Needed by %s', t(Extensions::CATALOG[$needs][0]))) ?></span>
+<?php endif; endforeach ?>
+<?php if (in_array($key, ['customers', 'pipeline'], true)): $seen = Kaleta\Admin\Modules\Extensions::seenBy($app->db(), $key === 'customers' ? Kaleta\Core\Contacts::SECTION : Kaleta\Core\Deals::SECTION); ?>
+			<span class="rozsireni-vidi smltxt"><?= e(t('Seen by: %s (%d people)', implode(', ', [t('Administrators'), ...$seen['roles']]), $seen['people'])) ?></span>
+<?php endif ?>
 <?php if ($isEnabled && isset($extensionSettings[$key])): ?>
 			<span class="rozsireni-odkazy"><?php foreach ($extensionSettings[$key] as $i => [$url, $text]): ?><?= $i > 0 ? ' · ' : '' ?><a href="<?= e($url) ?>"><?= e(t($text)) ?></a><?php endforeach ?></span>
 <?php endif ?>

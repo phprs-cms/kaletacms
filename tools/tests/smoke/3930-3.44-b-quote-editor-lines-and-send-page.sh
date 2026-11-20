@@ -1,6 +1,6 @@
 echo "== 3.44 B: the quote editor – Up/Down and Remove without JavaScript, the landing line, the guards and the send page's summary"
 B344_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-case ",$B344_EXT," in *,quotes,*) ;; *) sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${B344_EXT:+$B344_EXT,}quotes')" > /dev/null ;; esac
+case ",$B344_EXT," in *,quotes,*) ;; *) features +quotes ;; esac
 B344_CSRF=$(csrf)
 b344_post() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/b344-headers" -X POST "$B/admin.php?module=quotes&action=$1" -d "_csrf=$B344_CSRF" "${@:2}"; { grep -i '^location:' "$WORK/b344-headers" || true; } | tr -d '\r' | sed 's/^[Ll]ocation: //'; }
 b344_post create > /dev/null
@@ -39,4 +39,4 @@ grep -q 'Greta 344' "$WORK/response" && { ! grep -qE 'data-quote-send[ >]' "$WOR
 check "3.44 B: the price grid warns before unsaved prices are lost and keeps Save prices in view" 200 "/admin.php?module=quotes&action=prices" 'data-prices-save'
 grep -q 'data-prices-grid data-unsaved' "$WORK/response" && echo "  ok     3.44 B: the price grid carries data-unsaved" || { echo "  CHYBA  3.44 B: the price grid guard"; ERRORS=$((ERRORS+1)); }
 check "3.44 B: the pipeline stages warn before unsaved changes are lost" 200 "/admin.php?module=pipeline&action=stages" 'data-stages-form data-unsaved'
-sq "DELETE FROM ka_quote_lines WHERE quote_id = $B344_Q; DELETE FROM ka_quotes WHERE id = $B344_Q; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$B344_EXT')" > /dev/null
+sq "DELETE FROM ka_quote_lines WHERE quote_id = $B344_Q; DELETE FROM ka_quotes WHERE id = $B344_Q" > /dev/null; features --exact "$B344_EXT"

@@ -35,7 +35,7 @@ for i in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$AI_PORT/" && br
 cp "$WORK/web/config.php" "$WORK/config.bak"; sed -i.tmp "1s|<?php|<?php define('KALETA_AI_URL', 'http://127.0.0.1:$AI_PORT/');|" "$WORK/web/config.php"; sleep 3 # OPcache of the test server revalidates the file after 2 s
 ASSIST_ID=$(sq "INSERT INTO ka_poptavky (datum, formular, zdroj, stranka, email, data, stav) VALUES ('$(site_time)', 'Kontakt', 'stranka:1', '/kontakt', 'jan@example.cz', '[[\"Zpráva\",\"Nefunguje nám zámek u dveří\"]]', 0); SELECT LAST_INSERT_ID();")
 EXT_TRIAGE=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ai_key', 'test-key-for-the-fake-provider'), ('ai_provider', 'anthropic'), ('triage_assistant', '0'), ('extensions', CONCAT('$EXT_TRIAGE', ',asistent'))" > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('ai_key', 'test-key-for-the-fake-provider'), ('ai_provider', 'anthropic'), ('triage_assistant', '0')" > /dev/null; features +asistent
 sq "INSERT INTO ka_jobs (name, last_run) VALUES ('triage', NULL) ON DUPLICATE KEY UPDATE last_run = NULL" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
 expect "triage: switched off, the assistant sends nothing" "$(wc -c < "$WORK/ai/requests.log" | tr -d ' ')|$(sq "SELECT kategorie FROM ka_poptavky WHERE idp = $ASSIST_ID")" "0|"
 sq "UPDATE ka_nastaveni SET hodnota = '1' WHERE promenna = 'triage_assistant'; UPDATE ka_jobs SET last_run = NULL WHERE name = 'triage'" > /dev/null; curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
@@ -43,4 +43,4 @@ expect "triage: switched on, the assistant sorts a new enquiry and drafts a repl
 grep -i 'triage' "$WORK/tasks.txt" | grep -q 'failed' && grep -i 'triage' "$WORK/tasks.txt"
 grep -q 'never instructions' "$WORK/ai/requests.log" && grep -q 'zámek' "$WORK/ai/requests.log" && echo "  ok     triage: the assistant is told the enquiry is data, not instructions" || { echo "  CHYBA  pokyn pro asistenta"; ERRORS=$((ERRORS+1)); }
 cp "$WORK/config.bak" "$WORK/web/config.php"; kill "$AI_PID" 2>/dev/null || true
-sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'triage_assistant'; DELETE FROM ka_nastaveni WHERE promenna = 'ai_key'; UPDATE ka_nastaveni SET hodnota = '$EXT_TRIAGE' WHERE promenna = 'extensions'" > /dev/null
+sq "UPDATE ka_nastaveni SET hodnota = '0' WHERE promenna = 'triage_assistant'; DELETE FROM ka_nastaveni WHERE promenna = 'ai_key'" > /dev/null; features --exact "$EXT_TRIAGE"

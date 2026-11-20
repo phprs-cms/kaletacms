@@ -3,7 +3,7 @@ r344_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = n
 R344_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 R344_MAP=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quote_price_collections'")
 R344_VAT=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'quote_vat_payer'), '-')")
-r344_ext() { sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$1')" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
+r344_ext() { features --exact "$1"; rm -f "$WORK"/web/storage/cache/stranky/*.html; }
 R344_ON=$(php -r '$e = array_filter(explode(",", $argv[1] !== "" ? $argv[1] : "novinky,poptavky,statistika,presmerovani,claude")); $e[] = "quotes"; echo implode(",", array_unique($e));' -- "$R344_EXT")
 R344_OFF=$(php -r 'echo implode(",", array_diff(explode(",", $argv[1]), ["quotes"]));' -- "$R344_ON")
 r344_ext "$R344_ON"

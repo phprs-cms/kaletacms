@@ -38,7 +38,7 @@ login() { # login <jar> <user> <password>
   curl -s -b "$1" -c "$1" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(token "$WORK/login.html")" -d "user=$2" --data-urlencode "password=$3"
 }
 PASSWORD="En-$(date +%s)-check"
-ALL=(novinky poptavky newsletter bookings statistika presmerovani jazyky api asistent whistleblowing claude) # 3.2: Bookings and Whistleblowing are features, off unless ticked
+ALL=(novinky poptavky customers pipeline newsletter bookings statistika presmerovani jazyky api asistent whistleblowing claude) # 3.2: Bookings and Whistleblowing are features, off unless ticked
 install() { # install <starter> <extension…>: a clean English install (the installer removes itself, it is put back for the next one)
   "${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DB_NAME\`; CREATE DATABASE \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_czech_ci"
   rm -f "$WORK/web/config.php" "$JAR"; cp "$WORK/install.php" "$WORK/web/install.php"; rm -rf "$WORK/web/storage/cache"; mkdir -p "$WORK/web/storage/cache"

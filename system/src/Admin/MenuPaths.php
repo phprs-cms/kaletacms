@@ -58,6 +58,12 @@ final class MenuPaths
         [['Notebook'], 'notebook', 'module=notebook'],
         // 3.23.1 (C4, N-C5, N-C6): the last plain paths – Broken links under Site care, the campaigns, the parts of My account
         [['Site care', 'Broken links'], 'broken_links', 'module=broken_links'],
+        // 3.48 (decision 6): the tabs of the two hubs the menu names Sales and Addresses (never the bare word – it is a common one)
+        [['Sales', 'Internal prices'], 'quotes', 'module=quotes&action=prices'],
+        [['Sales', 'Quotes'], 'quotes', 'module=quotes'],
+        [['Sales', 'Pipeline'], 'pipeline', 'module=pipeline'],
+        [['Addresses', 'Broken links'], 'broken_links', 'module=broken_links'],
+        [['Addresses', 'Redirects'], 'redirects', 'module=redirects'],
         [['Statistics', 'Campaigns'], 'stats', 'module=stats'],
         [['My account', 'Claude connection'], '', 'action=account&tab=claude'], // 3.47 (U68): the tabs of My account
         [['My account', 'My e-mail signature'], '', 'action=account&tab=signature'],

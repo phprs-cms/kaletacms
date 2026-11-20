@@ -43,7 +43,7 @@ $emailNote = match ($email) {
 		<span class="upozorneni-ikona" aria-hidden="true"><?= $icon($kindIcon[$row['kind']] ?? 'zvonek') ?></span>
 		<div class="upozorneni-text">
 			<p class="upozorneni-co"><?php if ($unreadRow): ?><span class="navod-skryte"><?= e(t('Unread:')) ?> </span><?php endif ?><strong><?= e($what) ?></strong>
-				<span class="upozorneni-kde"><?php if ($place !== null): ?><a href="<?= e($app->url('admin.php?action=inbox&open=' . (int) $row['id'])) ?>"><?= e($where) ?></a><?php else: ?><?= e($where) ?><?php endif ?></span></p>
+				<span class="upozorneni-kde"><?php if ($place !== null && Kaleta\Core\Inbox::switchedOff($app->settings(), (string) $place['kind'])): ?><?= e($where) ?> <?= e(t('(section switched off)')) ?><?php elseif ($place !== null): ?><a href="<?= e($app->url('admin.php?action=inbox&open=' . (int) $row['id'])) ?>"><?= e($where) ?></a><?php else: ?><?= e($where) ?><?php endif ?></span></p>
 <?php if (($row['standing_in_for'] ?? '') !== ''): ?>
 			<p class="smltxt"><?= e(Kaleta\Core\Inbox::standingIn((string) $row['standing_in_for'])) ?></p>
 <?php endif ?>

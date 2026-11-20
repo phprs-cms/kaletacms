@@ -1,7 +1,7 @@
 echo "== 3.45 B: the guide to the office in the administration, the palette's quick actions (New quote posts), English values in update_settings"
 B345_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 B345_ON=$(php -r '$l = array_filter(explode(",", $argv[1])); $l = $l === [] ? ["novinky", "poptavky", "statistika", "presmerovani", "claude"] : $l; echo implode(",", array_unique([...$l, "quotes", "applications"]));' -- "$B345_EXT")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$B345_ON')" > /dev/null
+features "$B345_ON"
 # the heading link of an office section opens its chapter in the same tab; the online articles keep the new tab
 check "3.45 B: Quotes links to its chapter of the guide" 200 "/admin.php?module=quotes" 'action=guide&amp;chapter=quotes"'
 expect "3.45 B: the chapter link stays in the tab (no target, no “opens in a new tab”)" "$(grep -o 'class="navod-odkaz" href="[^"]*chapter=quotes"[^>]*>' "$WORK/response" | grep -c 'target=')" "0"
@@ -45,5 +45,5 @@ for b345_pair in $B345_KEEP; do # back as it was: a setting that was not stored 
   else sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('${b345_pair%%=*}', '${b345_pair#*=}')" > /dev/null; fi
 done
 sq "DELETE FROM ka_api_tokeny WHERE nazev = 'b345'" > /dev/null
-if [ -n "$B345_EXT" ]; then sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$B345_EXT')" > /dev/null; else sq "DELETE FROM ka_nastaveni WHERE promenna = 'extensions'" > /dev/null; fi
+features --exact "$B345_EXT"
 rm -f "$WORK"/web/storage/cache/stranky/*.html

@@ -110,7 +110,8 @@ final class TeamSummary
 
     /**
      * The sections the site has switched on (the monthly report, which no person reads with their own sections): enquiries
-     * and applications with their extension, quotes with theirs, deals when the site has any, tasks always.
+     * and applications with their extension, quotes with theirs, deals when the site has any and the Pipeline is on (3.48),
+     * tasks always.
      *
      * @return list<string>
      */
@@ -119,7 +120,7 @@ final class TeamSummary
         $s = $app->settings();
         $hasDeals = false;
         try {
-            $hasDeals = $app->db()->value('SELECT 1 FROM {deals} LIMIT 1') !== null;
+            $hasDeals = Extensions::isEnabled($s, 'pipeline') && $app->db()->value('SELECT 1 FROM {deals} LIMIT 1') !== null;
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
         }

@@ -420,4 +420,39 @@ expect_sql_value "3.46 (0134): run again – nothing changes, no copy left besid
 rm -f "$ROOT/storage/oznameni/$M346_WB"* "$ROOT/storage/internal-files/$M346_IF"*
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_whistleblowing_cases WHERE id = 9346; DELETE FROM ka_internal_file_versions WHERE id = 9346; DELETE FROM ka_internal_files WHERE id = 9346; DELETE FROM ka_internal_folders WHERE id = 9346"
 
+# 3.48 (0135): Customers and the Pipeline became features (off on a new site) – an update switches them on where the site shows
+# use of them: records (contacts, anonymised ones too, companies, deals), changed stages, or people given the sections (their
+# own rights, or a custom role that is not a shipped preset). A site that shows none keeps its stored choice. Run by name.
+M348_T=$(site_time)
+site_347() { "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_contacts; DELETE FROM ka_companies; DELETE FROM ka_deals; DELETE FROM ka_role; DELETE FROM ka_uzivatele_prava; DELETE FROM ka_uzivatele WHERE user LIKE 'm348-%';
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$1'), ('pipeline_stages', '');
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0135-customers-and-pipeline-features,', ',')) WHERE promenna = 'data_migrations'; $2" && migrate > /dev/null; }
+ext348() { "${MYSQL[@]}" "$OLD" -N -e "SELECT IFNULL((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'), '(no row)')"; }
+M348_CONTACT="INSERT INTO ka_contacts (email, created_at, updated_at) VALUES ('c348@example.com', '$M348_T', '$M348_T');"
+M348_DEAL="INSERT INTO ka_deals (title, stage, created_at, updated_at) VALUES ('D348', 'new', '$M348_T', '$M348_T');"
+m348() { site_347 "$2" "$3"; expect_sql_value "3.48 (0135): $1" "$(ext348)" "$4"; }
+m348 "a saved list, a contact and a deal – both on" 'novinky,poptavky,claude' "$M348_CONTACT $M348_DEAL" 'novinky,poptavky,customers,pipeline,claude'
+m348 "a saved list, a contact only – Customers on, the Pipeline stays off" 'novinky,poptavky,claude' "$M348_CONTACT" 'novinky,poptavky,customers,claude'
+m348 "a saved list, only anonymised contacts – Customers on (they are rows)" 'novinky,poptavky,claude' "INSERT INTO ka_contacts (email, created_at, updated_at, anonymised_at) VALUES ('', '$M348_T', '$M348_T', '$M348_T');" 'novinky,poptavky,customers,claude'
+m348 "a saved list, a company only – Customers on" 'novinky,poptavky,claude' "INSERT INTO ka_companies (name, created_at, updated_at) VALUES ('Firma 348', '$M348_T', '$M348_T');" 'novinky,poptavky,customers,claude'
+m348 "a saved list, a deal only – both on" 'novinky,poptavky,claude' "$M348_DEAL" 'novinky,poptavky,customers,pipeline,claude'
+m348 "a saved list, no deal, the stages changed – both on" 'novinky,poptavky,claude' "UPDATE ka_nastaveni SET hodnota = '[{\"key\":\"new\",\"label\":\"Lead\",\"kind\":\"open\"},{\"key\":\"qualified\",\"label\":\"\",\"kind\":\"open\"},{\"key\":\"won\",\"label\":\"\",\"kind\":\"won\"},{\"key\":\"lost\",\"label\":\"\",\"kind\":\"lost\"}]' WHERE promenna = 'pipeline_stages';" 'novinky,poptavky,customers,pipeline,claude'
+m348 "a saved list, no record, a person's own right to the Pipeline – both on" 'novinky,poptavky,claude' "INSERT INTO ka_uzivatele (user, password, admin) VALUES ('m348-own', 'x', 1); INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'pipeline' FROM ka_uzivatele WHERE user = 'm348-own';" 'novinky,poptavky,customers,pipeline,claude'
+m348 "a saved list, no record, a custom role with Customers – Customers on" 'novinky,poptavky,claude' "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Sales team', 1, 'enquiries,contacts');" 'novinky,poptavky,customers,claude'
+m348 "a saved list, no record, only roles made from the shipped presets (and their members) – unchanged" 'novinky,poptavky,claude' "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Klient', 1, 'pages,news,enquiries,contacts,pipeline,stats'), ('Office / sales', 0, 'enquiries,contacts,pipeline,bookings,requests');
+  INSERT INTO ka_uzivatele (user, password, admin, role) SELECT 'm348-member', 'x', 0, idr FROM ka_role WHERE nazev = 'Klient'; INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.s FROM ka_uzivatele JOIN (SELECT 'contacts' AS s UNION SELECT 'pipeline') m WHERE user = 'm348-member';" 'novinky,poptavky,claude'
+m348 "a preset role that was changed counts as a custom one" 'novinky,poptavky,claude' "INSERT INTO ka_role (nazev, uroven, moduly) VALUES ('Klient', 1, 'pages,news,enquiries,contacts,pipeline,stats,quotes,applications');" 'novinky,poptavky,customers,pipeline,claude'
+m348 "a site that never saved its choice, a contact – the defaults of 3.47 written down, plus Customers" '' "$M348_CONTACT" 'novinky,poptavky,customers,statistika,presmerovani,claude'
+m348 "a site that never saved its choice, a deal only – the defaults plus both" '' "$M348_DEAL" 'novinky,poptavky,customers,pipeline,statistika,presmerovani,claude'
+m348 "a site that never saved its choice and shows no use – still the default state" '' "" ''
+m348 "everything switched off, a deal – both on" '-' "$M348_DEAL" 'customers,pipeline'
+m348 "a key this release does not know is kept" 'novinky,future_key,claude' "$M348_CONTACT" 'novinky,customers,claude,future_key'
+site_347 'novinky,poptavky,claude' "$M348_CONTACT $M348_DEAL"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0135-customers-and-pipeline-features,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql_value "3.48 (0135): run twice – nothing twice" "$(ext348)" 'novinky,poptavky,customers,pipeline,claude'
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = 'novinky,poptavky,claude' WHERE promenna = 'extensions'; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0135-customers-and-pipeline-features,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql_value "3.48 (0135): switched off by hand and run again by name – on again (the migration follows the data)" "$(ext348)" 'novinky,poptavky,customers,pipeline,claude'
+expect_sql_value "3.48 (0135): rights and roles are never touched" "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_role), '|', (SELECT COUNT(*) FROM ka_uzivatele_prava))")" "0|0"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_contacts; DELETE FROM ka_deals; DELETE FROM ka_uzivatele WHERE user LIKE 'm348-%'"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

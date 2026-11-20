@@ -20,6 +20,8 @@ final class BrokenLinks extends Module
     public const string GROUP = 'Site care';
     public const string ICON = 'odkazy';
     public const string SHARES_PERMISSION_OF = 'news';
+    public const string HUB = 'addresses'; // 3.48: Redirects · Broken links; its own item for whoever has News but not Redirects
+    public const string PARENT = 'redirects';
 
     /** The screen of News → Broken links. */
     protected function actionList(): Response

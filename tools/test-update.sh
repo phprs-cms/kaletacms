@@ -42,7 +42,7 @@ for i in $(seq 1 30); do curl -s -o /dev/null "$B/install.php" && break; sleep 0
 PASSWORD="Test-$(date +%s)-heslo"
 curl -s -o "$WORK/response" -X POST "$B/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
   --data-urlencode "nazev_webu=Testovací firma" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
-  -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
+  -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani'
 grep -q "Hotovo, web běží" "$WORK/response" || { echo "  CHYBA  install of $FROM failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 FROM_VERSION=$(sed -n "s/^const KALETA_VERSION = '\(.*\)';/\1/p" "$WORK/web/system/bootstrap.php")
 echo "  ok     $FROM installed ($FROM_VERSION)"
@@ -200,6 +200,39 @@ if [ "${FROM_DB:-0}" -lt 120 ] && [ -n "$("${MYSQL[@]}" "$DB_NAME" -N -e "SHOW C
     INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (93990, '$(php -r 'echo date("Y-m-d H:i:s", strtotime("-1 day"));')', 'Job application', 'kolekce:9399', '/jobs-upd/x', '', 'upd-job@example.com', '[]', 0)" && JOBS_PLANTED=1
 fi
 
+# 3.48 (0135): Customers and the Pipeline became features – a section with data must never disappear by an update. CRM_RUN
+# picks what the old site holds, planted through its own forms (Customers → New, Pipeline → New deal) and its roles:
+#   1 (default) a contact, a deal, a custom role with both sections, a person with Quotes – both on, Quotes stay, "Sales"
+#   2 a contact only and a role made from a shipped preset – Customers on, the Pipeline off
+#   3 nothing – both off
+# In every run the roles and the rights are byte-equal before and after, the planted rows stay, and every admin section that
+# answered and held data before answers after (the general gate).
+CRM_RUN="${CRM_RUN:-1}"
+sql() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
+if [ "$CRM_RUN" != 3 ] && [ -n "$(sql "SHOW TABLES LIKE 'ka_contacts'")" ]; then
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=contacts&action=new"; TOKEN=$(csrf)
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=contacts&action=save" -d "_csrf=$TOKEN" -d id=0 -d email=crm-upd@example.com -d "name=Update Customer"
+  if [ "$CRM_RUN" = 1 ]; then
+    curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=pipeline&action=new"; TOKEN=$(csrf)
+    curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=pipeline&action=save" -d "_csrf=$TOKEN" -d id=0 -d "title=Update deal"
+    sql "INSERT INTO ka_role (nazev, popis, uroven, moduly) VALUES ('Sales desk', '', 1, 'enquiries,contacts,pipeline');
+      INSERT INTO ka_uzivatele (user, password, jmeno, admin) VALUES ('crm-upd', 'x', 'Quote Person', 0); INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, 'quotes' FROM ka_uzivatele WHERE user = 'crm-upd';
+      UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions'"
+  else
+    sql "INSERT INTO ka_role (nazev, popis, uroven, moduly) VALUES ('Klient', '', 1, 'pages,news,enquiries,contacts,pipeline,stats'); UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',quotes') WHERE promenna = 'extensions'"
+  fi
+fi
+CRM_PLANTED=$([ -n "$(sql "SHOW TABLES LIKE 'ka_contacts'")" ] && sql "SELECT CONCAT((SELECT COUNT(*) FROM ka_contacts), '|', (SELECT COUNT(*) FROM ka_deals))" || echo "-")
+crm_rights() { sql "SELECT CONCAT(IFNULL((SELECT GROUP_CONCAT(CONCAT(idr, ':', nazev, ':', moduly) ORDER BY idr SEPARATOR ';') FROM ka_role), ''), '#', IFNULL((SELECT GROUP_CONCAT(CONCAT(fk_id_user, ':', ident_modulu) ORDER BY fk_id_user, ident_modulu SEPARATOR ';') FROM ka_uzivatele_prava), ''))"; }
+CRM_RIGHTS=$(crm_rights)
+# the general gate: every section of the old release that answers and holds data (CRM sections by their rows, the rest always)
+crm_holds() { case "$1" in contacts) sql "SELECT (SELECT COUNT(*) FROM ka_contacts) + (SELECT COUNT(*) FROM ka_companies)" 2>/dev/null || echo 0 ;; pipeline) sql "SELECT COUNT(*) FROM ka_deals" 2>/dev/null || echo 0 ;; *) echo 1 ;; esac; }
+SHOWN_BEFORE=""
+for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do
+  [ "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m")" = 200 ] && [ "$(crm_holds "$m")" -gt 0 ] && SHOWN_BEFORE="$SHOWN_BEFORE $m"
+done
+echo "  ok     before the update: CRM run $CRM_RUN planted (contacts|deals: $CRM_PLANTED), $(echo $SHOWN_BEFORE | wc -w | tr -d ' ') sections answer with data"
+
 echo "== update through the admin"
 # the channel under the key of the old release (1.4.0 and older: aktualizace_url) and of the current one
 [ "$FROM_1X" = 1 ] && OLD_KEY="('aktualizace_url','http://127.0.0.1:$CHANNEL_PORT/aktualizace.json'), " || OLD_KEY=""
@@ -253,8 +286,22 @@ if [ "$BOOKINGS_PLANTED" = 1 ]; then
   expect "the features after the update: Bookings on, Whistleblowing off" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(FIND_IN_SET('bookings', hodnota) > 0, '|', FIND_IN_SET('whistleblowing', hodnota) > 0) FROM ka_nastaveni WHERE promenna = 'extensions'")" "1|0"
   expect "the hidden module answers 403, the shown one 200" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")" "403|200"
 fi
+# 3.48 (0135): no section with data disappeared; the CRM features follow what the site held; rights and roles untouched
+SHOWN_LOST=""; for m in $SHOWN_BEFORE; do [ "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m")" = 200 ] || SHOWN_LOST="$SHOWN_LOST $m"; done
+expect "3.48 (0135): every section that answered with data before the update answers after it" "${SHOWN_LOST:- none}" " none"
+expect "3.48 (0135): the roles and the rights are byte-equal, the planted rows stay" "$(crm_rights)|$(sql "SELECT CONCAT((SELECT COUNT(*) FROM ka_contacts), '|', (SELECT COUNT(*) FROM ka_deals))")" "$CRM_RIGHTS|$CRM_PLANTED"
+crm_on() { sql "SELECT CONCAT(FIND_IN_SET('customers', hodnota) > 0, '|', FIND_IN_SET('pipeline', hodnota) > 0) FROM ka_nastaveni WHERE promenna = 'extensions'"; }
+crm_code() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=$1"; }
+case "$CRM_RUN" in
+  1) expect "3.48 (0135) run 1: a contact, a deal and a custom role – both on; Customers, the Pipeline and Quotes answer; the menu shows Sales (Prodej)" \
+       "$(crm_on)|$(crm_code contacts)|$(crm_code quotes)|$(crm_code pipeline)|$(grep -c '</svg>Prodej' "$WORK/response" | sed 's/^[1-9][0-9]*$/1/' || true)" "1|1|200|200|200|1" ;;
+  2) expect "3.48 (0135) run 2: a contact and a preset role – Customers on, the Pipeline off and switched off; Quotes are their own item" \
+       "$(crm_on)|$(crm_code contacts)|$(crm_code pipeline)|$(grep -c 'je vypnutá' "$WORK/response" | sed 's/^[1-9][0-9]*$/1/' || true)|$(crm_code quotes)|$(grep -c '</svg>Nabídky' "$WORK/response" | sed 's/^[1-9][0-9]*$/1/' || true)" "1|0|200|403|1|200|1" ;;
+  3) expect "3.48 (0135) run 3: nothing of the CRM – both off, Customers switched off" \
+       "$(crm_on)|$(crm_code contacts)|$(grep -c 'je vypnutá' "$WORK/response" | sed 's/^[1-9][0-9]*$/1/' || true)" "0|0|403|1" ;;
+esac
 # every admin module of the new version, with all extensions on
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet,applications,quotes') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,customers,pipeline,newsletter,bookings,statistika,presmerovani,asistent,jazyky,whistleblowing,claude,fleet,applications,quotes') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
 check "admin dashboard" /admin.php
 if [ "$JOBS_PLANTED" = 1 ]; then
   expect "3.34 second review N5: the update request of $FROM only wrote the state of the move, the new version moved the job enquiry" \

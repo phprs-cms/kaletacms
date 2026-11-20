@@ -199,7 +199,7 @@ expect "3.3 booking: Claude sets the booking settings with the limits of the set
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('booking_hold_hours', '48'), ('booking_horizon_days', '${BK_HORIZON:-60}')" > /dev/null
 sq "UPDATE ka_booking_services SET requires_confirmation = 0 WHERE id = ${BK_SERVICE:-0}; DELETE FROM ka_nastaveni WHERE promenna = 'booking_pending_mail'; UPDATE ka_bookings SET status = 'cancelled' WHERE email IN ('hana-bk@example.cz', 'iva-bk@example.cz')" > /dev/null
 # 3.2: switched off again – the element, the public addresses, the admin module and the tools are gone; the data stays
-sq "UPDATE ka_nastaveni SET hodnota = '$BK_EXT' WHERE promenna = 'extensions'" > /dev/null; rm -f "$WORK"/web/storage/cache/stranky/*.html
+features --exact "$BK_EXT"; rm -f "$WORK"/web/storage/cache/stranky/*.html
 curl -s -o "$WORK/response" "$B/rezervace-test"; ! grep -q 'class="ka-rezervace"' "$WORK/response" && echo "  ok     3.2 bookings off: the Booking element is not on the page" || { echo "  CHYBA  the Booking element with the feature off"; ERRORS=$((ERRORS+1)); }
 # 3.2.3: an appointment booked before the switch-off – its cancel and .ics links keep working
 BK_OFF_TOKEN=cafe0000cafe0000cafe0000cafe0003

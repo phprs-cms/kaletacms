@@ -7,6 +7,7 @@
  * @var string $language  installation language (cs, en, de, es)
  * @var array<string, string> $languages
  * @var list<string> $extensions  checked extensions
+ * @var string $profile  3.48: the chosen profile (Core\Extensions::PROFILES) or "custom"
  */
 $error = fn (string $field): string => isset($errors[$field]) ? '<span class="chyba-pole" role="alert">' . e($errors[$field]) . '</span>' : '';
 $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
@@ -113,9 +114,24 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 	</div>
 </section>
 
-<section class="krok">
+<section class="krok krok-funkce">
 	<h2><span>4</span> <?= e(t('What you want switched on')) ?></h2>
 	<p><?= e(t('Features can be switched on or off at any time in the administration (Features). Switching off deletes nothing.')) ?></p>
+<?php
+// 3.48 (decision 3): three profiles and "Choose yourself" – the list of features shows only with the last (CSS :has, no script);
+// a site started from an export or for a move takes the features of the export, so the step is hidden there
+$profileCards = [...array_map(null, array_keys(Kaleta\Core\Extensions::PROFILES), array_values(Kaleta\Core\Extensions::PROFILES)), ['custom', 'Choose yourself']];
+$profileHints = ['website' => 'Pages, news, statistics, redirects and the Claude connection – a presentation of the company.',
+    'enquiries' => 'The website and forms with the Enquiries inbox.',
+    'office' => 'Enquiries with customers, the pipeline of deals and quotes – the daily work of a front office.',
+    'custom' => 'Tick the features one by one.'];
+?>
+	<div class="profily">
+<?php foreach ($profileCards as [$key, $label]): ?>
+		<label class="web"><input type="radio" name="profile" value="<?= e($key) ?>"<?= $profile === $key ? ' checked' : '' ?>>
+			<strong><?= e(t($label)) ?></strong><small><?= e(t($profileHints[$key])) ?></small></label>
+<?php endforeach ?>
+	</div>
 	<div class="rozsireni">
 <?php foreach (Kaleta\Core\Extensions::CATALOG as $key => [$extensionName, $extensionDescription]): ?>
 		<label class="web"><input type="checkbox" name="rozsireni[]" value="<?= e($key) ?>"<?= in_array($key, $extensions, true) ? ' checked' : '' ?>>

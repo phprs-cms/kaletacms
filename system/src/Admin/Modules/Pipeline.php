@@ -49,6 +49,14 @@ final class Pipeline extends Module
     public const string NAME = 'Pipeline';
     public const string GROUP = 'Workspace';
     public const string ICON = 'obchody';
+    public const string EXTENSION = 'pipeline'; // 3.48 (decision 3): a feature that needs Customers (Core\Extensions::REQUIRES)
+    public const string HUB = 'sales'; // 3.48 (decision 6): Pipeline · Quotes · Internal prices
+
+    /** "Sales" while the person also opens Quotes – the item then stands for the hub (3.48). */
+    public static function menuName(array $modules): string
+    {
+        return isset($modules[\Kaleta\Core\Prices::SECTION]) ? 'Sales' : self::NAME;
+    }
 
     /** The most open deals the board shows; with more it says so and points to the list. */
     public const int BOARD_MAX = 500;

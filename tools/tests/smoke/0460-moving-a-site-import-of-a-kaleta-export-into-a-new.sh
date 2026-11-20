@@ -36,7 +36,7 @@ mkdir -p "$WORK/web2/media" "$WORK/web2/storage/log" "$WORK/web2/storage/cache"
 (cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php > "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
 curl -s -o "$WORK/response" -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
-  --data-urlencode "nazev_webu=Nový web" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+  --data-urlencode "nazev_webu=Nový web" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky' -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline'
 grep -q "Pokračovat importem" "$WORK/response" && echo "  ok     installer: Start from an export leads to the import" || { echo "  CHYBA  installer with web=export"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -10; ERRORS=$((ERRORS+1)); }
 expect "installer: Start from an export leaves the site empty" "$("${MYSQL[@]}" "$DB2" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_stranky), '/', (SELECT COUNT(*) FROM ka_novinky), '/', (SELECT COUNT(*) FROM ka_uzivatele))")" "0/0/1"
 curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
@@ -108,7 +108,7 @@ rm -f "$WORK/web2/config.php"; cp "$ROOT/install.php" "$WORK/web2/install.php"; 
 (cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php >> "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
 curl -s -o /dev/null -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
-  --data-urlencode "nazev_webu=Nový web 314" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+  --data-urlencode "nazev_webu=Nový web 314" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky' -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline'
 rm -f "$JAR_MOVE"; curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun3.zip;type=application/zip")
@@ -150,7 +150,7 @@ rm -f "$WORK/web2/config.php"; cp "$ROOT/install.php" "$WORK/web2/install.php"
 (cd "$WORK/web2" && exec php -S "127.0.0.1:$PORT2" system/dev-router.php >> "$WORK/server2.log" 2>&1) & SERVER2_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B2/install.php" && break; sleep 0.2; done
 curl -s -o /dev/null -X POST "$B2/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB2" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
-  --data-urlencode "nazev_webu=Nový web 37" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky'
+  --data-urlencode "nazev_webu=Nový web 37" -d web=export -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky' -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline'
 rm -f "$JAR_MOVE"; curl -s -c "$JAR_MOVE" -b "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php"; curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -X POST "$B2/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"
 curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o "$WORK/response" "$B2/admin.php?module=transfer"
 location=$(curl -s -b "$JAR_MOVE" -c "$JAR_MOVE" -o /dev/null -w '%{redirect_url}' -X POST "$B2/admin.php?module=transfer&action=upload" -F "_csrf=$(csrf)" -F "soubor=@$WORK/presun37.zip;type=application/zip")

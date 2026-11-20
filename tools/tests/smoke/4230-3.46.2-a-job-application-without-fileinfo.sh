@@ -2,8 +2,7 @@ echo "== 3.46.2: a job application with a CV on a server without fileinfo – st
 u4230_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
 u4230_field() { grep -o "name=\"$1\" value=\"[^\"]*\"" "$WORK/u4230-form.html" | head -1 | sed 's/.*value="//;s/"$//' || true; }
 U4230_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "DROP TABLE IF EXISTS ka_u4230_ext; CREATE TABLE ka_u4230_ext AS SELECT * FROM ka_nastaveni WHERE promenna = 'extensions'" > /dev/null
-case ",$U4230_EXT," in *,applications,*) ;; *) sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$U4230_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$U4230_EXT"),applications')" > /dev/null ;; esac
+case ",$U4230_EXT," in *,applications,*) ;; *) features +applications ;; esac
 # the jobs collection and its open job straight through PHP (after the restores of 4190–4202 the suite's MCP token is the backup's)
 U4230_IDK=$(u4230_php '[$id] = Kaleta\Builder\Presets::createWithPage($app, "jobs", "Jobs U4230", false) ?? [0]; $app->db()->insert("kolekce_polozky", ["idk" => $id, "nazev" => "Welder U4230", "seo_link" => "welder-u4230", "data" => "{}", "zobrazit" => 1, "jazyk" => "", "datum" => date("Y-m-d H:i:s"), "poradi" => 0]); echo $id;')
 U4230_SLUG=$(sq "SELECT seo_link FROM ka_kolekce WHERE idk = ${U4230_IDK:-0}"); U4230_ITEM=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = ${U4230_IDK:-0} AND seo_link = 'welder-u4230'")
@@ -55,5 +54,5 @@ expect "3.46.2: System status has a row for the sodium and the fileinfo extensio
 [ "${U4230_A:-0}" -gt 0 ] && u4230_php 'Kaleta\Core\Applications::delete($app, ['"$U4230_A"'], false);' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_applications WHERE id > $U4230_A0; DELETE FROM ka_kolekce_polozky WHERE idk = ${U4230_IDK:-0}; DELETE FROM ka_kolekce WHERE idk = ${U4230_IDK:-0};
   DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user'); INSERT INTO ka_nastaveni SELECT * FROM ka_u4230_mail; DROP TABLE ka_u4230_mail;
-  DELETE FROM ka_posta WHERE idp > $U4230_P0; DELETE FROM ka_kontrola_ip; DELETE FROM ka_nastaveni WHERE promenna = 'extensions'; INSERT INTO ka_nastaveni SELECT * FROM ka_u4230_ext; DROP TABLE ka_u4230_ext" > /dev/null
+  DELETE FROM ka_posta WHERE idp > $U4230_P0; DELETE FROM ka_kontrola_ip" > /dev/null; features --exact "$U4230_EXT"
 rm -f "$WORK"/web/storage/cache/stranky/*.html "$WORK/u4230-cv.pdf" "$WORK/u4230-setup.pdf" "$WORK/u4230-form.html"

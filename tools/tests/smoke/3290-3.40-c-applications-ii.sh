@@ -2,7 +2,7 @@ echo "== 3.40 (C): applications II – the counts and the statistics, Reject and
 c340_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = Kaleta\Core\App::boot(); $app->applyTimezone(); '"$1"); }
 c340_post() { local jar="$1" action="$2"; shift 2; curl -s -b "$jar" -o "$WORK/response" "$B/admin.php?module=applications"; curl -s -b "$jar" -c "$jar" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "$B/admin.php?module=applications&action=$action" -d "_csrf=$(csrf)" "$@"; }
 C340_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$C340_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$C340_EXT"),applications');
+features +applications; sq "
   DROP TABLE IF EXISTS ka_c340_saved; CREATE TABLE ka_c340_saved AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from', 'applications_months', 'applications_pool_months', 'applications_claude')" > /dev/null
 # HR: only Applications
 C340_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
@@ -146,5 +146,4 @@ expect "3.40 monthly report: recruitment counts come from the counts – the int
 kill "$SMTP_PID" 2>/dev/null || true
 sq "DELETE FROM ka_application_counts WHERE job_item_id = 9340;
   DELETE FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_user', 'mail_from', 'applications_months', 'applications_pool_months', 'applications_claude'); INSERT INTO ka_nastaveni SELECT * FROM ka_c340_saved; DROP TABLE ka_c340_saved;
-  DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $C340_HR; DELETE FROM ka_uzivatele WHERE idu = $C340_HR;
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$C340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $C340_HR; DELETE FROM ka_uzivatele WHERE idu = $C340_HR;" > /dev/null; features --exact "$C340_EXT"

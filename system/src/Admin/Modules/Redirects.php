@@ -26,6 +26,13 @@ final class Redirects extends Module
     public const string ICON = 'presmerovani';
     public const string EXTENSION = 'presmerovani';
     public const bool ADMIN_ONLY = true;
+    public const string HUB = 'addresses'; // 3.48: Redirects · Broken links
+
+    /** "Addresses" while the person also opens Broken links (3.48). */
+    public static function menuName(array $modules): string
+    {
+        return isset($modules['broken_links']) ? 'Addresses' : self::NAME;
+    }
 
     /**
      * The old address of a redirect is unique under the Czech collation of z_adresy (uq_presmerovani: letter case and

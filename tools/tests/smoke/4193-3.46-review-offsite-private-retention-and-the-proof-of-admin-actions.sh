@@ -57,7 +57,7 @@ expect "3.46 review L4: a second manual backup within five minutes without a rec
   "$(grep -c 'id="confirm-proof"' "$WORK/r193-again")|$(ls "$WORK/web/storage/zalohy" | grep -c -- '-rucni-' || true)" "1|$R193_BEFORE"
 R193_EXT=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'), '')")
 R193_ON=$(php -r '$e = array_filter(explode(",", $argv[1] !== "" ? $argv[1] : "novinky,poptavky,statistika,presmerovani,claude")); $e[] = "whistleblowing"; echo implode(",", array_unique($e));' -- "$R193_EXT")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R193_ON'), ('whistleblowing_enabled', '1')" > /dev/null
+features "$R193_ON"; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('whistleblowing_enabled', '1')" > /dev/null
 R193_W=$(curl -s -b "$JAR" -o "$WORK/r193-wb" -w '%{http_code}' -X POST "$B/admin.php?module=whistleblowing&action=settings" -d "_csrf=$R193_T" -d "readers[]=1")$(grep -c 'id="confirm-proof"' "$WORK/r193-wb")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/r193-erase" -X POST "$B/admin.php?module=enquiries&action=personal" -d "_csrf=$R193_T" -d "email=nobody-r193@example.cz" -d "erase=1"
 expect "3.46 review L3: the readers of the whistleblowing channel and the erasure of personal data need the proof (\"Confirm it is you\")" \

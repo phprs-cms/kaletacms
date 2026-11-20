@@ -1,6 +1,6 @@
 echo "== 3.42 C: any collection feeds the internal price list; enquiries about its items lead to a prepared quote"
 C342_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-case ",$C342_EXT," in *,quotes,*) ;; *) sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$C342_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$C342_EXT"),quotes')" > /dev/null ;; esac
+case ",$C342_EXT," in *,quotes,*) ;; *) features +quotes ;; esac
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21'), ('quote_vat_payer', '1')" > /dev/null
 C342_CANARY='87654.32'
 # a B2B site's own collection (not the products preset): an order code, versions written as variants, a description

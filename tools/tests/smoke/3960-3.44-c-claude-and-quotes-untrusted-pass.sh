@@ -2,7 +2,7 @@ echo "== 3.44 C: Claude and quotes – the quote tools in the work set, the offi
 C344_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 C344_BASE="$([ -z "$C344_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$C344_EXT")"
 C344_BASE=$(php -r 'echo implode(",", array_diff(explode(",", $argv[1]), ["quotes", "fleet"]));' -- "$C344_BASE")
-c344_extensions() { sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$1')" > /dev/null; }
+c344_extensions() { features --exact "$1"; }
 c344_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); $db = $app->db(); $a = array_slice($argv, 1); '"$1" -- "${@:2}"); }
 C344_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 C344_FULL="kaleta_$(openssl rand -hex 24)"; C344_WORK="kaleta_$(openssl rand -hex 24)"; C344_DRAFTS="kaleta_$(openssl rand -hex 24)"

@@ -4,7 +4,7 @@ echo "== 3.9: the same address in every language version (slugs_per_language, da
 EXT39=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 for e in jazyky presmerovani novinky; do case ",$EXT39," in *",$e,"*) ;; *) EXT39="$EXT39,$e";; esac; done
 HOME39=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'home_page'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$EXT39'), ('additional_languages', 'en'), ('home_page', '0')" > /dev/null
+features --exact "$EXT39"; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en'), ('home_page', '0')" > /dev/null
 keys39() { sq "SELECT GROUP_CONCAT(INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('ka_stranky', 'ka_novinky', 'ka_kategorie') AND INDEX_NAME LIKE 'uq_%seo' AND SEQ_IN_INDEX = 1"; }
 get39() { rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o "$WORK/response" -w '%{http_code} %{redirect_url}' "$B$1"; }
 general39() { # Settings → Languages (General until 3.23) saved as a browser does (every field as it is), with the switch on (1) or off (0)

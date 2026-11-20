@@ -31,8 +31,8 @@ check "3.45 A U62: Quotes → Settings is the one form" 200 "/admin.php?module=q
 expect "3.45 A U62: … without the collections, the default texts and the line sets; with who may open Quotes and the new tab" \
   "$(grep -c 'data-price-collections\|data-quotes-texts\|data-quotes-line-sets' "$WORK/response")|$(grep -c 'data-quotes-people' "$WORK/response")|$(grep -c 'href="[^"]*action=setup"' "$WORK/response")" "0|1|1"
 check "3.45 A U62: Price list set-up holds the collections in the price list" 200 "/admin.php?module=quotes&action=setup" 'id="price-collections"'
-expect "3.45 A U62: … the default texts, the line sets, its tab current, the heading still Quotes" \
-  "$(grep -c 'data-quotes-texts' "$WORK/response")|$(grep -c 'data-quotes-line-sets' "$WORK/response")|$(grep -c 'action=setup" class="aktivni" aria-current="true"' "$WORK/response")|$(grep -o '<h1[^>]*>[^<]*' "$WORK/response" | head -1 | sed 's/.*>//')" \
+expect "3.45 A U62: … the default texts, the line sets, its link current (3.48: a set-up link on the right, the hub tabs above), the heading still Quotes" \
+  "$(grep -c 'data-quotes-texts' "$WORK/response")|$(grep -c 'data-quotes-line-sets' "$WORK/response")|$(grep -c 'action=setup" aria-current="page"' "$WORK/response")|$(grep -o '<h1[^>]*>[^<]*' "$WORK/response" | head -1 | sed 's/.*>//')" \
   "1|1|1|$(curl -s -b "$JAR" -c "$JAR" "$B/admin.php?module=quotes&action=settings" | grep -o '<h1[^>]*>[^<]*' | head -1 | sed 's/.*>//')"
 A345_CSRF=$(csrf)
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -D "$WORK/a345-headers" -X POST "$B/admin.php?module=quotes&action=collections_save" -d "_csrf=$A345_CSRF" -d basket_form=1 \

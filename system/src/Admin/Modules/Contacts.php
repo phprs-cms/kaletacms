@@ -39,6 +39,7 @@ final class Contacts extends Module
     public const string NAME = 'Customers';
     public const string GROUP = 'Workspace';
     public const string ICON = 'zakaznici';
+    public const string EXTENSION = 'customers'; // 3.48 (decision 3): a feature, off by default – Core\Contacts::link() still keeps the contacts
 
     /** The last-activity filter of the list: key => [active (true) or quiet (false), days, label]. */
     public const array ACTIVITY = [

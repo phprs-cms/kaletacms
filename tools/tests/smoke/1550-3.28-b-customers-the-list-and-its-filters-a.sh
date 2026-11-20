@@ -1,7 +1,7 @@
 echo "== 3.28 (B): Customers – the list and its filters, a contact and a company, the log, comments and tasks, merge, the box on an enquiry and a booking, CSV export and import, permissions"
 B328_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
-sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',bookings') WHERE promenna = 'extensions' AND NOT FIND_IN_SET('bookings', hodnota);
-  INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES
+features +bookings
+sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat) VALUES
   ('b328-jana', '$B328_HASH', 'Jana B328', 'jana-b328@example.com', '', 1, '$(site_time)', '$(site_time)', 0),
   ('b328-petr', '$B328_HASH', 'Petr B328', 'petr-b328@example.com', '', 1, '$(site_time)', '$(site_time)', 0);
   INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT idu, m.ident FROM ka_uzivatele JOIN (SELECT 'enquiries' AS ident UNION SELECT 'contacts' UNION SELECT 'bookings') m WHERE user = 'b328-jana';

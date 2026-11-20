@@ -49,7 +49,7 @@ final class Migration
     private const array ALREADY_APPLIED = [1050, 1060, 1061, 1022, 1826, 1091];
 
     /** The PHP data migrations (NNNN-description.php without the extension); tools/unit-tests.php checks it against the files. */
-    public const array DATA = ['0034-modal-popups', '0073-feature-defaults', '0074-imported-content-recheck', '0084-media-htaccess', '0089-arabic-search-index', '0098-media-htaccess-case', '0106-addresses-per-language', '0120-applications-move', '0134-seal-private-files'];
+    public const array DATA = ['0034-modal-popups', '0073-feature-defaults', '0074-imported-content-recheck', '0084-media-htaccess', '0089-arabic-search-index', '0098-media-htaccess-case', '0106-addresses-per-language', '0120-applications-move', '0134-seal-private-files', '0135-customers-and-pipeline-features'];
 
     /**
      * Is there anything to apply: a newer structure, or a data migration that has not run on this site yet? The public site

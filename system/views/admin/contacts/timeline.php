@@ -4,7 +4,8 @@
  * service – data, not translated), who and when, its status, a link to the enquiry, booking or task. On a company's page
  * each entry names its contact. The author of a logged entry (or an administrator) may delete it. 3.31: a deal's move
  * (created, moved, won, lost, reopened – the text is the stage) with "Open the deal" for whoever may open the Pipeline;
- * 3.31.1: for anyone else the module passes it neutral (Core\Deals::neutralTimeline) – only "A deal" and when.
+ * 3.31.1: for anyone else the module passes it neutral (Core\Deals::neutralTimeline) – only "A deal" and when. 3.48: no
+ * deal entry at all while the Pipeline is switched off.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Contacts $module
@@ -22,11 +23,16 @@ $icon = require __DIR__ . '/../icons.php';
 $status = ['new' => Enquiries::STATUSES[0], 'read' => Enquiries::STATUSES[1], 'resolved' => Enquiries::STATUSES[2], 'sent' => 'E-mail sent', 'queued' => 'Waiting in the mail queue',
     'failed' => 'Not delivered', 'overdue' => 'overdue', 'today' => 'today'] + Kaleta\Core\Booking::STATUSES;
 $taskStatus = ['done' => 'Done', 'overdue' => 'overdue', 'today' => 'today'];
-$linked = ['enquiry', 'reply', 'booking', 'subscription', 'task', ...($app->auth()->hasModule(Kaleta\Core\Deals::SECTION) ? ['deal'] : [])];
+// 3.48: the deal entries only while the Pipeline is on (Core\Extensions) – a switched-off section shows nothing and links nowhere
+$pipelineOn = Kaleta\Core\Extensions::isEnabled($app->settings(), 'pipeline');
+$linked = ['enquiry', 'reply', 'booking', 'subscription', 'task', ...($pipelineOn && $app->auth()->hasModule(Kaleta\Core\Deals::SECTION) ? ['deal'] : [])];
 $dealStatus = ['created' => 'new deal', 'moved' => 'moved', 'won' => 'won', 'lost' => 'lost', 'reopened' => 'reopened']; // 3.31
 ?>
 <ol class="upozorneni zakaznik-udalosti" data-timeline-list>
 <?php foreach ($timeline as $entry): [$iconKey, $label] = Contacts::KINDS[$entry['kind']] ?? ['clanek', $entry['kind']];
+    if ($entry['kind'] === 'deal' && !$pipelineOn) {
+        continue;
+    }
     if ($entry['kind'] === 'deal' && !isset($entry['path'])) {
         $label = 'A deal'; // 3.31.1: the neutral entry of someone without the Pipeline
     }

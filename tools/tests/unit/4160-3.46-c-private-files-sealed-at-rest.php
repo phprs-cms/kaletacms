@@ -101,9 +101,9 @@ check('3.46 C: the off-site copy takes the private folders (CVs, internal files,
 
 // migration 0134: a data migration with the highest number, the structure under any code, the files only under the new one
 check('3.46 C: migration 0134 is a data migration with the highest number (its behaviour – the structure under any code, interrupted runs, never twice – is tested by tools/test-migrations.sh and the smoke test 4160); update_request takes place_files', [
-    in_array('0134-seal-private-files', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION, max(array_keys(Kaleta\Core\Migration::files())), isset(Kaleta\Core\Events::TYPES['files.sealed']),
+    in_array('0134-seal-private-files', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION >= 134, max(array_keys(Kaleta\Core\Migration::files())) === KALETA_DB_VERSION, isset(Kaleta\Core\Events::TYPES['files.sealed']), // 3.48: 0135 is the highest now
     array_key_exists('place_files', (array) (array_values(array_filter(Kaleta\Mcp\Tools::definitions(), fn (array $t): bool => $t['name'] === 'update_request'))[0]['inputSchema']['properties'] ?? []))],
-    [true, 134, 134, true, true]);
+    [true, true, true, true, true]);
 
 // clean up the temporary tree
 $c346Clean = static function (string $dir) use (&$c346Clean): void {

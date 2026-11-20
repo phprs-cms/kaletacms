@@ -1,7 +1,7 @@
 echo "== 3.34 B: job applications – the list (waiting, with selected) and the detail"
 # the feature on again (2100 switched it back off); Hana (HR, the section only) and the administrator from 2100
 T335_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$T335_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$T335_EXT"),applications')" > /dev/null
+features +applications
 sq "INSERT INTO ka_applications (received_at, name, email, email_norm, job_title, data, status, status_at, last_activity_at) VALUES
   ('$(site_time '-10 days')', 'Wanda Wait T335', 'wanda-t335@example.com', 'wanda-t335@example.com', 'Welder T335', '[[\"Message\",\"Hello\"]]', 'new', '$(site_time '-10 days')', '$(site_time '-10 days')'),
   ('$(site_time '-1 day')', 'Fresh Fred T335', 'fred-t335@example.com', 'fred-t335@example.com', 'Welder T335', '[]', 'new', '$(site_time '-1 day')', '$(site_time '-1 day')'),

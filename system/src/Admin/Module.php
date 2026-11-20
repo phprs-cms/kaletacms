@@ -83,6 +83,17 @@ abstract class Module
         return 0;
     }
 
+    /**
+     * The item's name in the menu (3.48): NAME, unless the module stands for a hub whose other screens the person also opens
+     * (the Pipeline with Quotes is "Sales", Redirects with Broken links "Addresses"). An English dictionary key.
+     *
+     * @param array<string, class-string<Module>> $modules the modules the person may open (Kernel::modules())
+     */
+    public static function menuName(array $modules): string
+    {
+        return static::NAME;
+    }
+
     protected readonly App $app;
     protected readonly Db $db;
     protected readonly Request $request;

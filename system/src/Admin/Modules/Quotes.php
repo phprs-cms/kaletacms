@@ -53,6 +53,8 @@ final class Quotes extends Module
     public const string GROUP = 'Workspace';
     public const string ICON = 'clanek';
     public const string EXTENSION = Prices::EXTENSION;
+    public const string HUB = 'sales'; // 3.48 (decision 6): under the Pipeline's item ("Sales") when the person has both
+    public const string PARENT = 'pipeline';
     public const bool GRANTED_EXPLICITLY = true;
 
     /** Quotes on a page of the list, in the box of a record, products and deals the editor offers. */

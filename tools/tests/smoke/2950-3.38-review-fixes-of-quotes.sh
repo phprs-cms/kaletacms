@@ -1,6 +1,6 @@
 echo "== 3.38 review: the fixes of the security review of internal prices and quotes"
 R338_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$R338_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$R338_EXT"),quotes'), ('quote_vat_rate', '21')" > /dev/null
+features +quotes; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21')" > /dev/null
 R338_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 r338_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); $db = $app->db(); $a = array_slice($argv, 1); '"$1" -- "${@:2}"); }
 R338_NOW=$(site_time)
@@ -172,5 +172,4 @@ sq "DELETE FROM ka_nastaveni WHERE promenna IN ('quote_vat_payer', 'quote_number
 
 # --- clean up
 r338_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
-sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$R338_EXT');
-  DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+sq "DELETE FROM ka_price_lists WHERE id = $R338_EUR; DELETE FROM ka_contacts WHERE id = $R338_CONTACT; DELETE FROM ka_quote_counters" > /dev/null; features --exact "$R338_EXT"

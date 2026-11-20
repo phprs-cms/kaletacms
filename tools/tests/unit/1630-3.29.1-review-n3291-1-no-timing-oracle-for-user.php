@@ -181,7 +181,8 @@ check('[source-pin] 3.31: the pipeline tools – English on both sides, in the w
     array_map(fn (string $t): bool => isset(Kaleta\Mcp\Catalog::TITLES[$t]), $d331Tools), substr_count($d331Handler, '$this->pipelineOpen();'),
     array_map(fn (string $t): bool => str_contains($d331Defs[$t]['description'] ?? '', 'NOT UNDOABLE'), ['save_deal', 'move_deal']), $d331Defs['move_deal']['inputSchema']['required'] ?? null,
     Kaleta\Mcp\Catalog::allows('drafts', 'save_deal'), Kaleta\Mcp\Tools::annotations('pipeline_summary')['readOnlyHint'],
-], [[['read', ''], ['write', ''], ['write', ''], ['read', '']], $d331Tools, [], $d331Tools, [true, true], true, false, [], [true, true, true, true], 4, [true, true], ['id', 'stage'], false, true]);
+], [[['read', 'pipeline'], ['write', 'pipeline'], ['write', 'pipeline'], ['read', 'pipeline']], $d331Tools, // 3.48: the feature pipeline
+    [], $d331Tools, [true, true], true, false, [], [true, true, true, true], 4, [true, true], ['id', 'stage'], false, true]);
 $d331Report = Kaleta\Core\Language::runWith('en', fn (): array => Kaleta\Core\ReportPage::sections(['month' => '2026-10', 'pipeline' => ['new' => 4, 'won' => 1, 'lost' => 2,
     'stages' => [['key' => 'new', 'label' => 'New', 'n' => 4], ['key' => 'qualified', 'label' => 'Qualified', 'n' => 0], ['key' => 'won', 'label' => 'Won', 'n' => 1]]]]), 'admin-');
 $d331Section = array_values(array_filter($d331Report, fn (array $s): bool => $s['key'] === 'pipeline'))[0] ?? null;
@@ -216,7 +217,8 @@ check('[source-pin] 3.31 (B): the Pipeline – IDENT pipeline (= Core\Deals::SEC
     [in_array(Kaleta\Admin\CommentActions::class, class_uses($b331), true), in_array(Kaleta\Admin\TaskActions::class, class_uses($b331), true)],
     str_contains($b331Icons, "'" . $b331::ICON . "' =>"), $b331Preset('client'), $b331Preset('office'), isset(Kaleta\Admin\Guide::MODULES['pipeline']),
     array_map(fn (string $code): string => (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Pipeline'] ?? '', ['cs', 'de', 'es'])],
-    ['pipeline', 'pipeline', 'Pipeline', 'Workspace', '', false, 1, true, false, false, false, [true, true], true, 1, 1, true, ['Obchody', 'Vertriebspipeline', 'Embudo de ventas']]);
+    ['pipeline', 'pipeline', 'Pipeline', 'Workspace', 'pipeline', false, 1, true, // 3.48: a feature (decision 3)
+     false, false, false, [true, true], true, 1, 1, true, ['Obchody', 'Vertriebspipeline', 'Embudo de ventas']]);
 check('3.31 (B): the filter of the board and the list – unknown values fall back, a word is cut; the query leaves the defaults out', [
     $b331::filter([]), $b331::filter(['owner' => 'mine', 'contact' => '12', 'company' => 'x', 'search' => '  Web ', 'status' => 'won', 'view' => 'list']),
     $b331::filter(['owner' => '-1', 'status' => 'nonsense', 'view' => 'kanban', 'contact' => '-3']), $b331::filter(['owner' => '7'])['owner'], mb_strlen($b331::filter(['search' => str_repeat('a', 300)])['search']),

@@ -408,15 +408,20 @@ final class Privacy
             Db::rethrowUnlessMissing($e);
             $dealCount = 0; // before migration 0117
         }
-        $sections[] = ['heading' => t('Customer relations'), 'lines' => [
-            t('Customer records: %d. One record per e-mail address across its enquiries, bookings and newsletter subscription; the team adds a name, phone, company, a summary, a responsible person, a log of calls, meetings and e-mails, comments and tasks.', $contactCount),
-            t('Purpose: looking after the business relationship with customers and prospects. Legal basis: legitimate interest (Art. 6(1)(f)) and steps before or under a contract (Art. 6(1)(b)).'),
-            $contactMonths > 0 ? t('Retention: anonymised automatically after %d months without any activity (a new enquiry, booking, reply, logged contact, comment or task).', $contactMonths)
-                : t('Retention: not limited – set it in Enquiries → Settings.'),
-            t('Two different e-mail addresses are never merged automatically; a company is suggested from the e-mail domain, never for free-mail addresses.'),
-            t('Deals with customers: %d. A deal names the customer, the enquiry it came from, a responsible person, a value and its stage. A customer with an open deal is not anonymised; the enquiries of a deal are kept while it is open and for the enquiries’ retention after it closes. Erasing a customer keeps their deals without the person.', $dealCount),
-            t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
-        ]];
+        // 3.48: the paragraphs of a feature that is on, or of data that exists (contacts are kept for every enquiry also while
+        // Customers is off – the page says so); the deals line likewise
+        $dealsOn = Extensions::isEnabled($s, 'pipeline') || $dealCount > 0;
+        if (Extensions::isEnabled($s, 'customers') || $dealsOn || $contactCount > 0) {
+            $sections[] = ['heading' => t('Customer relations'), 'lines' => [
+                t('Customer records: %d. One record per e-mail address across its enquiries, bookings and newsletter subscription; the team adds a name, phone, company, a summary, a responsible person, a log of calls, meetings and e-mails, comments and tasks.', $contactCount),
+                t('Purpose: looking after the business relationship with customers and prospects. Legal basis: legitimate interest (Art. 6(1)(f)) and steps before or under a contract (Art. 6(1)(b)).'),
+                $contactMonths > 0 ? t('Retention: anonymised automatically after %d months without any activity (a new enquiry, booking, reply, logged contact, comment or task).', $contactMonths)
+                    : t('Retention: not limited – set it in Enquiries → Settings.'),
+                t('Two different e-mail addresses are never merged automatically; a company is suggested from the e-mail domain, never for free-mail addresses.'),
+                ...($dealsOn ? [t('Deals with customers: %d. A deal names the customer, the enquiry it came from, a responsible person, a value and its stage. A customer with an open deal is not anonymised; the enquiries of a deal are kept while it is open and for the enquiries’ retention after it closes. Erasing a customer keeps their deals without the person.', $dealCount)] : []),
+                t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
+            ]];
+        }
         $quoteCount = QuoteDelivery::withCustomer($db);
         if (Quotes::isOn($s) || $quoteCount > 0) {
             // 3.38: quotes (Core\Quotes, Core\QuoteDelivery) – counts only, never money

@@ -29,7 +29,7 @@ PASSWORD="Browser-$(openssl rand -hex 8)"
 curl -s -o "$WORK/response" -X POST "$B/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB_NAME" -d "db_user=$DB_USER" \
   --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Browser Test Ltd" -d web=firemni -d user=admin -d "jmeno=Tester" -d email= \
   --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" \
-  -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=newsletter' -d 'rozsireni[]=bookings' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
+  -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline' -d 'rozsireni[]=newsletter' -d 'rozsireni[]=bookings' -d 'rozsireni[]=statistika' -d 'rozsireni[]=presmerovani' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
 [ ! -f "$WORK/web/install.php" ] || { echo "install failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
 # a bookable service on a public page (/booking-test, a stored build has every content key): the browser picks a day (3.2.2)
 "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (id, name, duration_min) VALUES (900, 'Browser consultation', 60);
@@ -53,7 +53,7 @@ for starter in remeslo poradenstvi; do
   for i in $(seq 1 30); do curl -s -o /dev/null "$SB/install.php" && break; sleep 0.3; done
   curl -s -o "$WORK/response" -X POST "$SB/install.php" -d jazyk=en --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$SDB" -d "db_user=$DB_USER" \
     --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ --data-urlencode "nazev_webu=Browser $starter" -d "web=$starter" -d user=admin -d "jmeno=Tester" -d email= \
-    --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky'
+    --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=novinky' -d 'rozsireni[]=poptavky' -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline'
   [ ! -f "$WORK/$starter/install.php" ] || { echo "install of $starter failed"; sed 's/<[^>]*>//g' "$WORK/response" | grep -v '^\s*$' | head -20; exit 1; }
   "${MYSQL[@]}" "$SDB" -e "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('dark_mode', 'auto') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota);
     INSERT INTO ka_menu (umisteni, jazyk, polozky) VALUES ('hlavni', '', '$MENU')"

@@ -54,10 +54,10 @@ curl -s -o "$WORK/response" -X POST "$B/odber?confirm=$SUB_TOKEN"; grep -q "Odb�
 expect "odběratel je potvrzený" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT stav FROM ka_odberatele WHERE email = 'odber@example.cz'")" "1"
 check "odběratelé v administraci" 200 "/admin.php?module=subscribers" "odber@example.cz"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=subscribers&action=csv"; grep -q "odber@example.cz;.*/subscription?unsubscribe=$SUB_TOKEN" "$WORK/response" && echo "  ok     export odběratelů s odkazem na odhlášení" || { echo "  CHYBA  export odběratelů"; head -3 "$WORK/response"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'newsletter,', '') WHERE promenna = 'extensions'"
+features -newsletter
 check "odhlášení jde i s vypnutým Newsletterem" 200 "/odber?unsubscribe=$SUB_TOKEN" "Odhlásit odběr"
 check "old link (odhlasit=) from an e-mail sent before the rename still offers the unsubscribe" 200 "/odber?odhlasit=$SUB_TOKEN" "Odhlásit odběr"
 curl -s -o "$WORK/response" -X POST "$B/odber?unsubscribe=$SUB_TOKEN"; grep -q "Odhlášeno" "$WORK/response" && echo "  ok     odhlášení tlačítkem" || { echo "  CHYBA  odhlášení"; ERRORS=$((ERRORS+1)); }
-"${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = REPLACE(hodnota, 'poptavky,', 'poptavky,newsletter,') WHERE promenna = 'extensions'"
+features +newsletter
 expect "odhlášený je smazaný" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_odberatele")" "0"
 

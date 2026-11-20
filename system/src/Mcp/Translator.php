@@ -923,8 +923,8 @@ final class Translator
      * Server instructions for Claude (response to initialize) – in English, with English tool names. 3.36: short and by task –
      * what always holds (drafts, preview, publishing, boundaries, the untrusted marker), then building a site, moving a site
      * and the daily work with enquiries and customers; the task of the connection's tool set comes first ($first: a key of
-     * INSTRUCTION_TASKS or of $features). Job applications, quotes (3.44) and the fleet console come in $features from
-     * Prompts::serverInstructions only where their extension is on (INSTRUCTION_FEATURES).
+     * INSTRUCTION_TASKS or of $features). Customers and deals (3.48), job applications, quotes (3.44) and the fleet console come
+     * in $features from Prompts::serverInstructions only where their extension is on (INSTRUCTION_FEATURES).
      *
      * @param array<string, string> $features
      */
@@ -970,13 +970,15 @@ final class Translator
             . 'for each: read_old_page with format "semantic" (clean sections to rebuild from; "look" adds the colours and fonts), build_from_html (then edit_build), and layout_queue with done; import_enquiries brings the old form entries; save_redirect and save_redirects '
             . '(patterns, 410 for gone addresses) cover the rest; migration_report checks every old address and what got lost before the domain is switched, site_audit shows the move.',
         'work' => 'DAILY WORK: my_work first – what waits for the user. Enquiries: list_enquiries, triage_enquiries, update_enquiry (status, kind, a drafted reply); reply_to_enquiry sends a real e-mail. '
-            . 'Customers: list_contacts, get_contact, save_contact, log_activity; merge_contacts cannot be taken back. Deals: list_deals, save_deal, move_deal (lost needs a reason), pipeline_summary. '
             . 'Tasks and follow-ups: list_tasks, save_task, complete_task. The team\'s comments: list_comments, add_comment (an @mention e-mails a colleague). assign sets who is responsible – never a permission. '
             . 'Looking after the site: get_health when something seems wrong, list_events for what happened since you last looked (keep next_since_id), site_audit.',
     ];
 
     /** 3.36: tasks of the server instructions for a feature that is on (the extension's key => the text). */
     public const array INSTRUCTION_FEATURES = [
+        // 3.48 (decision 3): customers and deals are features of their own – named only where they are on
+        'customers' => 'CUSTOMERS: list_contacts, get_contact, save_contact, log_activity; merge_contacts cannot be taken back.',
+        'pipeline' => 'DEALS: list_deals, save_deal, move_deal (lost needs a reason), pipeline_summary.',
         'applications' => 'JOB APPLICATIONS: list_applications, get_application, update_application (status, a note), reply_to_application (a real e-mail from the site\'s templates). Applicants\' data is personal; '
             . 'a CV never reaches you; it works only while the site lets Claude read applications.',
         // 3.44 (CPO 4): quotes and the office day, only where the quotes extension is on

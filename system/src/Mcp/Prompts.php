@@ -1063,7 +1063,9 @@ final class Prompts
             // 3.10: the list holds the core tools; the rest – everything these instructions name – is a find_tools away
             'essentials' => 'YOUR TOOL LIST HOLDS THE ESSENTIALS: pages, builds, the menu and the look, collections, media, requests, enquiries, facts, the audit, the change log and undo.',
             // 3.26: a "work" connection (an employee's own Claude) holds the tools of their daily work instead
-            'work' => 'YOUR TOOL LIST HOLDS THE WORK TOOLS: what waits for the user (my_work), enquiries and replies, customers, deals, the team\'s comments and @mentions, who is responsible, tasks and follow-ups (list_tasks, save_task, complete_task), '
+            'work' => 'YOUR TOOL LIST HOLDS THE WORK TOOLS: what waits for the user (my_work), enquiries and replies, '
+                . implode('', array_map(fn (string $key): string => \Kaleta\Core\Extensions::isEnabled($app->settings(), $key) ? ['customers' => 'customers, ', 'pipeline' => 'deals, '][$key] : '', ['customers', 'pipeline'])) // 3.48: while on
+                . 'the team\'s comments and @mentions, who is responsible, tasks and follow-ups (list_tasks, save_task, complete_task), '
                 . 'job applications, requests, the notebook, reading pages with a draft preview, and collection items' . (\Kaleta\Core\Extensions::isEnabled($app->settings(), 'quotes')
                     ? '; and the quotes (list_quotes, get_quote, save_quote, mark_quote).' : '.'), // 3.44 (CPO 4): listed while quotes are on (Catalog::WORK_FEATURES)
             // 3.36: moving a site and the fleet console

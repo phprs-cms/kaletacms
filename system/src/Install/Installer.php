@@ -91,8 +91,10 @@ final class Installer
             'casove_pasmo' => self::TIME_ZONES[$this->language], 'web' => 'firemni', 'jazyk_webu' => $this->language,
         ];
         $errors = [];
-        // extensions enabled after installation: the default set, after the form is submitted the user's choice
-        $extensions = array_keys(array_filter(Extensions::CATALOG, fn (array $r): bool => $r[2]));
+        // extensions enabled after installation: the profile "Website with enquiries" (3.48 – today's default set), after the
+        // form is submitted the user's choice (Installer::chosenFeatures)
+        $profile = 'enquiries';
+        $extensions = Extensions::profile(null, $profile);
 
         if ($this->request->isPost() && !in_array(false, array_column($requirements, 'ok'), true)) {
             foreach (array_keys($data) as $key) {
@@ -100,7 +102,8 @@ final class Installer
                 $data[$key] = $key === 'db_password' ? (string) ($_POST[$key] ?? '') : $this->request->post($key);
             }
             $data['jazyk_webu'] = isset(\Kaleta\Core\Language::AVAILABLE[$data['jazyk_webu']]) ? $data['jazyk_webu'] : $this->language;
-            $extensions = array_values(array_intersect($this->request->postList('rozsireni'), array_keys(Extensions::CATALOG)));
+            $profile = $this->request->post('profile');
+            $extensions = self::chosenFeatures($profile, $this->request->postList('rozsireni'), $profile !== '');
             $errors = $this->install($data, (string) ($_POST['password'] ?? ''), (string) ($_POST['password2'] ?? ''), $extensions);
             if ($errors === []) {
                 return $this->page('done', ['alreadyInstalled' => false, 'deleted' => $this->deleteSelf(), 'fromExport' => $data['web'] === 'export', 'forMove' => $data['web'] === self::MOVE,
@@ -110,7 +113,26 @@ final class Installer
             }
         }
 
-        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions]);
+        return $this->page('form', ['requirements' => $requirements, 'data' => $data, 'errors' => $errors, 'extensions' => $extensions,
+            'profile' => isset(Extensions::PROFILES[$profile]) || $profile === 'custom' ? $profile : 'enquiries']);
+    }
+
+    /**
+     * The features an installation starts with (3.48, decision 3): a profile (Core\Extensions::PROFILES) → its keys;
+     * "custom" → the ticked ones closed under Extensions::REQUIRES (none ticked = nothing on); no profile posted (an older
+     * script) → the posted list as it is; neither → nothing. Pure.
+     *
+     * @param list<string> $ticked
+     * @return list<string>
+     */
+    public static function chosenFeatures(string $profile, array $ticked, bool $profilePosted): array
+    {
+        $known = array_values(array_intersect($ticked, array_keys(Extensions::CATALOG)));
+        if ($profilePosted && isset(Extensions::PROFILES[$profile])) {
+            return Extensions::profile(null, $profile);
+        }
+
+        return $profilePosted ? Extensions::closed($known) : $known;
     }
 
     /**

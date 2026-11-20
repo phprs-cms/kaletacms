@@ -1,6 +1,6 @@
 echo "== 3.40 B: quotes II – a price list per customer, the customer's Accept / Decline, first opened on, the follow-up task, saved line sets"
 B340_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$B340_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$B340_EXT"),quotes'), ('quote_vat_rate', '21')" > /dev/null
+features +quotes; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21')" > /dev/null
 b340_php() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); $db = $app->db(); $a = array_slice($argv, 1); '"$1" -- "${@:2}"); }
 b340_post() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -D "$WORK/b340-headers" -X POST "$B/admin.php?module=quotes&action=$1" -d "_csrf=$B340_CSRF" "${@:2}"; { grep -i '^location:' "$WORK/b340-headers" || true; } | tr -d '\r' | sed 's/^[Ll]ocation: //'; }
 B340_NOW=$(site_time)
@@ -157,5 +157,4 @@ expect "3.40 B: an administrator deletes a set" "$(sq "SELECT COUNT(*) FROM ka_q
 b340_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes} WHERE contact_id = ? OR company_id = ?", [(int) $a[0], (int) $a[1]]), "id")));' "$B340_CONTACT" "$B340_COMPANY" > /dev/null 2>&1 || true
 sq "DELETE FROM ka_tasks WHERE target LIKE 'quote:%'; DELETE FROM ka_notifications WHERE target LIKE 'quote:%'; DELETE FROM ka_prices WHERE code = 'S340'; DELETE FROM ka_price_lists WHERE id = $B340_PARTNER;
   DELETE FROM ka_contacts WHERE id = $B340_CONTACT; DELETE FROM ka_companies WHERE id = $B340_COMPANY; DELETE FROM ka_quote_counters; DELETE FROM ka_quote_line_sets;
-  DELETE FROM ka_nastaveni WHERE promenna IN ('quote_customer_decision', 'quote_track_opened', 'quote_number_format', 'quote_valid_days', 'quote_vat_payer', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value', 'quote_next_number');
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$B340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  DELETE FROM ka_nastaveni WHERE promenna IN ('quote_customer_decision', 'quote_track_opened', 'quote_number_format', 'quote_valid_days', 'quote_vat_payer', 'quote_vat_rates', 'quote_max_discount', 'quote_link_days', 'quotes_months', 'quote_set_deal_value', 'quote_next_number');" > /dev/null; features --exact "$B340_EXT"

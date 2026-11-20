@@ -81,7 +81,7 @@ sq "DELETE FROM ka_notebook; INSERT INTO ka_notebook SELECT * FROM ka_c17_notebo
 # people of Bookings – only what the person may see in the administration: an editor without Bookings gets no services or
 # people (null: the editor keeps a free field), without Collections no hidden category; never an e-mail of a person
 U10_BOOKINGS=$(sq "SELECT FIND_IN_SET('bookings', hodnota) > 0 FROM ka_nastaveni WHERE promenna = 'extensions'")
-[ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',bookings') WHERE promenna = 'extensions'" > /dev/null
+[ "$U10_BOOKINGS" = 1 ] || features +bookings
 sq "INSERT INTO ka_booking_services (name, active) VALUES ('U10 service', 0); INSERT INTO ka_booking_staff (name, email) VALUES ('U10 person', 'u10-person@example.com')" > /dev/null
 mcp save_collection_category '{"collection":"produkty","name":"Skryta U10","slug":"skryta-u10","visible":false}' > /dev/null
 mcp save_collection_category '{"collection":"produkty","name":"Viditelna U10","slug":"viditelna-u10","visible":true}' > /dev/null
@@ -115,6 +115,6 @@ grep -q 'a service id from booking_availability' "$WORK/response" && echo "  ok 
 sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'u10-editor'); DELETE FROM ka_uzivatele WHERE user = 'u10-editor';
   DELETE FROM ka_booking_services WHERE name = 'U10 service'; DELETE FROM ka_booking_staff WHERE name = 'U10 person';
   DELETE FROM ka_collection_categories WHERE id IN (SELECT category_id FROM ka_collection_category_texts WHERE slug IN ('skryta-u10', 'viditelna-u10'))" > /dev/null
-[ "$U10_BOOKINGS" = 1 ] || sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',bookings,', ',')) WHERE promenna = 'extensions'" > /dev/null
+[ "$U10_BOOKINGS" = 1 ] || features -bookings
 # 3.24 (agent B): the responsible person of pages and items, Mine, the assignment e-mail (the admin language, never the enquiry
 # content, never to oneself, never when unchanged), the review reminder to the responsible person and the draft attribution (N-U6)

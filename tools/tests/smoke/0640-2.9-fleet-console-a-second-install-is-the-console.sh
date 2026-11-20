@@ -6,7 +6,7 @@ mkdir -p "$WORK/web3/media" "$WORK/web3/storage/log" "$WORK/web3/storage/cache"
 (cd "$WORK/web3" && KALETA_FLEET_LOCAL=1 exec php -S "127.0.0.1:$PORT3" system/dev-router.php > "$WORK/server3.log" 2>&1) & SERVER3_PID=$!
 for i in $(seq 1 30); do curl -s -o /dev/null "$B3/install.php" && break; sleep 0.2; done
 curl -s -o "$WORK/response" -X POST "$B3/install.php" --data-urlencode "db_host=$DB_HOST" -d "db_port=$DB_PORT" -d "db_name=$DB3" -d "db_user=$DB_USER" --data-urlencode "db_password=$DB_PASS" -d db_prefix=ka_ \
-  --data-urlencode "nazev_webu=Konzole agentury" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=fleet' -d 'rozsireni[]=claude'
+  --data-urlencode "nazev_webu=Konzole agentury" -d web=firemni -d user=admin -d jmeno=Tester -d email= --data-urlencode "password=$PASSWORD" --data-urlencode "password2=$PASSWORD" -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline' -d 'rozsireni[]=fleet' -d 'rozsireni[]=claude'
 test_seams "$WORK/web3" # T4: KALETA_FLEET_LOCAL counts only on a test copy
 sq3() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB3" -N -e "$1"; }
 # the console's own update channel is not reachable here: it "knows" a newer version 3.99.9 from its cache

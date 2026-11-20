@@ -1,7 +1,7 @@
 echo "== 3.38 B: the quote screens (list, editor, detail, statuses, revisions), the boxes of the records, the deal value and the MCP quote tools"
 # the products, prices and the price list of 2800 stay: Laser 338 (L338, L338-M priced, L338-Z without a price), Nádrž 338 (T338), own row MONT338
 Q350_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$Q350_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$Q350_EXT"),quotes'), ('quote_vat_rate', '21')" > /dev/null
+features +quotes; sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('quote_vat_rate', '21')" > /dev/null
 Q350_YEAR=$(site_time now Y)
 sq "DELETE FROM ka_quote_counters" > /dev/null
 Q350_NOW=$(site_time)
@@ -119,7 +119,7 @@ expect "3.38 B: without the section – 403 on the quotes, and the enquiry and t
 Q350_HER="kaleta_$(openssl rand -hex 24)"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($Q350_USER, 'q350 colleague', 'full', 'all', SHA2('$Q350_HER', 256), '$(site_time)')" > /dev/null
 expect "3.38 B MCP: a colleague without the section cannot read quotes" "$(q350_as "$Q350_HER" list_quotes '{}' | grep -c 'Only a user who may open Quotes')" "1"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$Q350_EXT')" > /dev/null
+features --exact "$Q350_EXT"
 expect "3.38 B: with the feature off the boxes and the tools are gone" \
   "$(curl -s -b "$JAR" -c "$JAR" "$B/admin.php?module=enquiries&action=detail&id=$Q350_ENQ" | grep -c 'data-quotes-box')|$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -c '"name":"list_quotes"')" "0|0"
 
@@ -127,4 +127,4 @@ expect "3.38 B: with the feature off the boxes and the tools are gone" \
 sq "DELETE FROM ka_quote_lines WHERE quote_id IN (SELECT id FROM ka_quotes WHERE contact_id = $Q350_CONTACT OR enquiry_id = $Q350_ENQ); DELETE FROM ka_quotes WHERE contact_id = $Q350_CONTACT OR enquiry_id = $Q350_ENQ;
   DELETE FROM ka_quote_counters; DELETE FROM ka_deal_stage_history WHERE deal_id = $Q350_DEAL; DELETE FROM ka_deals WHERE id = $Q350_DEAL; DELETE FROM ka_poptavky WHERE idp = $Q350_ENQ;
   DELETE FROM ka_contacts WHERE id = $Q350_CONTACT; DELETE FROM ka_kolekce_polozky WHERE seo_link = 'bez-ceny-350'; DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $Q350_USER; DELETE FROM ka_uzivatele WHERE idu = $Q350_USER;
-  DELETE FROM ka_api_tokeny WHERE nazev IN ('q350 drafts', 'q350 colleague'); DELETE FROM ka_nastaveni WHERE promenna = 'quote_vat_rate'; DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  DELETE FROM ka_api_tokeny WHERE nazev IN ('q350 drafts', 'q350 colleague'); DELETE FROM ka_nastaveni WHERE promenna = 'quote_vat_rate'" > /dev/null

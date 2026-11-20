@@ -6,7 +6,7 @@ TOKEN=$(csrf)
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin -d password=spatne-heslo-123); expect "špatné heslo odmítnuto" "$code" 401
 code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php" -d user=admin --data-urlencode "password=$PASSWORD"); expect "POST bez CSRF odmítnut" "$code" 400
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$TOKEN" -d user=admin --data-urlencode "password=$PASSWORD"
-"${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_nastaveni VALUES ('extensions','novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude') ON DUPLICATE KEY UPDATE hodnota=VALUES(hodnota)"
+features novinky,poptavky,newsletter,statistika,presmerovani,asistent,jazyky,claude
 check "přehled" 200 /admin.php "Přehled"
 # 3.11 (UX310-1, UX310-20): right after the installation the site audit names the starter site's sample content (placeholders,
 # sample reviews and figures, sample texts); the questions for an agency are folded away on a site nobody hands over

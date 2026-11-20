@@ -52,7 +52,7 @@ curl -s -b "$WORK/jar2" -o "$WORK/page.html" "$B/admin.php?module=pages"; grep -
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=save" -d "_csrf=$T" -d tab=analytics --data-urlencode 'head_code=<script>alert(1)</script>' -d stats=1
 [ "$(sql "SELECT COUNT(*) FROM ka_nastaveni WHERE promenna = 'head_code' AND hodnota LIKE '%alert%'")" = 0 ] && ok "no code fields" || fail "head code saved in the demo"
 [ "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")" = "200|403" ] && ok "the features of the snapshot show (Bookings), the others not (Whistleblowing)" || fail "features in the demo"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=extensions&action=save" -d "_csrf=$T" -d tab=extensions -d 'rozsireni[]=bookings' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=extensions&action=save" -d "_csrf=$T" -d tab=extensions -d 'rozsireni[]=customers' -d 'rozsireni[]=pipeline' -d 'rozsireni[]=bookings' -d 'rozsireni[]=whistleblowing' -d 'rozsireni[]=claude'
 [ "$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")" = bookings ] && ok "visitors cannot switch features" || fail "features switched in the demo"
 code=$(curl -s -b "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' "$B/admin.php?module=settings&action=download_backup&file=x")
 case "$code" in 302*) ok "backups cannot be downloaded";; *) fail "backup download: $code";; esac

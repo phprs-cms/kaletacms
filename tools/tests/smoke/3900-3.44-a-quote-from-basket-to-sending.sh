@@ -116,10 +116,10 @@ expect "3.44 MCP: my_work has the quote lists (additive keys) by number and titl
   "draft|waiting|expiring|valid_until|0"
 # without the feature Quotes the lists are not there
 A344_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',quotes,', ',')) WHERE promenna = 'extensions'" > /dev/null
+features -quotes
 mcp my_work '{}' > "$WORK/response"; mcp_text
 expect "3.44: without the feature Quotes neither My work nor my_work lists quotes" "$(grep -c 'quotes_drafts' "$WORK/text")|$(curl -s -b "$JAR" -c "$JAR" "$B/admin.php?module=my_work" | grep -c 'data-list="quotes_')" "0|0"
-sq "UPDATE ka_nastaveni SET hodnota = '$A344_EXT' WHERE promenna = 'extensions'" > /dev/null
+features --exact "$A344_EXT"
 sq "UPDATE ka_quotes SET status = 'draft', number = NULL, sent_at = NULL WHERE id IN ($A344_WAIT, $A344_SOON)" > /dev/null
 
 # the deal filter "No next step" (baseline 14) on the board, the list and list_deals

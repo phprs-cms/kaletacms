@@ -1,7 +1,8 @@
 echo "== 3.9: a multilingual WordPress export (Polylang, WPML) arrives as linked language versions"
 # the language settings and the draft look come back after this block; the site loses its English version for a moment,
 # so the import has to add it
-sq "DROP TABLE IF EXISTS ka_test_ml; CREATE TABLE ka_test_ml AS SELECT * FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions', 'look_draft'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('look_draft', 'additional_languages')" > /dev/null
+EXT39ML=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+sq "DROP TABLE IF EXISTS ka_test_ml; CREATE TABLE ka_test_ml AS SELECT * FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'look_draft'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('look_draft', 'additional_languages')" > /dev/null
 # 3.19: this block shows a site the update could not switch (slugs unique across languages, as 3.18 left every site); the
 # same import on a site with the same address in every language keeps a shared slug in both versions (WpImport::availableSlug)
 expect "3.19: the multilingual import below runs on a site whose slugs are unique across languages" "$(slugs_global)" "null"
@@ -54,6 +55,6 @@ N39_FILE=$(mcp_value import_file); [ -n "$N39_FILE" ] && [ "$N39_FILE" != null ]
 mcp import_wordpress "{\"file\":\"$N39_FILE\",\"confirm\":true,\"images\":false}" > "$WORK/response"
 for _ in 1 2 3 4 5; do [ "$(mcp_value phase)" = done ] && break; mcp import_wordpress "{\"import\":\"$N39_FILE\"}" > "$WORK/response"; done
 expect "3.9 N39-3: without add_languages the import adds no language version" "$(mcp_value phase)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'")|$(mcp_value languages added_to_site 0)" "done||null"
-sq "DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'extensions', 'look_draft'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_ml; DROP TABLE ka_test_ml" > /dev/null
+sq "DELETE FROM ka_nastaveni WHERE promenna IN ('additional_languages', 'look_draft'); INSERT INTO ka_nastaveni SELECT * FROM ka_test_ml; DROP TABLE ka_test_ml" > /dev/null; features --exact "$EXT39ML"
 slugs_everywhere # 3.19: back to the same address once in each language (migration 0106 run again, as Settings → General does)
 

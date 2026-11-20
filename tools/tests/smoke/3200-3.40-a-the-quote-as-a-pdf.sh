@@ -1,6 +1,6 @@
 echo "== 3.40 A: the quote as a PDF – Download PDF in the admin and on the customer's page, the PDF attached to the e-mail"
 A340_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$A340_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$A340_EXT"),quotes')" > /dev/null
+features +quotes
 A340_SMTP=$((PORT + 3)); mkdir -p "$WORK/smtp-a340"
 A340_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$A340_SMTP'), ('smtp_encryption', 'zadne'), ('smtp_user', ''),
@@ -79,4 +79,4 @@ expect "3.40 A MCP: send_quote attaches the PDF by the site's setting and says s
 kill "$A340_SMTP_PID" 2>/dev/null || true; wait "$A340_SMTP_PID" 2>/dev/null || true
 a340_php 'Kaleta\Core\QuoteDelivery::delete($db, array_map("intval", array_column($db->all("SELECT id FROM {quotes}"), "id")));' > /dev/null 2>&1 || true
 sq "DELETE FROM ka_contacts WHERE id = $A340_CONTACT; DELETE FROM ka_quote_counters; DELETE FROM ka_nastaveni WHERE promenna LIKE 'quote%';
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES, ('extensions', '$A340_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES" > /dev/null; features --exact "$A340_EXT"

@@ -5,7 +5,7 @@ b347_login() { # b347_login <jar> <user>
   curl -s -b "$1" -c "$1" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$c" -d "user=$2" --data-urlencode "password=$PASSWORD"; }
 b347_csrf() { curl -s -b "$1" -c "$1" -o "$WORK/b347-page" "$B/admin.php?module=$2"; sed -n 's/.*name="_csrf" value="\([a-f0-9]*\)".*/\1/p' "$WORK/b347-page" | sed -n 1p; } # a file, never a pipe that closes early (pipefail)
 B347_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$B347_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$B347_EXT"),applications')" > /dev/null
+features +applications
 B347_HASH=$(php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' -- "$PASSWORD")
 sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posledni_login, potvrzeno, blokovat, notify_email) VALUES
     ('b347-hr', '$B347_HASH', 'Hela B347', 'hela-b347@example.com', 'en', 1, '$(site_time)', '$(site_time)', 0, 'off'),
@@ -94,5 +94,4 @@ for b347_id in $(sq "SELECT id FROM ka_internal_files WHERE folder_id IN ($B347_
 done
 sq "DELETE FROM ka_internal_folders WHERE id IN ($B347_SHARED, $B347_BOARD); DELETE FROM ka_role WHERE idr = $B347_ROLE;
   DELETE FROM ka_applications WHERE id IN ($B347_A, $B347_B, $B347_C); DELETE FROM ka_application_counts WHERE job_item_id IN (9347, 9348);
-  DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN (SELECT idu FROM ka_uzivatele WHERE user IN ('b347-hr', 'b347-ida')); DELETE FROM ka_uzivatele WHERE user IN ('b347-hr', 'b347-ida');
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$B347_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  DELETE FROM ka_uzivatele_prava WHERE fk_id_user IN (SELECT idu FROM ka_uzivatele WHERE user IN ('b347-hr', 'b347-ida')); DELETE FROM ka_uzivatele WHERE user IN ('b347-hr', 'b347-ida');" > /dev/null; features --exact "$B347_EXT"

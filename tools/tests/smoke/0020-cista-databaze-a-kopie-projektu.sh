@@ -20,7 +20,7 @@ check() { # over <popis> <očekávaný kód> <adresa> [hledaný text]
 }
 # 3.2: the Statistics feature is the only switch of the built-in statistics (stats_feature 0|1); cached pages go with it
 stats_feature() {
-  "${MYSQL[@]}" "$DB_NAME" -e "UPDATE ka_nastaveni SET hodnota = $([ "$1" = 1 ] && echo "IF(FIND_IN_SET('statistika', hodnota), hodnota, CONCAT(hodnota, ',statistika'))" || echo "TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',statistika,', ','))") WHERE promenna = 'extensions'"
+  if [ "$1" = 1 ]; then features +statistika; else features -statistika; fi
   rm -f "$WORK"/web/storage/cache/stranky/*.html
 }
 

@@ -350,10 +350,10 @@ check('3.25 (C): the menu groups of an administrator with every feature on – c
 ], [Kaleta\Admin\MenuGroups::ORDER, true, true, []]);
 check('3.25 (C): the items of each group (Bookings in Workspace, Statistics in Site care, Business details and the Newsletter hub in Content; no Company or Customers group)', array_combine($c325Names, array_column($c325Runs, 1)), [
     'Content' => ['pages', 'news', 'collections', 'media', 'newsletters', 'business'],
-    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'quotes', 'applications', 'bookings', 'internal_files'], // 3.42: Internal files last; 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers; 3.34: Applications; 3.38: Quotes after the Pipeline
+    'Workspace' => ['enquiries', 'contacts', 'pipeline', 'applications', 'bookings', 'internal_files'], // 3.42: Internal files last; 3.28: Customers right after Enquiries; 3.31: the Pipeline right after Customers; 3.34: Applications; 3.48: Quotes under the Pipeline ("Sales")
     'Appearance' => ['appearance', 'parts', 'menu', 'components', 'popups'],
     'Claude' => ['requests', 'claude_settings'],
-    'Site care' => ['audit', 'stats', 'redirects', 'broken_links', 'changelog', 'status'],
+    'Site care' => ['audit', 'stats', 'redirects', 'changelog', 'status'], // 3.48: Broken links under Redirects ("Addresses")
     'Administration' => ['users', 'settings', 'connectors', 'extensions', 'transfer', 'whistleblowing', 'fleet'],
 ]);
 check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged), Subscribers its own item only without Newsletters; flat list for 8 items or fewer', [
@@ -364,7 +364,7 @@ check('3.25 (C): the Newsletter hub (Newsletters · Subscribers, URLs unchanged)
     Kaleta\Admin\MenuGroups::flat(array_intersect_key($c325All, array_flip(['my_work', 'pages', 'news', 'collections', 'media', 'business', 'enquiries', 'parts']))),
     Kaleta\Admin\MenuGroups::key('Site care'),
 ], [[['newsletters', '', 'Newsletters'], ['subscribers', '', 'Subscribers']], 'newsletters', 'newsletter', 'newsletter', 'Newsletter', [['subscribers'], ['stats']],
-    35, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications; 3.38: Quotes; 3.42: Internal files
+    33, false, true, false, 'site-care']); // 3.28: Customers; 3.31: Pipeline; 3.34: Applications; 3.38: Quotes; 3.42: Internal files; 3.48: the Sales and Addresses hubs
 $c325Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php');
 $c325Script = (string) file_get_contents(KALETA_ROOT . '/image/admin-menu.js');
 check('[source-pin] 3.25 (C): collapsible groups – details/summary with the current group marked, the script before the first paint, storage only inside try/catch, "More…" after 5 collections', [
@@ -946,7 +946,7 @@ check('[source-pin] 3.28: the contact tools – English on both sides, in the wo
     array_map(Kaleta\Mcp\Catalog::isSiteNeutral(...), ['save_contact', 'log_activity', 'merge_contacts']), Kaleta\Mcp\Discovery::runner('merge_contacts'), Kaleta\Mcp\Catalog::allows('drafts', 'save_contact'),
     $k328Defs['merge_contacts']['inputSchema']['required'] ?? null, array_map(fn (string $t): bool => str_contains($k328Defs[$t]['description'] ?? '', 'NOT UNDOABLE'), ['save_contact', 'log_activity', 'merge_contacts']),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/ContactTools.php'), "if ((\$a['confirm'] ?? false) !== true) {"),
-], [[['read', ''], ['read', ''], ['write', ''], ['write', ''], ['destructive', '']], $k328Tools, [], $k328Tools, [true, true, true], 'run_destructive_tool', false, ['into', 'from', 'confirm'], [true, true, true], true]);
+], [[['read', 'customers'], ['read', 'customers'], ['write', 'customers'], ['write', 'customers'], ['destructive', 'customers']], /* 3.48: the feature customers */ $k328Tools, [], $k328Tools, [true, true, true], 'run_destructive_tool', false, ['into', 'from', 'confirm'], [true, true, true], true]);
 $k328Strings = ['Give the contact an e-mail address, a name or a phone number.', 'A contact with this e-mail address already exists (#%d) – open it, or merge the two.', 'Merged with the contact #%d (%s).',
     'First contact on %s through the form “%s”.', 'Customer relations', 'customers: %d', 'companies: %d', 'Customer #%s', 'Call', 'Meeting', 'Anonymise customers inactive for',
     'You are responsible for the customer #%s', 'This person cannot open Customers (or the account is blocked) – choose someone who can.', 'Customer records: %d'];
@@ -968,7 +968,8 @@ check('[source-pin] 3.28 (B): Customers – IDENT contacts (= Core\Contacts::SEC
     [in_array(Kaleta\Admin\CommentActions::class, class_uses($b328), true), in_array(Kaleta\Admin\TaskActions::class, class_uses($b328), true)],
     str_contains($b328Icons, "'" . $b328::ICON . "' =>"), in_array('contacts', Kaleta\Admin\Modules\Roles::PRESETS['client'][3], true), in_array('contacts', Kaleta\Admin\Modules\Roles::PRESETS['office'][3], true),
     array_map(fn (string $code): string => (require KALETA_SYSTEM . '/jazyky/admin-' . $code . '.php')['Customers'] ?? '', ['cs', 'de', 'es'])],
-    ['contacts', 'contacts', 'Customers', 'Workspace', '', false, 1, false, false, [true, true], true, true, true, ['Zákazníci', 'Kunden', 'Clientes']]);
+    ['contacts', 'contacts', 'Customers', 'Workspace', 'customers', false, 1, // 3.48: a feature (decision 3)
+     false, false, [true, true], true, true, true, ['Zákazníci', 'Kunden', 'Clientes']]);
 check('3.28 (B): an import reads the columns e-mail, name, phone and company by their usual names (Czech, German, Spanish, with diacritics); a row is one line each', [
     $b328::importColumns(['E-mail', 'Jméno', 'Telefon', 'Firma']), $b328::importColumns(['Name', 'Company', 'Email Address', 'Phone number', 'Notes']),
     $b328::importColumns(['Correo electrónico', 'Nombre', 'Teléfono', 'Empresa']), $b328::importColumns(['Vorname', 'Unternehmen']),

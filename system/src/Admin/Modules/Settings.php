@@ -445,6 +445,11 @@ class Settings extends Module
         }
         if ($tab === 'extensions') {
             Extensions::save($settings, $this->request->postList('rozsireni'));
+            // 3.48: a feature another one needs stays on with it (Extensions::REQUIRES) – said, never silently
+            foreach (array_diff(Extensions::enabled($settings), $this->request->postList('rozsireni')) as $kept) {
+                $by = array_keys(Extensions::REQUIRES, $kept, true);
+                $this->app->session->flash('info', t('“%s” stays switched on – “%s” needs it.', t(Extensions::CATALOG[$kept][0]), implode(', ', array_map(fn (string $k): string => t(Extensions::CATALOG[$k][0]), $by))));
+            }
             if (Extensions::isEnabled($settings, 'novinky')) {
                 Categories::createDefault($this->db, $settings); // news enabled after installation: right away with a category, as from the installation
             }

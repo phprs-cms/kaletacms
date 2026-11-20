@@ -4729,7 +4729,7 @@ await step('3.33 B: the list of pages labels an imported page whose layout waits
 // 3.34 (A): job applications – the list and the detail at 1440 and 390 px, light and dark, axe; no sideways scroll on a phone
 await step('3.34 applications: the list and the detail – 1440 and 390 px, light/dark, axe', async () => {
   const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
-  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,customers,pipeline,statistika,presmerovani,claude' : extensions},applications');
     INSERT INTO ka_applications (received_at, job_title, form, name, email, phone, data, status, status_at, last_activity_at, pool_consent_at, pool_until, history)
     VALUES (NOW(), 'Technician B334', 'Job application', 'Ivan B334', 'ivan-b334@example.com', '777334', '[["Full name","Ivan B334"],["A few words about you","I would like to join your team."]]', 'interview', NOW(), NOW(), NOW(), CURDATE() + INTERVAL 1 YEAR,
       '[{"at":"2026-11-10 10:00:00","by":null,"from":"new","to":"interview"}]')`);
@@ -4771,7 +4771,7 @@ await step('3.34 applications: the list and the detail – 1440 and 390 px, ligh
 await step('3.34 B applications: reply template, settings, move by form – 1440 and 390 px, light/dark, axe; the reason follows Rejected', async () => {
   const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
   sql(`DROP TABLE IF EXISTS ka_b335_mail; CREATE TABLE ka_b335_mail AS SELECT * FROM ka_nastaveni WHERE promenna IN ('mail_mode', 'smtp_host');
-    REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications'), ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1');
+    REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,customers,pipeline,statistika,presmerovani,claude' : extensions},applications'), ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1');
     INSERT INTO ka_applications (received_at, job_title, form, name, email, phone, data, status, status_at, last_activity_at)
     VALUES (NOW(), 'Painter B335', 'Job application', 'Rita B335', 'rita-b335@example.com', '', '[["Full name","Rita B335"]]', 'new', NOW(), NOW())`);
   const id = sql("SELECT MAX(id) FROM ka_applications WHERE email = 'rita-b335@example.com'").trim();
@@ -4823,7 +4823,7 @@ await step('3.34 B applications: reply template, settings, move by form – 1440
 // application opens afterwards; axe on the enquiry detail
 await step('3.34 Move to Applications: one enquiry moves after the confirmation and its application opens (390 px, axe)', async () => {
   const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
-  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications')`);
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,customers,pipeline,statistika,presmerovani,claude' : extensions},applications')`);
   const idp = sql(`INSERT INTO ka_poptavky (datum, formular, zdroj, prvek, stranka, email, data, stav, kategorie, triaged_by) VALUES (NOW(), 'Contact B340', 'stranka:1', 'x', '/contact', 'eva-b340@example.com', '[["Name","Eva B340"]]', 1, 'job', 'person'); SELECT LAST_INSERT_ID();`).trim();
   try {
     const axeContext = await browser.newContext({ storageState: await context.storageState(), bypassCSP: true, viewport: { width: 1440, height: 900 } });
@@ -4859,7 +4859,7 @@ await step('3.34 Move to Applications: one enquiry moves after the confirmation 
 // light/dark, axe; no sideways scroll on a phone
 await step('3.40 applications II: the board, the talent pool, the statistics and the renewal page – 1440 and 390 px, light/dark, axe', async () => {
   const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
-  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,customers,pipeline,statistika,presmerovani,claude' : extensions},applications');
     INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, data, status, status_at, last_activity_at, decided_at, reject_reason, pool_consent_at, pool_until, pool_renewal_sent_at, pool_token, pool_token_until) VALUES
       (NOW() - INTERVAL 10 DAY, 9341, 'Welder B340', 'Job application', 'Nina B340', 'nina-b340@example.com', 'nina-b340@example.com', '[]', 'new', NOW(), NOW(), NULL, NULL, NULL, NULL, NULL, NULL, NULL),
       (NOW(), 9341, 'Welder B340', 'Job application', 'Oskar Longname-Of-A-Welder B340', 'oskar-b340@example.com', 'oskar-b340@example.com', '[]', 'interview', NOW(), NOW(), NULL, NULL, NULL, NULL, NULL, NULL, NULL),
@@ -4925,7 +4925,7 @@ await step('3.40 applications II: the board, the talent pool, the statistics and
 await step('3.47 B: Applications board – drag and keyboard; the detail at 390 px light/dark with axe; a form file over its limit is stopped in the browser', async () => {
   if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
   const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
-  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,customers,pipeline,statistika,presmerovani,claude' : extensions},applications');
     INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, data, status, status_at, last_activity_at) VALUES
       (NOW() - INTERVAL 20 DAY, 9471, 'Welder B347', 'Job application', 'Nora B347', 'nora-b347@example.com', 'nora-b347@example.com', '[["Full name","Nora B347"]]', 'new', NOW(), NOW()),
       (NOW(), 9471, 'Welder B347', 'Job application', 'Petr Longname-Of-A-Welder B347', 'petr-b347@example.com', 'petr-b347@example.com', '[]', 'new', NOW(), NOW()),

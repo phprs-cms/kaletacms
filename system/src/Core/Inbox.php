@@ -328,6 +328,17 @@ final class Inbox
     }
 
     /**
+     * Is the section of a record's kind switched off on the site (3.48: a customer or a company with Customers off, a deal
+     * with the Pipeline off)? Its place is then named as text with "(section switched off)" – never a link to a 403.
+     */
+    public static function switchedOff(Settings $settings, string $kind): bool
+    {
+        $feature = ['contact' => 'customers', 'company' => 'customers', 'deal' => 'pipeline'][$kind] ?? '';
+
+        return $feature !== '' && !Extensions::isEnabled($settings, $feature);
+    }
+
+    /**
      * Where notifications point: per target the kind (enquiry | page | item), the id, a title (the form name of an enquiry
      * – never its fields –, the title of a page, the name and the collection of an item) and the admin path. 3.32: an
      * enquiry, a deal and a customer also carry 'name' (who and what, the deal's title, the customer's name) for

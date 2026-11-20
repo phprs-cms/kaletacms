@@ -13,7 +13,7 @@ Q338_TANK=$(sq "SELECT idp FROM ka_kolekce_polozky WHERE idk = ${Q338_IDK:-0} AN
 # off by default: no section, no tool
 expect "3.38: with the feature off the section answers 403 and tools/list has no price tool" \
   "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=quotes&action=prices")|$(curl -s -X POST "$B/mcp" -H "Authorization: Bearer $API_TOKEN" -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -c '"name":"list_prices"')" "403|0"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$Q338_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$Q338_EXT"),quotes')" > /dev/null
+features +quotes
 
 # the grid: the products with their variants, the first default list created in the site's currency
 check "3.38: Quotes → Internal prices lists the products with their variants" 200 "/admin.php?module=quotes&action=prices&collection=$Q338_IDK" "data-price-row=\"$Q338_LASER:L338-M\""
@@ -204,4 +204,4 @@ sq "DELETE FROM ka_nastaveni WHERE promenna LIKE 'quote%'" > /dev/null
 
 # clean up: the feature back as it was, the colleague and the token gone (prices and collection stay for later sections)
 sq "DELETE FROM ka_uzivatele_prava WHERE fk_id_user = $Q338_USER; DELETE FROM ka_uzivatele WHERE idu = $Q338_USER; DELETE FROM ka_api_tokeny WHERE nazev IN ('q338 drafts', 'q338 colleague');
-  DELETE FROM ka_quote_counters; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$Q338_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+  DELETE FROM ka_quote_counters;" > /dev/null; features --exact "$Q338_EXT"

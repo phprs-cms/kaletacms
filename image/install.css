@@ -106,6 +106,12 @@ input:focus-visible, .pole select:focus-visible { outline: 0; border-color: var(
 .rozsireni { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 .rozsireni .web { padding-left: 40px; }
 .rozsireni .web input { opacity: 1; left: 14px; top: 15px; width: 16px; height: 16px; margin: 0; accent-color: #121212; }
+/* 3.48 (decision 3): the profiles of step 4 – the list of features only with "Choose yourself"; the step is hidden for a site
+   started from an export or for a move (they take the features of the export) */
+.profily { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.krok-funkce .rozsireni { display: none; }
+.krok-funkce:has(input[name="profile"][value="custom"]:checked) .rozsireni { display: grid; }
+form:has(input[name="web"][value="export"]:checked) .krok-funkce, form:has(input[name="web"][value="move"]:checked) .krok-funkce { display: none; }
 .vzorky { display: flex; height: 14px; border-radius: 4px; overflow: hidden; }
 .vzorky i { flex: 1; }
 /* after installation: connect Claude (2.5) */

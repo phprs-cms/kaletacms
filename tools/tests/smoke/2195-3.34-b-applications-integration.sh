@@ -16,4 +16,4 @@ curl -s -o "$WORK/response" "$B/$T334_SLUG/technician-t334"
 expect "3.34 B JobPosting: the job page says directApply and carries the identifier" "$(grep -c '"directApply":true' "$WORK/response")|$(grep -c '"identifier":{"@type":"PropertyValue"' "$WORK/response")" "1|1"
 expect "3.34 B report: the move of applications this month marks the enquiry comparison as \"counting changed\"" \
   "$(t334_php 'echo Kaleta\Core\Applications::countingChanged($app->db(), date("Y-m-01 00:00:00", strtotime("first day of last month")), date("Y-m-d H:i:s", strtotime("first day of next month 00:00"))) !== null ? "changed" : "same";')" "changed"
-sq "DELETE FROM ka_applications WHERE id = $T3395 OR email LIKE '%-t33%@example.com' OR email LIKE '%-t3395@example.com'; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$T335_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''" > /dev/null
+sq "DELETE FROM ka_applications WHERE id = $T3395 OR email LIKE '%-t33%@example.com' OR email LIKE '%-t3395@example.com';" > /dev/null; features --exact "$T335_EXT"

@@ -97,6 +97,26 @@ proof_age() { local f; f=$(proof_session_file "${1:-$JAR}") || return 0; [ -f "$
 # 3830-… (unit) reads every section for it.
 await_pids() { [ "$#" -gt 0 ] || return 0; wait "$@"; }
 
+# 3.48 (decision 3): the one way a section writes the feature list (Core\Extensions) – unit 4300 fails on any other raw
+# write of it under tools/tests/smoke. features [--exact] [key|+key|-key|list …]: plain keys (or comma lists, e.g. a saved
+# value) are the new list; +key and -key change the stored one ('' = the default features). Customers and the Pipeline are
+# always added – the suite shares one site, so a section that forgot them would switch the CRM off for every later one –
+# unless --exact or -customers / -pipeline says otherwise. "features --exact" with nothing (an empty saved value) restores the
+# default state (no row); "features --exact -" switches every feature off.
+features() {
+  local value
+  value=$(command php -r '$args = array_slice($argv, 2); $exact = ($args[0] ?? "") === "--exact"; if ($exact) { array_shift($args); }
+    $tokens = []; foreach ($args as $a) { foreach (preg_split("/[\s,]+/", $a, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $t) { $tokens[] = $t; } }
+    $relative = array_filter($tokens, fn (string $t): bool => $t[0] === "+" || ($t[0] === "-" && $t !== "-")) !== [];
+    $list = !$relative ? [] : ($argv[1] === "" ? ["novinky", "poptavky", "statistika", "presmerovani", "claude"] : ($argv[1] === "-" ? [] : explode(",", $argv[1])));
+    $remove = []; foreach ($tokens as $t) { if ($t === "-") { continue; } if ($t[0] === "-") { $remove[] = substr($t, 1); } else { $list[] = ltrim($t, "+"); } }
+    if (!$exact) { array_push($list, "customers", "pipeline"); }
+    $list = array_values(array_diff(array_unique($list), $remove));
+    echo $list !== [] ? implode(",", $list) : ($exact && $tokens === [] ? "" : "-");' -- "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")" "$@") || return 1
+  if [ -z "$value" ]; then "${MYSQL[@]}" "$DB_NAME" -e "DELETE FROM ka_nastaveni WHERE promenna = 'extensions'"
+  else "${MYSQL[@]}" "$DB_NAME" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$value')"; fi
+}
+
 # 3.43 B (code-quality step 3): one mail sink for the whole suite. tools/fake-smtp.php listens on PORT+21 from here to the end
 # (cleanup stops it with the other background jobs) and writes every message to $MAIL_SINK_DIR; right after the install
 # (0040) mail_sink_default points the test site at it, so no section depends on whether the machine has a sendmail.
