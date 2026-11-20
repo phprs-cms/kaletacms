@@ -133,7 +133,7 @@ $a334Forms = (string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php');
 $a334Branch = substr($a334Forms, (int) strpos($a334Forms, 'if ($application) {'), 900);
 check('[source-pin] 3.34: Front\Forms – an application form goes to Applications::receive and returns before the enquiry row, triage, customer record, webhook and "enquiry received"', [
     str_contains($a334Forms, 'Applications::isApplicationForm($element[\'obsah\'], $source, \Kaleta\Core\Jobs::sources($this->app->db()))'),
-    str_contains($a334Forms, 'Applications::checkUpload((string) $file[\'tmp_name\'], (string) $file[\'name\']) === null'),
+    str_contains($a334Forms, 'Applications::checkUpload((string) $file[\'tmp_name\'], (string) $file[\'name\']) !== null'), // 3.46.2: inside a try
     str_contains($a334Branch, 'Applications::receive(') && str_contains($a334Branch, 'return $this->finish('),
     strpos($a334Forms, 'if ($application) {') < strpos($a334Forms, "\$db->insert('poptavky'"), str_contains($a334Branch, 'Contacts::later'), str_contains($a334Branch, 'Triage::'), str_contains($a334Branch, 'Webhook::')],
     [true, true, true, true, false, false, false]);

@@ -26,8 +26,8 @@ function t4_switch_readers(string $root): array
     return $out;
 }
 check('3.36 T4 (Q10): no product file reads a KALETA_* test variable or a *_test_url setting itself – only Core\TestSeams', t4_switch_readers(KALETA_ROOT), []);
-check('3.36 T4 (Q10): TestSeams knows the six switches and the three test addresses, nothing else', [array_keys(TestSeams::SWITCHES), TestSeams::ADDRESSES],
-    [['KALETA_IMPORT_LOCAL', 'KALETA_LINKS_LOCAL', 'KALETA_FIREWALL_LOCAL', 'KALETA_FLEET_LOCAL', 'KALETA_CONNECTORS_FAKE', 'KALETA_CAPTCHA_VERIFY'], ['backup_test_url', 'newsletter_test_url', 'webhook_test_url']]);
+check('3.36 T4 (Q10): TestSeams knows the seven switches (3.46.2: KALETA_NO_FILEINFO) and the three test addresses, nothing else', [array_keys(TestSeams::SWITCHES), TestSeams::ADDRESSES],
+    [['KALETA_IMPORT_LOCAL', 'KALETA_LINKS_LOCAL', 'KALETA_FIREWALL_LOCAL', 'KALETA_FLEET_LOCAL', 'KALETA_CONNECTORS_FAKE', 'KALETA_CAPTCHA_VERIFY', 'KALETA_NO_FILEINFO'], ['backup_test_url', 'newsletter_test_url', 'webhook_test_url']]);
 
 // a real site (no KALETA_TEST_SEAMS in config.php): a variable set in the environment and a test address in the database change nothing
 $t4Off = shell_exec('KALETA_FLEET_LOCAL=1 KALETA_CONNECTORS_FAKE=http://127.0.0.1:9 KALETA_LINKS_LOCAL=1 ' . escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg(

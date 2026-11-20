@@ -2117,4 +2117,6 @@ return [
     'Download PDF' => 'Stiahnuť PDF',
     'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Najviac %d MB: PDF, dokument Word alebo OpenDocument, text alebo obrázok (JPG, PNG).',
+    'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Server nemá rozšírenie PHP sodium, preto šifrované údaje nemožno uložiť ani prečítať. Požiadajte poskytovateľa hostingu o jeho zapnutie.',
+    'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Súbor odoslaný formulárom sa nepodarilo skontrolovať, preto sa odoslanie neuložilo (%s).',
 ];

@@ -80,7 +80,7 @@ class Assistant
         $content = [];
         if ($task === 'alt') {
             $data = $image !== null && is_file($image) && filesize($image) < 4_500_000 ? file_get_contents($image) : false;
-            $type = $data === false ? '' : (string) (new \finfo(FILEINFO_MIME_TYPE))->buffer($data);
+            $type = $data === false ? '' : Files::mimeOf((string) $image);
             if ($data === false || !in_array($type, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
                 throw new \RuntimeException('The image could not be loaded – a description can only be suggested for images uploaded to Media.');
             }

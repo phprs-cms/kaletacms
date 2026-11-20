@@ -217,10 +217,10 @@ final class InternalFiles
 
             return $clean === null ? 'The SVG file is not a drawing – it cannot be stored.' : ['extension' => 'svg', 'content' => $clean];
         }
-        if (Files::forbiddenContent($path)) {
+        if (Files::forbiddenContent($path, $extension)) {
             return 'The file content does not match its extension.';
         }
-        if (isset(self::IMAGE_TYPES[$extension]) && strtolower((string) (new \finfo(FILEINFO_MIME_TYPE))->file($path)) !== self::IMAGE_TYPES[$extension]) {
+        if (isset(self::IMAGE_TYPES[$extension]) && Files::mimeOf($path, $extension) !== self::IMAGE_TYPES[$extension]) {
             return 'The file content does not match its extension.';
         }
         if (in_array($extension, self::TEXT_EXTENSIONS, true) && $size <= 5_000_000 && !mb_check_encoding((string) file_get_contents($path), 'UTF-8')) {

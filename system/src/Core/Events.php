@@ -68,6 +68,7 @@ final class Events
         'content.review' => 'A page, news item, collection item or pop-up asks for a review (its review-by day has come).',
         'content.review_mailed' => 'The review reminder went to the responsible person of pages or collection items (3.24; the user id, the day and the items – never the address; 3.26: to their notifications, and by e-mail as they chose).',
         'applications.purged' => 'Job applications past their retention period were deleted, including the CVs (the count only).',
+        'form.file_check_failed' => 'A file sent with a form could not be checked (3.46.2: an error in the check itself, such as a server without an extension it needs), so the submission was not stored and the visitor was told – the form and the error\'s class, never the sender or the file.',
         'application.received' => 'A job application arrived (3.34; its number, the position and the form – never the applicant).',
         'application.replied' => 'A reply to a job application was e-mailed from the administration or by Claude (3.34; the application and who sent it – never the address or the text).',
         'applications.moved' => 'Enquiries were moved to job applications or back (3.34; the counts and the ids of deals that lost their link).',

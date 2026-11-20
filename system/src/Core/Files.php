@@ -19,10 +19,53 @@ final class Files
     /**
      * Does the content say HTML, PHP, a script, SVG or a program, whatever the extension claims? The browser could open such
      * a file as part of the site, or the server run it. Shared by uploads and the import of a Kaleta export (3.15, N72).
+     * $extension = the type the file claims (a temporary upload has none in its path); without fileinfo a file the
+     * signature check cannot confirm for it counts as forbidden (3.46.2).
      */
-    public static function forbiddenContent(string $path): bool
+    public static function forbiddenContent(string $path, string $extension = ''): bool
     {
-        return preg_match(self::FORBIDDEN_TYPES, (string) (new \finfo(FILEINFO_MIME_TYPE))->file($path)) === 1;
+        $type = self::mimeOf($path, $extension);
+
+        return $type === '' || preg_match(self::FORBIDDEN_TYPES, $type) === 1;
+    }
+
+    /**
+     * Test seam (3.46.2): true = work as if the fileinfo extension were missing. Honoured only on a test copy
+     * (Core\TestSeams); the smoke test sets the switch KALETA_NO_FILEINFO on a server of its own instead.
+     */
+    public static bool $withoutFileinfo = false;
+
+    /** Whether the fileinfo extension is there to ask (and not switched off for a test). */
+    public static function hasFileinfo(): bool
+    {
+        if (TestSeams::enabled() && (self::$withoutFileinfo || TestSeams::on('KALETA_NO_FILEINFO'))) {
+            return false;
+        }
+
+        return class_exists(\finfo::class);
+    }
+
+    /**
+     * The one place that asks what a file is (3.46.2): the content type finfo detects, lower-case – or, when the server lacks
+     * fileinfo or finfo fails (an unreadable magic database warns, and warnings crash here), the type for the claimed
+     * extension that the signature allowlist confirms (Core\FileSignature), '' when it cannot. $extension defaults to the
+     * path's own.
+     */
+    public static function mimeOf(string $path, string $extension = ''): string
+    {
+        $extension = strtolower($extension !== '' ? $extension : pathinfo($path, PATHINFO_EXTENSION));
+        if (self::hasFileinfo()) {
+            try {
+                $type = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+            } catch (\Throwable) {
+                $type = false;
+            }
+            if (is_string($type) && $type !== '') {
+                return strtolower($type);
+            }
+        }
+
+        return FileSignature::sniff($path, $extension);
     }
 
     /** The longest file path asked of the disk – the lower of 1024 bytes and the platform's maximum. */
@@ -113,7 +156,7 @@ final class Files
         if (!in_array($extension, self::FILE_EXTENSIONS, true)) {
             throw new \RuntimeException(t('This file type cannot be uploaded. Images and these attachments are allowed: %s.', implode(', ', self::FILE_EXTENSIONS)));
         }
-        if (self::forbiddenContent($tmp) || filesize($tmp) > self::MAX_BYTES) {
+        if (self::forbiddenContent($tmp, $extension) || filesize($tmp) > self::MAX_BYTES) {
             throw new \RuntimeException(filesize($tmp) > self::MAX_BYTES ? 'The file is too large (200 MB at most).' : 'The file content does not match its extension.');
         }
         $folder = 'media/' . date('Y/m');

@@ -2154,4 +2154,6 @@ return [
     'Download PDF' => 'Descarregar PDF',
     'Page %1$s of %2$s' => 'Página %1$s de %2$s',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Até %d MB: PDF, documento Word ou OpenDocument, texto ou imagem (JPG, PNG).',
+    'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Falta ao servidor a extensão PHP sodium, por isso os dados cifrados não podem ser guardados nem lidos. Peça ao seu fornecedor de alojamento que a ative.',
+    'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Não foi possível verificar um ficheiro enviado com um formulário, por isso o envio não foi guardado (%s).',
 ];

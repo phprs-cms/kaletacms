@@ -132,4 +132,9 @@ return [
     'Shown with news posts.' => 'Se muestra con las noticias.',
     'Password again' => 'Repetir contraseña',
     'Website language' => 'Idioma del sitio',
+    'sodium extension' => 'Extensión sodium',
+    'encrypting stored passwords, CVs and private files' => 'cifrado de contraseñas guardadas, currículos y archivos privados',
+    'fileinfo extension' => 'Extensión fileinfo',
+    'recognising what uploaded files contain' => 'reconocer lo que contienen los archivos subidos',
+    'recommended – recognising what uploaded files contain; without it Kaleta checks file signatures itself' => 'recomendada: reconocer lo que contienen los archivos subidos; sin ella, Kaleta comprueba las firmas de los archivos por sí misma',
 ];

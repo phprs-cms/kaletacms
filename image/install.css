@@ -16,6 +16,7 @@
 	--chyba-podklad: #FEF3F2;
 	--ok: #067647;
 	--ok-podklad: #ECFDF3;
+	--varovani: #B54708;
 }
 * { box-sizing: border-box; }
 body {
@@ -40,6 +41,7 @@ body {
 .kontrola li { display: flex; gap: 10px; align-items: baseline; }
 .kontrola li::before { content: "✓"; font-weight: 700; color: var(--ok); }
 .kontrola li.spatne::before { content: "✕"; color: var(--chyba); }
+.kontrola li.doporuceno::before { content: "!"; color: var(--varovani); }
 .kontrola small { color: var(--text-slaby); }
 
 .pole { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }

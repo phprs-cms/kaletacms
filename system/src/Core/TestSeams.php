@@ -23,6 +23,7 @@ final class TestSeams
         'KALETA_FLEET_LOCAL' => 'the fleet console and its sites talk over plain http, also to local addresses (Fleet\Http)',
         'KALETA_CONNECTORS_FAKE' => 'the base address of the fake outside services every connector calls (Core\Connectors)',
         'KALETA_CAPTCHA_VERIFY' => 'the address of the fake CAPTCHA provider (Core\Captcha)',
+        'KALETA_NO_FILEINFO' => 'uploads are checked as on a server without the fileinfo extension – the signature allowlist (Core\Files::mimeOf, 3.46.2)',
     ];
 
     /** The settings that send outbound calls to a fake server – http://127.0.0.1:<port> only, set only through the database. */

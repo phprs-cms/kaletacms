@@ -21,7 +21,7 @@ namespace Kaleta\Core;
  * creates a customer record, never offers a deal, never runs triage, webhooks or the "enquiry received" event.
  *
  * CVs (checkUpload, sealFile, attachment): a narrow list of types (CV_EXTENSIONS), the detected content must fit the
- * extension (finfo) and never be HTML, PHP, a script or a program (Files::forbiddenContent). Each file is encrypted with
+ * extension (Files::mimeOf: finfo, or the signature allowlist without it) and never be HTML, PHP, a script or a program (Files::forbiddenContent). Each file is encrypted with
  * its own random key (sodium secretbox) into storage/applications/YYYY/MM/<random>.bin, outside the web root; the keys,
  * names and sizes live in the attachments column, sealed with the Vault key of the purpose "applications"
  * (Vault::SEALED – moved and resealed with the other secrets when the key moves or rotates). Files are read only through
@@ -63,7 +63,7 @@ final class Applications
     /** The file types an application accepts (no archives, spreadsheets or drawings). */
     public const array CV_EXTENSIONS = ['pdf', 'doc', 'docx', 'odt', 'rtf', 'txt', 'jpg', 'jpeg', 'png'];
 
-    /** extension => the content types finfo may report for it. */
+    /** extension => the content types finfo (or Core\FileSignature without it) may report for it. */
     public const array CONTENT_TYPES = [
         'pdf' => ['application/pdf'],
         'doc' => ['application/msword', 'application/vnd.ms-word', 'application/vnd.ms-office', 'application/cdfv2', 'application/x-ole-storage', 'application/octet-stream'],
@@ -122,11 +122,11 @@ final class Applications
     public static function checkUpload(string $tmpPath, string $originalName): ?string
     {
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        if (!in_array($extension, self::CV_EXTENSIONS, true) || !is_file($tmpPath) || Files::forbiddenContent($tmpPath)) {
+        if (!in_array($extension, self::CV_EXTENSIONS, true) || !is_file($tmpPath) || Files::forbiddenContent($tmpPath, $extension)) {
             return null;
         }
 
-        return self::contentFits($extension, strtolower((string) (new \finfo(FILEINFO_MIME_TYPE))->file($tmpPath))) ? $extension : null;
+        return self::contentFits($extension, Files::mimeOf($tmpPath, $extension)) ? $extension : null;
     }
 
     /** Does a detected content type fit the extension (CONTENT_TYPES)? Pure. */

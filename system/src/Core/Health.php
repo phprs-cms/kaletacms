@@ -40,6 +40,14 @@ final class Health
         foreach (['pdo_mysql' => t('database'), 'mbstring' => t('text with diacritics'), 'gd' => t('image processing')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext), extension_loaded($ext) ? $purpose : t('%s - missing', $purpose));
         }
+        // 3.46.2: sodium encrypts the stored secrets, CVs, whistleblowing reports and private files – required; fileinfo
+        // recognises what an uploaded file is – without it Kaleta checks file signatures itself, so it is a warning that
+        // turns into an error while job applications are on (their CVs) – the update never waits for it
+        $add(t('Server'), t('Extension %s', 'sodium'), Vault::hasSodium(), Vault::hasSodium() ? t('encrypted secrets, CVs, reports and private files')
+            : t('encrypted secrets, CVs, reports and private files - missing, so nothing encrypted can be stored or read; ask the hosting provider to enable it'));
+        $fileinfo = class_exists(\finfo::class);
+        $add(t('Server'), t('Extension %s', 'fileinfo'), $fileinfo ? 'ok' : (Applications::isOn($siteSettings) ? 'chyba' : 'varovani'), $fileinfo ? t('recognising what uploaded files contain')
+            : t('recognising what uploaded files contain - missing; Kaleta checks the signatures of the allowed file types itself and refuses what it cannot confirm. Job applications with CVs need it – ask the hosting provider to enable it'));
         foreach (['exif' => t('correct rotation of photos from phones'), 'intl' => t('language-aware sorting'), 'curl' => t('notifying search engines about new content')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
         }
@@ -106,8 +114,10 @@ final class Health
                 . (Vault::canProtectConfig() ? ' ' . t('Kaleta can do it for you – the button is below the table.') : '')
             : t('readable only by the site'));
         // 3.15 (N42): where the key of the encrypted secrets is – never the key itself (on System status since 3.39, was Ready for 4.0)
-        $vault = Vault::state($siteSettings);
-        $add(t('Bezpečnost'), t('Encryption key'), in_array($vault, ['config', 'database'], true) ? 'ok' : 'varovani', Vault::describe($vault));
+        if (Vault::hasSodium()) { // 3.46.2: without sodium the server row says what is wrong
+            $vault = Vault::state($siteSettings);
+            $add(t('Bezpečnost'), t('Encryption key'), in_array($vault, ['config', 'database'], true) ? 'ok' : 'varovani', Vault::describe($vault));
+        }
         $add(t('Bezpečnost'), t('Debug mode'), !$app->debug(), $app->debug() ? t('debug = true is set in config.php; turn it off on a live site') : t('vypnutý'));
         $add(t('Bezpečnost'), t('Security headers'), 'ok', t('the system sends X-Content-Type-Options, Referrer-Policy and X-Frame-Options; the administration also sends a Content-Security-Policy and forbids caching'));
         if (is_file(KALETA_ROOT . '/.htaccess.kaleta-nova')) {
@@ -144,7 +154,7 @@ final class Health
             $add(t('Bezpečnost'), 'media/.htaccess', 'varovani', t('A newer media/.htaccess.kaleta-nova is next to your customised media/.htaccess – carry over its rules (since 3.9.2 they block files like photo.php.jpg, since 3.15 the download rules also match an upper-case extension), then delete the file.'));
         }
         // 3.39 (N106): the passwords and keys in the settings and the sign-in app secrets – sealed with the key in config.php
-        $secrets = Vault::secretsState($db, $siteSettings);
+        $secrets = Vault::hasSodium() ? Vault::secretsState($db, $siteSettings) : ['unreadable' => 0, 'plain' => 0, 'sealed' => 0];
         if ($secrets['unreadable'] > 0) {
             $add(t('Bezpečnost'), t('Stored passwords and keys'), 'chyba', t('%d password(s), key(s) or sign-in app secret(s) cannot be read – they were encrypted with a key this config.php does not have. The site keeps working without them (e-mail over SMTP, off-site backups and codes from a sign-in app stop; backup codes still work). Put back the vault_key line from the original config.php (Settings → Backups and updates).', $secrets['unreadable']));
         }
@@ -157,7 +167,7 @@ final class Health
             $add(t('Bezpečnost'), t('Stored passwords and keys'), 'ok', t('encrypted with the key in config.php'));
         }
         // 3.34 review M5: job applications whose CV list the encryption key of this config.php cannot open
-        if (($lockedCvs = Applications::lockedCount($app)) > 0) {
+        if (Vault::hasSodium() && ($lockedCvs = Applications::lockedCount($app)) > 0) {
             $add(t('Bezpečnost'), t('CVs of job applications'), 'chyba', t('%d application(s) have CVs that cannot be opened – encryption key: they were sealed with a key this config.php does not have. Put back the vault_key line from the original config.php (Settings → Backups and updates).', $lockedCvs));
         }
         // 3.34 second review N8: moved applications that have waited long for an administrator to confirm their retention

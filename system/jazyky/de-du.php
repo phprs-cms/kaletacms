@@ -388,4 +388,5 @@ return [
     'If you do nothing, we delete your application after %s.' => 'Wenn du nichts tust, löschen wir deine Bewerbung nach dem %s.',
     'when you applied for %s, you agreed that we keep your application until %s and contact you about other openings.' => 'bei deiner Bewerbung auf %s hast du eingewilligt, dass wir deine Bewerbung bis %s aufbewahren und dich über andere Stellen informieren.',
     'May we keep your application? – %s' => 'Dürfen wir deine Bewerbung aufbewahren? – %s',
+    'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Dem Server fehlt die PHP-Erweiterung sodium, daher können verschlüsselte Daten weder gespeichert noch gelesen werden. Bitte deinen Hosting-Anbieter, sie zu aktivieren.',
 ];

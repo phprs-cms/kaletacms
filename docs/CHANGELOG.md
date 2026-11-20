@@ -4,6 +4,40 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.46.2 – file checks without fileinfo (20 November 2026)
+
+A hotfix for hosts without the PHP extension fileinfo: on such a host every job application with a CV ended in a fatal
+error (`Class "finfo" not found`) before anything was stored, so the applications were lost. No database change;
+`KALETA_DB_VERSION` stays 134, and no MCP or builder shape changes.
+
+1. **One place asks what a file is.** `Files::mimeOf($path, $extension)` is the only caller of finfo; the five places that
+   called `new \finfo` themselves (`Files::forbiddenContent`, `Applications::checkUpload` twice, `InternalFiles::check`,
+   the alt-text suggestion of `Assistant`) go through it, and a unit test refuses `finfo`, `finfo_open` or
+   `mime_content_type` anywhere else. With fileinfo the answer is finfo's, as before (a finfo that fails – an unreadable
+   magic database – no longer crashes either).
+2. **Without fileinfo, a signature allowlist.** `Core\FileSignature::sniff()` answers the content type for the extension a
+   file claims only when its bytes confirm it: PDF `%PDF-`, OLE (doc, xls, ppt), ZIP for docx/xlsx/pptx with a
+   `[Content_Types].xml` naming the main part of the kind and nothing macro-enabled and no `vbaProject.bin`, ODF and EPUB
+   by their `mimetype` entry, RTF, JPEG, PNG, GIF, WebP, SVG as text, audio, video and fonts by their signatures, and text
+   types (txt, md, csv, gpx, ics) as UTF-8 without NUL bytes and without page markup. A program (MZ, ELF, Mach-O) or a
+   `#!` script is refused whatever its name; anything the allowlist cannot confirm is refused like a wrong type from
+   finfo. It covers every attachment type of Media, every CV type and every type of Internal files.
+3. **A form never ends in an error page over a file check.** `Front\Forms::process()` catches anything the check of a CV
+   throws, writes one error-log line and the event `form.file_check_failed` (the form and the error's class, never the
+   sender or the file) and answers with the existing "could not be stored" result – the application is not stored
+   without its CV.
+4. **sodium says so.** `Vault::requireSodium()` stops every encryption step of `Vault` and `SealedFiles` with a message
+   ("The server lacks the PHP extension sodium …") instead of a fatal error about an unknown function; an application
+   form answers "could not be stored".
+5. **System status and the installer name both extensions.** Server rows "Extension sodium" (an error when missing) and
+   "Extension fileinfo" (a warning, an error while job applications are on), also in `get_health`; without sodium the
+   encryption-key rows that need it are left out. The installer requires sodium and recommends fileinfo (shown, never
+   blocking). Updates do not check either.
+6. Tests: unit 4230 (every type of the allowlist and the refusals – an .exe renamed .pdf, a ZIP without OOXML parts as
+   .docx, a macro-enabled content type as .docx …; `Files::mimeOf` with and without finfo; the guard on finfo callers;
+   the installer rows), smoke 4230 (a second test server with the switch `KALETA_NO_FILEINFO` of `Core\TestSeams` takes a
+   job application with a PDF CV and stores it, refuses a program named .pdf, never answers 500).
+
 ## 3.46.1 – restore and erasure fixes (18 November 2026)
 
 The findings of the security re-audit of 3.46 that close a promise of the release. No database change; `KALETA_DB_VERSION`

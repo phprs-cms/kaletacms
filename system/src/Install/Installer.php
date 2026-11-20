@@ -127,7 +127,11 @@ final class Installer
         return !is_file(KALETA_ROOT . '/install.php') || @unlink(KALETA_ROOT . '/install.php');
     }
 
-    /** @return list<array{nazev:string, ok:bool, info:string}> */
+    /**
+     * ok = false blocks the installation; varovani = a recommended extension is missing (shown, never blocking – 3.46.2).
+     *
+     * @return list<array{nazev:string, ok:bool, info:string, varovani?:bool}>
+     */
     private function requirements(): array
     {
         $write = fn (string $path): bool => is_writable(KALETA_ROOT . $path);
@@ -136,6 +140,9 @@ final class Installer
             ['nazev' => t('PHP %s or newer', KALETA_MIN_PHP), 'ok' => version_compare(PHP_VERSION, KALETA_MIN_PHP, '>='), 'info' => t('running') . ' ' . PHP_VERSION],
             ['nazev' => t('pdo_mysql extension'), 'ok' => extension_loaded('pdo_mysql'), 'info' => t('connection to a MySQL / MariaDB database')],
             ['nazev' => t('mbstring extension'), 'ok' => extension_loaded('mbstring'), 'info' => t('working with accented text (UTF-8)')],
+            ['nazev' => t('sodium extension'), 'ok' => \Kaleta\Core\Vault::hasSodium(), 'info' => t('encrypting stored passwords, CVs and private files')],
+            ['nazev' => t('fileinfo extension'), 'ok' => true, 'varovani' => !class_exists(\finfo::class),
+                'info' => class_exists(\finfo::class) ? t('recognising what uploaded files contain') : t('recommended – recognising what uploaded files contain; without it Kaleta checks file signatures itself')],
             ['nazev' => t('Write access to the root folder'), 'ok' => $write(''), 'info' => t('needed to create config.php')],
             ['nazev' => t('Write access to the storage/ folder'), 'ok' => $write('/storage/log') && $write('/storage/cache'), 'info' => t('logs and cache')],
         ];

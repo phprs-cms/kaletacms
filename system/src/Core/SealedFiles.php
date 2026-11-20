@@ -30,6 +30,7 @@ final class SealedFiles
      */
     public static function write(Settings $s, string $purpose, string $plain, string $file): ?string
     {
+        Vault::requireSodium(); // 3.46.2: a clear message instead of a fatal error
         $key = sodium_crypto_secretbox_keygen();
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $wrapped = Vault::seal(self::wrapKey($s, $purpose), $key);
@@ -101,6 +102,7 @@ final class SealedFiles
      */
     public static function open(Settings $s, string $purpose, string $file, ?string $key): ?string
     {
+        Vault::requireSodium(); // 3.46.2: a clear message instead of a fatal error
         $raw = is_file($file) ? @file_get_contents($file) : false;
         if (!is_string($raw)) {
             return null;
@@ -176,6 +178,7 @@ final class SealedFiles
      */
     public static function sealInPlace(Settings $s, string $purpose, string $file, string $sha256 = '', int $stopAfter = 0): ?string
     {
+        Vault::requireSodium(); // 3.46.2: a clear message instead of a fatal error
         if (!is_file($file) || !self::roomFor((int) @filesize($file))) {
             return null; // gone, or too large for the memory this request may use – left as it is (review H1: checked before any read)
         }

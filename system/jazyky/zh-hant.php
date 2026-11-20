@@ -2154,4 +2154,6 @@ return [
     'Download PDF' => '下載 PDF',
     'Page %1$s of %2$s' => '第 %1$s 頁，共 %2$s 頁',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => '最大 %d MB：PDF、Word 或 OpenDocument 文件、文字或圖片（JPG、PNG）。',
+    'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => '伺服器缺少 PHP 擴充 sodium，因此無法儲存或讀取加密資料。請聯絡您的主機服務商啟用它。',
+    'A file sent with a form could not be checked, so the submission was not stored (%s).' => '無法檢查隨表單傳送的檔案，因此提交未被儲存（%s）。',
 ];

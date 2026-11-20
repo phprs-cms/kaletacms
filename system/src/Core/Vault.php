@@ -59,9 +59,29 @@ final class Vault
         return bin2hex(random_bytes(32));
     }
 
+    /** Whether PHP has the sodium extension the encryption needs (3.46.2: System status says so when it does not). */
+    public static function hasSodium(): bool
+    {
+        return function_exists('sodium_crypto_secretbox') && function_exists('sodium_crypto_generichash');
+    }
+
+    /**
+     * 3.46.2: without sodium every encryption step stops with a message an administrator can act on (and a form can answer
+     * with "not stored"), never with a fatal error about an unknown function.
+     *
+     * @throws \RuntimeException
+     */
+    public static function requireSodium(): void
+    {
+        if (!self::hasSodium()) {
+            throw new \RuntimeException(t('The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.'));
+        }
+    }
+
     /** The one-way check value stored in the settings (vault_check): which key the data belongs to, never the key itself. */
     public static function check(string $baseKey): string
     {
+        self::requireSodium();
         return bin2hex(sodium_crypto_generichash('kaleta-vault-check|' . $baseKey, '', 16));
     }
 
@@ -102,11 +122,13 @@ final class Vault
     /** The key of a purpose from a base key – the same derivation as before 3.15 ("kaleta-<purpose>|" + the base). */
     public static function derive(string $baseKey, string $purpose): string
     {
+        self::requireSodium();
         return sodium_crypto_generichash('kaleta-' . $purpose . '|' . $baseKey, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
     }
 
     public static function seal(string $key, string $plain): string
     {
+        self::requireSodium();
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
 
         return base64_encode($nonce . sodium_crypto_secretbox($plain, $nonce, $key));
@@ -115,6 +137,7 @@ final class Vault
     /** null when it cannot be read (another key, damaged). */
     public static function open(string $key, ?string $sealed): ?string
     {
+        self::requireSodium();
         $raw = $sealed !== null ? base64_decode($sealed, true) : false;
         if ($raw === false || strlen($raw) <= SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
             return null;

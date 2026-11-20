@@ -2154,4 +2154,6 @@ return [
     'Download PDF' => 'PDF letöltése',
     'Page %1$s of %2$s' => '%1$s. oldal / %2$s',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Legfeljebb %d MB: PDF, Word- vagy OpenDocument-dokumentum, szöveg vagy kép (JPG, PNG).',
+    'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'A szerverről hiányzik a PHP sodium kiterjesztése, ezért titkosított adatot sem menteni, sem olvasni nem lehet. Kérje meg a tárhelyszolgáltatót, hogy kapcsolja be.',
+    'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Egy űrlappal küldött fájlt nem sikerült ellenőrizni, ezért a beküldés nem lett mentve (%s).',
 ];

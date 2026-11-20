@@ -118,8 +118,20 @@ final class Forms
                 if ($tooLarge || ($uploaded && (!in_array($extension, Form::ATTACHMENT_EXTENSIONS, true) || (int) $file['size'] > Form::attachmentLimit($element['obsah'])))) {
                     return $redirectUri('pole', $i);
                 }
-                if ($uploaded && $application && \Kaleta\Core\Applications::checkUpload((string) $file['tmp_name'], (string) $file['name']) === null) {
-                    return $redirectUri('pole', $i); // 3.34: "This file type is not accepted" – nothing is stored
+                if ($uploaded && $application) {
+                    // 3.46.2: a check that breaks (a server without an extension it needs) never ends in an error page – the
+                    // visitor is told the submission was not stored, so they can send it again or get in touch another way;
+                    // the application is not stored without its CV (the one outcome to avoid), System status shows the event
+                    try {
+                        $accepted = \Kaleta\Core\Applications::checkUpload((string) $file['tmp_name'], (string) $file['name']) !== null;
+                    } catch (\Throwable $e) {
+                        self::fileCheckFailed($this->app, $e, (string) $element['id']);
+
+                        return $redirectUri('ulozeni');
+                    }
+                    if (!$accepted) {
+                        return $redirectUri('pole', $i); // 3.34: "This file type is not accepted" – nothing is stored
+                    }
                 }
                 if (!$uploaded && $field['povinne']) {
                     return $redirectUri('pole', $i);
@@ -232,6 +244,22 @@ final class Forms
         }
 
         return $this->finish($element, $email, $redirectUri);
+    }
+
+    /**
+     * A file check of a submission threw (3.46.2): one line in the error log and an error event (the form and the error's
+     * class and place, never the sender or the file's name) – the caller answers with the result "ulozeni".
+     */
+    public static function fileCheckFailed(\Kaleta\Core\App $app, \Throwable $e, string $formId): void
+    {
+        \Kaleta\Core\ErrorLog::write('The file check of form ' . mb_substr($formId, 0, 40) . ' failed – ' . \Kaleta\Core\ErrorLog::exception($e));
+        try {
+            \Kaleta\Core\Events::record($app->db(), 'form.file_check_failed', 'error',
+                t('A file sent with a form could not be checked, so the submission was not stored (%s).', $e::class),
+                ['form' => $formId, 'error' => $e::class]);
+        } catch (\Throwable) {
+            // the visitor still gets the message; the error log has the line
+        }
     }
 
     /**

@@ -1300,7 +1300,7 @@ final class SiteImport
             return $info !== false && in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP, IMAGETYPE_AVIF, IMAGETYPE_ICO], true);
         }
 
-        return !Files::forbiddenContent($path);
+        return !Files::forbiddenContent($path, $extension);
     }
 
     /** After the import: the search index, the cache and the working files. */

@@ -2805,4 +2805,9 @@ return [
     'Password again' => 'Heslo znovu',
     'Website language' => 'Jazyk webu',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
+    'sodium extension' => 'Rozšíření sodium',
+    'encrypting stored passwords, CVs and private files' => 'šifrování uložených hesel, životopisů a soukromých souborů',
+    'fileinfo extension' => 'Rozšíření fileinfo',
+    'recognising what uploaded files contain' => 'rozpoznání obsahu nahraných souborů',
+    'recommended – recognising what uploaded files contain; without it Kaleta checks file signatures itself' => 'doporučeno – rozpoznání obsahu nahraných souborů; bez něj Kaleta kontroluje podpisy souborů sama',
 ];

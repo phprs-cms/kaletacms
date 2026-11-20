@@ -1,7 +1,7 @@
 <?php
 /**
  * @var string $base
- * @var list<array{nazev:string, ok:bool, info:string}> $requirements
+ * @var list<array{nazev:string, ok:bool, info:string, varovani?:bool}> $requirements
  * @var array<string, string> $data
  * @var array<string, string> $errors
  * @var string $language  installation language (cs, en, de, es)
@@ -46,7 +46,7 @@ $fulfilled = !in_array(false, array_column($requirements, 'ok'), true);
 	<h2><span>1</span> <?= e(t('Server check')) ?></h2>
 	<ul class="kontrola">
 <?php foreach ($requirements as $p): ?>
-		<li<?= $p['ok'] ? '' : ' class="spatne"' ?>><div><?= e($p['nazev']) ?> <small>– <?= e($p['info']) ?></small></div></li>
+		<li<?= $p['ok'] ? (empty($p['varovani']) ? '' : ' class="doporuceno"') : ' class="spatne"' ?>><div><?= e($p['nazev']) ?> <small>– <?= e($p['info']) ?></small></div></li>
 <?php endforeach ?>
 	</ul>
 </section>

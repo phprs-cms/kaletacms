@@ -3307,4 +3307,6 @@ return [
     'Page %1$s of %2$s' => 'Strana %1$s z %2$s',
     'The update source leads to an address that is not allowed (%s).' => 'Zdroj aktualizací vede na adresu, která není povolená (%s).',
     'Up to %d MB: PDF, Word or OpenDocument document, text or image (JPG, PNG).' => 'Nejvýš %d MB: PDF, dokument Word nebo OpenDocument, text nebo obrázek (JPG, PNG).',
+    'The server lacks the PHP extension sodium, so encrypted data can be neither stored nor read. Ask your hosting provider to enable it.' => 'Server nemá rozšíření PHP sodium, takže šifrovaná data nejde uložit ani přečíst. Požádejte poskytovatele hostingu o jeho zapnutí.',
+    'A file sent with a form could not be checked, so the submission was not stored (%s).' => 'Soubor odeslaný formulářem nešlo zkontrolovat, proto se odeslání neuložilo (%s).',
 ];
