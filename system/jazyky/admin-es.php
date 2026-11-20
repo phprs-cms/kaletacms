@@ -9176,11 +9176,9 @@ return [
     'This download link is not valid. Open the record in the administration – the file is there.' => 'Este enlace de descarga no es válido. Abra el registro en la administración: el archivo está allí.',
     'This download link has expired. Open the record in the administration – the file is there.' => 'Este enlace de descarga ha caducado. Abra el registro en la administración: el archivo está allí.',
     'Open the record' => 'Abrir el registro',
-    'CV downloaded, application #%s, file %d' => 'CV descargado, solicitud n.º %s, archivo %d',
     '(the link from the notification e-mail)' => '(el enlace del correo de aviso)',
     'The notification e-mail carries the applicant’s full details' => 'El correo de aviso incluye todos los datos del candidato',
     'The notification e-mail carries the position and the links only' => 'El correo de aviso incluye solo el puesto y los enlaces',
-    'Attachment downloaded, enquiry #%s, field %d' => 'Adjunto descargado, consulta n.º %s, campo %d',
     'Include the applicant’s full details in the notification e-mail' => 'Incluir todos los datos del candidato en el correo de aviso',
     'Either way each CV is a download link that works for %d days and only after signing in with access to Applications – files are never attached.' => 'En ambos casos, cada CV es un enlace de descarga que vale %d días y solo tras iniciar sesión con acceso a Solicitudes de empleo; los archivos nunca se adjuntan.',
     'Copies of the details stay in the recipients’ mailboxes; erasing personal data in Kaleta does not reach them.' => 'Las copias de los datos se quedan en los buzones de los destinatarios; la supresión de datos personales en Kaleta no llega a ellas.',
@@ -9190,4 +9188,6 @@ return [
     'CVs are never attached to e-mails: the notification has a download link per CV that works for %d days and only for someone signed in with access to Applications.' => 'Los CV nunca se adjuntan a los correos: el aviso tiene un enlace de descarga por CV que vale %d días y solo para quien haya iniciado sesión con acceso a Solicitudes de empleo.',
     'Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.' => 'Los correos de aviso con los datos del formulario «%s» se enviaron a %s; las copias en sus buzones están fuera de Kaleta.',
     'the recipients of the form' => 'los destinatarios del formulario',
+    'CV downloaded (file %d), application #%s' => 'CV descargado (archivo %d), solicitud n.º %s',
+    'Attachment downloaded (field %d), enquiry #%s' => 'Adjunto descargado (campo %d), consulta n.º %s',
 ];

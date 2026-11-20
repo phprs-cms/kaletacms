@@ -410,7 +410,7 @@ final class Enquiries extends Module
         }
         $displayName = preg_replace('/ \([^)]*\)$/', '', (string) $item[1]) ?: basename($path);
         // 3.46.2: every download is in the change log – who (the log's user), which enquiry, which field
-        \Kaleta\Core\ChangeLog::write($this->app, 'enquiries', 'attachment', t('Attachment downloaded, enquiry #%s, field %d', (string) $this->request->getInt('id'), $this->request->getInt('field') + 1)
+        \Kaleta\Core\ChangeLog::write($this->app, 'enquiries', 'attachment', t('Attachment downloaded (field %d), enquiry #%s', $this->request->getInt('field') + 1, (string) $this->request->getInt('id'))
             . ($this->request->get('sig') !== '' ? ' ' . t('(the link from the notification e-mail)') : ''));
 
         return new Response($content, 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',

@@ -332,7 +332,9 @@ final class Applications
         }
         $files = [];
         foreach ($attachments as $index => $a) {
-            $files[] = ['label' => (string) ($data[(int) ($a['field'] ?? -1)][0] ?? ''), 'name' => (string) ($a['name'] ?? ''), 'url' => FileLink::url($app, self::SECTION, $id, $index)];
+            // the original name only with the full details: a CV is often named after the person
+            $files[] = ['label' => (string) ($data[(int) ($a['field'] ?? -1)][0] ?? ''), 'name' => $s->bool('applications_notify_full') ? (string) ($a['name'] ?? '') : FileLink::neutralName('application', $id, (int) $index, (string) ($a['name'] ?? '')),
+                'url' => FileLink::url($app, self::SECTION, $id, (int) $index)];
         }
         $full = $s->bool('applications_notify_full');
         $record = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url(self::adminPath($id));

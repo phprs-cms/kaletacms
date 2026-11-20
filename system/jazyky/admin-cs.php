@@ -8748,11 +8748,9 @@ return [
     'This download link is not valid. Open the record in the administration – the file is there.' => 'Tento odkaz ke stažení není platný. Otevřete záznam v administraci – soubor je tam.',
     'This download link has expired. Open the record in the administration – the file is there.' => 'Platnost tohoto odkazu ke stažení vypršela. Otevřete záznam v administraci – soubor je tam.',
     'Open the record' => 'Otevřít záznam',
-    'CV downloaded, application #%s, file %d' => 'Životopis stažen, žádost č. %s, soubor %d',
     '(the link from the notification e-mail)' => '(odkaz z e-mailu s upozorněním)',
     'The notification e-mail carries the applicant’s full details' => 'E-mail s upozorněním obsahuje všechny údaje uchazeče',
     'The notification e-mail carries the position and the links only' => 'E-mail s upozorněním obsahuje jen pozici a odkazy',
-    'Attachment downloaded, enquiry #%s, field %d' => 'Příloha stažena, poptávka č. %s, pole %d',
     'Include the applicant’s full details in the notification e-mail' => 'Uvádět v e-mailu s upozorněním všechny údaje uchazeče',
     'Either way each CV is a download link that works for %d days and only after signing in with access to Applications – files are never attached.' => 'V obou případech je každý životopis odkazem ke stažení, který platí %d dní a jen po přihlášení s přístupem k Žádostem o práci – soubory se nikdy nepřikládají.',
     'Copies of the details stay in the recipients’ mailboxes; erasing personal data in Kaleta does not reach them.' => 'Kopie údajů zůstávají ve schránkách příjemců; výmaz osobních údajů v Kaletě k nim nedosáhne.',
@@ -8762,4 +8760,6 @@ return [
     'CVs are never attached to e-mails: the notification has a download link per CV that works for %d days and only for someone signed in with access to Applications.' => 'Životopisy se k e-mailům nikdy nepřikládají: upozornění má u každého životopisu odkaz ke stažení, který platí %d dní a jen pro přihlášeného s přístupem k Žádostem o práci.',
     'Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.' => 'E-maily s upozorněním s údaji z formuláře „%s“ odešly na %s – kopie v jejich schránkách jsou mimo Kaletu.',
     'the recipients of the form' => 'příjemce formuláře',
+    'CV downloaded (file %d), application #%s' => 'Životopis stažen (soubor %d), žádost č. %s',
+    'Attachment downloaded (field %d), enquiry #%s' => 'Příloha stažena (pole %d), poptávka č. %s',
 ];

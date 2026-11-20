@@ -37,9 +37,9 @@ u4240_submit() { curl -s -o /dev/null -w '%{redirect_url}' -X POST "$B/form" -F 
 u4240_mark
 u4240_page; U4240_R=$(u4240_submit); U4240_A=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_applications WHERE email = 'petra-u4240@example.com'")
 U4240_LINK=$(u4240_link hr-u4240@example.com)
-expect "3.46.2: the application's notification has one signed download link (applications, its number, the file, an expiry) and no attachment; full details off: nothing of the person" \
-  "$(echo "$U4240_R" | grep -o 'result=ok')|$(echo "$U4240_LINK" | grep -c "module=applications&action=attachment&id=$U4240_A&index=0&expires=[0-9]*&sig=[a-f0-9]\{64\}")|$(u4240_mail hr-u4240@example.com | grep -ci 'Content-Disposition: attachment')|$(u4240_mail hr-u4240@example.com | grep -c 'Petra Dvorak\|777424000\|I fit pipes')|$(u4240_mail hr-u4240@example.com | grep -c 'Fitter U4240')" \
-  "result=ok|1|0|0|1"
+expect "3.46.2: the application's notification has one signed download link (applications, its number, the file, an expiry) and no attachment; full details off: nothing of the person, not even the CV's name" \
+  "$(echo "$U4240_R" | grep -o 'result=ok')|$(echo "$U4240_LINK" | grep -c "module=applications&action=attachment&id=$U4240_A&index=0&expires=[0-9]*&sig=[a-f0-9]\{64\}")|$(u4240_mail hr-u4240@example.com | grep -ci 'Content-Disposition: attachment')|$(u4240_mail hr-u4240@example.com | grep -c 'Petra\|777424000\|I fit pipes')|$(u4240_mail hr-u4240@example.com | grep -c 'Fitter U4240')|$(u4240_mail hr-u4240@example.com | grep -c "application-$U4240_A-1.pdf")" \
+  "result=ok|1|0|0|1|1"
 expect "3.46.2: the hidden copy goes alone, without the links; the applicant's confirmation has no link either" \
   "$(u4240_mail bcc-u4240@example.com | grep -c 'Fitter U4240' | sed 's/^[1-9][0-9]*$/yes/')|$(u4240_mail bcc-u4240@example.com | grep -c 'action=attachment')|$(u4240_mail bcc-u4240@example.com | grep '^X-Rcpt-To:' | tr -d '\r')|$(u4240_mail petra-u4240@example.com | grep -c 'Fitter\|U4240' | sed 's/^[1-9][0-9]*$/yes/')|$(u4240_mail petra-u4240@example.com | grep -c 'action=attachment')" \
   "yes|0|X-Rcpt-To: bcc-u4240@example.com|yes|0"

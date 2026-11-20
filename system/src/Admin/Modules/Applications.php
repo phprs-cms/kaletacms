@@ -209,7 +209,7 @@ final class Applications extends Module
         if ($file === null) {
             return $this->error('The attachment no longer exists.', 404);
         }
-        ChangeLog::write($this->app, Store::SECTION, 'attachment', t('CV downloaded, application #%s, file %d', (string) $id, $index + 1)
+        ChangeLog::write($this->app, Store::SECTION, 'attachment', t('CV downloaded (file %d), application #%s', $index + 1, (string) $id)
             . ($this->request->get('sig') !== '' ? ' ' . t('(the link from the notification e-mail)') : ''));
 
         return new Response($file['content'], 200, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-store, private',

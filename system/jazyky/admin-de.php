@@ -9156,11 +9156,9 @@ return [
     'This download link is not valid. Open the record in the administration – the file is there.' => 'Dieser Download-Link ist ungültig. Öffnen Sie den Eintrag in der Administration – die Datei ist dort.',
     'This download link has expired. Open the record in the administration – the file is there.' => 'Dieser Download-Link ist abgelaufen. Öffnen Sie den Eintrag in der Administration – die Datei ist dort.',
     'Open the record' => 'Eintrag öffnen',
-    'CV downloaded, application #%s, file %d' => 'Lebenslauf heruntergeladen, Bewerbung Nr. %s, Datei %d',
     '(the link from the notification e-mail)' => '(der Link aus der Benachrichtigungs-E-Mail)',
     'The notification e-mail carries the applicant’s full details' => 'Die Benachrichtigungs-E-Mail enthält alle Angaben der Bewerberin oder des Bewerbers',
     'The notification e-mail carries the position and the links only' => 'Die Benachrichtigungs-E-Mail enthält nur die Stelle und die Links',
-    'Attachment downloaded, enquiry #%s, field %d' => 'Anhang heruntergeladen, Anfrage Nr. %s, Feld %d',
     'Include the applicant’s full details in the notification e-mail' => 'Alle Angaben der Bewerberin oder des Bewerbers in die Benachrichtigungs-E-Mail aufnehmen',
     'Either way each CV is a download link that works for %d days and only after signing in with access to Applications – files are never attached.' => 'In beiden Fällen ist jeder Lebenslauf ein Download-Link, der %d Tage gilt und nur nach der Anmeldung mit Zugriff auf Bewerbungen funktioniert – Dateien werden nie angehängt.',
     'Copies of the details stay in the recipients’ mailboxes; erasing personal data in Kaleta does not reach them.' => 'Kopien der Angaben bleiben in den Postfächern der Empfänger; das Löschen personenbezogener Daten in Kaleta erreicht sie nicht.',
@@ -9170,4 +9168,6 @@ return [
     'CVs are never attached to e-mails: the notification has a download link per CV that works for %d days and only for someone signed in with access to Applications.' => 'Lebensläufe werden nie an E-Mails angehängt: Die Benachrichtigung enthält pro Lebenslauf einen Download-Link, der %d Tage gilt und nur für angemeldete Personen mit Zugriff auf Bewerbungen funktioniert.',
     'Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.' => 'Benachrichtigungs-E-Mails mit den Angaben aus dem Formular „%s“ gingen an %s – Kopien in deren Postfächern liegen außerhalb von Kaleta.',
     'the recipients of the form' => 'die Empfänger des Formulars',
+    'CV downloaded (file %d), application #%s' => 'Lebenslauf heruntergeladen (Datei %d), Bewerbung Nr. %s',
+    'Attachment downloaded (field %d), enquiry #%s' => 'Anhang heruntergeladen (Feld %d), Anfrage Nr. %s',
 ];
