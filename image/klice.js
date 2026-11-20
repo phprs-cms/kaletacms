@@ -21,19 +21,7 @@
 	var supported = !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
 
 	// 3.47 (U69): one primary button on the sign-in page – the password by default; a browser that signed in with a passkey here
-	// before (one flag of this origin, no cookie, no identifier) gets the passkey as the primary one instead
-	var FLAG = 'kaleta-passkey';
-	function rememberPasskey() { try { window.localStorage.setItem(FLAG, '1'); } catch (e) { /* private mode, blocked storage */ } }
-	var usedBefore = false;
-	try { usedBefore = window.localStorage.getItem(FLAG) === '1'; } catch (e) { usedBefore = false; }
-	var passkeyButton = document.querySelector('[data-klic-bezhesla]'), passwordButton = document.querySelector('[data-login-password]');
-	if (supported && usedBefore && passkeyButton && passwordButton) {
-		passkeyButton.classList.replace('navigace', 'tl');
-		passwordButton.classList.replace('tl', 'navigace');
-	}
-
-	// 3.47 (U69): one primary button on the sign-in page – the password by default; a browser that signed in with a passkey here
-	// before (one flag of this origin, no cookie, no identifier) gets the passkey as the primary one instead
+	// without a password before (one flag of this origin, no cookie, no identifier) gets the passkey as the primary one instead
 	var FLAG = 'kaleta-passkey';
 	function rememberPasskey() { try { window.localStorage.setItem(FLAG, '1'); } catch (e) { /* private mode, blocked storage */ } }
 	var usedBefore = false;
@@ -201,7 +189,7 @@
 						response.rk = props.rk === false ? '0' : (props.rk === true ? '1' : '');
 						return deliver({ co: 'klic_uloz', odpoved: JSON.stringify(response), nazev: formEl.querySelector('[name="nazev"]:not([form])').value, nahradit: replaces });
 					}
-					return deliver({ krok: 'klic', odpoved: JSON.stringify(assertion(k)) }).then(function (j) { rememberPasskey(); return j; });
+					return deliver({ krok: 'klic', odpoved: JSON.stringify(assertion(k)) }); // 3.47 review F10: a second step is not remembered – the key may not sign in without a password
 				}).then(done).catch(function (e) {
 					// the user cancelling the dialog is not an error worth reporting
 					showError(failure(e));

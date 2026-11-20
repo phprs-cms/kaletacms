@@ -184,7 +184,9 @@ final class Applications extends Module
     /**
      * Handling (3.47 U64): the one Save of the side panel – the status with the reason of a rejection and the responsible
      * person in one request. Each part changes only when it differs (Store::setStatus, Store::assign write their own change
-     * log); "status" and "assign" stay for the board and older forms.
+     * log); "status" and "assign" stay for the board and older forms. 3.47 review F3: the form carries what it showed
+     * (was_status, was_reject_reason, was_assignee_id) and only the part the person changed on the page is written – a
+     * colleague's move on the board or new responsible person meanwhile is never reverted by the untouched field.
      */
     protected function actionHandling(): Response
     {
@@ -193,14 +195,28 @@ final class Applications extends Module
             return $this->back('', 'detail', ['id' => $id]);
         }
         $me = $this->app->auth()->id();
+        $statusValue = $this->request->post('status');
+        $reasonValue = $this->request->post('reject_reason');
+        $shown = $this->request->hasPost('was_status');
+        $statusTouched = !$shown || self::statusTouched($statusValue, $reasonValue, $this->request->post('was_status'), $this->request->post('was_reject_reason'));
+        $personTouched = !$shown || $this->request->postInt('assignee_id') !== $this->request->postInt('was_assignee_id');
         try {
-            $status = Store::setStatus($this->app, $id, $this->request->post('status'), $this->request->post('reject_reason'), $me);
-            $person = Store::assign($this->app, $id, $this->request->postInt('assignee_id'), $me);
+            $status = $statusTouched && Store::setStatus($this->app, $id, $statusValue, $reasonValue, $me);
+            $person = $personTouched && Store::assign($this->app, $id, $this->request->postInt('assignee_id'), $me);
         } catch (\DomainException $e) {
             return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
         }
 
         return $this->back($status || $person ? 'Saved.' : '', 'detail', ['id' => $id]);
+    }
+
+    /**
+     * Whether the Handling form's status part differs from what the page showed (3.47 review F3): another status, or another
+     * reason of a rejection. Pure.
+     */
+    public static function statusTouched(string $status, string $reason, string $wasStatus, string $wasReason): bool
+    {
+        return $status !== $wasStatus || ($status === 'rejected' && $reason !== $wasReason);
     }
 
     /**

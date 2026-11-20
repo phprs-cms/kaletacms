@@ -896,7 +896,8 @@
 			boardColumns().forEach(function (col) {
 				var cards = col.querySelectorAll(cfg.card);
 				var count = col.querySelector(cfg.count);
-				if (count) { count.textContent = String(cards.length); }
+				// 3.47 review F2: a column the server cut (Applications: BOARD_MAX cards) keeps the ones it leaves out in data-board-more
+				if (count) { count.textContent = String(cards.length + (parseInt(count.getAttribute('data-board-more') || '0', 10) || 0)); }
 				var empty = col.querySelector(cfg.empty);
 				if (empty) { empty.hidden = cards.length > 0; }
 			});
@@ -1102,7 +1103,19 @@
 			column: 'section[data-board-status]', columnKey: 'data-board-status', card: '[data-board-card]', form: 'form[data-board-move]', field: 'status', reasonField: 'reject_reason',
 			needsReason: function (col) { return col.hasAttribute('data-board-needs-reason'); },
 			label: '[data-board-label]', count: '[data-board-count]', cards: '[data-board-cards]', empty: '[data-board-empty]', announce: '[data-board-announce]', guideId: 'uchazeci-navod',
-			texts: { stays: T('The application stays in %s.'), reason: T('Say why “%s” was rejected, then press Move.'), failed: T('The application could not be moved.'), fold: T('Status and Move: “%s”'), foldTitle: T('Status and Move') }
+			texts: { stays: T('The application stays in %s.'), reason: T('Say why “%s” was rejected, then press Move.'), failed: T('The application could not be moved.'), fold: T('Status and Move: “%s”'), foldTitle: T('Status and Move') },
+			// 3.47 review F4: the chips of the old status go with it – "waiting" belongs to New, the reason to Rejected
+			after: function (card, j) {
+				if (j.status !== 'new') {
+					card.classList.remove('obchod-po-terminu');
+					Array.prototype.forEach.call(card.querySelectorAll('[data-board-waiting]'), function (chip) { chip.remove(); });
+				}
+				if (j.status !== 'rejected') {
+					Array.prototype.forEach.call(card.querySelectorAll('[data-board-reason]'), function (chip) { chip.remove(); });
+					var reason = card.querySelector('select[name="reject_reason"]');
+					if (reason) { reason.selectedIndex = 0; }
+				}
+			}
 		});
 	}
 	// 3.38 B: the quote editor asks the server for the totals as the lines change (Admin\Modules\Quotes::actionTotals) – the

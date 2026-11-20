@@ -6,7 +6,8 @@
  * rejection (shown by CSS :has() when Rejected is chosen) and Move – so it works with the keyboard, on a phone and without
  * a script. On a phone the columns stack (the board styles of the Pipeline). 3.47 (U65): image/admin.js adds the drag and the
  * keyboard of the Pipeline (boardBehaviour, the status posted as JSON); "All positions" shows every position, each card
- * naming its own.
+ * naming its own. 3.47 review: the count keeps the cards left out in data-board-more, the chips bound to a status carry
+ * data-board-waiting and data-board-reason, so the script can drop them when the card moves.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Applications $module
@@ -44,7 +45,7 @@ $label = fn (string $status): string => t(Store::STATUS_LABELS[$status] ?? $stat
 <?php foreach (Store::STATUSES as $status): $cards = $board['columns'][$status]; ?>
 	<section class="obchody-sloupec<?= $status === 'hired' ? ' obchody-won' : ($status === 'rejected' ? ' obchody-lost' : '') ?>" data-board-status="<?= e($status) ?>"<?= $status === 'rejected' ? ' data-board-needs-reason' : '' ?> aria-labelledby="stav-<?= e($status) ?>">
 		<header class="obchody-hlava">
-			<h2 id="stav-<?= e($status) ?>"><span data-board-label><?= e($label($status)) ?></span> <span class="obchody-pocet" data-board-count><?= format_count(count($cards) + $board['more'][$status]) ?></span></h2>
+			<h2 id="stav-<?= e($status) ?>"><span data-board-label><?= e($label($status)) ?></span> <span class="obchody-pocet" data-board-count<?= $board['more'][$status] > 0 ? ' data-board-more="' . (int) $board['more'][$status] . '"' : '' ?>><?= format_count(count($cards) + $board['more'][$status]) ?></span></h2>
 <?php if (in_array($status, Store::DECIDED, true)): ?>
 			<p class="obchody-soucty"><?= e(t('decided in the last %d days', Store::BOARD_DECIDED_DAYS)) ?></p>
 <?php endif ?>
@@ -61,13 +62,13 @@ $label = fn (string $status): string => t(Store::STATUS_LABELS[$status] ?? $stat
 				<div class="obchod-udaje">
 					<span>#<?= $id ?> · <?= e(format_date((string) $c['received_at'])) ?></span>
 <?php if ($c['waiting']): ?>
-					<span class="stitek stitek-chyba"><?= e(t('waiting')) ?></span>
+					<span class="stitek stitek-chyba" data-board-waiting><?= e(t('waiting')) ?></span>
 <?php endif ?>
 <?php if ($c['pool_until'] !== null): ?>
 					<span class="stitek" title="<?= e(t('Kept for future openings')) ?>"><?= e(t('pool')) ?></span>
 <?php endif ?>
 <?php if ($c['reject_reason'] !== null): ?>
-					<span><?= e(t(Store::REJECT_REASONS[$c['reject_reason']] ?? (string) $c['reject_reason'])) ?></span>
+					<span data-board-reason><?= e(t(Store::REJECT_REASONS[$c['reject_reason']] ?? (string) $c['reject_reason'])) ?></span>
 <?php endif ?>
 <?php if ($initials !== ''): ?>
 					<span class="obchod-osoba" title="<?= e($owner) ?>"><span aria-hidden="true"><?= e($initials) ?></span><span class="navod-skryte"><?= e(t('Responsible person: %s', $owner)) ?></span></span>

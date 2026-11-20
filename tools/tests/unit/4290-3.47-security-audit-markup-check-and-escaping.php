@@ -8,12 +8,17 @@ use Kaleta\Core\FileSignature;
 
 /* ---------- 3.47 security audit of 20 November: N171 (bounded markup check), I51 (what the builder and the nonce get) ---------- */
 
-// N171: the two tag patterns of FileSignature::MARKUP stop at the next "<" and after 2000 characters. Without the JIT a
-// 64 KB file of "<a " took seconds per check (and could end at the backtrack limit); run in a child PHP with pcre.jit=0.
+// N171: the two tag patterns of FileSignature::MARKUP look at most 2000 characters ahead. Without the JIT a 64 KB file of
+// "<a " took seconds per check (and could end at the backtrack limit); run in a child PHP with pcre.jit=0. A tag still open
+// after 2000 characters counts as markup (3.47 review F1); the "closed" cases close a tag every 600 or 2000 characters,
+// so every "<" is scanned to the bound and back – the slowest shape the patterns allow.
 $n171Script = <<<'PHP'
 require $argv[1] . '/system/bootstrap.php';
 $cases = ['padded' => substr(str_repeat('<a ', 21846), 0, 65536), 'padded-x' => substr(str_repeat('<a x', 16384), 0, 65536),
-    'one-open' => '<a ' . str_repeat('x ', 32766)];
+    'one-open' => '<a ' . str_repeat('x ', 32766),
+    'closed' => substr(str_repeat(str_repeat('<a ', 600) . '>', 40), 0, 65536),
+    'closed-o' => substr(str_repeat(str_repeat('<a o', 499) . '>', 40), 0, 65536),
+    'closed-long' => substr(str_repeat('<a ' . str_repeat('x', 1990) . '>', 40), 0, 65536)];
 $out = ['jit' => ini_get('pcre.jit')];
 foreach ($cases as $name => $text) {
     $start = microtime(true);
@@ -28,9 +33,10 @@ $n171Started = microtime(true);
 $n171Out = (string) shell_exec(escapeshellarg(PHP_BINARY) . ' -d pcre.jit=0 ' . escapeshellarg($n171File) . ' ' . escapeshellarg(KALETA_ROOT) . ' 2>&1');
 $n171Seconds = microtime(true) - $n171Started;
 unlink($n171File);
-check('3.47 N171: 64 KB of padded "<a " runs without the JIT in well under a second per check, with no PCRE error, and counts as plain text (no tag closes there)',
-    [json_decode($n171Out, true), $n171Seconds < 5.0],
-    [['jit' => '0', 'padded' => [true, true, true], 'padded-x' => [true, true, true], 'one-open' => [true, true, true]], true]);
+check('3.47 N171: 64 KB of padded "<a " runs without the JIT in well under a second per check, with no PCRE error; a tag left open past 2000 characters is markup, tags that close are plain text',
+    [json_decode($n171Out, true), $n171Seconds < 8.0],
+    [['jit' => '0', 'padded' => [false, true, true], 'padded-x' => [false, true, true], 'one-open' => [false, true, true],
+        'closed' => [true, true, true], 'closed-o' => [true, true, true], 'closed-long' => [true, true, true]], true]);
 
 $n171Plain = fn (string $text): bool => FileSignature::isPlainText($text, strlen($text));
 check('3.47 N171: the bounded patterns still find a javascript: link and an on…= handler, also with spaces and line breaks, and ignore "a < b and on = 3"', [
@@ -39,6 +45,12 @@ check('3.47 N171: the bounded patterns still find a javascript: link and an on�
     $n171Plain('a < b and on = 3'), $n171Plain("Notes: if x<y then\nrun on=3"), $n171Plain('<b>bold</b> and plain words'),
     $n171Plain('<a href="/x">javascript: a word in the text</a>')],
     [false, false, false, false, false, true, true, true, true]);
+check('3.47 review F1: a "<" inside an attribute value, 2100 characters of padding and the "/" separator no longer hide a handler or a javascript: link', [
+    $n171Plain('<p title="<" onmouseover=alert(1)>hover</p>'), $n171Plain('<a title="<" href="javascript:alert(1)">x</a>'),
+    $n171Plain('<p data-x="' . str_repeat('x', 2100) . '" onmouseover=alert(1)>'), $n171Plain('<p/onmouseover=alert(1)>hover</p>'),
+    $n171Plain('<a/href="javascript:alert(1)">x</a>'), $n171Plain('<img/src=x>'),
+    $n171Plain('Prices: a<b for ' . str_repeat('each row, ', 100) . 'and nothing else.'), $n171Plain('See <https://example.com/online> and <b>x</b>')],
+    [false, false, false, false, false, false, true, true]);
 
 // I51: what the builder (image/stavitel.js) puts into the page with el(…, {html}) is escaped on the server – the version
 // compare (Core\Diff through Builder\DraftHistory::compare) and the comments (Core\Comments::html through forBuilder).

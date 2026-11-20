@@ -46,10 +46,12 @@ final class FileSignature
     /**
      * Markup in a text file that a browser would show as a page or run – what libmagic calls text/html, and more (3.46.2
      * review L3): any doctype, images, styles, frames, SVG, a link to javascript: and an on…= handler inside a tag. The two
-     * tag patterns stop at the next < and after 2000 characters (3.47 N171): unbounded, a file of many "<a " took seconds
-     * per check without the JIT and could end at the backtrack limit, which no longer counts as plain text either.
+     * tag patterns look at most 2000 characters ahead (3.47 N171): unbounded, a file of many "<a " took seconds per check
+     * without the JIT and could end at the backtrack limit, which no longer counts as plain text either. They do not stop
+     * at a "<" (a browser takes it inside an attribute value), they take "/" as the separator a browser takes (<p/onclick=),
+     * and a tag still open after 2000 characters counts as markup, so padding cannot push a handler out of reach (3.47 review).
      */
-    private const string MARKUP = '/<\?php|<\?=|<script|<html|<!doctype|<svg|<iframe|<frame|<body|<object|<embed|<img[\s\/>]|<style|<link[\s\/>]|<meta[\s\/>]|<a\s[^<>]{0,2000}javascript:|<[a-z][^<>]{0,2000}\son[a-z]+\s*=/i';
+    private const string MARKUP = '/<\?php|<\?=|<script|<html|<!doctype|<svg|<iframe|<frame|<body|<object|<embed|<img[\s\/>]|<style|<link[\s\/>]|<meta[\s\/>]|<a[\s\/][^>]{0,2000}javascript:|<[a-z][^>]{0,2000}[\s\/]on[a-z]+\s*=|<[a-z][^>]{2000}/i';
 
     /** The content type of the file for the extension it claims, '' when the bytes do not confirm it. */
     public static function sniff(string $path, string $extension): string

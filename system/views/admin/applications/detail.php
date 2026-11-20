@@ -146,6 +146,8 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 <?php /* 3.47 (U64): one form, one Save – the status with the reason of a rejection and the responsible person */ ?>
 <form class="zaznam-formular" method="post" action="<?= e($module->url('handling')) ?>" data-application-move>
 	<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>">
+	<?php /* 3.47 review F3: what the form shows – Save writes only the part changed here */ ?>
+	<input type="hidden" name="was_status" value="<?= e((string) $a['status']) ?>"><input type="hidden" name="was_reject_reason" value="<?= e((string) ($a['reject_reason'] ?? '')) ?>"><input type="hidden" name="was_assignee_id" value="<?= (int) $a['assignee_id'] ?>">
 	<div class="zaznam-pole"><label for="uchazec-stav"><?= e(t('Status')) ?></label>
 	<select id="uchazec-stav" name="status">
 <?php foreach (Store::STATUSES as $status): ?>

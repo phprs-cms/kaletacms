@@ -2044,7 +2044,7 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 /* 3.34 B: a job application – two columns on a wide screen (the record and its conversation; status, responsibility,
    tasks, history), one on a phone; the reason of a rejection shows only with Rejected chosen; the selected rows at once */
 .uchazec-stav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
-.uchazec-duvod label { flex: 1 1 100%; font-weight: 600; }
+.uchazec-stav > label, .uchazec-duvod label { flex: 1 1 100%; font-weight: 600; } /* .uchazec-stav: the forms of Move by form */
 .uchazec-stav select { flex: 1 1 10em; min-width: 0; max-width: 100%; }
 .uchazec-duvod { display: none; }
 .uchazec-stav:has(select[name="status"] option[value="rejected"]:checked) .uchazec-duvod { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 6px; }

@@ -4927,7 +4927,7 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
   const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
   sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
     INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, data, status, status_at, last_activity_at) VALUES
-      (NOW(), 9471, 'Welder B347', 'Job application', 'Nora B347', 'nora-b347@example.com', 'nora-b347@example.com', '[["Full name","Nora B347"]]', 'new', NOW(), NOW()),
+      (NOW() - INTERVAL 20 DAY, 9471, 'Welder B347', 'Job application', 'Nora B347', 'nora-b347@example.com', 'nora-b347@example.com', '[["Full name","Nora B347"]]', 'new', NOW(), NOW()),
       (NOW(), 9471, 'Welder B347', 'Job application', 'Petr Longname-Of-A-Welder B347', 'petr-b347@example.com', 'petr-b347@example.com', '[]', 'new', NOW(), NOW()),
       (NOW(), 9471, 'Welder B347', 'Job application', 'Rosa B347', 'rosa-b347@example.com', 'rosa-b347@example.com', '[]', 'new', NOW(), NOW()),
       (NOW(), 9472, 'Painter B347', 'Job application', 'Saul B347', 'saul-b347@example.com', 'saul-b347@example.com', '[]', 'reviewed', NOW(), NOW())`);
@@ -4944,12 +4944,17 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
     if ((await page.locator('[data-applications-board] .obchod-uchyt').count()) !== 3) { throw new Error('the cards have no keyboard handle'); }
     // the drag: Nora to Interview – posted as JSON, the card and the counts follow, announced
     const count = (status) => page.locator(`section[data-board-status="${status}"] [data-board-count]`).innerText().then(Number);
+    // 3.47 review F2: a column the server cut keeps the cards it left out (data-board-more) – here New as if 40 more were in the list
+    await page.evaluate(() => { const c = document.querySelector('section[data-board-status="new"] [data-board-count]'); c.setAttribute('data-board-more', '40'); c.textContent = String(Number(c.textContent) + 40); });
+    // 3.47 review F4: Nora (20 days without a reply) carries the "waiting" chip and the overdue look of New
+    if ((await page.locator(`#application-${nora}.obchod-po-terminu [data-board-waiting]`).count()) !== 1) { throw new Error('the waiting card has no waiting chip'); }
     const before = [await count('new'), await count('interview')];
     await page.locator(`#application-${nora}`).dragTo(page.locator('section[data-board-status="interview"]'));
     await page.locator(`section[data-board-status="interview"] #application-${nora}`).waitFor({ timeout: 5000 });
     await page.waitForFunction(() => /Interview/.test(document.querySelector('[data-board-announce]').textContent));
     if (sql(`SELECT status FROM ka_applications WHERE id = ${nora}`).trim() !== 'interview') { throw new Error('the drag was not saved'); }
-    if ((await count('new')) !== before[0] - 1 || (await count('interview')) !== before[1] + 1) { throw new Error('the counts did not follow the drag'); }
+    if ((await count('new')) !== before[0] - 1 || (await count('interview')) !== before[1] + 1) { throw new Error(`the counts did not follow the drag (the hidden 40 of New kept): ${before} → ${await count('new')},${await count('interview')}`); }
+    if ((await page.locator(`#application-${nora}.obchod-po-terminu, #application-${nora} [data-board-waiting]`).count()) !== 0) { throw new Error('the card keeps the waiting chip of New after the move'); }
     // the keyboard: Petr's handle, Space, ArrowRight, Space → Reviewed
     await page.locator(`#application-${petr} .obchod-uchyt`).focus();
     await page.keyboard.press('Space');
@@ -5016,6 +5021,11 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
       if (!big[0] || big[1] !== big[2] || !big[1]) { throw new Error(`a 2 MB file is not stopped by the browser: ${JSON.stringify(big)}`); }
       await input.setInputFiles({ name: 'cv.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') });
       if (await input.evaluate((el) => el.validity.customError)) { throw new Error('a small file keeps the custom validity'); }
+      // 3.47 review F6: with the server's body limit equal to the file limit (1M/1M), one file just under it is not refused "together"
+      await input.evaluate((el) => el.form.setAttribute('data-max-post', el.getAttribute('data-max-bytes')));
+      await input.setInputFiles({ name: 'near-cv.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(1048576 - 20000, 65) });
+      const near = await input.evaluate((el) => [el.validity.customError, el.validationMessage]);
+      if (near[0]) { throw new Error(`one file under the limit is refused when the body limit equals the file limit: ${JSON.stringify(near)}`); }
     } finally {
       await visitor.close();
     }
