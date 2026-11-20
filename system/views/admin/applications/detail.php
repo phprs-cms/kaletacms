@@ -1,10 +1,11 @@
 <?php
 /**
- * A job application (3.34, Core\Applications::get) in two columns on a wide screen, one on a phone. The main column: who
- * applied and what they sent, the CVs (Download – the file is decrypted only for the download), the replies sent, the
- * team's notes. The side column: the status (rejected asks for a reason), the responsible person, the consent for future
- * openings (withdraw), the day it will be deleted, other applications from the same address, the tasks, the status history
- * and Delete (administrators – HR rejects, the retention deletes).
+ * A job application (3.34, Core\Applications::get) – 3.47 (U64) on the record template of 3.37 (image/admin.css .zaznam-*):
+ * one bar with the way back, the status, a jump to the reply and More (consent withdrawn, Delete for administrators); the
+ * main column with who applied and what they sent, the CVs (Download – decrypted only for the download), the replies sent,
+ * the reply form and the team's notes; the side column with one Handling form – the status (rejected asks for a reason)
+ * and the responsible person, one Save (Applications::actionHandling) – then the facts (consent for future openings, the
+ * day it will be deleted, other applications from the same address), the tasks and the status history.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Applications $module
@@ -31,11 +32,29 @@ $id = (int) $a['id'];
 $label = fn (string $status): string => t(Store::STATUS_LABELS[$status] ?? $status);
 $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : ($status === 'rejected' ? ' stitek-chyba' : ($status === 'new' ? ' stitek-koncept' : ''));
 ?>
-<p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All applications')) ?></a></p>
-<div class="uchazec-detail" data-application-card="<?= $id ?>">
-<div class="uchazec-hlavni">
-<section class="zakaznik-karta" aria-labelledby="uchazec-kdo">
-<h2 id="uchazec-kdo"><?= bdi((string) $a['name'] !== '' ? (string) $a['name'] : ((string) $a['email'] !== '' ? (string) $a['email'] : t('Application #%s', (string) $id))) ?></h2>
+<div class="zaznam-lista" data-record-bar>
+<a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All applications')) ?></a>
+<div class="zaznam-akce">
+	<span class="stitek<?= $tone((string) $a['status']) ?>" data-application-status="<?= e((string) $a['status']) ?>" data-record-state><?= e($label((string) $a['status'])) ?><?= $a['reject_reason'] !== null ? ' · ' . e(t(Store::REJECT_REASONS[$a['reject_reason']] ?? (string) $a['reject_reason'])) : '' ?></span>
+<?php if ((string) $a['email'] !== ''): ?>
+	<a class="navigace" href="#reply" data-record-reply><?= e(t('Reply')) ?></a>
+<?php endif ?>
+<?php if ($a['pool_until'] !== null || $admin): ?>
+	<details class="zaznam-vice" data-zavrit-mimo data-record-more><summary><?= e(t('More')) ?></summary><div class="zaznam-vice-menu">
+<?php if ($a['pool_until'] !== null): ?>
+		<form method="post" action="<?= e($module->url('consent')) ?>" data-application-consent data-potvrdit="<?= e(t('The applicant withdrew the consent? The application then follows the normal retention.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace" type="submit"><?= e(t('Consent withdrawn')) ?></button></form>
+<?php endif ?>
+<?php if ($admin): ?>
+		<form method="post" action="<?= e($module->url('delete')) ?>" data-application-delete data-potvrdit="<?= e(t('Delete this application for good, with its CVs, notes and tasks? This cannot be undone.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
+<?php endif ?>
+	</div></details>
+<?php endif ?>
+</div>
+</div>
+<div class="zaznam-obal"><div class="zaznam" data-application-card="<?= $id ?>">
+<div class="zaznam-hlavni">
+<section class="zaznam-panel" aria-labelledby="uchazec-kdo">
+<h2 id="uchazec-kdo"><?= e(t('What they sent')) ?></h2>
 <dl class="poptavka">
 	<dt><?= e(t('Position')) ?></dt><dd data-application-position><?= (string) $a['job_title'] !== '' ? bdi((string) $a['job_title']) : '<span class="napoveda">' . e(t('No position (a spontaneous application)')) . '</span>' ?><?= $a['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></dd>
 	<dt><?= e(t('Received')) ?></dt><dd><?= e(format_date((string) $a['received_at'], true)) ?> · <?= bdi((string) $a['form']) ?></dd>
@@ -121,43 +140,40 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 <?= $app->view->render('admin/comments', $thread + ['app' => $app, 'csrf' => $csrf]) ?>
 </div>
 
-<aside class="uchazec-bok" aria-label="<?= e(t('Status and responsibility')) ?>">
-<section class="zakaznik-karta">
-<p data-application-status="<?= e((string) $a['status']) ?>"><span class="stitek<?= $tone((string) $a['status']) ?>"><?= e($label((string) $a['status'])) ?></span><?= $a['reject_reason'] !== null ? ' · ' . e(t(Store::REJECT_REASONS[$a['reject_reason']] ?? (string) $a['reject_reason'])) : '' ?></p>
-<form class="uchazec-stav" method="post" action="<?= e($module->url('status')) ?>" data-application-move>
+<div class="zaznam-bok">
+<section class="zaznam-panel" id="handling" aria-labelledby="uchazec-handling" data-application-handling>
+<h2 id="uchazec-handling"><?= e(t('Handling')) ?></h2>
+<?php /* 3.47 (U64): one form, one Save – the status with the reason of a rejection and the responsible person */ ?>
+<form class="zaznam-formular" method="post" action="<?= e($module->url('handling')) ?>" data-application-move>
 	<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>">
-	<label for="uchazec-stav"><?= e(t('Status')) ?></label>
+	<div class="zaznam-pole"><label for="uchazec-stav"><?= e(t('Status')) ?></label>
 	<select id="uchazec-stav" name="status">
 <?php foreach (Store::STATUSES as $status): ?>
 		<option value="<?= e($status) ?>"<?= $status === $a['status'] ? ' selected' : '' ?>><?= e($label($status)) ?></option>
 <?php endforeach ?>
-	</select>
-	<span class="uchazec-duvod">
-		<label for="uchazec-duvod"><?= e(t('Reason when rejected')) ?></label>
-		<select id="uchazec-duvod" name="reject_reason">
+	</select></div>
+	<div class="zaznam-pole uchazec-duvod"><label for="uchazec-duvod"><?= e(t('Reason when rejected')) ?></label>
+	<select id="uchazec-duvod" name="reject_reason">
 <?php foreach (Store::REJECT_REASONS as $key => $reason): ?>
-			<option value="<?= e($key) ?>"<?= $key === $a['reject_reason'] ? ' selected' : '' ?>><?= e(t($reason)) ?></option>
+		<option value="<?= e($key) ?>"<?= $key === $a['reject_reason'] ? ' selected' : '' ?>><?= e(t($reason)) ?></option>
 <?php endforeach ?>
-		</select>
-	</span>
-	<button class="tl" type="submit"><?= e(t('Change status')) ?></button>
-</form>
-<form class="uchazec-stav" method="post" action="<?= e($module->url('assign')) ?>" data-application-assignee>
-	<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>">
-	<label for="uchazec-odpovedny"><?= e(t('Responsible person')) ?></label>
+	</select></div>
+	<div class="zaznam-pole" data-application-assignee><label for="uchazec-odpovedny"><?= e(t('Responsible person')) ?></label>
 	<select id="uchazec-odpovedny" name="assignee_id"><option value="0">—</option>
 <?php foreach ($people as $userId => $name): ?>
 		<option value="<?= (int) $userId ?>"<?= (int) $a['assignee_id'] === (int) $userId ? ' selected' : '' ?>><?= e((int) $userId === $me ? t('Me (%s)', $name) : $name) ?></option>
 <?php endforeach ?>
-	</select>
-	<button class="navigace" type="submit"><?= e(t('Save')) ?></button>
+	</select></div>
+	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
+</section>
+<section class="zaznam-panel" aria-labelledby="uchazec-fakta" data-application-facts>
+<h2 id="uchazec-fakta"><?= e(t('Details')) ?></h2>
 <dl class="poptavka">
 	<dt><?= e(t('Consent for future openings')) ?></dt><dd data-application-pool><?php if ($a['pool_until'] !== null): ?>
 		<?= e(t('Given %s – kept until %s', format_date((string) $a['pool_consent_at']), format_date((string) $a['pool_until']))) ?>
 		<?php if ((string) $a['pool_consent_text'] !== ''): ?><br><small><?= bdi((string) $a['pool_consent_text']) ?></small><?php endif ?>
 		<?php if (Kaleta\Core\TalentPool::renewalSent($a)): /* 3.40 */ ?><br><small data-application-pool-renewal><?= e(t('Renewal e-mail sent %s', format_date((string) $a['pool_renewal_sent_at']))) ?></small><?php endif ?>
-		<form class="vradku" method="post" action="<?= e($module->url('consent')) ?>" data-potvrdit="<?= e(t('The applicant withdrew the consent? The application then follows the normal retention.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace" type="submit"><?= e(t('Consent withdrawn')) ?></button></form>
 	<?php else: ?><span class="napoveda"><?= e(t('Not given')) ?></span><?php endif ?></dd>
 	<dt><?= e(t('Will be deleted')) ?></dt><dd data-application-deletes><?= $deletesOn !== null ? e(format_date($deletesOn)) : '<span class="napoveda">' . e(t('Not limited')) . '</span>' ?><?= $a['status'] === 'hired' ? '<br><small>' . e(t('Take what belongs in the personnel file before the application is deleted.')) . '</small>' : '' ?></dd>
 <?php if ($others !== []): ?>
@@ -168,10 +184,7 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 	</ul><?php if ($othersCount > count($others)): ?><small data-application-others-more><a href="<?= e($module->url('', ['status' => '', 'search' => (string) $a['email']])) ?>"><?= e(t('All %d from this address', $othersCount)) ?></a></small><?php endif ?></dd>
 <?php endif ?>
 </dl>
-<?php if ($admin): ?>
-<form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-application-delete data-potvrdit="<?= e(t('Delete this application for good, with its CVs, notes and tasks? This cannot be undone.')) ?>">
-	<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
-<?php else: ?>
+<?php if (!$admin): ?>
 <p class="napoveda"><?= e(t('An application is deleted by its retention, or by an administrator. Reject it when it is decided.')) ?></p>
 <?php endif ?>
 </section>
@@ -187,5 +200,5 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 </ol>
 </section>
 <?php endif ?>
-</aside>
 </div>
+</div></div>

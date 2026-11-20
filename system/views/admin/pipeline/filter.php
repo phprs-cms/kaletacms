@@ -54,7 +54,7 @@ $clear = $filter['view'] === 'list' ? $module->url('', ['view' => 'list']) : $mo
 <?php endforeach ?>
 	</select></label>
 <?php endif ?>
-	<label class="obchody-bez-kroku"><input type="checkbox" name="next" value="none"<?= $filter['next'] === 'none' ? ' checked' : '' ?> data-pipeline-no-next> <span><?= e(t('No next step')) ?></span></label>
+	<label><input type="checkbox" name="next" value="none"<?= $filter['next'] === 'none' ? ' checked' : '' ?> data-pipeline-no-next> <span><?= e(t('No next step')) ?></span></label>
 	<p class="zakaznici-filtr-tlacitka"><button class="tl" type="submit"><?= e(t('Filter')) ?></button><?php if ($filtered): ?> <a class="navigace" href="<?= e($clear) ?>"><?= e(t('Clear filter')) ?></a><?php endif ?></p>
 </form>
 <?php if ($filter['contact'] > 0): ?>

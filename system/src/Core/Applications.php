@@ -506,9 +506,10 @@ final class Applications
 
     /**
      * The board of one position (3.40, design B15 "a board by status for one position"): a column per status, newest first;
-     * hired and rejected only when decided in the last BOARD_DECIDED_DAYS days. $job: an item id or 'none' (spontaneous).
-     * Each card: id, name, email (when there is no name), received_at, assignee_id, waiting (new without a reply for more
-     * than WAITING_DAYS), late, pool_until, reject_reason. 'more' = per status how many the column leaves out.
+     * hired and rejected only when decided in the last BOARD_DECIDED_DAYS days. $job: an item id, 'none' (spontaneous) or
+     * 'all' (3.47 U65: every position, the same limits). Each card: id, name, email (when there is no name), job_title,
+     * received_at, assignee_id, waiting (new without a reply for more than WAITING_DAYS), late, pool_until, reject_reason.
+     * 'more' = per status how many the column leaves out.
      *
      * @return array{columns: array<string, list<array<string, mixed>>>, more: array<string, int>}
      */
@@ -516,25 +517,40 @@ final class Applications
     {
         $columns = array_fill_keys(self::STATUSES, []);
         $more = array_fill_keys(self::STATUSES, 0);
-        if ($job !== 'none' && (!ctype_digit($job) || (int) $job <= 0)) {
+        $position = self::boardPosition($job);
+        if ($position === null) {
             return ['columns' => $columns, 'more' => $more];
         }
         $since = (new \DateTimeImmutable($today))->modify('-' . self::BOARD_DECIDED_DAYS . ' days')->format('Y-m-d') . ' 00:00:00';
         $waiting = self::waitingBefore($today);
-        $rows = $db->all('SELECT id, name, email, received_at, status, assignee_id, replies IS NULL AS unanswered, late, pool_until, reject_reason FROM {applications} WHERE '
-            . ($job === 'none' ? 'job_item_id IS NULL' : 'job_item_id = ' . (int) $job) . " AND (status NOT IN ('hired', 'rejected') OR decided_at >= ?) ORDER BY id DESC LIMIT 2000", [$since]);
+        $rows = $db->all('SELECT id, name, email, job_title, received_at, status, assignee_id, replies IS NULL AS unanswered, late, pool_until, reject_reason FROM {applications} WHERE '
+            . $position . " (status NOT IN ('hired', 'rejected') OR decided_at >= ?) ORDER BY id DESC LIMIT 2000", [$since]);
         foreach ($rows as $r) {
             $status = in_array($r['status'], self::STATUSES, true) ? (string) $r['status'] : 'new';
             if (count($columns[$status]) >= self::BOARD_MAX) {
                 $more[$status]++;
                 continue;
             }
-            $columns[$status][] = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'received_at' => (string) $r['received_at'],
+            $columns[$status][] = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'job_title' => (string) $r['job_title'], 'received_at' => (string) $r['received_at'],
                 'assignee_id' => $r['assignee_id'] !== null ? (int) $r['assignee_id'] : null, 'waiting' => $status === 'new' && (int) $r['unanswered'] === 1 && (string) $r['received_at'] < $waiting,
                 'late' => (int) $r['late'] === 1, 'pool_until' => $r['pool_until'] !== null ? (string) $r['pool_until'] : null, 'reject_reason' => $r['reject_reason'] !== null ? (string) $r['reject_reason'] : null];
         }
 
         return ['columns' => $columns, 'more' => $more];
+    }
+
+    /**
+     * The position condition of the board, ending with AND ('' for 'all'); null for a value that is no position (3.47 U65).
+     * Pure – the board accepts 'all' itself, because filter() is also the list's and MCP's.
+     */
+    public static function boardPosition(string $job): ?string
+    {
+        return match (true) {
+            $job === 'all' => '',
+            $job === 'none' => 'job_item_id IS NULL AND',
+            ctype_digit($job) && (int) $job > 0 => 'job_item_id = ' . (int) $job . ' AND',
+            default => null,
+        };
     }
 
     /**

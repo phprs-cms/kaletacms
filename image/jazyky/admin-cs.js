@@ -2993,4 +2993,7 @@ window.KALETA_PREKLAD = {
 	"Line moved to position %s.": "Řádek je teď na pozici %s.",
 	"The line is removed when you save.": "Řádek se odebere, až uložíte.",
 	"The line stays.": "Řádek zůstává.",
+	"The application stays in %s.": "Přihláška zůstává ve stavu %s.",
+	"Say why “%s” was rejected, then press Move.": "Napište, proč je „%s“ zamítnuta, a stiskněte Přesunout.",
+	"The application could not be moved.": "Přihlášku nešlo přesunout.",
 };

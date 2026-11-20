@@ -1,7 +1,9 @@
 <?php
 /**
  * One internal file (3.42): its name, description, tags, folder and status, the versions with a download each, a new
- * version, Delete.
+ * version, Delete. 3.47 (U66) on the record template: one bar with the way back, Preview (a raster image or a text
+ * document), Download and More (Delete – out of the Save form); the form and the new version in the main column, the facts
+ * and the versions at the side.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\InternalFiles $module
@@ -13,12 +15,31 @@
  */
 use Kaleta\Core\Files;
 use Kaleta\Core\InternalFiles;
+
+$preview = $module::previewKind($file);
 ?>
-<p><a href="<?= e($module->url('', ['folder' => $file['folder_id']])) ?>">← <?= e($file['folder_name']) ?></a></p>
+<div class="zaznam-lista" data-record-bar>
+<a class="navigace" href="<?= e($module->url('', ['folder' => $file['folder_id']])) ?>">← <?= e($file['folder_name']) ?></a>
+<div class="zaznam-akce">
+<?php if ($preview !== null): ?>
+	<a class="navigace" href="<?= e($module->url('preview', ['id' => $file['id']])) ?>" target="_blank" rel="noopener" data-internal-preview><?= e(t('Preview')) ?></a>
+<?php endif ?>
+	<a class="tl" href="<?= e($module->url('download', ['id' => $file['id']])) ?>" data-internal-download><?= e(t('Download')) ?></a>
+<?php if ($mayDelete): ?>
+	<details class="zaznam-vice" data-zavrit-mimo data-record-more><summary><?= e(t('More')) ?></summary><div class="zaznam-vice-menu">
+		<form method="post" action="<?= e($module->url('delete')) ?>" data-internal-delete data-potvrdit="<?= e(t('Delete the file with all its versions? It cannot be brought back.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $file['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
+	</div></details>
+<?php endif ?>
+</div>
+</div>
+<div class="zaznam-obal"><div class="zaznam">
+<div class="zaznam-hlavni">
 <?php if ($file['status'] === 'draft'): ?>
 <p class="hlaska hlaska-varovani"><?= e(t('A draft – written through a Claude connection limited to drafts, or marked so by a colleague. Check it and mark it ready.')) ?></p>
 <?php endif ?>
-<p class="tlacitka"><a class="tl" href="<?= e($module->url('download', ['id' => $file['id']])) ?>"><?= e(t('Download')) ?></a> <span class="smltxt"><?= e(t('Version %d', $file['version'])) ?> · <?= e(Files::size($file['size'])) ?> · <?= e(strtoupper($file['extension'])) ?></span></p>
+<?php if ($preview === 'image'): /* 3.47 (U66): loaded only when opened (a change-log line each) */ ?>
+<details class="interni-nahled"><summary><?= e(t('Preview')) ?></summary><img src="<?= e($module->url('preview', ['id' => $file['id']])) ?>" alt="<?= e($file['name']) ?>" loading="lazy"></details>
+<?php endif ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>"><?= $csrf ?>
 <input type="hidden" name="id" value="<?= (int) $file['id'] ?>">
 <fieldset>
@@ -33,8 +54,7 @@ use Kaleta\Core\InternalFiles;
 <?php foreach (InternalFiles::STATUSES as $k => $label): ?><option value="<?= e($k) ?>"<?= $file['status'] === $k ? ' selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach ?>
 </select></div></div>
 </fieldset>
-<p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save')) ?>">
-<?php if ($mayDelete): ?> <button class="navigace nebezpecne" type="submit" formaction="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the file with all its versions? It cannot be brought back.')) ?>"><?= e(t('Delete')) ?></button><?php endif ?></p>
+<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Save')) ?></button></p>
 </form>
 <h2><?= e(t('Replace with a new version')) ?></h2>
 <form class="formular" method="post" action="<?= e($module->url('replace')) ?>" enctype="multipart/form-data"><?= $csrf ?>
@@ -42,21 +62,25 @@ use Kaleta\Core\InternalFiles;
 <div class="radek"><label for="if-new"><?= e(t('New version')) ?></label><div><input id="if-new" name="file" type="file" required accept="<?= e(implode(',', array_map(fn (string $x): string => '.' . $x, array_keys(InternalFiles::TYPES)))) ?>"> <button class="navigace" type="submit"><?= e(t('Upload')) ?></button>
 <span class="napoveda"><?= e(t('The older versions stay and can still be downloaded. %s at most.', $limit)) ?></span></div></div>
 </form>
-<h2><?= e(t('Versions')) ?></h2>
-<div class="tab-obal">
-<table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('Uploaded file')) ?></th><th scope="col"><?= e(t('Size')) ?></th><th scope="col"><?= e(t('Uploaded')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
-<tbody>
-<?php foreach ($file['versions'] as $v): ?>
-<tr>
-	<td class="cislo"><?= (int) $v['version'] ?><?= $v['version'] === $file['version'] ? ' <span class="stitek stitek-vydano">' . e(t('current')) . '</span>' : '' ?></td>
-	<td><?= e($v['original_name']) ?></td>
-	<td class="cislo"><?= e(Files::size($v['size'])) ?></td>
-	<td class="cislo"><?= e(format_date($v['uploaded_at'], true)) ?><?= $v['uploaded_by'] !== '' ? '<br><span class="smltxt">' . e($v['uploaded_by']) . '</span>' : '' ?></td>
-	<td class="akce"><a href="<?= e($module->url('download', ['id' => $file['id'], 'version' => $v['version']])) ?>"><?= e(t('Download')) ?></a></td>
-</tr>
-<?php endforeach ?>
-</tbody>
-</table>
 </div>
-<p class="smltxt"><?= e(t('Uploaded by %s, %s.', $file['created_by_name'] !== '' ? $file['created_by_name'] : '–', format_date($file['created_at'], true))) ?></p>
+<div class="zaznam-bok">
+<section class="zaznam-panel" aria-labelledby="if-fakta" data-internal-facts>
+<h2 id="if-fakta"><?= e(t('Details')) ?></h2>
+<dl class="poptavka">
+	<dt><?= e(t('Version')) ?></dt><dd><?= (int) $file['version'] ?> · <?= e(Files::size($file['size'])) ?> · <?= e(strtoupper($file['extension'])) ?></dd>
+	<dt><?= e(t('Uploaded')) ?></dt><dd><?= e(t('Uploaded by %s, %s.', $file['created_by_name'] !== '' ? $file['created_by_name'] : '–', format_date($file['created_at'], true))) ?></dd>
+</dl>
+</section>
+<section class="zaznam-panel" aria-labelledby="if-verze" data-internal-versions>
+<h2 id="if-verze"><?= e(t('Versions')) ?></h2>
+<ol class="interni-verze">
+<?php foreach ($file['versions'] as $v): ?>
+	<li><strong><?= e(t('Version %d', (int) $v['version'])) ?></strong><?= $v['version'] === $file['version'] ? ' <span class="stitek stitek-vydano">' . e(t('current')) . '</span>' : '' ?>
+		<br><span class="interni-verze-nazev"><?= e($v['original_name']) ?></span>
+		<br><span class="smltxt"><?= e(Files::size($v['size'])) ?> · <?= e(format_date($v['uploaded_at'], true)) ?><?= $v['uploaded_by'] !== '' ? ' · ' . e($v['uploaded_by']) : '' ?></span>
+		<br><a href="<?= e($module->url('download', ['id' => $file['id'], 'version' => $v['version']])) ?>"><?= e(t('Download')) ?></a></li>
+<?php endforeach ?>
+</ol>
+</section>
+</div>
+</div></div>

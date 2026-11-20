@@ -872,52 +872,37 @@
 		}
 	}, true);
 	document.addEventListener('focusout', function (e) { if (e.target === mentionField) { mentionClose(); } });
-	/* ---------- 3.31: the Pipeline board – drag and drop and the keyboard on top of the move forms that work without them ---------- */
-	// Each card ([data-deal]) has its own form (stage select + Move). Here: a card is dragged to a column, or its handle is
-	// picked up with Space, the arrows choose the column and Space drops it (Esc cancels); the move is posted as JSON and the
-	// card, the counts and the sums follow; every step is announced in the live region. A lost column needs a reason: the
-	// card's own form then shows the reason select (its stage set to that column) and the person finishes with Move.
-	var board = document.querySelector('[data-pipeline-board]');
-	if (board && window.fetch && window.FormData) {
-		var boardSay = document.querySelector('[data-pipeline-announce]');
+	/* ---------- 3.31, 3.47 (U65): the boards – drag and drop and the keyboard on top of the move forms that work without them ---------- */
+	// One behaviour for the Pipeline ([data-pipeline-board]) and the board of a position in Applications ([data-applications-board]).
+	// Each card has its own form (a select + Move). Here: a card is dragged to a column, or its handle is picked up with Space,
+	// the arrows choose the column and Space drops it (Esc cancels); the move is posted as JSON and the card and the counts
+	// follow; every step is announced in the live region. A column that needs a reason (a lost deal, a rejected application):
+	// the card's own form then shows the reason select (set to that column) and the person finishes with Move. With a mouse
+	// the select and Move fold behind ⋯ for a lighter card; on a touch screen and without JavaScript the form stays open.
+	// cfg: column (selector of a column), columnKey (its attribute with the key), card, form, field (the select's name and the
+	// key of the JSON answer), reasonField, needsReason(col), label, count, cards, empty (selectors inside a column), announce
+	// (selector of the live region), guideId (the instructions the handle points to), texts, after(card, json, col) (optional).
+	function boardBehaviour(board, cfg) {
+		var boardSay = document.querySelector(cfg.announce);
 		var say = function (text) {
 			if (!boardSay) { return; }
 			boardSay.textContent = '';
 			setTimeout(function () { boardSay.textContent = text; }, 50); // emptied first, so the same message twice is read twice
 		};
-		var boardColumns = function () { return Array.prototype.slice.call(board.querySelectorAll('section[data-stage]')); };
-		var stageName = function (col) { var l = col.querySelector('[data-stage-label]'); return l ? l.textContent : col.getAttribute('data-stage'); };
+		var boardColumns = function () { return Array.prototype.slice.call(board.querySelectorAll(cfg.column)); };
+		var columnName = function (col) { var l = col.querySelector(cfg.label); return l ? l.textContent : col.getAttribute(cfg.columnKey); };
 		var cardTitle = function (card) { var h = card.querySelector('h3'); return h ? h.textContent.trim() : ''; };
-		// 3.32 (U29): the totals read as the server writes them – Core\Deals::moneyFormat() in data-money (separators, sign before/after)
-		var moneyFormat = {};
-		try { moneyFormat = JSON.parse(board.getAttribute('data-money') || '{}'); } catch (e) { moneyFormat = {}; }
-		var money = function (cents, currency) {
-			var whole = Math.floor(cents / 100), rest = cents % 100;
-			var text = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, moneyFormat.thousands || ' ') + (rest ? (moneyFormat.decimal || ',') + String(100 + rest).slice(1) : '');
-			var affix = (moneyFormat.affixes && moneyFormat.affixes[currency]) || ['', '\u00a0' + currency];
-			return affix[0] + text + affix[1];
-		};
 		var recount = function () {
 			boardColumns().forEach(function (col) {
-				var cards = col.querySelectorAll('[data-deal]');
-				var count = col.querySelector('[data-stage-count]');
+				var cards = col.querySelectorAll(cfg.card);
+				var count = col.querySelector(cfg.count);
 				if (count) { count.textContent = String(cards.length); }
-				var empty = col.querySelector('[data-stage-empty]');
+				var empty = col.querySelector(cfg.empty);
 				if (empty) { empty.hidden = cards.length > 0; }
-				var sums = col.querySelector('[data-stage-sums]');
-				if (!sums) { return; }
-				var by = {};
-				Array.prototype.forEach.call(cards, function (card) {
-					var value = card.getAttribute('data-value'), currency = card.getAttribute('data-currency');
-					if (!value || !currency) { return; }
-					var parts = value.split('.');
-					by[currency] = (by[currency] || 0) + parseInt(parts[0], 10) * 100 + parseInt(((parts[1] || '') + '00').slice(0, 2), 10);
-				});
-				sums.textContent = Object.keys(by).sort().map(function (c) { return money(by[c], c); }).join(' · ');
 			});
 		};
-		var setStage = function (card, key, current) {
-			var select = card.querySelector('select[name="stage"]');
+		var setColumn = function (card, key, current) {
+			var select = card.querySelector('select[name="' + cfg.field + '"]');
 			if (!select) { return; }
 			select.value = key;
 			if (current) {
@@ -925,49 +910,42 @@
 			}
 		};
 		var place = function (card, col) {
-			var from = card.closest('section[data-stage]');
+			var from = card.closest(cfg.column);
 			var handle = card.querySelector('.obchod-uchyt');
-			if (!col || from === col) { say(T('The deal stays in %s.').replace('%s', stageName(from))); return; }
-			if (col.getAttribute('data-kind') === 'lost') {
-				// a lost deal needs a reason – the card's own form asks for it, Move finishes
-				setStage(card, col.getAttribute('data-stage'), false);
+			if (!col || from === col) { say(cfg.texts.stays.replace('%s', columnName(from))); return; }
+			if (cfg.needsReason(col)) {
+				// the card's own form asks for the reason, Move finishes
+				setColumn(card, col.getAttribute(cfg.columnKey), false);
 				var fold = card.querySelector('details.obchod-vice');
 				if (fold) { fold.open = true; } // 3.37: the form behind ⋯ opens with the reason
-				var reason = card.querySelector('select[name="lost_reason"]');
+				var reason = card.querySelector('select[name="' + cfg.reasonField + '"]');
 				if (reason) { reason.focus(); }
-				say(T('Say why “%s” was lost, then press Move.').replace('%s', cardTitle(card)));
+				say(cfg.texts.reason.replace('%s', cardTitle(card)));
 				return;
 			}
-			var form = card.querySelector('form[data-deal-move]');
+			var form = card.querySelector(cfg.form);
 			var data = new FormData(form);
-			data.set('stage', col.getAttribute('data-stage'));
+			data.set(cfg.field, col.getAttribute(cfg.columnKey));
 			data.set('format', 'json');
-			data.delete('lost_reason');
+			data.delete(cfg.reasonField);
 			card.classList.add('obchod-presouva');
 			fetch(form.action, { method: 'POST', body: data, credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
 				card.classList.remove('obchod-presouva');
-				if (!j.ok) { say(j.chyba || T('The deal could not be moved.')); return; }
-				col.querySelector('[data-stage-cards]').prepend(card);
-				setStage(card, j.stage, true);
-				var days = card.querySelector('[data-deal-days]'); // 3.41: a new stage starts today
-				if (days) { // 3.44 (U57): the short chip and its full text for screen readers and on hover
-					days.title = T('In this stage since today');
-					days.innerHTML = '';
-					var shown = document.createElement('span'); shown.setAttribute('aria-hidden', 'true'); shown.textContent = T('today');
-					var full = document.createElement('span'); full.className = 'navod-skryte'; full.textContent = days.title;
-					days.append(shown, full);
-				}
+				if (!j.ok) { say(j.chyba || cfg.texts.failed); return; }
+				col.querySelector(cfg.cards).prepend(card);
+				setColumn(card, j[cfg.field], true);
+				if (cfg.after) { cfg.after(card, j, col); }
 				recount();
 				if (handle) { handle.focus(); }
-				say(j.zprava || T('Moved to %s.').replace('%s', stageName(col)));
+				say(j.zprava || T('Moved to %s.').replace('%s', columnName(col)));
 			}).catch(function () {
 				card.classList.remove('obchod-presouva');
-				say(T('The deal could not be moved.'));
+				say(cfg.texts.failed);
 			});
 		};
 		// the mouse: drag a card to a column
 		var dragged = null;
-		Array.prototype.forEach.call(board.querySelectorAll('[data-deal]'), function (card) {
+		Array.prototype.forEach.call(board.querySelectorAll(cfg.card), function (card) {
 			card.setAttribute('draggable', 'true');
 			// 3.37: a drag that starts on the title or the customer moves the card, not the link (the card is short now)
 			Array.prototype.forEach.call(card.querySelectorAll('a'), function (link) { link.setAttribute('draggable', 'false'); });
@@ -976,7 +954,7 @@
 				dragged = card;
 				card.classList.add('obchod-tazena');
 				e.dataTransfer.effectAllowed = 'move';
-				e.dataTransfer.setData('text/plain', card.getAttribute('data-deal'));
+				e.dataTransfer.setData('text/plain', card.id);
 			});
 			card.addEventListener('dragend', function () {
 				card.classList.remove('obchod-tazena');
@@ -989,22 +967,21 @@
 			handle.className = 'obchod-uchyt';
 			handle.textContent = '⠿';
 			handle.setAttribute('aria-label', T('Move “%s”').replace('%s', cardTitle(card)));
-			handle.setAttribute('aria-describedby', 'obchody-navod');
+			handle.setAttribute('aria-describedby', cfg.guideId);
 			handle.setAttribute('aria-pressed', 'false');
 			handle.title = T('Drag, or press Space to move with the arrow keys');
 			card.insertBefore(handle, card.firstChild);
-			// 3.37 (U28): with a mouse the stage select and Move fold behind ⋯ – a lighter card; on a touch screen (no drag
-			// there) and without JavaScript the form stays open
-			var form = card.querySelector('form[data-deal-move]');
+			// 3.37 (U28): with a mouse the select and Move fold behind ⋯ – a lighter card
+			var form = card.querySelector(cfg.form);
 			if (form && window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
 				var fold = document.createElement('details');
 				fold.className = 'obchod-vice';
 				var summary = document.createElement('summary');
 				summary.textContent = '⋯';
-				summary.setAttribute('aria-label', T('Stage and Move: “%s”').replace('%s', cardTitle(card)));
-				summary.title = T('Stage and Move');
+				summary.setAttribute('aria-label', cfg.texts.fold.replace('%s', cardTitle(card)));
+				summary.title = cfg.texts.foldTitle;
 				fold.appendChild(summary);
-				var row = card.querySelector('.obchod-udaje'); // ⋯ ends the line of value · close · person
+				var row = card.querySelector('.obchod-udaje'); // ⋯ ends the line of the card's facts
 				if (!row) {
 					row = document.createElement('div');
 					row.className = 'obchod-udaje';
@@ -1044,18 +1021,18 @@
 		board.addEventListener('keydown', function (e) {
 			var handle = e.target.closest && e.target.closest('.obchod-uchyt');
 			if (!handle) { return; }
-			var card = handle.closest('[data-deal]');
+			var card = handle.closest(cfg.card);
 			var cols = boardColumns();
 			if (e.key === ' ' || e.key === 'Enter') {
 				e.preventDefault();
 				if (lifted !== card) {
 					putDown();
 					lifted = card;
-					liftedTo = cols.indexOf(card.closest('section[data-stage]'));
+					liftedTo = cols.indexOf(card.closest(cfg.column));
 					card.classList.add('obchod-zvednuta');
 					handle.setAttribute('aria-pressed', 'true');
 					mark();
-					say(T('Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.').replace('%s', cardTitle(card)).replace('%s', stageName(cols[liftedTo])));
+					say(T('Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.').replace('%s', cardTitle(card)).replace('%s', columnName(cols[liftedTo])));
 				} else {
 					var target = cols[liftedTo];
 					putDown();
@@ -1066,7 +1043,7 @@
 				liftedTo = Math.max(0, Math.min(cols.length - 1, liftedTo + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1)));
 				mark();
 				cols[liftedTo].scrollIntoView({ block: 'nearest', inline: 'nearest' });
-				say(T('Over %s.').replace('%s', stageName(cols[liftedTo])));
+				say(T('Over %s.').replace('%s', columnName(cols[liftedTo])));
 			} else if (lifted === card && e.key === 'Escape') {
 				e.preventDefault();
 				putDown();
@@ -1075,28 +1052,59 @@
 		});
 		board.addEventListener('focusout', function (e) { if (lifted && e.target.closest && e.target.closest('.obchod-uchyt') && !board.contains(e.relatedTarget)) { putDown(); } });
 	}
-
-	// 3.40: the board of one position in Applications – every card moves with its own form (status, reason, Move), which works
-	// without a script, with the keyboard and on a phone; with a mouse the form folds behind ⋯ for a lighter card (3.37)
-	var applicationsBoard = document.querySelector('[data-applications-board]');
-	if (applicationsBoard && window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
-		Array.prototype.forEach.call(applicationsBoard.querySelectorAll('[data-board-card]'), function (card) {
-			var form = card.querySelector('form[data-board-move]');
-			var row = card.querySelector('.obchod-udaje');
-			if (!form || !row) { return; }
-			var heading = card.querySelector('h3');
-			var fold = document.createElement('details');
-			fold.className = 'obchod-vice';
-			var summary = document.createElement('summary');
-			summary.textContent = '⋯';
-			summary.setAttribute('aria-label', T('Status and Move: “%s”').replace('%s', heading ? heading.textContent.trim() : ''));
-			summary.title = T('Status and Move');
-			fold.appendChild(summary);
-			row.appendChild(fold);
-			fold.appendChild(form);
+	var board = document.querySelector('[data-pipeline-board]');
+	if (board && window.fetch && window.FormData) {
+		// 3.32 (U29): the totals read as the server writes them – Core\Deals::moneyFormat() in data-money (separators, sign before/after)
+		var moneyFormat = {};
+		try { moneyFormat = JSON.parse(board.getAttribute('data-money') || '{}'); } catch (e) { moneyFormat = {}; }
+		var money = function (cents, currency) {
+			var whole = Math.floor(cents / 100), rest = cents % 100;
+			var text = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, moneyFormat.thousands || ' ') + (rest ? (moneyFormat.decimal || ',') + String(100 + rest).slice(1) : '');
+			var affix = (moneyFormat.affixes && moneyFormat.affixes[currency]) || ['', ' ' + currency];
+			return affix[0] + text + affix[1];
+		};
+		var sums = function () {
+			Array.prototype.forEach.call(board.querySelectorAll('section[data-stage]'), function (col) {
+				var out = col.querySelector('[data-stage-sums]');
+				if (!out) { return; }
+				var by = {};
+				Array.prototype.forEach.call(col.querySelectorAll('[data-deal]'), function (card) {
+					var value = card.getAttribute('data-value'), currency = card.getAttribute('data-currency');
+					if (!value || !currency) { return; }
+					var parts = value.split('.');
+					by[currency] = (by[currency] || 0) + parseInt(parts[0], 10) * 100 + parseInt(((parts[1] || '') + '00').slice(0, 2), 10);
+				});
+				out.textContent = Object.keys(by).sort().map(function (c) { return money(by[c], c); }).join(' · ');
+			});
+		};
+		boardBehaviour(board, {
+			column: 'section[data-stage]', columnKey: 'data-stage', card: '[data-deal]', form: 'form[data-deal-move]', field: 'stage', reasonField: 'lost_reason',
+			needsReason: function (col) { return col.getAttribute('data-kind') === 'lost'; },
+			label: '[data-stage-label]', count: '[data-stage-count]', cards: '[data-stage-cards]', empty: '[data-stage-empty]', announce: '[data-pipeline-announce]', guideId: 'obchody-navod',
+			texts: { stays: T('The deal stays in %s.'), reason: T('Say why “%s” was lost, then press Move.'), failed: T('The deal could not be moved.'), fold: T('Stage and Move: “%s”'), foldTitle: T('Stage and Move') },
+			after: function (card) {
+				var days = card.querySelector('[data-deal-days]'); // 3.41: a new stage starts today
+				if (days) { // 3.44 (U57): the short chip and its full text for screen readers and on hover
+					days.title = T('In this stage since today');
+					days.innerHTML = '';
+					var shown = document.createElement('span'); shown.setAttribute('aria-hidden', 'true'); shown.textContent = T('today');
+					var full = document.createElement('span'); full.className = 'navod-skryte'; full.textContent = days.title;
+					days.append(shown, full);
+				}
+				sums();
+			}
 		});
 	}
-
+	// 3.40, 3.47 (U65): the board of one position in Applications – the same drag and keyboard, the status posted as JSON
+	var applicationsBoard = document.querySelector('[data-applications-board]');
+	if (applicationsBoard && window.fetch && window.FormData) {
+		boardBehaviour(applicationsBoard, {
+			column: 'section[data-board-status]', columnKey: 'data-board-status', card: '[data-board-card]', form: 'form[data-board-move]', field: 'status', reasonField: 'reject_reason',
+			needsReason: function (col) { return col.hasAttribute('data-board-needs-reason'); },
+			label: '[data-board-label]', count: '[data-board-count]', cards: '[data-board-cards]', empty: '[data-board-empty]', announce: '[data-board-announce]', guideId: 'uchazeci-navod',
+			texts: { stays: T('The application stays in %s.'), reason: T('Say why “%s” was rejected, then press Move.'), failed: T('The application could not be moved.'), fold: T('Status and Move: “%s”'), foldTitle: T('Status and Move') }
+		});
+	}
 	// 3.38 B: the quote editor asks the server for the totals as the lines change (Admin\Modules\Quotes::actionTotals) – the
 	// arithmetic lives only in Core\Money, never here; Save computes and stores them anyway
 	var quoteEditor = document.querySelector('[data-quote-totals]');

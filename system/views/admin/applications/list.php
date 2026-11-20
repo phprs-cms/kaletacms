@@ -5,7 +5,9 @@
  * it will be deleted; paging. A card per application on a phone. Administrators are told when nobody else has the section.
  * 3.34 B: the tab Waiting (new, no reply for more than a week) and the selected rows at once – a status (rejected with its
  * reason), a responsible person, Delete for administrators. 3.40: Reject and send the rejection template to each selected
- * applicant (Core\Applications::reply – in their language, with the sender's signature, on each one's history).
+ * applicant (Core\Applications::reply – in their language, with the sender's signature, on each one's history). 3.47 (U64):
+ * the status tabs are a select on a phone, the bar of the selected rows shows only once a row is ticked (CSS :has()), and
+ * its buttons say what they do.
  *
  * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Applications $module
@@ -41,11 +43,24 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <?php if ($awaiting !== null): ?>
 <p class="hlaska hlaska-varovani" data-applications-retention-pending><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until an administrator saves the settings of Applications; then the daily clean-up deletes them with their CVs.', format_count($awaiting['count']), format_date($awaiting['before']), $awaiting['months'])) ?><?php if ($admin): ?> <a href="<?= e($module->url('settings')) ?>"><?= e(t('Settings')) ?></a><?php endif ?></p>
 <?php endif ?>
-<nav class="zalozky" aria-label="<?= e(t('Applications')) ?>" data-applications-tabs>
+<nav class="zalozky" aria-label="<?= e(t('Status')) ?>" data-applications-tabs>
 <?php foreach (Applications::TABS as $status => $label): $n = $status === '' ? $counts['all'] : $counts[$status] ?? 0; ?>
 	<a href="<?= e($module->url('', ['status' => $status] + array_diff_key($query, ['status' => 1]))) ?>"<?= $filter['status'] === $status ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($label)) ?> <small><?= format_count($n) ?></small></a>
 <?php endforeach ?>
 </nav>
+<?php /* 3.47 (U64): on a phone the nine status tabs are one select (image/admin.css .zalozky-vyber) */ ?>
+<form class="zalozky-vyber" method="get" action="<?= e($app->url('admin.php')) ?>"><input type="hidden" name="module" value="<?= e(Store::SECTION) ?>">
+<?php foreach (array_diff_key($query, ['status' => 1]) as $name => $value): ?>
+	<input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>">
+<?php endforeach ?>
+	<label for="uchazeci-stav-vyber"><?= e(t('Status')) ?></label>
+	<select id="uchazeci-stav-vyber" name="status" data-odeslat-pri-zmene>
+<?php foreach (Applications::TABS as $status => $label): $n = $status === '' ? $counts['all'] : $counts[$status] ?? 0; ?>
+		<option value="<?= e($status) ?>"<?= $filter['status'] === $status ? ' selected' : '' ?>><?= e(t($label)) ?> (<?= format_count($n) ?>)</option>
+<?php endforeach ?>
+	</select>
+	<noscript><button class="navigace" type="submit"><?= e(t('Show')) ?></button></noscript>
+</form>
 <?php if ($counts['waiting'] > 0 && $filter['status'] !== 'waiting'): ?>
 <p class="napoveda" data-applications-waiting><a href="<?= e($module->url('', ['status' => 'waiting'])) ?>"><?= e(t('Waiting more than %d days without a reply: %s', Store::WAITING_DAYS, format_count($counts['waiting']))) ?></a></p>
 <?php endif ?>
@@ -79,13 +94,12 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <p class="napoveda" data-applications-total><?= e(t('Applications: %s', format_count($result['total']))) ?></p>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-applications-list>
-<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="uchazeci-hromadne" aria-label="<?= e(t('Select all')) ?>"></th><th scope="col"><?= e(t('Number')) ?></th><th scope="col"><?= e(t('Received')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Position')) ?></th>
+<thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="uchazeci-hromadne" aria-label="<?= e(t('Select all')) ?>"> <?= e(t('Number')) ?></th><th scope="col"><?= e(t('Received')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Position')) ?></th>
 	<th scope="col"><?= e(t('Status')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th><th scope="col"><?= e(t('Will be deleted')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($result['rows'] as $r): ?>
 <tr data-application="<?= (int) $r['id'] ?>">
-	<td class="stred"><input type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="uchazeci-hromadne" aria-label="<?= e(t('Select')) ?>: #<?= (int) $r['id'] ?>"></td>
-	<td><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>">#<?= (int) $r['id'] ?></a></td>
+	<td class="uchazeci-cislo"><input type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="uchazeci-hromadne" aria-label="<?= e(t('Select')) ?>: #<?= (int) $r['id'] ?>"> <a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>">#<?= (int) $r['id'] ?></a></td>
 	<td data-popisek="<?= e(t('Received')) ?>"><?= e(format_date((string) $r['received_at'])) ?></td>
 	<td data-popisek="<?= e(t('Name')) ?>"><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>"><?= bdi((string) $r['name'] !== '' ? (string) $r['name'] : (string) $r['email']) ?></a></td>
 	<td data-popisek="<?= e(t('Position')) ?>"><?= (string) $r['job_title'] !== '' ? bdi((string) $r['job_title']) : '<span class="napoveda">' . e(t('No position')) . '</span>' ?><?= !empty($r['attachments_locked']) ? ' <span class="stitek stitek-chyba" data-application-locked>' . e(t('CVs cannot be opened – encryption key')) . '</span>' : '' ?><?= $r['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></td>
@@ -122,10 +136,10 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 			<option value="<?= (int) $id ?>"><?= e((int) $id === $me ? t('Me (%s)', $name) : $name) ?></option>
 <?php endforeach ?>
 		</select>
-		<button class="navigace" type="submit" name="do" value="assign"><?= e(t('Save')) ?></button>
+		<button class="navigace" type="submit" name="do" value="assign"><?= e(t('Assign')) ?></button>
 	</span>
 	<span class="uchazeci-hromadne-krok" data-bulk-reject-reply>
-		<label for="hromadne-odmitnuti"><?= e(t('Reason')) ?></label>
+		<label for="hromadne-odmitnuti"><?= e(t('Reason when rejected')) ?></label>
 		<select id="hromadne-odmitnuti" name="reply_reason">
 <?php foreach (Store::REJECT_REASONS as $key => $reason): ?>
 			<option value="<?= e($key) ?>"><?= e(t($reason)) ?></option>

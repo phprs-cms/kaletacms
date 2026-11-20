@@ -4918,6 +4918,115 @@ await step('3.40 applications II: the board, the talent pool, the statistics and
   }
 });
 
+// 3.47 B (U64, U65, carried 2): the board of a position moves a card by drag and by keyboard (posted as JSON, the counts follow,
+// announced; Rejected asks the reason on the card), "All positions" names each card's position; the application detail on the
+// record template at 390 px in light and dark without sideways scroll and axe clean; a public form refuses a file over its
+// limit in the browser (a custom validity) and lets a small one through
+await step('3.47 B: Applications board – drag and keyboard; the detail at 390 px light/dark with axe; a form file over its limit is stopped in the browser', async () => {
+  if (!MYSQL.length) { throw new Error('MYSQL_JSON is not set'); }
+  const extensions = sql("SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'").trim();
+  sql(`REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions === '' ? 'novinky,poptavky,statistika,presmerovani,claude' : extensions},applications');
+    INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, data, status, status_at, last_activity_at) VALUES
+      (NOW(), 9471, 'Welder B347', 'Job application', 'Nora B347', 'nora-b347@example.com', 'nora-b347@example.com', '[["Full name","Nora B347"]]', 'new', NOW(), NOW()),
+      (NOW(), 9471, 'Welder B347', 'Job application', 'Petr Longname-Of-A-Welder B347', 'petr-b347@example.com', 'petr-b347@example.com', '[]', 'new', NOW(), NOW()),
+      (NOW(), 9471, 'Welder B347', 'Job application', 'Rosa B347', 'rosa-b347@example.com', 'rosa-b347@example.com', '[]', 'new', NOW(), NOW()),
+      (NOW(), 9472, 'Painter B347', 'Job application', 'Saul B347', 'saul-b347@example.com', 'saul-b347@example.com', '[]', 'reviewed', NOW(), NOW())`);
+  const id = (email) => Number(sql(`SELECT id FROM ka_applications WHERE email = '${email}'`).trim());
+  const nora = id('nora-b347@example.com'), petr = id('petr-b347@example.com'), rosa = id('rosa-b347@example.com');
+  const pageId = Number(execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); $db = $app->db();
+    [$build] = Kaleta\\Builder\\Build::sanitize(["v" => 1, "deti" => [["typ" => "sekce", "deti" => [["typ" => "formular", "obsah" => ["nazev" => "Files B347", "bez_captcha" => true, "max_priloha" => 1,
+      "pole" => [["popisek" => "CV", "typ" => "soubor", "povinne" => false], ["popisek" => "Email", "typ" => "email", "povinne" => true]]]]]]]]);
+    $ids = $db->insert("stranky", ["seo_link" => "files-b347", "titulek" => "Files B347", "text" => "", "v_menu" => 0, "stavba" => Kaleta\\Builder\\Build::toJson($build)]);
+    Kaleta\\Core\\PageCache::clear(); echo $ids;`], { cwd: process.env.WEB_DIR, encoding: 'utf8' }).trim()) || 0;
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await visit('/admin.php?module=applications&action=board&job=9471');
+    if ((await page.locator('[data-applications-board] .obchod-uchyt').count()) !== 3) { throw new Error('the cards have no keyboard handle'); }
+    // the drag: Nora to Interview – posted as JSON, the card and the counts follow, announced
+    const count = (status) => page.locator(`section[data-board-status="${status}"] [data-board-count]`).innerText().then(Number);
+    const before = [await count('new'), await count('interview')];
+    await page.locator(`#application-${nora}`).dragTo(page.locator('section[data-board-status="interview"]'));
+    await page.locator(`section[data-board-status="interview"] #application-${nora}`).waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => /Interview/.test(document.querySelector('[data-board-announce]').textContent));
+    if (sql(`SELECT status FROM ka_applications WHERE id = ${nora}`).trim() !== 'interview') { throw new Error('the drag was not saved'); }
+    if ((await count('new')) !== before[0] - 1 || (await count('interview')) !== before[1] + 1) { throw new Error('the counts did not follow the drag'); }
+    // the keyboard: Petr's handle, Space, ArrowRight, Space → Reviewed
+    await page.locator(`#application-${petr} .obchod-uchyt`).focus();
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => /Picked up/.test(document.querySelector('[data-board-announce]').textContent));
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Space');
+    await page.locator(`section[data-board-status="reviewed"] #application-${petr}`).waitFor({ timeout: 5000 });
+    if (sql(`SELECT status FROM ka_applications WHERE id = ${petr}`).trim() !== 'reviewed') { throw new Error('the keyboard move was not saved'); }
+    if (await page.evaluate(() => !document.activeElement.classList.contains('obchod-uchyt'))) { throw new Error('the focus did not stay on the moved card'); }
+    // Rejected (the last column, scrolled off at 1440 – reached by the keyboard): the card's form opens with the reason, focused; nothing is saved yet
+    await page.locator(`#application-${rosa} .obchod-uchyt`).focus();
+    await page.keyboard.press('Space');
+    for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowRight'); }
+    await page.keyboard.press('Space');
+    await page.locator(`#application-${rosa} select[name="reject_reason"]`).waitFor({ state: 'visible', timeout: 3000 });
+    if ((await page.evaluate(() => document.activeElement.name)) !== 'reject_reason') { throw new Error('the reason is not focused after a move to Rejected'); }
+    if (sql(`SELECT status FROM ka_applications WHERE id = ${rosa}`).trim() !== 'new') { throw new Error('a move to Rejected saved without a reason'); }
+    // All positions: each card names its position
+    await visit('/admin.php?module=applications&action=board&job=all');
+    if ((await page.locator('[data-board-position]', { hasText: 'Painter B347' }).count()) !== 1) { throw new Error('All positions does not name the position on the card'); }
+    // the detail on the record template: 390 px, light and dark, no sideways scroll, axe clean
+    const state = await context.storageState();
+    for (const scheme of ['light', 'dark']) {
+      const other = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-GB', colorScheme: scheme, storageState: state, isMobile: true, hasTouch: true });
+      const p2 = await other.newPage(); watch(p2);
+      try {
+        for (const url of [`/admin.php?module=applications&action=detail&id=${nora}`, '/admin.php?module=applications&status=', '/admin.php?module=applications&action=board&job=all']) {
+          await p2.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
+          const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+          if (wide > 0) { throw new Error(`${wide} px of sideways scroll (${url}, ${scheme})`); }
+          if (url.includes('detail') && !(await p2.locator('[data-record-bar]').count())) { throw new Error('the detail has no record bar'); }
+          if (url.includes('status=') && await p2.locator('form.uchazeci-hromadne').isVisible()) { throw new Error('the bulk bar shows before a row is ticked'); }
+          if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/347b-${url.includes('detail') ? 'detail' : url.includes('board') ? 'board' : 'list'}-390-${scheme}.png`, fullPage: true }); }
+        }
+        await p2.goto(`${BASE}/admin.php?module=applications&status=`, { waitUntil: 'networkidle' });
+        await p2.locator('input[name="ids[]"]').first().check();
+        if (!(await p2.locator('form.uchazeci-hromadne').isVisible())) { throw new Error('the bulk bar does not show once a row is ticked'); }
+      } finally {
+        await other.close();
+      }
+    }
+    const axeContext = await browser.newContext({ storageState: state, bypassCSP: true, viewport: { width: 390, height: 844 } });
+    try {
+      const axePage = await axeContext.newPage();
+      for (const scheme of ['light', 'dark']) {
+        await axePage.emulateMedia({ colorScheme: scheme });
+        await axePage.goto(`${BASE}/admin.php?module=applications&action=detail&id=${nora}`, { waitUntil: 'networkidle' });
+        await axePage.addScriptTag({ path: AXE });
+        const found = await axePage.evaluate(([tags]) => window.axe.run({ include: [['main']] }, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), [WCAG]);
+        if (found.violations.length) { throw new Error(`axe application detail (${scheme}): ` + found.violations.map((v) => `${v.id} ${v.nodes[0].target.join(' ')}`).join(', ')); }
+      }
+    } finally {
+      await axeContext.close();
+    }
+    // carried 2 (f4dac2b7): a file over the form's limit gets the browser's custom validity with the form's message; a small one clears it
+    const visitor = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-GB' });
+    const p3 = await visitor.newPage(); watch(p3);
+    try {
+      await p3.goto(`${BASE}/files-b347`, { waitUntil: 'networkidle' });
+      const input = p3.locator('form[data-formular] input[type=file]');
+      if ((await input.getAttribute('data-max-bytes')) !== '1048576') { throw new Error(`the file field carries no limit of 1 MB: ${await input.getAttribute('data-max-bytes')}`); }
+      await input.setInputFiles({ name: 'big-cv.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(2 * 1048576, 65) });
+      const big = await input.evaluate((el) => [el.validity.customError, el.validationMessage, el.form.getAttribute('data-file-too-large')]);
+      if (!big[0] || big[1] !== big[2] || !big[1]) { throw new Error(`a 2 MB file is not stopped by the browser: ${JSON.stringify(big)}`); }
+      await input.setInputFiles({ name: 'cv.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') });
+      if (await input.evaluate((el) => el.validity.customError)) { throw new Error('a small file keeps the custom validity'); }
+    } finally {
+      await visitor.close();
+    }
+  } finally {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    sql(`DELETE FROM ka_applications WHERE email LIKE '%-b347@example.com'; DELETE FROM ka_application_counts WHERE job_item_id IN (9471, 9472); DELETE FROM ka_stranky WHERE ids = ${pageId};
+      REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '${extensions}'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''`);
+  }
+});
+
 // 3.35 B1 (owner decision 11 Nov 2026): without a fresh proof (a sign-in or a confirmed password in the last 10 minutes –
 // the session marker verified_at) the consent asks for the current password; "Can also publish" without it is refused on
 // the same page with why and the choice kept, at 1440 and 390 px in light and dark without sideways scroll, axe clean.
@@ -5742,16 +5851,18 @@ await step('3.42 A: Internal files – upload through the form, the list and the
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit(`/admin.php?module=internal_files&folder=${folder}`);
-    if (!(await page.locator('details > summary', { hasText: 'Upload a file to Contracts and price sheets A342' }).count())) { throw new Error('no upload form for the folder'); }
-    if (!(await page.locator('details[open]').count())) { await page.locator('details > summary', { hasText: 'Upload a file to' }).click(); }
-    await page.setInputFiles('#if-file', { name: 'Onboarding checklist A342.md', mimeType: 'text/markdown', buffer: Buffer.from('# Onboarding\n\n- keys\n- laptop\n') });
+    // 3.47 (U66): Upload files is a <details> that looks like a button, open on an empty folder; two files in one go
+    const upload = page.locator('details[data-internal-upload]');
+    if ((await upload.locator('> summary').innerText()).trim() !== 'Upload files' || !(await upload.getByText('Upload a file to Contracts and price sheets A342').count())) { throw new Error('no upload form for the folder'); }
+    if (!(await upload.evaluate((d) => d.open))) { await upload.locator('> summary').click(); }
+    await page.setInputFiles('#if-file', [{ name: 'Onboarding checklist A342.md', mimeType: 'text/markdown', buffer: Buffer.from('# Onboarding\n\n- keys\n- laptop\n') },
+      { name: 'Price sheet A342.csv', mimeType: 'text/csv', buffer: Buffer.from('item;price\nBracket;12\n') }]);
     await page.fill('#if-description', 'What a new colleague gets in the first week');
     await page.fill('#if-tags', 'HR, onboarding');
-    await Promise.all([page.waitForNavigation(), page.locator('details form input[type=submit]').click()]);
+    await Promise.all([page.waitForNavigation(), upload.locator('form button[type=submit]').click()]);
     const file = Number(sql("SELECT id FROM ka_internal_files WHERE name = 'Onboarding checklist A342.md'").trim());
-    if (!file) { throw new Error('the upload was not stored'); }
-    if (!(await page.locator('#if-name').count()) || (await page.locator('#if-name').inputValue()) !== 'Onboarding checklist A342.md') { throw new Error('the upload does not land on the file detail'); }
-    await visit(`/admin.php?module=internal_files&folder=${folder}`);
+    if (!file || !Number(sql("SELECT COUNT(*) FROM ka_internal_files WHERE name = 'Price sheet A342.csv'").trim())) { throw new Error('the two files were not both stored'); }
+    if (!new RegExp(`folder=${folder}`).test(page.url()) || !/(Stored|Uloženo): 2/.test(await page.locator('main').innerText())) { throw new Error(`two files do not go back to the folder with "Stored: 2": ${page.url()}`); }
     if (!(await page.locator('table.vypis a.stitek', { hasText: 'onboarding' }).count())) { throw new Error('the list does not show the file with its tags'); }
     const state = await context.storageState();
     const urls = [`/admin.php?module=internal_files&folder=${folder}`, `/admin.php?module=internal_files&action=file&id=${file}`, `/admin.php?module=internal_files&action=folder&id=${folder}`];

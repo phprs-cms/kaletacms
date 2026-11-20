@@ -424,4 +424,5 @@ Object.assign(window.KALETA_PREKLAD, {
 	"Say why “%s” was lost, then press Move.": "Gib an, warum „%s“ verloren ging, und drück dann „Verschieben“.",
 	"Drag, or press Space to move with the arrow keys": "Zieh, oder drück die Leertaste und verschieb mit den Pfeiltasten",
 	"Picked up “%s” in %s. Choose a stage with the arrow keys, Space drops it, Esc cancels.": "„%s“ in %s aufgenommen. Wähl die Phase mit den Pfeiltasten; die Leertaste legt ihn ab, Esc bricht ab.",
+	"Say why “%s” was rejected, then press Move.": "Gib an, warum „%s“ abgesagt wurde, und drück dann „Verschieben“.",
 });

@@ -143,7 +143,7 @@ $parity = [
     // 3.34: job applications (Core\Applications) – Claude reads and changes them with list_applications, get_application,
     // update_application and reply_to_application (3.34 B); the file, deletion, the consent, the settings and the move stay admin
     'applications' => ['list' => 'list_applications', 'detail' => 'get_application', 'attachment' => 'admin: a CV is downloaded by a person with the section, never passed to Claude',
-        'status' => 'update_application', 'assign' => 'update_application', 'bulk' => 'update_application', 'reply' => 'reply_to_application',
+        'status' => 'update_application', 'assign' => 'update_application', 'handling' => 'update_application', 'bulk' => 'update_application', 'reply' => 'reply_to_application',
         'consent' => 'admin: the applicant withdrew the consent for future openings – a person records it', 'delete' => 'admin: deleting an application for good is an administrator\'s decision',
         'comment' => 'admin: the team’s notes on an application – a person writes them; Claude adds one with update_application add_note', 'task' => 'save_task',
         'settings' => $readOnly, 'settings_save' => 'admin: the retention, the templates and the switches of applications are the administrator\'s set-up',
@@ -173,6 +173,7 @@ $parity = [
         'upload' => 'admin: a binary file is uploaded by a person; Claude writes text documents with save_internal_file',
         'replace' => 'admin: a new binary version is uploaded by a person; a text document gets new content with save_internal_file',
         'download' => 'admin: the bytes of an internal file are downloaded by a signed-in person, never passed to Claude',
+        'preview' => 'admin: the bytes of an internal file are shown to a signed-in person, never passed to Claude',
         'delete' => 'admin: deleting an internal file with its versions stays with people (administrators or who uploaded it)',
         'folder' => $readOnly, 'folder_save' => 'admin: a folder decides who sees its documents – the administrator\'s set-up',
         'folder_delete' => 'admin: deleting a folder is the administrator\'s set-up'],

@@ -3109,4 +3109,7 @@ window.KALETA_PREKLAD = {
 	"Line moved to position %s.": "La línea está ahora en la posición %s.",
 	"The line is removed when you save.": "La línea se elimina al guardar.",
 	"The line stays.": "La línea se queda.",
+	"The application stays in %s.": "La candidatura se queda en %s.",
+	"Say why “%s” was rejected, then press Move.": "Indica por qué se rechazó «%s» y pulsa Mover.",
+	"The application could not be moved.": "No se pudo mover la candidatura.",
 };

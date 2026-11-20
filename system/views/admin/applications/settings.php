@@ -66,3 +66,8 @@ use Kaleta\Core\Applications as Store;
 <p class="napoveda"><?= e(t('Administrators always may. Anybody else only when an administrator ticks Applications for them – a level never brings it.')) ?>
 	<a href="<?= e($app->url('admin.php?module=users')) ?>"><?= e(t('Users')) ?></a> · <a href="<?= e($app->url('admin.php?module=roles')) ?>"><?= e(t('Roles')) ?></a></p>
 </section>
+<section data-applications-move-link aria-labelledby="uchazeci-presun">
+<h2 id="uchazeci-presun"><?= e(t('Move enquiries of a form')) ?></h2>
+<p class="napoveda"><?= e(t('A career form that is not on a job page sends enquiries. Move all enquiries of such a form to Applications, or applications of a form back to Enquiries.')) ?></p>
+<p><a class="navigace" href="<?= e($module->url('move')) ?>"><?= e(t('Move enquiries of a form')) ?></a></p>
+</section>

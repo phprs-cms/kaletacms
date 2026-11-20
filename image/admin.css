@@ -450,14 +450,6 @@ h3.stred {
 .navod-kapitoly a { display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); text-decoration: none; transition: border-color .15s; }
 .navod-kapitoly a:hover, .navod-kapitoly a:focus-visible { border-color: var(--akcent); }
 .navod-kapitoly span { color: var(--text-slaby); font-size: 14px; }
-.napoveda-panel-nadpis {
-	margin: 4px 10px 6px;
-	color: var(--text-slaby);
-	font-size: 12px;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-}
 
 /* buttons */
 
@@ -1777,6 +1769,8 @@ form.moje-predat select { max-width: 100%; }
 .zakaznici-filtr .zakaznici-hledat { flex: 1 1 16em; }
 .zakaznici-filtr .zakaznici-hledat input { width: 100%; box-sizing: border-box; }
 .zakaznici-filtr-tlacitka { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+/* 3.47 (U64): a checkbox of a filter sits on one line with its text, as tall as the fields (No next step, Kept for future openings, Without a price) */
+.zakaznici-filtr label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 6px; min-height: 36px; }
 .zakaznik-karta { margin: 0 0 24px; padding: 18px 20px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .zakaznik-karta .poptavka { margin-bottom: 14px; }
 .zakaznik-shrnuti { white-space: normal; }
@@ -1955,7 +1949,6 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 /* 3.41 (R5): the next step – 3.44 (U57): on a line of its own, at most three lines (the whole text on hover); the days in the stage are a chip */
 .obchod-krok { display: -webkit-box; margin: 0; overflow: hidden; color: var(--text-slaby); font-size: 13px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow-wrap: anywhere; }
 .obchod-dny { padding: 0 6px; border-radius: 999px; background: color-mix(in oklch, var(--text-slaby) 14%, transparent); color: var(--text); font-size: 12px; white-space: nowrap; }
-.zakaznici-filtr .obchody-bez-kroku { display: flex; align-items: center; gap: 6px; min-height: 36px; }
 .obchod-dalsi { color: var(--text); }
 .obchod-bez-kroku { font-style: italic; }
 .obchod-vice > summary { display: grid; place-items: center; width: 32px; height: 32px; box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; color: var(--text-slaby); font-size: 18px; line-height: 1; list-style: none; cursor: pointer; }
@@ -1969,7 +1962,6 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 .obchod-castka { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .obchod-castka input { width: 10em; max-width: 100%; }
 .obchod-castka .napoveda { flex: 1 1 100%; }
-.obchod-posun { margin: 0 0 24px; }
 .obchod-presun-detail { padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
 .obchod-presun-detail > label, .obchod-presun-detail .obchod-duvod label { font-weight: 600; }
 .obchod-presun-detail .obchod-duvod input { flex: 1 1 14em; min-width: 0; }
@@ -2051,17 +2043,20 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 
 /* 3.34 B: a job application – two columns on a wide screen (the record and its conversation; status, responsibility,
    tasks, history), one on a phone; the reason of a rejection shows only with Rejected chosen; the selected rows at once */
-.uchazec-detail { display: grid; gap: 0 24px; }
-.uchazec-hlavni, .uchazec-bok { min-width: 0; }
-@media (min-width: 1100px) { .uchazec-detail { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; } }
-.uchazec-detail h2 { overflow-wrap: anywhere; }
 .uchazec-stav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
-.uchazec-stav > label, .uchazec-duvod label { flex: 1 1 100%; font-weight: 600; }
+.uchazec-duvod label { flex: 1 1 100%; font-weight: 600; }
 .uchazec-stav select { flex: 1 1 10em; min-width: 0; max-width: 100%; }
 .uchazec-duvod { display: none; }
 .uchazec-stav:has(select[name="status"] option[value="rejected"]:checked) .uchazec-duvod { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* 3.47 (U64): the Handling form of the detail – the reason is a field of its own, shown only with Rejected */
+.zaznam-formular .zaznam-pole.uchazec-duvod { display: none; }
+.zaznam-formular:has(select[name="status"] option[value="rejected"]:checked) .zaznam-pole.uchazec-duvod { display: grid; }
 .uchazec-soubory { margin: 0; padding: 0; list-style: none; }
 .uchazec-soubory li { margin: 0 0 4px; overflow-wrap: anywhere; }
+/* 3.47 (U64): the bar of the selected rows shows once a row is ticked – no script */
+.tab-obal:not(:has(input[name="ids[]"]:checked)) + .uchazeci-hromadne { display: none; }
+.uchazeci-cislo { white-space: nowrap; }
+.uchazeci-cislo input { width: 24px; height: 24px; margin: 0 10px 0 0; vertical-align: middle; } /* a target of 24 px apart from the number's link (WCAG 2.5.8) */
 .uchazeci-hromadne fieldset { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0; padding: 12px 14px; border: 1px solid var(--linka); border-radius: var(--radius); }
 .uchazeci-hromadne legend { padding: 0 4px; font-weight: 600; }
 .uchazeci-hromadne-krok { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
@@ -2127,6 +2122,21 @@ table.vypis-stav tr:target { background: var(--akcent-svetly); }
 .zaznam-formular .tlacitka { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
 .zaznam-formular .tlacitka button { min-height: 40px; }
 .zaznam-dvojice { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 12px; }
+/* 3.47 (U66): Internal files – Upload files is a <details> that looks like a button (no script) and opens its form below the head row; many folders are one select at every width; a preview of an image; the versions at the side */
+.interni-akce { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.zakaznici-hlava:has(.interni-nahrat[open]) .interni-akce { flex: 1 1 100%; }
+.interni-nahrat { flex: 0 0 auto; }
+.interni-nahrat[open] { flex: 1 1 100%; order: 1; }
+.interni-nahrat > summary { display: inline-flex; align-items: center; min-height: 40px; box-sizing: border-box; list-style: none; cursor: pointer; }
+.interni-nahrat > summary::-webkit-details-marker { display: none; }
+.interni-nahrat > form { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
+.zalozky-vyber.slozky-vyber { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.slozky-vyber label { font-weight: 600; }
+.slozky-vyber select { flex: 1 1 12em; min-width: 0; max-width: 24em; }
+.interni-nahled { margin: 0 0 16px; }
+.interni-nahled img { display: block; max-width: 100%; height: auto; margin-top: 8px; border: 1px solid var(--linka); border-radius: var(--radius); }
+.interni-verze { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.interni-verze-nazev { overflow-wrap: anywhere; }
 .zaznam-akce .obchod-presun-detail { margin: 0; padding: 0; border: 0; background: none; }
 .zaznam-akce .obchod-presun-detail select[name="stage"] { flex: none; width: 12em; }
 .zaznam-akce .obchod-presun-detail .obchod-duvod { order: 1; }

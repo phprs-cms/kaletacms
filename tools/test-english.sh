@@ -207,7 +207,21 @@ sql "INSERT INTO ka_internal_file_versions (file_id, version, path, original_nam
 page "3.42: Internal files – a folder" "/admin.php?module=internal_files&folder=$I342_FOLDER" 200 "$JAR"
 page "3.42: Internal files – a file" "/admin.php?module=internal_files&action=file&id=$I342_FILE" 200 "$JAR"
 page "3.42: Internal files – the folder form" "/admin.php?module=internal_files&action=folder&id=$I342_FOLDER" 200 "$JAR"
+I347_FILE=$(sql "INSERT INTO ka_internal_files (folder_id, name, description, tags, status, extension, size, version, created_at, updated_at) VALUES ($I342_FOLDER, 'Logo I347.png', '', '', 'ready', 'png', 2048, 1, NOW(), NOW()); SELECT LAST_INSERT_ID();")
+page "3.47: Internal files – an image with its preview" "/admin.php?module=internal_files&action=file&id=$I347_FILE" 200 "$JAR"; grep -q 'data-internal-preview' "$WORK/page.html" || fail "English admin: an image file offers no Preview"
+page "3.47: Internal files – All folders with the upload of several files" "/admin.php?module=internal_files" 200 "$JAR"; grep -q '<summary class="tl">Upload files</summary>' "$WORK/page.html" || fail "English admin: Internal files has no Upload files"
+sql "DELETE FROM ka_internal_files WHERE id = $I347_FILE"
 sql "DELETE FROM ka_internal_file_versions WHERE file_id = $I342_FILE; DELETE FROM ka_internal_files WHERE id = $I342_FILE; DELETE FROM ka_internal_folders WHERE id = $I342_FOLDER"
+# 3.47 B: Applications in English – the list, the detail on the record template, the board of all positions, the settings with the move link
+A347_EXT=$(sql "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
+sql "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$([ -z "$A347_EXT" ] && echo 'novinky,poptavky,statistika,presmerovani,claude' || echo "$A347_EXT"),applications')"
+A347_APP=$(sql "INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, data, status, status_at, last_activity_at) VALUES (NOW(), 9347, 'Welder E347', 'Job application', 'Erin E347', 'erin-e347@example.com', '[]', 'rejected', NOW(), NOW()); SELECT LAST_INSERT_ID();")
+page "3.47: Applications – the list" "/admin.php?module=applications&status=" 200 "$JAR"
+page "3.47: Applications – the detail" "/admin.php?module=applications&action=detail&id=$A347_APP" 200 "$JAR"; grep -q '<h2 id="uchazec-handling">Handling</h2>' "$WORK/page.html" || fail "English admin: the application has no Handling panel"
+page "3.47: Applications – the board of all positions" "/admin.php?module=applications&action=board&job=all" 200 "$JAR"; grep -q '>All positions</option>' "$WORK/page.html" || fail "English admin: the board has no All positions"
+page "3.47: Applications – settings with the move by form" "/admin.php?module=applications&action=settings" 200 "$JAR"; grep -q 'Move enquiries of a form' "$WORK/page.html" || fail "English admin: the settings do not link the move by form"
+page "3.47: Applications – the move by form" "/admin.php?module=applications&action=move" 200 "$JAR"
+sql "DELETE FROM ka_applications WHERE id = $A347_APP; REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$A347_EXT'); DELETE FROM ka_nastaveni WHERE promenna = 'extensions' AND hodnota = ''"
 for u in "module=newsletters" "module=appearance"; do curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?$u"; grep -q 'design system' "$WORK/page.html" && fail "English admin: $u still says design system"; done
 NEWS=$(sql "SELECT idc FROM ka_novinky LIMIT 1")
 # 3.26: the Notifications screen with something on it – a mention with a quote, an assignment, a review date, a place that is gone

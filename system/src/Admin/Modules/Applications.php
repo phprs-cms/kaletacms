@@ -29,6 +29,7 @@ use Kaleta\Core\Response;
  *    and tasks (target application:N), Delete.
  *  - attachment: the decrypted CV as a download (application/octet-stream, nosniff) – one change-log line each.
  *  - status, assign, consent, delete: the changes (Core\Applications writes the change log of status and assign).
+ *  - handling (3.47 U64): the status, its reason and the responsible person in one Save of the detail's side panel.
  *  - settings, settings_save (3.34 B, administrators): the retention, the pool period, the notification and Claude
  *    switches, the reply templates per language, who may open the section.
  *  - search_json (3.34 B): the command palette finds applications by number, name or position.
@@ -155,7 +156,7 @@ final class Applications extends Module
             : (isset(Store::TEMPLATES[$template]) ? Store::compose($this->app->settings(), $a, $template) + ['template' => $template] : ['subject' => '', 'text' => '', 'template' => '']);
         $user = $this->app->auth()->user() ?? [];
 
-        return $this->view('detail', t('Application #%s', (string) $a['id']), ['a' => $a, 'people' => $people,
+        return $this->view('detail', self::personTitle($a), ['a' => $a, 'people' => $people,
             'names' => Assignment::labels($this->db, array_values(array_filter([$a['assignee_id'], ...array_column($a['history'], 'by')]))),
             'deletesOn' => Store::deletionDate($a, $this->app->settings()->int('applications_months')),
             'thread' => $this->commentThread($target, ['id' => $a['id']]), 'tasks' => $this->taskPanel($target, ['id' => $a['id']]),
@@ -164,6 +165,42 @@ final class Applications extends Module
             'me' => $this->app->auth()->id(), 'admin' => $this->app->auth()->isAdmin(),
             'reply' => $reply, 'replies' => \Kaleta\Core\EnquiryReply::history($this->db, ['replies' => (string) json_encode($a['replies'])]), 'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()), 'replyTo' => (string) ($user['email'] ?? ''),
             'hasSignature' => $user !== [] && \Kaleta\Core\EnquiryReply::signature($this->app, $user) !== null]);
+    }
+
+    /**
+     * The person an application is about, as the page title and the heading of the detail (3.47 U64): the name, else the
+     * e-mail, else "Application #N". Pure.
+     *
+     * @param array<string, mixed> $a Core\Applications::get
+     */
+    public static function personTitle(array $a): string
+    {
+        $name = trim((string) ($a['name'] ?? ''));
+        $email = trim((string) ($a['email'] ?? ''));
+
+        return $name !== '' ? $name : ($email !== '' ? $email : t('Application #%s', (string) (int) ($a['id'] ?? 0)));
+    }
+
+    /**
+     * Handling (3.47 U64): the one Save of the side panel – the status with the reason of a rejection and the responsible
+     * person in one request. Each part changes only when it differs (Store::setStatus, Store::assign write their own change
+     * log); "status" and "assign" stay for the board and older forms.
+     */
+    protected function actionHandling(): Response
+    {
+        $id = $this->request->postInt('id');
+        if (!$this->request->isPost()) {
+            return $this->back('', 'detail', ['id' => $id]);
+        }
+        $me = $this->app->auth()->id();
+        try {
+            $status = Store::setStatus($this->app, $id, $this->request->post('status'), $this->request->post('reject_reason'), $me);
+            $person = Store::assign($this->app, $id, $this->request->postInt('assignee_id'), $me);
+        } catch (\DomainException $e) {
+            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+        }
+
+        return $this->back($status || $person ? 'Saved.' : '', 'detail', ['id' => $id]);
     }
 
     /**
@@ -217,18 +254,30 @@ final class Applications extends Module
                 ? \Kaleta\Core\FileLink::neutralName('application', $id, $index, $file['name']) : ($file['name'] !== '' ? $file['name'] : 'attachment'))]);
     }
 
+    /**
+     * A new status. 3.40: a card of the board returns to the board of its position. 3.47 (U65): format=json answers the drag
+     * and the keyboard of the board – {ok, status, zprava}, or {ok: false, chyba} with 400 (as Pipeline::actionMove).
+     */
     protected function actionStatus(): Response
     {
         $id = $this->request->postInt('id');
+        $json = $this->request->post('format') === 'json';
         if (!$this->request->isPost()) {
             return $this->back();
         }
-        // 3.40: a card of the board returns to the board of its position
-        $board = $this->request->post('return') === 'board' ? ['job' => Store::filter(['job' => $this->request->post('job')])['job']] : null;
+        $board = $this->request->post('return') === 'board' ? ['job' => self::boardJob($this->request->post('job'))] : null;
+        $status = $this->request->post('status');
         try {
-            $changed = Store::setStatus($this->app, $id, $this->request->post('status'), $this->request->post('reject_reason'), $this->app->auth()->id());
+            $changed = Store::setStatus($this->app, $id, $status, $this->request->post('reject_reason'), $this->app->auth()->id());
         } catch (\DomainException $e) {
+            if ($json) {
+                return Response::json(['ok' => false, 'chyba' => $e->getMessage()], 400);
+            }
+
             return $board !== null ? $this->boardBack($e->getMessage(), $board['job'], $id, 'chyba') : $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+        }
+        if ($json) {
+            return Response::json(['ok' => true, 'status' => $status, 'zprava' => t('Application #%d: %s.', $id, t(Store::STATUS_LABELS[$status] ?? ''))]);
         }
         if ($board !== null) {
             return $this->boardBack($changed ? t('Application #%d: %s.', $id, t(Store::STATUS_LABELS[$this->request->post('status')] ?? '')) : '', $board['job'], $id);
@@ -307,6 +356,12 @@ final class Applications extends Module
             'url' => $this->url('detail', ['id' => (int) $r['id']])], $rows)]);
     }
 
+    /** The position of the board: as the list's filter, or 'all' (3.47 U65 – the board only; filter() is also MCP's). */
+    private static function boardJob(string $job): string
+    {
+        return trim($job) === 'all' ? 'all' : Store::filter(['job' => $job])['job'];
+    }
+
     /** Back to the board of a position, at the card that moved (3.40). */
     private function boardBack(string $message, string $job, int $id, string $type = 'ok'): Response
     {
@@ -324,7 +379,7 @@ final class Applications extends Module
     protected function actionBoard(): Response
     {
         $jobs = Store::byJob($this->db);
-        $job = Store::filter(['job' => $this->request->get('job')])['job'];
+        $job = self::boardJob($this->request->get('job'));
         if ($job === '' && $jobs !== []) {
             $job = $jobs[0]['job_item_id'] !== null ? (string) $jobs[0]['job_item_id'] : 'none';
         }
@@ -333,7 +388,7 @@ final class Applications extends Module
         foreach ($board['columns'] as $cards) {
             $assignees = [...$assignees, ...array_filter(array_column($cards, 'assignee_id'))];
         }
-        $title = '';
+        $title = $job === 'all' ? t('All positions') : '';
         foreach ($jobs as $j) {
             if (($j['job_item_id'] !== null ? (string) $j['job_item_id'] : 'none') === $job) {
                 $title = $j['job_item_id'] !== null ? ($j['job_title'] !== '' ? $j['job_title'] : '#' . $j['job_item_id']) : t('No position');

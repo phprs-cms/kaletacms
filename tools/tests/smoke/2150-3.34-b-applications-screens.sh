@@ -17,8 +17,8 @@ t334_post "$T334_JH" bulk -d do=assign -d "ids[]=$T335_A" -d "assignee_id=$T334_
 expect "3.34 B: with selected – a responsible person; HR may not delete (403), not in bulk and not one" \
   "$(sq "SELECT assignee_id = $T334_HANA FROM ka_applications WHERE id = $T335_A")|$(t334_post "$T334_JH" bulk -d do=delete -d "ids[]=$T335_F")|$(t334_post "$T334_JH" delete -d "id=$T335_F")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE id = $T335_F")" "1|403|403|1"
 curl -s -b "$T334_JH" -o "$WORK/response" "$B/admin.php?module=applications&action=detail&id=$T335_A"
-expect "3.34 B: the detail – two columns, the other application from the same address, no Delete for HR" \
-  "$(grep -c 'class="uchazec-detail"' "$WORK/response")|$(grep -c 'class="uchazec-bok"' "$WORK/response")|$(grep -c "action=detail&amp;id=$T335_W\"" "$WORK/response")|$(grep -c 'data-application-delete data-potvrdit' "$WORK/response")" "1|1|1|0"
+expect "3.34 B: the detail – two columns (3.47: the record template), the other application from the same address, no Delete for HR" \
+  "$(grep -c 'data-record-bar' "$WORK/response")|$(grep -c 'class="zaznam-bok"' "$WORK/response")|$(grep -c "action=detail&amp;id=$T335_W\"" "$WORK/response")|$(grep -c 'data-application-delete data-potvrdit' "$WORK/response")" "1|1|1|0"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&status=rejected"
 expect "3.34 B: an administrator gets Delete in the list; deleting two at once removes them" \
   "$(grep -c 'name="do" value="delete"' "$WORK/response")|$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X POST "$B/admin.php?module=applications&action=bulk" -d "_csrf=$(csrf)" -d do=delete -d "ids[]=$T335_W" -d "ids[]=$T335_F")|$(sq "SELECT COUNT(*) FROM ka_applications WHERE id IN ($T335_W, $T335_F)")" "1|302|0"
