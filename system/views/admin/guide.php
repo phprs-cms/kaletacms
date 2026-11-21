@@ -27,6 +27,13 @@ $guide = Kaleta\Admin\Guide::CHAPTERS;
 <?php else:
     $c = $guide[$chapter];
     $section = array_values(array_filter($c['modules'], fn (string $m): bool => isset($modules[$m])))[0] ?? null;
+    // 3.50.1: a chapter of tabs links to its screen – My account for everybody, Settings for whoever may open it
+    $screen = match (true) {
+        $section !== null => null,
+        isset($c['tabs']['account']) => ['admin.php?action=account', t('My account')],
+        isset($c['tabs']['settings'], $modules['settings']) => ['admin.php?module=settings&tab=' . $c['tabs']['settings'][0], t($modules['settings']::NAME)],
+        default => null,
+    };
 ?>
 <article class="navod-kapitola">
 <p class="navod-uvod"><?= e(t($c['summary'])) ?></p>
@@ -45,6 +52,8 @@ $guide = Kaleta\Admin\Guide::CHAPTERS;
 <p class="navod-dalsi">
 <?php if ($section !== null): ?>
 	<a class="tl" href="<?= e($app->url('admin.php?module=' . $section)) ?>"><?= e(t('Open %s', t($modules[$section]::NAME))) ?></a>
+<?php elseif ($screen !== null): ?>
+	<a class="tl" href="<?= e($app->url($screen[0])) ?>"><?= e(t('Open %s', $screen[1])) ?></a>
 <?php endif ?>
 <?php if ($c['online'] !== null): ?>
 	<a href="<?= e(Kaleta\Admin\Guide::url($c['online'], Kaleta\Core\Language::code())) ?>" target="_blank" rel="noopener"><?= e(t('More in the online guide')) ?><span class="navod-skryte"> – <?= e(t('opens in a new tab')) ?></span></a>

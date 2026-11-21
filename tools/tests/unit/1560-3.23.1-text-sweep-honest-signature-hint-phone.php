@@ -23,12 +23,12 @@ check('3.23.1 (C4, N-C5, N-C6): the last plain menu paths are links – in Engli
 $stale3231 = ['is in News → Broken links', 'is in Site care → Broken links.' /* 3.48 review: Addresses → Broken links */, 'Settings → General → More options', 'Statistics → Campaigns and pages', 'News is always at', 'Requests on the console', 'Settings and connections', 'come from the design system', 'come from your design system', 'to the design system,', 'look to the design system'];
 $views3231 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_SYSTEM . '/views/admin/*.php'), ...glob(KALETA_SYSTEM . '/views/admin/*/*.php')]))
     . (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/AgentSchedules.php');
-check('[source-pin] 3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system" in owner copy; the signature tab has its guide, the details keep theirs', [
+check('[source-pin] 3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system" in owner copy; the signature tab has its guide, the details open the chapter My account (3.50.1)', [
     array_values(array_filter($stale3231, fn (string $x): bool => str_contains($views3231, $x))),
     str_contains($views3231, "'Requests from staff'"),
     Kaleta\Admin\Guide::forScreen('account', '', 'signature', 'en'), Kaleta\Admin\Guide::forScreen('account', '', '', 'cs'),
     Kaleta\Admin\Hubs::class !== '' && str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php'), "['claude_settings', '', 'Claude settings']"),
-], [[], false, 'https://kaletacms.com/guide/email#your-e-mail-signature', 'https://kaletacms.com/cs/guide/claude-connect', true]);
+], [[], false, 'https://kaletacms.com/guide/email#your-e-mail-signature', 'admin.php?action=guide&chapter=account', true]);
 check('[source-pin] 3.23.1 (N-C5, N-C10, N-C15): the reply form promises a signature only to who has one; one testimonial sentence; the empty Pages filter speaks of languages only with them', [
     str_contains($v3231('enquiries/detail.php'), '$hasSignature =>') && str_contains($v3231('enquiries/detail.php'), 'data-reply-no-signature'),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Enquiries.php'), "'hasSignature' => \\Kaleta\\Core\\EnquiryReply::signature("),

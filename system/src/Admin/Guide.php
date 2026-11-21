@@ -104,8 +104,12 @@ final class Guide
      * a person who has never used a CRM. It opens at admin.php?action=guide&chapter=<key> (Admin\GuidePage); the heading
      * link of each section of `modules` leads there instead of the online article, and `online` (an article of MODULES)
      * adds "More in the online guide" at the end. Every text is English with its translations in the admin dictionaries.
+     * 3.50.1 (CPO-l2, l9): `always` lists a chapter in the index and the palette for every signed-in person; `tabs` gives a
+     * chapter whole tabs of Settings or My account (forScreen checks them before the articles), so those screens open a
+     * chapter instead of a stand-in article. A chapter with tabs of My account is listed for everybody, one with tabs of
+     * Settings for whoever may open Settings.
      *
-     * @var array<string, array{title: string, summary: string, modules: list<string>, online: ?string, steps: list<string>, tips: list<string>}>
+     * @var array<string, array{title: string, summary: string, modules: list<string>, online: ?string, steps: list<string>, tips: list<string>, always?: bool, tabs?: array<string, list<string>>}>
      */
     public const array CHAPTERS = [
         'my-work' => [
@@ -125,6 +129,24 @@ final class Guide
                 'Ask Claude “What is waiting for me today?” – it reads My work and can prepare replies, but sends nothing without your yes.',
             ],
         ],
+        // 3.50.1 (CPO-l9): the tabs of My account other than Claude and Signature, which keep their online articles
+        'account' => [
+            'title' => 'My account',
+            'summary' => 'Your details, absences, sign-in security and your colleagues – yours alone, whatever your role.',
+            'modules' => [],
+            'online' => null,
+            'tabs' => ['account' => ['', 'absence', 'security', 'colleagues']],
+            'steps' => [
+                'My details holds your name, e-mail, the language of the administration and how notifications reach you: each one at once, one summary every morning, or none.',
+                'Absence: add the days you are away with a deputy. While you are away, a copy of your notifications goes to the deputy; bookings linked to your account close for those days.',
+                'Security: change your password, turn on two-step sign-in with an app, add a passkey and print the backup codes – they get you in when the phone is lost.',
+                'Colleagues lists the positions and work phones of the people of the site, A–Z or by department, with the org chart.',
+            ],
+            'tips' => [
+                'Claude and Signature, the other two tabs, have their own articles in the online guide.',
+                'Changing your password disconnects the apps connected under your account, and revokes your tokens unless you untick that.',
+            ],
+        ],
         'customers' => [
             'title' => 'Customers',
             'summary' => 'One record per customer across enquiries, bookings and newsletter sign-ups.',
@@ -138,7 +160,7 @@ final class Guide
             ],
             'tips' => [
                 'Ctrl K (⌘K on a Mac) finds a customer by name, e-mail or company from anywhere in the administration.',
-                'Customers hold personal data: they are kept as long as the enquiries and are never shown on the site.',
+                'Customers hold personal data and are never shown on the site. A customer with no activity for the period in Settings → Privacy and cookies is anonymised.',
             ],
         ],
         'pipeline' => [
@@ -212,18 +234,69 @@ final class Guide
         ],
         // 3.50: the whistleblowing channel had only the online article on cookies as a stand-in
         'privacy' => [
+            'always' => true, // 3.50.1 (CPO-l2): personal data requests and retention concern every site, also with every feature off
             'title' => 'Privacy and retention',
             'summary' => 'Whistleblowing reports, personal data on request, and how long the site keeps what people send.',
             'modules' => ['whistleblowing'],
             'online' => 'privacy-cookies',
             'steps' => [
                 'Reports from the whistleblowing channel are stored encrypted and only the people with the section Whistleblowing see them. Confirm each one and give the reporter feedback in time – the screen shows both deadlines.',
-                'When somebody asks what the site holds about them, ask Claude to find their personal data – the answer lists every place. The same request can erase it; erasing is always your decision.',
+                'When somebody asks what the site holds about them, open Enquiries → Personal data request and enter their e-mail – the screen lists every place, downloads it for the person and erases it when you decide so. Claude finds the same when you ask it.',
                 'Settings → Privacy and cookies says how long enquiries, applications, bookings and other records are kept. The site deletes older ones by itself.',
             ],
             'tips' => [
                 'The record of processing activities for your privacy policy is prepared by Claude from what the site really does.',
                 'A backup restored later applies the erasures again, so a deleted person does not come back.',
+            ],
+        ],
+        // 3.50.1 (CPO-l9): the notebook and the scheduled runs had only the article on Claude's capabilities as a stand-in
+        'claude-notes' => [
+            'title' => 'Claude\'s notebook and scheduled runs',
+            'summary' => 'What Claude remembers between conversations, and the work it does on a schedule.',
+            'modules' => ['notebook', 'schedules'],
+            'online' => 'claude-capabilities',
+            'steps' => [
+                'The Notebook keeps notes for whoever works on the site next – Claude in a new conversation or a colleague: decisions, promises to the client, where things are. Pin the important ones.',
+                'Claude reads the notebook when it starts and writes its decisions into it, so it does not ask about them again. You can add, edit and delete notes yourself.',
+                'Scheduled runs say what Claude should do and when – pick up requests every morning, weekly care, a monthly newsletter. Set up in Claude gives the prompt for a routine in your Claude app.',
+            ],
+            'tips' => [
+                'The site never runs Claude itself: the routine connects over a drafts-only connection and the site records each run.',
+                'When the run that picks up requests stops, the top bar says so.',
+            ],
+        ],
+        // 3.50.1 (CPO-l9): the change log had the article on backups as a stand-in
+        'changelog' => [
+            'title' => 'Change log',
+            'summary' => 'Who changed what and when – people and Claude – and undoing a whole Claude session.',
+            'modules' => ['changelog'],
+            'online' => null,
+            'steps' => [
+                'The change log lists every change in the administration and over the Claude connection, newest first, with who made it and in which section.',
+                'Filter by who made the change – people, Claude or both – by section, or by a word in the detail. Each change by Claude carries the name of its connection.',
+                'Claude sessions groups the changes one connection made in a row. Undo puts back everything the session changed; rows somebody changed afterwards stay unless you choose to overwrite them.',
+            ],
+            'tips' => [
+                'The log keeps the history for six months, not the content – older texts come back from the versions of a page or an item.',
+                'Claude reads the same log with list_changes.',
+            ],
+        ],
+        // 3.50.1 (CPO-l9): four Settings tabs that had the first-steps or users article as a stand-in
+        'site-settings' => [
+            'title' => 'Settings for the whole site',
+            'summary' => 'Settings of sections, sign-in security, the agency and the monthly reports.',
+            'modules' => [],
+            'online' => 'first-steps',
+            'tabs' => ['settings' => ['sections', 'security', 'agency', 'reports']],
+            'steps' => [
+                'Settings of sections lists the settings that live with their section – quotes, applications, the stages of the pipeline, bookings – with a link to each.',
+                'Security sets who must have two-step sign-in, whether accounts with a passkey sign in with it only, and whether unused accounts and connections are suspended by themselves.',
+                'Agency names who built and looks after the site: the sign-in screen and the foot of the administration show whom to ask for help.',
+                'Reports keeps the monthly report of the site – view and print it, or have it e-mailed to you or your client at the start of each month.',
+            ],
+            'tips' => [
+                'Blocking addresses and countries is in Settings → Firewall.',
+                'Once an agency is named, the tab Reporting to a console appears for pairing the site with a fleet console.',
             ],
         ],
         'fleet' => [
@@ -264,7 +337,23 @@ final class Guide
      */
     public static function chaptersFor(array $modules): array
     {
-        return array_keys(array_filter(self::CHAPTERS, fn (array $c): bool => array_intersect($c['modules'], $modules) !== []));
+        // 3.50.1: `always` chapters for everybody; a chapter of tabs follows its screen (My account belongs to everybody)
+        $screens = [...$modules, 'account'];
+
+        return array_keys(array_filter(self::CHAPTERS, fn (array $c): bool => ($c['always'] ?? false)
+            || array_intersect([...$c['modules'], ...array_keys($c['tabs'] ?? [])], $screens) !== []));
+    }
+
+    /** The chapter that holds a tab of Settings or My account ($screen 'settings' or 'account'), or null (3.50.1). */
+    public static function chapterForTab(string $screen, string $tab): ?string
+    {
+        foreach (self::CHAPTERS as $key => $chapter) {
+            if (in_array($tab, $chapter['tabs'][$screen] ?? [], true)) {
+                return $key;
+            }
+        }
+
+        return null;
     }
 
     public static function url(string $article, string $language): string
@@ -282,7 +371,7 @@ final class Guide
         if ($action === 'builder') {
             return self::url(self::BUILDER[$module] ?? 'builder-basics', $language);
         }
-        if (($chapter = self::chapterFor($module)) !== null) {
+        if (($chapter = self::chapterFor($module) ?? self::chapterForTab($module, $tab)) !== null) {
             return 'admin.php?action=guide&chapter=' . $chapter;
         }
         if ($module === 'settings') {

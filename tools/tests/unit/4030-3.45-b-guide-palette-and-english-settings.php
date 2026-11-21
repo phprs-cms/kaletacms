@@ -24,7 +24,7 @@ check('3.45 B: a chapter has a title, a summary, steps and tips; its online arti
     array_keys(array_filter(Guide::CHAPTERS, fn (array $c): bool => $c['title'] === '' || $c['summary'] === '' || count($c['steps']) < 3 || $c['tips'] === [])),
     array_values(array_filter(array_column(Guide::CHAPTERS, 'online'), fn (?string $a): bool => $a !== null && !isset(array_flip(array_map(fn (string $t): string => strtok($t, '#'), Guide::MODULES))[$a]))),
     Guide::chaptersFor(['my_work', 'pages']), Guide::chaptersFor(['quotes', 'contacts', 'news']), Guide::chaptersFor([]),
-], [[], [], ['my-work'], ['customers', 'quotes'], []]);
+], [[], [], ['my-work', 'account', 'privacy'], ['account', 'customers', 'quotes', 'privacy'], ['account', 'privacy']]); // 3.50.1: My account and Privacy for everybody
 
 // every text of the guide and of the palette in Czech, German and Spanish, with the same placeholders; German without a form of address
 $b345Texts = ['Guide to the office', 'Guide', 'Step by step', 'Good to know', 'Open %s', 'More in the online guide', 'opens in a new tab', 'All chapters of the guide',
