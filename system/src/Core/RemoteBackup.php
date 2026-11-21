@@ -578,6 +578,17 @@ final class RemoteBackup
         ];
     }
 
+    /**
+     * 3.50.1: the cURL options of a listing or a delete in the backup folder – those of ftpsOptions(), but no upload and no
+     * folder created on the way (listing a folder removed by hand must not bring it back).
+     *
+     * @return array<int, mixed>
+     */
+    public static function ftpsCommandOptions(string $user, string $password): array
+    {
+        return [CURLOPT_UPLOAD => false, CURLOPT_FTP_CREATE_MISSING_DIRS => 0] + self::ftpsOptions($user, $password);
+    }
+
     /** @return array{0: callable(string, string): void, 1: callable(): void, 2: callable(): list<string>, 3: callable(string): void} */
     private static function ftp(Settings $s): array
     {
@@ -644,13 +655,14 @@ final class RemoteBackup
 
     /**
      * 3.50 N169: does a listing that succeeded lack the file? False for a failed listing (false) – then nothing is known. The
-     * names may come with their folder (ftp_nlist) or bare (a cURL listing). Pure.
+     * names may come with their folder (ftp_nlist) or bare (a cURL listing). 3.50.1: a name starting with a dot is never
+     * proven gone – NLST often leaves such entries out, so the entry stays and is tried again. Pure.
      *
      * @param list<string>|array<int, string>|false $listing
      */
     public static function listingLacks(array|false $listing, string $name): bool
     {
-        return is_array($listing) && !in_array(basename($name), array_map(fn (mixed $n): string => basename(trim((string) $n)), $listing), true);
+        return is_array($listing) && !str_starts_with(basename($name), '.') && !in_array(basename($name), array_map(fn (mixed $n): string => basename(trim((string) $n)), $listing), true);
     }
 
     /**
@@ -726,7 +738,7 @@ final class RemoteBackup
         $folderUrl = rtrim(self::ftpUrl($host, $folder, ''), '/') . '/';
         $command = function (array $options) use ($s, $host, $folder, $folderUrl): string {
             $ch2 = curl_init();
-            curl_setopt_array($ch2, $options + [CURLOPT_URL => $folderUrl, CURLOPT_UPLOAD => false] + self::ftpsOptions($s->get('backup_user'), $s->get('backup_password')));
+            curl_setopt_array($ch2, $options + [CURLOPT_URL => $folderUrl] + self::ftpsCommandOptions($s->get('backup_user'), $s->get('backup_password')));
             $out = curl_exec($ch2);
             if ($out === false) {
                 throw new \RuntimeException(self::ftpsError(curl_errno($ch2), curl_error($ch2), (string) preg_replace('#^[a-z]+://|[:/].*$#iD', '', $host), $folder));
