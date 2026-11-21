@@ -489,6 +489,23 @@ final class WebImport
     }
 
     /**
+     * 3.50 (N124 + review): the attempts a page in progress has used – 0 for another address, and 0 when the batch that
+     * died on it still moved it forward (new downloads mapped: "postup" grew past "postup_od"), so a heavy page on a host
+     * with a short hard limit is never skipped while it progresses; the downloads of one page are finite, so this ends.
+     * Pure.
+     *
+     * @param array<string, mixed> $marker the state's "stranka"
+     */
+    public static function attemptsUsed(array $marker, string $url): int
+    {
+        if (($marker['adresa'] ?? null) !== $url || intval($marker['postup'] ?? 0) > intval($marker['postup_od'] ?? 0)) {
+            return 0;
+        }
+
+        return intval($marker['pokusy'] ?? 0);
+    }
+
+    /**
      * The pages one by one. 3.50 (N124): the page in progress and its attempts are saved before it is read (stranka); a page
      * two batches died on is skipped with an error. N140: a page that runs out of time pauses – it keeps its position, its
      * marker is cleared and the next batch starts it again.
@@ -501,7 +518,7 @@ final class WebImport
         while ($state['pozice'] < count($urls) && microtime(true) < $this->end) {
             $url = $urls[$state['pozice']];
             $marker = is_array($state['stranka'] ?? null) ? $state['stranka'] : [];
-            $attempts = ($marker['adresa'] ?? null) === $url ? intval($marker['pokusy'] ?? 0) : 0;
+            $attempts = self::attemptsUsed($marker, $url);
             if ($attempts >= self::PAGE_ATTEMPTS) {
                 $state['vysledek']['chyb']++;
                 $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t(self::STOPPED_TWICE)], -15);
@@ -510,8 +527,10 @@ final class WebImport
                 $this->checkpoint($state, true);
                 continue;
             }
-            // the counters of the page (images, linked files) start with each attempt; downloads mapped before are reused
-            $state['stranka'] = ['adresa' => $url, 'pokusy' => $attempts + 1, 'obrazky' => 0, 'soubory' => 0];
+            // the counters of the page (images, linked files) start with each attempt; downloads mapped before are reused;
+            // "postup" counts the page's new downloads over all its attempts, "postup_od" where this attempt started (review)
+            $progress = ($marker['adresa'] ?? null) === $url ? intval($marker['postup'] ?? 0) : 0;
+            $state['stranka'] = ['adresa' => $url, 'pokusy' => $attempts + 1, 'obrazky' => 0, 'soubory' => 0, 'postup' => $progress, 'postup_od' => $progress];
             $this->checkpoint($state, true);
             try {
                 $this->importPage($url, $state);
@@ -948,11 +967,13 @@ final class WebImport
             $saved = Files::saveFile($temporary, $name);
             $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
             $this->map($source, 'soubor', $key, (int) $saved['ido']);
+            $this->progressed($state);
             $state['zachovano']['soubory'] = intval($state['zachovano']['soubory'] ?? 0) + 1;
 
             return $saved;
         } catch (\RuntimeException) {
             $this->map($source, 'soubor', $key, 0);
+            $this->progressed($state);
 
             return null;
         } finally {
@@ -1050,14 +1071,30 @@ final class WebImport
             $saved['ido'] = $this->db->insert('media', $saved + ['vlastnik' => $this->author, 'datum' => date('Y-m-d H:i:s')]);
             $this->map($source, 'obrazek', $key, (int) $saved['ido']);
             $state['vysledek']['obrazky']++;
+            $this->progressed($state);
 
             return $saved;
         } catch (\RuntimeException) {
             $this->map($source, 'obrazek', $key, 0);
+            $this->progressed($state);
 
             return null;
         } finally {
             @unlink($temporary);
+        }
+    }
+
+    /**
+     * One more download of the page in progress is mapped (3.50 review): counted in its marker and saved right away, so a
+     * batch the host kills after it is known to have moved the page forward (attemptsUsed).
+     *
+     * @param array<string, mixed> $state
+     */
+    private function progressed(array &$state): void
+    {
+        if (is_array($state['stranka'] ?? null) && isset($state['stranka']['adresa'])) {
+            $state['stranka']['postup'] = intval($state['stranka']['postup'] ?? 0) + 1;
+            $this->checkpoint($state, true);
         }
     }
 

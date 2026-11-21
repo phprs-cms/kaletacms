@@ -9022,4 +9022,5 @@ return [
     'The record of processing activities for your privacy policy is prepared by Claude from what the site really does.' => 'Záznam o činnostech zpracování pro vaše zásady připraví Claude podle toho, co web opravdu dělá.',
     'A backup restored later applies the erasures again, so a deleted person does not come back.' => 'Záloha obnovená později vymazání použije znovu, takže se smazaný člověk nevrátí.',
     'My account → Colleagues shows the positions and work phones of your colleagues, A–Z or by department. Administrators create departments in Users → Departments.' => 'Můj účet → Kolegové ukáže pozice a pracovní telefony kolegů, podle abecedy nebo po odděleních. Oddělení zakládají správci v Uživatelé → Oddělení.',
+    'Only a user who may open Applications can remove a job application form – the page keeps its build.' => 'Formulář žádostí o místo smí odebrat jen uživatel se sekcí Žádosti o místo – stránka si stavbu ponechává.',
 ];

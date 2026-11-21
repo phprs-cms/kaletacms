@@ -379,7 +379,7 @@ final class RemoteBackup
             try {
                 [, $close, , $delete] = self::open($s);
                 try {
-                    foreach (array_slice($due, 0, self::DELETES_PER_RUN) as $path) { // 3.46.1 (N2): the rest next time
+                    foreach (array_slice(self::deleteOrder($due, (array) ($manifest['nesmazano'] ?? [])), 0, self::DELETES_PER_RUN) as $path) { // 3.46.1 (N2): the rest next time
                         if (!self::isPrivatePath($path)) { // 3.46.1 (re-audit L9): a tampered manifest deletes nothing outside private/
                             unset($manifest['soubory'][$path], $manifest['smazano'][$path], $manifest['nesmazano'][$path]);
                             continue;
@@ -629,8 +629,7 @@ final class RemoteBackup
             // 3.46.1 (N2): a file that is not there (deleted by hand, never on this server) counts as deleted – 3.50 N169: only
             // when the listing itself succeeded; a refused or broken listing keeps the entry for the next run
             if (!@ftp_delete($connection, $name)) {
-                $listing = @ftp_nlist($connection, dirname($name));
-                if (!self::listingLacks($listing, $name)) {
+                if (!self::goneFrom(fn (string $dir): array|false => @ftp_nlist($connection, $dir), $name)) {
                     throw new \RuntimeException(t('The file %s could not be deleted on the FTP server.', $name));
                 }
             }
@@ -652,6 +651,43 @@ final class RemoteBackup
     public static function listingLacks(array|false $listing, string $name): bool
     {
         return is_array($listing) && !in_array(basename($name), array_map(fn (mixed $n): string => basename(trim((string) $n)), $listing), true);
+    }
+
+    /**
+     * 3.50 review: the order in which due private files are deleted from the copy – those that already failed DELETE_TRIES
+     * times go last (in their order), so they cannot fill the DELETES_PER_RUN slice of every run. Pure.
+     *
+     * @param list<string> $due
+     * @param array<string, int> $tries the manifest's "nesmazano"
+     * @return list<string>
+     */
+    public static function deleteOrder(array $due, array $tries): array
+    {
+        $failed = fn (int|string $path): bool => (int) ($tries[$path] ?? 0) >= self::DELETE_TRIES;
+
+        return [...array_values(array_filter($due, fn (int|string $path): bool => !$failed($path))), ...array_values(array_filter($due, $failed))];
+    }
+
+    /**
+     * 3.50 N169 + review: is the file gone from the target? Its folder's listing that succeeded and lacks it says so; when
+     * the folder cannot be listed (ftp_nlist answers false for a folder removed by hand), the listing of the folder above it
+     * that succeeded and lacks the folder says so, up to the backup folder. Only listings that failed all the way up, or a
+     * folder that is there but cannot be read, leave it unknown (false). $list gets a folder ('.' = the backup folder) and
+     * answers its names or false.
+     *
+     * @param callable(string): (array<int, string>|false) $list
+     */
+    public static function goneFrom(callable $list, string $name): bool
+    {
+        for ($missing = $name, $dir = dirname($name); ; $missing = $dir, $dir = dirname($dir)) {
+            $listing = $list($dir);
+            if ($listing !== false) {
+                return self::listingLacks($listing, $missing);
+            }
+            if ($dir === '.' || $dir === '/' || $dir === '') {
+                return false;
+            }
+        }
     }
 
     /** 3.50 N169: does an S3 answer to a DELETE say the object is gone – 204 is success; a 404 only with NoSuchKey. Pure. */
@@ -708,13 +744,14 @@ final class RemoteBackup
                 // 3.46.1 (N2): a DELE refused because the file is not there (deleted by hand, never on this server) counts as
                 // deleted – 3.50 N169: only when a listing of its folder succeeds and lacks the name (cURL's 78 also stands for
                 // "not allowed to read", so the file itself is no proof); a failed listing keeps the entry
-                $dir = dirname($name);
-                try {
-                    $listing = explode("\n", $command([CURLOPT_DIRLISTONLY => true] + ($dir !== '.' ? [CURLOPT_URL => rtrim(self::ftpUrl($host, $folder, $dir), '/') . '/'] : [])));
-                } catch (\RuntimeException) {
-                    $listing = false;
-                }
-                if (!self::listingLacks($listing, $name)) {
+                $list = function (string $dir) use ($command, $host, $folder): array|false {
+                    try {
+                        return explode("\n", $command([CURLOPT_DIRLISTONLY => true] + ($dir !== '.' ? [CURLOPT_URL => rtrim(self::ftpUrl($host, $folder, $dir), '/') . '/'] : [])));
+                    } catch (\RuntimeException) {
+                        return false;
+                    }
+                };
+                if (!self::goneFrom($list, $name)) {
                     throw $e;
                 }
             }

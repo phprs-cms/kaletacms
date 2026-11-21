@@ -646,6 +646,10 @@ final class Pages extends Module
     protected function actionBuildText(): Response
     {
         $page = $this->request->isPost() ? $this->loadPage($this->request->postInt('ids')) : null;
+        // 3.50 review: dropping the build drops its application form – the same lock as a publish (Builder\Publisher::guard)
+        if ($page !== null && Build::$purposeAllowed === false && Build::droppedApplicationForms($page['stavba'], null) !== []) {
+            return $this->back('Only a user who may open Applications can remove a job application form – the page keeps its build.', 'edit', ['id' => (int) $page['ids']], 'chyba');
+        }
         if ($page !== null && $page['stavba'] !== null) {
             $this->db->insert('stavba_revize', ['ids' => $page['ids'], 'datum' => date('Y-m-d H:i:s'), 'kdo' => $this->app->auth()->id(), 'stavba' => $page['stavba']]);
             $this->db->update('stranky', ['stavba' => null, 'stavba_koncept' => null] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);

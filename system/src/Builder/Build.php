@@ -111,14 +111,17 @@ final class Build
     /** 3.50 N132: why a publish is refused (Builder\Publisher::guard) – Czech like the other builder notes, English in Mcp\Translator::MESSAGES. */
     public const string APPLICATION_FORM_REFUSED = 'Formulář žádostí o místo smí odebrat nebo nahradit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.';
 
-    /** @var array<string, string> the recipients of each application form of the previous build while sanitize() runs (purposeAllowed false, 3.50 N132) */
+    /** The content fields of an application form that receive the applicants' data – locked with its Purpose (3.50 N132; the hidden copy since the 3.50 review). */
+    private const array LOCKED_RECIPIENTS = ['prijemce', 'skryta_kopie'];
+
+    /** @var array<string, array<string, string>> the recipients (LOCKED_RECIPIENTS) of each application form of the previous build while sanitize() runs (purposeAllowed false, 3.50 N132) */
     private static array $previousRecipients = [];
 
     public static function sanitize(mixed $input, bool $admin = true, ?array $previous = null): array
     {
         $previousForms = self::$purposeAllowed === false && $previous !== null ? self::elementsOfType($previous, fn (string $className): bool => $className::TYPE === 'formular') : [];
         self::$previousPurposes = array_map(fn (array $p): string => (string) ($p['obsah']['ucel'] ?? ''), $previousForms);
-        self::$previousRecipients = array_map(fn (array $p): string => (string) ($p['obsah']['prijemce'] ?? ''),
+        self::$previousRecipients = array_map(fn (array $p): array => array_map(fn (string $field): string => (string) ($p['obsah'][$field] ?? ''), array_combine(self::LOCKED_RECIPIENTS, self::LOCKED_RECIPIENTS)),
             array_filter($previousForms, fn (array $p): bool => ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE));
         $errors = [];
         $used = [];
@@ -166,13 +169,17 @@ final class Build
                 }
                 $errors[$place . '.obsah.ucel'] = 'Účel formuláře (žádost o místo) smí měnit jen uživatel se sekcí Žádosti o místo – ponechán.';
             }
-            // 3.50 N132: the recipients of an application form are locked the same way – they receive the applicants' CVs
-            if ($className::TYPE === 'formular' && self::$purposeAllowed === false && isset(self::$previousRecipients[$id]) && (string) ($clean['obsah']['prijemce'] ?? '') !== self::$previousRecipients[$id]) {
-                $clean['obsah']['prijemce'] = self::$previousRecipients[$id];
-                if ($clean['obsah']['prijemce'] === '') {
-                    unset($clean['obsah']['prijemce']);
+            // 3.50 N132: the recipients of an application form are locked the same way – they receive the applicants' CVs; the
+            // hidden copy (Bcc) gets the same notification, so it is locked too (3.50 review)
+            foreach ($className::TYPE === 'formular' && self::$purposeAllowed === false ? self::$previousRecipients[$id] ?? [] : [] as $field => $kept) {
+                if ((string) ($clean['obsah'][$field] ?? '') === $kept) {
+                    continue;
                 }
-                $errors[$place . '.obsah.prijemce'] = 'Příjemce formuláře žádostí o místo smí měnit jen uživatel se sekcí Žádosti o místo – ponecháni.';
+                $clean['obsah'][$field] = $kept;
+                if ($kept === '') {
+                    unset($clean['obsah'][$field]);
+                }
+                $errors[$place . '.obsah.' . $field] = 'Příjemce formuláře žádostí o místo smí měnit jen uživatel se sekcí Žádosti o místo – ponecháni.';
             }
             $style = Style::sanitize($p['styl'] ?? [], $place . '.styl', $errors);
             if ($style !== []) {

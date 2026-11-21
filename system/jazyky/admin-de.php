@@ -9430,4 +9430,5 @@ return [
     'The record of processing activities for your privacy policy is prepared by Claude from what the site really does.' => 'Das Verzeichnis der Verarbeitungstätigkeiten für die Datenschutzerklärung bereitet Claude danach vor, was die Website wirklich tut.',
     'A backup restored later applies the erasures again, so a deleted person does not come back.' => 'Ein später wiederhergestelltes Backup wendet die Löschungen erneut an, damit eine gelöschte Person nicht zurückkommt.',
     'My account → Colleagues shows the positions and work phones of your colleagues, A–Z or by department. Administrators create departments in Users → Departments.' => 'Mein Konto → Kollegen zeigt die Positionen und Diensttelefone der Kollegen, alphabetisch oder nach Abteilung. Abteilungen legen Administratoren unter Benutzer → Abteilungen an.',
+    'Only a user who may open Applications can remove a job application form – the page keeps its build.' => 'Ein Bewerbungsformular darf nur entfernen, wer den Bereich Bewerbungen öffnen darf – die Seite behält ihren Aufbau.',
 ];
