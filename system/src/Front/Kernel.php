@@ -169,31 +169,16 @@ final class Kernel
         // and cron (?token=) are not visitors. Before, a site in maintenance mode failed that check, an update was rolled
         // back and background tasks stopped; both addresses still answer 403 without their code.
         if ($this->app->settings()->bool('maintenance') && !in_array($request->path(), ['/mcp', '/ulohy'], true) && $this->app->auth()->user() === null) {
-            // while an update checks itself (update_probe is set for those few seconds), its own request for the home page
-            // gets the maintenance page with 200: the updater of 3.31.1 and older reads a 503 as "the new version is broken"
-            // and would roll this very release back. The page is the same; everyone else gets 503 as always.
-            $selfCheck = $this->app->settings()->get('update_probe') !== '' && str_starts_with((string) ($request->serverValues()['HTTP_USER_AGENT'] ?? ''), 'Kaleta-update-check/');
-
-            return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::code()) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
-                . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
-                . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', $selfCheck ? 200 : 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600', 'Cache-Control' => 'no-store']);
+            return $this->routeMaintenance();
         }
         // an old numeric WordPress URL /?p=123 (after import): its path is the home page, which always exists, so the redirect
         // on a 404 error would never be reached – it is therefore looked up by the parameter, even before the cache
         // 3.9: also ?page_id=123 (a WordPress page) and Polylang's language home ?lang=en, stored as ?lang=en by the import
         $post = $request->getInt('p') > 0 ? $request->getInt('p') : $request->getInt('page_id');
         $lang = \Kaleta\Core\Language::isTag($request->get('lang')) ? $request->get('lang') : '';
-        if (($post > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')) {
-            $source = $post > 0 ? '?p=' . $post : '?lang=' . $lang;
-            // 3.19: the exact address; a row not normalised yet (written by 3.18 after a rollback, a restored backup – N319-5)
-            // by its stored address until the job fills it
-            $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE source_norm = ? OR (source_norm IS NULL AND z_adresy = ?) ORDER BY source_norm IS NULL, idp LIMIT 1',
-                [\Kaleta\Core\RedirectSources::normalize($source), $source]);
-            if ($target !== null) {
-                $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
-
-                return $this->ruleResponse((string) $target['na_adresu'], (int) $target['typ'] === 410 ? 410 : 301);
-            }
+        if (($post > 0 || $lang !== '') && $request->path() === '/' && Extensions::isEnabled($this->app->settings(), 'presmerovani')
+            && ($oldAddress = $this->routeOldWordPressAddress($post > 0 ? '?p=' . $post : '?lang=' . $lang)) !== null) {
+            return $oldAddress;
         }
         // 3.15 (N10): a file waiting for approval (Core\MediaStaging) – for a signed-in user and a draft preview; everyone
         // else gets the usual 404, unless published content already shows it
@@ -204,12 +189,7 @@ final class Kernel
         // 3.38: the customer's quote (Front\QuotePage) – a bearer link to one sent quote, before the cache and never stored in it;
         // a wrong, withdrawn or expired token is the plain not-found page (no detail, not logged among the addresses not found)
         if (preg_match('#^/quote/([a-f0-9]{64})(\.pdf)?$#D', $request->path(), $m) === 1) { // 3.40: <token>.pdf = the same quote as a PDF
-            $pdf = ($m[2] ?? '') !== '';
-            if ($request->isPost() && !$pdf) {
-                return QuoteDecision::response($this->app, $m[1]) ?? $this->notFoundPage(404); // 3.40: the customer accepts or declines (bound to the token)
-            }
-
-            return QuotePage::response($this->app, $m[1], $pdf) ?? $this->notFoundPage(404);
+            return $this->routeQuote($m);
         }
         if (($cached = PageCache::load($this->app)) !== null) {
             return $cached;
@@ -232,11 +212,7 @@ final class Kernel
             return $this->tag($m[1]);
         }
         if (preg_match('#^/novinky/([a-z0-9-]+)\.md$#D', $path, $m) && $this->app->settings()->bool('markdown_news')) {
-            $newsItem = $this->news->bySlug($m[1]);
-
-            return $newsItem === null
-                ? $this->notFound()
-                : new Response((new Seo($this->app))->newsItemMarkdown($newsItem), 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
+            return $this->routeNewsMarkdown($m);
         }
         if (preg_match('#^/novinky/([a-z0-9-]+)$#D', $path, $m)) {
             return $this->newsItem($m[1]);
@@ -247,79 +223,43 @@ final class Kernel
         if ($path === '/rss.xml') {
             return $this->rss();
         }
-        $seo = new Seo($this->app);
         if ($path === '/manifest.webmanifest') {
-            return new Response(SiteIdentity::manifest($this->app->settings(), $this->app->request->basePath()), 200, ['Content-Type' => 'application/manifest+json; charset=utf-8']);
+            return $this->routeManifest();
         }
         if ($path === '/favicon.ico') {
-            // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
-            $icon = is_file(KALETA_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
-
-            return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
+            return $this->routeFavicon();
         }
         if (preg_match('#^/og/([a-f0-9]{32})\.png$#D', $path, $m)) {
             // a share image drawn by the site (2.12, ShareImage); a hash the site did not make is a 404
             return ShareImage::serve($this->app, $m[1]) ?? $this->notFound();
         }
         if ($path === '/robots.txt') {
-            return new Response($seo->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->routeRobots();
         }
         if ($path === '/sitemap.xml') {
-            return new Response(PageCache::text($this->app, 'sitemap', $seo->sitemapXml(...)), 200, ['Content-Type' => 'application/xml; charset=utf-8']);
+            return $this->routeSitemap();
         }
         if ($path === '/feed.json') {
-            $json = PageCache::text($this->app, 'feed.json|' . Language::siteColumn(), fn (): string => (string) json_encode($seo->jsonFeed($this->news->listPublished(1, 20, true)[0]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-            return new Response($json, 200, ['Content-Type' => 'application/feed+json; charset=utf-8']);
+            return $this->routeFeed();
         }
         if ($path === '/.well-known/security.txt' && $this->app->settings()->get('security_contact') !== '') {
-            $siteSettings = $this->app->settings();
-
-            return new Response(Seo::securityTxt($siteSettings->get('security_contact'), $request->origin() . $this->app->url(''),
-                array_values(array_unique(array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings)))), time()), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->routeSecurityTxt();
         }
         if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
-            return new Response(PageCache::text($this->app, 'llms|' . Language::siteColumn(), $seo->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->routeLlms();
         }
         $indexNowKey = $this->app->settings()->get('indexnow_key');
         if ($indexNowKey !== '' && $path === '/' . $indexNowKey . '.txt') {
-            return new Response($indexNowKey, 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->routeIndexNowKey($indexNowKey);
         }
         if ($path === '/souhlas' && $request->isPost()) {
-            // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
-            $category = implode(',', array_intersect(explode(',', $request->post('kategorie')), ['analytika', 'marketing'])) ?: 'nic';
-            $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
-            if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/D', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
-                $antispam->write($request->ip(), 'souhlas', 0);
-                $this->app->db()->insert('souhlasy', ['id_souhlasu' => $request->post('id'), 'cas' => date('Y-m-d H:i:s'), 'kategorie' => $category]);
-            }
-
-            return new Response('', 204);
+            return $this->routeConsentLog();
         }
         if ($path === '/popup' && $request->isPost()) {
-            // popup counters: views, closes, conversions – without cookies and without data about the visitor
-            $column = ['zobrazeni' => 'zobrazeni', 'zavreni' => 'zavreni', 'konverze' => 'konverze'][$request->post('udalost')] ?? null;
-            $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
-            if ($column !== null && $request->postInt('id') > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
-                $antispam->write($request->ip(), 'popup', 0);
-                $this->app->db()->run('UPDATE {popupy} SET ' . $column . ' = ' . $column . ' + 1 WHERE idpp = ? AND aktivni = 1', [$request->postInt('id')]);
-            }
-
-            return new Response('', 204);
+            return $this->routePopupCounter();
         }
         if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit', '/fleet/uptime'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
-            // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
-            // 2.16: a paired site asks for the shared design kit the same way; 3.26.1: and for its own uptime days
-            $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
-            $signature = (string) ($request->serverValues()['HTTP_X_KALETA_SIGNATURE'] ?? '');
-
-            return match ($path) {
-                '/fleet/pair' => \Kaleta\Fleet\Console::pair($this->app, $body, $signature),
-                '/fleet/heartbeat' => \Kaleta\Fleet\Console::heartbeat($this->app, $body, $signature),
-                '/fleet/kit' => \Kaleta\Fleet\Kit::answer($this->app, $body, $signature),
-                '/fleet/uptime' => \Kaleta\Fleet\Uptime::answer($this->app, $body, $signature),
-                default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
-            };
+            return $this->routeFleet($path);
         }
         if ($path === '/fleet/calendar.ics' && Extensions::isEnabled($this->app->settings(), 'fleet')) {
             // 3.30: an administrator's calendar feed of the fleet's expiry dates (Fleet\Calendar) – a secret link, revocable
@@ -350,24 +290,12 @@ final class Kernel
         // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
         $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
         if ($path === '/odber' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter'))) {
-            $subscription = new Subscription($this->app);
-            if ($request->isPost() && !$subscriptionLink) {
-                $back = $request->post('zpet');
-                $back = preg_match('~^/[^\s\\\\?#]*$~D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
-                $anchor = preg_match('/^[a-z0-9-]{1,60}$/D', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
-
-                return Response::redirect($back . '?subscription=' . $subscription->subscribe() . $anchor, 303);
-            }
-            [$heading, $content] = $subscription->link();
-
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+            return $this->routeSubscription($subscriptionLink);
         }
         // 3.40: the link of the talent pool's renewal e-mail (Front\ApplicationConsent) – it keeps working when the feature is
         // switched off (an applicant may always ask for the deletion); never cached (noindex), private
         if (preg_match('#^/' . \Kaleta\Core\TalentPool::PATH . '/([a-f0-9]{64})$#D', $path, $m) === 1) {
-            [$heading, $content] = ApplicationConsent::page($this->app, $m[1]);
-
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content, ['noindex' => true, 'soukroma' => true]);
+            return $this->routeApplicationConsent($m);
         }
         if ($path === '/formular' && Extensions::isEnabled($this->app->settings(), 'poptavky')) {
             return (new Forms($this->app))->process();
@@ -384,61 +312,26 @@ final class Kernel
             return (new Booking($this->app))->availability(substr($path, 10));
         }
         if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#D', $path, $m)) {
-            [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
-            $this->context()->types['tlacitko'] = true;
-
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+            return $this->routeBookingCancel($m);
         }
         if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#D', $path, $m)) {
-            [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
-            $this->context()->types['tlacitko'] = true;
-
-            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+            return $this->routeBookingChoose($m);
         }
         if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#D', $path, $m)) {
             return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
         }
         if ($path === '/ulohy' && $request->get('probe') !== '') {
-            // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
-            $probe = $this->app->settings()->get('update_probe');
-
-            return $probe !== '' && hash_equals($probe, $request->get('probe'))
-                ? new Response('KALETA-PROBE ' . KALETA_VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'])
-                : new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+            return $this->routeUpdateProbe();
         }
         if ($path === '/ulohy') {
-            // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
-            $token = $this->app->settings()->get('tasks_token');
-            if ($token === '' || !hash_equals($token, $request->get('token'))) {
-                return new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
-            }
-            $done = [];
-            $this->app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
-            @set_time_limit(90);
-            try {
-                foreach (\Kaleta\Core\Scheduler::run($this->app, 'cron', 50.0) as $job => $result) { // 2.8: every due job (Core\Scheduler)
-                    $done[] = $job . ': ' . $result;
-                }
-            } catch (\Throwable $e) {
-                $done[] = 'error: ' . $e->getMessage();
-            }
-
-            return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+            return $this->routeTasks();
         }
         if (preg_match('#^/screen/([a-f0-9]{32})$#D', $path, $m)) {
             // screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret, otherwise 404
             return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
         }
         if ($path === '/stav.json') {
-            $token = $this->app->settings()->get('health_token');
-            if ($token === '' || !hash_equals($token, $request->get('token'))) {
-                return Response::json(['chyba' => 'Invalid token.'], 403);
-            }
-            // monitoring always gets the texts in Czech - they must not change with the language of the shown site version
-            // N319-7: without the database's own error text and the old addresses of colliding redirects (counts only)
-            $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app, false, false));
-
-            return Response::json(['stav' => \Kaleta\Core\Health::summary($checks), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $checks]);
+            return $this->routeHealth();
         }
 
         // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
@@ -475,15 +368,7 @@ final class Kernel
             return (new DraftComments($this->app))->post();
         }
         if (($path === '/_report' || $path === '/_report/follow') && \Kaleta\Core\Whistleblowing::isOn($this->app->settings())) {
-            // the whistleblowing channel (2.14): the report form and the follow-up by case number and code; a private page –
-            // no statistics (noindex), no cache, no tracking codes, no cookie bar (meta soukroma)
-            [$title, $html, $status] = (new Whistleblowing($this->app))->render($path === '/_report/follow');
-            $k = $this->context();
-            $k->types['formular'] = true; // the form styles
-            $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
-            $k->withoutCache = true;
-
-            return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true, 'soukroma' => true], $status);
+            return $this->routeWhistleblowing($path);
         }
         if (preg_match('#^/([a-z0-9-]{1,110})/(?:_compare|_porovnat)$#D', $path, $m)) { // 3.7: _compare, the Czech one from 2.11 too
             return $this->compareProducts($m[1]);
@@ -505,6 +390,252 @@ final class Kernel
         }
 
         return $this->notFound();
+    }
+
+    /** The maintenance page for a visitor (3.31.2 N102): 503, or 200 for the update's own check of the home page. */
+    private function routeMaintenance(): Response
+    {
+        $request = $this->app->request;
+        // while an update checks itself (update_probe is set for those few seconds), its own request for the home page
+        // gets the maintenance page with 200: the updater of 3.31.1 and older reads a 503 as "the new version is broken"
+        // and would roll this very release back. The page is the same; everyone else gets 503 as always.
+        $selfCheck = $this->app->settings()->get('update_probe') !== '' && str_starts_with((string) ($request->serverValues()['HTTP_USER_AGENT'] ?? ''), 'Kaleta-update-check/');
+
+        return new Response('<!doctype html><html lang="' . e(Language::tag(Language::code())) . '"' . Language::dirAttribute(Language::code()) . '><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . e($this->app->settings()->get('site_name')) . '</title>'
+            . '<body style="font:18px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:24px;text-align:center"><div><h1 style="font-size:28px">' . e($this->app->settings()->get('site_name'))
+            . '</h1><p>' . e($this->app->settings()->get('maintenance_text')) . '</p></div>', $selfCheck ? 200 : 503, ['Content-Type' => 'text/html; charset=utf-8', 'Retry-After' => '3600', 'Cache-Control' => 'no-store']);
+    }
+
+    /** The stored redirect of an old WordPress parameter address (?p=123, ?page_id=123, ?lang=en), or null to go on. */
+    private function routeOldWordPressAddress(string $source): ?Response
+    {
+        // 3.19: the exact address; a row not normalised yet (written by 3.18 after a rollback, a restored backup – N319-5)
+        // by its stored address until the job fills it
+        $target = $this->app->db()->one('SELECT idp, na_adresu, typ FROM {presmerovani} WHERE source_norm = ? OR (source_norm IS NULL AND z_adresy = ?) ORDER BY source_norm IS NULL, idp LIMIT 1',
+            [\Kaleta\Core\RedirectSources::normalize($source), $source]);
+        if ($target === null) {
+            return null;
+        }
+        $this->app->db()->run('UPDATE {presmerovani} SET pocet = pocet + 1 WHERE idp = ?', [$target['idp']]);
+
+        return $this->ruleResponse((string) $target['na_adresu'], (int) $target['typ'] === 410 ? 410 : 301);
+    }
+
+    /** @param array<int|string, string> $m the customer's quote: [1] its token, [2] '.pdf' for the PDF (3.38, 3.40) */
+    private function routeQuote(array $m): Response
+    {
+        $pdf = ($m[2] ?? '') !== '';
+        if ($this->app->request->isPost() && !$pdf) {
+            return QuoteDecision::response($this->app, $m[1]) ?? $this->notFoundPage(404); // 3.40: the customer accepts or declines (bound to the token)
+        }
+
+        return QuotePage::response($this->app, $m[1], $pdf) ?? $this->notFoundPage(404);
+    }
+
+    /** @param array<int|string, string> $m a news item as Markdown for language models: [1] its slug */
+    private function routeNewsMarkdown(array $m): Response
+    {
+        $newsItem = $this->news->bySlug($m[1]);
+
+        return $newsItem === null
+            ? $this->notFound()
+            : new Response((new Seo($this->app))->newsItemMarkdown($newsItem), 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
+    }
+
+    private function routeManifest(): Response
+    {
+        return new Response(SiteIdentity::manifest($this->app->settings(), $this->app->request->basePath()), 200, ['Content-Type' => 'application/manifest+json; charset=utf-8']);
+    }
+
+    private function routeFavicon(): Response
+    {
+        // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
+        $icon = is_file(KALETA_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
+
+        return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
+    }
+
+    private function routeRobots(): Response
+    {
+        return new Response((new Seo($this->app))->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    private function routeSitemap(): Response
+    {
+        return new Response(PageCache::text($this->app, 'sitemap', (new Seo($this->app))->sitemapXml(...)), 200, ['Content-Type' => 'application/xml; charset=utf-8']);
+    }
+
+    private function routeFeed(): Response
+    {
+        $seo = new Seo($this->app);
+        $json = PageCache::text($this->app, 'feed.json|' . Language::siteColumn(), fn (): string => (string) json_encode($seo->jsonFeed($this->news->listPublished(1, 20, true)[0]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return new Response($json, 200, ['Content-Type' => 'application/feed+json; charset=utf-8']);
+    }
+
+    private function routeSecurityTxt(): Response
+    {
+        $siteSettings = $this->app->settings();
+
+        return new Response(Seo::securityTxt($siteSettings->get('security_contact'), $this->app->request->origin() . $this->app->url(''),
+            array_values(array_unique(array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings)))), time()), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    private function routeLlms(): Response
+    {
+        return new Response(PageCache::text($this->app, 'llms|' . Language::siteColumn(), (new Seo($this->app))->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    /** The IndexNow key file: its name and its content are the key. */
+    private function routeIndexNowKey(string $indexNowKey): Response
+    {
+        return new Response($indexNowKey, 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    private function routeConsentLog(): Response
+    {
+        $request = $this->app->request;
+        // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
+        $category = implode(',', array_intersect(explode(',', $request->post('kategorie')), ['analytika', 'marketing'])) ?: 'nic';
+        $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
+        if ($this->app->settings()->bool('cookies_log') && preg_match('/^[a-f0-9]{32}$/D', $request->post('id')) && $antispam->count($request->ip(), 'souhlas', 0, 60) < 20) {
+            $antispam->write($request->ip(), 'souhlas', 0);
+            $this->app->db()->insert('souhlasy', ['id_souhlasu' => $request->post('id'), 'cas' => date('Y-m-d H:i:s'), 'kategorie' => $category]);
+        }
+
+        return new Response('', 204);
+    }
+
+    private function routePopupCounter(): Response
+    {
+        $request = $this->app->request;
+        // popup counters: views, closes, conversions – without cookies and without data about the visitor
+        $column = ['zobrazeni' => 'zobrazeni', 'zavreni' => 'zavreni', 'konverze' => 'konverze'][$request->post('udalost')] ?? null;
+        $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
+        if ($column !== null && $request->postInt('id') > 0 && $antispam->count($request->ip(), 'popup', 0, 60) < 60) {
+            $antispam->write($request->ip(), 'popup', 0);
+            $this->app->db()->run('UPDATE {popupy} SET ' . $column . ' = ' . $column . ' + 1 WHERE idpp = ? AND aktivni = 1', [$request->postInt('id')]);
+        }
+
+        return new Response('', 204);
+    }
+
+    private function routeFleet(string $path): Response
+    {
+        // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
+        // 2.16: a paired site asks for the shared design kit the same way; 3.26.1: and for its own uptime days
+        $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
+        $signature = (string) ($this->app->request->serverValues()['HTTP_X_KALETA_SIGNATURE'] ?? '');
+
+        return match ($path) {
+            '/fleet/pair' => \Kaleta\Fleet\Console::pair($this->app, $body, $signature),
+            '/fleet/heartbeat' => \Kaleta\Fleet\Console::heartbeat($this->app, $body, $signature),
+            '/fleet/kit' => \Kaleta\Fleet\Kit::answer($this->app, $body, $signature),
+            '/fleet/uptime' => \Kaleta\Fleet\Uptime::answer($this->app, $body, $signature),
+            default => \Kaleta\Fleet\Console::unpair($this->app, $body, $signature),
+        };
+    }
+
+    private function routeSubscription(bool $subscriptionLink): Response
+    {
+        $request = $this->app->request;
+        $subscription = new Subscription($this->app);
+        if ($request->isPost() && !$subscriptionLink) {
+            $back = $request->post('zpet');
+            $back = preg_match('~^/[^\s\\\\?#]*$~D', $back) && !str_starts_with($back, '//') ? $back : $this->app->url('');
+            $anchor = preg_match('/^[a-z0-9-]{1,60}$/D', $request->post('kotva')) ? '#' . $request->post('kotva') : '';
+
+            return Response::redirect($back . '?subscription=' . $subscription->subscribe() . $anchor, 303);
+        }
+        [$heading, $content] = $subscription->link();
+
+        return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+    }
+
+    /** @param array<int|string, string> $m the talent pool's renewal link: [1] its token */
+    private function routeApplicationConsent(array $m): Response
+    {
+        [$heading, $content] = ApplicationConsent::page($this->app, $m[1]);
+
+        return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content, ['noindex' => true, 'soukroma' => true]);
+    }
+
+    /** @param array<int|string, string> $m the customer's cancel page of a booking: [1] its token */
+    private function routeBookingCancel(array $m): Response
+    {
+        [$heading, $content, $status] = (new Booking($this->app))->cancelPage($m[1]);
+        $this->context()->types['tlacitko'] = true;
+
+        return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+    }
+
+    /** @param array<int|string, string> $m the customer's page to choose one of the proposed times: [1] its token */
+    private function routeBookingChoose(array $m): Response
+    {
+        [$heading, $content, $status] = (new Booking($this->app))->choosePage($m[1]);
+        $this->context()->types['tlacitko'] = true;
+
+        return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
+    }
+
+    private function routeUpdateProbe(): Response
+    {
+        $request = $this->app->request;
+        // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
+        $probe = $this->app->settings()->get('update_probe');
+
+        return $probe !== '' && hash_equals($probe, $request->get('probe'))
+            ? new Response('KALETA-PROBE ' . KALETA_VERSION . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store'])
+            : new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+    }
+
+    private function routeTasks(): Response
+    {
+        $request = $this->app->request;
+        // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
+        $token = $this->app->settings()->get('tasks_token');
+        if ($token === '' || !hash_equals($token, $request->get('token'))) {
+            return new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
+        $done = [];
+        $this->app->settings()->set('tasks_last_run', (string) time()); // newsletters are sent only while cron runs
+        @set_time_limit(90);
+        try {
+            foreach (\Kaleta\Core\Scheduler::run($this->app, 'cron', 50.0) as $job => $result) { // 2.8: every due job (Core\Scheduler)
+                $done[] = $job . ': ' . $result;
+            }
+        } catch (\Throwable $e) {
+            $done[] = 'error: ' . $e->getMessage();
+        }
+
+        return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+
+    private function routeHealth(): Response
+    {
+        $request = $this->app->request;
+        $token = $this->app->settings()->get('health_token');
+        if ($token === '' || !hash_equals($token, $request->get('token'))) {
+            return Response::json(['chyba' => 'Invalid token.'], 403);
+        }
+        // monitoring always gets the texts in Czech - they must not change with the language of the shown site version
+        // N319-7: without the database's own error text and the old addresses of colliding redirects (counts only)
+        $checks = Language::runWith('cs', fn (): array => \Kaleta\Core\Health::checks($this->app, false, false));
+
+        return Response::json(['stav' => \Kaleta\Core\Health::summary($checks), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $checks]);
+    }
+
+    private function routeWhistleblowing(string $path): Response
+    {
+        // the whistleblowing channel (2.14): the report form and the follow-up by case number and code; a private page –
+        // no statistics (noindex), no cache, no tracking codes, no cookie bar (meta soukroma)
+        [$title, $html, $status] = (new Whistleblowing($this->app))->render($path === '/_report/follow');
+        $k = $this->context();
+        $k->types['formular'] = true; // the form styles
+        $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
+        $k->withoutCache = true;
+
+        return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true, 'soukroma' => true], $status);
     }
 
     /**
