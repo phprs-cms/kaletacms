@@ -49,7 +49,7 @@ check('3.50 integration: the literal types of DECLARATIONS equal the constants t
     'seznam:' . Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'seznam:' . Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
     'vyber:' . Kaleta\Core\MailServices::CHOICES, 'vyber:' . Kaleta\Core\Assistant::PROVIDER_KEYS]);
 // … and reading the declaration, as every request does, loads none of those four classes (a child process, plain bootstrap)
-$b2cChild = json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' -n -r ' . escapeshellarg('require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true)
+$b2cChild = json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg('require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true)
     . '; $d = Kaleta\Core\Settings::DECLARATIONS; Kaleta\Core\Settings::keysWith("export"); echo json_encode(array_map(fn ($c) => class_exists("Kaleta\\\\Core\\\\" . $c, false), ["SocialDrafts", "SecurityHygiene", "MailServices", "Assistant", "Settings"]));') . ' 2>&1'), true);
 check('3.50 integration: reading Settings::DECLARATIONS autoloads none of SocialDrafts, SecurityHygiene, MailServices, Assistant (Settings itself is loaded)',
     $b2cChild, [false, false, false, false, true]);

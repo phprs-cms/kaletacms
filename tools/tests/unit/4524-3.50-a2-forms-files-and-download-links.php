@@ -33,7 +33,7 @@ for ($a524i = 0; $a524i < 48; $a524i++) {
 }
 fwrite($a524Handle, 'word/document.xml');
 fclose($a524Handle);
-$a524Child = (string) shell_exec(escapeshellarg(PHP_BINARY) . ' -n -d memory_limit=32M -r ' . escapeshellarg('require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; echo json_encode(Kaleta\Core\FileSignature::scan($argv[1], ["[Content_Types].xml", "word/", "vbaproject.bin"]));') . ' ' . escapeshellarg($a524Big) . ' 2>&1');
+$a524Child = (string) shell_exec(escapeshellarg(PHP_BINARY) . ' -d memory_limit=32M -r ' . escapeshellarg('require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true) . '; echo json_encode(Kaleta\Core\FileSignature::scan($argv[1], ["[Content_Types].xml", "word/", "vbaproject.bin"]));') . ' ' . escapeshellarg($a524Big) . ' 2>&1');
 check('3.50 L6: a 48 MB file is scanned under a 32 MB memory limit', json_decode($a524Child, true), ['[Content_Types].xml' => true, 'word/' => true, 'vbaproject.bin' => false]);
 
 check('3.50 L10: an enquiry file – a text with markup, a program under any name, a drawing that starts like a program are refused; plain text, a real PDF and an unknown drawing pass', [
