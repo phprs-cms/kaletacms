@@ -475,14 +475,12 @@
 
 	/* ---------- forms: after an error restore the filled-in values, after a submit report a conversion ---------- */
 
-	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
-	document.querySelectorAll('form[data-formular]').forEach(function (f) {
-		var key = 'ka-formular-' + f.getAttribute('data-formular');
-		var wait = f.querySelector('input[data-cekat]');
-		// 3.47: a file over the form's limit (data-max-bytes) or files over the server's limit of the whole form (data-max-post,
-		// less 64 kB for the other fields) – the browser's own validation stops the submit and says why, nothing is uploaded.
-		// 3.47 review F6: the limit of one file is never above the server's (Form::attachmentLimit), so one file is judged by it
-		// alone – the "together" rule and its reserve count only when several files are chosen
+	// 3.47: a file over the form's limit (data-max-bytes) or files over the server's limit of the whole form (data-max-post,
+	// less 64 kB for the other fields) – the browser's own validation stops the submit and says why, nothing is uploaded.
+	// 3.47 review F6: the limit of one file is never above the server's (Form::attachmentLimit), so one file is judged by it
+	// alone – the "together" rule and its reserve count only when several files are chosen. 3.50.1 (D4): bound to every form
+	// with the limits (Form::limitAttributes), also the whistleblowing report, whose values are never kept (no data-formular)
+	document.querySelectorAll('form[data-file-too-large]').forEach(function (f) {
 		f.addEventListener('change', function (e) {
 			if (!e.target || e.target.type !== 'file') { return; }
 			var maxPost = parseInt(f.getAttribute('data-max-post') || '0', 10);
@@ -496,6 +494,11 @@
 			if (maxPost > 0 && last && chosen > 1 && total > maxPost - 65536) { last.setCustomValidity(f.getAttribute('data-files-too-large') || ''); }
 			if (!e.target.checkValidity()) { e.target.reportValidity(); }
 		});
+	});
+	// the values are kept only by the visitor's browser (sessionStorage) and disappear after a successful submit; nothing is written to the URL
+	document.querySelectorAll('form[data-formular]').forEach(function (f) {
+		var key = 'ka-formular-' + f.getAttribute('data-formular');
+		var wait = f.querySelector('input[data-cekat]');
 		f.addEventListener('submit', function (e) {
 			var values = {};
 			Array.prototype.forEach.call(f.elements, function (p) {

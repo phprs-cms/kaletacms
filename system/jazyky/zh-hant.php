@@ -2162,4 +2162,5 @@ return [
     'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => '無法傳送此檔案：它超過 %d MB，或是表單不接受的類型。',
     'The file is larger than %d MB.' => '檔案超過 %d MB。',
     'The files are larger than %d MB together.' => '檔案合計超過 %d MB。',
+    'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => '最多 %d 個檔案，每個最大 %d MB，合計最大 %d MB：PDF、圖片、文件或 ZIP。',
 ];

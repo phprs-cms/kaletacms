@@ -2125,4 +2125,5 @@ return [
     'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Tento súbor nemožno odoslať: je väčší ako %d MB alebo je to typ, ktorý formulár neprijíma.',
     'The file is larger than %d MB.' => 'Súbor je väčší ako %d MB.',
     'The files are larger than %d MB together.' => 'Súbory majú spolu viac ako %d MB.',
+    'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Až %d súborov, každý do %d MB a spolu do %d MB: PDF, obrázok, dokument alebo ZIP.',
 ];

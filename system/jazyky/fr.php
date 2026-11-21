@@ -2144,4 +2144,5 @@ return [
     'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Ce fichier ne peut pas être envoyé : il dépasse %d Mo ou son type n’est pas accepté par le formulaire.',
     'The file is larger than %d MB.' => 'Le fichier dépasse %d Mo.',
     'The files are larger than %d MB together.' => 'Les fichiers dépassent %d Mo au total.',
+    'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Jusqu\'à %d fichiers, chacun jusqu\'à %d Mo et au total jusqu\'à %d Mo : PDF, image, document ou ZIP.',
 ];

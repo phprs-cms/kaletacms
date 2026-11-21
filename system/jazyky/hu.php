@@ -2162,4 +2162,5 @@ return [
     'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Ez a fájl nem küldhető el: nagyobb, mint %d MB, vagy olyan típusú, amelyet az űrlap nem fogad el.',
     'The file is larger than %d MB.' => 'A fájl nagyobb, mint %d MB.',
     'The files are larger than %d MB together.' => 'A fájlok együtt nagyobbak, mint %d MB.',
+    'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Legfeljebb %d fájl, egyenként legfeljebb %d MB, összesen legfeljebb %d MB: PDF, kép, dokumentum vagy ZIP.',
 ];

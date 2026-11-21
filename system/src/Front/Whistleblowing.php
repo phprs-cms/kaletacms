@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kaleta\Front;
 
 use Kaleta\Core\Antispam;
+use Kaleta\Builder\Elements\Form;
 use Kaleta\Core\App;
+use Kaleta\Core\Files;
 use Kaleta\Core\Whistleblowing as Channel;
 
 /**
@@ -37,7 +39,13 @@ final class Whistleblowing
         $title = t('Report a concern');
         $error = '';
         $busy = false;
-        if ($r->isPost()) {
+        $tooLarge = false;
+        if ($r->bodyTooLarge()) {
+            // 3.50.1 (UX-c1): a body over post_max_size reaches PHP with $_POST and $_FILES emptied – instead of "could not be
+            // verified" over an empty form the reporter learns the real limits; no antispam attempt is counted
+            $error = Form::messages('size', Form::MAX_ATTACHMENT, Files::postLimit());
+            $tooLarge = true;
+        } elseif ($r->isPost()) {
             $reason = (new Antispam($this->app->db(), $this->app->settings()))->verify($r, 'oznameni');
             if ($reason !== null) {
                 $error = $reason === 'robot' ? t('The form could not be verified. Reload the page and try again.') : $reason;
@@ -65,16 +73,38 @@ final class Whistleblowing
         $html = ($intro !== '' ? '<p>' . nl2br(e($intro)) . '</p>' : '')
             . '<p>' . e(t('This channel is for reporting breaches of law or internal rules in our organisation. You may stay anonymous. Your report is stored encrypted and only the persons appointed to handle reports can read it.')) . '</p>'
             . ($error !== '' ? '<p class="ka-formular-chyba" role="alert">' . e($error) . '</p>' : '')
-            . '<form class="ka-formular" method="post" enctype="multipart/form-data" autocomplete="off">' . $antispam->fields('oznameni')
+            // the limits for the browser's size check (image/web.js, form[data-file-too-large]); never data-formular – the
+            // text of a report is not kept in the browser's storage (3.50.1 D4)
+            . '<form class="ka-formular" method="post" enctype="multipart/form-data" autocomplete="off"' . self::limitAttributes(Files::postLimit()) . '>' . $antispam->fields('oznameni')
             . '<p class="ka-pole"><label for="o-text">' . e(t('What happened')) . ' <span class="ka-povinne" aria-hidden="true">*</span></label><textarea id="o-text" name="text" rows="10" maxlength="' . Channel::MAX_TEXT . '" required>' . $this->field('text') . '</textarea></p>'
             . '<p class="ka-pole"><label for="o-name">' . e(t('Your name (optional)')) . '</label><input id="o-name" name="name" maxlength="200" value="' . $this->field('name') . '"></p>'
             . '<p class="ka-pole"><label for="o-contact">' . e(t('How can we reach you (optional)')) . '</label><input id="o-contact" name="contact" maxlength="500" value="' . $this->field('contact') . '"></p>'
-            . '<p class="ka-pole"><label for="o-files">' . e(t('Attachments (optional)')) . '</label><input id="o-files" name="files[]" type="file" multiple accept=".' . implode(',.', \Kaleta\Builder\Elements\Form::ATTACHMENT_EXTENSIONS) . '">'
-            . '<small class="ka-pole-napoveda">' . e(t('Up to %d files, each up to %d MB: PDF, image, document or ZIP.', Channel::MAX_ATTACHMENTS, (int) (\Kaleta\Builder\Elements\Form::MAX_ATTACHMENT / 1048576))) . '</small></p>'
+            . '<p class="ka-pole"><label for="o-files">' . e(t('Attachments (optional)')) . '</label><input id="o-files" name="files[]" type="file" multiple accept=".' . implode(',.', Form::ATTACHMENT_EXTENSIONS) . '" data-max-bytes="' . Form::MAX_ATTACHMENT . '">'
+            . '<small class="ka-pole-napoveda">' . e(self::attachmentHint(Files::postLimit())) . '</small></p>'
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e(t('Send the report')) . '</button></p></form>'
             . '<p><a href="' . e($this->app->url('_report/follow')) . '">' . e(t('Follow your report')) . '</a></p>';
 
-        return [$title, $this->wrap($title, $html), $busy ? 429 : ($error !== '' ? 422 : 200)];
+        return [$title, $this->wrap($title, $html), $tooLarge ? 413 : ($busy ? 429 : ($error !== '' ? 422 : 200))];
+    }
+
+    /** The attributes of the report form for the browser's size check: one file and the server's limit of the body. Pure. */
+    public static function limitAttributes(int $postLimit): string
+    {
+        return Form::limitAttributes(Form::MAX_ATTACHMENT, $postLimit);
+    }
+
+    /**
+     * The hint under the file field (3.50.1): 5 files of 10 MB, and the real total when the server accepts less than that in
+     * one body (post_max_size; 0 = no limit). Pure.
+     */
+    public static function attachmentHint(int $postLimit): string
+    {
+        $perFile = (int) (Form::MAX_ATTACHMENT / 1048576);
+        if ($postLimit > 0 && $postLimit < Channel::MAX_ATTACHMENTS * Form::MAX_ATTACHMENT) {
+            return t('Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.', Channel::MAX_ATTACHMENTS, $perFile, max(1, intdiv($postLimit, 1048576)));
+        }
+
+        return t('Up to %d files, each up to %d MB: PDF, image, document or ZIP.', Channel::MAX_ATTACHMENTS, $perFile);
     }
 
     /** @return array{0: string, 1: string, 2: int} */

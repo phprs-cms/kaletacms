@@ -2162,4 +2162,5 @@ return [
     'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'لا يمكن إرسال هذا الملف: حجمه أكبر من %d ميغابايت أو نوعه لا يقبله النموذج.',
     'The file is larger than %d MB.' => 'حجم الملف أكبر من %d ميغابايت.',
     'The files are larger than %d MB together.' => 'حجم الملفات معًا أكبر من %d ميغابايت.',
+    'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'حتى %d ملفات، بحد أقصى %d ميغابايت لكل ملف و%d ميغابايت معًا: PDF أو صورة أو مستند أو ZIP.',
 ];
