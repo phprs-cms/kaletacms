@@ -31,7 +31,7 @@ check('3.34 B: the built-in templates are in the site language (visitor dictiona
     ['Vaše žádost o místo – Svářeč', true, true, 'Invitación a una entrevista – Pintora', []]);
 $c336Source = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/ApplicationReplies.php');
 check('[source-pin] 3.34 B: the reply reuses the enquiry machinery (SMTP check, signature, HTML part, history) and logs no person in the mail log; the received confirmation only without the form\'s own', [
-    (new ReflectionMethod(Kaleta\Core\EnquiryReply::class, 'html'))->isPublic(), str_contains($c336Source, '$blocked = EnquiryReply::unavailable($s);'), str_contains($c336Source, '$signature = EnquiryReply::signature($app, $user);'),
-    str_contains($c336Source, "true, t('Reply to application #%d: %s', \$id, \$s->get('site_name')));"), str_contains($c336Source, "if (!empty(\$content['potvrzeni']) || count(\$to) !== 1) {"),
+    (new ReflectionMethod(Kaleta\Core\EnquiryReply::class, 'html'))->isPublic(), str_contains($c336Source, '$blocked = EnquiryReply::unavailable($s);'), str_contains($c336Source, 'ReplyMail::send($app, $to[0], $subject, $text,'), // 3.49 A: the one sender of replies (Core\ReplyMail) carries the signature
+    str_contains($c336Source, "['log_subject' => t('Reply to application #%d: %s', \$id, \$s->get('site_name'))]"), str_contains($c336Source, "if (!empty(\$content['potvrzeni']) || count(\$to) !== 1) {"),
     isset(Kaleta\Core\Events::TYPES['application.replied'], Kaleta\Core\Events::TYPES['application.received'], Kaleta\Core\Events::TYPES['applications.moved']),
 ], [true, true, true, true, true, true]);

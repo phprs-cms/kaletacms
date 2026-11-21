@@ -82,11 +82,7 @@ final class ApplicationReplies
      */
     public static function fill(string $text, array $vars): string
     {
-        if (trim($vars['name']) === '') {
-            $text = str_replace([', {{name}}', ' {{name}}', '{{name}}'], '', $text);
-        }
-
-        return str_replace(['{{name}}', '{{position}}', '{{company}}'], [trim($vars['name']), $vars['position'], $vars['company']], $text);
+        return ReplyMail::fill($text, ['name' => $vars['name'], 'position' => $vars['position'], 'company' => $vars['company']]); // 3.49 A: one fill for every reply
     }
 
     /** The language an application was sent in (its site version), as a code: '' = the default language of the site. */
@@ -192,21 +188,17 @@ final class ApplicationReplies
         $subject = trim(mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $subject), 0, EnquiryReply::MAX_SUBJECT));
         $subject = $subject !== '' ? $subject : self::compose($s, $row, 'received')['subject'];
 
-        $user = $app->auth()->user() ?? [];
-        $name = trim((string) ($user['jmeno'] ?? '')) !== '' ? trim((string) $user['jmeno']) : (string) ($user['user'] ?? 'admin');
-        $replyTo = Mail::addresses((string) ($user['email'] ?? ''));
-        $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
-        $signature = EnquiryReply::signature($app, $user);
-        $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '');
-        $html = $signature !== null ? EnquiryReply::html($text, $signature['html']) : '';
-        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Reply to application #%d: %s', $id, $s->get('site_name')));
-        $error = $ok ? '' : Mail::$error;
+        // 3.49 A: the one sender of replies (Core\ReplyMail) – From the site, Reply-To the user, their signature below the text
+        $sent = ReplyMail::send($app, $to[0], $subject, $text, ['log_subject' => t('Reply to application #%d: %s', $id, $s->get('site_name'))]);
+        $ok = $sent['ok'];
+        $error = $sent['error'];
+        $name = $sent['by'];
         $now = Clock::now();
-        $entry = ['at' => $now, 'by' => mb_substr($name, 0, 100), 'by_id' => (int) ($user['idu'] ?? 0), 'to' => $to[0], 'reply_to' => $headers['Reply-To'] ?? '',
-            'subject' => $subject, 'text' => $text, 'mail' => (int) (Mail::$lastId ?? 0), 'status' => $ok ? 'sent' : 'queued', 'error' => mb_substr($error, 0, 255), 'via' => $via];
+        $entry = ['at' => $now, 'by' => $sent['by'], 'by_id' => $sent['by_id'], 'to' => $to[0], 'reply_to' => $sent['reply_to'],
+            'subject' => $subject, 'text' => $text, 'mail' => $sent['mail'], 'status' => $ok ? 'sent' : 'queued', 'error' => mb_substr($error, 0, 255), 'via' => $via];
         $replies = array_slice([...EnquiryReply::decode($row['replies']), $entry], -EnquiryReply::KEEP);
         $changes = ['replies' => (string) json_encode($replies, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), 'last_activity_at' => $now];
-        $me = (int) ($user['idu'] ?? 0);
+        $me = $sent['by_id'];
         if ($row['assignee_id'] === null && $me > 0 && Assignment::allowed($db, 'application', $me)) {
             $changes['assignee_id'] = $me; // who answered handles it, unless someone already does
         }

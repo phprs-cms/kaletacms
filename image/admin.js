@@ -1284,7 +1284,7 @@
 	// values. The deal form's details[data-pick-new] ("New customer…") is the last row: it opens and gets the focus.
 	// Arrows, Enter, Escape, Tab; a live region says how many results. pickSources: data-pick => the key of the answer's
 	// rows ({id|value, name, note}) – unit 4460 keeps it equal to the values the views write.
-	var pickSources = { contacts: 'contacts', companies: 'companies', deals: 'deals', products: 'products' };
+	var pickSources = { contacts: 'contacts', companies: 'companies', deals: 'deals', products: 'products', files: 'files' };
 	var pickNumber = 0;
 	var pickFold = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
 	Array.prototype.forEach.call(document.querySelectorAll('[data-pick]'), function (control) {
@@ -1473,6 +1473,95 @@
 	});
 
 	/* ---------- 3.49: saved reply (part A) ---------- */
+	// select[data-saved-reply] (views/admin/enquiries/detail.php): choosing a saved reply asks the address in the attribute
+	// (&id=…, GET, read-only) for it filled for this enquiry; the subject is replaced while it is still the default one, the
+	// text when it is empty or still the drafted reply the page came with – otherwise the saved text goes after a blank line.
+	// The no-script "Insert" (it reloads the page) is hidden.
+	Array.prototype.forEach.call(document.querySelectorAll('select[data-saved-reply]'), function (select) {
+		var form = document.querySelector('form[data-reply-form]');
+		var subject = form && form.elements.subject, text = form && form.elements.text;
+		var insert = document.querySelector('[data-saved-reply-insert]');
+		if (!subject || !text) { return; }
+		if (insert) { insert.hidden = true; }
+		select.addEventListener('change', function () {
+			if (!select.value) { return; }
+			var address = select.getAttribute('data-saved-reply');
+			fetch(address + (address.indexOf('?') === -1 ? '?' : '&') + 'id=' + encodeURIComponent(select.value), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+				.then(function (r) { return r.ok ? r.json() : null; })
+				.then(function (d) {
+					if (!d || typeof d.text !== 'string') { return; }
+					if (subject.value === subject.defaultValue && d.subject) { subject.value = d.subject; }
+					var current = text.value.trim();
+					text.value = current === '' || text.value === text.defaultValue ? d.text : text.value.replace(/\s+$/, '') + '\n\n' + d.text;
+					text.dispatchEvent(new Event('input', { bubbles: true }));
+					text.focus();
+				})
+				.catch(function () { /* the person writes the reply themselves */ });
+		});
+	});
+
+	// [data-attachments] (views/admin/attachments.php, a reply and the quote e-mail): a file chosen in "Add another file"
+	// becomes a ticked row (the no-script "Add" is hidden); before the form is sent the files are counted and measured –
+	// over data-max-files or data-max-bytes the submit is refused with a message before anything is uploaded, and with
+	// files the confirmation names their number (data-attach-confirm, %2$d). The quote's preview lists the ticked files.
+	Array.prototype.forEach.call(document.querySelectorAll('[data-attachments]'), function (box) {
+		var form = box.closest('form'), list = box.querySelector('[data-attach-list]'), add = box.querySelector('select[data-attach-add]');
+		var upload = box.querySelector('input[type="file"]'), error = box.querySelector('[data-attach-error]');
+		var maxBytes = parseInt(box.getAttribute('data-max-bytes'), 10) || 0, maxFiles = parseInt(box.getAttribute('data-max-files'), 10) || 0;
+		var plain = form ? form.getAttribute('data-potvrdit') : null, preview = form ? form.querySelector('[data-quote-mail-files]') : null;
+		var addButton = box.querySelector('[data-attach-add-button]');
+		if (!form || !list) { return; }
+		if (addButton) { addButton.hidden = true; }
+		var ticked = function () { return Array.prototype.filter.call(list.querySelectorAll('input[type="checkbox"]'), function (c) { return c.checked; }); };
+		var showPreview = function () {
+			if (!preview) { return; }
+			var names = ticked().map(function (c) { return c.parentNode.textContent.trim(); });
+			Array.prototype.forEach.call(upload ? upload.files : [], function (f) { names.push(f.name); });
+			preview.hidden = names.length === 0;
+			preview.querySelector('span').textContent = names.join(', ');
+		};
+		if (add) {
+			add.addEventListener('change', function () {
+				var value = add.value, option = add.options[add.selectedIndex];
+				if (!value) { return; }
+				var known = Array.prototype.filter.call(list.querySelectorAll('input[type="checkbox"]'), function (c) { return c.value === value; })[0];
+				if (known) {
+					known.checked = true;
+				} else {
+					var li = document.createElement('li'), label = document.createElement('label'), box2 = document.createElement('input');
+					box2.type = 'checkbox';
+					box2.name = 'internal_files[]';
+					box2.value = value;
+					box2.checked = true;
+					box2.setAttribute('data-bytes', (option && option.getAttribute('data-bytes')) || '0');
+					label.appendChild(box2);
+					label.appendChild(document.createTextNode(' ' + (option ? option.textContent.trim() : value)));
+					li.appendChild(label);
+					list.appendChild(li);
+				}
+				add.value = '';
+				add.dispatchEvent(new Event('change', { bubbles: true })); // the choice by search shows the empty field again
+				showPreview();
+			});
+		}
+		list.addEventListener('change', showPreview);
+		if (upload) { upload.addEventListener('change', showPreview); }
+		form.addEventListener('submit', function (e) {
+			var files = ticked(), count = files.length, bytes = 0;
+			files.forEach(function (c) { bytes += parseInt(c.getAttribute('data-bytes'), 10) || 0; });
+			Array.prototype.forEach.call(upload ? upload.files : [], function (f) { count += 1; bytes += f.size; });
+			var problem = maxFiles && count > maxFiles ? T('Up to %d files can go with one e-mail.').replace('%d', String(maxFiles))
+				: maxBytes && bytes > maxBytes ? T('The attachments are too large together (%1$s, at most %2$s).').replace('%1$s', (bytes / 1048576).toFixed(1) + ' MB').replace('%2$s', (maxBytes / 1048576).toFixed(1) + ' MB') : '';
+			if (error) { error.hidden = problem === ''; error.textContent = problem; }
+			if (problem) {
+				e.preventDefault();
+				e.stopImmediatePropagation(); // no confirmation for a form that cannot go
+				if (error) { error.scrollIntoView({ block: 'center' }); }
+				return;
+			}
+			if (plain !== null) { form.setAttribute('data-potvrdit', count > 0 ? box.getAttribute('data-attach-confirm').replace('%2$d', String(count)) : plain); }
+		});
+	});
 
 	/* ---------- 3.49: internal file box (part B) ---------- */
 

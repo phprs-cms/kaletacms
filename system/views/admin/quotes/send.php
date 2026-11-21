@@ -15,6 +15,7 @@
  * @var bool $pdf 3.40: can this quote be drawn as a PDF (Front\QuotePdf)
  * @var bool $attachPdf 3.40: the box "Attach the quote as a PDF" ticked by default (quote_attach_pdf)
  * @var string $mailTail 3.44 (U61): what the e-mail adds below the message, for the preview ('' once sent)
+ * @var array<string, mixed> $attachments 3.49 A: the Attachments block (Admin\AttachmentBox::data)
  */
 $detail = $app->url(Kaleta\Core\Quotes::adminPath((int) $quote['id']));
 $sent = $quote['status'] !== 'draft';
@@ -74,7 +75,12 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Finalise and show the link')) ?></button></p>
 </form>
 <?php else: ?>
-<form method="post" action="<?= e($module->url('send')) ?>" class="formular" data-quote-send data-potvrdit="<?= e(t('Send this quote to %s now? It goes out as a real e-mail and cannot be taken back.', $draft['to'])) ?>">
+<?php /* 3.49 A: without the script "Add" reloads the dialog through this form (a GET outside the sending form) */ ?>
+<form id="nabidka-nacist" method="get" action="admin.php">
+	<input type="hidden" name="module" value="<?= e(Kaleta\Core\Quotes::SECTION) ?>"><input type="hidden" name="action" value="send"><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
+	<input type="hidden" name="attach" value="<?= e(implode(',', array_column($attachments['chosen'], 'id'))) ?>">
+</form>
+<form method="post" action="<?= e($module->url('send')) ?>" class="formular" enctype="multipart/form-data" data-quote-send data-potvrdit="<?= e(t('Send this quote to %s now? It goes out as a real e-mail and cannot be taken back.', $draft['to'])) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
 <?php $claudeRefusal = Kaleta\Core\QuoteDelivery::claudeRefusal($app->db(), $quote); ?>
 <?php if (Kaleta\Core\Quotes::emailByClaude($quote) && $claudeRefusal !== null): /* 3.44 (N146): a connection wrote this address */ ?>
@@ -94,6 +100,7 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 		<div class="nabidka-nahled-text"><span data-quote-mail-message><?= e($draft['message']) ?></span>
 
 <?= e($mailTail) ?></div>
+		<p data-quote-mail-files<?= $attachments['chosen'] === [] ? ' hidden' : '' ?>><strong><?= e(t('Attachments')) ?>:</strong> <span><?= e(implode(', ', array_column($attachments['chosen'], 'name'))) ?></span></p>
 		<p class="napoveda"><?= e(t('The customer gets the quote’s number and the link when you send it.')) ?></p></details></div></div>
 <?php if ($draft['deal']): ?>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="set_deal_value" value="1"<?= $draft['set_deal_value'] ? ' checked' : '' ?> data-quote-deal-value> <?= e(t('Set the deal value to the net total')) ?></label></div></div>
@@ -103,6 +110,8 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 <?php else: ?>
 	<div class="radek"><span></span><div><span class="napoveda" data-quote-no-pdf><?= e(t('This quote’s language cannot be drawn in a PDF, so the e-mail carries the link only.')) ?></span></div></div>
 <?php endif ?>
+	<?= $app->view->render('admin/attachments', ['box' => $attachments, 'prefix' => 'nabidka', 'reloadForm' => 'nabidka-nacist',
+	    'confirm' => str_replace('%1$s', $draft['to'], t('Send this quote to %1$s now, with attachments (%2$d)? It goes out as a real e-mail and cannot be taken back.'))]) ?>
 	<?= $app->view->render('admin/quotes/follow_up_box') ?>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send the quote')) ?></button></p>
 </form>

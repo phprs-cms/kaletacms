@@ -22,7 +22,7 @@ final class SectionSettings
         'applications' => ['Applications', [['Settings', 'module=applications&action=settings']]],
         'pipeline' => ['Pipeline', [['Stages', 'module=pipeline&action=stages']]],
         'bookings' => ['Bookings', [['Settings', 'module=bookings#booking-settings'], ['Services', 'module=bookings&action=services'], ['People', 'module=bookings&action=staff']]],
-        'enquiries' => ['Enquiries', [['Writing assistant', 'module=enquiries#triage_assistant']]],
+        'enquiries' => ['Enquiries', [['Writing assistant', 'module=enquiries#triage_assistant'], ['Saved replies', 'module=enquiries&action=saved_replies']]], // 3.49 A
         'whistleblowing' => ['Whistleblowing', [['Setup of the channel', 'module=whistleblowing#wb-setup']]],
         'claude_settings' => ['Claude settings', [['Instructions and guardrails', 'module=claude_settings']]],
         'extensions' => ['Features', [['Features', 'module=extensions'], ['Newsletter service', 'module=extensions#newsletter']]],

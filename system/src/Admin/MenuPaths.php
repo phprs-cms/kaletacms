@@ -50,6 +50,7 @@ final class MenuPaths
         // 3.20 (C4): the screens the hints of the modules name - Bookings, Pages, Enquiries, the audit, the fleet
         [['Enquiries', 'Personal data request'], 'enquiries', 'module=enquiries&action=personal'],
         [['Enquiries', 'settings'], 'enquiries', 'module=enquiries&action=settings'],
+        [['Enquiries', 'Saved replies'], 'enquiries', 'module=enquiries&action=saved_replies'], // 3.49 A
         [['Enquiries'], 'enquiries', 'module=enquiries'],
         [['Pages'], 'pages', 'module=pages'],
         [['Users', 'Roles'], 'roles', 'module=roles'],

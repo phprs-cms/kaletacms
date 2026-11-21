@@ -135,12 +135,74 @@ final class Request
         return is_array($value) ? array_values(array_filter($value, is_string(...))) : [];
     }
 
+    /**
+     * 3.49 A: the rows of a repeated group of fields (name="replies[3][text]"): a list of rows, each with its string values
+     * only (anything nested deeper is dropped).
+     *
+     * @return list<array<string, string>>
+     */
+    public function postRows(string $key): array
+    {
+        $value = $this->post[$key] ?? [];
+        $rows = [];
+        foreach (is_array($value) ? $value : [] as $row) {
+            if (is_array($row)) {
+                $rows[] = array_filter($row, is_string(...));
+            }
+        }
+
+        return $rows;
+    }
+
     /** @return array<string, mixed>|null */
     public function file(string $key): ?array
     {
         $file = $this->files[$key] ?? null;
 
         return is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE ? $file : null;
+    }
+
+    /**
+     * 3.49 A: the files of a multiple field (name="files[]"): PHP's nested $_FILES arrays turned into a list of entries
+     * (name, type, tmp_name, error, size), each with its own UPLOAD_ERR_* code; empty slots (no file chosen) are left out.
+     * A single field gives a list of one.
+     *
+     * @return list<array{name: string, type: string, tmp_name: string, error: int, size: int}>
+     */
+    public function fileList(string $key): array
+    {
+        $field = $this->files[$key] ?? null;
+        if (!is_array($field) || !isset($field['error'])) {
+            return [];
+        }
+        $columns = ['name', 'type', 'tmp_name', 'error', 'size'];
+        $rows = [];
+        if (!is_array($field['error'])) {
+            $rows[] = array_combine($columns, array_map(fn (string $c): mixed => $field[$c] ?? null, $columns));
+        } else {
+            foreach (array_keys($field['error']) as $i) {
+                $rows[] = array_combine($columns, array_map(fn (string $c): mixed => is_array($field[$c] ?? null) ? ($field[$c][$i] ?? null) : null, $columns));
+            }
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            if (is_array($r['error']) || is_array($r['name']) || (int) $r['error'] === UPLOAD_ERR_NO_FILE) {
+                continue; // a deeper nesting (files[a][b]) is no file of this form; an empty slot is none either
+            }
+            $out[] = ['name' => is_string($r['name']) ? $r['name'] : '', 'type' => is_string($r['type']) ? $r['type'] : '', 'tmp_name' => is_string($r['tmp_name']) ? $r['tmp_name'] : '',
+                'error' => (int) $r['error'], 'size' => (int) $r['size']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * 3.49 A (finding 9): a POST whose body was over post_max_size – PHP then empties $_POST and $_FILES, so the form looks as
+     * if nothing was sent (in the administration it would end as an expired form). Files::overPostLimit decides.
+     */
+    public function bodyTooLarge(): bool
+    {
+        return $this->isPost() && $this->post === [] && $this->files === [] && Files::overPostLimit((int) ($this->server['CONTENT_LENGTH'] ?? 0), Files::postLimit());
     }
 
     /**

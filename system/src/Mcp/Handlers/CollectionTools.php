@@ -629,9 +629,14 @@ trait CollectionTools
             $user = (array) $db->one('SELECT * FROM {uzivatele} WHERE idu = ?', [$this->app->auth()->id()]);
             $own = \Kaleta\Builder\UserSignature::forUser($this->app, $user);
 
+            // 3.49 A: the firm's saved replies come with the signature a reply carries – with their placeholders, which
+            // reply_to_enquiry fills; only for a person with Enquiries, and only when there are some
+            $saved = $this->app->auth()->hasModule('enquiries') && \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'poptavky')
+                ? \Kaleta\Core\SavedReplies::forClaude($db, $this->app->settings()) : [];
+
             return ['name' => \Kaleta\Builder\UserSignature::values($user, \Kaleta\Builder\EmailSignature::site($this->app))['name'], 'source' => $own['source']]
                 + ($own['record'] !== null ? ['collection' => (string) $own['record']['collection']['seo_link'], 'item' => (int) $own['record']['item']['idp']] : [])
-                + ['html' => $own['html'], 'text' => $own['text']];
+                + ['html' => $own['html'], 'text' => $own['text']] + ($saved !== [] ? ['saved_replies' => $saved] : []);
         }
         $k = Collections::bySlug($db, (string) ($a['collection'] ?? '')) ?? throw new \InvalidArgumentException('The collection does not exist. Use list_collections.');
         $id = (int) ($a['id'] ?? 0);

@@ -166,7 +166,11 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 	    'customer_email' => e(t(($h['via'] ?? '') === 'mcp' ? 'Customer’s e-mail changed by Claude' : 'Customer’s e-mail changed')), // 3.44 (N146)
 	    default => e(t($actions[$action] ?? $action)),
 	} ?></span>
-		<span class="napoveda"><?= e(format_date((string) ($h['at'] ?? ''), true)) ?><?= ($h['via'] ?? '') === 'customer' ? ' · ' . e(t('by the customer')) : $who(isset($h['by']) ? (int) $h['by'] : null) ?></span></li>
+		<span class="napoveda"><?= e(format_date((string) ($h['at'] ?? ''), true)) ?><?= ($h['via'] ?? '') === 'customer' ? ' · ' . e(t('by the customer')) : $who(isset($h['by']) ? (int) $h['by'] : null) ?></span>
+<?php if (($files = Kaleta\Core\ReplyAttachments::cleanHistory($h['files'] ?? null)) !== []): /* 3.49 A: the files that went with the e-mail */ ?>
+		<ul class="odpoved-prilohy" data-quote-history-files><?php foreach ($files as $file): ?><li><?= e(t('Attached:')) ?> <?= $file['file'] > 0 && Kaleta\Core\InternalFiles::mayOpen($app)
+		    ? '<a href="' . e($app->url('admin.php?module=internal_files&action=file&id=' . $file['file'])) . '">' . e($file['name']) . '</a>' : e($file['name']) ?> (<?= e(Kaleta\Core\Files::size($file['size'])) ?>)</li><?php endforeach ?></ul>
+<?php endif ?></li>
 <?php endforeach ?>
 </ol>
 </section>

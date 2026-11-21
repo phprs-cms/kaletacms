@@ -25,6 +25,9 @@
  * @var array<string, mixed>|null $dealBox the deal of the enquiry and "Create deal" (3.31, Admin\Modules\Pipeline::enquiryBox); null without the Pipeline
  * @var array<string, mixed>|null $quoteBox its quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
  * @var array<string, mixed> $thread the notes as a thread – names of the people mentioned, who may be mentioned, a refused text (3.26, Admin\CommentActions::commentThread)
+ * @var list<array{id: int, name: string, language: string}> $savedReplies the saved replies, the enquiry's language first (3.49 A, Core\SavedReplies::forEnquiry)
+ * @var bool $canEditSavedReplies may change the saved replies (administrators and editors)
+ * @var array<string, mixed> $attachments the Attachments block (3.49 A, Admin\AttachmentBox::data)
  */
 use Kaleta\Admin\Modules\Enquiries;
 
@@ -102,6 +105,10 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 <?php if ($reply['text'] !== ''): ?>
 		<details><summary><?= e($reply['subject']) ?><?= $reply['to'] !== '' ? ' → ' . e($reply['to']) : '' ?></summary><div class="odpoved-text"><?= nl2br(e($reply['text'])) ?></div></details>
 <?php endif ?>
+<?php if (($reply['files'] ?? []) !== []): /* 3.49 A: the files that went with it – an internal file is a link for whoever may open Internal files */ ?>
+		<ul class="odpoved-prilohy" data-reply-files><?php foreach ($reply['files'] as $file): ?><li><?= e(t('Attached:')) ?> <?= $file['file'] > 0 && Kaleta\Core\InternalFiles::mayOpen($app)
+		    ? '<a href="' . e($app->url('admin.php?module=internal_files&action=file&id=' . $file['file'])) . '">' . e($file['name']) . '</a>' : e($file['name']) ?> (<?= e(Kaleta\Core\Files::size($file['size'])) ?>)</li><?php endforeach ?></ul>
+<?php endif ?>
 	</li>
 <?php endif ?>
 <?php endforeach ?>
@@ -119,9 +126,30 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 <p class="hlaska hlaska-info" data-reply-blocked><?= e(t($replyBlocked)) ?><?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($app->url('admin.php?module=settings&tab=mail')) ?>"><?= e(t('Set up the mail')) ?></a><?php endif ?></p>
 <p class="tlacitka"><a class="tl" href="<?= $mailto ?>"><?= e(t(($p['navrh_odpovedi'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a></p>
 <?php else: ?>
-<form method="post" action="<?= e($module->url('reply')) ?>" data-reply-form data-potvrdit="<?= e(t('Send this reply to %s now? It goes out as a real e-mail and cannot be taken back.', (string) $p['email'])) ?>">
+<?php /* 3.49 A: without the script "Insert" and "Add" reload the detail through this form (a GET outside the reply form, so the reply's fields never travel in an address) */ ?>
+<form id="odpoved-nacist" method="get" action="admin.php#reply">
+	<input type="hidden" name="module" value="<?= e(Enquiries::IDENT) ?>"><input type="hidden" name="action" value="detail"><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
+	<input type="hidden" name="attach" value="<?= e(implode(',', array_column($attachments['chosen'], 'id'))) ?>">
+</form>
+<form method="post" action="<?= e($module->url('reply')) ?>" enctype="multipart/form-data" data-reply-form data-potvrdit="<?= e(t('Send this reply to %s now? It goes out as a real e-mail and cannot be taken back.', (string) $p['email'])) ?>">
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $p['idp'] ?>">
 	<div class="radek"><span class="popisek"><?= e(t('Recipient')) ?></span><div><strong><?= e($p['email']) ?></strong></div></div>
+<?php if ($savedReplies !== [] || $canEditSavedReplies): ?>
+	<div class="radek"><?= $savedReplies !== [] ? '<label for="odpoved-ulozena">' . e(t('Saved reply')) . '</label>' : '<span class="popisek">' . e(t('Saved reply')) . '</span>' ?><div class="ulozena-odpoved-volba">
+<?php if ($savedReplies !== []): ?>
+		<select id="odpoved-ulozena" name="saved_reply" form="odpoved-nacist" data-saved-reply="<?= e($module->url('saved_reply_json', ['enquiry' => (int) $p['idp']])) ?>"><option value="">—</option>
+<?php foreach ($savedReplies as $saved): ?>
+			<option value="<?= (int) $saved['id'] ?>"><?= e($saved['name']) ?><?= $saved['language'] !== '' ? ' (' . e(strtoupper($saved['language'])) . ')' : '' ?></option>
+<?php endforeach ?>
+		</select> <button class="navigace" type="submit" form="odpoved-nacist" data-saved-reply-insert><?= e(t('Insert')) ?></button>
+<?php else: ?>
+		<span class="napoveda"><?= e(t('No saved replies yet.')) ?></span>
+<?php endif ?>
+<?php if ($canEditSavedReplies): ?>
+		<a href="<?= e($module->url('saved_replies')) ?>"><?= e(t('Manage saved replies')) ?></a>
+<?php endif ?>
+	</div></div>
+<?php endif ?>
 	<div class="radek"><label for="odpoved-predmet"><?= e(t('Subject')) ?></label><div><input class="textpole siroke" type="text" id="odpoved-predmet" name="subject" maxlength="<?= Kaleta\Core\EnquiryReply::MAX_SUBJECT ?>" value="<?= e($replyDraft['subject'] ?? Kaleta\Core\EnquiryReply::subject($p)) ?>" required></div></div>
 	<div class="radek"><label for="odpoved-text"><?= e(t('Reply')) ?></label><div><textarea class="textbox" id="odpoved-text" name="text" rows="8" maxlength="<?= Kaleta\Core\EnquiryReply::MAX_TEXT ?>" required><?= e($replyDraft['text'] ?? ($replies === [] ? (string) ($p['navrh_odpovedi'] ?? '') : '')) ?></textarea>
 		<span class="napoveda"<?= $replyTo !== '' && !$hasSignature ? ' data-reply-no-signature' : '' ?>><?= $module->hint(match (true) { // 3.23.1 (N-C5): the signature is promised only to who has one
@@ -129,6 +157,8 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 		    $hasSignature => t('Sent from the site’s address; when the customer answers, it comes to you (%s). Your e-mail signature from My account is added below the text.', $replyTo),
 		    default => t('Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.', $replyTo),
 		}) ?></span></div></div>
+	<?= $app->view->render('admin/attachments', ['box' => $attachments, 'prefix' => 'odpoved', 'reloadForm' => 'odpoved-nacist',
+	    'confirm' => str_replace('%1$s', (string) $p['email'], t('Send this reply to %1$s now, with attachments (%2$d)? It goes out as a real e-mail and cannot be taken back.'))]) ?>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="keep_open" value="1"> <?= e(t('Keep the enquiry open (otherwise it is marked resolved)')) ?></label></div></div>
 	<?php /* 3.32 (R4): the follow-up is offered with the reply – with no inbound mail, the task is the only memory of a reply left unanswered */ ?>
 	<div class="radek"><label for="odpoved-navazat"><?= e(t('Follow up if they do not answer')) ?></label><div><select id="odpoved-navazat" name="follow_up" data-reply-follow-up><option value=""><?= e(t('No follow-up')) ?></option>

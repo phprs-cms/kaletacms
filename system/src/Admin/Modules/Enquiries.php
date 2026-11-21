@@ -145,7 +145,11 @@ final class Enquiries extends Module
             'replyBlocked' => \Kaleta\Core\EnquiryReply::unavailable($this->app->settings()),
             'replyTo' => (string) ($this->app->auth()->user()['email'] ?? ''),
             'hasSignature' => \Kaleta\Core\EnquiryReply::signature($this->app, $this->app->auth()->user() ?? []) !== null,
-            'replyDraft' => $this->takeReplyDraft((int) $p['idp']),
+            'replyDraft' => $replyDraft = $this->takeReplyDraft((int) $p['idp']) ?? $this->savedReplyDraft($p),
+            // 3.49 A: the saved replies (its language first), and the files to attach – ticked again after a refused reply
+            'savedReplies' => \Kaleta\Core\SavedReplies::forEnquiry($this->db, $this->app->settings(), $p),
+            'canEditSavedReplies' => $this->app->auth()->canPublish(),
+            'attachments' => \Kaleta\Admin\AttachmentBox::data($this->app, $replyDraft['files'] ?? [], ['module' => self::IDENT, 'action' => 'detail', 'id' => (int) $p['idp']]),
             'users' => $this->listAssignees((int) $p['prirazeno']),
             // 3.27: the tasks about the enquiry, the follow-up buttons first at the top right after a reply
             'tasks' => $this->taskPanel(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']], ['follow_up' => true, 'replied' => $this->takeFollowUp((int) $p['idp'])]),
@@ -171,7 +175,10 @@ final class Enquiries extends Module
         return $replied;
     }
 
-    /** What a refused reply carried (the form shows it again once), for this enquiry only. @return array{subject: string, text: string}|null */
+    /**
+     * What a refused reply carried (the form shows it again once), for this enquiry only – 3.49 A: with the internal files
+     * that were ticked. @return array{subject: string, text: string, files: list<int>}|null
+     */
     private function takeReplyDraft(int $id): ?array
     {
         $draft = $this->app->session->get('enquiry_reply_draft');
@@ -180,7 +187,26 @@ final class Enquiries extends Module
         }
         $this->app->session->remove('enquiry_reply_draft');
 
-        return (int) ($draft['id'] ?? 0) === $id ? ['subject' => (string) ($draft['subject'] ?? ''), 'text' => (string) ($draft['text'] ?? '')] : null;
+        return (int) ($draft['id'] ?? 0) === $id ? ['subject' => (string) ($draft['subject'] ?? ''), 'text' => (string) ($draft['text'] ?? ''),
+            'files' => array_values(array_map('intval', is_array($draft['files'] ?? null) ? $draft['files'] : []))] : null;
+    }
+
+    /**
+     * 3.49 A: the reply form prefilled from a saved reply – the no-script "Insert" (?saved_reply=<id>) – and the internal
+     * files added with the no-script "Add" (?attach=1,2&attach_add=3). @param array<string, mixed> $p the enquiry
+     * @return array{subject: string, text: string, files: list<int>}|null
+     */
+    private function savedReplyDraft(array $p): ?array
+    {
+        $files = array_slice(array_values(array_unique(array_filter(array_map('intval', [...explode(',', $this->request->get('attach')), $this->request->get('attach_add')]),
+            fn (int $id): bool => $id > 0))), 0, \Kaleta\Core\ReplyAttachments::MAX_FILES);
+        $saved = $this->request->getInt('saved_reply') > 0 ? \Kaleta\Core\SavedReplies::compose($this->app, $p, $this->request->getInt('saved_reply')) : null;
+        if ($saved === null && $files === []) {
+            return null;
+        }
+
+        return ['subject' => $saved['subject'] ?? \Kaleta\Core\EnquiryReply::subject($p),
+            'text' => $saved['text'] ?? (\Kaleta\Core\EnquiryReply::decode($p['replies'] ?? null) === [] ? (string) ($p['navrh_odpovedi'] ?? '') : ''), 'files' => $files];
     }
 
     /**
@@ -193,13 +219,18 @@ final class Enquiries extends Module
         if (!$this->request->isPost()) {
             return $this->back('', 'detail', ['id' => $id]);
         }
+        // 3.49 A: the files a person chose – internal files they may open and uploads (never over MCP, D6)
+        $internal = array_slice(array_map('intval', $this->request->postList('internal_files')), 0, 20);
+        $uploads = $this->request->fileList('files');
         try {
-            $result = \Kaleta\Core\EnquiryReply::send($this->app, $id, $this->request->post('subject'), $this->request->post('text'), !$this->request->postBool('keep_open'));
+            $files = $internal !== [] || $uploads !== [] ? \Kaleta\Core\ReplyAttachments::collect($this->app, $internal, $uploads) : [];
+            $result = \Kaleta\Core\EnquiryReply::send($this->app, $id, $this->request->post('subject'), $this->request->post('text'), !$this->request->postBool('keep_open'), 'admin', $files);
         } catch (\DomainException $e) {
-            // what was written is not lost: the form shows it again
-            $this->app->session->set('enquiry_reply_draft', ['id' => $id, 'subject' => mb_substr($this->request->post('subject'), 0, \Kaleta\Core\EnquiryReply::MAX_SUBJECT), 'text' => mb_substr($this->request->post('text'), 0, \Kaleta\Core\EnquiryReply::MAX_TEXT)]);
+            // what was written is not lost: the form shows it again, with the internal files ticked; uploads are chosen again
+            $this->app->session->set('enquiry_reply_draft', ['id' => $id, 'subject' => mb_substr($this->request->post('subject'), 0, \Kaleta\Core\EnquiryReply::MAX_SUBJECT), 'text' => mb_substr($this->request->post('text'), 0, \Kaleta\Core\EnquiryReply::MAX_TEXT),
+                'files' => $internal]);
 
-            return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
+            return $this->back(t($e->getMessage()) . ($uploads !== [] ? ' ' . t('Choose the uploaded files again.') : ''), 'detail', ['id' => $id], 'chyba');
         }
         // 3.32 (R4): a follow-up chosen in the reply form is added at once (the signed-in person's own task, as the buttons do);
         // otherwise the detail offers "Follow up if they do not answer" first (3.27)
@@ -249,6 +280,85 @@ final class Enquiries extends Module
     private function listAssignees(int $assignee = 0): array
     {
         return \Kaleta\Core\Assignment::candidates($this->db, 'enquiry', $assignee); // 3.24: one rule for enquiries, pages and items
+    }
+
+    /**
+     * 3.49 A: one saved reply filled for an enquiry – the reply form's script asks for it when a saved reply is chosen.
+     * GET, read-only, no-store; only for an enquiry the person may see.
+     */
+    protected function actionSavedReplyJson(): Response
+    {
+        $p = $this->findVisible($this->request->getInt('enquiry'), 'idp, email, formular, stranka, tema, data, anonymizovano, contact_id');
+        $reply = $p !== null ? \Kaleta\Core\SavedReplies::compose($this->app, $p, $this->request->getInt('id')) : null;
+
+        return $reply === null ? Response::json(['error' => t('The saved reply does not exist.')], 404, Response::NO_STORE) : Response::json($reply, 200, Response::NO_STORE);
+    }
+
+    /**
+     * 3.49 A: the saved replies of the firm – a tab per language version of the site, each reply one <details> with its
+     * name, subject and text (administrators and editors; Auth::canPublish).
+     */
+    protected function actionSavedReplies(): Response
+    {
+        if (!$this->app->auth()->canPublish()) {
+            return $this->error('Only administrators and editors change saved replies.', 403);
+        }
+        $languages = $this->savedReplyLanguages();
+        $language = $this->request->get('language');
+        $language = isset($languages[$language]) ? $language : '';
+
+        return $this->view('saved_replies', 'Saved replies', ['languages' => $languages, 'language' => $language, 'replies' => \Kaleta\Core\SavedReplies::all($this->db)[$language] ?? [],
+            'draft' => $this->takeSavedRepliesDraft($language)]);
+    }
+
+    /** 3.49 A: saves the saved replies of one language (they replace the ones it had; Core\SavedReplies::save). */
+    protected function actionSavedRepliesSave(): Response
+    {
+        if (!$this->app->auth()->canPublish()) {
+            return $this->error('Only administrators and editors change saved replies.', 403);
+        }
+        $language = $this->request->post('language');
+        if (!$this->request->isPost()) {
+            return $this->back('', 'saved_replies');
+        }
+        $rows = [];
+        foreach (array_slice($this->request->postRows('replies'), 0, \Kaleta\Core\SavedReplies::MAX_PER_LANGUAGE + 5) as $r) {
+            $rows[] = ['id' => (int) ($r['id'] ?? 0), 'name' => $r['name'] ?? '', 'subject' => $r['subject'] ?? '', 'text' => $r['text'] ?? '', 'remove' => ($r['remove'] ?? '') !== ''];
+        }
+        $saved = \Kaleta\Core\SavedReplies::save($this->app, $language, $rows);
+        $params = $language !== '' ? ['language' => $language] : [];
+        if (is_string($saved)) {
+            $this->app->session->set('saved_replies_draft', ['language' => $language, 'rows' => $rows]);
+
+            return $this->back($saved, 'saved_replies', $params, 'chyba');
+        }
+        \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'saved replies', ($language !== '' ? $language : \Kaleta\Core\Language::defaults($this->app->settings())) . ': ' . count($saved));
+
+        return $this->back(t('Saved replies: %d.', count($saved)), 'saved_replies', $params);
+    }
+
+    /** The language versions of the site as code => name: '' (the default language) first. @return array<string, string> */
+    private function savedReplyLanguages(): array
+    {
+        $s = $this->app->settings();
+        $out = ['' => \Kaleta\Core\Language::AVAILABLE[\Kaleta\Core\Language::defaults($s)][0] ?? \Kaleta\Core\Language::defaults($s)];
+        foreach (\Kaleta\Core\Language::additional($s) as $code) {
+            $out[$code] = \Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code;
+        }
+
+        return $out;
+    }
+
+    /** The rows a refused save carried, shown again once. @return list<array<string, mixed>>|null */
+    private function takeSavedRepliesDraft(string $language): ?array
+    {
+        $draft = $this->app->session->get('saved_replies_draft');
+        if (!is_array($draft)) {
+            return null;
+        }
+        $this->app->session->remove('saved_replies_draft');
+
+        return ($draft['language'] ?? null) === $language && is_array($draft['rows'] ?? null) ? array_values($draft['rows']) : null;
     }
 
     /** Asks the customer of an enquiry for a testimonial (2.12, Core\Testimonials): the link by e-mail, or only to copy. */

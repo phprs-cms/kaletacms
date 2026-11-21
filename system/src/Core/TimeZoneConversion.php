@@ -91,6 +91,7 @@ final class TimeZoneConversion
         'internal_folders' => ['created_at', 'updated_at'], // 3.42
         'internal_files' => ['created_at', 'updated_at'],
         'internal_file_versions' => ['uploaded_at'],
+        'saved_replies' => ['updated_at'], // 3.49 A
         'quote_line_sets' => ['created_at', 'updated_at'], // 3.40
         'kolekce' => ['zmeneno'],
         'kolekce_polozky' => ['zverejnit_od', 'datum', 'zmeneno', 'links_checked', 'smazano'],

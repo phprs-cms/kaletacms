@@ -124,7 +124,8 @@ final class EnquiryReply
             $out[] = ['at' => (string) ($r['at'] ?? ''), 'by' => (string) ($r['by'] ?? ''), 'by_id' => (int) ($r['by_id'] ?? 0), 'to' => (string) ($r['to'] ?? ''),
                 'reply_to' => (string) ($r['reply_to'] ?? ''), 'subject' => (string) ($r['subject'] ?? ''), 'text' => (string) ($r['text'] ?? ''), 'mail' => (int) ($r['mail'] ?? 0),
                 'status' => in_array($r['status'] ?? '', ['sent', 'queued', 'failed'], true) ? (string) $r['status'] : 'failed', 'error' => (string) ($r['error'] ?? ''),
-                'via' => ($r['via'] ?? '') === 'mcp' ? 'mcp' : 'admin'];
+                'via' => ($r['via'] ?? '') === 'mcp' ? 'mcp' : 'admin']
+                + (is_array($r['files'] ?? null) && $r['files'] !== [] ? ['files' => ReplyAttachments::cleanHistory($r['files'])] : []); // 3.49 A: the files that went with it
         }
 
         return $out;
@@ -141,23 +142,30 @@ final class EnquiryReply
             return null;
         }
 
-        return (string) json_encode(array_map(fn (array $r): array => ['to' => '', 'reply_to' => '', 'subject' => '', 'text' => ''] + $r, $replies), JSON_UNESCAPED_UNICODE);
+        // 3.49 A: the names of the files that went with a reply go too – a file name can name the person
+        return (string) json_encode(array_map(fn (array $r): array => ['to' => '', 'reply_to' => '', 'subject' => '', 'text' => ''] + array_diff_key($r, ['files' => 1]), $replies), JSON_UNESCAPED_UNICODE);
     }
 
     /**
      * Sends a reply to the enquiry's e-mail address as the signed-in user (an administration user with the Enquiries section,
      * or the user of an MCP connection). Throws \DomainException with a message for the person when it cannot be sent.
      *
+     * 3.49 A: {{name}}, {{topic}} and {{company}} are filled in the subject and the text whoever sends (a saved reply Claude
+     * copied, a form sent without its script – Core\SavedReplies::vars). $attachments (Core\ReplyAttachments::collect, chosen
+     * by a person in the administration – never over MCP) go with the e-mail; such a reply is never queued: when the mail
+     * server refuses it, nothing is recorded and \DomainException says so (the form keeps the text and the chosen files).
+     *
      * @param bool $resolve true = the enquiry becomes resolved (the default in the form); otherwise it stays as it is
      * @param 'admin'|'mcp' $via
+     * @param list<array{name: string, type: string, data: string, file: int, queue: false}> $attachments
      * @return array{status: 'sent'|'queued', error: string, resolved: bool, to: string}
      */
-    public static function send(App $app, int $idp, string $subject, string $text, bool $resolve, string $via = 'admin'): array
+    public static function send(App $app, int $idp, string $subject, string $text, bool $resolve, string $via = 'admin', array $attachments = []): array
     {
         $db = $app->db();
         $s = $app->settings();
         // 3.34 second review N6: not an enquiry still moving to Applications for a person without them, never a moved twin
-        $enquiry = $db->one('SELECT idp, datum, email, formular, tema, data, stav, prirazeno, replies, anonymizovano FROM {poptavky} WHERE idp = ? AND '
+        $enquiry = $db->one('SELECT idp, datum, email, formular, stranka, tema, data, stav, prirazeno, replies, anonymizovano, contact_id FROM {poptavky} WHERE idp = ? AND '
             . EnquiryVisibility::visible($db, $s, $app->auth()->hasModule(Applications::SECTION)), [$idp]);
         if ($enquiry === null) {
             throw new \DomainException('The enquiry does not exist.');
@@ -171,30 +179,29 @@ final class EnquiryReply
         if ($reason !== null) {
             throw new \DomainException($reason);
         }
-        $text = trim(mb_substr(str_replace("\r\n", "\n", $text), 0, self::MAX_TEXT));
+        // 3.49 A: the placeholders of a saved reply never reach the customer, whoever sends it
+        $vars = SavedReplies::vars($app, $enquiry);
+        $text = trim(mb_substr(ReplyMail::fill(str_replace("\r\n", "\n", $text), $vars), 0, self::MAX_TEXT));
         if (mb_strlen($text) < 2) {
             throw new \DomainException('Write the reply first.');
         }
         // a subject is one line: a line break could never become a header (Mail strips them too)
-        $subject = trim(mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $subject), 0, self::MAX_SUBJECT));
+        $subject = trim(mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', ReplyMail::fill($subject, $vars)), 0, self::MAX_SUBJECT));
         $subject = $subject !== '' ? $subject : self::subject($enquiry);
 
-        $user = $app->auth()->user() ?? [];
-        $name = trim((string) ($user['jmeno'] ?? '')) !== '' ? trim((string) $user['jmeno']) : (string) ($user['user'] ?? 'admin');
-        $replyTo = Mail::addresses((string) ($user['email'] ?? ''));
-        $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
-
-        // the user's own e-mail signature (My account → My e-mail signature): plain text under the "-- " line, HTML below the text
-        $signature = self::signature($app, $user);
-        // 3.25 (CPO #7): the customer's message quoted below the signature, so they see what the answer is about
-        $quote = self::quote($enquiry);
-        $plain = $text . ($signature !== null && $signature['text'] !== '' ? "\n\n-- \n" . $signature['text'] : '') . ($quote !== '' ? "\n\n" . $quote : '');
-        $html = $signature !== null ? self::html($text, $signature['html'], $quote) : '';
-
-        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers);
-        $error = $ok ? '' : Mail::$error;
-        $entry = ['at' => date('Y-m-d H:i:s'), 'by' => mb_substr($name, 0, 100), 'by_id' => (int) ($user['idu'] ?? 0), 'to' => $to[0], 'reply_to' => $headers['Reply-To'] ?? '',
-            'subject' => $subject, 'text' => $text, 'mail' => (int) (Mail::$lastId ?? 0), 'status' => $ok ? 'sent' : 'queued', 'error' => mb_substr($error, 0, 255), 'via' => $via];
+        // 3.49 A: the one sender of replies (Core\ReplyMail) – From the site, Reply-To the user, their e-mail signature (My
+        // account → My e-mail signature) under the text and – 3.25 (CPO #7) – the customer's message quoted below it
+        $sent = ReplyMail::send($app, $to[0], $subject, $text, ['quote' => self::quote($enquiry), 'attachments' => $attachments, 'queue' => $attachments === []]);
+        $ok = $sent['ok'];
+        $error = $sent['error'];
+        if (!$ok && $attachments !== []) {
+            // D7: a reply with files never waits in the queue (the files would lie unsealed in the database) – the person tries again
+            throw new \DomainException(t('The reply was not sent: the mail server refused it (%s). A reply with attachments does not wait in the mail queue – send it again in a while.', $error));
+        }
+        $name = $sent['by'];
+        $entry = ['at' => date('Y-m-d H:i:s'), 'by' => $sent['by'], 'by_id' => $sent['by_id'], 'to' => $to[0], 'reply_to' => $sent['reply_to'],
+            'subject' => $subject, 'text' => $text, 'mail' => $sent['mail'], 'status' => $ok ? 'sent' : 'queued', 'error' => mb_substr($error, 0, 255), 'via' => $via]
+            + ($attachments !== [] ? ['files' => ReplyAttachments::history($attachments)] : []);
         $replies = array_slice([...self::decode($enquiry['replies']), $entry], -self::KEEP);
         $changes = ['replies' => (string) json_encode($replies, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE)];
         if ($resolve) {
@@ -202,12 +209,13 @@ final class EnquiryReply
         } elseif ((int) $enquiry['stav'] === 0) {
             $changes['stav'] = 1;
         }
-        if ($enquiry['prirazeno'] === null && (int) ($user['idu'] ?? 0) > 0) {
-            $changes['prirazeno'] = (int) $user['idu']; // who answered handles it, unless someone already does
+        if ($enquiry['prirazeno'] === null && $sent['by_id'] > 0) {
+            $changes['prirazeno'] = $sent['by_id']; // who answered handles it, unless someone already does
         }
         $db->update('poptavky', $changes, ['idp' => $idp]);
         Contacts::touchLinked($db, 'enquiry', $idp, $entry['at']); // 3.28: a reply is the customer's latest activity
         \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'reply', '#' . $idp . ($ok ? '' : ' (queued)'));
+        ReplyAttachments::trace($app, $attachments, t('sent with enquiry #%d', $idp)); // 3.49 A: every internal file that left, in its section's log
         // the enquiry and who sent it – never the address or the text (Core\Events)
         Events::record($db, 'enquiry.replied', $ok ? 'info' : 'warning', mb_substr(t($ok ? '%s replied to enquiry #%d.' : '%s replied to enquiry #%d – the e-mail waits in the queue for another attempt.', $name, $idp), 0, 255),
             ['enquiry' => $idp, 'via' => $via]);

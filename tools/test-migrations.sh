@@ -60,7 +60,7 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 # 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
 # structure check above compares the type, not the character set), and a site's language values stay as they were
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
-[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 18 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119) and 3.38 (0123): the 18 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 19 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119), 3.38 (0123) and 3.49 (0137): the 19 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
 # 3.19 (0105, 0106): the global keys are gone after the upgrade (the empty site could switch), the per-language ones stay
 expect_sql "3.9 (0083), 3.19 (0106): pages, news and categories keep the per-language slug key, the global one is gone" \
@@ -455,5 +455,13 @@ expect_sql_value "3.48 (0135): run twice – nothing twice" "$(ext348)" 'novinky
 expect_sql_value "3.48 (0135): switched off by hand and run again by name – on again (the migration follows the data)" "$(ext348)" 'novinky,poptavky,customers,pipeline,claude'
 expect_sql_value "3.48 (0135): rights and roles are never touched" "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_role), '|', (SELECT COUNT(*) FROM ka_uzivatele_prava))")" "0|0"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_contacts; DELETE FROM ka_deals; DELETE FROM ka_uzivatele WHERE user LIKE 'm348-%'"
+
+# 3.49 A (0137): saved replies – one table, empty after an update (no built-in texts); the migration runs again without an error
+m349a() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_saved_replies), '|', (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_saved_replies' AND index_name = 'ix_saved_replies_language'), '|',
+  (SELECT CONCAT(character_set_name, ':', character_maximum_length) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'ka_saved_replies' AND column_name = 'language'))"; }
+expect_sql_value "3.49 A (0137): ka_saved_replies exists after the update – empty, with its key on (language, sort_order) and an ascii language of 35" "$(m349a)" "0|2|ascii:35"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_saved_replies (name, text, updated_at) VALUES ('M349', 'x', NOW()); UPDATE ka_nastaveni SET hodnota = '136' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql_value "3.49 A (0137): run again – nothing changes, the row stays" "$(m349a)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "1|2|ascii:35|137"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_saved_replies"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
