@@ -132,7 +132,7 @@ foreach (['Front/Kernel.php', 'Core/Audit.php', 'Core/Links.php', 'Core/Migratio
     }
 }
 check('3.19: redirects are looked up by source_norm in the router, the audit, the broken-link check and the migration report', $byCollation319, []);
-$writers319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Redirects.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectRules.php');
+$writers319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectStore.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectRules.php');
 check('[source-pin] 3.19: every writer of a redirect fills its normal form (Redirects::add, the admin form, a pattern rule, the import)', [
     substr_count($writers319, 'INSERT INTO {presmerovani} (z_adresy, source_norm,'), str_contains($writers319, "'source_norm' => null"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'source_norm' => RedirectSources::normalize(\$from)")], [2, false, true]);

@@ -6,7 +6,6 @@ namespace Kaleta\Import;
 
 use Kaleta\Admin\Modules\Media as MediaLibrary;
 use Kaleta\Admin\Modules\Pages;
-use Kaleta\Admin\Modules\Redirects;
 use Kaleta\Core\Db;
 use Kaleta\Core\ImageDownloader;
 use Kaleta\Core\Images;
@@ -32,7 +31,7 @@ use Kaleta\Core\WpImport;
  *    nothing is duplicated, failed images are not retried for every post;
  *  - HTML from the file is never trusted: it goes through Core\WpContent::sanitize like WordPress content;
  *  - no accounts are created (the mapping assigns authors to existing users), imported news is not announced, pages are
- *    created outside the menu, redirects go through Admin\Modules\Redirects::add (which also heals links).
+ *    created outside the menu, redirects go through Core\RedirectStore::add (which also heals links).
  */
 final class Batch
 {
@@ -469,7 +468,7 @@ final class Batch
     }
 
     /**
-     * Redirect from the old address to the new one; Redirects::add skips an identical address by itself. 3.50 (N125): an old
+     * Redirect from the old address to the new one; RedirectStore::add skips an identical address by itself. 3.50 (N125): an old
      * address this site already uses, one that redirects elsewhere or one that is not a plain address gets none – it is
      * listed in presmerovani.odmitnute instead (WpImport::redirectRefusal, as the WordPress import does).
      *
@@ -491,7 +490,7 @@ final class Batch
 
             return 0;
         }
-        Redirects::add($this->db, $old, $new);
+        \Kaleta\Core\RedirectStore::add($this->db, $old, $new);
 
         return 1;
     }

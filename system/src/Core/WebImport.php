@@ -6,7 +6,6 @@ namespace Kaleta\Core;
 
 use Kaleta\Admin\Modules\Media;
 use Kaleta\Admin\Modules\Pages;
-use Kaleta\Admin\Modules\Redirects;
 
 /**
  * Import from any website by its address (2.6): Wix, Webnode, Jimdo, Squarespace, Joomla, Drupal, a WordPress site
@@ -649,7 +648,7 @@ final class WebImport
             // redirect – it would hide the page, and healing would rewrite every link to it; the result names it
             $refused = WpImport::redirectRefusal($this->db, $this->settings, $old, $new);
             if ($refused === '') {
-                Redirects::add($this->db, $old, $new);
+                RedirectStore::add($this->db, $old, $new);
                 $state['vysledek']['presmerovani']++;
             } else {
                 self::attention($state, match ($refused) {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\Modules\Redirects;
 
 /**
  * Redirect rules beyond one exact address (3.6, INV-10), and saving many redirects at once (CSV in the admin, MCP
@@ -237,7 +236,7 @@ final class RedirectRules
 
     /**
      * Why one rule from the admin form cannot be saved, or null. A pattern – or any rule on a site that has patterns – is
-     * checked like a row of the CSV import; exact rules on a site without patterns are left as before 3.6 (Redirects::add
+     * checked like a row of the CSV import; exact rules on a site without patterns are left as before 3.6 (RedirectStore::add
      * keeps them free of loops by itself).
      */
     public static function refusal(Db $db, string $from, string $to, int $exceptIdp = 0, int $code = 301): ?string
@@ -307,7 +306,7 @@ final class RedirectRules
     }
 
     /**
-     * Adds the rule the way it will be saved (an exact one like Redirects::add: older redirects to its old address take
+     * Adds the rule the way it will be saved (an exact one like RedirectStore::add: older redirects to its old address take
      * its target, a redirect from its target goes) and says whether it closes a loop; with a loop nothing is added.
      */
     public function addUnlessLoop(string $from, string $to, bool $gone = false): bool
@@ -318,7 +317,7 @@ final class RedirectRules
         } elseif (self::isPattern($from)) {
             $this->put($from, $to);
         } else {
-            // Redirects::add: every redirect to the old address now leads to the new target (patterns too), no chains
+            // RedirectStore::add: every redirect to the old address now leads to the new target (patterns too), no chains
             foreach (array_keys($this->byTarget[mb_strtolower($from)] ?? []) as $key) {
                 $this->putExact((string) $key, $to);
             }
@@ -449,7 +448,7 @@ final class RedirectRules
                 isset($seen[$key]) => 'The same old address is in an earlier row – the first one counts.',
                 // N319-2: a saved address the database counts as the same one (cafe for café) – the row is refused, the
                 // existing redirect named (existing), never silently retargeted
-                ($twin = Redirects::twin($db, $from)) !== null => self::TWIN,
+                ($twin = RedirectStore::twin($db, $from)) !== null => self::TWIN,
                 $current !== null && $current[0] === $to && $current[1] === $code => '',
                 self::isPattern($from) && $current === null && $patterns >= self::MAX_PATTERNS => self::TOO_MANY,
                 !$set->addUnlessLoop($from, $to, $code === self::GONE) => self::LOOP,
@@ -471,7 +470,7 @@ final class RedirectRules
 
     /**
      * Saves the rows plan() accepted (added, changed) in one transaction and returns the plan with the outcome. Exact
-     * redirects go through Redirects::add (no chains), pattern and 410 rules are stored as they are. Links on the site are
+     * redirects go through RedirectStore::add (no chains), pattern and 410 rules are stored as they are. Links on the site are
      * not rewritten here – thousands of rows of a moved site would each scan all content; the site audit finds such links.
      *
      * @param list<array{from: string, to: string, code?: string, refused?: string}> $rows
@@ -495,10 +494,10 @@ final class RedirectRules
     public static function store(Db $db, string $from, string $to, int $code): void
     {
         if (self::isPattern($from) || $code === self::GONE) {
-            if (($twin = Redirects::twin($db, $from)) !== null) {
+            if (($twin = RedirectStore::twin($db, $from)) !== null) {
                 // N319-2: a rule for an address the database counts as one already saved (callers refuse it first): the
                 // new rule takes that row over, recorded – the saved one is never turned into this rule unseen
-                Redirects::takeOver($db, $twin, $from, $to, $code);
+                RedirectStore::takeOver($db, $twin, $from, $to, $code);
                 $db->delete('nenalezeno', ['cesta' => $from]);
 
                 return;
@@ -510,7 +509,7 @@ final class RedirectRules
 
             return;
         }
-        Redirects::add($db, $from, $to, false);
+        RedirectStore::add($db, $from, $to, false);
         $db->run('UPDATE {presmerovani} SET typ = ?, auto_score = NULL WHERE z_adresy = ?', [$code, $from]);
         $db->delete('nenalezeno', ['cesta' => $from]);
     }

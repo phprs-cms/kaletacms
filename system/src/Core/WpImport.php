@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Redirects;
 use Kaleta\Admin\Modules\Pages;
 use Kaleta\Builder\CollectionCategories;
 use Kaleta\Builder\Presets;
@@ -1150,9 +1149,9 @@ final class WpImport
     }
 
     /**
-     * Redirect from the old URL (both the pretty and the numeric /?p=123) to the new one. Redirects::add skips an identical URL by itself.
+     * Redirect from the old URL (both the pretty and the numeric /?p=123) to the new one. RedirectStore::add skips an identical URL by itself.
      * 3.6: an old address that already is a page or an item of this site, or that already redirects somewhere else, is left
-     * alone and listed – Redirects::add would otherwise take it over and rewrite every link to it on the live site
+     * alone and listed – RedirectStore::add would otherwise take it over and rewrite every link to it on the live site
      * (Core\LinkHealing) to the new, possibly hidden record.
      *
      * @param array<string, mixed> $p
@@ -1182,7 +1181,7 @@ final class WpImport
                 continue;
             }
             if ($this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$old]) === null) {
-                Redirects::add($this->db, $old, $newVersion);
+                RedirectStore::add($this->db, $old, $newVersion);
                 self::listRedirect($state, 'nove', ['/' . $old, '/' . $newVersion]);
                 $count++;
             }
@@ -1475,7 +1474,7 @@ final class WpImport
         if ($state['volby']['presmerovani']) {
             foreach (array_intersect(array_map('strval', array_keys((array) $state['jazyky']['nalezeno'])), Language::additional($this->settings)) as $code) {
                 if ($this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', ['?lang=' . $code]) === null) {
-                    Redirects::add($this->db, '?lang=' . $code, $code, false); // Polylang's /?lang=en – the home of the version
+                    RedirectStore::add($this->db, '?lang=' . $code, $code, false); // Polylang's /?lang=en – the home of the version
                     self::listRedirect($state, 'nove', ['/?lang=' . $code, '/' . $code . '/']);
                     $state['vysledek']['presmerovani']++;
                 }

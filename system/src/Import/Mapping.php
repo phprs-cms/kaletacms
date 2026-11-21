@@ -15,7 +15,7 @@ namespace Kaleta\Import;
  *  language         code of a language version for the new categories and pages ('' = the site's default language)
  *  drafts           import drafts too (as hidden news items and pages)
  *  builder          pages straight into the builder (Builder\HtmlConverter); the text stays as a backup either way
- *  redirects        redirects from the old addresses (Admin\Modules\Redirects::add, which also heals links)
+ *  redirects        redirects from the old addresses (Core\RedirectStore::add, which also heals links)
  *  default_category news category for posts without one (0 = a new "Uncategorised" is created)
  *  site_url         address of the old site when the export does not carry it (Ghost) – for images and redirect paths
  *

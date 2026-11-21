@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\Modules\Redirects;
 
 /**
  * Redirects for addresses visitors could not find (2.14). For a pending 404 (Core\NotFound) it looks for the page, news
@@ -159,10 +158,10 @@ final class RedirectMatcher
         foreach (self::suggestions($app, NotFound::pending($app, 30, 200)) as $from => $found) {
             // N319-2: an address that differs from a saved redirect only in accents is left to a person – a visitor's
             // address never takes over a redirect someone saved
-            if ($found['score'] < $threshold || Redirects::twin($db, (string) $from) !== null) {
+            if ($found['score'] < $threshold || RedirectStore::twin($db, (string) $from) !== null) {
                 continue;
             }
-            Redirects::add($db, $from, $found['to']);
+            RedirectStore::add($db, $from, $found['to']);
             $db->run('UPDATE {presmerovani} SET auto_score = ? WHERE z_adresy = ?', [$found['score'], trim($from, '/ ')]);
             $db->delete('nenalezeno', ['cesta' => trim($from, '/')]);
             Events::record($db, 'redirect.auto', 'info', t('/%s now redirects to /%s by itself (score %d of 100). Undo: Administration → Redirects.', $from, $found['to'], $found['score']),
