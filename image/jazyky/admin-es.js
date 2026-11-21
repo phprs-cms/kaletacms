@@ -3112,4 +3112,8 @@ window.KALETA_PREKLAD = {
 	"The application stays in %s.": "La candidatura se queda en %s.",
 	"Say why “%s” was rejected, then press Move.": "Indica por qué se rechazó «%s» y pulsa Mover.",
 	"The application could not be moved.": "No se pudo mover la candidatura.",
+	"Type to search": "Escriba para buscar",
+	"New customer…": "Nuevo cliente…",
+	"%d results": "Resultados: %d",
+	"No result": "Ningún resultado",
 };

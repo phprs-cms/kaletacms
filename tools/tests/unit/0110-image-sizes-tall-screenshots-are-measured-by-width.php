@@ -126,7 +126,7 @@ $parity = [
     // 3.28: Customers – Claude reads and changes the same records with list_contacts, get_contact, save_contact (a company too),
     // log_activity and merge_contacts; deleting a record, the CSV import and linking an old record by hand stay with a person
     'contacts' => ['list' => $contactTool('list_contacts'), 'companies' => $contactTool('list_contacts'), 'detail' => $contactTool('get_contact'), 'company' => $readOnly,
-        'new' => $readOnly, 'company_new' => $readOnly, 'search_json' => $readOnly, 'export' => $readOnly, 'import' => $readOnly,
+        'new' => $readOnly, 'company_new' => $readOnly, 'search_json' => $readOnly, 'company_search_json' => $readOnly, 'export' => $readOnly, 'import' => $readOnly, // 3.49 C: choosing by search
         'save' => $contactTool('save_contact'), 'company_save' => $contactTool('save_contact'), 'activity' => $contactTool('log_activity'), 'merge' => $contactTool('merge_contacts'),
         'delete' => 'admin: deleting a customer for good is an administrator\'s decision – erase_personal_data removes a person on request',
         'company_delete' => 'admin: deleting a company is an administrator\'s decision; its contacts stay',
@@ -154,7 +154,7 @@ $parity = [
     // the CSV import, the price lists and the settings stay with people (the quote tools come with the quote screens)
     'quotes' => ['list' => 'list_quotes', 'create' => 'save_quote', 'edit' => 'get_quote', 'save' => 'save_quote', 'detail' => 'get_quote', 'status' => 'mark_quote',
         'revise' => 'admin: a revision is a person\'s decision to replace a quote the customer already has (design A8)', 'delete' => 'admin: deleting a quote stays in the administration (design A8)',
-        'totals' => $readOnly, 'prices' => 'list_prices', 'prices_save' => 'save_price', 'item_prices_save' => 'save_price', 'prices_export' => 'list_prices',
+        'totals' => $readOnly, 'product_search_json' => $readOnly, 'prices' => 'list_prices', 'prices_save' => 'save_price', 'item_prices_save' => 'save_price', 'prices_export' => 'list_prices',
         'prices_import' => 'admin: a CSV file of prices is uploaded and checked by a person before it is written',
         'prices_import_run' => 'admin: writing a checked CSV import is the decision of the person who checked it',
         'list_save' => 'admin: creating and renaming price lists is the administrator\'s set-up', 'list_archive' => 'admin: archiving a price list is the administrator\'s set-up',
@@ -170,7 +170,7 @@ $parity = [
         'pdf' => $readOnly], // 3.40 A: the quote as a PDF file
     // 3.42: internal files (Core\InternalFiles) – Claude lists, reads text documents and saves documents and metadata with the
     // internal-file tools; uploads of binary files, deleting and the folders' audiences stay with people
-    'internal_files' => ['list' => 'list_internal_files', 'file' => 'get_internal_file', 'save' => 'save_internal_file',
+    'internal_files' => ['list' => 'list_internal_files', 'file' => 'get_internal_file', 'save' => 'save_internal_file', 'search_json' => $readOnly, // 3.49 C
         'upload' => 'admin: a binary file is uploaded by a person; Claude writes text documents with save_internal_file',
         'replace' => 'admin: a new binary version is uploaded by a person; a text document gets new content with save_internal_file',
         'download' => 'admin: the bytes of an internal file are downloaded by a signed-in person, never passed to Claude',

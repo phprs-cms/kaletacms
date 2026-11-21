@@ -28,7 +28,8 @@ use Kaleta\Core\Tasks;
  *  - link: an enquiry or a booking from before 3.28 linked by hand (the job "contacts" links them by itself)
  *  - export and import (CSV, administrators): an import matches by the normalised e-mail address only – it never merges two
  *    different addresses; the change log keeps the counts, never personal data
- *  - search_json: the command palette (Ctrl K) finds customers by name, e-mail or company
+ *  - search_json: the command palette (Ctrl K) finds customers by name, e-mail or company; with pick=1 the choice of a
+ *    customer on the deal and quote forms (3.49 C); company_search_json the choice of a company
  */
 final class Contacts extends Module
 {
@@ -140,17 +141,27 @@ final class Contacts extends Module
             'owners' => Assignment::labels($this->db, array_values(array_filter(array_column($result['rows'], 'owner_id'))))]);
     }
 
-    /** The command palette (Ctrl K): customers by name, e-mail or company. */
+    /**
+     * The command palette (Ctrl K) and the choice of a customer (3.49 C, pick=1 – 8 rows): customers by name, e-mail or
+     * company, never an anonymised one (Customers::list leaves them out). GET, read-only, no-store.
+     */
     protected function actionSearchJson(): Response
     {
-        $q = mb_substr(trim($this->request->get('q')), 0, 80);
-        if (mb_strlen($q) < 2) {
-            return Response::json(['contacts' => []]);
-        }
-        $rows = Customers::list($this->db, ['search' => $q, 'sort' => 'activity'], 1, 6)['rows'];
+        $q = $this->searchWord();
+        $rows = $q === '' ? [] : Customers::list($this->db, ['search' => $q, 'sort' => 'activity'], 1, $this->request->get('pick') === '1' ? self::PICK_ROWS : 6)['rows'];
 
-        return Response::json(['contacts' => array_map(fn (array $c): array => ['name' => Customers::displayName($c),
-            'note' => implode(' · ', array_filter([(string) ($c['company_name'] ?? ''), $c['name'] !== '' ? $c['email'] : ''])), 'url' => $this->url('detail', ['id' => $c['id']])], $rows)]);
+        return Response::json(['contacts' => array_map(fn (array $c): array => ['id' => (int) $c['id'], 'name' => Customers::displayName($c),
+            'note' => implode(' · ', array_filter([(string) ($c['company_name'] ?? ''), $c['name'] !== '' ? $c['email'] : ''])), 'url' => $this->url('detail', ['id' => $c['id']])], $rows)], 200, Response::NO_STORE);
+    }
+
+    /** The choice of a company (3.49 C): companies by name, domain, registration or VAT number. GET, read-only, no-store. */
+    protected function actionCompanySearchJson(): Response
+    {
+        $q = $this->searchWord();
+        $rows = $q === '' ? [] : Customers::companies($this->db, ['search' => $q], 1, self::PICK_ROWS)['rows'];
+
+        return Response::json(['companies' => array_map(fn (array $co): array => ['id' => (int) $co['id'], 'name' => (string) $co['name'],
+            'note' => (string) ($co['domain'] ?? '')], $rows)], 200, Response::NO_STORE);
     }
 
     /* ---------- a contact ---------- */

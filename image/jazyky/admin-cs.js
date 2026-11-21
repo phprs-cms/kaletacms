@@ -2996,4 +2996,8 @@ window.KALETA_PREKLAD = {
 	"The application stays in %s.": "Přihláška zůstává ve stavu %s.",
 	"Say why “%s” was rejected, then press Move.": "Napište, proč je „%s“ zamítnuta, a stiskněte Přesunout.",
 	"The application could not be moved.": "Přihlášku nešlo přesunout.",
+	"Type to search": "Pište pro hledání",
+	"New customer…": "Nový zákazník…",
+	"%d results": "Výsledků: %d",
+	"No result": "Nic nenalezeno",
 };

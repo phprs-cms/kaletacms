@@ -128,7 +128,7 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 </form>
 <div class="tlacitka zakaznik-tlacitka">
 	<details class="zakaznik-upravit"<?= $draft !== [] ? ' open' : '' ?>><summary><?= e(t('Edit')) ?></summary>
-	<?= $app->view->render('admin/pipeline/form', ['module' => $module, 'csrf' => $csrf, 'd' => $d, 'draft' => $draft + ['currency' => $currency], 'contacts' => $contacts, 'companies' => $companies,
+	<?= $app->view->render('admin/pipeline/form', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'd' => $d, 'draft' => $draft + ['currency' => $currency], 'contacts' => $contacts, 'companies' => $companies,
         'people' => $people, 'stages' => [], 'canContacts' => $canContacts, 'me' => $me]) ?>
 	</details>
 </div>

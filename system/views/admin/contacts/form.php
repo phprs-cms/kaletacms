@@ -16,6 +16,11 @@ use Kaleta\Core\Language;
 $value = fn (string $key): string => (string) ($draft[$key] ?? $c[$key] ?? '');
 $companyId = (int) ($draft['company_id'] ?? $c['company_id'] ?? 0);
 $ownerId = (int) ($draft['owner_id'] ?? $c['owner_id'] ?? 0);
+// 3.49 C: the contact's own company stays chosen when it is outside the capped list
+$companyOptions = array_map('strval', array_column($companies, 'name', 'id'));
+if ($companyId > 0 && !isset($companyOptions[$companyId]) && $companyId === (int) ($c['company_id'] ?? 0)) {
+    $companyOptions[$companyId] = (string) ($c['company_name'] ?? '');
+}
 ?>
 <form class="formular" method="post" action="<?= e($module->url('save')) ?>" data-contact-form>
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
@@ -23,11 +28,8 @@ $ownerId = (int) ($draft['owner_id'] ?? $c['owner_id'] ?? 0);
 	<div class="radek"><label for="kontakt-email"><?= e(t('Email')) ?></label><div><input class="textpole siroke" type="email" id="kontakt-email" name="email" maxlength="190" value="<?= e($value('email')) ?>" autocomplete="off">
 		<span class="napoveda"><?= e(t('One contact per e-mail address – new enquiries, bookings and subscriptions from it join this contact.')) ?></span></div></div>
 	<div class="radek"><label for="kontakt-telefon"><?= e(t('Phone')) ?></label><div><input class="textpole" type="tel" id="kontakt-telefon" name="phone" maxlength="40" value="<?= e($value('phone')) ?>" autocomplete="off"></div></div>
-	<div class="radek"><label for="kontakt-firma"><?= e(t('Company')) ?></label><div><select id="kontakt-firma" name="company_id"><option value="0">—</option>
-<?php foreach ($companies as $co): ?>
-		<option value="<?= (int) $co['id'] ?>"<?= $companyId === $co['id'] ? ' selected' : '' ?>><?= e($co['name']) ?></option>
-<?php endforeach ?>
-	</select>
+	<div class="radek"><label for="kontakt-firma"><?= e(t('Company')) ?></label><div><?= $app->view->render('admin/pick', ['id' => 'kontakt-firma', 'name' => 'company_id', 'pick' => 'companies', 'url' => $module->url('company_search_json'),
+		'options' => $companyOptions, 'selected' => (string) $companyId, 'specials' => [['0', '—']]]) ?>
 		<label class="zakaznik-nova-firma"><span><?= e(t('or a new company')) ?></span> <input class="textpole" type="text" name="company_new" maxlength="150" value="<?= e($draft['company_new'] ?? '') ?>"></label></div></div>
 	<div class="radek"><label for="kontakt-odpovedny"><?= e(t('Responsible person')) ?></label><div><select id="kontakt-odpovedny" name="owner_id"><option value="0">—</option>
 <?php foreach ($people as $userId => $name): ?>

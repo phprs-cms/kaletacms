@@ -7,6 +7,7 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Core\App;
 use Kaleta\Core\Assignment;
+use Kaleta\Core\ChangeLog;
 use Kaleta\Core\Clock;
 use Kaleta\Core\Comments;
 use Kaleta\Core\Contacts as Customers;
@@ -35,7 +36,8 @@ use Kaleta\Core\Tasks;
  *    Deals::createFromEnquiry (one open deal per enquiry); from_enquiry creates one at once (forms of 3.31, kept)
  *  - stages and stages_save (administrators): rename, reorder, add and remove stages (Deals::saveStages; a stage with deals
  *    keeps its kind and cannot be removed – 3.31.1)
- *  - search_json: the command palette (Ctrl K) finds deals by title, customer or company
+ *  - search_json: the command palette (Ctrl K) finds deals by title, customer or company; with pick=1 the choice of a deal
+ *    in the quote editor (3.49 C). The deal form's "New customer…" (name, e-mail) makes or reuses a contact on save.
  *
  * Responsibility only: the responsible person never limits who sees a deal – "Mine" is a filter. (D-W3, an optional role
  * scope "only mine", is not built for customers or deals.)
@@ -204,19 +206,27 @@ final class Pipeline extends Module
         return substr(Clock::today(), 0, 8) . '01 00:00:00';
     }
 
-    /** The command palette (Ctrl K): deals by title, customer or company – open ones first. */
+    /**
+     * The command palette (Ctrl K) and the choice of a deal (3.49 C, pick=1 – the open deals first, then closed ones, 8
+     * rows): deals by title, customer or company. GET, read-only, no-store.
+     */
     protected function actionSearchJson(): Response
     {
-        $q = mb_substr(trim($this->request->get('q')), 0, 80);
-        if (mb_strlen($q) < 2) {
-            return Response::json(['deals' => []]);
+        $q = $this->searchWord();
+        $rows = [];
+        if ($q !== '' && $this->request->get('pick') === '1') {
+            $rows = Deals::list($this->app, ['search' => $q, 'status' => 'open'], 1, self::PICK_ROWS)['rows'];
+            if (count($rows) < self::PICK_ROWS) {
+                $rows = [...$rows, ...Deals::list($this->app, ['search' => $q, 'status' => 'closed'], 1, self::PICK_ROWS - count($rows))['rows']];
+            }
+        } elseif ($q !== '') {
+            $rows = Deals::list($this->app, ['search' => $q, 'status' => 'all'], 1, 6)['rows'];
         }
         $labels = array_column(Deals::stages($this->app->settings()), 'label', 'key');
-        $rows = Deals::list($this->app, ['search' => $q, 'status' => 'all'], 1, 6)['rows'];
 
-        return Response::json(['deals' => array_map(fn (array $d): array => ['name' => $d['title'],
+        return Response::json(['deals' => array_map(fn (array $d): array => ['id' => (int) $d['id'], 'name' => $d['title'],
             'note' => implode(' · ', array_filter([$labels[$d['stage']] ?? $d['stage'], (string) ($d['company_name'] ?? '') !== '' ? (string) $d['company_name'] : self::contactLabel($d)])),
-            'url' => $this->url('detail', ['id' => $d['id']])], $rows)]);
+            'url' => $this->url('detail', ['id' => $d['id']])], $rows)], 200, Response::NO_STORE);
     }
 
     /* ---------- a deal ---------- */
@@ -232,6 +242,7 @@ final class Pipeline extends Module
         $stages = Deals::stages($this->app->settings());
         $lose = $this->request->get('lose');
         $history = self::history($this->db, $id);
+        $draft = $this->takeDraft('deal_draft', $id);
         $target = Comments::deal($id);
         $enquiry = null;
         if ($deal['source_enquiry_id'] !== null && isset($modules['enquiries'])) {
@@ -245,9 +256,9 @@ final class Pipeline extends Module
             'names' => Assignment::labels($this->db, array_values(array_filter([$deal['owner_id'], $deal['created_by'], ...array_column($history, 'user_id')]))),
             'people' => Assignment::candidates($this->db, 'deal', (int) $deal['owner_id']),
             'canContacts' => isset($modules[Customers::SECTION]), 'enquiry' => $enquiry,
-            'contacts' => isset($modules[Customers::SECTION]) ? self::contactChoices($this->db, $deal['contact_id']) : [],
-            'companies' => isset($modules[Customers::SECTION]) ? self::companyChoices($this->db, $deal['company_id']) : [],
-            'draft' => $this->takeDraft('deal_draft', $id), 'currency' => $deal['currency'] ?? Deals::defaultCurrency($this->app->settings()), 'today' => Clock::today(),
+            'contacts' => isset($modules[Customers::SECTION]) ? self::contactChoices($this->db, (int) ($draft['contact_id'] ?? 0) > 0 ? (int) $draft['contact_id'] : $deal['contact_id']) : [],
+            'companies' => isset($modules[Customers::SECTION]) ? self::companyChoices($this->db, (int) ($draft['company_id'] ?? 0) > 0 ? (int) $draft['company_id'] : $deal['company_id']) : [],
+            'draft' => $draft, 'currency' => $deal['currency'] ?? Deals::defaultCurrency($this->app->settings()), 'today' => Clock::today(),
             'thread' => $this->commentThread($target, ['id' => $id]),
             'tasks' => $this->taskPanel($target, ['id' => $id]),
             'quoteBox' => Quotes::box($this->app, $modules, 'deal', $id), // 3.38 B
@@ -293,11 +304,15 @@ final class Pipeline extends Module
             : ['contact_id' => (string) ($contact['id'] ?? ''), 'company_id' => $companyId > 0 ? (string) $companyId : '',
                 'owner_id' => isset($people[$me]) ? (string) $me : '', 'currency' => Deals::defaultCurrency($this->app->settings())];
 
-        return $this->view('new', t('New deal'), ['draft' => $this->takeDraft('deal_draft', -$idp) + $start,
+        $draft = $this->takeDraft('deal_draft', -$idp) + $start;
+        // 3.49 C: a refused form's customer (one "New customer…" made, or one chosen by search) stays among the options
+        $keep = fn (string $key, ?int $fallback): ?int => (int) ($draft[$key] ?? 0) > 0 ? (int) $draft[$key] : $fallback;
+
+        return $this->view('new', t('New deal'), ['draft' => $draft,
             'stages' => array_values(array_filter(Deals::stages($this->app->settings()), fn (array $s): bool => $s['kind'] === 'open')),
             'people' => $people, 'canContacts' => $canContacts, 'me' => $me, 'enquiry' => $idp,
-            'contacts' => $canContacts ? self::contactChoices($this->db, $fromEnquiry !== null ? $fromEnquiry['contact_id'] : ($contact['id'] ?? null)) : [],
-            'companies' => $canContacts ? self::companyChoices($this->db, $fromEnquiry !== null ? $fromEnquiry['company_id'] : ($companyId > 0 ? $companyId : null)) : []]);
+            'contacts' => $canContacts ? self::contactChoices($this->db, $keep('contact_id', $fromEnquiry !== null ? $fromEnquiry['contact_id'] : ($contact['id'] ?? null))) : [],
+            'companies' => $canContacts ? self::companyChoices($this->db, $keep('company_id', $fromEnquiry !== null ? $fromEnquiry['company_id'] : ($companyId > 0 ? $companyId : null))) : []]);
     }
 
     /**
@@ -321,6 +336,7 @@ final class Pipeline extends Module
             $fields['owner_id'] = $this->request->postInt('owner_id');
         }
         $fromEnquiry = $id <= 0 && $this->request->postInt('enquiry') > 0;
+        $newContact = null;
         if (isset($this->kernel->modules()[Customers::SECTION])) {
             foreach (['contact_id', 'company_id'] as $key) {
                 if (!$this->request->hasPost($key)) {
@@ -333,6 +349,7 @@ final class Pipeline extends Module
                     $fields[$key] = $chosen;
                 }
             }
+            $newContact = self::newContact($this->request->post('contact_new_name'), $this->request->post('contact_new_email'), (int) ($fields['contact_id'] ?? 0));
         }
         if (($fields['value'] ?? null) === '') {
             unset($fields['currency']); // no value: the currency of the select would only be noise
@@ -349,13 +366,28 @@ final class Pipeline extends Module
             if ($id > 0 && Deals::get($this->db, $id) === null) {
                 return $this->error('The deal does not exist.', 404);
             }
+            if ($newContact !== null) {
+                // 3.49 C (U32): "New customer…" – one contact per e-mail address: an existing one is used, otherwise it is made
+                // the way the admin and save_contact make one (Core\Contacts::create), with its change-log line
+                $existing = $newContact['email'] !== '' ? Customers::findByEmail($this->db, $newContact['email']) : null;
+                if ($existing !== null) {
+                    $fields['contact_id'] = $existing['id'];
+                } else {
+                    $fields['contact_id'] = Customers::create($this->app, $newContact + ['source' => 'manual'], $this->app->auth()->id());
+                    ChangeLog::write($this->app, Customers::SECTION, 'contact created', '#' . $fields['contact_id']);
+                }
+            }
             $saved = $idp > 0 ? Deals::createFromEnquiry($this->app, $idp, $this->app->auth()->id(), $fields) : Deals::save($this->app, $id > 0 ? $id : null, $fields, $this->app->auth()->id());
         } catch (\DomainException $e) {
             $draft = array_map(fn (mixed $v): string => mb_substr((string) $v, 0, Deals::TITLE_MAX), $fields);
             foreach (['contact_id', 'company_id'] as $key) {
-                if ($fromEnquiry && $this->request->post($key) === 'none') {
+                if ($fromEnquiry && $this->request->post($key) === 'none' && (int) ($fields[$key] ?? 0) <= 0) {
                     $draft[$key] = 'none'; // the form offers "—" again, not "the enquiry's customer"
                 }
+            }
+            if ($newContact !== null && (int) ($fields['contact_id'] ?? 0) <= 0) {
+                // the new customer was refused: its name and e-mail come back in the form; one made already is chosen instead
+                $draft += ['contact_new_name' => $newContact['name'], 'contact_new_email' => $newContact['email']];
             }
             $this->app->session->set('deal_draft', ['id' => $idp > 0 ? -$idp : $id] + $draft);
 
@@ -678,6 +710,20 @@ final class Pipeline extends Module
     public static function contactLabel(array $deal): string
     {
         return $deal['contact_id'] !== null ? Customers::displayName(['id' => $deal['contact_id'], 'name' => $deal['contact_name'] ?? '', 'email' => $deal['contact_email'] ?? '']) : '';
+    }
+
+    /**
+     * The customer "New customer…" asks for (3.49 C, U32): its name and e-mail when one of them is filled in and no customer
+     * is chosen (0 or "—"; from an enquiry 0 too – filling the fields is the choice), otherwise null. Pure.
+     *
+     * @return array{name: string, email: string}|null
+     */
+    public static function newContact(string $name, string $email, int $chosen): ?array
+    {
+        $name = trim(mb_substr($name, 0, 150));
+        $email = trim(mb_substr($email, 0, 190));
+
+        return $chosen <= 0 && ($name !== '' || $email !== '') ? ['name' => $name, 'email' => $email] : null;
     }
 
     /**

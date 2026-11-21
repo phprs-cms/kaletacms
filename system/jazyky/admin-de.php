@@ -9281,4 +9281,9 @@ return [
     '%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Settings → Privacy and cookies or Applications → Settings.' => '%d aus den Anfragen verschobene Bewerbung(en) warten seit mehr als %d Tagen darauf, dass ein Administrator die Aufbewahrung bestätigt – bis dahin werden sie nie gelöscht. Prüfen Sie sie und speichern Sie Einstellungen → Datenschutz und Cookies oder Bewerbungen → Einstellungen.',
     '%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you confirm the period; then the daily clean-up deletes them with their CVs. Set 0 to keep them.' => '%s aus den Anfragen verschobene Bewerbung(en) haben seit vor dem %s keine Aktivität – jenseits der Aufbewahrung von %d Monaten. Nichts Verschobenes wird gelöscht, bis Sie die Frist bestätigen; dann löscht die tägliche Bereinigung sie mit ihren Lebensläufen. Stellen Sie 0 ein, um sie zu behalten.',
     'Apply this period to the %s application(s) moved from Enquiries' => 'Diese Frist auch auf %s aus den Anfragen verschobene Bewerbung(en) anwenden',
+    'New customer…' => 'Neuer Kunde …',
+    'Type to search' => 'Zum Suchen tippen',
+    '%d results' => 'Ergebnisse: %d',
+    'No result' => 'Kein Ergebnis',
+    'Saved with the deal when no customer is chosen; an e-mail address that already has a customer uses that one.' => 'Wird mit dem Deal gespeichert, wenn kein Kunde gewählt ist; eine E-Mail-Adresse, die schon einen Kunden hat, verwendet diesen.',
 ];

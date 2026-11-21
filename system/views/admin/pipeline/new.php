@@ -20,5 +20,5 @@
 <?php if ($enquiry > 0): ?>
 <p class="napoveda" data-deal-from-enquiry="<?= $enquiry ?>"><?= e(t('Filled in from the enquiry – check the name, add the value and the expected close if you know them, and create the deal.')) ?></p>
 <?php endif ?>
-<?= $app->view->render('admin/pipeline/form', ['module' => $module, 'csrf' => $csrf, 'd' => ['id' => 0], 'draft' => $draft, 'contacts' => $contacts, 'companies' => $companies,
+<?= $app->view->render('admin/pipeline/form', ['app' => $app, 'module' => $module, 'csrf' => $csrf, 'd' => ['id' => 0], 'draft' => $draft, 'contacts' => $contacts, 'companies' => $companies,
     'people' => $people, 'stages' => $stages, 'canContacts' => $canContacts, 'me' => $me, 'enquiry' => $enquiry]) ?>

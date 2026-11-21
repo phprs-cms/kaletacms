@@ -66,6 +66,20 @@ abstract class Module
     public const array LIVE_ACTIONS = [];
 
     /**
+     * The rows a choice by search asks for (3.49 C: pick=1 on a search_json action – views/admin/pick.php, image/admin.js);
+     * the palette (Ctrl K) keeps its six.
+     */
+    public const int PICK_ROWS = 8;
+
+    /** The word a search action looks for (at most 80 characters); '' under two characters – those answer no rows. */
+    protected function searchWord(): string
+    {
+        $q = mb_substr(trim($this->request->get('q')), 0, 80);
+
+        return mb_strlen($q) < 2 ? '' : $q;
+    }
+
+    /**
      * A last check of whom the module is for, after the permission (3.1.1): a module can narrow it further, so the menu
      * never offers what then answers 403 (the whistleblowing channel only for its readers and administrators).
      */

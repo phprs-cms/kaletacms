@@ -28,6 +28,7 @@ use Kaleta\Core\Response;
  *  - list: the quotes (the quote screens of the next part; until then it opens Internal prices).
  *  - prices: the grid of a price list – the products of the products collections with their variants, the own rows, a
  *    collection filter, a search, "without a price"; CSV export and import; the price lists (administrators).
+ *  - product_search_json (3.49 C): the editor's choice of a product by a word, with the internal price – GET, read-only.
  *  - prices_save: the rows of the grid that changed (one change-log line with the count – never an amount).
  *  - item_prices_save: the box "Internal prices" on a product's form in Collections.
  *  - prices_export: the price list as CSV; prices_import: the uploaded CSV checked into a preview (new, changed, unknown);
@@ -797,16 +798,7 @@ final class Quotes extends Module
         if (!in_array($list['id'], array_column($lists, 'id'), true)) {
             $lists[] = $list + ['prices' => 0];
         }
-        $products = [];
-        foreach (Prices::grid($this->db, $list['id'], [], 1, self::PRODUCT_CHOICES)['rows'] as $row) {
-            foreach ($row['lines'] as $line) {
-                if ($line['gone'] || ($line['variant'] === '' && $line['code'] === '' && $row['variants'] !== [])) {
-                    continue;
-                }
-                $products[] = ['value' => $line['code'] !== '' ? $line['code'] : '#' . $row['idp'],
-                    'label' => $row['name'] . ($line['name'] !== '' ? ' – ' . $line['name'] : '') . ' · ' . ($line['price'] !== null ? Money::format($line['price']['minor'], $list['currency']) : t('no internal price'))];
-            }
-        }
+        $products = array_map(fn (array $p): array => ['value' => $p['value'], 'label' => $p['name'] . ' · ' . $p['note']], self::products($this->db, $list, '', self::PRODUCT_CHOICES));
         $deals = [];
         if ($canDeals) {
             foreach (Deals::list($this->app, ['status' => 'open'], 1, self::DEAL_CHOICES)['rows'] as $d) {
@@ -829,6 +821,42 @@ final class Quotes extends Module
             'maxDiscount' => Money::short(Money::percentText(Money::percent(trim($s->get('quote_max_discount')) !== '' ? $s->get('quote_max_discount') : '20'))),
             'dealValue' => $s->bool('quote_set_deal_value'), 'me' => $this->app->auth()->id(), 'lineSets' => QuoteLineSets::all($this->db), // 3.40
             'canDelete' => $this->app->auth()->isAdmin() || $quote['created_by'] === $this->app->auth()->id()]);
+    }
+
+    /**
+     * The products of a price list "Add product" offers – code or #item, the name (with the variant) and the internal price
+     * (or "no internal price"); by a word in the name or code. At most $limit.
+     *
+     * @param array<string, mixed> $list Prices::priceList
+     * @return list<array{value: string, name: string, note: string}>
+     */
+    private static function products(Db $db, array $list, string $search, int $limit): array
+    {
+        $out = [];
+        foreach (Prices::grid($db, (int) $list['id'], $search !== '' ? ['search' => $search] : [], 1, $limit)['rows'] as $row) {
+            foreach ($row['lines'] as $line) {
+                if ($line['gone'] || ($line['variant'] === '' && $line['code'] === '' && $row['variants'] !== [])) {
+                    continue;
+                }
+                $out[] = ['value' => $line['code'] !== '' ? (string) $line['code'] : '#' . $row['idp'], 'name' => $row['name'] . ($line['name'] !== '' ? ' – ' . $line['name'] : ''),
+                    'note' => $line['price'] !== null ? Money::format($line['price']['minor'], (string) $list['currency']) : t('no internal price')];
+            }
+        }
+
+        return array_slice($out, 0, $limit);
+    }
+
+    /**
+     * The choice of a product in the editor (3.49 C): the products of the price list ?list= (the default one when it is
+     * unknown) by a word in the name or code, with the internal price – only inside Quotes, never anywhere public. GET,
+     * read-only, no-store.
+     */
+    protected function actionProductSearchJson(): Response
+    {
+        $q = $this->searchWord();
+        $list = Prices::priceList($this->db, $this->request->getInt('list')) ?? Prices::defaultList($this->db, $this->app->settings());
+
+        return Response::json(['products' => $q === '' ? [] : self::products($this->db, $list, $q, self::PICK_ROWS)], 200, Response::NO_STORE);
     }
 
     /**
