@@ -140,6 +140,80 @@ final class Kernel
         return \Kaleta\Core\Routes::slashRedirect($internal, $uri, $this->app->settings()->get('url_slash'), $this->app->db());
     }
 
+    /**
+     * 3.50 (Q14): the public addresses after the page cache, tried top to bottom – [method, path, handler]. The method is
+     * 'ANY' or 'POST'; the path is an exact path, or an anchored pattern that starts with '#^' (its groups go to the handler).
+     * A handler gets the match ([0] = the path) and returns null for "not mine" (a feature switched off, a missing setting,
+     * a page that does not exist): the next row is tried, so the order of the rows is the order of the old if chain. The
+     * page lookup is one row at its place; whatever no row answers is the not-found page. The gates before the cache
+     * (redirects, firewall, restore, demo, OAuth, maintenance, ?p=, staged media, quote) stay as code in handle().
+     * A new public route = a row here and a route method below; a one-segment path before the page row is also a reserved
+     * page slug (Admin\Modules\Pages::RESERVED_SLUGS) and news slug (Core\Routes) – unit 4531 holds both.
+     *
+     * @var list<array{0: 'ANY'|'POST', 1: string, 2: string}>
+     */
+    private const array ROUTES = [
+        ['ANY', '/', 'routeHome'],
+        ['ANY', '/index.php', 'routeHome'],
+        ['ANY', '#^/(?:novinky(?:/.*)?|rss\.xml|feed\.json)$#Ds', 'routeNewsOff'], // the News feature off: the data stay, not on the site
+        ['ANY', '/novinky', 'routeNewsList'],
+        ['ANY', '#^/novinky/kategorie/([a-z0-9-]+)$#D', 'routeNewsCategory'],
+        ['ANY', '#^/novinky/stitek/([a-z0-9-]+)$#D', 'routeNewsTag'],
+        ['ANY', '#^/novinky/([a-z0-9-]+)\.md$#D', 'routeNewsMarkdown'],
+        ['ANY', '#^/novinky/([a-z0-9-]+)$#D', 'routeNewsItem'],
+        ['ANY', '/hledani', 'routeSearch'],
+        ['ANY', '/rss.xml', 'routeRss'],
+        ['ANY', '/manifest.webmanifest', 'routeManifest'],
+        ['ANY', '/favicon.ico', 'routeFavicon'],
+        ['ANY', '#^/og/([a-f0-9]{32})\.png$#D', 'routeShareImage'],
+        ['ANY', '/robots.txt', 'routeRobots'],
+        ['ANY', '/sitemap.xml', 'routeSitemap'],
+        ['ANY', '/feed.json', 'routeFeed'],
+        ['ANY', '/.well-known/security.txt', 'routeSecurityTxt'],
+        ['ANY', '/llms.txt', 'routeLlms'],
+        ['ANY', '#^/.+\.txt$#Ds', 'routeIndexNowKey'],
+        ['POST', '/souhlas', 'routeConsentLog'],
+        ['POST', '/popup', 'routePopupCounter'],
+        ['POST', '/fleet/pair', 'routeFleet'],
+        ['POST', '/fleet/heartbeat', 'routeFleet'],
+        ['POST', '/fleet/unpair', 'routeFleet'],
+        ['POST', '/fleet/kit', 'routeFleet'],
+        ['POST', '/fleet/uptime', 'routeFleet'],
+        ['ANY', '/fleet/calendar.ics', 'routeFleetCalendar'],
+        ['POST', '/hit', 'routeHit'],
+        ['POST', '/vitals', 'routeVitals'],
+        ['POST', '/konverze', 'routeConversion'],
+        ['ANY', '/mcp', 'routeMcp'],
+        ['ANY', '#^/download/([A-Za-z0-9._-]{30,900})$#D', 'routeDownload'],
+        ['ANY', '/odber', 'routeSubscription'],
+        ['ANY', '#^/' . \Kaleta\Core\TalentPool::PATH . '/([a-f0-9]{64})$#D', 'routeApplicationConsent'],
+        ['ANY', '/formular', 'routeForm'],
+        ['POST', '/_booking', 'routeBooking'],
+        ['ANY', '/_booking/days', 'routeBookingAvailability'],
+        ['ANY', '/_booking/slots', 'routeBookingAvailability'],
+        ['ANY', '#^/_booking/cancel/([a-f0-9]{32})$#D', 'routeBookingCancel'],
+        ['ANY', '#^/_booking/choose/([a-f0-9]{32})$#D', 'routeBookingChoose'],
+        ['ANY', '#^/_booking/ics/([a-f0-9]{32})$#D', 'routeBookingIcs'],
+        ['ANY', '/ulohy', 'routeUpdateProbe'], // with ?probe= only
+        ['ANY', '/ulohy', 'routeTasks'],
+        ['ANY', '#^/screen/([a-f0-9]{32})$#D', 'routeScreen'],
+        ['ANY', '/stav.json', 'routeHealth'],
+        ['ANY', '#^/.*$#Ds', 'routePage'], // every path: a page of this language version with this slug
+        ['ANY', '#^/_sekce/([a-z0-9-]{1,40})$#D', 'routeSectionPreview'],
+        ['ANY', '#^/_popup/(\d+)$#D', 'routePopupPreview'],
+        ['ANY', '#^/_komponenta/(\d+)$#D', 'routeComponentPreview'],
+        ['ANY', '#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#D', 'routeCalendarFile'],
+        ['ANY', '#^/_testimonial/([a-f0-9]{32})$#D', 'routeTestimonial'],
+        ['POST', '/_komentar', 'routeDraftComment'],
+        ['ANY', '/_report', 'routeWhistleblowing'],
+        ['ANY', '/_report/follow', 'routeWhistleblowing'],
+        ['ANY', '#^/([a-z0-9-]{1,110})/(?:_compare|_porovnat)$#D', 'routeCompare'], // 3.7: _compare, the Czech one from 2.11 too
+        ['ANY', '#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', 'routeCollectionItem'],
+        ['ANY', '#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#D', 'routeDocumentLatest'],
+        ['ANY', '#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/([a-z0-9-]{1,160})$#D', 'routeCollectionCategory'],
+        ['ANY', '#^/([a-z0-9-]{1,110})/_kategorie$#D', 'routeCategoryTemplate'],
+    ];
+
     public function handle(): Response
     {
         $request = $this->app->request;
@@ -194,202 +268,34 @@ final class Kernel
         if (($cached = PageCache::load($this->app)) !== null) {
             return $cached;
         }
-        $path = $request->path();
-        if ($path === '/' || $path === '/index.php') {
-            return $this->home();
-        }
-        $withNews = Extensions::isEnabled($this->app->settings(), 'novinky');
-        if (!$withNews && ($path === '/novinky' || str_starts_with($path, '/novinky/') || $path === '/rss.xml' || $path === '/feed.json')) {
-            return $this->notFound(); // the News extension is disabled: the data stay, but are not on the site
-        }
-        if ($path === '/novinky') {
-            return $this->showNewsList();
-        }
-        if (preg_match('#^/novinky/kategorie/([a-z0-9-]+)$#D', $path, $m)) {
-            return $this->category($m[1]);
-        }
-        if (preg_match('#^/novinky/stitek/([a-z0-9-]+)$#D', $path, $m)) {
-            return $this->tag($m[1]);
-        }
-        if (preg_match('#^/novinky/([a-z0-9-]+)\.md$#D', $path, $m) && $this->app->settings()->bool('markdown_news')) {
-            return $this->routeNewsMarkdown($m);
-        }
-        if (preg_match('#^/novinky/([a-z0-9-]+)$#D', $path, $m)) {
-            return $this->newsItem($m[1]);
-        }
-        if ($path === '/hledani') {
-            return $this->search();
-        }
-        if ($path === '/rss.xml') {
-            return $this->rss();
-        }
-        if ($path === '/manifest.webmanifest') {
-            return $this->routeManifest();
-        }
-        if ($path === '/favicon.ico') {
-            return $this->routeFavicon();
-        }
-        if (preg_match('#^/og/([a-f0-9]{32})\.png$#D', $path, $m)) {
-            // a share image drawn by the site (2.12, ShareImage); a hash the site did not make is a 404
-            return ShareImage::serve($this->app, $m[1]) ?? $this->notFound();
-        }
-        if ($path === '/robots.txt') {
-            return $this->routeRobots();
-        }
-        if ($path === '/sitemap.xml') {
-            return $this->routeSitemap();
-        }
-        if ($path === '/feed.json') {
-            return $this->routeFeed();
-        }
-        if ($path === '/.well-known/security.txt' && $this->app->settings()->get('security_contact') !== '') {
-            return $this->routeSecurityTxt();
-        }
-        if ($path === '/llms.txt' && $this->app->settings()->bool('llms_txt')) {
-            return $this->routeLlms();
-        }
-        $indexNowKey = $this->app->settings()->get('indexnow_key');
-        if ($indexNowKey !== '' && $path === '/' . $indexNowKey . '.txt') {
-            return $this->routeIndexNowKey($indexNowKey);
-        }
-        if ($path === '/souhlas' && $request->isPost()) {
-            return $this->routeConsentLog();
-        }
-        if ($path === '/popup' && $request->isPost()) {
-            return $this->routePopupCounter();
-        }
-        if (in_array($path, ['/fleet/pair', '/fleet/heartbeat', '/fleet/unpair', '/fleet/kit', '/fleet/uptime'], true) && $request->isPost() && Extensions::isEnabled($this->app->settings(), 'fleet')) {
-            return $this->routeFleet($path);
-        }
-        if ($path === '/fleet/calendar.ics' && Extensions::isEnabled($this->app->settings(), 'fleet')) {
-            // 3.30: an administrator's calendar feed of the fleet's expiry dates (Fleet\Calendar) – a secret link, revocable
-            return \Kaleta\Fleet\Calendar::feed($this->app, $request->get('token'));
-        }
-        if ($path === '/hit' && $request->isPost()) {
-            // a page view confirmed by the visitor's browser (3.29): image/vitals.js reports it once the page is really shown;
-            // rendering a page (or serving it from the page cache) no longer counts anything
-            return Stats::hit($this->app);
-        }
-        if ($path === '/vitals' && $request->isPost()) {
-            // real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies
-            return \Kaleta\Core\WebVitals::record($this->app);
-        }
-        if ($path === '/konverze' && $request->isPost()) {
-            // contact clicks (2.12): a beacon from image/web.js for a click on a phone number, an e-mail address or a WhatsApp
-            // link, counted as a lead per page and day without cookies
-            return \Kaleta\Core\Conversions::record($this->app);
-        }
-        if ($path === '/mcp') {
-            return (new \Kaleta\Mcp\Server($this->app))->handle();
-        }
-        if (preg_match('#^/download/([A-Za-z0-9._-]{30,900})$#D', $path, $m)) {
-            // a gated download (2.11, Core\Documents): the file arrives by e-mail after a form is sent, as a signed link
-            return \Kaleta\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
-        }
-        // odber: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
-        // e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work
-        $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
-        if ($path === '/odber' && ($subscriptionLink || Extensions::isEnabled($this->app->settings(), 'newsletter'))) {
-            return $this->routeSubscription($subscriptionLink);
-        }
-        // 3.40: the link of the talent pool's renewal e-mail (Front\ApplicationConsent) – it keeps working when the feature is
-        // switched off (an applicant may always ask for the deletion); never cached (noindex), private
-        if (preg_match('#^/' . \Kaleta\Core\TalentPool::PATH . '/([a-f0-9]{64})$#D', $path, $m) === 1) {
-            return $this->routeApplicationConsent($m);
-        }
-        if ($path === '/formular' && Extensions::isEnabled($this->app->settings(), 'poptavky')) {
-            return (new Forms($this->app))->process();
-        }
-        // online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
-        // the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
-        // only while the Bookings feature is on (3.2); the cancel page and the .ics file keep working when it is switched off,
-        // so people who booked can still cancel or add the appointment to their calendar (3.2.3)
-        $bookingsOn = \Kaleta\Core\Booking::isOn($this->app->settings());
-        if ($path === '/_booking' && $request->isPost() && $bookingsOn) {
-            return (new Booking($this->app))->process();
-        }
-        if (($path === '/_booking/days' || $path === '/_booking/slots') && $bookingsOn) {
-            return (new Booking($this->app))->availability(substr($path, 10));
-        }
-        if (preg_match('#^/_booking/cancel/([a-f0-9]{32})$#D', $path, $m)) {
-            return $this->routeBookingCancel($m);
-        }
-        if (preg_match('#^/_booking/choose/([a-f0-9]{32})$#D', $path, $m)) {
-            return $this->routeBookingChoose($m);
-        }
-        if (preg_match('#^/_booking/ics/([a-f0-9]{32})$#D', $path, $m)) {
-            return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
-        }
-        if ($path === '/ulohy' && $request->get('probe') !== '') {
-            return $this->routeUpdateProbe();
-        }
-        if ($path === '/ulohy') {
-            return $this->routeTasks();
-        }
-        if (preg_match('#^/screen/([a-f0-9]{32})$#D', $path, $m)) {
-            // screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret, otherwise 404
-            return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
-        }
-        if ($path === '/stav.json') {
-            return $this->routeHealth();
-        }
 
-        // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
-        // (?preview_key=…, Core\Preview)
-        $showHidden = $this->sitePreview || ($request->get('build') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
-        $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
-        if ($page !== null && !$page['zobrazit'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
-            $page = null;
-        }
-        if ($page !== null) {
-            if ((int) $page['ids'] === $this->homePageId() && !$showHidden) {
-                return Response::redirect($this->app->url(''), 301); // the home page has only one URL – the site root
+        return $this->route($request->path(), $request->isPost()) ?? $this->notFound();
+    }
+
+    /** The answer of the first row of ROUTES that matches the path and the method and does not pass, or null. */
+    private function route(string $path, bool $isPost): ?Response
+    {
+        foreach (self::ROUTES as [$method, $pattern, $handler]) {
+            if ($method === 'POST' && !$isPost) {
+                continue;
             }
-
-            return $this->showPage($page, ltrim($path, '/'));
-        }
-        if (preg_match('#^/_sekce/([a-z0-9-]{1,40})$#D', $path, $m) && $this->app->auth()->hasModule('pages')) {
-            return $this->previewSection($m[1]);
-        }
-        if (preg_match('#^/_popup/(\d+)$#D', $path, $m)) {
-            return $this->previewPopup((int) $m[1]);
-        }
-        if (preg_match('#^/_komponenta/(\d+)$#D', $path, $m) && $this->app->auth()->hasAppearanceArea()) { // 3.22 (C9): the Appearance area too
-            return $this->previewComponent((int) $m[1]);
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})(?:/([a-z0-9-]{1,160}))?\.ics$#D', $path, $m) && ($calendar = $this->calendarFile($m[1], $m[2] ?? '')) !== null) {
-            return $calendar;
-        }
-        if (preg_match('#^/_testimonial/([a-f0-9]{32})$#D', $path, $m)) {
-            return $this->testimonialPage($m[1]);
-        }
-        if ($path === '/_komentar' && $request->isPost()) {
-            // a comment on a draft from a shared preview link that allows comments (2.15, Core\DraftComments)
-            return (new DraftComments($this->app))->post();
-        }
-        if (($path === '/_report' || $path === '/_report/follow') && \Kaleta\Core\Whistleblowing::isOn($this->app->settings())) {
-            return $this->routeWhistleblowing($path);
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/(?:_compare|_porovnat)$#D', $path, $m)) { // 3.7: _compare, the Czech one from 2.11 too
-            return $this->compareProducts($m[1]);
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})$#D', $path, $m) && $m[1] !== 'novinky') {
-            return $this->showCollectionItem($m[1], $m[2]);
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/latest$#D', $path, $m) && $m[1] !== 'novinky') {
-            // the stable address of a document's current file (2.11, Core\Documents)
-            return \Kaleta\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound();
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/([a-z0-9-]{1,160})/([a-z0-9-]{1,160})$#D', $path, $m) && $m[1] !== 'novinky') {
-            // a subcategory page of a collection (3.7); "latest" is no category address (CollectionCategories::RESERVED_SLUGS)
-            return $this->showCollectionCategory($m[1], $m[3], $m[2]) ?? $this->notFound();
-        }
-        if (preg_match('#^/([a-z0-9-]{1,110})/_kategorie$#D', $path, $m)) {
-            // the category template in the builder before the collection has a category (only with the draft)
-            return $this->showCollectionCategory($m[1], '_kategorie', null) ?? $this->notFound();
+            $match = [$path];
+            if (self::matches($pattern, $path, $match) && ($response = $this->{$handler}($match)) !== null) {
+                return $response;
+            }
         }
 
-        return $this->notFound();
+        return null;
+    }
+
+    /**
+     * Does a row of ROUTES take the path: an exact path is equal, a pattern ('#^…') matches and fills $match with its groups.
+     *
+     * @param array<int|string, string> $match
+     */
+    private static function matches(string $pattern, string $path, array &$match): bool
+    {
+        return str_starts_with($pattern, '#^') ? preg_match($pattern, $path, $match) === 1 : $pattern === $path;
     }
 
     /** The maintenance page for a visitor (3.31.2 N102): 503, or 200 for the update's own check of the home page. */
@@ -432,9 +338,44 @@ final class Kernel
         return QuotePage::response($this->app, $m[1], $pdf) ?? $this->notFoundPage(404);
     }
 
-    /** @param array<int|string, string> $m a news item as Markdown for language models: [1] its slug */
-    private function routeNewsMarkdown(array $m): Response
+    // The handlers of ROUTES, in the order of the rows. Each gets the match of its row: [0] the path, then the groups.
+
+    /** @param array<int|string, string> $m */
+    private function routeHome(array $m): Response
     {
+        return $this->home();
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeNewsOff(array $m): ?Response
+    {
+        return Extensions::isEnabled($this->app->settings(), 'novinky') ? null : $this->notFound();
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeNewsList(array $m): Response
+    {
+        return $this->showNewsList();
+    }
+
+    /** @param array<int|string, string> $m [1] the category's slug */
+    private function routeNewsCategory(array $m): Response
+    {
+        return $this->category($m[1]);
+    }
+
+    /** @param array<int|string, string> $m [1] the tag's slug */
+    private function routeNewsTag(array $m): Response
+    {
+        return $this->tag($m[1]);
+    }
+
+    /** @param array<int|string, string> $m a news item as Markdown for language models (setting markdown_news): [1] its slug */
+    private function routeNewsMarkdown(array $m): ?Response
+    {
+        if (!$this->app->settings()->bool('markdown_news')) {
+            return null;
+        }
         $newsItem = $this->news->bySlug($m[1]);
 
         return $newsItem === null
@@ -442,12 +383,32 @@ final class Kernel
             : new Response((new Seo($this->app))->newsItemMarkdown($newsItem), 200, ['Content-Type' => 'text/markdown; charset=utf-8', 'X-Robots-Tag' => 'noindex']);
     }
 
-    private function routeManifest(): Response
+    /** @param array<int|string, string> $m [1] the news item's slug */
+    private function routeNewsItem(array $m): Response
+    {
+        return $this->newsItem($m[1]);
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeSearch(array $m): Response
+    {
+        return $this->search();
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeRss(array $m): Response
+    {
+        return $this->rss();
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeManifest(array $m): Response
     {
         return new Response(SiteIdentity::manifest($this->app->settings(), $this->app->request->basePath()), 200, ['Content-Type' => 'application/manifest+json; charset=utf-8']);
     }
 
-    private function routeFavicon(): Response
+    /** @param array<int|string, string> $m */
+    private function routeFavicon(array $m): Response
     {
         // browsers ask on their own; instead of a full 404 page a link to the site icon, or an empty response
         $icon = is_file(KALETA_ROOT . '/media/ikona-32.png') ? $this->app->url('media/ikona-32.png') : null;
@@ -455,17 +416,26 @@ final class Kernel
         return $icon !== null ? Response::redirect($icon, 301) : new Response('', 204, ['Cache-Control' => 'public, max-age=86400']);
     }
 
-    private function routeRobots(): Response
+    /** @param array<int|string, string> $m a share image drawn by the site (2.12, ShareImage): [1] its hash; one the site did not make is a 404 */
+    private function routeShareImage(array $m): Response
+    {
+        return ShareImage::serve($this->app, $m[1]) ?? $this->notFound();
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeRobots(array $m): Response
     {
         return new Response((new Seo($this->app))->robotsTxt(), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    private function routeSitemap(): Response
+    /** @param array<int|string, string> $m */
+    private function routeSitemap(array $m): Response
     {
         return new Response(PageCache::text($this->app, 'sitemap', (new Seo($this->app))->sitemapXml(...)), 200, ['Content-Type' => 'application/xml; charset=utf-8']);
     }
 
-    private function routeFeed(): Response
+    /** @param array<int|string, string> $m */
+    private function routeFeed(array $m): Response
     {
         $seo = new Seo($this->app);
         $json = PageCache::text($this->app, 'feed.json|' . Language::siteColumn(), fn (): string => (string) json_encode($seo->jsonFeed($this->news->listPublished(1, 20, true)[0]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -473,26 +443,41 @@ final class Kernel
         return new Response($json, 200, ['Content-Type' => 'application/feed+json; charset=utf-8']);
     }
 
-    private function routeSecurityTxt(): Response
+    /** @param array<int|string, string> $m security.txt – only with a security contact set */
+    private function routeSecurityTxt(array $m): ?Response
     {
         $siteSettings = $this->app->settings();
+        if ($siteSettings->get('security_contact') === '') {
+            return null;
+        }
 
         return new Response(Seo::securityTxt($siteSettings->get('security_contact'), $this->app->request->origin() . $this->app->url(''),
             array_values(array_unique(array_merge([Language::defaults($siteSettings)], Language::additional($siteSettings)))), time()), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    private function routeLlms(): Response
+    /** @param array<int|string, string> $m llms.txt – only with the setting llms_txt on */
+    private function routeLlms(array $m): ?Response
     {
+        if (!$this->app->settings()->bool('llms_txt')) {
+            return null;
+        }
+
         return new Response(PageCache::text($this->app, 'llms|' . Language::siteColumn(), (new Seo($this->app))->llmsTxt(...)), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    /** The IndexNow key file: its name and its content are the key. */
-    private function routeIndexNowKey(string $indexNowKey): Response
+    /** @param array<int|string, string> $m the IndexNow key file: its name and its content are the key; any other .txt passes */
+    private function routeIndexNowKey(array $m): ?Response
     {
+        $indexNowKey = $this->app->settings()->get('indexnow_key');
+        if ($indexNowKey === '' || $m[0] !== '/' . $indexNowKey . '.txt') {
+            return null;
+        }
+
         return new Response($indexNowKey, 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    private function routeConsentLog(): Response
+    /** @param array<int|string, string> $m */
+    private function routeConsentLog(array $m): Response
     {
         $request = $this->app->request;
         // cookie consent log: without the IP address, only a random identifier from the visitor's cookie
@@ -506,7 +491,8 @@ final class Kernel
         return new Response('', 204);
     }
 
-    private function routePopupCounter(): Response
+    /** @param array<int|string, string> $m */
+    private function routePopupCounter(array $m): Response
     {
         $request = $this->app->request;
         // popup counters: views, closes, conversions – without cookies and without data about the visitor
@@ -520,14 +506,18 @@ final class Kernel
         return new Response('', 204);
     }
 
-    private function routeFleet(string $path): Response
+    /** @param array<int|string, string> $m [0] the fleet address – only with the Fleet feature on */
+    private function routeFleet(array $m): ?Response
     {
+        if (!Extensions::isEnabled($this->app->settings(), 'fleet')) {
+            return null;
+        }
         // the fleet console (2.9): sites pair with it and report to it, every request signed by the site's own key;
         // 2.16: a paired site asks for the shared design kit the same way; 3.26.1: and for its own uptime days
         $body = (string) file_get_contents('php://input', false, null, 0, 1_000_000);
         $signature = (string) ($this->app->request->serverValues()['HTTP_X_KALETA_SIGNATURE'] ?? '');
 
-        return match ($path) {
+        return match ($m[0]) {
             '/fleet/pair' => \Kaleta\Fleet\Console::pair($this->app, $body, $signature),
             '/fleet/heartbeat' => \Kaleta\Fleet\Console::heartbeat($this->app, $body, $signature),
             '/fleet/kit' => \Kaleta\Fleet\Kit::answer($this->app, $body, $signature),
@@ -536,9 +526,65 @@ final class Kernel
         };
     }
 
-    private function routeSubscription(bool $subscriptionLink): Response
+    /** @param array<int|string, string> $m 3.30: an administrator's calendar feed of the fleet's expiry dates (Fleet\Calendar) – a secret link, revocable */
+    private function routeFleetCalendar(array $m): ?Response
+    {
+        return Extensions::isEnabled($this->app->settings(), 'fleet') ? \Kaleta\Fleet\Calendar::feed($this->app, $this->app->request->get('token')) : null;
+    }
+
+    /**
+     * A page view confirmed by the visitor's browser (3.29): image/vitals.js reports it once the page is really shown;
+     * rendering a page (or serving it from the page cache) no longer counts anything.
+     *
+     * @param array<int|string, string> $m
+     */
+    private function routeHit(array $m): Response
+    {
+        return Stats::hit($this->app);
+    }
+
+    /** @param array<int|string, string> $m real-user speed (2.8): one beacon per page view from image/vitals.js, aggregated per page and day without cookies */
+    private function routeVitals(array $m): Response
+    {
+        return \Kaleta\Core\WebVitals::record($this->app);
+    }
+
+    /**
+     * Contact clicks (2.12): a beacon from image/web.js for a click on a phone number, an e-mail address or a WhatsApp
+     * link, counted as a lead per page and day without cookies.
+     *
+     * @param array<int|string, string> $m
+     */
+    private function routeConversion(array $m): Response
+    {
+        return \Kaleta\Core\Conversions::record($this->app);
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeMcp(array $m): Response
+    {
+        return (new \Kaleta\Mcp\Server($this->app))->handle();
+    }
+
+    /** @param array<int|string, string> $m a gated download (2.11, Core\Documents): the file arrives by e-mail after a form is sent, as a signed link; [1] the link */
+    private function routeDownload(array $m): Response
+    {
+        return \Kaleta\Core\Documents::gatedDownload($this->app, $m[1]) ?? $this->notFound();
+    }
+
+    /**
+     * Odber: sign-up from the element (only with Newsletter enabled); confirmation and unsubscribe by a link from the
+     * e-mail always work – even after the extension is disabled, unsubscribing from already sent e-mails must work.
+     *
+     * @param array<int|string, string> $m
+     */
+    private function routeSubscription(array $m): ?Response
     {
         $request = $this->app->request;
+        $subscriptionLink = $request->get('confirm') !== '' || $request->get('unsubscribe') !== '';
+        if (!$subscriptionLink && !Extensions::isEnabled($this->app->settings(), 'newsletter')) {
+            return null;
+        }
         $subscription = new Subscription($this->app);
         if ($request->isPost() && !$subscriptionLink) {
             $back = $request->post('zpet');
@@ -552,12 +598,42 @@ final class Kernel
         return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
     }
 
-    /** @param array<int|string, string> $m the talent pool's renewal link: [1] its token */
+    /**
+     * 3.40: the link of the talent pool's renewal e-mail (Front\ApplicationConsent) – it keeps working when the feature is
+     * switched off (an applicant may always ask for the deletion); never cached (noindex), private.
+     *
+     * @param array<int|string, string> $m [1] its token
+     */
     private function routeApplicationConsent(array $m): Response
     {
         [$heading, $content] = ApplicationConsent::page($this->app, $m[1]);
 
         return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content, ['noindex' => true, 'soukroma' => true]);
+    }
+
+    /** @param array<int|string, string> $m a sent form – only with the Enquiries feature on */
+    private function routeForm(array $m): ?Response
+    {
+        return Extensions::isEnabled($this->app->settings(), 'poptavky') ? (new Forms($this->app))->process() : null;
+    }
+
+    /**
+     * Online booking (3.0, Front\Booking): the free days and times as JSON, the booking itself, the customer's cancel page and
+     * the .ics file – the links in the e-mails carry a token only the customer has. The booking itself and the free times
+     * only while the Bookings feature is on (3.2); the cancel page and the .ics file keep working when it is switched off,
+     * so people who booked can still cancel or add the appointment to their calendar (3.2.3).
+     *
+     * @param array<int|string, string> $m
+     */
+    private function routeBooking(array $m): ?Response
+    {
+        return \Kaleta\Core\Booking::isOn($this->app->settings()) ? (new Booking($this->app))->process() : null;
+    }
+
+    /** @param array<int|string, string> $m [0] /_booking/days or /_booking/slots – only with the Bookings feature on */
+    private function routeBookingAvailability(array $m): ?Response
+    {
+        return \Kaleta\Core\Booking::isOn($this->app->settings()) ? (new Booking($this->app))->availability(substr($m[0], 10)) : null;
     }
 
     /** @param array<int|string, string> $m the customer's cancel page of a booking: [1] its token */
@@ -578,9 +654,19 @@ final class Kernel
         return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true], $status);
     }
 
-    private function routeUpdateProbe(): Response
+    /** @param array<int|string, string> $m the booking's .ics file: [1] its token */
+    private function routeBookingIcs(array $m): Response
+    {
+        return (new Booking($this->app))->ics($m[1]) ?? $this->notFound();
+    }
+
+    /** @param array<int|string, string> $m /ulohy?probe= (the first of the two /ulohy rows); without ?probe= it passes to cron */
+    private function routeUpdateProbe(array $m): ?Response
     {
         $request = $this->app->request;
+        if ($request->get('probe') === '') {
+            return null;
+        }
         // 2.8: right after an update the Updater asks whether the new version runs – a one-time code, valid only during the update
         $probe = $this->app->settings()->get('update_probe');
 
@@ -589,7 +675,8 @@ final class Kernel
             : new Response(t('Invalid token.') . "\n", 403, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    private function routeTasks(): Response
+    /** @param array<int|string, string> $m */
+    private function routeTasks(array $m): Response
     {
         $request = $this->app->request;
         // background tasks for cron: this way low-traffic sites publish a scheduled news item and send mail on time
@@ -611,7 +698,14 @@ final class Kernel
         return new Response('OK ' . date('c') . ' ' . implode(', ', $done) . "\n", 200, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
     }
 
-    private function routeHealth(): Response
+    /** @param array<int|string, string> $m screen mode (2.11): the kiosk page for a TV in the reception – only with the mode on and the right secret [1], otherwise 404 */
+    private function routeScreen(array $m): Response
+    {
+        return Screen::opens($this->app->settings()->bool('screen_mode'), $this->app->settings()->get('screen_secret'), $m[1]) ? Screen::response($this->app) : $this->notFound();
+    }
+
+    /** @param array<int|string, string> $m */
+    private function routeHealth(array $m): Response
     {
         $request = $this->app->request;
         $token = $this->app->settings()->get('health_token');
@@ -625,17 +719,109 @@ final class Kernel
         return Response::json(['stav' => \Kaleta\Core\Health::summary($checks), 'verze' => KALETA_VERSION, 'cas' => date('c'), 'kontroly' => $checks]);
     }
 
-    private function routeWhistleblowing(string $path): Response
+    /** @param array<int|string, string> $m [0] the path: a page of this language version with this slug, or null */
+    private function routePage(array $m): ?Response
     {
+        $request = $this->app->request;
+        $path = $m[0];
+        // a hidden page is visible only in the builder preview (whoever can edit pages) and via a signed preview link
+        // (?preview_key=…, Core\Preview)
+        $showHidden = $this->sitePreview || ($request->get('build') === 'koncept' && ($this->app->auth()->hasModule('pages') || $request->get('preview_key') !== ''));
+        $page = $this->app->db()->one('SELECT * FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL' . ($showHidden ? '' : ' AND zobrazit = 1'), [ltrim($path, '/'), Language::siteColumn()]);
+        if ($page !== null && !$page['zobrazit'] && !$this->canSeeDraft('stranka:' . (int) $page['ids'])) {
+            $page = null;
+        }
+        if ($page === null) {
+            return null;
+        }
+        if ((int) $page['ids'] === $this->homePageId() && !$showHidden) {
+            return Response::redirect($this->app->url(''), 301); // the home page has only one URL – the site root
+        }
+
+        return $this->showPage($page, ltrim($path, '/'));
+    }
+
+    /** @param array<int|string, string> $m [1] a library section, for whoever can edit pages */
+    private function routeSectionPreview(array $m): ?Response
+    {
+        return $this->app->auth()->hasModule('pages') ? $this->previewSection($m[1]) : null;
+    }
+
+    /** @param array<int|string, string> $m [1] the pop-up's id */
+    private function routePopupPreview(array $m): Response
+    {
+        return $this->previewPopup((int) $m[1]);
+    }
+
+    /** @param array<int|string, string> $m [1] the component's id – 3.22 (C9): for the Appearance area too */
+    private function routeComponentPreview(array $m): ?Response
+    {
+        return $this->app->auth()->hasAppearanceArea() ? $this->previewComponent((int) $m[1]) : null;
+    }
+
+    /** @param array<int|string, string> $m [1] a collection, [2] an item: its calendar file, or null */
+    private function routeCalendarFile(array $m): ?Response
+    {
+        return $this->calendarFile($m[1], $m[2] ?? '');
+    }
+
+    /** @param array<int|string, string> $m [1] the testimonial request's token */
+    private function routeTestimonial(array $m): Response
+    {
+        return $this->testimonialPage($m[1]);
+    }
+
+    /** @param array<int|string, string> $m a comment on a draft from a shared preview link that allows comments (2.15, Core\DraftComments) */
+    private function routeDraftComment(array $m): Response
+    {
+        return (new DraftComments($this->app))->post();
+    }
+
+    /** @param array<int|string, string> $m [0] /_report or /_report/follow – only with the whistleblowing channel on */
+    private function routeWhistleblowing(array $m): ?Response
+    {
+        if (!\Kaleta\Core\Whistleblowing::isOn($this->app->settings())) {
+            return null;
+        }
         // the whistleblowing channel (2.14): the report form and the follow-up by case number and code; a private page –
         // no statistics (noindex), no cache, no tracking codes, no cookie bar (meta soukroma)
-        [$title, $html, $status] = (new Whistleblowing($this->app))->render($path === '/_report/follow');
+        [$title, $html, $status] = (new Whistleblowing($this->app))->render($m[0] === '/_report/follow');
         $k = $this->context();
         $k->types['formular'] = true; // the form styles
         $k->types[\Kaleta\Builder\Elements\EnquiryButton::TYPE] = true; // the page frame
         $k->withoutCache = true;
 
         return $this->page($title, $this->view->render('stranka', ['stranka' => ['titulek' => ''], 'uvod' => false, 'stavba' => $html]), ['stavba' => true, 'noindex' => true, 'soukroma' => true], $status);
+    }
+
+    /** @param array<int|string, string> $m [1] the collection */
+    private function routeCompare(array $m): Response
+    {
+        return $this->compareProducts($m[1]);
+    }
+
+    /** @param array<int|string, string> $m [1] the collection, [2] the item (the news have their own rows) */
+    private function routeCollectionItem(array $m): ?Response
+    {
+        return $m[1] !== 'novinky' ? $this->showCollectionItem($m[1], $m[2]) : null;
+    }
+
+    /** @param array<int|string, string> $m the stable address of a document's current file (2.11, Core\Documents): [1] the collection, [2] the item */
+    private function routeDocumentLatest(array $m): ?Response
+    {
+        return $m[1] !== 'novinky' ? \Kaleta\Core\Documents::latest($this->app, $m[1], $m[2]) ?? $this->notFound() : null;
+    }
+
+    /** @param array<int|string, string> $m a subcategory page of a collection (3.7): [1] the collection, [2] the category, [3] the subcategory; "latest" is no category address (CollectionCategories::RESERVED_SLUGS) */
+    private function routeCollectionCategory(array $m): ?Response
+    {
+        return $m[1] !== 'novinky' ? $this->showCollectionCategory($m[1], $m[3], $m[2]) ?? $this->notFound() : null;
+    }
+
+    /** @param array<int|string, string> $m the category template in the builder before the collection has a category (only with the draft): [1] the collection */
+    private function routeCategoryTemplate(array $m): Response
+    {
+        return $this->showCollectionCategory($m[1], '_kategorie', null) ?? $this->notFound();
     }
 
     /**

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 /* ---------- 3.50 B1a (Q14): every inline branch of Front\Kernel::handle() is a private route method after it ---------- */
 // The chain keeps its order and its conditions; a branch body became a method, so the routes answer as before (the record of
-// 3.49 in plan/rec350/routes.tag.txt is identical) and the handlers can be called one by one, as here.
+// 3.49 in plan/rec350/routes.tag.txt is identical) and the handlers can be called one by one, as here. Since B1b a handler
+// takes the match of its row of Front\Kernel::ROUTES ([0] = the path).
 $b1aKernel = new ReflectionClass(Kaleta\Front\Kernel::class);
 $b1aHandle = $b1aKernel->getMethod('handle');
 $b1aRoutes = array_values(array_filter($b1aKernel->getMethods(), fn (ReflectionMethod $method): bool => str_starts_with($method->getName(), 'route')));
@@ -33,19 +34,19 @@ $b1aCall = static fn (Kaleta\Front\Kernel $kernel, string $route, mixed ...$argu
 $b1aShape = static fn (Kaleta\Core\Response $response): array => [$response->status, $response->headers['Content-Type'] ?? '', $response->headers['Retry-After'] ?? '', $response->headers['Cache-Control'] ?? ''];
 
 $b1aProbeCode = bin2hex(random_bytes(6));
-$b1aProbeOk = $b1aCall($b1aKernelFor(['update_probe' => $b1aProbeCode], ['probe' => $b1aProbeCode]), 'routeUpdateProbe');
+$b1aProbeOk = $b1aCall($b1aKernelFor(['update_probe' => $b1aProbeCode], ['probe' => $b1aProbeCode]), 'routeUpdateProbe', ['/ulohy']);
 check('3.50 B1a: /ulohy?probe= answers the running version for the one-time code of an update, 403 for another code or with no update under way', [
     $b1aShape($b1aProbeOk), $b1aProbeOk->body,
-    $b1aShape($b1aCall($b1aKernelFor(['update_probe' => $b1aProbeCode], ['probe' => $b1aProbeCode . 'x']), 'routeUpdateProbe')),
-    $b1aShape($b1aCall($b1aKernelFor(['update_probe' => ''], ['probe' => $b1aProbeCode]), 'routeUpdateProbe')),
+    $b1aShape($b1aCall($b1aKernelFor(['update_probe' => $b1aProbeCode], ['probe' => $b1aProbeCode . 'x']), 'routeUpdateProbe', ['/ulohy'])),
+    $b1aShape($b1aCall($b1aKernelFor(['update_probe' => ''], ['probe' => $b1aProbeCode]), 'routeUpdateProbe', ['/ulohy'])),
 ], [[200, 'text/plain; charset=utf-8', '', 'no-store'], 'KALETA-PROBE ' . KALETA_VERSION . "\n", [403, 'text/plain; charset=utf-8', '', ''], [403, 'text/plain; charset=utf-8', '', '']]);
 
 $b1aToken = bin2hex(random_bytes(6));
 check('3.50 B1a: cron (/ulohy) and monitoring (/stav.json) refuse a missing or wrong token before they touch anything', [
-    $b1aShape($b1aCall($b1aKernelFor(['tasks_token' => ''], ['token' => '']), 'routeTasks')),
-    $b1aShape($b1aCall($b1aKernelFor(['tasks_token' => $b1aToken], ['token' => $b1aToken . 'x']), 'routeTasks')),
-    $b1aShape($b1aCall($b1aKernelFor(['health_token' => $b1aToken], ['token' => 'x']), 'routeHealth')),
-    $b1aCall($b1aKernelFor(['health_token' => ''], []), 'routeHealth')->body,
+    $b1aShape($b1aCall($b1aKernelFor(['tasks_token' => ''], ['token' => '']), 'routeTasks', ['/ulohy'])),
+    $b1aShape($b1aCall($b1aKernelFor(['tasks_token' => $b1aToken], ['token' => $b1aToken . 'x']), 'routeTasks', ['/ulohy'])),
+    $b1aShape($b1aCall($b1aKernelFor(['health_token' => $b1aToken], ['token' => 'x']), 'routeHealth', ['/stav.json'])),
+    $b1aCall($b1aKernelFor(['health_token' => ''], []), 'routeHealth', ['/stav.json'])->body,
 ], [[403, 'text/plain; charset=utf-8', '', ''], [403, 'text/plain; charset=utf-8', '', ''], [403, 'application/json; charset=utf-8', '', ''], '{"chyba":"Invalid token."}']);
 
 $b1aMaintenance = $b1aCall($b1aKernelFor(['maintenance_text' => 'Back soon <b>', 'update_probe' => '']), 'routeMaintenance');
@@ -55,5 +56,5 @@ check('3.50 B1a: the maintenance page is a 503 with Retry-After and the escaped 
     $b1aShape($b1aCall($b1aKernelFor(['update_probe' => ''], [], ['HTTP_USER_AGENT' => 'Kaleta-update-check/3.50']), 'routeMaintenance')),
 ], [[503, 'text/html; charset=utf-8', '3600', 'no-store'], true, true, [200, 'text/html; charset=utf-8', '3600', 'no-store'], [503, 'text/html; charset=utf-8', '3600', 'no-store']]);
 
-$b1aIndexNow = $b1aCall($b1aKernelFor([]), 'routeIndexNowKey', 'k' . $b1aToken);
+$b1aIndexNow = $b1aCall($b1aKernelFor(['indexnow_key' => 'k' . $b1aToken]), 'routeIndexNowKey', ['/k' . $b1aToken . '.txt']); // 3.50 B1b: a handler gets its match
 check('3.50 B1a: the IndexNow key file answers the key as plain text', [$b1aShape($b1aIndexNow), $b1aIndexNow->body], [[200, 'text/plain; charset=utf-8', '', ''], 'k' . $b1aToken]);

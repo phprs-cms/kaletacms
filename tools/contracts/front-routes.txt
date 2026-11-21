@@ -1,0 +1,82 @@
+# 3.50 B1 (Q14): public addresses whose answer does not depend on the content of a site – status and headers as the routes
+# record of v3.49.0 has them (plan R0, 391 requests on a starter site with demo data; these are the ones any site answers the
+# same, a slug no site has standing in for a real one). Smoke 4530 replays them on the suite's site. Change a line only when a
+# route is meant to answer differently, and say so in the change log. One request per line:
+#   scenario METHOD path [body] | status | content-type | location | cache-control | x-robots-tag | retry-after
+# Scenarios: anon = signed out, every feature on; off = News, Bookings, Fleet and Newsletter switched off; maint = maintenance
+# mode on, signed out. A body that starts with { is sent as JSON, any other as a form. {z32} and {z64} are zeros, {w32} a wrong
+# token of 32 hex characters and {c32} a consent id – the smoke builds them at run time.
+anon GET /og/{z32}.png | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /robots.txt | 200 | text/plain; charset=utf-8 | - | - | - | -
+anon GET /sitemap.xml | 200 | application/xml; charset=utf-8 | - | - | - | -
+anon GET /manifest.webmanifest | 200 | application/manifest+json; charset=utf-8 | - | - | - | -
+anon GET /{w32}.txt | 404 | text/html; charset=utf-8 | - | - | - | -
+anon POST /souhlas kategorie=analytika,marketing&id={c32} | 204 | text/html; charset=utf-8 | - | - | - | -
+anon POST /souhlas kategorie=x&id=bad | 204 | text/html; charset=utf-8 | - | - | - | -
+anon GET /souhlas | 404 | text/html; charset=utf-8 | - | - | - | -
+anon POST /consent kategorie=analytika&id={c32} | 204 | text/html; charset=utf-8 | - | - | - | -
+anon POST /popup udalost=x&id=0 | 204 | text/html; charset=utf-8 | - | - | - | -
+anon GET /popup | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /hit | 404 | text/html; charset=utf-8 | - | - | - | -
+anon POST /fleet/pair {} | 400 | application/json; charset=utf-8 | - | - | - | -
+anon POST /fleet/unpair {} | 403 | application/json; charset=utf-8 | - | - | - | -
+anon GET /fleet/pair | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /fleet/calendar.ics | 404 | text/plain; charset=utf-8 | - | no-store | - | -
+anon GET /mcp | 405 | text/html; charset=UTF-8 | - | - | - | -
+anon GET /.well-known/oauth-authorization-server | 200 | application/json; charset=utf-8 | - | no-store | - | -
+anon GET /oauth/register | 405 | application/json; charset=utf-8 | - | no-store | - | -
+anon GET /download/short | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /odber?unsubscribe={z32} | 200 | text/html; charset=utf-8 | - | - | - | -
+anon GET /application-consent/short | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /formular | 405 | text/html; charset=UTF-8 | - | - | - | -
+anon GET /_booking | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /_booking/cancel/{z32} | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /_booking/choose/{z32} | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /_booking/ics/{z32} | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /ulohy | 403 | text/plain; charset=utf-8 | - | - | - | -
+anon GET /ulohy?token={w32} | 403 | text/plain; charset=utf-8 | - | - | - | -
+anon GET /tasks?token={w32} | 403 | text/plain; charset=utf-8 | - | - | - | -
+anon GET /ulohy?probe={w32} | 403 | text/plain; charset=utf-8 | - | - | - | -
+anon GET /tasks?probe=x | 403 | text/plain; charset=utf-8 | - | - | - | -
+anon POST /ulohy | 403 | text/plain; charset=utf-8 | - | - | - | -
+anon GET /screen/{w32} | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /screen/short | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /stav.json | 403 | application/json; charset=utf-8 | - | - | - | -
+anon GET /stav.json?token={w32} | 403 | application/json; charset=utf-8 | - | - | - | -
+anon GET /status.json?token=x | 403 | application/json; charset=utf-8 | - | - | - | -
+anon GET /_testimonial/{z32} | 404 | text/html; charset=utf-8 | - | - | - | -
+anon POST /_komentar | 403 | text/plain; charset=utf-8 | - | no-store | - | -
+anon POST /_comment text=x | 403 | text/plain; charset=utf-8 | - | no-store | - | -
+anon GET /_komentar | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /quote/{z64} | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /quote/{z64}.pdf | 404 | text/html; charset=utf-8 | - | - | - | -
+anon POST /quote/{z64} decision=accept | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /quote/short | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /media/neexistuje.jpg | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /a/b/c/d | 404 | text/html; charset=utf-8 | - | - | - | -
+anon GET /system | 403 | text/html; charset=UTF-8 | - | - | - | -
+anon GET /wp-login.php | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /novinky | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /novinky/kategorie/b350-zadna | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /novinky/stitek/b350-zadny | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /rss.xml | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /feed.json | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /_booking/days | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /_booking/slots | 404 | text/html; charset=utf-8 | - | - | - | -
+off POST /_booking | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /_booking/ics/{z32} | 404 | text/html; charset=utf-8 | - | - | - | -
+off POST /fleet/pair {} | 404 | text/html; charset=utf-8 | - | - | - | -
+off POST /fleet/heartbeat {} | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /fleet/calendar.ics?token=x | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /odber | 404 | text/html; charset=utf-8 | - | - | - | -
+off POST /odber email=neplatny | 404 | text/html; charset=utf-8 | - | - | - | -
+off GET /odber?unsubscribe={z32} | 200 | text/html; charset=utf-8 | - | - | - | -
+off GET /odber?confirm={z32} | 200 | text/html; charset=utf-8 | - | - | - | -
+off GET /subscription | 404 | text/html; charset=utf-8 | - | - | - | -
+maint GET / | 503 | text/html; charset=utf-8 | - | no-store | - | 3600
+maint GET /robots.txt | 503 | text/html; charset=utf-8 | - | no-store | - | 3600
+maint POST /mcp {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}} | 401 | application/json | - | - | - | -
+maint GET /ulohy | 403 | text/plain; charset=utf-8 | - | - | - | -
+maint GET /ulohy?token={w32} | 403 | text/plain; charset=utf-8 | - | - | - | -
+maint GET /.well-known/oauth-authorization-server | 200 | application/json; charset=utf-8 | - | no-store | - | -
+maint POST /souhlas kategorie=analytika&id={c32} | 503 | text/html; charset=utf-8 | - | no-store | - | 3600
