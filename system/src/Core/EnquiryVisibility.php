@@ -12,6 +12,12 @@ namespace Kaleta\Core;
 final class EnquiryVisibility
 {
     /**
+     * Spam is left out of the list unless asked for (2.12) – the menu badge, the Dashboard count, my work and the team
+     * summary do the same (N315-10). Admin\Modules\Enquiries::NOT_SPAM before 3.50.1 (an alias of this one now).
+     */
+    public const string NOT_SPAM = "kategorie <> 'spam'";
+
+    /**
      * 3.34 review M3: while migration 0120 still moves job enquiries to Applications, " AND <condition>" that leaves out the
      * ones still to move – for the counts everyone sees; with visible() (N6) for a person without Applications.
      */

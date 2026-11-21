@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\Modules\Enquiries;
 
 /**
  * Job openings (2.11): what the ready-made Job openings collection (system/presets/jobs.php) needs beyond a collection.
@@ -89,7 +88,7 @@ final class Jobs
         if ($expired === []) {
             return 0;
         }
-        Enquiries::deleteAttachments($expired, $db);
+        EnquiryFiles::delete($expired, $db);
         Deals::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // N331-2: a deal from one stays, without the link and (3.32) the person's words – before the rows go
         $db->run('DELETE FROM {poptavky} WHERE idp IN (' . implode(',', array_map(fn (array $r): int => (int) $r['idp'], $expired)) . ')');
         Comments::forgetEnquiries($db, array_map(fn (array $r): int => (int) $r['idp'], $expired)); // 3.25: their internal notes too

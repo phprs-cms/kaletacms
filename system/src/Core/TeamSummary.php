@@ -64,8 +64,8 @@ final class TeamSummary
     /** The note shown instead of the totals below MIN_PEOPLE. */
     public const string FEW_PEOPLE = 'Team totals appear from three people.';
 
-    /** The condition of Admin\Modules\Enquiries::NOT_SPAM (Core never names Admin – docs/design/code-layers.md; a unit test keeps them equal). */
-    public const string NOT_SPAM = "kategorie <> 'spam'";
+    /** The condition of EnquiryVisibility::NOT_SPAM (an alias since 3.50.1; Admin\Modules\Enquiries::NOT_SPAM is one too). */
+    public const string NOT_SPAM = EnquiryVisibility::NOT_SPAM;
 
     /** The most job applications read for their status changes in one summary. */
     public const int APPLICATION_ROWS = 5000;

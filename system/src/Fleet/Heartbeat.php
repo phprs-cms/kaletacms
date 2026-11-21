@@ -473,7 +473,7 @@ final class Heartbeat
     {
         $db = $app->db();
         $enquiries = Extensions::isEnabled($app->settings(), 'poptavky');
-        $notSpam = Enquiries::NOT_SPAM;
+        $notSpam = \Kaleta\Core\EnquiryVisibility::NOT_SPAM;
         $month = Clock::at('first day of this month midnight');
         $count = fn (string $sql, array $params = []): ?int => self::part(fn (): int => (int) $db->value($sql, $params));
         $noReply = "(replies IS NULL OR replies = '' OR replies = '[]')";

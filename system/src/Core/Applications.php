@@ -878,7 +878,7 @@ final class Applications
             return 0;
         }
         $idps = array_map('intval', array_column($rows, 'idp'));
-        \Kaleta\Admin\Modules\Enquiries::deleteAttachments($rows, $db);
+        EnquiryFiles::delete($rows, $db);
         Deals::forgetEnquiries($db, $idps);
         $count = $db->run('DELETE FROM {poptavky} WHERE idp IN (' . implode(',', $idps) . ')')->rowCount();
         Comments::forgetEnquiries($db, $idps);
