@@ -617,8 +617,9 @@ final class Prompts
 
                 ## 7. A first test quote
 
-                Make a draft for the user themselves: a customer record with their own e-mail (`save_contact`, only with the
-                address they give you), then `save_quote` with that `contact` and two or three lines from the price list.
+                Make a draft for the user themselves: `save_quote` with a `customer` of their own name and e-mail (only the
+                address they give you) and two or three lines from the price list. Where the Customers feature is on, a
+                customer record (`save_contact`) and `save_quote` with that `contact` work too.
                 `get_quote` shows lines without a price and whether the draft can be sent. `send_quote` e-mails it – call it
                 first without `confirm` to show the user what would go out, and with `confirm` true only after their explicit
                 yes to that exact e-mail. Or give them the quote's admin link to check and send it there.

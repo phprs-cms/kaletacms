@@ -362,17 +362,18 @@ final class Bookings extends Module
         if (($refused = $this->adminOnly()) !== null) {
             return $refused;
         }
-        if ($this->request->isPost()) {
-            $s = $this->app->settings();
-            // the same limits as update_settings over MCP (Booking::settingValue); a field left out of the form keeps its value
-            foreach (['booking_lead_hours' => 'lead', 'booking_horizon_days' => 'horizon', 'booking_cancel_hours' => 'cancel', 'booking_reminder_hours' => 'reminder', 'booking_hold_hours' => 'hold'] as $key => $field) {
-                $s->set($key, Booking::settingValue($key, (string) $this->request->postInt($field)) ?? $s->get($key));
-            }
-            foreach (['booking_pending_thanks' => 'pending_thanks', 'booking_pending_mail' => 'pending_mail', 'booking_declined_mail' => 'declined_mail'] as $key => $field) {
-                $s->set($key, Booking::settingValue($key, $this->request->post($field)) ?? '');
-            }
-            \Kaleta\Core\ChangeLog::write($this->app, 'bookings', 'settings', '');
+        if (!$this->request->isPost()) {
+            return $this->back(); // 3.48 review: the form is on the list – a GET saves nothing and says nothing
         }
+        $s = $this->app->settings();
+        // the same limits as update_settings over MCP (Booking::settingValue); a field left out of the form keeps its value
+        foreach (['booking_lead_hours' => 'lead', 'booking_horizon_days' => 'horizon', 'booking_cancel_hours' => 'cancel', 'booking_reminder_hours' => 'reminder', 'booking_hold_hours' => 'hold'] as $key => $field) {
+            $s->set($key, Booking::settingValue($key, (string) $this->request->postInt($field)) ?? $s->get($key));
+        }
+        foreach (['booking_pending_thanks' => 'pending_thanks', 'booking_pending_mail' => 'pending_mail', 'booking_declined_mail' => 'declined_mail'] as $key => $field) {
+            $s->set($key, Booking::settingValue($key, $this->request->post($field)) ?? '');
+        }
+        \Kaleta\Core\ChangeLog::write($this->app, 'bookings', 'settings', '');
 
         return $this->back('Booking settings saved.');
     }

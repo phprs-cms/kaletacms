@@ -105,7 +105,7 @@ $label = fn (string $status): string => t(Store::STATUS_LABELS[$status] ?? $stat
 <p class="navod-skryte" aria-live="polite" data-board-announce></p>
 <?php /* 3.48 B (U30): the visible message line and the reason a drop on Rejected asks for (image/admin.js) – without script the card's own form does it */ ?>
 <p class="napoveda tabule-zprava" data-board-message hidden aria-hidden="true"></p>
-<div class="tabule-duvod" id="uchazeci-duvod" popover data-board-reason aria-labelledby="uchazeci-duvod-nadpis">
+<div class="tabule-duvod" id="uchazeci-duvod" popover data-board-reason-pop aria-labelledby="uchazeci-duvod-nadpis">
 	<p id="uchazeci-duvod-nadpis" data-board-pop-title><?= e(t('Reason when rejected')) ?></p>
 	<label for="uchazeci-duvod-vyber"><?= e(t('Reason when rejected')) ?></label>
 	<select id="uchazeci-duvod-vyber">

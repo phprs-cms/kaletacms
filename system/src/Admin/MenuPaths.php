@@ -64,6 +64,7 @@ final class MenuPaths
         [['Sales', 'Internal prices'], 'quotes', 'module=quotes&action=prices'],
         [['Sales', 'Quotes'], 'quotes', 'module=quotes'],
         [['Sales', 'Pipeline'], 'pipeline', 'module=pipeline'],
+        [['Site care', 'Addresses', 'Broken links'], 'broken_links', 'module=broken_links'], // 3.48 review: the place as an administrator sees it
         [['Addresses', 'Broken links'], 'broken_links', 'module=broken_links'],
         [['Addresses', 'Redirects'], 'redirects', 'module=redirects'],
         [['Statistics', 'Campaigns'], 'stats', 'module=stats'],

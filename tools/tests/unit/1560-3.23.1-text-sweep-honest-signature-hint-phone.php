@@ -13,14 +13,14 @@ $paths3231 = '(Site care → Broken links) (Statistics → Campaigns) (My accoun
 $all3231 = ['broken_links', 'stats'];
 check('3.23.1 (C4, N-C5, N-C6): the last plain menu paths are links – in English, Czech, German and Spanish, only with access', [
     substr_count(Kaleta\Core\Language::runWith('en', fn (): string => Kaleta\Admin\MenuPaths::links('/admin.php', $paths3231, $all3231), 'admin-'), '<a '),
-    Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Admin\MenuPaths::links('/admin.php', t('In the background, one news item every five minutes. The result is in Site care → Broken links.'), $all3231), 'admin-'),
+    Kaleta\Core\Language::runWith('cs', fn (): string => Kaleta\Admin\MenuPaths::links('/admin.php', t('In the background, one news item every five minutes. The result is in Site care → Addresses → Broken links.'), $all3231), 'admin-'),
     Kaleta\Core\Language::runWith('cs', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('Connect Claude to this site with a drafts-only token or connection: My account → Claude connection, access “drafts only”. A drafts-only connection can read the site and save drafts, and the two tools the routine needs (get_due_agent_runs, report_agent_run) – it cannot publish, delete or send.'), []), 'action=account&amp;tab=claude'), 'admin-'), // 3.47 (U68): the Claude tab
     Kaleta\Core\Language::runWith('de', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.', 'a@b.example'), []), 'tab=signature'), 'admin-'),
     Kaleta\Core\Language::runWith('es', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', t('The first page of a visit, its campaign and the site that sent the visitor go with enquiries and newsletter sign-ups (Statistics → Campaigns). Only for visitors who allow marketing in the cookie bar – turning it on adds that choice to the bar.') . ' ' . t('Link checking is off – switch on “Look for broken links” in Settings → General.'), ['stats', 'settings']), '<a '), 'admin-'),
     Kaleta\Core\Language::runWith('en', fn (): int => substr_count(Kaleta\Admin\MenuPaths::links('/admin.php', $paths3231, []), '<a '), 'admin-'),
-], [4, 'Na pozadí, jedna novinka za pět minut. Výsledek je v <a href="/admin.php?module=broken_links">Péče o web → Nefunkční odkazy</a>.', 1, 1, 2, 2]);
+], [4, 'Na pozadí, jedna novinka za pět minut. Výsledek je v <a href="/admin.php?module=broken_links">Péče o web → Adresy → Nefunkční odkazy</a>.', 1, 1, 2, 2]);
 // the stale or contradictory texts are gone from the views; the signature tab opens the signature guide
-$stale3231 = ['is in News → Broken links', 'Settings → General → More options', 'Statistics → Campaigns and pages', 'News is always at', 'Requests on the console', 'Settings and connections', 'come from the design system', 'come from your design system', 'to the design system,', 'look to the design system'];
+$stale3231 = ['is in News → Broken links', 'is in Site care → Broken links.' /* 3.48 review: Addresses → Broken links */, 'Settings → General → More options', 'Statistics → Campaigns and pages', 'News is always at', 'Requests on the console', 'Settings and connections', 'come from the design system', 'come from your design system', 'to the design system,', 'look to the design system'];
 $views3231 = implode("\n", array_map(fn (string $f): string => (string) file_get_contents($f), [...glob(KALETA_SYSTEM . '/views/admin/*.php'), ...glob(KALETA_SYSTEM . '/views/admin/*/*.php')]))
     . (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Hubs.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/AgentSchedules.php');
 check('[source-pin] 3.23.1 (N-C6, N-C7, N-C11): no stale path or "design system" in owner copy; the signature tab has its guide, the details keep theirs', [
@@ -379,7 +379,7 @@ foreach ($c325Paths as [$parts, $module]) {
     if (in_array($parts[0], ['Customers', 'Company'], true)) {
         $c325Wrong[] = implode(' → ', $parts);
     } elseif (in_array($parts[0], Kaleta\Admin\MenuGroups::ORDER, true) && count($parts) > 1 && !in_array($parts[0], ['Content', 'Settings'], true)
-        && (!isset($c325All[$module]) || $c325All[$module]::GROUP !== $parts[0] || $c325All[$module]::NAME !== $parts[1])) {
+        && (!isset($c325All[$module]) || $c325All[$module]::GROUP !== $parts[0] || $c325All[$module]::NAME !== $parts[count($parts) === 3 && defined($c325All[$module] . '::PARENT') && $c325All[$module]::PARENT !== '' ? 2 : 1])) { // 3.48 review: group → hub → tab
         $c325Wrong[] = implode(' → ', $parts);
     }
 }

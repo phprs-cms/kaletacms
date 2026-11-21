@@ -139,13 +139,14 @@ final class Redirects extends Module
     /** Redirects for missing addresses by themselves (2.14): on/off and the score a candidate needs. */
     protected function actionSettings(): Response
     {
-        if ($this->request->isPost()) {
-            $threshold = $this->request->postInt('redirect_auto_threshold');
-            $s = $this->app->settings();
-            $s->set('redirect_auto', $this->request->post('redirect_auto') === '1' ? '1' : '0');
-            $s->set('redirect_auto_threshold', (string) ($threshold >= 50 && $threshold <= 100 ? $threshold : \Kaleta\Core\RedirectMatcher::DEFAULT_THRESHOLD));
-            \Kaleta\Core\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
+        if (!$this->request->isPost()) {
+            return $this->back(); // 3.48 review: the form is on the list – a GET saves nothing and says nothing
         }
+        $threshold = $this->request->postInt('redirect_auto_threshold');
+        $s = $this->app->settings();
+        $s->set('redirect_auto', $this->request->post('redirect_auto') === '1' ? '1' : '0');
+        $s->set('redirect_auto_threshold', (string) ($threshold >= 50 && $threshold <= 100 ? $threshold : \Kaleta\Core\RedirectMatcher::DEFAULT_THRESHOLD));
+        \Kaleta\Core\ChangeLog::write($this->app, 'redirects', 'settings', ($s->bool('redirect_auto') ? 'on' : 'off') . ', ' . $s->get('redirect_auto_threshold'));
 
         return $this->back('Settings saved.');
     }

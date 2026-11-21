@@ -179,7 +179,7 @@ final class Contacts extends Module
         return $this->view('detail', Customers::displayName($contact), ['c' => $contact,
             'company' => $contact['company_id'] !== null ? Customers::findCompany($this->db, $contact['company_id']) : null,
             'counts' => Customers::linkCounts($this->db, [$id])[$id] ?? ['enquiries' => 0, 'bookings' => 0, 'subscribed' => false],
-            'timeline' => $this->dealsShown(Customers::timeline($this->db, $id, Customers::TIMELINE, isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]))), 'authors' => $byIds,
+            'timeline' => $this->dealsShown(Customers::timeline($this->db, $id, Customers::TIMELINE, isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]), $this->pipelineOn())), 'authors' => $byIds,
             'suggestion' => $contact['company_id'] === null && $contact['anonymised_at'] === null ? Customers::suggestCompany($this->db, $contact['email']) : null,
             'people' => Assignment::candidates($this->db, 'contact', (int) $contact['owner_id']),
             'companies' => Customers::companies($this->db, [], 1, 500)['rows'],
@@ -398,14 +398,14 @@ final class Contacts extends Module
         // the timeline of its contacts, merged and bounded: the latest entries of each, newest first
         $timeline = [];
         foreach (array_slice($contacts['rows'], 0, 30) as $c) {
-            foreach (Customers::timeline($this->db, $c['id'], 20, isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION])) as $entry) {
+            foreach (Customers::timeline($this->db, $c['id'], 20, isset($this->kernel->modules()[\Kaleta\Core\Applications::SECTION]), $this->pipelineOn()) as $entry) {
                 $timeline[] = $entry + ['contact' => Customers::displayName($c), 'contact_id' => $c['id']];
             }
         }
         // 3.31: the moves of the company's deals its contacts' timelines do not carry (a deal without a contact, or of a
         // contact beyond the first 30) – each move once
         $seen = array_flip(array_map(fn (array $e): string => $e['ref'] . '|' . $e['at'] . '|' . ($e['status'] ?? ''), $timeline));
-        foreach (\Kaleta\Core\Deals::timeline($this->db, 'company', $id, self::COMPANY_TIMELINE) as $entry) {
+        foreach ($this->pipelineOn() ? \Kaleta\Core\Deals::timeline($this->db, 'company', $id, self::COMPANY_TIMELINE) : [] as $entry) {
             if (!isset($seen[$entry['ref'] . '|' . $entry['at'] . '|' . $entry['status']])) {
                 $timeline[] = $entry;
             }
@@ -431,6 +431,12 @@ final class Contacts extends Module
      * @param list<array<string, mixed>> $timeline
      * @return list<array<string, mixed>>
      */
+    /** 3.48 review: the Pipeline is switched on (Core\Extensions) – otherwise the timelines carry no deal at all. */
+    private function pipelineOn(): bool
+    {
+        return \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'pipeline');
+    }
+
     private function dealsShown(array $timeline): array
     {
         return isset($this->kernel->modules()[Pipeline::IDENT]) ? $timeline : \Kaleta\Core\Deals::neutralTimeline($timeline);

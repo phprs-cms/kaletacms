@@ -206,6 +206,16 @@ final class Retention
         return [$proposed, $invalid];
     }
 
+    /**
+     * 3.48 review: whether a shorter value of the setting waits for the confirmation screen (Settings → retention) – only what
+     * that screen parses (editable() and enquiries_expiry). A period set on a screen of its own (off-site backups on the
+     * Backups tab) is saved at once from its form, a shorter value written to the change log (saveUnconfirmed).
+     */
+    public static function confirmable(string $setting): bool
+    {
+        return $setting === 'enquiries_expiry' || in_array($setting, self::editable(), true);
+    }
+
     /** @return list<string> the settings edited on the Privacy tab (every period with a setting and no screen of its own) */
     public static function editable(): array
     {

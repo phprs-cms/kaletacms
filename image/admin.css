@@ -1981,7 +1981,7 @@ table.flotila-prace tfoot th, table.flotila-prace tfoot td { border-top: 2px sol
 a.obchod-odznak { display: inline-block; margin-top: 4px; text-decoration: none; }
 /* 3.48 B (U31): the stages move with two 40 px arrow buttons instead of order numbers */
 .etapa-posun { display: inline-flex; gap: 4px; }
-.etapa-posun button { min-width: 40px; min-height: 40px; padding: 0 8px; }
+table.vypis .etapa-posun button.navigace { min-width: 40px; min-height: 40px; padding: 0 8px; } /* above the 32 px row actions of table.vypis */
 /* 3.48 B (U30): the reason a drop on a lost or rejected column asks for, and the visible line of what the board says */
 .tabule-duvod { max-width: min(26rem, calc(100vw - 32px)); padding: 16px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); color: var(--text); }
 .tabule-duvod::backdrop { background: color-mix(in oklch, var(--text) 20%, transparent); }

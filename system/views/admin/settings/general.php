@@ -141,7 +141,7 @@ $field('share_buttons', 'Share links below the news item', 'ano', 'Facebook, X, 
 $field('footer_text', 'Text v patičce', 'text', 'For example the registered company name and company ID.', 'maxlength="300"');
 $field('article_outline', 'News table of contents from subheadings', 'ano', 'News items with at least three subheadings get a clickable outline above the text.');
 $field('related_news_auto', 'Related news', 'ano', 'Similar news by tags and category is offered below a news item.');
-$field('link_check', 'Look for broken links', 'ano', 'In the background, one news item every five minutes. The result is in Site care → Broken links.');
+$field('link_check', 'Look for broken links', 'ano', 'In the background, one news item every five minutes. The result is in Site care → Addresses → Broken links.');
 $field('page_cache', 'Page cache', 'ano', 'Finished pages are served to visitors from memory – the site is faster and copes with traffic peaks. Leave it on.');
 ?>
 </details>

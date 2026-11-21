@@ -330,6 +330,9 @@ class Settings extends Module
                 'titles' => $settings->bool('fleet_request_titles'), // 3.16: request titles in the heartbeat
             ] : [],
             'retentionRows' => $tab === 'cookies' ? \Kaleta\Core\Retention::rows($settings) : [], // 3.48 B (U40)
+            // 3.48 review: applications moved from Enquiries that wait for an administrator's confirmation – the warning and its checkbox
+            'applicationsWaiting' => $tab === 'cookies' && Extensions::isEnabled($settings, 'applications') && \Kaleta\Core\Applications::unconfirmed($this->app)['count'] > 0
+                ? ['count' => \Kaleta\Core\Applications::unconfirmed($this->app)['count'], 'awaiting' => \Kaleta\Core\Applications::awaitingConfirmation($this->app)] : null,
             'sectionLinks' => $tab === 'sections' ? \Kaleta\Admin\SectionSettings::links(array_keys($this->kernel->modules())) : [], // 3.48 B (U70)
             'consents' => $tab === 'cookies' ? $this->db->all("SELECT kategorie, COUNT(*) AS pocet FROM {souhlasy} WHERE cas > ? GROUP BY kategorie ORDER BY pocet DESC", [\Kaleta\Core\Clock::at('-30 days')]) : [],
             'cookieTable' => $tab === 'cookies' ? \Kaleta\Core\Privacy::cookieTable($this->app) : [],
@@ -435,13 +438,19 @@ class Settings extends Module
                 $given[$key] = mb_substr($value, 0, 2000); // returned to the form for correction (secret keys not)
                 continue;
             }
-            if ($key === 'enquiries_expiry' || \Kaleta\Core\Retention::keyOf($key) !== null) {
+            if (\Kaleta\Core\Retention::confirmable($key)) {
                 $retention[$key] = $clean; // saved below: at once, or – when the data would go sooner – after the confirmation
+                continue;
+            }
+            if (\Kaleta\Core\Retention::keyOf($key) !== null) {
+                // 3.48 review: a period with a screen of its own (off-site backups) is saved here, a shorter one logged
+                \Kaleta\Core\Retention::saveUnconfirmed($this->app, 'settings', [$key => $clean]);
                 continue;
             }
             $settings->set($key, $clean);
         }
         // 3.48 B (U40): a longer period is saved at once; one that makes data go sooner waits for its own screen (actionRetention)
+        $applicationsBefore = $settings->get('applications_months');
         $retentionPending = [];
         $harsher = \Kaleta\Core\Retention::harsherSettings(\Kaleta\Core\Retention::changes($settings, $retention));
         foreach ($retention as $key => $clean) {
@@ -451,9 +460,9 @@ class Settings extends Module
                 $settings->set($key, $clean);
             }
         }
-        if ($tab === 'cookies' && in_array('applications', $this->request->postList('retention_shown'), true) && !isset($retentionPending['applications_months'])) {
-            // the Applications row was on the page (the feature is on): the administrator saw the period – the applications
-            // moved in from Enquiries follow it now (3.34 review H1, N8); any other save confirms nothing
+        if (self::confirmsApplications($tab, $errors, $this->request->postBool('applications_retention_confirm'), $retention['applications_months'] ?? null, $applicationsBefore, isset($retentionPending['applications_months']))) {
+            // the administrator acted on the period of applications, with the warning of what waits beside it: the applications
+            // moved in from Enquiries follow it now (3.34 review H1, N8); any other save of the tab confirms nothing (3.48 review)
             \Kaleta\Core\Applications::confirmRetention($this->app);
         }
         if ($retentionPending !== [] && $errors !== []) {
@@ -675,6 +684,22 @@ class Settings extends Module
             ? t('The time zone is now %s. Saved dates were converted: %d values in %d tables.', $to, $state['values'], $state['tables'])
                 . ($state['out_of_range'] + count($state['failed']) > 0 ? ' ' . t('Some were left as they were – see the time zone below and System status.') : '')
             : t('The time zone is now %s. Saved dates are being converted in the background – the progress is under the time zone below.', $to), '', ['tab' => 'general']);
+    }
+
+    /**
+     * 3.48 review: does a save of the Privacy tab confirm the retention of the applications moved from Enquiries? Only when
+     * the administrator acted on that period – ticked the confirmation beside its warning, or saved a changed period (a
+     * shorter one is confirmed on the retention screen instead) – and the save had no invalid field. Pure.
+     *
+     * @param list<string> $errors
+     */
+    public static function confirmsApplications(string $tab, array $errors, bool $ticked, ?string $posted, string $before, bool $pending): bool
+    {
+        if ($tab !== 'cookies' || $errors !== [] || $pending) {
+            return false;
+        }
+
+        return $ticked || ($posted !== null && $posted !== $before);
     }
 
     /**

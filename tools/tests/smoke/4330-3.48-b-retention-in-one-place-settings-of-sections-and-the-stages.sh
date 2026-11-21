@@ -19,7 +19,6 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '2
 expect "3.48 B2: the Privacy tab starts with How long data is kept – a field per period of a feature that is on, bookings as enquiries, the fixed periods, off-site backups linked to Backups" \
   "$(b348_page 'module=settings&tab=cookies')|$(b348_has 'id="retention"')|$(b348_has 'name="enquiries_months"')|$(b348_has 'name="whistleblowing_retention_months"')|$(b348_has 'name="cookies_log_months"')|$(b348_has 'Rezervace: jako poptávky')|$(b348_has 'module=settings&amp;tab=backups')|$(grep -c 'name="cookies_log_months"' "$WORK/response")" \
   "200|1|1|1|1|1|1|1"
-expect "3.48 B2: Applications are on – their row is on the page with the marker that the administrator saw the period" "$(b348_has 'name="retention_shown\[\]" value="applications"')" "1"
 
 # a longer period is saved at once; a shorter one waits for its own screen
 expect "3.48 B2: a longer period is saved at once (back on the tab)" \
@@ -43,14 +42,20 @@ expect "3.48 B2: anonymise → delete is harsher too – it waits for the screen
   "$(sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'anonymise')"; b348_post 'module=settings&tab=cookies' 'module=settings&action=save' -d tab=cookies -d enquiries_expiry=delete $(b348_switches) | grep -c 'action=retention&enquiries_expiry=delete')|$(b348_get enquiries_expiry)" "1|anonymise"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_expiry', 'delete')" > /dev/null
 
-# the marker: saving another Privacy field confirms no moved application; the open Applications row does
-sq "INSERT INTO ka_applications (received_at, name, data, status_at, last_activity_at, source_enquiry_id, moved_at) VALUES ('$(site_time)', 'B348 moved', '[]', '$(site_time)', '$(site_time)', NULL, '$(site_time)');
+# a moved application waits: saving the Privacy tab confirms it only with the ticked confirmation (3.48 review)
+sq "INSERT INTO ka_applications (received_at, name, data, status_at, last_activity_at, source_enquiry_id, moved_at) VALUES ('$(site_time)', 'B348 moved', '[]', '$(site_time)', '$(site_time)', 934801, '$(site_time)');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_retention_confirmed', '0')" > /dev/null
 B348_MAXAPP=$(sq "SELECT MAX(id) FROM ka_applications")
 b348_post 'module=settings&tab=cookies' 'module=settings&action=save' -d tab=cookies -d captcha_site_key=b348-key $(b348_switches) > /dev/null
-expect "3.48 B2: saving the Privacy tab without the Applications row (a form of 3.47, the feature off) confirms nothing" "$(b348_get applications_retention_confirmed)|$(b348_get captcha_site_key)" "0|b348-key"
-b348_post 'module=settings&tab=cookies' 'module=settings&action=save' -d tab=cookies -d 'retention_shown[]=applications' -d applications_months=6 $(b348_switches) > /dev/null
-expect "3.48 B2: the open Applications row confirms the moved applications" "$(b348_get applications_retention_confirmed)" "$B348_MAXAPP"
+expect "3.48 B2: saving another field of the Privacy tab confirms nothing" "$(b348_get applications_retention_confirmed)|$(b348_get captcha_site_key)" "0|b348-key"
+b348_post 'module=settings&tab=cookies' 'module=settings&action=save' -d tab=cookies -d applications_months=6 $(b348_switches) > /dev/null
+expect "3.48 review: the Applications period posted unchanged (the row on the page) confirms nothing either" "$(b348_get applications_retention_confirmed)" "0"
+expect "3.48 review: the Privacy tab names the waiting moved application and offers the confirmation beside the period" \
+  "$(b348_page 'module=settings&tab=cookies')|$(b348_has 'data-applications-retention-pending')|$(b348_has 'name="applications_retention_confirm"')" "200|1|1"
+b348_post 'module=settings&tab=cookies' 'module=settings&action=save' -d tab=cookies -d applications_months=6 -d applications_retention_confirm=1 -d cookies_policy_url=javascript:alert $(b348_switches) > /dev/null
+expect "3.48 review: the ticked confirmation in a save with an invalid field confirms nothing" "$(b348_get applications_retention_confirmed)" "0"
+b348_post 'module=settings&tab=cookies' 'module=settings&action=save' -d tab=cookies -d applications_months=6 -d applications_retention_confirm=1 $(b348_switches) > /dev/null
+expect "3.48 review: the ticked confirmation confirms the moved applications" "$(b348_get applications_retention_confirmed)" "$B348_MAXAPP"
 
 # the four old forms: saved without their retention fields they leave every period as it is
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('enquiries_months', '18'), ('job_applications_months', '9'), ('contacts_months', '30'), ('quotes_months', '12'), ('applications_months', '7'), ('applications_pool_months', '20'), ('whistleblowing_retention_months', '60'), ('enquiries_expiry', 'anonymise')" > /dev/null

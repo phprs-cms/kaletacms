@@ -795,7 +795,7 @@ await step('3.20 (C5) a collection from a preset shows its listing page – hidd
   }
 });
 
-await step('3.20 (C19, C20) the news form always names the category, with Manage categories; Broken links sits under Site care next to Redirects and opens the same screen', async () => {
+await step('3.20 (C19, C20) the news form always names the category, with Manage categories; Broken links is a tab of Addresses in Site care and opens the same screen', async () => {
   const categories = Number(sql('SELECT COUNT(*) FROM ka_kategorie').trim());
   await visit('/admin.php?module=news&action=new');
   if (categories < 2) {
@@ -805,12 +805,14 @@ await step('3.20 (C19, C20) the news form always names the category, with Manage
   if (!(await page.locator('fieldset a', { hasText: 'Manage categories' }).first().getAttribute('href')).includes('module=categories')) { throw new Error('Manage categories does not open Categories'); }
   await visit('/admin.php?module=broken_links');
   if ((await page.locator('h1').textContent()) !== 'Broken links') { throw new Error('module=broken_links does not open the Broken links screen'); }
-  // 3.25: a group is a <details> – its summary names it, its items follow in .menu-cast
+  // 3.25: a group is a <details> – its summary names it, its items follow in .menu-cast. 3.48: for an administrator Broken
+  // links is a tab of the Addresses hub (Redirects | Broken links), the menu item Addresses sits in Site care
   const items = await page.locator('.menu summary, .menu li:not(.menu-sekce)').evaluateAll((list) => list.map((li) => li.textContent.replace(/\s+/g, ' ').trim()));
-  const at = items.indexOf('Broken links');
-  // right after Redirects (which may carry a badge), inside the Site care group
-  if (at < 1 || !items[at - 1].startsWith('Redirects') || items.lastIndexOf('Site care', at) < 0 || items.slice(items.lastIndexOf('Site care', at), at).some((x) => x === 'Content')) { throw new Error(`the menu order is ${items.join(' | ')}`); }
-  if (!/Broken links/.test((await page.locator('.menu li.aktivni').textContent()) || '')) { throw new Error('the menu does not highlight Broken links'); }
+  const at = items.findIndex((x) => x.startsWith('Addresses'));
+  if (at < 1 || items.includes('Broken links') || items.some((x) => x.startsWith('Redirects')) || items.lastIndexOf('Site care', at) < 0 || items.slice(items.lastIndexOf('Site care', at), at).some((x) => x === 'Content')) { throw new Error(`the menu order is ${items.join(' | ')}`); }
+  if (!/Addresses/.test((await page.locator('.menu li.aktivni').textContent()) || '')) { throw new Error('the menu does not highlight Addresses'); }
+  const hubTabs = await page.locator('nav.zalozky-hub a').evaluateAll((list) => list.map((a) => a.textContent.trim() + (a.getAttribute('aria-current') === 'page' ? '*' : '')));
+  if (hubTabs.join(' | ') !== 'Redirects | Broken links*') { throw new Error(`the Addresses tabs are ${hubTabs.join(' | ')}`); }
   if (await page.locator('a', { hasText: 'Back to the news list' }).count() !== 0) { throw new Error('opened from Site care, the screen still says back to news'); }
   // the News shortcut still opens the same screen, there with its back link
   await visit('/admin.php?module=news');
@@ -4934,8 +4936,11 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
       (NOW() - INTERVAL 20 DAY, 9471, 'Welder B347', 'Job application', 'Nora B347', 'nora-b347@example.com', 'nora-b347@example.com', '[["Full name","Nora B347"]]', 'new', NOW(), NOW()),
       (NOW(), 9471, 'Welder B347', 'Job application', 'Petr Longname-Of-A-Welder B347', 'petr-b347@example.com', 'petr-b347@example.com', '[]', 'new', NOW(), NOW()),
       (NOW(), 9471, 'Welder B347', 'Job application', 'Rosa B347', 'rosa-b347@example.com', 'rosa-b347@example.com', '[]', 'new', NOW(), NOW()),
-      (NOW(), 9472, 'Painter B347', 'Job application', 'Saul B347', 'saul-b347@example.com', 'saul-b347@example.com', '[]', 'reviewed', NOW(), NOW())`);
+      (NOW(), 9472, 'Painter B347', 'Job application', 'Saul B347', 'saul-b347@example.com', 'saul-b347@example.com', '[]', 'reviewed', NOW(), NOW());
+    INSERT INTO ka_applications (received_at, job_item_id, job_title, form, name, email, email_norm, data, status, status_at, last_activity_at, decided_at, reject_reason) VALUES
+      (NOW(), 9471, 'Welder B347', 'Job application', 'Vera B347', 'vera-b347@example.com', 'vera-b347@example.com', '[]', 'rejected', NOW(), NOW(), NOW(), 'position_filled')`);
   const id = (email) => Number(sql(`SELECT id FROM ka_applications WHERE email = '${email}'`).trim());
+  // 3.48 review: Vera, a recently rejected card with its reason chip, comes before the reason popover in the page
   const nora = id('nora-b347@example.com'), petr = id('petr-b347@example.com'), rosa = id('rosa-b347@example.com');
   const pageId = Number(execFileSync('php', ['-r', `require "system/bootstrap.php"; $app = Kaleta\\Core\\App::boot(); $db = $app->db();
     [$build] = Kaleta\\Builder\\Build::sanitize(["v" => 1, "deti" => [["typ" => "sekce", "deti" => [["typ" => "formular", "obsah" => ["nazev" => "Files B347", "bez_captcha" => true, "max_priloha" => 1,
@@ -4945,7 +4950,8 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await visit('/admin.php?module=applications&action=board&job=9471');
-    if ((await page.locator('[data-applications-board] .obchod-uchyt').count()) !== 3) { throw new Error('the cards have no keyboard handle'); }
+    if ((await page.locator('[data-applications-board] .obchod-uchyt').count()) !== 4) { throw new Error('the cards have no keyboard handle'); }
+    if ((await page.locator('section[data-board-status="rejected"] [data-board-reason]').count()) !== 1) { throw new Error('the rejected card shows no reason chip'); }
     // the drag: Nora to Interview – posted as JSON, the card and the counts follow, announced
     const count = (status) => page.locator(`section[data-board-status="${status}"] [data-board-count]`).innerText().then(Number);
     // 3.47 review F2: a column the server cut keeps the cards it left out (data-board-more) – here New as if 40 more were in the list
@@ -4974,12 +4980,12 @@ await step('3.47 B: Applications board – drag and keyboard; the detail at 390 
     for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowRight'); }
     await page.keyboard.press('Space');
     // 3.48 B (U30): the reason popover of the board, focused; Cancel leaves the card where it was
-    await page.locator('[data-board-reason]').waitFor({ state: 'visible', timeout: 3000 });
+    await page.locator('[data-board-reason-pop]').waitFor({ state: 'visible', timeout: 3000 });
     if ((await page.evaluate(() => document.activeElement.id)) !== 'uchazeci-duvod-vyber') { throw new Error('the reason is not focused after a move to Rejected'); }
     if (sql(`SELECT status FROM ka_applications WHERE id = ${rosa}`).trim() !== 'new') { throw new Error('a move to Rejected saved without a reason'); }
-    await page.locator('[data-board-reason] button[popovertargetaction="hide"]').click();
+    await page.locator('[data-board-reason-pop] button[popovertargetaction="hide"]').click();
     await page.waitForFunction(() => /stays/.test(document.querySelector('[data-board-message]').textContent));
-    if (await page.locator('[data-board-reason]').isVisible() || sql(`SELECT status FROM ka_applications WHERE id = ${rosa}`).trim() !== 'new') { throw new Error('Cancel did not leave the application'); }
+    if (await page.locator('[data-board-reason-pop]').isVisible() || sql(`SELECT status FROM ka_applications WHERE id = ${rosa}`).trim() !== 'new') { throw new Error('Cancel did not leave the application'); }
     // All positions: each card names its position
     await visit('/admin.php?module=applications&action=board&job=all');
     if ((await page.locator('[data-board-position]', { hasText: 'Painter B347' }).count()) !== 1) { throw new Error('All positions does not name the position on the card'); }
@@ -5382,7 +5388,7 @@ await step('3.38 internal prices: the grid at 1440 and 390 px (light/dark, axe),
         try {
           await p2.goto(`${BASE}/admin.php?module=quotes&action=prices&collection=${idk}`, { waitUntil: 'networkidle' });
           if ((await p2.locator(`[data-price-row^="${idp}:"]`).count()) !== 3) { throw new Error(`the product and its two variants are not in the grid (${label}, ${scheme})`); }
-          if (!(await p2.locator('nav.zalozky a[aria-current="true"]', { hasText: 'Internal prices' }).count())) { throw new Error('the Internal prices tab is not current'); }
+          if (!(await p2.locator('nav.zalozky-hub a[aria-current="page"]', { hasText: 'Internal prices' }).count())) { throw new Error('the Internal prices tab is not current'); }
           const wide = await p2.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           if (wide > 1) { throw new Error(`${wide} px of sideways scroll on Internal prices (${label}, ${scheme})`); }
           if (SHOTS) { await p2.screenshot({ path: `${SHOTS}/338a-prices-${label}-${scheme}.png`, fullPage: true }); }

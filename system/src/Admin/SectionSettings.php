@@ -12,7 +12,8 @@ namespace Kaleta\Admin;
 final class SectionSettings
 {
     /**
-     * section => [the section's name, list of [label, query]].
+     * section => [the section's name, list of [label, query]]. A query opens a screen (GET) – a form that lives on a list
+     * is linked by its anchor, never by its POST-only action (3.48 review).
      *
      * @var array<string, array{0: string, 1: list<array{0: string, 1: string}>}>
      */
@@ -20,7 +21,7 @@ final class SectionSettings
         'quotes' => ['Quotes', [['Settings', 'module=quotes&action=settings'], ['Price list set-up', 'module=quotes&action=setup']]],
         'applications' => ['Applications', [['Settings', 'module=applications&action=settings']]],
         'pipeline' => ['Pipeline', [['Stages', 'module=pipeline&action=stages']]],
-        'bookings' => ['Bookings', [['Settings', 'module=bookings&action=settings'], ['Services', 'module=bookings&action=services'], ['People', 'module=bookings&action=staff']]],
+        'bookings' => ['Bookings', [['Settings', 'module=bookings#booking-settings'], ['Services', 'module=bookings&action=services'], ['People', 'module=bookings&action=staff']]],
         'enquiries' => ['Enquiries', [['Writing assistant', 'module=enquiries#triage_assistant']]],
         'whistleblowing' => ['Whistleblowing', [['Setup of the channel', 'module=whistleblowing#wb-setup']]],
         'claude_settings' => ['Claude settings', [['Instructions and guardrails', 'module=claude_settings']]],
@@ -28,7 +29,7 @@ final class SectionSettings
         'business' => ['Business details', [['Business details', 'module=business']]],
         'users' => ['Users', [['Departments', 'module=users&action=departments']]],
         'roles' => ['Roles', [['Roles', 'module=roles']]],
-        'redirects' => ['Addresses', [['Settings', 'module=redirects&action=settings']]],
+        'redirects' => ['Addresses', [['Settings', 'module=redirects#automaticky']]],
         'appearance' => ['Site appearance', [['Site appearance', 'module=appearance']]],
     ];
 

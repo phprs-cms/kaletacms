@@ -7,7 +7,7 @@
  *    ones, or a person was given the section.
  * "Given the section" is a row of ka_uzivatele_prava of an account that is not an administrator and has no custom role (its
  * own rights), or a custom role that names the section and is not one of the shipped presets (Admin\Modules\Roles::PRESETS
- * – a role made from "Client" or "Office / sales" names both sections on every site that created one, so it counts only
+ * – a role made from "Client", "Office / sales" or – until 3.44 – "Enquiries only" names the sections on every site that created one, so it counts only
  * when it was changed). A site that shows no use keeps its stored choice as it is ('' included): the new defaults leave
  * the two sections out.
  *
@@ -37,10 +37,12 @@ return static function (Db $db, Settings $settings): void {
     };
     $exists = static fn (string $table): bool => $rows('SELECT 1 FROM {' . $table . '} LIMIT 1') !== [];
 
-    // the shipped presets of a custom role (3.45) with the sections that matter here; their names in every admin language
+    // the shipped presets of a custom role with the sections that matter here; their names in every admin language.
+    // "Enquiries only" is the name the office preset had until 3.44 (3.48 review) – a role made from it then is a preset too
     $presets = [
         'Client' => ['pages', 'news', 'collections', 'categories', 'tags', 'enquiries', 'contacts', 'pipeline', 'stats', 'requests', 'business', 'appearance_area'],
         'Office / sales' => ['enquiries', 'contacts', 'pipeline', 'bookings', 'quotes', 'subscribers', 'requests'],
+        'Enquiries only' => ['enquiries', 'contacts', 'pipeline', 'subscribers', 'requests'],
     ];
     $names = [];
     foreach (array_keys($presets) as $english) {

@@ -777,11 +777,12 @@ final class Contacts
      * Each entry: at, kind (enquiry | reply | booking | subscription | comment | task | call | meeting | email | note), title
      * (data, not translated: a form name, a subject, a service), optional text, by, status, ref ('enquiry:12', 'booking:3',
      * 'comment:5', 'task:7', 'activity:9', 'deal:4') and path (the admin address, relative). 3.31: the deals' moves (kind
-     * deal, status created | moved | won | lost | reopened, text = the stage's label).
+     * deal, status created | moved | won | lost | reopened, text = the stage's label). 3.48 review: $withDeals false (the
+     * Pipeline switched off) leaves the deals out before the limit – a switched-off section shows nothing, not even a count.
      *
      * @return list<array<string, mixed>>
      */
-    public static function timeline(Db $db, int $id, int $limit = self::TIMELINE, bool $withApplications = false): array
+    public static function timeline(Db $db, int $id, int $limit = self::TIMELINE, bool $withApplications = false, bool $withDeals = true): array
     {
         $limit = max(1, min(self::TIMELINE_MAX, $limit));
         $out = [];
@@ -825,7 +826,7 @@ final class Contacts
             $out[] = ['at' => $act['at'], 'kind' => $act['kind'], 'title' => '', 'text' => $act['text'], 'by' => $act['by'], 'ref' => 'activity:' . $act['id'], 'path' => self::adminPath($id)];
         }
         // 3.31: the deals of the contact – created, moved, won, lost, reopened (Core\Deals::timeline)
-        foreach (Deals::timeline($db, 'contact', $id, $limit) as $entry) {
+        foreach ($withDeals ? Deals::timeline($db, 'contact', $id, $limit) : [] as $entry) {
             $out[] = $entry;
         }
         usort($out, fn (array $x, array $y): int => [$y['at'], $y['ref']] <=> [$x['at'], $x['ref']]);

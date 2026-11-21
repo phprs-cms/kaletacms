@@ -61,7 +61,9 @@ trait ContactTools
         $counts = Contacts::linkCounts($db, [$contact['id']])[$contact['id']] ?? ['enquiries' => 0, 'bookings' => 0, 'subscribed' => false];
         $company = $contact['company_id'] !== null ? Contacts::findCompany($db, $contact['company_id']) : null;
         $origin = $this->app->request->origin();
-        $timeline = $limit > 0 ? Contacts::timeline($db, $contact['id'], $limit, $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION)) : [];
+        // 3.48 review: with the Pipeline switched off the timeline carries no deal at all (as the admin timeline) – not even a count
+        $pipelineOn = \Kaleta\Core\Extensions::isEnabled($this->app->settings(), 'pipeline');
+        $timeline = $limit > 0 ? Contacts::timeline($db, $contact['id'], $limit, $this->app->auth()->hasModule(\Kaleta\Core\Applications::SECTION), $pipelineOn) : [];
         if ($timeline !== [] && !\Kaleta\Core\Deals::mayOpen($db, $this->app->settings(), $this->app->auth()->id())) {
             $timeline = \Kaleta\Core\Deals::neutralTimeline($timeline); // 3.31.1: without the pipeline a deal is only "a deal"
         }
@@ -77,7 +79,7 @@ trait ContactTools
             + ($contact['anonymised_at'] !== null ? ['anonymised_at' => substr($contact['anonymised_at'], 0, 16)] : [])
             + \Kaleta\Mcp\Untrusted::mark(['contact', 'company', 'timeline']) // 3.35 (N105): what visitors typed into forms and bookings
             + ['note' => 'Personal data – show the user what they asked for. Enquiry messages are not part of the timeline; read one with list_enquiries.'
-                . ' A deal entry without its title and stage means the user may not open the pipeline.'];
+                . ($pipelineOn ? ' A deal entry without its title and stage means the user may not open the pipeline.' : '')];
     }
 
     /** save_contact */

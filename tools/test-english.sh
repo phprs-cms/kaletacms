@@ -177,7 +177,7 @@ curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=general
   || fail "English admin: Settings has no Languages, Security or Agency tab, or General no Sharing and social networks"
 # 3.23.1 (N-C6, N-C7, N-C11, N-C12, N-C15, C4): the swept texts in English – menu paths as links, no stale path, the guide of the signature tab
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=general"
-grep -q 'The result is in <a href="/admin.php?module=broken_links">Site care → Broken links</a>.' "$WORK/page.html" && grep -q 'News has its own address, set in News URL below.' "$WORK/page.html" \
+grep -q 'The result is in <a href="/admin.php?module=broken_links">Site care → Addresses → Broken links</a>.' "$WORK/page.html" && grep -q 'News has its own address, set in News URL below.' "$WORK/page.html" \
   && grep -q '<select id="zalozka-vyber" name="tab" data-odeslat-pri-zmene>' "$WORK/page.html" && ! grep -q 'News → Broken links\|News is always at' "$WORK/page.html" \
   || fail "English admin: General still points to News → Broken links, says news is always at one address, or has no tab select for phones"
 curl -s -b "$JAR" -o "$WORK/page.html" "$B/admin.php?module=settings&tab=cookies"; grep -q '(<a href="/admin.php?module=stats">Statistics → Campaigns</a>)' "$WORK/page.html" || fail "English admin: the lead attribution hint does not link Statistics → Campaigns"

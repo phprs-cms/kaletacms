@@ -77,7 +77,7 @@ $query = array_filter(['view' => $shown === 'nadchazejici' ? '' : $shown, 'staff
 <?php endif ?>
 <?php if ($isAdmin): ?>
 <h2><?= e(t('Settings')) ?></h2>
-<form class="formular" method="post" action="<?= e($module->url('settings')) ?>">
+<form class="formular" method="post" action="<?= e($module->url('settings')) ?>" id="booking-settings">
 <?= $csrf ?>
 <div class="radek"><label for="lead"><?= e(t('Earliest booking')) ?></label><div><input class="textpole kratke" type="number" id="lead" name="lead" min="0" max="720" value="<?= $settings['lead'] ?>"> <?= e(t('hours ahead')) ?></div></div>
 <div class="radek"><label for="horizon"><?= e(t('Bookable ahead')) ?></label><div><input class="textpole kratke" type="number" id="horizon" name="horizon" min="1" max="365" value="<?= $settings['horizon'] ?>"> <?= e(t('days')) ?></div></div>

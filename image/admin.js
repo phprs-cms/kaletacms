@@ -918,7 +918,7 @@
 			if (cfg.needsReason(col)) {
 				// 3.48 B (U30): one server-rendered popover asks for the reason – Move sends it, Cancel leaves the card
 				var pop = cfg.popover ? document.querySelector(cfg.popover) : null;
-				if (pop && pop.showPopover) {
+				if (pop && pop.showPopover && pop.hasAttribute('popover')) { // never a chip that carries the same attribute
 					pending = { card: card, col: col };
 					var popTitle = pop.querySelector('[data-board-pop-title]');
 					if (popTitle) { popTitle.textContent = cfg.texts.reason.replace('%s', cardTitle(card)); }
@@ -1147,7 +1147,7 @@
 			column: 'section[data-board-status]', columnKey: 'data-board-status', card: '[data-board-card]', form: 'form[data-board-move]', field: 'status', reasonField: 'reject_reason',
 			needsReason: function (col) { return col.hasAttribute('data-board-needs-reason'); },
 			label: '[data-board-label]', count: '[data-board-count]', cards: '[data-board-cards]', empty: '[data-board-empty]', announce: '[data-board-announce]', guideId: 'uchazeci-navod',
-			popover: '[data-board-reason]', message: '[data-board-message]', // 3.48 B (U30)
+			popover: '[data-board-reason-pop]', message: '[data-board-message]', // 3.48 B (U30)
 			texts: { stays: T('The application stays in %s.'), reason: T('Say why “%s” was rejected, then press Move.'), failed: T('The application could not be moved.'), fold: T('Status and Move: “%s”'), foldTitle: T('Status and Move') },
 			// 3.47 review F4: the chips of the old status go with it – "waiting" belongs to New, the reason to Rejected
 			after: function (card, j) {

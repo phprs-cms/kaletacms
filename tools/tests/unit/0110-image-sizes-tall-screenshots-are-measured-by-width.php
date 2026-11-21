@@ -677,7 +677,7 @@ foreach (glob(KALETA_SYSTEM . '/views/admin/settings/*.php') as $view) {
             'precteno', // 3.15: "I have read what changes" – Settings::actionUpdateMajor installs a major version only with it
             'smtp_ses_region', // 3.9: the Amazon SES region – MailServices::settle() builds the server from it
             'zone', 'choice', // 3.12: the time zone confirmation (Settings::actionTimeZone) – the new zone and convert | keep
-            'retention_shown', // 3.48 B: the Applications period was on the Privacy tab – saving it confirms the moved applications (Settings::actionSave)
+            'applications_retention_confirm', // 3.48 review: the checkbox beside the waiting moved applications – it confirms their retention (Settings::confirmsApplications)
             'site_url_confirm', 'soucasne', // 3.35 review M3: a new host of the site address – the confirmation and the fresh proof (Settings::signInChangeRefusal)
             'month', // 3.16: the month of an archived report on its Send and Rebuild buttons (Settings::actionReportSend, actionReportRebuild)
             'general_split', // 3.23 (C12): the marker of the split General form – Settings::actionSave then saves only the General fields

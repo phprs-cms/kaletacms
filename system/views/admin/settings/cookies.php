@@ -4,8 +4,10 @@
  * period of Core\Retention in one place ($retentionRows); a shorter one is confirmed on its own screen (Settings::actionRetention).
  *
  * @var list<array{key: string, label: string, value: int, unit: string, zero: string, editable: bool, feature_on: bool, setting: string, effective: int, row: array<string, mixed>}> $retentionRows
+ * @var array{count: int, awaiting: array{count: int, before: string, months: int}|null}|null $applicationsWaiting moved applications waiting for the confirmation (3.48 review)
  */
 $retentionRows ??= [];
+$applicationsWaiting ??= null;
 // the hint of each period – the texts its section's form had before 3.48
 $retentionHints = [
     'enquiries_months' => 'Enquiries contain personal data – they should not be kept longer than necessary. 0 = keep forever.',
@@ -43,8 +45,13 @@ $retentionOff = array_filter($retentionRows, fn (array $r): bool => $r['editable
 <p class="napoveda"><?= e(t('Personal data should not be kept longer than necessary. The daily clean-up deletes or anonymises what is past its period. A shorter period is confirmed on the next screen before anything changes.')) ?></p>
 <?php foreach ($retentionOn as $r): ?>
 <?php $retentionInput($r) ?>
-<?php if ($r['key'] === 'applications'): /* the administrator sees the period: saving confirms it for the applications moved in from Enquiries (3.34 review H1) */ ?>
-<input type="hidden" name="retention_shown[]" value="applications">
+<?php if ($r['key'] === 'applications' && $applicationsWaiting !== null): /* 3.48 review: what waits for the confirmation (3.34 review H1, N8) – confirmed only by the checkbox or a changed period */ ?>
+<div class="radek"><span></span><div data-applications-retention-pending>
+<?php if ($applicationsWaiting['awaiting'] !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(t('%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you confirm the period; then the daily clean-up deletes them with their CVs. Set 0 to keep them.', format_count($applicationsWaiting['awaiting']['count']), format_date($applicationsWaiting['awaiting']['before']), $applicationsWaiting['awaiting']['months'])) ?></p>
+<?php endif ?>
+<label><input type="checkbox" name="applications_retention_confirm" value="1"> <?= e(t('Apply this period to the %s application(s) moved from Enquiries', format_count($applicationsWaiting['count']))) ?></label>
+</div></div>
 <?php endif ?>
 <?php endforeach ?>
 <?php foreach ($retentionRows as $r): ?>
