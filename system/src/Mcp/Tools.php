@@ -305,6 +305,9 @@ final class Tools
                 $data[$field] = (int) (bool) $a[$field];
             }
         }
+        if ($previous !== null && $previous['zobrazit'] && ($data['zobrazit'] ?? 1) === 0) { // 3.50.1 review: hiding a page with an application form
+            \Kaleta\Builder\Publisher::guardRemoval($db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [(int) $previous['ids']]), $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+        }
         if (array_key_exists('poradi', $a)) {
             $data['poradi'] = max(0, min(65535, (int) $a['poradi']));
         }
@@ -626,6 +629,10 @@ final class Tools
             $changes['aktivni'] = empty($a['aktivni']) ? 0 : 1;
         }
         $changes += self::validityDates($a);
+        // 3.50.1 review: switching off a pop-up with a published application form, or changing its rules, needs Applications
+        if ($p['aktivni'] && (($changes['aktivni'] ?? 1) === 0 || (isset($changes['pravidla']) && json_decode($changes['pravidla'], true) != $p['pravidla']))) {
+            \Kaleta\Builder\Publisher::guardRemoval($p['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+        }
         if ($changes !== []) {
             $db->update('popupy', $changes + ['zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $p['idpp']]);
         }

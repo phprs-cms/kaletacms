@@ -9497,4 +9497,6 @@ return [
     'No facts yet.' => 'Todavía no hay datos.',
     'When a connected Claude changes something on the site, its changes appear here as a session you can undo.' => 'Cuando un Claude conectado cambia algo en el sitio, sus cambios aparecen aquí como una sesión que puedes deshacer.',
     'Group the sites by customer first – each customer can then have its own maintenance window.' => 'Primero agrupa los sitios por cliente – así cada cliente puede tener su propia ventana de mantenimiento.',
+    'Only a user who may open Applications can take a job application form off the site – nothing was changed.' => 'Solo un usuario que puede abrir Candidaturas puede retirar del sitio un formulario de candidatura: no se ha cambiado nada.',
+    'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Omitidos: %d (un formulario de candidatura: solo un usuario que puede abrir Candidaturas puede retirarlo del sitio).',
 ];

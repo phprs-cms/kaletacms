@@ -29,6 +29,9 @@ final class Publisher
     /** 3.50.1: the refusal of deleting a pop-up or component that holds an application form. */
     public const string APPLICATION_FORM_REMOVAL_REFUSED = Build::APPLICATION_FORM_REMOVAL_REFUSED;
 
+    /** 3.50.1 review: the refusal of switching off a pop-up, changing its rules or hiding a page that holds an application form. */
+    public const string APPLICATION_FORM_OFF_SITE_REFUSED = Build::APPLICATION_FORM_OFF_SITE_REFUSED;
+
     /**
      * 3.50 N132: a person who may not open Applications cannot publish a build that drops an application form of the
      * published one – later applications would arrive as ordinary enquiries with their CVs unencrypted, nor one that changes
@@ -55,7 +58,7 @@ final class Publisher
         if (Build::changedApplicationRecipients($published, $new) !== []) {
             throw new \DomainException(self::APPLICATION_RECIPIENTS_REFUSED);
         }
-        if (Build::shadowedApplicationForms($published, $new) !== []) {
+        if (Build::shadowedApplicationForms($published, $new) !== [] || ($app !== null && self::componentsWithFileForm($app->db(), Build::newComponentReferences($published, $new)))) {
             throw new \DomainException(self::APPLICATION_FORM_SHADOWED);
         }
         if ($app !== null && Build::droppedApplicationForms($new, null) !== []) { // the trace (A3d): the build holds an application form
@@ -67,15 +70,43 @@ final class Publisher
     /**
      * 3.50.1: removing what holds a published application form (a pop-up, a component) – refused for a person who may not
      * open Applications, by the rule of guard(). $published is the stored build as the database returns it (not a string =
-     * no build).
+     * no build). 3.50.1 review: also switching off a pop-up, changing its rules and trashing or hiding a page, with
+     * $refusal (APPLICATION_FORM_OFF_SITE_REFUSED) when it is not a deletion.
      *
      * @throws \DomainException
      */
-    public static function guardRemoval(mixed $published, ?App $app = null): void
+    public static function guardRemoval(mixed $published, ?App $app = null, string $refusal = self::APPLICATION_FORM_REMOVAL_REFUSED): void
     {
         if (!self::mayChangeApplicationForms($app) && Build::droppedApplicationForms(is_string($published) ? $published : null, null) !== []) {
-            throw new \DomainException(self::APPLICATION_FORM_REMOVAL_REFUSED);
+            throw new \DomainException($refusal);
         }
+    }
+
+    /**
+     * 3.50.1 review: whether one of the components (or a component they embed, published builds only) holds a form with a
+     * file field that is not an application form – rule (b) of Build::shadowedApplicationForms through a new "komponenta"
+     * reference.
+     *
+     * @param list<int> $components
+     */
+    private static function componentsWithFileForm(Db $db, array $components): bool
+    {
+        $seen = [];
+        while ($components !== [] && count($seen) < 50) {
+            $idm = array_shift($components);
+            if (isset($seen[$idm])) {
+                continue;
+            }
+            $seen[$idm] = true;
+            $stored = $db->value('SELECT stavba FROM {komponenty} WHERE idm = ?', [$idm]);
+            [$file, $inner] = Build::fileFormsAndComponents(is_string($stored) ? $stored : null);
+            if ($file) {
+                return true;
+            }
+            array_push($components, ...$inner);
+        }
+
+        return false;
     }
 
     /** Build::$purposeAllowed, or when it was not set (null) the person signed in; nobody signed in = allowed (D3). */

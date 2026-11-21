@@ -9069,4 +9069,6 @@ return [
     'No facts yet.' => 'Zatím žádná fakta.',
     'When a connected Claude changes something on the site, its changes appear here as a session you can undo.' => 'Když připojený Claude na webu něco změní, jeho změny se tu objeví jako relace, kterou můžete vrátit.',
     'Group the sites by customer first – each customer can then have its own maintenance window.' => 'Nejdřív weby rozdělte podle zákazníků – každý zákazník pak může mít vlastní okno údržby.',
+    'Only a user who may open Applications can take a job application form off the site – nothing was changed.' => 'Formulář žádostí o místo smí stáhnout z webu jen uživatel se sekcí Žádosti o místo – nic se nezměnilo.',
+    'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Přeskočeno: %d (formulář žádostí o místo – z webu ho smí stáhnout jen uživatel se sekcí Žádosti o místo).',
 ];

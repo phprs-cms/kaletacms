@@ -123,6 +123,9 @@ final class Build
     /** 3.50.1: the refusal of deleting a pop-up or component that holds an application form – English in Mcp\Translator::MESSAGES. */
     public const string APPLICATION_FORM_REMOVAL_REFUSED = 'Formulář žádostí o místo smí odebrat jen uživatel se sekcí Žádosti o místo – nic se nesmazalo.';
 
+    /** 3.50.1 review: the refusal of switching off a pop-up, changing its rules or hiding a page that holds an application form – English in Mcp\Translator::MESSAGES. */
+    public const string APPLICATION_FORM_OFF_SITE_REFUSED = 'Formulář žádostí o místo smí stáhnout z webu jen uživatel se sekcí Žádosti o místo – nic se nezměnilo.';
+
     /** The content fields of an application form that receive the applicants' data – locked with its Purpose (3.50 N132; the hidden copy since the 3.50 review). */
     private const array LOCKED_RECIPIENTS = ['prijemce', 'skryta_kopie'];
 
@@ -606,7 +609,8 @@ final class Build
     /**
      * 3.50.1 (SEC-l1, CODE-l3): the ids of forms in $new that would take the applications of a published application form
      * away from it without removing it: (a) an application form of $published that $new hides – its own style or an
-     * ancestor's has display none in some state where $published did not; (b) a form in $new that is not an application
+     * ancestor's has display none in some state where $published did not, or (3.50.1 review) it or an ancestor has display
+     * conditions (podminky) it did not have in $published, or carries a class it did not carry there; (b) a form in $new that is not an application
      * form, has a file field and whose id had no such form in $published (also an id swapped with the application form).
      * Only when $published has an application form. Pure; a build that does not decode has none.
      *
@@ -649,8 +653,62 @@ final class Build
     }
 
     /**
-     * Every element of a build => the ids on its path (itself and its ancestors) whose style hides them (display none in
-     * any state). Pure.
+     * 3.50.1 review: the components a "komponenta" element of $new points to where that element did not point to the same
+     * component in $published – only when $published has an application form (Publisher::guard then checks whether such a
+     * component holds a form with a file field, rule (b)). Pure; a build that does not decode has none.
+     *
+     * @return list<int>
+     */
+    public static function newComponentReferences(?string $published, ?string $new): array
+    {
+        $old = $published === null ? null : self::fromJson($published);
+        $next = $new === null ? null : self::fromJson($new);
+        if ($old === null || $next === null || self::droppedApplicationForms($published, null) === []) {
+            return [];
+        }
+        $isComponent = fn (string $className): bool => $className::TYPE === 'komponenta';
+        $before = array_map(fn (array $p): int => (int) ($p['obsah']['komponenta'] ?? 0), self::elementsOfType($old, $isComponent));
+        $out = [];
+        foreach (self::elementsOfType($next, $isComponent) as $id => $p) {
+            $idm = (int) ($p['obsah']['komponenta'] ?? 0);
+            if ($idm > 0 && ($before[$id] ?? null) !== $idm) {
+                $out[] = $idm;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * 3.50.1 review: whether a build has a form with a file field that is not an application form (rule (b) of
+     * shadowedApplicationForms), and the components its "komponenta" elements point to. Pure.
+     *
+     * @return array{0: bool, 1: list<int>}
+     */
+    public static function fileFormsAndComponents(?string $json): array
+    {
+        $build = $json === null ? null : self::fromJson($json);
+        if ($build === null) {
+            return [false, []];
+        }
+        $file = false;
+        foreach (self::elementsOfType($build, fn (string $className): bool => $className::TYPE === 'formular') as $p) {
+            $fields = is_array($p['obsah']['pole'] ?? null) ? $p['obsah']['pole'] : [];
+            if (($p['obsah']['ucel'] ?? '') !== \Kaleta\Core\Applications::PURPOSE && in_array('soubor', array_map(fn (mixed $f): string => is_array($f) ? (string) ($f['typ'] ?? '') : '', $fields), true)) {
+                $file = true;
+                break;
+            }
+        }
+        $components = array_map(fn (array $p): int => (int) ($p['obsah']['komponenta'] ?? 0), self::elementsOfType($build, fn (string $className): bool => $className::TYPE === 'komponenta'));
+
+        return [$file, array_values(array_unique(array_filter($components, fn (int $idm): bool => $idm > 0)))];
+    }
+
+    /**
+     * Every element of a build => what on its path (itself and its ancestors) can hide it on the site: "<id>" when the
+     * element's style has display none in any state, "<id>?<conditions as JSON>" for its display conditions (podminky) and
+     * "<id>.<class>" for each class it carries (3.50.1 review – a class's own style can hide it too). A marker in $new that was not
+     * in $published means a new way to hide the element. Pure.
      *
      * @return array<string, list<string>>
      */
@@ -668,6 +726,14 @@ final class Build
                     if (is_array($state) && ($state['zobrazeni'] ?? null) === 'none') {
                         $own[] = $id;
                         break;
+                    }
+                }
+                if (is_array($p['podminky'] ?? null) && $p['podminky'] !== []) {
+                    $own[] = $id . '?' . json_encode($p['podminky']);
+                }
+                foreach (is_array($p['tridy'] ?? null) ? $p['tridy'] : [] as $class) {
+                    if (is_string($class) && $class !== '') {
+                        $own[] = $id . '.' . $class;
                     }
                 }
                 $out[$id] = $own;

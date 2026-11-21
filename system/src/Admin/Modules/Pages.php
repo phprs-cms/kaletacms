@@ -252,6 +252,7 @@ final class Pages extends Module
         $language = \Kaleta\Core\Language::column($this->app->settings(), $this->request->post('jazyk'));
         $done = 0;
         $skipped = 0;
+        $locked = 0; // 3.50.1 review: pages with a job application form, taken off the site only by someone with Applications
         $clashes = 0; // 3.9: with slugs per language a page cannot move where another page of that version has its slug
         foreach (array_unique(array_map(intval(...), $this->request->postList('oznacene'))) as $id) {
             $page = $this->loadPage($id);
@@ -259,6 +260,14 @@ final class Pages extends Module
             if ($page === null || (!$auth->canPublish() && ($page['zobrazit'] || $action === 'zobrazit')) || ($id === $home && in_array($action, ['skryt', 'kos'], true))) {
                 $skipped++;
                 continue;
+            }
+            if (in_array($action, ['skryt', 'kos'], true) && ($page['zobrazit'] || $action === 'kos')) { // 3.50.1 review: a page with an application form
+                try {
+                    \Kaleta\Builder\Publisher::guardRemoval($page['stavba'], $this->app);
+                } catch (\DomainException) {
+                    $locked++;
+                    continue;
+                }
             }
             if ($action === 'jazyk' && $language !== $page['jazyk'] && \Kaleta\Core\Slug::taken($this->db, 'stranky', (string) $page['seo_link'], $language, $id)) {
                 $clashes++;
@@ -284,7 +293,8 @@ final class Pages extends Module
         };
 
         return $this->back($message . ($skipped > 0 ? ' ' . t('Skipped: %d (no permission, or the home page).', $skipped) : '')
-            . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
+            . ($clashes > 0 ? ' ' . t('Skipped: %d (that language version already has the address).', $clashes) : '')
+            . ($locked > 0 ? ' ' . t('Skipped: %d (a job application form – only a user who may open Applications can take it off the site).', $locked) : ''), '', [], $done > 0 ? 'ok' : 'chyba');
     }
 
     protected function actionEdit(): Response
@@ -412,6 +422,13 @@ final class Pages extends Module
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         // a page with nothing to show yet stays hidden until its build is published (3.5): a template, the builder, or no text
         $stored = $id > 0 ? $this->db->one('SELECT zobrazit, stavba FROM {stranky} WHERE ids = ?', [$id]) : null;
+        if (!empty($stored['zobrazit']) && !$data['zobrazit']) { // 3.50.1 review: hiding a page with a published application form needs Applications
+            try {
+                \Kaleta\Builder\Publisher::guardRemoval($stored['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+            } catch (\DomainException) {
+                return $this->back('Only a user who may open Applications can take a job application form off the site – nothing was changed.', 'edit', ['id' => $id], 'chyba');
+            }
+        }
         $data = self::visibility((bool) $data['zobrazit'], (bool) ($stored['zobrazit'] ?? false), self::hasContent(['stavba' => $stored['stavba'] ?? null, 'text' => $data['text']])) + $data;
         $errors = $textError !== null ? ['text' => $textError] : [];
         if ($data['titulek'] === '') {
@@ -768,6 +785,11 @@ final class Pages extends Module
         }
         if ($ids === $this->app->settings()->int('home_page')) {
             return $this->back('The home page cannot be deleted. First choose another home page in Settings → General.', '', [], 'chyba');
+        }
+        try { // 3.50.1 review: a page holding a published application form goes to the trash only with Applications
+            \Kaleta\Builder\Publisher::guardRemoval($this->db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [$ids]), $this->app);
+        } catch (\DomainException) {
+            return $this->back('Only a user who may open Applications can remove a job application form – nothing was deleted.', '', [], 'chyba');
         }
         $this->db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), $ids]);
 

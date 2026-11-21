@@ -210,6 +210,7 @@ trait PageTools
         if ((int) $page['ids'] === $siteSettings->int('home_page')) {
             throw new \DomainException('Úvodní stránku smazat nejde – nejdřív nastav jinou (uprav_nastaveni → titulni_stranka).');
         }
+        \Kaleta\Builder\Publisher::guardRemoval($db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [(int) $page['ids']]), $this->app); // 3.50.1 review: an application form needs the section
         $db->run('UPDATE {stranky} SET smazano = ?, zobrazit = 0, show_on_publish = 0 WHERE ids = ? AND smazano IS NULL', [\Kaleta\Core\Clock::now(), (int) $page['ids']]);
         \Kaleta\Core\PageCache::clear();
 

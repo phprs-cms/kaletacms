@@ -87,6 +87,14 @@ final class Popups extends Module
             'novinky' => $selected ? $r->postBool('novinky') : $p['pravidla']['novinky'], 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
             'zarizeni' => $r->post('zarizeni'), 'utm' => $r->post('utm'), 'odkud' => $r->post('odkud'),
         ]);
+        // 3.50.1 review: rules that may take a switched-on pop-up with a published application form off pages need Applications
+        if ($p['aktivni'] && $rules != $p['pravidla']) {
+            try {
+                \Kaleta\Builder\Publisher::guardRemoval($p['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+            } catch (\DomainException) {
+                return $this->back('Only a user who may open Applications can take a job application form off the site – nothing was changed.', 'edit', ['id' => $p['idpp']], 'chyba');
+            }
+        }
         $this->db->update('popupy', [
             'nazev' => $name, 'adresa' => $url,
             'typ' => isset(Okna::TYPES[$r->post('typ')]) ? $r->post('typ') : $p['typ'],
@@ -115,6 +123,13 @@ final class Popups extends Module
         [$action, $args] = $this->request->post('z') === 'edit' ? ['edit', ['id' => $p['idpp']]] : ['', []];
         if (!$p['aktivni'] && $p['stavba'] === null) {
             return $this->back('Publish the pop-up in the builder first – then you can turn it on.', $action, $args, 'chyba');
+        }
+        if ($p['aktivni']) { // 3.50.1 review: switching off a pop-up with a published application form needs Applications
+            try {
+                \Kaleta\Builder\Publisher::guardRemoval($p['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+            } catch (\DomainException) {
+                return $this->back('Only a user who may open Applications can take a job application form off the site – nothing was changed.', $action, $args, 'chyba');
+            }
         }
         $this->db->update('popupy', ['aktivni' => $p['aktivni'] ? 0 : 1], ['idpp' => $p['idpp']]);
         \Kaleta\Core\PageCache::clear();

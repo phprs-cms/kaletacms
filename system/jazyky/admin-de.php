@@ -9477,4 +9477,6 @@ return [
     'No facts yet.' => 'Noch keine Fakten.',
     'When a connected Claude changes something on the site, its changes appear here as a session you can undo.' => 'Ändert ein verbundenes Claude etwas an der Website, erscheinen die Änderungen hier als Sitzung, die sich rückgängig machen lässt.',
     'Group the sites by customer first – each customer can then have its own maintenance window.' => 'Zuerst die Websites nach Kunden gruppieren – jeder Kunde kann dann ein eigenes Wartungsfenster haben.',
+    'Only a user who may open Applications can take a job application form off the site – nothing was changed.' => 'Ein Bewerbungsformular darf nur von der Website nehmen, wer den Bereich Bewerbungen öffnen darf – es wurde nichts geändert.',
+    'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Übersprungen: %d (ein Bewerbungsformular – von der Website nehmen darf es nur, wer den Bereich Bewerbungen öffnen darf).',
 ];
