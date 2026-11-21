@@ -213,7 +213,9 @@ if [ "${FROM_DB:-0}" -ge 132 ]; then
     UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',bookings') WHERE promenna = 'extensions' AND FIND_IN_SET('bookings', hodnota) = 0" && ABSENCE_PLANTED=1
   ABS_SERVICE=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_booking_services WHERE name = 'Absence upd'"); ABS_STAFF=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_booking_staff WHERE name = 'Absence person'")
   abs_slots() { curl -s "$B/_booking/slots?service=$ABS_SERVICE&staff=$ABS_STAFF&day=$1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo implode(",", $d["slots"] ?? []);'; }
-  expect "3.49 B: before the update the old release offers the absence day of the linked person" "$(abs_slots "$ABS_DAY")" "09:00,10:00,11:00"
+  # a FROM that already has 3.49 B (the previous release once 3.49 is tagged) closes the day itself
+  if git -C "$ROOT" show "$FROM:system/src/Core/Booking.php" 2>/dev/null | grep -q 'Absences::between'; then ABS_OLD_SLOTS=""; else ABS_OLD_SLOTS="09:00,10:00,11:00"; fi
+  expect "3.49 B: before the update the old release offers the absence day of the linked person (3.49+: already closed)" "$(abs_slots "$ABS_DAY")" "$ABS_OLD_SLOTS"
 fi
 
 # 3.48 (0135): Customers and the Pipeline became features – a section with data must never disappear by an update. CRM_RUN
