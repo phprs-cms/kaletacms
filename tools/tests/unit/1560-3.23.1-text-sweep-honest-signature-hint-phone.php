@@ -265,10 +265,7 @@ check('[source-pin] N324-2: Auth::forgetForBackground – nobody is signed in fo
 ], [[7, true], null, 0, false, null, true]);
 
 // N324-5: the menu badge, the "Assigned to me" tile and My work count the same enquiries – open, spam left out
-$n3245 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/MyWork.php');
-check('[source-pin] N324-5: My work and its menu badge leave spam out, as the Enquiries list and the dashboard tile do', [
-    str_contains($n3245, "' AND ' . EnquiryVisibility::NOT_SPAM"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/MyWork.php'), 'return $count + Enquiries::countAssigned($app->db(), $app->auth()->id());'),
-], [true, true]);
+// a behaviour check since 3.50.1 (smoke 4636: an assigned spam enquiry is neither listed in My work nor counted by the badge)
 
 // 3.25 (A): internal notes as a history (Core\Comments), the conversation of an enquiry (Core\EnquiryThread), the reply
 // quoting the customer's message and the default subject (CPO #7)

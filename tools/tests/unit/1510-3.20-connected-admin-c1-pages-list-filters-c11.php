@@ -24,14 +24,7 @@ check('[source-pin] 3.20 (C11): migration 0107 adds zmenil as the schema does, f
     preg_match('/zmeneno  DATETIME NULL,\n    zmenil   INT UNSIGNED NULL,/', (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql')),
     substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Install/Installer.php'), "'zmeneno' => \$installed"),
     str_contains($kernel320, 'AND zobrazit = 1 AND zmenil IS NOT NULL LIMIT 1'), str_contains($kernel320, 'AND zobrazit = 1 AND zmeneno IS NOT NULL LIMIT 1')], [true, true, true, 1, 2, true, false]);
-// every place that stamps zmeneno on a page by a person's action stamps who as well – no bare date left in these files
-check('[source-pin] 3.20 (C11): a page edit stamps who along with when everywhere (the form, bulk, text, versions, import, copy, publish, MCP update_page, presets, the collection listing page)', [
-    preg_match_all("/'zmeneno' => date\('Y-m-d H:i:s'\)(?!, 'zmenil')/", (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Clock.php')), // only the helper Clock::edited itself (Pages::edited before 3.50.1)
-    preg_match_all("/update\('stranky', (?![^\n]*Pages::edited\()/", (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php')), // N320-4: the listing page is published through Pages::edited
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "'zverejnit_od' => null] + Pages::edited(\$auth->id())"),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Publisher.php'), "update('stranky', ['stavba' => \$new, 'stavba_koncept' => null] + \\Kaleta\\Core\\Clock::edited("),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), '$data += Pages::edited($this->app->auth()->id());'),
-    substr_count((string) file_get_contents(KALETA_SYSTEM . '/src/Builder/Presets.php'), "+ \\Kaleta\\Core\\Clock::edited(")], [0, 0, 1, 1, 1, 1]);
+// every place that stamps zmeneno on a page by a person's action stamps who as well: a behaviour check since 3.50.1 (smoke 4636)
 $pagesList320 = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pages/list.php');
 check('[source-pin] 3.20 (C1, C11) pages list: the tabs carry the count and the search keeps the tab; Edited always, Language only with language versions', [
     str_contains($pagesList320, "['published' => 'Published', 'hidden' => 'Hidden', 'draft' => 'Unpublished changes', 'layout' => 'Layout not rebuilt' /* 3.33 */, 'kos' => 'Trash']"),

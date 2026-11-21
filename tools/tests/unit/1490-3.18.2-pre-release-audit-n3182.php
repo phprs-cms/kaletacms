@@ -132,10 +132,7 @@ foreach (['Front/Kernel.php', 'Core/Audit.php', 'Core/Links.php', 'Core/Migratio
     }
 }
 check('3.19: redirects are looked up by source_norm in the router, the audit, the broken-link check and the migration report', $byCollation319, []);
-$writers319 = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectStore.php') . (string) file_get_contents(KALETA_SYSTEM . '/src/Core/RedirectRules.php');
-check('[source-pin] 3.19: every writer of a redirect fills its normal form (Redirects::add, the admin form, a pattern rule, the import)', [
-    substr_count($writers319, 'INSERT INTO {presmerovani} (z_adresy, source_norm,'), str_contains($writers319, "'source_norm' => null"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/SiteImport.php'), "'source_norm' => RedirectSources::normalize(\$from)")], [2, false, true]);
+// every writer of a redirect fills its normal form: a behaviour check since 3.50.1 (smoke 4632 and 4636)
 check('[source-pin] 3.19: System status has the rows Addresses in every language and Old addresses of redirects; the events are documented', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "t('Addresses in every language')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Health.php'), "t('Old addresses of redirects')"),

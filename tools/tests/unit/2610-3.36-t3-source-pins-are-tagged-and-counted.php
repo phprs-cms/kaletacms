@@ -8,12 +8,12 @@ declare(strict_types=1);
 // Structural rules that walk the whole tree (no Czech query parameters, every table in the names map …) are not pins.
 
 /** The pins of 3.36.0 T3; lower it when you replace pins, never raise it. */
-const UNIT_SOURCE_PIN_CEILING = 303;
+const UNIT_SOURCE_PIN_CEILING = 300;
 /**
  * 3.43 B (Q6): the pin checks a full run executes (a pin in a loop runs once per item) – the runner's "… of them pin source
  * text". The 304 places above run 311 checks; tools/unit-tests.php fails a full run above this. Lower it with the other.
  */
-const UNIT_SOURCE_PIN_RUN_CEILING = 310;
+const UNIT_SOURCE_PIN_RUN_CEILING = 307;
 
 $t3pAll = [];
 $t3pUntagged = [];
