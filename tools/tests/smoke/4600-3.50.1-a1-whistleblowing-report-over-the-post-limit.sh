@@ -2,7 +2,8 @@ echo "== 3.50.1 A1: a whistleblowing report over the server's post limit is answ
 # the channel on for this section (the earlier sections may have left it in any state), the address buckets cleared
 A600_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 A600_ON=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_enabled'), '')")
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', CONCAT('$A600_EXT', ',whistleblowing')), ('whistleblowing_enabled', '1'); DELETE FROM ka_kontrola_ip WHERE typ LIKE 'oznameni%'" > /dev/null
+features +whistleblowing > /dev/null
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('whistleblowing_enabled', '1'); DELETE FROM ka_kontrola_ip WHERE typ LIKE 'oznameni%'" > /dev/null
 A600_CASES=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_whistleblowing_cases")
 # a second server on the same site with a small post_max_size (as 4280)
 A600_PORT=$((PORT + 27)); A600_B="http://127.0.0.1:$A600_PORT"
@@ -27,5 +28,6 @@ expect "3.50.1 A1: a normal report on the same server is still received with a c
   "$A600_HTTP|$(grep -c 'ka-oznameni-cislo' "$WORK/a600-ok.html")|$(sq "SELECT COUNT(*) FROM ka_whistleblowing_cases WHERE id > $A600_CASES")" "200|1|1"
 kill "$A600_PID" 2> /dev/null || true; wait "$A600_PID" 2> /dev/null || true
 sq "DELETE FROM ka_whistleblowing_cases WHERE id > $A600_CASES; DELETE FROM ka_kontrola_ip WHERE typ LIKE 'oznameni%';
-  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('extensions', '$A600_EXT'), ('whistleblowing_enabled', '$A600_ON')" > /dev/null
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('whistleblowing_enabled', '$A600_ON')" > /dev/null
+features --exact "$A600_EXT" > /dev/null
 rm -f "$WORK/a600-page.html" "$WORK/a600-big.html" "$WORK/a600-ok.html" "$WORK/a600-big.bin"
