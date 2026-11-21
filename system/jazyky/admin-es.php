@@ -9365,4 +9365,5 @@ return [
     'Documents of the team (Internal files) can be linked to a customer record; anonymising or erasing the customer removes the links, the documents stay – they are company documents, not erased with the person.' => 'Los documentos del equipo (Archivos internos) pueden vincularse a un registro de cliente; anonimizar o borrar al cliente elimina los vínculos, los documentos se quedan: son documentos de la empresa y no se borran con la persona.',
     'Linked to the customer' => 'Vinculado al cliente',
     'Linked to the quote' => 'Vinculado al presupuesto',
+    '%s (switched off)' => '%s (desactivado)',
 ];

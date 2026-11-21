@@ -89,6 +89,15 @@ final class Quotes
     /* ---------- reading ---------- */
 
     /**
+     * Is the quote anonymised (its customer block blanked)? False for an unknown one. Only the flag – no amount, no customer
+     * (3.49 review C1: an anonymised quote takes no new internal file link).
+     */
+    public static function isAnonymised(Db $db, int $id): bool
+    {
+        return $id > 0 && $db->value('SELECT 1 FROM {quotes} WHERE id = ? AND anonymised_at IS NOT NULL', [$id]) !== null;
+    }
+
+    /**
      * One quote with its lines, totals per VAT rate, history and frozen snapshot, or null. Amounts are DECIMAL texts
      * ("12500.50"), never floats. The shape is the contract of the quote screens, the document and MCP (api338.md).
      *

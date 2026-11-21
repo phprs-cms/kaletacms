@@ -1282,8 +1282,9 @@
 	// on it – the server, the quote editor and the unsaved-changes guard see nothing new; typing a search changes nothing
 	// until a row is chosen. Special options (data-pick-special: "—", "The enquiry's customer") stay at the top with their
 	// values. The deal form's details[data-pick-new] ("New customer…") is the last row: it opens and gets the focus.
-	// Arrows, Enter, Escape, Tab; a live region says how many results. pickSources: data-pick => the key of the answer's
-	// rows ({id|value, name, note}) – unit 4460 keeps it equal to the values the views write.
+	// Arrows, Enter (only a chosen row – with a search typed it never sends the form), Escape, Tab; a live region says how
+	// many results. pickSources: data-pick => the key of the answer's rows ({id|value, name, note, size?}) – unit 4460 keeps
+	// it equal to the values the views write.
 	var pickSources = { contacts: 'contacts', companies: 'companies', deals: 'deals', products: 'products', files: 'files' };
 	var pickNumber = 0;
 	var pickFold = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
@@ -1395,7 +1396,7 @@
 					.then(function (r) { return r.ok ? r.json() : null; })
 					.then(function (d) {
 						if (!d || asked !== q || field.value.trim() !== q || document.activeElement !== field) { return; } // typing went on, or the list was left
-						render((d[source] || []).map(function (r) { return { value: String(r.id !== undefined ? r.id : r.value), name: String(r.name || ''), note: String(r.note || '') }; }));
+						render((d[source] || []).map(function (r) { return { value: String(r.id !== undefined ? r.id : r.value), name: String(r.name || ''), note: String(r.note || ''), bytes: r.size !== undefined ? String(r.size) : '' }; }));
 					})
 					.catch(function () { /* the options found here stay */ });
 			}, 200);
@@ -1419,6 +1420,7 @@
 					option = document.createElement('option');
 					option.value = item.value;
 					option.textContent = item.name;
+					if (item.bytes) { option.setAttribute('data-bytes', item.bytes); } // a searched file is measured too (the attachments' check)
 					control.appendChild(option);
 				}
 				var changed = control.value !== item.value;
@@ -1464,6 +1466,10 @@
 			} else if (e.key === 'Enter' && !list.hidden && active >= 0) {
 				e.preventDefault();
 				choose(items[active]);
+			} else if (e.key === 'Enter' && (!list.hidden || (isSelect && field.value.trim() !== label(control.options[control.selectedIndex])))) {
+				// a search typed but no row chosen: Enter never sends the surrounding form (review C9) – the list stays or opens
+				e.preventDefault();
+				if (list.hidden) { show(); }
 			} else if (e.key === 'Escape' && !list.hidden) {
 				e.preventDefault();
 				close();

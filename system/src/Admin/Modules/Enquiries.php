@@ -347,6 +347,12 @@ final class Enquiries extends Module
         foreach (\Kaleta\Core\Language::additional($s) as $code) {
             $out[$code] = \Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code;
         }
+        // review C5: a language switched off since keeps its tab while it has saved replies – to change or remove them
+        foreach (array_keys(\Kaleta\Core\SavedReplies::all($this->db)) as $code) {
+            if (!in_array($code, \Kaleta\Core\SavedReplies::activeLanguages($s), true)) {
+                $out[$code] = t('%s (switched off)', \Kaleta\Core\Language::AVAILABLE[$code][0] ?? $code);
+            }
+        }
 
         return $out;
     }

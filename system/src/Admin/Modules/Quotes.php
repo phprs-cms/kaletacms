@@ -336,7 +336,7 @@ final class Quotes extends Module
             // 3.40: the tasks of the quote (follow-ups), "first opened on" while it is recorded, the customer's own decision
             'tasks' => $this->taskPanel('quote:' . $quote['id'], ['id' => $quote['id']]), 'tracking' => $this->app->settings()->bool('quote_track_opened'),
             'followUpDays' => Store::FOLLOW_UP_DAYS,
-            'fileBox' => InternalFiles::box($this->app, $modules, 'quote', (int) $quote['id'])]); // 3.49 B
+            'fileBox' => $quote['anonymised_at'] === null ? InternalFiles::box($this->app, $modules, 'quote', (int) $quote['id']) : null]); // 3.49 B (review C1: not for an anonymised quote)
     }
 
     /** Mark accepted, declined (with a reason), back to sent, or expired – Store::setStatus; nothing moves the deal by itself. */

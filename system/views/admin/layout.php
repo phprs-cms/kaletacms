@@ -34,7 +34,7 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
         $statements[] = ['n' => t($class::NAME), 'u' => $adminUrl('module=' . $ident), 's' => t($class::GROUP)];
     }
     // 3.45 (U70): the quick actions live in Admin\Palette – per section, some for administrators only; "New quote" is a POST
-    foreach (Kaleta\Admin\Palette::quick(array_keys($modules), $app->auth()->isAdmin()) as [$name, $query, $ident, $post]) {
+    foreach (Kaleta\Admin\Palette::quick(array_keys($modules), $app->auth()->isAdmin(), $app->auth()->canPublish()) as [$name, $query, $ident, $post]) {
         $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => t($modules[$ident]::NAME)] + ($post ? ['p' => 1] : []);
     }
     // every collection's items by its name (3.18.3) – also those left out of the menu

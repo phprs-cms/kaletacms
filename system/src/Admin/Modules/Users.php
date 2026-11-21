@@ -577,6 +577,7 @@ final class Users extends Module
     private function removeAccount(int $id): void
     {
         $this->db->delete('uzivatele', ['idu' => $id]);
+        \Kaleta\Core\Booking::forgetAccount($this->db, $id); // 3.49 review C4: no booking person stays linked, no absence keeps closing times
         \Kaleta\Front\OAuth::forgetRotations($this->db, $id); // its tokens go with the account (foreign key), the records too (N318-3)
         Handover::forget();
     }

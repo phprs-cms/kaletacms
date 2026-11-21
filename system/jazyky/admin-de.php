@@ -9345,4 +9345,5 @@ return [
     'Documents of the team (Internal files) can be linked to a customer record; anonymising or erasing the customer removes the links, the documents stay – they are company documents, not erased with the person.' => 'Dokumente des Teams (interne Dateien) können mit einem Kundendatensatz verknüpft werden; das Anonymisieren oder Löschen des Kunden entfernt die Verknüpfungen, die Dokumente bleiben – es sind Firmendokumente, sie werden mit der Person nicht gelöscht.',
     'Linked to the customer' => 'Mit dem Kunden verknüpft',
     'Linked to the quote' => 'Mit dem Angebot verknüpft',
+    '%s (switched off)' => '%s (ausgeschaltet)',
 ];

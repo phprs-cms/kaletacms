@@ -126,7 +126,7 @@ $parity = [
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
         'service_delete' => 'admin: removing a service is the administrator’s decision; save_booking_service switches it off', 'staff' => $readOnly, 'staff_edit' => $readOnly, 'staff_save' => 'save_booking_staff', 'book_page' => 'create_page',
         'staff_delete' => 'admin: removing a person is the administrator’s decision; save_booking_staff switches them off', 'off_save' => 'save_booking_staff', 'off_delete' => 'save_booking_staff', 'settings' => 'update_settings',
-        'staff_link' => 'save_booking_staff'], // 3.49 B: "Link by e-mail" – save_booking_staff sets the account of a person
+        'staff_link' => 'admin: linking booking people to accounts by e-mail – user accounts are the administrator’s matter, the account of a person is not part of the published save_booking_staff schema'], // 3.49 B: "Link by e-mail" (review C8)
     // 3.28: Customers – Claude reads and changes the same records with list_contacts, get_contact, save_contact (a company too),
     // log_activity and merge_contacts; deleting a record, the CSV import and linking an old record by hand stay with a person
     'contacts' => ['list' => $contactTool('list_contacts'), 'companies' => $contactTool('list_contacts'), 'detail' => $contactTool('get_contact'), 'company' => $readOnly,

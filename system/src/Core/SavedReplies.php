@@ -42,6 +42,27 @@ final class SavedReplies
         return $out;
     }
 
+    /**
+     * The languages saved replies are offered in: '' (the default one) and the additional languages switched on. The rows of
+     * a language switched off since stay stored – offered nowhere, kept in the admin to change or remove (review C5).
+     *
+     * @return list<string>
+     */
+    public static function activeLanguages(Settings $s): array
+    {
+        return array_merge([''], array_values(array_diff(Language::additional($s), [Language::defaults($s), ''])));
+    }
+
+    /**
+     * all() of the languages offered (activeLanguages).
+     *
+     * @return array<string, list<array{id: int, language: string, name: string, subject: string, text: string}>>
+     */
+    public static function offered(Db $db, Settings $s): array
+    {
+        return array_intersect_key(self::all($db), array_flip(self::activeLanguages($s)));
+    }
+
     /** How many saved replies there are (0 before migration 0137). */
     public static function count(Db $db): int
     {
@@ -75,7 +96,7 @@ final class SavedReplies
      */
     public static function forEnquiry(Db $db, Settings $s, array $enquiry): array
     {
-        $all = self::all($db);
+        $all = self::offered($db, $s);
         $first = self::languageOf($s, $enquiry);
         $out = [];
         foreach ([$first => $all[$first] ?? []] + $all as $rows) {
@@ -174,7 +195,8 @@ final class SavedReplies
     public static function save(App $app, string $language, array $rows): array|string
     {
         $s = $app->settings();
-        if ($language !== '' && !in_array($language, Language::additional($s), true)) {
+        // a language switched off since may still be changed or emptied while it has rows (review C5), never started anew
+        if (!in_array($language, self::activeLanguages($s), true) && !isset(self::all($app->db())[$language])) {
             return 'This language version is not switched on.';
         }
         $clean = self::clean($rows);
@@ -214,7 +236,7 @@ final class SavedReplies
      */
     public static function forClaude(Db $db, Settings $s, int $budget = 4000): array
     {
-        return self::claudeRows(self::all($db), Language::defaults($s), $budget);
+        return self::claudeRows(self::offered($db, $s), Language::defaults($s), $budget);
     }
 
     /**

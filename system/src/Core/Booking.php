@@ -626,7 +626,26 @@ final class Booking
      */
     public static function unlinkedCount(Db $db): int
     {
-        return count(array_filter(self::staff($db), fn (array $m): bool => $m['user_id'] === null));
+        $staff = self::staff($db);
+        $ids = array_values(array_unique(array_filter(array_map(fn (array $m): ?int => $m['user_id'], $staff))));
+        // review C4: a link to an account that was deleted counts as no link
+        $accounts = $ids === [] ? [] : array_map('intval', array_column($db->all('SELECT idu FROM {uzivatele} WHERE idu IN (' . implode(',', $ids) . ')'), 'idu'));
+
+        return count(array_filter($staff, fn (array $m): bool => $m['user_id'] === null || !in_array($m['user_id'], $accounts, true)));
+    }
+
+    /**
+     * 3.49 review C4: a deleted account (Admin\Modules\Users) leaves no booking person linked to it and no absence that
+     * would keep closing their times. Also for links left by accounts deleted earlier (linkByEmail).
+     */
+    public static function forgetAccount(Db $db, int $userId): void
+    {
+        try {
+            $db->run('UPDATE {booking_staff} SET user_id = NULL WHERE user_id = ?', [$userId]);
+            $db->run('DELETE FROM {absences} WHERE user_id = ?', [$userId]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+        }
     }
 
     /**
@@ -638,6 +657,11 @@ final class Booking
     {
         $db = $app->db();
         $linked = 0;
+        try { // review C4: a link to an account deleted before 3.49 is no link
+            $db->run('UPDATE {booking_staff} s SET s.user_id = NULL WHERE s.user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM {uzivatele} u WHERE u.idu = s.user_id)');
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+        }
         foreach (self::staff($db, false) as $m) {
             $email = mb_strtolower(trim($m['email']));
             if ($m['user_id'] !== null || $email === '') {

@@ -81,10 +81,20 @@ final class InternalFileLinks
         return [$m[1], (int) $m[2]];
     }
 
-    /** Does the record exist (a contact, company, deal or quote by its id)? */
+    /**
+     * Does the record exist (a contact, company, deal or quote by its id)? An anonymised contact or quote counts as gone
+     * (3.49 review C1): anonymising forgets its links, a new one would name the person again.
+     */
     public static function recordExists(Db $db, string $kind, int $recordId): bool
     {
-        return isset(self::KINDS[$kind]) && $recordId > 0 && Inbox::places($db, [$kind . ':' . $recordId]) !== [];
+        if (!isset(self::KINDS[$kind]) || $recordId <= 0 || Inbox::places($db, [$kind . ':' . $recordId]) === []) {
+            return false;
+        }
+        return match ($kind) {
+            'contact' => (Contacts::find($db, $recordId)['anonymised_at'] ?? null) === null,
+            'quote' => !Quotes::isAnonymised($db, $recordId),
+            default => true,
+        };
     }
 
     /**
@@ -94,18 +104,10 @@ final class InternalFileLinks
      */
     public static function link(App $app, int $fileId, string $kind, int $recordId): ?string
     {
-        if (InternalFiles::file($app, $fileId) === null) {
-            return self::NO_FILE;
-        }
+        $refused = self::linkRefusal($app, $fileId, $kind, $recordId);
         $db = $app->db();
-        if (!self::mayLink($app, $kind) || !self::recordExists($db, $kind, $recordId)) {
-            return self::NO_RECORD;
-        }
-        if ($db->value('SELECT 1 FROM {internal_file_links} WHERE file_id = ? AND kind = ? AND record_id = ?', [$fileId, $kind, $recordId]) !== null) {
-            return null;
-        }
-        if ((int) $db->value('SELECT COUNT(*) FROM {internal_file_links} WHERE kind = ? AND record_id = ?', [$kind, $recordId]) >= self::PER_RECORD) {
-            return 'A record can have at most 100 linked files.';
+        if ($refused !== null || self::isLinked($db, $fileId, $kind, $recordId)) {
+            return $refused;
         }
         try {
             $db->insert('internal_file_links', ['file_id' => $fileId, 'kind' => $kind, 'record_id' => $recordId,
@@ -118,6 +120,37 @@ final class InternalFileLinks
         ChangeLog::write($app, InternalFiles::SECTION, 'link', self::logText($fileId, $kind, $recordId));
 
         return null;
+    }
+
+    /**
+     * Why link() would refuse, without writing anything (null = it would link, or it is linked already) – save_internal_file
+     * checks every change before the first write (3.49 review C6).
+     */
+    public static function linkRefusal(App $app, int $fileId, string $kind, int $recordId): ?string
+    {
+        if (InternalFiles::file($app, $fileId) === null) {
+            return self::NO_FILE;
+        }
+        $db = $app->db();
+        if (!self::mayLink($app, $kind) || !self::recordExists($db, $kind, $recordId)) {
+            return self::NO_RECORD;
+        }
+        if (!self::isLinked($db, $fileId, $kind, $recordId) && (int) $db->value('SELECT COUNT(*) FROM {internal_file_links} WHERE kind = ? AND record_id = ?', [$kind, $recordId]) >= self::PER_RECORD) {
+            return 'A record can have at most 100 linked files.';
+        }
+
+        return null;
+    }
+
+    /** Is the file linked to the record (whoever may see either)? */
+    public static function isLinked(Db $db, int $fileId, string $kind, int $recordId): bool
+    {
+        try {
+            return $db->value('SELECT 1 FROM {internal_file_links} WHERE file_id = ? AND kind = ? AND record_id = ?', [$fileId, $kind, $recordId]) !== null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return false; // before migration 0136
+        }
     }
 
     /**
@@ -188,7 +221,8 @@ final class InternalFileLinks
     /**
      * The records a file is linked to, for a viewer who sees the file: kind, id, and – state open – its title and admin path;
      * state no_right = "a record you cannot open" (no title, no path); state off = the feature is off: the title as the
-     * e-mails name it (a number, never a customer's name) and no path. A record that no longer exists is left out.
+     * e-mails name it (a number, never a customer's name; a company's name only to a viewer with the section's right, else
+     * state no_right) and no path. A record that no longer exists is left out.
      *
      * @return list<array{kind: string, id: int, title: string|null, path: string|null, state: string}>
      */
@@ -215,7 +249,10 @@ final class InternalFileLinks
                 continue;
             }
             if (!Extensions::isEnabled($app->settings(), self::KINDS[$kind][1])) {
-                $out[] = ['kind' => $kind, 'id' => $id, 'title' => Inbox::where($place), 'path' => null, 'state' => 'off'];
+                // review C2: a company is named by its name – only for a viewer who holds the section's right
+                $named = $kind !== 'company' || Assignment::allowed($db, $kind, (int) $app->auth()->id());
+                $out[] = $named ? ['kind' => $kind, 'id' => $id, 'title' => Inbox::where($place), 'path' => null, 'state' => 'off']
+                    : ['kind' => $kind, 'id' => $id, 'title' => null, 'path' => null, 'state' => 'no_right'];
             } elseif (!self::mayOpenKind($app, $kind)) {
                 $out[] = ['kind' => $kind, 'id' => $id, 'title' => null, 'path' => null, 'state' => 'no_right'];
             } else {

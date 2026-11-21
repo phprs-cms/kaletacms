@@ -13,10 +13,11 @@ namespace Kaleta\Admin;
 final class Palette
 {
     /**
-     * section => list of [label, query, administrators only, POST]. A POST action ("New quote" makes an empty draft) is sent
-     * by image/admin.js as a form with the form token, never as a link.
+     * section => list of [label, query, who: true = administrators only, 'publish' = those who publish (Auth::canPublish,
+     * 3.49 review C3), POST]. A POST action ("New quote" makes an empty draft) is sent by image/admin.js as a form with the
+     * form token, never as a link.
      *
-     * @var array<string, list<array{0: string, 1: string, 2?: bool, 3?: bool}>>
+     * @var array<string, list<array{0: string, 1: string, 2?: bool|string, 3?: bool}>>
      */
     public const array QUICK = [
         'pages' => [['New page', 'module=pages&action=new']],
@@ -24,7 +25,7 @@ final class Palette
         'pipeline' => [['New deal', 'module=pipeline&action=new'], ['Deals as a list', 'module=pipeline&view=list'], ['Deal stages', 'module=pipeline&action=stages', true]], // 3.31
         'quotes' => [['New quote', 'module=quotes&action=create', false, true], ['Internal prices', 'module=quotes&action=prices'], ['Price list set-up', 'module=quotes&action=setup', true]], // 3.38, 3.45: set-up
         'applications' => [['Applications board', 'module=applications&action=board'], ['Talent pool', 'module=applications&action=pool']], // 3.34, 3.40
-        'enquiries' => [['Saved replies', 'module=enquiries&action=saved_replies']], // 3.49 A (administrators and editors change them)
+        'enquiries' => [['Saved replies', 'module=enquiries&action=saved_replies', 'publish']], // 3.49 A (administrators and editors change them)
         'internal_files' => [['New folder', 'module=internal_files&action=folder', true]], // 3.42
         'my_work' => [['Team summary', 'module=my_work&action=summary'], ['Tasks of the team', 'module=my_work&action=team', true]], // 3.24, 3.27, 3.41
         'news' => [['New news item', 'module=news&action=new'], ['Broken links', 'module=news&action=links']],
@@ -48,9 +49,10 @@ final class Palette
      * The quick actions a person may use: [label, query, section, POST], in the order of QUICK.
      *
      * @param list<string> $modules the sections the person may open
+     * @param bool $publisher may the person publish (Auth::canPublish) – an author is not offered what then answers 403
      * @return list<array{0: string, 1: string, 2: string, 3: bool}>
      */
-    public static function quick(array $modules, bool $admin): array
+    public static function quick(array $modules, bool $admin, bool $publisher = true): array
     {
         $out = [];
         foreach (self::QUICK as $ident => $items) {
@@ -58,7 +60,8 @@ final class Palette
                 continue;
             }
             foreach ($items as $item) {
-                if (($item[2] ?? false) && !$admin) {
+                $who = $item[2] ?? false;
+                if (($who === true && !$admin) || ($who === 'publish' && !$admin && !$publisher)) {
                     continue;
                 }
                 $out[] = [$item[0], $item[1], $ident, $item[3] ?? false];

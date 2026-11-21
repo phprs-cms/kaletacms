@@ -64,7 +64,8 @@ final class InternalFiles extends Module
         $q = $this->searchWord();
         $rows = $q === '' ? [] : Library::files($this->app, ['search' => $q, 'status' => 'ready'], 1, self::PICK_ROWS)['rows'];
 
-        return Response::json(['files' => array_map(fn (array $f): array => ['id' => (int) $f['id'], 'name' => (string) $f['name'],
+        // size: the bytes, for the attachments' size check before anything is uploaded (review C10)
+        return Response::json(['files' => array_map(fn (array $f): array => ['id' => (int) $f['id'], 'name' => (string) $f['name'], 'size' => (int) $f['size'],
             'note' => implode(' · ', array_filter([(string) $f['folder_name'], strtoupper((string) $f['extension']), Files::size((int) $f['size'])]))], $rows)], 200, Response::NO_STORE);
     }
 

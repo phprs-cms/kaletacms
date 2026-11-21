@@ -69,8 +69,12 @@ trait InternalFileTools
             // 3.49 B: the files of one record the user may open – the feature message when its section is off, one message for
             // a record that does not exist and one the user cannot open; never a count of files they do not see
             [$kind, $recordId] = $this->linkTarget($a['linked_to']);
-            $rows = array_slice(InternalFileLinks::ofRecord($this->app, $kind, $recordId), ($page - 1) * $limit, $limit);
-            $total = count(InternalFileLinks::ofRecord($this->app, $kind, $recordId));
+            // review C7: folder, search, tag and status filter the record's files as they filter a folder
+            $all = InternalFiles::matching(InternalFileLinks::ofRecord($this->app, $kind, $recordId), ['folder' => $folder,
+                'search' => is_scalar($a['search'] ?? null) ? (string) $a['search'] : '', 'tag' => is_scalar($a['tag'] ?? null) ? (string) $a['tag'] : '',
+                'status' => is_scalar($a['status'] ?? null) ? (string) $a['status'] : '']);
+            $total = count($all);
+            $rows = array_slice($all, ($page - 1) * $limit, $limit);
 
             return ['linked_to' => $kind . ':' . $recordId, 'files' => array_map($this->internalFileOut(...), $rows), 'total' => $total, 'page' => $page, 'pages' => max(1, (int) ceil($total / $limit))]
                 + \Kaleta\Mcp\Untrusted::mark(['files'])
@@ -165,18 +169,17 @@ trait InternalFileTools
         if ($draftsOnly && $file['status'] !== 'draft') {
             throw new \DomainException('A connection limited to drafts changes only draft documents.');
         }
-        $linked = [];
+        // 3.49 review C6: every change is checked before the first write – the links (not journaled) go last, after the text
+        // and the metadata were saved, so an error never leaves a link behind
+        $targets = [];
         foreach ($linking as $action => $target) {
             [$kind, $recordId] = $this->linkTarget($target);
-            if ($action === 'link') {
-                $refused = InternalFileLinks::link($this->app, $id, $kind, $recordId);
-                if ($refused !== null) {
-                    throw new \DomainException($refused);
-                }
-            } elseif (!InternalFileLinks::unlink($this->app, $id, $kind, $recordId)) {
-                throw new \DomainException(InternalFileLinks::mayLink($this->app, $kind) ? 'The file is not linked to ' . $kind . ':' . $recordId . '.' : InternalFileLinks::NO_RECORD);
+            $refused = $action === 'link' ? InternalFileLinks::linkRefusal($this->app, $id, $kind, $recordId)
+                : (InternalFileLinks::isLinked($this->app->db(), $id, $kind, $recordId) ? null : 'The file is not linked to ' . $kind . ':' . $recordId . '.');
+            if ($refused !== null) {
+                throw new \DomainException($refused);
             }
-            $linked[$action] = $kind . ':' . $recordId;
+            $targets[$action] = [$kind, $recordId];
         }
         if (array_key_exists('folder', $a) && $a['folder'] !== null && $a['folder'] !== '') {
             $meta['folder_id'] = $this->internalFolder($a['folder'], InternalFiles::folders($this->app));
@@ -193,6 +196,18 @@ trait InternalFileTools
             if (is_string($saved)) {
                 throw new \DomainException($saved);
             }
+        }
+        $linked = [];
+        foreach ($targets as $action => [$kind, $recordId]) {
+            if ($action === 'link') {
+                $refused = InternalFileLinks::link($this->app, $id, $kind, $recordId);
+                if ($refused !== null) {
+                    throw new \DomainException($refused);
+                }
+            } else {
+                InternalFileLinks::unlink($this->app, $id, $kind, $recordId);
+            }
+            $linked[$action] = $kind . ':' . $recordId;
         }
 
         return ['file' => $this->internalFileOut($saved)] + ($linked !== [] ? ['linked' => $linked] : []) + \Kaleta\Mcp\Untrusted::mark(['file'])

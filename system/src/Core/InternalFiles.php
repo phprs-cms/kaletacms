@@ -459,6 +459,32 @@ final class InternalFiles
     }
 
     /**
+     * The rows (fileOut, e.g. InternalFileLinks::ofRecord) that match the filters of files() – folder (id), search (a word in
+     * the name, description or tags), tag and status – in their order. Pure; the MCP list of a record's files applies the
+     * same filters as the list of a folder (3.49 review C7).
+     *
+     * @param list<array<string, mixed>> $rows
+     * @param array{folder?: int, search?: string, tag?: string, status?: string} $query
+     * @return list<array<string, mixed>>
+     */
+    public static function matching(array $rows, array $query): array
+    {
+        $folder = (int) ($query['folder'] ?? 0);
+        $search = mb_strtolower(mb_substr(trim((string) ($query['search'] ?? '')), 0, 100));
+        $tag = mb_strtolower(trim((string) ($query['tag'] ?? '')));
+        $status = isset(self::STATUSES[(string) ($query['status'] ?? '')]) ? (string) $query['status'] : '';
+
+        return array_values(array_filter($rows, function (array $f) use ($folder, $search, $tag, $status): bool {
+            $tags = array_map(fn (mixed $t): string => mb_strtolower((string) $t), (array) ($f['tags'] ?? []));
+
+            return ($folder <= 0 || (int) $f['folder_id'] === $folder)
+                && ($status === '' || $f['status'] === $status)
+                && ($tag === '' || in_array($tag, $tags, true))
+                && ($search === '' || str_contains(mb_strtolower($f['name'] . "\n" . $f['description'] . "\n" . implode(',', $tags)), $search));
+        }));
+    }
+
+    /**
      * One file the user may see (its folder is for them), with its versions newest first, or null.
      *
      * @return array<string, mixed>|null
