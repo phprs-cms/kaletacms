@@ -6,9 +6,12 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.47 gave the screens of 3.38–3.42 the patterns of 3.37 – My account in tabs, Users as a hub, Applications on the record
-template with one board script, Internal files with several files at once and a preview – and forms with files now name
-their limits instead of losing the submission. Each release lists what it brought in the changelog when it ships.
+3.48 made Customers and the Pipeline features of their own with three profiles (Website, Website with enquiries, Front
+office), grouped the Pipeline, Quotes and Internal prices as Sales and Redirects with Broken links as Addresses, and put
+every retention period in one place – Settings → Privacy and cookies, with a confirmation screen for a shorter one. 3.48.1
+moves the MCP tool definitions next to their handlers, checked against a stored record of `tools/list`, and splits
+`tools/test-browser.mjs` into step files; neither changes behaviour. Each release lists what it brought in the changelog
+when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 

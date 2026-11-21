@@ -4,6 +4,84 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.48 – Customers and the Pipeline as features with three profiles, the Sales and Addresses hubs, every retention period in one place (21 November 2026)
+
+Customers and the Pipeline become features of their own that a new site starts without, the menu groups the Pipeline with
+Quotes as Sales and Redirects with Broken links as Addresses, and every period for which the site keeps personal data is
+set in one place with a confirmation screen for a shorter one. Migration 0135 (data); `KALETA_DB_VERSION` is 135. **MCP:
+the one non-additive change of the release** – the nine contact and deal tools (`list_contacts`, `get_contact`,
+`save_contact`, `log_activity`, `merge_contacts`; `list_deals`, `save_deal`, `move_deal`, `pipeline_summary`) need their
+feature, so they leave `tools/list` on a site where 0135 found neither data, changed stages nor people given the sections.
+Otherwise output only grows (`processing_record` gains `retention`); no parameter or builder shape changes. The move of
+the MCP tool definitions next to their handlers and the split of `tools/test-browser.mjs` moved to 3.48.1.
+
+1. **Customers and the Pipeline are features.** Two new catalogue keys, `customers` and `pipeline`, both off by default;
+   the Pipeline needs Customers (`Extensions::REQUIRES`, closed by `enabled()` and `save()`). `Admin\Modules\Contacts`
+   and `Pipeline` carry their `EXTENSION`; switched off, the module leaves the menu and answers "switched off".
+   `Core\Contacts::link()` still links a contact to every enquiry, booking and confirmed subscription while Customers is
+   off, so the clean-up, the erasure and later releases find the links; rights in `ka_uzivatele_prava` and roles are never
+   touched.
+2. **Three profiles derived from the catalogue.** Each `CATALOG` row names the lowest profile that includes it
+   (`Extensions::PROFILES`: Website, Website with enquiries – the old defaults – and Front office with Customers, the
+   Pipeline and Quotes); `Extensions::profile()` lists a profile's keys, `unavailable()` is the seam for a feature with a
+   condition (none in 3.48). A profile is applied at install or by an explicit choice in Features and never changes a
+   stored list. Features shows the profiles as a preselection that names what it would switch off with the records each
+   holds and who sees the CRM sections, and links to their screens. The installer offers the profiles as cards and keeps the
+   posted list of an older script.
+3. **A switched-off CRM leaves no dead links.** A task, comment or notification about a contact or deal in a switched-off
+   section names it as text "(section switched off)"; the contact timeline drops deal entries; the monthly report
+   (`MonthlyReport::pipeline`), the team summary, the server instructions (`Translator::INSTRUCTION_FEATURES`) and the work
+   set of `Mcp\Prompts` leave the pipeline out; `get_contact` and the contact and company timelines carry no deal with the
+   Pipeline off; the privacy record keeps the customer and deal paragraphs while records exist; the personal data page names
+   customer records without a link while Customers is off. A leaver's records in a switched-off section move to the
+   recipient with the rest (`Handover::eligible`). Quotes with Customers off work on name and e-mail; `set_up_quotes` makes
+   the first test quote for a customer by name and e-mail.
+4. **Migration 0135 switches nothing off.** Self-contained data migration (`0135-customers-and-pipeline-features.php`): it
+   switches Customers on where a contact or company exists or a person was given the section, and the Pipeline (with
+   Customers) where a deal exists, the stages were changed or a person was given the section. "Given" means an own right of
+   a non-administrator without a custom role, or a custom role naming the section that is not one of the shipped presets
+   ("Client", "Office / sales" and "Enquiries only" of 3.28–3.44, in every admin language, counted only when changed). It
+   only adds and is safe to run again. Because contacts are linked automatically, nearly every site with a form keeps
+   Customers; only new installs get the lean menu.
+5. **Sales and Addresses.** The Pipeline, Quotes and Internal prices are one menu item "Sales"; Redirects and Broken links
+   are "Addresses" (`Admin\Hubs`). A tab can own a list of actions, so every price screen highlights Internal prices; the
+   item counts the badges of the screens under it; the set-up links of Quotes and of the Pipeline's stages move to a small
+   group on the right. Workspace goes from 7 items to 6 and Site care from 6 to 5. The link-check hint names Site care →
+   Addresses → Broken links.
+6. **Every retention period in one place.** `Core\Retention` is the registry of how long the site keeps personal data: ten
+   periods (`PERIODS`: enquiries, job applications sent as enquiries, bookings – following enquiries –, customers without
+   activity, quotes, job applications, the talent pool, closed whistleblowing cases, cookie consent records, off-site
+   backups) with their range, what 0 means, the feature, what follows and a floor for a legal hold (all 0 now), the fixed
+   periods with the constants they read (`FIXED`), and `HOLDS`/`held()` and an empty `kept` key on an erasure reserved for
+   records kept by law. The daily clean-up is a list of named steps (`Notifications::cleanups`), each reading its number
+   through `Retention::effective()`; unit 4330 proves the numbers equal the old reads for every zero and non-zero
+   combination.
+7. **Settings → Privacy and cookies → How long data is kept.** A field per period, bookings shown as following enquiries,
+   off-site backups linked to Backups (saved from the Backups tab, a shorter value logged), the fixed periods read-only,
+   the periods of switched-off features folded. A longer period is saved at once; one that makes data go sooner goes to
+   `action=retention` (the numbers in the address, no session), which lists the change, its consequences and the records
+   past the new limit, validates again (never clamps) and logs every shortening. Settings defers only the periods the
+   screen can confirm (`Retention::confirmable`). The moved applications are confirmed only with the ticked confirmation
+   beside their warning or a changed period, never with an invalid field (`Settings::confirmsApplications`).
+8. **The sections link there.** Enquiries, Applications, Quotes and Whistleblowing show their period as a line linking to
+   Privacy and cookies. Their saves write a period only when the old field is posted (`hasPost`): a page of 3.47 still open
+   saves as before with a shorter value logged, a form without the field leaves the period as it is – until 3.50, which
+   drops the old fields. `update_settings` logs a shorter `cookies_log_months`; `processing_record` gains `retention` rows
+   `{key, label, value, unit, zero, editable, feature_on}`. The Privacy record, System status and the guide name the new
+   place.
+9. **Settings of sections.** A new Settings tab (`Admin\SectionSettings`) links the settings that live in the sections; the
+   Bookings and Addresses forms are linked by anchor and their POST-only actions say nothing on GET. Both new screens are in
+   the palette and the menu paths.
+10. **The Pipeline board.** Stages move with 40 px arrow buttons that work without a script (`stageRows` takes the shift),
+    above the row actions of `table.vypis`; a filter that matches no deal says so once above the board; a drop on Lost or
+    Rejected asks for the reason in a server-rendered popover (on Applications with its own attribute
+    `data-board-reason-pop`; the script opens only real popovers), and the board's messages are visible too.
+11. Tests: unit and smoke 4300 (the smoke suite writes the feature list only through `features()` in `bootstrap.sh`, unit
+    4300 guards raw writes; the installs post the two keys), 4330 and 4390; `test-migrations.sh` covers 0135 case by case;
+    `test-update.sh` proves in three runs (`CRM_RUN=1|2|3`) that no admin section with data disappears and that roles and
+    rights stay byte-equal; browser steps for the Addresses hub, the Sales tab row and a rejected card with its reason chip.
+    New admin and installer strings in admin-cs, -de, -es and -de-du.
+
 ## 3.47 – one pattern: the screens of 3.38–3.42 on the patterns of 3.37, forms that name their file limits (20 November 2026)
 
 The screens of 3.38–3.42 get the patterns of 3.37 (tabs, the record bar and two columns, one primary button, the shared
