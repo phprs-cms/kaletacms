@@ -35,10 +35,11 @@ b2_replay() { # b2_replay <query of the form page>: posts the settings form of t
 }
 # b2_settings <file>: what the site reads for every declared setting (a missing row reads its default) and every other row that
 # is not empty (a language variant saved empty reads the default language's). Two forms normalise a value they never showed, as
-# in 3.49: the passkey-only switch is stored as 0 instead of an empty default, the mail service as its first choice "other"
+# in 3.49: the passkey-only switch is stored as 0 instead of an empty default, the mail service as its first choice "other",
+# an empty cookie policy link as the address of the privacy policy page the form offers (3.20)
 b2_settings() {
-  (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings(); $out = [];
-    foreach (array_keys(Kaleta\Core\Settings::DEFAULTS) as $k) { $out[] = $k . "=" . md5(match ($k) { "signin_passkey_only" => $s->bool($k) ? "1" : "0", "smtp_provider" => $s->get($k) === "" ? "other" : $s->get($k), default => $s->get($k) }); }
+  (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $s = $app->settings(); $out = []; $privacy = Kaleta\Admin\Modules\Settings::privacyPolicyPage($app->db(), $s);
+    foreach (array_keys(Kaleta\Core\Settings::DEFAULTS) as $k) { $out[] = $k . "=" . md5(match ($k) { "signin_passkey_only" => $s->bool($k) ? "1" : "0", "smtp_provider" => $s->get($k) === "" ? "other" : $s->get($k), "cookies_policy_url" => $s->get($k) === "" && $privacy !== null ? "/" . $privacy["seo_link"] : (string) preg_replace("#^.*(/" . preg_quote((string) ($privacy["seo_link"] ?? "\0"), "#") . ")$#D", "$1", $s->get($k)), default => $s->get($k) }); }
     foreach ($app->db()->pairs("SELECT promenna, hodnota FROM {nastaveni} ORDER BY promenna") as $k => $v) { if (!array_key_exists((string) $k, Kaleta\Core\Settings::DEFAULTS) && (string) $v !== "") { $out[] = $k . " row=" . md5((string) $v); } }
     echo implode("\n", $out), "\n";') > "$1"
 }
