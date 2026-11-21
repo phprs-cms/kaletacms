@@ -74,7 +74,7 @@ final class MonthlyReport
         $path = static fn (string $url): string => (string) (parse_url($url, PHP_URL_PATH) ?: '/');
 
         $stats = null;
-        if (\Kaleta\Front\Stats::isOn($app)) {
+        if (StatsGate::isOn($app)) {
             $previousStart = $monthStart->modify('first day of last month');
             $totals = fn (string $a, string $b): array => $db->one('SELECT COALESCE(SUM(navstevy), 0) AS visits, COALESCE(SUM(zobrazeni), 0) AS views FROM {stat_dny} WHERE den >= ? AND den < ?', [$a, $b]) ?? ['visits' => 0, 'views' => 0];
             $now = $totals($fromDay, $toDay);

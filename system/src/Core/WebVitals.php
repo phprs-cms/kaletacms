@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Front\Stats;
 
 /**
  * Real-user speed (2.8): Core Web Vitals – LCP, CLS and INP – measured by image/vitals.js in visitors' browsers and sent
@@ -101,7 +100,7 @@ final class WebVitals
                 $values[$metric] = (float) $raw;
             }
         }
-        if (!Stats::isOn($app) || $values === [] || $ua === '' || Stats::isBot($ua) || !preg_match('#^/[^\s?\#]{0,254}$#D', $path)) {
+        if (!StatsGate::isOn($app) || $values === [] || $ua === '' || StatsGate::isBot($ua) || !preg_match('#^/[^\s?\#]{0,254}$#D', $path)) {
             return new Response('', 204);
         }
         $db = $app->db();

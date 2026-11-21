@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Front\Stats;
 
 /**
  * Contact clicks as leads (2.12): a click on a phone number, an e-mail address or a WhatsApp link is a lead like a sent form,
@@ -63,7 +62,7 @@ final class Conversions
         $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
         $type = self::type($request->post('type'));
         $path = self::path($request->post('path'));
-        if ($type === null || $path === null || !Stats::isOn($app) || $ua === '' || Stats::isBot($ua) || $app->auth()->user() !== null) {
+        if ($type === null || $path === null || !StatsGate::isOn($app) || $ua === '' || StatsGate::isBot($ua) || $app->auth()->user() !== null) {
             return new Response('', 204);
         }
         $db = $app->db();

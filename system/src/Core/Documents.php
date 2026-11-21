@@ -199,7 +199,7 @@ final class Documents
     {
         $r = $app->request;
         $userAgent = (string) ($r->serverValues()['HTTP_USER_AGENT'] ?? '');
-        if ($userAgent === '' || \Kaleta\Front\Stats::isBot($userAgent) || $app->auth()->user() !== null) {
+        if ($userAgent === '' || StatsGate::isBot($userAgent) || $app->auth()->user() !== null) {
             return;
         }
         $antispam = new Antispam($app->db(), $app->settings());

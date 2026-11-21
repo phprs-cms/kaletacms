@@ -28,24 +28,6 @@ use Kaleta\Core\Response;
  */
 final class Stats
 {
-    /**
-     * Who is never counted, by the browser's own description (case-insensitive). Generic words first – most crawlers,
-     * monitors and link previewers call themselves a bot, crawler, spider or preview – then well-known names without
-     * such a word: HTTP libraries and headless browsers, search engines' and AI companies' fetchers, link previews of chat
-     * apps and social networks, performance and uptime tools. tools/unit-tests.php checks it against real user agents
-     * (bots matched, Chrome, Safari, Firefox, Edge, Samsung Internet and Android WebView not).
-     */
-    private const string BOTS = '/'
-        . 'bot|crawl|spider|slurp|preview|monitor|scan|check|feed|headless|lighthouse'                       // generic words
-        . '|curl|wget|python|java\/|http|okhttp|axios|node-fetch|phantomjs|puppeteer|playwright|selenium'      // libraries, headless and test browsers (Go-http-client, python-requests)
-        . '|facebookexternalhit|meta-externalagent|bytespider|google-inspectiontool|google-extended|googleother'
-        . '|mediapartners-google|google-read-aloud|applebot|dataprovider|chatgpt-user|perplexity-user|claude-user'
-        . '|claude-web|anthropic-ai|cohere-ai|mistralai-user|ccbot|amazonbot'                                // search engines, ads and AI fetchers
-        // link previews; not "pinterest": the app's own browser says [Pinterest/iOS] for a person, its crawler says bot (N329-2)
-        . '|whatsapp|telegrambot|slackbot|discordbot|skypeuripreview|linkedinbot|twitterbot|embedly|iframely|vkshare|viber'
-        . '|chrome-lighthouse|ptst|gtmetrix|pingdom|uptimerobot|statuscake|site24x7|newrelic|datadog'        // speed and uptime tools
-        . '/i';
-
     /** A visitor (daily hash) adds no more page views after this many in one day – nobody reads 300 pages of a company site a day. */
     public const int DAILY_VIEWS = 300;
 
@@ -66,25 +48,22 @@ final class Stats
         };
     }
 
-    /**
-     * The built-in statistics are on: the Statistics feature is the only switch (3.2 – the old "stats" setting is no longer
-     * read; migration 0073 switched the feature off where that setting was off). Real-user speed follows the same switch.
-     */
+    /** The built-in statistics are on (3.2) – 3.50.1: Core\StatsGate::isOn, this name stays for callers. */
     public static function isOn(App $app): bool
     {
-        return self::enabled($app->settings());
+        return \Kaleta\Core\StatsGate::isOn($app);
     }
 
-    /** The same, from the settings alone (the privacy text, the fleet heartbeat, MCP). */
+    /** The same, from the settings alone – 3.50.1: Core\StatsGate::enabled. */
     public static function enabled(\Kaleta\Core\Settings $settings): bool
     {
-        return \Kaleta\Core\Extensions::isEnabled($settings, 'statistika');
+        return \Kaleta\Core\StatsGate::enabled($settings);
     }
 
-    /** A crawler, a monitoring tool or a test browser by its own description – never counted. */
+    /** A crawler, a monitoring tool or a test browser by its own description – never counted (Core\StatsGate::BOTS since 3.50.1). */
     public static function isBot(string $userAgent): bool
     {
-        return preg_match(self::BOTS, $userAgent) === 1;
+        return \Kaleta\Core\StatsGate::isBot($userAgent);
     }
 
     /**
@@ -108,7 +87,7 @@ final class Stats
     /**
      * Why a beacon is not from a person looking at a page of this site – null when it may be. Pure (the request's server
      * values and the site's origin only), so tools/unit-tests.php checks every rule:
-     *  - 'agent': no user agent, or a known bot (BOTS);
+     *  - 'agent': no user agent, or a known bot (Core\StatsGate::BOTS);
      *  - 'prefetch': the browser fetches ahead for a page nobody has seen yet (Sec-Purpose / Purpose: prefetch, prerender);
      *  - 'origin': the request comes from another site – the Origin header names a different host than this request's own
      *    (the Host header, a proxy's X-Forwarded-Host) or the configured site address. 'null' is no host to compare: the
