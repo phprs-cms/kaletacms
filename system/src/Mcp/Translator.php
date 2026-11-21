@@ -458,6 +458,7 @@ final class Translator
     private const array MESSAGES = [
         'Chybí data souboru v base64 (parametr data), nebo url.' => 'The file data in base64 (the data parameter) or url is missing.',
         'Chybí kategorie.' => 'The category is missing.',
+        'Formulář žádostí o místo smí odebrat nebo nahradit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.' => 'Only a user who may open Applications can remove or replace a job application form – not published, the draft stays saved.', // 3.50 N132
         'Chybí název kategorie.' => 'The category name is missing.',
         'Chybí název kolekce.' => 'The collection name is missing.',
         'Kopie stavby potřebuje preklad_z – ID stránky ve výchozím jazyce, a jazyk překladu.' => 'copy_build needs translation_of – the ID of the page in the default language – and the language of the translation.',
@@ -578,6 +579,7 @@ final class Translator
         '/^Prvek „(.*)“ nemůže obsahovat další prvky – vynechány\.$/su' => 'The “$1” element cannot contain other elements – left out.',
         '/^Prvek „(.*)“ smí vložit jen správce webu – vynechán\.$/su' => 'Only the site administrator can add the “$1” element – left out.',
         '/^Účel formuláře \(žádost o místo\) smí měnit jen uživatel se sekcí Žádosti o místo – ponechán\.$/su' => 'Only a user who may open Applications can change the Purpose of a form (job application) – kept as it was.', // 3.34 review low (f)
+        '/^Příjemce formuláře žádostí o místo smí měnit jen uživatel se sekcí Žádosti o místo – ponecháni\.$/su' => 'Only a user who may open Applications can change the recipients of a job application form – kept as they were.', // 3.50 N132
         '/^Příliš hluboké vnoření – vnořené prvky vynechány\.$/su' => 'Nesting too deep – the nested elements were left out.',
         '/^Stavba musí být objekt \{"v": 1, "deti": \[\.\.\.\]\}\.$/su' => 'The build must be an object {"v": 1, "deti": [...]}.',
         '/^Stavba má víc než (\d+) prvků – zbytek vynechán\.$/su' => 'The build has more than $1 elements – the rest was left out.',

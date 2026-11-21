@@ -41,7 +41,9 @@ final class Captcha
     {
         $provider = $s->get('captcha_provider');
 
-        return isset(self::PROVIDERS[$provider]) && $s->get('captcha_site_key') !== '' && $s->get('captcha_secret') !== '' ? $provider : null;
+        // 3.50 N152: a secret this config.php cannot open (a database moved without its vault_key line) keeps the CAPTCHA on –
+        // verify() then answers "could not check" and captcha_fail_open decides, never "no CAPTCHA at all"
+        return isset(self::PROVIDERS[$provider]) && $s->get('captcha_site_key') !== '' && ($s->get('captcha_secret') !== '' || $s->secretUnreadable('captcha_secret')) ? $provider : null;
     }
 
     /** The widget for inside a form (with the provider's script the first time on the page); '' when the CAPTCHA is off. */
@@ -73,6 +75,9 @@ final class Captcha
         $provider = self::provider($s);
         if ($provider === null) {
             return true;
+        }
+        if ($s->secretUnreadable('captcha_secret')) {
+            return null; // 3.50 N152: the provider cannot be asked without the secret
         }
         [, , $field, $url] = self::PROVIDERS[$provider];
         $answer = $r->post($field);

@@ -37,7 +37,7 @@ final class UserSignature
     public static function forUser(App $app, array $user): array
     {
         $record = TeamRecord::forUser($app->db(), $user);
-        if ($record !== null) {
+        if ($record !== null && (int) ($record['item']['zobrazit'] ?? 1) === 1) { // 3.50 N133: a hidden Team record never signs mail
             return EmailSignature::forItem($app, $record['collection'], $record['item']) + ['source' => 'team', 'record' => $record];
         }
 
@@ -48,7 +48,7 @@ final class UserSignature
      * The fallback signature of an account: the template's lines, or the standard layout without a template (or when the
      * template leaves no line). Pure.
      *
-     * @param array<string, mixed> $user jmeno, user, pozice, phone, email, foto
+     * @param array<string, mixed> $user jmeno, pozice, phone, email, foto
      * @param array{name: string, url: string, base: string, phone: string, address: string, color: string, text_font: string, heading_font: string, logo: string} $site EmailSignature::site()
      * @return array{html: string, text: string}
      */
@@ -77,8 +77,10 @@ final class UserSignature
     public static function values(array $user, array $site): array
     {
         $clean = fn (mixed $v): string => trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) $v)));
-        $name = $clean($user['jmeno'] ?? '') !== '' ? $clean($user['jmeno']) : $clean($user['user'] ?? '');
         $email = $clean($user['email'] ?? '');
+        // 3.50 N134: never the sign-in name – without a display name the local part of the e-mail, else the company (as Colleagues::all)
+        $name = $clean($user['jmeno'] ?? '') !== '' ? $clean($user['jmeno'])
+            : (filter_var($email, FILTER_VALIDATE_EMAIL) !== false ? (string) strstr($email, '@', true) : $clean($site['name']));
         $url = preg_match('#^https?://[^\s"<>]+$#D', $site['url']) ? $site['url'] : '';
 
         return [

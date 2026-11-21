@@ -160,9 +160,14 @@ final class PersonalData
      * source that cannot be read (a table an older backup lacks, a column a migration has not added yet) is logged and
      * skipped; the others are still read.
      *
+     * 3.50 N170: a source skipped for any other database error (a lost connection, a lock wait time-out) is named in
+     * $skipped, so the restore reports that it could not apply every erasure again; only a missing table or column is
+     * skipped silently.
+     *
+     * @param list<string> $skipped filled with the tables skipped for another error than a missing table or column
      * @return \Generator<int, string>
      */
-    public static function candidates(Db $db): \Generator
+    public static function candidates(Db $db, array &$skipped = []): \Generator
     {
         $sources = [];
         foreach (['poptavky' => ['idp', 'email'], 'odberatele' => ['ido', 'email'], 'contacts' => ['id', 'email'], 'bookings' => ['id', 'email'],
@@ -197,6 +202,9 @@ final class PersonalData
                     // N4: one source that cannot be read (a missing table or column of a half-restored database, or any other
                     // database error) is logged and skipped – the erasures still reach the addresses of the others
                     ErrorLog::write(ErrorLog::exception($e));
+                    if (!Db::tableMissing($e)) {
+                        $skipped[] = $table;
+                    }
                     break;
                 }
                 foreach ($rows as $row) {

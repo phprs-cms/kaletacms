@@ -38,7 +38,7 @@ check('[source-pin] 3.35 review M3: the rules read only the passkeys of this hos
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/sql/migrace/0121-passkey-sign-in.sql'), "ALTER TABLE ka_uzivatele_klice ADD COLUMN rp_id VARCHAR(255) NOT NULL DEFAULT '';"),
 ], [8, 0, 3, true, true, true, true]);
 check('[source-pin] 3.35 review M3: a new host of the site address needs the confirmation and Auth::freshProof (recent), never the passkey-only password', [
-    (bool) preg_match("/function signInChangeRefusal\(.*?SignInPolicy::hostChanges\(.*?postBool\('site_url_confirm'\).*?->freshProof\(.*?'recent'\)/s", $r353Settings),
+    (bool) preg_match("/function signInChangeRefusal\(.*?SignInPolicy::originChanges\(.*?postBool\('site_url_confirm'\).*?->freshProof\(.*?'recent'\)/s", $r353Settings),
     str_contains($r353Settings, "\$value = \\Kaleta\\Core\\SignInPolicy::normaliseSiteUrl(\$value);"),
 ], [true, true]);
 check('3.35 review M3: the texts are translated (cs, de, es)', array_map(fn (string $code): array => Kaleta\Core\Language::runWith($code, fn (): array => [

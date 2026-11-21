@@ -108,11 +108,18 @@ final class Build
     /** @var array<string, string> the Purpose of each form of the previous build while sanitize() runs (purposeAllowed false) */
     private static array $previousPurposes = [];
 
+    /** 3.50 N132: why a publish is refused (Builder\Publisher::guard) – Czech like the other builder notes, English in Mcp\Translator::MESSAGES. */
+    public const string APPLICATION_FORM_REFUSED = 'Formulář žádostí o místo smí odebrat nebo nahradit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.';
+
+    /** @var array<string, string> the recipients of each application form of the previous build while sanitize() runs (purposeAllowed false, 3.50 N132) */
+    private static array $previousRecipients = [];
+
     public static function sanitize(mixed $input, bool $admin = true, ?array $previous = null): array
     {
-        self::$previousPurposes = self::$purposeAllowed === false && $previous !== null
-            ? array_map(fn (array $p): string => (string) ($p['obsah']['ucel'] ?? ''), self::elementsOfType($previous, fn (string $className): bool => $className::TYPE === 'formular'))
-            : [];
+        $previousForms = self::$purposeAllowed === false && $previous !== null ? self::elementsOfType($previous, fn (string $className): bool => $className::TYPE === 'formular') : [];
+        self::$previousPurposes = array_map(fn (array $p): string => (string) ($p['obsah']['ucel'] ?? ''), $previousForms);
+        self::$previousRecipients = array_map(fn (array $p): string => (string) ($p['obsah']['prijemce'] ?? ''),
+            array_filter($previousForms, fn (array $p): bool => ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE));
         $errors = [];
         $used = [];
         $count = 0;
@@ -158,6 +165,14 @@ final class Build
                     unset($clean['obsah']['ucel']);
                 }
                 $errors[$place . '.obsah.ucel'] = 'Účel formuláře (žádost o místo) smí měnit jen uživatel se sekcí Žádosti o místo – ponechán.';
+            }
+            // 3.50 N132: the recipients of an application form are locked the same way – they receive the applicants' CVs
+            if ($className::TYPE === 'formular' && self::$purposeAllowed === false && isset(self::$previousRecipients[$id]) && (string) ($clean['obsah']['prijemce'] ?? '') !== self::$previousRecipients[$id]) {
+                $clean['obsah']['prijemce'] = self::$previousRecipients[$id];
+                if ($clean['obsah']['prijemce'] === '') {
+                    unset($clean['obsah']['prijemce']);
+                }
+                $errors[$place . '.obsah.prijemce'] = 'Příjemce formuláře žádostí o místo smí měnit jen uživatel se sekcí Žádosti o místo – ponecháni.';
             }
             $style = Style::sanitize($p['styl'] ?? [], $place . '.styl', $errors);
             if ($style !== []) {
@@ -526,6 +541,24 @@ final class Build
     }
 
     /** @return array<string, array<string, mixed>> id => element for all elements whose class meets the condition */
+    /**
+     * 3.50 N132: the ids of the application forms (Purpose = job application) of $published that $new no longer has as an
+     * application form – removed, or replaced by a form without the Purpose. Pure; a build that does not decode has none.
+     *
+     * @return list<string>
+     */
+    public static function droppedApplicationForms(?string $published, ?string $new): array
+    {
+        $forms = function (?string $json): array {
+            $build = $json === null ? null : self::fromJson($json);
+
+            return $build === null ? [] : array_keys(array_filter(self::elementsOfType($build, fn (string $className): bool => $className::TYPE === 'formular'),
+                fn (array $p): bool => ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE));
+        };
+
+        return array_values(array_map('strval', array_diff($forms($published), $forms($new))));
+    }
+
     private static function elementsOfType(array $build, callable $condition): array
     {
         $found = [];

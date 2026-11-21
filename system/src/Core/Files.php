@@ -30,6 +30,22 @@ final class Files
     }
 
     /**
+     * 3.50 L10: may a visitor's file of a type the signature list cannot confirm (FileSignature::TYPES lacks it – a drawing,
+     * a HEIC photo) be kept? Refused only on positive evidence: finfo names HTML, PHP, a script, SVG or a program, or the
+     * bytes start like a program. A type the list knows goes through forbiddenContent() instead (enquiryUploadAccepted).
+     */
+    public static function enquiryUploadAccepted(string $path, string $extension): bool
+    {
+        $extension = strtolower($extension);
+        if (isset(FileSignature::TYPES[$extension])) {
+            return !self::forbiddenContent($path, $extension);
+        }
+        $type = self::mimeOf($path, $extension);
+
+        return !FileSignature::isProgram((string) @file_get_contents($path, false, null, 0, 8)) && ($type === '' || preg_match(self::FORBIDDEN_TYPES, $type) !== 1);
+    }
+
+    /**
      * Test seam (3.46.2): true = work as if the fileinfo extension were missing. Honoured only on a test copy
      * (Core\TestSeams); the smoke test sets the switch KALETA_NO_FILEINFO on a server of its own instead.
      */

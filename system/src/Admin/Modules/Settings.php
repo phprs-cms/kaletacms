@@ -555,8 +555,9 @@ class Settings extends Module
         $settings = $this->app->settings();
         $sensitive = [];
         $unconfirmed = []; // 3.35 re-review N1: refused on top of the proof, never instead of checking the other fields
+        $newUrl = \Kaleta\Core\SignInPolicy::normaliseSiteUrl($this->request->post('site_url'));
         if (isset($fields['site_url']) && array_key_exists('site_url', $_POST)
-            && \Kaleta\Core\SignInPolicy::hostChanges($settings->get('site_url'), \Kaleta\Core\SignInPolicy::normaliseSiteUrl($this->request->post('site_url')))
+            && \Kaleta\Core\SignInPolicy::originChanges($settings->get('site_url'), $newUrl) // 3.50 N137: a scheme or port change too
             && ((int) $this->db->value('SELECT COUNT(*) FROM {uzivatele_klice}') > 0 || $settings->get('signin_passkey_only') === '1')) {
             if ($this->request->postBool('site_url_confirm')) {
                 $sensitive[] = 'site_url';
@@ -571,7 +572,7 @@ class Settings extends Module
         if (isset($fields['require_2fa']) && array_key_exists('require_2fa', $_POST) && $this->request->post('require_2fa') !== $settings->get('require_2fa')) {
             $sensitive[] = 'require_2fa';
         }
-        $confirmReason = $unconfirmed !== [] ? self::HOST_CHANGE_CONFIRM : '';
+        $confirmReason = $unconfirmed === [] ? '' : (\Kaleta\Core\SignInPolicy::hostChanges($settings->get('site_url'), $newUrl) ? self::HOST_CHANGE_CONFIRM : self::ORIGIN_CHANGE_CONFIRM);
         if ($sensitive === []) {
             return [$unconfirmed, $confirmReason];
         }
@@ -589,6 +590,9 @@ class Settings extends Module
     }
 
     /** 3.35 review M3: a new site address on another host was posted without the confirmation. */
+    /** 3.50 N137: the same host with another scheme or port – passkeys check the exact origin of the address. */
+    public const string ORIGIN_CHANGE_CONFIRM = 'The new site address keeps the host name but changes the scheme or the port. Passkeys are checked against the exact address: if the site is not really served there, nobody can sign in with a passkey until the address is put back. Tick the confirmation under the address and save again.';
+
     public const string HOST_CHANGE_CONFIRM = 'The new site address has another host name. Passkeys work only on the host they were registered on: those of the old address stop working, and their accounts sign in with the password and the second step until they add new ones. Tick the confirmation under the address and save again.';
 
     /** 3.35 review M3: the answers when a change of how people sign in comes without a fresh proof. */

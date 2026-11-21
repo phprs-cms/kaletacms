@@ -39,6 +39,7 @@ $field('company_phone', 'Phone', 'text', 'With the country code, e.g. +44 20 794
 $field('company_email', 'Public email', 'email', 'Contact for visitors and search engines. The site email from the General tab (where enquiries are sent) is not shown on the site.', 'maxlength="190" autocomplete="email"');
 ?>
 </fieldset>
+<?php if ($app->auth()->isAdmin()): // 3.50 N135: the template signs every colleague's replies – administrators only ?>
 <fieldset>
 <legend><?= e(t('E-mail signature')) ?></legend>
 <?php
@@ -46,6 +47,7 @@ $field('company_email', 'Public email', 'email', 'Contact for visitors and searc
 $field('email_signature_template', 'Signature of people without a Team record', 'radky', 'For colleagues who have no record in the Team collection: one line of the signature per line, with {name} {position} {phone} {email} {company} {website} {address}. A line whose placeholders are all empty is left out. Empty = the standard layout with the photo and the logo. Each person copies it in My account → My e-mail signature and replies from Kaleta carry it.', 'spellcheck="false" maxlength="2400" placeholder="{name}&#10;{position}&#10;{phone} · {email}&#10;{company} · {website}"');
 ?>
 </fieldset>
+<?php endif ?>
 <fieldset>
 <legend><?= e(t('Opening hours and map')) ?></legend>
 <?php

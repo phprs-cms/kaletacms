@@ -28,8 +28,30 @@ final class ClaudeInstructions
         $user = $app->auth()->user();
         $via = (string) ($app->auth()->connection()['name'] ?? '');
         ChangeLog::write($app, 'claude_settings', $blueprint !== '' ? 'blueprint instructions changed' : 'instructions changed', ($blueprint !== '' ? mb_substr($blueprint, 0, 40) . ': ' : '') . self::logText($old, $new));
-        $app->settings()->set('claude_instructions_notice', (string) json_encode(['at' => Clock::now(), 'by' => (string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''),
-            'via' => $via, 'old' => $old, 'new' => $new] + ($blueprint !== '' ? ['blueprint' => $blueprint] : []), JSON_UNESCAPED_UNICODE));
+        $app->settings()->set('claude_instructions_notice', (string) json_encode(self::merged(self::notice($app->settings()), ['at' => Clock::now(),
+            'by' => (string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 'via' => $via, 'old' => $old, 'new' => $new, 'blueprint' => $blueprint]), JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * 3.50 N150: a later change never hides an unseen one – the notice keeps the text from before the first unseen change
+     * ("old") and the name of a blueprint that brought instructions; the new text, the time and who changed it are the
+     * latest. Pure.
+     *
+     * @param array{at: string, by: string, via: string, old: string, new: string, blueprint: string}|null $unseen notice()
+     * @param array{at: string, by: string, via: string, old: string, new: string, blueprint: string} $change
+     * @return array<string, string>
+     */
+    public static function merged(?array $unseen, array $change): array
+    {
+        if ($unseen !== null) {
+            $change['old'] = $unseen['old'];
+            $change['blueprint'] = $unseen['blueprint'] !== '' ? $unseen['blueprint'] : $change['blueprint'];
+        }
+        if ($change['blueprint'] === '') {
+            unset($change['blueprint']);
+        }
+
+        return $change;
     }
 
     /** "before: «…» → now: «…»", each text shortened so both fit in a change log row. */

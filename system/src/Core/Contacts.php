@@ -729,6 +729,9 @@ final class Contacts
         if ($text === '') {
             throw new \DomainException(t('Write what happened first.'));
         }
+        if (self::mergeNoteAddress($text) !== null) { // 3.50 N141: a personal-data request would take such a note for a real merge
+            throw new \DomainException(t('Only Kaleta writes the note of a merged contact – word the entry differently.'));
+        }
         $at = $happenedAt === null || trim($happenedAt) === '' ? Clock::now() : (Tasks::parseMoment($happenedAt) ?? Clock::now());
         $id = self::insertActivity($db, $contactId, $kind, $text, $user, $at);
         self::touch($db, $contactId, $at);
@@ -1297,6 +1300,17 @@ final class Contacts
      */
     public static function mergeNoteNames(string $text, string $norm): bool
     {
+        $address = self::mergeNoteAddress($text);
+
+        return $address !== null && PersonalData::cleanAddress($address) === $norm; // 3.35 review L5
+    }
+
+    /**
+     * 3.50 N141: the address a text names when it has the shape of a legacy merge note ("Merged with the contact #12
+     * (x@example.com).", in any admin language and register), null for any other text. Pure.
+     */
+    public static function mergeNoteAddress(string $text): ?string
+    {
         static $patterns = null;
         if ($patterns === null) {
             $patterns = [];
@@ -1309,12 +1323,12 @@ final class Contacts
             $patterns = array_values(array_unique($patterns));
         }
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, trim((string) preg_replace('/[\s\p{Z}]+/u', ' ', $text)), $m) === 1 && PersonalData::cleanAddress($m[1]) === $norm) { // 3.35 review L5
-                return true;
+            if (preg_match($pattern, trim((string) preg_replace('/[\s\p{Z}]+/u', ' ', $text)), $m) === 1) {
+                return $m[1];
             }
         }
 
-        return false;
+        return null;
     }
 
     /* ---------- internals ---------- */

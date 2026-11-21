@@ -48,25 +48,31 @@ final class Mail
      *        a queued copy is dropped after it instead of being sent, and a backup never carries its body
      * @throws \InvalidArgumentException when the attachments are too large or not files
      */
-    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = '', array $attachments = [], int $expires = 0): bool
+    public static function send(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], bool $queueOnFailure = true, string $logSubject = '', array $attachments = [], int $expires = 0, bool $tryNow = true): bool
     {
+        // 3.50 L2: $tryNow false (another copy of the same notification already failed in this request) queues the message
+        // without trying – it goes after the response (afterResponse) or with the background jobs, never on the visitor's time
+        $tryNow = $tryNow || !$queueOnFailure;
         if ($html === '' && Language::isRtl(Language::code())) {
             $html = self::rightToLeft($text, Language::code()); // a plain message in Arabic reads from the right in every mail client
         }
         $attachments = self::attachments($attachments);
-        $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers, $attachments);
-        $error = self::$error;
+        $ok = $tryNow && self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers, $attachments);
+        $error = $tryNow ? self::$error : '';
         self::$lastId = null;
         try {
             self::$lastId = $siteSettings->db()->insert('posta', [
-                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($logSubject !== '' ? $logSubject : $subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
+                'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($logSubject !== '' ? $logSubject : $subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => $tryNow ? 1 : 0,
                 'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
                 'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers] + ($logSubject !== '' ? ['predmet' => $subject] : [])
                     + (($queued = array_values(array_filter($attachments, fn (array $a): bool => ($a['queue'] ?? true) !== false))) !== []
                         ? ['prilohy' => array_map(fn (array $a): array => ['name' => $a['name'], 'type' => $a['type'], 'data' => base64_encode($a['data'])], $queued)] : [])
                     + ($expires > 0 ? ['expires' => $expires] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
-                'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
+                'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + ($tryNow ? self::RETRY_DELAYS[0] * 60 : 0)),
             ]);
+            if (!$tryNow) {
+                self::$pending = true;
+            }
             if (random_int(1, 50) === 1) {
                 $siteSettings->db()->run('DELETE FROM {posta} WHERE vytvoreno < ?', [Clock::at('-30 days')]);
             }

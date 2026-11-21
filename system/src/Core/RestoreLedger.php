@@ -484,7 +484,13 @@ final class RestoreLedger
         }
         $step('queues', fn (): array => ['queue_rows_again' => self::stopQueues($db, $before['queues'])]);
         $step('sent', fn (): array => ['sent_flags_again' => self::sentFlags($db, $before['flags'] ?? [], $before['settings'] ?? [])]);
-        $step('people', fn (): array => self::people($app, $madeAt));
+        $skipped = [];
+        $step('people', function () use ($app, $madeAt, &$skipped): array {
+            return self::people($app, $madeAt, $skipped);
+        });
+        if ($skipped !== []) { // 3.50 N170: a source of addresses that could not be read – the erasures did not reach everyone
+            $failed[] = 'people (' . implode(', ', array_unique($skipped)) . ')';
+        }
         $step('returned', fn (): array => ['returned' => self::forgetReturned($db)]);
         $app->settings()->reload();
         $done['failed_after'] = $failed;
@@ -1016,9 +1022,10 @@ final class RestoreLedger
      * The erasures and unsubscribes recorded after the backup was made ($madeAt; null = all of them) are applied again to the
      * restored tables.
      *
+     * @param list<string> $skipped the sources PersonalData::candidates() could not read (3.50 N170)
      * @return array{erased: int, unsubscribed: int}
      */
-    private static function people(App $app, ?string $madeAt): array
+    private static function people(App $app, ?string $madeAt, array &$skipped = []): array
     {
         $db = $app->db();
         $wanted = [];
@@ -1034,7 +1041,7 @@ final class RestoreLedger
         // field, a merge note or a queued body is erased again too; (N1) read in batches and compared as they come, each
         // address handled once
         $handled = [];
-        foreach (PersonalData::candidates($db) as $email) {
+        foreach (PersonalData::candidates($db, $skipped) as $email) {
             $hash = self::keyedHash($key, $email);
             if (!isset($wanted[$hash]) || isset($handled[$hash])) {
                 continue;

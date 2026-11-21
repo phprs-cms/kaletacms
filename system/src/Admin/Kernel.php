@@ -792,7 +792,7 @@ final class Kernel
                 $query[$name] = $this->app->request->get($name);
             }
         }
-        $link = \Kaleta\Core\FileLink::fromQuery($query);
+        $link = \Kaleta\Core\FileLink::rememberable(\Kaleta\Core\FileLink::key($this->app), $query, time()); // 3.50 L9: only a live, true link
         if ($link !== null) {
             $this->app->session->set(self::LINK_AFTER_SIGN_IN, $link);
         }

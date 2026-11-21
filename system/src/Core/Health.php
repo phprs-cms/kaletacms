@@ -47,7 +47,8 @@ final class Health
             : t('encrypted secrets, CVs, reports and private files - missing, so nothing encrypted can be stored or read; ask the hosting provider to enable it'));
         $fileinfo = class_exists(\finfo::class);
         $add(t('Server'), t('Extension %s', 'fileinfo'), $fileinfo ? 'ok' : (Applications::isOn($siteSettings) ? 'chyba' : 'varovani'), $fileinfo ? t('recognising what uploaded files contain')
-            : t('recognising what uploaded files contain - missing; Kaleta checks the signatures of the allowed file types itself and refuses what it cannot confirm. Job applications with CVs need it – ask the hosting provider to enable it'));
+            : t('recognising what uploaded files contain - missing; Kaleta checks the signatures of the allowed file types itself and refuses what it cannot confirm. Job applications with CVs need it – ask the hosting provider to enable it')
+                . ' ' . t('Until then some ordinary files are refused too: text not in UTF-8 (a Windows-1250 CSV from Excel), a PDF with bytes before its start, an empty file.')); // 3.50 L5
         foreach (['exif' => t('correct rotation of photos from phones'), 'intl' => t('language-aware sorting'), 'curl' => t('notifying search engines about new content')] as $ext => $purpose) {
             $add(t('Server'), t('Extension %s', $ext), extension_loaded($ext) ? 'ok' : 'varovani', extension_loaded($ext) ? $purpose : t('%s - installing it is recommended', $purpose));
         }
@@ -138,6 +139,12 @@ final class Health
             $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'varovani', t('Couldn\'t check whether the web server refuses them – the site address redirects (to %s). Set the address the site really answers on in Settings → General.', (string) $serverRules['redirect']));
         } elseif (isset($serverRules['at']) && ($serverRules['error'] ?? '') === '') {
             $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'ok', t('the web server refuses them to visitors (checked %s)', format_date(date('Y-m-d H:i:s', (int) $serverRules['at']), true)));
+        } elseif (isset($serverRules['at'])) {
+            // 3.50 N151 b: the check ran but could not ask the site – said, without turning the status yellow
+            $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'ok', t('Couldn\'t check whether the web server refuses them (%s, %s) – the daily check tries again.', (string) $serverRules['error'], format_date(date('Y-m-d H:i:s', (int) $serverRules['at']), true)));
+        } else {
+            // 3.50 N151 b: the daily check never ran (a new site, or no cron job) – nothing is known yet
+            $add(t('Bezpečnost'), t('Folders storage/ and system/'), 'ok', t('Not checked yet – the daily check of the scheduled tasks asks the site whether the web server refuses them.'));
         }
         $mediaRules = is_file(KALETA_ROOT . '/media/.htaccess') ? (string) file_get_contents(KALETA_ROOT . '/media/.htaccess') : '';
         if (!is_file(KALETA_ROOT . '/media/.htaccess.kaleta-nova') && (!str_contains($mediaRules, self::MEDIA_RULE) || !str_contains($mediaRules, self::MEDIA_HEADER_RULE))) {

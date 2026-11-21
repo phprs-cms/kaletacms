@@ -232,8 +232,8 @@ final class TeamSummary
     /**
      * The summary a viewer sees: the period, its sections, the team's totals, the viewer's own counts and – only for an
      * administrator ($perPerson) – everyone's, by name (removed or blocked accounts as Assignment labels them; "nobody"
-     * for work nobody is responsible for), the busiest first. The team's totals are null for someone who is not an
-     * administrator while fewer than MIN_PEOPLE people did counted work (3.41 review L3).
+     * for work nobody is responsible for), the busiest first. For someone who is not an administrator the team's totals
+     * hold only the counts enough other people share (visibleTotals, 3.50 N148), null when none (3.41 review L3).
      *
      * @param list<string> $sections
      * @return array{period: string, from: string, to: string, sections: list<string>, team: array<string, int>|null, you: array<string, int>, people: list<array{id: int, name: string, counts: array<string, int>}>|null}
@@ -253,7 +253,7 @@ final class TeamSummary
             usort($people, fn (array $a, array $b): int => [$a['id'] === 0, -array_sum($a['counts']), $a['name']] <=> [$b['id'] === 0, -array_sum($b['counts']), $b['name']]);
         }
 
-        $team = $perPerson || self::people($collected, $sections) >= self::MIN_PEOPLE ? self::totals($collected, $sections) : null;
+        $team = $perPerson ? self::totals($collected, $sections) : self::visibleTotals(self::withoutPlanted($app, $collected, $sections, $viewer), $collected, $sections, $viewer);
 
         return ['period' => $period, 'from' => $from, 'to' => $to, 'sections' => $sections, 'team' => $team,
             'you' => self::row($collected[$viewer] ?? [], $sections), 'people' => $people];
@@ -301,6 +301,59 @@ final class TeamSummary
         }
 
         return ['people' => $people] + array_intersect_key(self::totals($collected, $sections), $counted);
+    }
+
+    /**
+     * 3.50 N148: the team's totals a viewer who is not an administrator may see – per count, only when at least
+     * MIN_PEOPLE − 1 people other than the viewer (not "nobody responsible") have it above 0, so that the totals minus the
+     * viewer's own row are never one colleague's number; null when no count qualifies. $forThreshold decides who counts
+     * (withoutPlanted), $collected gives the totals. Pure.
+     *
+     * @param array<int, array<string, int>> $forThreshold
+     * @param array<int, array<string, int>> $collected
+     * @param list<string> $sections
+     * @return array<string, int>|null
+     */
+    public static function visibleTotals(array $forThreshold, array $collected, array $sections, int $viewer): ?array
+    {
+        $visible = [];
+        foreach (self::totals($collected, $sections) as $count => $total) {
+            $others = count(array_filter($forThreshold, fn (array $c, int $id): bool => $id > 0 && $id !== $viewer && (int) ($c[$count] ?? 0) > 0, ARRAY_FILTER_USE_BOTH));
+            if ($others >= self::MIN_PEOPLE - 1) {
+                $visible[$count] = $total;
+            }
+        }
+
+        return $visible === [] ? null : $visible;
+    }
+
+    /**
+     * 3.50 N148: the counts with the open tasks the viewer created for other people taken away – a task planted on a third
+     * account must not lift the threshold of visibleTotals(). Only for deciding who counts, never for the totals shown.
+     *
+     * @param array<int, array<string, int>> $collected
+     * @param list<string> $sections
+     * @return array<int, array<string, int>>
+     */
+    public static function withoutPlanted(App $app, array $collected, array $sections, int $viewer): array
+    {
+        if (!in_array('tasks', $sections, true) || $viewer <= 0) {
+            return $collected;
+        }
+        $today = Clock::today() . ' 00:00:00';
+        $planted = [
+            'tasks_open' => $app->db()->pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND created_by = ? AND assignee_id <> ? GROUP BY assignee_id', [$viewer, $viewer]),
+            'tasks_overdue' => $app->db()->pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND due_at < ? AND created_by = ? AND assignee_id <> ? GROUP BY assignee_id', [$today, $viewer, $viewer]),
+        ];
+        foreach ($planted as $count => $pairs) {
+            foreach ($pairs as $who => $n) {
+                if (isset($collected[(int) $who][$count])) {
+                    $collected[(int) $who][$count] = max(0, $collected[(int) $who][$count] - (int) $n);
+                }
+            }
+        }
+
+        return $collected;
     }
 
     /**

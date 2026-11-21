@@ -137,6 +137,20 @@ final class Forms
                         return $redirectUri('pole', $i); // 3.34: "This file type is not accepted" – nothing is stored
                     }
                 }
+                if ($uploaded && !$application) {
+                    // 3.50 L10: an enquiry's file gets the content check of uploads too – never HTML, PHP, a script, SVG or a
+                    // program, whatever the extension says; a check that breaks ends as for an application (not stored, said)
+                    try {
+                        $accepted = \Kaleta\Core\Files::enquiryUploadAccepted((string) $file['tmp_name'], $extension);
+                    } catch (\Throwable $e) {
+                        self::fileCheckFailed($this->app, $e, (string) $element['id']);
+
+                        return $redirectUri('ulozeni');
+                    }
+                    if (!$accepted) {
+                        return $redirectUri('pole', $i);
+                    }
+                }
                 if (!$uploaded && $field['povinne']) {
                     return $redirectUri('pole', $i, true);
                 }
@@ -470,9 +484,12 @@ final class Forms
             . "\n\n—\n" . t('Enquiry in the administration: %s', $url . $this->app->url('admin.php?module=enquiries&action=detail&id=' . $idp));
         $headers = $email !== '' ? ['Reply-To' => $email] : [];
         [$subject, $base] = self::notificationSubject((string) $element['obsah']['nazev'], $siteSettings->get('site_name'), $email, $data);
-        Mail::send($siteSettings, implode(', ', $to), $subject, $body(\Kaleta\Core\FileLink::text($files)), '', $headers, true, $base); // the log keeps the base only
+        // 3.50 L8: a queued copy carries the fields and the links – it expires with the links and never goes into a backup;
+        // L2: after the first failed delivery the other copies are queued without a try
+        $expires = time() + \Kaleta\Core\FileLink::DAYS * 86400;
+        $ok = Mail::send($siteSettings, implode(', ', $to), $subject, $body(\Kaleta\Core\FileLink::text($files)), '', $headers, true, $base, [], $expires); // the log keeps the base only
         foreach ($bcc as $address) {
-            Mail::send($siteSettings, $address, $subject, $body(''), '', $headers, true, $base); // each hidden recipient alone – nobody sees the others
+            $ok = Mail::send($siteSettings, $address, $subject, $body(''), '', $headers, true, $base, [], $expires, $ok); // each hidden recipient alone – nobody sees the others
         }
     }
 
@@ -499,7 +516,7 @@ final class Forms
      * Where notification e-mails with the person's details went (3.46.2, for find_personal_data and erase_personal_data):
      * one line per form of the found enquiries – their notification always carries every field – and of the found
      * applications, whose notification carried the details only while "full details" was on (review L7: the state at the
-     * time is not stored, so they "may have been sent"); with the recipients the published form names now. Copies in those
+     * time is not stored, so they "may have been sent"); with the recipients the published form names now (3.50 L7: said so). Copies in those
      * mailboxes are outside Kaleta; the erasure cannot reach them. Empty when nothing was found.
      *
      * @param array<string, mixed> $found Core\PersonalData::find()
@@ -525,10 +542,13 @@ final class Forms
         foreach ($forms as [$kind, $source, $element, $name]) {
             $form = self::findElement($db, $source, $element, 'formular');
             [$to, $bcc] = $form === null ? [[], []] : self::recipients((string) ($form['obsah']['prijemce'] ?? ''), (string) ($form['obsah']['skryta_kopie'] ?? ''), $app->settings()->get('site_email'));
-            $who = [...$to, ...$bcc] !== [] ? implode(', ', [...$to, ...$bcc]) : t('the recipients of the form');
-            $out[] = $kind === 'e'
-                ? t('Notification e-mails with the details from the form “%s” were sent to %s – copies in their mailboxes are outside Kaleta.', $name, $who)
-                : t('Notification e-mails about applications from the form “%s” went to %s and may have carried the details (when the full details were switched on) – copies in their mailboxes are outside Kaleta.', $name, $who);
+            // 3.50 L7: the recipients the form has now (who got the e-mails then is not stored); no claim when it has none
+            $who = implode(', ', [...$to, ...$bcc]);
+            $out[] = match (true) {
+                $who === '' => t('The form “%s” has no recipients now – where its notification e-mails went before is not recorded; copies in mailboxes are outside Kaleta.', $name),
+                $kind === 'e' => t('Notification e-mails with the details from the form “%s” were sent to its recipients (now: %s) – copies in their mailboxes are outside Kaleta.', $name, $who),
+                default => t('Notification e-mails about applications from the form “%s” went to its recipients (now: %s) and may have carried the details (when the full details were switched on) – copies in their mailboxes are outside Kaleta.', $name, $who),
+            };
         }
 
         return $out;

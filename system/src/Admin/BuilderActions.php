@@ -276,7 +276,15 @@ trait BuilderActions
         if (($conflict = $this->checkVersionConflict($target)) !== null) {
             return $conflict;
         }
-        $this->publishTarget($target);
+        try {
+            $this->publishTarget($target);
+        } catch (\DomainException $e) {
+            if ($e->getMessage() !== Publisher::APPLICATION_FORM_REFUSED) {
+                throw $e;
+            }
+
+            return Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can remove or replace a job application form. Nothing was published; your changes stay saved as a draft.')], 403);
+        }
         ChangeLog::write($this->app, static::IDENT, 'build published', mb_substr($target['titulek'], 0, 80));
         $published = $this->loadBuildTarget();
 
