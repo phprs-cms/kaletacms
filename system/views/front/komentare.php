@@ -35,9 +35,9 @@
 <?php if ($vysledek === 'ok'): ?>
 	<p class="ka-komentare-vysledek" role="status"><?= e(t('Thank you, your comment was sent to the people who edit this page.')) ?></p>
 <?php elseif ($vysledek === 'limit'): ?>
-	<p class="ka-komentare-vysledek chyba" role="status"><?= e(t('That is a lot of comments in a short time – please try again in a few minutes.')) ?></p>
+	<p class="ka-komentare-vysledek chyba" role="alert"><?= e(t('That is a lot of comments in a short time – please try again in a few minutes.')) ?></p>
 <?php elseif ($vysledek === 'chyba'): ?>
-	<p class="ka-komentare-vysledek chyba" role="status"><?= e(t('The comment could not be saved. Write your name and the comment and try again.')) ?></p>
+	<p class="ka-komentare-vysledek chyba" role="alert"><?= e(t('The comment could not be saved. Write your name and the comment and try again.')) ?></p>
 <?php endif ?>
 	<p class="ka-komentare-pozn"><?= e(t('Click a part of the page to attach the comment to it, or select a piece of text to quote it.')) ?></p>
 	<p class="ka-komentare-cil" data-ka-komentar-prvek hidden><?= e(t('Attached to:')) ?> <span></span><button type="button"><?= e(t('detach')) ?></button></p>
@@ -84,8 +84,25 @@
 		if (text) { quoteField.value = text; quoteRow.querySelector('span').textContent = text; quoteRow.hidden = false; }
 	});
 	try { form.elements.jmeno.value = localStorage.getItem('ka-komentar-jmeno') || ''; } catch (e) { /* storage blocked */ }
-	form.addEventListener('submit', function () { try { localStorage.setItem('ka-komentar-jmeno', form.elements.jmeno.value); } catch (e) { /* storage blocked */ } });
-	if (<?= $vysledek !== '' ? 'true' : 'false' ?>) { open(true); }
+	form.addEventListener('submit', function () {
+		try {
+			localStorage.setItem('ka-komentar-jmeno', form.elements.jmeno.value);
+			// 3.50.1 (UX-l7): the comment stays in this tab until the site accepts it – a refused one comes back
+			sessionStorage.setItem('ka-komentar-koncept', JSON.stringify({ text: form.elements.text.value, prvek: elementField.value, citace: quoteField.value }));
+		} catch (e) { /* storage blocked */ }
+	});
+	var result = <?= json_encode($vysledek, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+	try {
+		var draft = JSON.parse(sessionStorage.getItem('ka-komentar-koncept') || 'null');
+		if (result === 'ok') { sessionStorage.removeItem('ka-komentar-koncept'); }
+		if ((result === 'limit' || result === 'chyba') && draft) {
+			form.elements.text.value = String(draft.text || '');
+			if (draft.citace) { quoteField.value = String(draft.citace); quoteRow.querySelector('span').textContent = quoteField.value; quoteRow.hidden = false; }
+			var again = draft.prvek ? document.querySelector('[data-ka-id="' + String(draft.prvek).replace(/["\\]/g, '') + '"]') : null;
+			if (again) { attach(again); }
+		}
+	} catch (e) { /* storage blocked or an unreadable draft */ }
+	if (result !== '') { open(true); }
 })();
 </script>
 </div>
