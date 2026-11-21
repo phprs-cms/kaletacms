@@ -40,7 +40,7 @@ sq "DELETE FROM ka_posta WHERE idp > $A524_M0 AND (komu LIKE '%-a524@example.com
 A524_PATH=$(a524_php '$data = json_decode((string) $app->db()->value("SELECT data FROM {poptavky} WHERE idp = ?", ['"${A524_E:-0}"']), true) ?: []; $file = 0; foreach ($data as $i => $d) { if (($d[2] ?? "") !== "") { $file = (int) $i; } } echo Kaleta\Core\FileLink::path(Kaleta\Core\FileLink::key($app), "enquiries", '"${A524_E:-0}"', $file, time() + 3600);')
 A524_LOG0=$(sq "SELECT COALESCE(MAX(idp), 0) FROM ka_protokol")
 A524_CROSS=$(curl -s -b "$JAR" -c "$JAR" -H 'Sec-Fetch-Site: cross-site' -o "$WORK/response" -w '%{http_code}' "$B/$A524_PATH")
-A524_FORM="$(grep -c '<form method="post"' "$WORK/response")|$(grep -c 'Plain notes of Karel' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $A524_LOG0 AND modul = 'enquiries' AND akce = 'attachment'")"
+A524_FORM="$(grep -c '<form method="post" action="[^"]*action=attachment' "$WORK/response")|$(grep -c 'Plain notes of Karel' "$WORK/response")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $A524_LOG0 AND modul = 'enquiries' AND akce = 'attachment'")"
 A524_POST=$(curl -s -b "$JAR" -c "$JAR" -H 'Sec-Fetch-Site: same-origin' -o "$WORK/a524-got.txt" -w '%{http_code}' -X POST "$B/$A524_PATH" -d "_csrf=$(csrf)")
 expect "3.50 L11: from another site the link answers a page with one Download button – no file, no log line; the click (POST with the session's token) gives the file and logs it" \
   "$A524_CROSS|$A524_FORM|$A524_POST|$(grep -c 'Plain notes of Karel A524' "$WORK/a524-got.txt")|$(sq "SELECT COUNT(*) FROM ka_protokol WHERE idp > $A524_LOG0 AND modul = 'enquiries' AND akce = 'attachment'")" \

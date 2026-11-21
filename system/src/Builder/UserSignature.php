@@ -37,7 +37,9 @@ final class UserSignature
     public static function forUser(App $app, array $user): array
     {
         $record = TeamRecord::forUser($app->db(), $user);
-        if ($record !== null && (int) ($record['item']['zobrazit'] ?? 1) === 1) { // 3.50 N133: a hidden Team record never signs mail
+        // 3.50 N133: a hidden record signs mail only as the administrator's own choice (team_item_id) – the e-mail match takes
+        // visible records only (TeamRecord::forUser); its photo comes from Media only (EmailSignature::render)
+        if ($record !== null) {
             return EmailSignature::forItem($app, $record['collection'], $record['item']) + ['source' => 'team', 'record' => $record];
         }
 

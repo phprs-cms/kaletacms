@@ -7,7 +7,7 @@ sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, jazyk, admin, posled
 A510_ED=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'a510-editor'"); sq "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) VALUES ($A510_ED, 'business')" > /dev/null
 A510_JAR="$WORK/a510-editor.jar"; a510_login a510-editor "$A510_JAR"
 A510_CODE=$(curl -s -b "$A510_JAR" -c "$A510_JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=business")
-A510_FIELD=$(grep -c 'name="email_signature_template"' "$WORK/response")
+A510_FIELD=$(grep -c 'name="email_signature_template"' "$WORK/response" || true)
 curl -s -b "$A510_JAR" -c "$A510_JAR" -o /dev/null -X POST "$B/admin.php?module=business&action=save" -d "_csrf=$(csrf)" --data-urlencode "email_signature_template=Pay to IBAN XX00 A510"
 expect "3.50 N135: an editor's Business details show no signature template and a posted one is ignored" \
   "$A510_CODE|$A510_FIELD|$(sq "SELECT hodnota LIKE '%administrators line%' FROM ka_nastaveni WHERE promenna = 'email_signature_template'")|$(sq "SELECT COUNT(*) FROM ka_nastaveni WHERE hodnota LIKE '%IBAN XX00 A510%'")" "200|0|1|0"
