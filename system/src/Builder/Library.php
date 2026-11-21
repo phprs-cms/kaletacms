@@ -103,7 +103,7 @@ final class Library
                 $n('novinky'),
             ])],
 
-            'poptavka' => ['nazev' => t('Enquiry form'), 'popis' => t('A heading, a sentence and a form – messages arrive in Enquiries and by email.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
+            'poptavka' => ['nazev' => t('Enquiry form'), 'popis' => t('A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.'), 'stavba' => fn (): array => $n('sekce', ['sirka' => 'uzka'], [
                 $z($n('nadpis', ['text' => t('Write to us')]), 'h2'),
                 $t($n('text', ['html' => '<p>' . t('Tell us what you need – we will get back to you within one business day.') . '</p>']), 'podtitul'),
                 $s($n('formular'), ['zaklad' => ['okraj_nahore' => 'm']]),

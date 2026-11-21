@@ -55,7 +55,7 @@ $preview = function (string $data) use ($yes): string {
 <?php if ($enquiries === [] && ($search !== '' || $filter !== '')): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'poptavky', 'heading' => t('No enquiry matches the filter.'), 'text' => t('Try another word or status.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php elseif ($enquiries === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'poptavky', 'heading' => t('No enquiries yet.'), 'text' => t('Add a Form element in the page builder (or the ready-made Enquiry form section) – submitted messages will appear here and arrive by email.'), 'action' => [$app->url('admin.php?module=pages'), t('Open pages')]]) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'poptavky', 'heading' => t('No enquiries yet.'), 'text' => t('Add a Form element in the page builder (or the ready-made Enquiry form section) – submitted messages will appear here and arrive by e-mail.'), 'action' => [$app->url('admin.php?module=pages'), t('Open pages')]]) ?>
 <?php else: ?>
 <form method="post" action="<?= e($module->url('bulk')) ?>">
 <?= $csrf ?>

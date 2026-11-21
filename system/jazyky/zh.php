@@ -985,7 +985,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => '此处将插入页面内容（新闻、新闻列表、404 提示）。',
     'Add social networks under Settings.' => '社交媒体账号可在“设置”中添加。',
     'Enquiry form' => '咨询表单',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => '标题、一句话和表单——留言会进入“咨询”并通过电子邮件发送。',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => '标题、一句话和表单——留言会进入“咨询”并通过电子邮件发送。',
     'Tell us what you need – we will get back to you within one business day.' => '请告诉我们您的需求——我们会在一个工作日内与您联系。',
     'Enquiry' => '咨询',
     'Email' => '电子邮件',

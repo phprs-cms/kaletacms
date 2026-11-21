@@ -985,7 +985,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => '頁面內容會插入此處（消息、消息列表、404 訊息）。',
     'Add social networks under Settings.' => '社群網站可在「設定」中新增。',
     'Enquiry form' => '詢問表單',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => '標題、一句話與表單 – 訊息會送至「詢問」並以電子郵件通知。',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => '標題、一句話與表單 – 訊息會送至「詢問」並以電子郵件通知。',
     'Tell us what you need – we will get back to you within one business day.' => '請說明您的需求 – 我們會在一個工作天內回覆您。',
     'Enquiry' => '詢問',
     'Email' => '電子郵件',

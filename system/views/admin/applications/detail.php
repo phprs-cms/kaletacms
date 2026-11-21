@@ -99,7 +99,7 @@ $tone = fn (string $status): string => $status === 'hired' ? ' stitek-vydano' : 
 <p class="napoveda" data-reply-none><?= e(t('This application has no e-mail address to reply to – call the applicant, and note it in the internal note.')) ?></p>
 <?php elseif ($replyBlocked !== null): ?>
 <p class="hlaska hlaska-info" data-reply-blocked><?= e(t($replyBlocked)) ?><?php if ($admin): ?> <a href="<?= e($app->url('admin.php?module=settings&tab=mail')) ?>"><?= e(t('Set up the mail')) ?></a><?php endif ?></p>
-<p class="tlacitka"><a class="tl" href="mailto:<?= e((string) $a['email']) ?>"><?= e(t('Reply by email')) ?></a></p>
+<p class="tlacitka"><a class="tl" href="mailto:<?= e((string) $a['email']) ?>"><?= e(t('Reply by e-mail')) ?></a></p>
 <?php else: ?>
 <form class="uchazec-sablona" method="get" action="<?= e($app->url('admin.php')) ?>" data-reply-template>
 	<input type="hidden" name="module" value="<?= e(Store::SECTION) ?>"><input type="hidden" name="action" value="detail"><input type="hidden" name="id" value="<?= $id ?>">

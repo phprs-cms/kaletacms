@@ -124,7 +124,7 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 <p class="napoveda" data-reply-none><?= e(t('This enquiry has no e-mail address to reply to – reply by phone or another way, and note it in the internal note.')) ?></p>
 <?php elseif ($replyBlocked !== null): ?>
 <p class="hlaska hlaska-info" data-reply-blocked><?= e(t($replyBlocked)) ?><?php if ($app->auth()->isAdmin()): ?> <a href="<?= e($app->url('admin.php?module=settings&tab=mail')) ?>"><?= e(t('Set up the mail')) ?></a><?php endif ?></p>
-<p class="tlacitka"><a class="tl" href="<?= $mailto ?>"><?= e(t(($p['navrh_odpovedi'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by email')) ?></a></p>
+<p class="tlacitka"><a class="tl" href="<?= $mailto ?>"><?= e(t(($p['navrh_odpovedi'] ?? '') !== '' ? 'Reply by email with the draft' : 'Reply by e-mail')) ?></a></p>
 <?php else: ?>
 <?php /* 3.49 A: without the script "Insert" and "Add" reload the detail through this form (a GET outside the reply form, so the reply's fields never travel in an address) */ ?>
 <form id="odpoved-nacist" method="get" action="admin.php#reply">

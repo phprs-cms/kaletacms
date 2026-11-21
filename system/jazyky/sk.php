@@ -962,7 +962,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => 'Sem sa vloží obsah stránky (novinka, výpis noviniek, hlásenie 404).',
     'Add social networks under Settings.' => 'Sociálne siete doplníte v Nastaveniach.',
     'Enquiry form' => 'Dopytový formulár',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => 'Nadpis, veta a formulár – správy chodia do Dopytov a e-mailom.',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => 'Nadpis, veta a formulár – správy chodia do Dopytov a e-mailom.',
     'Tell us what you need – we will get back to you within one business day.' => 'Opíšte, čo potrebujete – ozveme sa vám do jedného pracovného dňa.',
     'Enquiry' => 'Dopyt',
     'Email' => 'E-mail',

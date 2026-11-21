@@ -985,7 +985,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => 'يظهر محتوى الصفحة هنا (خبر، قائمة الأخبار، رسالة 404).',
     'Add social networks under Settings.' => 'أضف الشبكات الاجتماعية من الإعدادات.',
     'Enquiry form' => 'نموذج الطلب',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => 'عنوان وجملة ونموذج – تصل الرسائل إلى قسم الطلبات وعبر البريد الإلكتروني.',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => 'عنوان وجملة ونموذج – تصل الرسائل إلى قسم الطلبات وعبر البريد الإلكتروني.',
     'Tell us what you need – we will get back to you within one business day.' => 'أخبرنا بما تحتاجه – وسنرد عليك خلال يوم عمل واحد.',
     'Enquiry' => 'طلب',
     'Email' => 'البريد الإلكتروني',

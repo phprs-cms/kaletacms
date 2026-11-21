@@ -985,7 +985,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => 'Qui viene inserito il contenuto della pagina (notizia, elenco delle notizie, messaggio 404).',
     'Add social networks under Settings.' => 'Aggiunga i social network in Impostazioni.',
     'Enquiry form' => 'Modulo di richiesta',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => 'Un titolo, una frase e un modulo – i messaggi arrivano in Richieste e via e-mail.',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => 'Un titolo, una frase e un modulo – i messaggi arrivano in Richieste e via e-mail.',
     'Tell us what you need – we will get back to you within one business day.' => 'Descriva di cosa ha bisogno – La ricontatteremo entro un giorno lavorativo.',
     'Enquiry' => 'Richiesta',
     'Email' => 'E-mail',

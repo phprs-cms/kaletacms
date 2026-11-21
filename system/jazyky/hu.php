@@ -985,7 +985,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => 'Ide kerül az oldal tartalma (hír, hírlista, 404-es üzenet).',
     'Add social networks under Settings.' => 'A közösségi hálózatokat a Beállításokban adhatja meg.',
     'Enquiry form' => 'Ajánlatkérő űrlap',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => 'Címsor, egy mondat és egy űrlap – az üzenetek az Ajánlatkérések közé és e-mailben is megérkeznek.',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => 'Címsor, egy mondat és egy űrlap – az üzenetek az Ajánlatkérések közé és e-mailben is megérkeznek.',
     'Tell us what you need – we will get back to you within one business day.' => 'Írja meg, mire van szüksége – egy munkanapon belül jelentkezünk.',
     'Enquiry' => 'Ajánlatkérés',
     'Email' => 'E-mail',

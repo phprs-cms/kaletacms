@@ -985,7 +985,7 @@ return [
     'The page content goes here (news item, news list, 404 message).' => 'Aquí va el contenido de la página (noticia, listado de noticias, mensaje 404).',
     'Add social networks under Settings.' => 'Añada las redes sociales en Ajustes.',
     'Enquiry form' => 'Formulario de consulta',
-    'A heading, a sentence and a form – messages arrive in Enquiries and by email.' => 'Un título, una frase y un formulario – los mensajes llegan a Consultas y por correo electrónico.',
+    'A heading, a sentence and a form – messages arrive in Enquiries and by e-mail.' => 'Un título, una frase y un formulario – los mensajes llegan a Consultas y por correo electrónico.',
     'Tell us what you need – we will get back to you within one business day.' => 'Cuéntenos qué necesita – le responderemos en un día laborable.',
     'Enquiry' => 'Consulta',
     'Email' => 'Correo electrónico',

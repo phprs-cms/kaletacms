@@ -98,5 +98,5 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 		<form class="vradku" method="post" action="<?= e($module->url('ignore')) ?>"><?= $csrf ?><input type="hidden" name="cesta" value="<?= e($n['cesta']) ?>"><button class="navigace" type="submit"><?= e(t('Ignore')) ?></button></form></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
-<form method="post" action="<?= e($module->url('ignore_all')) ?>" data-potvrdit="<?= e(t('Ignore all these addresses? The warning on the start screen goes away until a new address appears.')) ?>"><?= $csrf ?><p><button class="navigace" type="submit"><?= e(t('Ignore all')) ?></button></p></form>
+<form method="post" action="<?= e($module->url('ignore_all')) ?>" data-potvrdit="<?= e(t('Ignore all these addresses? The warning on the Dashboard goes away until a new address appears.')) ?>"><?= $csrf ?><p><button class="navigace" type="submit"><?= e(t('Ignore all')) ?></button></p></form>
 <?php endif ?>
