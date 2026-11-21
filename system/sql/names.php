@@ -94,6 +94,7 @@ return [
     'internal_folders' => ['internal_folders', []], // 3.42
     'internal_files' => ['internal_files', []],
     'internal_file_versions' => ['internal_file_versions', []],
+    'internal_file_links' => ['internal_file_links', []], // 3.49 B
     'departments' => ['departments', []], // 3.42
     'absences' => ['absences', []],
     'saved_replies' => ['saved_replies', []], // 3.49 A

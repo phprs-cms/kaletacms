@@ -52,6 +52,7 @@ final class MenuPaths
         [['Enquiries', 'settings'], 'enquiries', 'module=enquiries&action=settings'],
         [['Enquiries', 'Saved replies'], 'enquiries', 'module=enquiries&action=saved_replies'], // 3.49 A
         [['Enquiries'], 'enquiries', 'module=enquiries'],
+        [['Workspace', 'Bookings'], 'bookings', 'module=bookings'], // 3.49 B: the absence flash
         [['Pages'], 'pages', 'module=pages'],
         [['Users', 'Roles'], 'roles', 'module=roles'],
         [['Users', 'Departments'], 'users', 'module=users&action=departments'], // 3.42

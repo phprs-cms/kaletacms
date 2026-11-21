@@ -8,6 +8,7 @@
  * @var list<array<string, mixed>> $staff
  * @var list<array<string, mixed>> $services
  * @var list<array<string, mixed>> $offs days off still to come (everyone's and personal)
+ * @var int $unlinked 3.49 B: active people not linked to an account (an absence in an account closes only linked people's times)
  */
 $names = array_column($services, 'name', 'id');
 $staffNames = array_column($staff, 'name', 'id');
@@ -29,6 +30,11 @@ $staffNames = array_column($staff, 'name', 'id');
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
+<?php if ($unlinked > 0): /* 3.49 B: one absence – what makes the rule work on a site from before 3.49 */ ?>
+<form class="vradku" method="post" action="<?= e($module->url('staff_link')) ?>" data-staff-link><?= $csrf ?>
+	<span class="napoveda"><?= e(t('%d people are not linked to an account – an absence in their account does not close their times.', $unlinked)) ?></span>
+	<button class="navigace" type="submit"><?= e(t('Link by e-mail')) ?></button></form>
+<?php endif ?>
 <?php endif ?>
 <h2><?= e(t('Days off')) ?></h2>
 <p class="smltxt"><?= e(t('Holidays and closed days of the whole business. A closed day in the opening hours exceptions (Business details) counts as a day off for everyone too; a person has their own days off on their form.')) ?></p>

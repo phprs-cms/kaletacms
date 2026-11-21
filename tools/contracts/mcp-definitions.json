@@ -182,7 +182,7 @@
         "save_internal_file",
         "smaz_stranku"
     ],
-    "raw": "77f8fedb8064b5e53c085ec4292519ddbb30fdaed061e3dd1ad576baff732057",
+    "raw": "5aabfa16847fd4147c6a78a15e2e1a985c371b88c8c83964e272c096511bd789",
     "discovery": "8b421e77bfed061b95997da2b4e9cecee450d77529c5b609ed367724da5de09c",
     "sha256": {
         "info_o_webu": "f3616b3d0a440cac737e92ff73850d599c5a867d94736a7f68cb44414d0f059e",
@@ -362,9 +362,9 @@
         "get_quote": "88b9f79fcff495571d7c6ddb2ef4a03504977d7f6dc35fd5b8ce6dc857177851",
         "save_quote": "ac0b6052cfe0453d37f931f84ab9f98350b488f243841f7bd8c752a0264f176f",
         "mark_quote": "f7aa1bd6ffeb3bab0c63d009fa98ed3a30907a1abe626088dcab4970ac33d72a",
-        "list_internal_files": "56a2fcec4a1d373e76859013c09390d5bcef622b544470329fe8a497411c4795",
-        "get_internal_file": "733e3398dcd70a259ba5cd64520d548e01d92ab6a4e2cac62c6aaae618d562c9",
-        "save_internal_file": "346d2901d8de9028d98728398f1113286ff570c69f44e29466135a0b1235c477",
+        "list_internal_files": "84a3515af374b89a9d3ed8f9e3758f12f42fabdf822e3b0e80405f081a6765ed",
+        "get_internal_file": "53698e98c6e8997ec77f1dc31c3c15180ba7e1c42af34554c3d18af157f7a500",
+        "save_internal_file": "8e81d3d3ff6c9840bf93ce7bc10dba7f1666b2c5ba51f34225ee4558ab4466be",
         "smaz_stranku": "03c88464ea433726a0aed111e74bedf68daf18dfe72ea667d55df7cd38daba99"
     }
 }

@@ -387,6 +387,7 @@ final class Contacts
         self::unlink($db, [$id]);
         Deals::unlinkContacts($db, [$id], true); // 3.31: its deals stay without the person, the comments on them go
         QuoteDelivery::unlink($db, 'contact_id', [$id]); // 3.38: its quotes keep their own customer block
+        InternalFileLinks::forget($db, 'contact', [$id]); // 3.49 B: its linked files stay, the links go
         $db->run('DELETE FROM {contact_activities} WHERE contact_id = ?', [$id]);
         Comments::forget($db, [Comments::contact($id)]); // the comments, their notifications and the tasks about it
         $db->delete('contacts', ['id' => $id]);
@@ -420,6 +421,7 @@ final class Contacts
             $in = implode(',', $chunk);
             Deals::unlinkContacts($db, $chunk); // 3.31: its deals stay without the person (before the name and address go), the comments on them are blanked
             QuoteDelivery::unlink($db, 'contact_id', $chunk); // 3.38: its quotes keep their own customer block and retention
+            InternalFileLinks::forget($db, 'contact', $chunk); // 3.49 B: a document named after the person would re-identify the record; the files stay
             $now = Clock::now();
             $done += $db->run("UPDATE {contacts} SET email = '', email_norm = NULL, name = '', phone = '', company_id = NULL, summary = NULL, anonymised_at = ?, updated_at = ? WHERE id IN (" . $in . ')',
                 [$now, $now])->rowCount();
@@ -674,6 +676,7 @@ final class Contacts
                 $moved['deals'] = 0; // before migration 0117
             }
             $moved['quotes'] = QuoteDelivery::moveContact($db, $b['id'], $a['id']); // 3.38
+            InternalFileLinks::move($db, 'contact', $b['id'], $a['id']); // 3.49 B: the linked files follow, a file linked to both once
             $fill = array_filter(['name' => $a['name'] === '' ? $b['name'] : '', 'phone' => $a['phone'] === '' ? $b['phone'] : '', 'language' => $a['language'] === '' ? $b['language'] : ''],
                 fn (string $v): bool => $v !== '');
             if ($a['company_id'] === null && $b['company_id'] !== null) {
@@ -977,6 +980,7 @@ final class Contacts
         }
         $db->run('UPDATE {contacts} SET company_id = NULL WHERE company_id = ?', [$id]);
         QuoteDelivery::unlink($db, 'company_id', [$id]); // 3.38: its quotes keep their own customer block
+        InternalFileLinks::forget($db, 'company', [$id]); // 3.49 B: its linked files stay, the links go
         try {
             $db->run('UPDATE {deals} SET company_id = NULL WHERE company_id = ?', [$id]); // N331-2: its deals stay, without the company
         } catch (\PDOException $e) {

@@ -12,6 +12,7 @@
  * @var list<array{id: int, name: string, description: string, audience: string, roles: list<int>, departments: list<int>, files: int}> $folders
  * @var bool $mayDelete
  * @var string $limit
+ * @var list<array{kind: string, id: int, title: string|null, path: string|null, state: string}> $links 3.49 B: the records it is linked to (Core\InternalFileLinks::ofFile)
  */
 use Kaleta\Core\Files;
 use Kaleta\Core\InternalFiles;
@@ -82,5 +83,19 @@ $preview = $module::previewKind($file);
 <?php endforeach ?>
 </ol>
 </section>
+<?php if ($links !== []): /* 3.49 B: read-only – a file is linked in the box of the record */ ?>
+<section class="zaznam-panel" aria-labelledby="if-vazby" data-internal-links>
+<h2 id="if-vazby"><?= e(t('Linked to')) ?></h2>
+<ul class="obchody-box-seznam">
+<?php foreach ($links as $l): ?>
+	<li><?php if ($l['state'] === 'open'): ?><a href="<?= e($app->url((string) $l['path'])) ?>"><?= e((string) $l['title']) ?></a>
+		<form class="vradku" method="post" action="<?= e($module->url('unlink')) ?>"><?= $csrf ?><input type="hidden" name="file_id" value="<?= (int) $file['id'] ?>"><input type="hidden" name="kind" value="<?= e($l['kind']) ?>"><input type="hidden" name="record_id" value="<?= (int) $l['id'] ?>"><input type="hidden" name="from" value="file"><button class="navigace" type="submit"><?= e(t('Unlink')) ?></button></form>
+<?php elseif ($l['state'] === 'off'): ?><?= e((string) $l['title']) ?> <span class="napoveda"><?= e(t('(section switched off)')) ?></span>
+<?php else: ?><span class="napoveda"><?= e(t('a record you cannot open')) ?></span>
+<?php endif ?></li>
+<?php endforeach ?>
+</ul>
+</section>
+<?php endif ?>
 </div>
 </div></div>

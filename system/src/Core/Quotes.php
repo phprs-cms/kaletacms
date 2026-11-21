@@ -861,6 +861,7 @@ final class Quotes
         $db->transaction(function (Db $db) use ($id): void {
             QuoteDelivery::withdrawMail($db, [$id]); // 3.44 (N145): its e-mail still waiting in the queue goes with it
             Tasks::forgetTargets($db, ['quote:' . $id]); // 3.40 review M4: the tasks about it go with it
+            InternalFileLinks::forget($db, 'quote', [$id]); // 3.49 B: its linked files stay, the links go
             $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
             $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
         });

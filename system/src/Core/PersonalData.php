@@ -286,6 +286,8 @@ final class PersonalData
         $found = self::find($db, $email, $app);
         // 3.34: with their sealed CVs, notes and tasks; second review N7: one whose files cannot be located stays and is reported
         Applications::delete($app, array_map('intval', array_column($found['applications'], 'id')), true, $heldApplications);
+        // 3.49 B: documents linked to the person's customer records stay (company documents) – the links go with the records
+        $linkedFiles = InternalFileLinks::countFor($db, 'contact', array_map('intval', array_column($found['contacts'], 'id')));
         QuoteDelivery::erase($db, $found['quotes']); // 3.38: drafts go, a numbered quote stays without the person – before the contacts go
         foreach ($found['contacts'] as $contact) {
             Contacts::delete($app, (int) $contact['id']); // 3.28: with its log, comments and tasks – before the records it links go
@@ -325,8 +327,10 @@ final class PersonalData
         \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'personal_data_erase', self::mask($email) . ' ' . (string) json_encode($erased));
         Events::record($db, 'personal_data.erased', 'info', t('Personal data of one address were erased on request.'), $erased);
 
-        // 3.48 B (legal hold, reserved): what the law keeps despite the request – [{what, until, reason}]; a later release fills it
-        return ['erased' => $erased, 'kept_testimonials' => $kept, 'backup_horizon' => self::backupHorizon($app->settings()), 'kept' => []];
+        // 3.48 B (legal hold): what stays despite the request – [{what, until, reason}]; 3.49 B: the internal files that were
+        // linked to the person's customer records (the links went, the files are the firm's documents – checked by hand)
+        return ['erased' => $erased, 'kept_testimonials' => $kept, 'backup_horizon' => self::backupHorizon($app->settings()),
+            'kept' => $linkedFiles > 0 ? [['what' => 'internal files', 'until' => '', 'reason' => 'company documents – check them by hand']] : []];
     }
 
     /**

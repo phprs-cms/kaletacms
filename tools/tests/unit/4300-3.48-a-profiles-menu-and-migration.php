@@ -111,9 +111,11 @@ $a348Order = (function (): array {
     return array_map(fn (string $k): string => trim($k, " '"), explode(',', $m[1] ?? ''));
 })();
 check('3.48 A6: migration 0135 is the data migration with the highest number; it writes down the 3.48 catalogue in its order (the update request of 3.47 runs it with its own classes)', [
-    in_array('0135-customers-and-pipeline-features', Kaleta\Core\Migration::DATA, true), max(array_keys(Kaleta\Core\Migration::files())), KALETA_DB_VERSION,
-    $a348Order === array_keys(Extensions::CATALOG)],
-    [true, 137, 137, true]); // 3.49 A: 0137 (saved replies) is a structure migration – 0135 stays the highest data migration
+    // 3.49 B: a later release adds structure migrations (0136 is a .sql file) – 0135 stays the highest DATA migration and the
+    // highest file stays the database version
+    in_array('0135-customers-and-pipeline-features', Kaleta\Core\Migration::DATA, true), max(array_map(fn (string $f): int => (int) substr($f, 0, 4), Kaleta\Core\Migration::DATA)),
+    max(array_keys(Kaleta\Core\Migration::files())) === KALETA_DB_VERSION, $a348Order === array_keys(Extensions::CATALOG)],
+    [true, 135, true, true]);
 
 // A7: the smoke suite writes the feature list only through features() of bootstrap.sh – a raw write would switch the CRM off
 // for every later section of the one shared site

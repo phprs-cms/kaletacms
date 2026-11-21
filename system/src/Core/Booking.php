@@ -583,8 +583,150 @@ final class Booking
                 $cal['off'][$id][] = [(string) $o['off_from'], (string) $o['off_to']];
             }
         }
+        // 3.49 B (one absence): an absence of the account a person is linked to closes whole days of the site's clock – read
+        // here, never copied (removing the absence brings the times back at once); one query, none when nobody is linked
+        $linked = [];
+        foreach ($members as $m) {
+            if ((int) ($m['user_id'] ?? 0) > 0) {
+                $linked[(int) $m['user_id']][] = (int) $m['id'];
+            }
+        }
+        foreach ($linked === [] ? [] : Absences::between($db, array_keys($linked), $fromDay, self::nextDay($toDay)) as $userId => $ranges) {
+            foreach ($ranges as [$first, $last]) {
+                foreach ($linked[$userId] ?? [] as $id) {
+                    $cal['off'][$id][] = self::absenceRange($first, $last);
+                }
+            }
+        }
 
         return $cal;
+    }
+
+    /**
+     * 3.49 B: the sentence the absence flash adds (My account, Users) – how many bookings and offered times of the linked
+     * booking person fall into the new absence, with the way to Bookings for a person who may open it (Admin\MenuPaths
+     * turns it into a link); '' with Bookings off or when nothing falls there. Translated.
+     */
+    public static function absenceNotice(App $app, int $userId, string $fromDay, string $toDay, bool $mayOpenBookings): string
+    {
+        if (!self::isOn($app->settings())) {
+            return '';
+        }
+        $counts = self::duringAbsence($app->db(), $userId, $fromDay, $toDay);
+        if ($counts['bookings'] + $counts['proposals'] === 0) {
+            return '';
+        }
+
+        return t('%d bookings and %d offered times fall into these days', $counts['bookings'], $counts['proposals'])
+            . ($mayOpenBookings ? ' – ' . t('Workspace') . ' → ' . t('Bookings') : '') . '.';
+    }
+
+    /**
+     * 3.49 B: the active booking people not linked to an account – an absence in an account cannot close their times.
+     */
+    public static function unlinkedCount(Db $db): int
+    {
+        return count(array_filter(self::staff($db), fn (array $m): bool => $m['user_id'] === null));
+    }
+
+    /**
+     * 3.49 B ("Link by e-mail"): each booking person without an account whose e-mail equals (case aside) the e-mail of
+     * exactly one active account is linked to it; an address of two accounts, of none, or an empty one is left. Returns how
+     * many were linked.
+     */
+    public static function linkByEmail(App $app): int
+    {
+        $db = $app->db();
+        $linked = 0;
+        foreach (self::staff($db, false) as $m) {
+            $email = mb_strtolower(trim($m['email']));
+            if ($m['user_id'] !== null || $email === '') {
+                continue;
+            }
+            $accounts = array_map('intval', array_column($db->all('SELECT idu FROM {uzivatele} WHERE blokovat = 0 AND LOWER(email) = ? LIMIT 2', [$email]), 'idu'));
+            if (count($accounts) === 1) {
+                $linked += $db->run('UPDATE {booking_staff} SET user_id = ? WHERE id = ? AND user_id IS NULL', [$accounts[0], $m['id']])->rowCount();
+            }
+        }
+        if ($linked > 0) {
+            ChangeLog::write($app, 'bookings', 'staff_link', (string) $linked);
+        }
+
+        return $linked;
+    }
+
+    /**
+     * 3.49 B: the off range of an absence (first and last day, both included) in the site's clock – from 00:00 of the first
+     * day to 00:00 of the day after the last. Pure; whole days, so a change of summer time inside it closes nothing more.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function absenceRange(string $firstDay, string $lastDay): array
+    {
+        return [$firstDay . ' 00:00:00', self::nextDay($lastDay) . ' 00:00:00'];
+    }
+
+    /** The day after a day (YYYY-MM-DD) – calendar arithmetic, the same in every time zone. Pure. */
+    private static function nextDay(string $day): string
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, new \DateTimeZone('UTC'));
+
+        return $date === false ? $day : $date->modify('+1 day')->format('Y-m-d');
+    }
+
+    /**
+     * 3.49 B: what an absence of an account leaves in place – the confirmed bookings and the pending ones still held of the
+     * booking people linked to the account in those days, and the times proposed to customers of their pending bookings in
+     * those days (a customer who accepts one would hear that it has just been taken). Counted, never changed (the
+     * absence flash, the label on the booking detail). Zero when nobody is linked.
+     *
+     * @return array{bookings: int, proposals: int}
+     */
+    public static function duringAbsence(Db $db, int $userId, string $fromDay, string $toDay): array
+    {
+        $none = ['bookings' => 0, 'proposals' => 0];
+        try {
+            $staff = array_map('intval', array_column($db->all('SELECT id FROM {booking_staff} WHERE user_id = ?', [$userId]), 'id'));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return $none;
+        }
+        if ($userId <= 0 || $staff === [] || $toDay < $fromDay) {
+            return $none;
+        }
+        [$from, $to] = self::absenceRange($fromDay, $toDay);
+        $in = implode(',', $staff);
+
+        return ['bookings' => (int) $db->value('SELECT COUNT(*) FROM {bookings} WHERE staff_id IN (' . $in . ') AND (status = \'confirmed\' OR (status = \'pending\' AND hold_until > ?)) AND ends_at > ? AND starts_at < ?', [Clock::now(), $from, $to]),
+            'proposals' => (int) $db->value('SELECT COUNT(*) FROM {booking_proposals} p JOIN {bookings} b ON b.id = p.booking_id WHERE b.staff_id IN (' . $in . ') AND b.status = \'pending\' AND p.ends_at > ? AND p.starts_at < ?', [$from, $to])];
+    }
+
+    /**
+     * 3.49 B: is the booking person away (an absence of their linked account) at some moment of the given ones? For the
+     * label "the person is away" on a booking and its proposed times – one query.
+     *
+     * @param list<array{0: string, 1: string}> $spans starts_at, ends_at (site's clock)
+     * @return list<bool> per span
+     */
+    public static function awayAt(Db $db, int $staffId, array $spans): array
+    {
+        $member = $staffId > 0 && $spans !== [] ? self::member($db, $staffId) : null;
+        if ($member === null || (int) ($member['user_id'] ?? 0) <= 0) {
+            return array_fill(0, count($spans), false);
+        }
+        $days = array_merge(...array_map(fn (array $s): array => [substr($s[0], 0, 10), substr($s[1], 0, 10)], $spans));
+        $absences = Absences::between($db, [(int) $member['user_id']], min($days), max($days))[(int) $member['user_id']] ?? [];
+        $out = [];
+        foreach ($spans as [$start, $end]) {
+            $hit = false;
+            foreach ($absences as [$first, $last]) {
+                [$from, $to] = self::absenceRange($first, $last);
+                $hit = $hit || ($start < $to && $end > $from);
+            }
+            $out[] = $hit;
+        }
+
+        return $out;
     }
 
     /**

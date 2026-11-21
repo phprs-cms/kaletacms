@@ -247,7 +247,8 @@ trait QuoteTools
         $this->quotesOpen();
         $quote = Quotes::get($this->app->db(), (int) ($a['id'] ?? 0)) ?? throw new \InvalidArgumentException('The quote does not exist. Use list_quotes.');
 
-        return $this->quoteOut($quote);
+        // 3.49 B: how many internal files linked to it this user can open (omitted without Internal files) – never in what the customer gets
+        return $this->quoteOut($quote) + self::linkedFiles(\Kaleta\Core\InternalFileLinks::ofRecord($this->app, 'quote', (int) $quote['id']));
     }
 
     /** save_quote */

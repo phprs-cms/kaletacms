@@ -356,6 +356,11 @@ final class Users extends Module
         }
         \Kaleta\Core\Absences::announce($this->app, $added, (int) $this->app->auth()->id()); // 3.47 (N166): the deputy and the person – the days only
         \Kaleta\Core\ChangeLog::write($this->app, 'users', 'absence_add', '#' . $id . ' ' . $r->post('starts_on') . ' – ' . $r->post('ends_on')); // the days only, never the reason
+        // 3.49 B: the bookings and offered times of the linked booking person in those days – counted, never changed
+        $notice = \Kaleta\Core\Booking::absenceNotice($this->app, $id, $r->post('starts_on'), $r->post('ends_on'), $this->app->auth()->hasModule('bookings'));
+        if ($notice !== '') {
+            $this->app->session->flash('ok', $notice);
+        }
 
         return Response::redirect($this->url('edit', ['id' => $id]) . '#absences');
     }

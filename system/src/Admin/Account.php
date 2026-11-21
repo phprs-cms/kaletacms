@@ -127,7 +127,8 @@ final class Account
                     if (is_int($added)) {
                         \Kaleta\Core\Absences::announce($app, $added, (int) $user['idu']); // 3.47 (N166): the deputy's bell – the days only
                     }
-                    $message = is_string($added) ? ['chyba', $added] : ['ok', 'The absence is saved.'];
+                    // 3.49 B: the bookings and offered times of the linked booking person in those days – counted, never changed
+                    $message = is_string($added) ? ['chyba', $added] : ['ok', trim(t('The absence is saved.') . ' ' . \Kaleta\Core\Booking::absenceNotice($app, (int) $user['idu'], $r->post('starts_on'), $r->post('ends_on'), $app->auth()->hasModule('bookings')))];
                     break;
                 case 'absence_delete':
                     \Kaleta\Core\Absences::remove($db, $r->postInt('absence'), (int) $user['idu']); // only my own

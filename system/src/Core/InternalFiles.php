@@ -32,6 +32,8 @@ namespace Kaleta\Core;
  *  - Status draft: a document a Claude connection limited to drafts wrote; a person marks it ready.
  *  - Company documents, not personal data: they are not part of the personal data search or the retentions; never
  *    journaled for undo (AgentJournal::PERSONAL_TABLES).
+ *  - 3.49 B: a file can be linked to a customer, a company, a deal or a quote (Core\InternalFileLinks – the only class that
+ *    names the link table); a link changes nothing about who may download it.
  */
 final class InternalFiles
 {
@@ -483,6 +485,35 @@ final class InternalFiles
     }
 
     /**
+     * 3.49 B: several files the user may see, by their ids – one query over the files and their folders and the audience
+     * rule per folder (no queries per file). id => the file as files() gives it (without versions); a file of a folder not
+     * for the user, or that does not exist, is left out. Nothing without the section.
+     *
+     * @param list<int> $ids
+     * @return array<int, array<string, mixed>>
+     */
+    public static function visibleRows(App $app, array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id): bool => $id > 0)));
+        if ($ids === [] || !self::mayOpen($app)) {
+            return [];
+        }
+        $db = $app->db();
+        $user = $app->auth()->user();
+        $out = [];
+        $audience = [];
+        foreach ($db->all('SELECT f.*, d.name AS folder_name, d.audience, d.roles, u.jmeno AS updated_by_name FROM {internal_files} f JOIN {internal_folders} d ON d.id = f.folder_id LEFT JOIN {uzivatele} u ON u.idu = f.updated_by'
+            . ' WHERE f.id IN (' . implode(',', $ids) . ')') as $row) {
+            $folder = (int) $row['folder_id'];
+            if ($audience[$folder] ??= self::audienceMatches($row, $user, $db)) {
+                $out[(int) $row['id']] = self::fileOut($row);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
@@ -692,6 +723,7 @@ final class InternalFiles
         }
         $db = $app->db();
         $db->transaction(function (Db $db) use ($id): void {
+            InternalFileLinks::forgetFile($db, $id); // 3.49 B: its links to records go with it
             $db->delete('internal_file_versions', ['file_id' => $id]);
             $db->delete('internal_files', ['id' => $id]);
         });

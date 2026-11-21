@@ -418,6 +418,7 @@ final class Privacy
                 $contactMonths > 0 ? t('Retention: anonymised automatically after %d months without any activity (a new enquiry, booking, reply, logged contact, comment or task).', $contactMonths)
                     : t('Retention: not limited – set it in Settings → Privacy and cookies.'),
                 t('Two different e-mail addresses are never merged automatically; a company is suggested from the e-mail domain, never for free-mail addresses.'),
+                t('Documents of the team (Internal files) can be linked to a customer record; anonymising or erasing the customer removes the links, the documents stay – they are company documents, not erased with the person.'), // 3.49 B
                 ...($dealsOn ? [t('Deals with customers: %d. A deal names the customer, the enquiry it came from, a responsible person, a value and its stage. A customer with an open deal is not anonymised; the enquiries of a deal are kept while it is open and for the enquiries’ retention after it closes. Erasing a customer keeps their deals without the person.', $dealCount)] : []),
                 t('Recipients: the people with access to Customers in the administration. The customer records are not part of the site export and never shown on the site.'),
             ]];

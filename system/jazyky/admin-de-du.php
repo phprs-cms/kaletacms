@@ -1539,4 +1539,8 @@ return [
     'Offered in the reply form of an enquiry – the ones in the enquiry’s language first. Placeholders: {{name}} (who wrote the enquiry), {{topic}} (what it was about), {{company}} (your company). An empty subject keeps the reply’s own subject. Claude reads them, it never changes them.' => 'Werden im Antwortformular einer Anfrage angeboten – die in der Sprache der Anfrage zuerst. Platzhalter: {{name}} (wer die Anfrage geschrieben hat), {{topic}} (worum es ging), {{company}} (deine Firma). Ein leerer Betreff behält den Betreff der Antwort. Claude liest sie, ändert sie aber nie.',
     'The file %s is a draft – mark it ready before it leaves the company.' => 'Die Datei %s ist ein Entwurf – markiere sie als fertig, bevor sie die Firma verlässt.',
     'Write the answers you give often once – the reply form then fills them in for you.' => 'Schreib häufige Antworten einmal – das Antwortformular füllt sie dann für dich ein.',
+    'a record you cannot open' => 'ein Datensatz, den du nicht öffnen kannst',
+    'The record does not exist, or you cannot open it.' => 'Der Datensatz existiert nicht, oder du kannst ihn nicht öffnen.',
+    'Internal files linked to the person’s customer records stay (the links went) – check them by hand.' => 'Interne Dateien, die mit den Kundendatensätzen der Person verknüpft waren, bleiben (die Verknüpfungen sind weg) – prüfe sie von Hand.',
+    'Erasing removes the links; the files stay – they are company documents, check them by hand in Internal files.' => 'Das Löschen entfernt die Verknüpfungen; die Dateien bleiben – es sind Firmendokumente, prüfe sie von Hand in den internen Dateien.',
 ];

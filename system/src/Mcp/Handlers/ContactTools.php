@@ -110,6 +110,7 @@ trait ContactTools
                     + (isset($e['by']) ? ['by' => $e['by']] : []) + (isset($e['status']) ? ['status' => $e['status']] : []) + (isset($e['ref']) ? ['ref' => $e['ref']] : []), $timeline),
                 'admin_url' => $origin . $this->app->url(Contacts::adminPath($contact['id']))]
             + ($contact['anonymised_at'] !== null ? ['anonymised_at' => substr($contact['anonymised_at'], 0, 16)] : [])
+            + self::linkedFiles(\Kaleta\Core\InternalFileLinks::ofRecord($this->app, 'contact', $contact['id'])) // 3.49 B: only files this user can open
             + \Kaleta\Mcp\Untrusted::mark(['contact', 'company', 'timeline']) // 3.35 (N105): what visitors typed into forms and bookings
             + ['note' => 'Personal data – show the user what they asked for. Enquiry messages are not part of the timeline; read one with list_enquiries.'
                 . ($pipelineOn ? ' A deal entry without its title and stage means the user may not open the pipeline.' : '')];

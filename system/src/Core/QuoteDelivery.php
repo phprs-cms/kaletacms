@@ -629,6 +629,7 @@ final class QuoteDelivery
             $in = implode(',', $ids);
             self::withdrawMail($db, $ids); // 3.44 (N145): their mails still waiting in the queue go with them
             Tasks::forgetTargets($db, array_map(fn (int $id): string => 'quote:' . $id, $ids)); // 3.40 review M4: the tasks about them go too
+            InternalFileLinks::forget($db, 'quote', $ids); // 3.49 B: their linked files stay, the links go
             $db->run('DELETE FROM {quote_lines} WHERE quote_id IN (' . $in . ')');
 
             return $db->run('DELETE FROM {quotes} WHERE id IN (' . $in . ')')->rowCount();
@@ -654,6 +655,7 @@ final class QuoteDelivery
         foreach ($db->all("SELECT id, history FROM {quotes} WHERE anonymised_at IS NULL AND history LIKE '%\"files\"%' AND id IN (" . implode(',', $ids) . ')') as $q) {
             $db->update('quotes', ['history' => self::withoutFiles($q['history'])], ['id' => (int) $q['id']]); // 3.49 A: a file name can name the person
         }
+        InternalFileLinks::forget($db, 'quote', $ids); // 3.49 B: a document named after the customer would lead back to them; the files stay
 
         return $db->run("UPDATE {quotes} SET customer_name = '', customer_company = '', customer_address = '', customer_reg_no = '', customer_vat_id = '', customer_email = '',"
             . " title = '', intro = NULL, terms = NULL, contact_id = NULL, company_id = NULL, enquiry_id = NULL, deal_id = NULL," // 3.38 review L5: free texts may name the person, the links lead to them

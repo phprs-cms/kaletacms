@@ -1564,5 +1564,7 @@
 	});
 
 	/* ---------- 3.49: internal file box (part B) ---------- */
+	// The box of a record (views/admin/internal_files/box.php) needs no code of its own: "Link a file" is a choice by search
+	// above (data-pick="files", the answer's rows under "files"), and without this script a plain select.
 
 })();

@@ -125,7 +125,8 @@ $parity = [
     'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
         'service_delete' => 'admin: removing a service is the administrator’s decision; save_booking_service switches it off', 'staff' => $readOnly, 'staff_edit' => $readOnly, 'staff_save' => 'save_booking_staff', 'book_page' => 'create_page',
-        'staff_delete' => 'admin: removing a person is the administrator’s decision; save_booking_staff switches them off', 'off_save' => 'save_booking_staff', 'off_delete' => 'save_booking_staff', 'settings' => 'update_settings'],
+        'staff_delete' => 'admin: removing a person is the administrator’s decision; save_booking_staff switches them off', 'off_save' => 'save_booking_staff', 'off_delete' => 'save_booking_staff', 'settings' => 'update_settings',
+        'staff_link' => 'save_booking_staff'], // 3.49 B: "Link by e-mail" – save_booking_staff sets the account of a person
     // 3.28: Customers – Claude reads and changes the same records with list_contacts, get_contact, save_contact (a company too),
     // log_activity and merge_contacts; deleting a record, the CSV import and linking an old record by hand stay with a person
     'contacts' => ['list' => $contactTool('list_contacts'), 'companies' => $contactTool('list_contacts'), 'detail' => $contactTool('get_contact'), 'company' => $readOnly,
@@ -175,6 +176,7 @@ $parity = [
     // 3.42: internal files (Core\InternalFiles) – Claude lists, reads text documents and saves documents and metadata with the
     // internal-file tools; uploads of binary files, deleting and the folders' audiences stay with people
     'internal_files' => ['list' => 'list_internal_files', 'file' => 'get_internal_file', 'save' => 'save_internal_file', 'search_json' => $readOnly, // 3.49 C
+        'link' => 'save_internal_file', 'unlink' => 'save_internal_file', // 3.49 B: link / unlink of a write connection
         'upload' => 'admin: a binary file is uploaded by a person; Claude writes text documents with save_internal_file',
         'replace' => 'admin: a new binary version is uploaded by a person; a text document gets new content with save_internal_file',
         'download' => 'admin: the bytes of an internal file are downloaded by a signed-in person, never passed to Claude',

@@ -200,6 +200,22 @@ if [ "${FROM_DB:-0}" -lt 120 ] && [ -n "$("${MYSQL[@]}" "$DB_NAME" -N -e "SHOW C
     INSERT INTO ka_poptavky (idp, datum, formular, zdroj, stranka, tema, email, data, stav) VALUES (93990, '$(php -r 'echo date("Y-m-d H:i:s", strtotime("-1 day"));')', 'Job application', 'kolekce:9399', '/jobs-upd/x', '', 'upd-job@example.com', '[]', 0)" && JOBS_PLANTED=1
 fi
 
+# 3.49 B (one absence): a booking person linked to an account with an absence – the old release still offers the absence day,
+# after the update it closes (nothing is migrated: the new code reads the absence). Only from a release with absences (3.42+).
+ABSENCE_PLANTED=0
+if [ "${FROM_DB:-0}" -ge 132 ]; then
+  ABS_DAY=$(php -r 'echo date("Y-m-d", strtotime("+4 days"));'); ABS_BEFORE=$(php -r 'echo date("Y-m-d", strtotime("+3 days"));')
+  "${MYSQL[@]}" "$DB_NAME" -e "INSERT INTO ka_booking_services (name, duration_min, buffer_min, active) VALUES ('Absence upd', 60, 0, 1);
+    INSERT INTO ka_booking_staff (name, email, active, user_id) SELECT 'Absence person', 'absence-upd@example.com', 1, idu FROM ka_uzivatele WHERE user = 'admin';
+    INSERT INTO ka_booking_staff_services (staff_id, service_id) SELECT s.id, v.id FROM ka_booking_staff s, ka_booking_services v WHERE s.name = 'Absence person' AND v.name = 'Absence upd';
+    INSERT INTO ka_booking_hours (staff_id, weekday, time_from, time_to) SELECT s.id, d.n, '09:00', '12:00' FROM ka_booking_staff s JOIN (SELECT 1 AS n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7) d WHERE s.name = 'Absence person';
+    INSERT INTO ka_absences (user_id, starts_on, ends_on, reason, created_at) SELECT idu, '$ABS_DAY', '$ABS_DAY', 'trip', NOW() FROM ka_uzivatele WHERE user = 'admin';
+    UPDATE ka_nastaveni SET hodnota = CONCAT(hodnota, ',bookings') WHERE promenna = 'extensions' AND FIND_IN_SET('bookings', hodnota) = 0" && ABSENCE_PLANTED=1
+  ABS_SERVICE=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_booking_services WHERE name = 'Absence upd'"); ABS_STAFF=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT id FROM ka_booking_staff WHERE name = 'Absence person'")
+  abs_slots() { curl -s "$B/_booking/slots?service=$ABS_SERVICE&staff=$ABS_STAFF&day=$1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo implode(",", $d["slots"] ?? []);'; }
+  expect "3.49 B: before the update the old release offers the absence day of the linked person" "$(abs_slots "$ABS_DAY")" "09:00,10:00,11:00"
+fi
+
 # 3.48 (0135): Customers and the Pipeline became features – a section with data must never disappear by an update. CRM_RUN
 # picks what the old site holds, planted through its own forms (Customers → New, Pipeline → New deal) and its roles:
 #   1 (default) a contact, a deal, a custom role with both sections, a person with Quotes – both on, Quotes stay, "Sales"
@@ -287,6 +303,10 @@ if [ "$BOOKINGS_PLANTED" = 1 ]; then
   grep -q 'module=bookings' "$WORK/response" && ! grep -q 'module=whistleblowing' "$WORK/response" && echo "  ok     a site that takes bookings still shows Bookings; Whistleblowing, never used, is hidden" || { echo "  CHYBA  the menu after the update: Bookings or Whistleblowing"; ERRORS=$((ERRORS+1)); }
   expect "the features after the update: Bookings on, Whistleblowing off" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT CONCAT(FIND_IN_SET('bookings', hodnota) > 0, '|', FIND_IN_SET('whistleblowing', hodnota) > 0) FROM ka_nastaveni WHERE promenna = 'extensions'")" "1|0"
   expect "the hidden module answers 403, the shown one 200" "$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=whistleblowing")|$(curl -s -b "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=bookings")" "403|200"
+fi
+# 3.49 B (one absence): after the update the absence closes the linked person's times; the day before stays (the changelog says so)
+if [ "$ABSENCE_PLANTED" = 1 ]; then
+  expect "3.49 B: after the update the absence closes the linked person's times; the day before is unchanged" "$(abs_slots "$ABS_DAY")|$(abs_slots "$ABS_BEFORE")" "|09:00,10:00,11:00"
 fi
 # 3.48 (0135): no section with data disappeared; the CRM features follow what the site held; rights and roles untouched
 SHOWN_LOST=""; for m in $SHOWN_BEFORE; do [ "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m")" = 200 ] || SHOWN_LOST="$SHOWN_LOST $m"; done

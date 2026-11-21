@@ -27,6 +27,7 @@
  * @var bool $canContacts
  * @var array<string, mixed> $thread Admin\CommentActions::commentThread
  * @var array<string, mixed> $tasks Admin\TaskActions::taskPanel
+ * @var array<string, mixed>|null $fileBox its internal files and "Link a file" (3.49 B, Admin\Modules\InternalFiles::box); null without Internal files
  * @var array<string, mixed>|null $quoteBox its quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
  * @var string|null $since 3.41: since when the open deal is in its stage (Core\Deals::stageSince); null when closed
  * @var array<string, mixed>|null $next 3.41: its next step – the open task due first (Core\Tasks::nextFor)
@@ -135,6 +136,9 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 </section>
 <?php if ($quoteBox !== null): /* 3.38 B: its quotes and New quote */ ?>
 <?= $app->view->render('admin/quotes/box', ['csrf' => $csrf, 'box' => $quoteBox]) ?>
+<?php endif ?>
+<?php if ($fileBox !== null): /* 3.49 B: its internal files */ ?>
+<?= $app->view->render('admin/internal_files/box', ['app' => $app, 'csrf' => $csrf, 'box' => $fileBox]) ?>
 <?php endif ?>
 <?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) ?>
 </div>

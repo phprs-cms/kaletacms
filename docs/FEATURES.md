@@ -313,6 +313,19 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   nikdy zdravotní údaje); kdo je dnes pryč, tomu `Inbox::record` přidá kopii pro `Absences::standIn` (zástup → nadřízený, jeden krok,
   musí záznam otevřít), `standing_in_for`; poptávky z formuláře oddělení jdou vedoucímu; `Tasks::escalate` po 3 dnech; vlastnictví
   záznamů se nikdy nemění; organigram v Můj účet; `list_colleagues` ho nese.
+- **Jedna nepřítomnost (3.49 B):** nepřítomnost účtu (jakýkoli důvod) zavře volné termíny rezervační osoby propojené s účtem
+  (`ka_booking_staff.user_id`) – `Booking::calendar` čte `Absences::between` (celé dny v čase webu, nic se nekopíruje), takže
+  všechny cesty (prvek, `/_booking/*`, návrh termínů, přijetí návrhu, MCP `booking_availability`) i `book()`; `confirm()` ne.
+  Existující rezervace a nabídnuté termíny se nemění: hláška po uložení je spočítá (`Booking::duringAbsence`), detail rezervace
+  má štítek „člověk je nepřítomen“; formulář osoby ukazuje nepřítomnosti z účtu (jen dny); „Propojit podle e-mailu“
+  (`Booking::linkByEmail`, jen jednoznačná shoda s aktivním účtem).
+- **Soubory u záznamu (3.49 B, `Core\InternalFileLinks`, migrace 0136):** interní soubor připojený k zákazníkovi, firmě, obchodu
+  nebo nabídce (`KINDS`); jedno pravidlo – soubor vidím, sekci záznamu smím otevřít se zapnutou funkcí, záznam existuje (neznámý
+  a zakázaný dávají stejné hlášení); box na stránce záznamu (`views/admin/internal_files/box.php`, výběr hledáním) jen se sekcí
+  Interní soubory a jen soubory, které divák smí otevřít (nepočítají se ostatní); stránka souboru „Připojeno k“; odkazy jdou při
+  smazání souboru či záznamu, anonymizaci kontaktu a nabídky a výmazu osoby (`kept` výmazu), sloučení kontaktů je přesune;
+  tabulku jmenuje jen `InternalFileLinks` (unit 4435); MCP `save_internal_file` link/unlink (živá změna, ne pro spojení na koncepty,
+  bez deníku), `get_internal_file` `links`, `list_internal_files` `linked_to`, `get_contact`/`get_quote` `internal_files`.
 - **Souhrn týmu (3.41, `Core\TeamSummary`):** Moje práce → Souhrn a MCP `team_summary` (sada Work) – jen počty za období pro sekce,
   které člověk smí otevřít; po lidech jen správce, ostatní vlastní řádek a součty (součty pro nesprávce i v měsíčním reportu až od `TeamSummary::MIN_PEOPLE` = 3 lidí s počítanou prací); měsíční report jen součty týmu bez jmen. Karta
   obchodu: dní v etapě (`Deals::stageSince`) a další krok (`Tasks::nextFor`).
