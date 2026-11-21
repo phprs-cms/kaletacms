@@ -30,6 +30,12 @@ namespace Kaleta\Core;
  *  - The change log, bells and events name the quote by its number (a draft by #id) – never an amount; quotes are never
  *    journaled for undo (AgentJournal::PERSONAL_TABLES) and never reach a report as money.
  *
+ * Since 3.49 three classes carry parts of it, and every public member that moved keeps a forward here (the block at the
+ * end), so callers, migrations and index.php are unchanged:
+ *  - Core\QuoteLines – the totals, the discounts and one line as stored (the arithmetic 3.53 invoices call);
+ *  - Core\QuoteNumbers – the number format and the counter per year;
+ *  - Core\QuoteIntake – the lines of an enquiry and the draft prepared for a new enquiry about products.
+ *
  * Messages of \DomainException are translated (t()); MCP calls them inside Language::runWith('en').
  */
 final class Quotes
@@ -50,19 +56,9 @@ final class Quotes
     public const int MAX_LINES = 200;
     public const int HISTORY_MAX = 50;
 
-    /** 3.42 review M1: an enquiry's field values are read for products at most this many times, each value in at most PARTS_MAX parts. */
-    public const int LOOKUPS_MAX = 50;
-    public const int PARTS_MAX = 30;
-
     /** The longest values. */
     public const int TITLE_MAX = 200;
     public const int TEXT_MAX = 5000;
-    public const int NAME_MAX = 250;
-    public const int DESCRIPTION_MAX = 1000;
-    public const int NUMBER_MAX = 24;
-
-    /** The default numbering (design A-7). */
-    public const string NUMBER_FORMAT = '{YYYY}-{NNNN}';
 
     /** The customer block: key => the longest value. */
     public const array CUSTOMER = ['name' => 150, 'company' => 150, 'address' => 500, 'reg_no' => 40, 'vat_id' => 40, 'email' => 190];
@@ -110,7 +106,7 @@ final class Quotes
             return null;
         }
         $lines = self::lines($db, (int) $q['id']);
-        $totals = self::computeTotals($lines, (string) $q['discount_percent'], (string) $q['vat_mode']);
+        $totals = QuoteLines::computeTotals($lines, (string) $q['discount_percent'], (string) $q['vat_mode']);
         $history = json_decode((string) ($q['history'] ?? ''), true);
         $snapshot = json_decode((string) ($q['snapshot'] ?? ''), true);
         $int = fn (mixed $v): ?int => $v === null ? null : (int) $v;
@@ -154,7 +150,7 @@ final class Quotes
                 'quantity' => Money::quantityText(Money::quantity((string) $l['quantity'])), 'unit' => (string) $l['unit'],
                 'unit_price' => $price === null ? null : Money::toDecimal($price), 'list_price' => $list === null ? null : Money::toDecimal($list),
                 'discount_percent' => Money::percentText((int) Money::fromDecimal($l['discount_percent'])), 'vat_rate' => Money::percentText((int) Money::fromDecimal($l['vat_rate'])),
-                'line_net' => Money::toDecimal((int) Money::fromDecimal($l['line_net'])), 'manual' => self::isManual($price, $list)];
+                'line_net' => Money::toDecimal((int) Money::fromDecimal($l['line_net'])), 'manual' => QuoteLines::isManual($price, $list)];
         }, $db->all('SELECT * FROM {quote_lines} WHERE quote_id = ? ORDER BY position, id', [$quoteId]));
     }
 
@@ -240,26 +236,6 @@ final class Quotes
             'sent_at' => $r['sent_at'] === null ? null : (string) $r['sent_at'], 'updated_at' => (string) $r['updated_at'], 'owner_id' => $r['owner_id'] === null ? null : (int) $r['owner_id'],
             'customer_name' => (string) $r['customer_name'], 'customer_company' => (string) $r['customer_company'], 'customer_email' => (string) $r['customer_email']], $rows),
             'total' => $total, 'page' => $page, 'pages' => $pages];
-    }
-
-    /* ---------- totals ---------- */
-
-    /**
-     * The totals of lines as DECIMAL texts: net, vat, gross, per rate (rate, net, vat) and how many lines have no price.
-     * Pure – the quote screens show what the server stores.
-     *
-     * @param list<array{unit_price: ?string, quantity: string, discount_percent: string, vat_rate: string}> $lines
-     * @return array{net: string, vat: string, gross: string, rates: list<array{rate: string, net: string, vat: string}>, unpriced: int}
-     */
-    public static function computeTotals(array $lines, string $discountPercent, string $vatMode): array
-    {
-        $money = Money::totals(array_map(fn (array $l): array => [
-            'net' => $l['unit_price'] === null ? null : Money::lineNet((int) Money::fromDecimal($l['unit_price']), Money::quantity($l['quantity']), Money::percent($l['discount_percent'])),
-            'rate' => Money::percent($l['vat_rate'])], $lines), Money::percent($discountPercent), in_array($vatMode, Money::VAT_MODES, true) ? $vatMode : 'standard');
-
-        return ['net' => Money::toDecimal($money['net']), 'vat' => Money::toDecimal($money['vat']), 'gross' => Money::toDecimal($money['gross']),
-            'rates' => array_map(fn (array $r): array => ['rate' => Money::percentText($r['rate']), 'net' => Money::toDecimal($r['net']), 'vat' => Money::toDecimal($r['vat'])], $money['rates']),
-            'unpriced' => $money['unpriced']];
     }
 
     /* ---------- saving ---------- */
@@ -352,7 +328,7 @@ final class Quotes
             $given = is_array($fields['customer'] ?? null) ? $fields['customer'] : [];
             $base = $sources['fill'] ?? ($quote['customer'] ?? array_fill_keys(array_keys(self::CUSTOMER), ''));
             foreach (self::CUSTOMER as $key => $max) {
-                $value = array_key_exists($key, $given) ? self::line($given[$key], $max) : self::line($base[$key] ?? '', $max);
+                $value = array_key_exists($key, $given) ? QuoteLines::line($given[$key], $max) : QuoteLines::line($base[$key] ?? '', $max);
                 if ($key === 'email' && $value !== '' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
                     throw new \DomainException(t('The customer’s e-mail is not a valid address.'));
                 }
@@ -381,7 +357,7 @@ final class Quotes
 
         // texts, validity, language, discount, VAT
         if ($quote === null || $has('title')) {
-            $data['title'] = self::line($fields['title'] ?? ($sources['title'] ?? ''), self::TITLE_MAX);
+            $data['title'] = QuoteLines::line($fields['title'] ?? ($sources['title'] ?? ''), self::TITLE_MAX);
         }
         if ($quote === null || $has('language')) {
             $data['language'] = Language::column($s, is_string($fields['language'] ?? null) ? $fields['language'] : '');
@@ -389,7 +365,7 @@ final class Quotes
         foreach (['intro', 'terms'] as $key) {
             if ($quote === null || $has($key)) {
                 // 3.38 C: the default text in the quote's language (QuoteDelivery::defaultText)
-                $data[$key] = self::text($has($key) ? $fields[$key] : QuoteDelivery::defaultText($s, $key, (string) ($data['language'] ?? $quote['language'] ?? '')), self::TEXT_MAX);
+                $data[$key] = QuoteLines::text($has($key) ? $fields[$key] : QuoteDelivery::defaultText($s, $key, (string) ($data['language'] ?? $quote['language'] ?? '')), self::TEXT_MAX);
             }
         }
         if ($has('valid_until') || $has('valid_days') || $quote === null) {
@@ -397,7 +373,7 @@ final class Quotes
         }
         if ($quote === null || $has('discount_percent')) {
             $discount = Money::percent($fields['discount_percent'] ?? null);
-            self::checkDiscount($discount, $s, $fromClaude);
+            QuoteLines::checkDiscount($discount, $s, $fromClaude);
             $data['discount_percent'] = Money::percentText($discount);
         }
         if ($quote === null || $has('vat_mode')) {
@@ -436,7 +412,7 @@ final class Quotes
                 if (!is_array($input)) {
                     throw new \DomainException(t('Line %d is not valid.', $i + 1));
                 }
-                $lines[] = self::prepareLine($db, $s, $list, $input, $stored[(int) ($input['id'] ?? 0)] ?? null, $fromClaude, $warnings, $i + 1);
+                $lines[] = QuoteLines::prepareLine($db, $s, $list, $input, $stored[(int) ($input['id'] ?? 0)] ?? null, $fromClaude, $warnings, $i + 1);
             }
         }
         $current = $lines ?? ($quote['lines'] ?? []);
@@ -445,16 +421,16 @@ final class Quotes
             $quoteDiscount = Money::percent($data['discount_percent'] ?? $quote['discount_percent'] ?? null);
             foreach ($current as $n => $l) {
                 // 3.44 (N143): a price below the list counts too – a line Claude priced now, or one kept from before
-                $implied = max((int) ($l['implied_discount'] ?? 0), self::impliedDiscount(Money::fromDecimal($l['unit_price']), Money::fromDecimal($l['list_price'] ?? null)));
-                $line = self::combinedDiscount($implied, Money::percent($l['discount_percent']));
-                self::checkDiscount(self::combinedDiscount($line, $quoteDiscount), $s, true, $n + 1);
+                $implied = max((int) ($l['implied_discount'] ?? 0), QuoteLines::impliedDiscount(Money::fromDecimal($l['unit_price']), Money::fromDecimal($l['list_price'] ?? null)));
+                $line = QuoteLines::combinedDiscount($implied, Money::percent($l['discount_percent']));
+                QuoteLines::checkDiscount(QuoteLines::combinedDiscount($line, $quoteDiscount), $s, true, $n + 1);
             }
         }
-        $totals = self::computeTotals($current, (string) ($data['discount_percent'] ?? $quote['discount_percent'] ?? '0.00'), (string) ($data['vat_mode'] ?? $quote['vat_mode'] ?? 'standard'));
+        $totals = QuoteLines::computeTotals($current, (string) ($data['discount_percent'] ?? $quote['discount_percent'] ?? '0.00'), (string) ($data['vat_mode'] ?? $quote['vat_mode'] ?? 'standard'));
         $data['total_net'] = $totals['net'];
         $data['total_vat'] = $totals['vat'];
         $data['total_gross'] = $totals['gross'];
-        $data['manual_prices'] = array_filter($current, fn (array $l): bool => self::isManual(Money::fromDecimal($l['unit_price']), Money::fromDecimal($l['list_price'] ?? null))) !== [] ? 1 : 0;
+        $data['manual_prices'] = array_filter($current, fn (array $l): bool => QuoteLines::isManual(Money::fromDecimal($l['unit_price']), Money::fromDecimal($l['list_price'] ?? null))) !== [] ? 1 : 0;
         if ($totals['unpriced'] > 0) {
             $warnings[] = t('%d lines have no price yet – the quote cannot be sent until a person fills them.', $totals['unpriced']);
         }
@@ -545,7 +521,7 @@ final class Quotes
                 throw new \DomainException($refusal);
             }
             $snapshot = self::snapshot($app, $quote);
-            $number = $locked['number'] !== null ? (string) $locked['number'] : self::assignNumber($db, $app->settings(), $quote['revision_of']);
+            $number = $locked['number'] !== null ? (string) $locked['number'] : QuoteNumbers::assignNumber($db, $app->settings(), $quote['revision_of']);
             $snapshot['number'] = $number;
             $snapshot['sent_at'] = $now;
             $db->update('quotes', ['number' => $number, 'status' => 'sent', 'snapshot' => (string) json_encode($snapshot, JSON_UNESCAPED_UNICODE), 'sent_at' => $now,
@@ -918,109 +894,6 @@ final class Quotes
         return true;
     }
 
-    /* ---------- numbering ---------- */
-
-    /**
-     * Why a number format cannot be used (translated), or null: it needs the year ({YYYY} or {YY}) and one counter {N…}
-     * (1–8 N), may have letters, digits, spaces and - / . _ around them, and a number made from it fits 24 characters.
-     */
-    public static function formatRefusal(string $format): ?string
-    {
-        $format = trim($format);
-        if (preg_match_all('/\{N{1,8}\}/', $format) !== 1 || preg_match('/\{(YYYY|YY)\}/', $format) !== 1) {
-            return t('The number format needs the year ({YYYY} or {YY}) and one counter ({NNNN}).');
-        }
-        $rest = (string) preg_replace('/\{(YYYY|YY|N{1,8})\}/', '', $format);
-        if (preg_match('/^[A-Za-z0-9 \/._-]*$/D', $rest) !== 1) {
-            return t('Around the year and the counter the number format may have letters, digits, spaces and - / . _ only.');
-        }
-        if (mb_strlen(self::formatNumber($format, 2026, 99999)) > self::NUMBER_MAX - 3) {
-            return t('A number made from this format would be longer than %d characters.', self::NUMBER_MAX - 3);
-        }
-
-        return null;
-    }
-
-    /** The number of a quote from the format: {YYYY} 2026, {YY} 26, {NNNN} the counter padded to four digits (pure). */
-    public static function formatNumber(string $format, int $year, int $counter): string
-    {
-        $format = trim($format) !== '' ? trim($format) : self::NUMBER_FORMAT;
-
-        return (string) preg_replace_callback('/\{(YYYY|YY|N{1,8})\}/', fn (array $m): string => match ($m[1]) {
-            'YYYY' => (string) $year,
-            'YY' => substr((string) $year, -2),
-            default => str_pad((string) $counter, strlen($m[1]), '0', STR_PAD_LEFT),
-        }, $format);
-    }
-
-    /** The format of the settings, or the default when it cannot be used. */
-    public static function numberFormat(Settings $s): string
-    {
-        $format = trim($s->get('quote_number_format'));
-
-        return $format !== '' && self::formatRefusal($format) === null ? $format : self::NUMBER_FORMAT;
-    }
-
-    /**
-     * The next number of a quote; call it inside a transaction (markSent). A revision: its original's number with the
-     * next free /2, /3…; otherwise this year's counter + 1 (taken with FOR UPDATE), skipping a number that already exists.
-     */
-    public static function assignNumber(Db $db, Settings $s, ?int $revisionOf = null): string
-    {
-        if ($revisionOf !== null) {
-            $base = (string) ($db->value('SELECT number FROM {quotes} WHERE id = ?', [$revisionOf]) ?? '');
-            $base = (string) preg_replace('~/\d+$~', '', $base);
-            if ($base !== '') {
-                for ($n = 2; $n < 1000; $n++) {
-                    $candidate = mb_substr($base, 0, self::NUMBER_MAX - 1 - strlen((string) $n)) . '/' . $n;
-                    if ($db->value('SELECT 1 FROM {quotes} WHERE number = ?', [$candidate]) === null) {
-                        return $candidate;
-                    }
-                }
-            }
-        }
-        $year = (int) substr(Clock::now(), 0, 4);
-        $db->run('INSERT IGNORE INTO {quote_counters} (year, last) VALUES (?, 0)', [$year]);
-        $last = (int) $db->value('SELECT last FROM {quote_counters} WHERE year = ? FOR UPDATE', [$year]);
-        $format = self::numberFormat($s);
-        do {
-            $last++;
-            $number = self::formatNumber($format, $year, $last);
-        } while ($db->value('SELECT 1 FROM {quotes} WHERE number = ?', [$number]) !== null);
-        $db->run('UPDATE {quote_counters} SET last = ? WHERE year = ?', [$last, $year]);
-
-        return $number;
-    }
-
-    /** The number the next quote of this year would get (the settings screen; not reserved). */
-    public static function nextNumber(Db $db, Settings $s): string
-    {
-        $year = (int) substr(Clock::now(), 0, 4);
-        try {
-            $last = (int) ($db->value('SELECT last FROM {quote_counters} WHERE year = ?', [$year]) ?? 0);
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            $last = 0; // before migration 0123
-        }
-
-        return self::formatNumber(self::numberFormat($s), $year, $last + 1);
-    }
-
-    /**
-     * Continues an existing series (quote_next_number): the next quote of this year gets at least $next. Only raises the
-     * counter – a lower number is ignored (false), so no number is given twice.
-     */
-    public static function raiseCounter(Db $db, int $next): bool
-    {
-        if ($next < 2) {
-            return false;
-        }
-        $year = (int) substr(Clock::now(), 0, 4);
-        $db->run('INSERT IGNORE INTO {quote_counters} (year, last) VALUES (?, 0)', [$year]);
-
-        return $db->run('UPDATE {quote_counters} SET last = ? WHERE year = ? AND last < ?', [$next - 1, $year, $next - 1])->rowCount() > 0;
-    }
-
     /**
      * 3.44 (CPO 2): the quotes of one list of My work (Core\MyWork, MCP my_work) – the key ix_quotes_owner (owner_id, status) serves all three:
      *  - quotes_drafts: my drafts, and the drafts Kaleta prepared from an enquiry with nobody responsible (reason prepared /
@@ -1054,335 +927,7 @@ final class Quotes
             'date' => (string) ($list === 'quotes_drafts' ? $q['updated_at'] : ($q['sent_at'] ?? $q['updated_at'])), 'url' => self::adminPath((int) $q['id'])], $rows);
     }
 
-    /* ---------- from an enquiry ---------- */
-
-    /** 3.42: the setting "prepare a draft quote for new enquiries about products" (off by default). */
-    public const string AUTO_DRAFT_SETTING = 'quote_auto_draft';
-
-    /** 3.44 (N168 a): at most this many drafts are prepared automatically in one day. */
-    public const int AUTO_DRAFT_DAILY_MAX = 50;
-
-    /** @var list<int> enquiries whose draft is prepared after the response (prepareLater) */
-    private static array $preparing = [];
-
-    /**
-     * 3.42: a new enquiry from the site's form – its draft quote is prepared after the response (afterResponse(), index.php),
-     * so the visitor never waits; nothing is queued while the feature or the setting is off.
-     */
-    public static function prepareLater(App $app, int $enquiryId): void
-    {
-        $s = $app->settings();
-        if ($enquiryId > 0 && Prices::isOn($s) && $s->bool(self::AUTO_DRAFT_SETTING)) {
-            self::$preparing[] = $enquiryId;
-        }
-    }
-
-    /** After the page was sent (index.php, after the customer link): prepares what prepareLater() queued. Never fails the request. */
-    public static function afterResponse(App $app): void
-    {
-        if (self::$preparing === []) {
-            return;
-        }
-        $ids = self::$preparing;
-        self::$preparing = [];
-        if (function_exists('fastcgi_finish_request')) {
-            fastcgi_finish_request();
-        } elseif (function_exists('litespeed_finish_request')) {
-            litespeed_finish_request();
-        }
-        ignore_user_abort(true);
-        foreach ($ids as $id) {
-            try {
-                self::prepareDraft($app, $id);
-            } catch (\Throwable) {
-                // a courtesy – the enquiry stands, a person makes the quote from it
-            }
-        }
-    }
-
-    /** How many drafts prepareLater() queued in this request (tests). */
-    public static function preparing(): int
-    {
-        return count(self::$preparing);
-    }
-
-    /**
-     * 3.42: prepares a DRAFT quote for an enquiry about products – when the feature and AUTO_DRAFT_SETTING are on, the
-     * enquiry is not spam, a job application or anonymised, no quote of it exists yet (one draft per enquiry, never
-     * sent), and linesFromEnquiry() matched at least one product. Linked like "New quote" from the enquiry (its customer,
-     * open deal); the responsible person is the enquiry's, else the deal's, contact's or company's, when they may open
-     * Quotes – they get a bell that names the quote only (no amount). 3.44 (N168 a): at most AUTO_DRAFT_DAILY_MAX a day.
-     * Returns the new quote's id or null.
-     */
-    public static function prepareDraft(App $app, int $enquiryId): ?int
-    {
-        $db = $app->db();
-        $s = $app->settings();
-        if (!Prices::isOn($s) || !$s->bool(self::AUTO_DRAFT_SETTING)) {
-            return null;
-        }
-        $enquiry = $db->one('SELECT idp, kategorie, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, false), [$enquiryId]);
-        if ($enquiry === null || in_array((string) $enquiry['kategorie'], ['spam', 'job'], true) || $enquiry['anonymizovano'] !== null
-            || $db->value('SELECT 1 FROM {quotes} WHERE enquiry_id = ? LIMIT 1', [$enquiryId]) !== null) {
-            return null;
-        }
-        $found = self::linesFromEnquiry($app, $enquiryId);
-        if ($found['matched'] === 0) {
-            return null;
-        }
-        // 3.44 (N168 a): at most AUTO_DRAFT_DAILY_MAX prepared drafts a day – a flood of enquiries naming products stays
-        // enquiries; the first one over the cap leaves one warning in the events of the day. 3.44 review L4: counted under a
-        // lock in the marker quote_auto_drafts_day, so parallel enquiries cannot pass it together and a draft discarded with
-        // its spam enquiry still counts
-        $lock = $db->lockName('quote-auto-drafts');
-        if ((int) $db->value('SELECT GET_LOCK(?, 5)', [$lock]) !== 1) {
-            return null;
-        }
-        try {
-            $today = Clock::today();
-            [$day, $count] = array_pad(explode('|', (string) ($db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = 'quote_auto_drafts_day'") ?? '')), 2, '0');
-            $count = $day === $today ? (int) $count : 0;
-            if ($count >= self::AUTO_DRAFT_DAILY_MAX) {
-                if ($db->value("SELECT 1 FROM {events} WHERE type = 'quote.auto_draft_limit' AND created_at >= ? LIMIT 1", [$today . ' 00:00:00']) === null) {
-                    Events::record($db, 'quote.auto_draft_limit', 'warning', mb_substr(t('Draft quotes are no longer prepared today – %d were prepared already.', self::AUTO_DRAFT_DAILY_MAX), 0, 255), ['enquiry' => $enquiryId]);
-                }
-
-                return null;
-            }
-            $s->set('quote_auto_drafts_day', $today . '|' . ($count + 1));
-        } finally {
-            $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
-        }
-        $owner = 0;
-        $deal = Deals::openForEnquiry($db, $enquiryId);
-        $contact = $enquiry['contact_id'] !== null ? Contacts::find($db, (int) $enquiry['contact_id']) : null;
-        $company = $contact !== null && $contact['company_id'] !== null ? Contacts::findCompany($db, (int) $contact['company_id']) : null;
-        foreach ([$enquiry['prirazeno'], $deal !== null ? (Deals::get($db, $deal)['owner_id'] ?? null) : null, $contact['owner_id'] ?? null, $company['owner_id'] ?? null] as $candidate) {
-            if ($candidate !== null && (int) $candidate > 0 && self::mayOpen($db, $s, (int) $candidate)) {
-                $owner = (int) $candidate;
-                break;
-            }
-        }
-        $id = self::save($app, null, ['enquiry_id' => $enquiryId, 'lines' => $found['lines'], 'owner_id' => $owner], 0)['id'];
-        if ($owner > 0) {
-            Inbox::notify($app, $owner, 'quote_prepared', 'quote:' . $id, null);
-        }
-
-        return $id;
-    }
-
-
-    /**
-     * 3.42 review L6: an enquiry sorted out as spam (Core\Triage::save – a person, Claude or the assistant) takes its
-     * automatically prepared draft along while nobody touched it: a draft without a number made by Kaleta itself
-     * (created_by NULL, prepareDraft()) that was never saved since (updated_at = created_at). Its lines, tasks and bells go
-     * too. Returns how many went.
-     */
-    public static function dropPreparedDraft(Db $db, int $enquiryId): int
-    {
-        try {
-            $ids = array_map('intval', array_column($db->all("SELECT id FROM {quotes} WHERE enquiry_id = ? AND status = 'draft' AND number IS NULL AND created_by IS NULL"
-                . ' AND sent_at IS NULL AND updated_at = created_at', [$enquiryId]), 'id'));
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return 0; // before the quotes tables
-        }
-        foreach ($ids as $id) {
-            $db->transaction(function (Db $db) use ($id): void {
-                Tasks::forgetTargets($db, ['quote:' . $id]);
-                Inbox::forgetTargets($db, ['quote:' . $id]);
-                $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
-                $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
-            });
-        }
-
-        return count($ids);
-    }
-
-    /**
-     * The lines of an enquiry basket, as the form stored them ("2 × Name – Variant (code)", Builder\Products::basketLines):
-     * quantity, name, variant name and code. Other text is ignored (pure).
-     *
-     * @return list<array{quantity: int, name: string, variant: string, code: string}>
-     */
-    public static function parseBasket(string $text): array
-    {
-        $out = [];
-        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
-            if (preg_match('/^\s*(\d{1,4})\s*×\s*(.+?)(?:\s+–\s+(.+?))?(?:\s+\(([^()]{1,60})\))?\s*$/u', $line, $m) === 1 && (int) $m[1] > 0) {
-                $out[] = ['quantity' => (int) $m[1], 'name' => trim($m[2]), 'variant' => trim($m[3] ?? ''), 'code' => trim($m[4] ?? '')];
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * The lines a new quote of an enquiry starts with: every basket line of the enquiry matched to a product – by its code
-     * (a variant's or the product's), then by its name (and the variant's name) in the products collections; what cannot be
-     * matched becomes a free line with its text and quantity and no price. 3.42: then the item whose detail page the form
-     * was sent from (source kolekce:<idk> of a products collection – the products preset or one mapped in Quotes → Price list set-up
-     * – and the item's address in the page; left out when a basket line or a field names that item already), and every
-     * form field whose value names a product by its name or code (case does not matter; a field with several values –
-     * ticked boxes, lines – is read value by value), each once with quantity 1. The prices come from the price list when the quote is saved (save()), never from the enquiry.
-     *
-     * @return array{lines: list<array<string, mixed>>, matched: int, unmatched: int}
-     */
-    public static function linesFromEnquiry(App $app, int $enquiryId): array
-    {
-        return Prices::withCodeIndex(fn (): array => self::linesFromEnquiryNow($app, $enquiryId));
-    }
-
-    /** @return array{lines: list<array<string, mixed>>, matched: int, unmatched: int} */
-    private static function linesFromEnquiryNow(App $app, int $enquiryId): array
-    {
-        $db = $app->db();
-        $enquiry = $db->one('SELECT data, zdroj, prvek, stranka FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
-        $fields = json_decode((string) ($enquiry['data'] ?? ''), true);
-        $fields = is_array($fields) ? $fields : [];
-        // 3.44 (N163): a visitor's submission of a site form gives basket lines only from its basket field (the labels of the
-        // form's basket fields in its published build) – a "1 × …" line typed into a message is plain text; an enquiry
-        // without a site form (added by staff or imported) is read as before
-        $fromForm = $enquiry !== null && (string) $enquiry['zdroj'] !== '' && (string) $enquiry['prvek'] !== '';
-        $basketLabels = $fromForm ? Prices::basketLabels($db, (string) $enquiry['zdroj'], (string) $enquiry['prvek'], (string) $enquiry['stranka']) : [];
-        $lines = [];
-        $matched = 0;
-        $unmatched = 0;
-        $names = null;
-        $seen = [];
-        $plain = [];
-        foreach ($fields as $field) {
-            $isBasket = is_array($field) && (!$fromForm || (!isset($field[2]) && in_array((string) ($field[0] ?? ''), $basketLabels, true)));
-            $basket = $isBasket ? self::parseBasket((string) ($field[1] ?? '')) : [];
-            if ($basket === [] && is_array($field) && !isset($field[2]) && is_scalar($field[1] ?? null)) {
-                $plain[] = (string) $field[1]; // 3.42: read below for product names and codes (an attachment – [2] – never)
-            }
-            foreach ($basket as $b) {
-                $hit = $b['code'] !== '' ? Prices::findCode($db, $b['code']) : null;
-                if ($hit === null) {
-                    $names ??= self::productNames($db);
-                    $item = $names[mb_strtolower($b['name'])] ?? null;
-                    if ($item !== null) {
-                        $variant = '';
-                        foreach ($item['variants'] as $v) {
-                            if ($b['variant'] !== '' && mb_strtolower($v['name']) === mb_strtolower($b['variant'])) {
-                                $variant = $v['code'];
-                            }
-                        }
-                        $hit = ($b['variant'] === '' || $variant !== '') ? ['item_id' => $item['idp'], 'variant_code' => $variant] : null;
-                    }
-                }
-                if ($hit !== null) {
-                    $lines[] = ['item_id' => $hit['item_id'], 'variant_code' => $hit['variant_code'], 'quantity' => (string) $b['quantity']];
-                    $seen[$hit['item_id'] . ':' . $hit['variant_code']] = true;
-                    $matched++;
-                } else {
-                    $lines[] = ['name' => $b['name'] . ($b['variant'] !== '' ? ' – ' . $b['variant'] : ''), 'code' => $b['code'], 'quantity' => (string) $b['quantity'], 'unit_price' => null];
-                    $unmatched++;
-                }
-                if (count($lines) >= self::MAX_LINES) {
-                    break 2;
-                }
-            }
-        }
-        if ($enquiry !== null) {
-            $found = [];
-            $budget = self::LOOKUPS_MAX;
-            foreach ($plain as $value) {
-                array_push($found, ...self::namedProducts($db, $value, $names, $budget));
-            }
-            // the item of the page, unless a field already names it (or one of its variants)
-            $page = self::pageItem($db, (string) $enquiry['zdroj'], (string) $enquiry['stranka']);
-            if ($page !== null && !in_array($page, array_column($found, 'item_id'), true) && !in_array($page, array_column($lines, 'item_id'), true)) {
-                array_unshift($found, ['item_id' => $page, 'variant_code' => '']);
-            }
-            foreach ($found as $hit) {
-                $key = $hit['item_id'] . ':' . $hit['variant_code'];
-                if (isset($seen[$key]) || count($lines) >= self::MAX_LINES) {
-                    continue;
-                }
-                $seen[$key] = true;
-                $lines[] = ['item_id' => $hit['item_id'], 'variant_code' => $hit['variant_code'], 'quantity' => '1'];
-                $matched++;
-            }
-        }
-
-        return ['lines' => $lines, 'matched' => $matched, 'unmatched' => $unmatched];
-    }
-
-    /**
-     * 3.42: the item whose detail page an enquiry was sent from – the source kolekce:<idk> names a products collection
-     * (Prices::productCollections) and the page address ends with /<collection>/<item> (the reading of Front\EnquiryTopic);
-     * the default-language item when several share the address. null otherwise.
-     */
-    private static function pageItem(Db $db, string $source, string $page): ?int
-    {
-        if (preg_match('/^kolekce:(\d+)$/D', $source, $m) !== 1) {
-            return null;
-        }
-        $collection = array_values(array_filter(Prices::productCollections($db), fn (array $c): bool => $c['idk'] === (int) $m[1]))[0] ?? null;
-        if ($collection === null || $collection['seo_link'] === ''
-            || preg_match('#/' . preg_quote($collection['seo_link'], '#') . '/([a-z0-9-]{1,160})/?(?:\?.*)?$#', $page, $slug) !== 1) {
-            return null;
-        }
-        $id = $db->value("SELECT idp FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND smazano IS NULL ORDER BY jazyk = '' DESC, idp LIMIT 1", [$collection['idk'], $slug[1]]);
-
-        return $id === null ? null : (int) $id;
-    }
-
-    /**
-     * 3.42: the products a form value names – the whole value, or else each of its parts (lines, or values separated by a
-     * comma or semicolon, as ticked boxes are stored): a product's code or variant code (Prices::findCode), a product's
-     * name, or "Name – Variant". Case does not matter. Nothing for a long text (a message is not a choice).
-     *
-     * @param array<string, array<string, mixed>>|null $names productNames(), loaded on first need
-     * @return list<array{item_id: int, variant_code: string}>
-     */
-    private static function namedProducts(Db $db, string $value, ?array &$names, int &$budget): array
-    {
-        $value = trim($value);
-        if ($value === '' || mb_strlen($value) > 1000 || $budget <= 0) {
-            return [];
-        }
-        $one = function (string $text) use ($db, &$names, &$budget): ?array {
-            $text = trim($text);
-            if ($text === '' || mb_strlen($text) > 250 || $budget <= 0) {
-                return null;
-            }
-            $budget--;
-            $hit = Prices::findCode($db, $text);
-            if ($hit !== null) {
-                return $hit;
-            }
-            $names ??= self::productNames($db);
-            $item = $names[mb_strtolower($text)] ?? null;
-            if ($item !== null) {
-                return ['item_id' => $item['idp'], 'variant_code' => ''];
-            }
-            if (preg_match('/^(.+?)\s+[–-]\s+(.+)$/u', $text, $m) === 1 && ($item = $names[mb_strtolower(trim($m[1]))] ?? null) !== null) {
-                foreach ($item['variants'] as $v) {
-                    if ($v['code'] !== '' && mb_strtolower($v['name']) === mb_strtolower(trim($m[2]))) {
-                        return ['item_id' => $item['idp'], 'variant_code' => $v['code']];
-                    }
-                }
-            }
-
-            return null;
-        };
-        $whole = $one($value);
-        if ($whole !== null) {
-            return [$whole];
-        }
-        $out = [];
-        foreach (array_slice(preg_split('/\R|[,;]\s*/u', $value) ?: [], 0, self::PARTS_MAX) as $part) {
-            $hit = $one($part);
-            if ($hit !== null) {
-                $out[] = $hit;
-            }
-        }
-
-        return $out;
-    }
+    /* ---------- the customer block ---------- */
 
     /**
      * The customer block of a contact and/or a company: name, company, reg_no, vat_id, e-mail ('' where unknown; contacts
@@ -1466,7 +1011,7 @@ final class Quotes
             if (!$may('enquiries')) {
                 throw new \DomainException(t('Only a user who may open Enquiries can make a quote from an enquiry.'));
             }
-            $enquiry = $value('enquiry_id') > 0 ? $db->one('SELECT idp, tema, email, contact_id FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, false), [$value('enquiry_id')]) : null;
+            $enquiry = $value('enquiry_id') > 0 ? $db->one('SELECT idp, tema, email, contact_id FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $s, false), [$value('enquiry_id')]) : null;
             if ($value('enquiry_id') > 0 && $enquiry === null) {
                 throw new \DomainException(t('The enquiry does not exist.'));
             }
@@ -1481,7 +1026,7 @@ final class Quotes
                     }
                 }
                 if (!array_key_exists('lines', $fields)) {
-                    $lines = self::linesFromEnquiry($app, (int) $enquiry['idp'])['lines'];
+                    $lines = QuoteIntake::linesFromEnquiry($app, (int) $enquiry['idp'])['lines'];
                 }
                 if ($contact === null && (string) $enquiry['email'] !== '' && !array_key_exists('customer', $fields)) {
                     $fill = array_fill_keys(array_keys(self::CUSTOMER), '');
@@ -1536,185 +1081,6 @@ final class Quotes
     }
 
     /**
-     * One line as stored: the product (item_id, or a code found in the price list or among the products) with its name,
-     * code and list price; the quantity, unit, discount and VAT rate; the price given or the list price; line_net.
-     *
-     * @param array{id: int, currency: string} $list
-     * @param array<string, mixed> $input
-     * @param array<string, mixed>|null $stored the line it replaces (keeps its list price)
-     * @param list<string> $warnings
-     * @return array<string, mixed>
-     */
-    private static function prepareLine(Db $db, Settings $s, array $list, array $input, ?array $stored, bool $fromClaude, array &$warnings, int $n): array
-    {
-        $itemId = (int) (is_scalar($input['item_id'] ?? null) ? $input['item_id'] : 0);
-        $variant = self::line($input['variant_code'] ?? '', Prices::CODE_MAX);
-        $code = self::line($input['code'] ?? '', Prices::CODE_MAX);
-        $price = null;
-        $name = '';
-        $unit = '';
-        if ($itemId <= 0 && $code !== '') {
-            $price = Prices::byCode($db, $list['id'], $code);
-            if ($price !== null && $price['item_id'] !== null) {
-                $itemId = $price['item_id'];
-                $variant = $price['variant_code'];
-                $price = null;
-            } elseif ($price === null && ($found = Prices::findCode($db, $code)) !== null) {
-                $itemId = $found['item_id'];
-                $variant = $found['variant_code'];
-            } elseif ($price !== null) {
-                $name = $price['label'];
-            }
-        }
-        if ($itemId > 0) {
-            $item = Prices::item($db, $itemId) ?? throw new \DomainException(t('Line %d: the product does not exist.', $n));
-            $variantName = '';
-            if ($variant !== '') {
-                $v = array_values(array_filter($item['variants'], fn (array $v): bool => $v['code'] === $variant))[0] ?? null;
-                if ($v === null) {
-                    throw new \DomainException(t('Line %1$d: the product has no variant with the code %2$s.', $n, $variant));
-                }
-                $variantName = $v['name'];
-            }
-            $name = $item['name'] . ($variantName !== '' ? ' – ' . $variantName : '');
-            $code = $variant !== '' ? $variant : $item['code'];
-            $price = Prices::forItem($db, $itemId, $variant, $list['id']);
-        }
-        $unit = $price['unit'] ?? $unit;
-        $listMinor = $stored !== null && (int) ($stored['item_id'] ?? 0) === $itemId && (string) ($stored['variant_code'] ?? '') === $variant
-            ? Money::fromDecimal($stored['list_price']) : ($price['minor'] ?? null);
-        $given = array_key_exists('unit_price', $input) ? Money::parse($input['unit_price']) : ($stored !== null && !array_key_exists('item_id', $input) && !array_key_exists('code', $input) ? Money::fromDecimal($stored['unit_price']) : $listMinor);
-        if ($fromClaude && ($itemId > 0 || $price !== null) && $listMinor === null && $given !== null) {
-            $given = null; // Claude never guesses the price of a product the list has no price for
-            $warnings[] = t('Line %d: %s has no internal price – a person fills it in the admin.', $n, $name);
-        } elseif (($itemId > 0 || $price !== null) && $listMinor === null && $given === null) {
-            $warnings[] = t('Line %d: %s has no internal price.', $n, $name);
-        } elseif ($given !== null && $listMinor !== null && $given !== $listMinor) {
-            $warnings[] = t('Line %d: the price differs from the price list (manual price).', $n);
-        }
-        if (array_key_exists('name', $input) && self::line($input['name'], self::NAME_MAX) !== '') {
-            $name = self::line($input['name'], self::NAME_MAX);
-        }
-        if ($name === '') {
-            throw new \DomainException(t('Line %d needs a name.', $n));
-        }
-        if ($fromClaude && $itemId <= 0 && $price === null && self::namesProduct($db, $list['id'], $name, $code)) {
-            // 3.44 review M2: a free line named as a product has no list price to compare – the discount cap and the VAT rate would not apply
-            throw new \DomainException(t('Line %1$d: “%2$s” is a product of the price list – give its item or code so its list price applies.', $n, $name));
-        }
-        $quantity = Money::quantity($input['quantity'] ?? ($stored['quantity'] ?? null));
-        $discount = Money::percent($input['discount_percent'] ?? ($stored['discount_percent'] ?? null));
-        // 3.44 (N143): Claude's price below the list price is a discount by another name – it counts against the same cap
-        $implied = $fromClaude && array_key_exists('unit_price', $input) ? self::impliedDiscount($given, $listMinor) : 0;
-        if ($implied > 0 && self::combinedDiscount($implied, $discount) > self::maxDiscount($s)) {
-            throw new \DomainException(t('Line %1$d: the price is more than %2$s %% below the price list – ask a person to set it in the admin.', $n, Money::short(Money::percentText(self::maxDiscount($s)))));
-        }
-        self::checkDiscount($discount, $s, $fromClaude);
-        $listRate = Money::percent($price['vat_rate'] ?? ($stored['vat_rate'] ?? Prices::defaultVatRate($s)));
-        $rate = array_key_exists('vat_rate', $input) && !(is_string($input['vat_rate']) && trim($input['vat_rate']) === '') && $input['vat_rate'] !== null
-            ? Money::percent($input['vat_rate']) : $listRate;
-        if ($fromClaude && $listMinor !== null && $rate < $listRate && $s->bool('quote_vat_payer')) {
-            // 3.44 (N143): a lower VAT rate than the price list's lowers what the customer pays – a person decides it in the admin
-            throw new \DomainException(t('Line %d: a lower VAT rate than the price list has – ask a person to set it in the admin.', $n));
-        }
-
-        return ['id' => $stored['id'] ?? null, 'item_id' => $itemId > 0 ? $itemId : null, 'variant_code' => $variant, 'code' => $code, 'name' => $name,
-            'description' => self::line($input['description'] ?? ($stored['description'] ?? ''), self::DESCRIPTION_MAX),
-            'quantity' => Money::quantityText($quantity), 'unit' => array_key_exists('unit', $input) ? self::line($input['unit'], Prices::UNIT_MAX) : ($stored['unit'] ?? $unit),
-            'unit_price' => $given === null ? null : Money::toDecimal($given), 'list_price' => $listMinor === null ? null : Money::toDecimal($listMinor),
-            'discount_percent' => Money::percentText($discount), 'vat_rate' => Money::percentText($rate),
-            'line_net' => Money::toDecimal($given === null ? 0 : Money::lineNet($given, $quantity, $discount)), 'implied_discount' => $implied];
-    }
-
-    /**
-     * 3.44 review M2: does a free line's name (or its part before " – ", a variant) or code name a product of a products
-     * collection (the preset or mapped) or an own row of the price list? Claude must then give the item or the code.
-     */
-    private static function namesProduct(Db $db, int $priceListId, string $name, string $code): bool
-    {
-        $names = array_values(array_unique(array_filter([$name, trim(explode(' – ', $name)[0])])));
-        if ($code !== '' && Prices::findCode($db, $code) !== null) {
-            return true;
-        }
-        $collections = array_column(Prices::productCollections($db), 'idk');
-        $marks = implode(', ', array_fill(0, count($names), '?'));
-        if ($collections !== [] && $db->value('SELECT 1 FROM {kolekce_polozky} WHERE idk IN (' . implode(', ', array_map('intval', $collections)) . ") AND smazano IS NULL AND nazev IN ($marks) LIMIT 1", $names) !== null) {
-            return true;
-        }
-        try {
-            return $db->value("SELECT 1 FROM {prices} WHERE price_list_id = ? AND item_id IS NULL AND (label IN ($marks)" . ($code !== '' ? ' OR code = ?' : '') . ') LIMIT 1',
-                [$priceListId, ...$names, ...($code !== '' ? [$code] : [])]) !== null;
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e);
-            return false;
-        }
-    }
-
-    /**
-     * 3.44 (N143, pure): the discount a price below the list price amounts to, in basis points rounded up (a product listed
-     * at 10 000 quoted at 7 999 = 20.01 %); 0 without a list price or at or above it.
-     */
-    public static function impliedDiscount(?int $price, ?int $list): int
-    {
-        if ($price === null || $list === null || $list <= 0 || $price >= $list) {
-            return 0;
-        }
-
-        return 10000 - intdiv(max(0, $price) * 10000, $list);
-    }
-
-    /** Lower-case product name => item, for matching basket lines by name (default language first). @return array<string, array<string, mixed>> */
-    private static function productNames(Db $db): array
-    {
-        $out = [];
-        foreach (Prices::productCollections($db) as $c) {
-            foreach (Prices::itemsOf($db, $c['idk']) as $item) {
-                $out[mb_strtolower($item['name'])] ??= $item;
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * A discount above quote_max_discount is refused over MCP: a person sets it in the admin. $line > 0: the combined discount
-     * of that line (3.38 review L4). @throws \DomainException
-     */
-    private static function checkDiscount(int $points, Settings $s, bool $fromClaude, int $line = 0): void
-    {
-        $max = self::maxDiscount($s);
-        if ($fromClaude && $points > $max) {
-            throw new \DomainException($line > 0
-                ? t('Line %1$d: its discount and the quote\'s discount together are above %2$s %% – ask a person to set it in the admin.', $line, Money::short(Money::percentText($max)))
-                : t('A discount above %s %% – ask a person to set it in the admin.', Money::short(Money::percentText($max))));
-        }
-    }
-
-    /** The highest discount Claude may give, in basis points (quote_max_discount, default 20 %). */
-    private static function maxDiscount(Settings $s): int
-    {
-        return Money::percent(trim($s->get('quote_max_discount')) !== '' ? $s->get('quote_max_discount') : '20');
-    }
-
-    /**
-     * The discount a line really gets with the whole-quote discount on top, in basis points: 1 − (1 − line)(1 − quote),
-     * rounded up (20 % + 20 % = 36 %). Pure.
-     */
-    public static function combinedDiscount(int $linePoints, int $quotePoints): int
-    {
-        $linePoints = max(0, min(10000, $linePoints));
-        $quotePoints = max(0, min(10000, $quotePoints));
-
-        return 10000 - intdiv((10000 - $linePoints) * (10000 - $quotePoints), 10000);
-    }
-
-    /** Is a line's price manual: priced without a list price, or different from it? */
-    private static function isManual(?int $price, ?int $list): bool
-    {
-        return $price !== null && $price !== $list;
-    }
-
-    /**
      * The validity: valid_until (YYYY-MM-DD, '' = none) or valid_days (from today); $default = quote_valid_days.
      *
      * @param array<string, mixed> $fields
@@ -1755,19 +1121,124 @@ final class Quotes
         return (string) json_encode(array_slice($history, -self::HISTORY_MAX), JSON_UNESCAPED_UNICODE);
     }
 
-    /** One line of plain text, at most $max characters (tags and control characters out). */
-    private static function line(mixed $value, int $max): string
-    {
-        $text = is_scalar($value) ? (string) $value : '';
+    /* ---------- forwards (3.49): the members that moved to QuoteLines, QuoteNumbers and QuoteIntake keep their old names
+       here, so callers, migrations, index.php and the tests are unchanged ---------- */
 
-        return mb_substr(trim((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', strip_tags($text))), 0, $max);
+    public const int NAME_MAX = QuoteLines::NAME_MAX;
+    public const int DESCRIPTION_MAX = QuoteLines::DESCRIPTION_MAX;
+    public const int NUMBER_MAX = QuoteNumbers::NUMBER_MAX;
+    public const string NUMBER_FORMAT = QuoteNumbers::NUMBER_FORMAT;
+    public const int LOOKUPS_MAX = QuoteIntake::LOOKUPS_MAX;
+    public const int PARTS_MAX = QuoteIntake::PARTS_MAX;
+    public const string AUTO_DRAFT_SETTING = QuoteIntake::AUTO_DRAFT_SETTING;
+    public const int AUTO_DRAFT_DAILY_MAX = QuoteIntake::AUTO_DRAFT_DAILY_MAX;
+
+    /**
+     * @see QuoteLines::computeTotals()
+     *
+     * @param list<array{unit_price: ?string, quantity: string, discount_percent: string, vat_rate: string}> $lines
+     * @return array{net: string, vat: string, gross: string, rates: list<array{rate: string, net: string, vat: string}>, unpriced: int}
+     */
+    public static function computeTotals(array $lines, string $discountPercent, string $vatMode): array
+    {
+        return QuoteLines::computeTotals($lines, $discountPercent, $vatMode);
     }
 
-    /** A text of several lines, plain, at most $max characters. */
-    private static function text(mixed $value, int $max): string
+    /** @see QuoteLines::impliedDiscount() */
+    public static function impliedDiscount(?int $price, ?int $list): int
     {
-        $text = is_scalar($value) ? str_replace("\r\n", "\n", (string) $value) : '';
+        return QuoteLines::impliedDiscount($price, $list);
+    }
 
-        return mb_substr(trim((string) preg_replace('/[\x00-\x08\x0B-\x1F\x7F]+/u', '', strip_tags($text))), 0, $max);
+    /** @see QuoteLines::combinedDiscount() */
+    public static function combinedDiscount(int $linePoints, int $quotePoints): int
+    {
+        return QuoteLines::combinedDiscount($linePoints, $quotePoints);
+    }
+
+    /** @see QuoteNumbers::formatRefusal() */
+    public static function formatRefusal(string $format): ?string
+    {
+        return QuoteNumbers::formatRefusal($format);
+    }
+
+    /** @see QuoteNumbers::formatNumber() */
+    public static function formatNumber(string $format, int $year, int $counter): string
+    {
+        return QuoteNumbers::formatNumber($format, $year, $counter);
+    }
+
+    /** @see QuoteNumbers::numberFormat() */
+    public static function numberFormat(Settings $s): string
+    {
+        return QuoteNumbers::numberFormat($s);
+    }
+
+    /** @see QuoteNumbers::assignNumber() */
+    public static function assignNumber(Db $db, Settings $s, ?int $revisionOf = null): string
+    {
+        return QuoteNumbers::assignNumber($db, $s, $revisionOf);
+    }
+
+    /** @see QuoteNumbers::nextNumber() */
+    public static function nextNumber(Db $db, Settings $s): string
+    {
+        return QuoteNumbers::nextNumber($db, $s);
+    }
+
+    /** @see QuoteNumbers::raiseCounter() */
+    public static function raiseCounter(Db $db, int $next): bool
+    {
+        return QuoteNumbers::raiseCounter($db, $next);
+    }
+
+    /** @see QuoteIntake::prepareLater() */
+    public static function prepareLater(App $app, int $enquiryId): void
+    {
+        QuoteIntake::prepareLater($app, $enquiryId);
+    }
+
+    /** @see QuoteIntake::afterResponse() – index.php calls it under this name */
+    public static function afterResponse(App $app): void
+    {
+        QuoteIntake::afterResponse($app);
+    }
+
+    /** @see QuoteIntake::preparing() */
+    public static function preparing(): int
+    {
+        return QuoteIntake::preparing();
+    }
+
+    /** @see QuoteIntake::prepareDraft() */
+    public static function prepareDraft(App $app, int $enquiryId): ?int
+    {
+        return QuoteIntake::prepareDraft($app, $enquiryId);
+    }
+
+    /** @see QuoteIntake::dropPreparedDraft() */
+    public static function dropPreparedDraft(Db $db, int $enquiryId): int
+    {
+        return QuoteIntake::dropPreparedDraft($db, $enquiryId);
+    }
+
+    /**
+     * @see QuoteIntake::parseBasket()
+     *
+     * @return list<array{quantity: int, name: string, variant: string, code: string}>
+     */
+    public static function parseBasket(string $text): array
+    {
+        return QuoteIntake::parseBasket($text);
+    }
+
+    /**
+     * @see QuoteIntake::linesFromEnquiry()
+     *
+     * @return array{lines: list<array<string, mixed>>, matched: int, unmatched: int}
+     */
+    public static function linesFromEnquiry(App $app, int $enquiryId): array
+    {
+        return QuoteIntake::linesFromEnquiry($app, $enquiryId);
     }
 }

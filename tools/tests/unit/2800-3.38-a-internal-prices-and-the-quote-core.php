@@ -114,7 +114,8 @@ check('3.38 MCP: list_prices reads, save_price writes; both need the feature, li
 $m338Allowed = ['src/Core/Prices.php', 'src/Core/Quotes.php', 'src/Core/PersonalData.php', 'src/Core/Privacy.php', 'src/Admin/Modules/Quotes.php',
     'src/Mcp/Handlers/QuoteTools.php', 'src/Front/QuotePage.php',
     'src/Core/Retention.php', // 3.48 B: counts the quotes past a shorter retention for its confirmation – never a price
-    'src/Core/QuoteDelivery.php']; // 3.38 C: the customer's link, sending, the expiry job, the retention (the daily clean-up step calls it) and the personal data of quotes
+    'src/Core/QuoteDelivery.php', // 3.38 C: the customer's link, sending, the expiry job, the retention (the daily clean-up step calls it) and the personal data of quotes
+    'src/Core/QuoteLines.php', 'src/Core/QuoteNumbers.php', 'src/Core/QuoteIntake.php']; // 3.49: moved out of Core\Quotes – a free line named as a product (prices), the counter per year, the draft of an enquiry (quotes)
 $m338Names = static function (string $root): array {
     $found = [];
     foreach (['src', 'views'] as $dir) {

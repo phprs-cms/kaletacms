@@ -500,7 +500,7 @@ final class ApplicationMove
      * condition on ka_poptavky that leaves out the enquiries still to move (job sources, idp up to applications_move_until),
      * so nobody without Applications reads them in Enquiries meanwhile; null when nothing is moving. The sources are numbers
      * read from the database, written into the SQL as literals. $table: the name or alias the query gives ka_poptavky. Read
-     * through Admin\Modules\Enquiries::visible() (3.34 second review N6).
+     * through Core\EnquiryVisibility::visible() (3.34 second review N6).
      */
     public static function movingCondition(Db $db, Settings $s, string $table = '{poptavky}'): ?string
     {

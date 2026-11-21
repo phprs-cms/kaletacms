@@ -639,7 +639,7 @@ final class Deals
     {
         $db = $app->db();
         $enquiry = $db->one('SELECT idp, formular, tema, zdroj, email, data, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND '
-            . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp]); // 3.34 second review N6
+            . EnquiryVisibility::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp]); // 3.34 second review N6
         if ($enquiry === null) {
             return null;
         }
@@ -673,7 +673,7 @@ final class Deals
     public static function createFromEnquiry(App $app, int $idp, int $byUserId, array $fields = []): int
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp])
+        $enquiry = $db->one('SELECT idp, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp])
             ?? throw new \DomainException(t('The enquiry does not exist.')); // 3.34 second review N6
         $open = self::openForEnquiry($db, $idp);
         if ($open !== null) {

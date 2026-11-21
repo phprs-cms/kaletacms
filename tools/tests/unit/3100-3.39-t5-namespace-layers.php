@@ -21,7 +21,7 @@ const T5_LAYERS = [
     'Admin' => ['Core', 'Compat', 'Connectors', 'Extension', 'Builder', 'Front', 'Fleet', 'Import', 'Mcp', 'Install'],
 ];
 // frozen on 12 November 2026 (3.39): file under system/src => the classes it references against the table, space separated;
-// 3.45 (Q7 step 1): Admin\ChangeLog and Front\Cache moved to Core\ChangeLog and Core\PageCache – 98 files / 245 references → 74 / 188
+// 3.45 (Q7 step 1): Admin\ChangeLog and Front\Cache moved to Core\ChangeLog and Core\PageCache – 98 files / 245 references → 74 / 188; 3.49 (P2a): Core\EnquiryVisibility → 70 / 181
 const T5_FROZEN = [
     'Builder/ItemBatch.php' => 'Mcp\Catalog',
     'Builder/Presets.php' => 'Admin\Modules\Pages',
@@ -33,19 +33,17 @@ const T5_FROZEN = [
     'Core/Blueprint.php' => 'Builder\Collections Builder\Presets',
     'Core/Booking.php' => 'Builder\Elements\Booking Front\Company',
     'Core/Calendar.php' => 'Builder\Collections Builder\Presets',
-    'Core/Contacts.php' => 'Admin\Modules\Enquiries',
     'Core/ContentCheck.php' => 'Builder\Build',
     'Core/Conversions.php' => 'Front\Stats',
-    'Core/Deals.php' => 'Admin\Modules\Enquiries',
     'Core/Demo.php' => 'Admin\Kernel Admin\Modules\Settings',
     'Core/Documents.php' => 'Builder\Collections Builder\Presets Front\Stats',
-    'Core/EnquiryReply.php' => 'Admin\Modules\Enquiries Builder\UserSignature',
+    'Core/EnquiryReply.php' => 'Builder\UserSignature',
     'Core/Facts.php' => 'Builder\Build Front\Company',
     'Core/Hours.php' => 'Front\Company',
     'Core/HoursSign.php' => 'Front\Company',
     'Core/ImportPath.php' => 'Admin\Modules\Pages',
     'Core/ImportRecheck.php' => 'Builder\Build Builder\Collections',
-    'Core/Inbox.php' => 'Admin\Modules\Enquiries Fleet\ConsoleTasks',
+    'Core/Inbox.php' => 'Fleet\ConsoleTasks',
     'Core/InternalLinks.php' => 'Builder\Build',
     'Core/Jobs.php' => 'Admin\Modules\Enquiries',
     'Core/Links.php' => 'Builder\Build',
@@ -62,7 +60,6 @@ const T5_FROZEN = [
     'Core/PersonalData.php' => 'Admin\Modules\Enquiries',
     'Core/Prices.php' => 'Builder\Collections Builder\Products',
     'Core/Privacy.php' => 'Admin\Modules\Enquiries Admin\Modules\Pages Builder\Build Builder\Elements\Form Front\Stats',
-    'Core/Quotes.php' => 'Admin\Modules\Enquiries',
     'Core/RedirectMatcher.php' => 'Admin\Modules\Redirects',
     'Core/RedirectRules.php' => 'Admin\Modules\Redirects',
     'Core/Report.php' => 'Front\Forms',
@@ -74,8 +71,7 @@ const T5_FROZEN = [
     'Core/SemanticHtml.php' => 'Builder\HtmlWidgets',
     'Core/SiteImport.php' => 'Admin\Modules\Pages Admin\Modules\Settings Builder\Build Builder\CollectionCategories Builder\CollectionSchema Builder\Collections Builder\Components Builder\DesignSystem Builder\ModalConversion Builder\Popups Builder\Presets Builder\SiteParts Builder\Style Fleet\Kit',
     'Core/SocialDrafts.php' => 'Front\ShareImage',
-    'Core/Testimonials.php' => 'Admin\Modules\Enquiries Builder\CollectionCategories Builder\Collections Builder\Presets',
-    'Core/Triage.php' => 'Admin\Modules\Enquiries',
+    'Core/Testimonials.php' => 'Builder\CollectionCategories Builder\Collections Builder\Presets',
     'Core/Updater.php' => 'Fleet\Link',
     'Core/WebImport.php' => 'Admin\Modules\Media Admin\Modules\Pages Admin\Modules\Redirects Builder\Build Builder\HtmlConverter Builder\HtmlWidgets',
     'Core/WebVitals.php' => 'Front\Stats',
@@ -137,8 +133,8 @@ foreach (T5_FROZEN as $t5Rel => $t5List) {
 sort($t5New);
 check('3.39 T5 (Q7): no new reference against the layer table (put the code in the lower namespace, or move the class down – see docs/design/code-layers.md)', $t5New, []);
 check('3.39 T5 (Q7): the frozen list has no reference that is gone (shorten or delete its line – the list only shrinks)', $t5Stale, []);
-check('3.45 (Q7 step 1): the frozen list never grows past what is left after the ChangeLog and PageCache move (74 files, 188 references – lower the numbers when it shrinks)',
-    [count(T5_FROZEN) <= 74, count(explode(' ', implode(' ', T5_FROZEN))) <= 188], [true, true]);
+check('3.45 (Q7 step 1): the frozen list never grows past what is left after the ChangeLog and PageCache move (70 files, 181 references since 3.49 moved Enquiries::visible to Core – lower the numbers when it shrinks)',
+    [count(T5_FROZEN) <= 70, count(explode(' ', implode(' ', T5_FROZEN))) <= 181], [true, true]);
 check('3.39 T5 (Q7): every namespace under system/src has its row in the layer table, and every row names only known namespaces', [
     array_values(array_diff(array_keys($t5Namespaces), array_keys(T5_LAYERS))),
     array_values(array_diff(array_merge(...array_values(T5_LAYERS)), array_keys(T5_LAYERS))),

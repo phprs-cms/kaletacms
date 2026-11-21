@@ -852,7 +852,7 @@ final class Applications
 
     /**
      * Enquiries an application has a twin of (3.34 third review F4): a backup restored around the move brought the moved
-     * enquiry back next to its application – the same idp as source_enquiry_id and the same date. Enquiries::visible() hides
+     * enquiry back next to its application – the same idp as source_enquiry_id and the same date. EnquiryVisibility::visible() hides
      * it only while the application exists, so it goes for good – with its files (a CV an application still lists stays,
      * Enquiries::deleteAttachments), the link of a deal and its notes, tasks and notifications – before the application is
      * deleted, and in the daily clean-up. $ids: the twins of these applications only; null = every twin. Returns how many.
