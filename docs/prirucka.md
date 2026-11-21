@@ -8,17 +8,36 @@ Návod pro toho, kdo web spravuje: od instalace přes builder stránek až po na
 1. Nahrajte soubory na hosting (PHP 8.3+, MySQL 8 / MariaDB 10.6+), založte prázdnou databázi a otevřete `/install.php`.
 2. Ve formuláři vyberte **startovací web**: *Firemní web*, *Řemeslo a služby*, nebo *Poradenství a agentura*. Každý
    přinese vlastní styl a stránky Úvod, O nás, Služby a Kontakt z hotových sekcí s ukázkovými texty.
-3. Vyberte, **co chcete mít zapnuté**: Novinky, Formuláře a poptávky, Newsletter, Statistiku, Přesměrování, jazykové
-   verze, AI asistenta… Rozšíření jde kdykoli zapnout a vypnout v administraci (**Rozšíření**); vypnutím se nic nesmaže.
+3. Vyberte, **co chcete mít zapnuté**, jedním ze tří profilů: *Web* (stránky, novinky, statistika, přesměrování
+   a napojení na Clauda), *Web s poptávkami* (totéž s formuláři a schránkou Poptávky) nebo *Kancelář a prodej* (poptávky
+   se zákazníky, obchody a nabídkami). **Vyberu si sám** ukáže celý seznam k zaškrtnutí po jednom. Zákazníci a Obchody
+   zůstanou vypnuté, pokud nezvolíte Kancelář a prodej; Rezervace a Oznamovatelé začínají vypnuté vždy. Každou funkci jde
+   později zapnout a vypnout ve **Funkcích**; vypnutím se nic nesmaže.
 4. Instalace založí i skrytou kostru **Zásad ochrany osobních údajů** v jazyce webu s odkazem v patičce, v cookie liště a u souhlasu ve formuláři. Doplňte údaje v hranatých závorkách a stránku zveřejněte. Nová stránka ze šablony **Zásady ochrany osobních údajů** (Stránky → Nová stránka) se řídí tím, co má web zapnuté – poptávky, newsletter, statistika, měření a marketingové kódy, mapy – a doplní údaje o firmě. Vždy je to šablona ke kontrole, ne právní rada.
 5. Instalátor je česky, anglicky, německy a španělsky (řídí se jazykem prohlížeče). Na konci ukáže adresu pro napojení Clauda a první zadání na vyzkoušení.
 6. Po přihlášení vás na **Přehledu** provedou **První kroky**: vzhled webu, údaje o firmě, stránky, zásady a pošta.
 
-Administrace je na adrese `/admin.php`. Role: **správce** smí všechno, **editor** spravuje obsah, **autor novinek** píše
-jen své novinky a vydat je smí jen s právem vydávat. V **Uživatelé → Role** si založíte **vlastní role** – pojmenovanou
-sadu sekcí (třeba „Obchodník“ jen s Poptávkami); změna role se přenese na všechny její členy.
-Začít můžete hotovou rolí: **Klient** (stránky, novinky, kolekce, poptávky a statistika – vzhled, nastavení a uživatelé
-zůstávají vám), **Autor textů** (novinky, které vydá někdo jiný) a **Jen poptávky**.
+Administrace je na adrese `/admin.php`.
+
+**Přehled.** První obrazovka po přihlášení. Nahoře jsou **Nová stránka**, **Napsat novinku** a **Zobrazit web**, pod nimi
+upozornění, která potřebují člověka (třeba adresy, které návštěvníci nenašli), každé s tlačítkem k nápravě, a co čeká na
+vaši kontrolu. **První kroky** provedou nový web nastavením, dokud není hotový každý krok – kancelář má vlastní seznam –
+a dlaždice počítají, co v které sekci čeká. Dole jsou návštěvy za posledních 14 dní, poslední poptávky a co se naposledy
+upravovalo; každý řádek otevře svůj záznam.
+
+**Funkce.** Správa → Funkce zapíná a vypíná vestavěné části Kalety – Novinky, Formuláře a poptávky, Zákazníky, Obchody,
+Nabídky, Rezervace, Newsletter, Statistiku, jazykové verze, AI asistenta, napojení na Clauda a další. Vypnutá funkce zmizí
+z menu, její prvky se v builderu přestanou nabízet a její adresy na webu odpovídají „nenalezeno“, ale nic se nesmaže:
+zapněte ji znovu a všechno je zpátky. Některé funkce potřebují jinou (Obchody potřebují Zákazníky) a zapnou ji s sebou.
+
+**Uživatelé a role.** Role: **správce** smí všechno, **editor** spravuje obsah, **člen týmu** pracuje v sekcích, které
+dostal (novinky jen své, vydané jen s právem vydávat). Lidi přidáte v **Uživatelích** – každý dostane e-mail k nastavení
+hesla a správce umí účet zablokovat nebo mu resetovat druhý krok přihlášení. V **Uživatelé → Role** si založíte **vlastní
+role** – pojmenovanou sadu sekcí (třeba „Obchodník“ jen s Poptávkami); změna role se přenese na všechny její členy. Začít
+můžete čtyřmi hotovými rolemi: **Klient** (stránky, novinky, kolekce, poptávky, zákazníci a obchody, statistika, údaje
+o firmě a oblast vzhledu – nastavení a uživatelé zůstávají vám), **Autor textů** (novinky, které vydá někdo jiný), **HR**
+(žádosti o místo a pracovní pozice v Kolekcích, nic ze zákazníků) a **Kancelář / prodej** (poptávky, zákazníci, obchody,
+rezervace, nabídky a odběratelé).
 
 **Nápověda na každé obrazovce.** Vedle nadpisu každé části administrace otevře **Jak s tím pracovat** její článek
 v návodu (v jazyce administrace, pokud ho návod má); v builderu je článek v Nápovědě (**?**). Administrace je česky,
@@ -126,10 +145,15 @@ administrace ukazuje lištu s tím, co mění, a třemi tlačítky:
 - **Obálky** (detail novinky, výpis novinek, stránka 404) přidají sekce kolem obsahu, který skládá systém. Prvek
   **Obsah stránky** označuje místo, kam systém obsah vloží.
 - **Varianty:** u záhlaví a patičky zvolte **Přidat variantu**, pojmenujte ji a zaškrtněte stránky. Varianta platí jen
-  tam. Prázdná varianta část skryje – hodí se pro landing page.
+  tam. Prázdná varianta část skryje – hodí se pro landing page. V poli **Také na** může varianta místo jednotlivých stránek
+  dostat druh obsahu: detail novinky, výpis novinek (s kategoriemi, štítky a hledáním), stránky položek kolekce nebo každou
+  stránku pod nadřazenou stránkou. Zaškrtnutá stránka dostane svou variantu vždy; jinak vyhraje první varianta podle názvu,
+  jejíž volba sedí. Claude dělá totéž nástrojem `save_part_variant` (`news_items`, `news_list`, `collections`, `under_pages`).
 
 **Vzhled → Menu** sestaví hlavní menu a menu v patičce: stránky, vlastní odkazy, novinky a skupiny, pod každou položkou
 jedno podmenu. Pořadí měníte přetažením nebo šipkami. Dokud menu neuložíte, skládá se samo ze stránek „v navigaci“.
+Uložené menu jde do konceptu vzhledu stejně jako změna design systému, takže ho návštěvníci uvidí po zveřejnění vzhledu;
+na webu s jazykovými verzemi má každá jazyková verze vlastní hlavní menu i menu v patičce, které vyberete nahoře v editoru.
 
 **Vzhled → Pop-up okna** jsou okna přes stránku – přihlášení k newsletteru, materiál ke stažení za e-mail, oznamovací
 lišta, sleva nebo pozvánka na akci. Začněte od hotového vzoru, obsah poskládejte v builderu a publikujte; v **Nastavení**
@@ -196,6 +220,46 @@ předchozí verzi v **Historii položky** (posledních 20), jedním kliknutím j
 nebo otázka s odpovědí – a která pole plní vlastnosti (cena, pracovní pozice, začátek…). Stránky položek pak ponesou
 data schema.org vedle údajů o firmě. Nabídka potřebuje pole s cenou a měnu.
 
+**Mnoho položek najednou (3.7):** **Kolekce → kolekce → Import z CSV nebo JSON** vezme soubor CSV (z Excelu nebo jiného
+systému, oddělený čárkou, středníkem nebo tabulátorem; český Excel ve Windows-1250 se převede) nebo seznam JSON, až
+5 000 řádků. Sloupce pojmenované jako pole (jeho klíčem nebo popiskem) nebo jako *name*, *slug*, *language*, *order* se
+spárují samy; párování můžete změnit a náhled u každého řádku řekne, jestli se přidá, změní nebo odmítne a proč. Položka
+se najde podle adresy, nebo podle adresy vytvořené z názvu, takže opakovaný import stejného souboru položky aktualizuje,
+místo aby je přidal podruhé; prázdná buňka hodnotu nechá, jak je. Nové položky přijdou skryté, pokud nezaškrtnete
+*Zobrazit nové položky na webu hned*. Sloupec obrázku nebo souboru s adresami `https://` se po uložení položek stáhne do
+Médií po několika kusech a stránka pokračuje sama. Claude dělá totéž nástrojem `save_collection_items` – až 200 položek
+na volání s pravidly jedné položky, `dry_run` ukáže, co by se změnilo, a `media` stáhne obrázky podle adresy (napojení
+jen na koncepty uloží jen skryté položky).
+
+**Kategorie (3.7).** **Kategorie** na obrazovce položek rozdělí kolekci do skupin s vlastními stránkami: kategorie a její
+podkategorie (dvě úrovně), každá na `/kolekce/kategorie` a `/kolekce/kategorie/podkategorie`. Kategorie má název, adresu,
+popis, obrázek, vlastní titulek a popis pro vyhledávače, pořadí a přepínač *zveřejněná na webu*; na webu s jazykovými
+verzemi má každý jazyk vlastní název, adresu a texty, strom, pořadí a obrázek jsou společné. U každé položky zaškrtněte
+kategorie (položka smí být ve více) – *Přidat položku* vedle kategorie ji zaškrtne za vás. Stránka kategorie ukáže
+drobečky, popis, podkategorie jako karty a položky kategorie i jejích podkategorií, 12 na stránku (`?page=2`, každá
+stránka s vlastní kanonickou adresou); stránky jsou v mapě webu s `hreflang` na překlady a nesou schema.org
+`CollectionPage` a `BreadcrumbList`. Adresa nikdy není zároveň kategorií a položkou téže kolekce: uložení jedné odmítne
+adresu druhé (adresa položky vytvořená z názvu dostane číslo) a kdyby se staré importované údaje přesto střetly, stránku
+si nechá položka. Podkategorie zadaná v první úrovni (`/kolekce/podkategorie`) přesměruje na svou adresu, takže staré
+odkazy na kategorie z WordPressu nejlépe namapujete přesměrováním podle vzoru z 3.6.
+
+Stránku kategorie navrhnete v builderu přes **Šablonu stránky kategorie** (na obrazovce Kategorie; každý jazyk může mít
+vlastní). Doplní `{{nazev}}`, `{{popis}}`, `{{obrazek}}`, `{{pocet}}` (viditelné položky včetně podkategorií)
+a `{{nadrazena}}` / `{{nadrazena_url}}` (nadřazená kategorie). Zbytek udělají dvě nastavení **Výpisu kolekce**: *Výpis* –
+položky nebo kategorie – a *Kategorie* – adresa, nebo `*` pro právě zobrazenou stránku kategorie. S `*` ukáže výpis
+položek položky té kategorie (i stránky s `?page=`), výpis kategorií její podkategorie; na stránce položky znamená `*`
+první kategorii položky, což dá výpis „další z této kategorie“. Jinde ukáže výpis kategorií s prázdnou *Kategorií* ty
+nejvyšší – přehled katalogu na libovolné stránce.
+
+**Předchozí / další položka (3.7).** Prvek tohoto jména odkáže na sousední položky na stránce položky – třeba *Předchozí
+projekt* a *Další projekt* pod referencí. Řídí se pořadím v administraci (pořadí, pak název) nebo datem (předchozí =
+starší), drží se kategorie položky, když nějakou má, umí ukázat názvy a náhledy (první obrázkové pole, nebo jiné podle
+klíče) a má vlastní popisky. Je to navigační oblast s odkazy `rel="prev"` a `rel="next"`; mimo stránku položky neukáže nic.
+
+Přes napojení na Clauda je totéž `list_collection_categories`, `save_collection_category` a `delete_collection_category`,
+`categories` (adresy) u `save_collection_item`, `category` u `list_collection_items` a `category_template: true` u nástrojů
+stavby. Napojení jen na koncepty uloží jen skryté kategorie.
+
 ## 7. Formuláře a poptávky
 
 Prvek **Formulář** (nebo hotová sekce *Poptávkový formulář*) vloží poptávkový formulář. V panelu Obsah nastavíte pole
@@ -220,7 +284,7 @@ volání přišlo z vašeho webu. **Protokol doručení** ukazuje každé volán
 a po 2 a 12 hodinách a vzdané jde jedním kliknutím poslat znovu. **Poslat zkušební volání** ověří spojení. Adresy webhooků
 ani tajný klíč nejsou přes napojení na Clauda dostupné.
 
-Odeslané zprávy jsou v **Pracoviště → Poptávky**: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
+**Poptávky.** Odeslané zprávy jsou v Pracoviště → Poptávky: stav (nová, přečtená, vyřízená), odpověď e-mailem, export do CSV. Je-li formulář na
 stránce, na kterou vede reklama nebo newsletter, poptávka ukáže i **kampaň** z adresy (`utm_source`, `utm_medium`, `utm_campaign`…) –
 v administraci, v e-mailu s upozorněním, v CSV i ve webhooku, bez cookies.
 Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (výchozí 24) samy mažou. Všechny lhůty uchování –
@@ -252,9 +316,9 @@ Načte se až po kliknutí, takže stránka do té doby službě nic nepošle, a
 přidat **kód do hlavičky jedné stránky** (Nastavení stránky → Vyhledávače a sdílení), např. konverzní značku vstupní
 stránky.
 
-Rozšíření **Newsletter** přidá prvek **Odběr novinek**: návštěvník zadá e-mail a potvrdí ho odkazem (double opt-in).
-Potvrzené adresy najdete v **Obsah → Newsletter → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení pro váš
-rozesílací nástroj.
+**Odběratelé.** Funkce Newsletter přidá prvek **Odběr novinek**: návštěvník zadá e-mail a potvrdí ho odkazem (double
+opt-in). Potvrzené adresy najdete v **Obsah → Newsletter → Odběratelé** a vyexportujete je do CSV i s odkazem na odhlášení
+pro váš rozesílací nástroj.
 
 Nebo v **Rozšíření → Newsletter** napojte mailingovou službu, kterou už používáte: Brevo, MailerLite, Mailchimp, Ecomail,
 SmartEmailing nebo jakoukoli jinou přes webhook (Make, Zapier, n8n). Zadejte klíč API a seznam; každý potvrzený odběratel
@@ -276,6 +340,14 @@ Každý e-mail nese vlastní odkaz na odhlášení a odhlášení jedním klikem
 odkazy na váš web nesou parametry `utm`, takže **Statistika** ukáže návštěvy, které newsletter přivedl. Seznam příjemců
 se drží jen po dobu odesílání – potom zůstanou jen počty a data. Koncept newsletteru a zkoušku umí i Claude; odběratelům
 ho pošle jen na váš pokyn.
+
+**Online rezervace.** Se zapnutými Rezervacemi si návštěvníci objednají termín na webu prvkem **Rezervace**: vyberou
+službu, člověka a volný čas a dostanou potvrzení e-mailem s odkazem na zrušení; web jim před termínem připomene. Správce
+nastaví **Služby** (délka, přestávka po ní, text ceny, kdo ji dělá, jestli každou rezervaci nejdřív potvrzujete), **Lidi**
+s jejich týdenní pracovní dobou a volnem a **Nastavení** – jak daleko dopředu a jak nejdříve se smí objednat, lhůtu pro
+zrušení a připomínku. Seznam ukazuje nadcházející rezervace po dnech; v detailu rezervaci potvrdíte, odmítnete nebo
+navrhnete jiný čas, označíte jako hotovou nebo nedostavenou, nebo přidáte rezervaci za zákazníka, který zavolal. Rezervace
+jsou osobní údaje: řídí se dobou uchování poptávek a zákazník je má na časové ose.
 
 ### Oddělení, nadřízení a nepřítomnost
 
@@ -314,14 +386,38 @@ Pro **tiráž** (právní informace o provozovateli, v Německu Impressum) vypl�
 a založte stránku podle šablony **Tiráž** (Stránky → Nová stránka) – prvek Údaje firmy v režimu *Tiráž* vypíše všechny
 vyplněné údaje o provozovateli.
 
+**Fakta a tvrzení.** Údaje o firmě → **Fakta** drží čísla a věty, které web uvádí – rok založení firmy, počet projektů,
+cenu od, záruku, oblast, kde působíte. Fakt napíšete jednou a použijete všude jako `{{fact.key}}` v textu, tlačítku nebo
+odkazu (`tel:{{fact.company_phone}}`): web hodnotu doplní při zobrazení stránky, takže změna tady změní každou stránku.
+Seznam ukáže, kde se který fakt používá, a **Tvrzení** najdou věty s čísly, roky a částkami napsané ještě obyčejným
+textem, abyste z nich udělali fakta dřív, než zastarají. Některá čísla se spočítají sama – roky od data, počty toho, co
+je na webu. Claude fakta čte a mění nástroji `list_facts` a `save_fact`.
+
 ## 9. Novinky, SEO a jazyky
 
 **Novinky** jsou blog firmy: kategorie, štítky, plánované vydání, koš, historie verzí. SEO se stará samo (mapa webu,
 kanonické adresy, strukturovaná data, `llms.txt` pro AI vyhledávače). Další jazykové verze (`/de/…`) zapnete v
 **Rozšíření → Jazykové verze webu** a jazyky vyberete v Nastavení – na výběr je kolem čtyřiceti jazyků včetně všech
 jazyků EU. Texty pro návštěvníky (Hledat, Číst dál, formuláře, cookie lišta) jsou přeložené do češtiny, angličtiny,
-němčiny, francouzštiny, španělštiny, italštiny, polštiny a slovenštiny; ostatní jazyky je mají anglicky, datum ve svém
-tvaru. Jazyk webu zvolíte už při instalaci, nezávisle na jazyku administrace.
+němčiny, francouzštiny, španělštiny, italštiny, polštiny, slovenštiny, maďarštiny, portugalštiny, arabštiny a čínštiny;
+ostatní jazyky je mají anglicky, datum ve svém tvaru. Jazyk webu zvolíte už při instalaci, nezávisle na jazyku administrace.
+
+**Kategorie a štítky.** Každá novinka patří do jedné **kategorie** (Novinky → Kategorie): ta má název, adresu vytvořenou
+z názvu, pořadí a na webu s jazykovými verzemi jazyk, do kterého její novinky patří – novinka přebírá jazyk své kategorie.
+Kategorii nejde smazat, dokud má novinky. **Štítky** (Novinky → Štítky a témata) vznikají, jak je píšete v editoru
+novinky; tady sloučíte dvě podoby do jedné (novinky dostanou druhý štítek a stará adresa přesměruje) nebo štítku dáte
+popis, a jeho stránka se tím stane **tématem** – úvodem nad výpisem jeho novinek, který slouží i jako popis pro vyhledávače.
+
+**Nastavení → Jazyky.** Jazyk vlastních textů webu (Hledat, Novinky, Číst dál…), který web hlásí i vyhledávačům, další
+jazykové verze, když je funkce zapnutá, a název a popis webu v každé z nich – prázdné pole znamená stejný text jako ve
+výchozím jazyce. Je tu i oslovení německých návštěvníků a přepínač *Stejná adresa ve všech jazycích*. Stránky, novinky,
+kategorie a položky kolekcí dostávají jazyk ve vlastním nastavení.
+
+**Nastavení → SEO a GEO.** Většinu web zařídí sám – adresy, popisy, mapu webu, strukturovaná data a `llms.txt` pro AI
+vyhledávače. Záložka rozhoduje jen o podstatném: jestli smějí vyhledávače web vůbec indexovat, jestli smějí AI vyhledávače
+a asistenti používat jeho obsah (slušní roboti pravidlo dodržují; technická ochrana to není), podobu adres (bez lomítka na
+konci, s ním, nebo `.html` – ostatní podoby přesměrují kódem 301) a ověřovací kódy pro Google Search Console a Bing
+i s adresou mapy webu, kterou tam zadáte.
 
 Němčina má dvě oslovení, formální (Sie) a neformální (du), a volí se zvlášť pro administraci a pro web. Administrace se
 řídí volbou každého uživatele (**Můj účet → Oslovení v němčině**; ptá se i instalátor). Texty pro návštěvníky se řídí
@@ -357,14 +453,14 @@ a u prvku Navigace vypnete volbu *Přepínač jazyků*.
 
 ## 10. AI asistent a Claude
 
-**Asistent** zapnete v **Rozšíření**. Vyberte poskytovatele (Anthropic Claude, OpenAI, Google Gemini, Mistral), vložte
+AI **asistenta** zapnete ve **Funkcích** – používá váš vlastní klíč. Vyberte poskytovatele (Anthropic Claude, OpenAI, Google Gemini, Mistral), vložte
 klíč API a model. Asistent jen navrhuje. Text odchází k poskytovateli, jen když klepnete na jeho tlačítko.
 
 - V builderu: **✨ Vytvořit sekci s AI** (popište, co má sekce obsahovat) a **Přepsat s AI** u textu prvku (kratší,
   delší, formálněji, přátelštěji, opravit chyby). Výsledek zkontrolujte, fakta doplňte sami. Ctrl+Z změnu vrátí.
 - V novinkách: titulky, perex, SEO popis, štítky, korektura, popisy obrázků a překlad do jiného jazyka webu.
 
-**Napojení na Claude (MCP)** je v nových instalacích zapnuté (na starších webech ho zapnete v Rozšířeních). Pak máte dvě
+V nových instalacích je **napojení na Claude (MCP)** zapnuté (na starších webech ho zapnete v Rozšířeních). Pak máte dvě
 možnosti:
 
 - **Konektor v aplikaci Claude (doporučeno):** v Nastavení → Konektory přidejte vlastní konektor s adresou
@@ -412,9 +508,15 @@ kterékoli napojení přepnete v Můj účet.
 Můj účet ukáže přístup a sadu nástrojů každé připojené aplikace a tokenu. **Protokol změn** u každé změny od Clauda uvede název napojení
 a umí ukázat jen změny Clauda nebo jen lidí; Claude ho čte také (`list_changes`).
 
-**Pokyny pro Clauda.** V **Rozšíření → Napojení na Claude** napište, čeho se má Claude držet – jak oslovujete zákazníky,
-která slova používat a kterým se vyhnout, pravidla domu. Každé napojení je dostane při připojení. Claude navíc nabízí
-hotové úkoly (níže).
+**Nastavení Clauda.** Claude → Nastavení Clauda začínají stavem napojení, adresou pro připojení a tím, co dál. Do
+**Pokynů pro Clauda** napište, čeho se má Claude držet – jak oslovujete zákazníky, která slova používat a kterým se vyhnout,
+pravidla domu; každé napojení je dostane při připojení. **Mantinely** říkají, co Claude na tomto webu nesmí nikdy, ani když
+o to někdo požádá, a audit webu před předáním hlídá, že jsou uložené. Claude navíc nabízí hotové úkoly (níže).
+
+**Zeptejte se Clauda.** Claude → Zeptejte se Clauda je pro kolegy, kteří Clauda sami nepoužívají: požadavek napíšou
+obyčejnými slovy („doplň novou otevírací dobu na stránku Kontakt“) a ten počká, až ho vyzvedne připojený Claude – když ho
+o to někdo požádá, nebo při naplánovaném běhu. Claude pracuje v konceptech a odepíše, co udělal; požadavek ukazuje svůj stav
+a odpověď a kdo se ptal, dostane e-mail, až je hotovo. Stejný rámeček je na Přehledu; bez napojení požadavek uloží na později.
 
 **Nastavení přes napojení.** Kromě názvu webu a údajů o firmě umí Claude zapnout rozšíření a jazykové verze, cookie lištu,
 přepínače SEO, kódy analytiky a kód v `<head>` – když o to požádáte.
@@ -481,9 +583,22 @@ z YouTube, Vimea i soubory a mapy se stanou svými prvky, odkazované soubory (P
 titulek stránky a obrázek pro sdílení se stanou jejím SEO titulkem a obrázkem pro sdílení. Totéž umí Claude nástrojem
 `import_website`, starou stránku si přečte po sekcích s barvami a písmy (`read_old_page`) a pak sladí vzhled a upraví texty.
 
+**Velké weby (3.7):** import i kontrola přesunu (**Import a export → Zkontrolovat přesun před spuštěním**, u Clauda
+`migration_report`) čtou mapy starého webu po dávkách a projdou až 3 000 adres – obchod s tisícem produktů ve dvou
+jazycích se vejde. Řídí se `robots.txt` starého webu: stránku, kterou zakazuje, nikdy nestáhnou (kontrola přesto ověří, že
+její adresa tady funguje), jeho `Crawl-delay` dodrží (až dvě sekundy) a bez něj dělají mezi požadavky krátkou pauzu.
+Dlouhou zprávu čte Claude po 100 problémech parametrem `offset`.
+
 **Správa → Import a export → WordPress:** nahrajte export z WordPressu (Nástroje → Export, soubor XML). Import převede
 příspěvky na novinky, stránky volitelně **rovnou do builderu**, stáhne obrázky do Médií a založí přesměrování ze starých
 adres. Import jde spustit znovu – co už převedl, přeskočí.
+
+Import přenese i **navigační menu** (3.6): odkazy na naimportované stránky, příspěvky a kategorie vedou na nové adresy,
+vlastní odkazy zůstanou a podmenu se zachovají. Menu jdou do konceptu vzhledu, takže živá navigace se změní až po
+zveřejnění vzhledu. Účty autorů z WordPressu se nezakládají – novinka patří uživateli s e-mailem autora, jinak vám.
+Zaškrtnutím **vše skrytě** přijdou novinky jako koncepty a stránky skryté. Claude dělá totéž nástrojem `import_wordpress`,
+vždy skrytě: vezme export nahraný přes `upload_file` (soubor zůstane soukromý, do Médií nikdy nejde) nebo adresu exportu,
+pracuje po dávkách, které umí navázat, a vypíše, co přešlo, co se přeskočilo a proč, přesměrování i menu.
 
 ### Přesun dvojjazyčného arabského webu
 
@@ -526,7 +641,7 @@ Soubor s obsahem `obsah.json` v archivu má verzi formátu a popisuje ho přilo�
 názvy z mapy přejmenování (`pages`, `news`, `tags`, `slug`, `language`…), který bude zapisovat Kaleta 4.0. Data a časy zůstávají
 v obou v čase webu.
 
-Přenést jde i **jedna stránka**: **Stránky → Exportovat** stáhne JSON se stavbou stránky, sdílenými třídami, které používá,
+**Jedna stránka** se přenese také: **Stránky → Exportovat** stáhne JSON se stavbou stránky, sdílenými třídami, které používá,
 a jejími komponentami (i komponentami v komponentách). **Stránky → Importovat** na jiném webu založí stránku skrytou,
 doplní chybějící třídy (třída, kterou web už má, si nechá svůj vzhled) a komponenty a dřív naimportovanou komponentu použije znovu.
 
@@ -545,6 +660,34 @@ spustí Claude nástrojem `site_audit` a nalezené opraví.
 obrazovka a **Projít adresy** otevře seznam v Přesměrování. U každé zvolte **Přesměrovat** (formulář se vyplní, doplňte
 cíl), nebo **Ignorovat** (nic ji nenahrazuje, nebo je to robot); **Ignorovat vše** upozornění schová, dokud se neobjeví
 nová adresa. Pokusy robotů o adresy jiných systémů se nezapisují a adresa, která zase funguje, zmizí sama.
+
+**Vzory, zrušené adresy a mnoho přesměrování najednou (3.6).** V **Přesměrování** hvězdička zastupuje zbytek adresy:
+`/blog/*` → `/novinky/*` pošle `/blog/2019/clanek` na `/novinky/2019/clanek` a `/*/amp` → `/*` odebere příponu. Přesné
+přesměrování má vždy přednost před vzorem, mezi vzory vyhraje delší pevný začátek a pravidlo, které by vedlo dokola, se
+odmítne. Vzor nikdy nepošle návštěvníky na jiný web, pokud jeho cílem není celá adresa, kterou jste napsali (hvězdička je
+tam povolená jen za doménou). Typ **zrušeno (410)** cíl nepotřebuje: adresa odpoví, že stránka zmizela natrvalo, takže ji
+vyhledávače vyřadí – hodí se na spamové adresy po napadeném webu. **Import ze souboru CSV** vezme jedno přesměrování na
+řádek (stará adresa, cíl, kód 301, 302 nebo 410) nebo export CSV z pluginu Redirection pro WordPress, ukáže, co se přidá,
+změní nebo odmítne, a uloží až po potvrzení; až 5 000 řádků najednou. Claude dělá totéž nástrojem `save_redirects` (až 500
+na volání, `dry_run` pro kontrolu předem).
+
+**Stav systému.** Péče o web → Stav systému kontroluje, co web drží v chodu: PHP a jeho rozšíření, složky, do kterých web
+zapisuje, šifrovací klíč a uložená hesla, soubory jádra, dvoufázové přihlášení správců, úlohy na pozadí (cron), zálohy
+a aktualizace, záznamy DNS pro poštu (SPF, DMARC, DKIM), certifikát a registraci domény, jestli `config.php` může číst jen
+web, a napojení na Clauda. Červený nebo oranžový řádek řekne, co udělat, a některé se opraví jedním kliknutím. Je tu adresa
+úloh pro cron, protokol chyb (posledních 40 záznamů), e-mail, který web pošle, když selže záloha, aktualizace nebo úloha
+(nejvýš jeden za hodinu), a stav ve formátu JSON pro monitorovací nástroje jako UptimeRobot.
+
+**Firewall.** Nastavení → Firewall hlídá veřejný web a napojení na Clauda – nikdy administraci, takže se nezamknete,
+a adresy vaší místní sítě se nikdy neblokují. Zablokujte jednotlivé adresy nebo sítě, celé země (jen za Cloudflare nebo když
+hosting zemi posílá), návštěvníky, kteří posílají příliš mnoho požadavků, a roboty, kteří zkoušejí adresy jiných systémů;
+takový návštěvník je na čas zablokovaný. Záložka řekne, za čím web běží, a vypíše posledních 50 odmítnutých požadavků;
+protokol se drží 30 dní.
+
+**Nefunkční odkazy.** Péče o web → Adresy → Nefunkční odkazy vypíše odkazy ve zveřejněných stránkách, novinkách
+a položkách kolekcí, které nikam nevedou – na stránku, která tu už není, nebo na jiný web, který odpoví chybou. Kontrola
+běží na pozadí, jedna novinka za pár minut, takže web nikdy nezpomalí; každý řádek řekne, kde odkaz je, a otevře místo
+k opravě. Odkaz, který zase funguje, zmizí sám. Audit webu počítá tytéž odkazy a Claude je čte nástrojem `list_broken_links`.
 
 **Kaleta 2.0** je jeden jasný systém: vrstvy kompatibility z verzí 1.x jsou pryč. Prvek Vyskakovací okno ve stránce se
 při aktualizaci změnil na pop-up okno webu – stejný obsah, spouštěč i četnost, ukazuje se jen tam, kde byl, a jeho
@@ -579,7 +722,7 @@ webového serveru mohla číst dál. Stav systému upozorní, když ho může č
 opraví to jedním kliknutím (**Nastavit, aby config.php mohl číst jen web**); jinak nastavte práva v FTP klientovi nebo ve
 správci souborů hostingu.
 
-**Obnova webu po ztrátě hostingu:** nainstalujte Kaletu na nový hosting se stejnou předponou tabulek, nahrajte poslední
+Chcete-li **obnovit web po ztrátě hostingu**, nainstalujte Kaletu na nový hosting se stejnou předponou tabulek, nahrajte poslední
 zálohu databáze přes FTP do `storage/zalohy/`, zkopírujte zpět složku `media/` z kopie na FTPS nebo S3 a pak v Nastavení →
 Zálohy a aktualizace u té zálohy klikněte na **Obnovit** a přihlaste se účty ze zálohy.
 
@@ -590,6 +733,9 @@ Veřejné čtecí API z verzí 1.x (`/api/novinky`) ve 2.0 skončilo. Pro novink
 pro práci s webem napojení na Clauda (MCP), pro události webhooky a pro odnesení obsahu export webu.
 
 ## 14. Obchod: pipeline a nabídky
+
+Zákazníci a Obchody jsou funkce: zapněte je ve **Funkcích**, nebo při instalaci zvolte profil *Kancelář a prodej*.
+Nabídky jsou samostatná funkce.
 
 **Pipeline** (Pracoviště → Obchod) drží obchody od prvního kontaktu po vyhraný nebo prohraný na jedné nástěnce. Obchod
 založíte tlačítkem **Nový obchod** nebo **Vytvořit obchod** u poptávky – zákazník, firma a název se vyplní z ní. Nástěnka
@@ -608,7 +754,8 @@ a odešle je, jen když o to požádáte.
 
 ## 15. Zákazníci
 
-**Zákazník** vznikne sám, když někdo pošle poptávku, objedná si termín nebo se přihlásí k odběru novinek – jeden záznam na
+Zákazníci jsou funkce: zapněte ji ve **Funkcích** (nebo při instalaci zvolte profil *Kancelář a prodej*); kontakty
+se u každé poptávky drží, i když je vypnutá. Záznam **zákazníka** vznikne sám, když někdo pošle poptávku, objedná si termín nebo se přihlásí k odběru novinek – jeden záznam na
 e-mailovou adresu; **Nový zákazník** ho přidá ručně. Stránka zákazníka má jednu **časovou osu**: poptávky s prvním řádkem
 zprávy, odpovědi, rezervace, obchody, nabídky a záznamy týmu o hovorech, schůzkách, e-mailech a poznámkách (**Zapsat
 hovor / schůzku / e-mail / poznámku**). Panel **Úkoly** ukazuje jeho vlastní úkoly a pod *U jeho poptávek a obchodů* další
@@ -616,8 +763,8 @@ otevřený úkol každé jeho poptávky a obchodu s odkazem tam, kde se dělá (
 
 Lidé jedné firmy patří k **firmě** (záložka Firmy), která má vlastní stránku se svými lidmi a obchody. Dva záznamy jednoho
 člověka sloučí správce tlačítkem **Sloučit s…** – vždy rozhodnutím člověka. Ctrl K (⌘K na Macu) najde zákazníka podle
-jména, e-mailu nebo firmy odkudkoli. Zákazníci jsou osobní údaje: drží se tak dlouho jako jejich poptávky (viz kapitola 18)
-a na webu se nikdy neukazují.
+jména, e-mailu nebo firmy odkudkoli. Zákazníci jsou osobní údaje a na webu se nikdy neukazují: zákazník bez aktivity po
+dobu nastavenou v **Nastavení → Soukromí a cookies** (výchozí 24 měsíců) se anonymizuje (viz kapitola 18).
 
 ## 16. Žádosti o práci
 
@@ -628,7 +775,7 @@ týden. Žádost posouváte stavy Nová, Prohlédnutá, Pohovor, Nabídka a Při
 jednu pozici ve sloupcích. Odpověď ze šablony (přijato, pozvánka, zamítnutí) posune i stav; šablony pro každý jazyk jsou
 v nastavení Žádostí.
 
-**Databáze talentů** drží lidi, kteří souhlasili, že se dozví o dalších pozicích, dokud jim souhlas neskončí. Žádosti se
+V **databázi talentů** zůstávají lidé, kteří souhlasili, že se dozví o dalších pozicích, dokud jim souhlas neskončí. Žádosti se
 mažou samy po době v Nastavení → Soukromí a cookies a každá ukazuje svůj den.
 
 ## 17. Interní soubory
@@ -642,15 +789,167 @@ nahrál. Claude soubory najde podle názvu a popisu, ale jejich obsah nedostane 
 
 ## 18. Soukromí a doba uchování
 
-**Oznamovací kanál (whistleblowing):** oznámení přicházejí na jeho vlastní stránce, ukládají se šifrovaně a vidí je jen
-lidé se sekcí Whistleblowing. Každé oznámení včas potvrďte a dejte oznamovateli zpětnou vazbu – obrazovka ukazuje obě
-lhůty.
+**Oznamovací kanál (whistleblowing):** oznámení přicházejí na jeho vlastní stránce (`/_report`), až s pěti přiloženými
+soubory; ukládají se šifrovaně a případ otevřou jen čtenáři vybraní v jeho nastavení – ostatní se sekcí vidí čísla případů
+a data. Každé oznámení včas potvrďte a dejte oznamovateli zpětnou vazbu – obrazovka ukazuje obě lhůty. Oznamovatel dostane
+číslo případu a přístupový kód, se kterými případ sleduje, čte vaše zprávy a doplňuje informace, aniž by uvedl jméno.
+Uzavřené případy se smažou po době z nastavení.
 
-**Osobní údaje na žádost:** když se někdo zeptá, co o něm web drží, požádejte Clauda, ať *najde jeho osobní údaje* –
-odpověď vyjmenuje každé místo (poptávky, zákazníci, žádosti, rezervace, odběry, komentáře). Stejnou žádostí je jde
-vymazat; vymazání je vždy vaše rozhodnutí a záloha obnovená později vymazání použije znovu.
+**Osobní údaje na žádost:** když se někdo zeptá, co o něm web drží, otevřete **Poptávky → Žádost o osobní údaje** a zadejte
+jeho e-mailovou adresu – obrazovka vyjmenuje každé místo (poptávky s přílohami, odběr, e-maily čekající na odeslání, žádosti
+o referenci, rezervace), stáhne vše jako soubor pro dotyčného a po zaškrtnutí, že to opravdu chcete, to natrvalo vymaže.
+Totéž udělá Claude, když ho požádáte, ať *najde jeho osobní údaje*, a jeho odpověď pokryje i zákazníky, žádosti o místo
+a komentáře. Vymazání je vždy vaše rozhodnutí a záloha obnovená později vymazání použije znovu.
 
 **Doba uchování:** Nastavení → Soukromí a cookies drží všechny doby uchování na jednom místě – jak dlouho se drží
-poptávky, žádosti, rezervace, záznam souhlasů s cookies a další záznamy. Starší web smaže sám; kratší dobu než dosud
-potvrdíte na samostatné obrazovce. **Záznam o činnostech zpracování** pro vaše zásady ochrany osobních údajů připraví
-Claude podle toho, co web opravdu dělá.
+poptávky, žádosti o místo, zákazníci (výchozí 24 měsíců bez aktivity, pak se anonymizují), nabídky, rezervace, záznam
+souhlasů s cookies a další záznamy. Starší web smaže sám; kratší dobu než dosud potvrdíte na samostatné obrazovce.
+**Záznam o činnostech zpracování** pro vaše zásady ochrany osobních údajů připraví Claude podle toho, co web opravdu dělá.
+
+**Cookie lišta.** Stejná záložka rozhoduje o cookie liště: vestavěná (její text a odkaz na zásady ochrany osobních údajů
+v každé jazykové verzi), cizí podle svého kódu, nebo žádná pro web, který nenastavuje sledovací cookies. Vestavěná lišta
+zapisuje udělené souhlasy jako doklad pro případnou kontrolu, ve výchozím stavu na 36 měsíců. Kódy měření a marketingu
+z Nastavení → Měření se spustí, až je návštěvník povolí, a prohlížeč, který posílá signál Global Privacy Control, platí za
+„jen nezbytné“. Na této záložce je i **Kontrola spamu ve formulářích**.
+
+## 19. Moje práce a Můj účet
+
+Dvě obrazovky patří každému přihlášenému, ať má jakoukoli roli: **Moje práce** v menu a **Můj účet** pod vaším jménem
+nahoře. Ani jedna není sekce, kterou by správce dával nebo bral, a ani jedna neukáže nic, co byste nesměli otevřít jinde.
+Zvonek vedle jména vede na vaše upozornění.
+
+**Moje práce.** Vypíše, co na vás čeká: nejdřív vaše úkoly, pak poptávky, které vyřizujete, nabídky k dokončení nebo
+k připomenutí, stránky a položky, za které odpovídáte, a odpovědi na vaše požadavky pro Clauda – každý řádek otevře místo,
+kde se práce dělá. **Nový úkol** přidá úkol pro vás nebo kolegu s termínem a připomínkou; dokončíte nebo odložíte ho přímo
+v seznamu. **Shrnutí** ukáže, kolik tým za období udělal, jen v počtech, a správci mají navíc záložku **Tým** s otevřenými
+úkoly všech a s úkoly, které nemá nikdo. **Odpovědná osoba** u záznamu ho nikdy nikomu jinému neskryje.
+
+**Upozornění.** Zvonek sbírá zmínky, komentáře k tomu, za co odpovídáte, věci, které vám někdo přidělil, a termíny
+kontroly; drží je 90 dní. **Označit vše jako přečtené** vynuluje počet. Jak se o nich dozvíte e-mailem – o každém hned,
+jedním souhrnem každé ráno, nebo vůbec – si volíte sami v Mém účtu; upozornění na záznam otevře ten záznam a nic ze
+seznamu nejde nikomu jinému.
+
+**Můj účet.** Jeho záložky patří jen vám. **Moje údaje** – jméno, e-mail, jazyk administrace (i oslovení v němčině) a jak
+k vám chodí upozornění. **Nepřítomnost** – zadejte dny, kdy jste pryč, se zástupcem: dokud jste pryč, chodí kopie vašich
+upozornění zástupci (pravidla jsou v kapitole 7). **Zabezpečení** – heslo, dvoufázové přihlášení aplikací, klíče (passkeys)
+a záložní kódy. **Claude** – aplikace a osobní tokeny připojené pod vaším účtem s jejich přístupem a sadou nástrojů,
+připravené k odpojení (kapitola 10). **Podpis** – podpis pod vašimi odpověďmi e-mailem. **Kolegové** – pozice a pracovní
+telefony kolegů, podle abecedy nebo oddělení, a organizační struktura.
+
+## 20. Knihovna médií
+
+**Obsah → Média** drží každý obrázek a soubor webu: fotky pro stránky a novinky, loga, PDF ke stažení, písma. Nahrajete je
+výběrem souborů nebo přetažením na stránku, obrázek jde pustit i rovnou do textu v editoru. Soubory třiďte do **složek**,
+hledejte podle názvu, popisu nebo jména souboru a několik souborů přesunete najednou zaškrtávátky v seznamu. Soubor, který
+uložilo napojení Clauda omezené na koncepty, čeká v **Čeká na schválení**, dokud ho nezveřejníte.
+
+**Velikosti a popisy obrázků.** Každý nahraný obrázek dostane sám menší varianty a kopii WebP a web každému návštěvníkovi
+pošle velikost, kterou jeho obrazovka potřebuje. Každému obrázku dejte **popis pro nevidomé (alt)** – čtou ho nevidomí
+návštěvníci i vyhledávače; **Nahradit** vymění soubor a nechá všechna místa, která ho používají. Média → **Nepoužité
+soubory** vypíše, na co neukazuje žádná stránka, stavba, novinka, položka, komponenta, pop-up okno, newsletter ani
+nastavení, stejný soubor nahraný dvakrát, příliš velké obrázky ke zmenšení a obrázky bez popisu k hromadnému doplnění.
+
+**Kde se obrázek používá.** Detail souboru vypíše každé místo, které ho používá – novinky, stavby, položky kolekcí, logo –
+takže víte, co se změní, než ho nahradíte nebo smažete. Média nemají koš: smazaný soubor je pryč a soubory, které web ještě
+používá, se při mazání více souborů najednou přeskočí. Claude nahrává soubory nástrojem `upload_file`, obrázky bez popisu
+najde nástrojem `list_media_without_alt` a popíše je nástrojem `update_media`.
+
+## 21. Statistika a protokol změn
+
+**Statistika.** Péče o web → Statistika počítá návštěvy bez cookies a bez ukládání čehokoli o člověku – jen součty po
+dnech. Ukazuje návštěvy a zobrazení stránek, nejnavštěvovanější stránky, weby a kampaně, odkud návštěvníci přišli,
+zařízení, konverze pop-up oken a – když se pamatuje původ poptávek – které stránky a kampaně přinášejí poptávky a odběry.
+Počítají se jen návštěvy potvrzené prohlížečem návštěvníka, takže roboti a vaše vlastní návštěvy vypadnou. **Rychlost
+u návštěvníků** měří, jak rychle se stránky načítají ve skutečných prohlížečích (LCP, CLS, INP), a audit webu upozorní,
+když se stránka zpomalí. Stejný přehled čte Claude nástrojem `get_stats`.
+
+**Nastavení → Měření.** Tady se vestavěná statistika zapíná a vypíná – bez cookies a bez souhlasu. Vedle ní můžete přidat
+Google Analytics, Google Tag Manager nebo jiný nástroj (Matomo, Plausible, vlastní kód): vložte ID nebo kód a s vestavěnou
+cookie lištou se spustí, až návštěvník povolí analytické nebo marketingové cookies. Kaleta posílá do datové vrstvy své
+konverzní události (odeslaný formulář, přihlášení k odběru, klik na telefon nebo e-mail, stažení souboru) a záložka nabízí
+šablonu kontejneru pro Tag Manager (kapitola 7). Google Analytics mějte na jednom místě, jinak se návštěvy počítají dvakrát.
+
+**Protokol změn.** Péče o web → Protokol změn (správci) vypíše každou změnu v administraci i přes napojení na Clauda – kdo,
+kdy, co a v které sekci – od nejnovější. Filtrovat jde podle toho, kdo změnu udělal (lidé i Claude, lidé v administraci,
+nebo Claude), podle sekce a podle slova v detailu; každá změna od Clauda nese název svého napojení. Protokol drží historii
+šest měsíců, ne obsah: starší text vrátí verze stránky nebo historie položky. Claude protokol čte nástrojem `list_changes`.
+
+**Vrácení relace Clauda.** Změny, které jedno napojení Clauda udělá za sebou, tvoří **relaci** (Protokol změn → Relace
+Clauda). **Vrátit** vrátí všechno, co relace změnila – stránky, stavby a koncepty, novinky, položky kolekcí, menu,
+nastavení, vzhled – do stavu před ní. Řádky, které potom změnil člověk nebo jiná relace, zůstanou, jak jsou, a vypíšou se;
+vrácení s volbou *Přepsat i pozdější změny* vrátí i je. Relace se drží omezený počet dní, který obrazovka uvádí.
+
+## 22. Zápisník Clauda, naplánované běhy, oborové plány a integrace
+
+**Zápisník Clauda.** Claude → Zápisník drží poznámky pro toho, kdo na webu bude pracovat příště – pro Clauda v nové
+konverzaci nebo pro kolegu: rozhodnutí („ceny vždy bez DPH“), co bylo klientovi slíbeno, kde co je. Poznámky mají téma
+a jde je připnout, takže důležité jsou první; hledání najde poznámku podle slova. Claude zápisník čte na začátku práce
+a zapisuje do něj nástrojem `write_notebook`, takže se na jednou přijaté rozhodnutí neptá znovu. Kontrolní seznam předání
+počítá rozhodnutí v zápisníku.
+
+**Naplánované běhy.** Claude → Naplánované běhy drží plány pro rutinu v Claudovi – co, jak často a kdy: každé ráno vyzvednout
+požadavky, v pondělí týdenní péče, jednou měsíčně newsletter. Web Clauda sám nespouští: **Nastavení v Claudovi** dá zadání
+rutiny pro vaši aplikaci Claude, která se připojí přes napojení jen na koncepty, udělá, co je na řadě, a ohlásí to zpět.
+Každý plán ukazuje příští termín a poslední běh s historií a jde ho pozastavit; horní lišta řekne, když se běh, který
+vyzvedává požadavky, zastavil.
+
+**Oborové plány.** Údaje o firmě → Oborové plány použijí hotový plán pro druh podnikání – s Kaletou jich přichází dvacet,
+od restaurace, ordinace nebo řemeslníka po obec nebo softwarovou firmu – nebo plán z jiného webu: jeho otázky se stanou
+fakty a jeho kontroly řeknou, co webu ještě chybí (otevírací doba, ceník, stránka s rezervací). Sejmutí plánu odstraní jeho
+kontroly a obsah nechá. **Stáhnout** uloží současný web jako plán pro další; Claude umí připravit plán pro druh podnikání,
+na který se žádný dodaný nehodí (`draft_blueprint`).
+
+**Integrace.** Správa → Integrace (správci) propojí web s Googlem (Search Console, Firemní profil, Tabulky), Bingem,
+HubSpotem, Pipedrivem a Raynetem: vlastní aplikace OAuth webu nebo token API, uložený a nikdy znovu nezobrazený, nastavení
+služby, připojení a odpojení a poslední volání. Pak třeba nové poptávky jdou do tabulky Google nebo do vašeho CRM,
+otevírací doba se dostane do Firemního profilu a dotazy, které lidé psali v Googlu a Bingu, se ukážou ve Statistice. Žádá
+se jen o oprávnění, která web potřebuje, a klíče přes napojení na Clauda nikdy dostupné nejsou.
+
+## 23. Konzole webů
+
+Konzole webů je pro agentury a IT týmy, které se starají o víc webů na Kaletě: jedna instalace Kalety s funkcí **Konzole
+webů** je ukáže všechny na jedné obrazovce. **Dnes** ukáže nejdřív, co potřebuje pozornost – nepovedenou zálohu,
+čekající aktualizaci, certifikát před vypršením; schránka sbírá, co čeká na každém webu, a každý web má svou historii
+a úkoly. Weby patří zákazníkům: konzole pro každého zákazníka udělá měsíční zprávu a posílá upozornění podle vašich
+pravidel. Nové verze se k webům dostávají po vlnách, takže je vaše testovací weby dostanou první.
+
+**Hlášení do konzole.** Na každém webu ho Nastavení → Hlášení do konzole spáruje s konzolí: v Konzoli webů → Přidat web
+vytvořte párovací klíč a vložte ho sem (platí 24 hodin a jen jednou). Web pak každou hodinu pošle podepsané hlášení – verzi,
+zdraví, úlohy na pozadí, zálohy, počty toho, co čeká – nikdy osobní údaje, a konzole do webu nikdy nesahá. Tady také
+dovolíte konzoli rozhodovat, kdy se nainstalují nové verze, uvidíte otisky klíčů, pošlete hlášení hned nebo se odpojíte.
+Záložka se objeví, jakmile je v Nastavení → Agentura uvedená agentura nebo je web spárovaný.
+
+## 24. Doplňky a další nastavení
+
+**Doplňky.** Správa → Doplňky vypíše kód jiných vývojářů zkopírovaný do složky `extensions/` webu: každý zapnete nebo
+vypnete, uvidíte, co potřebuje, i chybu, která ho vypnula, a otevřete stránky administrace, které přidává. Z administrace
+se nic nenahrává ani nestahuje – složku zkopíruje vývojář nebo hosting a správce doplněk zapne. Doplňky s Kaletou mluví jen
+přes její popsané rozhraní (Extension API) a doplněk, jehož chyba zastaví stránku, se sám vypne; jak ho napsat, popisuje
+`docs/EXTENSIONS.md`.
+
+**Nastavení → Základní.** Název a popis webu, adresa webu (z ní vznikají všechny absolutní odkazy – změňte ji, když se web
+stěhuje na jinou doménu), e-mail webu, odkazy na sociální sítě, časové pásmo, měna, kterou začínají obchody, úvodní stránka
+a adresa i titulek novinek, cache stránek a **režim údržby**, který návštěvníkům ukáže oznámení, zatímco pracujete. Změna
+časového pásma se zeptá, jestli převést uložená data; změna názvu hostitele upozorní, že klíče staré adresy přestanou
+fungovat.
+
+**Nastavení sekcí.** Některá nastavení žijí u své sekce – nabídky a ceník, žádosti o místo, fáze obchodů, rezervace, uložené
+odpovědi poptávek, oznamovací kanál, pokyny pro Clauda. Tato záložka je vypíše všechna na jednom místě, jen u sekcí, které
+smíte otevřít, s odkazem na každé. Vlastní pole nemá; doby uchování všech sekcí jsou v Nastavení → Soukromí a cookies
+a samotné funkce ve Funkcích.
+
+**Nastavení → Zabezpečení.** Pravidla přihlášení pro všechny: kdo musí mít dvoufázové přihlášení (aplikací nebo klíčem) –
+takový člověk se po přihlášení dostane jen do Mého účtu, dokud si ho nenastaví – a jestli se účty s klíčem přihlašují jen
+klíčem. **Pozastavovat automaticky** zablokuje účty a zruší napojení, které se dlouho nepoužívaly, kontrola běží jednou
+denně; bez toho je Stav systému a audit webu jen vypíšou. Blokování adres a zemí je v Nastavení → Firewall.
+
+**Nastavení → Pošta.** Jak web posílá své e-maily – odkazy na heslo, upozornění, poptávky, odpovědi, nabídky a newslettery:
+přes funkci `mail()` hostingu (nic se nenastavuje, ale část zpráv skončí ve spamu), nebo přes vlastní **SMTP server** –
+schránku u hostingu, Google Workspace, Seznam nebo službu jako Brevo, Mailgun či Amazon SES, která doplní server, port
+a šifrování. **Poslat zkušební e-mail** ho ověří; zpráva, kterou server nepřevezme, zůstane ve frontě a úlohy na pozadí ji
+zkusí znovu.
+
+**Nastavení → Zprávy.** Po skončení měsíce web udělá zprávu o tom, co se s ním dělo: vyřízené požadavky, změny lidí
+a Clauda, aktualizace, zálohy, zabezpečení, audit webu, návštěvnost, poptávky, rezervace a newsletter – počty, nikdy lidi.
+Archivované zprávy si prohlédnete a vytisknete, nebo si necháte zkrácenou verzi poslat e-mailem v prvních dnech každého
+měsíce sobě nebo klientovi, s logem agentury z Nastavení → Agentura. Dostupnost se ve zprávě objeví jen s konzolí webů.

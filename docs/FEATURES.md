@@ -54,7 +54,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 - **Části webu** (`Builder\SiteParts`, tabulka `ka_casti` typ+jazyk, admin `Modules\SiteParts`, jen správce): záhlaví, patička a obálky `novinka`/`vypis`/`nenalezeno`
   (prvek `obsah` = místo pro obsah systému). Web je skládá v `Front\Kernel::siteParts()` se stavbou stránky v jednom `Context` → jedno CSS.
   Layout vypisuje `$casti['hlavicka']`/`['paticka']`, když nejsou `null`. Prvky `PARTS_ONLY` (logo, navigace, udaje, obsah) se nabízejí jen v částech.
-  Záhlaví a patička mohou mít varianty (`ka_casti.varianta`, `stranky` = JSON čísel stránek; `SiteParts::pageVariant`), prázdná varianta část skryje.
+  Záhlaví a patička mohou mít varianty (`ka_casti.varianta`, `stranky` = JSON čísel stránek; `SiteParts::variantFor`), prázdná varianta část skryje.
   Akce builderu sdílí trait `Admin\BuilderActions` (stránky i části), publikování a verze `Builder\Publisher`.
 - **Pop-up okna** (`Builder\Popups`, tabulka `ka_popupy`, admin `Modules\Popups` pod Vzhledem, jen správce, MCP `seznam_popupu`, `uloz_popup`
   a stavba_* s parametrem `popup`): obsah je stavba (verze pod `popup:<id>`, podepsaný náhled `popup:<id>`), plátno builderu `/_popup/<id>?build=koncept&editor=1`.

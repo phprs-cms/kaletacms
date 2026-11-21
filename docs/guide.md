@@ -8,19 +8,39 @@ For whoever runs the site: from installation through the page builder to connect
 1. Upload the files to hosting (PHP 8.3+, MySQL 8 / MariaDB 10.6+), create an empty database and open `/install.php`.
 2. In the form, choose a **starter site**: *Business website*, *Crafts and services* or *Consulting and agency*. Each brings
    its own style and Home, About us, Services and Contact pages built from ready-made sections with sample texts.
-3. Choose **what you want switched on**: News, Forms and enquiries, Newsletter, Statistics, Redirects, language versions,
-   the writing assistant… Features can be switched on and off at any time in the admin (**Features**); switching off deletes nothing. Bookings and Whistleblowing start switched off.
+3. Choose **what you want switched on** with one of three profiles: *Website* (pages, news, statistics, redirects and the
+   Claude connection), *Website with enquiries* (the same with forms and the Enquiries inbox) or *Front office* (enquiries
+   with customers, the pipeline of deals and quotes). **Choose yourself** shows the whole list to tick one by one.
+   Customers and the Pipeline start switched off unless you pick Front office; Bookings and Whistleblowing always start
+   off. Every feature can be switched on and off later in **Features**; switching off deletes nothing.
 4. The installation also creates a hidden draft **Privacy policy** page in the site language, linked from the footer, the cookie bar and the form consent. Fill in the details in square brackets and publish it. A new page from the **Privacy policy** template (Pages → New page) follows what the site has switched on – enquiries, newsletter, statistics, analytics and marketing codes, maps – and fills in your company details. It is always a template to check, not legal advice.
 5. The installer is in English, Czech, German and Spanish (it follows the browser's language). When it finishes, it shows the address for connecting Claude and
    a first prompt to try.
 6. After logging in, **First steps** on the **Dashboard** guide you through: site appearance, company details, pages,
    the privacy policy and email.
 
-The admin is at `/admin.php`. Roles: an **administrator** can do everything, an **editor** manages content, a **team
-member** works in the sections given to them (news only their own, published only with the publishing permission). In **Users → Roles** you can create
-**custom roles** – a named set of sections (for example “Sales” with Enquiries only); changing a role updates all its members.
-Three ready-made roles are a starting point: **Client** (pages, news, collections, enquiries and statistics – the look,
-settings and users stay with you), **Writer** (news for someone else to publish) and **Office / sales** (enquiries, customers, deals, bookings and quotes).
+The admin is at `/admin.php`.
+
+**The Dashboard.** The first screen after signing in. At the top are **New page**, **Write a news item** and **View
+site**, then the warnings that need a person (addresses visitors did not find, for example), each with a button to fix it,
+and what waits for your review. **First steps** lead a new site through its set-up until every step is done – the office
+has its own list – and the boxes count what waits in each section. Below are the visits of the last 14 days, the latest
+enquiries and what was edited recently; each row opens its record.
+
+**Features.** Administration → Features switches the built-in parts of Kaleta on and off – News, Forms and enquiries,
+Customers, Pipeline, Quotes, Bookings, Newsletter, Statistics, language versions, the writing assistant, the Claude
+connection and others. A switched-off feature disappears from the menu, its elements are no longer offered in the builder
+and its addresses on the site answer “not found”, but nothing is deleted: switch it on again and everything is back. Some
+features need another one (the Pipeline needs Customers) and switch it on with them.
+
+**Users and roles.** Roles: an **administrator** can do everything, an **editor** manages content, a **team member** works
+in the sections given to them (news only their own, published only with the publishing permission). Add people in
+**Users** – each gets an e-mail to set a password, and an administrator can block an account or reset its second sign-in
+step. In **Users → Roles** you create **custom roles** – a named set of sections (for example “Sales” with Enquiries only);
+changing a role updates all its members. Four ready-made roles are a starting point: **Client** (pages, news, collections,
+enquiries, customers and deals, statistics, business details and the appearance area – settings and users stay with you),
+**Writer** (news for someone else to publish), **HR** (job applications and the job openings in Collections, nothing of the
+customers) and **Office / sales** (enquiries, customers, deals, bookings, quotes and subscribers).
 
 **Help on every screen.** Next to the heading of each part of the admin, **How to use this** opens its article in this
 guide (in the admin language, if the guide has it); in the builder the article is in Help (**?**). The admin speaks
@@ -144,6 +164,8 @@ A brand-new shared class applies at once – it changes nothing that is already 
 
 **Appearance → Menu** builds the main menu and the footer menu: pages, custom links, news and groups, with one submenu
 level under each item. Reorder by dragging or with the arrows. Until you save it, the menu is built from pages “in navigation”.
+A saved menu goes into the draft look like a change of the design system, so visitors see it once you publish the look; on
+a site with language versions each language version has its own main menu and footer menu, chosen at the top of the editor.
 
 **Appearance → Pop-ups** are windows over the page – a newsletter sign-up, a download for an e-mail, an announcement
 bar, a discount or an event. Start from a ready-made template, build the content in the builder and publish it; then set
@@ -222,6 +244,7 @@ instead of adding them twice; an empty cell leaves a value as it is. New items a
 the items are saved, a few at a time, and the page continues by itself. Claude does the same with
 `save_collection_items` – up to 200 items per call with the rules of one item, `dry_run` to show what would change, and
 `media` to download images by address (a drafts-only connection saves hidden items only).
+
 **Categories (3.7).** **Categories** on the items screen sort a collection into groups with pages of their own: a category
 and its subcategories (two levels), each at `/collection/category` and `/collection/category/subcategory`. A category has
 a name, an address, a description, an image, its own title and description for search engines, an order and a switch
@@ -284,7 +307,7 @@ receiver check that the call came from your site. The **delivery log** shows eve
 5 and 30 minutes and 2 and 12 hours, and a given-up call can be sent again with one click. **Send a test call** checks the
 connection. Webhook addresses and the secret are never available over the Claude connection.
 
-Submitted messages are in **Workspace → Enquiries**: status (new, read, resolved), reply by email, CSV export. When the form is on the
+**Enquiries.** Submitted messages are in Workspace → Enquiries: status (new, read, resolved), reply by e-mail, CSV export. When the form is on the
 page an ad or a newsletter links to, the enquiry also shows the **campaign** from the address (`utm_source`, `utm_medium`, `utm_campaign`…) –
 in the admin, the notification email, the CSV and the webhook, without cookies. Enquiries
 contain personal data, so they are deleted automatically after a set number of months (24 by default). Every retention period –
@@ -317,9 +340,9 @@ loads only after a click, so the page sends nothing to the service before that, 
 it. An administrator can also add **code to the head of one page** (Page settings → Search engines and sharing), e.g. the
 conversion tag of a landing page.
 
-The **Newsletter** extension adds a **Newsletter sign-up** element: visitors enter an e-mail and confirm it by a link
-(double opt-in). Confirmed addresses are in **Content → Newsletter → Subscribers**; export them to CSV, including the unsubscribe
-link, for your mailing tool.
+**Subscribers.** The Newsletter extension adds a **Newsletter sign-up** element: visitors enter an e-mail and confirm it
+by a link (double opt-in). Confirmed addresses are in **Content → Newsletter → Subscribers**; export them to CSV, including
+the unsubscribe link, for your mailing tool.
 
 Or connect the mailing service you already use in **Features → Newsletter**: Brevo, MailerLite, Mailchimp, Ecomail,
 SmartEmailing, or any other service through a webhook (Make, Zapier, n8n). Enter the API key and the list; every confirmed
@@ -341,6 +364,14 @@ Every e-mail carries the subscriber's own unsubscribe link and one-click unsubsc
 opens; links to your site carry `utm` parameters, so **Statistics** show the visits a newsletter brought. The list of
 recipients is kept only while sending – afterwards only the counts and dates remain. Claude can draft newsletters and send
 tests too, and sends to subscribers only when you ask.
+
+**Online bookings.** With the Bookings feature on, visitors book an appointment on the site through the **Booking**
+element: they pick a service, a person and a free time, and get a confirmation by e-mail with a link to cancel; the site reminds them before the time. Administrators
+set up the **Services** (length, a break after, price text, which people do it, whether you confirm each booking first), the **People** with their weekly hours and days off, and the
+**Settings** – how far ahead and how soon people may book, the cancel deadline and the reminder. The list shows the upcoming
+bookings by day; open one to confirm, decline or propose another time, mark it done or not come, or add a booking for a
+customer who phoned. Bookings hold personal data: they follow the retention of enquiries and the customer gets them on the
+timeline.
 
 ### Departments, reports to and absences
 
@@ -380,6 +411,14 @@ For an **imprint** (legal notice, Impressum) fill in the commercial register ent
 create a page from the **Imprint** template (Pages → New page) – the Company details element in *Imprint* mode lists all
 filled-in details of the operator.
 
+**Facts and claims.** Business details → **Facts** holds the numbers and sentences the site states – the year the company
+was founded, the number of projects, a price from, the warranty, the area you serve. Write a fact once and use it
+everywhere as `{{fact.key}}` in a text, a button or a link (`tel:{{fact.company_phone}}`): the site fills in the value when
+a page is shown, so a change here changes every page. The list shows where each fact is used, and **Claims** finds the
+sentences with numbers, years and amounts still written as plain text, so you can turn them into facts before they go
+stale. Some numbers work themselves out – years since a date, counts of what is on the site. Claude reads and changes facts
+with `list_facts` and `save_fact`.
+
 ## 9. News, SEO and languages
 
 **News** is the company blog: categories, tags, scheduled publishing, trash, version history. SEO takes care of itself
@@ -388,6 +427,25 @@ filled-in details of the operator.
 Visitor texts (Search, Read more, forms, cookie bar) are translated into Czech, English, German, French, Spanish, Italian,
 Polish, Slovak, Hungarian, Portuguese, Arabic and Chinese; other languages show them in English, with dates in their own format. The installer lets you choose the
 site language separately from the admin language.
+
+**Categories and tags.** Every news item belongs to one **category** (News → Categories): it has a name, an address made
+from the name, an order and, on a site with language versions, the language its news belongs to – a news item takes the
+language of its category. A category cannot be deleted while it still has news. **Tags** (News → Tags and topics) are made
+as you type them in the news editor; here you merge two spellings into one (the news items get the other tag and the old
+address redirects) or give a tag a description, which turns its page into a **topic** – an introduction above the list of
+its news that also serves as the description for search engines.
+
+**Settings → Languages.** The language of the site's own texts (Search, News, Read more…), which the site also declares to
+search engines, the other language versions once the feature is on, and the name and description of the site in each of
+them – an empty field means the same text as in the default language. Here too is the form of address for German visitors
+and the switch *The same address in every language*. Pages, news, categories and collection items get their language in
+their own settings.
+
+**Settings → SEO and GEO.** The site does most of it by itself – addresses, descriptions, the sitemap, structured data and
+`llms.txt` for AI search. The tab decides only the essentials: whether search engines may index the site at all, whether AI
+search engines and assistants may use its content (well-behaved bots respect it; it is not a technical protection), the
+form of addresses (without a trailing slash, with one, or `.html` – the other forms redirect with 301) and the verification
+codes for Google Search Console and Bing, with the address of the sitemap to submit there.
 
 German has two forms of address, formal (Sie) and informal (du), chosen separately for the admin and for the site. The admin
 follows each person's choice (**My account → Form of address in German**; the installer asks too). The texts for visitors
@@ -481,9 +539,17 @@ the access you chose and your role. Connections from before 3.10 keep all tools;
 My account shows the access and the tool set of every connected app and token. The **change log** marks every change Claude made with the
 name of its connection, and can show only Claude's changes or only people's; Claude reads it too (`list_changes`).
 
-**Instructions for Claude.** Under **Claude settings** write what Claude should keep to – how you address
-customers, words to use or avoid, house rules. Every connection gets them when it connects. Claude also offers ready-made
-tasks (below).
+**Claude settings.** Claude → Claude settings opens with the state of the connection, the address to connect and what
+to do next. Under **Instructions for Claude** write what Claude should keep to – how you address customers, words to use or
+avoid, house rules; every connection gets them when it connects. The **guardrails** say what Claude must never do on this
+site even when asked, and the site audit checks that they are saved before a hand-over. Claude also offers ready-made tasks
+(below).
+
+**Ask Claude.** Claude → Ask Claude is for colleagues who do not use Claude themselves: they write a request in plain words
+(“add the new opening hours to the contact page”), and the request waits until a connected Claude picks it up – when
+somebody asks it to, or on a scheduled run. Claude works in drafts and writes back what it did; the request shows its state
+and the answer, and the person who asked gets an e-mail when it is done. The same box is on the Dashboard; without a connection it
+saves the request for later.
 
 **Settings over the connection.** Besides the site name and company details, Claude can switch extensions and language
 versions, the cookie bar, SEO switches, analytics codes and the code in `<head>` – when you ask for it.
@@ -644,6 +710,26 @@ from a CSV file** takes one redirect per row (old address, target, code 301, 302
 WordPress Redirection plugin, shows what will be added, changed or refused, and saves only after you confirm; up to
 5,000 rows at a time. Claude does the same with `save_redirects` (up to 500 per call, `dry_run` to check first).
 
+**System status.** Site care → System status checks what keeps the site running: PHP and its extensions, the folders the
+site writes to, the encryption key and stored passwords, the core files, two-step sign-in of administrators, the background
+jobs (cron), backups and updates, the mail DNS records (SPF, DMARC, DKIM), the certificate and the domain registration,
+whether `config.php` is readable only by the site, and the Claude connection. A row in red or amber says what to do, and
+some are fixed with one click. Here is the tasks address for cron, the error log
+(the last 40 entries), the e-mail the site sends when a backup, an update or a job fails (at most one an hour) and the
+status in JSON for monitoring tools such as UptimeRobot.
+
+**Firewall.** Settings → Firewall guards the public site and the Claude connection – never the administration, so you
+cannot lock yourself out, and addresses of your local network are never blocked. Block single addresses or networks, whole
+countries (only behind Cloudflare or when the hosting sends the country), visitors who send too many requests and bots
+probing for other systems; such a visitor is blocked for a while. The tab says what the site runs behind and lists the
+last 50 refused requests; the log keeps 30 days.
+
+**Broken links.** Site care → Addresses → Broken links lists the links in published pages, news items and collection items
+that lead nowhere – to a page that no longer exists here, or to another site that answers with an error. The check runs in
+the background, one news item every few minutes, so it never slows the site; each row says where the link is and opens
+the place to fix it. A link that works again drops out by itself. The site audit counts the same links, and Claude reads
+them with `list_broken_links`.
+
 **Kaleta 2.0** is one clear system: the compatibility layers of the 1.x releases are gone. The per-page pop-up element
 became a site pop-up during the update – same content, trigger and frequency, shown only where it was, and its button
 opens it (Appearance → Pop-ups). Old admin addresses of 1.3 lead to the start screen, old class names and helpers of
@@ -691,6 +777,9 @@ Claude connection (MCP) for working with the site, webhooks for events and the s
 
 ## 14. Sales: pipeline and quotes
 
+Customers and the Pipeline are features: switch them on in **Features**, or choose the *Front office* profile when you
+install. Quotes are a feature of their own.
+
 **Pipeline** (Workspace → Sales) keeps your deals from the first contact to won or lost on one board. Create a deal with
 **New deal**, or with **Create deal** on an enquiry – the customer, the company and the title are filled in from it. The
 board has a column for each stage; move a card by dragging it, with the keyboard (Space, the arrows, Space) or with the
@@ -708,7 +797,8 @@ first sent. Claude prepares quotes as drafts and sends one only when you ask.
 
 ## 15. Customers
 
-A **customer** appears by itself when somebody sends an enquiry, books an appointment or signs up for the newsletter – one
+Customers are a feature: switch it on in **Features** (or choose the *Front office* profile when you install); contacts are
+kept for every enquiry also while it is off. A **customer** appears by itself when somebody sends an enquiry, books an appointment or signs up for the newsletter – one
 record per e-mail address; **New customer** adds one by hand. The page of a customer has one **timeline**: enquiries with
 the first line of the message, replies, bookings, deals, quotes and the team's log of calls, meetings, e-mails and notes
 (**Log a call / meeting / e-mail / note**). Its **Tasks** panel lists its own tasks and, under *On its enquiries and
@@ -717,8 +807,9 @@ whoever has the Pipeline).
 
 People of one firm belong to a **company** (the Companies tab), which has its own page with its people and deals. Two
 records of one person are merged by an administrator with **Merge with…** – always a decision of a person. Ctrl K (⌘K on a
-Mac) finds a customer by name, e-mail or company from anywhere. Customers hold personal data: they are kept as long as
-their enquiries (see chapter 18) and never shown on the site.
+Mac) finds a customer by name, e-mail or company from anywhere. Customers hold personal data and are never shown on the
+site: a customer with no activity for the period in **Settings → Privacy and cookies** (24 months by default) is
+anonymised (see chapter 18).
 
 ## 16. Job applications
 
@@ -744,15 +835,172 @@ name and description but never gets their contents.
 
 ## 18. Privacy and retention
 
-**Whistleblowing:** the channel takes reports on its own page; they are stored encrypted and only the people with the
-section Whistleblowing see them. Confirm each report and give the reporter feedback in time – the screen shows both
-deadlines.
+**Whistleblowing:** the channel takes reports on its own page (`/_report`), with up to five attached files; they are stored
+encrypted, and only the readers chosen in its settings open a case – others with the section see case numbers and dates.
+Confirm each report and give the reporter feedback in time – the screen shows both deadlines. The reporter gets a case
+number and an access code to follow the case, read your messages and add information without giving a name. Closed cases
+are deleted after the period in the settings.
 
-**Personal data on request:** when somebody asks what the site holds about them, ask Claude to *find their personal data*
-– the answer lists every place (enquiries, customers, applications, bookings, subscriptions, comments). The same request
-can erase it; erasing is always your decision, and a backup restored later applies the erasures again.
+**Personal data on request:** when somebody asks what the site holds about them, open **Enquiries → Personal data
+request** and enter their e-mail address – the screen lists every place (enquiries with their attachments, the
+subscription, e-mails waiting to be sent, testimonial requests, bookings), downloads it as a file for the person and, when
+you tick that you want it, erases it for good. Claude does the same when you ask it to *find their personal data*, and its
+answer also covers customers, applications and comments. Erasing is always your decision, and a backup restored later
+applies the erasures again.
 
 **Retention:** Settings → Privacy and cookies holds every retention period in one place – how long enquiries,
-applications, bookings, the cookie consent log and other records are kept. The site deletes older ones by itself; a
-shorter period than before is confirmed on its own screen. Claude prepares the **record of processing activities** for
-your privacy policy from what the site really does.
+applications, customers (24 months without activity by default, then anonymised), quotes, bookings, the cookie consent log
+and other records are kept. The site deletes older ones by itself; a shorter period than before is confirmed on its own
+screen. Claude prepares the **record of processing activities** for your privacy policy from what the site really does.
+
+**Cookie bar.** The same tab decides the cookie bar: the built-in one (its text and the link to your privacy policy, in
+every language version), an external one by its code, or none for a site that sets no tracking cookies. The built-in bar
+records the consents given as evidence for an inspection, for 36 months by default. Analytics and marketing codes from
+Settings → Analytics start only after the visitor allows them, and a browser that sends the Global Privacy Control signal
+counts as “only necessary”. The **Spam check for forms** is on this tab too.
+
+## 19. My work and My account
+
+Two screens belong to every signed-in person, whatever their role: **My work** in the menu and **My account** behind
+your name at the top. Neither is a section an administrator gives or takes away, and neither shows anything you may not
+open elsewhere. The bell next to your name leads to your notifications.
+
+**My work.** Lists what waits for you: your tasks first, then the enquiries you handle, quotes to finish or follow up, the
+pages and items you are responsible for and the answers to your requests to Claude – each row opens the place where the
+work is done. **New task** adds a task for yourself or a colleague, with a due date and a reminder; complete or snooze it
+right in the list. **Summary** shows how much the team did in a period, as counts only, and administrators also have the
+**Team** tab with everybody's open tasks and the tasks nobody has. Giving a record a **Responsible person** never hides it
+from anybody else.
+
+**Notifications.** The bell collects mentions, comments on what you are responsible for, things assigned to you and review
+dates, kept for 90 days. **Mark all as read** clears the count. How you hear about them by e-mail – each one right away,
+one summary every morning, or none – is your own choice in My account; a notification about a record opens that record,
+and nothing in the list is sent to anybody else.
+
+**My account.** Its tabs are yours alone. **My details** – name, e-mail, the admin language (and the form of address in
+German) and how notifications reach you. **Absence** – add the days you are away with a deputy: while you are away a copy
+of your notifications goes to the deputy (chapter 7 has the rules). **Security** – your password, two-step sign-in with an
+app, passkeys and backup codes. **Claude** – the apps and personal tokens connected under your account, with their access
+and tool set, ready to disconnect (chapter 10). **Signature** – the signature under your e-mail replies. **Colleagues** –
+the positions and work phones of your colleagues, A–Z or by department, and the org chart.
+
+## 20. Media library
+
+**Content → Media** holds every image and file of the site: photos for pages and news, logos, PDFs to download, fonts.
+Upload by choosing files or dragging them onto the page, or drop an image straight into the text in the editor. Sort
+files into **folders**, search by name, description or file name, and move several files at once with the boxes in the
+list. A file stored by a Claude connection limited to drafts waits under **Waiting for approval** until you publish it.
+
+**Image sizes and descriptions.** Every uploaded image gets smaller variants and a WebP copy by itself, and the site
+serves each visitor the size their screen needs. Give each image a **description for screen readers (alt)** – blind
+visitors and search engines read it; **Replace** swaps the file and keeps every place that uses it. Media → **Unused
+files** lists what no page, build, news item, item, component, pop-up, newsletter or setting points at, the same file
+uploaded twice, oversized images to make smaller and images without a description, to fill in together.
+
+**Where an image is used.** The detail of a file lists every place that uses it – news, builds, collection items, the
+logo – so you know what changes before you replace or delete it. Media has no trash: a deleted file is gone, and files
+the site still uses are skipped when you delete several at once. Claude uploads files with `upload_file`, finds images
+without a description with `list_media_without_alt` and describes them with `update_media`.
+
+## 21. Statistics and the change log
+
+**Statistics.** Site care → Statistics counts visits without cookies and without storing anything about a person – only
+sums per day. It shows visits and page views, the most visited pages, the sites and campaigns visitors came from, devices,
+pop-up conversions and – when leads are remembered – which pages and campaigns bring enquiries and sign-ups. Only visits
+confirmed by a visitor's browser count, so bots and your own visits are left out. **Speed for visitors** measures how fast
+pages load in real browsers (LCP, CLS, INP) and the site audit warns when a page gets slower. Claude reads the same report
+with `get_stats`.
+
+**Settings → Analytics.** The built-in statistics are switched on or off here – no cookies and no consent needed. Next to
+them you can add Google Analytics, Google Tag Manager or another tool (Matomo, Plausible, your own code): paste the ID or
+the code, and with the built-in cookie bar it starts only after the visitor allows analytics or marketing. Kaleta sends
+its conversion events (a form sent, a sign-up, a call or e-mail click, a file download) to the data layer, and the tab
+offers a Tag Manager container template with them (chapter 7). Keep Google Analytics in one place, or visits count twice.
+
+**The change log.** Site care → Change log (administrators) lists every change made in the admin and over the Claude
+connection – who, when, what and in which section – newest first. Filter it by who made the change (people and Claude,
+people in the admin, or Claude), by section and by a word in the detail; every change Claude made carries the name of its
+connection. The log keeps the history for six months, not the content: an older text comes back from a page's versions
+or an item's history. Claude reads the log with `list_changes`.
+
+**Undoing a Claude session.** Changes one Claude connection makes in a row form a **session** (Change log → Claude
+sessions). **Undo** puts back everything the session changed – pages, builds and drafts, news, collection items, menus,
+settings, the look – as it was before. Rows a person or another session changed afterwards are left as they are and listed;
+undo again with *Also overwrite later changes* to put them back too. Sessions are kept for a limited number of days, shown
+on the screen.
+
+## 22. Claude's notebook, scheduled runs, blueprints and connections
+
+**Claude's notebook.** Claude → Notebook keeps notes for whoever works on the site next – Claude in a new conversation or
+a colleague: decisions (“prices always without VAT”), what was promised to the client, where things are. Notes have a topic
+and can be pinned, so the important ones come first; search finds a note by a word. Claude reads the notebook at the start
+of its work and writes into it with `write_notebook`, so a decision made once is not asked about again. The hand-over
+checklist counts the decisions in the notebook.
+
+**Scheduled runs.** Claude → Scheduled runs keeps the schedules for a routine in Claude – what, how often and when: pick up
+requests every morning, weekly care on Mondays, a newsletter each month. The site does not run Claude itself: **Set up in
+Claude** gives the prompt for a routine in your Claude app, which connects over a drafts-only connection, does what is due
+and reports back. Each schedule shows its next due time and last run with a history, and can be paused; the top bar says
+when a run that picks up requests stopped.
+
+**Blueprints.** Business details → Blueprints apply a ready-made plan for a kind of business – twenty ship with Kaleta, from
+a restaurant, a clinic or a craftsman to a municipality or a software company – or a blueprint from another site: its questions become facts, and its checks say what the site still
+lacks (opening hours, a price list, a booking page). Taking a blueprint off removes its checks and keeps your content.
+**Download** saves the current site as a blueprint for the next one; Claude can draft one for a kind of business none of
+the shipped ones fits (`draft_blueprint`).
+
+**Connections to outside services.** Administration → Integrations (administrators) connects the site to Google (Search
+Console, Business Profile, Sheets), Bing, HubSpot, Pipedrive and Raynet: the site's own OAuth app or an API token, saved and
+never shown back, the service's settings, connecting and disconnecting, and the last calls. Then, for example, new enquiries
+go to a Google Sheet or to your CRM, opening hours reach your Business Profile, and the queries people typed in Google and Bing
+appear in Statistics. Only the permissions the site needs are asked for, and the keys are never available over the Claude connection.
+
+## 23. Fleet console
+
+The fleet console is for agencies and IT teams who look after several Kaleta sites: one Kaleta installation with the
+**Fleet console** feature shows all of them on one screen. **Today** shows first what needs attention – a failed backup,
+an update waiting, a certificate about to expire; the inbox collects what waits on every site, and each site keeps its
+history and its tasks. Sites belong to customers: the console makes a monthly report for each customer and sends alerts by
+your rules. New versions reach the sites in rings, so your test sites get them first.
+
+**Reporting to a console.** On each site, Settings → Reporting to a console pairs it with the console: make a pairing key
+in Fleet → Add a site and paste it here (it is valid for 24 hours and only once). The site then sends a signed report every
+hour – version, health, background jobs, backups, counts of what waits – never personal data, and the console never reaches
+into the site. Here you also let the console decide when new versions install, see the key fingerprints, send a report now
+or disconnect. The tab appears once an agency is named in Settings → Agency or the site is paired.
+
+## 24. Add-ons and the other settings
+
+**Add-ons.** Administration → Add-ons lists code from other developers copied into the `extensions/` folder of the site:
+switch each one on or off, see what it needs and the error that switched it off, and open the admin pages it adds. Nothing
+is uploaded or downloaded from the administration – a developer or the hosting copies the folder, an administrator switches
+it on. Add-ons talk to Kaleta only through its documented interface (the Extension API), and an add-on whose error stops a
+page is switched off by itself; how to write one is in `docs/EXTENSIONS.md`.
+
+**Settings → General.** The site name and description, the site address (used for every absolute link – change it when the
+site moves to another domain), the site e-mail, links to social networks, the time zone, the currency deals start with, the
+home page and the address and title of the news, the page cache and **maintenance mode**, which shows visitors a notice while
+you work. Changing the
+time zone asks whether saved dates are converted; changing the host name warns that passkeys of the old address stop
+working.
+
+**Settings of sections.** Some settings live with their section – quotes and the price list, applications, the stages of the
+pipeline, bookings, saved replies of enquiries, the whistleblowing channel, Claude's instructions. This tab lists all of them in one place, only for the sections you may open, with a link to each.
+It has no fields of its own; the retention periods of every section are in Settings → Privacy and cookies, and the
+features themselves in Features.
+
+**Settings → Security.** The rules of signing in for everybody: who must have two-step sign-in (an app or a passkey) – such
+a person reaches only My account after signing in until they set it up – and whether accounts with a passkey sign in with it
+only. **Suspend automatically** blocks accounts and revokes connections unused for a long time, checked once a day; without
+it, System status and the site audit only report them. Blocking addresses and countries is in Settings → Firewall.
+
+**Settings → Mail.** How the site sends its e-mails – password links, notifications, enquiries, replies, quotes and
+newsletters: through the hosting's `mail()` (nothing to set up, but some messages end up in spam) or through your own
+**SMTP server** – a mailbox at your host, Google Workspace, or a service such as Brevo, Mailgun or Amazon SES, which fills in
+the server, the port and the encryption. **Send a test e-mail** checks it; a message the server does not take stays in a
+queue and the background jobs try it again.
+
+**Settings → Reports.** Once a month ends, the site makes a report of what happened to it: requests handled, changes by
+people and by Claude, updates, backups, security, the site audit, traffic, enquiries, bookings and the newsletter – counts,
+never people. View and print the archived reports, or have a short version e-mailed in the first days of each month to you
+or your client, with the agency's branding from Settings → Agency. Uptime appears only with a fleet console.
