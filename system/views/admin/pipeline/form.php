@@ -4,12 +4,13 @@
  * chooses its open stage, an existing one moves with Move (the history). The value is a number with a currency – no
  * products, no price maths.
  *
+ * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Pipeline $module
  * @var string $csrf
  * @var array<string, mixed> $d the deal (id 0 = a new one)
  * @var array<string, string> $draft a refused form's fields, or what a new deal starts with
  * @var array<int, string> $contacts id => name
- * @var array<int, string> $companies id => name
+ * @var array<int, string> $companies id => name (no company on the site yet: the field is left out)
  * @var array<int, string> $people who may be responsible
  * @var list<array{key: string, label: string, kind: string, custom: bool}> $stages the open stages (a new deal)
  * @var bool $canContacts
@@ -34,17 +35,24 @@ $prefix = $new ? 'obchod-novy' : 'obchod-' . (int) $d['id'];
 	<?= $csrf ?><input type="hidden" name="id" value="<?= (int) $d['id'] ?>"><?php if ($new && (int) ($enquiry ?? 0) > 0): ?><input type="hidden" name="enquiry" value="<?= (int) $enquiry ?>"><?php endif ?>
 	<div class="radek"><label for="<?= $prefix ?>-titulek"><?= e(t('Name of the deal')) ?></label><div><input class="textpole siroke" type="text" id="<?= $prefix ?>-titulek" name="title" maxlength="<?= Deals::TITLE_MAX ?>" required value="<?= e($value('title')) ?>" autocomplete="off">
 		<span class="napoveda"><?= e(t('What the customer may buy – e.g. Website redesign, Yearly service.')) ?></span></div></div>
-<?php if ($canContacts): ?>
-	<div class="radek"><label for="<?= $prefix ?>-zakaznik"><?= e(t('Customer')) ?></label><div><select id="<?= $prefix ?>-zakaznik" name="contact_id"><?php if ($fromEnquiry && $contactId === 0): ?><option value="0"<?= $value('contact_id') !== 'none' ? ' selected' : '' ?>><?= e(t('The enquiry’s customer')) ?></option><?php endif ?><option value="<?= $none ?>"<?= $fromEnquiry && $value('contact_id') === 'none' ? ' selected' : '' ?>>—</option>
-<?php foreach ($contacts as $id => $name): ?>
-		<option value="<?= (int) $id ?>"<?= $contactId === (int) $id ? ' selected' : '' ?>><?= e($name) ?></option>
-<?php endforeach ?>
-	</select></div></div>
-	<div class="radek"><label for="<?= $prefix ?>-firma"><?= e(t('Company')) ?></label><div><select id="<?= $prefix ?>-firma" name="company_id"><?php if ($fromEnquiry && $companyId === 0): ?><option value="0"<?= $value('company_id') !== 'none' ? ' selected' : '' ?>><?= e(t('The customer’s company')) ?></option><?php endif ?><option value="<?= $none ?>"<?= $fromEnquiry && $value('company_id') === 'none' ? ' selected' : '' ?>>—</option>
-<?php foreach ($companies as $id => $name): ?>
-		<option value="<?= (int) $id ?>"<?= $companyId === (int) $id ? ' selected' : '' ?>><?= e($name) ?></option>
-<?php endforeach ?>
-	</select></div></div>
+<?php if ($canContacts): /* 3.49 C: chosen by search (views/admin/pick.php); without JavaScript the selects as before */
+	$specials = static fn (string $key, string $label): array => $fromEnquiry && (int) $value($key) === 0
+		? [['0', $label], ['none', '—']] : [[$none, '—']];
+	$chosen = static fn (string $key): string => (int) $value($key) > 0 ? (string) (int) $value($key) : ($fromEnquiry && $value($key) !== 'none' ? '0' : $none);
+	$newName = (string) ($draft['contact_new_name'] ?? '');
+	$newEmail = (string) ($draft['contact_new_email'] ?? ''); ?>
+	<div class="radek"><label for="<?= $prefix ?>-zakaznik"><?= e(t('Customer')) ?></label><div>
+		<?= $app->view->render('admin/pick', ['id' => $prefix . '-zakaznik', 'name' => 'contact_id', 'pick' => 'contacts', 'url' => $app->url('admin.php?module=contacts&action=search_json'),
+			'options' => $contacts, 'selected' => $chosen('contact_id'), 'specials' => $specials('contact_id', t('The enquiry’s customer'))]) ?>
+		<details class="vyber-novy" data-pick-new<?= $newName !== '' || $newEmail !== '' ? ' open' : '' ?>><summary><?= e(t('New customer…')) ?></summary>
+			<div class="vyber-novy-pole"><label><span><?= e(t('Full name')) ?></span> <input class="textpole" type="text" name="contact_new_name" maxlength="150" value="<?= e($newName) ?>" autocomplete="off"></label>
+			<label><span><?= e(t('Email')) ?></span> <input class="textpole" type="email" name="contact_new_email" maxlength="190" value="<?= e($newEmail) ?>" autocomplete="off"></label></div>
+			<span class="napoveda"><?= e(t('Saved with the deal when no customer is chosen; an e-mail address that already has a customer uses that one.')) ?></span></details></div></div>
+<?php if ($companies !== []): ?>
+	<div class="radek"><label for="<?= $prefix ?>-firma"><?= e(t('Company')) ?></label><div>
+		<?= $app->view->render('admin/pick', ['id' => $prefix . '-firma', 'name' => 'company_id', 'pick' => 'companies', 'url' => $app->url('admin.php?module=contacts&action=company_search_json'),
+			'options' => $companies, 'selected' => $chosen('company_id'), 'specials' => $specials('company_id', t('The customer’s company'))]) ?></div></div>
+<?php endif ?>
 <?php endif ?>
 	<div class="radek"><label for="<?= $prefix ?>-odpovedny"><?= e(t('Responsible person')) ?></label><div><select id="<?= $prefix ?>-odpovedny" name="owner_id"><option value="0">—</option>
 <?php foreach ($people as $userId => $name): ?>

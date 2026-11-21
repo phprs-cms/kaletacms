@@ -37,12 +37,16 @@ final class Response
         return new self('', $status, ['Location' => $url]);
     }
 
-    public static function json(mixed $data, int $status = 200): self
+    /** The header of an answer no cache may keep – a search of the team's records (3.49 C). */
+    public const array NO_STORE = ['Cache-Control' => 'no-store, private'];
+
+    /** @param array<string, string> $headers added to the Content-Type (e.g. self::NO_STORE) */
+    public static function json(mixed $data, int $status = 200, array $headers = []): self
     {
         return new self(
             json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             $status,
-            ['Content-Type' => 'application/json; charset=utf-8'],
+            ['Content-Type' => 'application/json; charset=utf-8'] + $headers,
         );
     }
 

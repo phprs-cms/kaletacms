@@ -137,7 +137,8 @@ foreach ($lines as $line) {
 <fieldset class="nabidka-pridat" data-quote-add>
 <legend><?= e(t('Add a line')) ?></legend>
 <div class="zaznam-dvojice nabidka-pridat-radek">
-	<div class="zaznam-pole"><label for="nabidka-produkt"><?= e(t('Product of the price list')) ?></label><input class="textpole" type="text" id="nabidka-produkt" name="add_product" list="nabidka-produkty" autocomplete="off" placeholder="<?= e(t('Code or name')) ?>">
+	<div class="zaznam-pole"><label for="nabidka-produkt"><?= e(t('Product of the price list')) ?></label><input class="textpole" type="text" id="nabidka-produkt" name="add_product" list="nabidka-produkty" autocomplete="off" placeholder="<?= e(t('Code or name')) ?>" data-pick="products"
+			data-pick-url="<?= e($app->url('admin.php?module=' . $module::IDENT . '&action=product_search_json&list=' . (int) $list['id'])) ?>"><?php /* 3.49 C: searched by image/admin.js; the datalist stays for use without it */ ?>
 		<datalist id="nabidka-produkty">
 <?php foreach ($products as $p): ?>
 			<option value="<?= e($p['value']) ?>"><?= e($p['label']) ?></option>
@@ -215,16 +216,15 @@ foreach ($lines as $line) {
 <h2 id="nabidka-zakaznik"><?= e(t('Customer')) ?></h2>
 <div class="zaznam-formular">
 <?php if ($canContacts): ?>
-	<div class="zaznam-pole"><label for="nabidka-kontakt"><?= e(t('Customer')) ?></label><select id="nabidka-kontakt" name="contact_id" data-saved="<?= (int) ($q['contact_id'] ?? 0) ?>"><option value="0">—</option>
-<?php foreach ($contacts as $cid => $name): ?>
-		<option value="<?= (int) $cid ?>"<?= (int) $v('contact_id', (string) ($q['contact_id'] ?? 0)) === (int) $cid ? ' selected' : '' ?>><?= e($name) ?></option>
-<?php endforeach ?>
-	</select></div>
-	<div class="zaznam-pole"><label for="nabidka-firma"><?= e(t('Company')) ?></label><select id="nabidka-firma" name="company_id" data-saved="<?= (int) ($q['company_id'] ?? 0) ?>"><option value="0">—</option>
-<?php foreach ($companies as $cid => $name): ?>
-		<option value="<?= (int) $cid ?>"<?= (int) $v('company_id', (string) ($q['company_id'] ?? 0)) === (int) $cid ? ' selected' : '' ?>><?= e($name) ?></option>
-<?php endforeach ?>
-	</select><span class="napoveda"><?= e(t('Choosing a contact or company fills the fields below when you save; they stay editable.')) ?></span></div>
+	<div class="zaznam-pole"><label for="nabidka-kontakt"><?= e(t('Customer')) ?></label><?= $app->view->render('admin/pick', ['id' => 'nabidka-kontakt', 'name' => 'contact_id', 'pick' => 'contacts',
+		'url' => $app->url('admin.php?module=contacts&action=search_json'), 'options' => $contacts, 'selected' => (string) (int) $v('contact_id', (string) ($q['contact_id'] ?? 0)),
+		'specials' => [['0', '—']], 'attributes' => ['data-saved' => (string) (int) ($q['contact_id'] ?? 0)]]) ?></div>
+<?php if ($companies !== []): ?>
+	<div class="zaznam-pole"><label for="nabidka-firma"><?= e(t('Company')) ?></label><?= $app->view->render('admin/pick', ['id' => 'nabidka-firma', 'name' => 'company_id', 'pick' => 'companies',
+		'url' => $app->url('admin.php?module=contacts&action=company_search_json'), 'options' => $companies, 'selected' => (string) (int) $v('company_id', (string) ($q['company_id'] ?? 0)),
+		'specials' => [['0', '—']], 'attributes' => ['data-saved' => (string) (int) ($q['company_id'] ?? 0)]]) ?></div>
+<?php endif ?>
+	<span class="napoveda"><?= e(t('Choosing a contact or company fills the fields below when you save; they stay editable.')) ?></span>
 <?php endif ?>
 <?php foreach (['name' => 'Full name', 'company' => 'Company name', 'reg_no' => 'Registration number', 'vat_id' => 'VAT number', 'email' => 'Email'] as $key => $label): ?>
 	<div class="zaznam-pole"><label for="nabidka-c-<?= $key ?>"><?= e(t($label)) ?></label><input class="textpole" type="<?= $key === 'email' ? 'email' : 'text' ?>" id="nabidka-c-<?= $key ?>" name="customer_<?= $key ?>" maxlength="<?= Quotes::CUSTOMER[$key] ?>" value="<?= e($v('customer_' . $key, (string) $q['customer'][$key])) ?>"></div>
@@ -264,11 +264,8 @@ foreach ($lines as $line) {
 <?php endforeach ?>
 	</select></div>
 <?php if ($canDeals): ?>
-	<div class="zaznam-pole"><label for="nabidka-obchod"><?= e(t('Deal')) ?></label><select id="nabidka-obchod" name="deal_id"><option value="0">—</option>
-<?php foreach ($deals as $did => $title): ?>
-		<option value="<?= (int) $did ?>"<?= (int) $v('deal_id', (string) ($q['deal_id'] ?? 0)) === (int) $did ? ' selected' : '' ?>><?= e($title) ?></option>
-<?php endforeach ?>
-	</select></div>
+	<div class="zaznam-pole"><label for="nabidka-obchod"><?= e(t('Deal')) ?></label><?= $app->view->render('admin/pick', ['id' => 'nabidka-obchod', 'name' => 'deal_id', 'pick' => 'deals',
+		'url' => $app->url('admin.php?module=pipeline&action=search_json'), 'options' => $deals, 'selected' => (string) (int) $v('deal_id', (string) ($q['deal_id'] ?? 0)), 'specials' => [['0', '—']]]) ?></div>
 	<label><input type="checkbox" name="set_deal_value" value="1"<?= $dealValue ? ' checked' : '' ?> data-quote-deal-value> <?= e(t('When sent, set the value of the deal to the net total')) ?></label>
 <?php endif ?>
 </div>

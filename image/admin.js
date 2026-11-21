@@ -1273,4 +1273,207 @@
 		};
 		if (sendForm) { sendForm.addEventListener('input', mirror); }
 	}
+	/* ---------- 3.49 C: choosing by search – select[data-pick] and input[data-pick] (views/admin/pick.php) ---------- */
+	// The form control stays the value carrier and, without this script, the whole control. A select is hidden behind a
+	// text field (role="combobox", it takes over the select's id and required) with a listbox under it; the product field
+	// (an input with a datalist) keeps its input and loses only the datalist. Under two characters the select's own options
+	// (the datalist's) are filtered; from two the search address is asked (&q=…&pick=1) after 200 ms and a stale answer is
+	// dropped (the palette's guard). A row outside the options is appended to the select and chosen, then "change" is fired
+	// on it – the server, the quote editor and the unsaved-changes guard see nothing new; typing a search changes nothing
+	// until a row is chosen. Special options (data-pick-special: "—", "The enquiry's customer") stay at the top with their
+	// values. The deal form's details[data-pick-new] ("New customer…") is the last row: it opens and gets the focus.
+	// Arrows, Enter, Escape, Tab; a live region says how many results. pickSources: data-pick => the key of the answer's
+	// rows ({id|value, name, note}) – unit 4460 keeps it equal to the values the views write.
+	var pickSources = { contacts: 'contacts', companies: 'companies', deals: 'deals', products: 'products' };
+	var pickNumber = 0;
+	var pickFold = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+	Array.prototype.forEach.call(document.querySelectorAll('[data-pick]'), function (control) {
+		var source = pickSources[control.getAttribute('data-pick')];
+		var address = control.getAttribute('data-pick-url');
+		var isSelect = control.tagName === 'SELECT';
+		if (!source || !address || control.kaletaPick) { return; }
+		control.kaletaPick = true;
+		pickNumber += 1;
+		var datalist = isSelect ? null : control.list;
+		var field = isSelect ? document.createElement('input') : control;
+		var wrap = document.createElement('span');
+		var list = document.createElement('ul');
+		var status = document.createElement('span');
+		var row = control.closest('.radek, .zaznam-pole');
+		var newBox = isSelect && row ? row.querySelector('[data-pick-new]') : null;
+		var items = [], active = -1, timer = null, asked = '';
+		wrap.className = 'vyber';
+		list.className = 'vyber-seznam';
+		list.id = 'vyber-' + pickNumber + '-seznam';
+		list.setAttribute('role', 'listbox');
+		list.hidden = true;
+		status.className = 'navod-skryte';
+		status.setAttribute('role', 'status');
+		control.parentNode.insertBefore(wrap, control);
+		if (isSelect) {
+			field.type = 'text';
+			field.className = 'textpole';
+			field.id = control.id;
+			control.id = control.id + '-hodnota';
+			field.placeholder = T('Type to search');
+			field.required = control.required;
+			control.required = false;
+			control.hidden = true;
+			control.tabIndex = -1;
+			wrap.appendChild(field);
+			wrap.appendChild(control);
+		} else {
+			control.removeAttribute('list');
+			wrap.appendChild(control);
+		}
+		wrap.appendChild(list);
+		wrap.appendChild(status);
+		field.setAttribute('role', 'combobox');
+		field.setAttribute('autocomplete', 'off');
+		field.setAttribute('aria-autocomplete', 'list');
+		field.setAttribute('aria-expanded', 'false');
+		field.setAttribute('aria-controls', list.id);
+
+		var label = function (option) { return option ? (option.textContent.trim() === '—' ? '' : option.textContent.trim()) : ''; };
+		var sync = function () { if (isSelect) { field.value = label(control.options[control.selectedIndex]); } };
+		var specials = function () {
+			return isSelect ? Array.prototype.filter.call(control.options, function (o) { return o.hasAttribute('data-pick-special'); })
+				.map(function (o) { return { value: o.value, name: o.textContent.trim(), note: '' }; }) : [];
+		};
+		var local = function (q) {
+			var words = pickFold(q).split(/\s+/).filter(Boolean);
+			var options = isSelect ? Array.prototype.filter.call(control.options, function (o) { return !o.hasAttribute('data-pick-special'); }) : Array.prototype.slice.call(datalist ? datalist.options : []);
+			return options.map(function (o) { return isSelect ? { value: o.value, name: o.textContent.trim(), note: '' } : { value: o.value, name: o.textContent.trim() || o.value, note: o.value }; })
+				.filter(function (r) { var where = pickFold(r.name + ' ' + r.note); return words.every(function (w) { return where.indexOf(w) !== -1; }); })
+				.slice(0, 50);
+		};
+		var close = function () {
+			list.hidden = true;
+			active = -1;
+			field.setAttribute('aria-expanded', 'false');
+			field.removeAttribute('aria-activedescendant');
+		};
+		var render = function (found) {
+			items = specials().concat(found);
+			if (newBox) { items.push({ create: true, name: T('New customer…'), note: '' }); }
+			active = Math.min(active, items.length - 1);
+			list.textContent = '';
+			items.forEach(function (item, i) {
+				var li = document.createElement('li');
+				li.id = list.id + '-' + i;
+				li.setAttribute('role', 'option');
+				li.setAttribute('aria-selected', i === active ? 'true' : 'false');
+				li.textContent = item.name;
+				if (item.note) {
+					li.appendChild(document.createTextNode(' ')); // the option's name read with a space before the note
+					var note = document.createElement('small');
+					note.textContent = item.note;
+					li.appendChild(note);
+				}
+				li.addEventListener('mousedown', function (e) { e.preventDefault(); }); // the field keeps the focus
+				li.addEventListener('click', function () { choose(item); });
+				list.appendChild(li);
+			});
+			if (active >= 0) {
+				field.setAttribute('aria-activedescendant', list.id + '-' + active);
+				if (list.children[active].scrollIntoView) { list.children[active].scrollIntoView({ block: 'nearest' }); }
+			} else {
+				field.removeAttribute('aria-activedescendant');
+			}
+			list.hidden = items.length === 0;
+			field.setAttribute('aria-expanded', items.length ? 'true' : 'false');
+			status.textContent = found.length ? T('%d results').replace('%d', String(found.length)) : T('No result');
+		};
+		var show = function () {
+			var q = field.value.trim();
+			clearTimeout(timer);
+			render(local(q));
+			if (q.length < 2) { asked = ''; return; }
+			asked = q;
+			timer = setTimeout(function () {
+				fetch(address + (address.indexOf('?') === -1 ? '?' : '&') + 'q=' + encodeURIComponent(q) + '&pick=1', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+					.then(function (r) { return r.ok ? r.json() : null; })
+					.then(function (d) {
+						if (!d || asked !== q || field.value.trim() !== q || document.activeElement !== field) { return; } // typing went on, or the list was left
+						render((d[source] || []).map(function (r) { return { value: String(r.id !== undefined ? r.id : r.value), name: String(r.name || ''), note: String(r.note || '') }; }));
+					})
+					.catch(function () { /* the options found here stay */ });
+			}, 200);
+		};
+		var choose = function (item) {
+			clearTimeout(timer);
+			asked = '';
+			close();
+			if (item.create) {
+				var none = Array.prototype.filter.call(control.options, function (o) { return o.hasAttribute('data-pick-special') && o.textContent.trim() === '—'; })[0];
+				if (none && control.value !== none.value) { control.value = none.value; control.dispatchEvent(new Event('change', { bubbles: true })); }
+				sync();
+				newBox.open = true;
+				var first = newBox.querySelector('input');
+				if (first) { first.focus(); }
+				return;
+			}
+			if (isSelect) {
+				var option = Array.prototype.filter.call(control.options, function (o) { return o.value === item.value; })[0];
+				if (!option) {
+					option = document.createElement('option');
+					option.value = item.value;
+					option.textContent = item.name;
+					control.appendChild(option);
+				}
+				var changed = control.value !== item.value;
+				control.value = item.value;
+				sync();
+				if (changed) { control.dispatchEvent(new Event('change', { bubbles: true })); }
+			} else {
+				field.value = item.value;
+				field.dispatchEvent(new Event('change', { bubbles: true }));
+			}
+		};
+		var leave = function () {
+			close();
+			if (!isSelect) { return; }
+			if (field.value.trim() === '') {
+				var none = Array.prototype.filter.call(control.options, function (o) { return o.hasAttribute('data-pick-special') && o.textContent.trim() === '—'; })[0];
+				if (none && control.value !== none.value) { choose({ value: none.value, name: '' }); return; }
+			}
+			sync(); // a search left without a choice: the field shows the chosen value again
+		};
+
+		if (isSelect) {
+			// typing a search is not a change of the form – only the chosen row is (the select's change event)
+			['input', 'change'].forEach(function (type) { field.addEventListener(type, function (e) { e.stopPropagation(); }); });
+			control.addEventListener('change', sync);
+			window.addEventListener('pageshow', function () { if (document.activeElement !== field) { sync(); } }); // back and the back-forward cache: the field follows the select
+			sync();
+		}
+		field.addEventListener('input', function () { active = -1; show(); });
+		field.addEventListener('click', function () { if (list.hidden) { show(); } });
+		field.addEventListener('focus', function () {
+			// on a phone the field goes to the top so the list is not under the keyboard
+			if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches && field.scrollIntoView) { field.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+		});
+		field.addEventListener('blur', leave);
+		field.addEventListener('keydown', function (e) {
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				if (list.hidden) { active = -1; show(); if (e.altKey) { return; } }
+				if (!items.length) { return; }
+				active = e.key === 'ArrowDown' ? (active + 1) % items.length : (active <= 0 ? items.length - 1 : active - 1);
+				render(items.filter(function (i) { return !i.create; }).slice(specials().length));
+			} else if (e.key === 'Enter' && !list.hidden && active >= 0) {
+				e.preventDefault();
+				choose(items[active]);
+			} else if (e.key === 'Escape' && !list.hidden) {
+				e.preventDefault();
+				close();
+				sync();
+			}
+		});
+	});
+
+	/* ---------- 3.49: saved reply (part A) ---------- */
+
+	/* ---------- 3.49: internal file box (part B) ---------- */
+
 })();

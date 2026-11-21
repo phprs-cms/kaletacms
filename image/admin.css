@@ -2235,3 +2235,23 @@ dl.nabidka-soucty { margin-top: 14px; }
 .obchod-presun .uchazec-duvod { flex: 1 1 100%; }
 .obchod-presun:has(select[name="status"] option[value="rejected"]:checked:not([data-current])) .uchazec-duvod { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .obchod-presun .uchazec-duvod select { flex: 1 1 8em; min-width: 0; max-width: 100%; }
+
+/* 3.49 C: choosing by search (views/admin/pick.php, image/admin.js) – the text field over the hidden select, the list under
+   it (rows 40 px, 44 px on a phone), the chosen row on the selection background, never the Signal colour; "New customer…" */
+.vyber { position: relative; display: inline-block; width: min(100%, 28rem); vertical-align: top; }
+.vyber > .textpole { width: 100%; }
+.vyber-seznam { position: absolute; inset-inline: 0; top: calc(100% + 4px); z-index: 7; max-height: 40vh; margin: 0; padding: 4px; overflow-y: auto; overscroll-behavior: contain; list-style: none;
+	border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); box-shadow: 0 8px 30px rgb(16 24 40 / 0.12); }
+.vyber-seznam li { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px; border-radius: 6px; color: var(--text); cursor: pointer; overflow-wrap: anywhere; }
+.vyber-seznam li:hover { background: color-mix(in srgb, var(--akcent-svetly) 60%, transparent); }
+.vyber-seznam li[aria-selected="true"] { background: var(--akcent-svetly); box-shadow: inset 0 0 0 1px var(--linka-pole); }
+.vyber-seznam small { flex: none; max-width: 50%; color: var(--text-slaby); font-size: 12px; text-align: end; }
+.vyber-novy { margin-top: 8px; }
+.vyber-novy summary { width: fit-content; color: var(--text-slaby); font-size: 13px; cursor: pointer; }
+.vyber-novy-pole { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 8px 0 4px; }
+.vyber-novy-pole label { display: grid; gap: 2px; flex: 1 1 14rem; font-weight: 400; }
+.vyber-novy-pole span { color: var(--text-slaby); font-size: 13px; }
+@media (max-width: 767px) {
+	.vyber { width: 100%; }
+	.vyber-seznam li { min-height: 44px; }
+}

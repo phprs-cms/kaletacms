@@ -9301,4 +9301,9 @@ return [
     '%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Settings → Privacy and cookies or Applications → Settings.' => '%d candidatura(s) movidas desde Consultas llevan más de %d días esperando a que un administrador confirme la conservación; hasta entonces nunca se eliminan. Revísala y guarda Ajustes → Privacidad y cookies o Candidaturas → Ajustes.',
     '%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you confirm the period; then the daily clean-up deletes them with their CVs. Set 0 to keep them.' => '%s candidatura(s) movidas desde Consultas no tienen actividad desde antes del %s, más allá de la conservación de %d meses. No se elimina nada movido hasta que confirmes el plazo; después la limpieza diaria las elimina con sus CV. Pon 0 para conservarlas.',
     'Apply this period to the %s application(s) moved from Enquiries' => 'Aplicar este plazo también a %s candidatura(s) movidas desde Consultas',
+    'New customer…' => 'Nuevo cliente…',
+    'Type to search' => 'Escriba para buscar',
+    '%d results' => 'Resultados: %d',
+    'No result' => 'Ningún resultado',
+    'Saved with the deal when no customer is chosen; an e-mail address that already has a customer uses that one.' => 'Se guarda con la oportunidad cuando no hay ningún cliente elegido; una dirección de correo que ya tiene cliente usa ese.',
 ];

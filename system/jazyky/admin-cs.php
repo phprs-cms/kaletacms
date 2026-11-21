@@ -8873,4 +8873,9 @@ return [
     '%d application(s) moved from Enquiries have waited more than %d days for an administrator to confirm the retention – until then they are never deleted. Check it and save Settings → Privacy and cookies or Applications → Settings.' => 'Žádosti přesunuté z Poptávek (%d) čekají déle než %d dní, až správce potvrdí lhůtu uchování – do té doby se nikdy nesmažou. Zkontrolujte ji a uložte Nastavení → Soukromí a cookies nebo Žádosti o místo → Nastavení.',
     '%s application(s) moved from Enquiries have had no activity since before %s – past the retention of %d months. Nothing moved is deleted until you confirm the period; then the daily clean-up deletes them with their CVs. Set 0 to keep them.' => 'Žádosti přesunuté z Poptávek (%s) jsou bez aktivity od doby před %s – za lhůtou uchování %d měsíců. Nic přesunutého se nesmaže, dokud lhůtu nepotvrdíte; pak je denní úklid smaže i s životopisy. Chcete-li je ponechat, nastavte 0.',
     'Apply this period to the %s application(s) moved from Enquiries' => 'Použít tuto lhůtu i pro žádosti přesunuté z Poptávek (%s)',
+    'New customer…' => 'Nový zákazník…',
+    'Type to search' => 'Pište pro hledání',
+    '%d results' => 'Výsledků: %d',
+    'No result' => 'Nic nenalezeno',
+    'Saved with the deal when no customer is chosen; an e-mail address that already has a customer uses that one.' => 'Uloží se s obchodem, když není vybraný žádný zákazník; e-mailová adresa, která už zákazníka má, použije jeho.',
 ];

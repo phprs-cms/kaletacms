@@ -22,6 +22,7 @@ use Kaleta\Core\Response;
  *  - save, replace, delete: the changes (delete: an administrator or who uploaded it).
  *  - download: the file as an attachment with its Content-Type, no-store and nosniff; one change-log line each.
  *  - preview (3.47): a raster image (at most 10 MB) or a text document shown inline – never PDF or SVG; one change-log line.
+ *  - search_json (3.49 C): ready files by a word, for a choice by search – GET, read-only.
  *  - folder, folder_save, folder_delete (administrators): a folder, its description and who sees it (everyone with the
  *    section, or chosen roles); only an empty folder is deleted.
  */
@@ -49,6 +50,19 @@ final class InternalFiles extends Module
 
         return $this->view('list', 'Internal files', ['folders' => $folders, 'current' => $current, 'query' => $query, 'result' => $result, 'page' => $page,
             'pages' => max(1, (int) ceil($result['total'] / Library::PAGE)), 'admin' => $this->app->auth()->isAdmin(), 'limit' => self::uploadLimit()]);
+    }
+
+    /**
+     * The choice of an internal file (3.49 C, for the attachments of replies and the files of a record): ready files of the
+     * folders the person sees by a word in the name, description or tags – never a draft. GET, read-only, no-store.
+     */
+    protected function actionSearchJson(): Response
+    {
+        $q = $this->searchWord();
+        $rows = $q === '' ? [] : Library::files($this->app, ['search' => $q, 'status' => 'ready'], 1, self::PICK_ROWS)['rows'];
+
+        return Response::json(['files' => array_map(fn (array $f): array => ['id' => (int) $f['id'], 'name' => (string) $f['name'],
+            'note' => implode(' · ', array_filter([(string) $f['folder_name'], strtoupper((string) $f['extension']), Files::size((int) $f['size'])]))], $rows)], 200, Response::NO_STORE);
     }
 
     /**
