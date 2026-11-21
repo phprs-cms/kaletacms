@@ -76,8 +76,17 @@ final class Mail
             if (random_int(1, 50) === 1) {
                 $siteSettings->db()->run('DELETE FROM {posta} WHERE vytvoreno < ?', [Clock::at('-30 days')]);
             }
-        } catch (\Throwable) {
-            // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet)
+        } catch (\Throwable $e) {
+            // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet). 3.50.1
+            // (CODE-l2): a copy that was only to be queued ($tryNow false) was not sent at all – without the queue row it would
+            // be lost, so it is tried once now; a failure of that too goes to the PHP error log
+            if (!$tryNow) {
+                $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers, $attachments);
+                $error = $ok ? '' : self::$error;
+                if (!$ok) {
+                    error_log('Kaleta: an e-mail copy could not be queued (' . $e->getMessage() . ') nor sent (' . $error . ')');
+                }
+            }
         }
         self::$error = $error;
 
