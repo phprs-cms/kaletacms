@@ -2,11 +2,11 @@
 /**
  * Settings registry (3.42, audit Q9): php tools/settings.php [key|prefix]
  *
- * Every setting is declared once in Core\Settings::DEFAULTS. What else the code knows about it is spread over lists that
- * belong to their layers – the form type (Admin\Modules\Settings::FIELDS, by tab), Claude's access (Settings::claudeMaySet),
- * secret, export, per language and lazy loading (Settings::DECLARATIONS, 3.50) and older names (Core\Settings::declaration).
+ * Every setting is declared once in Core\Settings: its default in DEFAULTS and the rest in DECLARATIONS (3.50) – the form
+ * type by tab (Settings::fields), secret, export, Claude's access (Settings::claudeMaySet), per language and lazy loading;
+ * its older names come from Core\OldSettingsKeys (Settings::declaration).
  * This prints all of it for one key, the keys starting with a prefix, or every key. The unit test 3650 keeps the lists
- * consistent with DEFAULTS.
+ * consistent with DEFAULTS, 4540–4542 the declaration with the mirrors.
  */
 
 declare(strict_types=1);
@@ -15,7 +15,7 @@ require dirname(__DIR__) . '/system/bootstrap.php';
 
 use Kaleta\Core\Settings;
 
-$fields = (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue();
+$fields = Settings::fields();
 $filter = $argv[1] ?? '';
 
 $types = [];

@@ -8,7 +8,7 @@ use Kaleta\Core\Settings;
 
 /* ---------- 3.48 B (U40, U70, U31): every retention period in one registry and on the Privacy tab, Settings of sections, the stage arrows ---------- */
 
-$b348Fields = (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue();
+$b348Fields = Kaleta\Core\Settings::fields();
 check('3.48 B1: every setting of Retention::PERIODS has a default, and a field on the Privacy tab with the same range – or a screen of its own (edit)', [
     array_values(array_filter(array_column(Retention::PERIODS, 'setting'), fn (string $k): bool => $k !== '' && !array_key_exists($k, Settings::DEFAULTS))),
     array_keys(array_filter(Retention::PERIODS, fn (array $row): bool => $row['setting'] !== '' && !isset($row['edit'])

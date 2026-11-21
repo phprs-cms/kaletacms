@@ -14,7 +14,7 @@ check('[source-pin] 3.5 UXA-05: the mail error without a sender is an English so
 // UXA-06: no country is claimed unless the site sets one (the default was CZ); the retention hint falls back to the site language
 check('[source-pin] 3.5 UXA-06: the company country is empty by default, may be saved empty, and the structured data name a country only when it is set', [
     Kaleta\Core\Settings::DEFAULTS['company_country'], preg_match('/^([A-Z]{2})?$/', ''), Kaleta\Core\Jobs::suggestedRetention('', 'en'), Kaleta\Core\Jobs::suggestedRetention('', 'cs'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php'), "'company_country' => 'vzor:/^([A-Z]{2})?$/'")],
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Settings.php'), "'company_country' => ['tab' => 'company', 'type' => 'vzor:/^([A-Z]{2})?$/'")],
     ['', 1, null, ['CZ', 6], true]);
 check('[source-pin] 3.5 UXA-06: the builder\'s attribute example, the URL example and the news address are not Czech in English', [
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), 'data-sledovat'),

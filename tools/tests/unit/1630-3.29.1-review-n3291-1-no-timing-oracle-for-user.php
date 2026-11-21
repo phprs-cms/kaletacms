@@ -48,7 +48,7 @@ check('3.31: a value is a non-negative number with at most two decimals (spaces,
 // zone is no evidence – the installer sets it from its language – and an existing site keeps the currency its deals use)
 $m332 = fn (string $lang): array => Kaleta\Core\Language::runWith($lang, fn (): array => [Kaleta\Core\Deals::formatValue('18000.00', 'GBP'), Kaleta\Core\Deals::formatValue('10800.5', 'EUR'),
     Kaleta\Core\Deals::formatValue('1250000', 'CZK'), Kaleta\Core\Deals::formatValue('99.99', 'USD'), Kaleta\Core\Deals::formatValue(null, 'EUR')], 'admin-');
-$a332Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Settings.php');
+$a332Settings = (string) file_get_contents(KALETA_SYSTEM . '/src/Core/Settings.php'); // 3.50: the choices moved with the form types
 preg_match("/CURRENCY_CHOICES = '([^']+)'/", $a332Settings, $a332Choices);
 check('[source-pin] 3.32 (U29): deal values read as money in each admin language; the default currency is chosen or derived; the board totals use the same rule', [
     $m332('en'), $m332('cs'), $m332('de'), $m332('es'),

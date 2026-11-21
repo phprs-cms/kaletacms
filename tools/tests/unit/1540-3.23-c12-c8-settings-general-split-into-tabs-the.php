@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /* ---------- 3.23 (C12, C8): Settings → General split into tabs, the console tab renamed and shown only when it matters ---------- */
 use Kaleta\Admin\Modules\Settings as S323;
-$fields323 = (new ReflectionClassConstant(S323::class, 'FIELDS'))->getValue();
+$fields323 = Kaleta\Core\Settings::fields();
 $split323 = ['general', ...S323::SPLIT_FROM_GENERAL];
 $templates323 = array_map(fn (string $tab): string => (string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/' . $tab . '.php'), array_combine($split323, $split323));
 $inTemplate323 = fn (string $key, string $tpl): bool => str_contains($tpl, "'" . $key . "'") || str_contains($tpl, 'name="' . $key) || isset(S323::SOCIAL_NETWORKS[$key]) && str_contains($tpl, 'SOCIAL_NETWORKS');

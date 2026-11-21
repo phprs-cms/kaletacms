@@ -48,7 +48,7 @@ check('3.37 B: a work phone takes what the company phone takes; a photo only fro
 
 $b337Defs = array_column(Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()), null, 'name');
 check('3.37 B: the fallback template is a setting of Business details; list_colleagues is a read tool of the work set (never the essentials); get_email_signature needs no collection', [
-    Kaleta\Core\Settings::DEFAULTS['email_signature_template'], (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue()['company']['email_signature_template'],
+    Kaleta\Core\Settings::DEFAULTS['email_signature_template'], Kaleta\Core\Settings::fields()['company']['email_signature_template'],
     Catalog::access('list_colleagues'), in_array('list_colleagues', Catalog::WORK, true), in_array('list_colleagues', Catalog::ESSENTIALS, true),
     in_array('list_colleagues', Kaleta\Mcp\Translator::names(), true), $b337Defs['get_email_signature']['inputSchema']['required'] ?? null,
     array_keys((array) $b337Defs['list_colleagues']['inputSchema']['properties'])],

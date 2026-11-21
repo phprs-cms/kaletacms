@@ -663,7 +663,7 @@ check('2.3.1: App::url does not double the language prefix', [$urlApp->url('cs/f
 // 2.3.1: every field a settings tab posts is read by the save – a setting, the "remove" box of a secret setting, or one of the
 // few the save reads on purpose (a field under an old name was silently dropped: saving General removed the language versions)
 $settingsFields = [];
-foreach ((new ReflectionClass(Kaleta\Admin\Modules\Settings::class))->getReflectionConstant('FIELDS')->getValue() as $tabFields) {
+foreach (Kaleta\Core\Settings::fields() as $tabFields) {
     foreach ($tabFields as $key => $type) {
         $settingsFields[$key] = true;
         if (str_starts_with($type, 'tajne')) {

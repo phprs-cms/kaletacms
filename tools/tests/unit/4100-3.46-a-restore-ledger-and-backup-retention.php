@@ -56,7 +56,7 @@ $r346Names = ['kaleta-20260801-030000-auto-a1b2c3d4-s0a1b2c3d.sql.gz.enc', 'kale
     'media/kaleta-20260101-030000-x-s0a1b2c3d.sql.gz.enc', 'kaleta-20260701-030000-rucni-d1b2c3d4-s0a1b2c3d.sql.enc', 'notes.txt',
     'kaleta-20260701-030000-auto-e1b2c3d4.sql.gz.enc', 'kaleta-20260701-030000-auto-f1b2c3d4-s99999999.sql.gz.enc'];
 check('3.46 N157: RemoteBackup::expired – encrypted backup names of this site older than the limit, not another file, not the uploaded one, nothing with 0 days (review L6: not without this site\'s mark)', [
-    Kaleta\Core\Settings::DEFAULTS['backup_remote_days'], (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue()['backups']['backup_remote_days'] ?? null,
+    Kaleta\Core\Settings::DEFAULTS['backup_remote_days'], Kaleta\Core\Settings::fields()['backups']['backup_remote_days'] ?? null,
     Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00', '', 's0a1b2c3d'),
     Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00', 'kaleta-20260701-030000-rucni-d1b2c3d4-s0a1b2c3d.sql.enc', 's0a1b2c3d'),
     Kaleta\Core\RemoteBackup::expired($r346Names, 0, '2026-10-01 00:00:00', '', 's0a1b2c3d'), Kaleta\Core\RemoteBackup::expired($r346Names, 90, '2026-10-01 00:00:00'),

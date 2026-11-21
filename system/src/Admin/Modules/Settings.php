@@ -42,86 +42,7 @@ class Settings extends Module
      */
     public const array SPLIT_FROM_GENERAL = ['languages', 'security', 'agency'];
 
-    /** Company types for the field company_type (vyber:…). */
-    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
-
-    /** 3.32: the currencies of the setting default_currency (Core\Deals::CURRENCIES) for its vyber: type. */
-    private const string CURRENCY_CHOICES = 'EUR|CZK|PLN|HUF|RON|BGN|SEK|DKK|NOK|ISK|CHF|GBP|UAH|RSD|TRY|USD|CAD|AUD|NZD|JPY|CNY|INR|SGD|HKD|KRW|BRL|MXN|ZAR|ILS|AED|SAR';
-
     public const array SOCIAL_NETWORKS = ['social_facebook' => 'Facebook', 'social_instagram' => 'Instagram', 'social_x' => 'X (Twitter)', 'social_youtube' => 'YouTube', 'social_linkedin' => 'LinkedIn'];
-
-    /**
-     * Fields of the individual tabs: key in ka_nastaveni => type.
-     * text | tajne (secret key: not printed back, empty field = no change; tajne:/regex/ also checks the format) | radky (multi-line text) | kod (HTML/JS - entered only by the administrator) | url | email | emaily (up to 10 addresses, comma or line separated) | ano (yes/no) | cislo:min:max (number) | vyber:a|b (choice) | seznam:a|b (checkboxes, saved as "a,b") | vzor:/regex/ (pattern)
-     */
-    private const array FIELDS = [
-        'general' => [
-            'site_name' => 'text', 'site_url' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'site_description' => 'radky', 'site_email' => 'email', 'footer_text' => 'text',
-            'social_facebook' => 'url', 'social_instagram' => 'url', 'social_x' => 'url', 'social_youtube' => 'url', 'social_linkedin' => 'url',
-            'home_page' => 'cislo:0:4294967295', 'news_per_page' => 'cislo:1:100', 'news_slug' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'news_title' => 'text', 'share_buttons' => 'ano', 'social_networks' => 'seznam:' . \Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'link_check' => 'ano', 'article_outline' => 'ano', 'related_news_auto' => 'ano', 'page_cache' => 'ano', 'maintenance' => 'ano', 'maintenance_text' => 'text',
-            // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
-            'screen_mode' => 'ano', 'screen_seconds' => 'cislo:' . \Kaleta\Front\Screen::MIN_SECONDS . ':' . \Kaleta\Front\Screen::MAX_SECONDS, 'screen_news' => 'ano', 'screen_hours' => 'ano', 'screen_clock' => 'ano',
-            'time_zone' => 'pasmo',
-            'default_currency' => 'vyber:|' . self::CURRENCY_CHOICES, // 3.32 (U29, Core\Deals::defaultCurrency): '' = automatic
-        ],
-        // 3.23 (C12): the tabs that were part of General – the keys and the field names are the same as before
-        'languages' => [
-            'site_language' => 'vyber:' . \Kaleta\Core\Language::CODES, 'german_register' => 'vyber:formal|informal', 'additional_languages' => 'seznam:' . \Kaleta\Core\Language::CODES,
-            'slugs_per_language' => 'ano', // 3.9: never written directly; 3.19: only switched on, by Core\Slug::enableEverywhere (actionSave)
-        ],
-        'security' => [
-            'require_2fa' => 'vyber:|spravci|vsichni',
-            'signin_passkey_only' => 'ano', // 3.35: turned on only by an administrator with a working passkey (actionSave)
-            'auto_suspend' => 'seznam:' . \Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . \Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
-        ],
-        'agency' => [
-            'agency_name' => 'text', 'agency_url' => 'url', 'agency_email' => 'email', 'agency_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/',
-            'agency_logo' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#',
-        ],
-        // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
-        'vzhled' => ['dark_mode' => 'vyber:vypnuto|auto|tmavy', 'theme_switcher' => 'ano'],
-        // redirects for missing addresses are set on the Redirects screen (2.14); here only the types for values from the Claude connection
-        'presmerovani' => ['redirect_auto' => 'ano', 'redirect_auto_threshold' => 'cislo:50:100'],
-        'company' => [
-            'company_name' => 'text', 'company_type' => 'vyber:' . self::COMPANY_TYPES, 'company_id' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'company_register' => 'text', 'company_representative' => 'text', 'company_vat_id' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/',
-            'company_street' => 'text', 'company_city' => 'text', 'company_postcode' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'company_country' => 'vzor:/^([A-Z]{2})?$/',
-            'company_phone' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'company_email' => 'email', 'company_hours' => 'hodiny', 'company_map' => 'url', 'company_gps' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/',
-            'email_signature_template' => 'radky', // 3.37: the fallback e-mail signature (Builder\UserSignature)
-        ],
-        'seo' => [
-            'indexing' => 'ano', 'schema_org' => 'ano', 'share_image' => 'text', 'share_image_auto' => 'ano', 'verification_google' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/',
-            'verification_bing' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'robots_extra' => 'radky', 'ai_crawlers' => 'vyber:povolit|zakazat', 'url_slash' => 'vyber:bez|s|html', 'llms_txt' => 'ano', 'markdown_news' => 'ano', 'indexnow' => 'ano',
-            'security_contact' => 'vzor:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i',
-        ],
-        'analytics' => [
-            'ga4_id' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'gtm_id' => 'vzor:/^(GTM-[A-Z0-9]{4,12})?$/', 'matomo_url' => 'url', 'matomo_id' => 'cislo:0:99999',
-            'plausible_domain' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'head_code' => 'kod', // 'stats' is no longer here (3.2): the Statistics feature is the only switch
-        ],
-        'cookies' => ['cookies_mode' => 'vyber:zadna|vestavena|externi', 'cookies_external_code' => 'kod', 'cookies_text' => 'radky', 'cookies_policy_url' => 'vzor:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'marketing_code' => 'kod', 'cookies_log' => 'ano', 'lead_attribution' => 'ano', 'cookies_log_months' => 'cislo:0:120', 'accessibility_toolbar' => 'ano',
-            'captcha_provider' => 'vyber:|hcaptcha|recaptcha|turnstile', 'captcha_site_key' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'captcha_secret' => 'tajne', 'captcha_fail_open' => 'ano',
-            // 3.48 B (U40): every retention period in one place (Core\Retention::PERIODS); a shorter one is confirmed on its own
-            // screen (actionRetention). The sections' own forms keep saving them under their old field names until 3.50.
-            'enquiries_months' => 'cislo:0:120', 'job_applications_months' => 'cislo:0:120', 'contacts_months' => 'cislo:0:120', 'quotes_months' => 'cislo:0:120',
-            'applications_months' => 'cislo:0:120', 'enquiries_expiry' => 'vyber:delete|anonymise', 'applications_pool_months' => 'cislo:1:60', 'whistleblowing_retention_months' => 'cislo:1:120'],
-        'sections' => [], // 3.48 B (U70): links to the settings that live in the sections (Admin\SectionSettings), nothing to save
-        'mail' => ['mail_mode' => 'vyber:mail|smtp', 'mail_from' => 'email', 'mail_reply_to' => 'email', 'smtp_host' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/', 'smtp_port' => 'cislo:1:65535',
-            'smtp_encryption' => 'vyber:tls|ssl|zadne', 'smtp_user' => 'text', 'smtp_password' => 'tajne', 'newsletter_hourly_limit' => 'cislo:10:100000',
-            'smtp_provider' => 'vyber:' . \Kaleta\Core\MailServices::CHOICES], // 3.9: the mail service; MailServices::settle() fills its server after the save
-        // the monthly report (2.9) and its archive (3.16, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
-        'reports' => ['report_monthly' => 'ano', 'report_recipients' => 'emaily'],
-        // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
-        'claude' => ['claude_instructions' => 'radky', 'claude_change_limit' => 'cislo:0:10000', 'claude_destructive' => 'ano', 'claude_apps_only' => 'ano', 'claude_protected_pages' => 'vzor:/^[0-9 ,;]{0,500}$/'],
-        'extensions' => ['ai_provider' => 'vyber:' . \Kaleta\Core\Assistant::PROVIDER_KEYS, 'ai_key' => 'tajne', 'ai_model' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#',
-            'newsletter_service' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook', 'newsletter_key' => 'tajne',
-            'newsletter_list' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#', 'newsletter_webhook' => 'url'],
-        'webhooks' => ['webhook_enquiries' => 'url', 'webhook_url' => 'url'],
-        'backups' => ['remote_backup' => 'vyber:vypnuto|ftp|s3', 'backup_host' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#', 'backup_user' => 'text', 'backup_password' => 'tajne',
-            'backup_folder' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#', 'backup_region' => 'vzor:/^[a-z0-9-]{0,40}$/', 'auto_backups' => 'ano', 'backup_media' => 'ano', 'backup_remote_days' => 'cislo:0:3650', 'auto_updates' => 'ano', 'update_channel' => 'vyber:latest|stable', 'update_url' => 'url'],
-        'firewall' => ['firewall_enabled' => 'ano', 'firewall_proxy' => 'vyber:|cloudflare', 'firewall_ips' => 'radky', 'firewall_countries' => 'vzor:/^[A-Za-z,;\s]{0,400}$/',
-            'firewall_rate' => 'cislo:0:10000', 'firewall_probes' => 'ano'],
-        'console' => [], // paired and changed by its own buttons (Fleet\Link), nothing to save
-        'health' => ['health_token' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'alerts_enabled' => 'ano', 'alerts_email' => 'email'],
-    ];
 
     /**
      * Fields of a tab. The Languages tab also has the site name and description for each additional language version
@@ -131,7 +52,7 @@ class Settings extends Module
      */
     protected function fields(string $tab): array
     {
-        $field = self::FIELDS[$tab];
+        $field = \Kaleta\Core\Settings::fields()[$tab]; // the keys and types of each tab are declared in Core\Settings::DECLARATIONS (3.50)
         if ($tab === 'languages') {
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
                 $field += ['nazev_webu_' . $language => 'text', 'popis_webu_' . $language => 'radky'];
@@ -175,7 +96,7 @@ class Settings extends Module
     public static function fieldUrl(string $key): string
     {
         $base = ($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::keysWith('per_language'))) !== null ? $m[0] : $key;
-        foreach (self::FIELDS as $tab => $fields) {
+        foreach (\Kaleta\Core\Settings::fields() as $tab => $fields) {
             if (isset($fields[$base]) && isset(self::TABS[$tab])) {
                 return (isset(self::MOVED_TABS[$tab]) ? 'module=' . self::MOVED_TABS[$tab] : 'module=settings&tab=' . $tab) . '#' . rawurlencode($key);
             }
@@ -194,7 +115,7 @@ class Settings extends Module
     {
         $moved = [];
         foreach (self::SPLIT_FROM_GENERAL as $tab) {
-            $moved += array_fill_keys(array_keys(self::FIELDS[$tab]), $tab);
+            $moved += array_fill_keys(array_keys(\Kaleta\Core\Settings::fields()[$tab]), $tab);
         }
         foreach (\Kaleta\Core\Language::additional($settings) as $language) {
             $moved += ['nazev_webu_' . $language => 'languages', 'popis_webu_' . $language => 'languages'];
@@ -1675,10 +1596,8 @@ class Settings extends Module
      */
     private static function fieldType(string $key): ?string
     {
-        foreach (self::FIELDS as $field) {
-            if (isset($field[$key])) {
-                return $field[$key];
-            }
+        if (isset(\Kaleta\Core\Settings::DECLARATIONS[$key]['type'])) {
+            return \Kaleta\Core\Settings::DECLARATIONS[$key]['type'];
         }
         if (($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::keysWith('per_language'))) !== null) {
             return self::fieldType($m[0]);
