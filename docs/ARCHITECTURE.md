@@ -67,6 +67,7 @@ importers will need it too. An admin module reads the request, calls Core and re
 | Site CSS and JS | `image/sablona.css` (frame), `image/web.css` + `image/web.js` (shared elements) |
 | MCP contract | `tools/contracts/*.json` (`php tools/contracts.php` – changes must be additive) |
 | Job applications | `Core\Applications` (intake, reading, status and deletion) with `Core\ApplicationFiles` (the sealed CVs), `Core\ApplicationRetention` (deadlines and the daily clean-up), `Core\ApplicationReplies` (templates and replies), `Core\ApplicationMove` and `Core\ApplicationCounts`; the old names stay as forwards on `Core\Applications` (3.47) |
+| Quotes | `Core\Quotes` (identity and rights, reading, saving, the customer block, the status life cycle and the snapshot) with `Core\QuoteLines` (totals, discounts and one line as stored), `Core\QuoteNumbers` (the number format and the counter per year) and `Core\QuoteIntake` (the lines of an enquiry and the prepared draft); the old names stay as forwards on `Core\Quotes` (3.49). Enquiry reads carry `Core\EnquiryVisibility::visible()` |
 | Add-ons of other developers | `extensions/<slug>/`, talking only to `Kaleta\Extension\Api` ([EXTENSIONS.md](EXTENSIONS.md)) |
 | Tests | `tools/tests/unit/` and `tools/tests/smoke/` ([README](../tools/tests/README.md)), browser suite `tools/test-browser.sh` |
 
