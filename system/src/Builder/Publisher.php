@@ -20,17 +20,31 @@ final class Publisher
     /** 3.50 N132: the refusal of a publish that would remove an application form (Translator::MESSAGES has it in English). */
     public const string APPLICATION_FORM_REFUSED = Build::APPLICATION_FORM_REFUSED;
 
+    /** 3.50 review: the refusal of a publish that would change the recipients of a published application form. */
+    public const string APPLICATION_RECIPIENTS_REFUSED = Build::APPLICATION_RECIPIENTS_REFUSED;
+
     /**
      * 3.50 N132: a person who may not open Applications (Build::$purposeAllowed false) cannot publish a build that drops an
      * application form of the published one – later applications would arrive as ordinary enquiries with their CVs
-     * unencrypted. Null (imports, the CLI) counts as allowed; saving the draft is never refused.
+     * unencrypted, nor one that changes the recipients (or hidden copy) of a published application form (3.50 review). Null
+     * (imports, the CLI) counts as allowed; saving the draft is never refused.
      *
      * @throws \DomainException
      */
     public static function guard(array $row): void
     {
-        if (Build::$purposeAllowed === false && Build::droppedApplicationForms($row['stavba'] ?? null, $row['stavba_koncept'] ?? $row['stavba'] ?? null) !== []) {
+        if (Build::$purposeAllowed !== false) {
+            return;
+        }
+        $published = $row['stavba'] ?? null;
+        $new = $row['stavba_koncept'] ?? $published;
+        if (Build::droppedApplicationForms($published, $new) !== []) {
             throw new \DomainException(self::APPLICATION_FORM_REFUSED);
+        }
+        // 3.50 review: nor one that gives a published application form other recipients – sanitize() locks them in every
+        // draft write, but a restored older version (or a draft someone with the section left) could still carry old ones
+        if (Build::changedApplicationRecipients($published, $new) !== []) {
+            throw new \DomainException(self::APPLICATION_RECIPIENTS_REFUSED);
         }
     }
 

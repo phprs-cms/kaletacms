@@ -9431,4 +9431,5 @@ return [
     'A backup restored later applies the erasures again, so a deleted person does not come back.' => 'Ein später wiederhergestelltes Backup wendet die Löschungen erneut an, damit eine gelöschte Person nicht zurückkommt.',
     'My account → Colleagues shows the positions and work phones of your colleagues, A–Z or by department. Administrators create departments in Users → Departments.' => 'Mein Konto → Kollegen zeigt die Positionen und Diensttelefone der Kollegen, alphabetisch oder nach Abteilung. Abteilungen legen Administratoren unter Benutzer → Abteilungen an.',
     'Only a user who may open Applications can remove a job application form – the page keeps its build.' => 'Ein Bewerbungsformular darf nur entfernen, wer den Bereich Bewerbungen öffnen darf – die Seite behält ihren Aufbau.',
+    'Only a user who may open Applications can change the recipients of a job application form. Nothing was published; your changes stay saved as a draft.' => 'Die Empfänger eines Bewerbungsformulars darf nur ändern, wer den Bereich Bewerbungen öffnen darf. Es wurde nichts veröffentlicht; Ihre Änderungen bleiben als Entwurf gespeichert.',
 ];

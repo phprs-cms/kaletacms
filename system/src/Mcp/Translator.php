@@ -459,6 +459,7 @@ final class Translator
         'Chybí data souboru v base64 (parametr data), nebo url.' => 'The file data in base64 (the data parameter) or url is missing.',
         'Chybí kategorie.' => 'The category is missing.',
         'Formulář žádostí o místo smí odebrat nebo nahradit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.' => 'Only a user who may open Applications can remove or replace a job application form – not published, the draft stays saved.', // 3.50 N132
+        'Příjemce formuláře žádostí o místo smí změnit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.' => 'Only a user who may open Applications can change the recipients of a job application form – not published, the draft stays saved.', // 3.50 review
         'Chybí název kategorie.' => 'The category name is missing.',
         'Chybí název kolekce.' => 'The collection name is missing.',
         'Kopie stavby potřebuje preklad_z – ID stránky ve výchozím jazyce, a jazyk překladu.' => 'copy_build needs translation_of – the ID of the page in the default language – and the language of the translation.',

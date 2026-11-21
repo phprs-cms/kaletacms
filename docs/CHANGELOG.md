@@ -31,7 +31,9 @@ no difference); `reply_to_application` gains the output key `text_sent`.
    removed is kept with a message, in the admin and in `delete_media`.
 4. **Job applications.** Without the Applications section nobody can change the recipients or the hidden copy (Bcc) of a
    job application form (`Build::LOCKED_RECIPIENTS`, like its Purpose), publish a build that drops such a form, or drop it
-   with **Return page to text**; the administrator still can. A job is matched to an application only while its page is
+   with **Return page to text**; the administrator still can. Restoring an older version cannot bring back old recipients
+   either: the restore keeps the draft's, and a publish that would change a published form's recipients is refused
+   (`Publisher::guard`). A job is matched to an application only while its page is
    visible. A template reply through Claude fills the applicant's name like an automatic e-mail (`text_sent` in the
    result). System status says that CVs sealed before a key move still open with the old key.
 5. **Signatures.** E-mail signature photos come from Media only (`Colleagues::photo()`); a hidden Team record signs mail

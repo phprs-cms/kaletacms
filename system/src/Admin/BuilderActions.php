@@ -279,11 +279,11 @@ trait BuilderActions
         try {
             $this->publishTarget($target);
         } catch (\DomainException $e) {
-            if ($e->getMessage() !== Publisher::APPLICATION_FORM_REFUSED) {
-                throw $e;
-            }
-
-            return Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can remove or replace a job application form. Nothing was published; your changes stay saved as a draft.')], 403);
+            return match ($e->getMessage()) {
+                Publisher::APPLICATION_FORM_REFUSED => Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can remove or replace a job application form. Nothing was published; your changes stay saved as a draft.')], 403),
+                Publisher::APPLICATION_RECIPIENTS_REFUSED => Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can change the recipients of a job application form. Nothing was published; your changes stay saved as a draft.')], 403),
+                default => throw $e,
+            };
         }
         ChangeLog::write($this->app, static::IDENT, 'build published', mb_substr($target['titulek'], 0, 80));
         $published = $this->loadBuildTarget();
@@ -658,6 +658,11 @@ trait BuilderActions
         $build = $target !== null ? self::loadVersion($this->db, $target['revize'], $this->request->postInt('idr')) : null;
         if ($build === null) {
             return Response::json(['ok' => false, 'chyba' => t('The version does not exist.')], 404);
+        }
+        // 3.50 review: like every draft write, without Applications the restored version keeps the recipients (and Purpose)
+        // of the draft's application forms – Publisher::guard refuses a publish that would change them anyway
+        if (Build::$purposeAllowed === false && ($restored = Build::fromJson($build)) !== null) {
+            $build = Build::toJson(Build::sanitize($restored, $this->app->auth()->isAdmin(), Build::fromJson($target['koncept'] ?? $target['stavba']))[0]);
         }
         $this->saveDraft($target, $build);
         \Kaleta\Builder\DraftHistory::record($this->app, $target['revize'], $build, $target['koncept'] ?? $target['stavba'], true);

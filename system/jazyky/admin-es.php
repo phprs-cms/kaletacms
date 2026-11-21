@@ -9451,4 +9451,5 @@ return [
     'A backup restored later applies the erasures again, so a deleted person does not come back.' => 'Una copia restaurada más tarde vuelve a aplicar los borrados, para que una persona borrada no vuelva.',
     'My account → Colleagues shows the positions and work phones of your colleagues, A–Z or by department. Administrators create departments in Users → Departments.' => 'Mi cuenta → Compañeros muestra los puestos y teléfonos de trabajo de sus compañeros, de la A a la Z o por departamento. Los administradores crean los departamentos en Usuarios → Departamentos.',
     'Only a user who may open Applications can remove a job application form – the page keeps its build.' => 'Solo un usuario que puede abrir Candidaturas puede quitar un formulario de candidatura: la página conserva su estructura.',
+    'Only a user who may open Applications can change the recipients of a job application form. Nothing was published; your changes stay saved as a draft.' => 'Solo un usuario que puede abrir Candidaturas puede cambiar los destinatarios de un formulario de candidatura. No se ha publicado nada; sus cambios siguen guardados como borrador.',
 ];

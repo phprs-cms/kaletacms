@@ -111,6 +111,9 @@ final class Build
     /** 3.50 N132: why a publish is refused (Builder\Publisher::guard) – Czech like the other builder notes, English in Mcp\Translator::MESSAGES. */
     public const string APPLICATION_FORM_REFUSED = 'Formulář žádostí o místo smí odebrat nebo nahradit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.';
 
+    /** 3.50 review: a publish that would change the recipients of a published application form (e.g. a restored older version) – English in Mcp\Translator::MESSAGES. */
+    public const string APPLICATION_RECIPIENTS_REFUSED = 'Příjemce formuláře žádostí o místo smí změnit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.';
+
     /** The content fields of an application form that receive the applicants' data – locked with its Purpose (3.50 N132; the hidden copy since the 3.50 review). */
     private const array LOCKED_RECIPIENTS = ['prijemce', 'skryta_kopie'];
 
@@ -545,6 +548,31 @@ final class Build
         $errors[$path] = 'Odkaz může být jen https://…, mailto:, tel:, #kotva nebo adresa na webu (/…).';
 
         return '';
+    }
+
+    /**
+     * 3.50 review: the ids of the application forms of $published that $new still has but with other recipients
+     * (LOCKED_RECIPIENTS) – e.g. an older version restored into the draft. A dropped form is droppedApplicationForms(). Pure.
+     *
+     * @return list<string>
+     */
+    public static function changedApplicationRecipients(?string $published, ?string $new): array
+    {
+        $forms = function (?string $json): array {
+            $build = $json === null ? null : self::fromJson($json);
+
+            return $build === null ? [] : self::elementsOfType($build, fn (string $className): bool => $className::TYPE === 'formular');
+        };
+        $recipients = fn (array $p): array => array_map(fn (string $field): string => (string) ($p['obsah'][$field] ?? ''), self::LOCKED_RECIPIENTS);
+        $newForms = $forms($new);
+        $changed = [];
+        foreach ($forms($published) as $id => $p) {
+            if (($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE && isset($newForms[$id]) && $recipients($p) !== $recipients($newForms[$id])) {
+                $changed[] = (string) $id;
+            }
+        }
+
+        return $changed;
     }
 
     /** @return array<string, array<string, mixed>> id => element for all elements whose class meets the condition */
