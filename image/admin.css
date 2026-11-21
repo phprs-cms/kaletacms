@@ -1469,13 +1469,13 @@ label.galerie-vyfotit { display: none; }
 .galerie-popis { width: 100%; min-width: 0; margin-block: 4px; padding: 4px 6px; border: 1px solid var(--linka); border-radius: 6px; background: var(--podklad); color: inherit; font: inherit; font-size: 12px; }
 /* an image without a description for blind users: the field is highlighted so the administrator fills it in (the file name is not used as a description) */
 .galerie-popis:placeholder-shown { border-color: var(--varovani-text); border-style: dashed; }
-.galerie-popis.ulozeno { border-color: #1a7f37; }
-.galerie-popis.chyba { border-color: #b3261e; }
+.galerie-popis.ulozeno { border-color: var(--ok); }
+.galerie-popis.chyba { border-color: var(--chyba); }
 .media-hledani { flex-wrap: wrap; gap: 6px; }
 
 /* the form's default button for Enter – invisible, it only determines the action (Settings) */
 .vychozi-odeslani { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); border: 0; padding: 0; }
-[aria-invalid="true"] { border-color: #B3261E !important; box-shadow: 0 0 0 1px #B3261E; }
+[aria-invalid="true"] { border-color: var(--chyba) !important; box-shadow: 0 0 0 1px var(--chyba); } /* 3.50.1 (UX-l5): readable in dark mode too */
 
 /* consent to connecting an app (OAuth) */
 .oauth-souhlas { display: grid; gap: 14px; max-width: 36rem; padding: 24px; border: 1px solid var(--linka); border-radius: var(--radius); background: var(--plocha); }
@@ -1554,8 +1554,8 @@ input[type="number"].textpole.cislo-kratke { width: 4.5em; }
 .kontrola-seznam { list-style: none; margin: 0; padding: 0; }
 .kontrola-seznam li { margin-block-end: 6px; padding-inline-start: 1.6em; position: relative; }
 .kontrola-seznam li > span[aria-hidden] { position: absolute; left: 0; font-weight: 700; }
-.kontrola-seznam li.ok > span[aria-hidden] { color: var(--ok, #2f855a); }
-.kontrola-seznam li.varovani > span[aria-hidden] { color: var(--varovani, #c05621); }
+.kontrola-seznam li.ok > span[aria-hidden] { color: var(--ok); }
+.kontrola-seznam li.varovani > span[aria-hidden] { color: var(--varovani-text); }
 table.cistka img { display: block; max-width: 80px; max-height: 60px; border-radius: 4px; }
 table.cistka .cistka-soubor { display: inline-block; padding: 4px 8px; font-size: 0.8em; border: 1px solid var(--linka, #d0d5dd); border-radius: 4px; }
 table.cistka tr.cistka-skupina td { border-top: 2px solid var(--linka, #d0d5dd); }
@@ -2224,7 +2224,6 @@ tr.nabidka-odebrano > td:not(.nabidka-radek-akce) :is(input, select, output) { t
 }
 .nabidka-kontrola { margin: 0 0 16px; }
 .nabidka-kontrola ul { margin: 6px 0 0; padding-inline-start: 20px; }
-.nabidka-editor [aria-invalid="true"] { border-color: var(--chyba); box-shadow: 0 0 0 1px var(--chyba); }
 /* 3.44 (U61): the send dialog's summary and the folded preview of the e-mail */
 .nabidka-shrnuti { margin: 0 0 20px; }
 .nabidka-nahled-mailu > summary { min-height: 32px; cursor: pointer; font-weight: 600; }
