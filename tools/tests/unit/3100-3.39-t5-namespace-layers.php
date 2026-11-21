@@ -21,7 +21,8 @@ const T5_LAYERS = [
     'Admin' => ['Core', 'Compat', 'Connectors', 'Extension', 'Builder', 'Front', 'Fleet', 'Import', 'Mcp', 'Install'],
 ];
 // frozen on 12 November 2026 (3.39): file under system/src => the classes it references against the table, space separated;
-// 3.45 (Q7 step 1): Admin\ChangeLog and Front\Cache moved to Core\ChangeLog and Core\PageCache – 98 files / 245 references → 74 / 188; 3.49 (P2a): Core\EnquiryVisibility → 70 / 181
+// 3.45 (Q7 step 1): Admin\ChangeLog and Front\Cache moved to Core\ChangeLog and Core\PageCache – 98 files / 245 references → 74 / 188; 3.49 (P2a): Core\EnquiryVisibility → 70 / 181;
+// 3.50.1 (B1): 105 unused imports removed → 69 / 155
 const T5_FROZEN = [
     'Builder/ItemBatch.php' => 'Mcp\Catalog',
     'Builder/Presets.php' => 'Admin\Modules\Pages',
@@ -30,7 +31,7 @@ const T5_FROZEN = [
     'Core/Applications.php' => 'Admin\Modules\Enquiries Front\EnquiryTopic Front\Forms',
     'Core/Audit.php' => 'Admin\Modules\Roles Builder\Build Builder\Check Builder\CollectionCategories Builder\DesignSystem Builder\FontScripts Builder\SampleContent Front\SiteIdentity',
     'Core/Auth.php' => 'Mcp\Catalog',
-    'Core/Blueprint.php' => 'Builder\Collections Builder\Presets',
+    'Core/Blueprint.php' => 'Builder\Presets',
     'Core/Booking.php' => 'Builder\Elements\Booking Front\Company',
     'Core/Calendar.php' => 'Builder\Collections Builder\Presets',
     'Core/ContentCheck.php' => 'Builder\Build',
@@ -81,18 +82,17 @@ const T5_FROZEN = [
     'Front/Kernel.php' => 'Fleet\Calendar Fleet\Console Fleet\Kit Fleet\Uptime Mcp\Server',
     'Front/OAuth.php' => 'Mcp\Catalog',
     'Import/Batch.php' => 'Admin\Modules\Media Admin\Modules\Pages Admin\Modules\Redirects Admin\Modules\Tags',
-    'Mcp/Handlers/BuilderTools.php' => 'Admin\Modules\Appearance Admin\Modules\Categories Admin\Modules\Media Admin\Modules\Pages',
-    'Mcp/Handlers/CollectionTools.php' => 'Admin\Modules\Categories Admin\Modules\Collections Admin\Modules\Media Admin\Modules\Pages',
-    'Mcp/Handlers/EnquiryAndPopupTools.php' => 'Admin\Modules\Categories Admin\Modules\Enquiries Admin\Modules\Media Admin\Modules\Pages',
-    'Mcp/Handlers/LookTools.php' => 'Admin\Modules\Appearance Admin\Modules\Categories Admin\Modules\Media Admin\Modules\Pages',
-    'Mcp/Handlers/MediaTools.php' => 'Admin\Modules\Categories Admin\Modules\Media Admin\Modules\Pages',
-    'Mcp/Handlers/NewsTools.php' => 'Admin\Modules\Categories Admin\Modules\Media Admin\Modules\Pages Admin\Modules\Redirects',
-    'Mcp/Handlers/NewsletterTools.php' => 'Admin\Modules\Categories Admin\Modules\Media Admin\Modules\Pages',
-    'Mcp/Handlers/PageTools.php' => 'Admin\Modules\Categories Admin\Modules\Collections Admin\Modules\Media Admin\Modules\Pages',
+    'Mcp/Handlers/BuilderTools.php' => 'Admin\Modules\Appearance',
+    'Mcp/Handlers/CollectionTools.php' => 'Admin\Modules\Collections',
+    'Mcp/Handlers/EnquiryAndPopupTools.php' => 'Admin\Modules\Enquiries',
+    'Mcp/Handlers/LookTools.php' => 'Admin\Modules\Appearance',
+    'Mcp/Handlers/MediaTools.php' => 'Admin\Modules\Media',
+    'Mcp/Handlers/NewsTools.php' => 'Admin\Modules\Categories Admin\Modules\Redirects',
+    'Mcp/Handlers/PageTools.php' => 'Admin\Modules\Collections Admin\Modules\Pages',
     'Mcp/Handlers/PendingReviewTools.php' => 'Admin\Kernel',
-    'Mcp/Handlers/SettingsTools.php' => 'Admin\Modules\Categories Admin\Modules\Media Admin\Modules\Pages Admin\Modules\Redirects Admin\Modules\Settings',
+    'Mcp/Handlers/SettingsTools.php' => 'Admin\Modules\Redirects Admin\Modules\Settings',
     'Mcp/Handlers/WorkTools.php' => 'Admin\Kernel',
-    'Mcp/Tools.php' => 'Admin\Modules\Categories Admin\Modules\Media Admin\Modules\News Admin\Modules\Pages',
+    'Mcp/Tools.php' => 'Admin\Modules\Media Admin\Modules\News Admin\Modules\Pages',
 ];
 
 $t5Src = KALETA_SYSTEM . '/src';
@@ -133,8 +133,8 @@ foreach (T5_FROZEN as $t5Rel => $t5List) {
 sort($t5New);
 check('3.39 T5 (Q7): no new reference against the layer table (put the code in the lower namespace, or move the class down – see docs/design/code-layers.md)', $t5New, []);
 check('3.39 T5 (Q7): the frozen list has no reference that is gone (shorten or delete its line – the list only shrinks)', $t5Stale, []);
-check('3.45 (Q7 step 1): the frozen list never grows past what is left after the ChangeLog and PageCache move (70 files, 181 references since 3.49 moved Enquiries::visible to Core – lower the numbers when it shrinks)',
-    [count(T5_FROZEN) <= 70, count(explode(' ', implode(' ', T5_FROZEN))) <= 181], [true, true]);
+check('3.45 (Q7 step 1): the frozen list never grows past what is left (69 files, 155 references since 3.50.1 removed the unused imports – lower the numbers when it shrinks)',
+    [count(T5_FROZEN) <= 69, count(explode(' ', implode(' ', T5_FROZEN))) <= 155], [true, true]);
 check('3.39 T5 (Q7): every namespace under system/src has its row in the layer table, and every row names only known namespaces', [
     array_values(array_diff(array_keys($t5Namespaces), array_keys(T5_LAYERS))),
     array_values(array_diff(array_merge(...array_values(T5_LAYERS)), array_keys(T5_LAYERS))),

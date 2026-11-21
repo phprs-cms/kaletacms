@@ -4,20 +4,8 @@ declare(strict_types=1);
 
 namespace Kaleta\Mcp\Handlers;
 
-use Kaleta\Admin\Modules\Media;
 use Kaleta\Admin\Modules\Categories;
-use Kaleta\Admin\Modules\Pages;
-use Kaleta\Core\App;
-use Kaleta\Core\Language;
 use Kaleta\Core\SocialDrafts;
-use Kaleta\Front\SiteIdentity;
-use Kaleta\Builder\SiteParts;
-use Kaleta\Builder\DesignSystem;
-use Kaleta\Builder\Library;
-use Kaleta\Builder\Collections;
-use Kaleta\Builder\Publisher;
-use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
 use Kaleta\Mcp\Schema;
 
 /**

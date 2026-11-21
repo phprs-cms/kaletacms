@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaleta\Mcp;
 
 use Kaleta\Admin\Modules\Media;
-use Kaleta\Admin\Modules\Categories;
 use Kaleta\Admin\Modules\Pages;
 use Kaleta\Core\App;
 use Kaleta\Core\Language;
@@ -16,7 +15,6 @@ use Kaleta\Builder\Library;
 use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
-use Kaleta\Builder\HtmlConverter;
 
 /**
  * Tools the MCP server offers to Claude. Every tool respects the permissions of the user whose token Claude signs in with:

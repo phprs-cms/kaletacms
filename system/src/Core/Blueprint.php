@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Builder\Collections;
 use Kaleta\Builder\Presets;
 
 /**
