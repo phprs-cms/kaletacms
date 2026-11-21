@@ -17,6 +17,7 @@ use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools: media (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -25,6 +26,36 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait MediaTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function mediaToolsDefinitions(): array
+    {
+        return [
+            'seznam_medii' => ['Naposledy nahrané obrázky a soubory s adresami a rozměry.', Schema::object(['limit' => Schema::number('1-50, výchozí 20'), 'hledat' => Schema::text('text v názvu (nepovinné)')])],
+            'nahraj_soubor' => ['Nahraje soubor do Médií: obrázek (JPG, PNG, WebP, GIF – zmenší se a dostane WebP/AVIF varianty), SVG (vyčistí se), písmo WOFF2 pro design system nebo přílohu (PDF…). '
+                . 'Zadej url veřejného souboru (https – obrázek, písmo, PDF; u větších souborů vždy url), nebo data v base64 (nejvýš ' . (self::MAX_UPLOAD >> 20) . ' MB). Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
+                Schema::object(['nazev' => Schema::text('název souboru s příponou, např. tym-praha.jpg'), 'data' => Schema::text('obsah souboru v base64'), 'url' => Schema::text('https adresa souboru ke stažení (místo data; jen plný přístup)'),
+                    'popis' => Schema::text('popis obrázku pro nevidomé (alt); jinak z názvu')], ['nazev'])],
+            'importuj_web' => ['Import webu z jiné platformy podle adresy (správce, 2.6): stránky se najdou v sitemapě nebo po odkazech, stanou se z nich skryté stránky v builderu (články jako novinky), obrázky jdou do Médií a staré adresy se přesměrují. '
+                . 'Jedno volání = jedna dávka (asi 15 s). Začni s adresa, pak volej znovu s import (id) – nejdřív se hledají stránky; ve fázi nahled ukaž uživateli, co se našlo, a teprve na jeho pokyn pošli potvrdit: true. Pokračuj, dokud faze není hotovo.',
+                Schema::object(['adresa' => Schema::text('adresa webu, např. https://www.example.com (jen pro nový import)'), 'import' => Schema::text('id rozběhnutého importu (z předchozího volání)'),
+                    'potvrdit' => ['type' => 'boolean', 'description' => 'true = importovat nalezené stránky (jen ve fázi nahled, na pokyn uživatele)'], 'jazyk' => Schema::text('jazyková verze webu (kód, např. de; jinak hlavní jazyk)'),
+                    'obrazky' => ['type' => 'boolean', 'description' => 'stáhnout obrázky do Médií (výchozí true)'], 'presmerovani' => ['type' => 'boolean', 'description' => 'přesměrovat staré adresy (výchozí true)'],
+                    'novinky' => ['type' => 'boolean', 'description' => 'články jako novinky (výchozí true)'],
+                    'ponechat_vzory' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'staré adresy, jejichž ukázková stránka webu zůstane (ve fázi nahled; ["*"] = všechny)'],
+                    'nahradit_vzory' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'staré adresy, jejichž ukázkovou stránku s why "legacy" (poznanou jen podle titulků instalace před 3.33) import přece nahradí (ve fázi nahled; každá adresa jmenovitě)']])],
+            'update_media' => ['Changes the description of a file in Media: alt (the text for screen readers, also the name), caption and author. Only the owner or an administrator.',
+                Schema::object(['id' => Schema::number('file ID from list_media'), 'alt' => Schema::text('alternative text'), 'caption' => Schema::text('caption below the image'), 'author' => Schema::text('photo author')], ['id'])],
+            'delete_media' => ['Deletes a file from Media for good (only when the user explicitly asks; the owner or an administrator). A file still used on the site is not deleted – the error says where it is used.', Schema::object(['id' => Schema::number('file ID from list_media')], ['id'])],
+            'list_media_without_alt' => ['Images in Media without a description for blind visitors (alt), read-only (2.14): id, path, size and where each is used. Write the descriptions with update_media (alt) – say what the image shows, in the site language, a few words – and show the user the batch before or after saving it, as they prefer.',
+                Schema::object(['limit' => Schema::number('how many, 1–200, default 50')])],
+        ];
+    }
+
     /** list_media (seznam_medii) */
     private function toolListMedia(string $name, array $a): mixed
     {

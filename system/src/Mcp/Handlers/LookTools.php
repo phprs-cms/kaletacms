@@ -17,6 +17,7 @@ use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools: look (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -25,6 +26,30 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait LookTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function lookToolsDefinitions(): array
+    {
+        return [
+            'seznam_trid' => ['Sdílené třídy webu (karta, tmava…) s jejich stylem po stavech a vlastním CSS. Třídu dostane prvek v poli "tridy".', Schema::object(['nazev' => Schema::text('jen tahle třída (nepovinné)')])],
+            'uloz_tridy' => ['Založí nebo změní sdílené třídy (správce) – změna se hned projeví na celém webu. Zadej CSS jako v bloku <style>: pravidla jedné třídy (.karta { … }), '
+                . '.karta:hover { … } a @media (max-width: 1023px) = tablet, (max-width: 767px) = mobil. Tokeny var(--ka-…), i přepis tokenů v třídě (--ka-barva-text: #fff) pro tmavé pásy.',
+                Schema::object(['css' => Schema::text('pravidla tříd; slučují se se stávajícími – samotné .karta:hover nebo @media nechá základ třídy beze změny'),
+                    'nahradit' => ['type' => 'boolean', 'description' => 'true = třídy z css nahradit celé (základ i všechny stavy)'],
+                    'smazat' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'názvy tříd ke smazání']])],
+            'uprav_design_system' => ['Změní vzhled celého webu (správce): barvy, písma, velikosti, šířku, zaoblení – nebo použije předvolbu. Nezadané hodnoty zůstanou. Vrátí kontrolu čitelnosti barev.',
+                Schema::object(['predvolba' => Schema::text('firemni | remeslo | pratelsky | elegantni | technologie (nepovinné)'), 'ds' => ['type' => 'object', 'description' => 'Změny, např. {"barvy":{"primarni":"#0f766e"},"pismo_titulky":"klasicke","zaobleni":"l"} – klíče viz stavba_schema → design_system']])],
+            'publish_look' => ['Publishes the draft look – design system, classes, menus, logo, icon (update_design_system, save_classes, save_menu, update_settings; administrators; only when the user explicitly asks, after they saw the preview). The published look is kept as a version first.', Schema::object([])],
+            'discard_look' => ['Throws the draft look away – the published look stays (administrators; only when the user explicitly asks).', Schema::object([])],
+            'list_look_versions' => ['Earlier published looks (the last 20), with what the next publishing changed. restore_look_version brings one back into the draft.', Schema::object([])],
+            'restore_look_version' => ['Loads an earlier published look into the draft look (administrators) – check it with preview_link site: true, then publish_look.', Schema::object(['id' => Schema::number('version ID from list_look_versions')], ['id'])],
+        ];
+    }
+
     /** list_classes (seznam_trid) */
     private function toolListClasses(string $name, array $a): mixed
     {

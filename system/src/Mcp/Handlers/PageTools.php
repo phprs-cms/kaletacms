@@ -17,6 +17,7 @@ use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools: site and pages (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -25,6 +26,48 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait PageTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function pageToolsDefinitions(): array
+    {
+        $page = [
+            'titulek' => Schema::text('Název stránky (zobrazí se v navigaci a jako nadpis)'), 'text' => Schema::text('Obsah stránky jako HTML'),
+            'adresa' => Schema::text('Část adresy za doménou (seo_link); bez ní vznikne z názvu'), 'popis' => Schema::text('Popis pro vyhledávače, do 160 znaků'),
+            'v_menu' => ['type' => 'boolean', 'description' => 'true = odkaz v hlavní navigaci webu'], 'poradi' => Schema::number('Pořadí v navigaci, menší = dřív'),
+            'zobrazit' => ['type' => 'boolean', 'description' => 'true = stránka je na webu vidět (jen na výslovný pokyn uživatele), jinak skrytá. Stránka bez textu a bez publikované stavby počká skrytá a ukáže se s prvním publikováním stavby nebo textem'],
+            'seo_titulek' => Schema::text('Titulek pro vyhledávače (nepovinné, jinak název)'), 'obrazek' => Schema::text('Obrázek pro sdílení na sociálních sítích (cesta z médií)'),
+            'noindex' => ['type' => 'boolean', 'description' => 'true = skrýt stránku před vyhledávači'], 'canonical_url' => Schema::text('Canonical URL: https://… or /path on the site; empty = this page'),
+            'nadrazena' => Schema::number('ID nadřazené stránky – adresa bude /nadrazena/stranka (0 = žádná)'),
+            'jazyk' => Schema::text('jazyková verze stránky u vícejazyčného webu (kód, např. en; prázdné = výchozí jazyk)'),
+            'preklad_z' => Schema::number('ID protějšku ve výchozím jazyce (u stránky jiné jazykové verze) – přepínač jazyků a hreflang'),
+            'kopie_stavby' => ['type' => 'boolean', 'description' => 'jen u nové stránky s preklad_z: koncept začne kopií stavby originálu – pro překlad pak stavba_nacti s jen_texty a stavba_uprav'],
+            'zverejnit_od' => Schema::text('naplánované zveřejnění skryté stránky RRRR-MM-DD HH:MM (jen na výslovný pokyn uživatele; prázdné = zrušit)'),
+            'kod_hlavicky' => Schema::text('not settable through MCP – code for <head> of a page is set in the administration'),
+            'valid_until' => Schema::text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => Schema::text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
+        ];
+        return [
+            'info_o_webu' => ['Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', Schema::object([])],
+            'seznam_stranek' => ['Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', Schema::object([])],
+            'nacti_stranku' => ['Celá stránka včetně HTML obsahu.', Schema::object(['id' => Schema::number('ID stránky')], ['id'])],
+            'vytvor_stranku' => ['Založí stránku (editor a správce). Bez "zobrazit": true zůstane skrytá.', Schema::object($page, ['titulek'])],
+            'uprav_stranku' => ['Změní zadaná pole stránky; ostatní ponechá.', Schema::object(['id' => Schema::number('ID stránky')] + $page, ['id'])],
+            'nacti_menu' => ['Menu webu (hlavní nebo v patičce) pro jazykovou verzi: položky s podmenu a jestli se hlavní menu zatím skládá automaticky ze stránek „v menu“.',
+                Schema::object(['umisteni' => Schema::text('hlavni (výchozí) | paticka'), 'jazyk' => Schema::text('jazyková verze (prázdné = výchozí)')])],
+            'uloz_menu' => ['Uloží celé menu (správce) do konceptu vzhledu. Položky: {"typ":"stranka","ids":5,"text":""} (prázdný text = název stránky) | {"typ":"odkaz","text":"…","url":"https://… nebo /cesta","nove_okno":false} | {"typ":"novinky"} | {"typ":"skupina","text":"Služby"} – každá může mít "deti" (jedna úroveň podmenu), "ikona" (klíč ze sady prvku Ikona) a "popis" (do 120 znaků, v mega menu pod textem). Skupina uvnitř podmenu může mít vlastní "deti" – v mega menu tvoří sloupec s nadpisem. null = hlavní menu zase automaticky. Skrytá stránka se v menu ukáže až po zveřejnění.',
+                Schema::object(['umisteni' => Schema::text('hlavni | paticka'), 'jazyk' => Schema::text('jazyková verze (prázdné = výchozí)'), 'polozky' => ['type' => ['array', 'null'], 'items' => ['type' => 'object'], 'description' => 'položky menu']], ['umisteni', 'polozky'])],
+            'list_trash' => ['Pages, news items and collection items in the trash (deleted in the last 30 days, then removed for good), with the date of deletion – what restore_from_trash can bring back.', Schema::object([])],
+            'restore_from_trash' => ['Brings a page, news item or collection item back from the trash. It comes back hidden (a news item as a draft) – make it visible only when the user asks.',
+                Schema::object(['type' => Schema::text('page | news | collection_item'), 'id' => Schema::number('ID from list_trash')], ['type', 'id'])],
+            'translation_status' => ['Translation overview (read-only, 2.14): every page, news item and collection item in the default language against the site\'s other languages – present, missing, or outdated (the original changed after the translation was last saved). A page translation is a page with translation_of (create_page with translation_of and copy_build, then get_build texts_only and edit_build); a news translation a news item in a category of that language; a collection item translation an item with the same slug and language in the same collection (save_collection_item). Empty languages = a single-language site.',
+                Schema::object(['status' => Schema::text('missing | outdated | all (default: missing and outdated only)'), 'type' => Schema::text('page | news | collection_item (optional)')])],
+            'smaz_stranku' => ['Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', Schema::object(['id' => Schema::number('ID stránky')], ['id'])],
+        ];
+    }
+
     /** site_info (info_o_webu) */
     private function toolSiteInfo(string $name, array $a): mixed
     {

@@ -2,8 +2,10 @@
 /**
  * Kaleta – public contracts (2.1). What sites, agencies and Claude connections rely on is recorded in tools/contracts/
  * and checked by tools/unit-tests.php: an MCP tool or parameter, an MCP prompt or its argument (3.13), a design token or a
- * builder element (and its content properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). After a
- * deliberate addition, record it:
+ * builder element (and its content properties) may be added, never removed or changed outside the deprecation policy (docs/RELEASING.md). 3.49 P0:
+ * tools/contracts/mcp-definitions.json holds a hash of every MCP tool definition as Tools::definitions() gives it (the
+ * schema rows sit next to their handlers in Mcp/Handlers since 3.49) – a changed definition is listed until it is
+ * recorded, so the reviewer reads the diff. After a deliberate addition or change, record it:
  *
  *   php tools/contracts.php --update
  */
@@ -28,6 +30,22 @@ function kaleta_mcp_contract(): array
     ksort($contract);
 
     return $contract;
+}
+
+/**
+ * The MCP definitions as the tools hold them (3.49 P0): the stored names in their order, a hash of every definition, of
+ * the whole list (raw, Czech names of the older tools as Translator reads them) and of the meta tools (Mcp\Discovery).
+ * A definition moved to another file without a change keeps every hash.
+ *
+ * @return array{order: list<string>, raw: string, discovery: string, sha256: array<string, string>}
+ */
+function kaleta_definitions_contract(): array
+{
+    $hash = fn (mixed $v): string => hash('sha256', (string) json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    $definitions = Kaleta\Mcp\Tools::definitions();
+
+    return ['order' => array_column($definitions, 'name'), 'raw' => $hash($definitions), 'discovery' => $hash(Kaleta\Mcp\Discovery::definitions()),
+        'sha256' => array_combine(array_column($definitions, 'name'), array_map($hash, $definitions))];
 }
 
 /** @return list<string> design tokens: the stored names and their English names */
@@ -209,6 +227,24 @@ function kaleta_contract_diff(): array
         }
     }
 
+    // 3.49 P0: a definition that changed is no break (mcp-tools.json above guards names, parameters and annotations), but it
+    // is listed until it is recorded
+    $definitionsFile = __DIR__ . '/contracts/mcp-definitions.json';
+    if (is_file($definitionsFile)) {
+        $recordedDefinitions = json_decode((string) file_get_contents($definitionsFile), true);
+        $currentDefinitions = kaleta_definitions_contract();
+        foreach (['order' => 'the order of the tools', 'raw' => 'the whole list (raw)', 'discovery' => 'the meta tools (find_tools and the runners)'] as $key => $what) {
+            if ($recordedDefinitions[$key] !== $currentDefinitions[$key]) {
+                $added[] = "MCP definitions: $what changed";
+            }
+        }
+        foreach ($currentDefinitions['sha256'] as $tool => $sha) {
+            if (($recordedDefinitions['sha256'][$tool] ?? null) !== $sha) {
+                $added[] = "MCP definition $tool " . (isset($recordedDefinitions['sha256'][$tool]) ? 'changed' : 'new');
+            }
+        }
+    }
+
     return ['broken' => $broken, 'added' => $added];
 }
 
@@ -225,6 +261,7 @@ if (PHP_SAPI === 'cli' && realpath((string) ($_SERVER['argv'][0] ?? '')) === __F
         file_put_contents(__DIR__ . '/contracts/builder-elements.json', $json(kaleta_element_contract()));
         file_put_contents(__DIR__ . '/contracts/extension-api.json', $json(kaleta_extension_contract()));
         file_put_contents(__DIR__ . '/contracts/mcp-prompts.json', $json(kaleta_prompt_contract()));
+        file_put_contents(__DIR__ . '/contracts/mcp-definitions.json', $json(kaleta_definitions_contract()));
         echo 'recorded: ' . count(kaleta_mcp_contract()) . ' MCP tools, ' . count(kaleta_prompt_contract()) . ' MCP prompts, ' . count(kaleta_token_contract()) . ' design tokens, ' . count(kaleta_element_contract()) . " builder elements\n";
         exit(0);
     }

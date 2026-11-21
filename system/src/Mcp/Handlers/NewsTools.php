@@ -18,6 +18,7 @@ use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools: news (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -26,6 +27,42 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait NewsTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function newsToolsDefinitions(): array
+    {
+        $newsItem = [
+            'titulek' => Schema::text('Titulek novinky'), 'uvod' => Schema::text('Perex jako HTML (1-2 odstavce)'), 'text' => Schema::text('Text jako HTML'),
+            'kategorie' => Schema::text('Název nebo adresa (seo_link) kategorie'), 'stitky' => Schema::text('Štítky oddělené čárkou'),
+            'seo_titulek' => Schema::text('Titulek pro vyhledávače (nepovinné)'), 'seo_popis' => Schema::text('Popis pro vyhledávače, do 160 znaků'), 'canonical_url' => Schema::text('Canonical URL: https://… or /path on the site; empty = this page'),
+            'obrazek' => Schema::text('Adresa hlavního obrázku (z nástroje seznam_medii)'), 'obrazek_popis' => Schema::text('Popisek hlavního obrázku (prázdné = z knihovny médií)'),
+            'faq' => Schema::text('Otázky a odpovědi: otázka na řádku, odpověď pod ní, mezi dvojicemi prázdný řádek'),
+            'datum' => Schema::text('Datum vydání RRRR-MM-DD HH:MM; budoucí = naplánování'),
+            'vydat' => ['type' => 'boolean', 'description' => 'true = vydat (jen s právem vydávat a na výslovný pokyn uživatele), jinak koncept'],
+            'valid_until' => Schema::text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => Schema::text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
+        ];
+        return [
+            'seznam_novinek' => ['Seznam novinek (nejnovější první).', Schema::object(['stav' => Schema::text('vse | vydane | plan | koncepty'), 'kategorie' => Schema::text('název nebo adresa kategorie'), 'hledat' => Schema::text('text v titulku'), 'limit' => Schema::number('1-50, výchozí 20')])],
+            'nacti_novinku' => ['Celá novinka včetně textu a štítků.', Schema::object(['id' => Schema::number('ID novinky (idc)')], ['id'])],
+            'vytvor_novinku' => ['Založí novinku. Bez "vydat": true vznikne koncept.', Schema::object($newsItem, ['titulek', 'kategorie'])],
+            'uprav_novinku' => ['Změní zadaná pole novinky; ostatní ponechá. Předchozí verze se uloží do historie.', Schema::object(['id' => Schema::number('ID novinky')] + $newsItem, ['id'])],
+            'seznam_kategorii' => ['Kategorie novinek s počty.', Schema::object([])],
+            'vytvor_kategorii' => ['Založí kategorii novinek (editor a správce).', Schema::object(['nazev' => Schema::text('Název'), 'popis' => Schema::text('Popis (HTML)')], ['nazev'])],
+            'trash_news' => ['Moves a news item to the trash (only when the user explicitly asks). It disappears from the site and can be restored for 30 days. A published one needs the publishing permission.', Schema::object(['id' => Schema::number('news item ID')], ['id'])],
+            'update_category' => ['Changes a news category: name, description, slug (the old address redirects) or order (editors and administrators).',
+                Schema::object(['id' => Schema::number('category ID from list_categories'), 'name' => Schema::text('new name'), 'description' => Schema::text('description as HTML'), 'slug' => Schema::text('new slug'), 'order' => Schema::number('order, lower = first')], ['id'])],
+            'delete_category' => ['Deletes an empty news category (editors and administrators; only when the user explicitly asks). A category with news items – even in the trash – cannot be deleted.', Schema::object(['id' => Schema::number('category ID')], ['id'])],
+            'get_social_drafts' => ['Social post drafts of a published news item (read-only, 2.13): for each network chosen in Settings → General (default Facebook and LinkedIn) the text, the tracked link (utm_source = the network, utm_campaign = the news slug – the statistics count it), the image and whether the person has posted it. They are prepared when the news item is published; a draft or a scheduled news item has none. The site never posts anywhere – the user copies them; polish the text with update_social_draft.',
+                Schema::object(['id' => Schema::number('news ID')], ['id'])],
+            'update_social_draft' => ['Changes the text of one social post draft (2.13). Keep the tracked link in the text – except on Instagram, where the link goes to the bio – and the hashtags if they fit; on X at most 280 characters with a link counted as 23. Never posts anywhere.',
+                Schema::object(['id' => Schema::number('draft id from get_social_drafts'), 'text' => Schema::text('the new text of the post')], ['id', 'text'])],
+        ];
+    }
+
     /** list_news (seznam_novinek) */
     private function toolListNews(string $name, array $a): mixed
     {

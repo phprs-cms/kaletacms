@@ -17,6 +17,7 @@ use Kaleta\Builder\Collections;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools: newsletter (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -25,6 +26,31 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait NewsletterTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function newsletterToolsDefinitions(): array
+    {
+        return [
+            'list_newsletters' => ['Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', Schema::object([])],
+            'draft_newsletter' => ['Creates a newsletter draft (without id) or changes a draft or a scheduled one (with id). There is no e-mail builder: one template styled by the design system (colours, fonts, logo) with the subject, an introduction, news items, an optional button and the company footer with an unsubscribe link. Returns the plain-text version to check; the admin shows the HTML preview.',
+                Schema::object(['id' => Schema::number('newsletter ID – only when changing it'), 'subject' => Schema::text('subject of the e-mail, also its heading'), 'preheader' => Schema::text('preview text next to the subject in the inbox (optional)'),
+                    'intro' => Schema::text('introduction as plain text; an empty line starts a new paragraph, web addresses become links'),
+                    'news_mode' => Schema::text('latest (the latest news_count items at the time of sending, default) | chosen (news_ids) | none'),
+                    'news_count' => Schema::number('how many of the latest news items, 1–' . \Kaleta\Core\Mailing::MAX_NEWS . ', default 3'),
+                    'news_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'chosen news item IDs in order (list_news), with news_mode chosen'],
+                    'button_label' => Schema::text('button text (optional, with button_url)'), 'button_url' => Schema::text('button link: a path on the site (/contact) or https://…'),
+                    'language' => Schema::text('language of the footer texts and the latest news on a multilingual site (code; empty = default)')])],
+            'send_test_newsletter' => ['Sends the newsletter as a test to the connected user\'s own e-mail address – subscribers get nothing. Use it before asking the user to send.', Schema::object(['id' => Schema::number('newsletter ID')], ['id'])],
+            'send_newsletter' => ['Sends the newsletter to all confirmed subscribers now, or schedules it with at. It cannot be taken back: only with the publishing permission and ONLY when the user explicitly asks to send it. Needs an SMTP server and a running cron (sending_problem in list_newsletters). unschedule: true turns a scheduled one back into a draft.',
+                Schema::object(['id' => Schema::number('newsletter ID'), 'at' => Schema::text('YYYY-MM-DD HH:MM to schedule; empty = now'), 'unschedule' => ['type' => 'boolean', 'description' => 'true = cancel the scheduled sending']], ['id'])],
+            'delete_newsletter' => ['Deletes a newsletter – a draft, a scheduled or a sent one (not one being sent). Only when the user explicitly asks.', Schema::object(['id' => Schema::number('newsletter ID')], ['id'])],
+        ];
+    }
+
     /** list_newsletters */
     private function toolListNewsletters(string $name, array $a): mixed
     {

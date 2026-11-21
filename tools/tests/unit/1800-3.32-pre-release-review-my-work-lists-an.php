@@ -8,6 +8,6 @@ check('[source-pin] 3.32: unassigned enquiries in My work (and MCP my_work) – 
     Kaleta\Core\MyWork::UNASSIGNED_DAYS, str_contains($r332Work, "'prirazeno IS NULL AND ' . self::UNANSWERED . ' AND (stav = 0 OR datum >= ?)'"),
     str_contains($r332Work, '$lists = self::lists($app, $modules, $userId, $skip);'), str_contains($r332Work, "if (!isset(\$modules[\$section]) || in_array(\$list, \$skip, true)) {"),
     (new ReflectionMethod(Kaleta\Core\MyWork::class, 'lists'))->getParameters()[3]->getDefaultValue(),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'read or not, while still new or no older than 30 days')],
+    str_contains((string) json_encode(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['my_work'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'read or not, while still new or no older than 30 days') /* 3.49 P0: the definition */],
     [30, true, true, true, [], true]);
 

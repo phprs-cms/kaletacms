@@ -6,6 +6,7 @@ namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\Comments;
 use Kaleta\Core\Handover;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools of the team's comment threads (3.26): list_comments reads the thread of an enquiry, a page or a collection item,
@@ -19,6 +20,23 @@ use Kaleta\Core\Handover;
  */
 trait CommentTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function commentToolsDefinitions(): array
+    {
+        return [
+            'list_comments' => ['The team\'s internal comments on an enquiry, a page or a collection item (read-only, 3.26), oldest first: who wrote each and when, the plain text, whom it mentions. Only for a user who may open that section. Comments on an enquiry may hold personal data – read them when the user asks.',
+                Schema::object(['target' => Schema::text('enquiry:<id> | page:<id> | item:<id> | contact:<id> | company:<id> | deal:<id>, e.g. "page:12"'), 'limit' => Schema::number('the newest 1–200, default 50')], ['target'])],
+            'add_comment' => ['Adds an internal comment to the thread of an enquiry, a page or a collection item as the connected user (3.26) – colleagues see it in the administration, visitors never. Plain text. '
+                . '"@" and a colleague\'s sign-in name (e.g. @jana; list_comments and this tool\'s result give each mentioned person\'s sign-in name as user) mentions a colleague who may open the record and notifies them – in the administration and by e-mail as they chose; a full-access connection only, anyone else is refused. An e-mail address is no mention.',
+                Schema::object(['target' => Schema::text('enquiry:<id> | page:<id> | item:<id> | contact:<id> | company:<id> | deal:<id>'), 'text' => Schema::text('the comment as plain text, up to 5000 characters')], ['target', 'text'])],
+        ];
+    }
+
     /** list_comments */
     private function toolListComments(string $name, array $a): mixed
     {

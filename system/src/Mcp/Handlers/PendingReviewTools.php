@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\PendingReview;
+use Kaleta\Mcp\Schema;
 
 /**
  * "Waiting for you" over MCP (3.2, Core\PendingReview): what waits for a person, the same list as on the dashboard.
@@ -14,6 +15,21 @@ use Kaleta\Core\PendingReview;
  */
 trait PendingReviewTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function pendingReviewToolsDefinitions(): array
+    {
+        return [
+            'list_pending_review' => ['What waits for a person (read-only, 3.2) – the same list as “Waiting for you” on the dashboard: pages with unpublished draft builds, site parts with drafts, the draft look, news drafts to publish, hidden collection items changed in the last 30 days, proposed exceptions to the opening hours, requests Claude finished in the last 14 days, and unresolved comments on drafts. '
+                . 'Each kind with its count, the admin link and up to 5 examples; only what this user may open. Use it to tell the user what is ready for review – and never to publish it yourself.',
+                Schema::object([])],
+        ];
+    }
+
     /** list_pending_review */
     private function toolListPendingReview(string $name, array $a): mixed
     {

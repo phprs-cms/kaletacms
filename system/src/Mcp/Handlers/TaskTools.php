@@ -7,6 +7,7 @@ namespace Kaleta\Mcp\Handlers;
 use Kaleta\Core\Handover;
 use Kaleta\Core\Language;
 use Kaleta\Core\Tasks;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools of tasks and follow-ups (3.27, Core\Tasks): list_tasks reads them, save_task creates or changes one,
@@ -19,6 +20,31 @@ use Kaleta\Core\Tasks;
  */
 trait TaskTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function taskToolsDefinitions(): array
+    {
+        return [
+            'list_tasks' => ['The team\'s tasks and follow-ups (read-only, 3.27): title, who it is for, the due moment and its group (overdue | today | upcoming = within 7 days | later = further or no date), what it is about (an enquiry, a page or a collection item with admin_url). '
+                . 'filter mine (default: the connected user\'s open tasks), overdue (theirs that are overdue), assignee:<user> (an administrator may list anyone\'s; others only their own), assignee:none (administrators: the tasks nobody active has – handed to nobody or left on a removed or blocked account; give each to someone with save_task) or target:<enquiry|page|item>:<id> (every task about that record – the user must be able to open it).',
+                Schema::object(['filter' => Schema::text('mine | overdue | assignee:<user id, e-mail or sign-in name> | assignee:none | target:<enquiry:12 | page:5 | item:9>'), 'status' => Schema::text('open (default) | done'),
+                    'limit' => Schema::number('1–200, default 50')])],
+            'save_task' => ['Creates a task, or changes one with id (3.27): "remind me in 3 days if they do not answer", "review the price page by 1 Dec". The team\'s to-do – never shown on the site; at the due moment (or the reminder) the person gets a notification in the administration and by e-mail as they chose. '
+                . 'For someone else only when both may open the record it is about (an enquiry, a page or a collection item); they are notified. No subtasks, recurrence or time tracking.',
+                Schema::object(['id' => Schema::number('ID of a task to change (list_tasks); without it a new task'), 'title' => Schema::text('what to do, up to 200 characters (required for a new task)'),
+                    'target' => Schema::text('what it is about: enquiry:<id> | page:<id> | item:<id> | contact:<id> | company:<id> | deal:<id> (list_deals); on a fleet console also fleet_site:<id> | fleet_customer:<id> (list_sites); "none" = nothing'),
+                    'assignee' => Schema::text('who does it: a user id, the e-mail or sign-in name of an active account, or "me" (default for a new task)'),
+                    'due' => Schema::text('when it is due: YYYY-MM-DD (9:00), YYYY-MM-DD HH:MM, ISO 8601, "today", "tomorrow", "+3 days", "+1 week", "+2 hours"; "none" = no date'),
+                    'remind' => Schema::text('an earlier reminder, the same forms as due; "none" = remind at the due moment')])],
+            'complete_task' => ['Marks a task done, or open again with done false (3.27). The person it is for, the one who created it, or an administrator.',
+                Schema::object(['id' => Schema::number('ID of the task (list_tasks)'), 'done' => ['type' => 'boolean', 'description' => 'true (default) = done, false = open again']], ['id'])],
+        ];
+    }
+
     /** list_tasks */
     private function toolListTasks(string $name, array $a): mixed
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\InternalFiles;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools of internal files (3.42, Core\InternalFiles): the team's document library, never public. Only for a user who
@@ -25,6 +26,29 @@ use Kaleta\Core\InternalFiles;
  */
 trait InternalFileTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function internalFileToolsDefinitions(): array
+    {
+        return [
+            // 3.42: internal files (Core\InternalFiles) – the team's documents for users with the section, in the folders they see
+            'list_internal_files' => ['The team\'s internal files (read-only, 3.42; users who may open Internal files): the folders the user sees (audience all = everyone with the section, roles = chosen roles, depts = chosen departments and the ones below them) and the files of one or all of them – name, description, tags, status (ready | draft), version, size, who changed it last; newest change first. Never public: never copy them to the site, a page, news or a collection item unless the user explicitly asks.',
+                Schema::object(['folder' => Schema::text('a folder: id or exact name; default all the user sees'), 'search' => Schema::text('a word in the name, description or tags'), 'tag' => Schema::text('only files with this tag'),
+                    'status' => Schema::text('ready | draft'), 'page' => Schema::number('page, default 1'), 'limit' => Schema::number('1–100, default 25')])],
+            'get_internal_file' => ['One internal file (read-only, 3.42): its metadata and versions and, for a text document (txt, md, csv) up to 200 kB, its text as content. The bytes of other files (PDF, Office, images…) are never passed – a person downloads them in the administration (admin_url).',
+                Schema::object(['id' => Schema::number('file id (list_internal_files)')], ['id'])],
+            'save_internal_file' => ['Creates a text or Markdown document in Internal files (3.42), or changes a file the user sees: name, description, tags, folder, status, and for a text document new content (a new version – the older ones stay). A connection limited to drafts writes and changes drafts only. Nothing is deleted here and nothing becomes public. Write only what the user asked for.',
+                Schema::object(['id' => Schema::number('file id – omit to create a document'), 'folder' => Schema::text('the folder: id or exact name (required for a new document; moves an existing file)'),
+                    'name' => Schema::text('the shown name, e.g. "Onboarding checklist.md" (.md is added when no txt, md or csv extension is given)'), 'content' => Schema::text('the text of the document (Markdown or plain text, up to 200 kB)'),
+                    'description' => Schema::text('what the document is for'), 'tags' => ['type' => ['array', 'string'], 'description' => 'tags: a list or a comma-separated text', 'items' => ['type' => 'string']],
+                    'status' => Schema::text('ready | draft (default ready; a drafts-only connection: draft)')])],
+        ];
+    }
+
     /** list_internal_files */
     private function toolListInternalFiles(string $name, array $a): mixed
     {

@@ -19,6 +19,7 @@ use Kaleta\Builder\CollectionCategories;
 use Kaleta\Builder\Publisher;
 use Kaleta\Builder\Build;
 use Kaleta\Builder\HtmlConverter;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools: collections (one method per tool, see Mcp\Catalog). Part of Mcp\Tools.
@@ -27,6 +28,82 @@ use Kaleta\Builder\HtmlConverter;
  */
 trait CollectionTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function collectionToolsDefinitions(): array
+    {
+        return [
+            'seznam_kolekci' => ['Kolekce webu (reference, tým, produkty…) s poli a počty položek. Na web je dostane prvek „kolekce“ (Výpis kolekce) ve stavbě; uvnitř se {{klic}} nahradí hodnotou položky ({{nazev}}, {{url}} = detail, {{datum}}, {{obrazek}} = obrázek stránky položky, jinak její první obrázkové pole, a vlastní pole).', Schema::object([])],
+            'vytvor_kolekci' => ['Založí kolekci (správce). Pole: seznam {popisek, typ}; typ = ' . implode(' | ', array_keys(Collections::FIELD_TYPES)) . '. Klíč pole vznikne z popisku.',
+                Schema::object(['nazev' => Schema::text('Název, např. Reference'), 'adresa' => Schema::text('Adresa kolekce v URL (nepovinné, jinak z názvu), např. guide'),
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"popisek":"Citát","typ":"radky"},{"popisek":"Logo","typ":"obrazek"}]'],
+                    'detail' => ['type' => 'boolean', 'description' => 'true = každá položka má vlastní stránku /<kolekce>/<položka>'],
+                    'admin_menu' => ['type' => 'boolean', 'description' => 'Vlastní položka v levém menu administrace – přímý odkaz na položky kolekce (3.18.3; výchozí true)'],
+                    'icon' => Schema::text('Ikona v menu administrace a v seznamu kolekcí (3.19; nepovinné): klíč vestavěné sady ikon (Builder\\Icons), prázdná = ikona seznamu'), 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage|LocalBusiness","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['nazev'])],
+            'uprav_kolekci' => ['Změní název, adresu, stránky položek nebo pole kolekce (správce). Pole = celý nový seznam; u stávajících pošli i "klic" (hodnoty položek zůstanou), pole bez klíče je nové, vynechané pole zmizí z formuláře.',
+                Schema::object(['kolekce' => Schema::text('současná adresa (seo_link) kolekce'), 'nazev' => Schema::text('nový název (nepovinné)'), 'adresa' => Schema::text('nová adresa v URL (nepovinné)'),
+                    'detail' => ['type' => 'boolean', 'description' => 'stránky položek zapnuté / vypnuté (nepovinné)'],
+                    'admin_menu' => ['type' => 'boolean', 'description' => 'vlastní položka v levém menu administrace zapnutá / vypnutá (3.18.3; nepovinné)'],
+                    'icon' => Schema::text('ikona v menu administrace (3.19; nepovinné); prázdná = ikona seznamu'),
+                    'pole' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"klic":"citat","popisek":"Citát","typ":"radky"},{"popisek":"Nové pole","typ":"text"}] (nepovinné)'], 'schema_org' => ['type' => 'object', 'description' => 'Structured data of item pages (1.9): {"type":"Service|Person|Product|Event|FAQPage|LocalBusiness","fields":{"price":"price_field_key",…},"currency":"EUR"}; properties per type in builder_schema collection_schema; {} or {"type":""} = none']], ['kolekce'])],
+            'seznam_polozek_kolekce' => ['Položky kolekce včetně hodnot polí, po 50 na stránku (celkem vrací počet). Filtr: hledaný text v názvu a hodnotách, pole=hodnota, jazyk, jen zobrazené. In a document library (preset documents, 2.11) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.', Schema::object([
+                'kolekce' => Schema::text('adresa (seo_link) kolekce'), 'hledat' => Schema::text('text v názvu nebo hodnotách polí (nepovinné)'),
+                'pole' => Schema::text('klíč pole pro přesnou shodu (nepovinné)'), 'hodnota' => Schema::text('hodnota pole pro přesnou shodu'),
+                'jazyk' => Schema::text('jazyková verze (prázdné = výchozí; nepovinné)'), 'jen_zobrazene' => ['type' => 'boolean', 'description' => 'jen položky zobrazené na webu'],
+                'strana' => Schema::number('stránka od 1'), 'kategorie' => Schema::text('only items in the category with this slug, its subcategories included (3.7; optional)'),
+            ], ['kolekce'])],
+            'uloz_polozku_kolekce' => ['Přidá položku do kolekce, nebo změní existující (s id). Bez "zobrazit": true zůstane skrytá.',
+                Schema::object(['kolekce' => Schema::text('adresa (seo_link) kolekce'), 'id' => Schema::number('ID položky – jen při úpravě'), 'nazev' => Schema::text('Název položky (u nové povinný, při úpravě jen když se mění)'),
+                    'adresa' => Schema::text('Adresa položky v URL (nepovinné, jinak z názvu), např. install'), 'jazyk' => Schema::text('jazyková verze položky u vícejazyčného webu (prázdné = výchozí); překlad má stejnou adresu jako originál – přepínač jazyků a hreflang je propojí'),
+                    'data' => ['type' => 'object', 'description' => 'Hodnoty polí podle klíčů ze seznam_kolekci, např. {"citat":"…","logo":"media/…"}'],
+                    'poradi' => Schema::number('Pořadí, menší = dřív'), 'zobrazit' => ['type' => 'boolean', 'description' => 'true = položka je na webu (jen na pokyn uživatele)'],
+                    'seo_titulek' => Schema::text('Title for search engines (optional, otherwise the name)'), 'popis' => Schema::text('Description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'),
+                    'obrazek' => Schema::text('Image for sharing on social networks (path from Media; optional, otherwise the first image field)'),
+                    'noindex' => ['type' => 'boolean', 'description' => 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'], 'canonical_url' => Schema::text('Canonical URL: https://… or /path on the site; empty = this page'),
+                    'zverejnit_od' => Schema::text('Scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'),
+                    'valid_until' => Schema::text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => Schema::text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
+                    'kategorie' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']], ['kolekce'])],
+            'delete_collection_item' => ['Moves a collection item to the trash (only when the user explicitly asks). It disappears from the site and can be restored for 30 days.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'id' => Schema::number('item ID')], ['collection', 'id'])],
+            'delete_collection' => ['Deletes a whole collection with all its items and its item template, for good (administrators; only when the user explicitly asks for this collection). Lists and pages that show it become empty.',
+                Schema::object(['collection' => Schema::text('collection slug')], ['collection'])],
+            'save_collection_items' => ['Saves many collection items at once (3.7, editors and administrators) – the products, references or people of a site being moved. Up to ' . \Kaleta\Builder\ItemBatch::MAX_ITEMS . ' items per call; send more in further calls. '
+                . 'Each item is {"name":"…","slug":"…","values":{"field key":"value"},"language":"en","visible":false} with the optional id, order, seo_title, description, share_image, noindex and media. An item with id changes that item; with a slug it changes the item with that slug in its language, or creates it; without either a new item is created. '
+                . 'The rules are those of save_collection_item: values by the field keys of list_collections (fields left out keep their value), a new item stays hidden unless visible is true (only when the user asks), and a drafts-only connection creates hidden items and changes hidden ones only. '
+                . 'media fills image and file fields from https addresses: {"photo":"https://old-site.example/img/a.jpg"} – the file is downloaded into Media (images JPEG, PNG, GIF or WebP; never SVG), at most ' . \Kaleta\Builder\ItemBatch::MAX_DOWNLOADS . ' downloads per call (the rest is reported as media_deferred – send those items again), and a file downloaded before is reused; only a full connection downloads. '
+                . 'Every item is checked and saved on its own: the result says per item (index in your list) added, changed, unchanged or refused with the reason, and lists invalid_fields, unknown_keys (keys in values that are no field), unknown_item_keys (keys of the item this tool does not know – they are ignored) and media_failed. dry_run: true only checks and saves nothing – use it first to show the user what would change.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'items' => ['type' => 'array', 'items' => ['type' => 'object'], 'description' => '[{"name":"Oak table","slug":"oak-table","values":{"price":"1200"},"media":{"photo":"https://old.example/oak.jpg"}},{"id":12,"values":{"price":"990"}}]'],
+                    'dry_run' => ['type' => 'boolean', 'description' => 'true = only check the items and say what would happen, save nothing']], ['collection', 'items'])],
+            'list_item_versions' => ['Earlier versions of a collection item (the last 20 saves: name, address, field values and SEO fields). restore_item_version brings one back.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'id' => Schema::number('item ID')], ['collection', 'id'])],
+            'restore_item_version' => ['Brings an earlier version of a collection item back (the current one goes to the history first). Only when the user asks.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'id' => Schema::number('item ID'), 'version' => Schema::number('version ID from list_item_versions')], ['collection', 'id', 'version'])],
+            'get_email_signature' => ['E-mail signature of a person from a people collection (2.10): HTML with inline styles in the brand look – photo, name, role, phone, e-mail, company, website and logo – and a plain-text version, always current from the record; the on-leave and about fields never get in. '
+                . 'Give the user the HTML to paste into Gmail, Outlook or Apple Mail; the admin has a Copy button at the person\'s item. Hidden people only with the Collections section. '
+                . '3.37: without collection, the connected user\'s own current signature – the one replies from the site carry: from their Team record (source team), otherwise the site\'s fallback signature from their account and the company details (source fallback).',
+                Schema::object(['collection' => Schema::text('collection slug; leave out for your own signature'), 'id' => Schema::number('item ID (from list_collection_items)'), 'slug' => Schema::text('item address instead of the ID')], [])],
+            'list_collection_presets' => ['Ready-made collections (read-only, 2.11): a team, events, jobs, documents, branches… – each with its fields, item pages, structured data and how to use it on the site. create_collection with preset creates one.',
+                Schema::object([])],
+            'list_notice_log' => ['Audit trail of an official notice board (read-only, administrators, 2.11): every creation and change of a notice – field keys with the old and new value, who (user, Claude or system) and when – and the days the board posted and took down each notice. Append-only: nothing in it can be edited or deleted. Notices are never deleted (delete_collection_item refuses them) and cannot be hidden once posted – change the takedown date instead.',
+                Schema::object(['collection' => Schema::text('collection slug of the notice board (preset notices)'), 'id' => Schema::number('only one notice (item ID from list_collection_items)')], ['collection'])],
+            // collection categories (3.7, Builder\CollectionCategories)
+            'list_collection_categories' => ['Categories of a collection (3.7): two levels – categories and their subcategories – each with its own page /<collection>/<category>[/<subcategory>], drawn by the collection\'s category template (the *_build tools with collection and category_template). With the name, slug, description, image, order, visibility, SEO texts, the number of items and the languages it has texts in.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'language' => Schema::text('language version of the texts (empty = default)')], ['collection'])],
+            'save_collection_category' => ['Creates or changes a category of a collection (3.7; people with the Collections section). The texts (name, slug, description, SEO) belong to one language – a translation is the same id with another language; the parent, image, order and visibility are shared. A slug never equals an item slug of the collection (refused). Without "visible": true a new category stays hidden. A drafts-only connection creates hidden categories and changes hidden ones only. Assign items with save_collection_item categories.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'id' => Schema::number('category ID – only when changing it or adding a language version'), 'language' => Schema::text('language of the texts (empty = default)'),
+                    'name' => Schema::text('name (required for a new category or language version)'), 'slug' => Schema::text('address in URLs (optional, otherwise from the name)'), 'description' => Schema::text('description as HTML (shown on the category page)'),
+                    'parent' => Schema::text('slug or ID of the top-level category this one goes under (empty or 0 = a top-level category)'), 'image' => Schema::text('image path from Media or https address'),
+                    'order' => Schema::number('order, lower = first'), 'visible' => ['type' => 'boolean', 'description' => 'true = the category page is on the site (only when the user asks)'],
+                    'seo_title' => Schema::text('title for search engines (optional, otherwise the name)'), 'seo_description' => Schema::text('description for search engines, up to 160 characters (optional, otherwise from the description)')], ['collection'])],
+            'delete_collection_category' => ['Deletes a category of a collection for good (only when the user explicitly asks; people with the Collections section): its page disappears, its items stay in the collection. A category with subcategories is refused – delete or move them first. With language only that language version is removed.',
+                Schema::object(['collection' => Schema::text('collection slug'), 'id' => Schema::number('category ID from list_collection_categories'), 'language' => Schema::text('only this language version (optional)')], ['collection', 'id'])],
+        ];
+    }
+
     /** list_collections (seznam_kolekci) */
     private function toolListCollections(string $name, array $a): mixed
     {

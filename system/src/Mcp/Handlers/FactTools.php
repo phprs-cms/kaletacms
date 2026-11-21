@@ -6,6 +6,7 @@ namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\Facts;
 use Kaleta\Core\Language;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools for business facts (2.10, Core\Facts): the facts, saving them, and the claims inventory – sentences that
@@ -15,6 +16,34 @@ use Kaleta\Core\Language;
  */
 trait FactTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function factToolsDefinitions(): array
+    {
+        return [
+            'list_facts' => ['Business facts (read-only, 2.10): the facts the site states – the site\'s own ones (founded, projects, price from…) and the built-in ones from the company details – with the token {{fact.key}}, how each is shown and in how many places it is used.',
+                Schema::object(['language' => Schema::text('language version, e.g. de (optional; its own values where it has them)')])],
+            'save_fact' => ['Creates or changes a business fact (people with access to Business details, 2.10). Types: text | number | money (1500 CZK) | date (YYYY-MM-DD) | year | phone | email | url. Optionally a schema.org property of the company (foundingDate, numberOfEmployees, priceRange, slogan, award, areaServed, knowsLanguage, founder). With language: the value for that language version. Returns the sentences that still state the old value as plain text.',
+                Schema::object(['key' => Schema::text('a-z, digits, _ – the token is {{fact.key}}'), 'label' => Schema::text('name, e.g. Founded'), 'type' => Schema::text('text (default) | number | money | date | year | phone | email | url'), 'value' => Schema::text('the value'),
+                    'schema_property' => Schema::text('optional schema.org property'), 'source' => Schema::text('where the value comes from (not shown on the site)'), 'language' => Schema::text('only the value of a language version (optional)')], ['key', 'value'])],
+            'delete_fact' => ['Deletes a business fact (people with access to Business details, only on the user\'s explicit request). Content that still uses its token shows nothing there – the answer lists those places.',
+                Schema::object(['key' => Schema::text('fact key')], ['key'])],
+            'find_claims' => ['The claims inventory (read-only, 2.10): without text, sentences across pages, news, items, site parts, pop-ups and components that state years, numbers, percentages or amounts as plain text – candidates for facts. With text, every sentence that states that text (e.g. an old value).',
+                Schema::object(['text' => Schema::text('the text or number to find (optional)'), 'limit' => Schema::number('1–300, default 100')])],
+            'list_hours' => ['Opening hours (read-only, 2.10): the regular week from the company details, the exceptions (holidays, closed days, shorter hours) and whether the business is open now.',
+                Schema::object(['past_too' => ['type' => 'boolean', 'description' => 'also exceptions that have ended']])],
+            'save_hours_exception' => ['Adds or changes an exception to the opening hours (people with access to Business details, 2.10): from and to (YYYY-MM-DD; to may be left out for one day); without hours = closed, with hours (9:00-12:00, more ranges with a comma) = open differently. The site shows a notice bar notice_days ahead (default 7, 0 = none) until it ends, and adds it to the structured data. A drafts-only connection saves it as a PROPOSAL the site ignores until a person applies it in the administration, and may change only its proposals (3.2; list_hours shows them under proposed).',
+                Schema::object(['from' => Schema::text('first day, YYYY-MM-DD'), 'to' => Schema::text('last day, YYYY-MM-DD (optional)'), 'hours' => Schema::text('when open differently, e.g. 9:00-12:00 (empty = closed)'),
+                    'note' => Schema::text('why, e.g. Christmas'), 'notice_days' => Schema::number('days ahead for the notice bar, 0–60'), 'id' => Schema::number('only to change an existing exception')], ['from'])],
+            'delete_hours_exception' => ['Deletes an exception to the opening hours (people with access to Business details, only on the user\'s explicit request).',
+                Schema::object(['id' => Schema::number('exception id from list_hours')], ['id'])],
+        ];
+    }
+
     /** list_facts */
     private function toolListFacts(string $name, array $a): mixed
     {

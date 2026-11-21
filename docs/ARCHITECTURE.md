@@ -75,8 +75,10 @@ importers will need it too. An admin module reads the request, calls Core and re
 - **An admin module:** a class in `Admin\Modules\` (extends `Admin\Module`), its views in `system/views/admin/<module>/`,
   an entry in the menu and the section rights (`Users::defaultModules()`), and the same ability through MCP (the parity
   map in the unit tests lists every admin action).
-- **An MCP tool:** the definition and handler in `Mcp\Tools` / `Mcp\Handlers\…`, an English name with an entry in
-  `Mcp\Translator::TOOLS`, a contract entry, and never in the catalogue's essentials. Output keys are additive only.
+- **An MCP tool:** the handler and its schema row in one `Mcp\Handlers\…` trait (`<trait>Definitions()`, built with
+  `Mcp\Schema`; the name in `Tools::ORDER`), the English description in `Mcp\Translator::TOOLS`, the annotations in
+  `Mcp\Catalog`, a contract entry (`php tools/contracts.php --update` records `mcp-tools.json` and `mcp-definitions.json`),
+  and never in the catalogue's essentials. Output keys are additive only.
 - **A setting:** a key with its default in `Core\Settings::DEFAULTS`, a type in `Admin\Modules\Settings::FIELDS` and a
   `$field(...)` row in `system/views/admin/settings/<tab>.php`; secrets, export, per-language values and Claude's access
   are separate lists (`php tools/settings.php <key>` shows them all, the unit test 3650 keeps them consistent).

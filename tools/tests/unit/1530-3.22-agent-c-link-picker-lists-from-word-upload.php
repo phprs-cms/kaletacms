@@ -172,14 +172,14 @@ check('[source-pin] 3.23 (C17): one checklist – the rows in order, the new che
     'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'domain'], 'Handing over to a client', false, false, true, true, true, true, true]);
 check('[source-pin] 3.23 (C17): MCP site_audit returns handover_checklist additively (no new tool, no new parameter), its description stays in the essentials budget', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "\$out['handover_checklist'] = ["),
-    Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'handover_checklist = every row with done'),
+    Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) json_encode(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['site_audit'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'handover_checklist = every row with done') /* 3.49 P0: the definition, not the source */,
 ], [true, ['kind' => 'handover'], true]);
 // 3.23 review (N323-1): the essentials list had 39 bytes left under its 50 KB budget – the repeated parameter texts (reason,
 // the build targets) and site_audit were tightened; at least 1 KB stays free, so the next tool or parameter fits without a rush
-check('[source-pin] 3.23 review (N323-1): the essentials tool list keeps at least 1 KB of headroom under 50 KB; the safety sentences stay', [
+check('3.23 review (N323-1): the essentials tool list keeps at least 1 KB of headroom under 50 KB; the safety sentences stay', [
     $json310(['tools' => $essentials310]) <= 49000,
     str_contains((string) json_encode($all310, JSON_UNESCAPED_UNICODE), 'SENDS A REAL E-MAIL'),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), 'never with invented ones'),
+    str_contains((string) json_encode(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['site_audit'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'never with invented ones'), // 3.49 P0: the definition, not the source
 ], [true, true, true]);
 // 3.23 review (N323-3): Media → Used in links a setting to the tab that has it – the agency logo is on Agency since 3.23
 check('[source-pin] 3.23 review (N323-3): a setting that uses a file links to its own Settings tab (or the screen of its own)', [

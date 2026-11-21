@@ -125,7 +125,7 @@ check('[source-pin] 3.31.1: createFromEnquiry takes stage (an open one, checked 
     str_contains($a3311FromBody, "array_flip(['title', 'owner_id', 'value', 'currency', 'expected_close', 'stage', 'contact_id', 'company_id'])" /* 3.32: and the customer of the prefilled form */),
     strpos($a3311FromBody, "throw new \\DomainException(t('A new deal starts in an open stage.'));") < strpos($a3311FromBody, 'Contacts::link($app'),
     substr_count($a3311From, "t('A new deal starts in an open stage.')"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Tools.php'), "'stage' => \$text('a new deal only (also with enquiry): the open stage it starts in"),
+    str_starts_with((string) (array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['save_deal']['inputSchema']['properties']['stage']['description'] ?? ''), 'a new deal only (also with enquiry): the open stage it starts in'), // 3.49 P0: the definition
     json_decode((string) file_get_contents(KALETA_ROOT . '/tools/contracts/mcp-tools.json'), true)['save_deal']['parameters']['stage'] ?? null],
     [true, true, 2, true, 'string']);
 check('3.31: a deal\'s title names the person when it has every word of their name or their address – such a title loses it when the person is erased', [

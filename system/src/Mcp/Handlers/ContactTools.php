@@ -7,6 +7,7 @@ namespace Kaleta\Mcp\Handlers;
 use Kaleta\Core\Contacts;
 use Kaleta\Core\Handover;
 use Kaleta\Core\Language;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools of contacts and companies (3.28, Core\Contacts): list_contacts and get_contact read the customers,
@@ -21,6 +22,38 @@ use Kaleta\Core\Language;
  */
 trait ContactTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function contactToolsDefinitions(): array
+    {
+        return [
+            'list_contacts' => ['The customers of the site (read-only, 3.28, users with Customers): one contact per e-mail address across its enquiries, bookings and newsletter subscription – name, e-mail, phone, company, the responsible person, the source, first seen and last activity, how many enquiries and bookings. PERSONAL DATA: list them when the user asks. '
+                . 'Without filters the most recently active first. Companies: kind companies.',
+                Schema::object(['search' => Schema::text('a word in the name, e-mail, phone or company'), 'owner' => Schema::text('a user id, e-mail or "me"; "none" = nobody is responsible'), 'company' => Schema::number('only the contacts of this company id'),
+                    'inactive_months' => Schema::number('only contacts with no activity for at least this many months'), 'sort' => Schema::text('activity (default) | name | created'),
+                    'kind' => Schema::text('contacts (default) | companies'), 'page' => Schema::number('page, default 1'), 'limit' => Schema::number('1–100, default 25')])],
+            'get_contact' => ['One customer (read-only, 3.28): what the contact holds, its company, counts and a bounded timeline, newest first – enquiries (form, topic, status – never the message; read one with list_enquiries), replies sent, bookings, the subscription, the team\'s comments and tasks, and logged calls, meetings, e-mails and notes. PERSONAL DATA. '
+                . 'By id or e-mail.',
+                Schema::object(['id' => Schema::number('contact id (list_contacts)'), 'email' => Schema::text('or the e-mail address'), 'timeline' => Schema::number('how many timeline entries, 0–50, default 20')])],
+            'save_contact' => ['Creates a contact, or changes the given fields of one with id (3.28, users with Customers). An address that already has a contact is refused – never a second record of the same person; to join two records use merge_contacts. Company: company (an id, or a name – an existing company of that name is used, otherwise it is created) and company_domain, company_registration_no, company_vat_id to fill in the company. '
+                . 'NOT UNDOABLE: contacts are personal data and never enter the undo journal – undo_agent_session cannot take this back. Never shown on the site.',
+                Schema::object(['id' => Schema::number('contact id to change; without it a new contact'), 'email' => Schema::text('e-mail address'), 'name' => Schema::text('name'), 'phone' => Schema::text('phone'),
+                    'language' => Schema::text('the language code the customer uses, e.g. en'), 'summary' => Schema::text('a short summary for the team, plain text'),
+                    'owner' => Schema::text('the responsible person: a user id, e-mail or "me"; "none" = nobody'), 'company' => Schema::text('company id or name; "none" = no company'),
+                    'company_domain' => Schema::text('the company\'s web domain, e.g. acme.com'), 'company_registration_no' => Schema::text('company registration number'), 'company_vat_id' => Schema::text('VAT ID')])],
+            'log_activity' => ['Logs what happened with a customer (3.28): a call, a meeting, an e-mail or a note, as the connected user – it shows on the contact\'s timeline and counts as its latest activity. NOT UNDOABLE: personal data never enters the undo journal.',
+                Schema::object(['contact' => Schema::number('contact id (list_contacts)'), 'kind' => Schema::text('call | meeting | email | note'), 'text' => Schema::text('what happened, plain text up to 5000 characters'),
+                    'at' => Schema::text('when: YYYY-MM-DD HH:MM, "today"; default now')], ['contact', 'kind', 'text'])],
+            'merge_contacts' => ['Merges two contacts of the same person (3.28) – only on the user\'s explicit request: the enquiries, bookings, subscription, logged activities, comments and tasks of from move to into; into keeps its e-mail and fills its empty fields from from; from is deleted and a note on into records the merge. Kaleta never merges two different addresses by itself. '
+                . 'Administrators only. DESTRUCTIVE AND NOT UNDOABLE: needs confirm true.',
+                Schema::object(['into' => Schema::number('the contact that stays'), 'from' => Schema::number('the contact merged into it and deleted'), 'confirm' => ['type' => 'boolean', 'description' => 'true – the user asked for this merge']], ['into', 'from', 'confirm'])],
+        ];
+    }
+
     /** list_contacts */
     private function toolListContacts(string $name, array $a): mixed
     {

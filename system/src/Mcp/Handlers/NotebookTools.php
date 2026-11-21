@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\Notebook;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools of the agent notebook (2.15, Core\Notebook): the notes the site keeps for whoever works on it next –
@@ -14,6 +15,25 @@ use Kaleta\Core\Notebook;
  */
 trait NotebookTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function notebookToolsDefinitions(): array
+    {
+        return [
+            'read_notebook' => ['The agent notebook (read-only, 2.15): notes the site keeps for whoever works on it next – decisions ("we never use the word cheap"), wording and style rules, photo credits, the history of the redesign, which pages the client is sensitive about. Read it before larger changes. Pinned notes first, then the most recently changed; at most 100.',
+                Schema::object(['topic' => Schema::text('only one topic: decisions | style | credits | history | todo | other (optional)'), 'search' => Schema::text('a word in the title or text (optional)'), 'limit' => Schema::number('1–100, default 100')])],
+            'write_notebook' => ['Writes a note into the agent notebook (2.15), or changes the given fields of an existing one by id – for the next conversation and for colleagues; nothing is shown on the site. Write down what the user decides and what the next person must keep to: a wording rule, a sensitive page, who took the photos, why something looks the way it does. pinned: true for what everyone must know – site_info shows the pinned titles at the start of every conversation. A drafts-only connection may write notes too (3.2).',
+                Schema::object(['id' => Schema::number('only to change an existing note (from read_notebook)'), 'topic' => Schema::text('decisions | style | credits | history | todo | other (default other)'), 'title' => Schema::text('a short title, up to 150 characters'),
+                    'text' => Schema::text('the note as plain text'), 'pinned' => ['type' => 'boolean', 'description' => 'true = pinned: first in every list and its title in site_info']])],
+            'delete_notebook_entry' => ['Deletes a note from the agent notebook (2.15, only on the user\'s explicit request). It cannot be brought back – to change a note, use write_notebook with its id.',
+                Schema::object(['id' => Schema::number('note id from read_notebook')], ['id'])],
+        ];
+    }
+
     /** read_notebook */
     private function toolReadNotebook(string $name, array $a): mixed
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\Handover;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools of the team's work (3.24): my_work – the lists of the admin screen My work for the connected user – and
@@ -15,6 +16,26 @@ use Kaleta\Core\Handover;
  */
 trait WorkTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function workToolsDefinitions(): array
+    {
+        return [
+            'my_work' => ['What waits for the connected user (read-only) – My work of the administration, each list only for a section the user may open: open tasks (tasks: overdue | today | upcoming | later); enquiries assigned to them or handled by nobody, read or not, while still new or no older than 30 days (form, about, status – no personal data); pages and items they are responsible for with a review due within 14 days, unpublished changes or unresolved comments; requests where Claude wrote last; open deals (deals); with Quotes, own and unowned drafts (quotes_drafts), sent ones unanswered a week (quotes_waiting), validity ending within 7 days (quotes_expiring) – no amounts. Every row has admin_url.',
+                Schema::object([])],
+            'assign' => ['Makes a person responsible for a page or a collection item, or the one who handles an enquiry (3.24; the connected user must be able to open that section). Responsibility only – it shows in that person\'s My work and e-mails them a link when it is someone else; it never changes who may edit. The person must be able to open the section too, otherwise nothing changes. user "none" removes the responsible person.',
+                Schema::object(['target' => Schema::text('page | item | enquiry | application'), 'id' => Schema::number('ID of the page (list_pages), the collection item (list_collection_items), the enquiry (list_enquiries) or the job application (list_applications)'),
+                    'user' => Schema::text('a user id, the e-mail of an active account, "me" or "none"')], ['target', 'id', 'user'])],
+            'list_colleagues' => ['The colleagues of the connected user (read-only, 3.37): everyone with an active account on the site – name, position, work phone and e-mail as each of them entered it in My account; 3.42: department, reports_to (a colleague id), and while away today absent_until and deputy (who stands in), plus departments (the org chart: id, name, parent, head). Blocked accounts are not listed; nothing else of the accounts.', Schema::object([])],
+            'team_summary' => ['How much of the team\'s work happened in a period (read-only, 3.41) – counts only, never hours, money or deal values: open enquiries each person handles and enquiries answered, open, overdue and done tasks, deal moves, deals won and lost, job applications handled, quotes sent and accepted – each only for a section the user may open. team = the totals; you = the user\'s own; people (administrators only) = the counts of each person.',
+                Schema::object(['period' => Schema::text('7_days | 30_days (default) | this_month | last_month | 90_days')])],
+        ];
+    }
+
     /**
      * list_colleagues (3.37, Core\Colleagues): who works here – name, position, work phone, e-mail; empty values left out.
      * 3.42: each one's department, reports_to and (away today) absent_until and deputy, and the departments (the org chart:

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\Blueprint;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools for industry blueprints (2.11, Core\Blueprint): what the site's kind of business needs – the questions to
@@ -15,6 +16,28 @@ use Kaleta\Core\Blueprint;
  */
 trait BlueprintTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function blueprintToolsDefinitions(): array
+    {
+        return [
+            'list_connectors' => ['Connections to outside services (read-only, administrators, 2.13): which of the curated services (Google, CRMs…) the site is connected to, as whom and since when, the last error, and how many deliveries wait. Never a credential – connecting needs the administrator in Administration → Connections.',
+                Schema::object([])],
+            'get_blueprint' => ['The site\'s industry blueprint (read-only, 2.11): which is applied (a clinic, a manufacturer, a craftsman…) and which are available, the questions to ask the owner with their answers so far, the checks that fail and how to work on such a site.',
+                Schema::object([])],
+            'apply_blueprint' => ['Applies an industry blueprint (administrators, only when the user wants it, 2.11): creates its ready-made collections with hidden list pages and its facts without values; adds its questions, audit checks and instructions. key = a shipped one from get_blueprint, or manifest = a blueprint JSON (e.g. from export_blueprint of another site).',
+                Schema::object(['key' => Schema::text('a shipped blueprint (get_blueprint → available)'), 'manifest' => ['type' => 'object', 'description' => 'a blueprint manifest {"kaleta_blueprint":1,"key":…,"name":…,"presets":[…],"facts":[…],"questions":[…],"audit":[…],"claude":"…"} instead of key']])],
+            'remove_blueprint' => ['Takes an industry blueprint off the site (administrators, only on the user\'s explicit request): its questions, checks and instructions; the collections and facts it created stay.',
+                Schema::object(['key' => Schema::text('the applied blueprint')], ['key'])],
+            'export_blueprint' => ['Writes the current site as an industry blueprint manifest (administrators, read-only, 2.11): the presets its collections come from, its facts without values, the questions, checks and instructions of its blueprints – to set up similar sites the same way.',
+                Schema::object(['key' => Schema::text('the new blueprint\'s key, e.g. dental_clinic'), 'name' => Schema::text('its name')], ['key'])],
+        ];
+    }
+
     /** list_connectors (2.13) */
     private function toolListConnectors(string $name, array $a): mixed
     {

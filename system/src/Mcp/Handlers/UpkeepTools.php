@@ -6,6 +6,7 @@ namespace Kaleta\Mcp\Handlers;
 
 use Kaleta\Core\InternalLinks;
 use Kaleta\Core\Links;
+use Kaleta\Mcp\Schema;
 
 /**
  * MCP tools for links that look after themselves (2.14): the broken links the background check found across the site
@@ -16,6 +17,22 @@ use Kaleta\Core\Links;
  */
 trait UpkeepTools
 {
+    /**
+     * The MCP definitions of the tools in this trait (3.49 P0): stored name => [description, input schema]. Tools::definitions()
+     * lists them in the order of Tools::ORDER; the English names and texts are in Translator, the annotations in Catalog.
+     *
+     * @return array<string, array{0: string, 1: array<string, mixed>}>
+     */
+    public static function upkeepToolsDefinitions(): array
+    {
+        return [
+            'list_broken_links' => ['Broken links the background check found across the site (2.14; read-only; administrators and editors): in news items, published page builds (with the element id) and collection items, each with where it is (kind, id, title, target), the status (no response or the HTTP code) and a hint – for an outside address the archived copy at web.archive.org to look at; nothing is fetched from there. Propose the replacement or the removal as a draft with edit_build / update_page / update_news / save_collection_item; the user decides. The check runs one record every five minutes, each once a month.',
+                Schema::object(['kind' => Schema::text('only one kind: news | page | item (optional)'), 'limit' => Schema::number('how many, 1–300, default 100')])],
+            'suggest_internal_links' => ['Orphan pages (2.14; read-only; administrators and editors of pages): published pages, news items and item pages that no published build, menu or text links to, each with up to five candidate source pages whose title or text share words of the orphan’s title (shared_words). Add the link from a candidate as a draft with the build tools and show the preview; nothing is edited by itself.',
+                Schema::object(['limit' => Schema::number('how many orphans, 1–100, default 20')])],
+        ];
+    }
+
     /** list_broken_links */
     private function toolListBrokenLinks(string $name, array $a): mixed
     {
