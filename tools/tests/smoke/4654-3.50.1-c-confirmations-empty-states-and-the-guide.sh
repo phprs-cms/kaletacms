@@ -21,8 +21,9 @@ if [ -n "$C3501_DRAFT" ]; then sq "REPLACE INTO ka_nastaveni (promenna, hodnota)
 # UX-l2: the two Transfer removals ask first and answer with a flash; the record goes, nothing else
 C3501_IDS=$(c3501_site '$r = Kaleta\Core\MigrationReport::newState("https://c3501-old.example"); Kaleta\Core\MigrationReport::save($r); $w = Kaleta\Core\WebImport::newState("https://c3501-web.example"); Kaleta\Core\WebImport::save($w); echo $r["id"], " ", $w["id"];')
 C3501_REPORT=${C3501_IDS% *}; C3501_WEB=${C3501_IDS#* }
-expect "3.50.1 C (UX-l2): Import and export – removing a report and a web import from the list asks first" \
-  "$(c3501_get 'module=transfer')|$(grep -c 'action="[^"]*report_delete"[^>]*data-potvrdit="' "$WORK/response")|$(grep -c 'action="[^"]*web_delete"[^>]*data-potvrdit="' "$WORK/response")" "200|1|1"
+expect "3.50.1 C (UX-l2): Import and export – every report and web import on the list asks before it is removed" \
+  "$(c3501_get 'module=transfer')|$(grep -c 'action="[^"]*report_delete"' "$WORK/response")|$(grep -c 'action="[^"]*report_delete"[^>]*data-potvrdit="' "$WORK/response")|$(grep -c 'action="[^"]*web_delete"' "$WORK/response")|$(grep -c 'action="[^"]*web_delete"[^>]*data-potvrdit="' "$WORK/response")" \
+  "200|$(ls "$WORK"/web/storage/import/parita-*.json | wc -l | tr -d ' ')|$(ls "$WORK"/web/storage/import/parita-*.json | wc -l | tr -d ' ')|$(ls "$WORK"/web/storage/import/web-*.json | wc -l | tr -d ' ')|$(ls "$WORK"/web/storage/import/web-*.json | wc -l | tr -d ' ')"
 C3501_R1=$(c3501_post 'module=transfer' 'module=transfer&action=report_delete' -d "id=$C3501_REPORT")
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=transfer"
 C3501_F1=$(grep -cE 'The report was removed\.|Zpráva byla odebrána\.' "$WORK/response" || true)
