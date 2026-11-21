@@ -33,6 +33,7 @@ check "jobs: Settings → Privacy and cookies offers the retention of job applic
 check "jobs: Enquiries names the usual practice for the company country beside the retention line" 200 "/admin.php?module=enquiries" 'data-retention="enquiries"'
 grep -q 'CZ: 6' "$WORK/response" && echo "  ok     jobs: the hint names the country and the months" || { echo "  CHYBA  retention hint"; ERRORS=$((ERRORS+1)); }
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=enquiries&action=settings" -d "_csrf=$(csrf)" -d mesice=24 -d mesice_uchazeci=3
+retention_apply enquiries_months=24 job_applications_months=3 # 3.50.1: a shorter period from the old fields is confirmed on the retention screen
 expect "jobs: the retention of applications is saved next to the enquiries retention" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'job_applications_months'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'enquiries_months'))")" "3|24"
 # an application with a CV: an enquiry from the job's page; the hidden job name comes back as plain text only
 printf '%%PDF-1.4 test CV\n' > "$WORK/cv.pdf"
