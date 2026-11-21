@@ -26,7 +26,7 @@ check('[source-pin] 3.3.4 N65, 3.11 UX310-2: drafts only is preselected for ever
     [true, [true, true, true, true, true]]);
 check('[source-pin] 3.3.4 N65: the setting claude_apps_only is off by default, a checkbox in Claude settings, never over MCP or in an export; its texts are translated', [
     Kaleta\Core\Settings::DEFAULTS['claude_apps_only'], str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/claude.php'), 'name="claude_apps_only"'),
-    (bool) preg_match((new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), 'claude_apps_only'), in_array('claude_apps_only', Kaleta\Core\SiteExport::SETTINGS, true),
+    Kaleta\Core\Settings::claudeMaySet('claude_apps_only'), in_array('claude_apps_only', Kaleta\Core\SiteExport::SETTINGS, true),
     array_values(array_filter(['Only allow Claude’s own apps to connect', 'What may the application do?', 'new, not verified', 'After you allow it, the application returns to',
         '%s is not an address of Claude’s own apps. Allow access only if you started this connection yourself and know this application – if a message or someone else sent you here, choose Deny.'],
         fn (string $k): bool => !isset($adminCs[$k], $adminDe[$k])))],

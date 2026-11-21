@@ -24,6 +24,6 @@ check('[source-pin] 3.2: the public booking pages, reminders and MCP tools follo
 check('[source-pin] 3.2: Statistics have one switch – the feature; the old setting is not read, not saved by the Analytics tab and still accepted over MCP', [
     Kaleta\Front\Stats::enabled($reportSettings(['extensions' => 'statistika', 'stats' => '0'])), Kaleta\Front\Stats::enabled($reportSettings(['extensions' => 'novinky,claude', 'stats' => '1'])),
     Kaleta\Admin\Modules\Settings::verifyValue('stats', '1'), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/settings/analytics.php'), "\$field('stats'"),
-    (bool) preg_match((new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), 'stats'), isset(Kaleta\Core\Settings::DEFAULTS['stats'])],
+    Kaleta\Core\Settings::claudeMaySet('stats'), isset(Kaleta\Core\Settings::DEFAULTS['stats'])],
     [true, false, null, false, true, true]);
 

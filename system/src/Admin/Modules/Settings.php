@@ -174,7 +174,7 @@ class Settings extends Module
      */
     public static function fieldUrl(string $key): string
     {
-        $base = ($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::PER_LANGUAGE)) !== null ? $m[0] : $key;
+        $base = ($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::keysWith('per_language'))) !== null ? $m[0] : $key;
         foreach (self::FIELDS as $tab => $fields) {
             if (isset($fields[$base]) && isset(self::TABS[$tab])) {
                 return (isset(self::MOVED_TABS[$tab]) ? 'module=' . self::MOVED_TABS[$tab] : 'module=settings&tab=' . $tab) . '#' . rawurlencode($key);
@@ -1670,7 +1670,7 @@ class Settings extends Module
     }
 
     /**
-     * The type of a settings field; a language variant of a per-language setting (Settings::PER_LANGUAGE: site_name_de,
+     * The type of a settings field; a language variant of a per-language setting (Settings::keysWith('per_language'): site_name_de,
      * cookies_text_de, cookies_policy_url_de – 3.9) has the type of its base. null = not a field of the admin form.
      */
     private static function fieldType(string $key): ?string
@@ -1680,7 +1680,7 @@ class Settings extends Module
                 return $field[$key];
             }
         }
-        if (($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::PER_LANGUAGE)) !== null) {
+        if (($m = \Kaleta\Core\Language::settingKey($key, \Kaleta\Core\Settings::keysWith('per_language'))) !== null) {
             return self::fieldType($m[0]);
         }
 

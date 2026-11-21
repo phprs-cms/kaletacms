@@ -321,7 +321,8 @@ final class Settings
     /**
      * Settings that can be filled in separately for each additional language version of the site (key_en, key_de…); the
      * visitor's version reads its own value, an empty one falls back to the default language's. 3.9 (UXM-11): the cookie
-     * bar text and the privacy policy link too.
+     * bar text and the privacy policy link too. 3.50: a mirror of keysWith('per_language') kept for code of older releases
+     * during an update (unit 4541) – read the declaration.
      */
     public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
 
@@ -329,7 +330,7 @@ final class Settings
      * Large values only one feature reads (3.42, audit Q9): they are left out of the query that loads all settings and
      * read on first use, so a page that never needs them (every public page, the cache hits included) does not carry them.
      * Not the update manifests (update_cache, update_seen…): the background check after every response reads them, so
-     * loading them apart would add queries instead of saving them.
+     * loading them apart would add queries instead of saving them. 3.50: a mirror of keysWith('lazy') (unit 4541).
      */
     public const array LAZY = ['look_draft', 'domain_watch'];
 
@@ -552,6 +553,12 @@ final class Settings
         return self::$withFlag[$flag] ??= array_keys(array_filter(self::DECLARATIONS, static fn (array $row): bool => ($row[$flag] ?? false) === true));
     }
 
+    /** Is the flag true in the declaration of the key. */
+    private static function has(string $key, string $flag): bool
+    {
+        return (self::DECLARATIONS[$key][$flag] ?? false) === true;
+    }
+
     /**
      * May Claude change the setting with update_settings (the rule MCP_SETTINGS of Mcp\Tools held until 3.49)? Code that runs
      * on the site (head_code, marketing_code, cookies_external_code) never: a prompt-injected Claude must not put script on
@@ -577,8 +584,8 @@ final class Settings
     /**
      * What the code knows about one setting, from the lists that hold it (3.42, audit Q9): the default, whether it is a
      * secret (Core\Vault), goes into the site export (Core\SiteExport), has a value per language, is loaded lazily, and
-     * its older names (Core\OldSettingsKeys). The form type is Admin\Modules\Settings::FIELDS and Claude's access the
-     * MCP_SETTINGS pattern of Mcp\Tools; `php tools/settings.php <key>` prints all of it. Null for an unknown key.
+     * its older names (Core\OldSettingsKeys) – from DECLARATIONS since 3.50. The form type is Admin\Modules\Settings::FIELDS
+     * and Claude's access claudeMaySet(); `php tools/settings.php <key>` prints all of it. Null for an unknown key.
      *
      * @return array{default: string, secret: bool, export: bool, per_language: bool, lazy: bool, old_names: list<string>}|null
      */
@@ -590,10 +597,10 @@ final class Settings
 
         return [
             'default' => self::DEFAULTS[$key],
-            'secret' => in_array($key, Vault::SECRET_SETTINGS, true),
-            'export' => in_array($key, SiteExport::SETTINGS, true),
-            'per_language' => in_array($key, self::PER_LANGUAGE, true),
-            'lazy' => in_array($key, self::LAZY, true),
+            'secret' => self::has($key, 'secret'),
+            'export' => self::has($key, 'export'),
+            'per_language' => self::has($key, 'per_language'),
+            'lazy' => self::has($key, 'lazy'),
             'old_names' => array_keys(array_filter(OldSettingsKeys::KEYS, fn (string $new): bool => $new === $key)),
         ];
     }
@@ -632,13 +639,13 @@ final class Settings
     {
         $this->load($key);
         // a language version (/en/, /de/…) may have its own site name and description; empty = as in the default language
-        if (in_array($key, self::PER_LANGUAGE, true) && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
+        if (self::has($key, 'per_language') && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
             return $this->values[$key . '_' . $language];
         }
 
         if (isset($this->values[$key])) {
             // 3.39 (N106): a secret is stored sealed with the key in config.php (Core\Vault) – opened once per request
-            return in_array($key, Vault::SECRET_SETTINGS, true) && Vault::isSealed($this->values[$key])
+            return self::has($key, 'secret') && Vault::isSealed($this->values[$key])
                 ? ($this->opened[$key] ??= Vault::openSecret($this, 'settings', $this->values[$key])) : $this->values[$key];
         }
 
@@ -651,11 +658,11 @@ final class Settings
     {
         if ($this->values === null) {
             $this->values = $this->db->pairs(
-                'SELECT promenna, hodnota FROM {nastaveni} WHERE promenna NOT IN (' . implode(', ', array_fill(0, count(self::LAZY), '?')) . ')',
-                self::LAZY,
+                'SELECT promenna, hodnota FROM {nastaveni} WHERE promenna NOT IN (' . implode(', ', array_fill(0, count(self::keysWith('lazy')), '?')) . ')',
+                self::keysWith('lazy'),
             );
         }
-        if (in_array($key, self::LAZY, true) && !isset($this->lazyRead[$key])) {
+        if (self::has($key, 'lazy') && !isset($this->lazyRead[$key])) {
             $value = $this->db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [$key]);
             if ($value !== null) {
                 $this->values[$key] = (string) $value;
@@ -689,7 +696,7 @@ final class Settings
      */
     public function secretUnreadable(string $key): bool
     {
-        if (!in_array($key, Vault::SECRET_SETTINGS, true)) {
+        if (!self::has($key, 'secret')) {
             return false; // and the settings are not loaded for it: set() of any other key must not fill the cache early
         }
         $this->load($key);
@@ -707,7 +714,7 @@ final class Settings
             throw new \RuntimeException('The stored value of ' . $key . ' is sealed with an encryption key this config.php does not have; it is not overwritten.');
         }
         unset($this->opened[$key]);
-        if (in_array($key, Vault::SECRET_SETTINGS, true)) {
+        if (self::has($key, 'secret')) {
             $value = Vault::sealSecret($this, 'settings', $value); // 3.39 (N106): sealed when the key is in config.php
         }
         if ($key === 'news_slug' && ($old = $this->get('news_slug')) !== $value) {

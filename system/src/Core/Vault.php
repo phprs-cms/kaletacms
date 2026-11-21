@@ -41,6 +41,8 @@ final class Vault
      * moves (move() seals them in the same transaction); an older plain value is still read. secret_key is not here: it
      * signs links and is the base key while the key is in the database (it keeps its value). The TOTP seeds of the
      * accounts (ka_uzivatele.totp_tajemstvi) are sealed the same way under their own purpose (sealSecret 'totp').
+     * 3.50: declared by the flag secret of Settings::DECLARATIONS; this list is its mirror, kept for the Settings class of an
+     * older release that reads it during an update (unit 4541).
      */
     public const array SECRET_SETTINGS = ['smtp_password', 'backup_password', 'ai_key', 'newsletter_key', 'captcha_secret', 'webhook_secret', 'site_key_secret'];
 
@@ -250,7 +252,7 @@ final class Vault
             return 0; // 3.39 review M2: nothing while migrations are pending – a sealed seed needs the widened column of 0126
         }
         $count = 0;
-        foreach ($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(self::SECRET_SETTINGS), '?')) . ')', self::SECRET_SETTINGS) as $key => $value) {
+        foreach ($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(Settings::keysWith('secret')), '?')) . ')', Settings::keysWith('secret')) as $key => $value) {
             if ((string) $value !== '' && !self::isSealed((string) $value)) {
                 $settings->set((string) $key, (string) $value); // Settings::set seals it
                 $count++;
@@ -302,7 +304,7 @@ final class Vault
      */
     public static function secretsState(Db $db, Settings $settings): array
     {
-        $values = array_map('strval', array_values($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(self::SECRET_SETTINGS), '?')) . ") AND hodnota <> ''", self::SECRET_SETTINGS)));
+        $values = array_map('strval', array_values($db->pairs('SELECT promenna, hodnota FROM {nastaveni} WHERE promenna IN (' . implode(', ', array_fill(0, count(Settings::keysWith('secret')), '?')) . ") AND hodnota <> ''", Settings::keysWith('secret'))));
         $seeds = array_map('strval', array_column($db->all("SELECT totp_tajemstvi FROM {uzivatele} WHERE totp_tajemstvi <> ''"), 'totp_tajemstvi'));
         $out = ['sealed' => 0, 'plain' => 0, 'unreadable' => 0];
         foreach ([['settings', $values], ['totp', $seeds]] as [$purpose, $list]) {

@@ -12,9 +12,8 @@ $pluginParameters = [];
 foreach (Kaleta\Mcp\Translator::listAll(Kaleta\Mcp\Tools::definitions()) as $pluginTool) {
     $pluginParameters += array_fill_keys(array_keys((array) $pluginTool['inputSchema']['properties']), true);
 }
-$pluginSettingsPattern = (string) (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue();
 $pluginIsSetting = fn (string $word): bool => array_key_exists($word, Kaleta\Core\Settings::DEFAULTS)
-    && (preg_match($pluginSettingsPattern, $word) === 1 || in_array($word, ['extensions', 'additional_languages'], true));
+    && (Kaleta\Core\Settings::claudeMaySet($word) || in_array($word, ['extensions', 'additional_languages'], true));
 /**
  * The frontmatter of a SKILL.md as the simple YAML the skills use: "key: value" lines and one "metadata:" map of
  * "  key: value" lines; anything else (a nested list, an unquoted ": " or " #") is a problem, not a guess.

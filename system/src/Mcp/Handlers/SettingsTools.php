@@ -147,7 +147,7 @@ trait SettingsTools
                 continue;
             }
             // 3.45 review L8: a yes/no setting refuses a word it does not know instead of storing it as off
-            if (is_scalar($value) && !is_bool($value) && preg_match(self::MCP_SETTINGS, $key)
+            if (is_scalar($value) && !is_bool($value) && \Kaleta\Core\Settings::claudeMaySet($key)
                 && ($key === 'stats' ? !in_array(strtolower(trim((string) $value)), [...\Kaleta\Admin\Modules\Settings::SWITCH_ON, ...\Kaleta\Admin\Modules\Settings::SWITCH_OFF], true)
                     : \Kaleta\Admin\Modules\Settings::strictSwitchRefuses($key, (string) $value))) {
                 $errors[$key] = 'A yes/no setting takes 1 or 0 (also true/false, yes/no, on/off).';
@@ -162,7 +162,7 @@ trait SettingsTools
                 continue;
             }
             // booking settings have no type in the settings form: they are checked like the Bookings settings form does
-            $clean = preg_match(self::MCP_SETTINGS, $key) && is_scalar($value)
+            $clean = \Kaleta\Core\Settings::claudeMaySet($key) && is_scalar($value)
                 ? (str_starts_with($key, 'booking_') ? \Kaleta\Core\Booking::settingValue($key, (string) $value) : \Kaleta\Admin\Modules\Settings::verifyValue($key, is_bool($value) ? ($value ? '1' : '0') : (string) $value))
                 : null;
             if ($clean !== null && $key === 'home_page' && (int) $clean > 0
@@ -185,7 +185,7 @@ trait SettingsTools
                 continue;
             }
             if ($clean === null) {
-                $errors[$key] = preg_match(self::MCP_SETTINGS, $key) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
+                $errors[$key] = \Kaleta\Core\Settings::claudeMaySet($key) ? 'Neplatná hodnota.' : 'Tohle nastavení přes MCP měnit nejde (jen v administraci).';
                 continue;
             }
             if (\Kaleta\Core\Retention::keyOf($key) !== null) {

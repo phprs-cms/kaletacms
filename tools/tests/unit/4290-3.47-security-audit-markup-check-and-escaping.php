@@ -98,7 +98,6 @@ check('3.47 I51: Csp::withNonce is called only with administrator-set code – t
         'system/src/Front/Seo.php: $s->get(\'head_code\')',
         'system/src/Front/Seo.php: (string) $meta[\'kod_hlavicky\']',
     ]);
-$i51Mcp = (new ReflectionClassConstant(\Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue();
 check('3.47 I51: … and none of those settings is writable through MCP (the page head code is refused by its own rule)',
-    array_map(fn (string $key): int => (int) preg_match($i51Mcp, $key), ['head_code', 'marketing_code', 'cookies_external_code', 'site_name']),
+    array_map(fn (string $key): int => (int) \Kaleta\Core\Settings::claudeMaySet($key), ['head_code', 'marketing_code', 'cookies_external_code', 'site_name']),
     [0, 0, 0, 1]);
