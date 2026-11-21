@@ -6,6 +6,7 @@ The two suites keep their commands; their checks live here, one file per topic.
 |---|---|---|
 | `php tools/unit-tests.php [filter …]` | `tests/unit/bootstrap.php`, then `tests/unit/NNNN-<topic>.php` | no database |
 | `tools/test.sh` | `tests/smoke/bootstrap.sh`, then `tests/smoke/NNNN-<topic>.sh` | clean install, site, admin, MCP (MySQL) |
+| `tools/test-browser.sh` | `tests/browser/lib.mjs`, then `tests/browser/NNNN-<topic>.mjs` | an English install walked in Chrome (3.49) |
 
 Both runners take the files in number order. A file whose name does not match `NNNN-<topic>.php` / `.sh`
 (lower case, digits, dots and hyphens) or two files with the same number stop the run, so nothing is skipped silently.
@@ -28,6 +29,14 @@ Both runners take the files in number order. A file whose name does not match `N
   every section before it. Start with `echo "== <topic>"`, report with `check`, `expect` or `echo "  ok     …"` /
   `ERRORS=$((ERRORS+1))`. A section that needs state of an earlier one simply gets a higher number; the order is the
   contract. Helpers used by many sections belong in `bootstrap.sh` only if they are needed before the first section.
+- **Browser steps (3.49):** `tools/test-browser.mjs` is only the runner – it takes `tests/browser/NNNN-<topic>.mjs` in number order
+  (a wrong name or a number used twice stops it) on one site, so a step may use what an earlier one left and a partial run
+  is no gate. A file is `export default async (t) => { const { page, step, visit, … } = t; … };` – `lib.mjs` holds the browser,
+  the page, `step()`, `proof()`, `visit()`, `sql()` and the helpers several files use. A value one step leaves for a later one
+  goes into `t.state` (the five of 3.48: `where`, `inertHandlers`, `steps`, `newsItem`, `equipment`), never into a variable of
+  the module. A new topic is a new file (the next free number by 10); cut on topic boundaries, never inside a step.
+  `STEPS_FILE=<path> tools/test-browser.sh` writes every step's name with its number of `proof()` calls – compare two lists to
+  prove that moving steps kept every one (the 3.49 split was proved so, with the run log and a second run).
 - **Paths:** the checkout is `KALETA_ROOT` (or `dirname(__DIR__, 3)`) in a unit file and `$ROOT` in a smoke file.
 - A guard that reads the smoke suite as text uses `smoke_test_source()` (bootstrap.php), not `tools/test.sh`.
 - `KALETA_UNIT_LABELS=<file> php tools/unit-tests.php` writes every check's file and label – compare two lists to prove
