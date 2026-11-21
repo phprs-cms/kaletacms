@@ -477,6 +477,7 @@ final class Media extends Module
         $target = $this->request->postInt('do_sekce') ?: null;
         $count = 0;
         $skipped = 0;
+        $kept = 0;
         $elsewhere = $move ? [] : self::findUsagesElsewhere($this->db);
         foreach ($this->request->postList('oznacene') as $id) {
             $image = $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $id]);
@@ -490,12 +491,19 @@ final class Media extends Module
             } else {
                 Images::delete($image['obr_poloha'], $image['nahl_poloha']);
                 \Kaleta\Core\Files::delete($image['obr_poloha']);
+                if (\Kaleta\Core\Files::stillOnDisk($image['obr_poloha'])) {
+                    $kept++; // 3.50 (N154): the row stays while its file does – never a file nobody can find any more
+                    continue;
+                }
                 $count += $this->db->delete('media', ['ido' => $image['ido']]);
             }
         }
 
         if ($skipped > 0) {
             $this->app->session->flash('chyba', t('%d files in use were not deleted – remove them from the site first (the list shows where they are used).', $skipped));
+        }
+        if ($kept > 0) {
+            $this->app->session->flash('chyba', t('%d files could not be removed from the disk, so they stay in Media – check the permissions of the media folder or remove them over FTP.', $kept));
         }
         if (!$move && $count > 0) {
             \Kaleta\Core\ChangeLog::write($this->app, 'media', 'deleted', (string) $count);

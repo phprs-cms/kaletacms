@@ -50,6 +50,9 @@ final class SiteImport
     /** Files that may come from the archive into media/ (images and the attachments Media accepts). */
     private const array MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'ico'];
 
+    /** 3.50 (N153): the only second extensions a media file may have – the smaller siblings Images::save writes beside an image. */
+    private const array IMAGE_SIBLINGS = ['jpg' => ['webp', 'avif'], 'jpeg' => ['webp', 'avif'], 'png' => ['webp', 'avif'], 'gif' => ['webp', 'avif'], 'webp' => ['avif']];
+
     private const int BATCH = 300;
     private const int MEDIA_BATCH = 100;
     private const int SECONDS = 8;
@@ -1232,7 +1235,8 @@ final class SiteImport
      * name after its first dot must be an allowed extension (3.9.2, N67): Kaleta's own photo.jpg.webp passes, photo.php.jpg
      * does not – Apache runs a handler for an extension wherever it stands in the name. The extensions are written in lower
      * case (3.15, N72), as Media writes them: route.GPX would miss the download rule of media/.htaccess on an older server
-     * and open inside the site.
+     * and open inside the site. 3.50 (N153): a second extension only as Kaleta's own siblings of an image (Images::save –
+     * photo.jpg.webp, photo.jpg.avif, photo.webp.avif); report.pdf.jpg or logo.svg.webp is refused.
      */
     public static function mediaTarget(string $name): ?string
     {
@@ -1244,8 +1248,13 @@ final class SiteImport
         $dot = (int) strpos($base, '.');
         $parts = explode('.', strtolower($base));
         array_shift($parts); // the name itself
+        $ok = match (count($parts)) {
+            1 => in_array($parts[0], $allowed, true),
+            2 => in_array($parts[1], self::IMAGE_SIBLINGS[$parts[0]] ?? [], true),
+            default => false,
+        };
 
-        return $parts !== [] && array_diff($parts, $allowed) === [] ? substr($name, 0, -strlen($base) + $dot) . strtolower(substr($base, $dot)) : null;
+        return $ok ? substr($name, 0, -strlen($base) + $dot) . strtolower(substr($base, $dot)) : null;
     }
 
     /**

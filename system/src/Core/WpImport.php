@@ -1176,23 +1176,12 @@ final class WpImport
             if ($old === '' || $old === $newVersion) {
                 continue;
             }
-            // an imported old address is always a literal one (N312-4, N312-5): never a pattern rule (*), invalid UTF-8,
-            // control or direction characters, or longer than the column
-            if (!self::literalPath($old)) {
-                self::listRedirect($state, 'odmitnute', ['/' . (mb_check_encoding($old, 'UTF-8') ? $old : mb_convert_encoding($old, 'UTF-8', 'UTF-8')), '/' . $newVersion, 'not_literal']);
-                continue;
-            }
-            $existing = $this->db->value('SELECT na_adresu FROM {presmerovani} WHERE z_adresy = ?', [$old]);
-            $refused = match (true) {
-                $existing !== null && trim((string) $existing, '/') !== trim($newVersion, '/') => 'redirect_exists',
-                $existing === null && $this->addressInUse($old) => 'address_in_use',
-                default => '',
-            };
+            $refused = self::redirectRefusal($this->db, $this->settings, $old, $newVersion);
             if ($refused !== '') {
-                self::listRedirect($state, 'odmitnute', ['/' . $old, '/' . $newVersion, $refused]);
+                self::listRedirect($state, 'odmitnute', ['/' . self::shownPath($old), '/' . $newVersion, $refused]);
                 continue;
             }
-            if ($existing === null) {
+            if ($this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$old]) === null) {
                 Redirects::add($this->db, $old, $newVersion);
                 self::listRedirect($state, 'nove', ['/' . $old, '/' . $newVersion]);
                 $count++;
@@ -1200,6 +1189,35 @@ final class WpImport
         }
 
         return $count;
+    }
+
+    /**
+     * Why an old address of an import must not redirect to its new one, or '' when it may (3.50, N125 – every importer asks
+     * this: WordPress, any website, Blogger and the other exports):
+     *  - not_literal: a pattern rule (*), invalid UTF-8, control or direction characters, or longer than the column (literalPath);
+     *  - redirect_exists: the old address already redirects elsewhere – that redirect is kept;
+     *  - address_in_use: the old address is a page, item or anything else the site answers here (addressInUse) – a redirect
+     *    would hide it, and healing would rewrite every link to it.
+     * An old address that already redirects to the same new one answers '' (nothing to add).
+     */
+    public static function redirectRefusal(Db $db, Settings $settings, string $old, string $new): string
+    {
+        if (!self::literalPath($old)) {
+            return 'not_literal';
+        }
+        $existing = $db->value('SELECT na_adresu FROM {presmerovani} WHERE z_adresy = ?', [$old]);
+
+        return match (true) {
+            $existing !== null && trim((string) $existing, '/') !== trim($new, '/') => 'redirect_exists',
+            $existing === null && self::addressInUse($db, $settings, $old) => 'address_in_use',
+            default => '',
+        };
+    }
+
+    /** An old path as it can be listed: invalid UTF-8 replaced (a refused not_literal address may carry it). */
+    public static function shownPath(string $path): string
+    {
+        return mb_check_encoding($path, 'UTF-8') ? $path : mb_convert_encoding($path, 'UTF-8', 'UTF-8');
     }
 
     /**
@@ -1218,27 +1236,27 @@ final class WpImport
      * of a language version, the news list, a news item, a category or tag (3.6, N36-1)? Then it must not become a redirect
      * (see redirect()).
      */
-    private function addressInUse(string $path): bool
+    private static function addressInUse(Db $db, Settings $settings, string $path): bool
     {
         // 3.9: an old /en/… address (Polylang, WPML) belongs to the English version. A page address there is in use only when
         // that version has the page (or a redirect) – the router looks pages up by slug and language, so the default
         // language's /kontakt does not answer /en/kontakt, whatever slugs_per_language says
         $prefix = Language::splitPrefix('/' . $path);
-        $language = $prefix !== null && in_array($prefix[0], Language::additional($this->settings), true) ? $prefix[0] : '';
+        $language = $prefix !== null && in_array($prefix[0], Language::additional($settings), true) ? $prefix[0] : '';
         $slug = $language !== '' ? trim((string) $prefix[1], '/') : $path;
-        if ($language !== '' && $slug !== '' && !str_contains($slug, '/') && !Pages::slugReserved($slug, $this->db)) {
-            return $this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL', [$slug, $language]) !== null
-                || $this->db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$path]) !== null;
+        if ($language !== '' && $slug !== '' && !str_contains($slug, '/') && !Pages::slugReserved($slug, $db)) {
+            return $db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND jazyk = ? AND smazano IS NULL', [$slug, $language]) !== null
+                || $db->value('SELECT 1 FROM {presmerovani} WHERE z_adresy = ?', [$path]) !== null;
         }
-        [$sameLanguage, $languageParams] = Slug::scope($this->db, $language);
-        [$sameItemLanguage] = Slug::scope($this->db, $language, 'p.jazyk');
-        if ($this->db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL' . $sameLanguage, [$slug, ...$languageParams]) !== null
-            || (!str_starts_with($path, '?') && Audit::pathResolves($this->db, $this->settings, '/' . $path))) {
+        [$sameLanguage, $languageParams] = Slug::scope($db, $language);
+        [$sameItemLanguage] = Slug::scope($db, $language, 'p.jazyk');
+        if ($db->value('SELECT 1 FROM {stranky} WHERE seo_link = ? AND smazano IS NULL' . $sameLanguage, [$slug, ...$languageParams]) !== null
+            || (!str_starts_with($path, '?') && Audit::pathResolves($db, $settings, '/' . $path))) {
             return true;
         }
         $parts = explode('/', $slug);
 
-        return count($parts) === 2 && $this->db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL' . $sameItemLanguage, [...$parts, ...$languageParams]) !== null;
+        return count($parts) === 2 && $db->value('SELECT 1 FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.seo_link = ? AND p.seo_link = ? AND p.smazano IS NULL' . $sameItemLanguage, [...$parts, ...$languageParams]) !== null;
     }
 
     /**

@@ -192,21 +192,21 @@ final class Images
             'nahl_width' => imagesx($preview), 'nahl_height' => imagesy($preview)];
     }
 
-    /** Deletes the image's files; ignores paths outside media/. */
+    /**
+     * Deletes the image's files; ignores paths outside media/. 3.50 (N154): also an image with another name – an import of a
+     * Kaleta export keeps the names of the archive – when SiteImport::mediaTarget() keeps the path as it is; only files
+     * inside media/ are deleted (Files::removeFromMedia), and Files::stillOnDisk() tells the caller whether it is gone.
+     */
     public static function delete(string ...$paths): void
     {
         foreach ($paths as $path) {
-            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#D', $path, $m)) {
+            if (!preg_match('#^(media/\d{4}/\d{2}/[a-z0-9-]+)\.(jpg|png|webp|gif|svg)$#D', $path, $m)
+                && !(Files::importedName($path) && preg_match('#^(media/.+?)\.(jpe?g|png|webp|gif|svg|avif|ico)$#D', $path, $m))) {
                 continue;
             }
-            // together with the image its variants for srcset and WebP are removed too
+            // together with the image its variants for srcset and WebP are removed too (also the copy waiting for approval, 3.15)
             foreach ([$path, $path . '.webp', $path . '.avif', $m[1] . '-1200.' . $m[2], $m[1] . '-1200.' . $m[2] . '.webp', $m[1] . '-1200.' . $m[2] . '.avif'] as $file) {
-                // also the copy waiting for approval (3.15, Core\MediaStaging)
-                foreach ([KALETA_ROOT . '/' . $file, MediaStaging::absolute($file, true)] as $disk) {
-                    if (is_file($disk)) {
-                        unlink($disk);
-                    }
-                }
+                Files::removeFromMedia($file);
             }
         }
     }

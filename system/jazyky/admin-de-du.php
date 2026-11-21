@@ -1543,4 +1543,8 @@ return [
     'The record does not exist, or you cannot open it.' => 'Der Datensatz existiert nicht, oder du kannst ihn nicht öffnen.',
     'Internal files linked to the person’s customer records stay (the links went) – check them by hand.' => 'Interne Dateien, die mit den Kundendatensätzen der Person verknüpft waren, bleiben (die Verknüpfungen sind weg) – prüfe sie von Hand.',
     'Erasing removes the links; the files stay – they are company documents, check them by hand in Internal files.' => 'Das Löschen entfernt die Verknüpfungen; die Dateien bleiben – es sind Firmendokumente, prüfe sie von Hand in den internen Dateien.',
+    'This page stopped the import twice (the server ended the batch while it was being read), so it was skipped – add its content by hand.' => 'Diese Seite hat den Import zweimal angehalten (der Server beendete den Durchgang, während sie gelesen wurde), daher wurde sie übersprungen – füge ihren Inhalt von Hand hinzu.',
+    '/%s – a part of the page has more than %s buttons that open panels: it was not read as an accordion or tabs and stays as text; check it.' => '/%s – ein Teil der Seite hat mehr als %s Schaltflächen, die Bereiche öffnen: Er wurde nicht als Akkordeon oder Tabs gelesen und bleibt Text; prüfe ihn.',
+    '/%s – the sound %s could not be downloaded: add it in the builder.' => '/%s – der Ton %s konnte nicht heruntergeladen werden: Füge ihn im Builder ein.',
+    '%d files could not be removed from the disk, so they stay in Media – check the permissions of the media folder or remove them over FTP.' => '%d Dateien konnten nicht von der Festplatte entfernt werden und bleiben daher in den Medien – prüfe die Berechtigungen des Ordners media oder lösche sie per FTP.',
 ];

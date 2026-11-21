@@ -9346,4 +9346,13 @@ return [
     'Linked to the customer' => 'Mit dem Kunden verknüpft',
     'Linked to the quote' => 'Mit dem Angebot verknüpft',
     '%s (switched off)' => '%s (ausgeschaltet)',
+    'This page stopped the import twice (the server ended the batch while it was being read), so it was skipped – add its content by hand.' => 'Diese Seite hat den Import zweimal angehalten (der Server beendete den Durchgang, während sie gelesen wurde), daher wurde sie übersprungen – fügen Sie ihren Inhalt von Hand hinzu.',
+    '/%s – a part of the page has more than %s buttons that open panels: it was not read as an accordion or tabs and stays as text; check it.' => '/%s – ein Teil der Seite hat mehr als %s Schaltflächen, die Bereiche öffnen: Er wurde nicht als Akkordeon oder Tabs gelesen und bleibt Text; prüfen Sie ihn.',
+    '/%s – the address is already in use on this site, so it does not redirect to /%s: it keeps working and no link was rewritten.' => '/%s – die Adresse wird auf dieser Website bereits verwendet, daher leitet sie nicht auf /%s weiter: Sie funktioniert weiter und kein Link wurde umgeschrieben.',
+    '/%s already redirects elsewhere – that redirect was kept, none to /%s was added.' => '/%s leitet bereits woandershin weiter – diese Weiterleitung blieb, eine auf /%s wurde nicht hinzugefügt.',
+    '/%s has a "*", invalid characters or is too long – no redirect to /%s was added.' => '/%s enthält ein „*“, ungültige Zeichen oder ist zu lang – keine Weiterleitung auf /%s wurde hinzugefügt.',
+    '/%s – the sound %s could not be downloaded: add it in the builder.' => '/%s – der Ton %s konnte nicht heruntergeladen werden: Fügen Sie ihn im Builder ein.',
+    '/%s – the poster image %s of a video is not in Media and was left out.' => '/%s – das Vorschaubild %s eines Videos ist nicht in den Medien und wurde weggelassen.',
+    'not a plain address (a “*”, invalid characters or too long)' => 'keine einfache Adresse (ein „*“, ungültige Zeichen oder zu lang)',
+    '%d files could not be removed from the disk, so they stay in Media – check the permissions of the media folder or remove them over FTP.' => '%d Dateien konnten nicht von der Festplatte entfernt werden und bleiben daher in den Medien – prüfen Sie die Berechtigungen des Ordners media oder löschen Sie sie per FTP.',
 ];

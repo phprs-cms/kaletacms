@@ -142,7 +142,7 @@ $oldSite = (string) $state['web']['adresa'];
 <?php if (($state['presmerovani']['odmitnute'] ?? []) !== []): ?>
 <details class="pokrocile"><summary><?= e(t('Old addresses that were not redirected (%s)', count($state['presmerovani']['odmitnute']))) ?></summary><ul>
 <?php foreach ($state['presmerovani']['odmitnute'] as $r): ?>
-	<li><?= e($r[0] . ' → ' . $r[1] . ' – ' . t(($r[2] ?? '') === 'address_in_use' ? 'the address is already in use on this site' : 'the address already redirects elsewhere')) ?></li>
+	<li><?= e($r[0] . ' → ' . $r[1] . ' – ' . t(match ($r[2] ?? '') { 'address_in_use' => 'the address is already in use on this site', 'not_literal' => 'not a plain address (a “*”, invalid characters or too long)', default => 'the address already redirects elsewhere' })) ?></li>
 <?php endforeach ?>
 </ul></details>
 <?php endif ?>

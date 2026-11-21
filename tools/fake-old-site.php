@@ -21,6 +21,9 @@ declare(strict_types=1);
  *    --site=http://127.0.0.1:<port>) – a sitemap of every published post, page and product and of the product category
  *    pages (/product-category/…, /ar/product-category/…), each of them a small page with its title, and a JPEG for every
  *    image under /wp-content/uploads/.
+ *  - a350 (3.50, A1): the pages named by KALETA_FAKE_PAGES (comma-separated paths) in its sitemap; /kill/ answers after
+ *    KALETA_FAKE_SLEEP seconds (default 8 – the test ends the batch before: a page that kills a batch), /slow/ has six images
+ *    /slowimg/<n>.png that answer after one second each (a slow host), every other listed path is a small page with its title.
  */
 const PAGES = 350;
 
@@ -112,6 +115,36 @@ if ($mode === 'sitemaps') {
     } elseif (preg_match('#^/sm-x\d+\.xml$#', $path) === 1) {
         header('Content-Type: application/xml');
         echo $urlset(['/extra' . substr($path, 5, -4) . '/']);
+    } else {
+        http_response_code(404);
+        echo 'Not found';
+    }
+
+    return true;
+}
+if ($mode === 'a350') {
+    $listed = array_values(array_filter(array_map('trim', explode(',', (string) getenv('KALETA_FAKE_PAGES')))));
+    if ($path === '/robots.txt') {
+        header('Content-Type: text/plain');
+        echo "User-agent: *\nCrawl-delay: 0\n\nSitemap: {$origin}/sitemap.xml\n";
+    } elseif ($path === '/sitemap.xml') {
+        header('Content-Type: application/xml');
+        echo $urlset($listed);
+    } elseif (preg_match('#^/slowimg/\d+\.png$#', $path) === 1) {
+        sleep(1);
+        header('Content-Type: image/png');
+        $image = imagecreatetruecolor(320, 240);
+        imagefill($image, 0, 0, (int) imagecolorallocate($image, 90, (int) substr($path, 9, -4) * 30, 40));
+        imagepng($image);
+    } elseif (in_array($path, $listed, true)) {
+        if ($path === '/kill/') {
+            sleep(max(1, (int) (getenv('KALETA_FAKE_SLEEP') ?: 8)));
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        $title = ucfirst(trim($path, '/'));
+        $images = $path === '/slow/' ? implode('', array_map(fn (int $n): string => '<img src="/slowimg/' . $n . '.png" alt="Slow ' . $n . '">', range(1, 6))) : '';
+        echo '<!doctype html><html><head><title>' . $title . ' | Old Site 350</title></head><body><header><nav><a href="/">Home</a></nav></header>'
+            . '<main><h1>' . $title . '</h1><p>' . str_repeat('The text of an old page that is long enough to be its content. ', 3) . '</p>' . $images . '</main></body></html>';
     } else {
         http_response_code(404);
         echo 'Not found';

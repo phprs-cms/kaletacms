@@ -8938,4 +8938,13 @@ return [
     'Linked to the customer' => 'Připojeno k zákazníkovi',
     'Linked to the quote' => 'Připojeno k nabídce',
     '%s (switched off)' => '%s (vypnuto)',
+    'This page stopped the import twice (the server ended the batch while it was being read), so it was skipped – add its content by hand.' => 'Tato stránka dvakrát zastavila import (server ukončil dávku, zatímco se četla), proto byla přeskočena – doplňte její obsah ručně.',
+    '/%s – a part of the page has more than %s buttons that open panels: it was not read as an accordion or tabs and stays as text; check it.' => '/%s – část stránky má víc než %s tlačítek, která otevírají panely: nečetla se jako akordeon ani záložky a zůstává jako text; zkontrolujte ji.',
+    '/%s – the address is already in use on this site, so it does not redirect to /%s: it keeps working and no link was rewritten.' => '/%s – adresu už tento web používá, proto nepřesměrovává na /%s: dál funguje a žádný odkaz se nepřepsal.',
+    '/%s already redirects elsewhere – that redirect was kept, none to /%s was added.' => '/%s už přesměrovává jinam – toto přesměrování zůstalo, na /%s se žádné nepřidalo.',
+    '/%s has a "*", invalid characters or is too long – no redirect to /%s was added.' => '/%s obsahuje „*“, neplatné znaky nebo je příliš dlouhá – přesměrování na /%s se nepřidalo.',
+    '/%s – the sound %s could not be downloaded: add it in the builder.' => '/%s – zvuk %s se nepodařilo stáhnout: vložte ho v builderu.',
+    '/%s – the poster image %s of a video is not in Media and was left out.' => '/%s – úvodní obrázek videa %s není v Médiích, proto byl vynechán.',
+    'not a plain address (a “*”, invalid characters or too long)' => 'nejde o prostou adresu („*“, neplatné znaky nebo příliš dlouhá)',
+    '%d files could not be removed from the disk, so they stay in Media – check the permissions of the media folder or remove them over FTP.' => '%d souborů se nepodařilo odstranit z disku, proto zůstávají v Médiích – zkontrolujte oprávnění složky media nebo je smažte přes FTP.',
 ];

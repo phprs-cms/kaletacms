@@ -205,16 +205,55 @@ final class Files
             'nahl_poloha' => '', 'nahl_width' => 0, 'nahl_height' => 0, 'nazev' => mb_substr($name, 0, 150)];
     }
 
+    /**
+     * Deletes an attachment's file. 3.50 (N154): also one with another name – an import of a Kaleta export keeps the names of
+     * the archive (media/folder/Price_list.pdf) – when SiteImport::mediaTarget() keeps the path as it is; removeFromMedia()
+     * deletes only a file inside media/ (realpath), never a folder. stillOnDisk() tells the caller whether it is gone.
+     */
     public static function delete(string $path): void
     {
-        if (!preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path)) {
+        if (!preg_match('#^media/\d{4}/\d{2}/[a-z0-9-]+\.(' . implode('|', self::FILE_EXTENSIONS) . ')$#', $path) && !self::importedName($path)) {
             return;
         }
-        foreach ([KALETA_ROOT . '/' . $path, MediaStaging::absolute($path, true)] as $disk) { // also a copy waiting for approval (3.15)
-            if (is_file($disk)) {
+        self::removeFromMedia($path);
+    }
+
+    /** A media path in the form an import of a Kaleta export writes (3.50, N154): SiteImport::mediaTarget() keeps it unchanged. */
+    public static function importedName(string $path): bool
+    {
+        return SiteImport::mediaTarget($path) === $path;
+    }
+
+    /**
+     * Removes a file of media/ and its copy waiting for approval (3.15, Core\MediaStaging) – only when the path resolves
+     * (realpath) to a file inside media/ or the staging folder: never a folder, never what a symbolic link outside points at
+     * (3.50, N154).
+     */
+    public static function removeFromMedia(string $path): void
+    {
+        foreach ([[KALETA_ROOT . '/' . $path, KALETA_ROOT . '/media'], [MediaStaging::absolute($path, true), KALETA_ROOT . '/' . MediaStaging::FOLDER]] as [$disk, $root]) {
+            if (self::isFile($disk) && self::inside($disk, $root)) {
                 unlink($disk);
             }
         }
+    }
+
+    /**
+     * Is the media file still on the disk (3.50, N154)? Then its row in Media stays – a deleted row with its file left behind
+     * would be a file nobody can find or remove any more.
+     */
+    public static function stillOnDisk(string $path): bool
+    {
+        return str_starts_with($path, 'media/') && !str_contains($path, '..') && self::isFile(KALETA_ROOT . '/' . $path);
+    }
+
+    /** Does the file resolve (symbolic links followed) to a file inside the folder? */
+    private static function inside(string $disk, string $folder): bool
+    {
+        $real = realpath($disk);
+        $base = realpath($folder);
+
+        return $real !== false && $base !== false && is_file($real) && str_starts_with($real, $base . DIRECTORY_SEPARATOR);
     }
 
     public static function size(int $byteCount): string

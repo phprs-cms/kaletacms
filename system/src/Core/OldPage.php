@@ -32,6 +32,8 @@ final class OldPage
     public const float SECONDS = 20.0;
     /** A rule body longer than this is skipped (a data URI or a minified blob, never a declaration Claude needs). */
     public const int RULE_BYTES = 20_000;
+    /** 3.50 (N124): the comma-separated selectors of one rule that are indexed (a reset rule lists hundreds of them). */
+    public const int SELECTORS_PER_RULE = 200;
 
     /** Attributes the cleaned HTML keeps – what tells Claude what an element is, where it links and how it is laid out. */
     private const array ATTRIBUTES = ['class', 'id', 'href', 'src', 'alt', 'title', 'role', 'aria-label', 'type', 'name', 'placeholder', 'for', 'colspan', 'rowspan',
@@ -410,19 +412,25 @@ final class OldPage
     {
         $index = [];
         foreach ($rules as [$selector, $declarations]) {
-            foreach (explode(',', $selector) as $one) {
+            // 3.50 (N124): the keys of one rule are collected first and each gets its declarations once – a reset rule with
+            // hundreds of selectors no longer copies the same declarations hundreds of times; at most SELECTORS_PER_RULE parts
+            $keys = [];
+            foreach (array_slice(explode(',', $selector), 0, self::SELECTORS_PER_RULE) as $one) {
                 $last = trim((string) preg_replace('/^.*[\s>+~]/', '', trim($one)));
                 if ($last === '' || preg_match('/:(?!root)/', $last)) {
                     continue;
                 }
                 preg_match_all('/([.#])([\w-]+)/', $last, $parts, PREG_SET_ORDER);
-                $keys = array_map(fn (array $p): string => $p[1] . $p[2], $parts);
-                if ($keys === [] && preg_match('/^([a-z][a-z0-9]*)$/iD', $last, $tag)) {
-                    $keys = [strtolower($tag[1])];
+                $found = array_map(fn (array $p): string => $p[1] . $p[2], $parts);
+                if ($found === [] && preg_match('/^([a-z][a-z0-9]*)$/iD', $last, $tag)) {
+                    $found = [strtolower($tag[1])];
                 }
-                foreach ($keys as $key) {
-                    $index[$key] = array_merge($index[$key] ?? [], $declarations);
+                foreach ($found as $key) {
+                    $keys[$key] = true;
                 }
+            }
+            foreach (array_keys($keys) as $key) {
+                $index[$key] = array_merge($index[$key] ?? [], $declarations);
             }
         }
 
