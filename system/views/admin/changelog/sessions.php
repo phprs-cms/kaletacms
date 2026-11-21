@@ -19,9 +19,11 @@
 <ul><?php foreach ($result['untracked'] as $u): ?><li><?= e($u) ?></li><?php endforeach ?></ul><?php endif ?>
 </div>
 <?php endif ?>
-<?php if ($sessions === []): ?>
-<p><?= e(t('No Claude session yet.')) ?></p>
+<?php if ($sessions === []): // 3.50.1 (UX-l3) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'protokol', 'heading' => t('No Claude session yet.'), 'text' => t('When a connected Claude changes something on the site, its changes appear here as a session you can undo.'),
+    'action' => [$app->url('admin.php?module=claude_settings'), t('Claude settings')]]) ?>
 <?php else: ?>
+<div class="tab-obal"><?php /* 3.50.1 (UX-l4): the table scrolls on its own on a phone */ ?>
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Connection')) ?></th><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Changes')) ?></th><th scope="col"><?= e(t('Tools')) ?></th><th scope="col"></th></tr></thead>
 <tbody>
@@ -44,4 +46,5 @@
 <?php endforeach ?>
 </tbody>
 </table>
+</div>
 <?php endif ?>

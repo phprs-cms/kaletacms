@@ -42,7 +42,7 @@ $staffNames = array_column($staff, 'name', 'id');
 <ul>
 <?php foreach ($offs as $o): ?>
 <li><?= e(format_date($o['from'], true)) ?> – <?= e(format_date($o['to'], true)) ?>: <?= e($o['staff_id'] === null ? t('everyone') : (string) ($staffNames[$o['staff_id']] ?? '#' . $o['staff_id'])) ?><?= $o['note'] !== '' ? ' (' . e($o['note']) . ')' : '' ?>
-<form class="vradku" method="post" action="<?= e($module->url('off_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="navigace" type="submit"><?= e(t('Remove')) ?></button></form></li>
+<form class="vradku" method="post" action="<?= e($module->url('off_delete')) ?>" data-potvrdit="<?= e(t('Remove this time off? The slots become bookable again.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $o['id'] ?>"><button class="navigace" type="submit"><?= e(t('Remove')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

@@ -180,14 +180,15 @@ final class Transfer extends Module
         return array_values(array_map(fn (array $c): int => $c['page_id'], array_filter($choices, fn (array $c): bool => $c['how'] === \Kaleta\Core\StarterPages::LEGACY && $c['why'] !== 'edited' && in_array($c['page_id'], $ticked, true))));
     }
 
-    /** Removes the record of an import; the imported pages stay. */
+    /** Removes the record of an import; the imported pages stay. 3.50.1 (UX-l2): says so. */
     protected function actionWebDelete(): Response
     {
-        if ($this->request->isPost()) {
-            WebImport::delete($this->request->post('id'));
+        if (!$this->request->isPost()) {
+            return $this->back();
         }
+        WebImport::delete($this->request->post('id'));
 
-        return $this->back();
+        return $this->back('The import was removed from the list. The imported pages stay.');
     }
 
     /* ---------- the migration parity report (2.7) ---------- */
@@ -226,14 +227,15 @@ final class Transfer extends Module
         return $this->view('report', 'Check the move', ['state' => $state, 'result' => $report->result($state)]);
     }
 
-    /** Removes a saved report. */
+    /** Removes a saved report. 3.50.1 (UX-l2): says so. */
     protected function actionReportDelete(): Response
     {
-        if ($this->request->isPost()) {
-            MigrationReport::delete($this->request->post('id'));
+        if (!$this->request->isPost()) {
+            return $this->back();
         }
+        MigrationReport::delete($this->request->post('id'));
 
-        return $this->back();
+        return $this->back('The report was removed.');
     }
 
     /* ---------- import: 1. file ---------- */

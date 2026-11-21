@@ -77,8 +77,9 @@ $hours = fn (int $h): string => $h % 24 === 0 && $h > 0 ? t('%d days', intdiv($h
 </form>
 <h2><?= e(t('Maintenance windows of the customers')) ?></h2>
 <p class="napoveda"><?= e(t('When the sites of a customer may install a new version, in the console\'s time zone (%s). A range past midnight belongs to the day it starts (Monday 22:00–05:00 ends on Tuesday morning); no day ticked = any time. A site can have its own window on its page.', $timeZone)) ?></p>
-<?php if ($customers === []): ?>
-<p><?= e(t('No customers yet.')) ?> <a href="<?= e($module->url('customers')) ?>"><?= e(t('Customers')) ?></a></p>
+<?php if ($customers === []): // 3.50.1 (UX-l3) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'zakaznici', 'heading' => t('No customers yet.'), 'text' => t('Group the sites by customer first – each customer can then have its own maintenance window.'),
+    'action' => [$module->url('customers'), t('Customers')]]) ?>
 <?php else: ?>
 <?php foreach ($customers as $c): $w = Rollout::parseWindow($windows[$c['id']] ?? ''); ?>
 <form class="formular flotila-okno" method="post" action="<?= e($module->url('window')) ?>">

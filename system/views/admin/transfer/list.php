@@ -70,7 +70,7 @@ $phase = [
 <ul class="seznam-importu">
 <?php foreach ($webImports as $w): ?>
 	<li><a href="<?= e($module->url('web_progress', ['id' => $w['id']])) ?>"><?= e($w['web']) ?></a> – <?= e(t(['hledani' => 'finding pages', 'nahled' => 'ready to import', 'import' => 'import in progress', 'hotovo' => 'content imported'][$w['faze']] ?? '–')) ?>
-		<form class="vradku" method="post" action="<?= e($module->url('web_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($w['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
+		<form class="vradku" method="post" action="<?= e($module->url('web_delete')) ?>" data-potvrdit="<?= e(t('Remove this import from the list? The imported pages stay.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($w['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>
@@ -90,7 +90,7 @@ $phase = [
 <ul class="seznam-importu">
 <?php foreach ($reports as $r): ?>
 	<li><a href="<?= e($module->url('report', ['id' => $r['id']])) ?>"><?= e($r['web']) ?></a> – <?= e($r['faze'] === 'hotovo' ? t('checked %s', substr((string) ($r['dokonceno'] ?? $r['zalozeno']), 0, 16)) : t('check in progress')) ?>
-		<form class="vradku" method="post" action="<?= e($module->url('report_delete')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($r['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
+		<form class="vradku" method="post" action="<?= e($module->url('report_delete')) ?>" data-potvrdit="<?= e(t('Remove this report? Run the check again to get a new one.')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= e($r['id']) ?>"><button class="navigace" type="submit"><?= e(t('Remove from the list')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

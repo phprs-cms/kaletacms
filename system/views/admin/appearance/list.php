@@ -248,9 +248,10 @@ $tabs = ['styl' => 'Styles', 'barvy' => 'Colours', 'tmavy' => 'Dark mode', 'pism
 <p class="napoveda"><?= e(t('Each time you publish the look, the one before is kept here (the last 20).')) ?></p>
 <?php else: ?>
 <ul class="vzhled-verze">
+<?php $restoreConfirm = Kaleta\Core\Look::hasDraft($app->settings()) ? ' data-potvrdit="' . e(t('Load this look into the draft? The unpublished look changes you have now are replaced.')) . '"' : ''; // 3.50.1 (UX-l1) ?>
 <?php foreach ($versions as $v): ?>
 	<li><strong><?= e(format_date($v['created'], true)) ?></strong><?= $v['author'] !== null ? ' · ' . e((string) $v['author']) : '' ?><br><span class="napoveda"><?= e(t('before: %s', $v['summary'])) ?></span>
-		<form class="vradku" method="post" action="<?= e($module->url('restore_look')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $v['id'] ?>"><button class="navigace" type="submit"><?= e(t('Back to this look')) ?></button></form></li>
+		<form class="vradku" method="post" action="<?= e($module->url('restore_look')) ?>"<?= $restoreConfirm ?>><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $v['id'] ?>"><button class="navigace" type="submit"><?= e(t('Back to this look')) ?></button></form></li>
 <?php endforeach ?>
 </ul>
 <?php endif ?>

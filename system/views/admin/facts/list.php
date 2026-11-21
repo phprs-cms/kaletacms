@@ -2,6 +2,7 @@
 /**
  * Business facts (2.10): the site's own facts and the built-in ones from the settings, with where each is used.
  *
+ * @var Kaleta\Core\App $app
  * @var Kaleta\Admin\Modules\Facts $module
  * @var array<string, array<string, mixed>> $facts
  * @var array<string, int> $usage
@@ -14,8 +15,9 @@ $builtIn = array_filter($facts, fn (array $f): bool => $f['builtIn']);
 ?>
 <p class="hlaska"><?= e(t('Write a fact once and use it everywhere: {{fact.key}} in a text, a button or a link (tel:{{fact.company_phone}}). The site fills in the value when a page is shown; change it here and every page says the new value.')) ?></p>
 <p><a class="tl" href="<?= e($module->url('edit')) ?>"><?= e(t('New fact')) ?></a> <a class="navigace" href="<?= e($module->url('claims')) ?>"><?= e(t('Sentences with numbers that are not facts yet')) ?></a></p>
-<?php if ($own === []): ?>
-<p><?= e(t('No facts yet. Typical ones: the year the company was founded, the number of projects or clients, a price from, the warranty, the area you serve.')) ?></p>
+<?php if ($own === []): // 3.50.1 (UX-l3) ?>
+<?= $app->view->render('admin/empty', ['icon' => 'fakta', 'heading' => t('No facts yet.'), 'text' => t('No facts yet. Typical ones: the year the company was founded, the number of projects or clients, a price from, the warranty, the area you serve.'),
+    'action' => [$module->url('edit'), t('New fact')]]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Fact')) ?></th><th scope="col"><?= e(t('Value')) ?></th><th scope="col"><?= e(t('Token')) ?></th><th scope="col"><?= e(t('Used')) ?></th><th scope="col"><?= e(t('Changed')) ?></th></tr></thead>

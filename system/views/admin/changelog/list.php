@@ -58,6 +58,12 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 	<label><?= e(t('Detail contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="18"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)
 </form>
+<?php if ($records === []): // 3.50.1 (UX-l3): an empty state – nothing matches the filter, or nothing logged yet ?>
+<?php $filtered = $who !== 0 || $by !== '' || $whereParts !== '' || $search !== ''; ?>
+<?= $app->view->render('admin/empty', ['icon' => 'protokol', 'heading' => $filtered ? t('Nothing matches the filter.') : t('Nothing logged yet.'),
+    'text' => $filtered ? t('Change or clear the filter to see more of the log.') : t('Every change in the administration and over the Claude connection will be listed here.'),
+    'action' => $filtered ? [$module->url(), t('Show the whole log')] : null]) ?>
+<?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('When')) ?></th><th scope="col"><?= e(t('Who')) ?></th><th scope="col"><?= e(t('Where')) ?></th><th scope="col"><?= e(t('What')) ?></th><th scope="col"><?= e(t('Detail')) ?></th></tr></thead>
@@ -74,6 +80,7 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 </tbody>
 </table>
 </div>
+<?php endif ?>
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>

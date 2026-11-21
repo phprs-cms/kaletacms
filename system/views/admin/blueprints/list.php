@@ -21,7 +21,7 @@ use Kaleta\Core\Blueprint;
 <tbody>
 <?php foreach ($applied as $key => $m): ?>
 <tr><td><strong><?= e(Blueprint::text($m['name'])) ?></strong></td><td><?= e(Blueprint::text($m['description'])) ?></td>
-	<td class="akce"><form method="post" action="<?= e($module->url('remove')) ?>"><?= $csrf ?><input type="hidden" name="key" value="<?= e($key) ?>"><button class="navigace" type="submit"><?= e(t('Remove')) ?></button></form></td></tr>
+	<td class="akce"><form method="post" action="<?= e($module->url('remove')) ?>" data-potvrdit="<?= e(t('Take this blueprint off? Its checks go; your pages, facts and content stay.')) ?>"><?= $csrf ?><input type="hidden" name="key" value="<?= e($key) ?>"><button class="navigace" type="submit"><?= e(t('Remove')) ?></button></form></td></tr>
 <?php endforeach ?>
 </tbody></table></div>
 <?php if ($questions !== []): ?>

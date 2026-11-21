@@ -19,6 +19,7 @@
 <?php if ($addons === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'rozsireni', 'heading' => t('No add-on in extensions/ yet.'), 'text' => t('Most sites need none – the features of a business site are built in. A developer can write one with the extension API.'), 'action' => null]) ?>
 <?php else: ?>
+<div class="tab-obal"><?php /* 3.50.1 (UX-l4): the table scrolls on its own on a phone */ ?>
 <table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Add-on')) ?></th><th scope="col"><?= e(t('Version')) ?></th><th scope="col"><?= e(t('Status')) ?></th><th scope="col"></th></tr></thead>
 <tbody>
@@ -41,6 +42,7 @@
 <?php endforeach ?>
 </tbody>
 </table>
+</div>
 <?php endif ?>
 <?php if ($pages !== []): ?>
 <h2><?= e(t('Pages of add-ons')) ?></h2>
