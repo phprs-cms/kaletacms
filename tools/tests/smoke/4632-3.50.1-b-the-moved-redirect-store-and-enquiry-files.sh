@@ -1,6 +1,9 @@
 echo "== 3.50.1 B2: the redirect store and the enquiry files moved to Core – the admin form, MCP and the daily matcher write the same row; an expired enquiry's file goes"
+B632_TOKEN="kaleta_$(openssl rand -hex 24)"
+sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) SELECT idu, 'b632 admin', 'full', 'all', SHA2('$B632_TOKEN', 256), '$(site_time)' FROM ka_uzivatele WHERE user = 'admin'" > /dev/null
+b632_mcp() { mcp_call "$B632_TOKEN" "$1" "$2"; } # its own connection: an earlier section may have removed the suite's shared token
 B632_NOW=$(site_time)
-mcp create_page '{"title":"Price list B632","slug":"b632-cenik-sluzeb"}' > /dev/null
+b632_mcp create_page '{"title":"Price list B632","slug":"b632-cenik-sluzeb"}' > /dev/null
 B632_PAGE=$(sq "SELECT IFNULL(MAX(ids), 0) FROM ka_stranky WHERE seo_link = 'b632-cenik-sluzeb'")
 sq "UPDATE ka_stranky SET zobrazit = 1 WHERE ids = $B632_PAGE; DELETE FROM ka_presmerovani WHERE na_adresu = 'b632-cenik-sluzeb'; DELETE FROM ka_nenalezeno WHERE cesta LIKE 'b632-%'" > /dev/null
 B632_AUTO=$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota)) FROM ka_nastaveni WHERE promenna IN ('redirect_auto', 'redirect_auto_threshold')")
@@ -8,7 +11,7 @@ B632_AUTO=$(sq "SELECT GROUP_CONCAT(CONCAT(promenna, '=', hodnota)) FROM ka_nast
 # the admin form (Redirects::actionSave → RedirectStore::twin), MCP save_redirect (Redirects::add → RedirectStore::add)
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=redirects"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=redirects&action=save" -d "_csrf=$(csrf)" -d z_adresy=/b632-admin-old -d na_adresu=/b632-cenik-sluzeb -d typ=301
-mcp save_redirect '{"from":"/b632-mcp-old","to":"/b632-cenik-sluzeb"}' > /dev/null
+b632_mcp save_redirect '{"from":"/b632-mcp-old","to":"/b632-cenik-sluzeb"}' > /dev/null
 # the daily matcher (RedirectMatcher::run → RedirectStore::add) for an address visitors keep asking for
 sq "INSERT INTO ka_nenalezeno (cesta, pocet, naposledy) VALUES ('b632-cenik-sluzby', 5, '$B632_NOW')" > /dev/null
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('redirect_auto', '1'), ('redirect_auto_threshold', '80') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null
@@ -34,6 +37,7 @@ expect "3.50.1 B2: the retention clean-up deletes the expired enquiry with its f
   "old-gone new-kept B632 new"
 
 # clean-up
+sq "DELETE FROM ka_api_tokeny WHERE nazev = 'b632 admin'" > /dev/null
 sq "DELETE FROM ka_poptavky WHERE formular LIKE 'B632 %'; DELETE FROM ka_presmerovani WHERE na_adresu = 'b632-cenik-sluzeb'; DELETE FROM ka_nenalezeno WHERE cesta LIKE 'b632-%';
   DELETE FROM ka_events WHERE type = 'redirect.auto' AND data LIKE '%b632-%'; DELETE FROM ka_protokol WHERE modul = 'redirects' AND popis LIKE '%b632-%'; DELETE FROM ka_stranky WHERE ids = ${B632_PAGE:-0};
   DELETE FROM ka_nastaveni WHERE promenna IN ('redirect_auto', 'redirect_auto_threshold')" > /dev/null
