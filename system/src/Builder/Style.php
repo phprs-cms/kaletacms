@@ -25,14 +25,6 @@ final class Style
         'aktivni_mobil' => '@media (max-width: 767px)',
     ];
 
-    /** Where a state inherits a value it does not have itself (the editor shows it in grey): the nearest first. */
-    public const array INHERITANCE = [
-        'zaklad' => [], 'tablet' => ['zaklad'], 'mobil' => ['tablet', 'zaklad'],
-        'hover' => ['zaklad'], 'hover_tablet' => ['hover', 'tablet', 'zaklad'], 'hover_mobil' => ['hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
-        'aktivni' => ['hover', 'zaklad'], 'aktivni_tablet' => ['aktivni', 'hover_tablet', 'hover', 'tablet', 'zaklad'],
-        'aktivni_mobil' => ['aktivni_tablet', 'aktivni', 'hover_mobil', 'hover_tablet', 'hover', 'mobil', 'tablet', 'zaklad'],
-    ];
-
     /**
      * key => [CSS property, type, group, label, enumeration options]
      * Types: mezera | delka | barva | krok | zaobleni | stin | ramecek | vyber | cislo | obrazek | sloupce | radky | oblasti | oblast | text

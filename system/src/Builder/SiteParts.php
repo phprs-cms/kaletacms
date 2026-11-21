@@ -106,12 +106,6 @@ final class SiteParts
         return $r === null ? null : Build::fromJson($draft ? ($r['stavba_koncept'] ?? $r['stavba']) : $r['stavba']);
     }
 
-    /** Variant of the part for a page (the first published one that has it in its list), otherwise '' = the default. */
-    public static function pageVariant(Db $db, string $type, string $language, ?int $ids): string
-    {
-        return self::variantFor($db, $type, $language, ['ids' => $ids, 'nadrazena' => null, 'kolekce' => null, 'novinka' => false, 'vypis' => false]);
-    }
-
     /**
      * Variant of the part for what is displayed (3.6), '' = the default. A published variant that lists the page always
      * wins (as before 3.6); otherwise the first published variant (by key) whose rules take the content: a news item, the

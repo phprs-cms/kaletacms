@@ -28,9 +28,6 @@ final class Money
     public const int PRICE_MAX = 999999999999;
     public const int TOTAL_MAX = 99999999999999;
 
-    /** The largest quantity (DECIMAL(10,3)) in thousandths. */
-    public const int QUANTITY_MAX = 9999999999;
-
     /**
      * A price typed by a person or Claude, in minor units: null for none ('' or null); "12 500,50", "12500.50", "12,500.50"
      * and "12.500,50" are the same. Refused when it is not a number, negative, has more than two decimals or is too large.

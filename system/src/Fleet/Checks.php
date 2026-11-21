@@ -102,9 +102,6 @@ final class Checks
     /** The counts of the workload part (Heartbeat::workload), each null when the site does not have it. */
     public const array WORKLOAD = ['enquiries_this_week', 'enquiries_last_week', 'unanswered_over_24h', 'median_first_reply_hours', 'tasks_open', 'tasks_overdue', 'customers_this_month'];
 
-    /** The release that added the parts (PARTS): a site that sends none of them shows "update the site to see". */
-    public const string SINCE = '3.29.0';
-
     /** Thresholds (days or hours) of the checks. */
     public const int BACKUP_DAYS = 8;
     public const int OFFSITE_DAYS = 8;

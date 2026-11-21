@@ -424,12 +424,6 @@ final class Prices
         return $priced ? t('This item has an internal price and its address is its code in the price list: the code changed from “%s” to “%s”. Check the codes in the CSV files you import.', $before, $after) : null;
     }
 
-    /** 3.42: is this collection a products collection (the products preset or mapped)? */
-    public static function isProductCollection(Db $db, int $idk): bool
-    {
-        return in_array($idk, array_column(self::productCollections($db), 'idk'), true);
-    }
-
     /**
      * One item of any collection, not in the trash, with its code and variants (when its collection is a products one;
      * an item of a mapped collection without a code field has its address – or #id – as its code, 3.42). "product" says

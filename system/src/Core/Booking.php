@@ -37,12 +37,6 @@ final class Booking
     /** status => label (admin, translated with t()) */
     public const array STATUSES = ['pending' => 'waiting for confirmation', 'confirmed' => 'confirmed', 'declined' => 'declined', 'done' => 'done', 'no_show' => 'did not come', 'cancelled' => 'cancelled'];
 
-    /**
-     * Statuses that keep the time occupied. A pending booking (3.3, a service that needs the provider's confirmation) holds
-     * its time too – until hold_until; after that the time is free again, but the booking waits to be answered.
-     */
-    public const array BLOCKING = ['confirmed', 'done', 'pending'];
-
     /** How many other times a provider may propose at once. */
     public const int MAX_PROPOSALS = 3;
 

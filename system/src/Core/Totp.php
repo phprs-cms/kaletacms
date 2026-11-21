@@ -73,12 +73,6 @@ final class Totp
         return BackupCodes::generate();
     }
 
-    /** Consumes a backup code; returns the new stored list, or null when the code is not valid (Core\BackupCodes). */
-    public static function useBackupCode(?string $json, string $code): ?string
-    {
-        return BackupCodes::consume($json, $code);
-    }
-
     private static function base32(string $text): string
     {
         $bits = '';

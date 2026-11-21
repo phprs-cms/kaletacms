@@ -103,19 +103,6 @@ final class GoogleBusiness
         return is_array($list) ? array_values(array_filter($list, fn (mixed $l): bool => is_array($l) && is_string($l['name'] ?? null) && is_string($l['title'] ?? null))) : [];
     }
 
-    /** The title of the chosen location when it is known, otherwise its name. */
-    public static function locationTitle(App $app): string
-    {
-        $location = self::location($app->db());
-        foreach (self::knownLocations($app->settings()) as $l) {
-            if ($l['name'] === $location && $l['title'] !== '') {
-                return $l['title'];
-            }
-        }
-
-        return $location;
-    }
-
     /* ---------- hours → the profile ---------- */
 
     /**

@@ -13,7 +13,6 @@ use Kaleta\Core\Language;
 use Kaleta\Core\Search;
 use Kaleta\Core\Settings;
 use Kaleta\Core\Slug;
-use Kaleta\Core\WebImport;
 use Kaleta\Core\WpContent;
 use Kaleta\Core\WpFile;
 use Kaleta\Core\WpImport;
@@ -675,11 +674,5 @@ final class Batch
             'INSERT INTO {import_mapa} (zdroj, typ, cizi_id, nase_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nase_id = VALUES(nase_id)',
             [$this->source, $type, mb_substr($foreignId, 0, 190), $ourId],
         );
-    }
-
-    /** Whether the address can be used as the old site (http(s), a domain, no user name) – for the mapping form. */
-    public static function validSiteUrl(string $url): bool
-    {
-        return WebImport::validUrl($url);
     }
 }

@@ -37,11 +37,6 @@ final class Look
         self::$active = $s;
     }
 
-    public static function isActive(): bool
-    {
-        return self::$active !== null;
-    }
-
     /** @return array{design_system?: array<string, mixed>, classes?: array<string, ?array>, menus?: array<string, ?array>, identity?: array<string, string>} */
     public static function draft(Settings $s): array
     {
