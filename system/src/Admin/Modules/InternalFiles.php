@@ -7,6 +7,7 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Core\ChangeLog;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Files;
+use Kaleta\Core\InternalFileLinks;
 use Kaleta\Core\InternalFiles as Library;
 use Kaleta\Core\Response;
 
@@ -23,6 +24,8 @@ use Kaleta\Core\Response;
  *  - download: the file as an attachment with its Content-Type, no-store and nosniff; one change-log line each.
  *  - preview (3.47): a raster image (at most 10 MB) or a text document shown inline – never PDF or SVG; one change-log line.
  *  - search_json (3.49 C): ready files by a word, for a choice by search – GET, read-only.
+ *  - link, unlink (3.49 B, Core\InternalFileLinks): a file linked to a customer, a company, a deal or a quote from the box
+ *    on the record's page (box() – views/admin/internal_files/box.php); the file's page lists its records.
  *  - folder, folder_save, folder_delete (administrators): a folder, its description and who sees it (everyone with the
  *    section, or chosen roles); only an empty folder is deleted.
  */
@@ -149,7 +152,85 @@ final class InternalFiles extends Module
         }
 
         return $this->view('file', (string) $file['name'], ['file' => $file, 'folders' => Library::folders($this->app), 'mayDelete' => Library::mayDelete($this->app, $file),
-            'limit' => self::uploadLimit()]);
+            'limit' => self::uploadLimit(), 'links' => InternalFileLinks::ofFile($this->app, (int) $file['id'])]); // 3.49 B: the records it is linked to
+    }
+
+    /** The rows "Link a file" offers without script: the files most recently changed in the folders the person sees. */
+    public const int BOX_CHOICES = 50;
+
+    /**
+     * 3.49 B: what views/admin/internal_files/box.php shows on a customer's, a company's, a deal's or a quote's page – the
+     * files linked to it that the viewer can open, the choice of a file to link (the most recently changed ready files of
+     * the folders they see; the script searches the rest) and the addresses of the actions. Null without Internal files
+     * (nothing is shown, not even a count) or when the viewer may not link to this kind of record.
+     *
+     * @param array<string, mixed> $modules Admin\Kernel::modules() of the viewer
+     * @return array{kind: string, id: int, files: list<array<string, mixed>>, choices: array<int, string>, linkUrl: string, unlinkUrl: string, searchUrl: string, fileUrl: string, downloadUrl: string}|null
+     */
+    public static function box(\Kaleta\Core\App $app, array $modules, string $kind, int $id): ?array
+    {
+        if (!isset($modules[self::IDENT]) || $id <= 0 || !InternalFileLinks::mayLink($app, $kind)) {
+            return null;
+        }
+        $files = InternalFileLinks::ofRecord($app, $kind, $id);
+        $linked = array_column($files, 'id');
+        $choices = [];
+        foreach (Library::files($app, ['status' => 'ready'], 1, self::BOX_CHOICES)['rows'] as $f) {
+            if (!in_array($f['id'], $linked, true)) {
+                $choices[(int) $f['id']] = (string) $f['name'] . ' (' . (string) $f['folder_name'] . ')';
+            }
+        }
+        $base = 'admin.php?module=' . self::IDENT . '&action=';
+
+        return ['kind' => $kind, 'id' => $id, 'files' => $files, 'choices' => $choices, 'linkUrl' => $app->url($base . 'link'), 'unlinkUrl' => $app->url($base . 'unlink'),
+            'searchUrl' => $app->url($base . 'search_json'), 'fileUrl' => $app->url($base . 'file&id='), 'downloadUrl' => $app->url($base . 'download&id=')];
+    }
+
+    /**
+     * 3.49 B: links a file to a record from the record's box (POST file_id, kind, record_id, back = the record's admin path).
+     * The rule is Core\InternalFileLinks: the file seen, the record's section open with its feature on, the record there –
+     * an unknown record and a forbidden one get the same message. Back to the record's page.
+     */
+    protected function actionLink(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $kind = $this->request->post('kind');
+        $recordId = $this->request->postInt('record_id');
+        $refused = InternalFileLinks::link($this->app, $this->request->postInt('file_id'), $kind, $recordId);
+
+        return $this->toRecord($kind, $recordId, $refused === null ? t('The file is linked.') : t($refused), $refused === null ? 'ok' : 'chyba');
+    }
+
+    /** 3.49 B: unlinks a file from a record (the record's box or the file's page – back where it came from). */
+    protected function actionUnlink(): Response
+    {
+        if (!$this->request->isPost()) {
+            return $this->back();
+        }
+        $kind = $this->request->post('kind');
+        $recordId = $this->request->postInt('record_id');
+        $fileId = $this->request->postInt('file_id');
+        $done = InternalFileLinks::unlink($this->app, $fileId, $kind, $recordId);
+        $message = $done ? t('The file is unlinked.') : t(InternalFileLinks::NO_RECORD);
+        if ($this->request->post('from') === 'file') {
+            return $this->back($message, 'file', ['id' => $fileId], $done ? 'ok' : 'chyba');
+        }
+
+        return $this->toRecord($kind, $recordId, $message, $done ? 'ok' : 'chyba');
+    }
+
+    /**
+     * Back to a record's page (its admin path through Inbox::places) – only when the person may open it; otherwise (an
+     * unknown or forbidden record, the same message) to the list, so the answer tells nothing about the record.
+     */
+    private function toRecord(string $kind, int $recordId, string $message, string $type): Response
+    {
+        $this->app->session->flash($type, $message);
+        $place = InternalFileLinks::mayOpenKind($this->app, $kind) ? (\Kaleta\Core\Inbox::places($this->db, [$kind . ':' . $recordId])[$kind . ':' . $recordId] ?? null) : null;
+
+        return Response::redirect($place !== null ? $this->app->url((string) $place['path']) . '#internal-files' : $this->url());
     }
 
     protected function actionSave(): Response

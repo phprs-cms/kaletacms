@@ -12,6 +12,7 @@
  * @var list<array<string, mixed>> $offs
  * @var array<string, list<array{0: string, 1: string}>> $siteWeek the site's opening hours
  * @var array<int, string> $users
+ * @var list<array{from: string, to: string}> $absences 3.49 B: the current and future absences of the linked account (days only)
  */
 use Kaleta\Core\Booking;
 use Kaleta\Core\Hours;
@@ -52,6 +53,17 @@ $isNew = $m === [];
 </form>
 <?php if (!$isNew): ?>
 <h2><?= e(t('Days off')) ?></h2>
+<?php if ($absences !== []): /* 3.49 B: read here, set in the account – never the reason */ ?>
+<section data-staff-absences>
+<h3><?= e(t('Absences from the account')) ?></h3>
+<ul>
+<?php foreach ($absences as $a): ?>
+<li><?= e(format_date($a['from'])) ?> – <?= e(format_date($a['to'])) ?></li>
+<?php endforeach ?>
+</ul>
+<p class="napoveda"><?= e(t('Set in My account or Users; they close this person\'s times.')) ?></p>
+</section>
+<?php endif ?>
 <?php if ($offs !== []): ?>
 <ul>
 <?php foreach ($offs as $o): ?>

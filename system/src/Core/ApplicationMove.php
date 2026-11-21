@@ -460,6 +460,7 @@ final class ApplicationMove
                 $db->transaction(function (Db $db) use ($contactId, &$removed): void {
                     if ($db->run(self::LONE_DELETE, [$contactId, $contactId, $contactId, $contactId, $contactId, $contactId, 'contact:' . $contactId, 'contact:' . $contactId])->rowCount() === 1) {
                         $db->run('DELETE FROM {notifications} WHERE target = ?', ['contact:' . $contactId]);
+                        InternalFileLinks::forget($db, 'contact', [$contactId]); // 3.49 B
                         $removed++;
                     }
                     $db->run('UPDATE {applications} SET source_contact_id = NULL WHERE source_contact_id = ?', [$contactId]);

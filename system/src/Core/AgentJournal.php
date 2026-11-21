@@ -42,7 +42,8 @@ final class AgentJournal
     public const array PERSONAL_TABLES = ['poptavky', 'testimonial_requests', 'bookings', 'odberatele', 'posta', 'odber_fronta', 'newsletter_queue', 'comments', 'tasks',
         'contacts', 'companies', 'contact_activities', 'deals', 'deal_stage_history', 'applications', // 3.34: job applications
         'price_lists', 'prices', 'quotes', 'quote_lines', 'quote_counters', 'quote_line_sets', // 3.38: internal prices are business secrets, quotes name customers – never journaled; 3.40: saved line sets hold prices
-        'internal_folders', 'internal_files', 'internal_file_versions']; // 3.42: internal files are company documents – never journaled (the bytes on disk could not be undone anyway)
+        'internal_folders', 'internal_files', 'internal_file_versions', // 3.42: internal files are company documents – never journaled (the bytes on disk could not be undone anyway)
+        'internal_file_links']; // 3.49 B: links of files to records – live changes, never journaled (undo_agent_session does not take them back)
 
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';

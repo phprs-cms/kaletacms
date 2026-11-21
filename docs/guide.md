@@ -351,6 +351,14 @@ health details); administrators can add anybody's in Users. The rule is always t
 
 Claude sees departments, reports to and who is away until when (never the reason) in `list_colleagues`.
 
+**An absence also closes booking times (3.49).** When a booking person is linked to an account (Bookings → People → Account),
+an absence of that account – of any reason – closes their free times for those whole days: visitors, the Booking element,
+proposed times and Claude no longer offer them. Nothing is copied: removing the absence brings the times back at once.
+Bookings and offered times already in those days are never moved or cancelled – the message after saving the absence says
+how many there are, and the booking shows the label *the person is away*. A person's form in People lists the absences
+from the account (days only); **Link by e-mail** on the People list links every booking person whose e-mail is the e-mail of
+exactly one account.
+
 ## 8. Company details
 
 **Business details:** registered name, business type, company ID, VAT ID, address, phone, **opening hours** (one per

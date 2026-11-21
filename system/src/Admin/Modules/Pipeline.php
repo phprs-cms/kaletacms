@@ -262,6 +262,7 @@ final class Pipeline extends Module
             'thread' => $this->commentThread($target, ['id' => $id]),
             'tasks' => $this->taskPanel($target, ['id' => $id]),
             'quoteBox' => Quotes::box($this->app, $modules, 'deal', $id), // 3.38 B
+            'fileBox' => InternalFiles::box($this->app, $modules, 'deal', $id), // 3.49 B
             // 3.41: since when it is in its stage and its next step (the open task due first)
             'since' => $deal['closed_at'] === null ? (Deals::stageSince($this->db, [$deal])[$id] ?? null) : null, 'next' => Tasks::nextFor($this->db, [$target])[$target] ?? null,
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);

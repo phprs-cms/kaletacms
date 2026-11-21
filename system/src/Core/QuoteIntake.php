@@ -150,6 +150,7 @@ final class QuoteIntake
             $db->transaction(function (Db $db) use ($id): void {
                 Tasks::forgetTargets($db, ['quote:' . $id]);
                 Inbox::forgetTargets($db, ['quote:' . $id]);
+                InternalFileLinks::forget($db, 'quote', [$id]); // 3.49 B
                 $db->run('DELETE FROM {quote_lines} WHERE quote_id = ?', [$id]);
                 $db->run('DELETE FROM {quotes} WHERE id = ?', [$id]);
             });

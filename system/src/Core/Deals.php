@@ -755,6 +755,7 @@ final class Deals
         }
         $db->transaction(function (Db $db) use ($id): void {
             $db->delete('deal_stage_history', ['deal_id' => $id]);
+            InternalFileLinks::forget($db, 'deal', [$id]); // 3.49 B: its linked files stay, the links go
             $db->delete('deals', ['id' => $id]);
         });
         Inbox::forgetTargets($db, ['deal:' . $id]);

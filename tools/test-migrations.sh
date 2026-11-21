@@ -456,4 +456,14 @@ expect_sql_value "3.48 (0135): switched off by hand and run again by name – on
 expect_sql_value "3.48 (0135): rights and roles are never touched" "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_role), '|', (SELECT COUNT(*) FROM ka_uzivatele_prava))")" "0|0"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_contacts; DELETE FROM ka_deals; DELETE FROM ka_uzivatele WHERE user LIKE 'm348-%'"
 
+# 3.49 B (0136): files on a record – one table of links, nothing else; the migration runs twice without harm (a table that
+# exists is skipped) and keeps a link written in between
+expect_sql_value "3.49 B (0136): the link table exists with its unique key and the index of a record" \
+  "$("${MYSQL[@]}" "$OLD" -N -e "SELECT GROUP_CONCAT(DISTINCT INDEX_NAME ORDER BY INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$OLD' AND TABLE_NAME = 'ka_internal_file_links'")" \
+  "ix_internal_file_links_record,PRIMARY,ux_internal_file_links"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_internal_file_links (file_id, kind, record_id, created_at) VALUES (9349, 'deal', 9349, '$(site_time)'); UPDATE ka_nastaveni SET hodnota = '135' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql_value "3.49 B (0136): run again – the table and its link stay, the version is the latest again" \
+  "$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_internal_file_links WHERE file_id = 9349), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'))")" "1|$LAST_MIGRATION"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_internal_file_links WHERE file_id = 9349"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

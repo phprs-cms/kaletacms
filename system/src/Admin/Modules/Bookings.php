@@ -82,8 +82,14 @@ final class Bookings extends Module
             }
         }
 
+        $proposals = Booking::proposals($this->db, (int) $b['id']);
+        // 3.49 B: an absence of the person's linked account over the booking or a proposed time – a label, nothing changes
+        $away = in_array($b['status'], ['pending', 'confirmed'], true)
+            ? Booking::awayAt($this->db, (int) $b['staff_id'], [[(string) $b['starts_at'], (string) $b['ends_at']], ...array_map(fn (array $p): array => [$p['starts_at'], $p['ends_at']], $proposals)])
+            : array_fill(0, count($proposals) + 1, false);
+
         return $this->view('detail', t('Booking') . ' #' . $b['id'], ['b' => $b, 'deadline' => Booking::cancelDeadline($this->app->settings(), $b),
-            'proposals' => Booking::proposals($this->db, (int) $b['id']), 'free' => array_slice($free, 0, 60),
+            'proposals' => $proposals, 'free' => array_slice($free, 0, 60), 'away' => $away,
             // 3.28: the customer of the booking (Customers), or "Link to a contact" for one from before 3.28
             'contactBox' => Contacts::box($this->app, $this->kernel->modules(), 'booking', (int) $b['id'], isset($b['contact_id']) ? (int) $b['contact_id'] : null,
                 $b['anonymised_at'] === null && \Kaleta\Core\Contacts::normalise((string) $b['email']) !== null)]);
@@ -235,7 +241,22 @@ final class Bookings extends Module
             return $refused;
         }
 
-        return $this->view('staff', 'People', ['staff' => Booking::staff($this->db, false), 'services' => Booking::services($this->db, false), 'offs' => Booking::offs($this->db, null)]);
+        return $this->view('staff', 'People', ['staff' => Booking::staff($this->db, false), 'services' => Booking::services($this->db, false), 'offs' => Booking::offs($this->db, null),
+            'unlinked' => Booking::unlinkedCount($this->db)]); // 3.49 B: an absence in an account closes only linked people's times
+    }
+
+    /**
+     * 3.49 B ("Link by e-mail"): every booking person without an account whose e-mail is the e-mail of exactly one active
+     * account is linked to it – so an absence in that account closes their times. An ambiguous address is left.
+     */
+    protected function actionStaffLink(): Response
+    {
+        if (($refused = $this->adminOnly()) !== null) {
+            return $refused;
+        }
+        $linked = $this->request->isPost() ? Booking::linkByEmail($this->app) : 0;
+
+        return $this->back(t('%d people were linked to their accounts.', $linked), 'staff');
     }
 
     protected function actionStaffEdit(): Response
@@ -260,6 +281,8 @@ final class Bookings extends Module
             'hours' => $text($hours),
             'serviceHours' => array_map($text, $serviceHours),
             'offs' => $id > 0 ? Booking::offs($this->db, $id) : [], 'siteWeek' => \Kaleta\Core\Hours::week($this->app->settings()),
+            // 3.49 B: the absences of the linked account (days only – never the reason or the deputy); they close this person's times
+            'absences' => (int) ($member['user_id'] ?? 0) > 0 ? array_map(fn (array $a): array => ['from' => $a['starts_on'], 'to' => $a['ends_on']], \Kaleta\Core\Absences::upcoming($this->db, (int) $member['user_id'])) : [],
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY 2")]);
     }
 

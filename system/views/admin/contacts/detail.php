@@ -22,6 +22,7 @@
  * @var array<string, mixed> $thread Admin\CommentActions::commentThread
  * @var array<string, mixed> $tasks Admin\TaskActions::taskPanel
  * @var array<string, mixed>|null $deals the customer's deals (3.31, Admin\Modules\Pipeline::deals); null without the Pipeline
+ * @var array<string, mixed>|null $fileBox its internal files and "Link a file" (3.49 B, Admin\Modules\InternalFiles::box); null without Internal files
  * @var array<string, mixed>|null $quoteBox the customer's quotes and "New quote" (3.38 B, Admin\Modules\Quotes::box); null without Quotes
  * @var bool $admin
  * @var int $me
@@ -153,6 +154,9 @@ $sources = ['enquiry' => 'from an enquiry', 'booking' => 'from a booking', 'subs
 <?php endif ?>
 <?php if ($quoteBox !== null): /* 3.38 B */ ?>
 <?= $app->view->render('admin/quotes/box', ['csrf' => $csrf, 'box' => $quoteBox]) ?>
+<?php endif ?>
+<?php if ($fileBox !== null): /* 3.49 B: its internal files */ ?>
+<?= $app->view->render('admin/internal_files/box', ['app' => $app, 'csrf' => $csrf, 'box' => $fileBox]) ?>
 <?php endif ?>
 <?php if (!$anonymised): ?>
 <?= $app->view->render('admin/tasks_panel', $tasks + ['app' => $app, 'csrf' => $csrf]) ?>

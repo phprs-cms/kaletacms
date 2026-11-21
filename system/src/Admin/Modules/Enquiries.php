@@ -548,6 +548,9 @@ final class Enquiries extends Module
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
+            if ($result['kept'] !== []) {
+                $message .= ' ' . t('Internal files linked to the person’s customer records stay (the links went) – check them by hand.'); // 3.49 B
+            }
             $message .= ' ' . $result['backup_horizon']['text']; // 3.46 (N157)
             $message .= $copies !== [] ? ' ' . implode(' ', $copies) : '';
 

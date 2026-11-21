@@ -1012,6 +1012,20 @@ CREATE TABLE ka_internal_file_versions (
     UNIQUE KEY ux_internal_file_versions (file_id, version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- 3.49 B: an internal file linked to a customer, a company, a deal or a quote (Core\InternalFileLinks, migration 0136). Two
+-- ids and a kind – no personal data; links follow in code (deleting, merging and anonymising remove or move them).
+CREATE TABLE ka_internal_file_links (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    file_id    INT UNSIGNED NOT NULL,                            -- ka_internal_files.id
+    kind       VARCHAR(20) CHARACTER SET ascii NOT NULL,         -- contact | company | deal | quote (3.49)
+    record_id  INT UNSIGNED NOT NULL,
+    created_by INT UNSIGNED NULL,
+    created_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY ux_internal_file_links (file_id, kind, record_id),
+    KEY ix_internal_file_links_record (kind, record_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- Collections: custom content types (references, team, products, branches…). pole = JSON [{klic, popisek, typ}], typ: text | radky | html | obrazek | odkaz | cislo | datum | termin | soubor | poloha | polozka.
 -- detail = items have their own page /<seo_link>/<item seo> with an item template from the builder (stavba, stavba_koncept).
 CREATE TABLE ka_kolekce (

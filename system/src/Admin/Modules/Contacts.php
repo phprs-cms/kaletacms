@@ -199,6 +199,7 @@ final class Contacts extends Module
             'tasks' => $this->taskPanel($target, ['id' => $id]),
             'deals' => $contact['anonymised_at'] === null ? Pipeline::deals($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.31
             'quoteBox' => $contact['anonymised_at'] === null ? Quotes::box($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.38 B
+            'fileBox' => $contact['anonymised_at'] === null ? InternalFiles::box($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.49 B
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
     }
 
@@ -432,6 +433,7 @@ final class Contacts extends Module
             'tasks' => $this->taskPanel($target, ['company' => $id]),
             'deals' => Pipeline::deals($this->app, $this->kernel->modules(), 'company', $id), // 3.31
             'quoteBox' => Quotes::box($this->app, $this->kernel->modules(), 'company', $id), // 3.38 B
+            'fileBox' => InternalFiles::box($this->app, $this->kernel->modules(), 'company', $id), // 3.49 B
             'admin' => $this->app->auth()->isAdmin()]);
     }
 

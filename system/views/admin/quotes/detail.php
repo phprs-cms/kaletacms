@@ -25,6 +25,7 @@
  * @var array<string, mixed> $tasks the tasks of the quote (3.40, Admin\TaskActions::taskPanel – target quote:<id>)
  * @var bool $tracking "first opened on" is recorded (quote_track_opened, 3.40)
  * @var int $followUpDays the days "Remind me" offers
+ * @var array<string, mixed>|null $fileBox its internal files and "Link a file" (3.49 B, Admin\Modules\InternalFiles::box); null without Internal files
  */
 use Kaleta\Core\Contacts;
 use Kaleta\Core\Deals;
@@ -244,6 +245,9 @@ $hidden = $csrf . '<input type="hidden" name="id" value="' . $id . '">';
 <p class="napoveda"><?= e(t('Not linked to a customer, an enquiry or a deal.')) ?></p>
 <?php endif ?>
 </section>
+<?php if ($fileBox !== null): /* 3.49 B: its internal files – never on the customer's page, the PDF or the link */ ?>
+<?= $app->view->render('admin/internal_files/box', ['app' => $app, 'csrf' => $csrf, 'box' => $fileBox]) ?>
+<?php endif ?>
 <?php if ($revisions !== []): ?>
 <section class="zaznam-panel" aria-labelledby="nabidka-verze" data-quote-revisions>
 <h2 id="nabidka-verze"><?= e(t('Other versions')) ?></h2>

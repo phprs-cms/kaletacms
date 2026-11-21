@@ -9,7 +9,7 @@ namespace Kaleta\Core;
  * included), the deputy who stands in and a reason from a fixed list (REASONS – never free text, so never health data).
  * Each person adds their own in My account; administrators add anybody's in Users.
  *
- * "The right contact automatically" – one rule, documented in docs/TEAM.md and used wherever Kaleta routes something to a
+ * "The right contact automatically" – one rule, documented in docs/guide.md (Users, absences) and used wherever Kaleta routes something to a
  * responsible person (Core\Inbox for every bell and its e-mail, Core\Departments::assignEnquiry for new enquiries):
  *  - standIn(): while a person is away TODAY, their stand-in is the deputy of that absence – when the deputy is an active
  *    account, not away themself and allowed to open the thing; otherwise whom the person reports to (ka_uzivatele.reports_to)
@@ -18,6 +18,10 @@ namespace Kaleta\Core;
  *    marked "standing in for <name>" – never only the away person. A new item that would be assigned to an away person goes to
  *    the stand-in. Who OWNS an existing record never changes.
  * Never in a heartbeat, the fleet console or a report (counts at most).
+ *
+ * 3.49 B (one absence): an absence of any reason also closes the free booking times of the booking person linked to the
+ * account (ka_booking_staff.user_id) – Core\Booking reads between() when it computes free times; nothing is copied, so
+ * removing the absence brings the times back at once. Existing bookings and offered times are never changed, only counted.
  */
 final class Absences
 {
@@ -57,6 +61,34 @@ final class Absences
         }
 
         return self::$today[$day] = $out;
+    }
+
+    /**
+     * 3.49 B: the absences of some accounts that touch a span of days (site's clock, both included) – user id => list of
+     * [first day, last day], by the first day. Days only: never the reason or the deputy. One query on ix_absences_user;
+     * none when no account is given. An account without an absence is left out.
+     *
+     * @param list<int> $userIds
+     * @return array<int, list<array{0: string, 1: string}>>
+     */
+    public static function between(Db $db, array $userIds, string $fromDay, string $toDay): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), fn (int $id): bool => $id > 0)));
+        if ($userIds === [] || $toDay < $fromDay) {
+            return [];
+        }
+        try {
+            $rows = $db->all('SELECT user_id, starts_on, ends_on FROM {absences} WHERE user_id IN (' . implode(',', $userIds) . ') AND ends_on >= ? AND starts_on <= ? ORDER BY starts_on, id', [$fromDay, $toDay]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r['user_id']][] = [(string) $r['starts_on'], (string) $r['ends_on']];
+        }
+
+        return $out;
     }
 
     /** The absence of a person today, or null. @return array{id: int, user_id: int, starts_on: string, ends_on: string, deputy_id: int|null, reason: string}|null */

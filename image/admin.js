@@ -1284,7 +1284,7 @@
 	// values. The deal form's details[data-pick-new] ("New customer…") is the last row: it opens and gets the focus.
 	// Arrows, Enter, Escape, Tab; a live region says how many results. pickSources: data-pick => the key of the answer's
 	// rows ({id|value, name, note}) – unit 4460 keeps it equal to the values the views write.
-	var pickSources = { contacts: 'contacts', companies: 'companies', deals: 'deals', products: 'products' };
+	var pickSources = { contacts: 'contacts', companies: 'companies', deals: 'deals', products: 'products', files: 'files' };
 	var pickNumber = 0;
 	var pickFold = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
 	Array.prototype.forEach.call(document.querySelectorAll('[data-pick]'), function (control) {
@@ -1475,5 +1475,7 @@
 	/* ---------- 3.49: saved reply (part A) ---------- */
 
 	/* ---------- 3.49: internal file box (part B) ---------- */
+	// The box of a record (views/admin/internal_files/box.php) needs no code of its own: "Link a file" is a choice by search
+	// above (data-pick="files", the answer's rows under "files"), and without this script a plain select.
 
 })();

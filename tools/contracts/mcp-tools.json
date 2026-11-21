@@ -1395,6 +1395,7 @@
         "parameters": {
             "folder": "string",
             "limit": "integer",
+            "linked_to": "string",
             "page": "integer",
             "search": "string",
             "status": "string",
@@ -2361,12 +2362,14 @@
             "description": "string",
             "folder": "string",
             "id": "integer",
+            "link": "string",
             "name": "string",
             "status": "string",
             "tags": [
                 "array",
                 "string"
-            ]
+            ],
+            "unlink": "string"
         },
         "required": [],
         "annotations": {

@@ -27,8 +27,9 @@ A337_LOCATION=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -D - -X POST "$B/admin.
 expect "3.37 (U26): after a note the page opens at the conversation" "${A337_LOCATION##*\?}|$(sq "SELECT COUNT(*) FROM ka_comments WHERE target = 'enquiry:$A337_ENQ'")" "module=enquiries&action=detail&id=$A337_ENQ#thread|1"
 
 check "3.37: the deal detail opens" 200 "/admin.php?module=pipeline&action=detail&id=$A337_DEAL" 'data-record-bar'
+# 3.49 B: the box of internal files has its own "Link a file" details – only Edit counts here
 expect "3.37 (U34): the deal says its stage once – the bar holds the stage and Move, More holds Delete; the facts, the person and Edit in the side column, the history in the main one" \
-  "$(sed -n '/data-record-bar/,/zaznam-obal/p' "$WORK/response" | grep -c 'data-deal-stage="new"\|id="move"\|data-deal-delete')|$(grep -c 'data-deal-stage' "$WORK/response")|$(sed -n '/class="zaznam-bok"/,$p' "$WORK/response" | grep -c 'data-deal-card\|data-deal-owner\|class="zakaznik-upravit"')|$(sed -n '/class="zaznam-hlavni"/,/class="zaznam-bok"/p' "$WORK/response" | grep -c 'data-deal-history')" \
+  "$(sed -n '/data-record-bar/,/zaznam-obal/p' "$WORK/response" | grep -c 'data-deal-stage="new"\|id="move"\|data-deal-delete')|$(grep -c 'data-deal-stage' "$WORK/response")|$(sed -n '/class="zaznam-bok"/,$p' "$WORK/response" | grep -c 'data-deal-card\|data-deal-owner\|class="zakaznik-upravit"\(>\| open\)')|$(sed -n '/class="zaznam-hlavni"/,/class="zaznam-bok"/p' "$WORK/response" | grep -c 'data-deal-history')" \
   "3|1|3|1"
 check "3.37: the customer detail opens" 200 "/admin.php?module=contacts&action=detail&id=$A337_CONTACT" 'data-record-bar'
 expect "3.37 (U34): the customer bar – New deal (primary), E-mail, Call, More with Merge and Delete; the timeline in the main column, the facts in the side one" \

@@ -10,6 +10,7 @@
  * @var list<array{id: int, starts_at: string, ends_at: string}> $proposals times already proposed to the customer (pending)
  * @var array<string, mixed>|null $contactBox the customer of the booking (3.28, Admin\Modules\Contacts::box); null without Customers
  * @var list<string> $free free times of this person to propose from, "YYYY-MM-DD HH:MM" (pending)
+ * @var list<bool> $away 3.49 B: the person is away (an absence of the linked account) – the booking first, then each proposed time
  */
 use Kaleta\Core\Booking;
 
@@ -17,7 +18,7 @@ use Kaleta\Core\Booking;
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url()) ?>">← <?= e(t('All bookings')) ?></a></p>
 <div class="formular">
 <dl class="poptavka">
-	<dt><?= e(t('When')) ?></dt><dd><strong><?= e(Booking::when((string) $b['starts_at'], (string) $b['ends_at'])) ?></strong></dd>
+	<dt><?= e(t('When')) ?></dt><dd><strong><?= e(Booking::when((string) $b['starts_at'], (string) $b['ends_at'])) ?></strong><?= $away[0] ?? false ? ' <span class="stitek stitek-koncept" data-booking-away>' . e(t('the person is away')) . '</span>' : '' ?></dd>
 	<dt><?= e(t('Service')) ?></dt><dd><?= e((string) ($b['service'] ?? '')) ?></dd>
 	<dt><?= e(t('Person')) ?></dt><dd><?= e((string) ($b['staff'] ?? '')) ?></dd>
 	<dt><?= e(t('Status')) ?></dt><dd><?= e(t(Booking::STATUSES[$b['status']] ?? $b['status'])) ?><?= $b['cancelled_at'] !== null ? ' · ' . e(format_date((string) $b['cancelled_at'], true)) . ' (' . e(t(match ((string) $b['cancelled_by']) { 'customer' => 'by the customer', 'claude' => 'by Claude', default => 'in the administration' })) . ')' : '' ?></dd>
@@ -40,7 +41,7 @@ use Kaleta\Core\Booking;
 <?php if ($b['status'] === 'pending'): ?>
 <p class="napoveda"><?= $b['hold_until'] !== null ? e(strtotime((string) $b['hold_until']) > time() ? t('The time is held until %s.', format_date((string) $b['hold_until'], true)) : t('The hold ran out on %s – the time is free for others, but you can still answer.', format_date((string) $b['hold_until'], true))) : '' ?></p>
 <?php if ($proposals !== []): ?>
-<p><strong><?= e(t('Proposed to the customer')) ?>:</strong> <?= e(implode(' · ', array_map(fn (array $p): string => Booking::when($p['starts_at'], $p['ends_at']), $proposals))) ?></p>
+<p><strong><?= e(t('Proposed to the customer')) ?>:</strong> <?= implode(' · ', array_map(fn (array $p, int $i): string => e(Booking::when($p['starts_at'], $p['ends_at'])) . (($away[$i + 1] ?? false) ? ' <span class="stitek stitek-koncept" data-booking-away>' . e(t('the person is away')) . '</span>' : ''), $proposals, array_keys($proposals))) ?></p>
 <?php endif ?>
 <form class="vradku" method="post" action="<?= e($module->url('confirm')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $b['id'] ?>">
 	<button class="tl" type="submit"><?= e(t('Accept')) ?></button> <span class="napoveda"><?= e(t('The customer gets the confirmation with the calendar and cancel links.')) ?></span>

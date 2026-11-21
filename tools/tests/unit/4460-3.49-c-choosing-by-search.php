@@ -27,7 +27,7 @@ sort($c449Written);
 $c449Sorted = $c449Branches;
 sort($c449Sorted);
 check('3.49 C: every data-pick value of the views (the select and the input variant) has a branch in image/admin.js and the reverse', [$c449Written, $c449Sorted, $c449Written === $c449Sorted],
-    [['companies', 'contacts', 'deals', 'products'], ['companies', 'contacts', 'deals', 'products'], true]);
+    [['companies', 'contacts', 'deals', 'files', 'products'], ['companies', 'contacts', 'deals', 'files', 'products'], true]); // 3.49 B: files – the box of a record
 
 // the five endpoints exist as actions of their own modules (so Module::handle gates them by the feature and the section) and are in the parity map as read-only
 $c449Actions = [[new ReflectionClass(C449Contacts::class), 'search_json'], [new ReflectionClass(C449Contacts::class), 'company_search_json'], [new ReflectionClass(C449Pipeline::class), 'search_json'],
