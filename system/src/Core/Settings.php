@@ -334,6 +334,247 @@ final class Settings
     public const array LAZY = ['look_draft', 'domain_watch'];
 
     /**
+     * 3.50 (Q9): what the code knows about each setting, declared once beside its default. A row is a key of DEFAULTS
+     * with the flags that are true for it:
+     *   secret        sealed with the key from config.php (Core\Vault) – never shown, exported or given to Claude
+     *   export        goes into the site export and comes back with an import (Core\SiteExport, Core\SiteImport)
+     *   mcp           Claude may change it with update_settings (claudeMaySet; the other ones only in the administration)
+     *   per_language  has a value per language version, key_en, key_de… (an empty one falls back to the default language)
+     *   lazy          left out of the query that loads all settings, read on first use
+     * Every key of a settings form has a row (in the order of the forms), the others only when a flag is true. A new
+     * setting: its default in DEFAULTS and, when one of the flags is true, its row here. The lists Vault::SECRET_SETTINGS,
+     * SiteExport::SETTINGS, PER_LANGUAGE and LAZY are kept equal to keysWith() for code of older releases that runs
+     * during an update (unit 4541); nothing new reads them.
+     */
+    public const array DECLARATIONS = [
+        // general
+        'site_name' => ['export' => true, 'mcp' => true, 'per_language' => true],
+        'site_url' => ['export' => true],
+        'site_description' => ['export' => true, 'mcp' => true, 'per_language' => true],
+        'site_email' => [],
+        'footer_text' => ['export' => true, 'mcp' => true],
+        'social_facebook' => ['export' => true, 'mcp' => true],
+        'social_instagram' => ['export' => true, 'mcp' => true],
+        'social_x' => ['export' => true, 'mcp' => true],
+        'social_youtube' => ['export' => true, 'mcp' => true],
+        'social_linkedin' => ['export' => true, 'mcp' => true],
+        'home_page' => ['export' => true, 'mcp' => true],
+        'news_per_page' => ['export' => true, 'mcp' => true],
+        'news_slug' => ['export' => true, 'mcp' => true],
+        'news_title' => ['export' => true, 'mcp' => true],
+        'share_buttons' => ['export' => true, 'mcp' => true],
+        'social_networks' => [],
+        'link_check' => [],
+        'article_outline' => ['export' => true, 'mcp' => true],
+        'related_news_auto' => ['export' => true, 'mcp' => true],
+        'page_cache' => [],
+        'maintenance' => [],
+        'maintenance_text' => ['export' => true],
+        'screen_mode' => ['export' => true, 'mcp' => true],
+        'screen_seconds' => ['export' => true, 'mcp' => true],
+        'screen_news' => ['export' => true, 'mcp' => true],
+        'screen_hours' => ['export' => true, 'mcp' => true],
+        'screen_clock' => ['export' => true, 'mcp' => true],
+        'time_zone' => ['export' => true],
+        'default_currency' => [],
+        // languages
+        'site_language' => ['export' => true],
+        'german_register' => ['export' => true, 'mcp' => true],
+        'additional_languages' => ['export' => true],
+        'slugs_per_language' => [],
+        // security
+        'require_2fa' => [],
+        'signin_passkey_only' => [],
+        'auto_suspend' => [],
+        // agency
+        'agency_name' => ['mcp' => true],
+        'agency_url' => ['mcp' => true],
+        'agency_email' => ['mcp' => true],
+        'agency_phone' => ['mcp' => true],
+        'agency_logo' => ['mcp' => true],
+        // vzhled
+        'dark_mode' => ['export' => true, 'mcp' => true],
+        'theme_switcher' => ['export' => true, 'mcp' => true],
+        // presmerovani
+        'redirect_auto' => ['mcp' => true],
+        'redirect_auto_threshold' => ['mcp' => true],
+        // company
+        'company_name' => ['export' => true, 'mcp' => true],
+        'company_type' => ['export' => true, 'mcp' => true],
+        'company_id' => ['export' => true, 'mcp' => true],
+        'company_register' => ['export' => true, 'mcp' => true],
+        'company_representative' => ['export' => true, 'mcp' => true],
+        'company_vat_id' => ['export' => true, 'mcp' => true],
+        'company_street' => ['export' => true, 'mcp' => true],
+        'company_city' => ['export' => true, 'mcp' => true],
+        'company_postcode' => ['export' => true, 'mcp' => true],
+        'company_country' => ['export' => true, 'mcp' => true],
+        'company_phone' => ['export' => true, 'mcp' => true],
+        'company_email' => ['export' => true, 'mcp' => true],
+        'company_hours' => ['export' => true, 'mcp' => true],
+        'company_map' => ['export' => true, 'mcp' => true],
+        'company_gps' => ['export' => true, 'mcp' => true],
+        'email_signature_template' => ['export' => true],
+        // seo
+        'indexing' => ['mcp' => true],
+        'schema_org' => ['export' => true, 'mcp' => true],
+        'share_image' => ['export' => true],
+        'share_image_auto' => ['export' => true],
+        'verification_google' => ['mcp' => true],
+        'verification_bing' => ['mcp' => true],
+        'robots_extra' => ['export' => true, 'mcp' => true],
+        'ai_crawlers' => ['mcp' => true],
+        'url_slash' => ['export' => true, 'mcp' => true],
+        'llms_txt' => ['export' => true, 'mcp' => true],
+        'markdown_news' => ['mcp' => true],
+        'indexnow' => ['mcp' => true],
+        'security_contact' => ['mcp' => true],
+        // analytics
+        'ga4_id' => ['mcp' => true],
+        'gtm_id' => [],
+        'matomo_url' => [],
+        'matomo_id' => [],
+        'plausible_domain' => ['mcp' => true],
+        'head_code' => [],
+        // cookies
+        'cookies_mode' => ['mcp' => true],
+        'cookies_external_code' => [],
+        'cookies_text' => ['export' => true, 'mcp' => true, 'per_language' => true],
+        'cookies_policy_url' => ['export' => true, 'mcp' => true, 'per_language' => true],
+        'marketing_code' => [],
+        'cookies_log' => ['mcp' => true],
+        'lead_attribution' => ['mcp' => true],
+        'cookies_log_months' => ['mcp' => true],
+        'accessibility_toolbar' => [],
+        'captcha_provider' => ['mcp' => true],
+        'captcha_site_key' => ['mcp' => true],
+        'captcha_secret' => ['secret' => true],
+        'captcha_fail_open' => ['mcp' => true],
+        'enquiries_months' => [],
+        'job_applications_months' => [],
+        'contacts_months' => [],
+        'quotes_months' => [],
+        'applications_months' => [],
+        'enquiries_expiry' => [],
+        'applications_pool_months' => [],
+        'whistleblowing_retention_months' => [],
+        // mail
+        'mail_mode' => [],
+        'mail_from' => [],
+        'mail_reply_to' => [],
+        'smtp_host' => [],
+        'smtp_port' => [],
+        'smtp_encryption' => [],
+        'smtp_user' => [],
+        'smtp_password' => ['secret' => true],
+        'newsletter_hourly_limit' => [],
+        'smtp_provider' => [],
+        // reports
+        'report_monthly' => [],
+        'report_recipients' => [],
+        // claude
+        'claude_instructions' => ['mcp' => true],
+        'claude_change_limit' => [],
+        'claude_destructive' => [],
+        'claude_apps_only' => [],
+        'claude_protected_pages' => [],
+        // extensions
+        'ai_provider' => [],
+        'ai_key' => ['secret' => true],
+        'ai_model' => [],
+        'newsletter_service' => [],
+        'newsletter_key' => ['secret' => true],
+        'newsletter_list' => [],
+        'newsletter_webhook' => [],
+        // webhooks
+        'webhook_enquiries' => [],
+        'webhook_url' => [],
+        // backups
+        'remote_backup' => [],
+        'backup_host' => [],
+        'backup_user' => [],
+        'backup_password' => ['secret' => true],
+        'backup_folder' => [],
+        'backup_region' => [],
+        'auto_backups' => [],
+        'backup_media' => [],
+        'backup_remote_days' => [],
+        'auto_updates' => [],
+        'update_channel' => [],
+        'update_url' => [],
+        // firewall
+        'firewall_enabled' => [],
+        'firewall_proxy' => [],
+        'firewall_ips' => [],
+        'firewall_countries' => [],
+        'firewall_rate' => [],
+        'firewall_probes' => [],
+        // health
+        'health_token' => [],
+        'alerts_enabled' => [],
+        'alerts_email' => [],
+        // keys without a form field
+        'keywords' => ['export' => true],
+        'logo' => ['export' => true],
+        'favicon' => ['export' => true],
+        'look_draft' => ['lazy' => true],
+        'design_system' => ['export' => true],
+        'brand_accent' => ['export' => true],
+        'brand_heading_font' => ['export' => true],
+        'brand_text_font' => ['export' => true],
+        'screen_collections' => ['export' => true],
+        'webhook_secret' => ['secret' => true],
+        'stats' => ['mcp' => true],
+        'news_slug_previous' => ['export' => true],
+        'booking_lead_hours' => ['mcp' => true],
+        'booking_horizon_days' => ['mcp' => true],
+        'booking_cancel_hours' => ['mcp' => true],
+        'booking_reminder_hours' => ['mcp' => true],
+        'booking_hold_hours' => ['mcp' => true],
+        'booking_pending_mail' => ['mcp' => true],
+        'booking_declined_mail' => ['mcp' => true],
+        'booking_pending_thanks' => ['mcp' => true],
+        'site_key_secret' => ['secret' => true],
+        'domain_watch' => ['lazy' => true],
+        'extensions' => ['export' => true],
+    ];
+
+    /** @var array<string, list<string>> keysWith() per flag, worked out once per request */
+    private static array $withFlag = [];
+
+    /**
+     * The keys whose declaration has the flag (secret, export, mcp, per_language, lazy), in the order of DECLARATIONS.
+     *
+     * @return list<string>
+     */
+    public static function keysWith(string $flag): array
+    {
+        return self::$withFlag[$flag] ??= array_keys(array_filter(self::DECLARATIONS, static fn (array $row): bool => ($row[$flag] ?? false) === true));
+    }
+
+    /**
+     * May Claude change the setting with update_settings (the rule MCP_SETTINGS of Mcp\Tools held until 3.49)? Code that runs
+     * on the site (head_code, marketing_code, cookies_external_code) never: a prompt-injected Claude must not put script on
+     * every page (2.5.1); nor gtm_id, matomo_url and matomo_id – a GTM container or a Matomo host loads whatever its owner
+     * chooses (3.3.2). Besides the keys with the flag mcp, two shapes that are no keys:
+     *   - a language variant (site_name_de, cookies_text_en-gb) of a per-language setting Claude may change;
+     *   - any company_ key: one that is not declared then gets "invalid value", not "not allowed" (as in 3.49).
+     */
+    public static function claudeMaySet(string $key): bool
+    {
+        if ((self::DECLARATIONS[$key]['mcp'] ?? false) === true || preg_match('/^company_[a-z_]+$/D', $key) === 1) {
+            return true;
+        }
+        foreach (self::keysWith('per_language') as $base) {
+            if ((self::DECLARATIONS[$base]['mcp'] ?? false) === true && preg_match('/^' . preg_quote($base, '/') . '_' . Language::TAG . '$/D', $key) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * What the code knows about one setting, from the lists that hold it (3.42, audit Q9): the default, whether it is a
      * secret (Core\Vault), goes into the site export (Core\SiteExport), has a value per language, is loaded lazily, and
      * its older names (Core\OldSettingsKeys). The form type is Admin\Modules\Settings::FIELDS and Claude's access the
