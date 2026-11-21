@@ -919,7 +919,10 @@ check('Cesty: adresa novinek nesmí být systémová cesta ani mít špatný tva
 // route that is not added to Routes::NEWS_RESERVED fails here.
 $kernelSource = (string) file_get_contents(KALETA_ROOT . '/system/src/Front/Kernel.php');
 $handleStart = (int) strpos($kernelSource, 'public function handle(): Response');
-$earlyRoutes = substr($kernelSource, $handleStart, (int) strpos($kernelSource, 'SELECT * FROM {stranky} WHERE seo_link', $handleStart) - $handleStart);
+// 3.50 B1b: after the page cache the routes are the rows of Front\Kernel::ROUTES – the early ones are the rows above the page lookup
+$routes350 = (new ReflectionClassConstant(Kaleta\Front\Kernel::class, 'ROUTES'))->getValue();
+$earlyRoutes = substr($kernelSource, $handleStart, (int) strpos($kernelSource, "\n    }\n", $handleStart) - $handleStart)
+    . var_export(array_slice($routes350, 0, (int) array_search('routePage', array_column($routes350, 2), true)), true);
 $earlySegments = [];
 $collectSegments = function (string $source) use (&$earlySegments): void {
     // string literals that start a path: '/x…', '#^/x…', '#^/(x|y)…'
@@ -943,6 +946,9 @@ foreach ($routerFolders[1] as $alternatives) {
     }
 }
 unset($earlySegments['novinky']); // the news itself
+// 3.50 B1b: the row of the talent pool link is built from TalentPool::PATH, which the text of handle() never showed as a literal;
+// kept out as before (a news slug "application-consent" would hide that link – noted for the lead, no behaviour change in B1)
+unset($earlySegments[Kaleta\Core\TalentPool::PATH]);
 $unreserved = array_keys(array_filter($earlySegments, fn (bool $v, string $segment): bool => Routes::systemSlugError($segment) === null, ARRAY_FILTER_USE_BOTH));
 check('Cesty: každá časná cesta webu (Kernel::handle před stránkami, OAuth, router) je pro adresu novinek zakázaná', $unreserved, []);
 check('Cesty: čtení časných cest našlo OAuth, MCP, odběr, flotilu i složky', array_values(array_intersect(['oauth', 'mcp', 'odber', 'fleet', 'manifest', 'favicon', 'index', 'storage', 'extensions'], array_keys($earlySegments))),
