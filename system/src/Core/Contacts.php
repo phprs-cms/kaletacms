@@ -788,7 +788,7 @@ final class Contacts
         $out = [];
         try {
             // 3.34 second review N6: $withApplications – the viewer may open Applications (the job enquiries still moving there are theirs)
-            foreach ($db->all('SELECT idp, datum, formular, tema, stav, replies, anonymizovano FROM {poptavky} WHERE contact_id = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, null, $withApplications)
+            foreach ($db->all('SELECT idp, datum, formular, tema, stav, replies, anonymizovano FROM {poptavky} WHERE contact_id = ? AND ' . EnquiryVisibility::visible($db, null, $withApplications)
                 . ' ORDER BY datum DESC, idp DESC LIMIT ' . $limit, [$id]) as $r) {
                 $path = 'admin.php?module=enquiries&action=detail&id=' . (int) $r['idp'];
                 $out[] = ['at' => (string) $r['datum'], 'kind' => 'enquiry', 'title' => (string) $r['formular'], 'text' => (string) $r['tema'],
@@ -1327,7 +1327,7 @@ final class Contacts
         }
         if ($kind === 'enquiry') {
             // 3.34 second review N6: a job enquiry still moving to Applications never makes a customer record, nor a moved twin
-            $r = $db->one('SELECT idp, datum, zdroj, stranka, email, data, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, null, false), [$id]);
+            $r = $db->one('SELECT idp, datum, zdroj, stranka, email, data, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, null, false), [$id]);
             if ($r === null || $r['anonymizovano'] !== null) {
                 return null;
             }

@@ -40,36 +40,16 @@ final class Enquiries extends Module
         return (int) $db->value('SELECT COUNT(*) FROM {poptavky} WHERE stav = 0 AND ' . self::NOT_SPAM . self::stillMoving($db, $settings));
     }
 
-    /**
-     * 3.34 review M3: while migration 0120 still moves job enquiries to Applications, " AND <condition>" that leaves out the
-     * ones still to move – for the counts everyone sees; with visible() (N6) for a person without Applications.
-     */
+    /** 3.49: moved to Core\EnquiryVisibility::stillMoving() – this name stays for the admin and the tests. */
     public static function stillMoving(\Kaleta\Core\Db $db, ?\Kaleta\Core\Settings $settings = null): string
     {
-        return ' AND ' . self::visible($db, $settings, false);
+        return \Kaleta\Core\EnquiryVisibility::stillMoving($db, $settings);
     }
 
-    /**
-     * The one condition every read of enquiry rows uses (3.34 second review N6; a unit test lists every query on ka_poptavky
-     * that returns rows and fails on one without it or an explicit exemption) – never empty:
-     *  - an enquiry with an application twin (an application whose source_enquiry_id and received_at are its idp and date –
-     *    a database restored from a backup taken around the move, N9) has moved: shown to nobody, and acted on by nobody;
-     *  - while migration 0120 still moves, the job enquiries still to move (Applications::movingCondition) – for a person
-     *    without Applications ($withApplications false), the retention and anything automatic.
-     * $table: the name or alias the query gives ka_poptavky.
-     */
+    /** 3.49: moved to Core\EnquiryVisibility::visible() (the one condition of every enquiry read, N6) – this name stays for the admin, MCP and the tests. */
     public static function visible(\Kaleta\Core\Db $db, ?\Kaleta\Core\Settings $settings, bool $withApplications, string $table = '{poptavky}'): string
     {
-        $settings ??= new \Kaleta\Core\Settings($db);
-        $parts = [];
-        if ($settings->int('db_version') >= 119) {
-            $parts[] = 'NOT EXISTS (SELECT 1 FROM {applications} twin WHERE twin.source_enquiry_id = ' . $table . '.idp AND twin.received_at = ' . $table . '.datum)';
-        }
-        if (!$withApplications && ($moving = \Kaleta\Core\Applications::movingCondition($db, $settings, $table)) !== null) {
-            $parts[] = $moving;
-        }
-
-        return $parts === [] ? '1 = 1' : implode(' AND ', $parts);
+        return \Kaleta\Core\EnquiryVisibility::visible($db, $settings, $withApplications, $table);
     }
 
     /** visible() for the signed-in person: the job enquiries still moving only when they may open Applications. */

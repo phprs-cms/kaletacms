@@ -1121,7 +1121,7 @@ final class Quotes
         if (!Prices::isOn($s) || !$s->bool(self::AUTO_DRAFT_SETTING)) {
             return null;
         }
-        $enquiry = $db->one('SELECT idp, kategorie, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, false), [$enquiryId]);
+        $enquiry = $db->one('SELECT idp, kategorie, prirazeno, contact_id, anonymizovano FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $s, false), [$enquiryId]);
         if ($enquiry === null || in_array((string) $enquiry['kategorie'], ['spam', 'job'], true) || $enquiry['anonymizovano'] !== null
             || $db->value('SELECT 1 FROM {quotes} WHERE enquiry_id = ? LIMIT 1', [$enquiryId]) !== null) {
             return null;
@@ -1237,7 +1237,7 @@ final class Quotes
     private static function linesFromEnquiryNow(App $app, int $enquiryId): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT data, zdroj, prvek, stranka FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $app->settings(), false), [$enquiryId]);
+        $enquiry = $db->one('SELECT data, zdroj, prvek, stranka FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $app->settings(), false), [$enquiryId]);
         $fields = json_decode((string) ($enquiry['data'] ?? ''), true);
         $fields = is_array($fields) ? $fields : [];
         // 3.44 (N163): a visitor's submission of a site form gives basket lines only from its basket field (the labels of the
@@ -1466,7 +1466,7 @@ final class Quotes
             if (!$may('enquiries')) {
                 throw new \DomainException(t('Only a user who may open Enquiries can make a quote from an enquiry.'));
             }
-            $enquiry = $value('enquiry_id') > 0 ? $db->one('SELECT idp, tema, email, contact_id FROM {poptavky} WHERE idp = ? AND ' . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, false), [$value('enquiry_id')]) : null;
+            $enquiry = $value('enquiry_id') > 0 ? $db->one('SELECT idp, tema, email, contact_id FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $s, false), [$value('enquiry_id')]) : null;
             if ($value('enquiry_id') > 0 && $enquiry === null) {
                 throw new \DomainException(t('The enquiry does not exist.'));
             }

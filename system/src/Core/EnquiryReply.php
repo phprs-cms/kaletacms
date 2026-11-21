@@ -158,7 +158,7 @@ final class EnquiryReply
         $s = $app->settings();
         // 3.34 second review N6: not an enquiry still moving to Applications for a person without them, never a moved twin
         $enquiry = $db->one('SELECT idp, datum, email, formular, tema, data, stav, prirazeno, replies, anonymizovano FROM {poptavky} WHERE idp = ? AND '
-            . \Kaleta\Admin\Modules\Enquiries::visible($db, $s, $app->auth()->hasModule(Applications::SECTION)), [$idp]);
+            . EnquiryVisibility::visible($db, $s, $app->auth()->hasModule(Applications::SECTION)), [$idp]);
         if ($enquiry === null) {
             throw new \DomainException('The enquiry does not exist.');
         }

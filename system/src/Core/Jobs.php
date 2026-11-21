@@ -85,7 +85,7 @@ final class Jobs
         }
         $db = $app->db();
         // 3.34 second review N6: never a job enquiry migration 0120 is still to move, never a moved twin
-        $expired = self::expiredApplications($db->all('SELECT idp, zdroj, datum, data FROM {poptavky} WHERE datum < ? AND ' . Enquiries::visible($db, $app->settings(), false), [Clock::monthsAgo($months)]), self::sources($db), $months, date('Y-m-d H:i:s'));
+        $expired = self::expiredApplications($db->all('SELECT idp, zdroj, datum, data FROM {poptavky} WHERE datum < ? AND ' . EnquiryVisibility::visible($db, $app->settings(), false), [Clock::monthsAgo($months)]), self::sources($db), $months, date('Y-m-d H:i:s'));
         if ($expired === []) {
             return 0;
         }
