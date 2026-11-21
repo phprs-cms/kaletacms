@@ -107,7 +107,10 @@ trait EnquiryAndPopupTools
         $limit = max(1, min(50, (int) ($a['limit'] ?? 20)));
         $statusNames = array_flip($statuses);
 
-        $rows = $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data, prirazeno FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params);
+        $rows = $db->all('SELECT idp, datum, formular, stranka, tema, vstup, odkud, kampan, email, stav, kategorie, priorita, navrh_odpovedi, triaged_by, data, prirazeno, (stav < 2 AND email <> \'\' AND anonymizovano IS NULL AND (replies IS NULL OR replies IN (\'\', \'[]\'))) AS unanswered FROM {poptavky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY idp DESC LIMIT ' . $limit, $params);
+        // 3.49 A: how many saved replies get_email_signature brings – once, on the first enquiry still waiting for an answer
+        $savedReplies = array_filter(array_column($rows, 'unanswered')) !== [] ? \Kaleta\Core\SavedReplies::count($db) : 0;
+        $firstUnanswered = $savedReplies > 0 ? (int) (array_values(array_filter($rows, fn (array $p): bool => (bool) $p['unanswered']))[0]['idp'] ?? 0) : 0;
         $notes = \Kaleta\Core\Comments::countEnquiries($db, array_map('intval', array_column($rows, 'idp'))); // 3.25
         // 3.34: with Applications on, an enquiry sorted as a job application points there (additive key, only on those rows)
         $applicationsHint = \Kaleta\Core\Applications::isOn($siteSettings)
@@ -126,6 +129,7 @@ trait EnquiryAndPopupTools
             + (($notes[(int) $p['idp']] ?? 0) > 0 ? ['notes_count' => $notes[(int) $p['idp']]] : [])
             // 3.35 (N105): what the visitor typed or brought in the address
             + \Kaleta\Mcp\Untrusted::mark(['pole', 'email', 'kampan', 'first_page', 'came_from'])
+            + ((int) $p['idp'] === $firstUnanswered ? ['saved_replies' => $savedReplies] : [])
             + ($applicationsHint !== null && $p['kategorie'] === 'job' ? ['applications_hint' => $applicationsHint] : []),
             $rows);
     }

@@ -113,7 +113,7 @@ $a348Order = (function (): array {
 check('3.48 A6: migration 0135 is the data migration with the highest number; it writes down the 3.48 catalogue in its order (the update request of 3.47 runs it with its own classes)', [
     in_array('0135-customers-and-pipeline-features', Kaleta\Core\Migration::DATA, true), max(array_keys(Kaleta\Core\Migration::files())), KALETA_DB_VERSION,
     $a348Order === array_keys(Extensions::CATALOG)],
-    [true, 135, 135, true]);
+    [true, 137, 137, true]); // 3.49 A: 0137 (saved replies) is a structure migration – 0135 stays the highest data migration
 
 // A7: the smoke suite writes the feature list only through features() of bootstrap.sh – a raw write would switch the CRM off
 // for every later section of the one shared site

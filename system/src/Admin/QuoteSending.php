@@ -47,7 +47,9 @@ trait QuoteSending
                 'signature' => $signature !== null, 'replyTo' => (string) ($user['email'] ?? ''),
                 // 3.44 (U61): the folded preview of what the e-mail adds below the message (placeholders in the admin's language)
                 'mailTail' => $quote['status'] === 'draft' ? QuoteDelivery::previewTail($this->app, $quote, $signature, t('(the number it gets when sent)'), t('(the link to the quote)')) : '',
-                'pdf' => $this->pdfOf($quote) !== null, 'attachPdf' => $this->app->settings()->bool('quote_attach_pdf')]);
+                'pdf' => $this->pdfOf($quote) !== null, 'attachPdf' => $this->app->settings()->bool('quote_attach_pdf'),
+                // 3.49 A: more files to send with it – chosen again after a refusal, or added without the script (?attach=…&attach_add=…)
+                'attachments' => \Kaleta\Admin\AttachmentBox::data($this->app, $this->takeQuoteFiles($id), ['module' => Quotes::SECTION, 'action' => 'send', 'id' => $id])]);
         }
         try {
             if ($this->request->post('mode') === 'finalise') {
@@ -55,8 +57,18 @@ trait QuoteSending
                 QuoteDelivery::remember($this->app, $id, QuoteDelivery::issueLink($this->app, $id, $this->app->auth()->id())); // 3.38 review L1: shown in this session only
                 $this->app->session->flash('ok', t('Quote %s was finalised – hand over the link below or print the quote.', (string) $done['number']));
             } else {
+                // 3.49 A: the files a person chose (never over MCP, D6) – collected and measured before the quote is numbered
+                $internal = array_slice(array_map('intval', $this->request->postList('internal_files')), 0, 20);
+                $uploads = $this->request->fileList('files');
+                try {
+                    $files = $internal !== [] || $uploads !== [] ? \Kaleta\Core\ReplyAttachments::collect($this->app, $internal, $uploads) : [];
+                } catch (\DomainException $e) {
+                    $this->app->session->set('quote_send_files', ['id' => $id, 'files' => $internal]);
+
+                    return $this->back(t($e->getMessage()) . ($uploads !== [] ? ' ' . t('Choose the uploaded files again.') : ''), 'send', ['id' => $id], 'chyba');
+                }
                 $done = QuoteDelivery::send($this->app, $id, $this->request->post('subject'), $this->request->post('message'), $this->request->postBool('set_deal_value'), 'admin',
-                    $this->request->postBool('attach_pdf') ? QuotePdf::attachment($this->app) : null);
+                    $this->request->postBool('attach_pdf') ? QuotePdf::attachment($this->app) : null, $files);
                 QuoteDelivery::remember($this->app, $id, $done['link']);
                 $this->app->session->flash($done['status'] === 'sent' ? 'ok' : 'chyba', ($done['status'] === 'sent'
                     ? t('Quote %1$s was sent to %2$s.', $done['number'], $done['to'])
@@ -69,6 +81,20 @@ trait QuoteSending
         $this->followUpAfterSend($id); // 3.40: "Remind me in N days" (Admin\QuoteExtras)
 
         return $this->back('', 'send', ['id' => $id]);
+    }
+
+    /**
+     * 3.49 A: the internal files of the send dialog – the ones of a refused send (once, for this quote) and those added
+     * without the script (?attach=1,2&attach_add=3). @return list<int>
+     */
+    private function takeQuoteFiles(int $id): array
+    {
+        $kept = $this->app->session->get('quote_send_files');
+        $this->app->session->remove('quote_send_files');
+        $files = is_array($kept) && (int) ($kept['id'] ?? 0) === $id && is_array($kept['files'] ?? null) ? array_map('intval', $kept['files']) : [];
+
+        return array_slice(array_values(array_unique(array_filter([...$files, ...array_map('intval', [...explode(',', $this->request->get('attach')), $this->request->get('attach_add')])],
+            fn (int $f): bool => $f > 0))), 0, \Kaleta\Core\ReplyAttachments::MAX_FILES);
     }
 
     protected function actionPreview(): Response

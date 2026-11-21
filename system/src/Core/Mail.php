@@ -41,7 +41,9 @@ final class Mail
      *        subject that names a person (a form notification's "<form>: <site> – Olivia Hart" is logged as "<form>: <site>");
      *        a queued message keeps its full subject in its body until it is sent. '' = the subject itself.
      * @param list<array{name: string, type: string, data: string}> $attachments 3.40: files sent with the message (multipart/mixed);
-     *        the names are made safe, together at most MAX_ATTACHMENTS bytes; a queued message keeps them until it is sent
+     *        the names are made safe, together at most MAX_ATTACHMENTS bytes; a queued message keeps them until it is sent –
+     *        3.49 A: except an attachment marked 'queue' => false (a file a person chose for a reply): it goes only with the
+     *        message sent right now and is never written into ka_posta
      * @param int $expires 3.41 (N114): when a link in the message stops working (a password or invitation link, Unix time; 0 = none):
      *        a queued copy is dropped after it instead of being sent, and a backup never carries its body
      * @throws \InvalidArgumentException when the attachments are too large or not files
@@ -60,7 +62,8 @@ final class Mail
                 'komu' => mb_substr($recipient, 0, 190), 'predmet' => mb_substr($logSubject !== '' ? $logSubject : $subject, 0, 255), 'vytvoreno' => date('Y-m-d H:i:s'), 'pokusu' => 1,
                 'odeslano' => $ok ? date('Y-m-d H:i:s') : null, 'chyba' => mb_substr($error, 0, 255),
                 'telo' => $ok || !$queueOnFailure ? null : json_encode(['text' => $text, 'html' => $html, 'hlavicky' => $headers] + ($logSubject !== '' ? ['predmet' => $subject] : [])
-                    + ($attachments !== [] ? ['prilohy' => array_map(fn (array $a): array => ['name' => $a['name'], 'type' => $a['type'], 'data' => base64_encode($a['data'])], $attachments)] : [])
+                    + (($queued = array_values(array_filter($attachments, fn (array $a): bool => ($a['queue'] ?? true) !== false))) !== []
+                        ? ['prilohy' => array_map(fn (array $a): array => ['name' => $a['name'], 'type' => $a['type'], 'data' => base64_encode($a['data'])], $queued)] : [])
                     + ($expires > 0 ? ['expires' => $expires] : []), JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
                 'dalsi_pokus' => $ok || !$queueOnFailure ? null : date('Y-m-d H:i:s', time() + self::RETRY_DELAYS[0] * 60),
             ]);
@@ -81,7 +84,7 @@ final class Mail
      * application/octet-stream), and at most MAX_ATTACHMENTS bytes together.
      *
      * @param array<mixed> $attachments
-     * @return list<array{name: string, type: string, data: string}>
+     * @return list<array{name: string, type: string, data: string, queue?: false}> queue (3.49 A): kept when false – never queued
      * @throws \InvalidArgumentException
      */
     public static function attachments(array $attachments): array
@@ -98,7 +101,8 @@ final class Mail
             }
             $name = trim((string) preg_replace('/[^A-Za-z0-9._-]+/', '-', basename(str_replace('\\', '/', (string) ($a['name'] ?? '')))), '.-');
             $type = strtolower((string) ($a['type'] ?? ''));
-            $safe[] = ['name' => mb_substr($name !== '' ? $name : 'attachment', -100), 'type' => preg_match('#^[a-z]+/[a-z0-9.+-]+$#D', $type) === 1 ? $type : 'application/octet-stream', 'data' => $a['data']];
+            $safe[] = ['name' => mb_substr($name !== '' ? $name : 'attachment', -100), 'type' => preg_match('#^[a-z]+/[a-z0-9.+-]+$#D', $type) === 1 ? $type : 'application/octet-stream', 'data' => $a['data']]
+                + (($a['queue'] ?? true) === false ? ['queue' => false] : []);
         }
 
         return $safe;

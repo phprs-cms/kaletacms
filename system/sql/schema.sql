@@ -2076,6 +2076,21 @@ CREATE TABLE ka_absences (
     KEY ix_absences_ends (ends_on)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
+-- 3.49 A: saved replies of the firm (Core\SavedReplies) – offered when replying to an enquiry; no personal data, never written over MCP
+CREATE TABLE ka_saved_replies (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    language   VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',   -- '' = the site's default language, else an additional language version
+    category   VARCHAR(20) CHARACTER SET ascii NOT NULL DEFAULT '',   -- '' in 3.49 (the seam of a later Support tab)
+    name       VARCHAR(80) NOT NULL,                                  -- what the person picks in the reply form
+    subject    VARCHAR(200) NOT NULL DEFAULT '',                      -- '' = the reply's default subject
+    text       TEXT NOT NULL,                                         -- with {{name}}, {{topic}}, {{company}}
+    sort_order INT NOT NULL DEFAULT 0,
+    updated_by INT UNSIGNED NULL,                                     -- ka_uzivatele.idu (no foreign key)
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    KEY ix_saved_replies_language (language, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
 -- 3.46 (N156): the restore ledger (Core\RestoreLedger) – what a database restore must never bring back. It is never written
 -- into a backup and a restore never touches it, so it outlives every restore: keyed fingerprints of erased and unsubscribed
 -- e-mail addresses (HMAC with the ledger's own key, never an address), the fingerprints of sign-in tokens and passkeys a

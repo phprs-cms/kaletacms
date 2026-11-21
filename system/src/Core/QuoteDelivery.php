@@ -296,11 +296,20 @@ final class QuoteDelivery
      * @param 'admin'|'mcp' $via
      * @param (\Closure(array<string, mixed>): ?array{name: string, type: string, data: string})|null $attachment 3.40: makes the file sent
      *        with the e-mail from the sent quote (the caller's Front\QuotePdf – Core draws no documents); null from it = no file
+     * @param list<array{name: string, type: string, data: string, file: int, queue: false}> $files 3.49 A: more files a person chose
+     *        (Core\ReplyAttachments::collect – never over MCP), measured before the quote is numbered: when they and the PDF are
+     *        too large together, the PDF stays out (the customer has the link). They never wait in the mail queue: when the
+     *        e-mail is queued, it waits with the PDF only and the warning names them; the quote's history keeps the names of
+     *        the files that went.
      * @return array{id: int, number: string, status: 'sent'|'queued', error: string, to: string, link: string, deal_value_set: bool, warnings: list<string>, pdf: bool}
      * @throws \DomainException with a translated reason; nothing is sent
      */
-    public static function send(App $app, int $id, string $subject, string $message, bool $setDealValue, string $via = 'admin', ?\Closure $attachment = null): array
+    public static function send(App $app, int $id, string $subject, string $message, bool $setDealValue, string $via = 'admin', ?\Closure $attachment = null, array $files = []): array
     {
+        if (array_sum(array_map(fn (array $f): int => strlen((string) $f['data']), $files)) > Mail::MAX_ATTACHMENTS || count($files) > ReplyAttachments::MAX_FILES) {
+            throw new \DomainException(t('The attachments are too large together (%1$s, at most %2$s): %3$s.', Files::size(array_sum(array_map(fn (array $f): int => strlen((string) $f['data']), $files))),
+                Files::size(Mail::MAX_ATTACHMENTS), implode(', ', array_column($files, 'name')))); // before the number is taken
+        }
         $db = $app->db();
         $s = $app->settings();
         $quote = Quotes::get($db, $id) ?? throw new \DomainException(t('The quote does not exist.'));
@@ -319,15 +328,15 @@ final class QuoteDelivery
         $subject = trim(mb_substr((string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $subject), 0, self::MAX_SUBJECT));
         $message = trim(mb_substr(str_replace("\r\n", "\n", strip_tags($message)), 0, self::MAX_MESSAGE));
         $user = $app->auth()->user() ?? [];
+        $sender = ReplyMail::sender($app, $user); // 3.49 A: the one sender – Reply-To and the signature as every reply has them
 
         $sent = Quotes::markSent($app, $id, (int) ($user['idu'] ?? 0));
         $link = self::issueLink($app, $id, (int) ($user['idu'] ?? 0));
         $number = (string) $sent['number'];
         $subject = str_replace('{number}', $number, $subject !== '' ? $subject : $draft['subject']);
         $message = $message !== '' ? $message : $draft['message'];
-        $replyTo = Mail::addresses((string) ($user['email'] ?? ''));
-        $headers = count($replyTo) === 1 ? ['Reply-To' => $replyTo[0]] : [];
-        $signature = EnquiryReply::signature($app, $user);
+        $headers = $sender['reply_to'] !== '' ? ['Reply-To' => $sender['reply_to']] : [];
+        $signature = $sender['signature'];
         [$plain, $html] = Language::runWith($draft['language'], fn (): array => self::mail($sent, $message, $link, $signature), '', $s->get('german_register'));
         $warnings = [];
         $file = $attachment !== null ? $attachment($sent) : null; // 3.40: the quote as a PDF, when asked and when its language can be drawn
@@ -336,7 +345,7 @@ final class QuoteDelivery
         }
         if ($file !== null) { // 3.40 review L5: the quote is numbered already – a file over the mail limit goes out as the link only, never an error
             try {
-                Mail::attachments([$file]);
+                Mail::attachments([$file, ...$files]); // 3.49 A: with the files chosen – they alone fit (checked above), so only the PDF can drop out
             } catch (\InvalidArgumentException) {
                 $file = null;
                 $warnings[] = t('The e-mail went without the PDF: the file is too large for an e-mail – the customer has the link.');
@@ -344,11 +353,17 @@ final class QuoteDelivery
         }
         // 3.44 (N145): the mail carries the customer's link – a queued copy goes when the link ends and a backup never keeps its body
         $linkEnds = Clock::fromDb((string) ($db->value('SELECT token_expires_at FROM {quotes} WHERE id = ?', [$id]) ?? ''));
-        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')), $file !== null ? [$file] : [],
+        $ok = Mail::send($s, $to[0], $subject, $plain, $html, $headers, true, t('Quote %1$s: %2$s', $number, $s->get('site_name')), [...($file !== null ? [$file] : []), ...$files],
             $linkEnds !== null ? $linkEnds->getTimestamp() : 0);
         $mailId = Mail::$lastId;
         if ($mailId !== null) {
             $db->update('quotes', ['sent_mail' => $mailId], ['id' => $id]);
+        }
+        if ($files !== [] && $ok) {
+            self::recordFiles($db, $id, ReplyAttachments::history($files)); // only what left: a queued e-mail waits without them
+            ReplyAttachments::trace($app, $files, t('sent with quote %s', $number));
+        } elseif ($files !== []) {
+            $warnings[] = t('The e-mail waits in the queue without the attached files: %s.', implode(', ', array_column($files, 'name')));
         }
         $dealSet = false;
         if ($setDealValue && $sent['deal_id'] !== null && !Deals::mayOpen($db, $s, (int) ($user['idu'] ?? 0))) {
@@ -636,6 +651,9 @@ final class QuoteDelivery
         $now = Clock::now();
         self::withdrawMail($db, $ids); // 3.44 (N145): a mail still waiting in the queue names the customer and carries the link
         Tasks::anonymiseTargets($db, array_map(fn (int $id): string => 'quote:' . $id, $ids));
+        foreach ($db->all("SELECT id, history FROM {quotes} WHERE anonymised_at IS NULL AND history LIKE '%\"files\"%' AND id IN (" . implode(',', $ids) . ')') as $q) {
+            $db->update('quotes', ['history' => self::withoutFiles($q['history'])], ['id' => (int) $q['id']]); // 3.49 A: a file name can name the person
+        }
 
         return $db->run("UPDATE {quotes} SET customer_name = '', customer_company = '', customer_address = '', customer_reg_no = '', customer_vat_id = '', customer_email = '',"
             . " title = '', intro = NULL, terms = NULL, contact_id = NULL, company_id = NULL, enquiry_id = NULL, deal_id = NULL," // 3.38 review L5: free texts may name the person, the links lead to them
@@ -835,6 +853,33 @@ final class QuoteDelivery
     private static function row(Db $db, int $id): ?array
     {
         return $id > 0 ? $db->one('SELECT id, number, status, valid_until, snapshot, token_hash, token_expires_at, history, anonymised_at FROM {quotes} WHERE id = ?', [$id]) : null;
+    }
+
+    /**
+     * 3.49 A: writes the files that left with the e-mail into the quote's last "sent" entry of its history.
+     *
+     * @param list<array{name: string, size: int, file: int}> $files
+     */
+    private static function recordFiles(Db $db, int $id, array $files): void
+    {
+        $history = json_decode((string) $db->value('SELECT history FROM {quotes} WHERE id = ?', [$id]), true);
+        $history = is_array($history) ? array_values($history) : [];
+        for ($i = count($history) - 1; $i >= 0; $i--) {
+            if (is_array($history[$i]) && ($history[$i]['action'] ?? '') === 'sent') {
+                $history[$i]['files'] = $files;
+                $db->update('quotes', ['history' => (string) json_encode($history, JSON_UNESCAPED_UNICODE)], ['id' => $id]);
+
+                return;
+            }
+        }
+    }
+
+    /** 3.49 A (pure): a stored history without the names of files sent with the quote. */
+    public static function withoutFiles(mixed $json): string
+    {
+        $history = json_decode((string) $json, true);
+
+        return (string) json_encode(array_map(fn (mixed $entry): mixed => is_array($entry) ? array_diff_key($entry, ['files' => 1]) : $entry, is_array($history) ? array_values($history) : []), JSON_UNESCAPED_UNICODE);
     }
 
     /** The stored history with one more entry, at most Quotes::HISTORY_MAX, as JSON. */

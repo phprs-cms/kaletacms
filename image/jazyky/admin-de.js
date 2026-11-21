@@ -3115,4 +3115,6 @@ window.KALETA_PREKLAD = {
 	"New customer…": "Neuer Kunde …",
 	"%d results": "Ergebnisse: %d",
 	"No result": "Kein Ergebnis",
+	"Up to %d files can go with one e-mail.": "Mit einer E-Mail können höchstens %d Dateien gesendet werden.",
+	"The attachments are too large together (%1$s, at most %2$s).": "Die Anhänge sind zusammen zu groß (%1$s, höchstens %2$s).",
 };

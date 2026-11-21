@@ -117,7 +117,10 @@ $parity = [
         'bulk' => 'update_enquiry', 'delete' => 'delete_enquiry', 'settings' => 'admin: how long enquiries are kept',
         'to_application' => 'admin: moving an enquiry with its attachments into Applications (3.34) is a person’s decision about personal data – CVs never pass through Claude', 'anonymise' => 'admin: blanking a person from an enquiry is the owner’s decision about personal data (2.14)',
         'comment' => 'admin: editing or deleting one’s own note (3.26) – notes are added with update_enquiry add_note',
-        'task' => 'save_task'], // 3.27: the tasks and follow-ups of an enquiry
+        'task' => 'save_task', // 3.27: the tasks and follow-ups of an enquiry
+        // 3.49 A: saved replies – Claude reads them with get_email_signature; the files of a reply (reply above) are chosen in the admin only (D6)
+        'saved_replies' => $readOnly, 'saved_reply_json' => $readOnly,
+        'saved_replies_save' => 'admin: the firm’s own reply texts are written by a person; Claude reads them with get_email_signature'],
     // 3.0: online booking – bookings are personal data (the Bookings section), the set-up is the administrator's
     'bookings' => ['list' => $readOnly, 'detail' => $readOnly, 'new' => $readOnly, 'status' => 'cancel_booking', 'confirm' => 'confirm_booking', 'decline' => 'decline_booking', 'propose' => 'propose_booking_times', 'anonymise' => 'admin: blanking a person from a booking is the owner’s decision about personal data',
         'create' => 'admin: a booking taken by phone is entered by the person who took the call – customers’ personal data never come from Claude', 'services' => $readOnly, 'service_save' => 'save_booking_service',
@@ -165,7 +168,8 @@ $parity = [
         'task' => 'save_task', 'follow_up' => 'save_task',
         'customer_list' => 'admin: which price list a customer gets is a commercial decision a person makes in the customer\'s record',
         'line_set_rename' => 'admin: the saved line sets are the administrator\'s set-up (Quotes → Settings)', 'line_set_delete' => 'admin: deleting a saved line set is the administrator\'s set-up',
-        'send' => 'send_quote', 'preview' => $readOnly, 'link' => 'admin: a new customer\'s link for a sent quote is handed over by a person',
+        'send' => 'send_quote', // 3.49 A: the files sent with a quote are chosen in the admin only (D6) – send_quote has no parameter for them
+        'preview' => $readOnly, 'link' => 'admin: a new customer\'s link for a sent quote is handed over by a person',
         'link_withdraw' => 'admin: withdrawing a customer\'s link is the person\'s decision', 'texts_save' => 'admin: the default texts of quotes are the administrator\'s set-up',
         'pdf' => $readOnly], // 3.40 A: the quote as a PDF file
     // 3.42: internal files (Core\InternalFiles) – Claude lists, reads text documents and saves documents and metadata with the

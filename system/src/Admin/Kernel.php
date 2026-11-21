@@ -208,6 +208,15 @@ final class Kernel
         \Kaleta\Core\Language::setAdminRegister((string) ($app->auth()->user()['register'] ?? ''));
         \Kaleta\Core\Language::setSiteRegister($app->settings()->get('german_register'));
         \Kaleta\Core\Language::set(isset(\Kaleta\Core\Language::ADMIN_LANGUAGES[$language]) ? $language : 'cs', 'admin-');
+        if ($request->bodyTooLarge()) {
+            // 3.49 A (finding 9): the body never arrived – say why instead of "the form has expired", and lead back to the form
+            $back = parse_url($request->referer());
+            $back = is_array($back) && str_ends_with((string) ($back['path'] ?? ''), '/admin.php') ? 'admin.php' . (isset($back['query']) ? '?' . $back['query'] : '') : null;
+
+            return $this->page('Invalid request', $app->view->render('admin/error', [
+                'text' => t('The upload was larger than this server accepts (%s). Nothing was saved – go back and choose smaller files.', \Kaleta\Core\Files::postLimitText()),
+            ] + ($back !== null ? ['link' => ['text' => t('Back to the form'), 'url' => $back]] : [])), 413);
+        }
         if ($request->isPost() && !$app->session->csrfValid($request)) {
             return $this->page('Invalid request', $app->view->render('admin/error', [
                 'text' => 'The form has expired. Go back, reload the page and submit it again.',

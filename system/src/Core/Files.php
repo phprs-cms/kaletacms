@@ -116,7 +116,19 @@ final class Files
     /** The limit for humans: „2 MB“ instead of the shorthand from php.ini („2M“). */
     public static function limitText(): string
     {
-        $mb = self::limit() / 1024 / 1024;
+        return self::megabytes(self::limit());
+    }
+
+    /** 3.49 A: the request limit (post_max_size) for humans, as limitText(). */
+    public static function postLimitText(): string
+    {
+        return self::megabytes(self::postLimit());
+    }
+
+    /** Bytes as whole megabytes when they are whole („8 MB“), else with one decimal in the language's style. */
+    private static function megabytes(int $bytes): string
+    {
+        $mb = $bytes / 1024 / 1024;
 
         return $mb <= 0 ? '' : (fmod($mb, 1.0) === 0.0 ? (string) (int) $mb : number_format($mb, 1, Language::code() === 'cs' ? ',' : '.', '')) . ' MB';
     }

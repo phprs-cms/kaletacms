@@ -291,7 +291,7 @@ check('[source-pin] 3.25 (A, CPO #7): the default subject is Re: the topic, else
     Kaleta\Core\EnquiryReply::subject(['data' => '[]', 'formular' => 'Kontakt'] + $a325Enquiry),
     array_slice(explode("\n", $a325Quote), 1), str_contains(explode("\n", $a325Quote)[0], 'hana@example.cz'),
     Kaleta\Core\EnquiryReply::quote(['data' => '[["Telefon","777"]]'] + $a325Enquiry),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/EnquiryReply.php'), "\$plain = \$text . (\$signature !== null && \$signature['text'] !== '' ? \"\\n\\n-- \\n\" . \$signature['text'] : '') . (\$quote !== '' ? \"\\n\\n\" . \$quote : '');"),
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/ReplyMail.php'), "\$plain = \$text . (\$signature !== null && \$signature['text'] !== '' ? \"\\n\\n-- \\n\" . \$signature['text'] : '') . (\$quote !== '' ? \"\\n\\n\" . \$quote : '');"),
 ], ['Re: Okna – kuchyň', 'Re: Dobrý den, kolik stojí okna do kuchyně?', 'Re: ' . rtrim(mb_substr(trim(str_repeat('slovo ', 20)), 0, 60)) . '…', 'Re: Kontakt',
     ['> Dobrý den,', '> kolik stojí okna do kuchyně?'], true, '', true]);
 check('[source-pin] 3.25 (A): a note is plain text kept as written (control characters out, line breaks kept, capped); enquiry notes are personal data never journaled, kept on every delete path; Enquiries sits in the Workspace group', [

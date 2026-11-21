@@ -2255,3 +2255,15 @@ dl.nabidka-soucty { margin-top: 14px; }
 	.vyber { width: 100%; }
 	.vyber-seznam li { min-height: 44px; }
 }
+
+/* ---------- 3.49 A: saved replies and the attachments of a reply or a quote e-mail (views/admin/attachments.php) ---------- */
+.prilohy-seznam { display: grid; gap: 4px; margin: 0 0 8px; padding: 0; list-style: none; }
+.prilohy-seznam:empty { display: none; }
+.prilohy-seznam li { overflow-wrap: anywhere; }
+.prilohy-pridat { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 8px; }
+.ulozena-odpoved-volba { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.ulozena-odpoved-volba select { flex: 0 1 22em; min-width: 0; max-width: 100%; }
+.ulozene-odpovedi { display: grid; gap: 8px; margin: 0 0 16px; }
+.ulozena-odpoved { padding: 4px 14px; border: 1px solid var(--linka); border-radius: var(--radius); }
+.ulozena-odpoved > summary { min-height: 40px; padding: 10px 0; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; }
+.odpoved-prilohy { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--text-slaby); }
