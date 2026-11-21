@@ -96,7 +96,7 @@ expect "3.49 A: a draft file is refused, a file of a folder not for the person i
 a449_reply "$JAR" "$A449_B" "$A449_ENQ" -F subject=S -F text=Big -F "files[]=@$WORK/a449-big.pdf;filename=big.pdf" > /dev/null
 curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=enquiries&action=detail&id=$A449_ENQ"
 expect "3.49 A: 5,000,001 bytes of attachments are refused with the sizes named, nothing sent, the person is told to choose the uploads again" \
-  "$(stat -f %z "$WORK/a449-big.pdf" 2>/dev/null || stat -c %s "$WORK/a449-big.pdf")|$(a449_replies "$A449_ENQ")|$(sq "SELECT COUNT(*) FROM ka_posta")|$(grep -c 'big.pdf (' "$WORK/response")|$(grep -c 'Nahrávané soubory vyberte znovu.' "$WORK/response")" \
+  "$(wc -c < "$WORK/a449-big.pdf" | tr -d ' ')|$(a449_replies "$A449_ENQ")|$(sq "SELECT COUNT(*) FROM ka_posta")|$(grep -c 'big.pdf (' "$WORK/response")|$(grep -c 'Nahrávané soubory vyberte znovu.' "$WORK/response")" \
   "5000001|1|$A449_MAILS|1|1"
 head -c 9437184 /dev/zero > "$WORK/a449-9mb.bin"
 A449_9=$(a449_token "module=enquiries&action=detail&id=$A449_ENQ"; curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' -H "Referer: $B/admin.php?module=enquiries&action=detail&id=$A449_ENQ" -X POST "$B/admin.php?module=enquiries&action=reply" -F "_csrf=x" -F "id=$A449_ENQ" -F "files[]=@$WORK/a449-9mb.bin;filename=9mb.pdf")

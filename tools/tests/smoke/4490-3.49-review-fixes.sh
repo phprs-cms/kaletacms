@@ -104,7 +104,7 @@ expect "3.49 review C6: a valid call does all of it – the description, the new
 
 # C7: list_internal_files linked_to takes the status, the search and the folder too
 sq "INSERT INTO ka_internal_file_links (file_id, kind, record_id, created_by, created_at) VALUES ($R449_DRAFT, 'deal', $R449_DEAL, $R449_ADMIN, '$R449_NOW')" > /dev/null
-r449_names() { r449_mcp "$R449_TOKEN" list_internal_files "$1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); echo implode(",", array_column($d["files"] ?? [], "name")), "#", $d["total"] ?? "?";'; }
+r449_names() { r449_mcp "$R449_TOKEN" list_internal_files "$1" | php -r '$d = json_decode(stream_get_contents(STDIN), true); $n = array_column($d["files"] ?? [], "name"); sort($n); echo implode(",", $n), "#", $d["total"] ?? "?";'; }
 expect "3.49 review C7: linked_to with status, search or another folder filters the record's files and counts what it gives" \
   "$(r449_names "{\"linked_to\":\"deal:$R449_DEAL\",\"status\":\"ready\"}")|$(r449_names "{\"linked_to\":\"deal:$R449_DEAL\",\"search\":\"draft\"}")|$(r449_names "{\"linked_to\":\"deal:$R449_DEAL\"}")" \
   "r449-ready.pdf#1|r449-draft.pdf#1|r449-draft.pdf,r449-ready.pdf#2"
