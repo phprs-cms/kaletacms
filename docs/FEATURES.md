@@ -418,7 +418,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   a příznaky `secret`, `export`, `mcp`, `per_language`, `lazy`; čte se přes `Settings::fields()`, `keysWith()`, `claudeMaySet()`); dřívější
   seznamy `Vault::SECRET_SETTINGS`, `SiteExport::SETTINGS`, `Settings::PER_LANGUAGE` a `LAZY` zůstávají jen jako zrcadla pro kód starší
   verze během aktualizace (unit 4541). `Html::safe` má povolovací seznam prvků: neznámý prvek se rozbalí a jeho text zůstane
-  (`src`/`poster` jen u médií, `href` jen u `a`/`area`). Import webu: stránka, která dvakrát ukončí dávku, se přeskočí a vyjmenuje;
+  (`src`/`poster` jen u médií, `href` jen u `a`/`area`). Import webu: stránka, na které dvakrát skončí dávka bez postupu, se přeskočí a vyjmenuje;
   kontejner s víc než `HtmlWidgets::MAX_TRIGGERS` spouštěči zůstane textem; stará adresa, kterou tu už něco používá, nedostane
   přesměrování (`WpImport::redirectRefusal`). Konzole Flotily má ke každé kontrole stránku opravy jen ke čtení
   (`fleet&action=fix&check=<id>`, `Fleet\Checks::HELP`: co kontrola znamená, jak ji opravit, weby, které neprošly).

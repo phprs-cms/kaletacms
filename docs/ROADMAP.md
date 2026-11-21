@@ -6,11 +6,10 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.49 gave replies to enquiries the firm's saved texts per language, one sender and attachments, made long lists of
-customers, deals, products and files a choice by typing, linked internal files to customers, companies, deals and quotes,
-and let one absence in an account close the booking times of the person linked to it. The MCP tool definitions now live
-next to their handlers and the browser suite is split into step files. Each release lists what it brought in the
-changelog when it ships.
+3.50 paid debts instead of adding features: one page can no longer stall an import, an old address already used on the
+site gets no redirect, only people with Applications can change or drop a job application form, Fleet has a fix page for
+every check, and five admin screens got simpler. Inside, the public addresses are one table and each setting is declared
+once, both checked against a record of 3.49. Each release lists what it brought in the changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 

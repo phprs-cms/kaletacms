@@ -4,6 +4,87 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.50 – debts and measuring: imports that cannot stall, locked application forms, settings declared once, public addresses in one table (21 November 2026)
+
+A release that pays debts instead of adding features: the two open Medium findings (an import that one page could stall,
+and import redirects that rewrote live links) and 29 Low findings are closed, Fleet gets a fix page for every check, five
+screens of the administration get simpler, and two pieces of code that every request runs through are rewritten against
+a record of 3.49 – the public addresses are one table and each setting is declared once. **No database change:** no
+migration, `KALETA_DB_VERSION` stays 137. **MCP:** no tool, parameter or description changes (`tools/contracts.php` shows
+no difference); `reply_to_application` gains the output key `text_sent`.
+
+1. **Import of an old site.** One page can no longer stop an import: `WebImport` saves the page in progress with its
+   attempts before reading it, and a page on which two batches died without progress is skipped with the error "stopped
+   the import twice" (`WebImport::PAGE_ATTEMPTS`); a heavy page that still downloads new images or files in each batch is
+   finished, not skipped (`WebImport::attemptsUsed`). The widget recognisers compare by set and read a container's ids
+   once (`HtmlWidgets`); a part with more than `HtmlWidgets::MAX_TRIGGERS` (200) panel buttons stays text with an
+   attention line; `OldPage::index` reads at most 200 selectors of a rule. The image and file limits count per page, and
+   a page pauses 20 s past the batch end (`ImportPaused`); the next batch takes it again and reuses the downloads.
+2. **An old address already used here gets no redirect.** `WpImport::redirectRefusal` (public static) now answers for the
+   website import and `Import\Batch` too: an old address that a page, item, news article or category of this site already
+   uses, one that redirects elsewhere, or one that is not literal gets no redirect and no healing of links, and the result
+   lists it. Before, such a redirect rewrote links in menus and builds that pointed at the live page.
+3. **Video, sound and imported media.** `data-src` of `video`, `source` and `audio` becomes `src` before the files go into
+   Media; `audio` joins the linked files; a sound or poster that stays outside Media is left out with a note. A Kaleta
+   export accepts a second extension only for Kaleta's own image siblings (`photo.jpg.webp`, `photo.jpg.avif`). Media
+   deletes files with imported names, inside `media/` only (`realpath`, never a folder); a row whose file could not be
+   removed is kept with a message, in the admin and in `delete_media`.
+4. **Job applications.** Without the Applications section nobody can change the recipients or the hidden copy (Bcc) of a
+   job application form (`Build::LOCKED_RECIPIENTS`, like its Purpose), publish a build that drops such a form, or drop it
+   with **Return page to text**; the administrator still can. A job is matched to an application only while its page is
+   visible. A template reply through Claude fills the applicant's name like an automatic e-mail (`text_sent` in the
+   result). System status says that CVs sealed before a key move still open with the old key.
+5. **Signatures.** E-mail signature photos come from Media only (`Colleagues::photo()`); a hidden Team record signs mail
+   only as an administrator's own choice; a signature never shows the sign-in name (the local part of the e-mail, else the
+   company name); the signature template is for administrators.
+6. **Privacy, sign-in and backups.** Team totals are shown per count only when two other people share it, and tasks the
+   viewer created for others do not count. A scheme or port change of the site address asks for the passkey confirmation
+   too. `log_activity` refuses a text shaped like a merge note. A later change keeps the first text and blueprint of an
+   unseen instructions notice. An unreadable CAPTCHA secret keeps the CAPTCHA on and `captcha_fail_open` decides. An
+   off-site copy counts as deleted only on a positive answer – `DELE` ok, a listing that succeeded without the name
+   (walking up when the folder itself was removed, `RemoteBackup::goneFrom`) or S3 `NoSuchKey`; files that failed
+   `DELETE_TRIES` times go last in each run. A restore names the sources whose erasures it could not apply again; System
+   status has rows for a self-check that never ran or could not ask the site.
+7. **Forms and files.** After the first failed delivery the other copies of a form notification are queued without a try,
+   and queued notification bodies expire with their links. Enquiry attachments get the content check of uploads. Without
+   fileinfo an MP3 needs valid frames and documents are scanned in 1 MB pieces; System status says what fileinfo adds. A
+   form without recipients no longer claims "the recipients of the form". Only a signed, live link waits for the sign-in;
+   a download opened from another site (a link in webmail) shows one **Download** button, and the change-log line comes
+   with the real download.
+8. **Texts: `Html::safe` keeps a list of elements.** An element that is not on the list (an old custom element, `marquee`)
+   is unwrapped – the element goes, **its text stays**. `src` and `poster` stay only on images and media, `href` only on
+   `a` and `area`, `cite` only on quotes and `del`/`ins`; the importers' `kaleta-widget` is on the list. Compared on the
+   texts of the demo and starter sites, the library sections and the audit's payloads, only unknown elements differ.
+9. **Fleet.** Every check has a fix page in the console (`fleet&action=fix&check=<id>`, `Fleet\Checks::HELP`): what it
+   checks, how to fix it once, the sites that fail it as links and a tick from the stored heartbeat; linked from the
+   health matrix and Today. Read-only (parity row `fleet_health`). A waiting security release comes before a failed
+   update (reason `security:<version>`), so an accepted "update failed" reopens; an accepted "no report" holds at most 7
+   days from `accepted_at` (`Acceptances::lastDay`). Plainer words: "Site is down", "A11y", "Updates on its own".
+10. **Administration.** The phone menu is one column for a short menu, and View site and Sign out share one row; a role's
+    sections are grouped like the menu with the level under its own legend; a new page shows the title and the start
+    choice and folds everything else under **More settings** (open on a value or an error); the customer page lists the
+    next open task of each of its enquiries and deals (deals only with the Pipeline); the deal page says the stage once and
+    clamps the title to two lines on a phone; the agency logo is picked from Media. The guide gets chapters 14–18 (Sales,
+    Customers, Job applications, Internal files, Privacy and retention) in `docs/guide.md` and `docs/prirucka.md`, and
+    every menu module points at an existing chapter (unit 4568).
+11. **Code: public addresses are one table.** After the page cache, `Front\Kernel::ROUTES` holds rows `[method, exact path
+    or anchored pattern, handler]`, tried top to bottom; a private `route…()` method returns `null` for "not mine"
+    (feature off, wrong token), so every fall-through of the old `if` chain stays. The gates before the cache stay as code;
+    `handle()` is 57 lines. The talent pool word `application-consent` joins `Routes::NEWS_RESERVED`. A record of 3.49
+    (391 requests) answers identically; smoke 4530 replays 74 of them from `tools/contracts/front-routes.txt`.
+12. **Code: each setting is declared once.** `Core\Settings::DECLARATIONS` beside `DEFAULTS` carries the tab, the form type
+    and the flags `secret`, `export`, `mcp`, `per_language` and `lazy`; code asks `Settings::fields()`, `keysWith()` and
+    `claudeMaySet()`. `Admin\Modules\Settings::FIELDS` and `Mcp\Tools::MCP_SETTINGS` are gone; `Vault::SECRET_SETTINGS`,
+    `SiteExport::SETTINGS`, `Settings::PER_LANGUAGE` and `LAZY` stay as unread mirrors, because the `Settings` class of an
+    older release reads them while an update runs (unit 4541 holds them equal). Claude may set exactly the settings it
+    could set in 3.49, checked for every key, language variant and near miss. The screen bounds move to `Core\Settings`
+    (`Front\Screen` keeps aliases); reading the declaration loads no other class.
+13. Not done: the four layer moves that would bring the frozen layer exceptions under 60 (still 70 files) wait for a later
+    release; a way to plant counts in the team totals by reassigning a task or an enquiry, found by the release review, is
+    carried to 3.51.
+14. Tests: unit 4500–4568 and 4590, smoke 4500–4566, 4592 and 4594, browser step 0360; `tools/fake-old-site.php` serves
+    slow, killing and heavy pages. New admin strings in admin-cs, -de, -es and -de-du.
+
 ## 3.49 – replies with saved texts and attachments, choosing by search, files on a record, one absence for booking times (21 November 2026)
 
 Replies to enquiries get the firm's saved texts, one sender and attachments; every long list of customers, deals, products
