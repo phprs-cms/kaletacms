@@ -9343,4 +9343,6 @@ return [
     'Internal files linked to these customer records: %d.' => 'Mit diesen Kundendatensätzen verknüpfte interne Dateien: %d.',
     'Erasing removes the links; the files stay – they are company documents, check them by hand in Internal files.' => 'Das Löschen entfernt die Verknüpfungen; die Dateien bleiben – es sind Firmendokumente, prüfen Sie sie von Hand in den internen Dateien.',
     'Documents of the team (Internal files) can be linked to a customer record; anonymising or erasing the customer removes the links, the documents stay – they are company documents, not erased with the person.' => 'Dokumente des Teams (interne Dateien) können mit einem Kundendatensatz verknüpft werden; das Anonymisieren oder Löschen des Kunden entfernt die Verknüpfungen, die Dokumente bleiben – es sind Firmendokumente, sie werden mit der Person nicht gelöscht.',
+    'Linked to the customer' => 'Mit dem Kunden verknüpft',
+    'Linked to the quote' => 'Mit dem Angebot verknüpft',
 ];

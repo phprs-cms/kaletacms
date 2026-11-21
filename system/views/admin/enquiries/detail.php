@@ -157,7 +157,7 @@ $mentionsJson = (string) json_encode(array_values(array_filter($thread['mentiona
 		    $hasSignature => t('Sent from the site’s address; when the customer answers, it comes to you (%s). Your e-mail signature from My account is added below the text.', $replyTo),
 		    default => t('Sent from the site’s address; when the customer answers, it comes to you (%s). You have no e-mail signature yet, so the reply goes without one – see My account → My e-mail signature.', $replyTo),
 		}) ?></span></div></div>
-	<?= $app->view->render('admin/attachments', ['box' => $attachments, 'prefix' => 'odpoved', 'reloadForm' => 'odpoved-nacist',
+	<?= $app->view->render('admin/attachments', ['box' => $attachments, 'prefix' => 'odpoved', 'reloadForm' => 'odpoved-nacist', 'linkedLabel' => t('Linked to the customer'),
 	    'confirm' => str_replace('%1$s', (string) $p['email'], t('Send this reply to %1$s now, with attachments (%2$d)? It goes out as a real e-mail and cannot be taken back.'))]) ?>
 	<div class="radek"><span></span><div><label><input type="checkbox" name="keep_open" value="1"> <?= e(t('Keep the enquiry open (otherwise it is marked resolved)')) ?></label></div></div>
 	<?php /* 3.32 (R4): the follow-up is offered with the reply – with no inbound mail, the task is the only memory of a reply left unanswered */ ?>

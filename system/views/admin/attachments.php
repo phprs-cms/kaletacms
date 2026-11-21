@@ -8,10 +8,13 @@
  * The script refuses a submit over $box['maxBytes'] or $box['maxFiles'] before anything is uploaded and puts the number of
  * files into the confirmation ($confirm: the form's question with %2$d for the count).
  *
- * @var array{chosen: list<array{id: int, name: string, note: string, size: int}>, canFiles: bool, recent: list<array{id: int, name: string, size: int}>, searchUrl: string, maxBytes: int, maxFiles: int, reload: array<string, int|string>} $box
+ * The files linked to the enquiry's customer or to the quote (3.49 A meets B) are rows of the same list, unticked.
+ *
+ * @var array{chosen: list<array{id: int, name: string, note: string, size: int}>, linked: list<array{id: int, name: string, note: string, size: int}>, canFiles: bool, recent: list<array{id: int, name: string, size: int}>, searchUrl: string, maxBytes: int, maxFiles: int, reload: array<string, int|string>} $box
  * @var string $prefix ids of the fields (odpoved | nabidka)
  * @var string $reloadForm the id of the GET form that reloads the page with the file added (no script)
  * @var string $confirm the confirmation with files – %2$d is the number of files (the recipient filled in already)
+ * @var string $linkedLabel what the linked rows are linked to ("Linked to the customer" | "Linked to the quote")
  */
 ?>
 <div class="radek" data-attachments data-max-bytes="<?= (int) $box['maxBytes'] ?>" data-max-files="<?= (int) $box['maxFiles'] ?>" data-attach-confirm="<?= e($confirm) ?>">
@@ -19,6 +22,9 @@
 	<ul class="prilohy-seznam" data-attach-list>
 <?php foreach ($box['chosen'] as $file): ?>
 		<li><label><input type="checkbox" name="internal_files[]" value="<?= (int) $file['id'] ?>" data-bytes="<?= (int) $file['size'] ?>" checked> <?= e($file['name']) ?></label> <small class="napoveda"><?= e($file['note']) ?></small></li>
+<?php endforeach ?>
+<?php foreach ($box['linked'] as $file): ?>
+		<li><label><input type="checkbox" name="internal_files[]" value="<?= (int) $file['id'] ?>" data-bytes="<?= (int) $file['size'] ?>"> <?= e($file['name']) ?></label> <small class="napoveda"><?= e($file['note'] . ' · ' . $linkedLabel) ?></small></li>
 <?php endforeach ?>
 	</ul>
 <?php if ($box['canFiles']): ?>

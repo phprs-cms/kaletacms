@@ -49,7 +49,8 @@ trait QuoteSending
                 'mailTail' => $quote['status'] === 'draft' ? QuoteDelivery::previewTail($this->app, $quote, $signature, t('(the number it gets when sent)'), t('(the link to the quote)')) : '',
                 'pdf' => $this->pdfOf($quote) !== null, 'attachPdf' => $this->app->settings()->bool('quote_attach_pdf'),
                 // 3.49 A: more files to send with it – chosen again after a refusal, or added without the script (?attach=…&attach_add=…)
-                'attachments' => \Kaleta\Admin\AttachmentBox::data($this->app, $this->takeQuoteFiles($id), ['module' => Quotes::SECTION, 'action' => 'send', 'id' => $id])]);
+                // 3.49 (A meets B): with the files linked to the quote offered unticked
+                'attachments' => \Kaleta\Admin\AttachmentBox::data($this->app, $this->takeQuoteFiles($id), ['module' => Quotes::SECTION, 'action' => 'send', 'id' => $id], [['quote', $id]])]);
         }
         try {
             if ($this->request->post('mode') === 'finalise') {

@@ -8935,4 +8935,6 @@ return [
     'Internal files linked to these customer records: %d.' => 'Interní soubory připojené k těmto zákaznickým záznamům: %d.',
     'Erasing removes the links; the files stay – they are company documents, check them by hand in Internal files.' => 'Vymazání odstraní propojení; soubory zůstanou – jsou to firemní dokumenty, zkontrolujte je ručně v Interních souborech.',
     'Documents of the team (Internal files) can be linked to a customer record; anonymising or erasing the customer removes the links, the documents stay – they are company documents, not erased with the person.' => 'Dokumenty týmu (Interní soubory) lze připojit k zákaznickému záznamu; anonymizace nebo vymazání zákazníka odstraní propojení, dokumenty zůstanou – jsou to firemní dokumenty, s osobou se nemažou.',
+    'Linked to the customer' => 'Připojeno k zákazníkovi',
+    'Linked to the quote' => 'Připojeno k nabídce',
 ];

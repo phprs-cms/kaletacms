@@ -110,7 +110,7 @@ $mailto = $link !== null && $quote['customer']['email'] !== '' ? 'mailto:' . raw
 <?php else: ?>
 	<div class="radek"><span></span><div><span class="napoveda" data-quote-no-pdf><?= e(t('This quote’s language cannot be drawn in a PDF, so the e-mail carries the link only.')) ?></span></div></div>
 <?php endif ?>
-	<?= $app->view->render('admin/attachments', ['box' => $attachments, 'prefix' => 'nabidka', 'reloadForm' => 'nabidka-nacist',
+	<?= $app->view->render('admin/attachments', ['box' => $attachments, 'prefix' => 'nabidka', 'reloadForm' => 'nabidka-nacist', 'linkedLabel' => t('Linked to the quote'),
 	    'confirm' => str_replace('%1$s', $draft['to'], t('Send this quote to %1$s now, with attachments (%2$d)? It goes out as a real e-mail and cannot be taken back.'))]) ?>
 	<?= $app->view->render('admin/quotes/follow_up_box') ?>
 	<p class="tlacitka"><button class="tl" type="submit"><?= e(t('Send the quote')) ?></button></p>

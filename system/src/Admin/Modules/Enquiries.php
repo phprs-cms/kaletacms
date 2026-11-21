@@ -149,7 +149,9 @@ final class Enquiries extends Module
             // 3.49 A: the saved replies (its language first), and the files to attach – ticked again after a refused reply
             'savedReplies' => \Kaleta\Core\SavedReplies::forEnquiry($this->db, $this->app->settings(), $p),
             'canEditSavedReplies' => $this->app->auth()->canPublish(),
-            'attachments' => \Kaleta\Admin\AttachmentBox::data($this->app, $replyDraft['files'] ?? [], ['module' => self::IDENT, 'action' => 'detail', 'id' => (int) $p['idp']]),
+            // 3.49 (A meets B): with the files linked to the enquiry's customer offered unticked
+            'attachments' => \Kaleta\Admin\AttachmentBox::data($this->app, $replyDraft['files'] ?? [], ['module' => self::IDENT, 'action' => 'detail', 'id' => (int) $p['idp']],
+                isset($p['contact_id']) ? [['contact', (int) $p['contact_id']]] : []),
             'users' => $this->listAssignees((int) $p['prirazeno']),
             // 3.27: the tasks about the enquiry, the follow-up buttons first at the top right after a reply
             'tasks' => $this->taskPanel(\Kaleta\Core\Comments::enquiry((int) $p['idp']), ['idp' => (int) $p['idp']], ['follow_up' => true, 'replied' => $this->takeFollowUp((int) $p['idp'])]),
