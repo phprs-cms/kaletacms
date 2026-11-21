@@ -21,7 +21,7 @@ final class Health
     public const array SHORT = [
         'uptime' => 'Online', 'reporting' => 'Reporting', 'updates' => 'Updates', 'offsite_backup' => 'Off-site', 'local_backup' => 'Backup',
         'certificate' => 'TLS', 'domain' => 'Domain', 'mail_records' => 'SPF', 'smtp' => 'SMTP', 'two_step' => '2FA', 'auto_updates' => 'Auto',
-        'cookie_scan' => 'Cookies', 'privacy_policy' => 'Privacy', 'accessibility_statement' => 'Access.', 'handover' => 'Hand-over',
+        'cookie_scan' => 'Cookies', 'privacy_policy' => 'Privacy', 'accessibility_statement' => 'A11y', 'handover' => 'Hand-over',
         'claude_connection' => 'Claude', 'jobs' => 'Jobs', 'cron' => 'Cron',
     ];
 

@@ -1000,7 +1000,15 @@
 			tl.textContent = empty ? T('Choose from Media') : T('Change');
 			remove.hidden = empty || !previewOnly;
 		}
-		function choose(url) { field.value = url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }
+		// 3.50 (CPO 11): data-obrazek="cesta" stores the path inside the site (media/2026/10/logo.svg) – the agency logo is
+		// validated in that form; the picked address loses the site's own address in front of it
+		function sitePath(url) {
+			var base = new URL(ADMIN, location.href);
+			var picked = new URL(url, location.href);
+			var root = base.pathname.replace(/[^/]*$/, '');
+			return picked.origin === base.origin && picked.pathname.indexOf(root) === 0 ? picked.pathname.slice(root.length) : url;
+		}
+		function choose(url) { field.value = url !== '' && field.getAttribute('data-obrazek') === 'cesta' ? sitePath(url) : url; show(); field.dispatchEvent(new Event('input', { bubbles: true })); }
 		if (previewOnly) {
 			field.hidden = true;
 			tl.id = field.id + '-vybrat';

@@ -47,7 +47,7 @@ $group = null;
 <caption class="navod-skryte"><?= e(t('Health of the sites: a row per site, a column per check')) ?></caption>
 <thead><tr><th scope="col"><?= e(t('Site')) ?></th>
 <?php foreach (Checks::CHECKS as $id => [$label]): ?>
-	<th scope="col" title="<?= e(t($label)) ?>"><abbr title="<?= e(t($label)) ?>"><?= e(t(Health::SHORT[$id])) ?></abbr></th>
+	<th scope="col" title="<?= e(t($label)) ?>"><a href="<?= e($module->url('fix', ['check' => $id])) ?>" data-fleet-fix-link="<?= e($id) ?>"><abbr title="<?= e(t($label)) ?>"><?= e(t(Health::SHORT[$id])) ?></abbr><span class="navod-skryte"> – <?= e(t('how to fix it')) ?></span></a></th>
 <?php endforeach ?>
 </tr></thead>
 <tbody>
@@ -69,5 +69,6 @@ $group = null;
 <?php endforeach ?>
 </tbody></table></div>
 <?php endif ?>
-<p class="smltxt"><?= e(t('Each cell opens the screen of the site\'s own administration where the check is fixed – sign in there as usual. A site before Kaleta 3.29 sends only part of the checks: update it to see the rest.')) ?></p>
+<p class="smltxt"><?= e(t('Each cell opens the screen of the site\'s own administration where the check is fixed – sign in there as usual. A site before Kaleta 3.29 sends only part of the checks: update it to see the rest.')) ?>
+	<?= e(t('A column heading opens the page that says how to fix the check and which sites fail it.')) ?></p>
 <?php endif ?>

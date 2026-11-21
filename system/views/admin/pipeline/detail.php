@@ -47,11 +47,13 @@ $chosen = $lose !== '' ? $lose : $d['stage'];
 <div class="zaznam-lista" data-record-bar>
 <a class="navigace" href="<?= e($module->url() . '#deal-' . $id) ?>">← <?= e(t('The pipeline')) ?></a>
 <div class="zaznam-akce">
-	<span class="stitek<?= $kind === 'won' ? ' stitek-vydano' : ($kind === 'lost' ? ' stitek-chyba' : '') ?>" data-deal-stage="<?= e($d['stage']) ?>"><?= e($labels[$d['stage']] ?? $d['stage']) ?></span>
+<?php if ($kind === 'won' || $kind === 'lost'): /* 3.50 (U72): the stage is said once – by Move's select; a closed deal keeps its coloured mark */ ?>
+	<span class="stitek<?= $kind === 'won' ? ' stitek-vydano' : ' stitek-chyba' ?>" data-deal-closed><?= e($labels[$d['stage']] ?? $d['stage']) ?></span>
+<?php endif ?>
 	<form class="obchod-presun obchod-presun-detail" id="move" method="post" action="<?= e($module->url('move')) ?>" data-deal-move>
 		<?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="return" value="detail">
-		<label class="navod-skryte" for="obchod-etapa"><?= e(t('Move to the stage')) ?></label>
-		<select id="obchod-etapa" name="stage">
+		<label class="navod-skryte" for="obchod-etapa"><?= e(t('Stage')) ?> – <?= e(t('Move to the stage')) ?></label>
+		<select id="obchod-etapa" name="stage" data-deal-stage="<?= e($d['stage']) ?>">
 <?php foreach ($stages as $st): ?>
 			<option value="<?= e($st['key']) ?>" data-kind="<?= e($st['kind']) ?>"<?= $st['key'] === $d['stage'] ? ' data-current' : '' ?><?= $st['key'] === $chosen ? ' selected' : '' ?>><?= e($st['label']) ?></option>
 <?php endforeach ?>

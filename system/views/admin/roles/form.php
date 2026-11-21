@@ -26,7 +26,7 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<input class="textpole siroke" type="text" id="popis" name="popis" value="<?= e($role['popis']) ?>" maxlength="200">
 </div>
 <fieldset>
-<legend><?= e(t('News')) ?></legend>
+<legend><?= e(t('What the role may do with content')) ?></legend>
 <div class="karty-volby karty-volby-text">
 <?php foreach (Kaleta\Admin\Modules\Roles::LEVELS as $value => [$name, $description]): ?>
 	<label class="karta-volba"><input type="radio" name="uroven" value="<?= $value ?>"<?= (int) $role['uroven'] === $value ? ' checked' : '' ?>><strong><?= e(t($name)) ?></strong><span><?= e(t($description)) ?></span></label>
@@ -36,8 +36,13 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <fieldset>
 <legend><?= e(t('Access to areas')) ?></legend>
 <div class="volby">
-<?php foreach ($section as $ident => $name): ?>
+<?php foreach (Kaleta\Admin\Modules\Roles::sectionGroups($section) as $group): /* 3.50 (U53): grouped like the menu */ ?>
+	<fieldset class="role-skupina" data-role-group="<?= e(Kaleta\Admin\MenuGroups::key($group['group'])) ?>">
+	<legend><?= e($group['group'] !== '' ? t($group['group']) : t('Other')) ?></legend>
+<?php foreach ($group['sections'] as $ident => $name): ?>
 	<label><input type="checkbox" name="moduly[]" value="<?= e($ident) ?>"<?= in_array($ident, $selected, true) ? ' checked' : '' ?>> <?= e(t($name)) ?></label><br>
+<?php endforeach ?>
+	</fieldset>
 <?php endforeach ?>
 	<?= $error('moduly') ?>
 	<span class="napoveda"><?= e(t('Appearance lets the role edit the menu, the site parts (header, footer), the pop-ups and the components; with “Writes own content” only as drafts. Site appearance (colours and fonts), website settings, users, backups and the Claude settings stay with the administrator.')) ?></span>

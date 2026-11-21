@@ -129,6 +129,9 @@ $warn = array_values(array_filter($groups, fn (array $g): bool => $g['state'] !=
 </tr>
 <?php endforeach ?>
 </tbody></table></div>
+<?php if (isset(Kaleta\Fleet\Checks::HELP[$g['check']])): /* 3.50 (CPO 11): how to fix it once, the sites to visit */ ?>
+<p class="smltxt"><a href="<?= e($module->url('fix', ['check' => $g['check']])) ?>" data-fleet-fix-link="<?= e($g['check']) ?>"><?= e(t('How to fix it on every site')) ?><span class="navod-skryte"> – <?= e($g['label']) ?></span></a></p>
+<?php endif ?>
 </details>
 <?php endforeach ?>
 <?php endforeach ?>

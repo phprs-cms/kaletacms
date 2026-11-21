@@ -34,7 +34,7 @@ final class Guide
         'claude_settings' => 'claude-connect', // 3.2: Claude settings (connecting, instructions, guardrails)
         'blueprints' => 'industry-blueprints',
         'connectors' => 'connections',
-        'whistleblowing' => 'privacy-cookies', // 2.14: until the guide has its own article on the whistleblowing channel
+        'whistleblowing' => 'privacy-cookies', // 3.50: the screen opens the chapter Privacy and retention (CHAPTERS); this is its online article
         'enquiries' => 'forms#enquiries',
         'contacts' => 'customers', // 3.28: Customers (own guide article since 3.31.1)
         'pipeline' => 'pipeline', // 3.31: Pipeline (own guide article since 3.31.1)
@@ -52,7 +52,7 @@ final class Guide
         'roles' => 'users-roles#custom-roles',
         'stats' => 'statistics',
         'redirects' => 'seo#redirects-and-404s',
-        'broken_links' => 'news', // 3.20 (C20): the News → Broken links screen, reached from Site care
+        'broken_links' => 'seo#redirects-and-404s', // 3.50: a tab of the Redirects hub since 3.48 – the article on redirects and 404s
         'audit' => 'seo#site-audit',
         'changelog' => 'backups-updates',
         'notebook' => 'claude-capabilities',
@@ -121,7 +121,7 @@ final class Guide
             ],
             'tips' => [
                 'Going on holiday? Add an absence with a deputy in My account. While you are away, a copy of your notifications goes to the deputy.',
-                'My account → Org chart shows the departments, positions and work phones of your colleagues. Administrators create departments in Users → Departments.',
+                'My account → Colleagues shows the positions and work phones of your colleagues, A–Z or by department. Administrators create departments in Users → Departments.',
                 'Ask Claude “What is waiting for me today?” – it reads My work and can prepare replies, but sends nothing without your yes.',
             ],
         ],
@@ -208,6 +208,22 @@ final class Guide
             'tips' => [
                 'Only an empty folder can be deleted. A file is deleted by an administrator or by whoever uploaded it.',
                 'Claude can find files by their name and description, but never gets their contents.',
+            ],
+        ],
+        // 3.50: the whistleblowing channel had only the online article on cookies as a stand-in
+        'privacy' => [
+            'title' => 'Privacy and retention',
+            'summary' => 'Whistleblowing reports, personal data on request, and how long the site keeps what people send.',
+            'modules' => ['whistleblowing'],
+            'online' => 'privacy-cookies',
+            'steps' => [
+                'Reports from the whistleblowing channel are stored encrypted and only the people with the section Whistleblowing see them. Confirm each one and give the reporter feedback in time – the screen shows both deadlines.',
+                'When somebody asks what the site holds about them, ask Claude to find their personal data – the answer lists every place. The same request can erase it; erasing is always your decision.',
+                'Settings → Privacy and cookies says how long enquiries, applications, bookings and other records are kept. The site deletes older ones by itself.',
+            ],
+            'tips' => [
+                'The record of processing activities for your privacy policy is prepared by Claude from what the site really does.',
+                'A backup restored later applies the erasures again, so a deleted person does not come back.',
             ],
         ],
         'fleet' => [

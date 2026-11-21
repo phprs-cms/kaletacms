@@ -588,3 +588,69 @@ měli obsah i mimo Kaletu. Poptávky, odběratelé a účty se neexportují.
 
 Veřejné čtecí API z verzí 1.x (`/api/novinky`) ve 2.0 skončilo. Pro novinky použijte JSON Feed (`/feed.json`) nebo RSS,
 pro práci s webem napojení na Clauda (MCP), pro události webhooky a pro odnesení obsahu export webu.
+
+## 14. Obchod: pipeline a nabídky
+
+**Pipeline** (Pracoviště → Obchod) drží obchody od prvního kontaktu po vyhraný nebo prohraný na jedné nástěnce. Obchod
+založíte tlačítkem **Nový obchod** nebo **Vytvořit obchod** u poptávky – zákazník, firma a název se vyplní z ní. Nástěnka
+má sloupec pro každou fázi; kartu přesunete tažením, klávesnicí (mezerník, šipky, mezerník) nebo nabídkou fáze. **Vyhráno**
+a **Prohráno** obchod uzavřou, Prohráno se zeptá na důvod. Stránka obchodu řekne fázi jednou, v **Přesunout**, a drží
+historii fází, poptávku, ze které vznikl, jeho nabídky, odpovědnou osobu a komentáře a úkoly týmu. Další krok si naplánujte
+jako úkol u obchodu – filtr „Bez dalšího kroku“ ukáže obchody, se kterými nikdo nehýbe. Správce fáze přejmenuje, přidá
+a seřadí ve **Fázích**. Přehledy počítají obchody, nikdy jejich hodnoty.
+
+**Nabídky** se zapínají ve Funkcích. **Interní ceny** vidí jen tým (řádek na produkt nebo variantu, nebo vlastní řádky;
+jde nahrát CSV); měnit je smí jen kdo má právo *Nabídky: měnit interní ceny*. Nabídku vytvoříte tlačítkem **Nová
+nabídka**, nebo z poptávky, obchodu či zákazníka – zákazník a řádky z košíku poptávky se převezmou. Nabídka odchází
+e-mailem (v Nastavení → Pošta musí být SMTP server); zákazník ji otevře soukromým odkazem, stáhne PDF a – když to nastavení
+dovolí – ji na té stránce přijme nebo odmítne. Číslo dostane při prvním odeslání. Claude nabídky připravuje jako koncepty
+a odešle je, jen když o to požádáte.
+
+## 15. Zákazníci
+
+**Zákazník** vznikne sám, když někdo pošle poptávku, objedná si termín nebo se přihlásí k odběru novinek – jeden záznam na
+e-mailovou adresu; **Nový zákazník** ho přidá ručně. Stránka zákazníka má jednu **časovou osu**: poptávky s prvním řádkem
+zprávy, odpovědi, rezervace, obchody, nabídky a záznamy týmu o hovorech, schůzkách, e-mailech a poznámkách (**Zapsat
+hovor / schůzku / e-mail / poznámku**). Panel **Úkoly** ukazuje jeho vlastní úkoly a pod *U jeho poptávek a obchodů* další
+otevřený úkol každé jeho poptávky a obchodu s odkazem tam, kde se dělá (3.50; obchody jen pro toho, kdo má Pipeline).
+
+Lidé jedné firmy patří k **firmě** (záložka Firmy), která má vlastní stránku se svými lidmi a obchody. Dva záznamy jednoho
+člověka sloučí správce tlačítkem **Sloučit s…** – vždy rozhodnutím člověka. Ctrl K (⌘K na Macu) najde zákazníka podle
+jména, e-mailu nebo firmy odkudkoli. Zákazníci jsou osobní údaje: drží se tak dlouho jako jejich poptávky (viz kapitola 18)
+a na webu se nikdy neukazují.
+
+## 16. Žádosti o práci
+
+**Žádosti** přicházejí z formulářů na stránkách pracovních pozic a z formulářů s *Účelem* „Žádost o práci“; přiložené
+životopisy se ukládají šifrovaně. Vidí je jen lidé se sekcí Žádosti – zaškrtněte ji v Uživatelích nebo dejte připravenou
+roli **HR**. Seznam se otevře na žádostech, o kterých ještě není rozhodnuto; *Čekající* ukáže nové bez odpovědi déle než
+týden. Žádost posouváte stavy Nová, Prohlédnutá, Pohovor, Nabídka a Přijat – nebo Zamítnuta s důvodem; **Nástěnka** ukáže
+jednu pozici ve sloupcích. Odpověď ze šablony (přijato, pozvánka, zamítnutí) posune i stav; šablony pro každý jazyk jsou
+v nastavení Žádostí.
+
+**Databáze talentů** drží lidi, kteří souhlasili, že se dozví o dalších pozicích, dokud jim souhlas neskončí. Žádosti se
+mažou samy po době v Nastavení → Soukromí a cookies a každá ukazuje svůj den.
+
+## 17. Interní soubory
+
+**Interní soubory** jsou dokumenty týmu – ceníky, smlouvy, návody – které nikdy nedostanou veřejnou adresu. Správce
+zakládá složky a rozhoduje, kdo kterou vidí: všichni se sekcí, vybrané role nebo oddělení. Soubor nahrajte do složky
+s popisem a štítky, aby ho kolegové našli podle slova; **Nahradit** nechá starší verze, každou jde dál stáhnout, a stav
+řekne, jestli dokument ještě platí. Soubory se stahují jen přes administraci. Soubor jde připojit k zákazníkovi, obchodu
+nebo poptávce a pak se ukáže v jejich rámečku. Smazat jde jen prázdnou složku; soubor smaže správce nebo ten, kdo ho
+nahrál. Claude soubory najde podle názvu a popisu, ale jejich obsah nedostane nikdy.
+
+## 18. Soukromí a doba uchování
+
+**Oznamovací kanál (whistleblowing):** oznámení přicházejí na jeho vlastní stránce, ukládají se šifrovaně a vidí je jen
+lidé se sekcí Whistleblowing. Každé oznámení včas potvrďte a dejte oznamovateli zpětnou vazbu – obrazovka ukazuje obě
+lhůty.
+
+**Osobní údaje na žádost:** když se někdo zeptá, co o něm web drží, požádejte Clauda, ať *najde jeho osobní údaje* –
+odpověď vyjmenuje každé místo (poptávky, zákazníci, žádosti, rezervace, odběry, komentáře). Stejnou žádostí je jde
+vymazat; vymazání je vždy vaše rozhodnutí a záloha obnovená později vymazání použije znovu.
+
+**Doba uchování:** Nastavení → Soukromí a cookies drží všechny doby uchování na jednom místě – jak dlouho se drží
+poptávky, žádosti, rezervace, záznam souhlasů s cookies a další záznamy. Starší web smaže sám; kratší dobu než dosud
+potvrdíte na samostatné obrazovce. **Záznam o činnostech zpracování** pro vaše zásady ochrany osobních údajů připraví
+Claude podle toho, co web opravdu dělá.

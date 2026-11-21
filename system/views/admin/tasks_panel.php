@@ -21,6 +21,7 @@
  * @var bool $followUp the follow-up buttons (an enquiry)
  * @var bool $replied a reply was just sent – the follow-up is offered first
  * @var array{date: string, title: string}|null $review
+ * @var list<array<string, mixed>> $related the customer page only (3.50, U33): the next open task of each of its enquiries and deals, with kind, label, url
  */
 use Kaleta\Admin\TaskPanel;
 
@@ -28,6 +29,7 @@ $hidden = '';
 foreach ($fields as $name => $value) {
     $hidden .= '<input type="hidden" name="' . e($name) . '" value="' . e($value) . '">';
 }
+$related ??= [];
 $open = array_values(array_filter($tasks, fn (array $t): bool => $t['done_at'] === null));
 $done = array_values(array_filter($tasks, fn (array $t): bool => $t['done_at'] !== null));
 $row = function (array $t) use ($csrf, $hidden, $action, $claude, $requestUrl, $me): string {
@@ -120,8 +122,18 @@ $row = function (array $t) use ($csrf, $hidden, $action, $claude, $requestUrl, $
 	<?= $row($t) ?>
 <?php endforeach ?>
 </ol>
-<?php else: ?>
+<?php elseif ($related === []): ?>
 <p class="napoveda" data-tasks-none><?= e(t('No open tasks.')) ?></p>
+<?php endif ?>
+<?php if ($related !== []): /* 3.50 (U33): work that hangs on the customer's enquiries and deals – done where it belongs */ ?>
+<h3><?= e(t('On its enquiries and deals')) ?></h3>
+<ol class="ukoly-seznam" data-tasks-related>
+<?php foreach ($related as $t): ?>
+	<li class="ukol ukol-<?= e($t['group']) ?>" data-task="<?= (int) $t['id'] ?>"><p class="ukol-nazev"><strong><?= e($t['title'] !== '' ? $t['title'] : t('(no title)')) ?></strong></p>
+		<p class="ukol-meta"><?= e($t['kind'] === 'deal' ? t('Deal') : t('Enquiry')) ?>: <a href="<?= e($t['url']) ?>"><?= e($t['label'] !== '' ? $t['label'] : t('(no title)')) ?></a>
+		· <?= $t['due_at'] !== null ? e(t('due %s', format_date((string) $t['due_at'], true))) . ($t['group'] === 'overdue' ? ' <span class="stitek stitek-chyba">' . e(t('overdue')) . '</span>' : ($t['group'] === 'today' ? ' <span class="stitek stitek-koncept">' . e(t('today')) . '</span>' : '')) : e(t('no date')) ?></p></li>
+<?php endforeach ?>
+</ol>
 <?php endif ?>
 <?php if ($done !== []): ?>
 <details class="ukoly-hotove"><summary><?= e(t('Done (%s)', count($done))) ?></summary>

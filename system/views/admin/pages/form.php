@@ -98,6 +98,10 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 <?php endif ?>
 </div>
 <?php endif ?>
+<?php if ($choosing): /* 3.50 (U56): a new page shows the title and the start choice; the rest folds, open when it holds a value or an error */ ?>
+<details class="pokrocile" data-more-settings<?= Kaleta\Admin\Modules\Pages::moreSettingsOpen($page, $errors) ? ' open' : '' ?>>
+<summary><?= e(t('More settings')) ?></summary>
+<?php endif ?>
 <div class="radek">
 	<label for="nadrazena"><?= e(t('Parent page')) ?></label>
 	<div><select id="nadrazena" name="nadrazena">
@@ -185,6 +189,9 @@ $error = fn (string $field): string => isset($errors[$field]) ? '<span class="ch
 	<div><input class="textpole" type="number" id="poradi" name="poradi" value="<?= (int) $page['poradi'] ?>" min="0" max="65535">
 	<span class="napoveda"><?= e(t('Lower number = earlier in the page list and in the automatic menu.')) ?></span></div>
 </div>
+<?php if ($choosing): ?>
+</details>
+<?php endif ?>
 <?php if ($copyBuild): ?>
 <p class="tlacitka"><button class="tl" type="submit"><?= e(t('Create the translation and open the builder')) ?></button></p>
 <?php elseif ($choosing): ?>

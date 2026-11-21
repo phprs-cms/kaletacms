@@ -37,6 +37,9 @@ final class Contacts extends Module
     use \Kaleta\Admin\TaskActions;
 
     public const string IDENT = Customers::SECTION;
+
+    /** The enquiries and open deals of a customer looked at for their next task (3.50, U33). */
+    private const int RELATED_RECORDS = 100;
     public const string NAME = 'Customers';
     public const string GROUP = 'Workspace';
     public const string ICON = 'zakaznici';
@@ -196,11 +199,65 @@ final class Contacts extends Module
             'companies' => Customers::companies($this->db, [], 1, 500)['rows'],
             'draft' => $this->takeDraft('contact_draft', $id), 'activityDraft' => $this->takeDraft('activity_draft', $id),
             'thread' => $this->commentThread($target, ['id' => $id]),
-            'tasks' => $this->taskPanel($target, ['id' => $id]),
+            'tasks' => $this->taskPanel($target, ['id' => $id]) + ['related' => $contact['anonymised_at'] === null ? $this->relatedTasks($id) : []], // 3.50 (U33)
             'deals' => $contact['anonymised_at'] === null ? Pipeline::deals($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.31
             'quoteBox' => $contact['anonymised_at'] === null ? Quotes::box($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.38 B
             'fileBox' => $contact['anonymised_at'] === null ? InternalFiles::box($this->app, $this->kernel->modules(), 'contact', $id) : null, // 3.49 B
             'admin' => $this->app->auth()->isAdmin(), 'me' => $this->app->auth()->id()]);
+    }
+
+    /**
+     * The open work that hangs on the customer's enquiries and deals (3.50, U33): the next open task of each enquiry the
+     * viewer may see (Enquiries, the job ones only with Applications – EnquiryVisibility) and of each open deal (only with the
+     * Pipeline). Core\Tasks::nextFor reads them in one query.
+     *
+     * @return list<array<string, mixed>> relatedTaskRows
+     */
+    private function relatedTasks(int $id): array
+    {
+        $modules = $this->kernel->modules();
+        $records = [];
+        if (isset($modules['enquiries'])) {
+            try {
+                $visible = \Kaleta\Core\EnquiryVisibility::visible($this->db, $this->app->settings(), isset($modules[\Kaleta\Core\Applications::SECTION]));
+                foreach ($this->db->all('SELECT idp, formular, tema FROM {poptavky} WHERE contact_id = ? AND ' . $visible . ' ORDER BY idp DESC LIMIT ' . self::RELATED_RECORDS, [$id]) as $r) {
+                    $records[] = ['target' => Comments::enquiry((int) $r['idp']), 'kind' => 'enquiry', 'label' => (string) $r['tema'] !== '' ? (string) $r['tema'] : (string) $r['formular'],
+                        'url' => $this->app->url('admin.php?module=enquiries&action=detail&id=' . (int) $r['idp'] . '#tasks')];
+                }
+            } catch (\PDOException $e) {
+                \Kaleta\Core\Db::rethrowUnlessMissing($e); // before migration 0114 (contact_id)
+            }
+        }
+        if (isset($modules[Pipeline::IDENT])) {
+            foreach (\Kaleta\Core\Deals::forContact($this->db, $id, self::RELATED_RECORDS) as $deal) {
+                if ($deal['closed_at'] === null) {
+                    $records[] = ['target' => Comments::deal($deal['id']), 'kind' => 'deal', 'label' => $deal['title'], 'url' => $this->app->url(\Kaleta\Core\Deals::adminPath($deal['id']) . '#tasks')];
+                }
+            }
+        }
+
+        return self::relatedTaskRows($records, $records === [] ? [] : Tasks::nextFor($this->db, array_column($records, 'target')));
+    }
+
+    /**
+     * The rows of the customer page's list of tasks on its enquiries and deals (3.50, U33): for each record with an open
+     * task, that task with where it belongs (kind, label, url) – the earliest due first, no date last. Pure.
+     *
+     * @param list<array{target: string, kind: string, label: string, url: string}> $records
+     * @param array<string, array<string, mixed>> $next Tasks::nextFor
+     * @return list<array<string, mixed>> the task + kind, label, url
+     */
+    public static function relatedTaskRows(array $records, array $next): array
+    {
+        $rows = [];
+        foreach ($records as $record) {
+            if (isset($next[$record['target']])) {
+                $rows[] = $next[$record['target']] + ['kind' => $record['kind'], 'label' => $record['label'], 'url' => $record['url']];
+            }
+        }
+        usort($rows, static fn (array $a, array $b): int => [$a['due_at'] === null ? 1 : 0, (string) $a['due_at'], $a['id']] <=> [$b['due_at'] === null ? 1 : 0, (string) $b['due_at'], $b['id']]);
+
+        return $rows;
     }
 
     /**

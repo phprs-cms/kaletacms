@@ -512,13 +512,11 @@ final class Users extends Module
         if ($role >= Auth::ADMIN) {
             return t('May do everything, including site settings and user management.');
         }
+        // 3.50 (U53): the news section is "news" (the old check for "novinky" made every summary start "Does not write news");
+        // without News the sentence starts with what the person has
         $parts = [];
-        if (!in_array('novinky', $modules, true)) {
-            $parts[] = t('Does not write news');
-        } elseif ($role >= Auth::EDITOR) {
-            $parts[] = t('Writes, edits and publishes news by all authors');
-        } else {
-            $parts[] = t('Writes and edits their own news; an editor publishes it');
+        if (in_array('news', $modules, true) || in_array('novinky', $modules, true)) {
+            $parts[] = $role >= Auth::EDITOR ? t('Writes, edits and publishes news by all authors') : t('Writes and edits their own news; an editor publishes it');
         }
         $names = [];
         foreach (Kernel::MODULES as $class) {
@@ -531,6 +529,9 @@ final class Users extends Module
         }
         if (in_array(Auth::PRICES_AREA, $modules, true)) {
             $names[] = t(Roles::PRICES_AREA_NAME); // 3.38
+        }
+        if ($parts === []) {
+            return $names !== [] ? t('Has access to: %s.', implode(', ', $names)) : t('Has access to no section yet.');
         }
         $sentence = implode(', ', $parts) . '.';
         if ($names !== []) {
