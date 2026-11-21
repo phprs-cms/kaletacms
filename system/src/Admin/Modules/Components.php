@@ -79,7 +79,13 @@ final class Components extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('komponenty', ['idm' => $this->request->postInt('idm')]);
+            $id = $this->request->postInt('idm');
+            try { // 3.50.1: a component holding a published application form is removed only by someone with Applications
+                \Kaleta\Builder\Publisher::guardRemoval($this->db->value('SELECT stavba FROM {komponenty} WHERE idm = ?', [$id]), $this->app);
+            } catch (\DomainException) {
+                return $this->back('Only a user who may open Applications can remove a job application form – nothing was deleted.', '', [], 'chyba');
+            }
+            $this->db->delete('komponenty', ['idm' => $id]);
             \Kaleta\Core\PageCache::clear();
         }
 

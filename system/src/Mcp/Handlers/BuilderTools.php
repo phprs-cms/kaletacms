@@ -350,6 +350,7 @@ trait BuilderTools
         };
 
         $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Components can be deleted only by an administrator, or an editor with the Appearance area.'); // 3.22 (C9)
+        \Kaleta\Builder\Publisher::guardRemoval($db->value('SELECT stavba FROM {komponenty} WHERE idm = ?', [$id]), $this->app); // 3.50.1: an application form needs the section
         $need($db->delete('komponenty', ['idm' => $id]) > 0, 'The component does not exist. Use list_components.');
         \Kaleta\Core\PageCache::clear();
 

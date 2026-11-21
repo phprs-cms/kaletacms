@@ -23,17 +23,26 @@ final class Publisher
     /** 3.50 review: the refusal of a publish that would change the recipients of a published application form. */
     public const string APPLICATION_RECIPIENTS_REFUSED = Build::APPLICATION_RECIPIENTS_REFUSED;
 
+    /** 3.50.1: the refusal of a publish that would hide a published application form or put a form with a file field beside it. */
+    public const string APPLICATION_FORM_SHADOWED = Build::APPLICATION_FORM_SHADOWED;
+
+    /** 3.50.1: the refusal of deleting a pop-up or component that holds an application form. */
+    public const string APPLICATION_FORM_REMOVAL_REFUSED = Build::APPLICATION_FORM_REMOVAL_REFUSED;
+
     /**
-     * 3.50 N132: a person who may not open Applications (Build::$purposeAllowed false) cannot publish a build that drops an
-     * application form of the published one – later applications would arrive as ordinary enquiries with their CVs
-     * unencrypted, nor one that changes the recipients (or hidden copy) of a published application form (3.50 review). Null
-     * (imports, the CLI) counts as allowed; saving the draft is never refused.
+     * 3.50 N132: a person who may not open Applications cannot publish a build that drops an application form of the
+     * published one – later applications would arrive as ordinary enquiries with their CVs unencrypted, nor one that changes
+     * the recipients (or hidden copy) of a published application form (3.50 review), nor (3.50.1, D2) one that hides it or
+     * puts another form with a file field beside it (Build::shadowedApplicationForms). Saving the draft is never refused.
+     * 3.50.1 (D3): Build::$purposeAllowed null with a person signed in resolves from that person; nobody signed in (imports,
+     * the CLI) counts as allowed. A person without the section who publishes a build holding an application form leaves a
+     * line in the change log of Applications.
      *
      * @throws \DomainException
      */
-    public static function guard(array $row): void
+    public static function guard(array $row, ?App $app = null): void
     {
-        if (Build::$purposeAllowed !== false) {
+        if (self::mayChangeApplicationForms($app)) {
             return;
         }
         $published = $row['stavba'] ?? null;
@@ -46,12 +55,39 @@ final class Publisher
         if (Build::changedApplicationRecipients($published, $new) !== []) {
             throw new \DomainException(self::APPLICATION_RECIPIENTS_REFUSED);
         }
+        if (Build::shadowedApplicationForms($published, $new) !== []) {
+            throw new \DomainException(self::APPLICATION_FORM_SHADOWED);
+        }
+        if ($app !== null && Build::droppedApplicationForms($new, null) !== []) { // the trace (A3d): the build holds an application form
+            \Kaleta\Core\ChangeLog::write($app, \Kaleta\Core\Applications::SECTION, 'build published',
+                mb_substr(t('Published by someone without Applications – it holds a job application form: %s', (string) ($row['titulek'] ?? $row['nazev'] ?? '')), 0, 255));
+        }
+    }
+
+    /**
+     * 3.50.1: removing what holds a published application form (a pop-up, a component) – refused for a person who may not
+     * open Applications, by the rule of guard(). $published is the stored build as the database returns it (not a string =
+     * no build).
+     *
+     * @throws \DomainException
+     */
+    public static function guardRemoval(mixed $published, ?App $app = null): void
+    {
+        if (!self::mayChangeApplicationForms($app) && Build::droppedApplicationForms(is_string($published) ? $published : null, null) !== []) {
+            throw new \DomainException(self::APPLICATION_FORM_REMOVAL_REFUSED);
+        }
+    }
+
+    /** Build::$purposeAllowed, or when it was not set (null) the person signed in; nobody signed in = allowed (D3). */
+    private static function mayChangeApplicationForms(?App $app): bool
+    {
+        return Build::$purposeAllowed ?? ($app === null || $app->auth()->user() === null || $app->auth()->hasModule(\Kaleta\Core\Applications::SECTION));
     }
 
     /** Page: the content without the layout is saved into the text – search, llms.txt, the API and the return to text draw on it. */
     public static function page(App $app, array $page): void
     {
-        self::guard($page);
+        self::guard($page, $app);
         $new = $page['stavba_koncept'] ?? $page['stavba'];
         self::version($app, ['ids' => $page['ids']], $page['stavba'], $new, $page['zmeneno'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
@@ -67,7 +103,7 @@ final class Publisher
 
     public static function part(App $app, array $row): void
     {
-        self::guard($row);
+        self::guard($row, $app);
         $new = $row['stavba_koncept'] ?? $row['stavba'];
         $variant = (string) ($row['varianta'] ?? '');
         self::version($app, ['cast' => SiteParts::versionKey($row['typ'], $row['jazyk'], $variant)], $row['stavba'], $new, $row['zmeneno'] ?? null);
@@ -82,7 +118,7 @@ final class Publisher
      */
     public static function collection(App $app, array $collection): void
     {
-        self::guard($collection);
+        self::guard($collection, $app);
         $new = $collection['stavba_koncept'] ?? $collection['stavba'];
         self::version($app, ['cast' => Collections::templateKey($collection)], $collection['stavba'], $new, $collection['zmeneno'] ?? null);
         Collections::writeTemplate($app->db(), $collection, ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
@@ -93,7 +129,7 @@ final class Publisher
     /** Popup (versions under the key „popup:<idpp>“). */
     public static function popup(App $app, array $popup): void
     {
-        self::guard($popup);
+        self::guard($popup, $app);
         $new = $popup['stavba_koncept'] ?? $popup['stavba'];
         self::version($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $new, $popup['zmeneno'] ?? null);
         $app->db()->update('popupy', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
@@ -104,7 +140,7 @@ final class Publisher
     /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
-        self::guard($component);
+        self::guard($component, $app);
         $new = $component['stavba_koncept'] ?? $component['stavba'];
         self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);

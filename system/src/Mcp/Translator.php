@@ -460,6 +460,8 @@ final class Translator
         'Chybí kategorie.' => 'The category is missing.',
         'Formulář žádostí o místo smí odebrat nebo nahradit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.' => 'Only a user who may open Applications can remove or replace a job application form – not published, the draft stays saved.', // 3.50 N132
         'Příjemce formuláře žádostí o místo smí změnit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.' => 'Only a user who may open Applications can change the recipients of a job application form – not published, the draft stays saved.', // 3.50 review
+        'Formulář žádostí o místo smí skrýt nebo k němu přidat jiný formulář se souborem jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.' => 'Only a user who may open Applications can hide a job application form or add another form with a file field beside it – not published, the draft stays saved.', // 3.50.1
+        'Formulář žádostí o místo smí odebrat jen uživatel se sekcí Žádosti o místo – nic se nesmazalo.' => 'Only a user who may open Applications can remove a job application form – nothing was deleted.', // 3.50.1
         'Chybí název kategorie.' => 'The category name is missing.',
         'Chybí název kolekce.' => 'The collection name is missing.',
         'Kopie stavby potřebuje preklad_z – ID stránky ve výchozím jazyce, a jazyk překladu.' => 'copy_build needs translation_of – the ID of the page in the default language – and the language of the translation.',

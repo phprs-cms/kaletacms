@@ -114,6 +114,15 @@ final class Build
     /** 3.50 review: a publish that would change the recipients of a published application form (e.g. a restored older version) – English in Mcp\Translator::MESSAGES. */
     public const string APPLICATION_RECIPIENTS_REFUSED = 'Příjemce formuláře žádostí o místo smí změnit jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.';
 
+    /**
+     * 3.50.1 (SEC-l1): a publish that would hide a published application form (its style or an ancestor's, in any state) or
+     * put another form with a file field beside it – English in Mcp\Translator::MESSAGES.
+     */
+    public const string APPLICATION_FORM_SHADOWED = 'Formulář žádostí o místo smí skrýt nebo k němu přidat jiný formulář se souborem jen uživatel se sekcí Žádosti o místo – nepublikováno, koncept zůstává uložený.';
+
+    /** 3.50.1: the refusal of deleting a pop-up or component that holds an application form – English in Mcp\Translator::MESSAGES. */
+    public const string APPLICATION_FORM_REMOVAL_REFUSED = 'Formulář žádostí o místo smí odebrat jen uživatel se sekcí Žádosti o místo – nic se nesmazalo.';
+
     /** The content fields of an application form that receive the applicants' data – locked with its Purpose (3.50 N132; the hidden copy since the 3.50 review). */
     private const array LOCKED_RECIPIENTS = ['prijemce', 'skryta_kopie'];
 
@@ -592,6 +601,84 @@ final class Build
         };
 
         return array_values(array_map('strval', array_diff($forms($published), $forms($new))));
+    }
+
+    /**
+     * 3.50.1 (SEC-l1, CODE-l3): the ids of forms in $new that would take the applications of a published application form
+     * away from it without removing it: (a) an application form of $published that $new hides – its own style or an
+     * ancestor's has display none in some state where $published did not; (b) a form in $new that is not an application
+     * form, has a file field and whose id had no such form in $published (also an id swapped with the application form).
+     * Only when $published has an application form. Pure; a build that does not decode has none.
+     *
+     * @return list<string>
+     */
+    public static function shadowedApplicationForms(?string $published, ?string $new): array
+    {
+        $old = $published === null ? null : self::fromJson($published);
+        $next = $new === null ? null : self::fromJson($new);
+        if ($old === null || $next === null) {
+            return [];
+        }
+        $isForm = fn (string $className): bool => $className::TYPE === 'formular';
+        $isApplication = fn (array $p): bool => ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE;
+        $hasFile = fn (array $p): bool => in_array('soubor', array_map(fn (mixed $f): string => is_array($f) ? (string) ($f['typ'] ?? '') : '', is_array($p['obsah']['pole'] ?? null) ? $p['obsah']['pole'] : []), true);
+        $oldForms = self::elementsOfType($old, $isForm);
+        $applications = array_keys(array_filter($oldForms, $isApplication));
+        if ($applications === []) {
+            return [];
+        }
+        $oldHidden = self::hiddenElements($old);
+        $newHidden = self::hiddenElements($next);
+        $out = [];
+        foreach ($applications as $id) {
+            foreach ($newHidden[(string) $id] ?? [] as $hiddenId) {
+                if (!in_array($hiddenId, $oldHidden[(string) $id] ?? [], true)) {
+                    $out[] = (string) $id; // (a) the form or an ancestor of it is hidden now
+                    break;
+                }
+            }
+        }
+        foreach (self::elementsOfType($next, $isForm) as $id => $p) {
+            $before = $oldForms[$id] ?? null;
+            if (!$isApplication($p) && $hasFile($p) && !($before !== null && !$isApplication($before) && $hasFile($before))) {
+                $out[] = (string) $id; // (b) a new form with a file field beside a published application form
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Every element of a build => the ids on its path (itself and its ancestors) whose style hides them (display none in
+     * any state). Pure.
+     *
+     * @return array<string, list<string>>
+     */
+    private static function hiddenElements(array $build): array
+    {
+        $out = [];
+        $walk = function (array $children, array $hidden) use (&$walk, &$out): void {
+            foreach ($children as $p) {
+                if (!is_array($p) || !isset($p['id'])) {
+                    continue;
+                }
+                $id = (string) $p['id'];
+                $own = $hidden;
+                foreach (is_array($p['styl'] ?? null) ? $p['styl'] : [] as $state) {
+                    if (is_array($state) && ($state['zobrazeni'] ?? null) === 'none') {
+                        $own[] = $id;
+                        break;
+                    }
+                }
+                $out[$id] = $own;
+                if (is_array($p['deti'] ?? null)) {
+                    $walk($p['deti'], $own);
+                }
+            }
+        };
+        $walk($build['deti'] ?? [], []);
+
+        return $out;
     }
 
     private static function elementsOfType(array $build, callable $condition): array

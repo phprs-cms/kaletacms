@@ -319,6 +319,7 @@ trait EnquiryAndPopupTools
         };
 
         $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Pop-ups can be deleted only by an administrator, or an editor with the Appearance area.'); // 3.22 (C9)
+        \Kaleta\Builder\Publisher::guardRemoval($db->value('SELECT stavba FROM {popupy} WHERE idpp = ?', [$id]), $this->app); // 3.50.1: an application form needs the section
         $need($db->delete('popupy', ['idpp' => $id]) > 0, 'The pop-up does not exist. Use list_popups.');
         \Kaleta\Core\PageCache::clear();
 

@@ -134,7 +134,13 @@ final class Popups extends Module
     protected function actionDelete(): Response
     {
         if ($this->request->isPost()) {
-            $this->db->delete('popupy', ['idpp' => $this->request->postInt('idpp')]);
+            $id = $this->request->postInt('idpp');
+            try { // 3.50.1: a pop-up holding a published application form is removed only by someone with Applications
+                \Kaleta\Builder\Publisher::guardRemoval($this->db->value('SELECT stavba FROM {popupy} WHERE idpp = ?', [$id]), $this->app);
+            } catch (\DomainException) {
+                return $this->back('Only a user who may open Applications can remove a job application form – nothing was deleted.', '', [], 'chyba');
+            }
+            $this->db->delete('popupy', ['idpp' => $id]);
             \Kaleta\Core\PageCache::clear();
         }
 

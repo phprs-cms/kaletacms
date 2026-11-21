@@ -282,6 +282,7 @@ trait BuilderActions
             return match ($e->getMessage()) {
                 Publisher::APPLICATION_FORM_REFUSED => Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can remove or replace a job application form. Nothing was published; your changes stay saved as a draft.')], 403),
                 Publisher::APPLICATION_RECIPIENTS_REFUSED => Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can change the recipients of a job application form. Nothing was published; your changes stay saved as a draft.')], 403),
+                Publisher::APPLICATION_FORM_SHADOWED => Response::json(['ok' => false, 'chyba' => t('Only a user who may open Applications can hide a job application form or add another form with a file field beside it. Nothing was published; your changes stay saved as a draft.')], 403),
                 default => throw $e,
             };
         }
