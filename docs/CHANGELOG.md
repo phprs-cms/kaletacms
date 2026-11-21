@@ -4,6 +4,60 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.50.1 – gate fixes: whistleblowing limits, retention confirmed, application forms locked tighter, Core without admin calls, the whole guide (21 November 2026)
+
+The fixes of the four-view re-audit after 3.50, the gate before 3.51: the one confirmed Medium finding (a whistleblowing
+report over the server's post limit came back as "could not be verified" with everything gone) and the guide gap the
+product review rated Medium are closed, with the cheap confirmed Lows. **No database change:** no migration,
+`KALETA_DB_VERSION` stays 137. **MCP:** no tool, parameter or description changes (`tools/contracts.php` shows no
+difference); one new refusal text.
+
+1. **Whistleblowing.** A report whose files are over the server's post limit is answered with **413** and the real limits
+   (`Form::messages('size', …)`) before the antispam check, so no attempt is counted and nothing is stored. The report form
+   carries `Form::limitAttributes` and the file input `data-max-bytes`; the browser checks the files before sending
+   (`image/web.js`, bound to `form[data-file-too-large]` so it works without a post limit too). The report form has no
+   `data-formular`: a report's text is never kept in the browser. When the post limit is below 5 × 10 MB the hint names
+   the real total (`Whistleblowing::attachmentHint`).
+2. **Retention.** A shorter period sent through the old fields of Enquiries, Applications, Quotes or Whistleblowing is no
+   longer saved at once: `Retention::saveOrHold` saves what is not harsher and redirects to the confirmation screen of
+   Settings → retention with the held values; a longer period still saves at once. `Retention::saveUnconfirmed` stays for
+   `update_settings` only. `Core\Whistleblowing::saveSetup` returns the held value.
+3. **Job application forms.** Without the Applications section nobody can publish a build that hides a published
+   application form or one of its ancestors in any style state, or that adds a form with a file field that is not an
+   application form (`Build::shadowedApplicationForms`, refusal `Build::APPLICATION_FORM_SHADOWED`), and nobody can delete
+   a pop-up or component that holds one, in the admin or through `delete_popup` / `delete_component`
+   (`Publisher::guardRemoval`, refusal "nothing was deleted"). `Publisher::guard` takes the `App`: an unset
+   `Build::$purposeAllowed` is decided by the signed-in person; imports and the CLI with nobody signed in stay allowed.
+   A permitted publish of such a build by someone without Applications writes a change-log line in Applications. Drafts
+   are never refused.
+4. **Mail and backups.** A notification copy meant only for the queue is delivered once when the queue cannot be written
+   (`Core\Mail`), and an error-log line is written when that fails too. An FTPS listing or delete over cURL no longer
+   recreates a removed folder (`RemoteBackup::ftpsCommandOptions`), and a dot-named entry is never taken for deleted by a
+   listing (`listingLacks`).
+5. **Administration.** Confirmations before removing a Transfer report or import, a blueprint and time off of booking
+   staff, and before loading an older look over an unpublished draft; the two Transfer deletes answer with a message. Empty
+   states with a first action in the change log (with "Show the whole log" after a filter), Facts, Claude sessions and the
+   Fleet roll-out; the Claude sessions and Add-ons tables scroll inside their box on a phone. Success, error and warning
+   colours come from the admin tokens and stay readable in dark mode. "Dashboard" instead of "start screen"; "e-mail" in
+   three texts. A refused draft comment keeps its text, quote and element, and the error is announced.
+6. **Guide.** Every section of the administration and every Settings tab has its text in `docs/guide.md` and the Czech
+   handbook `docs/prirucka.md` (unit 4650 checks it); chapter 1 describes the three install profiles and the four ready
+   roles; six new chapters (19 My work and My account, 20 Media library, 21 Statistics and the change log, 22 Notebook,
+   scheduled runs, blueprints and integrations, 23 Fleet console, 24 Add-ons and the other settings). In the admin, a
+   guide chapter can cover whole tabs (`tabs` in `Admin\Guide::CHAPTERS`); Privacy and My account are listed for everybody;
+   new chapters `account`, `site-settings`, `claude-notes` and `changelog`.
+7. **Code.** Core no longer calls into the administration or the site for page slugs (`Core\Routes::RESERVED_SLUGS`,
+   `slugReserved`, `Core\Clock::edited`), enquiry spam and attachments (`Core\EnquiryVisibility::NOT_SPAM`,
+   `Core\EnquiryFiles::delete`), redirects (`Core\RedirectStore`) and the statistics switch (`Core\StatsGate`); the old
+   names stay as one-line forwards (unit 4632). Frozen layer exceptions 70 files / 181 references → 58 / 137. 105 unused
+   imports and 10 unreferenced public members are removed (each checked against 3.42.0, 3.49.0 and 3.50.0, so old code
+   in memory during an update calls nothing that is gone). Unit 4630 keeps every import named in its file; unit 4634
+   stops the number of files over 1,500 and 1,000 lines from growing (10 and 21). Three source pins became behaviour
+   checks (pin ceilings 300 / 307).
+8. **Updating.** No database change. Nothing Claude sees changes.
+9. **Still open.** Team-summary counts that reassignment can plant (owner decision at the start of 3.51); slack in the MCP
+   work set (first step of 3.51); splitting the largest classes (`Front\Kernel`, `Core\Booking`, `Core\WebImport`).
+
 ## 3.50 – debts and measuring: imports that cannot stall, locked application forms, settings declared once, public addresses in one table (21 November 2026)
 
 A release that pays debts instead of adding features: the two open Medium findings (an import that one page could stall,

@@ -9,7 +9,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 
 - `Front\Kernel`: `/` = úvodní stránka (nastavení `home_page`, v jazykové verzi její protějšek `preklad_z`), bez ní výpis novinek;
   úvodní stránka na své vlastní adrese přesměruje 301 na `/`. Novinky na `/novinky`, `/novinky/<seo>` (+ `.md`), `/novinky/kategorie/<seo>`,
-  `/novinky/stitek/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Modules\Pages::RESERVED_SLUGS`. Za cache stránek jsou veřejné adresy
+  `/novinky/stitek/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Core\Routes::RESERVED_SLUGS` (alias `Modules\Pages::RESERVED_SLUGS`). Za cache stránek jsou veřejné adresy
   řádky tabulky `Front\Kernel::ROUTES` (3.50: metoda, cesta nebo vzor, obsluha; `null` = „není moje“, pořadí drží unit 4531); brány před
   cache (přesměrování, firewall, údržba …) zůstávají kódem v `handle()`.
 - **Themeless (od 1.6):** rámec stránky je `system/views/front/base.php` + `image/sablona.css`, pohledy `system/views/front/` nejdou přepsat
@@ -92,7 +92,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 ## Obsah a služby
 
 - **Novinky** (`Modules\News`): koncept / vydaná (i naplánovaná), koš 30 dní, revize (20 posledních) s porovnáním, rozepsaný stav na serveru,
-  kontrola nefunkčních odkazů, AI asistent a překlad. Změna adresy vydané novinky, stránky nebo kategorie zapíše přesměrování (`Redirects::add`).
+  kontrola nefunkčních odkazů, AI asistent a překlad. Změna adresy vydané novinky, stránky nebo kategorie zapíše přesměrování (`Core\RedirectStore::add`).
 - **Hledání** přes `ka_novinky.hledani` (`Core\Search`): kdo ukládá novinku jinudy než administrací nebo MCP, volá `Search::index()`.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Notifications::process()` a sloupec `oznameno`.
 - **Webhooky** (1.8, `Core\Webhook`): volání se uloží do `ka_webhook_deliveries` a odejde po odeslání odpovědi (`Webhook::afterResponse` v index.php
@@ -103,7 +103,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   Strukturovaná data kolekce `ka_kolekce.schema_org` (`Builder\CollectionSchema`, uzel v `Seo::structuredData` přes `$meta['polozka']`).
 - **Audit webu** (1.9, `Core\Audit`, modul `audit`, MCP `site_audit`): interní odkazy přes `Audit::resolves`, popisy, titulky, menu, `Check::builds`, 404.
 - **Statistika bez cookies** (`Front\Stats`; od 3.29 počítá jen zobrazení potvrzená prohlížečem: `image/vitals.js` pošle po zviditelnění stránky `POST /hit` s cestou podepsanou serverem, `Stats::hit` znovu ověří roboty, prefetch, původ, přihlášení a limit `DAILY_VIEWS`/`BURST_VIEWS` – vykreslení ani cache nic nepočítají; od 3.29.1 je `Front\Stats::spansSwitch`/`recentSwitch` jediné pravidlo všude, kde se návštěvy porovnávají nebo kreslí (přehled, měsíční report, MCP, konzole Flotily): pokles přes přechod na počítání potvrzené prohlížečem se označí („počítání se změnilo …“), nikdy šipka dolů ani upozornění; heartbeat nese `stats_confirmed_since` (ohraničené `Fleet\Console::day`); `Core\Report` je jeden přehled pro admin Statistiky i MCP `get_stats`): žádné
-  identifikátory, jen součty po dnech, zapnutí = rozšíření `statistika` + nastavení `stats` (`Stats::isOn`). **Rychlost u návštěvníků** (2.8, `Core\WebVitals`,
+  identifikátory, jen součty po dnech, zapnutí = rozšíření `statistika` + nastavení `stats` (`Core\StatsGate::isOn`, dříve `Stats::isOn`). **Rychlost u návštěvníků** (2.8, `Core\WebVitals`,
   `image/vitals.js`): LCP, CLS a INP přes `PerformanceObserver`, jeden beacon na zobrazení (`navigator.sendBeacon` na `POST /vitals`) jen se zapnutou statistikou,
   nikdy v náhledech (noindex) ani pro přihlášené; skript je samostatný a `defer` (ne `web.js`, který se na stránkách bez prvků s JS vynechává). Ukládá se histogram
   s pevnými přihrádkami – `ka_web_vitals` (den, cesta, metrika, přihrádka, počet; `WebVitals::BUCKETS`, hranice Googlu jsou hranami přihrádek), p75 = horní hrana

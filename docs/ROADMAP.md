@@ -6,10 +6,15 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.50 paid debts instead of adding features: one page can no longer stall an import, an old address already used on the
-site gets no redirect, only people with Applications can change or drop a job application form, Fleet has a fix page for
-every check, and five admin screens got simpler. Inside, the public addresses are one table and each setting is declared
-once, both checked against a record of 3.49. Each release lists what it brought in the changelog when it ships.
+3.50.1 closed the findings of the re-audit after 3.50 (whistleblowing limits, retention confirmed on one screen, job
+application forms locked tighter, Core without calls into the administration, every section in the guide). The next
+releases, in number order: **3.51** honest sending – a newsletter never reaches an address that refused or bounced, a bad
+send pauses itself, and room in the MCP tool set; **3.52** audiences by consent – a newsletter to the confirmed
+subscribers of its language or to customers, consent proved at the form, a results line per newsletter; **3.53** waiting
+for the customer – which enquiries wait for an answer from outside, and a support filter only where sites need it;
+**3.54** collection pages without holes – no heading over an empty field, no list of everything on an item page, and the
+sanitizers say what they dropped; **3.55** recovery – restoring from the off-site copy, and updates that check the
+host's PHP extensions first. A re-audit follows. Each release lists what it brought in the changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 
@@ -32,7 +37,10 @@ security fixes apply. `zh` means Simplified Chinese (owner, 13 October 2026).
 
 - English renames of database tables or columns (21 and 22 October 2026, confirmed on 10 November 2026) – `Core\Names`
   keeps the English aliases for queries instead.
-- A second e-mail renderer or an e-mail builder; campaign features (segments, automations, A/B tests, open tracking).
+- A second e-mail renderer or an e-mail builder; automations, A/B tests, open tracking or per-recipient click tracking.
+  Audiences among confirmed subscribers (language, "is a customer") are planned for 3.52 (owner decision of 21 November
+  2026); mail to leads without consent never.
+- Invoices and HR (owner decision of 21 November 2026).
 - A chat with Claude inside the admin that runs on the site's own Anthropic key (decided on 3 October 2026) – "Ask Claude"
   hands the work to Claude through requests instead.
 - Multisite in one installation, e-commerce, memberships, a visitor-facing AI chat, a headless or GraphQL API, real-time

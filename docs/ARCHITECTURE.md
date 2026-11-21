@@ -71,6 +71,9 @@ importers will need it too. An admin module reads the request, calls Core and re
 | Replies and attachments | `Core\ReplyMail` (one sender: Reply-To, signature, quotation), `Core\SavedReplies` (the firm's texts per language), `Core\ReplyAttachments` (files a person chooses, never queued) and `Admin\AttachmentBox` (3.49) |
 | Choosing by search | `views/admin/pick.php` (an ordinary select or input with `data-pick`) and the "choosing by search" block of `image/admin.js`; the read-only `search_json` actions of the modules answer (3.49) |
 | Files on a record | `Core\InternalFileLinks` – the only class naming `ka_internal_file_links`, with the one access rule (3.49) |
+| Rules that Core took over in 3.50.1 | `Core\Routes::RESERVED_SLUGS` and `slugReserved()`, `Core\Clock::edited()` (page slugs and the edit stamp), `Core\EnquiryVisibility::NOT_SPAM` and `Core\EnquiryFiles::delete()` (enquiry spam rule and attachment clean-up), `Core\RedirectStore` (`twin`, `add`, `takeOver` – every redirect writer), `Core\StatsGate` (`isOn`, `enabled`, `isBot`, `BOTS`); the old names on `Admin\Modules\Pages`, `Enquiries`, `Redirects` and `Front\Stats` stay as one-line forwards (unit 4632) |
+| Quote baskets and the price list | basket lines only from the basket field of the published form (`Products::basketLabels`, smoke 3900); a collection is mapped to the price list only in Quotes → Price list settings (`setup`); the office's first steps are `views/admin/first_steps.php` |
+| Claude's limits | the hourly limit of changes counts per user (all of their connections); undo goes by connection name and user (`AgentJournal::connectionLabel`) |
 | Add-ons of other developers | `extensions/<slug>/`, talking only to `Kaleta\Extension\Api` ([EXTENSIONS.md](EXTENSIONS.md)) |
 | Tests | `tools/tests/unit/` and `tools/tests/smoke/` ([README](../tools/tests/README.md)), browser suite `tools/test-browser.sh` (step files in `tools/tests/browser/`, 3.49) |
 
@@ -98,6 +101,8 @@ importers will need it too. An admin module reads the request, calls Core and re
   Write it for MySQL and MariaDB alike.
 - **A builder element:** a class in `Builder\Elements\` registered in `Build::ELEMENTS`, its content fields, allowed tags
   and base CSS; an English entry in `Mcp\Vocabulary`.
+- **A new kind of task target:** `Inbox::TARGETS`, `Inbox::parse`, `Tasks::cleanTarget` and `sweep`, `Assignment::KINDS`
+  and its label in `my_work` (a unit test checks all of them).
 - **An interface text:** `t('English text')` and the translations through `tools/add-translations.py`.
 
 ## Czech and English
