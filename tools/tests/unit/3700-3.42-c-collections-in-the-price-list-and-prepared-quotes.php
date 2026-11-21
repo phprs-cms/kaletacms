@@ -10,7 +10,7 @@ use Kaleta\Core\Quotes;
 // the two settings: the mapping (empty) and the automatic draft (off), neither over MCP
 check('3.42 C: the mapping is empty and the automatic draft off by default; neither can be changed over MCP', [
     Kaleta\Core\Settings::DEFAULTS[Prices::MAPPING_SETTING] ?? null, Kaleta\Core\Settings::DEFAULTS[Quotes::AUTO_DRAFT_SETTING] ?? null,
-    array_map(fn (string $k): int => preg_match((string) (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), $k), [Prices::MAPPING_SETTING, Quotes::AUTO_DRAFT_SETTING])],
+    array_map(fn (string $k): int => (int) Kaleta\Core\Settings::claudeMaySet($k), [Prices::MAPPING_SETTING, Quotes::AUTO_DRAFT_SETTING])],
     ['', '0', [0, 0]]);
 
 // the stored mapping: a list of {collection, code, variants}; ids once, field keys of the collection-field pattern, anything else dropped

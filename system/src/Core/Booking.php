@@ -1356,7 +1356,7 @@ final class Booking
 
     /**
      * A booking setting as the Bookings settings form stores it – the same limits for the form and for update_settings over
-     * MCP (their keys are in Mcp\Tools::MCP_SETTINGS, but the settings form types of Admin\Modules\Settings do not know them).
+     * MCP (Claude may set them, Settings::claudeMaySet, but the settings form types of Admin\Modules\Settings do not know them).
      * Null = not a booking setting, or not a whole number where one is needed.
      */
     public static function settingValue(string $key, string $value): ?string

@@ -19,7 +19,7 @@ $b340Quote = static fn (array $over = []): array => $over + ['status' => 'sent',
 // both settings are off by default (design A-12) and are no MCP settings
 check('3.40 B: Accept / Decline and "first opened on" are off by default; neither can be switched over MCP', [
     Kaleta\Core\Settings::DEFAULTS['quote_customer_decision'] ?? null, Kaleta\Core\Settings::DEFAULTS['quote_track_opened'] ?? null,
-    array_map(fn (string $k): int => preg_match((string) (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), $k), ['quote_customer_decision', 'quote_track_opened'])], ['0', '0', [0, 0]]);
+    array_map(fn (string $k): int => (int) Kaleta\Core\Settings::claudeMaySet($k), ['quote_customer_decision', 'quote_track_opened'])], ['0', '0', [0, 0]]);
 
 // when the customer may answer: the setting, a sent quote that is still valid, with its document, never anonymised, one decision
 Clock::freeze('2026-11-12 10:00:00');

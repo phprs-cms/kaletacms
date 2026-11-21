@@ -321,7 +321,8 @@ final class Settings
     /**
      * Settings that can be filled in separately for each additional language version of the site (key_en, key_de…); the
      * visitor's version reads its own value, an empty one falls back to the default language's. 3.9 (UXM-11): the cookie
-     * bar text and the privacy policy link too.
+     * bar text and the privacy policy link too. 3.50: a mirror of keysWith('per_language') kept for code of older releases
+     * during an update (unit 4541) – read the declaration.
      */
     public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
 
@@ -329,15 +330,301 @@ final class Settings
      * Large values only one feature reads (3.42, audit Q9): they are left out of the query that loads all settings and
      * read on first use, so a page that never needs them (every public page, the cache hits included) does not carry them.
      * Not the update manifests (update_cache, update_seen…): the background check after every response reads them, so
-     * loading them apart would add queries instead of saving them.
+     * loading them apart would add queries instead of saving them. 3.50: a mirror of keysWith('lazy') (unit 4541).
      */
     public const array LAZY = ['look_draft', 'domain_watch'];
 
     /**
+     * The tabs of the settings forms, in their order (3.50: from Admin\Modules\Settings::FIELDS). vzhled, presmerovani, claude
+     * and extensions are saved by screens of their own (Site appearance, Redirects, Claude settings, Extensions) – their
+     * types also check values from the Claude connection; sections (links to the settings that live in the sections,
+     * Admin\SectionSettings) and console (paired by its own buttons, Fleet\Link) have nothing to save.
+     */
+    public const array FORM_TABS = ['general', 'languages', 'security', 'agency', 'vzhled', 'presmerovani', 'company', 'seo', 'analytics', 'cookies',
+        'sections', 'mail', 'reports', 'claude', 'extensions', 'webhooks', 'backups', 'firewall', 'console', 'health'];
+
+    /** The seconds a screen shows one slide (2.11, Front\Screen reads them): the bounds of screen_seconds. */
+    public const int SCREEN_MIN_SECONDS = 5;
+    public const int SCREEN_MAX_SECONDS = 60;
+
+    /** Company types for the field company_type (vyber:…). */
+    private const string COMPANY_TYPES = 'Organization|LocalBusiness|HomeAndConstructionBusiness|ProfessionalService|LegalService|AccountingService|MedicalBusiness|AutomotiveBusiness|Store|FoodEstablishment|LodgingBusiness|SportsActivityLocation|EducationalOrganization';
+
+    /** 3.32: the currencies of the setting default_currency (Core\Deals::CURRENCIES) for its vyber: type. */
+    private const string CURRENCY_CHOICES = 'EUR|CZK|PLN|HUF|RON|BGN|SEK|DKK|NOK|ISK|CHF|GBP|UAH|RSD|TRY|USD|CAD|AUD|NZD|JPY|CNY|INR|SGD|HKD|KRW|BRL|MXN|ZAR|ILS|AED|SAR';
+
+    /**
+     * 3.50 (Q9): what the code knows about each setting, declared once beside its default. A row is a key of DEFAULTS:
+     *   tab           the settings form that has its field (FORM_TABS); with
+     *   type          how the form and update_settings clean its value:
+     *                 text | tajne (secret key: not printed back, empty field = no change; tajne:/regex/ also checks the format) |
+     *                 radky (multi-line text) | kod (HTML/JS – entered only by the administrator) | url | email | emaily (up to 10
+     *                 addresses, comma or line separated) | ano (yes/no) | cislo:min:max (number) | vyber:a|b (choice) |
+     *                 seznam:a|b (checkboxes, saved as "a,b") | vzor:/regex/ (pattern) | pasmo (time zone) | hodiny (opening hours)
+     * and the flags that are true for it:
+     *   secret        sealed with the key from config.php (Core\Vault) – never shown, exported or given to Claude
+     *   export        goes into the site export and comes back with an import (Core\SiteExport, Core\SiteImport)
+     *   mcp           Claude may change it with update_settings (claudeMaySet; the other ones only in the administration)
+     *   per_language  has a value per language version, key_en, key_de… (an empty one falls back to the default language)
+     *   lazy          left out of the query that loads all settings, read on first use
+     * Every key of a settings form has a row (in the order of the forms), the others only when a flag is true. A new
+     * setting: its default in DEFAULTS, its row here and, with a tab, a $field() row in views/admin/settings/<tab>.php. The
+     * lists Vault::SECRET_SETTINGS, SiteExport::SETTINGS, PER_LANGUAGE and LAZY are kept equal to keysWith() for code of
+     * older releases that runs during an update (unit 4541); nothing new reads them.
+     */
+    public const array DECLARATIONS = [
+        'site_name' => ['tab' => 'general', 'type' => 'text', 'export' => true, 'mcp' => true, 'per_language' => true],
+        'site_url' => ['tab' => 'general', 'type' => 'vzor:#^https?://[a-z0-9.-]+(:\d+)?$#i', 'export' => true],
+        'site_description' => ['tab' => 'general', 'type' => 'radky', 'export' => true, 'mcp' => true, 'per_language' => true],
+        'site_email' => ['tab' => 'general', 'type' => 'email'],
+        'footer_text' => ['tab' => 'general', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'social_facebook' => ['tab' => 'general', 'type' => 'url', 'export' => true, 'mcp' => true],
+        'social_instagram' => ['tab' => 'general', 'type' => 'url', 'export' => true, 'mcp' => true],
+        'social_x' => ['tab' => 'general', 'type' => 'url', 'export' => true, 'mcp' => true],
+        'social_youtube' => ['tab' => 'general', 'type' => 'url', 'export' => true, 'mcp' => true],
+        'social_linkedin' => ['tab' => 'general', 'type' => 'url', 'export' => true, 'mcp' => true],
+        'home_page' => ['tab' => 'general', 'type' => 'cislo:0:4294967295', 'export' => true, 'mcp' => true],
+        'news_per_page' => ['tab' => 'general', 'type' => 'cislo:1:100', 'export' => true, 'mcp' => true],
+        'news_slug' => ['tab' => 'general', 'type' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'export' => true, 'mcp' => true],
+        'news_title' => ['tab' => 'general', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'share_buttons' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'social_networks' => ['tab' => 'general', 'type' => 'seznam:' . SocialDrafts::NETWORK_KEYS],
+        'link_check' => ['tab' => 'general', 'type' => 'ano'],
+        'article_outline' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'related_news_auto' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'page_cache' => ['tab' => 'general', 'type' => 'ano'],
+        'maintenance' => ['tab' => 'general', 'type' => 'ano'],
+        'maintenance_text' => ['tab' => 'general', 'type' => 'text', 'export' => true],
+        // screen mode (2.11, Front\Screen); screen_collections is added by fields() from the site's collections, the secret is created by actionSave
+        'screen_mode' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'screen_seconds' => ['tab' => 'general', 'type' => 'cislo:' . self::SCREEN_MIN_SECONDS . ':' . self::SCREEN_MAX_SECONDS, 'export' => true, 'mcp' => true],
+        'screen_news' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'screen_hours' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'screen_clock' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'time_zone' => ['tab' => 'general', 'type' => 'pasmo', 'export' => true],
+        'default_currency' => ['tab' => 'general', 'type' => 'vyber:|' . self::CURRENCY_CHOICES], // 3.32 (U29, Core\Deals::defaultCurrency): '' = automatic
+        // 3.23 (C12): the tabs that were part of General – the keys and the field names are the same as before
+        'site_language' => ['tab' => 'languages', 'type' => 'vyber:' . Language::CODES, 'export' => true],
+        'german_register' => ['tab' => 'languages', 'type' => 'vyber:formal|informal', 'export' => true, 'mcp' => true],
+        'additional_languages' => ['tab' => 'languages', 'type' => 'seznam:' . Language::CODES, 'export' => true],
+        'slugs_per_language' => ['tab' => 'languages', 'type' => 'ano'], // 3.9: never written directly; 3.19: only switched on, by Core\Slug::enableEverywhere (actionSave)
+        'require_2fa' => ['tab' => 'security', 'type' => 'vyber:|spravci|vsichni'],
+        'signin_passkey_only' => ['tab' => 'security', 'type' => 'ano'], // 3.35: turned on only by an administrator with a working passkey (actionSave)
+        'auto_suspend' => ['tab' => 'security', 'type' => 'seznam:' . SecurityHygiene::SUSPEND_ACCOUNTS . '|' . SecurityHygiene::SUSPEND_CONNECTIONS],
+        'agency_name' => ['tab' => 'agency', 'type' => 'text', 'mcp' => true],
+        'agency_url' => ['tab' => 'agency', 'type' => 'url', 'mcp' => true],
+        'agency_email' => ['tab' => 'agency', 'type' => 'email', 'mcp' => true],
+        'agency_phone' => ['tab' => 'agency', 'type' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'mcp' => true],
+        'agency_logo' => ['tab' => 'agency', 'type' => 'vzor:#^((media|image)/[A-Za-z0-9/_.-]{1,200}\.(svg|png|webp|jpe?g|avif))?$#', 'mcp' => true],
+        // the site appearance is saved by the Appearance module; here only types for checking values from the Claude connection (it is not a Settings tab)
+        'dark_mode' => ['tab' => 'vzhled', 'type' => 'vyber:vypnuto|auto|tmavy', 'export' => true, 'mcp' => true],
+        'theme_switcher' => ['tab' => 'vzhled', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        // redirects for missing addresses are set on the Redirects screen (2.14); here only the types for values from the Claude connection
+        'redirect_auto' => ['tab' => 'presmerovani', 'type' => 'ano', 'mcp' => true],
+        'redirect_auto_threshold' => ['tab' => 'presmerovani', 'type' => 'cislo:50:100', 'mcp' => true],
+        'company_name' => ['tab' => 'company', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'company_type' => ['tab' => 'company', 'type' => 'vyber:' . self::COMPANY_TYPES, 'export' => true, 'mcp' => true],
+        'company_id' => ['tab' => 'company', 'type' => 'vzor:/^((?=.*\d)[A-Za-z0-9 .\/-]{1,24})?$/', 'export' => true, 'mcp' => true],
+        'company_register' => ['tab' => 'company', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'company_representative' => ['tab' => 'company', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'company_vat_id' => ['tab' => 'company', 'type' => 'vzor:/^([A-Z]{2}[A-Z0-9]{6,12})?$/', 'export' => true, 'mcp' => true],
+        'company_street' => ['tab' => 'company', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'company_city' => ['tab' => 'company', 'type' => 'text', 'export' => true, 'mcp' => true],
+        'company_postcode' => ['tab' => 'company', 'type' => 'vzor:/^[A-Z0-9 -]{0,10}$/i', 'export' => true, 'mcp' => true],
+        'company_country' => ['tab' => 'company', 'type' => 'vzor:/^([A-Z]{2})?$/', 'export' => true, 'mcp' => true],
+        'company_phone' => ['tab' => 'company', 'type' => 'vzor:/^[+()\d\s\/.-]{0,30}$/', 'export' => true, 'mcp' => true],
+        'company_email' => ['tab' => 'company', 'type' => 'email', 'export' => true, 'mcp' => true],
+        'company_hours' => ['tab' => 'company', 'type' => 'hodiny', 'export' => true, 'mcp' => true],
+        'company_map' => ['tab' => 'company', 'type' => 'url', 'export' => true, 'mcp' => true],
+        'company_gps' => ['tab' => 'company', 'type' => 'vzor:/^(-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)?$/', 'export' => true, 'mcp' => true],
+        'email_signature_template' => ['tab' => 'company', 'type' => 'radky', 'export' => true], // 3.37: the fallback e-mail signature (Builder\UserSignature)
+        'indexing' => ['tab' => 'seo', 'type' => 'ano', 'mcp' => true],
+        'schema_org' => ['tab' => 'seo', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'share_image' => ['tab' => 'seo', 'type' => 'text', 'export' => true],
+        'share_image_auto' => ['tab' => 'seo', 'type' => 'ano', 'export' => true],
+        'verification_google' => ['tab' => 'seo', 'type' => 'vzor:/^[A-Za-z0-9_-]{0,100}$/', 'mcp' => true],
+        'verification_bing' => ['tab' => 'seo', 'type' => 'vzor:/^[A-Za-z0-9]{0,64}$/', 'mcp' => true],
+        'robots_extra' => ['tab' => 'seo', 'type' => 'radky', 'export' => true, 'mcp' => true],
+        'ai_crawlers' => ['tab' => 'seo', 'type' => 'vyber:povolit|zakazat', 'mcp' => true],
+        'url_slash' => ['tab' => 'seo', 'type' => 'vyber:bez|s|html', 'export' => true, 'mcp' => true],
+        'llms_txt' => ['tab' => 'seo', 'type' => 'ano', 'export' => true, 'mcp' => true],
+        'markdown_news' => ['tab' => 'seo', 'type' => 'ano', 'mcp' => true],
+        'indexnow' => ['tab' => 'seo', 'type' => 'ano', 'mcp' => true],
+        'security_contact' => ['tab' => 'seo', 'type' => 'vzor:#^([^\s@<>]+@[^\s@<>]+\.[a-z]{2,}|https://[^\s<>]+)?$#i', 'mcp' => true],
+        'ga4_id' => ['tab' => 'analytics', 'type' => 'vzor:/^(G-[A-Z0-9]{4,20})?$/', 'mcp' => true],
+        'gtm_id' => ['tab' => 'analytics', 'type' => 'vzor:/^(GTM-[A-Z0-9]{4,12})?$/'],
+        'matomo_url' => ['tab' => 'analytics', 'type' => 'url'],
+        'matomo_id' => ['tab' => 'analytics', 'type' => 'cislo:0:99999'],
+        'plausible_domain' => ['tab' => 'analytics', 'type' => 'vzor:/^([a-z0-9.-]{3,100})?$/', 'mcp' => true],
+        'head_code' => ['tab' => 'analytics', 'type' => 'kod'], // 'stats' is no longer here (3.2): the Statistics feature is the only switch
+        'cookies_mode' => ['tab' => 'cookies', 'type' => 'vyber:zadna|vestavena|externi', 'mcp' => true],
+        'cookies_external_code' => ['tab' => 'cookies', 'type' => 'kod'],
+        'cookies_text' => ['tab' => 'cookies', 'type' => 'radky', 'export' => true, 'mcp' => true, 'per_language' => true],
+        'cookies_policy_url' => ['tab' => 'cookies', 'type' => 'vzor:#^((/(?![/\\\\])|https://)[^\s"<>\\\\]{0,250})?$#i', 'export' => true, 'mcp' => true, 'per_language' => true],
+        'marketing_code' => ['tab' => 'cookies', 'type' => 'kod'],
+        'cookies_log' => ['tab' => 'cookies', 'type' => 'ano', 'mcp' => true],
+        'lead_attribution' => ['tab' => 'cookies', 'type' => 'ano', 'mcp' => true],
+        'cookies_log_months' => ['tab' => 'cookies', 'type' => 'cislo:0:120', 'mcp' => true],
+        'accessibility_toolbar' => ['tab' => 'cookies', 'type' => 'ano'],
+        'captcha_provider' => ['tab' => 'cookies', 'type' => 'vyber:|hcaptcha|recaptcha|turnstile', 'mcp' => true],
+        'captcha_site_key' => ['tab' => 'cookies', 'type' => 'vzor:/^[A-Za-z0-9_.-]{0,100}$/', 'mcp' => true],
+        'captcha_secret' => ['tab' => 'cookies', 'type' => 'tajne', 'secret' => true],
+        'captcha_fail_open' => ['tab' => 'cookies', 'type' => 'ano', 'mcp' => true],
+        // 3.48 B (U40): every retention period in one place (Core\Retention::PERIODS); a shorter one is confirmed on its own
+        // screen (actionRetention). The sections' own forms keep saving them under their old field names until 3.50.
+        'enquiries_months' => ['tab' => 'cookies', 'type' => 'cislo:0:120'],
+        'job_applications_months' => ['tab' => 'cookies', 'type' => 'cislo:0:120'],
+        'contacts_months' => ['tab' => 'cookies', 'type' => 'cislo:0:120'],
+        'quotes_months' => ['tab' => 'cookies', 'type' => 'cislo:0:120'],
+        'applications_months' => ['tab' => 'cookies', 'type' => 'cislo:0:120'],
+        'enquiries_expiry' => ['tab' => 'cookies', 'type' => 'vyber:delete|anonymise'],
+        'applications_pool_months' => ['tab' => 'cookies', 'type' => 'cislo:1:60'],
+        'whistleblowing_retention_months' => ['tab' => 'cookies', 'type' => 'cislo:1:120'],
+        'mail_mode' => ['tab' => 'mail', 'type' => 'vyber:mail|smtp'],
+        'mail_from' => ['tab' => 'mail', 'type' => 'email'],
+        'mail_reply_to' => ['tab' => 'mail', 'type' => 'email'],
+        'smtp_host' => ['tab' => 'mail', 'type' => 'vzor:/^[A-Za-z0-9.-]{0,120}$/'],
+        'smtp_port' => ['tab' => 'mail', 'type' => 'cislo:1:65535'],
+        'smtp_encryption' => ['tab' => 'mail', 'type' => 'vyber:tls|ssl|zadne'],
+        'smtp_user' => ['tab' => 'mail', 'type' => 'text'],
+        'smtp_password' => ['tab' => 'mail', 'type' => 'tajne', 'secret' => true],
+        'newsletter_hourly_limit' => ['tab' => 'mail', 'type' => 'cislo:10:100000'],
+        'smtp_provider' => ['tab' => 'mail', 'type' => 'vyber:' . MailServices::CHOICES], // 3.9: the mail service; MailServices::settle() fills its server after the save
+        // the monthly report (2.9) and its archive (3.16, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
+        'report_monthly' => ['tab' => 'reports', 'type' => 'ano'],
+        'report_recipients' => ['tab' => 'reports', 'type' => 'emaily'],
+        // Claude's instructions and guardrails (3.2: own screen, Modules\ClaudeSettings – the keys stay)
+        'claude_instructions' => ['tab' => 'claude', 'type' => 'radky', 'mcp' => true],
+        'claude_change_limit' => ['tab' => 'claude', 'type' => 'cislo:0:10000'],
+        'claude_destructive' => ['tab' => 'claude', 'type' => 'ano'],
+        'claude_apps_only' => ['tab' => 'claude', 'type' => 'ano'],
+        'claude_protected_pages' => ['tab' => 'claude', 'type' => 'vzor:/^[0-9 ,;]{0,500}$/'],
+        'ai_provider' => ['tab' => 'extensions', 'type' => 'vyber:' . Assistant::PROVIDER_KEYS],
+        'ai_key' => ['tab' => 'extensions', 'type' => 'tajne', 'secret' => true],
+        'ai_model' => ['tab' => 'extensions', 'type' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#'],
+        'newsletter_service' => ['tab' => 'extensions', 'type' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook'],
+        'newsletter_key' => ['tab' => 'extensions', 'type' => 'tajne', 'secret' => true],
+        'newsletter_list' => ['tab' => 'extensions', 'type' => 'vzor:#^[A-Za-z0-9_-]{0,64}$#'],
+        'newsletter_webhook' => ['tab' => 'extensions', 'type' => 'url'],
+        'webhook_enquiries' => ['tab' => 'webhooks', 'type' => 'url'],
+        'webhook_url' => ['tab' => 'webhooks', 'type' => 'url'],
+        'remote_backup' => ['tab' => 'backups', 'type' => 'vyber:vypnuto|ftp|s3'],
+        'backup_host' => ['tab' => 'backups', 'type' => 'vzor:#^[A-Za-z0-9.:/-]{0,150}$#'],
+        'backup_user' => ['tab' => 'backups', 'type' => 'text'],
+        'backup_password' => ['tab' => 'backups', 'type' => 'tajne', 'secret' => true],
+        'backup_folder' => ['tab' => 'backups', 'type' => 'vzor:#^[A-Za-z0-9._/-]{0,150}$#'],
+        'backup_region' => ['tab' => 'backups', 'type' => 'vzor:/^[a-z0-9-]{0,40}$/'],
+        'auto_backups' => ['tab' => 'backups', 'type' => 'ano'],
+        'backup_media' => ['tab' => 'backups', 'type' => 'ano'],
+        'backup_remote_days' => ['tab' => 'backups', 'type' => 'cislo:0:3650'],
+        'auto_updates' => ['tab' => 'backups', 'type' => 'ano'],
+        'update_channel' => ['tab' => 'backups', 'type' => 'vyber:latest|stable'],
+        'update_url' => ['tab' => 'backups', 'type' => 'url'],
+        'firewall_enabled' => ['tab' => 'firewall', 'type' => 'ano'],
+        'firewall_proxy' => ['tab' => 'firewall', 'type' => 'vyber:|cloudflare'],
+        'firewall_ips' => ['tab' => 'firewall', 'type' => 'radky'],
+        'firewall_countries' => ['tab' => 'firewall', 'type' => 'vzor:/^[A-Za-z,;\s]{0,400}$/'],
+        'firewall_rate' => ['tab' => 'firewall', 'type' => 'cislo:0:10000'],
+        'firewall_probes' => ['tab' => 'firewall', 'type' => 'ano'],
+        'health_token' => ['tab' => 'health', 'type' => 'vzor:/^[A-Za-z0-9]{0,64}$/'],
+        'alerts_enabled' => ['tab' => 'health', 'type' => 'ano'],
+        'alerts_email' => ['tab' => 'health', 'type' => 'email'],
+        // keys without a form field
+        'keywords' => ['export' => true],
+        'logo' => ['export' => true],
+        'favicon' => ['export' => true],
+        'look_draft' => ['lazy' => true],
+        'design_system' => ['export' => true],
+        'brand_accent' => ['export' => true],
+        'brand_heading_font' => ['export' => true],
+        'brand_text_font' => ['export' => true],
+        'screen_collections' => ['export' => true],
+        'webhook_secret' => ['secret' => true],
+        'stats' => ['mcp' => true],
+        'news_slug_previous' => ['export' => true],
+        'booking_lead_hours' => ['mcp' => true],
+        'booking_horizon_days' => ['mcp' => true],
+        'booking_cancel_hours' => ['mcp' => true],
+        'booking_reminder_hours' => ['mcp' => true],
+        'booking_hold_hours' => ['mcp' => true],
+        'booking_pending_mail' => ['mcp' => true],
+        'booking_declined_mail' => ['mcp' => true],
+        'booking_pending_thanks' => ['mcp' => true],
+        'site_key_secret' => ['secret' => true],
+        'domain_watch' => ['lazy' => true],
+        'extensions' => ['export' => true],
+    ];
+
+    /** @var array<string, list<string>> keysWith() per flag, worked out once per request */
+    private static array $withFlag = [];
+
+    /**
+     * The keys whose declaration has the flag (secret, export, mcp, per_language, lazy), in the order of DECLARATIONS.
+     *
+     * @return list<string>
+     */
+    public static function keysWith(string $flag): array
+    {
+        return self::$withFlag[$flag] ??= array_keys(array_filter(self::DECLARATIONS, static fn (array $row): bool => ($row[$flag] ?? false) === true));
+    }
+
+    /** @var array<string, array<string, string>>|null */
+    private static ?array $fields = null;
+
+    /**
+     * The fields of the settings forms: tab => [key => type], tabs in the order of FORM_TABS (a tab with nothing to save is
+     * empty) and keys in the order of DECLARATIONS. The language variants and the screen collections are added by the form
+     * (Admin\Modules\Settings::fields).
+     *
+     * @return array<string, array<string, string>>
+     */
+    public static function fields(): array
+    {
+        if (self::$fields === null) {
+            self::$fields = array_fill_keys(self::FORM_TABS, []);
+            foreach (self::DECLARATIONS as $key => $row) {
+                if (isset($row['tab'], $row['type'])) {
+                    self::$fields[$row['tab']][$key] = $row['type'];
+                }
+            }
+        }
+
+        return self::$fields;
+    }
+
+    /** Is the flag true in the declaration of the key. */
+    private static function has(string $key, string $flag): bool
+    {
+        return (self::DECLARATIONS[$key][$flag] ?? false) === true;
+    }
+
+    /**
+     * May Claude change the setting with update_settings (the rule MCP_SETTINGS of Mcp\Tools held until 3.49)? Code that runs
+     * on the site (head_code, marketing_code, cookies_external_code) never: a prompt-injected Claude must not put script on
+     * every page (2.5.1); nor gtm_id, matomo_url and matomo_id – a GTM container or a Matomo host loads whatever its owner
+     * chooses (3.3.2). Besides the keys with the flag mcp, two shapes that are no keys:
+     *   - a language variant (site_name_de, cookies_text_en-gb) of a per-language setting Claude may change;
+     *   - any company_ key: one that is not declared then gets "invalid value", not "not allowed" (as in 3.49).
+     */
+    public static function claudeMaySet(string $key): bool
+    {
+        if ((self::DECLARATIONS[$key]['mcp'] ?? false) === true || preg_match('/^company_[a-z_]+$/D', $key) === 1) {
+            return true;
+        }
+        foreach (self::keysWith('per_language') as $base) {
+            if ((self::DECLARATIONS[$base]['mcp'] ?? false) === true && preg_match('/^' . preg_quote($base, '/') . '_' . Language::TAG . '$/D', $key) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * What the code knows about one setting, from the lists that hold it (3.42, audit Q9): the default, whether it is a
      * secret (Core\Vault), goes into the site export (Core\SiteExport), has a value per language, is loaded lazily, and
-     * its older names (Core\OldSettingsKeys). The form type is Admin\Modules\Settings::FIELDS and Claude's access the
-     * MCP_SETTINGS pattern of Mcp\Tools; `php tools/settings.php <key>` prints all of it. Null for an unknown key.
+     * its older names (Core\OldSettingsKeys) – from DECLARATIONS since 3.50. The form type is fields() and Claude's access
+     * claudeMaySet(); `php tools/settings.php <key>` prints all of it. Null for an unknown key.
      *
      * @return array{default: string, secret: bool, export: bool, per_language: bool, lazy: bool, old_names: list<string>}|null
      */
@@ -349,10 +636,10 @@ final class Settings
 
         return [
             'default' => self::DEFAULTS[$key],
-            'secret' => in_array($key, Vault::SECRET_SETTINGS, true),
-            'export' => in_array($key, SiteExport::SETTINGS, true),
-            'per_language' => in_array($key, self::PER_LANGUAGE, true),
-            'lazy' => in_array($key, self::LAZY, true),
+            'secret' => self::has($key, 'secret'),
+            'export' => self::has($key, 'export'),
+            'per_language' => self::has($key, 'per_language'),
+            'lazy' => self::has($key, 'lazy'),
             'old_names' => array_keys(array_filter(OldSettingsKeys::KEYS, fn (string $new): bool => $new === $key)),
         ];
     }
@@ -391,13 +678,13 @@ final class Settings
     {
         $this->load($key);
         // a language version (/en/, /de/…) may have its own site name and description; empty = as in the default language
-        if (in_array($key, self::PER_LANGUAGE, true) && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
+        if (self::has($key, 'per_language') && ($language = Language::siteColumn()) !== '' && ($this->values[$key . '_' . $language] ?? '') !== '') {
             return $this->values[$key . '_' . $language];
         }
 
         if (isset($this->values[$key])) {
             // 3.39 (N106): a secret is stored sealed with the key in config.php (Core\Vault) – opened once per request
-            return in_array($key, Vault::SECRET_SETTINGS, true) && Vault::isSealed($this->values[$key])
+            return self::has($key, 'secret') && Vault::isSealed($this->values[$key])
                 ? ($this->opened[$key] ??= Vault::openSecret($this, 'settings', $this->values[$key])) : $this->values[$key];
         }
 
@@ -410,11 +697,11 @@ final class Settings
     {
         if ($this->values === null) {
             $this->values = $this->db->pairs(
-                'SELECT promenna, hodnota FROM {nastaveni} WHERE promenna NOT IN (' . implode(', ', array_fill(0, count(self::LAZY), '?')) . ')',
-                self::LAZY,
+                'SELECT promenna, hodnota FROM {nastaveni} WHERE promenna NOT IN (' . implode(', ', array_fill(0, count(self::keysWith('lazy')), '?')) . ')',
+                self::keysWith('lazy'),
             );
         }
-        if (in_array($key, self::LAZY, true) && !isset($this->lazyRead[$key])) {
+        if (self::has($key, 'lazy') && !isset($this->lazyRead[$key])) {
             $value = $this->db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [$key]);
             if ($value !== null) {
                 $this->values[$key] = (string) $value;
@@ -448,7 +735,7 @@ final class Settings
      */
     public function secretUnreadable(string $key): bool
     {
-        if (!in_array($key, Vault::SECRET_SETTINGS, true)) {
+        if (!self::has($key, 'secret')) {
             return false; // and the settings are not loaded for it: set() of any other key must not fill the cache early
         }
         $this->load($key);
@@ -466,7 +753,7 @@ final class Settings
             throw new \RuntimeException('The stored value of ' . $key . ' is sealed with an encryption key this config.php does not have; it is not overwritten.');
         }
         unset($this->opened[$key]);
-        if (in_array($key, Vault::SECRET_SETTINGS, true)) {
+        if (self::has($key, 'secret')) {
             $value = Vault::sealSecret($this, 'settings', $value); // 3.39 (N106): sealed when the key is in config.php
         }
         if ($key === 'news_slug' && ($old = $this->get('news_slug')) !== $value) {

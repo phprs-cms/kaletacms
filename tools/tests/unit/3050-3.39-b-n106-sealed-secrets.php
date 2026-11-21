@@ -46,7 +46,7 @@ $n106Database = $n106Settings(['vault_check' => '']);
 check('3.39 N106: with the key in the database secrets stay plain until the key moves to config.php', [Vault::state($n106Database), Vault::sealSecret($n106Database, 'settings', 'value')], ['database', 'value']);
 // every field the administration keeps as a secret (type tajne) is sealed – a new one fails here until it is in the list
 $n106Typed = [];
-foreach ((new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue() as $n106Fields) {
+foreach (Kaleta\Core\Settings::fields() as $n106Fields) {
     foreach ($n106Fields as $n106Field => $n106Type) {
         if (str_starts_with((string) $n106Type, 'tajne')) {
             $n106Typed[] = $n106Field;

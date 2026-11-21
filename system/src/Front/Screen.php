@@ -30,8 +30,8 @@ use Kaleta\Core\Settings;
  */
 final class Screen
 {
-    public const int MIN_SECONDS = 5;
-    public const int MAX_SECONDS = 60;
+    public const int MIN_SECONDS = \Kaleta\Core\Settings::SCREEN_MIN_SECONDS; // 3.50: the bounds of the setting screen_seconds, declared in Core
+    public const int MAX_SECONDS = \Kaleta\Core\Settings::SCREEN_MAX_SECONDS;
     public const int DEFAULT_SECONDS = 10;
     public const int RELOAD_MINUTES = 15;
     public const int NEWS_LIMIT = 5;

@@ -11,7 +11,7 @@ namespace Kaleta\Core;
  * the media library and public settings), README.txt describing the format and the folder media/.
  *
  * What is NEVER in the export: passwords, API keys, tokens, SMTP and FTP details, admin user accounts.
- * That is why settings are picked from an allowlist (SETTINGS), not by exclusion.
+ * That is why settings are picked from an allowlist (the flag export of Settings::DECLARATIONS), not by exclusion.
  * It is not a backup for restoring Kaleta (the database backup is that), but a portable open format.
  *
  * The format of obsah.json is versioned (Core\ExportFormat): 3.14 writes format 2 – Czech table and column names, which
@@ -30,7 +30,10 @@ final class SiteExport
      */
     public const int FORMAT_VERSION = ExportFormat::DEFAULT;
 
-    /** The only settings that are exported: the site's name, description, identity, languages and public texts (SiteImport reads the same list). */
+    /**
+     * The only settings that are exported: the site's name, description, identity, languages and public texts. 3.50: the flag
+     * export of Settings::DECLARATIONS (SiteImport reads the same); this list is its mirror for older code (unit 4541).
+     */
     public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'email_signature_template', 'brand_accent', 'dark_mode',
         'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',
         'time_zone', 'site_language', 'german_register', 'additional_languages', 'home_page', 'news_slug', 'news_slug_previous', 'news_title', 'company_email', 'theme_switcher', 'news_per_page', 'extensions', 'share_image', 'share_image_auto',
@@ -238,7 +241,7 @@ final class SiteExport
         $selection = [];
         foreach ($all as $key => $value) {
             // the site name and description may have a variant for another language (site_name_en)
-            if (in_array($key, self::SETTINGS, true) || Language::settingKey((string) $key, Settings::PER_LANGUAGE) !== null) {
+            if (in_array($key, Settings::keysWith('export'), true) || Language::settingKey((string) $key, Settings::keysWith('per_language')) !== null) {
                 $selection[(string) $key] = (string) $value;
             }
         }

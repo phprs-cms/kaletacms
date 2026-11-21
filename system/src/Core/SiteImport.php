@@ -1127,7 +1127,7 @@ final class SiteImport
         $values = is_array($values) ? self::renameMedia($values, $renamedMedia) : $values; // the logo media/x.PNG became media/x.png
         foreach (is_array($values) ? $values : [] as $key => $value) {
             $key = OldSettingsKeys::current((string) $key); // an export of 1.4.0 and older has the old keys
-            if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, SiteExport::SETTINGS, true) && Language::settingKey($key, Settings::PER_LANGUAGE) === null)) {
+            if (!is_scalar($value) || $key === 'site_url' || (!in_array($key, Settings::keysWith('export'), true) && Language::settingKey($key, Settings::keysWith('per_language')) === null)) {
                 continue;
             }
             $value = (string) $value;

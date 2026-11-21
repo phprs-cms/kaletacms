@@ -96,7 +96,7 @@ check('3.38: the settings of quotes have defaults, none reaches update_settings 
         'quote_footer', 'quote_link_days', 'quotes_months', 'quote_set_deal_value'], array_keys(Kaleta\Core\Settings::DEFAULTS)),
     Kaleta\Core\Settings::DEFAULTS['quote_number_format'], Kaleta\Core\Settings::DEFAULTS['quotes_months'], Kaleta\Core\Settings::DEFAULTS['quote_max_discount'],
     array_values(array_filter(array_keys(Kaleta\Core\Settings::DEFAULTS), fn (string $k): bool => str_starts_with($k, 'quote')
-        && preg_match((string) (new ReflectionClassConstant(Kaleta\Mcp\Tools::class, 'MCP_SETTINGS'))->getValue(), $k) === 1)),
+        && Kaleta\Core\Settings::claudeMaySet($k))),
     array_values(array_filter(Kaleta\Core\SiteExport::SETTINGS, fn (string $k): bool => str_starts_with($k, 'quote'))),
     array_diff(['price_lists', 'prices', 'quotes', 'quote_lines', 'quote_counters'], Kaleta\Core\AgentJournal::PERSONAL_TABLES),
 ], [[], '{YYYY}-{NNNN}', '36', '20', [], [], []]);

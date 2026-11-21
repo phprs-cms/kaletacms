@@ -39,14 +39,6 @@ final class Tools
     public const string STAGED_NOTE = 'Staged: the file is not public yet. It shows in previews and goes public with the draft that uses it when that is published, or when a person approves it in Media (Waiting for approval). Unapproved files are deleted after 30 days.';
 
     /**
-     * Settings MCP can change (the others – e-mail, webhooks, 2FA, mail, backups – only in the administration). Code that runs on the site
-     * (head_code, marketing_code, cookies_external_code) is not among them since 2.5.1: a prompt-injected Claude must not put script on every page.
-     * Since 3.3.2 neither are gtm_id and matomo_url/matomo_id: a GTM container or a Matomo host loads whatever its owner chooses (ga4_id and
-     * plausible_domain load from a fixed host and stay).
-     */
-    private const string MCP_SETTINGS = '/^(site_name|site_description|footer_text|home_page|news_slug|news_title|social_(facebook|instagram|x|youtube|linkedin)|news_per_page|share_buttons|article_outline|related_news_auto|company_[a-z_]+|security_contact|claude_instructions|lead_attribution|agency_(name|url|email|phone|logo)|captcha_(provider|site_key|fail_open)|dark_mode|theme_switcher|german_register|site_(name|description)_' . Language::TAG . '|indexing|schema_org|llms_txt|markdown_news|indexnow|ai_crawlers|url_slash|robots_extra|verification_(google|bing)|cookies_(mode|text|policy_url|log|log_months)|cookies_(text|policy_url)_' . Language::TAG . '|stats|ga4_id|plausible_domain|screen_(mode|seconds|news|hours|clock)|redirect_auto(_threshold)?|booking_(lead_hours|horizon_days|cancel_hours|reminder_hours|hold_hours|pending_thanks|pending_mail|declined_mail))$/D';
-
-    /**
      * Records the last import step created (pages, news items, items, categories, redirects, images – 3.7, N37-26): Mcp\Server
      * counts them against the hourly change limit once the step has run (Core\Guardrails::COUNTED_AFTER).
      */

@@ -7,7 +7,7 @@ use Kaleta\Core\Settings;
 /* ---------- 3.42 T7 (audit Q9): every setting is declared once in Settings::DEFAULTS, the other lists only refer to it ---------- */
 
 $q9Declared = array_keys(Settings::DEFAULTS);
-$q9Fields = (new ReflectionClassConstant(Kaleta\Admin\Modules\Settings::class, 'FIELDS'))->getValue();
+$q9Fields = Kaleta\Core\Settings::fields();
 $q9Lists = [
     'Vault::SECRET_SETTINGS' => Kaleta\Core\Vault::SECRET_SETTINGS,
     'SiteExport::SETTINGS' => Kaleta\Core\SiteExport::SETTINGS,
@@ -17,7 +17,7 @@ $q9Lists = [
     'Booking::SETTINGS' => array_keys(Kaleta\Core\Booking::SETTINGS),
     'OldSettingsKeys::KEYS (new names)' => array_values(Kaleta\Core\OldSettingsKeys::KEYS),
     'TestSeams::ADDRESSES' => Kaleta\Core\TestSeams::ADDRESSES,
-    'Admin\Modules\Settings::FIELDS' => array_merge(...array_map('array_keys', array_values($q9Fields))),
+    'Settings::fields()' => array_merge(...array_map('array_keys', array_values($q9Fields))),
 ];
 check('3.42 Q9: every key a list names (secret, export, per language, lazy, blueprint, booking, old names, test seams, form types) is declared in Settings::DEFAULTS',
     array_filter(array_map(fn (array $keys): array => array_values(array_diff($keys, $q9Declared)), $q9Lists)), []);
