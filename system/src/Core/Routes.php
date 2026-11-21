@@ -45,6 +45,15 @@ final class Routes
     ];
 
     /**
+     * Slugs that belong to the system and a page cannot have (Admin\Modules\Pages::RESERVED_SLUGS before 3.50.1, which
+     * stays as an alias). The word list of slugReserved().
+     */
+    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup', 'vitals', 'hit', 'konverze', 'download', 'screen', 'og', '_report',
+        // 3.7: the subscription endpoint and the English system paths (SYSTEM_PATHS); a page that has one of them
+        // from before keeps it (the slug check lets an unchanged slug through)
+        'odber', 'tasks', 'subscription', 'form', 'consent', 'conversion'];
+
+    /**
      * 3.7 (GitHub #17): the system endpoints have an English public path next to the Czech one they have had since 1.x.
      * Both answer forever and neither redirects – cron jobs set up on hosting, links in e-mails already sent (subscription
      * confirm and unsubscribe, List-Unsubscribe), forms on cached pages and the consent log depend on the Czech ones.
@@ -206,6 +215,19 @@ final class Routes
         return $slug !== '' && $slug === self::newsSlug($db);
     }
 
+    /**
+     * May a page not have the slug: a word of the system (RESERVED_SLUGS, with the English system paths of 3.7), a language
+     * code, or the custom news URL? The one check of every place that creates a page or changes its slug – the form, MCP,
+     * the page import, a restore from the trash, the site import, the WordPress and web importers, a copy (3.7, N37-2).
+     * A subpage (parent/slug) never collides. A page that holds a word from before 3.7 keeps it only while its slug stays
+     * as stored (the callers let an unchanged slug through, heldSystemPaths); a restored or imported one does not.
+     * Admin\Modules\Pages::slugReserved before 3.50.1 (that name forwards here).
+     */
+    public static function slugReserved(string $slug, ?Db $db): bool
+    {
+        return !str_contains($slug, '/') && (in_array($slug, self::RESERVED_SLUGS, true) || isset(Language::AVAILABLE[$slug]) || self::isNewsSlug($slug, $db));
+    }
+
     /** Format and system addresses only (no database): the slug is one lowercase segment and not a path of the system. */
     public static function systemSlugError(string $slug): ?string
     {
@@ -215,7 +237,7 @@ final class Routes
         if (strlen($slug) > 40 || preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $slug) !== 1) {
             return 'Use only lowercase letters without accents, digits and single hyphens (e.g. blog), at most 40 characters.';
         }
-        if (in_array($slug, self::NEWS_RESERVED, true) || (in_array($slug, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true) && !in_array($slug, ['novinky', 'news'], true))
+        if (in_array($slug, self::NEWS_RESERVED, true) || (in_array($slug, self::RESERVED_SLUGS, true) && !in_array($slug, ['novinky', 'news'], true))
             || isset(Language::AVAILABLE[$slug]) || in_array($slug, explode('|', Language::CODES), true)) {
             return 'This URL is used by the system, choose another one.';
         }

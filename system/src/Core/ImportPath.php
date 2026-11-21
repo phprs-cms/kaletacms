@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace Kaleta\Core;
 
-use Kaleta\Admin\Modules\Pages;
 
 /**
  * Where an imported page lands (3.33, M3): at its old path, parents and all – /services/heating/boilers stays
  * /services/heating/boilers instead of becoming /boilers with a 301. Both importers (Core\WebImport, Core\WpImport) use it.
  *
  * Kaleta's rules for a page address hold: each part is a slug (slugify), the whole address fits ka_stranky.seo_link
- * (MAX characters), and the first part must not be a word of the system (Pages::slugReserved – /novinky/…, /admin…,
+ * (MAX characters), and the first part must not be a word of the system (Routes::slugReserved – /novinky/…, /admin…,
  * a language code). An address over the limit has its last part shortened (never below MIN_LEAF characters); when even
  * that does not fit, or the first part is a system word, the page lands at its last part alone, as before 3.33. Either
  * way plan() says so (note shortened | flattened), the importer lists it and the old address redirects to the new one.
@@ -34,7 +33,7 @@ final class ImportPath
      * @param string $oldPath the old path without slashes at the ends (WpImport::oldPath)
      * @param string $leaf the slug the importer chose for the page itself (from the last part, the WordPress slug or the title)
      * @param string $languageCode a leading part that is the import's language code is not a parent (/de/… of the German version)
-     * @param (\Closure(string): bool)|null $reserved is a first part taken by the system (default Pages::slugReserved without a database)
+     * @param (\Closure(string): bool)|null $reserved is a first part taken by the system (default Routes::slugReserved without a database)
      * @return array{0: string, 1: string}
      */
     public static function plan(string $oldPath, string $leaf, string $languageCode = '', ?\Closure $reserved = null): array
@@ -47,7 +46,7 @@ final class ImportPath
             return [$leaf, ''];
         }
         $parents = array_map(fn (string $s): string => slugify((string) preg_replace('/\.(html?|php|aspx?)$/i', '', rawurldecode($s)), 110), array_slice($segments, 0, -1));
-        $reserved ??= fn (string $s): bool => Pages::slugReserved($s, null);
+        $reserved ??= fn (string $s): bool => Routes::slugReserved($s, null);
         if ($reserved($parents[0])) {
             return [$leaf, 'flattened'];
         }
@@ -71,7 +70,7 @@ final class ImportPath
      */
     public static function target(Db $db, string $oldPath, string $leaf, string $language, string $languageCode = ''): array
     {
-        [$slug, $note] = self::plan($oldPath, $leaf, $languageCode, fn (string $s): bool => Pages::slugReserved($s, $db));
+        [$slug, $note] = self::plan($oldPath, $leaf, $languageCode, fn (string $s): bool => Routes::slugReserved($s, $db));
 
         return ['slug' => $slug, 'parent' => self::parentOf($db, $slug, $language), 'note' => $note];
     }

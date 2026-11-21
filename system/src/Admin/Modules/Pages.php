@@ -26,11 +26,8 @@ final class Pages extends Module
     public const string GROUP = 'Content';
     public const string ICON = 'stranky';
 
-    /** Slugs that belong to the system and a page cannot have. */
-    public const array RESERVED_SLUGS = ['novinky', 'hledani', 'news', 'search', 'mcp', 'api', 'admin', 'install', 'media', 'image', 'layout', 'system', 'storage', 'tools', 'docs', 'dist', 'rss', 'sitemap', 'robots', 'llms', 'feed', 'stav', 'ulohy', 'souhlas', 'formular', 'popup', 'vitals', 'hit', 'konverze', 'download', 'screen', 'og', '_report',
-        // 3.7: the subscription endpoint and the English system paths (Core\Routes::SYSTEM_PATHS); a page that has one of them
-        // from before keeps it (the slug check below lets an unchanged slug through)
-        'odber', 'tasks', 'subscription', 'form', 'consent', 'conversion'];
+    /** Slugs that belong to the system and a page cannot have – 3.50.1: kept in Core\Routes (Core, Builder and the importers check them). */
+    public const array RESERVED_SLUGS = \Kaleta\Core\Routes::RESERVED_SLUGS;
 
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = \Kaleta\Core\Retention::TRASH_DAYS; // 3.48 B: one number for every trash
@@ -74,28 +71,19 @@ final class Pages extends Module
     }
 
     /**
-     * The columns a person's edit stamps on a page (3.20, C11): when, and who (ka_stranky.zmenil; 0 = no signed-in person,
-     * e.g. a scheduled job – NULL). Used wherever a page changes by someone's action: the form, the text editor, bulk
-     * actions, a publish from the builder or MCP, update_page. Builder drafts are not stamped – the sitemap reads zmeneno
-     * as lastmod and a draft changes nothing on the site; the "unpublished changes" badge and tab show the draft.
+     * The columns a person's edit stamps on a page (3.20, C11) – 3.50.1: Core\Clock::edited, this name stays for callers.
      *
      * @return array{zmeneno: string, zmenil: int|null}
      */
     public static function edited(int $who): array
     {
-        return ['zmeneno' => date('Y-m-d H:i:s'), 'zmenil' => $who > 0 ? $who : null];
+        return \Kaleta\Core\Clock::edited($who);
     }
 
-    /**
-     * May a page not have the slug: a word of the system (RESERVED_SLUGS, with the English system paths of 3.7), a language
-     * code, or the custom news URL? The one check of every place that creates a page or changes its slug – the form, MCP,
-     * the page import, a restore from the trash, the site import, the WordPress and web importers, a copy (3.7, N37-2).
-     * A subpage (parent/slug) never collides. A page that holds a word from before 3.7 keeps it only while its slug stays
-     * as stored (the callers let an unchanged slug through, Core\Routes::heldSystemPaths); a restored or imported one does not.
-     */
+    /** May a page not have the slug (3.7, N37-2) – 3.50.1: Core\Routes::slugReserved, this name stays for callers. */
     public static function slugReserved(string $slug, ?\Kaleta\Core\Db $db): bool
     {
-        return !str_contains($slug, '/') && (in_array($slug, self::RESERVED_SLUGS, true) || isset(\Kaleta\Core\Language::AVAILABLE[$slug]) || \Kaleta\Core\Routes::isNewsSlug($slug, $db));
+        return \Kaleta\Core\Routes::slugReserved($slug, $db);
     }
 
     /**

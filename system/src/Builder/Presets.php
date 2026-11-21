@@ -153,7 +153,7 @@ final class Presets
         $db = $app->db();
         $name = mb_substr(trim($name) !== '' ? trim($name) : t($preset['name']), 0, 100);
         $seo = $base = slugify($name, 100);
-        for ($i = 2; $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$seo]) !== null || in_array($seo, \Kaleta\Admin\Modules\Pages::RESERVED_SLUGS, true)
+        for ($i = 2; $db->value('SELECT 1 FROM {kolekce} WHERE seo_link = ?', [$seo]) !== null || in_array($seo, \Kaleta\Core\Routes::RESERVED_SLUGS, true)
             || isset(\Kaleta\Core\Language::AVAILABLE[$seo]); $i++) {
             $seo = $base . '-' . $i;
         }
@@ -192,12 +192,12 @@ final class Presets
     private static function createListPage(App $app, array $preset, string $key, string $name, string $pageSeo, string $collectionSeo, array $fields): ?int
     {
         $db = $app->db();
-        if (\Kaleta\Core\Slug::taken($db, 'stranky', $pageSeo, '') || \Kaleta\Admin\Modules\Pages::slugReserved($pageSeo, $db)) {
+        if (\Kaleta\Core\Slug::taken($db, 'stranky', $pageSeo, '') || \Kaleta\Core\Routes::slugReserved($pageSeo, $db)) {
             return null;
         }
         $build = self::listPage($preset, $name, $collectionSeo, $fields);
         $pageId = $db->insert('stranky', ['titulek' => $name, 'seo_link' => $pageSeo, 'stavba' => Build::toJson($build), 'text' => Build::asText($build),
-            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50] + \Kaleta\Admin\Modules\Pages::edited($app->auth()->id()));
+            'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 50] + \Kaleta\Core\Clock::edited($app->auth()->id()));
         \Kaleta\Core\ChangeLog::write($app, 'pages', 'create', $name . ' (' . $key . ')');
 
         return $pageId;

@@ -100,6 +100,20 @@ final class Clock
         return date('P', self::time());
     }
 
+    /**
+     * The columns a person's edit stamps on a page (3.20, C11): when, and who (ka_stranky.zmenil; 0 = no signed-in person,
+     * e.g. a scheduled job – NULL). Used wherever a page changes by someone's action: the form, the text editor, bulk
+     * actions, a publish from the builder or MCP, update_page. Builder drafts are not stamped – the sitemap reads zmeneno
+     * as lastmod and a draft changes nothing on the site; the "unpublished changes" badge and tab show the draft.
+     * Admin\Modules\Pages::edited before 3.50.1 (that name forwards here).
+     *
+     * @return array{zmeneno: string, zmenil: int|null}
+     */
+    public static function edited(int $who): array
+    {
+        return ['zmeneno' => date('Y-m-d H:i:s'), 'zmenil' => $who > 0 ? $who : null];
+    }
+
     /** A moment (a date object or a Unix time) in the form of a DATETIME column on the site's clock. */
     public static function toDb(\DateTimeInterface|int $moment): string
     {
