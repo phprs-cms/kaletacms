@@ -15,10 +15,11 @@ check "3.50 N154: the file that stayed on the disk is named in a message" 200 "/
 expect "3.50 N154: the imported file is gone with its row; a link out of media/ is not followed – it, its target and its row stay" \
   "$([ -e "$WORK/web/media/a350-import/Price_list.pdf" ] && echo file || echo gone)|$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = $A350_PDF")|$([ -L "$WORK/web/media/a350-import/Linked.pdf" ] && echo link)|$([ -f "$WORK/a350-outside.pdf" ] && echo target)|$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = $A350_LINK")" \
   "gone|0|link|target|1"
-mcp delete_media "{\"id\":$A350_LINK}" > "$WORK/response"
+a350_mcp delete_media "{\"id\":$A350_LINK}" > "$WORK/response"
 expect "3.50 N154 MCP: delete_media refuses with the reason and keeps the row while the file stays" \
   "$(contains -q 'could not be removed from the disk' "$WORK/response" && echo said)|$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = $A350_LINK")" "said|1"
 rm -f "$WORK/web/media/a350-import/Linked.pdf"
-mcp delete_media "{\"id\":$A350_LINK}" > "$WORK/response"
+a350_mcp delete_media "{\"id\":$A350_LINK}" > "$WORK/response"
 expect "3.50 N154 MCP: once the file is gone the row goes too" "$(sq "SELECT COUNT(*) FROM ka_media WHERE ido = $A350_LINK")" "0"
 rm -rf "${WORK:?}/web/media/a350-import" "$WORK/a350-outside.pdf"
+sq "DELETE FROM ka_api_tokeny WHERE nazev = 'a350 full'" > /dev/null

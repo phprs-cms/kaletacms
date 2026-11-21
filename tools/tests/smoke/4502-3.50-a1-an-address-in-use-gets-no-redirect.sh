@@ -3,10 +3,10 @@ echo "== 3.50 A1 (N125): an old address this site already uses gets no redirect 
 # existing redirect elsewhere – and the free addresses beside them
 A350_LANGS=$(sq "SELECT IFNULL(MAX(hodnota), '') FROM ka_nastaveni WHERE promenna = 'additional_languages'")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en')" > /dev/null
-mcp create_page '{"title":"Kontakt 350","slug":"kontakt-350","visible":true,"content":"<p>Náš kontakt.</p>"}' > /dev/null
-mcp create_page '{"title":"Odkazy 350","slug":"odkazy-350","visible":true,"content":"<p><a href=\"/kontakt-350\">Napište nám</a></p>"}' > /dev/null
-mcp create_collection '{"name":"Produkty 350","slug":"produkty-350","item_pages":true,"fields":[{"label":"Price","type":"number"}]}' > /dev/null
-mcp save_collection_items '{"collection":"produkty-350","items":[{"name":"Stůl","slug":"stul-350","visible":true}]}' > /dev/null
+a350_mcp create_page '{"title":"Kontakt 350","slug":"kontakt-350","visible":true,"content":"<p>Náš kontakt.</p>"}' > /dev/null
+a350_mcp create_page '{"title":"Odkazy 350","slug":"odkazy-350","visible":true,"content":"<p><a href=\"/kontakt-350\">Napište nám</a></p>"}' > /dev/null
+a350_mcp create_collection '{"name":"Produkty 350","slug":"produkty-350","item_pages":true,"fields":[{"label":"Price","type":"number"}]}' > /dev/null
+a350_mcp save_collection_items '{"collection":"produkty-350","items":[{"name":"Stůl","slug":"stul-350","visible":true}]}' > /dev/null
 sq "INSERT INTO ka_stranky (seo_link, titulek, text, jazyk, zobrazit, v_menu, zmeneno) VALUES ('contact-350', 'Contact 350', '<p>Contact.</p>', 'en', 1, 0, '$(site_time)');
   INSERT INTO ka_presmerovani (z_adresy, source_norm, na_adresu, vytvoreno) VALUES ('stary-350', 'stary-350', 'jinam-350', '$(site_time)')" > /dev/null
 A350_REFUSALS=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php");
@@ -19,8 +19,8 @@ expect "3.50 N125: redirectRefusal – a live page, an item, an English page and
 # beside it (kontakt-350-2) and the old address keeps leading to the page of this site – no redirect, no link rewritten
 a350_site /kontakt-350/,/novy-350/
 a350_found false
-mcp import_website "{\"import_id\":\"$A350_ID\",\"confirm\":true}" > "$WORK/response"
-for _ in $(seq 1 10); do [ "$(import_field phase)" = done ] && break; mcp import_website "{\"import_id\":\"$A350_ID\"}" > "$WORK/response"; done
+a350_mcp import_website "{\"import_id\":\"$A350_ID\",\"confirm\":true}" > "$WORK/response"
+for _ in $(seq 1 10); do [ "$(import_field phase)" = done ] && break; a350_mcp import_website "{\"import_id\":\"$A350_ID\"}" > "$WORK/response"; done
 expect "3.50 N125 website import: the page arrives beside the one built here, the old address gets no redirect and is named in attention" \
   "$(import_field phase)|$(sq "SELECT GROUP_CONCAT(seo_link ORDER BY seo_link) FROM ka_stranky WHERE seo_link LIKE 'kontakt-350%'")|$(sq "SELECT COUNT(*) FROM ka_presmerovani WHERE z_adresy LIKE 'kontakt-350%'")|$(import_field result | php -r 'echo json_decode(stream_get_contents(STDIN), true)["redirects"] ?? "?";')|$(import_field attention | php -r 'echo count(array_filter((array) json_decode(stream_get_contents(STDIN), true), fn ($l) => str_starts_with((string) $l, "/kontakt-350 – the address is already in use on this site, so it does not redirect to /kontakt-350-2:")));')" \
   "done|kontakt-350,kontakt-350-2|0|0|1"
@@ -47,4 +47,4 @@ sq "DELETE m FROM ka_import_mapa m JOIN ka_stranky s ON s.ids = m.nase_id WHERE 
   DELETE FROM ka_stranky WHERE seo_link IN ('kontakt-350', 'kontakt-350-2', 'novy-350', 'odkazy-350', 'contact-350');
   DELETE FROM ka_presmerovani WHERE z_adresy IN ('stary-350', 'blog-350', 'novy-350');
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', '$A350_LANGS')" > /dev/null
-mcp delete_collection '{"collection":"produkty-350"}' > /dev/null || true
+a350_mcp delete_collection '{"collection":"produkty-350"}' > /dev/null || true
