@@ -299,7 +299,7 @@ final class Settings
         'starter_pages' => '',         // 3.33 (M2, Core\StarterPages): the installer's record of its starter pages as JSON {ids: fingerprint}; '' = a site from before 3.33 – internal
         // 3.42 (audit Q9): keys the code read or wrote without declaring them – declared so that every setting has a default here
         'newsletter_service' => '',    // the mailing service of the subscribers (Core\Newsletter): '' | brevo | mailerlite | mailchimp | ecomail | smartemailing | webhook
-        'newsletter_key' => '',        // its API key (type "tajne", Core\Vault::SECRET_SETTINGS)
+        'newsletter_key' => '',        // its API key (type "tajne", flag secret in Settings::DECLARATIONS)
         'newsletter_list' => '',       // the list or audience id at the service
         'newsletter_webhook' => '',    // the address of the "webhook" service
         'google_locations' => '',      // the Business Profile locations of the connected Google account (JSON, Core\GoogleBusiness)
@@ -323,6 +323,7 @@ final class Settings
      * visitor's version reads its own value, an empty one falls back to the default language's. 3.9 (UXM-11): the cookie
      * bar text and the privacy policy link too. 3.50: a mirror of keysWith('per_language') kept for code of older releases
      * during an update (unit 4541) – read the declaration.
+     * Removed by the first release whose oldest supported update source is 3.50 or later.
      */
     public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
 
@@ -331,6 +332,7 @@ final class Settings
      * read on first use, so a page that never needs them (every public page, the cache hits included) does not carry them.
      * Not the update manifests (update_cache, update_seen…): the background check after every response reads them, so
      * loading them apart would add queries instead of saving them. 3.50: a mirror of keysWith('lazy') (unit 4541).
+     * Removed by the first release whose oldest supported update source is 3.50 or later.
      */
     public const array LAZY = ['look_draft', 'domain_watch'];
 

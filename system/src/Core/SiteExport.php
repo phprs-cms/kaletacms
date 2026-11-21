@@ -33,6 +33,7 @@ final class SiteExport
     /**
      * The only settings that are exported: the site's name, description, identity, languages and public texts. 3.50: the flag
      * export of Settings::DECLARATIONS (SiteImport reads the same); this list is its mirror for older code (unit 4541).
+     * Removed by the first release whose oldest supported update source is 3.50 or later.
      */
     public const array SETTINGS = ['site_name', 'site_description', 'keywords', 'site_url', 'logo', 'favicon', 'design_system', 'company_name', 'company_type', 'company_id', 'company_vat_id', 'company_register', 'company_representative', 'company_street', 'company_city', 'company_postcode', 'company_country', 'company_phone', 'company_hours', 'company_map', 'company_gps', 'email_signature_template', 'brand_accent', 'dark_mode',
         'brand_heading_font', 'brand_text_font', 'footer_text', 'social_facebook', 'social_instagram', 'social_x', 'social_youtube', 'social_linkedin',

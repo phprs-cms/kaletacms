@@ -43,6 +43,7 @@ final class Vault
      * accounts (ka_uzivatele.totp_tajemstvi) are sealed the same way under their own purpose (sealSecret 'totp').
      * 3.50: declared by the flag secret of Settings::DECLARATIONS; this list is its mirror, kept for the Settings class of an
      * older release that reads it during an update (unit 4541).
+     * Removed by the first release whose oldest supported update source is 3.50 or later.
      */
     public const array SECRET_SETTINGS = ['smtp_password', 'backup_password', 'ai_key', 'newsletter_key', 'captcha_secret', 'webhook_secret', 'site_key_secret'];
 
