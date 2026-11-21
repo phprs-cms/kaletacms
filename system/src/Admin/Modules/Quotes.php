@@ -776,6 +776,9 @@ final class Quotes extends Module
         }
         ChangeLog::write($this->app, Prices::SECTION, 'settings', '');
         if ($held !== []) {
+            if ($message !== 'The settings of quotes were saved.') { // 3.50.1 review: the refused lower number is still said
+                $this->app->session->flash('info', $message);
+            }
             $this->app->session->flash('info', t('Settings saved. A shorter retention period makes data go sooner – confirm it below.'));
 
             return Response::redirect(\Kaleta\Core\Retention::confirmationUrl($this->app, $held));
