@@ -209,6 +209,8 @@ fi
 # answered and held data before answers after (the general gate).
 CRM_RUN="${CRM_RUN:-1}"
 sql() { "${MYSQL[@]}" "$DB_NAME" -N -e "$1"; }
+# a release without Customers (e.g. FROM=v1.0.0) holds nothing of the CRM: that is run 3, whatever was asked
+[ -z "$(sql "SHOW TABLES LIKE 'ka_contacts'")" ] && CRM_RUN=3
 if [ "$CRM_RUN" != 3 ] && [ -n "$(sql "SHOW TABLES LIKE 'ka_contacts'")" ]; then
   curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" "$B/admin.php?module=contacts&action=new"; TOKEN=$(csrf)
   curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=contacts&action=save" -d "_csrf=$TOKEN" -d id=0 -d email=crm-upd@example.com -d "name=Update Customer"
@@ -228,7 +230,7 @@ CRM_RIGHTS=$(crm_rights)
 # the general gate: every section of the old release that answers and holds data (CRM sections by their rows, the rest always)
 crm_holds() { case "$1" in contacts) sql "SELECT (SELECT COUNT(*) FROM ka_contacts) + (SELECT COUNT(*) FROM ka_companies)" 2>/dev/null || echo 0 ;; pipeline) sql "SELECT COUNT(*) FROM ka_deals" 2>/dev/null || echo 0 ;; *) echo 1 ;; esac; }
 SHOWN_BEFORE=""
-for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; }'); do
+for m in $(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; if (defined("Kaleta\\Admin\\Kernel::MODULES")) { foreach (Kaleta\Admin\Kernel::MODULES as $m) { echo $m::IDENT, "\n"; } }' 2>/dev/null); do
   [ "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m")" = 200 ] && [ "$(crm_holds "$m")" -gt 0 ] && SHOWN_BEFORE="$SHOWN_BEFORE $m"
 done
 echo "  ok     before the update: CRM run $CRM_RUN planted (contacts|deals: $CRM_PLANTED), $(echo $SHOWN_BEFORE | wc -w | tr -d ' ') sections answer with data"
@@ -289,7 +291,7 @@ fi
 # 3.48 (0135): no section with data disappeared; the CRM features follow what the site held; rights and roles untouched
 SHOWN_LOST=""; for m in $SHOWN_BEFORE; do [ "$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' "$B/admin.php?module=$m")" = 200 ] || SHOWN_LOST="$SHOWN_LOST $m"; done
 expect "3.48 (0135): every section that answered with data before the update answers after it" "${SHOWN_LOST:- none}" " none"
-expect "3.48 (0135): the roles and the rights are byte-equal, the planted rows stay" "$(crm_rights)|$(sql "SELECT CONCAT((SELECT COUNT(*) FROM ka_contacts), '|', (SELECT COUNT(*) FROM ka_deals))")" "$CRM_RIGHTS|$CRM_PLANTED"
+expect "3.48 (0135): the roles and the rights are byte-equal, the planted rows stay" "$(crm_rights)|$([ "$CRM_PLANTED" = - ] && echo - || sql "SELECT CONCAT((SELECT COUNT(*) FROM ka_contacts), '|', (SELECT COUNT(*) FROM ka_deals))")" "$CRM_RIGHTS|$CRM_PLANTED"
 crm_on() { sql "SELECT CONCAT(FIND_IN_SET('customers', hodnota) > 0, '|', FIND_IN_SET('pipeline', hodnota) > 0) FROM ka_nastaveni WHERE promenna = 'extensions'"; }
 crm_code() { curl -s -b "$JAR" -c "$JAR" -o "$WORK/response" -w '%{http_code}' "$B/admin.php?module=$1"; }
 case "$CRM_RUN" in
