@@ -54,11 +54,13 @@ $prefix = $new ? 'obchod-novy' : 'obchod-' . (int) $d['id'];
 			'options' => $companies, 'selected' => $chosen('company_id'), 'specials' => $specials('company_id', t('The customer’s company'))]) ?></div></div>
 <?php endif ?>
 <?php endif ?>
+<?php if ($new): /* 3.50 (U72): on a saved deal the responsible person is chosen in its panel only, not twice */ ?>
 	<div class="radek"><label for="<?= $prefix ?>-odpovedny"><?= e(t('Responsible person')) ?></label><div><select id="<?= $prefix ?>-odpovedny" name="owner_id"><option value="0">—</option>
 <?php foreach ($people as $userId => $name): ?>
 		<option value="<?= (int) $userId ?>"<?= $ownerId === (int) $userId ? ' selected' : '' ?>><?= e((int) $userId === $me ? t('Me (%s)', $name) : $name) ?></option>
 <?php endforeach ?>
 	</select> <span class="napoveda"><?= e(t('Gets an e-mail when someone else chooses them. It does not change who may open the deal.')) ?></span></div></div>
+<?php endif ?>
 	<div class="radek"><label for="<?= $prefix ?>-hodnota"><?= e(t('Value')) ?></label><div class="obchod-castka"><input class="textpole" type="text" inputmode="decimal" id="<?= $prefix ?>-hodnota" name="value" maxlength="20" value="<?= e($value('value')) ?>" autocomplete="off">
 		<label class="navod-skryte" for="<?= $prefix ?>-mena"><?= e(t('Currency')) ?></label><select id="<?= $prefix ?>-mena" name="currency">
 <?php if ($currency === ''): /* 3.32: from an enquiry the currency is offered, not chosen – a value without one takes the site's default */ ?>

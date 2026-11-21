@@ -60,7 +60,7 @@ final class Rollout
     /** The names of the rings and of the states on the screens (English, through t()). */
     public const array RING_LABELS = ['pilot' => 'Pilot', 'normal' => 'Normal', 'careful' => 'Careful'];
     public const array STATE_LABELS = ['updated' => 'Updated', 'allowed' => 'May update now', 'waiting' => 'Waiting', 'blocked' => 'Held back by the pilot sites',
-        'failed' => 'Update failed', 'self' => 'Decides itself'];
+        'failed' => 'Update failed', 'self' => 'Updates on its own'];
 
     /** A rollout held back longer than this many days is an item of Today (3.31.1, heldItem). */
     public const int HELD_DAYS = 3;

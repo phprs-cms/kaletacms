@@ -198,6 +198,37 @@ final class Roles extends Module
         return $section + [Auth::APPEARANCE_AREA => self::APPEARANCE_AREA_NAME, Auth::PRICES_AREA => self::PRICES_AREA_NAME]; // 3.38: the prices area
     }
 
+    /** The menu group of the two areas that are not modules (3.50, U53). */
+    private const array AREA_GROUPS = [Auth::APPEARANCE_AREA => 'Appearance', Auth::PRICES_AREA => 'Workspace'];
+
+    /**
+     * The sections of the form grouped like the menu (3.50, U53 – Admin\MenuGroups::ORDER): each section under the menu group
+     * of its module (the two areas under Appearance and Workspace), the groups in menu order, the sections in the order given.
+     * The boxes stay plain moduly[] boxes – only the grouping is new. Pure.
+     *
+     * @param array<string, string> $sections ident => name (configurable())
+     * @return list<array{group: string, sections: array<string, string>}>
+     */
+    public static function sectionGroups(array $sections): array
+    {
+        $groupOf = self::AREA_GROUPS;
+        foreach (Kernel::MODULES as $class) {
+            $groupOf[$class::IDENT] = $class::GROUP;
+        }
+        $grouped = [];
+        foreach ($sections as $ident => $name) {
+            $grouped[$groupOf[$ident] ?? ''][$ident] = $name;
+        }
+        $order = array_flip(\Kaleta\Admin\MenuGroups::ORDER);
+        uksort($grouped, static fn (string $a, string $b): int => [$order[$a] ?? PHP_INT_MAX, $a] <=> [$order[$b] ?? PHP_INT_MAX, $b]);
+        $out = [];
+        foreach ($grouped as $group => $members) {
+            $out[] = ['group' => (string) $group, 'sections' => $members];
+        }
+
+        return $out;
+    }
+
     /**
      * @param array<string, mixed> $role
      * @param array<string, string> $errors

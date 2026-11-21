@@ -214,6 +214,30 @@ final class Pages extends Module
             'copy_build' => $copyBuild], translationOf: $original === null ? null : (string) $original['titulek']);
     }
 
+    /**
+     * Whether the "More settings" of a new page start open (3.50, U56): the form of a new page shows the title and the start
+     * choice; everything else folds under "More settings" unless one of its fields has a value other than a new page's
+     * default (a parent from the link, an address, a date, the search engine fields, a hidden or unlisted page, another order,
+     * a responsible person, a language version) or an error. Pure.
+     *
+     * @param array<string, mixed> $page the form's values
+     * @param array<string, string> $errors field => message
+     */
+    public static function moreSettingsOpen(array $page, array $errors): bool
+    {
+        if (array_diff(array_keys($errors), ['titulek', 'text']) !== []) {
+            return true;
+        }
+        foreach (['seo_link', 'popis', 'seo_titulek', 'obrazek', 'canonical_url', 'zverejnit_od', 'valid_until', 'review_by', 'jazyk', 'heslo_hash'] as $field) {
+            if ((string) ($page[$field] ?? '') !== '') {
+                return true;
+            }
+        }
+
+        return (int) ($page['nadrazena'] ?? 0) > 0 || !empty($page['noindex']) || (empty($page['zobrazit']) && empty($page['show_on_publish'])) || empty($page['v_menu'])
+            || (int) ($page['poradi'] ?? 100) !== 100 || (int) ($page['owner_id'] ?? 0) > 0;
+    }
+
     /** Translation overview (2.14, Core\Translations): what is missing or older than the original in each language version. */
     protected function actionTranslations(): Response
     {

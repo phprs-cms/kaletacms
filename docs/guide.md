@@ -688,3 +688,71 @@ above) or keeping your content outside Kaleta. Enquiries, subscribers and accoun
 
 The public read-only API of 1.x (`/api/novinky`) ended in 2.0. Use the JSON Feed (`/feed.json`) or RSS for news, the
 Claude connection (MCP) for working with the site, webhooks for events and the site export to take your content out.
+
+## 14. Sales: pipeline and quotes
+
+**Pipeline** (Workspace → Sales) keeps your deals from the first contact to won or lost on one board. Create a deal with
+**New deal**, or with **Create deal** on an enquiry – the customer, the company and the title are filled in from it. The
+board has a column for each stage; move a card by dragging it, with the keyboard (Space, the arrows, Space) or with the
+stage menu. **Won** and **Lost** close a deal, and Lost asks for the reason. The page of a deal says its stage once, in
+**Move**, and keeps the stage history, the enquiry it came from, its quotes, the responsible person and the team's comments
+and tasks. Plan the next step as a task on the deal – the filter “No next step” shows the deals nobody is moving.
+Administrators rename, add and reorder the stages in **Stages**. Reports count deals, never their values.
+
+**Quotes** are switched on in Features. **Internal prices** are prices only the team sees (a row per product or variant,
+or your own rows; a CSV file can be imported); changing them needs the right *Quotes: change internal prices*. Make a quote
+with **New quote**, or from an enquiry, a deal or a customer – the customer and the lines from the enquiry basket come
+along. A quote is sent by e-mail (Settings → Mail must have an SMTP server); the customer opens it by a private link,
+downloads a PDF and – when the settings allow it – accepts or declines it on that page. The number is given when it is
+first sent. Claude prepares quotes as drafts and sends one only when you ask.
+
+## 15. Customers
+
+A **customer** appears by itself when somebody sends an enquiry, books an appointment or signs up for the newsletter – one
+record per e-mail address; **New customer** adds one by hand. The page of a customer has one **timeline**: enquiries with
+the first line of the message, replies, bookings, deals, quotes and the team's log of calls, meetings, e-mails and notes
+(**Log a call / meeting / e-mail / note**). Its **Tasks** panel lists its own tasks and, under *On its enquiries and
+deals*, the next open task of each of its enquiries and deals, with a link to where it is done (3.50; deals only for
+whoever has the Pipeline).
+
+People of one firm belong to a **company** (the Companies tab), which has its own page with its people and deals. Two
+records of one person are merged by an administrator with **Merge with…** – always a decision of a person. Ctrl K (⌘K on a
+Mac) finds a customer by name, e-mail or company from anywhere. Customers hold personal data: they are kept as long as
+their enquiries (see chapter 18) and never shown on the site.
+
+## 16. Job applications
+
+**Applications** come from the forms on your job pages and from forms whose *Purpose* is “Job application”; attached CVs
+are stored encrypted. Only the people with the section Applications see them – tick it in Users or give the ready-made
+role **HR**. The list opens on the applications not decided yet; *Waiting* shows new ones without a reply for more than a
+week. Move an application through New, Reviewed, Interview, Offer and Hired – or Rejected, with a reason; the **Board**
+shows one position in columns. Reply from a template (received, invitation, rejection) and the status moves with it; the
+templates for each language are in the settings of Applications.
+
+The **Talent pool** keeps people who agreed to hear about future openings until their consent runs out. Applications are
+deleted automatically after the period in Settings → Privacy and cookies, and each one shows the day.
+
+## 17. Internal files
+
+**Internal files** are the team's documents – price lists, contracts, manuals – that never get a public address. An
+administrator creates folders and decides who sees each one: everybody with the section, chosen roles or departments.
+Upload a file into a folder with a description and tags so colleagues find it by a word; **Replace** keeps the older
+versions, each still downloadable, and the status says whether a document is still valid. Files are downloaded only
+through the administration. A file can be linked to a customer, a deal or an enquiry and then appears in its box. Only an
+empty folder can be deleted; a file is deleted by an administrator or by whoever uploaded it. Claude finds files by their
+name and description but never gets their contents.
+
+## 18. Privacy and retention
+
+**Whistleblowing:** the channel takes reports on its own page; they are stored encrypted and only the people with the
+section Whistleblowing see them. Confirm each report and give the reporter feedback in time – the screen shows both
+deadlines.
+
+**Personal data on request:** when somebody asks what the site holds about them, ask Claude to *find their personal data*
+– the answer lists every place (enquiries, customers, applications, bookings, subscriptions, comments). The same request
+can erase it; erasing is always your decision, and a backup restored later applies the erasures again.
+
+**Retention:** Settings → Privacy and cookies holds every retention period in one place – how long enquiries,
+applications, bookings, the cookie consent log and other records are kept. The site deletes older ones by itself; a
+shorter period than before is confirmed on its own screen. Claude prepares the **record of processing activities** for
+your privacy policy from what the site really does.

@@ -45,6 +45,45 @@ final class Checks
         'cron' => ['Cron', 'cron_last_run', 30, 'admin.php?module=status'],
     ];
 
+    /**
+     * The fix page of each check (3.50, CPO 11 – Admin\Modules\Fleet::actionFix): id => [what the check means, how to fix it
+     * once on any site] (English, through t()). Plain words; the screens named are the ones CHECKS links to.
+     */
+    public const array HELP = [
+        'uptime' => ['The console calls the site\'s home page every five minutes and expects an answer.',
+            'Check the hosting: is the server running, does the domain point to it, does PHP answer. When the site answers again, the check turns green on its own.'],
+        'reporting' => ['The site sends a report to this console every hour. Without it the console cannot see the other checks of the site.',
+            'In the site\'s administration open Settings → Reporting to a console and check the pairing; the site also needs its cron or background jobs to run.'],
+        'updates' => ['A newer release of Kaleta is available for the site, or its last update failed.',
+            'Open Settings → Backups and updates on the site and install the update; a failed update shows its reason there.'],
+        'offsite_backup' => ['Backups are copied off the server (FTPS or S3), so a lost server does not take them along.',
+            'Open Settings → Backups and updates on the site, set the off-site target and save the recovery key.'],
+        'local_backup' => ['The site makes a backup of its database regularly.',
+            'Open Settings → Backups and updates on the site and make a backup; check that cron runs, so backups keep coming.'],
+        'certificate' => ['The HTTPS certificate of the site\'s address is valid long enough ahead.',
+            'Renew the certificate at the hosting – most hosts renew it on their own once the domain points to them.'],
+        'domain' => ['The registration of the site\'s domain is paid long enough ahead.', 'Renew the domain at its registrar.'],
+        'mail_records' => ['The domain has an SPF and a DMARC record, so the site\'s mail is not taken for spam.',
+            'Add the SPF and DMARC records in the DNS of the domain; Settings → Mail on the site shows what they should say.'],
+        'smtp' => ['The site sends its mail through an SMTP server, and a test message went through.',
+            'Open Settings → Mail on the site, fill in the SMTP server and send a test message.'],
+        'two_step' => ['Administrators sign in with a second step – an authenticator app or a passkey.',
+            'Open Settings → Security on the site and require two-step sign-in for administrators.'],
+        'auto_updates' => ['The site installs security releases on its own.', 'Turn on automatic security updates in Settings → Backups and updates on the site.'],
+        'cookie_scan' => ['The site checks which cookies its pages set, so the cookie bar tells the truth.', 'Run the cookie scan in Settings → Privacy and cookies on the site.'],
+        'privacy_policy' => ['The site has a published privacy policy page.', 'Write or publish the privacy policy page and choose it in Settings → Privacy and cookies on the site.'],
+        'accessibility_statement' => ['The site has a published accessibility statement.',
+            'Draft the statement in Settings → Privacy and cookies on the site – Claude can prepare it – and publish it.'],
+        'handover' => ['Every row of the hand-over checklist of the site is done.', 'Open Site audit on the site and go through the open rows of the hand-over checklist.'],
+        'claude_connection' => ['Requests for Claude on the site are picked up.', 'Connect Claude in Claude settings on the site, or turn its scheduled run on again.'],
+        'jobs' => ['The background jobs of the site run without errors.', 'Open System status on the site: it names the failing jobs and their last error.'],
+        'cron' => ['The cron of the hosting calls the site regularly, so scheduled work runs on time.',
+            'Set a cron job at the hosting that calls the site every few minutes; System status on the site shows the exact line.'],
+    ];
+
+    /** The order of the sites on a fix page: the ones to fix first, then the unknown ones, the fixed ones last. */
+    private const array FIX_ORDER = ['bad' => 0, 'warn' => 1, 'unknown' => 2, 'ok' => 3];
+
     /** The 3.29 parts of a heartbeat Checks bounds (Console::clean hands them here). */
     public const array PARTS = ['offsite', 'mail_setup', 'twofa', 'cookie_scan', 'privacy_page', 'accessibility_statement', 'handover', 'workload'];
 
@@ -210,6 +249,40 @@ final class Checks
     }
 
     /**
+     * The sites of one check for its fix page (3.50, CPO 11): every site with its state, the detail, the plain link to fix it
+     * (link()) and whether the last stored heartbeat already shows it fixed ('done' = ok). The ones to fix first (bad, then
+     * warn, the oldest first), then the unknown ones, the fixed ones last; by name within a state. [] for an unknown check.
+     * Pure apart from the dictionaries; nothing is asked of a site – the tick comes from the heartbeat the site sent.
+     *
+     * @param list<array<string, mixed>> $sites rows of ka_fleet_sites
+     * @param array{security_version?: string} $context
+     * @return list<array{site_id: int, site: string, url: string, customer_id: ?int, state: string, detail: string, link: string, since: ?int, done: bool}>
+     */
+    public static function fixList(array $sites, string $checkId, ?int $now = null, array $context = []): array
+    {
+        if (!isset(self::CHECKS[$checkId])) {
+            return [];
+        }
+        $now ??= time();
+        $rows = [];
+        foreach ($sites as $site) {
+            $url = Console::url(rtrim((string) ($site['url'] ?? ''), '/')) ?? '';
+            $name = Console::oneLine($site['name'] ?? '', Console::NAME_LENGTH);
+            $customer = Console::customerIdOf($site);
+            foreach (self::forRow($site, $now, $context) as $check) {
+                if ($check['id'] === $checkId) {
+                    $rows[] = ['site_id' => (int) ($site['id'] ?? 0), 'site' => $name !== '' ? $name : $url, 'url' => $url, 'customer_id' => $customer > 0 ? $customer : null,
+                        'state' => $check['state'], 'detail' => $check['detail'], 'link' => self::link($url, $checkId), 'since' => $check['since'], 'done' => $check['state'] === 'ok'];
+                }
+            }
+        }
+        usort($rows, static fn (array $a, array $b): int => [self::FIX_ORDER[$a['state']], $a['since'] === null ? 1 : 0, $a['since'] ?? 0, mb_strtolower($a['site']), $a['site_id']]
+            <=> [self::FIX_ORDER[$b['state']], $b['since'] === null ? 1 : 0, $b['since'] ?? 0, mb_strtolower($b['site']), $b['site_id']]);
+
+        return $rows;
+    }
+
+    /**
      * The workload roll-up: per site the WORKLOAD counts (null = the site does not send them – before 3.29, or the part
      * is off there) and the totals over the sites that send each; the median hours to the first reply is the median of the
      * sites' medians. Counts only – no names, no hours worked, no money.
@@ -292,7 +365,8 @@ final class Checks
                 if ((int) $up === 0) {
                     $status = (int) ($uptime['up_status'] ?? 0);
 
-                    return ['bad', $status > 0 ? t('Answers with HTTP %d', min(999, max(0, $status))) : t('No answer'), $since, 'down'];
+                    // 3.50 (U45): "Site answers – No answer" read as a riddle; a dead site says so
+                    return ['bad', $status > 0 ? t('Answers with HTTP %d', min(999, max(0, $status))) : t('Site is down'), $since, 'down'];
                 }
 
                 return ['ok', t('Answers'), $since];
@@ -320,9 +394,12 @@ final class Checks
                 $since = $behind !== null && $behind > 0 ? $now - $behind * 86400 : null;
                 $security = (string) ($context['security_version'] ?? '');
 
+                // 3.50 (N147): the security arm first – a failed update accepted on the console must not hide a security release
+                // that arrives later; with both problems the reason is security:<version>, so the acceptance ends
                 return match (true) {
+                    $available !== '' && $security !== '' && $available === $security => ['bad', isset($beat['update_problem'])
+                        ? t('The last update failed and security update %s waits', $available) : t('Security update %s waits', $available), $since, 'security:' . $available],
                     isset($beat['update_problem']) => ['bad', t('The last update failed'), null, 'update_failed'],
-                    $available !== '' && $security !== '' && $available === $security => ['bad', t('Security update %s waits', $available), $since, 'security:' . $available],
                     $available !== '' && $behind !== null && $behind >= self::UPDATE_BAD_DAYS => ['bad', t('Version %s waits for %d days', $available, $behind), $since, 'overdue'],
                     $available !== '' => ['warn', t('Version %s is available', $available), $since, 'available'],
                     default => ['ok', t('Up to date')],

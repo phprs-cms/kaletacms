@@ -244,7 +244,7 @@ $parity = [
         'detail' => 'admin: whistleblowing cases never go through Claude', 'reply' => 'admin: whistleblowing cases never go through Claude',
         'status' => 'admin: whistleblowing cases never go through Claude', 'attachment' => 'admin: whistleblowing cases never go through Claude',
         'footer_link' => 'save_menu'], // 3.20 (C22): one click adds the form to the footer menu – Claude does the same with save_menu
-    'fleet' => ['list' => 'fleet_today', 'inbox' => 'fleet_inbox', 'health' => 'fleet_health', 'workload' => 'fleet_health', 'sites' => 'list_sites', 'customers' => 'list_sites', 'detail' => 'get_site',
+    'fleet' => ['list' => 'fleet_today', 'inbox' => 'fleet_inbox', 'health' => 'fleet_health', 'workload' => 'fleet_health', 'fix' => 'fleet_health', 'sites' => 'list_sites', 'customers' => 'list_sites', 'detail' => 'get_site',
         'customer' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'customer_bulk' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)',
         'customer_rename' => 'admin: the customers and notes are the owner\'s own bookkeeping on the console (3.17)', 'pairing_key' => 'admin: pairing a site is a security decision (2.9)', 'ring' => 'admin: the update ring decides when sites install versions',
         'allow' => 'admin: allowing a version on the sites', 'check' => 'admin: the console checks the sites every 5 minutes on its own', 'remove' => 'admin: removing a site from the console',

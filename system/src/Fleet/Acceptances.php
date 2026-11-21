@@ -39,6 +39,12 @@ final class Acceptances
      */
     public const array NEVER = ['uptime'];
 
+    /**
+     * Checks whose acceptance holds at most this many days from the day it was accepted (3.50, N147), whatever last day was
+     * given: a site that stopped reporting hides every other check, so "no report" is a short decision to look at again.
+     */
+    public const array SHORT = ['reporting' => 7];
+
     /** The longest reason stored (Checks::forSite 'reason'). */
     public const int REASON_LENGTH = 64;
 
@@ -67,6 +73,8 @@ final class Acceptances
             $out[self::key((int) $row['site_id'], (string) $row['check_id'])] = ['site_id' => (int) $row['site_id'], 'check' => (string) $row['check_id'], 'state' => (string) $row['state'],
                 'reason' => (string) $row['reason'], 'note' => (string) $row['note'], 'until' => substr((string) $row['ends_on'], 0, 10), 'by' => $row['accepted_by'] !== null ? (int) $row['accepted_by'] : null,
                 'at' => (string) $row['accepted_at']];
+            // 3.50 (N147): the screens, the digest and the tools show the day the acceptance really ends
+            $out[self::key((int) $row['site_id'], (string) $row['check_id'])]['until'] = self::lastDay($out[self::key((int) $row['site_id'], (string) $row['check_id'])]);
         }
 
         return $out;
@@ -87,8 +95,31 @@ final class Acceptances
      */
     public static function holds(?array $acceptance, string $state, string $today, string $reason): bool
     {
-        return $acceptance !== null && $acceptance['state'] === $state && (string) ($acceptance['reason'] ?? '') === $reason && $acceptance['until'] >= $today
+        return $acceptance !== null && $acceptance['state'] === $state && (string) ($acceptance['reason'] ?? '') === $reason && self::lastDay($acceptance) >= $today
             && self::acceptable((string) $acceptance['check'], $state, $reason);
+    }
+
+    /**
+     * The last day an acceptance holds: its own last day, for a check of SHORT at most that many days after the day it was
+     * accepted (3.50, N147 – accepted_at is rewritten by every new acceptance, so accepting again starts a new week). An
+     * acceptance of a SHORT check without a readable accepted_at ends today. Pure.
+     *
+     * @param array<string, mixed> $acceptance load() row
+     */
+    public static function lastDay(array $acceptance): string
+    {
+        $until = (string) ($acceptance['until'] ?? '');
+        $days = self::SHORT[(string) ($acceptance['check'] ?? '')] ?? null;
+        if ($days === null) {
+            return $until;
+        }
+        $at = \DateTimeImmutable::createFromFormat('!Y-m-d', substr((string) ($acceptance['at'] ?? ''), 0, 10));
+        if ($at === false) {
+            return '';
+        }
+        $cap = $at->modify('+' . $days . ' days')->format('Y-m-d');
+
+        return $until !== '' && $until < $cap ? $until : $cap;
     }
 
     /**
@@ -165,7 +196,7 @@ final class Acceptances
         $out = [];
         foreach ($acceptances as $key => $acceptance) {
             [$state, $reason] = $states[$key] ?? [null, ''];
-            if ($acceptance['until'] < $today || $state === null || in_array($acceptance['check'], self::NEVER, true)
+            if (self::lastDay($acceptance) < $today || $state === null || in_array($acceptance['check'], self::NEVER, true)
                 || ($state !== 'unknown' && ($state !== $acceptance['state'] || $reason !== (string) ($acceptance['reason'] ?? '') || !self::acceptable((string) $acceptance['check'], $state, $reason)))) {
                 $out[] = (string) $key;
             }

@@ -64,7 +64,7 @@ final class Fleet extends Module
     ];
 
     /** The screens that are not views of their own and the section they belong to. */
-    public const array SECTION_OF = ['detail' => 'sites', 'customer_detail' => 'customers', 'digest_preview' => 'alerts'];
+    public const array SECTION_OF = ['detail' => 'sites', 'customer_detail' => 'customers', 'digest_preview' => 'alerts', 'fix' => 'sites'];
 
     /** The section of an action (a view, a screen of SECTION_OF, or '' = Today). */
     public static function sectionOf(string $action): string
@@ -147,6 +147,8 @@ final class Fleet extends Module
         if ($until === null) {
             return $this->back(t('The last day must be a date from today to %d days ahead. Nothing was saved.', Acceptances::MAX_DAYS), $back[0], $back[1], 'chyba');
         }
+        // 3.50 (N147): "no report" is accepted for a week at most, whatever day the form gave
+        $until = Acceptances::lastDay(['check' => $check, 'until' => $until, 'at' => date('Y-m-d')]);
         Acceptances::accept($this->db, (int) $site['id'], $check, $state, $note, $until, $this->app->auth()->id(), $reason);
         ChangeLog::write($this->app, 'fleet', 'accept', $site['url'] . ': ' . $check . ' (' . $state . ') ' . t('until %s', $until));
 
@@ -206,6 +208,24 @@ final class Fleet extends Module
 
         return $this->view('health', 'Health', ['rows' => Health::matrix($sites, time(), Health::context($this->app), $sort, $customers), 'customers' => $customers,
             'customer' => $customer, 'sort' => $sort, 'siteCount' => (int) $this->db->value('SELECT COUNT(*) FROM {fleet_sites}')]);
+    }
+
+    /**
+     * The fix page of one check (3.50, CPO 11 – read-only, on the console): what the check means, how to fix it once, and the
+     * sites that fail it as plain links to the screen fixing it on each site. A site whose last report already shows the check
+     * fixed carries a tick – from the stored heartbeat, the console never asks a site. Linked from the health matrix and Today.
+     */
+    protected function actionFix(): Response
+    {
+        $check = $this->request->get('check');
+        if (!isset(Checks::CHECKS[$check])) {
+            return $this->back('', 'health');
+        }
+        $now = time();
+        $rows = Checks::fixList(Console::sites($this->db), $check, $now, Health::context($this->app));
+
+        return $this->view('fix', t(Checks::CHECKS[$check][0]), ['check' => $check, 'rows' => $rows, 'now' => $now, 'customers' => Customers::names($this->db),
+            'counts' => array_count_values(array_column($rows, 'state')) + ['ok' => 0, 'warn' => 0, 'bad' => 0, 'unknown' => 0]]);
     }
 
     /** The workload (3.29, Fleet\Checks::workload): per site and in total the enquiries, replies, tasks and new customers – counts only. */
