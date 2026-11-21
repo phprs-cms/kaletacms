@@ -54,6 +54,16 @@ final class HtmlWidgets
     /** Containers of forms a script draws in the browser – the page holds no fields to read (HubSpot, WPForms, Squarespace, Wix…). */
     private const string FORM_EMBED = '/(?:^|[\s_-])(?:hbspt-form|hs-form-frame|wpforms-container|gform_wrapper|nf-form-cont|frm_forms|fluentform|mc4wp-form|jotform|typeform-widget|form-block|sqs-block-form|react-form-contents|wixui-form|cognito|formstack|zf-templateWidth|ml-embedded|klaviyo-form)(?:$|[\s_-])/i';
 
+    /**
+     * 3.50 (N124): buttons that open a panel (aria-controls, aria-expanded, role="tab") one container may hold and still be
+     * read as an accordion or tabs. A page with more – a hostile or broken one – keeps that content as its text
+     * (tooManyTriggers() lets the importer say so); real FAQ pages stay far below it.
+     */
+    public const int MAX_TRIGGERS = 200;
+
+    /** 3.50 (N124): the look-ups the recognisers made (ancestor steps, id lookups) – a counter the tests read instead of a clock. */
+    private static int $lookups = 0;
+
     /** Hosts of form services whose frame the Embed element does not take. */
     private const string FORM_HOSTS = '~^https?://(?:[a-z0-9-]+\.)*(?:jotform\.com|hsforms\.com|hsforms\.net|zohopublic\.(?:com|eu)|cognitoforms\.com|formstack\.com|paperform\.co|wufoo\.com|123formbuilder\.com|surveymonkey\.com|docs\.google\.com/forms)(?:[/?#]|$)~i';
 
@@ -363,14 +373,43 @@ final class HtmlWidgets
     public static function accordion(Element $container): ?array
     {
         if (!in_array(strtolower($container->localName), self::CONTAINERS, true)
-            || (strtolower($container->localName) !== 'dl' && $container->querySelector('details, dl, [aria-controls], [aria-expanded], [class*="accordion"], [class*="toggle"], [class*="faq"], [class*="collaps"], [class*="vc_tta-panel"], [class*="qa-"]') === null)) {
+            || (strtolower($container->localName) !== 'dl' && $container->querySelector('details, dl, [aria-controls], [aria-expanded], [class*="accordion"], [class*="toggle"], [class*="faq"], [class*="collaps"], [class*="vc_tta-panel"], [class*="qa-"]') === null)
+            || self::tooManyTriggers($container)) {
             return null;
         }
         $items = [];
         /** @var list<Element> $taken */
         $taken = [];
-        $inside = function (Element $node) use (&$taken): bool { // by reference: the parts found so far
-            return array_filter($taken, fn (Element $t): bool => $t === $node || $t->contains($node) || $node->contains($t)) !== [];
+        /** @var array<int, Element> $takenSet the parts found so far, by object id (3.50, N124) */
+        $takenSet = [];
+        /** @var array<int, Element> $aboveTaken every ancestor of a part */
+        $aboveTaken = [];
+        $ids = null;
+        $take = function (Element $part) use (&$taken, &$takenSet, &$aboveTaken): void {
+            $taken[] = $part;
+            $takenSet[spl_object_id($part)] = $part;
+            for ($node = $part->parentElement; $node !== null && !isset($aboveTaken[spl_object_id($node)]); $node = $node->parentElement) {
+                self::$lookups++;
+                $aboveTaken[spl_object_id($node)] = $node;
+            }
+        };
+        // is the node a part, inside one or around one? The same answer as comparing it with every part (contains() both
+        // ways), at the cost of the node's depth in the container instead of the number of parts (3.50, N124)
+        $inside = function (Element $node) use (&$takenSet, &$aboveTaken, $container): bool {
+            if (isset($aboveTaken[spl_object_id($node)])) {
+                return true;
+            }
+            for ($up = $node; $up !== null; $up = $up->parentElement) {
+                self::$lookups++;
+                if (isset($takenSet[spl_object_id($up)])) {
+                    return true;
+                }
+                if ($up === $container) {
+                    break;
+                }
+            }
+
+            return false;
         };
         foreach ($container->querySelectorAll('details') as $details) {
             $summary = $details->querySelector('summary');
@@ -380,18 +419,18 @@ final class HtmlWidgets
             $answer = self::clean($details);
             $answer->querySelector('summary')?->remove();
             $items[] = [self::label($summary), trim($answer->innerHTML)];
-            $taken[] = $details;
+            $take($details);
         }
         $panels = [];
         foreach ($container->querySelectorAll('[aria-controls]') as $trigger) {
-            if ($inside($trigger) || self::tabStyle($trigger, $container)) {
+            if ($inside($trigger) || self::tabStyle($trigger, $container, null, $ids)) {
                 continue;
             }
-            $panel = self::target($container, (string) $trigger->getAttribute('aria-controls'));
+            $panel = self::target($container, (string) $trigger->getAttribute('aria-controls'), $ids);
             if ($panel === null || $panel->contains($trigger) || $trigger->contains($panel)) {
                 continue;
             }
-            $taken[] = $trigger;
+            $take($trigger);
             if (in_array($panel, $panels, true)) {
                 continue; // a second button for the same panel (a mobile copy of the title)
             }
@@ -400,7 +439,7 @@ final class HtmlWidgets
                 continue;
             }
             $panels[] = $panel;
-            $taken[] = $panel;
+            $take($panel);
             $items[] = [$question, trim(self::clean($panel)->innerHTML)];
         }
         // 3.36: a button with aria-expanded but no aria-controls opens the element right after it (or after the heading that
@@ -415,8 +454,8 @@ final class HtmlWidgets
             if ($panel === null || $question === '' || $inside($panel) || self::linksOnly($panel)) {
                 continue;
             }
-            $taken[] = $trigger;
-            $taken[] = $panel;
+            $take($trigger);
+            $take($panel);
             $items[] = [$question, trim(self::clean($panel)->innerHTML)];
         }
         // 3.36: a definition list of questions (<dt>) and answers (<dd>) – when it says it is an FAQ (class or id) or every term asks
@@ -429,7 +468,7 @@ final class HtmlWidgets
             if ($pairs === [] || (!$hint && array_filter($pairs, fn (array $p): bool => !str_ends_with($p[0], '?')) !== [])) {
                 continue;
             }
-            $taken[] = $list;
+            $take($list);
             array_push($items, ...$pairs);
         }
         foreach ([$container, ...iterator_to_array($container->querySelectorAll('[class]'))] as $item) { // the element may be one item itself
@@ -440,7 +479,7 @@ final class HtmlWidgets
             if ($question === null) {
                 continue;
             }
-            $taken[] = $item;
+            $take($item);
             $text = self::label($question);
             if ($text === '') {
                 continue;
@@ -525,9 +564,11 @@ final class HtmlWidgets
      */
     public static function tabs(Element $container): ?array
     {
-        if (!in_array(strtolower($container->localName), self::CONTAINERS, true) || $container->querySelector('[role="tab"], [class*="tab"]') === null) {
+        if (!in_array(strtolower($container->localName), self::CONTAINERS, true) || $container->querySelector('[role="tab"], [class*="tab"]') === null
+            || self::tooManyTriggers($container)) {
             return null;
         }
+        $ids = null;
         $tabs = [];
         $taken = [];
         $panels = [];
@@ -539,8 +580,8 @@ final class HtmlWidgets
         }
         foreach ($controls as $control) {
             $id = (string) ($control->getAttribute('aria-controls') ?: ltrim((string) $control->getAttribute('href'), '#'));
-            $panel = $id !== '' ? self::target($container, $id) : null;
-            if ($panel === null || $panel->contains($control) || !self::tabStyle($control, $container, $panel)) {
+            $panel = $id !== '' ? self::target($container, $id, $ids) : null;
+            if ($panel === null || $panel->contains($control) || !self::tabStyle($control, $container, $panel, $ids)) {
                 continue;
             }
             if (in_array($panel, $panels, true)) {
@@ -558,7 +599,7 @@ final class HtmlWidgets
         }
         foreach ($controls as $control) {
             // the copies of the titles next to their panels (Elementor's titles for phones) belong to the tabs too
-            $panel = self::target($container, (string) ($control->getAttribute('aria-controls') ?: ltrim((string) $control->getAttribute('href'), '#')));
+            $panel = self::target($container, (string) ($control->getAttribute('aria-controls') ?: ltrim((string) $control->getAttribute('href'), '#')), $ids);
             if ($panel !== null && in_array($panel, $panels, true)) {
                 $taken[] = $control;
             }
@@ -587,9 +628,10 @@ final class HtmlWidgets
      * Is the control a tab (the tab list holds the buttons, the panels lie outside it)? Old Elementor accordions use
      * role="tab" too, but there every panel sits inside the role="tablist" next to its title.
      */
-    private static function tabStyle(Element $control, Element $container, ?Element $panel = null): bool
+    /** @param array<string, Element>|null $ids the container's elements by id (target()) */
+    private static function tabStyle(Element $control, Element $container, ?Element $panel = null, ?array &$ids = null): bool
     {
-        $panel ??= self::target($container, (string) $control->getAttribute('aria-controls'));
+        $panel ??= self::target($container, (string) $control->getAttribute('aria-controls'), $ids);
         if ($panel === null) {
             return false;
         }
@@ -789,12 +831,43 @@ final class HtmlWidgets
 
     /* ---------- shared helpers ---------- */
 
-    /** The element $id names inside the container (aria-controls or #id), or null. */
-    private static function target(Element $container, string $id): ?Element
+    /**
+     * The element $id names inside the container (aria-controls or #id), or null – the first in document order with that id,
+     * as querySelector() answers. 3.50 (N124): the container's ids are read once per call into $ids, not once per button.
+     *
+     * @param array<string, Element>|null $ids filled on the first look-up
+     */
+    private static function target(Element $container, string $id, ?array &$ids = null): ?Element
     {
         $id = trim(explode(' ', trim($id))[0]);
+        if (!preg_match('/^[\w:.-]{1,120}$/uD', $id)) {
+            return null;
+        }
+        if ($ids === null) {
+            $ids = [];
+            foreach ($container->querySelectorAll('[id]') as $el) {
+                self::$lookups++;
+                $ids[(string) $el->getAttribute('id')] ??= $el;
+            }
+        }
+        self::$lookups++;
 
-        return preg_match('/^[\w:.-]{1,120}$/uD', $id) ? $container->querySelector('[id="' . $id . '"]') : null;
+        return $ids[$id] ?? null;
+    }
+
+    /**
+     * More than MAX_TRIGGERS buttons that open a panel in the element (3.50, N124)? Then it is neither an accordion nor tabs
+     * and its content stays text – the importer adds a line for the person.
+     */
+    public static function tooManyTriggers(Element $el): bool
+    {
+        return $el->querySelectorAll('[aria-controls], [aria-expanded], [role="tab"]')->length > self::MAX_TRIGGERS;
+    }
+
+    /** The look-ups made since the process started (3.50, N124) – a test compares two readings. */
+    public static function lookups(): int
+    {
+        return self::$lookups;
     }
 
     /** Does one of the element's classes match the pattern? */

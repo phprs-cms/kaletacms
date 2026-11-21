@@ -176,6 +176,9 @@ trait MediaTools
         }
         \Kaleta\Core\Images::delete($file['obr_poloha'], $file['nahl_poloha']);
         \Kaleta\Core\Files::delete($file['obr_poloha']);
+        if (\Kaleta\Core\Files::stillOnDisk($file['obr_poloha'])) { // 3.50 (N154): the row stays while its file does
+            throw new \DomainException('The file could not be removed from the disk, so it stays in Media – the administrator can check the permissions of the media folder or remove it over FTP.');
+        }
         $db->delete('media', ['ido' => $id]);
 
         return ['deleted' => $id, 'path' => $file['obr_poloha']];

@@ -67,12 +67,31 @@ final class WebImport
     /** Seconds between two saves of the state within one batch: a batch killed by the time limit never starts over (N37-23). */
     private const float CHECKPOINT_SECONDS = 2.0;
 
+    /**
+     * 3.50 (N124): batches one page may end without finishing it. The page in progress is saved before it is read; a batch
+     * that starts on a page two batches died on skips it with an error, so one page can never stop the import (one more try
+     * is kept: a time-out can be the host's fault).
+     */
+    public const int PAGE_ATTEMPTS = 2;
+
+    /**
+     * 3.50 (N140): seconds past the batch's end after which a page stops downloading its images and files (ImportPaused) –
+     * the next batch takes the page again and reuses the downloads; a slow old host never holds one request for long.
+     */
+    public const float OUTSIDE_TIME = 20.0;
+
+    /** 3.50 (N140): the reason a page that stopped the import twice is skipped. */
+    public const string STOPPED_TWICE = 'This page stopped the import twice (the server ended the batch while it was being read), so it was skipped – add its content by hand.';
+
     /** Seconds between two requests to the old site without a Crawl-delay, and the longest Crawl-delay kept (a longer one would stall the batches). */
     public const float DEFAULT_DELAY = 0.25;
     public const float MAX_DELAY = 2.0;
 
     /** The reason a page is not downloaded: robots.txt of the old site disallows it. */
     public const string ROBOTS_REFUSAL = 'The robots.txt of the old site asks robots not to read this page.';
+
+    /** 3.50 (N124): parts of the last page takeWidgets() read with too many panel buttons to be an accordion or tabs. */
+    private static int $crowded = 0;
 
     /** When the last request to the old site ended (the politeness gap holds across the import, the report and their images). */
     private static float $lastRequest = 0.0;
@@ -100,6 +119,9 @@ final class WebImport
     private const string NOISE_BLOCKS = 'nav, header, footer, aside, dialog, svg, script, style, noscript, template, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-hidden="true"]';
 
     private float $end = 0.0;
+
+    /** 3.50 (N140): seconds past $end a page may still download its images and files (OUTSIDE_TIME, step()). */
+    private float $outside = self::OUTSIDE_TIME;
 
     /** Requests to the old site that answered in this batch, and why the last one did not (3.33, M6: an unreachable site). */
     private int $answered = 0;
@@ -297,12 +319,16 @@ final class WebImport
      * One batch. $checkpoint saves the state between its heavy parts (after robots.txt, every few seconds), so a batch the
      * server's time limit kills resumes where it was instead of repeating the same work forever (3.7, N37-23).
      *
+     * 3.50 (N140): $seconds and $outside are the batch's length and the time past its end a page may still download (SECONDS
+     * and OUTSIDE_TIME; the smoke test runs short batches against a slow fake host).
+     *
      * @param array<string, mixed> $state
      * @param (\Closure(array<string, mixed>): mixed)|null $checkpoint
      */
-    public function step(array &$state, ?\Closure $checkpoint = null): void
+    public function step(array &$state, ?\Closure $checkpoint = null, float $seconds = self::SECONDS, float $outside = self::OUTSIDE_TIME): void
     {
-        $this->end = microtime(true) + self::SECONDS;
+        $this->end = microtime(true) + $seconds;
+        $this->outside = $outside;
         $this->saved = microtime(true);
         $this->checkpoint = $checkpoint;
         $this->answered = 0;
@@ -462,19 +488,44 @@ final class WebImport
         return true;
     }
 
-    /** @param array<string, mixed> $state */
+    /**
+     * The pages one by one. 3.50 (N124): the page in progress and its attempts are saved before it is read (stranka); a page
+     * two batches died on is skipped with an error. N140: a page that runs out of time pauses – it keeps its position, its
+     * marker is cleared and the next batch starts it again.
+     *
+     * @param array<string, mixed> $state
+     */
     private function import(array &$state): void
     {
         $urls = array_keys($state['adresy']);
         while ($state['pozice'] < count($urls) && microtime(true) < $this->end) {
             $url = $urls[$state['pozice']];
+            $marker = is_array($state['stranka'] ?? null) ? $state['stranka'] : [];
+            $attempts = ($marker['adresa'] ?? null) === $url ? intval($marker['pokusy'] ?? 0) : 0;
+            if ($attempts >= self::PAGE_ATTEMPTS) {
+                $state['vysledek']['chyb']++;
+                $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . t(self::STOPPED_TWICE)], -15);
+                unset($state['stranka']);
+                $state['pozice']++;
+                $this->checkpoint($state, true);
+                continue;
+            }
+            // the counters of the page (images, linked files) start with each attempt; downloads mapped before are reused
+            $state['stranka'] = ['adresa' => $url, 'pokusy' => $attempts + 1, 'obrazky' => 0, 'soubory' => 0];
+            $this->checkpoint($state, true);
             try {
                 $this->importPage($url, $state);
+            } catch (ImportPaused) {
+                unset($state['stranka']); // paused, not died: the position stays and the next batch takes the page afresh
+                $this->checkpoint($state, true);
+
+                return;
             } catch (\RuntimeException | HtmlTooLarge $e) {
                 $state['vysledek']['chyb']++;
                 $reason = $e instanceof HtmlTooLarge ? $e->localized() : t($e->getMessage());
                 $state['chyby'] = array_slice([...$state['chyby'], mb_substr(self::path($url) ?: '/', 0, 120) . ' – ' . $reason], -15);
             }
+            unset($state['stranka']);
             $state['pozice']++;
             $this->checkpoint($state);
         }
@@ -527,6 +578,9 @@ final class WebImport
         foreach ($widgets as $i => $widget) {
             $widgets[$i]['html'] = HtmlLimits::guard(fn (): string => self::localVideosOnly($widget['html'], $url, $state));
         }
+        if (intval($page['pretizeno'] ?? 0) > 0) {
+            self::attention($state, '/%s – a part of the page has more than %s buttons that open panels: it was not read as an accordion or tabs and stays as text; check it.', $old, (string) \Kaleta\Builder\HtmlWidgets::MAX_TRIGGERS);
+        }
         foreach ($widgets as $widget) {
             if ($widget['kind'] === 'unreadable_form') {
                 self::attention($state, '/%s – a form whose fields a script draws could not be read: a placeholder marks its place, add a Form element with the same fields.', $old);
@@ -572,8 +626,19 @@ final class WebImport
             }
         }
         if ($state['volby']['presmerovani'] && $old !== '' && $old !== $new && Extensions::isEnabled($this->settings, 'presmerovani')) {
-            Redirects::add($this->db, $old, $new);
-            $state['vysledek']['presmerovani']++;
+            // 3.50 (N125): an old address this site already uses (a page built before, an item, a redirect elsewhere) gets no
+            // redirect – it would hide the page, and healing would rewrite every link to it; the result names it
+            $refused = WpImport::redirectRefusal($this->db, $this->settings, $old, $new);
+            if ($refused === '') {
+                Redirects::add($this->db, $old, $new);
+                $state['vysledek']['presmerovani']++;
+            } else {
+                self::attention($state, match ($refused) {
+                    'address_in_use' => '/%s – the address is already in use on this site, so it does not redirect to /%s: it keeps working and no link was rewritten.',
+                    'redirect_exists' => '/%s already redirects elsewhere – that redirect was kept, none to /%s was added.',
+                    default => '/%s has a "*", invalid characters or is too long – no redirect to /%s was added.',
+                }, WpImport::shownPath($old), $new);
+            }
         }
     }
 
@@ -754,10 +819,9 @@ final class WebImport
         if (!preg_match('/\b(href|src)=/i', $html)) {
             return $html;
         }
-        $count = 0;
         $changed = false;
-        $output = Html::transform($html, function (\Dom\HTMLElement $body) use (&$count, &$changed, &$state, $pageUrl): void {
-            foreach (iterator_to_array($body->querySelectorAll('a[href], video[src], source[src]')) as $element) {
+        $output = Html::transform($html, function (\Dom\HTMLElement $body) use (&$changed, &$state, $pageUrl): void {
+            foreach (iterator_to_array($body->querySelectorAll('a[href], video[src], audio[src], source[src]')) as $element) {
                 if (!$body->contains($element)) {
                     continue; // a <source> of a video left out before
                 }
@@ -768,25 +832,26 @@ final class WebImport
                     || (ImageDownloader::domainFromUrl($url) !== $state['domena'] && !preg_match(self::FILE_HOSTS, (string) parse_url($url, PHP_URL_HOST)))) {
                     continue;
                 }
+                $player = $element->closest('video, audio'); // 3.50 (N139): sound comes into Media like video
                 $budget = self::filesLeft($state);
-                $file = ++$count <= self::FILES_PER_PAGE && $budget ? $this->linkedFile($url, $state) : null;
+                $file = self::pageCount($state, 'soubory') <= self::FILES_PER_PAGE && $budget ? $this->linkedFile($url, $state) : null;
                 $changed = true;
                 if ($file !== null) {
                     $element->setAttribute($attribute, (string) $file['obr_poloha']);
                     continue;
                 }
                 $old = '/' . self::path($url);
-                if (!$budget && $element->closest('video') === null) {
+                if (!$budget && $player === null) {
                     if (ImageDownloader::domainFromUrl($url) === $state['domena']) {
                         $element->setAttribute($attribute, $old);
                     }
                     self::attention($state, '/%s – the file %s was not downloaded: the import reached its limit of %s linked files; it still links to the old site.', self::path($pageUrl), $old, (string) self::FILES_PER_IMPORT);
                     continue;
                 }
-                $video = $element->closest('video');
-                if ($video !== null) {
-                    $video->remove(); // a page never plays a video from the old site
-                    self::attention($state, '/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $old);
+                if ($player !== null) {
+                    $player->remove(); // a page never plays a video or sound from the old site
+                    self::attention($state, strtolower($player->localName) === 'audio' ? '/%s – the sound %s could not be downloaded: add it in the builder.'
+                        : '/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $old);
                     continue;
                 }
                 // a link within the old site becomes a path, as the other links do (the domain moves here)
@@ -814,18 +879,33 @@ final class WebImport
     /**
      * A <video> whose file is not in Media (3.33 review L1: on another host, or the import ran without images) is left out
      * with an attention line – a page never hotlinks a video file from someone else's server. A video of YouTube or Vimeo
-     * is an iframe or a player, never a <video>, and stays.
+     * is an iframe or a player, never a <video>, and stays. 3.50 (N139): the same for an <audio>, and a poster image outside
+     * Media is dropped from its video.
      *
      * @param array<string, mixed> $state
      */
     public static function localVideosOnly(string $html, string $pageUrl, array &$state): string
     {
-        if (stripos($html, '<video') === false) {
+        if (stripos($html, '<video') === false && stripos($html, '<audio') === false) {
             return $html;
         }
         $changed = false;
         $output = Html::transform($html, function (\Dom\HTMLElement $body) use (&$changed, &$state, $pageUrl): void {
-            foreach (iterator_to_array($body->querySelectorAll('video')) as $video) {
+            $shown = function (string $address) use ($state, $pageUrl): string {
+                $address = self::absolute(trim($address), $pageUrl);
+
+                return ImageDownloader::domainFromUrl($address) === ($state['domena'] ?? '') ? '/' . self::path($address) : mb_substr($address, 0, 200);
+            };
+            // 3.50 (N139): a poster image outside Media is dropped – the video stays, it shows its first frame instead
+            foreach (iterator_to_array($body->querySelectorAll('video[poster]')) as $video) {
+                $poster = trim((string) $video->getAttribute('poster'));
+                if ($poster !== '' && preg_match('#^/?media/#', $poster) !== 1) {
+                    $video->removeAttribute('poster');
+                    $changed = true;
+                    self::attention($state, '/%s – the poster image %s of a video is not in Media and was left out.', self::path($pageUrl), $shown($poster));
+                }
+            }
+            foreach (iterator_to_array($body->querySelectorAll('video, audio')) as $video) {
                 $sources = [(string) $video->getAttribute('src')];
                 foreach (iterator_to_array($video->querySelectorAll('source[src]')) as $source) {
                     $sources[] = (string) $source->getAttribute('src');
@@ -836,9 +916,8 @@ final class WebImport
                 }
                 $video->remove();
                 $changed = true;
-                $address = self::absolute(trim($sources[0]), $pageUrl);
-                $shown = ImageDownloader::domainFromUrl($address) === ($state['domena'] ?? '') ? '/' . self::path($address) : mb_substr($address, 0, 200);
-                self::attention($state, '/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $shown);
+                self::attention($state, strtolower($video->localName) === 'audio' ? '/%s – the sound %s could not be downloaded: add it in the builder.'
+                    : '/%s – the video %s could not be downloaded: add it in the builder.', self::path($pageUrl), $shown($sources[0]));
             }
         });
 
@@ -860,6 +939,7 @@ final class WebImport
         if ($ido !== null) {
             return (int) $ido === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
         }
+        $this->stillInTime();
         $name = rawurldecode(basename((string) parse_url($url, PHP_URL_PATH)));
         $temporary = WpFile::folder() . '/web-soubor-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
@@ -888,17 +968,43 @@ final class WebImport
      */
     private function images(string $html, array &$state): string
     {
-        $count = 0;
-
         // on the DOM, not with a regular expression over the markup: an attribute's text must never become a tag
-        return Html::rewriteImages($html, function (string $url, string $alt) use (&$count, &$state): array|false {
-            if (++$count > self::IMAGES_PER_PAGE || $url === '') {
+        return Html::rewriteImages($html, function (string $url, string $alt) use (&$state): array|false {
+            if (self::pageCount($state, 'obrazky') > self::IMAGES_PER_PAGE || $url === '') {
                 return false;
             }
             $image = $this->image($url, $alt, $state);
 
             return $image === null ? false : ['src' => (string) $image['obr_poloha'], 'alt' => $alt, 'width' => (int) $image['obr_width'], 'height' => (int) $image['obr_height']];
         });
+    }
+
+    /**
+     * Counts one more image or linked file of the page in progress and answers the new count (3.50, N140): the limits
+     * IMAGES_PER_PAGE and FILES_PER_PAGE hold for the whole page – its content and every widget – not for each piece.
+     *
+     * @param array<string, mixed> $state
+     */
+    private static function pageCount(array &$state, string $what): int
+    {
+        if (!is_array($state['stranka'] ?? null)) {
+            $state['stranka'] = [];
+        }
+
+        return $state['stranka'][$what] = intval($state['stranka'][$what] ?? 0) + 1;
+    }
+
+    /**
+     * Before a download of the page's images or files (3.50, N140): OUTSIDE_TIME seconds past the batch's end the page
+     * pauses (ImportPaused, caught by import()). A batch without an end (a single call) never pauses.
+     *
+     * @throws ImportPaused
+     */
+    private function stillInTime(): void
+    {
+        if ($this->end > 0.0 && microtime(true) > $this->end + $this->outside) {
+            throw new ImportPaused('The batch ran out of time.');
+        }
     }
 
     /**
@@ -935,6 +1041,7 @@ final class WebImport
         if ($ido !== null) {
             return (int) $ido === 0 ? null : $this->db->one('SELECT * FROM {media} WHERE ido = ?', [(int) $ido]);
         }
+        $this->stillInTime();
         $temporary = WpFile::folder() . '/web-obrazek-' . bin2hex(random_bytes(6)) . '.tmp';
         try {
             file_put_contents($temporary, self::politeDownload($this->downloader, $url, (array) ($state['robots'] ?? []), true, false));
@@ -1271,7 +1378,7 @@ final class WebImport
      * (prvky – <kaleta-widget title="N"> in obsah stands for the N-th; Builder\HtmlConverter turns them into elements),
      * the page's <title> when it says more than the heading (seo_titulek) and its share image (obrazek, og:image).
      *
-     * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool, prvky: list<array{html: string, kind: string}>, seo_titulek: string, obrazek: string}
+     * @return array{titulek: string, popis: string, obsah: string, datum: string, clanek: bool, prvky: list<array{html: string, kind: string}>, pretizeno?: int, seo_titulek: string, obrazek: string}
      * @throws HtmlTooLarge when the page or its content is over a limit of HtmlLimits
      */
     public static function extract(string $html, string $url): array
@@ -1323,8 +1430,21 @@ final class WebImport
             }
             $img->setAttribute('src', self::absolute($src, $url));
         }
-        foreach (iterator_to_array($root->querySelectorAll('video[src], source[src]')) as $media) {
-            $media->setAttribute('src', self::absolute((string) $media->getAttribute('src'), $url));
+        // 3.50 (N139): a video or sound that waits for lazy loading has its address in data-src – it becomes src, so the file
+        // is downloaded into Media like any other (an empty src or a data: placeholder does not count)
+        foreach (iterator_to_array($root->querySelectorAll('video[data-src], source[data-src], audio[data-src]')) as $media) {
+            $src = trim((string) $media->getAttribute('src'));
+            if ($src === '' || str_starts_with($src, 'data:')) {
+                $media->setAttribute('src', (string) $media->getAttribute('data-src'));
+            }
+            $media->removeAttribute('data-src');
+        }
+        foreach (iterator_to_array($root->querySelectorAll('video[src], source[src], audio[src], video[poster]')) as $media) {
+            foreach (['src', 'poster'] as $attribute) {
+                if ($media->hasAttribute($attribute)) {
+                    $media->setAttribute($attribute, self::absolute((string) $media->getAttribute($attribute), $url));
+                }
+            }
         }
         foreach (iterator_to_array($root->querySelectorAll('a[href]')) as $a) {
             $href = $a->getAttribute('href') ?? '';
@@ -1365,6 +1485,7 @@ final class WebImport
             'datum' => $timestamp !== false ? date('Y-m-d H:i:s', $timestamp) : '',
             'clanek' => $article,
             'prvky' => $widgets,
+            'pretizeno' => self::$crowded, // 3.50 (N124): parts with more than HtmlWidgets::MAX_TRIGGERS panel buttons, kept as text
         ] + $seo;
     }
 
@@ -1374,17 +1495,22 @@ final class WebImport
      * the widget is taken whole; never inside the noise (navigation, header, footer, cookie bars, pop-ups, newsletter boxes).
      * A form whose fields cannot be read is marked unreadable_form. A <kaleta-widget> the old page wrote itself is dropped.
      *
+     * 3.50 (N124): self::$crowded counts the outermost parts with more than HtmlWidgets::MAX_TRIGGERS buttons that open
+     * panels – they are no accordion or tabs and stay text (what is inside them is still looked at).
+     *
      * @return list<array{html: string, kind: string}>
      */
     private static function takeWidgets(\Dom\Element $root): array
     {
+        self::$crowded = 0;
+        $crowded = &self::$crowded;
         foreach (iterator_to_array($root->querySelectorAll('kaleta-widget')) as $foreign) {
             if ($root->contains($foreign)) {
                 $foreign->remove();
             }
         }
         $widgets = [];
-        $walk = function (\Dom\Element $parent) use (&$walk, &$widgets): void {
+        $walk = function (\Dom\Element $parent, bool $inCrowded = false) use (&$walk, &$widgets, &$crowded): void {
             foreach (iterator_to_array($parent->childNodes) as $node) {
                 if (!$node instanceof \Dom\Element || count($widgets) >= self::WIDGETS_PER_PAGE || $node->matches(self::NOISE_BLOCKS)
                     || preg_match(self::NOISE_NAMES, $node->getAttribute('class') . ' ' . $node->getAttribute('id'))) {
@@ -1396,7 +1522,9 @@ final class WebImport
                 }
                 $document = $node->ownerDocument;
                 if ($kind === null || $document === null) {
-                    $walk($node);
+                    $tooMany = !$inCrowded && \Kaleta\Builder\HtmlWidgets::tooManyTriggers($node);
+                    $crowded += $tooMany ? 1 : 0;
+                    $walk($node, $inCrowded || $tooMany);
                     continue;
                 }
                 $widgets[] = ['html' => Html::outer($node), 'kind' => $kind];

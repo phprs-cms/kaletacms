@@ -9366,4 +9366,13 @@ return [
     'Linked to the customer' => 'Vinculado al cliente',
     'Linked to the quote' => 'Vinculado al presupuesto',
     '%s (switched off)' => '%s (desactivado)',
+    'This page stopped the import twice (the server ended the batch while it was being read), so it was skipped – add its content by hand.' => 'Esta página detuvo la importación dos veces (el servidor terminó el lote mientras se leía), así que se omitió: añada su contenido a mano.',
+    '/%s – a part of the page has more than %s buttons that open panels: it was not read as an accordion or tabs and stays as text; check it.' => '/%s – una parte de la página tiene más de %s botones que abren paneles: no se leyó como acordeón ni pestañas y queda como texto; revísela.',
+    '/%s – the address is already in use on this site, so it does not redirect to /%s: it keeps working and no link was rewritten.' => '/%s – la dirección ya se usa en este sitio, así que no redirige a /%s: sigue funcionando y no se reescribió ningún enlace.',
+    '/%s already redirects elsewhere – that redirect was kept, none to /%s was added.' => '/%s ya redirige a otro sitio: esa redirección se mantuvo y no se añadió ninguna a /%s.',
+    '/%s has a "*", invalid characters or is too long – no redirect to /%s was added.' => '/%s tiene un «*», caracteres no válidos o es demasiado larga: no se añadió ninguna redirección a /%s.',
+    '/%s – the sound %s could not be downloaded: add it in the builder.' => '/%s – no se pudo descargar el sonido %s: añádalo en el builder.',
+    '/%s – the poster image %s of a video is not in Media and was left out.' => '/%s – la imagen de portada %s de un vídeo no está en Medios y se omitió.',
+    'not a plain address (a “*”, invalid characters or too long)' => 'no es una dirección simple (un «*», caracteres no válidos o demasiado larga)',
+    '%d files could not be removed from the disk, so they stay in Media – check the permissions of the media folder or remove them over FTP.' => 'No se pudieron eliminar %d archivos del disco, así que siguen en Medios: revise los permisos de la carpeta media o bórrelos por FTP.',
 ];

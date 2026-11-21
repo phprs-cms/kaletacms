@@ -56,6 +56,13 @@ $f = $state['stahovani'];
 <?php endforeach ?>
 </ul></div>
 <?php endif ?>
+<?php if (($state['presmerovani']['odmitnute'] ?? []) !== []): // 3.50 (N125) ?>
+<details class="pokrocile"><summary><?= e(t('Old addresses that were not redirected (%s)', count($state['presmerovani']['odmitnute']))) ?></summary><ul>
+<?php foreach ($state['presmerovani']['odmitnute'] as $r): ?>
+	<li><?= e($r[0] . ' → ' . $r[1] . ' – ' . t(match ($r[2] ?? '') { 'address_in_use' => 'the address is already in use on this site', 'not_literal' => 'not a plain address (a “*”, invalid characters or too long)', default => 'the address already redirects elsewhere' })) ?></li>
+<?php endforeach ?>
+</ul></details>
+<?php endif ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($app->url('admin.php?module=news')) ?>"><?= e(t('Show news')) ?></a> <a class="navigace" href="<?= e($app->url('admin.php?module=pages')) ?>"><?= e(t('Show pages')) ?></a> <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('Back to Import and export')) ?></a></p>
 
 <h2><?= e(t('Images from the old site')) ?></h2>

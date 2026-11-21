@@ -351,7 +351,7 @@ final class Batch
         $this->writeMap('clanek', $p->key, $idc);
         $state['vysledek']['clanky']++;
         if ($m['redirects']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo);
+            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . 'novinky/' . $seo, $state);
         }
 
         return $idc;
@@ -383,7 +383,7 @@ final class Batch
         $this->writeMap('stranka', $p->key, $ids);
         $state['vysledek']['stranky']++;
         if ($m['redirects']) {
-            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo);
+            $state['vysledek']['presmerovani'] += $this->redirect($p, ($language !== '' ? $language . '/' : '') . $seo, $state);
         }
     }
 
@@ -468,11 +468,27 @@ final class Batch
         $this->writeMap('stitek', $key, (int) $ids);
     }
 
-    /** Redirect from the old address to the new one; Redirects::add skips an identical address by itself. */
-    private function redirect(Post $p, string $new): int
+    /**
+     * Redirect from the old address to the new one; Redirects::add skips an identical address by itself. 3.50 (N125): an old
+     * address this site already uses, one that redirects elsewhere or one that is not a plain address gets none – it is
+     * listed in presmerovani.odmitnute instead (WpImport::redirectRefusal, as the WordPress import does).
+     *
+     * @param array<string, mixed> $state
+     */
+    private function redirect(Post $p, string $new, array &$state): int
     {
         $old = WpImport::oldPath($p->oldUrl);
         if ($old === '' || $old === $new) {
+            return 0;
+        }
+        $refused = WpImport::redirectRefusal($this->db, $this->settings, $old, $new);
+        if ($refused !== '') {
+            $state['presmerovani'] = is_array($state['presmerovani'] ?? null) ? $state['presmerovani'] : [];
+            $state['presmerovani']['odmitnute'] = is_array($state['presmerovani']['odmitnute'] ?? null) ? $state['presmerovani']['odmitnute'] : [];
+            if (count($state['presmerovani']['odmitnute']) < 200) {
+                $state['presmerovani']['odmitnute'][] = ['/' . WpImport::shownPath($old), '/' . $new, $refused];
+            }
+
             return 0;
         }
         Redirects::add($this->db, $old, $new);
