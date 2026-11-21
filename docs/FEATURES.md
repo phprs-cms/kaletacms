@@ -9,7 +9,9 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 
 - `Front\Kernel`: `/` = úvodní stránka (nastavení `home_page`, v jazykové verzi její protějšek `preklad_z`), bez ní výpis novinek;
   úvodní stránka na své vlastní adrese přesměruje 301 na `/`. Novinky na `/novinky`, `/novinky/<seo>` (+ `.md`), `/novinky/kategorie/<seo>`,
-  `/novinky/stitek/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Modules\Pages::RESERVED_SLUGS`.
+  `/novinky/stitek/<seo>`. Stránky na `/<seo>` – vyhrazené adresy `Modules\Pages::RESERVED_SLUGS`. Za cache stránek jsou veřejné adresy
+  řádky tabulky `Front\Kernel::ROUTES` (3.50: metoda, cesta nebo vzor, obsluha; `null` = „není moje“, pořadí drží unit 4531); brány před
+  cache (přesměrování, firewall, údržba …) zůstávají kódem v `handle()`.
 - **Themeless (od 1.6):** rámec stránky je `system/views/front/base.php` + `image/sablona.css`, pohledy `system/views/front/` nejdou přepsat
   a vlastní PHP layouty (`layout/`) se nepoužívají – Stav systému na zbylou složku upozorní. Vzhled = design system, sdílené třídy, komponenty
   a části webu. `base.php` vypisuje `<?= $hlava ?>` před `</head>` a `<?= $pata ?>` před `</body>` (SEO, strukturovaná data, měření, cookie lišta – `Front\Seo`).
@@ -193,7 +195,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 - **MCP** (`Mcp\Server`, `Mcp\Tools`, `/mcp`, OAuth nebo token z Můj účet) je hlavní cesta, jak se na Kaletě stavějí weby – co jde v editoru, musí jít i tady:
   stránky (i builder: `stavba_schema` – stručný přehled `Build::overview`, `stavba_z_html`, `stavba_nacti` – `Build::compact`, `stavba_uloz`, `stavba_uprav` –
   dílčí operace `Builder\Edits`, `vloz_sekci`, `publikuj_stavbu`, `nahled_odkaz`), třídy (`seznam_trid`, `uloz_tridy`), design systém, média
-  (`nahraj_soubor` přes `Images::saveFile` / `Files::saveFile` / `Gallery::saveSvgContent`), nastavení (`uprav_nastaveni` – jen klíče z `MCP_SETTINGS`,
+  (`nahraj_soubor` přes `Images::saveFile` / `Files::saveFile` / `Gallery::saveSvgContent`), nastavení (`uprav_nastaveni` – jen klíče s příznakem `mcp` v `Settings::DECLARATIONS`,
   validace `Settings::verifyValue`), přesměrování, koš stránek, novinky a kategorie. Vlastní PHP šablony přes MCP nevznikají ani se nemění (od 1.1). Výstup je kompaktní JSON bez výchozích hodnot.
   **Rozhraní je anglické** (od 1.1, `Mcp\Translator`): tools/list, parametry, klíče výsledků, stavy, hlášení a pokyny serveru anglicky (`create_page`,
   `build_from_html`, `save_build`…); `Tools` dál implementuje nástroje česky a `Translator` překládá vstup i výstup. České názvy jsou skryté aliasy
@@ -363,7 +365,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   jedna kontrola jednoho webu, poznámka + poslední den, jen v konzoli; platí do dne nebo do změny stavu; upozornění, připomínky a souhrn
   ho přeskočí; MCP značí `accepted` aditivně. Šest sekcí `Fleet::SECTIONS`, dřívější záložky zůstávají jako pohledy.
 - **Bezpečnost 3.39:** tajná nastavení `Vault::SECRET_SETTINGS` a TOTP semínka jsou zapečetěná (`kaleta-sealed:`) jen s klíčem
-  v config.php – čti a zapisuj přes Settings / `Vault::openSecret`/`sealSecret`; nové pole typu `tajne` patří do seznamu (unit 3050).
+  v config.php – čti a zapisuj přes Settings / `Vault::openSecret`/`sealSecret`; nové pole typu `tajne` má v `Settings::DECLARATIONS` příznak `secret` (unit 3050, 4541).
   Nástroj MCP, který posílá e-mail mimo tým nebo trvale maže, patří do `Mcp\Confirmation::TOOLS` (první volání vrátí kód, druhé nese
   `confirmation`); smoke používá `mcp_call`. Poznámky ze spojení jen na koncepty jsou návrhy (`via`/`access`), nikdy připnuté.
 - **Tabulky ani sloupce se nikdy nepřejmenovávají do angličtiny** (rozhodnutí 21.–22. 10. a 10. 11. 2026, ROADMAP „Path to 4.0“);
@@ -412,3 +414,11 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   kapitoly sekcí, které člověk smí otevřít. Rychlé akce palety jsou v `Admin\Palette` (sekce, jen pro správce, POST – „Nová nabídka“
   odejde formulářem s tokenem z `data-csrf`). `update_settings` bere i anglické hodnoty (`Mcp\Translator::SETTING_VALUES`: dark,
   allow/block, without/with, none/built_in/external; ano/ne i yes/on), uloží a vrátí české.
+- **Dluhy a měření (3.50):** každé nastavení je deklarované jednou – `Settings::DECLARATIONS` vedle `DEFAULTS` (záložka, typ formuláře
+  a příznaky `secret`, `export`, `mcp`, `per_language`, `lazy`; čte se přes `Settings::fields()`, `keysWith()`, `claudeMaySet()`); dřívější
+  seznamy `Vault::SECRET_SETTINGS`, `SiteExport::SETTINGS`, `Settings::PER_LANGUAGE` a `LAZY` zůstávají jen jako zrcadla pro kód starší
+  verze během aktualizace (unit 4541). `Html::safe` má povolovací seznam prvků: neznámý prvek se rozbalí a jeho text zůstane
+  (`src`/`poster` jen u médií, `href` jen u `a`/`area`). Import webu: stránka, která dvakrát ukončí dávku, se přeskočí a vyjmenuje;
+  kontejner s víc než `HtmlWidgets::MAX_TRIGGERS` spouštěči zůstane textem; stará adresa, kterou tu už něco používá, nedostane
+  přesměrování (`WpImport::redirectRefusal`). Konzole Flotily má ke každé kontrole stránku opravy jen ke čtení
+  (`fleet&action=fix&check=<id>`, `Fleet\Checks::HELP`: co kontrola znamená, jak ji opravit, weby, které neprošly).

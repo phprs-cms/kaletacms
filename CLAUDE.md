@@ -6,8 +6,8 @@ přes PDO, serverové HTML + trocha vanilla JS. Mapa kódu a „jak přidat …�
 **`docs/FEATURES.md`**; schéma: `docs/schema.md`; vrstvy: `docs/design/code-layers.md`; testy: `tools/tests/README.md`.
 Návrh a rozhodnutí: `../kaleta-interni/NAVRH.md`; co vyšlo: `docs/CHANGELOG.md`; co bude: `docs/ROADMAP.md`.
 
-Jen závazná pravidla, strop **16 KB** (unit 3870). Popis funkce do `docs/FEATURES.md` či `ARCHITECTURE.md`,
-poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlídané testem.
+Jen závazná pravidla, strop **16 KB** (unit 3870). Popis funkce do `docs/FEATURES.md` či `ARCHITECTURE.md`, poznámky
+k vydání do `docs/CHANGELOG.md` – sem jen pravidlo hlídané testem.
 
 **Veřejně (README, texty, commity) se na projekt, ze kterého jádro vzniklo, neodkazuje.**
 
@@ -19,7 +19,7 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
   odpovědná osoba = odpovědnost, nikdy schvalovací krok.
 - **Standardy webu 2026/2027:** CSS vrstvy, `clamp()`, container queries, `color-mix()`/OKLCH, `:has()`, Popover API, `<dialog>`,
   `<details>`, View Transitions. Interaktivita přednostně bez JavaScriptu. Žádné polyfilly, CDN ani cizí písma.
-- **Co se nevypisuje, nemá styl ani skript** (selektor ani `[data-…]`, který nikde nevzniká – hlídá unit test).
+- **Co se nevypisuje, nemá styl ani skript** (selektor ani `[data-…]`, který nikde nevzniká – unit test).
 - **Anglicky:** identifikátory, komentáře, commity, dokumentace a zdrojové texty rozhraní. **Česky zůstává datový model** –
   starší tabulky a sloupce (`idc` = novinka, `tema`/`idt` = kategorie, `ido` = médium, `idu` = uživatel), klíče staveb (JSON)
   a design systému, CSS třídy a `data-` atributy administrace; na hranici MCP je překládá `Mcp\Translator` a `Mcp\Vocabulary`.
@@ -36,9 +36,8 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
   (vrací funkci `(Db, Settings)`) a má nejvyšší číslo svého vydání – starý kód aktualizace zná jen `.sql`. Přenositelně pro MySQL
   i MariaDB, bez odkazu na cílovou tabulku v ON DUPLICATE KEY UPDATE; každá migrace projde `php tools/check-migrations.php`
   a `tools/test-migrations.sh` (čistá instalace migrace nespouští).
-- **Nastavení:** klíč s výchozí hodnotou v `Settings::DEFAULTS` + typ v `Admin\Modules\Settings::FIELDS` + řádek `$field(...)` ve
-  `views/admin/settings/<záložka>.php`; `php tools/settings.php <klíč>` ukáže všechny seznamy (unit 3650). Nové pole typu `tajne`
-  patří do `Vault::SECRET_SETTINGS` (unit 3050). Výchozí texty pro návštěvníky v `Settings::TRANSLATED_DEFAULTS`.
+- **Nastavení:** klíč v `Settings::DEFAULTS` + řádek v `Settings::DECLARATIONS` (záložka, typ, příznaky) + `$field(...)`
+  ve `views/admin/settings/<záložka>.php`; staré seznamy jen zrcadlí (unit 4541). Výchozí texty webu v `Settings::TRANSLATED_DEFAULTS`.
 - **Vrstvy kódu:** Core neodkazuje na Admin/Front/Builder/Fleet/Mcp, Mcp ne na `Admin\Modules`; pravidlo dat patří do Core
   (unit 3100, zmrazený seznam výjimek jen ubývá).
 - **Rozšíření** (`Core\Extensions::CATALOG`, `Module::EXTENSION`, `Element::EXTENSION`) jsou vestavěná; vypnuté = modul zmizí,
@@ -76,7 +75,7 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
 - **Cache stránek** (`Core\PageCache`) jen pro nepřihlášené; `Auth::user()` nesmí na webu založit session anonymnímu návštěvníkovi. Nová sekce
   administrace nebo zapisovací nástroj MCP = zařazení do `Admin\Kernel::SITE_CHANGING_MODULES`/`SITE_NEUTRAL_*` resp.
   `Catalog::SITE_NEUTRAL` (unit test); v pochybnostech maže.
-- **Adresa webu je nastavení `site_url`,** nikdy hlavička Host (`$app->request->origin()`).
+- **Adresa webu je nastavení `site_url`,** nikdy hlavička Host (`$app->request->origin()`). Trasy za cache = řádky `Front\Kernel::ROUTES` (unit 4531).
 - **Výpisy novinek nenačítají dlouhé texty** (`Front\NewsRepository::LIST_COLUMNS`). Kdo ukládá novinku mimo admin a MCP, volá
   `Search::index()`. Oznámení o vydání jen přes `Core\Notifications::process()`; změna adresy zapíše přesměrování (`Redirects::add`).
 - **Statistika bez cookies a identifikátorů** – jen součty po dnech, jen zobrazení potvrzená prohlížečem (`POST /hit`).
@@ -86,7 +85,8 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
 ## Builder
 
 - **Jediný validátor `Build::sanitize()`** (editor, MCP, import – nikdy neukládej stavbu bez něj) a **jediný vykreslovač `Build::render()`**;
-  na webu se vadný prvek vynechá, nikdy výjimka. Jeden prvek = jedna značka. Třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`, `Html::safe`).
+  na webu se vadný prvek vynechá, nikdy výjimka. Jeden prvek = jedna značka. Třídy `ka-…` jsou vyhrazené Kaletě (`Build::CLASS_PATTERN`);
+  `Html::safe` pouští jen povolené prvky, neznámý rozbalí.
 - **Prvek** = třída v `Builder\Elements\` zapsaná v `Build::ELEMENTS`, základní CSS do vrstvy `stavitel` přes `:where()`; nový prvek,
   pole, vlastnost stylu nebo token = záznam v `Mcp\Vocabulary` (unit test převádí knihovnu tam a zpět).
 - **Výpočet tokenů design systému jen v PHP** (`DesignSystem`, akce `nahled`), nikdy v JS. Vlastní CSS tříd přes
@@ -103,7 +103,7 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
   a jen z cronu. Nikdy skutečný e-mail z testu.
 - **Nahrávání:** obrázky `Core\Images`, přílohy `Core\Files` (povolené přípony), SVG přes `Svg::sanitize`.
 - **Čas:** databáze drží čas webu; nový kód přes `Core\Clock` (`now()`, `toDb()`, `fromDb()`, `at('-1 hour')`, nikdy `NOW() - INTERVAL`).
-- **Tajné hodnoty** (`Vault::SECRET_SETTINGS`, typ `tajne`, TOTP semínka) zapečetěné klíčem z `config.php` – čti a zapisuj přes
+- **Tajné hodnoty** (příznak `secret`, typ `tajne`, TOTP semínka) zapečetěné klíčem z `config.php` – čti a zapisuj přes
   Settings / `Vault`. Nikdy nečti `tools/klice/*.key` ani nevypisuj `config.php`.
 - **Přihlášení:** pravidla jen v `Core\SignInPolicy`; každá citlivá změna přes `Auth::freshProof(…)`, „současné heslo“ jen přes
   `Auth::confirmPassword`; každá změna druhého faktoru volá `Auth::newEpoch`; záložní kódy jen `Core\BackupCodes`.
@@ -117,13 +117,13 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
 - **Náhledy konceptů** jen podepsané (`Core\Preview`, jeden cíl, omezená platnost).
 - **Import z WordPressu a webu — co se nesmí rozvolnit** (unit testy): XML s DOCTYPE/entitou se odmítá, `LIBXML_NONET`; obsah jen
   přes povolovací seznam značek; `ImageDownloader` jen z domény starého webu, jen veřejné IP, připnuté spojení, limity, nikdy SVG.
-  Export jen nastavení ze `SiteExport::SETTINGS` (nikdy účty, hesla, klíče); import Kalety jen do prázdného webu a každý řádek přes sanitizéry.
+  Export jen nastavení s příznakem `export` (nikdy účty, hesla, klíče); import Kalety jen do prázdného webu a každý řádek přes sanitizéry.
 - **Poptávky:** `Enquiries::visible` je podmínka každého čtení řádků poptávek (unit test). Žádosti o místo nejsou poptávky;
   životopisy MCP nikdy nedostane. Nový druh cíle = `Inbox::TARGETS`, `Inbox::parse`, `Tasks::cleanTarget` + `sweep`,
   `Assignment::KINDS` a popisek v `my_work` (unit test).
 - **CRM a reporty:** souhrny jsou počty, nikdy hodiny ani částky (měsíční report jen počty obchodů); ceny jen v `ka_prices`.
 - **Flotila:** konzole nikdy nesahá do webů, odkazy jsou obyčejné odkazy; heartbeat nese počty, data, výčty a krátké systémové texty,
-  nikdy osobní údaje; konzole ohraničí každý nový klíč.
+  nikdy osobní údaje; konzole ohraničí každý nový klíč. Stránka opravy (`action=fix`) jen čte.
 - **Žádné mazání při GET** – úklid patří do Scheduleru (úlohy `trash`, `cleanup`).
 
 ## MCP
@@ -138,7 +138,7 @@ poznámky k vydání jen do `docs/CHANGELOG.md` – sem jen nové pravidlo hlíd
   Každý nový nástroj MCP deklaruje v `Untrusted::TOOLS` (nebo `NONE`), zda vrací text zvenku (unit 3960).
 - Nástroj, který posílá e-mail mimo tým nebo trvale maže, patří do `Mcp\Confirmation::TOOLS`. Nová stránka je skrytá, nová novinka
   koncept; vydat jen na výslovný pokyn a s právem. Spojení jen na koncepty píše koncepty.
-- `update_settings` jen klíče z `MCP_SETTINGS`, hodnoty přes `Settings::verifyValue`.
+- `update_settings` jen klíče s příznakem `mcp` (`claudeMaySet`), hodnoty přes `verifyValue`.
 - Hodinový limit změn Claude platí na uživatele (všechna jeho připojení); undo podle názvu připojení a uživatele
   (`AgentJournal::connectionLabel`).
 

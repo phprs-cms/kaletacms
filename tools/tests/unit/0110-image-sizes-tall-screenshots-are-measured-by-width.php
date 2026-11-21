@@ -946,9 +946,6 @@ foreach ($routerFolders[1] as $alternatives) {
     }
 }
 unset($earlySegments['novinky']); // the news itself
-// 3.50 B1b: the row of the talent pool link is built from TalentPool::PATH, which the text of handle() never showed as a literal;
-// kept out as before (a news slug "application-consent" would hide that link – noted for the lead, no behaviour change in B1)
-unset($earlySegments[Kaleta\Core\TalentPool::PATH]);
 $unreserved = array_keys(array_filter($earlySegments, fn (bool $v, string $segment): bool => Routes::systemSlugError($segment) === null, ARRAY_FILTER_USE_BOTH));
 check('Cesty: každá časná cesta webu (Kernel::handle před stránkami, OAuth, router) je pro adresu novinek zakázaná', $unreserved, []);
 check('Cesty: čtení časných cest našlo OAuth, MCP, odběr, flotilu i složky', array_values(array_intersect(['oauth', 'mcp', 'odber', 'fleet', 'manifest', 'favicon', 'index', 'storage', 'extensions'], array_keys($earlySegments))),

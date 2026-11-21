@@ -85,3 +85,10 @@ check('3.50 B1b: a row that passes (the probe without ?probe=) leads to the next
     (new ReflectionMethod(Kaleta\Front\Kernel::class, 'routeIndexNowKey'))->invoke($b1aKernelFor(['indexnow_key' => '']), ['/.txt']),
     (new ReflectionMethod(Kaleta\Front\Kernel::class, 'routeUpdateProbe'))->invoke($b1aKernelFor(['update_probe' => $b1bCode]), ['/ulohy']),
 ], [[200, 'KALETA-PROBE ' . KALETA_VERSION . "\n"], [403, t('Invalid token.') . "\n"], [200, 'k' . $b1bCode], 403, null, null, null]);
+
+// 3.50 integration: the talent pool consent link is a row above the pages, so its word cannot be the news slug either (a news slug
+// "application-consent" was rewritten to /novinky in the constructor and hid the link); unit 0110 now reads it like any early path
+check('3.50 integration: the talent pool path is reserved for the news slug – refused as a new one, ignored as a stored one', [
+    in_array(Kaleta\Core\TalentPool::PATH, Kaleta\Core\Routes::NEWS_RESERVED, true), Kaleta\Core\Routes::systemSlugError(Kaleta\Core\TalentPool::PATH),
+    in_array('routeApplicationConsent', array_column(array_slice($b1bRoutes, 0, $b1bPageRow), 2), true)],
+    [true, 'This URL is used by the system, choose another one.', true]);

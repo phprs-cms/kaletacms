@@ -40,3 +40,16 @@ check('3.50 B2c: verifyValue reads the declared types – a company type, a curr
 check('3.50 B2c: fieldUrl and movedFields find a key\'s tab in the declaration', [
     B2cModule::fieldUrl('agency_logo'), B2cModule::fieldUrl('company_name'), B2cModule::fieldUrl('cookies_text_en'), B2cModule::fieldUrl('dark_mode'), B2cModule::fieldUrl('look_draft')],
     ['module=settings&tab=agency#agency_logo', 'module=business#company_name', 'module=settings&tab=cookies#cookies_text_en', 'module=settings', 'module=settings']);
+
+// 3.50 integration: DECLARATIONS is read on every request, so the four lists of classes the request may never need are written
+// as literals (a class constant in a constant expression autoloads its class) – each literal is held equal to its constant here
+$b2cDecl = B2cSettings::DECLARATIONS;
+check('3.50 integration: the literal types of DECLARATIONS equal the constants they mirror (SocialDrafts, SecurityHygiene, MailServices, Assistant)', [
+    $b2cDecl['social_networks']['type'], $b2cDecl['auto_suspend']['type'], $b2cDecl['smtp_provider']['type'], $b2cDecl['ai_provider']['type']], [
+    'seznam:' . Kaleta\Core\SocialDrafts::NETWORK_KEYS, 'seznam:' . Kaleta\Core\SecurityHygiene::SUSPEND_ACCOUNTS . '|' . Kaleta\Core\SecurityHygiene::SUSPEND_CONNECTIONS,
+    'vyber:' . Kaleta\Core\MailServices::CHOICES, 'vyber:' . Kaleta\Core\Assistant::PROVIDER_KEYS]);
+// … and reading the declaration, as every request does, loads none of those four classes (a child process, plain bootstrap)
+$b2cChild = json_decode((string) shell_exec(escapeshellarg(PHP_BINARY) . ' -n -r ' . escapeshellarg('require ' . var_export(KALETA_SYSTEM . '/bootstrap.php', true)
+    . '; $d = Kaleta\Core\Settings::DECLARATIONS; Kaleta\Core\Settings::keysWith("export"); echo json_encode(array_map(fn ($c) => class_exists("Kaleta\\\\Core\\\\" . $c, false), ["SocialDrafts", "SecurityHygiene", "MailServices", "Assistant", "Settings"]));') . ' 2>&1'), true);
+check('3.50 integration: reading Settings::DECLARATIONS autoloads none of SocialDrafts, SecurityHygiene, MailServices, Assistant (Settings itself is loaded)',
+    $b2cChild, [false, false, false, false, true]);

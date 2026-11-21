@@ -33,7 +33,7 @@ foreach (file($file, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
             $got[strtolower(trim($name))] = trim($value);
         }
     }
-    curl_close($ch);
+    // no curl_close(): a no-op since PHP 8.0 and deprecated in 8.5 (its notice would land in the compared output)
     $location = $got['location'] ?? '-';
     $location = str_starts_with($location, $base) ? (string) substr($location, strlen($base)) : $location;
     $answer = implode(' | ', [$status, $got['content-type'] ?? '-', $location, $got['cache-control'] ?? '-', $got['x-robots-tag'] ?? '-', $got['retry-after'] ?? '-']);

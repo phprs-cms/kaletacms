@@ -388,7 +388,7 @@ final class Settings
         'news_slug' => ['tab' => 'general', 'type' => 'vzor:/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/', 'export' => true, 'mcp' => true],
         'news_title' => ['tab' => 'general', 'type' => 'text', 'export' => true, 'mcp' => true],
         'share_buttons' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
-        'social_networks' => ['tab' => 'general', 'type' => 'seznam:' . SocialDrafts::NETWORK_KEYS],
+        'social_networks' => ['tab' => 'general', 'type' => 'seznam:facebook|linkedin|x|instagram'], // = SocialDrafts::NETWORK_KEYS (literal: no autoload per request; unit 4542)
         'link_check' => ['tab' => 'general', 'type' => 'ano'],
         'article_outline' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
         'related_news_auto' => ['tab' => 'general', 'type' => 'ano', 'export' => true, 'mcp' => true],
@@ -410,7 +410,7 @@ final class Settings
         'slugs_per_language' => ['tab' => 'languages', 'type' => 'ano'], // 3.9: never written directly; 3.19: only switched on, by Core\Slug::enableEverywhere (actionSave)
         'require_2fa' => ['tab' => 'security', 'type' => 'vyber:|spravci|vsichni'],
         'signin_passkey_only' => ['tab' => 'security', 'type' => 'ano'], // 3.35: turned on only by an administrator with a working passkey (actionSave)
-        'auto_suspend' => ['tab' => 'security', 'type' => 'seznam:' . SecurityHygiene::SUSPEND_ACCOUNTS . '|' . SecurityHygiene::SUSPEND_CONNECTIONS],
+        'auto_suspend' => ['tab' => 'security', 'type' => 'seznam:ucty|napojeni'], // = SecurityHygiene::SUSPEND_ACCOUNTS|SUSPEND_CONNECTIONS (unit 4542)
         'agency_name' => ['tab' => 'agency', 'type' => 'text', 'mcp' => true],
         'agency_url' => ['tab' => 'agency', 'type' => 'url', 'mcp' => true],
         'agency_email' => ['tab' => 'agency', 'type' => 'email', 'mcp' => true],
@@ -489,7 +489,7 @@ final class Settings
         'smtp_user' => ['tab' => 'mail', 'type' => 'text'],
         'smtp_password' => ['tab' => 'mail', 'type' => 'tajne', 'secret' => true],
         'newsletter_hourly_limit' => ['tab' => 'mail', 'type' => 'cislo:10:100000'],
-        'smtp_provider' => ['tab' => 'mail', 'type' => 'vyber:' . MailServices::CHOICES], // 3.9: the mail service; MailServices::settle() fills its server after the save
+        'smtp_provider' => ['tab' => 'mail', 'type' => 'vyber:other|brevo|mailgun|mailgun_eu|ses|postmark|sendgrid|mailersend|smtp2go|mailjet|mandrill'], // = MailServices::CHOICES (unit 4542); 3.9: the mail service; MailServices::settle() fills its server after the save
         // the monthly report (2.9) and its archive (3.16, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
         'report_monthly' => ['tab' => 'reports', 'type' => 'ano'],
         'report_recipients' => ['tab' => 'reports', 'type' => 'emaily'],
@@ -499,7 +499,7 @@ final class Settings
         'claude_destructive' => ['tab' => 'claude', 'type' => 'ano'],
         'claude_apps_only' => ['tab' => 'claude', 'type' => 'ano'],
         'claude_protected_pages' => ['tab' => 'claude', 'type' => 'vzor:/^[0-9 ,;]{0,500}$/'],
-        'ai_provider' => ['tab' => 'extensions', 'type' => 'vyber:' . Assistant::PROVIDER_KEYS],
+        'ai_provider' => ['tab' => 'extensions', 'type' => 'vyber:anthropic|openai|google|mistral'], // = Assistant::PROVIDER_KEYS (unit 4542)
         'ai_key' => ['tab' => 'extensions', 'type' => 'tajne', 'secret' => true],
         'ai_model' => ['tab' => 'extensions', 'type' => 'vzor:#^[A-Za-z0-9._:/-]{0,80}$#'],
         'newsletter_service' => ['tab' => 'extensions', 'type' => 'vyber:|brevo|mailerlite|mailchimp|ecomail|smartemailing|webhook'],

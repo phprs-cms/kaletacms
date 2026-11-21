@@ -21,7 +21,7 @@ JavaScript, no build step.
 1. **Boot.** `App::boot()` reads `config.php`, opens the database lazily (`Core\Db`), applies the site's time zone and the
    language. Settings come from `ka_nastaveni` through `Core\Settings` on first use (large values only when asked for).
 2. **Public site.** `Front\Kernel::handle()` checks stored redirects, maintenance and the firewall, answers a cache hit from
-   `Core\PageCache` (anonymous visitors only), then routes by path: the home page, `/novinky/…` (the news slug is a setting),
+   `Core\PageCache` (anonymous visitors only), then routes by path through the rows of `Front\Kernel::ROUTES` (3.50): the home page, `/novinky/…` (the news slug is a setting),
    collections, pages by slug (`Modules\Pages::RESERVED_SLUGS` are taken), files like `sitemap.xml` or `llms.txt`. A page is
    a build (JSON tree) rendered by `Builder\Build::render()` inside the site parts (header, footer) into
    `system/views/front/base.php`; SEO tags and structured data come from `Front\Seo`.
@@ -83,9 +83,16 @@ importers will need it too. An admin module reads the request, calls Core and re
   `Mcp\Schema`; the name in `Tools::ORDER`), the English description in `Mcp\Translator::TOOLS`, the annotations in
   `Mcp\Catalog`, a contract entry (`php tools/contracts.php --update` records `mcp-tools.json` and `mcp-definitions.json`),
   and never in the catalogue's essentials. Output keys are additive only.
-- **A setting:** a key with its default in `Core\Settings::DEFAULTS`, a type in `Admin\Modules\Settings::FIELDS` and a
-  `$field(...)` row in `system/views/admin/settings/<tab>.php`; secrets, export, per-language values and Claude's access
-  are separate lists (`php tools/settings.php <key>` shows them all, the unit test 3650 keeps them consistent).
+- **A setting:** a key with its default in `Core\Settings::DEFAULTS`, a row in `Core\Settings::DECLARATIONS` (3.50: `tab` and
+  `type` for a form field, and the flags `secret`, `export`, `mcp`, `per_language`, `lazy` that are true for it) and, with a tab,
+  a `$field(...)` row in `system/views/admin/settings/<tab>.php`. Code asks `Settings::fields()`, `keysWith(flag)` and
+  `claudeMaySet(key)`; the old lists (`Vault::SECRET_SETTINGS`, `SiteExport::SETTINGS`, `Settings::PER_LANGUAGE`, `LAZY`) stay
+  only as mirrors for code of older releases during an update, held equal by unit 4541 (`php tools/settings.php <key>` shows all).
+- **A public route:** after the page cache, a row `[method, exact path or anchored pattern, handler]` in
+  `Front\Kernel::ROUTES` and a private `route…()` method that returns `null` when the address is not its own (feature off,
+  wrong token), so the next row gets a turn. Rows run top to bottom; unit 4531 holds the full ordered list of handlers, so a
+  new row means a new line there, and a one-segment path joins `Routes::NEWS_RESERVED`. The gates before the cache (redirects,
+  firewall, maintenance …) stay as code in `handle()`.
 - **A migration:** the full change in `schema.sql`, a new file in `system/sql/migrace/` with the next number, and
   `KALETA_DB_VERSION` raised in `system/bootstrap.php`; then `php tools/schema-doc.php` and `tools/test-migrations.sh`.
   Write it for MySQL and MariaDB alike.
