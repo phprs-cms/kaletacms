@@ -387,9 +387,51 @@ final class Retention
     }
 
     /**
-     * Saves a proposal that arrives through an older path – an open admin page of 3.47 posting a section's retention fields,
-     * or update_settings (cookies_log_months): saved as before, a harsher change written to the change log with the old
-     * and the new value. 3.50 drops the acceptance of the old forms.
+     * 3.50.1 (D1): a proposal that arrives through the old field names of a section's form (an admin page of 3.47 still open,
+     * or a form that posts them on purpose): what does not make data go sooner is saved at once, a shorter period is not
+     * saved – it is returned for the confirmation screen (Settings → retention, confirmationUrl), so every shortening is
+     * confirmed in one place. Nothing is written to the change log here; the confirmation writes it.
+     *
+     * @param array<string, string> $proposed setting => value (already in range)
+     * @return array<string, string> the settings held for the confirmation => their proposed value
+     */
+    public static function saveOrHold(App $app, array $proposed): array
+    {
+        $s = $app->settings();
+        [$now, $held] = self::holdWith(fn (string $k): string => $s->get($k), $proposed);
+        foreach ($now as $setting => $value) {
+            $s->set($setting, $value);
+        }
+
+        return $held;
+    }
+
+    /**
+     * saveOrHold() without the store (pure): [saved now, held for the confirmation] – held are the settings whose own change
+     * is harsher (harsherSettings), a consequence never holds anything.
+     *
+     * @param callable(string): string $before
+     * @param array<string, string> $proposed
+     * @return array{0: array<string, string>, 1: array<string, string>}
+     */
+    public static function holdWith(callable $before, array $proposed): array
+    {
+        $after = fn (string $k): string => array_key_exists($k, $proposed) ? $proposed[$k] : $before($k);
+        $held = array_intersect_key($proposed, array_flip(self::harsherSettings(self::changesWith($before, $after, $proposed))));
+
+        return [array_diff_key($proposed, $held), $held];
+    }
+
+    /** The confirmation screen of Settings with the held proposal in the address (numbers only, read by Retention::parse). */
+    public static function confirmationUrl(App $app, array $held): string
+    {
+        return $app->url('admin.php?' . http_build_query(['module' => 'settings', 'action' => 'retention'] + $held));
+    }
+
+    /**
+     * Saves a proposal at once (update_settings – cookies_log_months – and the off-site backup days of the Backups tab):
+     * a harsher change written to the change log with the old and the new value. The old field names of the sections'
+     * forms go through saveOrHold since 3.50.1.
      *
      * @param array<string, string> $proposed setting => value (already in range)
      */

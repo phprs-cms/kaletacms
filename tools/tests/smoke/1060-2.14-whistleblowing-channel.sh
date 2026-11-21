@@ -15,6 +15,7 @@ curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=extensions
 expect "3.2 whistleblowing: switched on under Features, the other features kept" "$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")" "$WB_EXT,whistleblowing"
 check "whistleblowing: the module tells the administrator the channel is off and offers the setup" 200 "/admin.php?module=whistleblowing" 'name="readers'
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=whistleblowing&action=settings" -d "_csrf=$(wb_csrf)" -d enabled=1 -d "readers[]=$WB_ADMIN" -d retention=24 --data-urlencode "intro=Oznámení řeší compliance officer."
+retention_apply whistleblowing_retention_months=24 # 3.50.1: a shorter period from the section's form waits for the confirmation
 expect "whistleblowing: the setup is saved – on, the reader, the retention" "$(sq "SELECT CONCAT((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_enabled'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_readers'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'whistleblowing_retention_months'))")" "1|$WB_ADMIN|24"
 # 3.3.3 (N53): a site with a CAPTCHA still loads none on the channel – the provider would learn who reports
 sq "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('captcha_provider','turnstile'),('captcha_site_key','test-site'),('captcha_secret','test-secret') ON DUPLICATE KEY UPDATE hodnota = VALUES(hodnota)" > /dev/null

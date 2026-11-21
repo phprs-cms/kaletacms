@@ -482,8 +482,8 @@ final class Applications extends Module
             return $this->back('The webhook address must start with https:// – nothing was saved.', 'settings', [], 'chyba');
         }
         $s->set(\Kaleta\Core\TalentPool::WEBHOOK_SETTING, $webhook); // 3.40: the number and the position only
-        // 3.48 B (U40): the periods are set in Settings → Privacy and cookies; a page of 3.47 still open posts them and they are
-        // saved as before (a shorter one goes to the change log) – a form without them leaves them as they are (until 3.50)
+        // 3.48 B (U40): the periods are set in Settings → Privacy and cookies; a page of 3.47 still open posts them – 3.50.1 (D1):
+        // a longer one is saved, a shorter one waits on the confirmation screen; a form without them leaves them as they are
         $legacy = [];
         if ($this->request->hasPost('applications_months')) {
             $legacy['applications_months'] = (string) max(0, min(120, $this->request->postInt('applications_months')));
@@ -491,7 +491,7 @@ final class Applications extends Module
         if ($this->request->hasPost('applications_pool_months')) {
             $legacy['applications_pool_months'] = (string) max(1, min(60, $this->request->postInt('applications_pool_months')));
         }
-        \Kaleta\Core\Retention::saveUnconfirmed($this->app, Store::SECTION, $legacy);
+        $held = \Kaleta\Core\Retention::saveOrHold($this->app, $legacy);
         $full = $this->request->postBool('applications_notify_full');
         if ($full !== $s->bool('applications_notify_full')) { // 3.46.2: the change log says when the details started or stopped leaving the site
             ChangeLog::write($this->app, Store::SECTION, 'settings', $full ? t('The notification e-mail carries the applicant’s full details') : t('The notification e-mail carries the position and the links only'));
@@ -507,6 +507,11 @@ final class Applications extends Module
         $s->set('application_templates', self::templatesToStore($s, $posted));
         Store::confirmRetention($this->app); // 3.34 review H1: an administrator saw the retention – N8: the applications there now follow it
         ChangeLog::write($this->app, Store::SECTION, 'settings', '');
+        if ($held !== []) {
+            $this->app->session->flash('info', t('Settings saved. A shorter retention period makes data go sooner – confirm it below.'));
+
+            return Response::redirect(\Kaleta\Core\Retention::confirmationUrl($this->app, $held));
+        }
 
         return $this->back('The settings of applications were saved.', 'settings');
     }

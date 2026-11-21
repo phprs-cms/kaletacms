@@ -14,6 +14,7 @@ expect "3.34 review H1: the settings tab says how many moved applications wait (
 curl -s -b "$JAR" -o "$WORK/h1-list.html" "$B/admin.php?module=applications&status="
 expect "3.34 review H1: the list says it too" "$(grep -c 'data-applications-retention-pending' "$WORK/h1-list.html")" "1"
 curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=applications&action=settings_save" -d "_csrf=$(csrf)" -d applications_months=6 -d applications_pool_months=12 -d applications_claude=1
+retention_apply applications_months=6 applications_pool_months=12 # 3.50.1: a shorter period is confirmed on the retention screen
 expect "3.34 review H1: saving the settings confirms the retention (second review N8: up to the highest application id)" "$(sq "SELECT CAST(hodnota AS UNSIGNED) >= $H1_MOVED FROM ka_nastaveni WHERE promenna = 'applications_retention_confirmed'")" "1"
 t334_php 'Kaleta\Core\Applications::purge($app);' > /dev/null
 expect "3.34 review H1: confirmed – the moved application past the retention goes with the next clean-up" "$(sq "SELECT COUNT(*) FROM ka_applications WHERE id = $H1_MOVED")" "0"

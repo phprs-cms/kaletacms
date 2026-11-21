@@ -118,11 +118,13 @@ final class Whistleblowing
 
     /**
      * Saves the setup (administrators only – the module checks). Readers that are not administrators get the module
-     * permission, so they can open it; readers taken off the list lose it again. $retentionMonths null leaves the period.
+     * permission, so they can open it; readers taken off the list lose it again. $retentionMonths null leaves the period;
+     * 3.50.1 (D1): a shorter one is not saved but returned for the confirmation screen (Retention::saveOrHold).
      *
      * @param list<int> $readers
+     * @return array<string, string> the retention held for the confirmation (setting => value), empty when nothing waits
      */
-    public static function saveSetup(App $app, bool $on, array $readers, string $intro, ?int $retentionMonths): void
+    public static function saveSetup(App $app, bool $on, array $readers, string $intro, ?int $retentionMonths): array
     {
         $db = $app->db();
         $s = $app->settings();
@@ -132,8 +134,9 @@ final class Whistleblowing
         $s->set('whistleblowing_enabled', $on ? '1' : '0');
         $s->set('whistleblowing_readers', implode(',', $valid));
         $s->set('whistleblowing_intro', mb_substr(trim($intro), 0, 5000));
+        $held = [];
         if ($retentionMonths !== null) { // 3.48 B: null = the form did not carry it (set in Settings → Privacy and cookies)
-            Retention::saveUnconfirmed($app, 'whistleblowing', ['whistleblowing_retention_months' => (string) max(1, min(120, $retentionMonths))]);
+            $held = Retention::saveOrHold($app, ['whistleblowing_retention_months' => (string) max(1, min(120, $retentionMonths))]);
         }
         foreach (array_diff($before, $valid) as $gone) {
             $db->delete('uzivatele_prava', ['fk_id_user' => $gone, 'ident_modulu' => 'whistleblowing']);
@@ -142,6 +145,8 @@ final class Whistleblowing
             $db->run('INSERT IGNORE INTO {uzivatele_prava} (fk_id_user, ident_modulu) VALUES (?, ?)', [$id, 'whistleblowing']);
         }
         ChangeLog::write($app, 'whistleblowing', 'setup', ($on ? 'on' : 'off') . ', readers: ' . implode(', ', $valid));
+
+        return $held;
     }
 
     /* ---------- encryption (the same scheme as Core\Connectors, its own key) ---------- */

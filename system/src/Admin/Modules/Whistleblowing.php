@@ -67,8 +67,14 @@ final class Whistleblowing extends Module
             return $this->back();
         }
         $readers = array_map('intval', array_filter($this->request->postList('readers'), 'is_numeric'));
-        // 3.48 B (U40): the period is set in Settings → Privacy and cookies; a page of 3.47 still open posts it (until 3.50)
-        Channel::saveSetup($this->app, $this->request->postBool('enabled'), $readers, $this->request->post('intro'), $this->request->hasPost('retention') ? $this->request->postInt('retention', Channel::DEFAULT_RETENTION_MONTHS) : null);
+        // 3.48 B (U40): the period is set in Settings → Privacy and cookies; a page of 3.47 still open posts it – 3.50.1 (D1):
+        // a shorter one waits on the confirmation screen of Settings
+        $held = Channel::saveSetup($this->app, $this->request->postBool('enabled'), $readers, $this->request->post('intro'), $this->request->hasPost('retention') ? $this->request->postInt('retention', Channel::DEFAULT_RETENTION_MONTHS) : null);
+        if ($held !== []) {
+            $this->app->session->flash('info', t('Settings saved. A shorter retention period makes data go sooner – confirm it below.'));
+
+            return Response::redirect(\Kaleta\Core\Retention::confirmationUrl($this->app, $held));
+        }
 
         return $this->back($readers === [] && $this->request->postBool('enabled') ? 'Saved. Choose at least one reader – until then nobody can open the reports.' : 'Saved.');
     }

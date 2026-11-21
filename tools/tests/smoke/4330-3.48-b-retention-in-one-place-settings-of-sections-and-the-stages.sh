@@ -67,12 +67,15 @@ b348_post 'module=whistleblowing' 'module=whistleblowing&action=settings' $([ "$
 expect "3.48 B2: Enquiries, Applications, Quotes and Whistleblowing saved without their retention fields leave every period unchanged" "$(b348_periods)|$(b348_get triage_assistant)" "$B348_BEFORE|1"
 expect "3.48 B2: the four screens show the period as a line that links to the Privacy tab" \
   "$(b348_page 'module=enquiries' > /dev/null; b348_has 'data-retention="enquiries"')$(b348_page 'module=quotes&action=settings' > /dev/null; b348_has 'data-retention="quotes"')$(b348_page 'module=applications&action=settings' > /dev/null; b348_has 'data-retention="talent_pool"')$(b348_page 'module=whistleblowing' > /dev/null; b348_has 'data-retention="whistleblowing"')|$(b348_has 'module=settings&amp;tab=cookies#whistleblowing_retention_months')" "1111|1"
-# a page of 3.47 still open posts the old fields: saved as before, a shorter period goes to the change log
+# a page of 3.47 still open posts the old fields: 3.50.1 (D1) – a longer period is saved at once, a shorter one is held for the
+# confirmation screen of Settings (not saved, nothing in the change log until it is confirmed there)
 B348_ELOG=$(b348_logged enquiries)
-b348_post 'module=enquiries' 'module=enquiries&action=settings' -d mesice=6 -d mesice_uchazeci=9 -d po_uplynuti=anonymise -d contacts_months=30 > /dev/null
+B348_HELD=$(b348_post 'module=enquiries' 'module=enquiries&action=settings' -d mesice=6 -d mesice_uchazeci=9 -d po_uplynuti=anonymise -d contacts_months=30)
 b348_post 'module=quotes&action=settings' 'module=quotes&action=settings_save' -d quote_number_format='{YYYY}-{NNNN}' -d quote_valid_days=30 -d quote_vat_rate=21 -d quote_vat_rates=21 -d quote_max_discount=20 -d quote_link_days=30 -d quote_vat_payer=1 -d quotes_months=24 > /dev/null
-expect "3.48 B2: a legacy POST with the fields still saves (until 3.50); the shorter enquiries period is in the change log" \
-  "$(b348_get enquiries_months)|$(b348_get quotes_months)|$(( $(b348_logged enquiries) - B348_ELOG ))" "6|24|1"
+expect "3.50.1 D1: a legacy POST saves the longer quotes period; the shorter enquiries period is held for the confirmation screen, not saved and not logged" \
+  "$(b348_get enquiries_months)|$(b348_get quotes_months)|$(( $(b348_logged enquiries) - B348_ELOG ))|$(printf '%s' "$B348_HELD" | grep -c 'module=settings&action=retention&enquiries_months=6$')" "18|24|0|1"
+retention_apply enquiries_months=6
+expect "3.50.1 D1: confirmed on the screen the shorter enquiries period is saved" "$(b348_get enquiries_months)" "6"
 
 # update_settings: cookies_log_months stays settable; a shorter value is logged with both values
 B348_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")

@@ -30,6 +30,15 @@ SITE_TZ=Europe/Prague; export TZ="$SITE_TZ"
 php() { command php -d date.timezone="$SITE_TZ" "$@"; }
 site_time() { php -r 'echo date($argv[2], strtotime($argv[1]));' -- "${1:-now}" "${2:-Y-m-d H:i:s}"; } # site_time ['-1 hour'|tomorrow…] [format]
 site_date() { site_time "$1" Y-m-d; }
+# retention_apply <setting=value>…: 3.50.1 (D1) – a shorter retention posted through a section's old field names waits on the
+# confirmation screen of Settings; this confirms it there (choice=apply), as the administrator does
+retention_apply() {
+  local fields=() kv
+  for kv in "$@"; do fields+=(-d "$kv"); done
+  curl -s -b "$JAR" -c "$JAR" -o "$WORK/retention-apply.html" "$B/admin.php?module=settings&tab=cookies"
+  curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=settings&action=retention" -d choice=apply \
+    -d "_csrf=$(grep -o -m1 'name="_csrf" value="[a-f0-9]*"' "$WORK/retention-apply.html" | head -1 | sed 's/.*value="//;s/"//')" "${fields[@]}"
+}
 # run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
 run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' -- "$1"); }
 # setting_plain <key>: a setting as the site reads it – 3.39 (N106): a secret setting is stored sealed with the key in config.php

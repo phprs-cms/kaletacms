@@ -645,8 +645,8 @@ final class Enquiries extends Module
     /**
      * The settings of Enquiries (administrator only): the writing assistant. 3.48 B (U40): the retention periods moved to
      * Settings → Privacy and cookies – a page of 3.47 still open posts them under their old names (mesice, mesice_uchazeci,
-     * po_uplynuti, contacts_months) and they are saved as before, a shorter one written to the change log; a form without
-     * them leaves every period as it is. 3.50 drops the old fields.
+     * po_uplynuti, contacts_months); 3.50.1 (D1): a longer period or the same rule is saved at once, a shorter one waits on
+     * the confirmation screen of Settings (Retention::saveOrHold); a form without them leaves every period as it is.
      */
     protected function actionSettings(): Response
     {
@@ -660,8 +660,13 @@ final class Enquiries extends Module
             if ($this->request->hasPost('po_uplynuti')) {
                 $legacy['enquiries_expiry'] = $this->request->post('po_uplynuti') === 'anonymise' ? 'anonymise' : 'delete';
             }
-            \Kaleta\Core\Retention::saveUnconfirmed($this->app, 'enquiries', $legacy);
+            $held = \Kaleta\Core\Retention::saveOrHold($this->app, $legacy);
             $this->app->settings()->set('triage_assistant', $this->request->postBool('triage_assistant') ? '1' : '0');
+            if ($held !== []) {
+                $this->app->session->flash('info', t('Settings saved. A shorter retention period makes data go sooner – confirm it below.'));
+
+                return Response::redirect(\Kaleta\Core\Retention::confirmationUrl($this->app, $held));
+            }
         }
 
         return $this->back('Enquiry settings saved.');
