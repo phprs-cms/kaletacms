@@ -496,6 +496,9 @@ final class Enquiries extends Module
         if (($refusal = $this->fileLinkRefusal($this->request->getInt('id'), $this->request->getInt('field'), $this->url('detail', ['id' => $this->request->getInt('id')]))) !== null) {
             return $refusal;
         }
+        if (($confirmation = $this->downloadConfirmation()) !== null) { // 3.50 L11
+            return $confirmation;
+        }
         $p = $this->findVisible($this->request->getInt('id'), 'data');
         $item = ($p !== null ? (json_decode((string) $p['data'], true) ?: []) : [])[$this->request->getInt('field')] ?? null;
         $path = is_array($item) && preg_match('#^\d{4}/\d{2}/[a-f0-9]{24}\.[a-z0-9]{2,5}$#D', (string) ($item[2] ?? '')) ? KALETA_ROOT . '/storage/prilohy/' . $item[2] : null;

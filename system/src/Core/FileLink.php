@@ -85,6 +85,24 @@ final class FileLink
         return 'admin.php?' . http_build_query(['module' => $section, 'action' => 'attachment', 'id' => $id, self::SECTIONS[$section] => $file, 'expires' => $expires, 'sig' => $signature]);
     }
 
+    /**
+     * 3.50 L9: the link of the request as the sign-in may come back to it – only a link whose signature holds and whose
+     * day has not passed (check() = ok); null for anything else, so a made-up or dead link never waits in the session.
+     * Pure apart from reading the given parameters.
+     *
+     * @param array<string, mixed> $query the query of the request
+     */
+    public static function rememberable(string $key, array $query, int $now): ?string
+    {
+        $link = self::fromQuery($query);
+        if ($link === null) {
+            return null;
+        }
+        $section = (string) $query['module'];
+
+        return self::check($key, $section, (int) $query['id'], (int) $query[self::SECTIONS[$section]], (int) $query['expires'], (string) $query['sig'], $now) === 'ok' ? $link : null;
+    }
+
     /** A file name that says nothing of the person (pure): "<kind>-<record>-<file number>.<extension of the original>". */
     public static function neutralName(string $kind, int $id, int $file, string $original): string
     {

@@ -17,9 +17,27 @@ final class Publisher
 {
     public const int VERSIONS_KEPT = 20;
 
+    /** 3.50 N132: the refusal of a publish that would remove an application form (Translator::MESSAGES has it in English). */
+    public const string APPLICATION_FORM_REFUSED = Build::APPLICATION_FORM_REFUSED;
+
+    /**
+     * 3.50 N132: a person who may not open Applications (Build::$purposeAllowed false) cannot publish a build that drops an
+     * application form of the published one – later applications would arrive as ordinary enquiries with their CVs
+     * unencrypted. Null (imports, the CLI) counts as allowed; saving the draft is never refused.
+     *
+     * @throws \DomainException
+     */
+    public static function guard(array $row): void
+    {
+        if (Build::$purposeAllowed === false && Build::droppedApplicationForms($row['stavba'] ?? null, $row['stavba_koncept'] ?? $row['stavba'] ?? null) !== []) {
+            throw new \DomainException(self::APPLICATION_FORM_REFUSED);
+        }
+    }
+
     /** Page: the content without the layout is saved into the text – search, llms.txt, the API and the return to text draw on it. */
     public static function page(App $app, array $page): void
     {
+        self::guard($page);
         $new = $page['stavba_koncept'] ?? $page['stavba'];
         self::version($app, ['ids' => $page['ids']], $page['stavba'], $new, $page['zmeneno'] ?? null);
         $text = Build::asText(Build::fromJson($new) ?? []);
@@ -35,6 +53,7 @@ final class Publisher
 
     public static function part(App $app, array $row): void
     {
+        self::guard($row);
         $new = $row['stavba_koncept'] ?? $row['stavba'];
         $variant = (string) ($row['varianta'] ?? '');
         self::version($app, ['cast' => SiteParts::versionKey($row['typ'], $row['jazyk'], $variant)], $row['stavba'], $new, $row['zmeneno'] ?? null);
@@ -49,6 +68,7 @@ final class Publisher
      */
     public static function collection(App $app, array $collection): void
     {
+        self::guard($collection);
         $new = $collection['stavba_koncept'] ?? $collection['stavba'];
         self::version($app, ['cast' => Collections::templateKey($collection)], $collection['stavba'], $new, $collection['zmeneno'] ?? null);
         Collections::writeTemplate($app->db(), $collection, ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')]);
@@ -59,6 +79,7 @@ final class Publisher
     /** Popup (versions under the key „popup:<idpp>“). */
     public static function popup(App $app, array $popup): void
     {
+        self::guard($popup);
         $new = $popup['stavba_koncept'] ?? $popup['stavba'];
         self::version($app, ['cast' => 'popup:' . (int) $popup['idpp']], $popup['stavba'], $new, $popup['zmeneno'] ?? null);
         $app->db()->update('popupy', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idpp' => $popup['idpp']]);
@@ -69,6 +90,7 @@ final class Publisher
     /** Component (versions under the key „komponenta:<idm>“) – the change shows on all pages where it is used. */
     public static function component(App $app, array $component): void
     {
+        self::guard($component);
         $new = $component['stavba_koncept'] ?? $component['stavba'];
         self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);

@@ -254,6 +254,9 @@ final class Applications extends Module
         if (($refusal = $this->fileLinkRefusal($id, $index, $this->url('detail', ['id' => $id]))) !== null) {
             return $refusal;
         }
+        if (($confirmation = $this->downloadConfirmation()) !== null) { // 3.50 L11
+            return $confirmation;
+        }
         $info = Store::attachmentInfo($this->app, $id, $index);
         if ($info !== null && !\Kaleta\Core\SealedFiles::roomFor($info['size'])) { // a message, never a fatal error (as Internal files)
             return $this->error('The file is too large to open with the memory this server allows a request (memory_limit). Ask your hosting to raise it.', 503);

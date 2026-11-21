@@ -186,7 +186,8 @@ trait ApplicationTools
         if ($template !== '' && !isset(Applications::TEMPLATES[$template])) {
             throw new \InvalidArgumentException('template must be ' . implode(' | ', array_keys(Applications::TEMPLATES)) . '.');
         }
-        $composed = $template !== '' ? Applications::compose($this->app->settings(), $application, $template) : ['subject' => '', 'text' => ''];
+        // 3.50 N129: the template is filled like an automatic e-mail – a "name" that carries text (a link, a sentence) is left out
+        $composed = $template !== '' ? Applications::compose($this->app->settings(), $application, $template, true) : ['subject' => '', 'text' => ''];
         $text = is_string($a['text'] ?? null) && trim($a['text']) !== '' ? $a['text'] : $composed['text'];
         $subject = is_string($a['subject'] ?? null) && trim($a['subject']) !== '' ? $a['subject'] : $composed['subject'];
         if (trim($text) === '') {
@@ -195,7 +196,7 @@ trait ApplicationTools
         $status = is_string($a['set_status'] ?? null) && trim($a['set_status']) !== '' ? strtolower(trim($a['set_status'])) : null;
         $result = Language::runWith('en', fn (): array => Applications::reply($this->app, $id, $subject, $text, $status, is_string($a['reject_reason'] ?? null) ? $a['reject_reason'] : '', 'mcp'), 'admin-');
 
-        return ['id' => $id] + $result + ['next' => $result['status'] === 'sent'
+        return ['id' => $id] + $result + ['text_sent' => $text, 'next' => $result['status'] === 'sent'
             ? 'Tell the user the reply went out. It is in the application\'s history in the administration.'
             : 'The mail server refused for now; the site retries in a few minutes. Tell the user.'];
     }

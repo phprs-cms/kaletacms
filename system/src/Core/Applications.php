@@ -125,7 +125,7 @@ final class Applications
             foreach ($collections as $c) {
                 if ((int) $c['idk'] === (int) $m[1]) {
                     $slug = \Kaleta\Front\EnquiryTopic::itemSlug((string) $c['seo_link'], $back);
-                    $row = $slug === null ? null : $db->one('SELECT idp, idk, nazev, valid_until FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND smazano IS NULL ORDER BY jazyk = ? DESC LIMIT 1',
+                    $row = $slug === null ? null : $db->one('SELECT idp, idk, nazev, valid_until FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND smazano IS NULL AND zobrazit = 1 ORDER BY jazyk = ? DESC LIMIT 1',
                         [(int) $c['idk'], $slug, Language::siteColumn()]);
                 }
             }
@@ -287,10 +287,12 @@ final class Applications
         $record = rtrim($s->get('site_url') !== '' ? $s->get('site_url') : $app->request->origin(), '/') . $app->url(self::adminPath($id));
         [$subject, $text] = self::notification($s, $id, $position, $full ? $data : [], $record, FileLink::text($files));
         $replyTo = $full && $email !== '' ? ['Reply-To' => $email] : [];
-        Mail::send($s, implode(', ', $to), $subject, $text, '', $replyTo, true, $subject);
+        $expires = time() + FileLink::DAYS * 86400; // 3.50 L8: a queued copy expires with its links and stays out of backups
+        $ok = Mail::send($s, implode(', ', $to), $subject, $text, '', $replyTo, true, $subject, [], $expires);
         [, $copy] = self::notification($s, $id, $position, $full ? $data : [], $record);
         foreach ($bcc as $address) {
-            Mail::send($s, $address, $subject, $copy, '', $replyTo, true, $subject); // each hidden recipient alone – nobody sees the others
+            // each hidden recipient alone – nobody sees the others; 3.50 L2: queued without a try once a delivery failed
+            $ok = Mail::send($s, $address, $subject, $copy, '', $replyTo, true, $subject, [], $expires, $ok);
         }
     }
 

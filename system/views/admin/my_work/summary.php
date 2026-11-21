@@ -63,8 +63,8 @@ $to = substr($summary['to'], 11) === '00:00:00' ? (new DateTimeImmutable($summar
 <?php if ($summary['team'] === null): ?>
 	<td colspan="<?= count($counts) ?>" data-team-hidden><?= e(t(TeamSummary::FEW_PEOPLE)) ?></td>
 <?php else: ?>
-<?php foreach ($counts as $count): ?>
-	<?= $cell($count, $summary['team'][$count] ?? 0) ?>
+<?php foreach ($counts as $count): // 3.50 N148: a count too few other people share is not shown ?>
+	<?= isset($summary['team'][$count]) ? $cell($count, $summary['team'][$count]) : '<td class="cislo" data-count="' . e($count) . '" title="' . e(t(TeamSummary::FEW_PEOPLE)) . '">–</td>' ?>
 <?php endforeach ?>
 <?php endif ?>
 </tr>

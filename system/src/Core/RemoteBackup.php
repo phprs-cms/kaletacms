@@ -626,9 +626,13 @@ final class RemoteBackup
 
         $list = fn (): array => array_values(array_map('basename', array_map('strval', @ftp_nlist($connection, '.') ?: [])));
         $delete = function (string $name) use ($connection): void {
-            // 3.46.1 (N2): a file that is not there (deleted by hand, never on this server) counts as deleted
-            if (!@ftp_delete($connection, $name) && in_array(basename($name), array_map('basename', array_map('strval', @ftp_nlist($connection, dirname($name)) ?: [])), true)) {
-                throw new \RuntimeException(t('The file %s could not be deleted on the FTP server.', $name));
+            // 3.46.1 (N2): a file that is not there (deleted by hand, never on this server) counts as deleted – 3.50 N169: only
+            // when the listing itself succeeded; a refused or broken listing keeps the entry for the next run
+            if (!@ftp_delete($connection, $name)) {
+                $listing = @ftp_nlist($connection, dirname($name));
+                if (!self::listingLacks($listing, $name)) {
+                    throw new \RuntimeException(t('The file %s could not be deleted on the FTP server.', $name));
+                }
             }
         };
 
@@ -637,6 +641,23 @@ final class RemoteBackup
         };
 
         return [$put, $close, $list, $delete];
+    }
+
+    /**
+     * 3.50 N169: does a listing that succeeded lack the file? False for a failed listing (false) – then nothing is known. The
+     * names may come with their folder (ftp_nlist) or bare (a cURL listing). Pure.
+     *
+     * @param list<string>|array<int, string>|false $listing
+     */
+    public static function listingLacks(array|false $listing, string $name): bool
+    {
+        return is_array($listing) && !in_array(basename($name), array_map(fn (mixed $n): string => basename(trim((string) $n)), $listing), true);
+    }
+
+    /** 3.50 N169: does an S3 answer to a DELETE say the object is gone – 204 is success; a 404 only with NoSuchKey. Pure. */
+    public static function s3Gone(int $status, string $errorCode): bool
+    {
+        return $status === 404 && $errorCode === 'NoSuchKey';
     }
 
     /**
@@ -680,15 +701,20 @@ final class RemoteBackup
         $list = fn (): array => array_values(array_filter(array_map('trim', explode("\n", $command([CURLOPT_DIRLISTONLY => true]))), fn (string $n): bool => $n !== ''));
         // review M6: cURL sends QUOTE commands right after the sign-in, before it changes into the folder of the address – the
         // DELE names the file by its full path (ftpDeleteCommand), so it deletes in the backup folder and nowhere else
-        $delete = function (string $name) use ($command, $folder, $host, $s): void {
+        $delete = function (string $name) use ($command, $folder, $host): void {
             try {
                 $command([CURLOPT_QUOTE => [self::ftpDeleteCommand($folder, $name)], CURLOPT_NOBODY => true]);
             } catch (\RuntimeException $e) {
                 // 3.46.1 (N2): a DELE refused because the file is not there (deleted by hand, never on this server) counts as
-                // deleted – the file itself is asked for, and only "no such file" (cURL 78) lets it go
-                $probe = curl_init();
-                curl_setopt_array($probe, [CURLOPT_URL => self::ftpUrl($host, $folder, $name), CURLOPT_NOBODY => true, CURLOPT_UPLOAD => false] + self::ftpsOptions($s->get('backup_user'), $s->get('backup_password')));
-                if (curl_exec($probe) !== false || curl_errno($probe) !== 78 /* CURLE_REMOTE_FILE_NOT_FOUND */) {
+                // deleted – 3.50 N169: only when a listing of its folder succeeds and lacks the name (cURL's 78 also stands for
+                // "not allowed to read", so the file itself is no proof); a failed listing keeps the entry
+                $dir = dirname($name);
+                try {
+                    $listing = explode("\n", $command([CURLOPT_DIRLISTONLY => true] + ($dir !== '.' ? [CURLOPT_URL => rtrim(self::ftpUrl($host, $folder, $dir), '/') . '/'] : [])));
+                } catch (\RuntimeException) {
+                    $listing = false;
+                }
+                if (!self::listingLacks($listing, $name)) {
                     throw $e;
                 }
             }
@@ -762,7 +788,9 @@ final class RemoteBackup
             $response = (string) curl_exec($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
             if ($code < 200 || $code >= 300) {
-                throw new \RuntimeException(t('The storage refused the request (code %s)', (string) $code) . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : '') . '.', $code);
+                // 3.50 N169: the storage's own error code (NoSuchKey, NoSuchBucket…) travels as the previous exception's message
+                throw new \RuntimeException(t('The storage refused the request (code %s)', (string) $code) . (preg_match('#<Message>([^<]+)#', $response, $m) ? ': ' . $m[1] : '') . '.', $code,
+                    new \RuntimeException(preg_match('#<Code>([^<]+)</Code>#', $response, $c) === 1 ? $c[1] : ''));
             }
 
             return $response;
@@ -791,7 +819,9 @@ final class RemoteBackup
             try {
                 $request('DELETE', '/' . implode('/', array_map(rawurlencode(...), explode('/', $bucket . '/' . $name))), []);
             } catch (\RuntimeException $e) {
-                if ($e->getCode() !== 404) { // 3.46.1 (N2): an object that is not there counts as deleted
+                // 3.46.1 (N2): an object that is not there counts as deleted – 3.50 N169: only a 404 that says NoSuchKey (a
+                // mistyped bucket answers 404 NoSuchBucket to everything)
+                if (!self::s3Gone($e->getCode(), $e->getPrevious()?->getMessage() ?? '')) {
                     throw $e;
                 }
             }

@@ -11,7 +11,7 @@ check('[source-pin] 3.32: the notification subject – "<form>: <site> – <name
     Kaleta\Front\Forms::notificationSubject('Contact', 'Hartsteel', 'olivia@example.com', [['Name', 'other@example.org']]),
     str_contains($r332Mail, "'predmet' => mb_substr(\$logSubject !== '' ? \$logSubject : \$subject, 0, 255)"), str_contains($r332Mail, "(\$logSubject !== '' ? ['predmet' => \$subject] : [])"),
     str_contains($r332Mail, "is_string(\$body['predmet'] ?? null) ? \$body['predmet'] : \$z['predmet']"),
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php'), 'Mail::send($siteSettings, implode(\', \', $to), $subject, $body(\Kaleta\Core\FileLink::text($files)), \'\', $headers, true, $base);')], // 3.46.2: the file links
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Front/Forms.php'), 'Mail::send($siteSettings, implode(\', \', $to), $subject, $body(\Kaleta\Core\FileLink::text($files)), \'\', $headers, true, $base, [], $expires);')], // 3.46.2: the file links; 3.50 L8: with their expiry
     [['Contact: Hartsteel – Olivia Hart', 'Contact: Hartsteel'], ['Contact: Hartsteel – Bracket Works Ltd', 'Contact: Hartsteel'], ['Contact: Hartsteel', 'Contact: Hartsteel'], ['Contact: Hartsteel', 'Contact: Hartsteel'],
         true, true, true, true]);
 

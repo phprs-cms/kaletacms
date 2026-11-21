@@ -139,7 +139,8 @@ final class EmailSignature
         $role = $value($keys['role']);
         $phone = $value($keys['phone']) !== '' ? $value($keys['phone']) : trim($site['phone']);
         $email = filter_var($value($keys['email']), FILTER_VALIDATE_EMAIL) !== false ? $value($keys['email']) : '';
-        $photo = self::absolute($value($keys['photo']), $site['base']);
+        // 3.50 N133: the photo only from the site's media (Colleagues::photo) – a remote image would track every recipient
+        $photo = self::absolute(\Kaleta\Core\Colleagues::photo($value($keys['photo'])), $site['base']);
         $url = preg_match('#^https?://[^\s"<>]+$#D', $site['url']) ? $site['url'] : '';
         $host = (string) preg_replace('#^https?://|/$#', '', $url);
         $address = trim($site['address']);

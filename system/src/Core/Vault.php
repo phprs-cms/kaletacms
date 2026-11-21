@@ -106,7 +106,9 @@ final class Vault
     public static function describe(string $state): string
     {
         return match ($state) {
-            'config' => t('Connector secrets, whistleblowing reports, the keys of job applicants’ CVs, the passwords and keys in the settings and the sign-in app secrets are encrypted with a key that is in config.php, not in the database – a stolen database or local backup alone does not reveal them.'),
+            'config' => t('Connector secrets, whistleblowing reports, the keys of job applicants’ CVs, the passwords and keys in the settings and the sign-in app secrets are encrypted with a key that is in config.php, not in the database – a stolen database or local backup alone does not reveal them.')
+                // 3.50 N131: the header of a CV sealed before the move keeps its old wrapping – said, not re-wrapped
+                . ' ' . t('One exception: a CV file sealed before the key moved here, or before the signing key was replaced, still opens with the old key – together with a copy of storage/applications, an old database backup reveals it.'),
             'pending' => t('The encryption key is already in config.php, but the stored secrets, reports and CV keys are still encrypted with the old key in the database, and the passwords and keys in the settings are in plain text. Finish the move in Settings → Backups and updates.'),
             'missing' => t('The stored secrets, reports, the keys of job applicants’ CVs and the passwords in the settings belong to an encryption key that this config.php does not have, so they cannot be read – the CVs cannot be opened, and e-mail over SMTP, off-site backups and codes from a sign-in app stop working (backup codes still work). Put back the line with vault_key from the config.php of the site this database comes from.'),
             default => t('Connector secrets, whistleblowing reports and the keys of job applicants’ CVs are encrypted with a key kept in the database, and the passwords and keys in the settings and the sign-in app secrets are in plain text – every database backup holds them. Move the key to config.php in Settings → Backups and updates.'),

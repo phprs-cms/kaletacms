@@ -239,6 +239,30 @@ abstract class Module
             'link' => ['text' => t('Open the record'), 'url' => $detailUrl]]), 410);
     }
 
+    /**
+     * 3.50 L11: a download opened from another site (Sec-Fetch-Site cross-site or same-site – a link in webmail, or a page
+     * that points a signed-in colleague at a guessed record) shows one Download button instead of the file: the file and
+     * its change-log line come only with the colleague's own click (a POST with the session's token). A link from the
+     * administration itself, and a browser that sends no such header, download at once. Null = download now.
+     */
+    protected function downloadConfirmation(): ?Response
+    {
+        $site = strtolower(trim((string) ($this->request->serverValues()['HTTP_SEC_FETCH_SITE'] ?? '')));
+        if ($this->request->isPost() || !in_array($site, ['cross-site', 'same-site'], true)) {
+            return null;
+        }
+        $query = [];
+        foreach (['module', 'action', 'id', 'index', 'field', 'expires', 'sig'] as $name) {
+            if ($this->request->has($name)) {
+                $query[$name] = $this->request->get($name);
+            }
+        }
+
+        return $this->kernel->page('Download', '<p>' . e(t('The link came from another page. Download the file with the button – a link elsewhere cannot do it in your name.')) . '</p>'
+            . '<form method="post" action="' . e($this->app->url('admin.php?' . http_build_query($query))) . '">' . $this->app->session->csrfField()
+            . '<p class="navigace-radek"><button class="tl" type="submit">' . e(t('Download')) . '</button></p></form>');
+    }
+
     public function app(): App
     {
         return $this->app;

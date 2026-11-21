@@ -77,7 +77,7 @@ final class FileSignature
             'gif' => str_starts_with($head, 'GIF87a') || str_starts_with($head, 'GIF89a'),
             'webp' => str_starts_with($head, 'RIFF') && substr($head, 8, 4) === 'WEBP',
             'wav' => str_starts_with($head, 'RIFF') && substr($head, 8, 4) === 'WAVE',
-            'mp3' => str_starts_with($head, 'ID3') || (strlen($head) > 1 && ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0),
+            'mp3' => str_starts_with($head, 'ID3') || self::mp3Frame($head),
             'm4a', 'mp4' => substr($head, 4, 4) === 'ftyp',
             'ogg' => str_starts_with($head, 'OggS'),
             'webm' => str_starts_with($head, "\x1A\x45\xDF\xA3"),
@@ -90,6 +90,24 @@ final class FileSignature
         };
 
         return $ok ? $type : '';
+    }
+
+    /**
+     * 3.50 L4: the start of an MPEG audio Layer III frame – the sync bits, a version that is not reserved, layer III, a
+     * bit-rate index that is neither "free" nor "bad" and a sample rate that is not reserved. A UTF-16 text with a byte
+     * order mark (FF FE) or any other "FF Ex" start is no MP3. Pure.
+     */
+    public static function mp3Frame(string $head): bool
+    {
+        if (strlen($head) < 3 || ord($head[0]) !== 0xFF || (ord($head[1]) & 0xE0) !== 0xE0) {
+            return false;
+        }
+        $version = (ord($head[1]) >> 3) & 0x03;
+        $layer = (ord($head[1]) >> 1) & 0x03;
+        $bitrate = (ord($head[2]) >> 4) & 0x0F;
+        $sampleRate = (ord($head[2]) >> 2) & 0x03;
+
+        return $version !== 0x01 && $layer === 0x01 && $bitrate !== 0x00 && $bitrate !== 0x0F && $sampleRate !== 0x03;
     }
 
     /** A program or a script, whatever the extension says: MZ (Windows), ELF, Mach-O, #! (pure). */
@@ -153,9 +171,44 @@ final class FileSignature
         if ((int) filesize($path) > self::ZIP_SCAN) {
             return false;
         }
-        $raw = (string) file_get_contents($path);
+        $found = self::scan($path, ['[Content_Types].xml', $folder, 'vbaproject.bin']);
 
-        return str_contains($raw, '[Content_Types].xml') && str_contains($raw, $folder) && stripos($raw, 'vbaProject.bin') === false;
+        return $found['[Content_Types].xml'] && $found[$folder] && !$found['vbaproject.bin'];
+    }
+
+    /** How much of a file scan() holds at once (3.50 L6: never the whole file – a large document could exhaust memory_limit). */
+    private const int SCAN_PIECE = 1024 * 1024;
+
+    /**
+     * 3.50 L6: which of the strings occur in the file (case-insensitive), read in SCAN_PIECE pieces that overlap by the
+     * longest string, so a string split between two pieces is still found.
+     *
+     * @param list<string> $needles
+     * @return array<string, bool>
+     */
+    public static function scan(string $path, array $needles, int $piece = self::SCAN_PIECE): array
+    {
+        $found = array_fill_keys($needles, false);
+        $overlap = max(array_map('strlen', $needles)) - 1;
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            return $found;
+        }
+        $tail = '';
+        while (!feof($handle) && in_array(false, $found, true)) {
+            $chunk = fread($handle, max(1, $piece));
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            $window = strtolower($tail . $chunk);
+            foreach ($needles as $needle) {
+                $found[$needle] = $found[$needle] || str_contains($window, strtolower($needle));
+            }
+            $tail = $overlap > 0 ? substr($window, -$overlap) : '';
+        }
+        fclose($handle);
+
+        return $found;
     }
 
     /** An OpenDocument or EPUB file of this kind: its "mimetype" entry says so (with ZipArchive, else the first entry). */

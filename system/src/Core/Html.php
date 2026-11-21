@@ -20,6 +20,21 @@ final class Html
     private const array DISCARD = ['script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'input', 'button', 'select', 'textarea',
         'template', 'noscript', 'noembed', 'noframes', 'xmp', 'plaintext', 'svg', 'math', 'link', 'meta', 'base', 'head', 'title', 'dialog', 'portal'];
 
+    /**
+     * 3.50 I49: the elements a text keeps – the text-level and structural elements of HTML, tables, lists, media without
+     * frames, and Kaleta's own import marker (kaleta-widget, Core\WebImport). Any other element (a custom one, one a future
+     * browser may load something from) is unwrapped: its content stays, the element goes. DISCARD wins over this list.
+     */
+    private const array ELEMENTS = ['a', 'abbr', 'acronym', 'address', 'area', 'article', 'aside', 'audio', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'br', 'caption',
+        'center', 'cite', 'code', 'col', 'colgroup', 'data', 'dd', 'del', 'details', 'dfn', 'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'font', 'footer',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'i', 'img', 'ins', 'kbd', 'label', 'li', 'main', 'map', 'mark', 'nav', 'ol', 'p', 'picture',
+        'pre', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'section', 'small', 'source', 'span', 'strike', 'strong', 'sub', 'summary', 'sup', 'table', 'tbody', 'td',
+        'tfoot', 'th', 'thead', 'time', 'tr', 'track', 'tt', 'u', 'ul', 'var', 'video', 'wbr', 'kaleta-widget'];
+
+    /** 3.50 I49: the elements an address attribute is kept on – every other element loses it. */
+    private const array URL_ATTRIBUTES = ['href' => ['a', 'area'], 'src' => ['img', 'video', 'audio', 'source', 'track'], 'poster' => ['video'],
+        'cite' => ['blockquote', 'q', 'del', 'ins']];
+
     /** Allowed attributes (besides aria-* and a numeric data-id on an image); the others – mainly on…, style, data-…, formaction, srcdoc – are removed. */
     private const array ATTRIBUTES = ['href', 'src', 'alt', 'title', 'class', 'id', 'width', 'height', 'colspan', 'rowspan', 'scope', 'target', 'rel', 'lang', 'dir',
         'loading', 'decoding', 'srcset', 'sizes', 'start', 'reversed', 'type', 'cite', 'datetime', 'controls', 'poster', 'preload', 'playsinline', 'muted', 'loop'];
@@ -247,15 +262,25 @@ final class Html
             if (!$n instanceof \Dom\Element) {
                 continue;
             }
-            if (in_array(strtolower($n->localName), self::DISCARD, true)) {
+            $element = strtolower($n->localName);
+            if (in_array($element, self::DISCARD, true)) {
+                $n->remove();
+                continue;
+            }
+            if (!in_array($element, self::ELEMENTS, true)) {
+                // 3.50 I49: an element outside the list is unwrapped – its content (sanitized first) takes its place
+                self::node($n);
+                while ($n->firstChild !== null) {
+                    $node->insertBefore($n->firstChild, $n);
+                }
                 $n->remove();
                 continue;
             }
             foreach (iterator_to_array($n->attributes, false) as $a) { // a list: the keys are local names, and xlink:href would hide href (or onload x:onload)
                 $name = strtolower($a->nodeName); // the qualified name: xml:onerror is not onerror
                 $ok = (in_array($name, self::ATTRIBUTES, true) || preg_match('/^aria-[a-z]{2,20}$/', $name)
-                        || ($name === 'data-id' && strtolower($n->localName) === 'img' && ctype_digit($a->value))) // the Media number the editor puts on an image
-                    && (!in_array($name, ['href', 'src', 'poster', 'cite'], true) || WpContent::isSafeUrl($a->value))
+                        || ($name === 'data-id' && $element === 'img' && ctype_digit($a->value))) // the Media number the editor puts on an image
+                    && (!isset(self::URL_ATTRIBUTES[$name]) || (in_array($element, self::URL_ATTRIBUTES[$name], true) && WpContent::isSafeUrl($a->value)))
                     && ($name !== 'srcset' || !preg_match('/(javascript|data|vbscript):/i', $a->value))
                     && ($name !== 'target' || $a->value === '_blank')
                     && ($name !== 'id' || self::isSafeId($a->value));
@@ -270,7 +295,7 @@ final class Html
                     }
                 }
             }
-            if (strtolower($n->localName) === 'a' && $n->getAttribute('target') === '_blank') {
+            if ($element === 'a' && $n->getAttribute('target') === '_blank') {
                 $n->setAttribute('rel', 'noopener');
             }
             self::node($n);

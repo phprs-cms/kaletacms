@@ -170,6 +170,15 @@ final class SignInPolicy
     }
 
     /**
+     * 3.50 N137: does a new site address change the origin passkeys are checked against (Passkey::origin – the scheme, the
+     * host or the port)? A first address (none before) changes nothing. Pure.
+     */
+    public static function originChanges(string $oldUrl, string $newUrl): bool
+    {
+        return Passkey::rpId($oldUrl) !== '' && Passkey::origin($oldUrl) !== Passkey::origin($newUrl);
+    }
+
+    /**
      * 3.35 review L6: the site address as WebAuthn and the browser see it – the scheme and host in lower case, without a
      * trailing dot of the host, an explicit default port (https :443, http :80) or a trailing slash. Anything that is not
      * an http(s) address comes back as typed, for the form's own check. Pure.

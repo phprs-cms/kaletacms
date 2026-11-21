@@ -22,8 +22,8 @@ final class Business extends Settings
     public const bool ADMIN_ONLY = false;
     public const string HUB = 'business';
 
-    /** The fields only an administrator sees and saves. */
-    public const array LEGAL = ['company_id', 'company_vat_id', 'company_register', 'company_representative'];
+    /** The fields only an administrator sees and saves (3.50 N135: the signature template goes into every colleague's replies). */
+    public const array LEGAL = ['company_id', 'company_vat_id', 'company_register', 'company_representative', 'email_signature_template'];
 
     /** The only Settings actions this screen offers – an editor must never reach backups, updates or the firewall through it. */
     public const array ACTIONS = ['list', 'save', 'hours_add', 'hours_delete', 'hours_sign', 'hours_apply', 'hours_discard'];
