@@ -291,6 +291,18 @@ contain personal data, so they are deleted automatically after a set number of m
 enquiries, job applications, customers, quotes, bookings, whistleblowing cases, consent records – is set in one place,
 **Settings → Privacy and cookies → How long data is kept**; a shorter period is confirmed on its own screen first.
 
+**Replying (3.49).** A reply goes from the site with your own e-mail as Reply-To and your signature under it. **Saved
+replies** (Enquiries → Saved replies, administrators and editors) are your firm's texts, one tab per language version of
+the site: pick one in the reply form – the ones in the enquiry's language come first – and `{{name}}`, `{{topic}}` and
+`{{company}}` are filled in. A reply and the quote e-mail can carry **attachments**: up to five files, together under
+5 MB – internal files you may open (the files linked to the enquiry's customer or to the quote are listed, unticked) or files
+from your computer. They are sent at once and never stored; Claude never attaches anything. Long lists – customers,
+companies, deals, products, files – are chosen by typing a few letters; without JavaScript they stay ordinary lists.
+
+**Files on a record (3.49).** On a customer, company, deal or quote page, **Link a file** links an internal file to it – the
+price sheet of a deal, the contract of a customer. Everyone sees only the files of folders that are for them; the file's
+page lists where it is linked. Deleting or anonymising the record removes the links, never the file.
+
 **Where leads came from.** Turn on **Settings → Cookies → Remember where leads came from** and every enquiry and newsletter
 sign-up also records the **first page of the visit**, its campaign and the site that sent the visitor – even when the form
 is on another page. It is remembered for the visitor's browser tab only, and only when they allow marketing in the cookie

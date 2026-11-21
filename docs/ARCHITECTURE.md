@@ -68,8 +68,11 @@ importers will need it too. An admin module reads the request, calls Core and re
 | MCP contract | `tools/contracts/*.json` (`php tools/contracts.php` – changes must be additive) |
 | Job applications | `Core\Applications` (intake, reading, status and deletion) with `Core\ApplicationFiles` (the sealed CVs), `Core\ApplicationRetention` (deadlines and the daily clean-up), `Core\ApplicationReplies` (templates and replies), `Core\ApplicationMove` and `Core\ApplicationCounts`; the old names stay as forwards on `Core\Applications` (3.47) |
 | Quotes | `Core\Quotes` (identity and rights, reading, saving, the customer block, the status life cycle and the snapshot) with `Core\QuoteLines` (totals, discounts and one line as stored), `Core\QuoteNumbers` (the number format and the counter per year) and `Core\QuoteIntake` (the lines of an enquiry and the prepared draft); the old names stay as forwards on `Core\Quotes` (3.49). Enquiry reads carry `Core\EnquiryVisibility::visible()` |
+| Replies and attachments | `Core\ReplyMail` (one sender: Reply-To, signature, quotation), `Core\SavedReplies` (the firm's texts per language), `Core\ReplyAttachments` (files a person chooses, never queued) and `Admin\AttachmentBox` (3.49) |
+| Choosing by search | `views/admin/pick.php` (an ordinary select or input with `data-pick`) and the "choosing by search" block of `image/admin.js`; the read-only `search_json` actions of the modules answer (3.49) |
+| Files on a record | `Core\InternalFileLinks` – the only class naming `ka_internal_file_links`, with the one access rule (3.49) |
 | Add-ons of other developers | `extensions/<slug>/`, talking only to `Kaleta\Extension\Api` ([EXTENSIONS.md](EXTENSIONS.md)) |
-| Tests | `tools/tests/unit/` and `tools/tests/smoke/` ([README](../tools/tests/README.md)), browser suite `tools/test-browser.sh` |
+| Tests | `tools/tests/unit/` and `tools/tests/smoke/` ([README](../tools/tests/README.md)), browser suite `tools/test-browser.sh` (step files in `tools/tests/browser/`, 3.49) |
 
 ## How to add …
 

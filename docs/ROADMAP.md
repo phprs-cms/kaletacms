@@ -6,12 +6,11 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.48 made Customers and the Pipeline features of their own with three profiles (Website, Website with enquiries, Front
-office), grouped the Pipeline, Quotes and Internal prices as Sales and Redirects with Broken links as Addresses, and put
-every retention period in one place – Settings → Privacy and cookies, with a confirmation screen for a shorter one. 3.48.1
-moves the MCP tool definitions next to their handlers, checked against a stored record of `tools/list`, and splits
-`tools/test-browser.mjs` into step files; neither changes behaviour. Each release lists what it brought in the changelog
-when it ships.
+3.49 gave replies to enquiries the firm's saved texts per language, one sender and attachments, made long lists of
+customers, deals, products and files a choice by typing, linked internal files to customers, companies, deals and quotes,
+and let one absence in an account close the booking times of the person linked to it. The MCP tool definitions now live
+next to their handlers and the browser suite is split into step files. Each release lists what it brought in the
+changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 

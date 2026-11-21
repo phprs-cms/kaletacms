@@ -227,6 +227,18 @@ Poptávky obsahují osobní údaje, proto se po nastaveném počtu měsíců (v�
 poptávky, žádosti o práci, zákazníci, nabídky, rezervace, oznámení, záznamy souhlasů – se nastavují na jednom místě,
 **Nastavení → Soukromí a cookies → Jak dlouho se data uchovávají**; kratší lhůtu je nejdřív potřeba potvrdit.
 
+**Odpovídání (3.49).** Odpověď odchází z webu s vaším e-mailem pro odpověď (Reply-To) a s vaším podpisem. **Uložené
+odpovědi** (Poptávky → Uložené odpovědi, správci a editoři) jsou texty vaší firmy, záložka pro každou jazykovou verzi webu:
+ve formuláři odpovědi jednu vyberete – nejdřív se nabízejí ty v jazyce poptávky – a doplní se `{{name}}`, `{{topic}}`
+a `{{company}}`. Odpověď i e-mail nabídky mohou nést **přílohy**: nejvýš pět souborů, dohromady do 5 MB – interní soubory,
+které smíte otevřít (soubory připojené k zákazníkovi poptávky nebo k nabídce se nabídnou nezaškrtnuté), nebo soubory z počítače.
+Odejdou hned a nikde se neukládají; Claude nikdy nic nepřikládá. Dlouhé seznamy – zákazníci, firmy, obchody, produkty,
+soubory – se vybírají napsáním několika písmen; bez JavaScriptu zůstanou obyčejným seznamem.
+
+**Soubory u záznamu (3.49).** Na stránce zákazníka, firmy, obchodu nebo nabídky připojí **Připojit soubor** interní soubor –
+ceník k obchodu, smlouvu k zákazníkovi. Každý vidí jen soubory ze složek, které jsou pro něj; stránka souboru ukáže, kde je
+připojený. Smazání nebo anonymizace záznamu odstraní odkazy, nikdy soubor.
+
 **Odkud poptávky přišly.** Zapněte **Nastavení → Cookies → Pamatovat si, odkud poptávky přišly** a každá poptávka i přihláška
 k odběru uloží i **první stránku návštěvy**, její kampaň a web, ze kterého návštěvník přišel – i když je formulář na jiné
 stránce. Pamatuje se jen pro danou záložku prohlížeče a jen u návštěvníků, kteří v cookie liště povolí marketing (zapnutím
@@ -285,6 +297,13 @@ Nepřítomnost si každý zadává v **Můj účet** (první a poslední den, z�
 - kdo odpovídá za existující záznam, se nikdy nemění – mění se jen, kdo se o něm dozví a kdo dostane nové poptávky.
 
 Claude vidí oddělení, nadřízené a do kdy je kdo pryč (nikdy důvod) v `list_colleagues`.
+
+**Nepřítomnost zavře i termíny rezervací (3.49).** Je-li rezervační osoba propojená s účtem (Rezervace → Lidé → Účet),
+každá nepřítomnost toho účtu – dovolená, služební cesta, školení, volno i mimo kancelář – zavře její volné termíny na celé ty dny:
+návštěvníci, prvek Rezervace, navržené termíny ani Claude je nenabídnou. Nic se nekopíruje, smazání nepřítomnosti termíny
+hned vrátí. Rezervace a nabídnuté termíny v těch dnech se nikdy nepřesouvají ani neruší – hláška po uložení nepřítomnosti
+řekne, kolik jich je, a rezervace má štítek *člověk je nepřítomen*. **Propojit podle e-mailu** v seznamu Lidé propojí každou
+rezervační osobu, jejíž e-mail patří právě jednomu účtu.
 
 ## 8. Údaje o firmě
 

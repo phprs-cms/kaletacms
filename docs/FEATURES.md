@@ -318,14 +318,32 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   všechny cesty (prvek, `/_booking/*`, návrh termínů, přijetí návrhu, MCP `booking_availability`) i `book()`; `confirm()` ne.
   Existující rezervace a nabídnuté termíny se nemění: hláška po uložení je spočítá (`Booking::duringAbsence`), detail rezervace
   má štítek „člověk je nepřítomen“; formulář osoby ukazuje nepřítomnosti z účtu (jen dny); „Propojit podle e-mailu“
-  (`Booking::linkByEmail`, jen jednoznačná shoda s aktivním účtem).
+  (`Booking::linkByEmail`, jen jednoznačná shoda s aktivním účtem). Smazání účtu odpojí jeho rezervační osobu a smaže jeho
+  nepřítomnosti (`Booking::forgetAccount`); odkaz na dřív smazaný účet se počítá jako nepropojený a propojení ho opraví.
 - **Soubory u záznamu (3.49 B, `Core\InternalFileLinks`, migrace 0136):** interní soubor připojený k zákazníkovi, firmě, obchodu
   nebo nabídce (`KINDS`); jedno pravidlo – soubor vidím, sekci záznamu smím otevřít se zapnutou funkcí, záznam existuje (neznámý
   a zakázaný dávají stejné hlášení); box na stránce záznamu (`views/admin/internal_files/box.php`, výběr hledáním) jen se sekcí
   Interní soubory a jen soubory, které divák smí otevřít (nepočítají se ostatní); stránka souboru „Připojeno k“; odkazy jdou při
   smazání souboru či záznamu, anonymizaci kontaktu a nabídky a výmazu osoby (`kept` výmazu), sloučení kontaktů je přesune;
   tabulku jmenuje jen `InternalFileLinks` (unit 4435); MCP `save_internal_file` link/unlink (živá změna, ne pro spojení na koncepty,
-  bez deníku), `get_internal_file` `links`, `list_internal_files` `linked_to`, `get_contact`/`get_quote` `internal_files`.
+  bez deníku; celé volání se ověří před prvním zápisem a odkazy jdou poslední), `get_internal_file` `links`, `list_internal_files`
+  `linked_to` (s filtry složky, hledání, štítku a stavu – `InternalFiles::matching`), `get_contact`/`get_quote` `internal_files`.
+  Anonymizovaný kontakt či nabídka je pro nový odkaz neexistující záznam; stránka souboru se sekcí vypnutou jmenuje firmu jen tomu,
+  kdo má právo sekce (jinak „záznam, který nemůžete otevřít“).
+- **Uložené odpovědi, jeden odesílatel, přílohy (3.49 A, migrace 0137):** `Core\SavedReplies` (`ka_saved_replies`, záložka na jazyk,
+  nejvýš 30, píší správci a editoři, Poptávky → Uložené odpovědi; paleta jen pro ty, kdo vydávají) s `{{name}}`, `{{topic}}`,
+  `{{company}}` (`ReplyMail::fill`, `EnquiryReply::send` plní pro každého odesílatele); formulář odpovědi nabízí jen jazyky zapnuté
+  (`SavedReplies::activeLanguages`), jazyk vypnutý později si drží záložku „(vypnuto)“, dokud texty nesmažete; Claude je čte
+  v `get_email_signature`, nikdy nepíše. `Core\ReplyMail` = jeden odesílatel odpovědí na poptávky a přihlášky (From web, Reply-To
+  člověk, podpis, citace), e-mail nabídky bere `sender()`. `Core\ReplyAttachments`: přílohy vybírá jen člověk v administraci
+  (interní soubory, které smí otevřít – hotové, ne SVG – a nahrané), nejvýš 5 souborů a `Mail::MAX_ATTACHMENTS`, nikdy do fronty
+  `ka_posta`; skript je změří předem (i soubor nalezený hledáním – `search_json` nese `size`).
+- **Výběr hledáním (3.49 C, `views/admin/pick.php`):** obyčejný select je hodnota a bez skriptu celé pole; `image/admin.js` nad ním
+  combobox (šipky, Enter jen se zvoleným řádkem – s napsaným hledáním formulář neodešle, Escape, živý region), pod dva znaky filtr
+  možností, od dvou čtecí adresy `search_json` (kontakty, firmy, otevřené obchody, produkty, hotové interní soubory); formulář
+  obchodu, editor nabídky, formulář kontaktu; „Nový zákazník…“ na formuláři obchodu (existující kontakt podle e-mailu se použije).
+- **Blok Přílohy nabízí soubory záznamu (3.49):** odpověď na poptávku nabídne soubory připojené k zákazníkovi poptávky, e-mail
+  nabídky soubory nabídky – nezaškrtnuté řádky téhož seznamu (`AttachmentBox::data` s `records`, `InternalFileLinks::ofRecords`).
 - **Souhrn týmu (3.41, `Core\TeamSummary`):** Moje práce → Souhrn a MCP `team_summary` (sada Work) – jen počty za období pro sekce,
   které člověk smí otevřít; po lidech jen správce, ostatní vlastní řádek a součty (součty pro nesprávce i v měsíčním reportu až od `TeamSummary::MIN_PEOPLE` = 3 lidí s počítanou prací); měsíční report jen součty týmu bez jmen. Karta
   obchodu: dní v etapě (`Deals::stageSince`) a další krok (`Tasks::nextFor`).

@@ -4,6 +4,66 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.49 – replies with saved texts and attachments, choosing by search, files on a record, one absence for booking times (21 November 2026)
+
+Replies to enquiries get the firm's saved texts, one sender and attachments; every long list of customers, deals, products
+and files is chosen by typing; an internal file can be linked to a customer, company, deal or quote; and an absence in an
+account closes the booking times of the person linked to it. Migrations 0136 and 0137 (two new tables);
+`KALETA_DB_VERSION` is 137. MCP output only grows: `get_email_signature` gains `saved_replies`, `list_enquiries` a
+`saved_replies` count, `save_internal_file` takes `link` / `unlink`, `list_internal_files` `linked_to`,
+`get_internal_file` names its `links`, `get_contact` and `get_quote` count `internal_files`; no tool is removed and no
+builder shape changes. The move of the MCP definitions and the split of the browser suite (planned for 3.48.1) ship here.
+
+1. **Saved replies per language.** Enquiries → Saved replies (administrators and editors; migration 0137,
+   `ka_saved_replies`, `Core\SavedReplies`): a tab per language version of the site, up to 30 texts each, a subject that
+   may stay empty and the placeholders `{{name}}`, `{{topic}}` and `{{company}}`. The reply form of an enquiry offers them
+   with the enquiry's language first and fills them in place (`saved_reply_json`, without a script `?saved_reply=`);
+   `EnquiryReply::send` fills the placeholders again for every sender, so none reaches a customer. Claude reads them with
+   `get_email_signature` and never writes them. The texts of a language switched off later are offered nowhere but keep
+   their tab, marked switched off, until they are changed or removed. The palette offers the screen only to those who
+   publish.
+2. **One sender.** `Core\ReplyMail` sends the replies to enquiries and to job applications – From the site, Reply-To the
+   person's own e-mail, the person's signature under the text and the customer's message quoted under it; the quote
+   e-mail takes its Reply-To and signature from `ReplyMail::sender()`.
+3. **Attachments chosen by a person.** A reply and the quote e-mail carry up to five files together under 5 MB
+   (`Core\ReplyAttachments`, `views/admin/attachments.php`): internal files the person may open (ready, no SVG) and
+   uploads. Nothing is stored and nothing waits in the mail queue (`'queue' => false`); a reply with files goes at once,
+   a queued quote waits with its PDF only. The browser counts and measures the files before anything is uploaded (a file
+   found by search carries its size too); an admin form over the server's `post_max_size` gets a size message instead of
+   the expired-form error. The names go into the reply and quote history and are stripped by anonymisation; each internal
+   file sent writes a change-log line. Never over MCP – an enquiry's text could ask Claude for a company document.
+4. **Choosing by search.** `views/admin/pick.php` keeps an ordinary select as the value and the whole control without
+   JavaScript; `image/admin.js` puts a combobox over it (arrows, Enter, Escape, a live region; Enter sends nothing while a
+   search is typed and no row is chosen). Under two characters the options are filtered, from two the read-only search
+   addresses answer (Contacts, companies, open deals first, products with the internal price as the note, ready internal
+   files). Used on the deal form, in the quote editor and on the contact form; the deal form also takes **New customer…**
+   (name and e-mail – an existing contact with the address is reused).
+5. **Files on a record.** Migration 0136 (`ka_internal_file_links`, `Core\InternalFileLinks`): an internal file linked to
+   a customer, company, deal or quote. One access rule – the person sees the file, may open the record's section with its
+   feature on, and the record exists (an unknown record, one the person cannot open and an anonymised contact or quote get
+   the same refusal). The record's page has a box with its files and **Link a file**, listing only files the viewer may
+   open; the file's page lists its records ("a record you cannot open" without a name otherwise, the record as text while
+   its section is off – a company's name only to who holds the section). Links go with the file, the record, an
+   anonymisation and an erasure, a merge of contacts moves them. **The Attachments block offers them:** the reply to an
+   enquiry lists the files linked to its customer, the quote e-mail those linked to the quote – unticked, only a person
+   attaches. MCP: `save_internal_file` `link` / `unlink` (a live change, refused for a drafts-only connection, never
+   journaled; every part of the call is checked before the first write and the links go last), `list_internal_files`
+   `linked_to` (with the folder, search, tag and status filters), `get_internal_file` `links`, `get_contact` and
+   `get_quote` `internal_files`.
+6. **One absence closes booking times.** An absence now also closes booking times: when a booking person is linked to an account (Bookings → People → Account), any absence of that account – holiday, business trip, training, day off or away – removes their free times for those whole days as soon as you update; existing bookings and offered times are never moved or cancelled, only counted and labelled. Use “Link by e-mail” on the People list to link staff to their accounts.
+   `Booking::calendar` reads `Absences::between` (whole days of the site's clock, nothing copied), so the element,
+   `/_booking/*`, proposals, accepting a proposal, `book()` and MCP follow; the flash after saving an absence counts the
+   bookings and offered times in those days, the booking detail labels them, the person's form lists the account's
+   absences (days only). Deleting an account unlinks its booking person and removes its absences; a link to an account
+   deleted earlier counts as no link and **Link by e-mail** reconnects it.
+7. Internal: the 181 MCP tool definitions live next to their handlers (`<trait>Definitions()`, `Mcp\Schema`), proved
+   against a stored record of `tools/list` (`tools/contracts/mcp-record/`, smoke 4360); `tools/test-browser.mjs` is the
+   runner of `tools/tests/browser/` (`lib.mjs` and step files, `STEPS_FILE` lists every step); `Core\Quotes` is split into
+   `QuoteLines`, `QuoteNumbers` and `QuoteIntake` (the old names stay as forwards) and the visibility of enquiry reads
+   moves to `Core\EnquiryVisibility`.
+8. Tests: unit and smoke 4410, 4435, 4460, 4485 and 4490 (the review fixes), unit 4360, 4370, 4400, 4401; browser steps
+   0310, 0330, 0340 and 0350; `test-migrations.sh` covers 0136 and 0137. New admin strings in admin-cs, -de, -es and -de-du.
+
 ## 3.48 – Customers and the Pipeline as features with three profiles, the Sales and Addresses hubs, every retention period in one place (21 November 2026)
 
 Customers and the Pipeline become features of their own that a new site starts without, the menu groups the Pipeline with
