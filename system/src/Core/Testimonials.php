@@ -16,6 +16,10 @@ use Kaleta\Builder\Presets;
  *  - Consent is explicit and separate for the words with the name and for the photo; the texts the customer saw are kept
  *    with the request, so the site can show what was agreed.
  *  - The References collection (preset references) is created when the site has none.
+ *  - 3.51 (decision 5): the e-mail goes only to a customer – the enquiry's customer record has a won deal or a quote the
+ *    customer accepted themself – once per enquiry, with the sender's identity (Core\SenderIdentity) and a refuse link
+ *    (/_testimonial/<token>?refuse=1, Front\TestimonialRefusal), never to an address on the send register. Otherwise the
+ *    link is only returned to pass on, with the reason (maySend()).
  */
 final class Testimonials
 {
@@ -28,35 +32,79 @@ final class Testimonials
 
     public const int MAX_PHOTO = 8 * 1024 * 1024;
 
+    /** 3.51: why a request may not be e-mailed (maySend()) – the codes MCP returns as reason, each with its sentence for the screen. */
+    public const array REASONS = [
+        'sender_missing' => 'The request was not e-mailed: fill in the company name and postal address first. You can pass the link on yourself.',
+        'not_a_customer' => 'The request was not e-mailed: only a customer with a won deal or a quote they accepted gets it by e-mail. You can pass the link on yourself.',
+        'already_sent' => 'The request was not e-mailed: this enquiry already got one by e-mail. You can pass the link on yourself.',
+        'refused' => 'The request was not e-mailed: this address asked us not to write to it. You can pass the link on yourself.',
+        'bounced' => 'The request was not e-mailed: e-mails to this address could not be delivered. You can pass the link on yourself.',
+    ];
+
     /**
-     * Creates a request for an enquiry with an e-mail address; sends the e-mail when asked. Returns the link (absolute) and
-     * whether the e-mail went out.
+     * Creates a request for an enquiry with an e-mail address; sends the e-mail when asked and allowed (3.51, maySend()).
+     * Returns the link (absolute), whether the e-mail went out, and why not when it was asked for and refused.
      *
-     * @return array{link: string, sent: bool}
+     * @return array{link: string, sent: bool, reason?: string}
      * @throws \DomainException when the enquiry has no e-mail address
      */
     public static function request(App $app, int $idp, bool $send): array
     {
         $db = $app->db();
-        $enquiry = $db->one('SELECT idp, email FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $app->settings(), $app->auth()->hasModule(Applications::SECTION)), [$idp]); // 3.34 second review N6
+        $s = $app->settings();
+        $enquiry = $db->one('SELECT idp, email, stranka, contact_id FROM {poptavky} WHERE idp = ? AND ' . EnquiryVisibility::visible($db, $s, $app->auth()->hasModule(Applications::SECTION)), [$idp]); // 3.34 second review N6
         if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }
+        $reason = $send ? self::maySend($db, $s, $enquiry) : null;
         $token = bin2hex(random_bytes(16));
-        $db->insert('testimonial_requests', ['idp' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
+        $id = $db->insert('testimonial_requests', ['idp' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
             'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400)]);
         $link = Mailing::absolute($app, '_testimonial/' . $token);
         $sent = false;
-        if ($send) {
-            $site = $app->settings()->get('site_name');
-            // in the language of the site the customer wrote to, not of the admin who clicked
-            [$subject, $text] = Language::runWith(Language::defaults($app->settings()), fn (): array => [t('Would you share your experience with %s?', $site),
+        if ($send && $reason === null) {
+            $site = $s->get('site_name');
+            // in the language of the version the customer wrote from, not of the admin who clicked
+            $language = SavedReplies::languageOf($s, $enquiry);
+            $identity = (string) SenderIdentity::line($s, $language); // maySend() made sure it exists
+            $refuse = strtr($s->wording('mail_refuse_text', $language), ['{{link}}' => $link . '?refuse=1']);
+            [$subject, $text] = Language::runWith($language !== '' ? $language : Language::defaults($s), fn (): array => [t('Would you share your experience with %s?', $site),
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
-            $sent = Mail::send($app->settings(), (string) $enquiry['email'], $subject, $text);
+            $sent = Mail::send($s, (string) $enquiry['email'], $subject, $text . "\n\n-- \n" . $identity . "\n" . $refuse . "\n");
+            if ($sent) {
+                $db->update('testimonial_requests', ['sent_at' => Clock::now()], ['id' => $id]);
+            }
         }
-        \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ' (e-mail)' : ''));
+        \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ' (e-mail)' : ($reason !== null ? ' (' . $reason . ')' : '')));
 
-        return ['link' => $link, 'sent' => $sent];
+        return ['link' => $link, 'sent' => $sent] + ($reason !== null ? ['reason' => $reason] : []);
+    }
+
+    /**
+     * 3.51 (decision 5): why a request for this enquiry may not be e-mailed, or null when it may – sender_missing (the
+     * company name or address is missing, Core\SenderIdentity), refused / bounced (the address is on the send register),
+     * already_sent (a request of this enquiry went out by e-mail), not_a_customer (its customer record has neither a won
+     * deal nor a quote the customer accepted; a feature that is off has no customers).
+     *
+     * @param array<string, mixed> $enquiry a row of ka_poptavky (idp, email, contact_id)
+     */
+    public static function maySend(Db $db, Settings $s, array $enquiry): ?string
+    {
+        if (SenderIdentity::line($s, '') === null) {
+            return 'sender_missing';
+        }
+        $blocked = SendRegister::blocked($db, (string) ($enquiry['email'] ?? ''));
+        if ($blocked !== null) {
+            return $blocked;
+        }
+        if ($db->value('SELECT 1 FROM {testimonial_requests} WHERE idp = ? AND sent_at IS NOT NULL LIMIT 1', [(int) ($enquiry['idp'] ?? 0)]) !== null) {
+            return 'already_sent';
+        }
+        $contact = (int) ($enquiry['contact_id'] ?? 0);
+        $customer = (Extensions::isEnabled($s, 'pipeline') && Deals::hasWon($db, $contact, $s))
+            || (Extensions::isEnabled($s, Prices::EXTENSION) && Quotes::acceptedByCustomer($db, $contact));
+
+        return $customer ? null : 'not_a_customer';
     }
 
     /** The open request of a token from a link: not used, not expired; null otherwise. @return array<string, mixed>|null */
@@ -67,6 +115,21 @@ final class Testimonials
         }
 
         return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?', [hash('sha256', $token), date('Y-m-d H:i:s')]);
+    }
+
+    /**
+     * 3.51: the request of a refuse link (…/_testimonial/<token>?refuse=1) by its token alone – used and expired requests
+     * too: a person may refuse for as long as the request is kept, not only while the form works. Null for an unknown token.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function forRefusal(Db $db, string $token): ?array
+    {
+        if (preg_match('/^[a-f0-9]{32}$/D', $token) !== 1) {
+            return null;
+        }
+
+        return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ?', [hash('sha256', $token)]);
     }
 
     /** The two consents, as the customer sees them. @return array{words: string, photo: string} */
@@ -178,6 +241,6 @@ final class Testimonials
     /** The requests of an enquiry for its detail: when, to whom, whether it came back and the draft it made. @return list<array<string, mixed>> */
     public static function ofEnquiry(Db $db, int $idp): array
     {
-        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id FROM {testimonial_requests} WHERE idp = ? ORDER BY id DESC', [$idp]);
+        return $db->all('SELECT id, email, created_at, expires_at, used_at, item_id, sent_at FROM {testimonial_requests} WHERE idp = ? ORDER BY id DESC', [$idp]);
     }
 }

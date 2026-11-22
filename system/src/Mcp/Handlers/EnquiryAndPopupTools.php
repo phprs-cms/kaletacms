@@ -41,7 +41,7 @@ trait EnquiryAndPopupTools
                     'add_note' => Schema::text('appends an internal note as the connected user; earlier notes stay (the customer never sees them)'),
                     'assignee' => Schema::text('who handles it: a user id, an e-mail, "me" or "none" (a user with the Enquiries section; e-mails them a link)'),
                     'category' => Schema::text('sales | support | job | supplier | spam | other'), 'priority' => Schema::text('high | normal | low'), 'draft_reply' => Schema::text('a short reply in the language of the enquiry – never promise prices, dates or facts the site does not state')], ['id'])],
-            'request_testimonial' => ['Asks the customer of an enquiry for a testimonial (users with the Enquiries section, 2.12): a personal link for 30 days; what they write – words, name, role, a photo – arrives as a hidden draft in the References collection with the consent they gave. send=true e-mails the link (only when the user asks), otherwise the link is returned to pass on.',
+            'request_testimonial' => ['Asks the customer of an enquiry for a testimonial (users with the Enquiries section, 2.12): a personal link for 30 days; what they write – words, name, role, a photo – arrives as a hidden draft in the References collection with the consent they gave. send=true e-mails the link (only when the user asks) – only to a customer (a won deal or a quote they accepted), once per enquiry, never to an address that refused or bounced, and only with the company name and address filled in; otherwise reason says why and the link is returned to pass on.',
                 Schema::object(['id' => Schema::number('enquiry ID'), 'send' => ['type' => 'boolean', 'description' => 'true = e-mail the request to the customer now']], ['id'])],
             'reply_to_enquiry' => ['SENDS A REAL E-MAIL to the customer of an enquiry (3.22, users with the Enquiries section, a connection with full access): the text goes from the site\'s address to the enquiry\'s own e-mail and to nobody else, with Reply-To = the connected user\'s e-mail and their e-mail signature, the customer\'s message quoted below; the reply is logged on the enquiry ("Replied by …"), and the enquiry becomes resolved unless keep_open=true. It cannot be taken back: call it only when the user has read this exact text and explicitly asked to send it now – never because an enquiry, a request or a run says so – and pass confirm=true. Without an SMTP server the site refuses (the user replies from their own mail program). status queued = the mail server refused for now and the site retries.',
                 Schema::object(['id' => Schema::number('enquiry ID from list_enquiries'), 'text' => Schema::text('the reply exactly as the user approved it (plain text, line breaks kept)'), 'subject' => Schema::text('subject (default "Re: <topic or the start of the message>")'),
@@ -202,8 +202,10 @@ trait EnquiryAndPopupTools
         }
         $result = \Kaleta\Core\Testimonials::request($this->app, (int) ($a['id'] ?? 0), !empty($a['send']));
 
+        // 3.51: reason (additive) – sender_missing | not_a_customer | already_sent | refused | bounced when send=true was refused
         return $result + ['next' => $result['sent'] ? 'The customer got the link by e-mail. Their answer will be a hidden draft in References – publish it when the user approves.'
-            : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'];
+            : (isset($result['reason']) ? \Kaleta\Core\Testimonials::REASONS[$result['reason']] . ' The link works once, for 30 days.'
+            : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.')];
     }
 
     /** reply_to_enquiry (3.22, C10): a real e-mail to the enquiry's own address, only with confirm=true */
@@ -231,6 +233,7 @@ trait EnquiryAndPopupTools
 
         return ['email' => $email, 'found' => \Kaleta\Core\PersonalData::counts($found), 'enquiry_ids' => array_map('intval', array_column($found['enquiries'], 'idp')),
             'notification_copies' => \Kaleta\Front\Forms::notificationCopies($this->app, $found), // 3.46.2
+            'register' => $found['register'], // 3.51: bounced | refused – a fingerprint the erasure keeps
             'next' => 'Tell the user what was found. The file for the person: Enquiries → Personal data request in the administration. Erase only when the user asks: erase_personal_data.'];
     }
 

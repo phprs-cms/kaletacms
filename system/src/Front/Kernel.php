@@ -872,6 +872,11 @@ final class Kernel
      */
     private function testimonialPage(string $token): Response
     {
+        if ($this->app->request->get('refuse') === '1') { // 3.51: the refuse link works for used and expired requests too
+            [$heading, $content] = (new TestimonialRefusal($this->app))->page($token);
+
+            return $this->page($heading, '<header class="vypis-hlavicka"><h1>' . e($heading) . '</h1></header>' . $content . '<p><a href="' . e($this->app->url('')) . '">' . e(t('Zpět na úvod')) . '</a></p>', ['noindex' => true]);
+        }
         $db = $this->app->db();
         $request = \Kaleta\Core\Testimonials::find($db, $token);
         if ($request === null) {

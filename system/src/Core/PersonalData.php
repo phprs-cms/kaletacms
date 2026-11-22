@@ -98,7 +98,7 @@ final class PersonalData
     /**
      * Everything the site keeps about the address.
      *
-     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>, applications: list<array<string, mixed>>, quotes: list<array<string, mixed>>}
+     * @return array{enquiries: list<array<string, mixed>>, subscriber: ?array<string, mixed>, sync: list<array<string, mixed>>, mail: list<array<string, mixed>>, testimonials: list<array<string, mixed>>, bookings: list<array<string, mixed>>, account: ?array<string, mixed>, contacts: list<array<string, mixed>>, applications: list<array<string, mixed>>, quotes: list<array<string, mixed>>, register: list<string>}
      */
     public static function find(Db $db, string $email, ?App $app = null): array
     {
@@ -141,7 +141,26 @@ final class PersonalData
             'applications' => $app !== null ? Applications::ofEmail($app, $email) : [],
             // 3.38: the quotes made for the person (their address or one of their customer records), with the lines they were offered
             'quotes' => QuoteDelivery::ofPerson($db, $email, $contactIds),
+            // 3.51: the send register (Core\SendRegister) – the address bounced or refused our e-mails; only a fingerprint is kept
+            'register' => self::registerKinds($db, $email),
         ];
+    }
+
+    /**
+     * 3.51: the kinds of the send register an address is on (bounced, refused) – an erasure keeps them, so an erased person
+     * is not written to again. @return list<string>
+     */
+    public static function registerKinds(Db $db, string $email): array
+    {
+        try {
+            $kinds = array_map('strval', array_column($db->all("SELECT kind FROM {restore_ledger} WHERE hash = ? AND kind IN ('bounced', 'refused') ORDER BY kind", [RestoreLedger::fingerprint($db, $email)]), 'kind'));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0133
+
+            return [];
+        }
+
+        return array_values(array_intersect(SendRegister::KINDS, $kinds));
     }
 
     /** 3.46.1 (N1): rows per query of candidates() – a restore of a site with many enquiries never holds them all at once. */
@@ -337,8 +356,10 @@ final class PersonalData
 
         // 3.48 B (legal hold): what stays despite the request – [{what, until, reason}]; 3.49 B: the internal files that were
         // linked to the person's customer records (the links went, the files are the firm's documents – checked by hand)
+        // 3.51: an address on the send register keeps its one-way fingerprint there – it is never written to again
         return ['erased' => $erased, 'kept_testimonials' => $kept, 'backup_horizon' => self::backupHorizon($app->settings()),
-            'kept' => $linkedFiles > 0 ? [['what' => 'internal files', 'until' => '', 'reason' => 'company documents – check them by hand']] : []];
+            'kept' => array_merge($linkedFiles > 0 ? [['what' => 'internal files', 'until' => '', 'reason' => 'company documents – check them by hand']] : [],
+                $found['register'] !== [] ? [['what' => 'send register (' . implode(', ', $found['register']) . ')', 'until' => '', 'reason' => 'a one-way fingerprint only, so the address is never written to again']] : [])];
     }
 
     /**
