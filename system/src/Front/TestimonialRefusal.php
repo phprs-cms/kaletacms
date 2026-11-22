@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kaleta\Front;
 
-use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 use Kaleta\Core\Clock;
 use Kaleta\Core\SendRegister;
@@ -19,7 +18,8 @@ use Kaleta\Core\Testimonials;
  *
  * The link works as long as the request row is kept (Testimonials::forRefusal – used and expired requests too), longer
  * than the 30 days of the form, and only for a request that was e-mailed and with the code of its e-mail (a link only handed
- * out, or the form link staff and Claude got back, refuses nothing). Neither the address nor anything else of the person is in the URL or on the page, and
+ * out, or the form link staff and Claude got back, refuses nothing). The code is random, not signed with the site's key: a
+ * new signing key leaves it working. Neither the address nor anything else of the person is in the URL or on the page, and
  * nothing is written to the change log from the public site (Auth stays untouched); the register is the record.
  */
 final class TestimonialRefusal
@@ -33,7 +33,7 @@ final class TestimonialRefusal
     {
         $db = $this->app->db();
         $site = (string) $this->app->settings()->get('site_name');
-        $request = Testimonials::forRefusal($db, (new Antispam($db, $this->app->settings()))->key(), $token, $code);
+        $request = Testimonials::forRefusal($db, $token, $code);
         if ($request === null) {
             $contact = (string) $this->app->settings()->get('company_email');
 

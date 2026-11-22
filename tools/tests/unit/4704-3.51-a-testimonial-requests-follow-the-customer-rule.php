@@ -12,7 +12,7 @@ $a704Pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERR
 (new ReflectionProperty($a704Db, 'pdo'))->setValue($a704Db, $a704Pdo);
 $a704Pdo->exec('CREATE TABLE ka_restore_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, hash TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (kind, hash))');
 $a704Pdo->exec("INSERT INTO ka_restore_ledger (kind, hash, created_at) VALUES ('key', '" . str_repeat('cd', 32) . "', '2026-11-22 10:00:00')");
-$a704Pdo->exec('CREATE TABLE ka_testimonial_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, idp INTEGER, token_hash TEXT, email TEXT, created_at TEXT, expires_at TEXT, used_at TEXT NULL, item_id INTEGER NULL, consent TEXT NULL, sent_at TEXT NULL, refuse_link INTEGER NOT NULL DEFAULT 0)');
+$a704Pdo->exec('CREATE TABLE ka_testimonial_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, idp INTEGER, token_hash TEXT, email TEXT, created_at TEXT, expires_at TEXT, used_at TEXT NULL, item_id INTEGER NULL, consent TEXT NULL, sent_at TEXT NULL, refuse_hash TEXT NULL)');
 $a704Pdo->exec('CREATE TABLE ka_deals (id INTEGER PRIMARY KEY AUTOINCREMENT, contact_id INTEGER, stage TEXT, closed_at TEXT NULL)');
 $a704Pdo->exec("CREATE TABLE ka_quotes (id INTEGER PRIMARY KEY AUTOINCREMENT, contact_id INTEGER, status TEXT, history TEXT NULL)");
 // contact 1: a won deal; 2: a quote the customer accepted on its page; 3: a quote a person marked accepted; 4: a quote the

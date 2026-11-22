@@ -211,6 +211,13 @@ final class Mail
     public const string WITHDRAWN = 'The message was withdrawn before it could be sent.';
 
     /**
+     * 3.51 review (fourth round): what a backup writes as the error of a message whose body it left out (forBackup()) – after
+     * a restore that row says nothing of how the message ended (the live queue may have delivered it after the backup), so
+     * Testimonials::settle() does not take it for a message the queue gave up on.
+     */
+    public const string LEFT_OUT_OF_BACKUP = 'Left out of the backup with its link – how it ended is not known here.';
+
+    /**
      * 3.44 (N145): drops the body of queued messages that have not gone out yet (a quote withdrawn, deleted or anonymised in
      * the meantime): nothing more is sent and no later backup carries the link. Returns how many.
      *
@@ -229,6 +236,7 @@ final class Mail
     /**
      * 3.41 (N114, pure): a row of ka_posta as a backup writes it – an unsent body that holds a live password or invitation
      * link (its "expires") is left out: the backup must not carry a working link, and after a restore the person asks again.
+     * Its error says so (LEFT_OUT_OF_BACKUP, 3.51 review): the row restored later did not fail, its end is unknown.
      *
      * @param array<string, mixed> $row
      * @return array<string, mixed>
@@ -239,6 +247,9 @@ final class Mail
         if (is_array($body) && isset($body['expires'])) {
             $row['telo'] = null;
             $row['dalsi_pokus'] = null;
+            if (array_key_exists('chyba', $row)) { // the backup keeps the columns as they are (Backup writes the values in order)
+                $row['chyba'] = self::LEFT_OUT_OF_BACKUP; // 3.51 review (fourth round): a restored row is not a give-up (Testimonials::settle)
+            }
         }
 
         return $row;

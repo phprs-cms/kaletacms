@@ -1820,7 +1820,7 @@ Testimonial requests (2.12, Core\Testimonials): a personal link after an enquiry
 | `item_id` |  | INT UNSIGNED NULL |  |
 | `consent` |  | TEXT NULL |  |
 | `sent_at` |  | DATETIME NULL | e-mailed (3.51: once per enquiry); NULL = only the link was given |
-| `refuse_link` |  | TINYINT(1) NOT NULL DEFAULT 0 | its e-mail carried the refuse line (3.51; never a request from before) |
+| `refuse_hash` |  | CHAR(64) NULL | SHA-256 of the refuse code its e-mail carried (3.51; NULL = none, never a request from before) |
 | `mail_id` |  | INT UNSIGNED NULL | the ka_posta row of an e-mail still in the mail queue (3.51; NULL = delivered or not queued) |
 
 Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_testimonial_token (token_hash)`; `KEY ix_testimonial_enquiry (idp)`.

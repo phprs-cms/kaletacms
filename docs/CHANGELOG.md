@@ -56,16 +56,18 @@ only (`tools/contracts.php` additive).
    language of the enquiry's page and ends with the sender line and a refuse link. Otherwise the request is created and
    the screen and `request_testimonial` (`reason`) say why it was not e-mailed, with the link to pass on. The refuse page
    (`/_testimonial/<token>?refuse=<code>`) works as long as the request exists, also after the form expired, and only for a
-   request whose e-mail carried it (`ka_testimonial_requests.refuse_link`; a link handed out by hand or a request from
-   before 3.51 refuses nothing) and only with the code of that e-mail (`Testimonials::refuseCode`, an HMAC of the token
-   with the site's key): the form link the screen and `request_testimonial` return cannot refuse for the customer. A GET
+   request whose e-mail carried it (a link handed out by hand or a request from before 3.51 refuses nothing) and only with
+   the code of that e-mail – random, stored only as a hash (`ka_testimonial_requests.refuse_hash`), so the form link the
+   screen and `request_testimonial` return cannot refuse for the customer, and a new signing key leaves the refuse line of
+   a sent e-mail working. A GET
    only asks, the button records the refusal and ends a newsletter subscription. No address is in the link or on the page.
    When the mail server does not answer, the message waits in the mail queue (with the link's expiry, so a backup leaves
    its body out): the request counts as e-mailed (once per enquiry), its refuse link works, and `request_testimonial`
    answers `sent: true` with `queued: true` (additive). The queue retries for about half a day; when it gives up, the
    request no longer counts as e-mailed and refuses nothing (`ka_testimonial_requests.mail_id`, `Testimonials::settle`
-   with the mail queue), so the enquiry can be asked again. Only when not even the queue row could be written is nothing
-   recorded.
+   with the mail queue), so the enquiry can be asked again. A queue row restored from a backup is no give-up – the backup
+   marks the row whose body it left out (`Mail::LEFT_OUT_OF_BACKUP`), and the live queue may have delivered it since: that
+   request stays e-mailed and refusable. Only when not even the queue row could be written is nothing recorded.
 6. **MCP.** Release tags are gone from the descriptions of the focused sets and five long descriptions are shorter: work
    53,998 → 53,109 bytes, essentials 48,132 → 47,745, migration 48,257 → 47,852, fleet 27,433 → 27,280, every tool 211,305.
    The QUOTES instruction block is 417 bytes (was 817; the prompts `office_day` and `set_up_quotes` carry the detail); the

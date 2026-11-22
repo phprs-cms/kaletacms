@@ -61,11 +61,11 @@ check('3.41 N113: PasswordReset::linkPending – an invitation (future time) and
     [true, true, false, false, false]);
 
 // N114: a backup never carries the unsent body of a message with a live link; other queued messages keep theirs
-check('3.41 N114: Mail::forBackup drops the body and the next try of a message with a link, keeps every other row as it is', [
+check('3.41 N114: Mail::forBackup drops the body and the next try of a message with a link (3.51 review: its error says so), keeps every other row as it is', [
     Kaleta\Core\Mail::forBackup(['idp' => 1, 'telo' => '{"text":"token-s341","expires":1900000000}', 'dalsi_pokus' => '2026-11-12 10:00:00', 'chyba' => 'x']),
     Kaleta\Core\Mail::forBackup(['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00']),
     Kaleta\Core\Mail::forBackup(['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]),
-], [['idp' => 1, 'telo' => null, 'dalsi_pokus' => null, 'chyba' => 'x'], ['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00'], ['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]]);
+], [['idp' => 1, 'telo' => null, 'dalsi_pokus' => null, 'chyba' => Kaleta\Core\Mail::LEFT_OUT_OF_BACKUP], ['idp' => 2, 'telo' => '{"text":"hello"}', 'dalsi_pokus' => '2026-11-12 10:00:00'], ['idp' => 3, 'telo' => null, 'dalsi_pokus' => null]]);
 
 // N118: Kaleta's block in the root .htaccess – an update replaces it and keeps the owner's own lines around it
 $s341Shipped = (string) file_get_contents(KALETA_ROOT . '/.htaccess');

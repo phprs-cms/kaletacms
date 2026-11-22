@@ -23,7 +23,7 @@ a722_smtp_down
 A722_FIRST=$(a722_ask "$A722_QUEUED")
 A722_PATH=$(printf '%s' "${A722_FIRST##*|}" | grep -o '/_testimonial/[a-f0-9]\{32\}' || true)
 expect "3.51 A review (second round): with the mail server down the request answers sent + queued, records sent_at, the refuse line and its queue row, and its message waits in the mail queue with an expiry (a backup leaves its body out – third round)" \
-  "${A722_FIRST%|*}|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(sent_at IS NOT NULL), '/', SUM(refuse_link)) FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'fronta-a722@example.com' AND odeslano IS NULL AND telo LIKE '%refuse=%' AND telo LIKE '%\"expires\":%' AND dalsi_pokus IS NOT NULL AND chyba NOT LIKE '%sender address%'")|$(sq "SELECT mail_id = (SELECT MAX(idp) FROM ka_posta WHERE komu = 'fronta-a722@example.com') FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")" \
+  "${A722_FIRST%|*}|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(sent_at IS NOT NULL), '/', SUM(refuse_hash IS NOT NULL)) FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'fronta-a722@example.com' AND odeslano IS NULL AND telo LIKE '%refuse=%' AND telo LIKE '%\"expires\":%' AND dalsi_pokus IS NOT NULL AND chyba NOT LIKE '%sender address%'")|$(sq "SELECT mail_id = (SELECT MAX(idp) FROM ka_posta WHERE komu = 'fronta-a722@example.com') FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")" \
   "true|true|-|1/1/1|1|1"
 a722_smtp_up
 expect "3.51 A review (second round): the queued request is the one e-mail of its enquiry – a second request says already_sent and queues nothing" \
@@ -45,7 +45,7 @@ sq "RENAME TABLE ka_posta TO ka_posta_a722" > /dev/null
 A722_FAIL=$(a722_ask "$A722_LOST")
 sq "RENAME TABLE ka_posta_a722 TO ka_posta" > /dev/null
 a722_smtp_up
-A722_FAIL_STATE="$(sq "SELECT CONCAT(COUNT(*), '/', SUM(sent_at IS NULL), '/', SUM(refuse_link = 0)) FROM ka_testimonial_requests WHERE idp = $A722_LOST")"
+A722_FAIL_STATE="$(sq "SELECT CONCAT(COUNT(*), '/', SUM(sent_at IS NULL), '/', SUM(refuse_hash IS NULL)) FROM ka_testimonial_requests WHERE idp = $A722_LOST")"
 A722_RETRY=$(a722_ask "$A722_LOST")
 expect "3.51 A review (second round): no queue row and no delivery – sent false, no reason, the request stays unsent and refuses nothing; the next request e-mails the enquiry once" \
   "$(printf '%s' "$A722_FAIL" | cut -d'|' -f1-3)|$A722_FAIL_STATE|$(printf '%s' "$A722_RETRY" | cut -d'|' -f1-3)|$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'ztracena-a722@example.com' AND odeslano IS NOT NULL")|$(sq "SELECT SUM(sent_at IS NOT NULL) FROM ka_testimonial_requests WHERE idp = $A722_LOST")" \
