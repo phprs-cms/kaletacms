@@ -13,14 +13,23 @@ ANNA=$(tok); PETR=$(tok)
 db "UPDATE ka_uzivatele SET email = 'admin@example.cz' WHERE user = 'admin'; DELETE FROM ka_odberatele; INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES
   ('anna@example.cz', 1, '$ANNA', '$(site_time)', '$(site_time)'), ('petr@example.cz', 1, '$PETR', '$(site_time)', '$(site_time)'), ('odmitnout@example.cz', 1, '$(tok)', '$(site_time)', '$(site_time)'), ('ceka@example.cz', 0, '$(tok)', '$(site_time)', NULL);
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'mail'), ('tasks_last_run', '0')"
+# 3.51 (B5): a newsletter names its sender – the company details of 0080 (a partial run fills them here)
+db "INSERT INTO ka_nastaveni (promenna, hodnota) VALUES ('company_name', 'Testovací firma s.r.o.'), ('company_street', 'Dlouhá 12'), ('company_postcode', '110 00'), ('company_city', 'Praha')
+  ON DUPLICATE KEY UPDATE hodnota = IF(hodnota = '', VALUES(hodnota), hodnota)"
 check "newsletters: empty list" 200 "/admin.php?module=newsletters" "Napsat newsletter"
 check "newsletters: new draft form" 200 "/admin.php?module=newsletters&action=new" 'name="subject"'
 newsletter_action save -d id=0 --data-urlencode "subject=Jarní novinky" --data-urlencode "preheader=Co je nového" --data-urlencode $'intro=Dobrý den,\n\nposíláme novinky. Více na https://example.cz/akce' \
   -d news_mode=latest -d news_count=2 --data-urlencode "button_label=Všechny novinky" -d button_url=/novinky
 NL=$(db "SELECT id FROM ka_newsletters ORDER BY id DESC LIMIT 1")
 expect "newsletter draft saved" "$(db "SELECT CONCAT(status, '|', subject, '|', news_count) FROM ka_newsletters WHERE id = $NL")" "draft|Jarní novinky|2"
+# 3.51 (B7): to three subscribers the links carry no campaign name; from five the subject and the newsletter's number
+check "3.51: preview to three subscribers – utm_source without a campaign name" 200 "/admin.php?module=newsletters&action=preview&id=$NL" "utm_source=newsletter&amp;utm_medium=email"
+contains -q 'utm_campaign' "$WORK/response" && { echo "  CHYBA  3.51: a newsletter to three subscribers carries utm_campaign"; ERRORS=$((ERRORS+1)); } || echo "  ok     3.51: … and no utm_campaign below five recipients"
+db "INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('pet1@example.cz', 1, '$(tok)', '$(site_time)', '$(site_time)'), ('pet2@example.cz', 1, '$(tok)', '$(site_time)', '$(site_time)')"
 check "newsletter: e-mail preview" 200 "/admin.php?module=newsletters&action=preview&id=$NL" "utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=jarni-novinky"
+contains -q "utm_campaign=jarni-novinky-n$NL\"" "$WORK/response" && echo "  ok     3.51: … with five the campaign is the subject and the number (-n$NL)" || { echo "  CHYBA  3.51: campaign name with -n<id>"; ERRORS=$((ERRORS+1)); }
 expect "preview: 2 news items, linked address, button and unsubscribe" "$(grep -c 'Číst dál' "$WORK/response")|$(grep -c 'href="https://example.cz/akce"' "$WORK/response")|$(grep -c 'Všechny novinky' "$WORK/response")|$(grep -c 'Odhlásit odběr' "$WORK/response")" "2|1|1|1"
+db "DELETE FROM ka_odberatele WHERE email IN ('pet1@example.cz', 'pet2@example.cz')"
 newsletter_action send -d "id=$NL" -d when=now
 expect "no sending without an SMTP server" "$(db "SELECT status FROM ka_newsletters WHERE id = $NL")" "draft"
 db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('mail_mode', 'smtp'), ('smtp_host', '127.0.0.1'), ('smtp_port', '$SMTP_PORT'), ('smtp_encryption', 'zadne'), ('smtp_user', ''), ('mail_from', 'web@example.cz')"
@@ -38,14 +47,22 @@ expect "test e-mail to the signed-in user" "$(grep -c '^Subject-Decoded: \[Zkou�
 newsletter_action send -d "id=$NL" -d when=now
 expect "sending started for confirmed subscribers only" "$(db "SELECT CONCAT(status, '|', recipients, '|', html LIKE '%{{unsubscribe}}%') FROM ka_newsletters WHERE id = $NL")" "sending|3|1"
 curl -s -o "$WORK/tasks.txt" "$B/ulohy?token=testtoken123"
-expect "cron sends a batch: 2 delivered, the refused one waits for a retry" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', (SELECT COUNT(*) FROM ka_newsletter_queue WHERE newsletter_id = $NL AND next_attempt > '$(site_time)')) FROM ka_newsletters WHERE id = $NL")" "sending|2|0|1"
+# 3.51 (D4): an address the server refuses as unknown (550 5.1.1) is given up at once – the newsletter ends with the first batch
+expect "cron sends a batch: 2 delivered, the refused one is given up at once, the newsletter is sent" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL) FROM ka_newsletters WHERE id = $NL")" "sent|2|1|1"
 F=$(mail_to anna@example.cz); [ -n "$F" ] && eml "$F" > "$WORK/eml.txt"
 expect "subscriber e-mail: one-click unsubscribe with the own link, no one else's" "$(grep -c "^List-Unsubscribe: <http://127.0.0.1:$PORT/subscription?unsubscribe=$ANNA>" "$WORK/eml.txt")|$(grep -c '^List-Unsubscribe-Post: List-Unsubscribe=One-Click' "$WORK/eml.txt")|$(grep -c "unsubscribe=$ANNA" "$WORK/eml.txt")|$(grep -c "$PETR" "$WORK/eml.txt")" "1|1|3|0"
 expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subject-Decoded: Jarní novinky$' "$WORK/eml.txt")|$(grep -c '^Všechny novinky: http' "$WORK/eml.txt")|$(grep -c '<h1 ' "$WORK/eml.txt")" "1|1|1"
 expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
+# a temporary refusal (451 4.7.0) is retried and given up after three attempts – one more subscriber in a newsletter of its own
+db "INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('docasne@example.cz', 1, '$(tok)', '$(site_time)', '$(site_time)');
+  INSERT INTO ka_newsletters (subject, status, recipients, started_at, html, text, created) SELECT 'Docasne', 'sending', 1, '$(site_time)', html, text, '$(site_time)' FROM ka_newsletters WHERE id = $NL"
+NLT=$(db "SELECT MAX(id) FROM ka_newsletters WHERE subject = 'Docasne'")
+db "INSERT INTO ka_newsletter_queue (newsletter_id, subscriber_id, next_attempt) SELECT $NLT, ido, '$(site_time)' FROM ka_odberatele WHERE email = 'docasne@example.cz'"
+curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 db "UPDATE ka_newsletter_queue SET next_attempt = '$(site_time)' WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
 db "UPDATE ka_newsletter_queue SET next_attempt = '$(site_time)' WHERE next_attempt IS NOT NULL"; curl -s -o /dev/null "$B/ulohy?token=testtoken123"
-expect "a refused address is given up after three attempts, the newsletter is sent" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL) FROM ka_newsletters WHERE id = $NL")" "sent|2|1|1"
+expect "a temporarily refused address is given up after three attempts, the newsletter is sent" "$(db "SELECT CONCAT(status, '|', sent_count, '|', failed_count, '|', finished_at IS NOT NULL, '|', (SELECT attempts FROM ka_newsletter_queue WHERE newsletter_id = $NLT)) FROM ka_newsletters WHERE id = $NLT")" "sent|0|1|1|3"
+db "DELETE FROM ka_newsletter_queue WHERE newsletter_id = $NLT; DELETE FROM ka_newsletters WHERE id = $NLT; DELETE FROM ka_odberatele WHERE email = 'docasne@example.cz'"
 check "newsletters: list with counts" 200 "/admin.php?module=newsletters" "Odesláno"
 check "a sent newsletter is read-only" 200 "/admin.php?module=newsletters&action=edit&id=$NL" "Příjemci"
 contains -c 'name="subject"' "$WORK/response" && { echo "  CHYBA  a sent newsletter can still be edited"; ERRORS=$((ERRORS+1)); } || echo "  ok     a sent newsletter has no form"
@@ -151,5 +168,5 @@ expect "3.23 (C17): SMTP is tested once the server set accepted a message (the t
   "open|1|1|done|open"
 db "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('newsletter_service', 'smtp_password', 'smtp_provider')"
 kill "$SMTP_PID" 2>/dev/null || true
-db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue"
+db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_odberatele; DELETE FROM ka_newsletters; DELETE FROM ka_newsletter_queue; DELETE FROM ka_restore_ledger WHERE kind = 'bounced'"
 

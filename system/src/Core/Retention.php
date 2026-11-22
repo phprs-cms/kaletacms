@@ -98,6 +98,9 @@ final class Retention
         'staged_files' => ['Files waiting in an import', MediaStaging::DAYS, 'days', 'Kaleta\Core\MediaStaging::DAYS'],
         'quote_drafts' => ['Quote drafts not touched', QuoteDelivery::DRAFT_MONTHS, 'months', 'Kaleta\Core\QuoteDelivery::DRAFT_MONTHS'],
         'download_links' => ['Download links in e-mails', FileLink::DAYS, 'days', 'Kaleta\Core\FileLink::DAYS'],
+        // 3.51: a paused newsletter is cancelled after this; who got a newsletter is deleted this long after it ended
+        'paused_newsletters' => ['Paused newsletters before they are cancelled', Mailing::PAUSED_DAYS, 'days', 'Kaleta\Core\Mailing::PAUSED_DAYS'],
+        'newsletter_recipients' => ['Recipients of a newsletter after it ends', Mailing::RECIPIENT_DAYS, 'days', 'Kaleta\Core\Mailing::RECIPIENT_DAYS'],
     ];
 
     /**
