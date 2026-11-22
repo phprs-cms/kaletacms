@@ -54,12 +54,12 @@ $w697Gone = W697::changes($w697Back['state'], []);
 check('3.50.1 watch: changes – a reachable form that is not reachable alerts once (never one that was not reachable), stays quiet while it stays off, resolves when it is back, and a page that is gone alerts too', [
     $w697Start['alert'], $w697Start['state']['reachable'], $w697Off['alert'], $w697Off['resolve'], $w697Again['alert'], $w697Again['state']['alerted'],
     $w697Back['alert'], $w697Back['resolve'], $w697Back['state'], $w697Gone['alert']],
-    [[], ['form:page:3' => 'Careers'], ['form:page:3' => 'Careers'], [], [], ['form:page:3' => 'Careers'],
-    [], ['form:page:3'], ['reachable' => ['form:page:3' => 'Careers'], 'alerted' => []], ['form:page:3' => 'Careers']]);
+    [[], ['form:page:3'], ['form:page:3' => 'Careers'], [], [], ['form:page:3' => 'Careers'],
+    [], ['form:page:3'], ['reachable' => ['form:page:3'], 'alerted' => []], ['form:page:3' => '']]);
 check('3.50.1 watch: state – keys other than form:page:<id> / form:popup:<id> and anything that does not decode are dropped; the alerted keys stay bounded', [
     W697::state('{"reachable":{"form:page:3":"A","x":"B","form:news:4":"C"},"alerted":[1]}'), W697::state('not json'),
-    count(W697::changes(['reachable' => array_fill_keys(array_map(fn (int $i): string => 'form:page:' . $i, range(1, 150)), 't'), 'alerted' => []], [])['state']['alerted'])],
-    [['reachable' => ['form:page:3' => 'A'], 'alerted' => []], ['reachable' => [], 'alerted' => []], W697::KEEP_ALERTED]);
+    count(W697::changes(['reachable' => array_map(fn (int $i): string => 'form:page:' . $i, range(1, 150)), 'alerted' => []], [])['state']['alerted'])],
+    [['reachable' => ['form:page:3'], 'alerted' => []], ['reachable' => [], 'alerted' => []], W697::KEEP_ALERTED]);
 check('3.50.1 watch: the bell – kind form_unreachable leads to Applications for everyone notified, says what happened, and is a known kind that no stand-in copies', [
     Kaleta\Core\Inbox::accountPlace(W697::KIND), in_array(W697::KIND, Kaleta\Core\Inbox::KINDS, true), in_array(W697::KIND, Kaleta\Core\Inbox::STAND_IN_KINDS, true),
     Kaleta\Core\Inbox::where(Kaleta\Core\Inbox::accountPlace(W697::KIND)), Kaleta\Core\Inbox::parse('form:page:3'), Kaleta\Core\Scheduler::JOBS['application_forms'][0] ?? null],

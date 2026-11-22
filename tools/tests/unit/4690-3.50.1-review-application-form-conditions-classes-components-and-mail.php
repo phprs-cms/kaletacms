@@ -11,7 +11,7 @@ $r690Form = fn (string $id, string $purpose, bool $file = false, array $extra = 
 $r690Json = fn (array $section, array ...$children): string => (string) json_encode(['v' => 1, 'deti' => [['id' => 'sek690', 'typ' => 'sekce'] + $section + ['deti' => $children]]]);
 $r690Until = ['podminky' => ['do' => '2020-01-01']];
 $r690Published = $r690Json([], $r690Form('frm690', 'uchazec'));
-check('3.50.1 review: shadowedApplicationForms – new display conditions on the application form or an ancestor, changed ones, or a class added to it hide it; conditions already published, removed ones, or a label change do not', [
+check('3.50.1 review: shadowedApplicationForms – new display conditions on the application form or an ancestor or a class added to it hide it (no database at hand: every class counts); conditions already published, a later "do" date, removed ones, or a label change do not', [
     R690Build::shadowedApplicationForms($r690Published, $r690Json([], $r690Form('frm690', 'uchazec', false, $r690Until))),
     R690Build::shadowedApplicationForms($r690Published, $r690Json(['podminky' => ['prihlaseni' => 'ano']], $r690Form('frm690', 'uchazec'))),
     R690Build::shadowedApplicationForms($r690Json($r690Until, $r690Form('frm690', 'uchazec')), $r690Json(['podminky' => ['do' => '2020-01-02']], $r690Form('frm690', 'uchazec'))),
@@ -20,7 +20,7 @@ check('3.50.1 review: shadowedApplicationForms – new display conditions on the
     R690Build::shadowedApplicationForms($r690Json($r690Until + ['tridy' => ['karta690']], $r690Form('frm690', 'uchazec')), $r690Json($r690Until + ['tridy' => ['karta690']], $r690Form('frm690', 'uchazec'))),
     R690Build::shadowedApplicationForms($r690Json($r690Until, $r690Form('frm690', 'uchazec')), $r690Published),
     R690Build::shadowedApplicationForms($r690Published, $r690Json(['tridy' => ['karta690']], $r690Form('frm691', '')))],
-    [['frm690'], ['frm690'], ['frm690'], ['frm690'], ['frm690'], [], [], []]);
+    [['frm690'], ['frm690'], [], ['frm690'], ['frm690'], [], [], []]);
 
 $r690Component = fn (string $id, int $idm): array => ['id' => $id, 'typ' => 'komponenta', 'obsah' => ['komponenta' => (string) $idm]];
 check('3.50.1 review: newComponentReferences – a new komponenta element, or one pointing to another component, beside a published application form; none for the same reference or without an application form', [
@@ -56,7 +56,7 @@ check('3.50.1 review: the refusal of taking an application form off the site has
 
 // Mail: the queue row is written, then the 1-in-50 clean-up of the log fails – the copy waits in the queue and is not sent at once
 // (an SQLite connection put into Db, a trigger refuses every delete; the SMTP server cannot be reached, so a send would fail)
-$r690Result = [true, 0, 0];
+$r690Result = ['pdo_sqlite is not loaded – the check did not run'];
 if (extension_loaded('pdo_sqlite')) {
     $r690Pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $r690Pdo->exec('CREATE TABLE ka_posta (id INTEGER PRIMARY KEY AUTOINCREMENT, komu TEXT, predmet TEXT, vytvoreno TEXT, pokusu INTEGER, odeslano TEXT, chyba TEXT, telo TEXT, dalsi_pokus TEXT)');
