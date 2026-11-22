@@ -255,7 +255,8 @@ final class Departments
         if ($to === null) {
             return null;
         }
-        if ($db->run('UPDATE {poptavky} SET prirazeno = ? WHERE idp = ? AND prirazeno IS NULL', [$to, $idp])->rowCount() === 0) {
+        // 3.51 (N148): routed by a rule of the site – nobody assigned it (assigned_by NULL counts for the team summary as before)
+        if ($db->run('UPDATE {poptavky} SET prirazeno = ?, assigned_by = NULL WHERE idp = ? AND prirazeno IS NULL', [$to, $idp])->rowCount() === 0) {
             return null;
         }
         Assignment::notify($app, 'enquiry', $idp, $to, 0, $standIn !== null ? $standIn['for_name'] : '');

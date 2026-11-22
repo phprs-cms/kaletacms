@@ -363,6 +363,9 @@ final class Quotes
             }
             $data['owner_id'] = $owner > 0 ? $owner : null;
         }
+        if (array_key_exists('owner_id', $data) && ($quote === null || $data['owner_id'] !== $quote['owner_id'])) {
+            $data['assigned_by'] = $byUserId > 0 ? $byUserId : null; // 3.51 (N148): who changed the person, only when it changes
+        }
 
         // texts, validity, language, discount, VAT
         if ($quote === null || $has('title')) {

@@ -132,7 +132,10 @@ final class Handover
         if ($previous === $userId) {
             return ['previous' => $previous, 'changed' => false];
         }
-        $db->update($table, [$column => $userId], [$idColumn => $id]);
+        // 3.51 (N148): an enquiry remembers who changed the person handling it (the team summary leaves out what the viewer
+        // put on someone else); pages, items and applications have no such column
+        $by = $app->auth()->id();
+        $db->update($table, [$column => $userId] + ($kind === 'enquiry' ? ['assigned_by' => $by > 0 ? $by : null] : []), [$idColumn => $id]);
         self::notify($app, $kind, $id, $previous, $userId);
 
         return ['previous' => $previous, 'changed' => true];
@@ -245,16 +248,21 @@ final class Handover
      *
      * 3.34 B: their undecided job applications too; a decided one keeps who handled it.
      *
+     * 3.51 (N148): the open enquiries, tasks and deals that move remember $byUserId (the administrator handing over; 0 = none)
+     * as who changed their person.
+     *
      * @return array{page: int, item: int, enquiry: int, task: int, contact: int, company: int, deal: int, application: int}
      */
-    public static function handOver(Db $db, int $from, ?int $to): array
+    public static function handOver(Db $db, int $from, ?int $to, int $byUserId = 0): array
     {
+        $by = $byUserId > 0 ? $byUserId : null;
+
         return [
             'page' => $db->run('UPDATE {stranky} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount(),
             'item' => $db->run('UPDATE {kolekce_polozky} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount(),
-            'enquiry' => $db->run('UPDATE {poptavky} SET prirazeno = ? WHERE prirazeno = ? AND stav < 2', [$to, $from])->rowCount(),
-            'task' => Tasks::handOver($db, $from, $to),
-        ] + Contacts::handOver($db, $from, $to) + ['deal' => Deals::handOver($db, $from, $to), 'application' => Applications::handOver($db, $from, $to)]; // 3.31: their deals, open and closed; 3.34 B
+            'enquiry' => $db->run('UPDATE {poptavky} SET prirazeno = ?, assigned_by = ? WHERE prirazeno = ? AND stav < 2', [$to, $by, $from])->rowCount(),
+            'task' => Tasks::handOver($db, $from, $to, $byUserId),
+        ] + Contacts::handOver($db, $from, $to) + ['deal' => Deals::handOver($db, $from, $to, $byUserId), 'application' => Applications::handOver($db, $from, $to)]; // 3.31: their deals, open and closed; 3.34 B
     }
 
     /**

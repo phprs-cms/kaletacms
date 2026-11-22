@@ -877,8 +877,9 @@ open elsewhere. The bell next to your name leads to your notifications.
 pages and items you are responsible for and the answers to your requests to Claude – each row opens the place where the
 work is done. **New task** adds a task for yourself or a colleague, with a due date and a reminder; complete or snooze it
 right in the list. **Summary** shows how much the team did in a period, as counts only, and administrators also have the
-**Team** tab with everybody's open tasks and the tasks nobody has. Giving a record a **Responsible person** never hides it
-from anybody else.
+**Team** tab with everybody's open tasks and the tasks nobody has. Someone who is not an administrator sees a team total
+only when enough other people share it, and work they gave to a colleague does not count towards that. Giving a record a
+**Responsible person** never hides it from anybody else.
 
 **Notifications.** The bell collects mentions, comments on what you are responsible for, things assigned to you and review
 dates, kept for 90 days. **Mark all as read** clears the count. How you hear about them by e-mail – each one right away,

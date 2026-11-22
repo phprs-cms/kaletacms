@@ -236,7 +236,7 @@ final class MyWork extends Module
         }
         $idp = $this->request->postInt('idp');
         $me = $this->app->auth()->id();
-        if ($this->db->run('UPDATE {poptavky} SET prirazeno = ? WHERE idp = ? AND prirazeno IS NULL', [$me, $idp])->rowCount() !== 1) {
+        if ($this->db->run('UPDATE {poptavky} SET prirazeno = ?, assigned_by = ? WHERE idp = ? AND prirazeno IS NULL', [$me, $me, $idp])->rowCount() !== 1) {
             return $this->back('Someone already handles this enquiry.', type: 'chyba');
         }
         \Kaleta\Core\ChangeLog::write($this->app, self::IDENT, 'enquiry_taken', '#' . $idp);

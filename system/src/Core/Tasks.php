@@ -83,6 +83,7 @@ final class Tasks
         $remind = self::parseMoment((string) ($fields['remind_at'] ?? ''));
         $now = Clock::now();
         $id = $db->insert('tasks', ['title' => $title, 'target' => $target, 'assignee_id' => $assignee, 'created_by' => $byUserId > 0 ? $byUserId : null,
+            'assigned_by' => $byUserId > 0 ? $byUserId : null, // 3.51 (N148): who put the task on its person
             'due_at' => $due, 'remind_at' => $remind, 'created_at' => $now, 'updated_at' => $now]);
         self::journalInserted($db, $id, $target);
         if ($assignee !== $byUserId) {
@@ -118,6 +119,7 @@ final class Tasks
             $data['assignee_id'] = $assignee;
             if ($assignee !== $task['assignee_id']) {
                 $data['escalated_at'] = null; // review L4: the new assignee's manager is told when it is overdue
+                $data['assigned_by'] = $byUserId > 0 ? $byUserId : null; // 3.51 (N148): only when the person changes
             }
         }
         foreach (['due_at', 'remind_at'] as $key) {
@@ -573,11 +575,12 @@ final class Tasks
         return array_keys($sections);
     }
 
-    /** Hands a leaver's open tasks to another person (null = nobody). Returns how many moved. */
-    public static function handOver(Db $db, int $from, ?int $to): int
+    /** Hands a leaver's open tasks to another person (null = nobody), stamped with who handed them over (3.51; 0 = nobody). Returns how many moved. */
+    public static function handOver(Db $db, int $from, ?int $to, int $byUserId = 0): int
     {
         try {
-            return $db->run('UPDATE {tasks} SET assignee_id = ?, notified_at = NULL, escalated_at = NULL, updated_at = ? WHERE assignee_id = ? AND done_at IS NULL', [$to, Clock::now(), $from])->rowCount();
+            return $db->run('UPDATE {tasks} SET assignee_id = ?, assigned_by = ?, notified_at = NULL, escalated_at = NULL, updated_at = ? WHERE assignee_id = ? AND done_at IS NULL',
+                [$to, $byUserId > 0 ? $byUserId : null, Clock::now(), $from])->rowCount();
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return 0;

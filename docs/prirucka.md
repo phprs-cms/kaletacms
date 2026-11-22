@@ -830,7 +830,8 @@ Zvonek vedle jména vede na vaše upozornění.
 k připomenutí, stránky a položky, za které odpovídáte, a odpovědi na vaše požadavky pro Clauda – každý řádek otevře místo,
 kde se práce dělá. **Nový úkol** přidá úkol pro vás nebo kolegu s termínem a připomínkou; dokončíte nebo odložíte ho přímo
 v seznamu. **Shrnutí** ukáže, kolik tým za období udělal, jen v počtech, a správci mají navíc záložku **Tým** s otevřenými
-úkoly všech a s úkoly, které nemá nikdo. **Odpovědná osoba** u záznamu ho nikdy nikomu jinému neskryje.
+úkoly všech a s úkoly, které nemá nikdo. Kdo není správce, vidí součet týmu jen tehdy, když ho sdílí dost dalších lidí, a práce,
+kterou sám přidělil kolegovi, se do toho nepočítá. **Odpovědná osoba** u záznamu ho nikdy nikomu jinému neskryje.
 
 **Upozornění.** Zvonek sbírá zmínky, komentáře k tomu, za co odpovídáte, věci, které vám někdo přidělil, a termíny
 kontroly; drží je 90 dní. **Označit vše jako přečtené** vynuluje počet. Jak se o nich dozvíte e-mailem – o každém hned,

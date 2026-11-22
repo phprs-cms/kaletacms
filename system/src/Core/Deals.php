@@ -560,7 +560,7 @@ final class Deals
                 }
             }
             $id = $db->transaction(function (Db $db) use ($data, $stage, $source, $byUserId, $now): int {
-                $id = $db->insert('deals', $data + ['stage' => $stage, 'source_enquiry_id' => $source > 0 ? $source : null, 'closed_at' => null, 'lost_reason' => null, 'lost_note' => null,
+                $id = $db->insert('deals', $data + ['assigned_by' => $byUserId > 0 ? $byUserId : null, 'stage' => $stage, 'source_enquiry_id' => $source > 0 ? $source : null, 'closed_at' => null, 'lost_reason' => null, 'lost_note' => null,
                     'created_by' => $byUserId > 0 ? $byUserId : null, 'created_at' => $now, 'updated_at' => $now]);
                 $db->insert('deal_stage_history', ['deal_id' => $id, 'from_stage' => null, 'to_stage' => $stage, 'at' => $now, 'user_id' => $byUserId > 0 ? $byUserId : null]);
 
@@ -572,6 +572,9 @@ final class Deals
             $data = array_filter($data, fn (mixed $v, string $k): bool => $v !== ($deal[$k] ?? null), ARRAY_FILTER_USE_BOTH);
             if ($data === []) {
                 return $deal['id'];
+            }
+            if (array_key_exists('owner_id', $data)) {
+                $data['assigned_by'] = $byUserId > 0 ? $byUserId : null; // 3.51 (N148): who changed the person, only when it changes
             }
             $db->update('deals', $data + ['updated_at' => $now], ['id' => $deal['id']]);
             \Kaleta\Core\ChangeLog::write($app, self::SECTION, 'save', '#' . $deal['id']);
@@ -1356,11 +1359,11 @@ final class Deals
         }
     }
 
-    /** Hands a leaver's deals – open and closed, so no leaver's id is left behind – to another person (null = nobody). */
-    public static function handOver(Db $db, int $from, ?int $to): int
+    /** Hands a leaver's deals – open and closed, so no leaver's id is left behind – to another person (null = nobody), stamped with who handed them over (3.51; 0 = nobody). */
+    public static function handOver(Db $db, int $from, ?int $to, int $byUserId = 0): int
     {
         try {
-            return $db->run('UPDATE {deals} SET owner_id = ? WHERE owner_id = ?', [$to, $from])->rowCount();
+            return $db->run('UPDATE {deals} SET owner_id = ?, assigned_by = ? WHERE owner_id = ?', [$to, $byUserId > 0 ? $byUserId : null, $from])->rowCount();
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
             return 0;

@@ -823,6 +823,24 @@ final class QuoteDelivery
         }
     }
 
+    /**
+     * 3.51 (N148): the quotes accepted in the period that the viewer helped onto someone else – of another responsible person
+     * and either given to that person by the viewer (assigned_by) or marked accepted by the viewer (decided_by): per
+     * responsible person. Only for the threshold of the team summary (TeamSummary::withoutPlanted), never for a total.
+     *
+     * @return array<int, int>
+     */
+    public static function plantedAccepted(Db $db, int $viewer, string $from, string $to): array
+    {
+        try {
+            return array_map('intval', $db->pairs("SELECT owner_id, COUNT(*) FROM {quotes} WHERE status = 'accepted' AND decided_at >= ? AND decided_at < ? AND owner_id <> ?"
+                . ' AND (assigned_by = ? OR decided_by = ?) GROUP BY owner_id', [$from, $to, $viewer, $viewer, $viewer]));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+            return []; // before migration 0138
+        }
+    }
+
     /** How many quotes hold a customer (the record of processing). */
     public static function withCustomer(Db $db): int
     {

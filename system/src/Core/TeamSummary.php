@@ -253,7 +253,7 @@ final class TeamSummary
             usort($people, fn (array $a, array $b): int => [$a['id'] === 0, -array_sum($a['counts']), $a['name']] <=> [$b['id'] === 0, -array_sum($b['counts']), $b['name']]);
         }
 
-        $team = $perPerson ? self::totals($collected, $sections) : self::visibleTotals(self::withoutPlanted($app, $collected, $sections, $viewer), $collected, $sections, $viewer);
+        $team = $perPerson ? self::totals($collected, $sections) : self::visibleTotals(self::withoutPlanted($app, $collected, $sections, $viewer, $from, $to), $collected, $sections, $viewer);
 
         return ['period' => $period, 'from' => $from, 'to' => $to, 'sections' => $sections, 'team' => $team,
             'you' => self::row($collected[$viewer] ?? [], $sections), 'people' => $people];
@@ -328,25 +328,62 @@ final class TeamSummary
     }
 
     /**
-     * 3.50 N148: the counts with the open tasks the viewer created for other people taken away – a task planted on a third
-     * account must not lift the threshold of visibleTotals(). Only for deciding who counts, never for the totals shown.
+     * 3.50 N148, 3.51 (SECURITY-3): the counts with what the viewer put on other people taken away – work planted on a third
+     * account must not lift the threshold of visibleTotals(). Taken away, per count, on the person it lies with: open tasks
+     * and open enquiries whose person the viewer set last (assigned_by); deals won or lost in the period of another owner
+     * that the viewer gave them or moved into the closing stage; quotes accepted in the period of another owner that the
+     * viewer gave them or marked accepted. Work assigned before 3.51 or by a rule of the site (assigned_by NULL) counts as
+     * before. Only for deciding who counts, never for the totals shown. $from and $to: the period of collect() (the default
+     * period when left out).
      *
      * @param array<int, array<string, int>> $collected
      * @param list<string> $sections
      * @return array<int, array<string, int>>
      */
-    public static function withoutPlanted(App $app, array $collected, array $sections, int $viewer): array
+    public static function withoutPlanted(App $app, array $collected, array $sections, int $viewer, string $from = '', string $to = ''): array
     {
-        if (!in_array('tasks', $sections, true) || $viewer <= 0) {
+        if ($viewer <= 0) {
             return $collected;
         }
-        $today = Clock::today() . ' 00:00:00';
-        $planted = [
-            'tasks_open' => $app->db()->pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND created_by = ? AND assignee_id <> ? GROUP BY assignee_id', [$viewer, $viewer]),
-            'tasks_overdue' => $app->db()->pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND due_at < ? AND created_by = ? AND assignee_id <> ? GROUP BY assignee_id', [$today, $viewer, $viewer]),
-        ];
-        foreach ($planted as $count => $pairs) {
-            foreach ($pairs as $who => $n) {
+        $db = $app->db();
+        $pairs = function (string $sql, array $params) use ($db): array {
+            try {
+                return $db->pairs($sql, $params);
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e);
+                return [];
+            }
+        };
+        if ($from === '' || $to === '') {
+            [$from, $to] = self::range(self::DEFAULT_PERIOD);
+        }
+        $planted = [];
+        if (in_array('tasks', $sections, true)) {
+            $today = Clock::today() . ' 00:00:00';
+            $planted['tasks_open'] = $pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND assigned_by = ? AND assignee_id <> ? GROUP BY assignee_id', [$viewer, $viewer]);
+            $planted['tasks_overdue'] = $pairs('SELECT assignee_id, COUNT(*) FROM {tasks} WHERE done_at IS NULL AND due_at < ? AND assigned_by = ? AND assignee_id <> ? GROUP BY assignee_id', [$today, $viewer, $viewer]);
+        }
+        if (in_array('enquiries', $sections, true)) {
+            $planted['enquiries_open'] = $pairs('SELECT prirazeno, COUNT(*) FROM {poptavky} WHERE stav < 2 AND ' . self::NOT_SPAM . ' AND assigned_by = ? AND prirazeno <> ? GROUP BY prirazeno', [$viewer, $viewer]);
+        }
+        if (in_array('deals', $sections, true)) {
+            $kinds = array_column(Deals::stages($app->settings()), 'kind', 'key');
+            foreach (['won' => 'deals_won', 'lost' => 'deals_lost'] as $kind => $count) {
+                $keys = array_keys(array_filter($kinds, fn (string $k): bool => $k === $kind));
+                if ($keys !== []) {
+                    $in = implode(',', array_fill(0, count($keys), '?'));
+                    // the move into the closing stage: a history row of the viewer into a stage of that kind since the deal closed
+                    $planted[$count] = $pairs('SELECT d.owner_id, COUNT(*) FROM {deals} d WHERE d.closed_at >= ? AND d.closed_at < ? AND d.stage IN (' . $in . ') AND d.owner_id <> ?'
+                        . ' AND (d.assigned_by = ? OR EXISTS (SELECT 1 FROM {deal_stage_history} h WHERE h.deal_id = d.id AND h.user_id = ? AND h.to_stage IN (' . $in . ') AND h.at >= d.closed_at))'
+                        . ' GROUP BY d.owner_id', [$from, $to, ...$keys, $viewer, $viewer, $viewer, ...$keys]);
+                }
+            }
+        }
+        if (in_array('quotes', $sections, true)) {
+            $planted['quotes_accepted'] = QuoteDelivery::plantedAccepted($db, $viewer, $from, $to); // the quote tables are named only by the quote classes (unit 2800)
+        }
+        foreach ($planted as $count => $byPerson) {
+            foreach ($byPerson as $who => $n) {
                 if (isset($collected[(int) $who][$count])) {
                     $collected[(int) $who][$count] = max(0, $collected[(int) $who][$count] - (int) $n);
                 }
