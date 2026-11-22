@@ -76,9 +76,10 @@ final class Mail
         } catch (\Throwable $e) {
             // the mail log must not break sending (e.g. before the migration runs, the table does not exist yet). 3.50.1
             // (CODE-l2): a copy that was only to be queued ($tryNow false) was not sent at all – without the queue row it would
-            // be lost, so it is tried once now; a failure of that too goes to the PHP error log. Only when the row was not
-            // written (3.50.1 review): a written row is sent from the queue, a second copy now would arrive twice
-            if (!$tryNow && self::$lastId === null) {
+            // be lost, so it is tried once now; a failure of that too goes to the PHP error log. Only the insert can throw
+            // here, so the row was never written (3.50.1 review: a written row is sent from the queue, a second copy would
+            // arrive twice – the clean-up below has its own try for that reason)
+            if (!$tryNow) {
                 $ok = self::deliver($siteSettings, $recipient, $subject, $text, $html, $headers, $attachments);
                 $error = $ok ? '' : self::$error;
                 if (!$ok) {
