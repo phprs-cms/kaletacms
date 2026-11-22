@@ -554,6 +554,13 @@ final class Audit
         if (Extensions::isEnabled($s, 'newsletter')) {
             $row('cron', t('Background tasks run (cron)'), 'admin.php?module=status',
                 $check($s->int('tasks_last_run') > 0, t('Background tasks have never run – newsletters are sent only while they do. Add the cron line from System status.'), 'admin.php?module=status', 'cron'));
+            // 3.51 (B6): a newsletter names its sender; a paused send waits for a person and is cancelled after Mailing::PAUSED_DAYS
+            $row('newsletter', t('Newsletters can go out'), 'admin.php?module=newsletters', [
+                ...$check(SenderIdentity::line($s, Language::defaults($s)) !== null, t('The company name or the postal address is missing – newsletters cannot be sent until they are filled in (Settings → Business details).'), 'admin.php?module=settings&tab=company', 'newsletter'),
+                ...array_map(fn (array $n): array => $finding(t('The newsletter “%s” is paused – resume or cancel it; otherwise it is cancelled on %s.', (string) $n['subject'], format_date((string) Mailing::cancelOn($n), true)),
+                    'admin.php?module=newsletters&action=edit&id=' . (int) $n['id'], 'newsletter', ['newsletter' => (int) $n['id']]),
+                    $db->all("SELECT id, subject, status, paused_at FROM {newsletters} WHERE status = 'paused' ORDER BY paused_at")),
+            ]);
         }
         // 2.8: the cached domain and mail watch – a missing SPF or DMARC record, a certificate or a domain about to expire;
         // a row only once the watch has looked (a site on a local address is never looked at)

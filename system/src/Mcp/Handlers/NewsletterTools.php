@@ -22,7 +22,7 @@ trait NewsletterTools
     public static function newsletterToolsDefinitions(): array
     {
         return [
-            'list_newsletters' => ['Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent and sent, with counts of recipients, sent and failed e-mails, the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running).', Schema::object([])],
+            'list_newsletters' => ['Newsletters (Newsletter extension; users with the Newsletters section): drafts, scheduled, being sent, paused, sent and cancelled, with counts of recipients, sent, failed and skipped e-mails (recipients = sent + failed + skipped once it ends), the number of confirmed subscribers and sending_problem – why the site cannot send now (no SMTP server, cron not running, no company name and postal address of the sender). A paused one has paused_at, pause_reason (manual | brake – sending kept failing at the mail server) and cancel_on, the day it is cancelled unless a person resumes it in the admin. warnings: what may hurt delivery without stopping it (no SPF or DMARC record, a connected mailing service).', Schema::object([])],
             'draft_newsletter' => ['Creates a newsletter draft (without id) or changes a draft or a scheduled one (with id). There is no e-mail builder: one template styled by the design system (colours, fonts, logo) with the subject, an introduction, news items, an optional button and the company footer with an unsubscribe link. Returns the plain-text version to check; the admin shows the HTML preview.',
                 Schema::object(['id' => Schema::number('newsletter ID – only when changing it'), 'subject' => Schema::text('subject of the e-mail, also its heading'), 'preheader' => Schema::text('preview text next to the subject in the inbox (optional)'),
                     'intro' => Schema::text('introduction as plain text; an empty line starts a new paragraph, web addresses become links'),
@@ -32,9 +32,10 @@ trait NewsletterTools
                     'button_label' => Schema::text('button text (optional, with button_url)'), 'button_url' => Schema::text('button link: a path on the site (/contact) or https://…'),
                     'language' => Schema::text('language of the footer texts and the latest news on a multilingual site (code; empty = default)')])],
             'send_test_newsletter' => ['Sends the newsletter as a test to the connected user\'s own e-mail address – subscribers get nothing. Use it before asking the user to send.', Schema::object(['id' => Schema::number('newsletter ID')], ['id'])],
-            'send_newsletter' => ['Sends the newsletter to all confirmed subscribers now, or schedules it with at. It cannot be taken back: only with the publishing permission and ONLY when the user explicitly asks to send it. Needs an SMTP server and a running cron (sending_problem in list_newsletters). unschedule: true turns a scheduled one back into a draft.',
-                Schema::object(['id' => Schema::number('newsletter ID'), 'at' => Schema::text('YYYY-MM-DD HH:MM to schedule; empty = now'), 'unschedule' => ['type' => 'boolean', 'description' => 'true = cancel the scheduled sending']], ['id'])],
-            'delete_newsletter' => ['Deletes a newsletter – a draft, a scheduled or a sent one (not one being sent). Only when the user explicitly asks.', Schema::object(['id' => Schema::number('newsletter ID')], ['id'])],
+            'send_newsletter' => ['Sends the newsletter to all confirmed subscribers now, or schedules it with at. It cannot be taken back: only with the publishing permission and ONLY when the user explicitly asks to send it. Needs an SMTP server, a running cron and the sender\'s company name and postal address (sending_problem in list_newsletters). Addresses that bounced or refused e-mail are skipped. unschedule: true turns a scheduled one back into a draft; pause: true stops a send under way at once (no confirmation needed – resuming or cancelling it is done by a person in the admin). Use one of at, unschedule and pause per call.',
+                Schema::object(['id' => Schema::number('newsletter ID'), 'at' => Schema::text('YYYY-MM-DD HH:MM to schedule; empty = now'), 'unschedule' => ['type' => 'boolean', 'description' => 'true = cancel the scheduled sending'],
+                    'pause' => ['type' => 'boolean', 'description' => 'true = stop a newsletter that is being sent, at once']], ['id'])],
+            'delete_newsletter' => ['Deletes a newsletter – a draft, a scheduled, a sent or a cancelled one (not one being sent or paused). Only when the user explicitly asks.', Schema::object(['id' => Schema::number('newsletter ID')], ['id'])],
         ];
     }
 
@@ -48,8 +49,8 @@ trait NewsletterTools
         }
         $mailing = \Kaleta\Core\Mailing::class;
 
-        return ['newsletters' => array_map(fn (array $n): array => $this->newsletter($n), $mailing::all($db)),
-            'confirmed_subscribers' => $mailing::confirmedCount($db), 'sending_problem' => $mailing::problem($this->app)];
+        return ['newsletters' => array_map(fn (array $n): array => $this->newsletterSending($n), $mailing::all($db)),
+            'confirmed_subscribers' => $mailing::confirmedCount($db), 'sending_problem' => $mailing::problem($this->app), 'warnings' => $mailing::warnings($this->app->settings())];
     }
 
     /** draft_newsletter */
@@ -109,13 +110,46 @@ trait NewsletterTools
         if (!$auth->canPublish()) {
             throw new \DomainException('Sending to subscribers needs the publishing permission.');
         }
-        if (!empty($a['unschedule'])) {
+        // 3.51: one action per call – a mixed call is refused before anything happens (only a pure stop goes without a code)
+        $at = isset($a['at']) ? trim((string) $a['at']) : '';
+        if (count(array_filter([!empty($a['pause']), !empty($a['unschedule']), $at !== ''])) > 1) {
+            throw new \InvalidArgumentException('Choose one: at (schedule), unschedule or pause – not several in one call.');
+        }
+        if (!empty($a['pause'])) {
+            $mailing::pause($this->app, (int) $n['id']);
+        } elseif (!empty($a['unschedule'])) {
             $mailing::unschedule($this->app, (int) $n['id']);
         } else {
-            $mailing::send($this->app, (int) $n['id'], isset($a['at']) ? (string) $a['at'] : null);
+            $mailing::send($this->app, (int) $n['id'], $at !== '' ? $at : null);
         }
 
-        return $this->newsletter((array) $mailing::byId($db, (int) $n['id']));
+        return $this->newsletterSending((array) $mailing::byId($db, (int) $n['id']));
+    }
+
+    /**
+     * A newsletter as list_newsletters shows it: the keys of Tools::newsletter() and, 3.51, the counts of a paused or
+     * cancelled one, skipped for an ended one, paused_at, pause_reason and cancel_on for a paused one (additive keys).
+     *
+     * @param array<string, mixed> $n
+     * @return array<string, mixed>
+     */
+    private function newsletterSending(array $n): array
+    {
+        $output = $this->newsletter($n);
+        $status = (string) $n['status'];
+        if (in_array($status, ['paused', 'cancelled'], true)) {
+            $output += ['recipients' => (int) $n['recipients'], 'sent' => (int) $n['sent_count'], 'failed' => (int) $n['failed_count'],
+                'started_at' => substr((string) $n['started_at'], 0, 16), 'finished_at' => !empty($n['finished_at']) ? substr((string) $n['finished_at'], 0, 16) : null];
+        }
+        if (in_array($status, ['sent', 'cancelled'], true)) {
+            $output['skipped'] = (int) ($n['skipped_count'] ?? 0);
+        }
+        if ($status === 'paused') {
+            $output += ['paused_at' => substr((string) $n['paused_at'], 0, 16), 'pause_reason' => (string) $n['pause_reason'],
+                'cancel_on' => substr((string) \Kaleta\Core\Mailing::cancelOn($n), 0, 16)];
+        }
+
+        return $output;
     }
 
     /** delete_newsletter */

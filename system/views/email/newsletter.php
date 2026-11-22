@@ -12,7 +12,8 @@
  * @var string $siteName
  * @var string $siteUrl
  * @var string $logo absolute URL of a raster logo, or empty
- * @var list<string> $company footer lines
+ * @var ?string $identity 3.51: who sends it (Settings → Mail, company name and address); null only in a preview before they are filled in
+ * @var string $reason 3.51: why the e-mail arrived (Settings → Mail)
  * @var array<string, string> $colors design system colours (primarni, sekundarni, text, pozadi, plocha, tlumeny, na-primarni)
  * @var string $headingFont
  * @var string $textFont
@@ -83,10 +84,10 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 </table>
 <table role="presentation" class="ka-obal"<?= $dir ?> width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 <tr><td class="ka-odsazeni" style="padding:20px 40px;font-family:<?= $font ?>;font-size:13px;line-height:1.6;color:<?= $c['tlumeny'] ?>;">
-<?php foreach ($company as $line): ?>
-	<?= e($line) ?><br>
-<?php endforeach ?>
-	<?= e(t('You receive this e-mail because you subscribed to news from %s.', $siteName)) ?><br>
+<?php if ($identity !== null): ?>
+	<?= e($identity) ?><br>
+<?php endif ?>
+	<?= e($reason) ?><br>
 	<a href="<?= $unsubscribe ?>" style="color:<?= $c['tlumeny'] ?>;"><?= e(t('Unsubscribe')) ?></a>
 </td></tr>
 </table>

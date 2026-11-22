@@ -8,7 +8,10 @@
  * @var list<array<string, mixed>> $newsletters
  * @var int $confirmed confirmed subscribers
  * @var ?string $problem why the site cannot send now
+ * @var bool $canPublish
  */
+use Kaleta\Core\Mailing;
+
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New newsletter')) ?></a>
 	<a class="navigace" href="<?= e($app->url('admin.php?module=subscribers')) ?>"><?= e(t('Confirmed subscribers: %d', $confirmed)) ?></a></p>
@@ -28,14 +31,19 @@
 	<td><?= match ($n['status']) {
         'sent' => '<span class="stitek stitek-vydano">' . e(t('Sent')) . '</span> <span class="napoveda">' . e(format_date((string) $n['finished_at'], true)) . '</span>',
         'sending' => '<span class="stitek">' . e(t('Sending')) . '</span> <span class="napoveda">' . e(t('%d of %d', (int) $n['sent_count'] + (int) $n['failed_count'], (int) $n['recipients'])) . '</span>',
+        // 3.51: why it stopped and the day it is cancelled by itself
+        'paused' => '<span class="stitek stitek-chyba">' . e(t('Paused')) . '</span> <span class="napoveda">' . e(t($n['pause_reason'] === 'brake' ? 'by the brake – sending kept failing' : 'by hand'))
+            . ' · ' . e(t('cancelled on %s unless resumed', format_date((string) Mailing::cancelOn($n), true))) . '</span>',
+        'cancelled' => '<span class="stitek">' . e(t('Cancelled')) . '</span> <span class="napoveda">' . e(format_date((string) $n['finished_at'], true)) . '</span>',
         'scheduled' => '<span class="stitek">' . e(t('Scheduled')) . '</span> <span class="napoveda">' . e(format_date((string) $n['scheduled_at'], true)) . '</span>',
         default => '<span class="stitek stitek-koncept">' . e(t('Draft')) . '</span>',
     } ?></td>
-	<td class="cislo"><?= $n['status'] === 'sending' || $n['status'] === 'sent' ? (int) $n['recipients'] : '—' ?></td>
-	<td class="cislo"><?= $n['status'] === 'sending' || $n['status'] === 'sent' ? (int) $n['sent_count'] : '—' ?></td>
-	<td class="cislo"><?= (int) $n['failed_count'] > 0 ? '<strong>' . (int) $n['failed_count'] . '</strong>' : ($n['status'] === 'sent' ? '0' : '—') ?></td>
+<?php $started = in_array($n['status'], ['sending', 'paused', 'sent', 'cancelled'], true) ?>
+	<td class="cislo"><?= $started ? (int) $n['recipients'] : '—' ?></td>
+	<td class="cislo"><?= $started ? (int) $n['sent_count'] : '—' ?></td>
+	<td class="cislo"><?= (int) $n['failed_count'] > 0 ? '<strong>' . (int) $n['failed_count'] . '</strong>' : (in_array($n['status'], ['sent', 'cancelled'], true) ? '0' : '—') ?></td>
 	<td class="akce"><a href="<?= e($module->url('edit', ['id' => $n['id']])) ?>"><?= e(in_array($n['status'], ['draft', 'scheduled'], true) ? t('Edit') : t('View')) ?></a>
-<?php if ($n['status'] !== 'sending'): ?>
+<?php if ($n['status'] !== 'sending' && $n['status'] !== 'paused'): ?>
 		· <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the newsletter?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= (int) $n['id'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form>
 <?php endif ?>
 	</td>

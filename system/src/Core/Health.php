@@ -394,6 +394,16 @@ final class Health
         $add(t('Operation'), t('Mail delivery'), $smtp || function_exists('mail') ? 'ok' : 'varovani', $smtp ? ($mailService !== null
             ? t('via %s (SMTP server %s)', MailServices::name($mailService), $app->settings()->get('smtp_host'))
             : t('via SMTP server %s', $app->settings()->get('smtp_host'))) : (function_exists('mail') ? t('using the server\'s mail() function – SMTP is more reliable (Settings → Mail)') : t('the mail() function is disabled – set up SMTP (Settings → Mail)')));
+        // 3.51 (B6): a newsletter must name its sender; a paused send is cancelled by itself after Mailing::PAUSED_DAYS
+        if (Extensions::isEnabled($siteSettings, 'newsletter')) {
+            if (SenderIdentity::line($siteSettings, Language::defaults($siteSettings)) === null) {
+                $add(t('Operation'), t('Newsletter sender'), 'varovani', t('the company name or the postal address is missing – newsletters cannot be sent until they are filled in (Settings → Business details)'));
+            }
+            foreach ($db->all("SELECT id, subject, status, paused_at, pause_reason FROM {newsletters} WHERE status = 'paused' ORDER BY paused_at") as $paused) {
+                $add(t('Operation'), t('Paused newsletter'), 'varovani', t('“%s” is paused (%s) – resume or cancel it in Newsletters; otherwise it is cancelled on %s',
+                    (string) $paused['subject'], t($paused['pause_reason'] === 'brake' ? 'by the brake – sending kept failing' : 'by hand'), format_date((string) Mailing::cancelOn($paused), true)));
+            }
+        }
 
         // --- domain and mail (2.8, Core\DomainWatch): the cached result only – no page view waits for DNS or a remote server
         return [...$k, ...DomainWatch::rows(DomainWatch::cached($siteSettings), Demo::active(), time())];

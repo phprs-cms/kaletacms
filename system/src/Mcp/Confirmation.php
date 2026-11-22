@@ -37,13 +37,13 @@ final class Confirmation
 
     /**
      * The tools (English names) and when a call acts: confirm = with confirm true (otherwise the tool refuses or shows a
-     * preview), send = with send true, unless_unschedule = every call except taking a scheduled newsletter back, always
-     * = every call.
+     * preview), send = with send true, unless_stops = every call except one that only stops a newsletter (pause: true – 3.51 –
+     * or unschedule: true, alone and without at), always = every call.
      */
     public const array TOOLS = [
         'reply_to_enquiry' => 'confirm', 'reply_to_application' => 'confirm', 'send_quote' => 'confirm', 'cancel_booking' => 'confirm', 'confirm_booking' => 'confirm',
         'decline_booking' => 'confirm', 'propose_booking_times' => 'confirm', 'erase_personal_data' => 'confirm', 'merge_contacts' => 'confirm', 'undo_agent_session' => 'confirm',
-        'send_newsletter' => 'unless_unschedule', 'request_testimonial' => 'send', 'delete_enquiry' => 'always',
+        'send_newsletter' => 'unless_stops', 'request_testimonial' => 'send', 'delete_enquiry' => 'always',
         // 3.39 review L1: deletions undo_agent_session cannot bring back – the files of a medium leave the disk, a collection's
         // items and a category's texts and item links go by cascade, never journaled. delete_popup, delete_component and
         // delete_newsletter delete one journaled row (a pop-up's counters are its columns, a newsletter's queue is only the
@@ -66,11 +66,22 @@ final class Confirmation
         return match (self::TOOLS[$tool] ?? null) {
             'confirm' => ($arguments['confirm'] ?? false) === true,
             'send' => !empty($arguments['send']),
-            'unless_unschedule' => empty($arguments['unschedule']),
+            'unless_stops' => !self::onlyStops($arguments),
             'always' => true,
             'widens' => $app !== null && self::widens($app, $arguments),
             default => false,
         };
+    }
+
+    /**
+     * 3.51: does a send_newsletter call only stop a newsletter – exactly one of pause and unschedule, and no time? Stopping is
+     * always safe, so it needs no code; anything else (a mixed call too – the tool refuses it) does.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private static function onlyStops(array $arguments): bool
+    {
+        return (!empty($arguments['pause']) xor !empty($arguments['unschedule'])) && trim((string) (is_scalar($arguments['at'] ?? null) ? $arguments['at'] : '')) === '';
     }
 
     /**

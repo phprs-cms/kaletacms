@@ -27,6 +27,7 @@ final class Newsletters extends Module
     {
         return $this->view('list', 'Newsletters', [
             'newsletters' => Mailing::all($this->db), 'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app),
+            'canPublish' => $this->app->auth()->canPublish(),
         ]);
     }
 
@@ -112,6 +113,44 @@ final class Newsletters extends Module
             : t('Sending has started: %d subscribers. The e-mails go out in batches each time cron runs.', (int) $n['recipients']), 'edit', ['id' => $id]);
     }
 
+    /** 3.51: stops a send at once – only with the publishing permission. */
+    protected function actionPause(): Response
+    {
+        return $this->stopOrGo('pause', 'The newsletter is paused – nothing more goes out until you resume it.');
+    }
+
+    /** 3.51: a paused send goes on. */
+    protected function actionResume(): Response
+    {
+        return $this->stopOrGo('resume', 'Sending goes on – the rest goes out in batches each time cron runs.');
+    }
+
+    /** 3.51: ends a send that is under way or paused; what was not sent never goes. */
+    protected function actionCancel(): Response
+    {
+        return $this->stopOrGo('cancel', 'The newsletter was cancelled – the e-mails not sent yet will not go.');
+    }
+
+    private function stopOrGo(string $what, string $done): Response
+    {
+        $r = $this->request;
+        $id = $r->postInt('id');
+        if (!$r->isPost() || !$this->app->auth()->canPublish()) {
+            return $this->back('Sending to subscribers needs the publishing permission.', 'edit', ['id' => $id], 'chyba');
+        }
+        try {
+            match ($what) {
+                'pause' => Mailing::pause($this->app, $id),
+                'resume' => Mailing::resume($this->app, $id),
+                default => Mailing::cancel($this->app, $id),
+            };
+        } catch (\InvalidArgumentException | \DomainException $e) {
+            return $this->back(t($e->getMessage()), 'edit', ['id' => $id], 'chyba');
+        }
+
+        return $this->back($done, 'edit', ['id' => $id]);
+    }
+
     protected function actionUnschedule(): Response
     {
         if ($this->request->isPost() && $this->app->auth()->canPublish()) {
@@ -161,7 +200,8 @@ final class Newsletters extends Module
         return $this->view('form', (int) $n['id'] > 0 ? (string) $n['subject'] : 'New newsletter', [
             'n' => $n, 'news' => $news, 'languages' => $languages, 'newsEnabled' => \Kaleta\Core\Extensions::isEnabled($s, 'novinky'),
             'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app), 'canPublish' => $this->app->auth()->canPublish(),
-            'email' => (string) ($this->app->auth()->user()['email'] ?? ''),
+            'email' => (string) ($this->app->auth()->user()['email'] ?? ''), 'warnings' => Mailing::warnings($s),
+            'left' => in_array($n['status'], ['sending', 'paused'], true) ? max(0, (int) $n['recipients'] - (int) $n['sent_count'] - (int) $n['failed_count']) : 0,
         ]);
     }
 }
