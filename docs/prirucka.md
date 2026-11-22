@@ -303,6 +303,13 @@ soubory – se vybírají napsáním několika písmen; bez JavaScriptu zůstano
 ceník k obchodu, smlouvu k zákazníkovi. Každý vidí jen soubory ze složek, které jsou pro něj; stránka souboru ukáže, kde je
 připojený. Smazání nebo anonymizace záznamu odstraní odkazy, nikdy soubor.
 
+**Žádosti o referenci (3.51).** U vyřízené poptávky vytvoří **Požádat zákazníka o referenci** osobní odkaz na 30 dní;
+co zákazník napíše, přijde jako skrytý koncept do Referencí se souhlasem, který dal. E-mailem web odkaz pošle jen
+zákazníkovi – jeho zákaznický záznam má vyhraný obchod nebo nabídku, kterou zákazník přijal na její stránce – jednou na
+poptávku a jen tehdy, když **Údaje firmy** obsahují název firmy a poštovní adresu, protože e-mail uvádí odesílatele.
+Každý e-mail nese odkaz pro odmítnutí: „Nepište mi“ zapíše adresu do registru adres, na které nepíšeme, a ukončí její
+odběr novinek. Ve všech ostatních případech obrazovka (i Claude) řekne proč a dá vám odkaz, který předáte sami.
+
 **Odkud poptávky přišly.** Zapněte **Nastavení → Cookies → Pamatovat si, odkud poptávky přišly** a každá poptávka i přihláška
 k odběru uloží i **první stránku návštěvy**, její kampaň a web, ze kterého návštěvník přišel – i když je formulář na jiné
 stránce. Pamatuje se jen pro danou záložku prohlížeče a jen u návštěvníků, kteří v cookie liště povolí marketing (zapnutím
@@ -341,9 +348,13 @@ odkazy na váš web nesou parametry `utm`, takže **Statistika** ukáže návšt
 se drží jen po dobu odesílání – potom zůstanou jen počty a data. Koncept newsletteru a zkoušku umí i Claude; odběratelům
 ho pošle jen na váš pokyn.
 
-**Odběratelé: jazyky a adresy, na které nepíšeme.** Každý odběratel si nese jazykovou verzi, ve které se přihlásil, a
-adresu, kterou poštovní server odmítl jako neexistující, nebo člověka, který si nepřeje, abychom mu psali, přeskočí každý
-newsletter i žádost o referenci (3.51).
+**Odběratelé: jazyky a adresy, na které nepíšeme.** Každý odběratel si nese jazykovou verzi, ve které se přihlásil;
+**Odběratelé** ukážou sloupec Jazyk, počet potvrzených a čekajících v každém jazyce a export ho obsahuje. Adresa, kterou
+poštovní server během newsletteru, který ostatním došel, odmítl jako neexistující, je **nedoručitelná**: zůstává
+přihlášená a přeskakuje se, dokud správce nestiskne **Zrušit nedoručitelnost**. Člověk, který u žádosti o referenci
+stiskl „Nepište mi“, **odmítl**: nedojde mu žádný newsletter ani žádost a vrátí ho jen jeho vlastní nové potvrzené
+přihlášení (potvrzovací e-mail na takovou adresu odejde nejvýš jednou týdně). Registr drží jednosměrný otisk, nikdy
+adresu; výmaz osobních údajů ho ponechá, aby se člověku už nepsalo (3.51).
 
 **Odesílání: pozastavení, brzda a co nese patička.** Rozeslaný newsletter jde pozastavit, obnovit nebo zrušit, sám se
 pozastaví, když odesílání opakovaně selhává, a jeho patička uvádí odesílatele – název firmy a poštovní adresu z Údajů

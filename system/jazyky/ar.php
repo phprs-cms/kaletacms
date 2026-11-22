@@ -2166,4 +2166,10 @@ return [
     'Sent by {{company}}, {{address}}.' => 'المرسل: {{company}}، {{address}}.',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'تتلقى هذه الرسالة لأنك اشتركت في أخبار {{site}} وأكدت الاشتراك.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'إذا كنت لا ترغب في تلقي رسائل كهذه منا، فأخبرنا هنا: {{link}}',
+    'This link is no longer valid – write to us at %s.' => 'لم يعد هذا الرابط صالحًا – راسلنا على %s.',
+    'This link is no longer valid – write to us.' => 'لم يعد هذا الرابط صالحًا – راسلنا.',
+    'Stop e-mails from %s' => 'إيقاف رسائل البريد من %s',
+    'Should we stop sending you requests and news?' => 'هل نتوقف عن إرسال الطلبات والأخبار إليك؟',
+    'Do not write to me' => 'لا تراسلوني',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'لن نرسل إليك طلبات أو أخبارًا بعد الآن. ستستمر الردود على استفساراتك وحجوزاتك في الوصول.',
 ];

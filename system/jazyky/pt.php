@@ -2166,4 +2166,10 @@ return [
     'Sent by {{company}}, {{address}}.' => 'Remetente: {{company}}, {{address}}.',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Recebe este e-mail porque se inscreveu nas novidades de {{site}} e confirmou a inscrição.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Se não quiser receber e-mails como este de nós, diga-nos aqui: {{link}}',
+    'This link is no longer valid – write to us at %s.' => 'Este link já não é válido – escreva-nos para %s.',
+    'This link is no longer valid – write to us.' => 'Este link já não é válido – escreva-nos.',
+    'Stop e-mails from %s' => 'Deixar de receber e-mails de %s',
+    'Should we stop sending you requests and news?' => 'Devemos deixar de lhe enviar pedidos e novidades?',
+    'Do not write to me' => 'Não me escrevam',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Não voltaremos a enviar-lhe pedidos nem novidades. As respostas aos seus próprios pedidos e reservas continuarão a chegar.',
 ];

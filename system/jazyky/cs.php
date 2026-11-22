@@ -3319,4 +3319,10 @@ return [
     'Sent by {{company}}, {{address}}.' => 'Odesílatel: {{company}}, {{address}}.',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu {{site}} a přihlášení potvrdili.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Pokud si podobné e-maily od nás nepřejete, dejte nám vědět zde: {{link}}',
+    'This link is no longer valid – write to us at %s.' => 'Tento odkaz už neplatí – napište nám na %s.',
+    'This link is no longer valid – write to us.' => 'Tento odkaz už neplatí – napište nám.',
+    'Stop e-mails from %s' => 'Nechci dostávat e-maily od %s',
+    'Should we stop sending you requests and news?' => 'Máme vám přestat posílat žádosti a novinky?',
+    'Do not write to me' => 'Nepište mi',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Žádosti ani novinky vám už posílat nebudeme. Odpovědi na vaše vlastní poptávky a rezervace vám budou chodit dál.',
 ];
