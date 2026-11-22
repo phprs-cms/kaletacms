@@ -53,7 +53,7 @@ $sets = [
 $offered = $toolSets ?? Kaleta\Mcp\Catalog::offered(null, $toolSet);
 ?>
 <?php foreach (array_intersect_key($sets, array_flip($offered)) as $key => [$label, $help]): ?>
-	<label class="karta-volba"><input type="radio" name="tool_set" value="<?= e($key) ?>"<?= $toolSet === $key ? ' checked' : '' ?>><strong><?= e(t($label)) ?></strong><span><?= e(t($help)) ?><?= $key !== 'all' ? ' ' . e(t($finds)) : '' ?></span></label>
+	<label class="karta-volba"><input type="radio" name="tool_set" value="<?= e($key) ?>"<?= $toolSet === $key ? ' checked' : '' ?>><strong><?= e(t($label)) ?></strong><span><?= e(t($help)) ?><?= $key !== 'all' ? ' ' . e(t($finds)) : ' ' . e(t('About %d kB in each conversation; the other sets load a fraction of it.', Kaleta\Mcp\Translator::ALL_TOOLS_KB)) /* 3.51 (C3) */ ?></span></label>
 <?php endforeach ?>
 </div>
 </fieldset>

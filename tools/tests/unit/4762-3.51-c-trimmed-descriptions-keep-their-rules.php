@@ -40,3 +40,4 @@ check('3.51 C1: import_wordpress – everything arrives hidden, menus into the d
     $c762Missing('import_wordpress', ['description' => ['EVERYTHING ARRIVES HIDDEN', 'news as drafts', 'draft look', 'nothing becomes public', 'add_languages: true', 'ask the user first', 'No accounts are created',
         'up to 1 GB', 'In the phase "preview" show the user', 'confirm: true', 'migration_report', 'hourly change limit'],
         'add_languages' => ['ask the user first'], 'file' => ['storage/import/']])], [[]]);
+check('3.51 C3: site_info says it names this connection with its access and tool set', [$c762Missing('site_info', ['description' => ['this connection (access, tool set)']])], [[]]);

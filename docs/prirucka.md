@@ -510,7 +510,8 @@ víc místa pro vaši práci. Ostatní nástroje (novinky, přesměrování, nas
 `find_tools` a spustí, až je bude potřebovat – čtení přes `run_read_tool`, koncepty a změny přes `run_tool` a mazání,
 odesílání nebo cokoli mimo web přes `run_destructive_tool`, který si s vámi Claude nejdřív potvrdí (aplikace Claude se
 ptá u každého z nich zvlášť) – se stejným přístupem i pravidly. **Všechny nástroje** nabízí
-všechno najednou (výchozí pro osobní token – Claude Code a skripty). Napojení z doby před 3.10 mají všechny nástroje dál;
+všechno najednou (výchozí pro osobní token – Claude Code a skripty) – v každé konverzaci asi 210 kB, proto takovému
+napojení Můj účet i `site_info` připomenou, že ostatní sady jsou jen zlomek. Napojení z doby před 3.10 mají všechny nástroje dál;
 kterékoli napojení přepnete v Můj účet.
 
 Můj účet ukáže přístup a sadu nástrojů každé připojené aplikace a tokenu. **Protokol změn** u každé změny od Clauda uvede název napojení

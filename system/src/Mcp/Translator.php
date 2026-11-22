@@ -72,7 +72,7 @@ final class Translator
      * @var array<string, array{0: string, 1: string, 2: array<string, mixed>}>
      */
     private const array TOOLS = [
-        'site_info' => ['info_o_webu', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions.', []],
+        'site_info' => ['info_o_webu', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions, this connection (access, tool set).', []],
         'list_pages' => ['seznam_stranek', 'Pages of the site (Home, About, Services, Contact…) with their addresses. layout_not_rebuilt: an imported page whose build is still the imported text.', []],
         'get_page' => ['nacti_stranku', 'The whole page including its HTML content.', ['id' => ['id', 'Page ID']]],
         'create_page' => ['vytvor_stranku', 'Creates a page (editors and administrators). Without "visible": true it stays hidden.', ['*stranka']],
@@ -924,6 +924,10 @@ final class Translator
 
         return self::messages($message);
     }
+
+    /** 3.51 (C3): kB of tools/list of an "all" connection, every feature on (unit 4760: within 10 %), and site_info's hint to it. */
+    public const int ALL_TOOLS_KB = 210;
+    public const string ALL_TOOLS_HINT = 'This connection lists every tool, about ' . self::ALL_TOOLS_KB . ' kB in each conversation; the Work, Essentials or Migration set is a fraction of that and finds the other tools when needed. The user changes it in the administration: My account → Claude, "Change the tool set".';
 
     /**
      * Server instructions for Claude (response to initialize) – in English, with English tool names. 3.36: short and by task –

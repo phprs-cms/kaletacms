@@ -49,7 +49,10 @@ $toolSetSwitch = function (string $set, string $target) use ($app, $toolSetNames
         }
     }
 
-    return '<details class="sada-nastroju"><summary>' . e(t('Change the tool set')) . '</summary><div>' . $buttons . '</div></details>';
+    // 3.51 (C3): a connection that lists every tool hears what that costs in each conversation
+    $hint = $set === 'all' ? '<span class="napoveda">' . e(t('This connection lists every tool – about %d kB in each conversation. Essentials, Work or Migration load a fraction of it and find the other tools when needed.', Kaleta\Mcp\Translator::ALL_TOOLS_KB)) . '</span>' : '';
+
+    return $hint . '<details class="sada-nastroju"><summary>' . e(t('Change the tool set')) . '</summary><div>' . $buttons . '</div></details>';
 };
 ?>
 <?php if ($apps !== []): ?>

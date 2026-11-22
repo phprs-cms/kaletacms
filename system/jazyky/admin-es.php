@@ -9514,4 +9514,6 @@ return [
     'Must contain {{link}} – the page where the customer says they want no more requests or news.' => 'Debe contener {{link}}: la página donde el cliente dice que no quiere más solicitudes ni novedades.',
     'These texts in other language versions' => 'Estos textos en otras versiones de idioma',
     'Each e-mail uses the text of its own language. An empty field uses the default wording of that language, not the text above.' => 'Cada correo usa el texto de su propio idioma. Un campo vacío usa el texto predeterminado de ese idioma, no el texto de arriba.',
+    'This connection lists every tool – about %d kB in each conversation. Essentials, Work or Migration load a fraction of it and find the other tools when needed.' => 'Esta conexión carga todas las herramientas – unos %d kB en cada conversación. Básicas, Trabajo o Migración cargan una fracción y encuentran las demás herramientas cuando las necesitan.',
+    'About %d kB in each conversation; the other sets load a fraction of it.' => 'Unos %d kB en cada conversación; los demás conjuntos cargan una fracción.',
 ];

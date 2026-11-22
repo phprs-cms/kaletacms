@@ -9086,4 +9086,6 @@ return [
     'Must contain {{link}} – the page where the customer says they want no more requests or news.' => 'Musí obsahovat {{link}} – stránku, kde zákazník řekne, že už nechce žádosti ani novinky.',
     'These texts in other language versions' => 'Tyto texty v dalších jazykových verzích',
     'Each e-mail uses the text of its own language. An empty field uses the default wording of that language, not the text above.' => 'Každý e-mail použije text svého jazyka. Prázdné pole použije výchozí znění toho jazyka, ne text výše.',
+    'This connection lists every tool – about %d kB in each conversation. Essentials, Work or Migration load a fraction of it and find the other tools when needed.' => 'Toto napojení načítá všechny nástroje – v každé konverzaci asi %d kB. Základní, Práce nebo Stěhování načtou jen zlomek a ostatní nástroje si najdou, když je potřebují.',
+    'About %d kB in each conversation; the other sets load a fraction of it.' => 'V každé konverzaci asi %d kB; ostatní sady načtou jen zlomek.',
 ];
