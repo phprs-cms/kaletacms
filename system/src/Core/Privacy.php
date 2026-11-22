@@ -472,6 +472,8 @@ final class Privacy
                 t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'), (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 0')),
                 t('Data: e-mail address, date and language of the sign-up%s.', $s->bool('lead_attribution') ? ', ' . t('the first page of the visit and its campaign (with consent to marketing)') : ''),
                 t('Legal basis: consent (Art. 6(1)(a)); every e-mail carries an unsubscribe link.'),
+                // 3.51 (Core\SendRegister) – default wording, pending legal review (plan/texty-pravnik-351.md, text 6)
+                t('Addresses that refused our e-mails or could not be delivered are kept only as a one-way fingerprint, so that we never write to them again.'),
                 $s->get('newsletter_service') !== '' ? t('Processor: the mailing service %s (confirmed subscribers are passed to it).', ucfirst($s->get('newsletter_service'))) : t('Processor: none – the newsletter is sent from this site.'),
             ]];
         }

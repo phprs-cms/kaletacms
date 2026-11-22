@@ -326,6 +326,14 @@ companies, deals, products, files – are chosen by typing a few letters; withou
 price sheet of a deal, the contract of a customer. Everyone sees only the files of folders that are for them; the file's
 page lists where it is linked. Deleting or anonymising the record removes the links, never the file.
 
+**Testimonial requests (3.51).** On a resolved enquiry, **Ask the customer for a testimonial** makes a personal link
+for 30 days; what the customer writes arrives as a hidden draft in References with the consent they gave. The site e-mails
+the link only to a customer – the enquiry's customer record has a won deal or a quote the customer accepted on its page –
+once per enquiry, and only when **Business details** hold the company name and postal address, because the e-mail names its
+sender. Every e-mail carries a refuse link: "Do not write to me" puts the address on the register of addresses we do not
+write to and ends its newsletter subscription. In every other case the screen (and Claude) says why and gives you the link
+to pass on yourself.
+
 **Where leads came from.** Turn on **Settings → Cookies → Remember where leads came from** and every enquiry and newsletter
 sign-up also records the **first page of the visit**, its campaign and the site that sent the visitor – even when the form
 is on another page. It is remembered for the visitor's browser tab only, and only when they allow marketing in the cookie
@@ -366,8 +374,12 @@ recipients is kept only while sending – afterwards only the counts and dates r
 tests too, and sends to subscribers only when you ask.
 
 **Subscribers: languages and addresses we do not write to.** Every subscriber keeps the language version they signed up
-in, and an address a mail server refused as unknown or a person who asked not to be written to is skipped by every
-newsletter and testimonial request (3.51).
+in; **Subscribers** shows a Language column, the confirmed and waiting count of each language, and the export carries it.
+An address a mail server refused as unknown during a newsletter that reached others is marked **bounced**: it stays
+subscribed and is skipped until an administrator presses **Lift the bounce**. A person who pressed "Do not write to me"
+behind a testimonial request is **refused**: no newsletter or request reaches them, and only their own new confirmed
+sign-up brings them back (the confirmation e-mail goes to such an address at most once a week). The register keeps a
+one-way fingerprint, never the address; erasing a person's data keeps it, so they are not written to again (3.51).
 
 **Sending: pause, the brake, what the footer holds.** A newsletter on its way can be paused, resumed or cancelled, it
 pauses itself when sending keeps failing, and its footer names the sender – the company name and postal address from

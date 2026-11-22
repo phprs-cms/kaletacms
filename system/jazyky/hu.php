@@ -2166,4 +2166,10 @@ return [
     'Sent by {{company}}, {{address}}.' => 'Feladó: {{company}}, {{address}}.',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Azért kapja ezt az e-mailt, mert feliratkozott a(z) {{site}} híreire, és megerősítette a feliratkozást.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Ha nem szeretne tőlünk ilyen e-maileket kapni, jelezze itt: {{link}}',
+    'This link is no longer valid – write to us at %s.' => 'Ez a link már nem érvényes – írjon nekünk: %s.',
+    'This link is no longer valid – write to us.' => 'Ez a link már nem érvényes – írjon nekünk.',
+    'Stop e-mails from %s' => 'Nem kérek több e-mailt innen: %s',
+    'Should we stop sending you requests and news?' => 'Ne küldjünk Önnek több kérést és hírt?',
+    'Do not write to me' => 'Ne írjanak nekem',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Többé nem küldünk Önnek kéréseket és híreket. A saját megkereséseire és foglalásaira adott válaszok továbbra is megérkeznek.',
 ];

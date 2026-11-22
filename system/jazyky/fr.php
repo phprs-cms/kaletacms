@@ -2148,4 +2148,10 @@ return [
     'Sent by {{company}}, {{address}}.' => 'Expéditeur : {{company}}, {{address}}.',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Vous recevez cet e-mail parce que vous vous êtes inscrit aux actualités de {{site}} et l’avez confirmé.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Si vous ne souhaitez pas recevoir ce type d’e-mails de notre part, dites-le-nous ici : {{link}}',
+    'This link is no longer valid – write to us at %s.' => 'Ce lien n’est plus valide – écrivez-nous à %s.',
+    'This link is no longer valid – write to us.' => 'Ce lien n’est plus valide – écrivez-nous.',
+    'Stop e-mails from %s' => 'Ne plus recevoir d’e-mails de %s',
+    'Should we stop sending you requests and news?' => 'Devons-nous cesser de vous envoyer des demandes et des nouvelles ?',
+    'Do not write to me' => 'Ne m’écrivez plus',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Nous ne vous enverrons plus de demandes ni de nouvelles. Les réponses à vos propres demandes et réservations continueront d’arriver.',
 ];

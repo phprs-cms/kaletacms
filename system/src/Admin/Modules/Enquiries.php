@@ -382,6 +382,10 @@ final class Enquiries extends Module
             return $this->back($e->getMessage(), 'detail', ['id' => $id], 'chyba');
         }
 
+        if (isset($result['reason'])) { // 3.51: asked to e-mail it, but the customer rule or the register says no – the link to pass on
+            return $this->back(t(\Kaleta\Core\Testimonials::REASONS[$result['reason']]) . ' ' . t('The link to send yourself: %s', $result['link']), 'detail', ['id' => $id], 'chyba');
+        }
+
         return $this->back(t($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s', $result['link']), 'detail', ['id' => $id]);
     }
 
@@ -627,8 +631,11 @@ final class Enquiries extends Module
             if ($result['kept_testimonials'] !== []) {
                 $message .= ' ' . t('A testimonial the person sent stays in References (items %s) – remove it there if they ask.', implode(', ', $result['kept_testimonials']));
             }
-            if ($result['kept'] !== []) {
+            if (in_array('internal files', array_column($result['kept'], 'what'), true)) {
                 $message .= ' ' . t('Internal files linked to the person’s customer records stay (the links went) – check them by hand.'); // 3.49 B
+            }
+            if (\Kaleta\Core\PersonalData::registerKinds($this->db, $email) !== []) {
+                $message .= ' ' . t('The address stays on the register of addresses we do not write to – as a one-way fingerprint only.'); // 3.51
             }
             $message .= ' ' . $result['backup_horizon']['text']; // 3.46 (N157)
             $message .= $copies !== [] ? ' ' . implode(' ', $copies) : '';

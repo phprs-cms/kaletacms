@@ -20,6 +20,7 @@
 <h2><?= e(t('What the site keeps about %s', $email)) ?></h2>
 <?php if (array_sum($counts) === 0): ?>
 <p><?= e(t('Nothing – the site keeps no data about this address.')) ?></p>
+<?php if (($found['register'] ?? []) !== []): // 3.51 ?><p data-personal-register><?= e(t('On the register of addresses we do not write to: %s.', implode(', ', array_map(fn (string $k): string => $k === 'bounced' ? t('bounced') : t('refused'), $found['register'])))) ?> <?= e(t('Only a one-way fingerprint is kept; erasing keeps it, so the address is never written to again.')) ?></p><?php endif ?>
 <?php else: ?>
 <ul>
 <?php if ($counts['enquiries'] > 0): ?><li><?= e(t('Enquiries: %d', $counts['enquiries'])) ?> (<?= implode(', ', array_map(fn (array $r): string => '<a href="' . e($module->url('detail', ['id' => $r['idp']])) . '">#' . (int) $r['idp'] . '</a>', $found['enquiries'])) ?>)</li><?php endif ?>
@@ -33,6 +34,7 @@
 <?php if (($counts['applications'] ?? 0) > 0): // 3.34: job applications (Core\Applications) ?><li data-personal-applications><?= e(t('Job applications: %d', $counts['applications'])) ?> (<?= implode(', ', array_map(fn (array $x): string => '<a href="' . e($app->url(Kaleta\Core\Applications::adminPath((int) $x['id']))) . '">#' . (int) $x['id'] . '</a>', $found['applications'])) ?>)</li><?php endif ?>
 <?php $linkedFiles = ($counts['contacts'] ?? 0) > 0 && $app->auth()->isAdmin() ? Kaleta\Core\InternalFileLinks::countFor($app->db(), 'contact', array_map('intval', array_column($found['contacts'], 'id'))) : 0;
 if ($linkedFiles > 0): // 3.49 B: the raw count, administrators only – the links go with the records, the files stay ?><li data-personal-files><?= e(t('Internal files linked to these customer records: %d.', $linkedFiles)) ?> <span class="napoveda"><?= e(t('Erasing removes the links; the files stay – they are company documents, check them by hand in Internal files.')) ?></span></li><?php endif ?>
+<?php if (($found['register'] ?? []) !== []): // 3.51: the send register keeps a fingerprint only, also after an erasure ?><li data-personal-register><?= e(t('On the register of addresses we do not write to: %s.', implode(', ', array_map(fn (string $k): string => $k === 'bounced' ? t('bounced') : t('refused'), $found['register'])))) ?> <span class="napoveda"><?= e(t('Only a one-way fingerprint is kept; erasing keeps it, so the address is never written to again.')) ?></span></li><?php endif ?>
 <?php if ($found['account'] !== null): ?><li><?= e(t('An account of the administration (%s) – change or remove it in Users; it is not erased here.', (string) $found['account']['jmeno'])) ?></li><?php endif ?>
 </ul>
 <form class="formular" method="post" action="<?= e($module->url('personal')) ?>">

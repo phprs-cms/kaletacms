@@ -395,4 +395,8 @@ return [
     'The files are larger than %d MB together.' => 'Die Dateien sind zusammen größer als %d MB.',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Du erhältst diese E-Mail, weil du dich für Neuigkeiten von {{site}} angemeldet und die Anmeldung bestätigt hast.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Wenn du solche E-Mails von uns nicht möchtest, sag es uns hier: {{link}}',
+    'This link is no longer valid – write to us at %s.' => 'Dieser Link ist nicht mehr gültig – schreib uns an %s.',
+    'This link is no longer valid – write to us.' => 'Dieser Link ist nicht mehr gültig – schreib uns.',
+    'Should we stop sending you requests and news?' => 'Sollen wir dir keine Anfragen und Neuigkeiten mehr senden?',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Wir senden dir keine Anfragen oder Neuigkeiten mehr. Antworten auf deine eigenen Anfragen und Buchungen erhältst du weiterhin.',
 ];

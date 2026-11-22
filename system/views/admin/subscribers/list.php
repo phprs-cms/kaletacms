@@ -10,10 +10,17 @@
  * @var int $pageNumber
  * @var string $service connected mailing service (empty = none)
  * @var array{ceka: ?string, chyby: ?string} $queue
+ * @var list<array{language: string, confirmed: ?string, waiting: ?string}> $languages confirmed and waiting per language version (3.51)
+ * @var array{bounced: int, refused: int} $register addresses on the send register (3.51, Core\SendRegister)
+ * @var array<int, string> $marks the register's kind of a listed row (ido => bounced | refused)
  */
+use Kaleta\Core\Language;
 use Kaleta\Core\Newsletter;
 
 $admin = $app->auth()->isAdmin();
+$defaultLanguage = Language::defaults($app->settings());
+$languageName = fn (string $code): string => Language::AVAILABLE[$code !== '' ? $code : $defaultLanguage][0] ?? $code; // the language's own name
+$multilingual = count($languages) > 1 || ($languages !== [] && (string) $languages[0]['language'] !== '');
 ?>
 <p class="smltxt"><?= e(t('Addresses from the Newsletter sign-up element. Only people who confirmed by the link in the e-mail count as subscribers. Send them news under Newsletters, or with your own tool – the export includes the unsubscribe link.')) ?></p>
 <?php if ($service !== ''): ?>
@@ -29,6 +36,11 @@ $admin = $app->auth()->isAdmin();
 <?php elseif ($admin): ?>
 <p class="smltxt"><?= e(t('Using Brevo, MailerLite, Mailchimp, Ecomail or SmartEmailing? Once connected in Features, the site sends confirmed subscribers straight to your list.')) ?> <a href="<?= e($app->url('admin.php?module=extensions#newsletter')) ?>"><?= e(t('Connect a service')) ?></a></p>
 <?php endif ?>
+<?php if ($languages !== [] || $register['bounced'] + $register['refused'] > 0): ?>
+<p class="smltxt" data-subscriber-counts><?= e(implode(' · ', array_map(fn (array $l): string => t('%s: %d confirmed, %d waiting', $languageName((string) $l['language']), (int) $l['confirmed'], (int) $l['waiting']), $languages))) ?>
+<?php if ($register['bounced'] + $register['refused'] > 0): ?><?= $languages !== [] ? ' · ' : '' ?><?= e(t('on the register: %d bounced, %d refused', $register['bounced'], $register['refused'])) ?><?php endif ?></p>
+<p class="napoveda"><?= e(t('A bounced address stays subscribed and is skipped until an administrator lifts the bounce. An address that refused our e-mails comes back only by a new confirmed sign-up.')) ?></p>
+<?php endif ?>
 <form class="navigace-radek" method="get" action="<?= e($app->url('admin.php')) ?>" role="search">
 	<input type="hidden" name="module" value="subscribers">
 	<input class="textpole" type="search" name="search" value="<?= e($search) ?>" placeholder="<?= e(t('Search e-mail')) ?>" aria-label="<?= e(t('Search e-mail')) ?>">
@@ -43,13 +55,15 @@ $admin = $app->auth()->isAdmin();
 <?= $app->view->render('admin/empty', ['icon' => 'newsletter', 'heading' => t($search !== '' ? 'Nothing found.' : 'No subscribers yet.'), 'text' => t('Put the Newsletter sign-up element on the website – for example in the footer.')]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
-<thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($service !== ''): ?><th scope="col"><?= e(t('Service')) ?></th><?php endif ?><th scope="col"><?= e(t('Subscribed')) ?></th><th scope="col"><?= e(t('Page')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
+<thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($multilingual): ?><th scope="col"><?= e(t('Language')) ?></th><?php endif ?><?php if ($service !== ''): ?><th scope="col"><?= e(t('Service')) ?></th><?php endif ?><th scope="col"><?= e(t('Subscribed')) ?></th><th scope="col"><?= e(t('Page')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($subscribers as $o): ?>
 <tr<?= (int) $o['stav'] === 1 ? '' : ' class="nevydany"' ?>>
 	<td><?= bdi($o['email']) ?></td>
-	<td><?= (int) $o['stav'] === 1 ? '<span class="stitek stitek-vydano">' . e(t('confirmed')) . '</span>' : e(t('awaiting confirmation')) ?></td>
-<?php if ($service !== ''): ?>
+	<td><?= (int) $o['stav'] === 1 ? '<span class="stitek stitek-vydano">' . e(t('confirmed')) . '</span>' : e(t('awaiting confirmation')) ?>
+<?php if (isset($marks[(int) $o['ido']])): ?> <span class="stitek stitek-koncept" data-register="<?= e($marks[(int) $o['ido']]) ?>"><?= e($marks[(int) $o['ido']] === 'bounced' ? t('bounced') : t('refused')) ?></span><?php endif ?></td>
+<?php if ($multilingual): ?>	<td><?= e($languageName((string) $o['language'])) ?></td>
+<?php endif ?><?php if ($service !== ''): ?>
 	<td><?= match ((string) $o['sync']) {
         'ok' => '<span class="stitek stitek-vydano">' . e(t('sent')) . '</span>',
         'ceka' => '<span class="stitek">' . e(t('waiting')) . '</span>',
@@ -59,7 +73,7 @@ $admin = $app->auth()->isAdmin();
 <?php endif ?>
 	<td class="cislo"><?= e(format_date($o['datum'], true)) ?></td>
 	<td class="smltxt"><?= e($o['zdroj']) ?></td>
-	<td class="akce"><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
+	<td class="akce"><?php if ($admin && ($marks[(int) $o['ido']] ?? '') === 'bounced'): ?><form class="vradku" method="post" action="<?= e($module->url('lift')) ?>" data-potvrdit="<?= e(t('Newsletters will be sent to this address again. Lift the bounce?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace" type="submit"><?= e(t('Lift the bounce')) ?></button></form> <?php endif ?><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
 </tbody>

@@ -2166,4 +2166,10 @@ return [
     'Sent by {{company}}, {{address}}.' => '寄件人：{{company}}，{{address}}。',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => '您收到這封郵件，是因為您訂閱了 {{site}} 的新聞並已確認。',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => '如果您不希望收到我們的此類郵件，請在此告訴我們：{{link}}',
+    'This link is no longer valid – write to us at %s.' => '此連結已失效 – 請寫信至 %s 聯絡我們。',
+    'This link is no longer valid – write to us.' => '此連結已失效 – 請寫信聯絡我們。',
+    'Stop e-mails from %s' => '不再接收來自 %s 的郵件',
+    'Should we stop sending you requests and news?' => '我們是否應停止向您傳送請求和新聞？',
+    'Do not write to me' => '請不要再寄信給我',
+    'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => '我們將不再向您傳送請求或新聞。對您本人的詢問和預訂的回覆仍會照常送達。',
 ];

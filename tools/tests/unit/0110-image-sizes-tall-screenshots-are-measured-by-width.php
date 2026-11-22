@@ -184,7 +184,8 @@ $parity = [
         'delete' => 'admin: deleting an internal file with its versions stays with people (administrators or who uploaded it)',
         'folder' => $readOnly, 'folder_save' => 'admin: a folder decides who sees its documents – the administrator\'s set-up',
         'folder_delete' => 'admin: deleting a folder is the administrator\'s set-up'],
-    'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys'],
+    'subscribers' => ['list' => $readOnly, 'csv' => $readOnly, 'delete' => 'admin: subscribers’ addresses stay out of MCP', 'sync' => 'admin: mailing service keys', 'retry' => 'admin: mailing service keys',
+        'lift' => 'admin: a person decides that an address works again'], // 3.51
     'newsletters' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'preview' => $readOnly, 'save' => 'draft_newsletter', 'test' => 'send_test_newsletter',
         'send' => 'send_newsletter', 'unschedule' => 'send_newsletter', 'delete' => 'delete_newsletter'],
     'categories' => ['list' => $readOnly, 'new' => $readOnly, 'edit' => $readOnly, 'save' => 'update_category', 'delete' => 'delete_category'],
