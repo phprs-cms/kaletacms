@@ -433,7 +433,10 @@ final class Enquiries extends Module
         $who = $this->request->postInt('prirazeno');
         $before = $found['prirazeno'];
         $after = $who > 0 && isset($this->listAssignees((int) $before)[$who]) ? $who : null;
-        $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000), 'prirazeno' => $after], ['idp' => $idp]);
+        $changed = $after !== ($before === null ? null : (int) $before);
+        // 3.51 (N148): who changed the person is stamped only when it changes – a note saved again keeps the old assigner
+        $this->db->update('poptavky', ['poznamka' => mb_substr(trim($this->request->post('poznamka')), 0, 5000), 'prirazeno' => $after]
+            + ($changed ? ['assigned_by' => $this->app->auth()->id() > 0 ? $this->app->auth()->id() : null] : []), ['idp' => $idp]);
         if ($after !== null && $after !== ($before === null ? null : (int) $before)) {
             // 3.24: one e-mail to the new person handling it – never to oneself, never with the enquiry's content
             \Kaleta\Core\Assignment::notify($this->app, 'enquiry', $idp, $after, $this->app->auth()->id());

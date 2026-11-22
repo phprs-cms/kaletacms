@@ -211,6 +211,7 @@ final class EnquiryReply
         }
         if ($enquiry['prirazeno'] === null && $sent['by_id'] > 0) {
             $changes['prirazeno'] = $sent['by_id']; // who answered handles it, unless someone already does
+            $changes['assigned_by'] = $sent['by_id']; // 3.51 (N148): they took it themselves
         }
         $db->update('poptavky', $changes, ['idp' => $idp]);
         Contacts::touchLinked($db, 'enquiry', $idp, $entry['at']); // 3.28: a reply is the customer's latest activity

@@ -9556,4 +9556,6 @@ return [
     'The newsletter “%s” is paused – resume or cancel it; otherwise it is cancelled on %s.' => 'Der Newsletter „%s“ ist pausiert – setzen Sie ihn fort oder brechen Sie ihn ab; sonst wird er am %s abgebrochen.',
     'Paused newsletters before they are cancelled' => 'Pausierte Newsletter, bevor sie abgebrochen werden',
     'Recipients of a newsletter after it ends' => 'Empfänger eines Newsletters nach seinem Ende',
+    '%s – item page' => '%s – Eintragsseite',
+    'deleted collection' => 'gelöschte Sammlung',
 ];

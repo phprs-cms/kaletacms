@@ -817,6 +817,11 @@ v nastavení Žádostí.
 V **databázi talentů** zůstávají lidé, kteří souhlasili, že se dozví o dalších pozicích, dokud jim souhlas neskončí. Žádosti se
 mažou samy po době v Nastavení → Soukromí a cookies a každá ukazuje svůj den.
 
+Jednou za hodinu Kaleta zkontroluje, že každý zveřejněný formulář žádosti o práci jde na webu otevřít – na stránce, v pop-up
+okně, v části webu i v šabloně položky kolekce (v kolekci vytvořené z předvolby pracovních pozic se počítá každý formulář).
+Když z webu zmizí – stránka skrytá, stránky položek vypnuté, formulář skrytý –, dostanou upozornění všichni se sekcí Žádosti
+a zmizí, až je formulář zpět. Kolekce bez otevřené pozice je v pořádku; šablona jejích kategorií se nehlídá.
+
 ## 17. Interní soubory
 
 **Interní soubory** jsou dokumenty týmu – ceníky, smlouvy, návody – které nikdy nedostanou veřejnou adresu. Správce
@@ -863,7 +868,8 @@ Zvonek vedle jména vede na vaše upozornění.
 k připomenutí, stránky a položky, za které odpovídáte, a odpovědi na vaše požadavky pro Clauda – každý řádek otevře místo,
 kde se práce dělá. **Nový úkol** přidá úkol pro vás nebo kolegu s termínem a připomínkou; dokončíte nebo odložíte ho přímo
 v seznamu. **Shrnutí** ukáže, kolik tým za období udělal, jen v počtech, a správci mají navíc záložku **Tým** s otevřenými
-úkoly všech a s úkoly, které nemá nikdo. **Odpovědná osoba** u záznamu ho nikdy nikomu jinému neskryje.
+úkoly všech a s úkoly, které nemá nikdo. Kdo není správce, vidí součet týmu jen tehdy, když ho sdílí dost dalších lidí, a práce,
+kterou sám přidělil kolegovi, se do toho nepočítá. **Odpovědná osoba** u záznamu ho nikdy nikomu jinému neskryje.
 
 **Upozornění.** Zvonek sbírá zmínky, komentáře k tomu, za co odpovídáte, věci, které vám někdo přidělil, a termíny
 kontroly; drží je 90 dní. **Označit vše jako přečtené** vynuluje počet. Jak se o nich dozvíte e-mailem – o každém hned,

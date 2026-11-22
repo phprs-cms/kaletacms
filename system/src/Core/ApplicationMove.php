@@ -411,7 +411,7 @@ final class ApplicationMove
                 $idp = $db->insert('poptavky', [
                     'datum' => (string) $a['received_at'], 'formular' => (string) $a['form'], 'zdroj' => (string) $a['source'], 'prvek' => (string) $a['element'], 'stranka' => (string) $a['page'],
                     'tema' => mb_substr((string) $a['job_title'], 0, 255), 'email' => (string) $a['email'], 'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE),
-                    'stav' => self::statusToEnquiry((string) $a['status']), 'kategorie' => 'job', 'triaged_by' => 'rule', 'prirazeno' => $a['assignee_id'],
+                    'stav' => self::statusToEnquiry((string) $a['status']), 'kategorie' => 'job', 'triaged_by' => 'rule', 'prirazeno' => $a['assignee_id'], 'assigned_by' => null, // 3.51: moved by a rule
                     'replies' => $a['replies'] !== [] ? (string) json_encode($a['replies'], JSON_UNESCAPED_UNICODE) : null,
                 ]);
                 foreach (['comments', 'tasks', 'notifications'] as $table) {

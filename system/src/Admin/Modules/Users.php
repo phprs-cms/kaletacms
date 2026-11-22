@@ -246,7 +246,7 @@ final class Users extends Module
         });
 
         if (is_array($handOver)) {
-            $moved = Handover::handOver($this->db, $id, $handOver[0]);
+            $moved = Handover::handOver($this->db, $id, $handOver[0], $this->app->auth()->id());
             \Kaleta\Core\ChangeLog::write($this->app, 'users', 'save', '#' . $id . ' ' . $data['user'] . ' – ' . t('now responsible: %s – %s', $handOver[1], Handover::describe($moved) ?: '0'));
 
             return $this->back(t('User saved. Now responsible: %s – %s.', $handOver[1], Handover::describe($moved) ?: '0'));
@@ -614,7 +614,7 @@ final class Users extends Module
         }
         $moved = ['page' => 0, 'item' => 0, 'enquiry' => 0, 'task' => 0];
         $this->db->transaction(function () use ($id, $recipient, $then, &$moved): void {
-            $moved = Handover::handOver($this->db, $id, $recipient[0]);
+            $moved = Handover::handOver($this->db, $id, $recipient[0], $this->app->auth()->id());
             if ($then === 'block') {
                 $this->db->update('uzivatele', ['blokovat' => 1, 'potvrzeno' => date('Y-m-d H:i:s')], ['idu' => $id]);
             }

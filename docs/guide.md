@@ -863,6 +863,12 @@ templates for each language are in the settings of Applications.
 The **Talent pool** keeps people who agreed to hear about future openings until their consent runs out. Applications are
 deleted automatically after the period in Settings → Privacy and cookies, and each one shows the day.
 
+Once an hour Kaleta checks that every published job application form can still be reached – on a page, in a pop-up, in a
+site part and in the item template of a collection (in a collection made from the jobs preset every form there counts).
+When one goes off the site – the page hidden, item pages switched off, the form hidden – everyone with Applications gets a
+notification, and it goes away when the form is back. A collection with no open position is fine; its category template is
+not watched.
+
 ## 17. Internal files
 
 **Internal files** are the team's documents – price lists, contracts, manuals – that never get a public address. An
@@ -911,8 +917,9 @@ open elsewhere. The bell next to your name leads to your notifications.
 pages and items you are responsible for and the answers to your requests to Claude – each row opens the place where the
 work is done. **New task** adds a task for yourself or a colleague, with a due date and a reminder; complete or snooze it
 right in the list. **Summary** shows how much the team did in a period, as counts only, and administrators also have the
-**Team** tab with everybody's open tasks and the tasks nobody has. Giving a record a **Responsible person** never hides it
-from anybody else.
+**Team** tab with everybody's open tasks and the tasks nobody has. Someone who is not an administrator sees a team total
+only when enough other people share it, and work they gave to a colleague does not count towards that. Giving a record a
+**Responsible person** never hides it from anybody else.
 
 **Notifications.** The bell collects mentions, comments on what you are responsible for, things assigned to you and review
 dates, kept for 90 days. **Mark all as read** clears the count. How you hear about them by e-mail – each one right away,

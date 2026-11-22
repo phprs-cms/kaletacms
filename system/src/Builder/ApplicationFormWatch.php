@@ -10,6 +10,7 @@ use Kaleta\Core\Auth;
 use Kaleta\Core\Db;
 use Kaleta\Core\Extensions;
 use Kaleta\Core\Inbox;
+use Kaleta\Core\Jobs;
 use Kaleta\Core\Validity;
 
 /**
@@ -27,11 +28,15 @@ use Kaleta\Core\Validity;
  * or the component holding it, is hidden neither by its style, display conditions nor a class whose published style hides
  * (Build::showsApplicationForm). When one that was reachable is not, every user who may open Applications gets one
  * notification in the bell (Core\Inbox kind "form_unreachable", target "form:page:<id>" | "form:popup:<id>" |
- * "form:part:<hash>"); when it is reachable again, those notifications are removed. The last state is the setting
- * application_forms_watch (JSON: the reachable ids by kind, the reported keys with their titles), kept under MAX_STATE bytes.
- * Only builds that mention a job application form or a component are read, one row at a time.
- * Not watched (3.50.1 release review, a known limit): the item template of a collection (the form on /<collection>/<item>,
- * e.g. the jobs preset) – switching item pages off or hiding the form there rings no bell.
+ * "form:part:<hash>" | "form:coll:<hash>"); when it is reachable again, those notifications are removed. The last state is
+ * the setting application_forms_watch (JSON: the reachable ids by kind, the reported keys with their titles), kept under
+ * MAX_STATE bytes. Only builds that mention a job application form or a component are read, one row at a time.
+ *
+ * 3.51 (D2): the published item template of a collection (/<collection>/<item>, the base one and each language's) is watched
+ * by the rule of Front\Forms – in a collection made from the jobs preset (Core\Jobs) every Form is an application form, with
+ * or without a Purpose and also inside a component; elsewhere a Form with the Purpose job application. It is reachable while
+ * the collection has item pages and the form is not hidden – how many items are visible is no part of it (a jobs collection
+ * with no open position is normal). Not watched (a known limit): the category template of a collection.
  */
 final class ApplicationFormWatch
 {
@@ -101,7 +106,7 @@ final class ApplicationFormWatch
             }
         }
         [$holding, $showing] = self::components($db, $hidingClasses);
-        $out = [];
+        $out = self::collections($db, $hidingClasses, $holding, $showing);
         $stmt = $db->run('SELECT ids, titulek, stavba, zobrazit, heslo_hash, valid_until, smazano FROM {stranky} WHERE stavba IS NOT NULL AND ' . self::PREFILTER, self::PREFILTER_PARAMS);
         while (($r = $stmt->fetch(\PDO::FETCH_ASSOC)) !== false) {
             [$holds, $shows] = Build::applicationFormPresence((string) $r['stavba'], $hidingClasses, $holding, $showing);
@@ -158,6 +163,52 @@ final class ApplicationFormWatch
         return $out;
     }
 
+    /**
+     * 3.51 (D2): the item templates of collections that hold an application form (Front\Forms' rule: any Form in a jobs
+     * collection, a Form with the Purpose elsewhere): key => reachable (item pages on, the form shown) and title. Only
+     * templates of jobs collections that mention a form or a component, and others passing PREFILTER, are read.
+     *
+     * @param list<string> $hidingClasses
+     * @param list<int> $holding
+     * @param list<int> $showing
+     * @return array<string, array{reachable: bool, title: string}>
+     */
+    private static function collections(Db $db, array $hidingClasses, array $holding, array $showing): array
+    {
+        $jobs = (int) $db->value('SELECT COUNT(*) FROM {kolekce} WHERE preset = ?', [Jobs::PRESET]) > 0;
+        [$holdingAny, $showingAny] = $jobs ? self::components($db, $hidingClasses, true) : [[], []];
+        $where = '(k.preset = ? AND (%1$s LIKE ? OR %1$s LIKE ?) OR (%1$s LIKE ? OR %1$s LIKE ?))';
+        $params = [Jobs::PRESET, '%formular%', '%komponenta%', ...self::PREFILTER_PARAMS];
+        $out = [];
+        foreach (["SELECT k.idk, k.nazev, k.detail, k.preset, '' AS jazyk, k.stavba FROM {kolekce} k WHERE k.stavba IS NOT NULL AND " . sprintf($where, 'k.stavba'),
+            'SELECT k.idk, k.nazev, k.detail, k.preset, t.jazyk, t.stavba FROM {kolekce_sablony} t JOIN {kolekce} k ON k.idk = t.idk WHERE t.stavba IS NOT NULL AND ' . sprintf($where, 't.stavba')] as $sql) {
+            $stmt = $db->run($sql, $params);
+            while (($r = $stmt->fetch(\PDO::FETCH_ASSOC)) !== false) {
+                $every = (string) $r['preset'] === Jobs::PRESET;
+                [$holds, $shows] = Build::applicationFormPresence((string) $r['stavba'], $hidingClasses, $every ? $holdingAny : $holding, $every ? $showingAny : $showing, $every);
+                if ($holds) {
+                    $out[self::collectionKey((int) $r['idk'], (string) $r['jazyk'])] = ['reachable' => $shows && (int) $r['detail'] === 1,
+                        'title' => self::collectionTitle((string) $r['nazev'], (string) $r['jazyk'])];
+                }
+            }
+            $stmt->closeCursor();
+        }
+
+        return $out;
+    }
+
+    /** The watch key of a collection's item template: the collection and the language ('' = the base template) hashed into the 40 characters of a notification target. Pure. */
+    public static function collectionKey(int $idk, string $language): string
+    {
+        return 'form:coll:' . substr(sha1($idk . ':' . $language), 0, 16);
+    }
+
+    /** "Jobs – item page" (with the language of a language template) – the title of an item template in the bell. */
+    private static function collectionTitle(string $name, string $language): string
+    {
+        return mb_substr(t('%s – item page', $name) . ($language !== '' ? ' (' . $language . ')' : ''), 0, 200);
+    }
+
     /** The name of a site part row (typ, jazyk, varianta, nazev) in the bell: its type, language and variant. */
     public static function partTitle(array $part): string
     {
@@ -169,9 +220,9 @@ final class ApplicationFormWatch
     }
 
     /**
-     * 3.50.1 release review: the title for a key the scan no longer returns – the page, pop-up or site part still exists but
-     * holds no application form any more (its own title), or it is gone (the kind: "deleted page", "deleted pop-up",
-     * "deleted site part").
+     * 3.50.1 release review: the title for a key the scan no longer returns – the page, pop-up, site part or (3.51) item
+     * template still exists but holds no application form any more (its own title), or it is gone (the kind: "deleted page",
+     * "deleted pop-up", "deleted site part", "deleted collection").
      */
     private static function titleOf(Db $db, string $key): string
     {
@@ -184,6 +235,15 @@ final class ApplicationFormWatch
             $title = $db->value('SELECT nazev FROM {popupy} WHERE idpp = ?', [(int) $m[1]]);
 
             return $title !== null && (string) $title !== '' ? (string) $title : t('deleted pop-up');
+        }
+        if (str_starts_with($key, 'form:coll:')) {
+            foreach ([...$db->all('SELECT idk, nazev FROM {kolekce}'), ...$db->all('SELECT t.idk, k.nazev, t.jazyk FROM {kolekce_sablony} t JOIN {kolekce} k ON k.idk = t.idk')] as $r) {
+                if (self::collectionKey((int) $r['idk'], (string) ($r['jazyk'] ?? '')) === $key) {
+                    return self::collectionTitle((string) $r['nazev'], (string) ($r['jazyk'] ?? ''));
+                }
+            }
+
+            return t('deleted collection');
         }
         foreach ($db->all('SELECT typ, jazyk, varianta, nazev FROM {casti}') as $r) {
             if (self::partKey((string) $r['typ'], (string) $r['jazyk'], (string) $r['varianta']) === $key) {
@@ -284,12 +344,12 @@ final class ApplicationFormWatch
     {
         $data = json_decode($stored, true);
         $data = is_array($data) ? $data : [];
-        $valid = fn (mixed $key): bool => is_string($key) && preg_match('/^form:(?:(?:page|popup):[1-9]\d{0,9}|part:[0-9a-f]{16})$/D', $key) === 1;
+        $valid = fn (mixed $key): bool => is_string($key) && preg_match('/^form:(?:(?:page|popup):[1-9]\d{0,9}|(?:part|coll):[0-9a-f]{16})$/D', $key) === 1;
         $reachable = [];
         foreach (is_array($data['reachable'] ?? null) ? array_keys($data['reachable']) : [] as $key) { // 3.50.1: key => title
             $reachable[] = $key;
         }
-        foreach (['pages' => 'form:page:', 'popups' => 'form:popup:', 'parts' => 'form:part:'] as $group => $prefix) {
+        foreach (['pages' => 'form:page:', 'popups' => 'form:popup:', 'parts' => 'form:part:', 'collections' => 'form:coll:'] as $group => $prefix) {
             foreach (is_array($data[$group] ?? null) ? $data[$group] : [] as $id) {
                 if (is_int($id) || is_string($id)) {
                     $reachable[] = $prefix . $id;
@@ -315,7 +375,7 @@ final class ApplicationFormWatch
      */
     public static function encode(array $state): string
     {
-        $groups = ['pages' => [], 'popups' => [], 'parts' => []];
+        $groups = ['pages' => [], 'popups' => [], 'parts' => [], 'collections' => []];
         foreach ($state['reachable'] as $key) {
             if (preg_match('/^form:page:(\d+)$/D', $key, $m) === 1) {
                 $groups['pages'][] = (int) $m[1];
@@ -323,14 +383,18 @@ final class ApplicationFormWatch
                 $groups['popups'][] = (int) $m[1];
             } elseif (preg_match('/^form:part:([0-9a-f]+)$/D', $key, $m) === 1) {
                 $groups['parts'][] = $m[1];
+            } elseif (preg_match('/^form:coll:([0-9a-f]+)$/D', $key, $m) === 1) {
+                $groups['collections'][] = $m[1]; // 3.51 (D2): item templates
             }
         }
         $alerted = (object) array_map(fn (string $title): string => mb_substr($title, 0, 100), $state['alerted']);
         $json = (string) json_encode($groups + ['alerted' => $alerted], JSON_UNESCAPED_UNICODE);
-        if (strlen($json) > self::MAX_STATE) {
-            $keep = max(0, (int) (count($groups['pages']) * (self::MAX_STATE / strlen($json)) * 0.9));
-            $groups['pages'] = array_slice($groups['pages'], 0, $keep);
-            $json = (string) json_encode($groups + ['alerted' => $alerted], JSON_UNESCAPED_UNICODE);
+        foreach (['pages', 'collections'] as $group) { // 3.51: the item templates are cut too when the pages alone are not enough
+            if (strlen($json) > self::MAX_STATE) {
+                $keep = max(0, (int) (count($groups[$group]) * (self::MAX_STATE / strlen($json)) * 0.9));
+                $groups[$group] = array_slice($groups[$group], 0, $keep);
+                $json = (string) json_encode($groups + ['alerted' => $alerted], JSON_UNESCAPED_UNICODE);
+            }
         }
 
         return $json;
@@ -376,14 +440,16 @@ final class ApplicationFormWatch
     /**
      * The components whose published build holds an application form (directly or through components it embeds), and those
      * of them that show one (Build::showsApplicationForm with the components found so far) – bounded by NESTING rounds.
+     * 3.51 (D2): with $everyForm, the components holding and showing any Form (for the item templates of jobs collections).
      *
      * @param list<string> $hidingClasses
      * @return array{0: list<int>, 1: list<int>}
      */
-    private static function components(Db $db, array $hidingClasses): array
+    private static function components(Db $db, array $hidingClasses, bool $everyForm = false): array
     {
         $builds = [];
-        $stmt = $db->run('SELECT idm, stavba FROM {komponenty} WHERE stavba IS NOT NULL AND ' . self::PREFILTER, self::PREFILTER_PARAMS);
+        $stmt = $everyForm ? $db->run('SELECT idm, stavba FROM {komponenty} WHERE stavba IS NOT NULL AND (stavba LIKE ? OR stavba LIKE ?)', ['%formular%', '%komponenta%'])
+            : $db->run('SELECT idm, stavba FROM {komponenty} WHERE stavba IS NOT NULL AND ' . self::PREFILTER, self::PREFILTER_PARAMS);
         while (($r = $stmt->fetch(\PDO::FETCH_ASSOC)) !== false) {
             $builds[(int) $r['idm']] = (string) $r['stavba'];
         }
@@ -393,11 +459,13 @@ final class ApplicationFormWatch
         for ($round = 0; $round < self::NESTING; $round++) {
             $grown = false;
             foreach ($builds as $idm => $json) {
-                if (!isset($holding[$idm]) && (Build::droppedApplicationForms($json, null) !== [] || array_intersect(Build::fileFormsAndComponents($json)[1], array_keys($holding)) !== [])) {
+                if (!isset($holding[$idm]) && ($everyForm ? Build::applicationFormPresence($json, [], array_keys($holding), [], true)[0]
+                    : (Build::droppedApplicationForms($json, null) !== [] || array_intersect(Build::fileFormsAndComponents($json)[1], array_keys($holding)) !== []))) {
                     $holding[$idm] = true;
                     $grown = true;
                 }
-                if (!isset($showing[$idm]) && Build::showsApplicationForm($json, $hidingClasses, array_keys($showing))) {
+                if (!isset($showing[$idm]) && ($everyForm ? Build::applicationFormPresence($json, $hidingClasses, array_keys($showing), array_keys($showing), true)[1]
+                    : Build::showsApplicationForm($json, $hidingClasses, array_keys($showing)))) {
                     $showing[$idm] = true;
                     $grown = true;
                 }

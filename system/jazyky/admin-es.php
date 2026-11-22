@@ -9576,4 +9576,6 @@ return [
     'The newsletter “%s” is paused – resume or cancel it; otherwise it is cancelled on %s.' => 'El boletín «%s» está en pausa: reanúdelo o cancélelo; si no, se cancela el %s.',
     'Paused newsletters before they are cancelled' => 'Boletines en pausa antes de cancelarse',
     'Recipients of a newsletter after it ends' => 'Destinatarios de un boletín después de terminar',
+    '%s – item page' => '%s – página del elemento',
+    'deleted collection' => 'colección eliminada',
 ];

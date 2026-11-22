@@ -9148,4 +9148,6 @@ return [
     'The newsletter “%s” is paused – resume or cancel it; otherwise it is cancelled on %s.' => 'Newsletter „%s“ je pozastavený – obnovte ho nebo zrušte; jinak se zruší %s.',
     'Paused newsletters before they are cancelled' => 'Pozastavené newslettery, než se zruší',
     'Recipients of a newsletter after it ends' => 'Příjemci newsletteru po jeho skončení',
+    '%s – item page' => '%s – stránka položky',
+    'deleted collection' => 'smazaná kolekce',
 ];
