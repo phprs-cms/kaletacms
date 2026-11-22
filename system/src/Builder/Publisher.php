@@ -58,7 +58,9 @@ final class Publisher
         if (Build::changedApplicationRecipients($published, $new) !== []) {
             throw new \DomainException(self::APPLICATION_RECIPIENTS_REFUSED);
         }
-        if (Build::shadowedApplicationForms($published, $new) !== [] || ($app !== null && self::componentsWithFileForm($app->db(), Build::newComponentReferences($published, $new)))) {
+        // 3.50.1 release review: with the database at hand a new class counts only when its style hides (on the site or in the draft look)
+        if (Build::shadowedApplicationForms($published, $new, $app !== null ? self::hidingClasses($app) : null) !== []
+            || ($app !== null && self::componentsWithFileForm($app->db(), Build::newComponentReferences($published, $new)))) {
             throw new \DomainException(self::APPLICATION_FORM_SHADOWED);
         }
         if ($app !== null && Build::droppedApplicationForms($new, null) !== []) { // the trace (A3d): the build holds an application form
@@ -237,6 +239,27 @@ final class Publisher
     }
 
     /** Build::$purposeAllowed, or when it was not set (null) the person signed in; nobody signed in = allowed (D3). */
+    /**
+     * 3.50.1 release review: the shared classes whose style hides what carries them – on the site, or in the draft look (it
+     * would hide once published).
+     *
+     * @return list<string>
+     */
+    private static function hidingClasses(App $app): array
+    {
+        $db = $app->db();
+        $out = [];
+        foreach ([\Kaleta\Core\Look::classes($db, $app->settings(), false), \Kaleta\Core\Look::classes($db, $app->settings(), true)] as $classes) {
+            foreach ($classes as $name => $class) {
+                if (Build::classHides($class)) {
+                    $out[(string) $name] = true;
+                }
+            }
+        }
+
+        return array_map('strval', array_keys($out));
+    }
+
     private static function mayChangeApplicationForms(?App $app): bool
     {
         return Build::$purposeAllowed ?? ($app === null || $app->auth()->user() === null || $app->auth()->hasModule(\Kaleta\Core\Applications::SECTION));

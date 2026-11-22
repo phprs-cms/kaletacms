@@ -393,6 +393,7 @@ trait BuilderTools
             if ($row === null) {
                 throw new \InvalidArgumentException('Varianta neexistuje. Použij nástroj seznam_casti.');
             }
+            Publisher::guardRemoval($row['stavba'], $this->app); // 3.50.1 release review: a variant holding an application form
             Publisher::version($this->app, ['cast' => SiteParts::versionKey($type, $language, $variant)], $row['stavba'], null, $row['zmeneno']);
             $db->delete('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
             \Kaleta\Core\PageCache::clear();

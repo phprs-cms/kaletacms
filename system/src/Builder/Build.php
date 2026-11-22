@@ -613,10 +613,15 @@ final class Build
      * conditions (podminky) it did not have in $published, or carries a class it did not carry there; (b) a form in $new that is not an application
      * form, has a file field and whose id had no such form in $published (also an id swapped with the application form).
      * Only when $published has an application form. Pure; a build that does not decode has none.
+     * 3.50.1 release review: display conditions of an element that had conditions in $published count only when they are
+     * narrower (conditionsNarrower – a later "do" date or one more language passes); with $hidingClasses (the shared classes
+     * whose style hides, Publisher::guard) a new class counts only when it is one of them – null keeps every new class (no
+     * database at hand). A class restyled to hide later is refused by Publisher::guardClasses.
      *
+     * @param list<string>|null $hidingClasses
      * @return list<string>
      */
-    public static function shadowedApplicationForms(?string $published, ?string $new): array
+    public static function shadowedApplicationForms(?string $published, ?string $new, ?array $hidingClasses = null): array
     {
         $old = $published === null ? null : self::fromJson($published);
         $next = $new === null ? null : self::fromJson($new);
@@ -635,11 +640,21 @@ final class Build
         $newHidden = self::hiddenElements($next);
         $out = [];
         foreach ($applications as $id) {
-            foreach ($newHidden[(string) $id] ?? [] as $hiddenId) {
-                if (!in_array($hiddenId, $oldHidden[(string) $id] ?? [], true)) {
-                    $out[] = (string) $id; // (a) the form or an ancestor of it is hidden now
-                    break;
+            $before = $oldHidden[(string) $id] ?? [];
+            foreach ($newHidden[(string) $id] ?? [] as $marker) {
+                if (in_array($marker, $before, true)) {
+                    continue;
                 }
+                if (preg_match('/^[a-z0-9]+\.(.+)$/Ds', $marker, $m) === 1 && $hidingClasses !== null && !in_array($m[1], $hidingClasses, true)) {
+                    continue; // a class whose style does not hide
+                }
+                // conditions of an element that had conditions hiding it at least as often
+                if (preg_match('/^([a-z0-9]+)\?(.*)$/Ds', $marker, $m) === 1 && array_filter($before, fn (string $old): bool => str_starts_with($old, $m[1] . '?')
+                    && !self::conditionsNarrower((array) json_decode(substr($old, strlen($m[1]) + 1), true), (array) json_decode($m[2], true))) !== []) {
+                    continue;
+                }
+                $out[] = (string) $id; // (a) the form or an ancestor of it is hidden now
+                break;
             }
         }
         foreach (self::elementsOfType($next, $isForm) as $id => $p) {
@@ -650,6 +665,34 @@ final class Build
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * 3.50.1 release review: whether the display conditions $new hide an element anywhere the conditions $old did not – a
+     * condition $old did not have, a later "od", an earlier "do", a language fewer, or another login or address parameter
+     * rule. Unknown keys must stay equal. Pure.
+     *
+     * @param array<mixed> $old
+     * @param array<mixed> $new
+     */
+    public static function conditionsNarrower(array $old, array $new): bool
+    {
+        foreach ($new as $key => $value) {
+            if (!array_key_exists($key, $old)) {
+                return true;
+            }
+            $was = $old[$key];
+            if (!match ($key) {
+                'od' => is_string($value) && is_string($was) && $value <= $was,
+                'do' => is_string($value) && is_string($was) && $value >= $was,
+                'jazyky' => is_array($value) && is_array($was) && array_diff($was, $value) === [],
+                default => $value === $was,
+            }) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -777,9 +820,43 @@ final class Build
     public static function showsApplicationForm(?string $json, array $hidingClasses, array $formComponents): bool
     {
         $build = $json === null ? null : self::fromJson($json);
+
+        return $build !== null && self::showsIn($build, $hidingClasses, $formComponents);
+    }
+
+    /**
+     * 3.50.1 release review: the hourly watch decodes each build once – whether it holds an application form (directly or
+     * through one of $holdingComponents) and whether it shows one (showsApplicationForm with $showingComponents). Pure.
+     *
+     * @param list<string> $hidingClasses
+     * @param list<int> $holdingComponents
+     * @param list<int> $showingComponents
+     * @return array{0: bool, 1: bool}
+     */
+    public static function applicationFormPresence(?string $json, array $hidingClasses, array $holdingComponents, array $showingComponents): array
+    {
+        $build = $json === null ? null : self::fromJson($json);
         if ($build === null) {
-            return false;
+            return [false, false];
         }
+        $holds = false;
+        foreach (self::elementsOfType($build, fn (string $className): bool => in_array($className::TYPE, ['formular', 'komponenta'], true)) as $p) {
+            if ((($p['typ'] ?? '') === 'formular' && ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE)
+                || (($p['typ'] ?? '') === 'komponenta' && in_array((int) ($p['obsah']['komponenta'] ?? 0), $holdingComponents, true))) {
+                $holds = true;
+                break;
+            }
+        }
+
+        return [$holds, $holds && self::showsIn($build, $hidingClasses, $showingComponents)];
+    }
+
+    /**
+     * @param list<string> $hidingClasses
+     * @param list<int> $formComponents
+     */
+    private static function showsIn(array $build, array $hidingClasses, array $formComponents): bool
+    {
         $hidden = self::hiddenElements($build);
         foreach (self::elementsOfType($build, fn (string $className): bool => in_array($className::TYPE, ['formular', 'komponenta'], true)) as $id => $p) {
             $type = (string) ($p['typ'] ?? '');

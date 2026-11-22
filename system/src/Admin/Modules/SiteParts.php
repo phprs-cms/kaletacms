@@ -68,6 +68,11 @@ final class SiteParts extends Module
         [$type, $language, $variant] = $this->readPartParams();
         $row = $this->request->isPost() && $type !== null ? CastiWebu::row($this->db, $type, $language, $variant) : null;
         if ($row !== null) {
+            try { // 3.50.1 release review: a part holding a published application form goes back only by someone with Applications
+                Publisher::guardRemoval($row['stavba'], $this->app);
+            } catch (\DomainException) {
+                return $this->back('Only a user who may open Applications can remove a job application form – nothing was deleted.', '', [], 'chyba');
+            }
             Publisher::version($this->app, ['cast' => CastiWebu::versionKey($type, $language, $variant)], $row['stavba'], null, $row['zmeneno']);
             $this->db->delete('casti', ['typ' => $type, 'jazyk' => $language, 'varianta' => $variant]);
             \Kaleta\Core\PageCache::clear();

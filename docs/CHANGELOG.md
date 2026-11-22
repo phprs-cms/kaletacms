@@ -26,7 +26,8 @@ difference); one new refusal text.
    application form or one of its ancestors in any style state, or that adds a form with a file field that is not an
    application form (`Build::shadowedApplicationForms`, refusal `Build::APPLICATION_FORM_SHADOWED`), and nobody can delete
    a pop-up or component that holds one, in the admin or through `delete_popup` / `delete_component`
-   (`Publisher::guardRemoval`, refusal "nothing was deleted"). `Publisher::guard` takes the `App`: an unset
+   (`Publisher::guardRemoval`, refusal "nothing was deleted") – nor revert a site part or delete a header or footer
+   variant that holds one (Site parts, `save_part_variant` with `delete`). `Publisher::guard` takes the `App`: an unset
    `Build::$purposeAllowed` is decided by the signed-in person; imports and the CLI with nobody signed in stay allowed.
    A permitted publish of such a build by someone without Applications writes a change-log line in Applications. Drafts
    are never refused. Without Applications, an earlier "true until" date or a password on a visible page holding a
@@ -34,16 +35,22 @@ difference); one new refusal text.
    (`Popups::rulesNarrowed` – the order of the lists and pages the form cannot offer do not count; the settings form lists
    at most 500 pages and keeps chosen pages it did not list, `Popups::keepUnoffered`, so a harmless save on a large site is
    not refused), a draft class that would hide the form (`Publisher::guardClasses`) and a file form in a component placed
-   beside one are refused too. **These locks guard against ordinary and accidental changes; they are not a wall.** What
+   beside one are refused too. A class added to the form or an ancestor counts only when its style hides (on the site
+   or in the draft look), and display conditions only when they are narrower than the published ones – a spacing class,
+   a move into a section with classes or a later "until" date publish. **These locks guard against ordinary and accidental changes; they are not a wall.** What
    they do not stop is covered by the hourly **application form watch** (`Builder\ApplicationFormWatch`, background job
-   "Job application forms that can no longer be reached on the site"): a page or pop-up whose published build holds an
-   application form (also through nested components) is reachable while the page is visible, not in the trash, without a
-   password and still true, or the pop-up is switched on, true, in its period and has a trigger a visitor meets (not by
-   click, at most 10 pages, 120 seconds or 100 % scrolled), and the form is hidden neither by a style, display conditions
+   "Job application forms that can no longer be reached on the site"): a page, pop-up or site part whose published build
+   holds an application form (also through nested components) is reachable while the page is visible, not in the trash,
+   without a password and still true, or the pop-up is switched on, true, in its period, limited to places that exist (a
+   chosen page that can show, a collection with item pages, or news) and has a trigger a visitor meets (not by click, at
+   most 10 pages, 120 seconds or 100 % scrolled), or the part is the default one or a variant for a page that can show or
+   for other content, and the form is hidden neither by a style, display conditions
    nor a class whose published style hides. When one that was reachable is not, every user who may open Applications gets
    one notification in the bell, "A job application form can no longer be reached on the site", leading to Applications
    (instant or daily e-mail by their own choice); it is removed when the form is reachable again. The last state is the
-   internal setting `application_forms_watch`.
+   internal setting `application_forms_watch` (the reachable ids by kind, under 60 kB). The watch reads only builds that
+   mention an application form or a component, one row at a time, and notes its run before the scan, so a scan that dies
+   is not retried every minute.
 4. **Mail and backups.** A notification copy meant only for the queue is delivered once when the queue cannot be written
    (`Core\Mail`), and an error-log line is written when that fails too. An FTPS listing or delete over cURL no longer
    recreates a removed folder (`RemoteBackup::ftpsCommandOptions`), and a dot-named entry is never taken for deleted by a
