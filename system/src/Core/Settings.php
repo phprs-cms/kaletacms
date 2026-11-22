@@ -296,6 +296,7 @@ final class Settings
         'server_rules' => '',            // the last check whether the web server refuses storage/ and system/ (JSON, Core\ServerRules, 3.41 N120) – System status
         'stats_confirmed_since' => '', // 3.29 (Front\Stats::hit): the day the counting of page views confirmed by a visitor's browser started; '' = no beacon yet – internal
         'inbox_digest_day' => '',      // the day the daily summary of notifications last went out (3.26, Core\Inbox::run) – internal
+        'application_forms_watch' => '', // 3.50.1 (Builder\ApplicationFormWatch): the pages and pop-ups whose application form was reachable / reported at the last hourly run (JSON) – internal
         'starter_pages' => '',         // 3.33 (M2, Core\StarterPages): the installer's record of its starter pages as JSON {ids: fingerprint}; '' = a site from before 3.33 – internal
         // 3.42 (audit Q9): keys the code read or wrote without declaring them – declared so that every setting has a default here
         'newsletter_service' => '',    // the mailing service of the subscribers (Core\Newsletter): '' | brevo | mailerlite | mailchimp | ecomail | smartemailing | webhook
@@ -334,7 +335,7 @@ final class Settings
      * loading them apart would add queries instead of saving them. 3.50: a mirror of keysWith('lazy') (unit 4541).
      * Removed by the first release whose oldest supported update source is 3.50 or later.
      */
-    public const array LAZY = ['look_draft', 'domain_watch'];
+    public const array LAZY = ['look_draft', 'domain_watch', 'application_forms_watch'];
 
     /**
      * The tabs of the settings forms, in their order (3.50: from Admin\Modules\Settings::FIELDS). vzhled, presmerovani, claude
@@ -555,6 +556,7 @@ final class Settings
         'site_key_secret' => ['secret' => true],
         'domain_watch' => ['lazy' => true],
         'extensions' => ['export' => true],
+        'application_forms_watch' => ['lazy' => true], // 3.50.1: read by the hourly job only
     ];
 
     /** @var array<string, list<string>> keysWith() per flag, worked out once per request */

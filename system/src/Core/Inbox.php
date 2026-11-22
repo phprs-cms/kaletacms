@@ -32,7 +32,8 @@ final class Inbox
         'quote_accepted', 'quote_declined', // 3.40: the customer accepted / declined it on its page (Core\Quotes::customerDecision)
         'escalated', // 3.42: a task of someone who reports to the person is overdue (Core\Tasks::escalate)
         'quote_prepared', // 3.42: a draft quote was prepared from a new enquiry about products (Core\Quotes::prepareDraft) – never an amount
-        'deputy_named', 'absence_added']; // 3.47 (N166): named as deputy / an administrator recorded my absence (Core\Absences::announce) – the days only, no target
+        'deputy_named', 'absence_added', // 3.47 (N166): named as deputy / an administrator recorded my absence (Core\Absences::announce) – the days only, no target
+        'form_unreachable']; // 3.50.1: a published job application form can no longer be reached (Builder\ApplicationFormWatch – target "form:page:<id>" | "form:popup:<id>", opens Applications)
 
     /**
      * 3.42: the kinds a stand-in also gets while the person is away today (Core\Absences::standIn – the deputy, else whom the
@@ -333,7 +334,7 @@ final class Inbox
      */
     public static function switchedOff(Settings $settings, string $kind): bool
     {
-        $feature = ['contact' => 'customers', 'company' => 'customers', 'deal' => 'pipeline'][$kind] ?? '';
+        $feature = ['contact' => 'customers', 'company' => 'customers', 'deal' => 'pipeline', 'applications' => Applications::EXTENSION][$kind] ?? '';
 
         return $feature !== '' && !Extensions::isEnabled($settings, $feature);
     }
@@ -421,6 +422,7 @@ final class Inbox
         return match ($kind) {
             'deputy_named' => ['kind' => 'account', 'id' => 0, 'title' => '', 'path' => 'admin.php?action=account&tab=colleagues'],
             'absence_added' => ['kind' => 'account', 'id' => 0, 'title' => '', 'path' => 'admin.php?action=account&tab=absence'],
+            'form_unreachable' => ['kind' => 'applications', 'id' => 0, 'title' => '', 'path' => 'admin.php?module=applications'], // 3.50.1: everyone notified may open Applications
             default => null,
         };
     }
@@ -459,6 +461,7 @@ final class Inbox
             'quote_prepared' => t('A draft quote was prepared from an enquiry'), // 3.42
             'deputy_named' => t('%s named you as deputy', $actor), // 3.47 (N166)
             'absence_added' => t('%s recorded an absence for you', $actor),
+            'form_unreachable' => t('A job application form can no longer be reached on the site'), // 3.50.1: the excerpt names the page or the pop-up
             default => $kind,
         };
     }
@@ -491,6 +494,7 @@ final class Inbox
             'application' => t('Application #%s · %s', (string) $place['id'], (string) $place['title'] !== '' ? (string) $place['title'] : t('no position')),
             'quote' => t('Quote %s', (string) $place['title']), // 3.38: the number only
             'account' => t('My account'), // 3.47 (N166): a note about an absence
+            'applications' => t('Applications'), // 3.50.1: an application form that can no longer be reached
             default => t('(no longer available)'),
         };
     }

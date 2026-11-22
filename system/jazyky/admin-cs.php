@@ -9071,4 +9071,6 @@ return [
     'Group the sites by customer first – each customer can then have its own maintenance window.' => 'Nejdřív weby rozdělte podle zákazníků – každý zákazník pak může mít vlastní okno údržby.',
     'Only a user who may open Applications can take a job application form off the site – nothing was changed.' => 'Formulář žádostí o místo smí stáhnout z webu jen uživatel se sekcí Žádosti o místo – nic se nezměnilo.',
     'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Přeskočeno: %d (formulář žádostí o místo – z webu ho smí stáhnout jen uživatel se sekcí Žádosti o místo).',
+    'Job application forms that can no longer be reached on the site' => 'Formuláře žádostí o místo, které už na webu nejsou dostupné',
+    'A job application form can no longer be reached on the site' => 'Formulář žádostí o místo už na webu není dostupný',
 ];

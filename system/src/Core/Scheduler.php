@@ -46,6 +46,8 @@ final class Scheduler
         'domain_watch' => [86400, 'any', 'Domain, certificate and mail records'],
         'security' => [86400, 'any', 'Suspending unused accounts and connections'],
         'validity' => [3600, 'any', 'Content that expires or asks for review'],
+        // 3.50.1: after the validity job hid what expired – a published job application form that can no longer be reached rings the bell of Applications
+        'application_forms' => [3600, 'any', 'Job application forms that can no longer be reached on the site'],
         'events' => [3600, 'any', 'Repeating events move to their next date'],
         'triage' => [300, 'any', 'Sorting new enquiries with the writing assistant'],
         'contacts' => [300, 'any', 'Customers: enquiries, bookings and subscriptions linked to their contact'], // 3.28 (Core\Contacts::backfill)
@@ -168,6 +170,7 @@ final class Scheduler
                 return 'suspended ' . count($done['blocked']) . ', revoked ' . count($done['revoked']) . ', unused app registrations removed ' . $clients . ($sealed > 0 ? ', secrets encrypted ' . $sealed : '');
             },
             'validity' => fn (App $app): string => Validity::run($app),
+            'application_forms' => fn (App $app): string => \Kaleta\Builder\ApplicationFormWatch::run($app),
             'events' => fn (App $app): string => Calendar::run($app),
             'triage' => fn (App $app): string => Triage::run($app),
             'contacts' => function (App $app, string $source): string {

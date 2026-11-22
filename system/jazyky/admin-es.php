@@ -9499,4 +9499,6 @@ return [
     'Group the sites by customer first – each customer can then have its own maintenance window.' => 'Primero agrupa los sitios por cliente – así cada cliente puede tener su propia ventana de mantenimiento.',
     'Only a user who may open Applications can take a job application form off the site – nothing was changed.' => 'Solo un usuario que puede abrir Candidaturas puede retirar del sitio un formulario de candidatura: no se ha cambiado nada.',
     'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Omitidos: %d (un formulario de candidatura: solo un usuario que puede abrir Candidaturas puede retirarlo del sitio).',
+    'Job application forms that can no longer be reached on the site' => 'Formularios de empleo a los que ya no se puede llegar en el sitio',
+    'A job application form can no longer be reached on the site' => 'Ya no se puede llegar a un formulario de empleo en el sitio',
 ];

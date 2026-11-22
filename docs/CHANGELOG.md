@@ -29,7 +29,21 @@ difference); one new refusal text.
    (`Publisher::guardRemoval`, refusal "nothing was deleted"). `Publisher::guard` takes the `App`: an unset
    `Build::$purposeAllowed` is decided by the signed-in person; imports and the CLI with nobody signed in stay allowed.
    A permitted publish of such a build by someone without Applications writes a change-log line in Applications. Drafts
-   are never refused.
+   are never refused. Without Applications, an earlier "true until" date or a password on a visible page holding a
+   published application form, the trigger "only by clicking", pop-up rules that show it in fewer places
+   (`Popups::rulesNarrowed` – the order of the lists and pages the form cannot offer do not count; the settings form lists
+   at most 500 pages and keeps chosen pages it did not list, `Popups::keepUnoffered`, so a harmless save on a large site is
+   not refused), a draft class that would hide the form (`Publisher::guardClasses`) and a file form in a component placed
+   beside one are refused too. **These locks guard against ordinary and accidental changes; they are not a wall.** What
+   they do not stop is covered by the hourly **application form watch** (`Builder\ApplicationFormWatch`, background job
+   "Job application forms that can no longer be reached on the site"): a page or pop-up whose published build holds an
+   application form (also through nested components) is reachable while the page is visible, not in the trash, without a
+   password and still true, or the pop-up is switched on, true, in its period and has a trigger a visitor meets (not by
+   click, at most 10 pages, 120 seconds or 100 % scrolled), and the form is hidden neither by a style, display conditions
+   nor a class whose published style hides. When one that was reachable is not, every user who may open Applications gets
+   one notification in the bell, "A job application form can no longer be reached on the site", leading to Applications
+   (instant or daily e-mail by their own choice); it is removed when the form is reachable again. The last state is the
+   internal setting `application_forms_watch`.
 4. **Mail and backups.** A notification copy meant only for the queue is delivered once when the queue cannot be written
    (`Core\Mail`), and an error-log line is written when that fails too. An FTPS listing or delete over cURL no longer
    recreates a removed folder (`RemoteBackup::ftpsCommandOptions`), and a dot-named entry is never taken for deleted by a
@@ -49,7 +63,8 @@ difference); one new refusal text.
 7. **Code.** Core no longer calls into the administration or the site for page slugs (`Core\Routes::RESERVED_SLUGS`,
    `slugReserved`, `Core\Clock::edited`), enquiry spam and attachments (`Core\EnquiryVisibility::NOT_SPAM`,
    `Core\EnquiryFiles::delete`), redirects (`Core\RedirectStore`) and the statistics switch (`Core\StatsGate`); the old
-   names stay as one-line forwards (unit 4632). Frozen layer exceptions 70 files / 181 references → 58 / 137. 105 unused
+   names stay as one-line forwards (unit 4632); the campaign text of a lead lives in `Core\Campaign` (`Front\Forms` forwards).
+   Frozen layer exceptions 70 files / 181 references → 57 / 137 (the scheduler names the application form watch). 105 unused
    imports and 10 unreferenced public members are removed (each checked against 3.42.0, 3.49.0 and 3.50.0, so old code
    in memory during an update calls nothing that is gone). Unit 4630 keeps every import named in its file; unit 4634
    stops the number of files over 1,500 and 1,000 lines from growing (10 and 21). Three source pins became behaviour

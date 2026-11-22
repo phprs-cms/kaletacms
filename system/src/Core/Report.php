@@ -78,7 +78,7 @@ final class Report
         $campaignVisits = $db->pairs('SELECT kampan, SUM(navstevy) FROM {stat_kampane} WHERE den >= ? GROUP BY kampan', [$since]);
         $campaigns = [];
         foreach ($leadsBy('kampan', 'kampan') as $utm => $n) {
-            $name = \Kaleta\Front\Forms::campaignText((string) $utm);
+            $name = Campaign::text((string) $utm);
             $campaigns[$name] = ['enquiries' => ($campaigns[$name]['enquiries'] ?? 0) + ($n['enquiries'] ?? 0), 'signups' => ($campaigns[$name]['signups'] ?? 0) + ($n['signups'] ?? 0)];
         }
         $campaignRows = [];

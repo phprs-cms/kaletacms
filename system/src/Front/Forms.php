@@ -416,7 +416,7 @@ final class Forms
     }
 
     /** @param list<array{0:string, 1:string}> $data */
-    public const array UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+    public const array UTM = \Kaleta\Core\Campaign::UTM;
 
     /**
      * Campaign from the URL of the page with the form (Referer header of the submission): only utm_* parameters, only
@@ -455,9 +455,7 @@ final class Forms
     /** Human-readable campaign: „google / cpc / jarni-akce“ (source / medium / campaign, optionally keyword and content). */
     public static function campaignText(string $campaign): string
     {
-        parse_str($campaign, $utm);
-
-        return implode(' / ', array_filter(array_map(fn (string $k): string => is_string($utm[$k] ?? null) ? $utm[$k] : '', self::UTM), fn (string $h): bool => $h !== ''));
+        return \Kaleta\Core\Campaign::text($campaign); // 3.50.1: lives in Core (Report reads it there)
     }
 
     private function notify(int $idp, array $element, array $data, string $email, string $campaign, string $about = ''): void

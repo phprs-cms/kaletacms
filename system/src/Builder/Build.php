@@ -766,6 +766,44 @@ final class Build
     }
 
     /**
+     * 3.50.1 (the hourly application form watch, Builder\ApplicationFormWatch): whether a published build shows an application
+     * form – a "formular" with the Purpose job application, or a "komponenta" element pointing to one of $formComponents – that
+     * neither itself nor an ancestor hides: display none in some state of its style, display conditions (podminky), or a class
+     * in $hidingClasses (classes whose published style hides, classHides()). Pure; a build that does not decode shows none.
+     *
+     * @param list<string> $hidingClasses
+     * @param list<int> $formComponents
+     */
+    public static function showsApplicationForm(?string $json, array $hidingClasses, array $formComponents): bool
+    {
+        $build = $json === null ? null : self::fromJson($json);
+        if ($build === null) {
+            return false;
+        }
+        $hidden = self::hiddenElements($build);
+        foreach (self::elementsOfType($build, fn (string $className): bool => in_array($className::TYPE, ['formular', 'komponenta'], true)) as $id => $p) {
+            $type = (string) ($p['typ'] ?? '');
+            if (!($type === 'formular' && ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE)
+                && !($type === 'komponenta' && in_array((int) ($p['obsah']['komponenta'] ?? 0), $formComponents, true))) {
+                continue;
+            }
+            $shown = true;
+            foreach ($hidden[(string) $id] ?? [] as $marker) {
+                // "<id>" display none, "<id>?<json>" display conditions, "<id>.<class>" a class (ids are [a-z0-9])
+                if (preg_match('/^[a-z0-9]+\.(.+)$/Ds', $marker, $m) !== 1 || in_array($m[1], $hidingClasses, true)) {
+                    $shown = false;
+                    break;
+                }
+            }
+            if ($shown) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Every element of a build => what on its path (itself and its ancestors) can hide it on the site: "<id>" when the
      * element's style has display none in any state, "<id>?<conditions as JSON>" for its display conditions (podminky) and
      * "<id>.<class>" for each class it carries (3.50.1 review – a class's own style can hide it too). A marker in $new that was not
