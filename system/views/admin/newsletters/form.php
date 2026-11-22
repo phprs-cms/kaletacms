@@ -13,6 +13,8 @@
  * @var ?string $problem why the site cannot send now
  * @var bool $canPublish
  * @var string $email the signed-in user's address for the test
+ * @var list<string> $warnings 3.51: what may hurt the delivery (SPF, DMARC, a connected mailing service) – not a refusal
+ * @var int $left 3.51: e-mails of a send under way or paused not sent yet
  */
 use Kaleta\Core\Language;
 use Kaleta\Core\Mailing;
@@ -21,11 +23,32 @@ $id = (int) $n['id'];
 $editable = in_array($n['status'], ['draft', 'scheduled'], true);
 $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
 ?>
-<?php if ($n['status'] === 'sending' || $n['status'] === 'sent'): ?>
-<div class="hlaska">
-	<p><strong><?= e(t($n['status'] === 'sent' ? 'Sent' : 'Sending')) ?></strong> · <?= e(t('Recipients')) ?>: <?= (int) $n['recipients'] ?> · <?= e(t('Sent')) ?>: <?= (int) $n['sent_count'] ?> · <?= e(t('Failed')) ?>: <?= (int) $n['failed_count'] ?></p>
-	<p class="napoveda"><?= e(t('Started %s', format_date((string) $n['started_at'], true))) ?><?= $n['finished_at'] !== null ? ' · ' . e(t('finished %s', format_date((string) $n['finished_at'], true))) : ' · ' . e(t('the e-mails go out in batches each time cron runs')) ?></p>
+<?php if (in_array($n['status'], ['sending', 'paused', 'sent', 'cancelled'], true)): ?>
+<div class="hlaska<?= $n['status'] === 'paused' ? ' hlaska-varovani' : '' ?>">
+	<p><strong><?= e(t(Mailing::STATUSES[$n['status']])) ?></strong> · <?= e(t('Recipients')) ?>: <?= (int) $n['recipients'] ?> · <?= e(t('Sent')) ?>: <?= (int) $n['sent_count'] ?> · <?= e(t('Failed')) ?>: <?= (int) $n['failed_count'] ?><?= in_array($n['status'], ['sent', 'cancelled'], true) && (int) ($n['skipped_count'] ?? 0) > 0 ? ' · ' . e(t('Skipped')) . ': ' . (int) $n['skipped_count'] : '' ?></p>
+	<p class="napoveda"><?= e(t('Started %s', format_date((string) $n['started_at'], true))) ?><?= $n['finished_at'] !== null ? ' · ' . e(t('finished %s', format_date((string) $n['finished_at'], true))) : ($n['status'] === 'sending' ? ' · ' . e(t('the e-mails go out in batches each time cron runs')) : '') ?></p>
+<?php if ($n['status'] === 'paused'): ?>
+	<p><?= e(t($n['pause_reason'] === 'brake'
+        ? 'Paused by the brake: the mail server refused several e-mails in a row. Check Settings → Mail and System status before you resume – the e-mails it refused go out again.'
+        : 'Paused by hand – nothing goes out until it is resumed.')) ?> <?= e(t('If nobody resumes it, it is cancelled on %s.', format_date((string) Mailing::cancelOn($n), true))) ?></p>
+<?php endif ?>
+<?php if (in_array($n['status'], ['sent', 'cancelled'], true) && (int) ($n['skipped_count'] ?? 0) > 0): ?>
+	<p class="napoveda"><?= e(t('Skipped: unsubscribed in the meantime, on the list of addresses we do not write to, or not sent because the newsletter was cancelled.')) ?></p>
+<?php endif ?>
 </div>
+<?php if ($canPublish && in_array($n['status'], ['sending', 'paused'], true)): ?>
+<div class="navigace-radek">
+<?php if ($n['status'] === 'sending'): ?>
+	<form class="vradku" method="post" action="<?= e($module->url('pause')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="tl" type="submit"><?= e(t('Pause sending')) ?></button></form>
+<?php else: ?>
+	<form class="vradku" method="post" action="<?= e($module->url('resume')) ?>" data-potvrdit="<?= e(t('Resume sending? %d e-mails are left to send.', $left)) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="tl" type="submit"<?= $problem !== null ? ' disabled' : '' ?>><?= e(t('Resume sending')) ?></button></form>
+<?php endif ?>
+	<form class="vradku" method="post" action="<?= e($module->url('cancel')) ?>" data-potvrdit="<?= e(t('Cancel the newsletter? The %d e-mails not sent yet will never go – this cannot be undone.', $left)) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Cancel the newsletter')) ?></button></form>
+</div>
+<?php if ($n['status'] === 'paused' && $problem !== null): ?>
+<p class="hlaska hlaska-varovani"><?= $module->hint(t($problem)) ?></p>
+<?php endif ?>
+<?php endif ?>
 <?php else: ?>
 <?php if ($problem !== null): ?>
 <p class="hlaska hlaska-varovani"><?= $module->hint(t($problem)) ?></p>
@@ -86,6 +109,9 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php elseif (!$canPublish): ?>
 <p class="napoveda"><?= e(t('Sending to subscribers needs the publishing permission – ask an editor or an administrator.')) ?></p>
 <?php else: ?>
+<?php foreach ($warnings as $warning): ?>
+<p class="hlaska hlaska-varovani"><?= e(t($warning)) ?></p>
+<?php endforeach ?>
 <form class="formular" method="post" action="<?= e($module->url('send')) ?>" data-potvrdit="<?= e(t('Send the newsletter to %d confirmed subscribers? Save your changes first – the saved version goes out.', $confirmed)) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= $id ?>">
@@ -100,7 +126,7 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php endif ?>
 <div class="navigace-radek akce-dole">
 <a class="navigace" href="<?= e($module->url()) ?>"><?= e(t('All newsletters')) ?></a>
-<?php if ($id > 0 && $n['status'] !== 'sending'): ?>
+<?php if ($id > 0 && $n['status'] !== 'sending' && $n['status'] !== 'paused'): ?>
 <form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Delete the newsletter?')) ?>"><?= $csrf ?><input type="hidden" name="id" value="<?= $id ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete the newsletter')) ?></button></form>
 <?php endif ?>
 </div>
