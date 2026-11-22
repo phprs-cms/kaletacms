@@ -55,7 +55,7 @@ expect "subscriber e-mail: subject, text part and HTML part" "$(grep -c '^Subjec
 expect "newsletter recipients are not in the mail log" "$(db "SELECT COUNT(*) FROM ka_posta WHERE komu IN ('anna@example.cz', 'petr@example.cz')")" "0"
 # a temporary refusal (451 4.7.0) is retried and given up after three attempts – one more subscriber in a newsletter of its own
 db "INSERT INTO ka_odberatele (email, stav, token, datum, potvrzeno) VALUES ('docasne@example.cz', 1, '$(tok)', '$(site_time)', '$(site_time)');
-  INSERT INTO ka_newsletters (subject, status, recipients, started_at, html, text, created) SELECT 'Docasne', 'sending', 1, '$(site_time)', html, text, '$(site_time)' FROM ka_newsletters WHERE id = $NL"
+  INSERT INTO ka_newsletters (subject, intro, status, recipients, started_at, html, text, created) SELECT 'Docasne', intro, 'sending', 1, '$(site_time)', html, text, '$(site_time)' FROM ka_newsletters WHERE id = $NL"
 NLT=$(db "SELECT MAX(id) FROM ka_newsletters WHERE subject = 'Docasne'")
 db "INSERT INTO ka_newsletter_queue (newsletter_id, subscriber_id, next_attempt) SELECT $NLT, ido, '$(site_time)' FROM ka_odberatele WHERE email = 'docasne@example.cz'"
 curl -s -o /dev/null "$B/ulohy?token=testtoken123"
