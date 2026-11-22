@@ -60,7 +60,7 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 # 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
 # structure check above compares the type, not the character set), and a site's language values stay as they were
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
-[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 19 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119), 3.38 (0123) and 3.49 (0137): the 19 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 20 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119), 3.38 (0123), 3.49 (0137) and 3.51 (0138): the 20 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
 # 3.19 (0105, 0106): the global keys are gone after the upgrade (the empty site could switch), the per-language ones stay
 expect_sql "3.9 (0083), 3.19 (0106): pages, news and categories keep the per-language slug key, the global one is gone" \
@@ -471,7 +471,34 @@ m349a() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_sav
   (SELECT CONCAT(character_set_name, ':', character_maximum_length) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'ka_saved_replies' AND column_name = 'language'))"; }
 expect_sql_value "3.49 A (0137): ka_saved_replies exists after the update – empty, with its key on (language, sort_order) and an ascii language of 35" "$(m349a)" "0|2|ascii:35"
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_saved_replies (name, text, updated_at) VALUES ('M349', 'x', NOW()); UPDATE ka_nastaveni SET hodnota = '136' WHERE promenna = 'db_version'" && migrate > /dev/null
-expect_sql_value "3.49 A (0137): run again – nothing changes, the row stays" "$(m349a)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "1|2|ascii:35|137"
+expect_sql_value "3.49 A (0137): run again – nothing changes, the row stays" "$(m349a)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "1|2|ascii:35|$LAST_MIGRATION"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_saved_replies"
+
+# 3.51 (0138): every column of the release in one structure migration – run again, nothing changes and the rows stay
+m351() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT GROUP_CONCAT(CONCAT(table_name, '.', column_name, ':', column_type, ':', is_nullable, ':', COALESCE(column_default, 'NULL')) ORDER BY table_name, column_name SEPARATOR ',')
+  FROM information_schema.columns WHERE table_schema = DATABASE() AND ((table_name = 'ka_odberatele' AND column_name = 'language') OR (table_name = 'ka_testimonial_requests' AND column_name = 'sent_at')
+  OR (table_name = 'ka_newsletter_queue' AND column_name IN ('tried_at', 'reply')) OR (table_name = 'ka_newsletters' AND column_name IN ('paused_at', 'pause_reason', 'resumed_at', 'skipped_count'))
+  OR column_name = 'assigned_by')), '|', (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_newsletter_queue' AND index_name = 'ix_newsletter_queue_tried'))"; }
+M351_COLUMNS="ka_deals.assigned_by:int unsigned:YES:NULL,ka_newsletter_queue.reply:varchar(32):NO:,ka_newsletter_queue.tried_at:datetime:YES:NULL,ka_newsletters.pause_reason:varchar(10):NO:,ka_newsletters.paused_at:datetime:YES:NULL,ka_newsletters.resumed_at:datetime:YES:NULL,ka_newsletters.skipped_count:int unsigned:NO:0,ka_odberatele.language:varchar(35):NO:,ka_poptavky.assigned_by:int unsigned:YES:NULL,ka_quotes.assigned_by:int unsigned:YES:NULL,ka_tasks.assigned_by:int unsigned:YES:NULL,ka_testimonial_requests.sent_at:datetime:YES:NULL|2"
+expect_sql_value "3.51 (0138): the twelve columns and the index of the queue's last attempts after the update" "$(m351 | sed -E "s/int\(10\) unsigned/int unsigned/g; s/:'':/::/g; s/:'0'/:0/g")" "$M351_COLUMNS"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '137' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql_value "3.51 (0138): run again – nothing changes, the version is the latest again" "$(m351 | sed -E "s/int\(10\) unsigned/int unsigned/g; s/:'':/::/g; s/:'0'/:0/g")|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$M351_COLUMNS|$LAST_MIGRATION"
+
+# 3.51 (0139): the language of existing subscribers (the sign-up page's version, else the customer's), the assigner of existing
+# tasks (their creator); run again by name – the same result
+M351_KEEP=$("${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT(COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'additional_languages'), ''), '|', COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'site_url'), ''))")
+"${MYSQL[@]}" "$OLD" -e "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', 'en,de'), ('site_url', 'https://example.com');
+  INSERT INTO ka_contacts (email, name, language, created_at, updated_at) VALUES ('m351@example.com', 'M351', 'de', NOW(), NOW());
+  INSERT INTO ka_odberatele (email, token, zdroj, datum, contact_id) VALUES ('m351-en@example.com', REPEAT('a', 32), '/en/novinky', NOW(), NULL),
+    ('m351-de@example.com', REPEAT('b', 32), '/kontakt', NOW(), (SELECT id FROM ka_contacts WHERE email = 'm351@example.com')), ('m351-cs@example.com', REPEAT('c', 32), '/sk/clanek', NOW(), NULL);
+  INSERT INTO ka_tasks (title, assignee_id, created_by, created_at, updated_at) VALUES ('M351 a', 7, 3, NOW(), NOW()), ('M351 b', NULL, 3, NOW(), NOW());
+  UPDATE ka_odberatele SET language = '' WHERE email LIKE 'm351-%'; UPDATE ka_tasks SET assigned_by = NULL WHERE title LIKE 'M351 %';
+  UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0139-subscriber-language-and-task-assigners,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+m351b() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT GROUP_CONCAT(CONCAT(email, '=', language) ORDER BY email) FROM ka_odberatele WHERE email LIKE 'm351-%'), '|', (SELECT GROUP_CONCAT(CONCAT(title, '=', COALESCE(assigned_by, '-')) ORDER BY title) FROM ka_tasks WHERE title LIKE 'M351 %'), '|', FIND_IN_SET('0139-subscriber-language-and-task-assigners', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'data_migrations')) > 0)"; }
+expect_sql_value "3.51 (0139): subscribers get the language of their sign-up page or customer (a code-like slug stays the default), a task the assigner = its creator; recorded as run" "$(m351b)" "m351-cs@example.com=,m351-de@example.com=de,m351-en@example.com=en|M351 a=3,M351 b=-|1"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0139-subscriber-language-and-task-assigners,', ',')) WHERE promenna = 'data_migrations'" && migrate > /dev/null
+expect_sql_value "3.51 (0139): run again by name – the same result" "$(m351b)" "m351-cs@example.com=,m351-de@example.com=de,m351-en@example.com=en|M351 a=3,M351 b=-|1"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_odberatele WHERE email LIKE 'm351-%'; DELETE FROM ka_tasks WHERE title LIKE 'M351 %'; DELETE FROM ka_contacts WHERE email = 'm351@example.com';
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', '${M351_KEEP%%|*}'), ('site_url', '${M351_KEEP#*|}')"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

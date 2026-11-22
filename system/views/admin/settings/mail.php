@@ -117,6 +117,37 @@ $field('mail_from', 'Sender address', 'email', 'Empty = the site e-mail. With SM
 $field('mail_reply_to', 'Send replies to', 'email', 'Optional – when readers\' replies should go somewhere other than the sender.');
 ?>
 </details>
+<?php
+// 3.51: the texts of the e-mails to visitors – default wording per language (Core\Settings::wording), never legal advice;
+// an empty field shows the default of its language as the placeholder and is marked "default"
+$siteSettings ??= $app->settings();
+$wordingDefault = fn (string $key, string $language): string => Kaleta\Core\Language::runWith($language, fn (): string => t(Kaleta\Core\Settings::DEFAULTS[$key]));
+$defaultLanguage = Kaleta\Core\Language::defaults($siteSettings);
+$wordingHint = fn (string $key, string $hint): string => e($hint) . (($values[$key] ?? '') === '' ? ' <span class="stitek">' . e(t('default wording')) . '</span>' : '');
+$wordingPlaceholder = fn (string $key): string => 'maxlength="300" placeholder="' . e($wordingDefault($key, $defaultLanguage)) . '"';
+$wordingRows = ['mail_identity' => t('Sender line'), 'newsletter_reason' => t('Why the newsletter arrives'), 'mail_refuse_text' => t('Refuse line of a testimonial request')];
+?>
+<fieldset>
+<legend><?= e(t('Texts of e-mails to visitors')) ?></legend>
+<p class="hlaska"><?= e(t('Default wording – not legal advice; have it checked for your country. An empty field uses the default wording of its language.')) ?></p>
+<?php
+$field('mail_identity', 'Sender line', 'text', $wordingHint('mail_identity', t('Must contain {{company}} and {{address}} – they are filled from Business details. Without the company name and address no newsletter or testimonial request goes out.')), $wordingPlaceholder('mail_identity'));
+$field('newsletter_reason', 'Why the newsletter arrives', 'text', $wordingHint('newsletter_reason', t('The last line of every newsletter. {{site}} is the site name.')), $wordingPlaceholder('newsletter_reason'));
+$field('mail_refuse_text', 'Refuse line of a testimonial request', 'text', $wordingHint('mail_refuse_text', t('Must contain {{link}} – the page where the customer says they want no more requests or news.')), $wordingPlaceholder('mail_refuse_text'));
+?>
+<?php if (($wordingLanguages = Kaleta\Core\Language::additional($siteSettings)) !== []): ?>
+<?php $invalidHere = fn (string $key): string => in_array($key, $invalidFields, true) ? ' aria-invalid="true"' : ''; ?>
+<details class="pokrocile"<?= array_filter($wordingLanguages, fn (string $j): bool => array_filter(array_keys($wordingRows), fn (string $k): bool => ($values[$k . '_' . $j] ?? '') !== '' || $invalidHere($k . '_' . $j) !== '') !== []) !== [] ? ' open' : '' ?>>
+<summary><?= e(t('These texts in other language versions')) ?></summary>
+<p class="napoveda"><?= e(t('Each e-mail uses the text of its own language. An empty field uses the default wording of that language, not the text above.')) ?></p>
+<?php foreach ($wordingLanguages as $j): ?>
+<?php foreach ($wordingRows as $key => $label): ?>
+<div class="radek"><label for="<?= e($key . '_' . $j) ?>"><?= e($label) ?> (<?= e(strtoupper($j)) ?>)</label><div><input class="textpole siroke" type="text" id="<?= e($key . '_' . $j) ?>" name="<?= e($key . '_' . $j) ?>" value="<?= e($values[$key . '_' . $j] ?? '') ?>" maxlength="300" lang="<?= e($j) ?>" placeholder="<?= e($wordingDefault($key, $j)) ?>"<?= $invalidHere($key . '_' . $j) ?>><?php if (($values[$key . '_' . $j] ?? '') === ''): ?> <span class="napoveda"><span class="stitek"><?= e(t('default wording')) ?></span></span><?php endif ?></div></div>
+<?php endforeach ?>
+<?php endforeach ?>
+</details>
+<?php endif ?>
+</fieldset>
 <p><button class="navigace" type="submit" formaction="<?= e($module->url('test_mail')) ?>"><?= e(t('Send a test e-mail to the site address')) ?></button> <span class="smltxt"><?= e(t('Save the settings first – the test uses the saved values.')) ?></span></p>
 <p class="napoveda"><?= e(t('The monthly report – its e-mail, the recipients and the archive to print or download – is on the Reports tab.')) ?> <a href="<?= e($module->url('', ['tab' => 'reports'])) ?>"><?= e(t('Reports')) ?></a></p>
 <?php if (!empty($mail)): ?>

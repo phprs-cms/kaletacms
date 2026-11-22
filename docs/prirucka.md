@@ -341,6 +341,14 @@ odkazy na váš web nesou parametry `utm`, takže **Statistika** ukáže návšt
 se drží jen po dobu odesílání – potom zůstanou jen počty a data. Koncept newsletteru a zkoušku umí i Claude; odběratelům
 ho pošle jen na váš pokyn.
 
+**Odběratelé: jazyky a adresy, na které nepíšeme.** Každý odběratel si nese jazykovou verzi, ve které se přihlásil, a
+adresu, kterou poštovní server odmítl jako neexistující, nebo člověka, který si nepřeje, abychom mu psali, přeskočí každý
+newsletter i žádost o referenci (3.51).
+
+**Odesílání: pozastavení, brzda a co nese patička.** Rozeslaný newsletter jde pozastavit, obnovit nebo zrušit, sám se
+pozastaví, když odesílání opakovaně selhává, a jeho patička uvádí odesílatele – název firmy a poštovní adresu z Údajů
+firmy – a proč e-mail přišel (3.51).
+
 **Online rezervace.** Se zapnutými Rezervacemi si návštěvníci objednají termín na webu prvkem **Rezervace**: vyberou
 službu, člověka a volný čas a dostanou potvrzení e-mailem s odkazem na zrušení; web jim před termínem připomene. Správce
 nastaví **Služby** (délka, přestávka po ní, text ceny, kdo ji dělá, jestli každou rezervaci nejdřív potvrzujete), **Lidi**

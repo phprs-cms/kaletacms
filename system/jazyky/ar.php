@@ -2163,4 +2163,7 @@ return [
     'The file is larger than %d MB.' => 'حجم الملف أكبر من %d ميغابايت.',
     'The files are larger than %d MB together.' => 'حجم الملفات معًا أكبر من %d ميغابايت.',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'حتى %d ملفات، بحد أقصى %d ميغابايت لكل ملف و%d ميغابايت معًا: PDF أو صورة أو مستند أو ZIP.',
+    'Sent by {{company}}, {{address}}.' => 'المرسل: {{company}}، {{address}}.',
+    'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'تتلقى هذه الرسالة لأنك اشتركت في أخبار {{site}} وأكدت الاشتراك.',
+    'If you do not want e-mails like this from us, tell us here: {{link}}' => 'إذا كنت لا ترغب في تلقي رسائل كهذه منا، فأخبرنا هنا: {{link}}',
 ];

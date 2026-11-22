@@ -152,7 +152,7 @@ $d331Schema = (string) file_get_contents(KALETA_SYSTEM . '/sql/schema.sql');
 $d331Migration = (string) @file_get_contents(KALETA_SYSTEM . '/sql/migrace/0117-pipeline.sql');
 $d331Columns = fn (string $sql, string $table): array => preg_match('/CREATE TABLE ' . $table . ' \((.+?)\) ENGINE/s', $sql, $m) ? array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME|DATE|TEXT|DECIMAL|CHAR)\b/', $l, $c) ? $c[1] : '', explode("\n", $m[1])))) : [];
 check('[source-pin] 3.31: ka_deals and ka_deal_stage_history alike in schema.sql and migration 0117 (indexes for stage, owner, contact, company, enquiry; no foreign keys), the names map, the moments and the civil day, the section granted with Customers, DB version 117, never journaled', [
-    $d331Columns($d331Schema, 'ka_deals'), $d331Columns($d331Schema, 'ka_deals') === $d331Columns($d331Migration, 'ka_deals'),
+    $d331Columns($d331Schema, 'ka_deals'), array_values(array_diff($d331Columns($d331Schema, 'ka_deals'), ['assigned_by'])) === $d331Columns($d331Migration, 'ka_deals'), // 3.51: assigned_by came with migration 0138
     $d331Columns($d331Schema, 'ka_deal_stage_history') === $d331Columns($d331Migration, 'ka_deal_stage_history') && $d331Columns($d331Schema, 'ka_deal_stage_history') !== [],
     preg_match_all('/KEY ix_deals_(stage|owner|contact|company|enquiry) /', $d331Migration), preg_match_all('/KEY ix_deals_(stage|owner|contact|company|enquiry) /', $d331Schema), str_contains($d331Migration, 'FOREIGN KEY'),
     str_contains($d331Schema, 'value             DECIMAL(12,2) NULL') && str_contains($d331Schema, 'currency          CHAR(3) CHARACTER SET ascii NULL'),
@@ -161,7 +161,7 @@ check('[source-pin] 3.31: ka_deals and ka_deal_stage_history alike in schema.sql
     str_contains($d331Migration, "SELECT p.fk_id_user, 'pipeline' FROM (SELECT fk_id_user FROM ka_uzivatele_prava WHERE ident_modulu = 'contacts') AS p;")
         && str_contains($d331Migration, "UPDATE ka_role SET moduly = CONCAT(moduly, ',pipeline') WHERE FIND_IN_SET('contacts', moduly) > 0 AND FIND_IN_SET('pipeline', moduly) = 0;"),
     array_map(fn (string $t): bool => in_array($t, Kaleta\Core\AgentJournal::PERSONAL_TABLES, true) && !Kaleta\Core\AgentJournal::journaled($t), ['deals', 'deal_stage_history']),
-], [['id', 'title', 'contact_id', 'company_id', 'owner_id', 'stage', 'value', 'currency', 'source_enquiry_id', 'expected_close', 'closed_at', 'lost_reason', 'lost_note', 'created_by', 'created_at', 'updated_at'],
+], [['id', 'title', 'contact_id', 'company_id', 'owner_id', 'stage', 'value', 'currency', 'source_enquiry_id', 'expected_close', 'closed_at', 'lost_reason', 'lost_note', 'created_by', 'created_at', 'updated_at', 'assigned_by'],
     true, true, 5, 5, false, true, ['deals', 'deal_stage_history'], ['closed_at', 'created_at', 'updated_at'], ['at'], ['expected_close'], true, true, [true, true]]);
 $d331Mail = Kaleta\Core\Assignment::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], 'deal', ['id' => 12, 'title' => '#12', 'path' => ''], 'Jana', 'https://x/1');
 check('[source-pin] 3.31: the bell and the assignment e-mail name a deal by its number only (its title may name a customer); the hand-over counts deals and needs the pipeline; My work lists them', [

@@ -835,6 +835,25 @@ final class Deals
         return self::of($db, 'contact_id', $contactId, $limit);
     }
 
+    /**
+     * 3.51: has this contact a won deal – closed in a stage of the kind "won" (the customer rule of testimonial requests,
+     * decision 5 of 3.51; the audiences of 3.52)?
+     */
+    public static function hasWon(Db $db, int $contactId, ?Settings $settings = null): bool
+    {
+        $won = array_column(array_filter(self::stages($settings ?? new Settings($db)), fn (array $st): bool => $st['kind'] === 'won'), 'key');
+        if ($contactId <= 0 || $won === []) {
+            return false;
+        }
+        try {
+            return $db->value('SELECT 1 FROM {deals} WHERE contact_id = ? AND closed_at IS NOT NULL AND stage IN (' . implode(',', array_fill(0, count($won), '?')) . ') LIMIT 1', [$contactId, ...$won]) !== null;
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // a site before the pipeline
+
+            return false;
+        }
+    }
+
     /** @return list<array<string, mixed>> */
     public static function forCompany(Db $db, int $companyId, int $limit = 50): array
     {

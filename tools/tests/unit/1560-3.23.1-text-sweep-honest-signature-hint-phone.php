@@ -761,10 +761,10 @@ preg_match('/CREATE TABLE ka_tasks \((.+?)\) ENGINE/s', $t327Schema, $t327Table)
 preg_match('/CREATE TABLE ka_tasks \((.+?)\) ENGINE/s', $t327Migration, $t327MigTable);
 $t327Columns = fn (string $sql): array => array_values(array_filter(array_map(fn (string $l): string => preg_match('/^\s*([a-z_]+)\s+(INT|VARCHAR|DATETIME)/', $l, $m) ? $m[1] : '', explode("\n", $sql))));
 check('3.27: ka_tasks in schema.sql and migration 0113 alike (columns, the three keys), in the names map, its moments in TimeZoneConversion::INSTANTS, DB version 113', [
-    $t327Columns($t327Table[1] ?? ''), array_values(array_diff($t327Columns($t327Table[1] ?? ''), ['escalated_at'])) === $t327Columns($t327MigTable[1] ?? ''), // 3.42: escalated_at came with migration 0132
+    $t327Columns($t327Table[1] ?? ''), array_values(array_diff($t327Columns($t327Table[1] ?? ''), ['escalated_at', 'assigned_by'])) === $t327Columns($t327MigTable[1] ?? ''), // 3.42: escalated_at came with migration 0132, 3.51 assigned_by with 0138
     preg_match_all('/KEY ix_tasks_(assignee \(assignee_id, done_at, due_at\)|target \(target\)|due \(done_at, notified_at\))/', $t327Table[1] ?? ''), Kaleta\Core\Names::english('tasks'),
     Kaleta\Core\TimeZoneConversion::INSTANTS['tasks'] ?? null, KALETA_DB_VERSION >= 113],
-    [['id', 'title', 'target', 'assignee_id', 'created_by', 'due_at', 'remind_at', 'notified_at', 'done_at', 'done_by', 'request_id', 'escalated_at', 'created_at', 'updated_at'], true, 3, 'tasks',
+    [['id', 'title', 'target', 'assignee_id', 'created_by', 'due_at', 'remind_at', 'notified_at', 'done_at', 'done_by', 'request_id', 'escalated_at', 'created_at', 'updated_at', 'assigned_by'], true, 3, 'tasks',
         ['due_at', 'remind_at', 'notified_at', 'done_at', 'created_at', 'updated_at', 'escalated_at'], true]);
 $t327Due = Kaleta\Core\Inbox::mail($reportSettings([]), ['jazyk' => 'en', 'register' => ''], ['kind' => 'task_due', 'actor_name' => 'Jana', 'excerpt' => 'Call back about the windows'],
     ['kind' => 'enquiry', 'id' => 12, 'title' => 'Contact', 'path' => ''], 'https://x/1', 'https://x/2');

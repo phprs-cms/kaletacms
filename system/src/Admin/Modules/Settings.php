@@ -61,10 +61,15 @@ class Settings extends Module
         if ($tab === 'general') {
             $field['screen_collections'] = 'seznam:' . implode('|', array_keys($this->screenCollections())); // the screen shows only collections that exist
         }
-        if ($tab === 'cookies') {
-            // 3.9 (UXM-11): the cookie bar text and the policy link for each further language version; empty = as in the default language
+        if ($tab === 'cookies' || $tab === 'mail') {
+            // 3.9 (UXM-11): the cookie bar text and the policy link for each further language version; 3.51: the three texts of
+            // the e-mails to visitors on the Mail tab. Empty = as in the default language (the cookie bar) or the default
+            // wording of that language (Settings::wording)
+            $perLanguage = array_values(array_intersect(array_keys($field), \Kaleta\Core\Settings::keysWith('per_language')));
             foreach (\Kaleta\Core\Language::additional($this->app->settings()) as $language) {
-                $field += ['cookies_text_' . $language => $field['cookies_text'], 'cookies_policy_url_' . $language => $field['cookies_policy_url']];
+                foreach ($perLanguage as $key) {
+                    $field[$key . '_' . $language] = $field[$key];
+                }
             }
         }
 
@@ -185,7 +190,8 @@ class Settings extends Module
         $settings = $this->app->settings();
         $values = [];
         foreach ($this->fields($tab) as $key => $type) {
-            $values[$key] = $settings->get($key);
+            // 3.51: a wording shows what is stored – empty means the default wording, shown as the field's placeholder
+            $values[$key] = in_array($key, \Kaleta\Core\Settings::WORDINGS, true) ? $settings->storedWording($key) : $settings->get($key);
             if (str_starts_with($type, 'tajne') && $values[$key] !== '') {
                 $values[$key] = '…' . substr($values[$key], -4); // only the end of the key goes to the page, for checking
             }

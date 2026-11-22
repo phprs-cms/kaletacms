@@ -649,6 +649,7 @@ English name: `enquiries`. stav: 0 = new, 1 = read, 2 = handled Enquiries and me
 | `anonymizovano` |  | DATETIME NULL | the person's data was blanked at this time (2.14, Core\Privacy); NULL = still held |
 | `replies` |  | MEDIUMTEXT NULL | replies e-mailed from the enquiry (3.22, Core\EnquiryReply): JSON list of who, when, subject, text, the mail row |
 | `contact_id` |  | INT UNSIGNED NULL DEFAULT NULL | the customer it came from (3.28, Core\Contacts; linked after the response, no foreign key) |
+| `assigned_by` |  | INT UNSIGNED NULL | who last changed prirazeno (3.51); NULL = a rule of the site or before 3.51 |
 
 Keys: `PRIMARY KEY (idp)`; `KEY ix_poptavky_stav (stav, idp)`; `KEY ix_poptavky_kategorie (kategorie, idp)`; `KEY ix_poptavky_prirazeno (prirazeno, stav)`; `KEY ix_poptavky_contact (contact_id)`; `KEY ix_poptavky_datum (datum)`.
 
@@ -712,6 +713,7 @@ Keys: `PRIMARY KEY (id)`; `KEY ix_notifications_user (user_id, read_at, id)`; `K
 | `escalated_at` |  | DATETIME NULL | 3.42: the overdue task was escalated to whom its assignee reports to (once) |
 | `created_at` |  | DATETIME NOT NULL |  |
 | `updated_at` |  | DATETIME NOT NULL |  |
+| `assigned_by` |  | INT UNSIGNED NULL | who last changed assignee_id (3.51); NULL = a rule of the site |
 
 Keys: `PRIMARY KEY (id)`; `KEY ix_tasks_assignee (assignee_id, done_at, due_at)`; `KEY ix_tasks_target (target)`; `KEY ix_tasks_due (done_at, notified_at)`.
 
@@ -800,6 +802,7 @@ Keys: `PRIMARY KEY (id)`; `KEY ix_contact_activities_contact (contact_id, happen
 | `created_by` |  | INT UNSIGNED NULL |  |
 | `created_at` |  | DATETIME NOT NULL |  |
 | `updated_at` |  | DATETIME NOT NULL |  |
+| `assigned_by` |  | INT UNSIGNED NULL | who last changed owner_id (3.51); NULL = a rule or before 3.51 |
 
 Keys: `PRIMARY KEY (id)`; `KEY ix_deals_stage (stage, closed_at)`; `KEY ix_deals_owner (owner_id, closed_at)`; `KEY ix_deals_contact (contact_id)`; `KEY ix_deals_company (company_id)`; `KEY ix_deals_enquiry (source_enquiry_id)`.
 
@@ -966,6 +969,7 @@ Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_prices_item (price_list_id, item_id, va
 | `anonymised_at` |  | DATETIME NULL | the customer block blanked |
 | `first_opened_at` |  | DATETIME NULL | 3.40: the customer's link first opened – the time only, only with quote_track_opened |
 | `customer_reason` |  | VARCHAR(1000) NULL | 3.40: the customer's own words when they declined on the quote page |
+| `assigned_by` |  | INT UNSIGNED NULL | who last changed owner_id (3.51); NULL = a rule or before 3.51 |
 
 Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_quotes_number (number)`; `UNIQUE KEY ux_quotes_token (token_hash)`; `KEY ix_quotes_status (status, valid_until)`; `KEY ix_quotes_contact (contact_id)`; `KEY ix_quotes_company (company_id)`; `KEY ix_quotes_deal (deal_id)`; `KEY ix_quotes_enquiry (enquiry_id)`; `KEY ix_quotes_owner (owner_id, status)`; `KEY ix_quotes_revision (revision_of)`.
 
@@ -1346,6 +1350,7 @@ English name: `subscribers`. Newsletter extension: subscribers signed up via the
 | `sync` |  | VARCHAR(10) NOT NULL DEFAULT '' | mailing service: '' nothing, ceka, ok, chyba |
 | `sync_chyba` |  | VARCHAR(255) NOT NULL DEFAULT '' |  |
 | `contact_id` |  | INT UNSIGNED NULL DEFAULT NULL | the customer (3.28, Core\Contacts; linked once the subscription is confirmed) |
+| `language` |  | VARCHAR(35) NOT NULL DEFAULT '' | the language version they signed up in ('' = default; 3.51) |
 
 Keys: `PRIMARY KEY (ido)`; `UNIQUE KEY uq_odberatel_email (email)`; `UNIQUE KEY uq_odberatel_token (token)`; `KEY ix_odberatele_contact (contact_id)`.
 
@@ -1429,7 +1434,7 @@ Newsletters (1.5): one e-mail template styled by the design system (Core\Mailing
 | `button_label` |  | VARCHAR(80) NOT NULL DEFAULT '' |  |
 | `button_url` |  | VARCHAR(500) NOT NULL DEFAULT '' |  |
 | `language` |  | VARCHAR(35) NOT NULL DEFAULT '' | language of the fixed texts and the news items (empty = the site language) |
-| `status` |  | VARCHAR(10) NOT NULL DEFAULT 'draft' | draft \| scheduled \| sending \| sent |
+| `status` |  | VARCHAR(10) NOT NULL DEFAULT 'draft' | draft \| scheduled \| sending \| paused \| sent \| cancelled |
 | `scheduled_at` |  | DATETIME NULL |  |
 | `html` |  | MEDIUMTEXT NULL | the rendered e-mail, kept from the start of sending |
 | `text` |  | MEDIUMTEXT NULL |  |
@@ -1441,6 +1446,10 @@ Newsletters (1.5): one e-mail template styled by the design system (Core\Mailing
 | `changed` |  | DATETIME NULL |  |
 | `started_at` |  | DATETIME NULL |  |
 | `finished_at` |  | DATETIME NULL |  |
+| `paused_at` |  | DATETIME NULL | 3.51: paused by a person or by the brake |
+| `pause_reason` |  | VARCHAR(10) NOT NULL DEFAULT '' | manual \| brake |
+| `resumed_at` |  | DATETIME NULL |  |
+| `skipped_count` |  | INT UNSIGNED NOT NULL DEFAULT 0 | the remainder when it ends: recipients = sent + failed + skipped |
 
 Keys: `PRIMARY KEY (id)`; `KEY ix_newsletters_status (status, scheduled_at)`.
 
@@ -1456,8 +1465,10 @@ Keys: `PRIMARY KEY (id)`; `KEY ix_newsletters_status (status, scheduled_at)`.
 | `next_attempt` |  | DATETIME NULL | NULL = done (sent or given up) |
 | `sent_at` |  | DATETIME NULL |  |
 | `error` |  | VARCHAR(255) NOT NULL DEFAULT '' |  |
+| `tried_at` |  | DATETIME NULL | the last SMTP attempt (3.51, the brake) |
+| `reply` |  | VARCHAR(32) NOT NULL DEFAULT '' | its answer "<stage>:<code>:<enhanced>" (Core\Mail::lastResult) |
 
-Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_newsletter_queue (newsletter_id, subscriber_id)`; `KEY ix_newsletter_queue_next (next_attempt)`; `KEY ix_newsletter_queue_sent (sent_at)`.
+Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_newsletter_queue (newsletter_id, subscriber_id)`; `KEY ix_newsletter_queue_next (next_attempt)`; `KEY ix_newsletter_queue_sent (sent_at)`; `KEY ix_newsletter_queue_tried (newsletter_id, tried_at)`.
 
 ## ka_look_versions
 
@@ -1808,6 +1819,7 @@ Testimonial requests (2.12, Core\Testimonials): a personal link after an enquiry
 | `used_at` |  | DATETIME NULL |  |
 | `item_id` |  | INT UNSIGNED NULL |  |
 | `consent` |  | TEXT NULL |  |
+| `sent_at` |  | DATETIME NULL | e-mailed (3.51: once per enquiry); NULL = only the link was given |
 
 Keys: `PRIMARY KEY (id)`; `UNIQUE KEY ux_testimonial_token (token_hash)`; `KEY ix_testimonial_enquiry (idp)`.
 

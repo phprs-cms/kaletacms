@@ -278,6 +278,11 @@ final class Settings
         'tasks_last_run' => '0',       // when cron last called /tasks (/ulohy) (newsletters are sent only while cron runs)
         'quote_auto_drafts_day' => '',  // 3.44 review L4: "<date>|<count>" – the drafts Kaleta prepared that day, discarded ones too (Core\Quotes::prepareDraft)
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
+        // 3.51 default wording, pending legal review – plan/texty-pravnik-351.md. Per language; an empty field = the translated
+        // default of the reader's language (Settings::wording). Never set by Claude.
+        'mail_identity' => 'Sent by {{company}}, {{address}}.', // the sender of a newsletter and a testimonial request (Core\SenderIdentity)
+        'newsletter_reason' => 'You receive this e-mail because you signed up for news from {{site}} and confirmed it.', // why a newsletter arrived
+        'mail_refuse_text' => 'If you do not want e-mails like this from us, tell us here: {{link}}', // the refuse line of a testimonial request
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)
         'contacts_backfill' => '',     // 3.28 (Core\Contacts::backfill): how far the linking of older enquiries, bookings and subscribers got (JSON of the last ids)
         'default_currency' => '',      // 3.32 (U29, Core\Deals::defaultCurrency): the currency of new deal values; '' = automatic (company country, the deals' most used currency, site language)
@@ -326,7 +331,7 @@ final class Settings
      * during an update (unit 4541) – read the declaration.
      * Removed by the first release whose oldest supported update source is 3.50 or later.
      */
-    public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url'];
+    public const array PER_LANGUAGE = ['site_name', 'site_description', 'cookies_text', 'cookies_policy_url', 'mail_identity', 'newsletter_reason', 'mail_refuse_text'];
 
     /**
      * Large values only one feature reads (3.42, audit Q9): they are left out of the query that loads all settings and
@@ -492,6 +497,10 @@ final class Settings
         'smtp_user' => ['tab' => 'mail', 'type' => 'text'],
         'smtp_password' => ['tab' => 'mail', 'type' => 'tajne', 'secret' => true],
         'newsletter_hourly_limit' => ['tab' => 'mail', 'type' => 'cislo:10:100000'],
+        // 3.51: the three texts of the e-mails to visitors – empty = the default wording of the language (Settings::wording)
+        'mail_identity' => ['tab' => 'mail', 'type' => 'vzor:/\A(?:(?=.*\{\{company\}\})(?=.*\{\{address\}\}).{1,300})?\z/su', 'export' => true, 'per_language' => true],
+        'newsletter_reason' => ['tab' => 'mail', 'type' => 'vzor:/\A.{0,300}\z/su', 'export' => true, 'per_language' => true],
+        'mail_refuse_text' => ['tab' => 'mail', 'type' => 'vzor:/\A(?:(?=.*\{\{link\}\}).{1,300})?\z/su', 'export' => true, 'per_language' => true],
         'smtp_provider' => ['tab' => 'mail', 'type' => 'vyber:other|brevo|mailgun|mailgun_eu|ses|postmark|sendgrid|mailersend|smtp2go|mailjet|mandrill'], // = MailServices::CHOICES (unit 4542); 3.9: the mail service; MailServices::settle() fills its server after the save
         // the monthly report (2.9) and its archive (3.16, Core\ReportArchive): the e-mail switch and the recipients moved here from Mail
         'report_monthly' => ['tab' => 'reports', 'type' => 'ano'],
@@ -676,7 +685,39 @@ final class Settings
     }
 
     /** Default values that are text for visitors – they are translated into the site language until the administrator changes them. */
-    private const array TRANSLATED_DEFAULTS = ['maintenance_text', 'cookies_text'];
+    private const array TRANSLATED_DEFAULTS = ['maintenance_text', 'cookies_text', ...self::WORDINGS];
+
+    /**
+     * 3.51: the texts of the e-mails to visitors that the site may reword per language (Settings → Mail) – default wording,
+     * not legal advice. Read them with wording(), never get(): an empty field means the default of the reader's language.
+     */
+    public const array WORDINGS = ['mail_identity', 'newsletter_reason', 'mail_refuse_text'];
+
+    /**
+     * 3.51: a wording in one language ('' or the default language's code = the default language): its own stored value when
+     * it is not empty; for the default language the stored base value when it is not empty; otherwise the translated default
+     * of THAT language – an English version never shows the Czech base wording, and an emptied field gives the default back.
+     */
+    public function wording(string $key, string $language): string
+    {
+        $this->load($key);
+        $default = Language::defaults($this);
+        $language = $language === $default ? '' : $language;
+        $own = $this->values[$language !== '' ? $key . '_' . $language : $key] ?? '';
+        if ($own !== '') {
+            return $own;
+        }
+
+        return Language::runWith($language !== '' ? $language : $default, fn (): string => t(self::DEFAULTS[$key] ?? ''));
+    }
+
+    /** 3.51: the stored value of a wording ('' when it was never written or was emptied) – what the form shows. */
+    public function storedWording(string $key): string
+    {
+        $this->load($key);
+
+        return $this->values[$key] ?? '';
+    }
 
     public function get(string $key): string
     {

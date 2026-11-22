@@ -2126,4 +2126,7 @@ return [
     'The file is larger than %d MB.' => 'Súbor je väčší ako %d MB.',
     'The files are larger than %d MB together.' => 'Súbory majú spolu viac ako %d MB.',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Až %d súborov, každý do %d MB a spolu do %d MB: PDF, obrázok, dokument alebo ZIP.',
+    'Sent by {{company}}, {{address}}.' => 'Odosielateľ: {{company}}, {{address}}.',
+    'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Tento e-mail dostávate, pretože ste sa prihlásili na odber noviniek z webu {{site}} a prihlásenie ste potvrdili.',
+    'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Ak si podobné e-maily od nás neželáte, dajte nám vedieť tu: {{link}}',
 ];

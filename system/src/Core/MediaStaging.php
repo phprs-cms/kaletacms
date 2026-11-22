@@ -70,7 +70,7 @@ final class MediaStaging
         ['{social_drafts}', 'image', '1 = 1'], // posted by a person from the news item's drafts
         // the draft look is not on the site
         ['{nastaveni}', 'hodnota', "promenna <> 'look_draft'"],
-        ['{newsletters}', "CONCAT_WS(' ', intro, button_url, html)", "status IN ('sending', 'sent')"],
+        ['{newsletters}', "CONCAT_WS(' ', intro, button_url, html)", "status IN ('sending', 'sent', 'paused', 'cancelled')"], // 3.51: a paused or cancelled send's frozen HTML still shows them
     ];
 
     /** How many staged rows one step of a scan looks at; a scan goes through all of them, step by step (N315-4). */

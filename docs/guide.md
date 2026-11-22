@@ -365,6 +365,14 @@ opens; links to your site carry `utm` parameters, so **Statistics** show the vis
 recipients is kept only while sending – afterwards only the counts and dates remain. Claude can draft newsletters and send
 tests too, and sends to subscribers only when you ask.
 
+**Subscribers: languages and addresses we do not write to.** Every subscriber keeps the language version they signed up
+in, and an address a mail server refused as unknown or a person who asked not to be written to is skipped by every
+newsletter and testimonial request (3.51).
+
+**Sending: pause, the brake, what the footer holds.** A newsletter on its way can be paused, resumed or cancelled, it
+pauses itself when sending keeps failing, and its footer names the sender – the company name and postal address from
+Business details – and why the e-mail arrived (3.51).
+
 **Online bookings.** With the Bookings feature on, visitors book an appointment on the site through the **Booking**
 element: they pick a service, a person and a free time, and get a confirmation by e-mail with a link to cancel; the site reminds them before the time. Administrators
 set up the **Services** (length, a break after, price text, which people do it, whether you confirm each booking first), the **People** with their weekly hours and days off, and the

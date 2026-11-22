@@ -72,6 +72,9 @@ final class RestoreLedger
         'notifications' => ['id', ['emailed_at']],              // the e-mails of the bell
     ];
 
+    /** 3.51: the columns of a newsletter's paused state that the capture keeps (migration 0138). */
+    private const array NEWSLETTER_COLUMNS_351 = ['skipped_count', 'paused_at', 'pause_reason', 'resumed_at'];
+
     /** The credentials of an outside-service connection (ka_connectors) that are today's after a restore. */
     private const array CONNECTOR_COLUMNS = ['account', 'client_id', 'secret', 'access_token', 'refresh_token', 'expires_at', 'scopes', 'connected_at', 'connected_by'];
 
@@ -103,11 +106,12 @@ final class RestoreLedger
     /**
      * Records an erased or unsubscribed address (its keyed fingerprint only). Review M1: the LAST time counts – an address
      * erased or unsubscribed again moves its record forward, so a restore reapplies it to every backup made before that.
+     * 3.51: also the two kinds of Core\SendRegister (bounced, refused) – the restore reapply never reads them.
      */
     public static function record(Db $db, string $kind, string $email): void
     {
         $email = PersonalData::cleanAddress($email);
-        if ($email === '' || !in_array($kind, ['erased', 'unsubscribed'], true)) {
+        if ($email === '' || !in_array($kind, ['erased', 'unsubscribed', ...SendRegister::KINDS], true)) {
             return;
         }
         try {
@@ -146,6 +150,9 @@ final class RestoreLedger
     /** A new confirmed subscription after an unsubscribe: a restore must not remove it again. */
     public static function forget(Db $db, string $kind, string $email): void
     {
+        if (in_array($kind, SendRegister::KINDS, true)) {
+            return; // 3.51: the send register ends an entry only through SendRegister::lift (an administrator, a confirmed sign-up)
+        }
         try {
             $db->run('DELETE FROM {restore_ledger} WHERE kind = ? AND hash = ?', [$kind, self::fingerprint($db, PersonalData::cleanAddress($email))]);
         } catch (\PDOException $e) {
@@ -295,7 +302,9 @@ final class RestoreLedger
             'codes' => self::attempt(fn (): array => array_map('strval', array_column($db->all('SELECT otisk FROM {oauth_kody}'), 'otisk')), []),
             'connectors' => $connectors,
             'settings' => $settings,
-            'newsletters' => self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count FROM {newsletters}'), []),
+            // 3.51: with the state of a paused send (D10: a structure before 0138 gives the columns of 3.50)
+            'newsletters' => self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count, ' . implode(', ', self::NEWSLETTER_COLUMNS_351) . ' FROM {newsletters}'), null)
+                ?? self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count FROM {newsletters}'), []),
             'flags' => $flags,
             'queues' => $queues,
         ];
@@ -948,17 +957,54 @@ final class RestoreLedger
             $byId[(int) $n['id']] = $n;
         }
         $changed = 0;
-        foreach ($db->all('SELECT id, status FROM {newsletters}') as $row) {
+        foreach ($db->all('SELECT id, status, recipients, sent_count, failed_count, finished_at FROM {newsletters}') as $row) {
             $id = (int) $row['id'];
             if (isset($byId[$id])) {
                 $data = array_diff_key($byId[$id], ['id' => 0]);
-                $changed += $db->update('newsletters', $data, ['id' => $id]) > 0 ? 1 : 0;
+                if (($data['status'] ?? '') === 'paused') {
+                    $data = self::cancelledNewsletter($data); // its queue rows were stopped above – it can never go on
+                }
+                $changed += self::updateNewsletter($db, $id, $data) > 0 ? 1 : 0;
             } elseif (in_array((string) $row['status'], ['scheduled', 'sending'], true)) {
                 $changed += $db->update('newsletters', ['status' => 'draft', 'scheduled_at' => null], ['id' => $id]);
+            } elseif ((string) $row['status'] === 'paused') {
+                // 3.51: a send paused in the backup is over, never a draft that looks unsent and never resumable
+                $changed += self::updateNewsletter($db, $id, self::cancelledNewsletter($row));
             }
         }
 
         return $changed;
+    }
+
+    /**
+     * 3.51: a paused newsletter as cancelled – what was not sent is the remainder (recipients = sent + failed + skipped), the
+     * end is now unless it has one. Pure.
+     *
+     * @param array<string, mixed> $newsletter
+     * @return array<string, mixed>
+     */
+    public static function cancelledNewsletter(array $newsletter): array
+    {
+        $skipped = max(0, (int) ($newsletter['recipients'] ?? 0) - (int) ($newsletter['sent_count'] ?? 0) - (int) ($newsletter['failed_count'] ?? 0));
+
+        return ['status' => 'cancelled', 'finished_at' => ($newsletter['finished_at'] ?? null) ?: Clock::now(), 'skipped_count' => $skipped] + array_diff_key($newsletter, ['id' => 0]);
+    }
+
+    /**
+     * Writes a newsletter row; a restored structure older than 0138 (D10: the restore runs before the migrations) takes it
+     * without the columns of 3.51.
+     *
+     * @param array<string, mixed> $data
+     */
+    private static function updateNewsletter(Db $db, int $id, array $data): int
+    {
+        try {
+            return $db->update('newsletters', $data, ['id' => $id]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+
+            return $db->update('newsletters', array_diff_key($data, array_flip(self::NEWSLETTER_COLUMNS_351)), ['id' => $id]);
+        }
     }
 
     /**

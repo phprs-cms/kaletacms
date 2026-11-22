@@ -15,10 +15,10 @@ foreach (B2cSettings::DECLARATIONS as $b2cKey => $b2cRow) {
     }
 }
 check('3.50 B2c: a row of Settings::DECLARATIONS has a tab and a type together, the tab is one of FORM_TABS and the type is a text', $b2cBad, []);
-check('3.50 B2c: Settings::fields() has every tab of FORM_TABS in its order (sections and console are empty), 148 typed keys, each in one tab', [
+check('3.50 B2c: Settings::fields() has every tab of FORM_TABS in its order (sections and console are empty), 151 typed keys, each in one tab (3.51: the three wordings of the Mail tab)', [
     array_keys(B2cSettings::fields()), B2cSettings::fields()['sections'], B2cSettings::fields()['console'], count(array_merge(...array_values(B2cSettings::fields()))),
     count(array_unique(array_merge(...array_map('array_keys', array_values(B2cSettings::fields())))))],
-    [B2cSettings::FORM_TABS, [], [], 148, 148]);
+    [B2cSettings::FORM_TABS, [], [], 151, 151]);
 
 // the types that are built from constants of other classes are what those constants say
 check('3.50 B2c: the types built from shared lists – languages, social networks, auto-suspension, mail services, AI providers, the screen bounds', [

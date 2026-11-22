@@ -39,14 +39,10 @@ final class Company
         'mo' => 'Monday', 'tu' => 'Tuesday', 'we' => 'Wednesday', 'th' => 'Thursday', 'fr' => 'Friday', 'sa' => 'Saturday', 'su' => 'Sunday',
     ];
 
-    /** Address in lines (street; postcode and city; country, only when it is not Czech). @return list<string> */
+    /** Address in lines (street; postcode and city; country, only when it is not Czech) – Core\SenderIdentity since 3.51. @return list<string> */
     public static function address(Settings $s): array
     {
-        return array_values(array_filter([
-            $s->get('company_street'),
-            trim($s->get('company_postcode') . ' ' . $s->get('company_city')),
-            $s->get('company_country') !== '' && $s->get('company_country') !== 'CZ' ? $s->get('company_country') : '',
-        ], fn (string $r): bool => $r !== ''));
+        return \Kaleta\Core\SenderIdentity::address($s);
     }
 
     /** @return list<string> opening hours lines as the administrator entered them */

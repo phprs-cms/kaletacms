@@ -115,7 +115,7 @@ check('3.48 A6: migration 0135 is the data migration with the highest number; it
     // highest file stays the database version
     in_array('0135-customers-and-pipeline-features', Kaleta\Core\Migration::DATA, true), max(array_map(fn (string $f): int => (int) substr($f, 0, 4), Kaleta\Core\Migration::DATA)),
     max(array_keys(Kaleta\Core\Migration::files())) === KALETA_DB_VERSION, $a348Order === array_keys(Extensions::CATALOG)],
-    [true, 135, true, true]);
+    [true, 139, true, true]); // 3.51: 0139 (subscriber languages, task assigners) is the highest data migration now
 
 // A7: the smoke suite writes the feature list only through features() of bootstrap.sh – a raw write would switch the CRM off
 // for every later section of the one shared site

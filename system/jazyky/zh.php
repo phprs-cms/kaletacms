@@ -2163,4 +2163,7 @@ return [
     'The file is larger than %d MB.' => '文件超过 %d MB。',
     'The files are larger than %d MB together.' => '文件合计超过 %d MB。',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => '最多 %d 个文件，每个不超过 %d MB，合计不超过 %d MB：PDF、图片、文档或 ZIP。',
+    'Sent by {{company}}, {{address}}.' => '发件人：{{company}}，{{address}}。',
+    'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => '您收到这封邮件，是因为您订阅了 {{site}} 的新闻并已确认。',
+    'If you do not want e-mails like this from us, tell us here: {{link}}' => '如果您不希望收到我们的此类邮件，请在此告诉我们：{{link}}',
 ];

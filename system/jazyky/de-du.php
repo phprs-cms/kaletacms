@@ -393,4 +393,6 @@ return [
     'This file cannot be sent: it is larger than %d MB or of a type the form does not accept.' => 'Diese Datei kann nicht gesendet werden: Sie ist größer als %d MB oder hat einen Typ, den das Formular nicht annimmt.',
     'The file is larger than %d MB.' => 'Die Datei ist größer als %d MB.',
     'The files are larger than %d MB together.' => 'Die Dateien sind zusammen größer als %d MB.',
+    'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Du erhältst diese E-Mail, weil du dich für Neuigkeiten von {{site}} angemeldet und die Anmeldung bestätigt hast.',
+    'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Wenn du solche E-Mails von uns nicht möchtest, sag es uns hier: {{link}}',
 ];

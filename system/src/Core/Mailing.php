@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 use Kaleta\Builder\DesignSystem;
-use Kaleta\Front\Company;
 use Kaleta\Front\Subscription;
 
 /**
@@ -329,7 +328,7 @@ final class Mailing
             $siteName = $s->get('site_name_' . $language) !== '' ? $s->get('site_name_' . $language) : $s->get('site_name');
             $button = $n['button_url'] !== '' && $n['button_label'] !== ''
                 ? [(string) $n['button_label'], self::campaign($app, str_starts_with((string) $n['button_url'], '/') ? self::origin($app) . $app->request->basePath() . $n['button_url'] : (string) $n['button_url'], $n)] : null;
-            $company = array_values(array_filter([$s->get('company_name') !== '' ? $s->get('company_name') : $siteName, implode(', ', Company::address($s))]));
+            $company = array_values(array_filter([$s->get('company_name') !== '' ? $s->get('company_name') : $siteName, implode(', ', SenderIdentity::address($s))]));
             $logo = preg_match('/\.(png|jpe?g|gif|webp)$/i', $s->get('logo')) ? self::image($app, $s->get('logo'), false) : '';
             $paragraphs = array_values(array_filter(array_map('trim', preg_split('/\n\s*\n/', (string) $n['intro']) ?: []), fn (string $p): bool => $p !== ''));
             $data = [

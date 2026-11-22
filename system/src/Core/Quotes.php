@@ -692,6 +692,32 @@ final class Quotes
         return false;
     }
 
+    /**
+     * 3.51: did this customer accept a quote themself – on the quote page, not marked accepted by a person (the customer rule
+     * of testimonial requests, decision 5 of 3.51; the audiences of 3.52)? A declined or expired quote does not count.
+     */
+    public static function acceptedByCustomer(Db $db, int $contactId): bool
+    {
+        if ($contactId <= 0) {
+            return false;
+        }
+        try {
+            $rows = $db->all("SELECT history FROM {quotes} WHERE contact_id = ? AND status = 'accepted'", [$contactId]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // a site before the quotes
+
+            return false;
+        }
+        foreach ($rows as $row) {
+            $history = json_decode((string) ($row['history'] ?? ''), true);
+            if (is_array($history) && self::customerDecided($history, 'accepted')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Did the customer decide on this quote themself (an entry "by the customer"; with $status: the last change to it)? @param array<mixed> $history */
     public static function customerDecided(array $history, string $status = ''): bool
     {

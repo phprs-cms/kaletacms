@@ -2163,4 +2163,7 @@ return [
     'The file is larger than %d MB.' => '檔案超過 %d MB。',
     'The files are larger than %d MB together.' => '檔案合計超過 %d MB。',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => '最多 %d 個檔案，每個最大 %d MB，合計最大 %d MB：PDF、圖片、文件或 ZIP。',
+    'Sent by {{company}}, {{address}}.' => '寄件人：{{company}}，{{address}}。',
+    'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => '您收到這封郵件，是因為您訂閱了 {{site}} 的新聞並已確認。',
+    'If you do not want e-mails like this from us, tell us here: {{link}}' => '如果您不希望收到我們的此類郵件，請在此告訴我們：{{link}}',
 ];

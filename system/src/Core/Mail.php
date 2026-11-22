@@ -17,6 +17,19 @@ final class Mail
     /** Text of the last error (for the test e-mail and System status). */
     public static string $error = '';
 
+    /**
+     * 3.51: how the last delivery ended (lastResult()) – the newsletter queue keeps it per recipient for the brake and the
+     * bounce register. stage: local (decided before any server: the demo, no sender, an invalid recipient, mail() mode),
+     * connect, auth, rset (a reused connection), mail, rcpt, data, body; code and enhanced are the server's reply ("550",
+     * "5.1.1"), 0 and '' when there was none.
+     *
+     * @var array{ok: bool, stage: string, code: int, enhanced: string}
+     */
+    private static array $result = ['ok' => false, 'stage' => '', 'code' => 0, 'enhanced' => ''];
+
+    /** The SMTP step running now (lastResult's stage when it fails). */
+    private static string $stage = 'local';
+
     /** The ka_posta row of the last send() (3.22): a reply to an enquiry follows its delivery there; null = not logged. */
     public static ?int $lastId = null;
 
@@ -312,12 +325,25 @@ final class Mail
     }
 
     /**
+     * How the last delivery of this process ended (3.51): ok, the stage it reached or failed at, the server's reply code and
+     * enhanced status code ("5.1.1"). Reset at the start of every delivery, so it never describes an older message.
+     *
+     * @return array{ok: bool, stage: string, code: int, enhanced: string}
+     */
+    public static function lastResult(): array
+    {
+        return self::$result;
+    }
+
+    /**
      * @param array<string, string> $headers
      * @param list<array{name: string, type: string, data: string}> $attachments already made safe (attachments())
      */
     private static function deliver(Settings $siteSettings, string $recipient, string $subject, string $text, string $html = '', array $headers = [], array $attachments = []): bool
     {
         self::$error = '';
+        self::$result = ['ok' => false, 'stage' => 'local', 'code' => 0, 'enhanced' => ''];
+        self::$stage = 'local';
         if (Demo::active()) {
             self::$error = 'Sending e-mail is switched off in the public demo.';
 
@@ -373,10 +399,13 @@ final class Mail
                 self::smtp($siteSettings, $from, [...$to, ...$bcc], array_merge(['Date: ' . date('r'), 'To: ' . implode(', ', $to), 'Subject: ' . $encodedSubject,
                     'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . (substr((string) strrchr($from, '@'), 1) ?: 'localhost') . '>'], $rows), $body);
                 self::rememberSmtp($siteSettings);
+                self::$result['ok'] = true;
+                self::$result['stage'] = 'body';
 
                 return true;
             } catch (\RuntimeException $e) {
                 self::$error = $e->getMessage();
+                self::$result['stage'] = self::$stage;
                 self::close();
 
                 return false;
@@ -391,6 +420,7 @@ final class Mail
             $rows[] = 'Bcc: ' . implode(', ', $bcc); // the server's sendmail delivers to it and removes the header
         }
         $ok = @mail(implode(', ', $to), $encodedSubject, $body, implode("\r\n", $rows));
+        self::$result['ok'] = $ok; // stage local: mail() tells nothing about the server
         if (!$ok) {
             self::$error = 'The server refused to send the message (the mail() function failed).';
         }
@@ -427,13 +457,18 @@ final class Mail
         if (!is_resource(self::$connection)) {
             self::connect($siteSettings);
         } else {
+            self::$stage = 'rset';
             self::statement('RSET', [250]);
         }
+        self::$stage = 'mail';
         self::statement('MAIL FROM:<' . $from . '>', [250]);
+        self::$stage = 'rcpt';
         foreach ($recipients as $recipient) {
             self::statement('RCPT TO:<' . $recipient . '>', [250, 251]);
         }
+        self::$stage = 'data';
         self::statement('DATA', [354]);
+        self::$stage = 'body';
         // a line starting with a dot gets the dot doubled, a lone dot ends the message
         $message = preg_replace('/^\./m', '..', implode("\r\n", $headers) . "\r\n\r\n" . $body) ?? '';
         self::statement(rtrim($message, "\r\n") . "\r\n.", [250]);
@@ -441,6 +476,7 @@ final class Mail
 
     private static function connect(Settings $siteSettings): void
     {
+        self::$stage = 'connect';
         $host = $siteSettings->get('smtp_host');
         $encryption = $siteSettings->get('smtp_encryption');
         $port = $siteSettings->int('smtp_port') ?: ($encryption === 'ssl' ? 465 : 587);
@@ -464,6 +500,7 @@ final class Mail
             $options = self::statement($me, [250]);
         }
         if ($siteSettings->get('smtp_user') !== '') {
+            self::$stage = 'auth';
             try {
                 if (preg_match('/AUTH[ =][^\r\n]*PLAIN/i', $options)) {
                     self::statement('AUTH PLAIN ' . base64_encode("\0" . $siteSettings->get('smtp_user') . "\0" . $siteSettings->get('smtp_password')), [235], true);
@@ -482,6 +519,7 @@ final class Mail
     /** @param list<int> $expected */
     private static function statement(string $statement, array $expected, bool $secret = false): string
     {
+        [self::$result['code'], self::$result['enhanced']] = [0, '']; // a dropped connection leaves no reply of an earlier step
         if (@fwrite(self::$connection, $statement . "\r\n") === false) {
             throw new \RuntimeException('The connection to the SMTP server was interrupted.');
         }
@@ -501,6 +539,8 @@ final class Mail
             }
             $response .= $row;
         } while (isset($row[3]) && $row[3] === '-');
+        self::$result['code'] = (int) substr($response, 0, 3);
+        self::$result['enhanced'] = preg_match('/^\d{3}[ -](\d\.\d{1,3}\.\d{1,3})/', $response, $m) === 1 ? $m[1] : '';
         if (!in_array((int) substr($response, 0, 3), $expected, true)) {
             throw new \RuntimeException(t('SMTP server reply to %s: %s', $commandName, mb_substr(trim($response), 0, 200)));
         }

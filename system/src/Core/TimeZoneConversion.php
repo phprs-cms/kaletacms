@@ -110,8 +110,8 @@ final class TimeZoneConversion
         'oauth_klienti' => ['vytvoren', 'approved'],
         'oauth_kody' => ['expirace'],
         'oauth_rotated' => ['rotated_at', 'expires_at'],
-        'newsletters' => ['scheduled_at', 'created', 'changed', 'started_at', 'finished_at'],
-        'newsletter_queue' => ['next_attempt', 'sent_at'],
+        'newsletters' => ['scheduled_at', 'created', 'changed', 'started_at', 'finished_at', 'paused_at', 'resumed_at'], // the last two 3.51
+        'newsletter_queue' => ['next_attempt', 'sent_at', 'tried_at'], // tried_at 3.51
         'look_versions' => ['created'],
         'webhook_deliveries' => ['created', 'next_attempt', 'delivered'],
         'events' => ['created_at'],
@@ -135,7 +135,7 @@ final class TimeZoneConversion
         'hours_exceptions' => ['created_at'],
         'blueprints' => ['applied_at'],
         'notice_log' => ['at'],
-        'testimonial_requests' => ['created_at', 'expires_at', 'used_at'],
+        'testimonial_requests' => ['created_at', 'expires_at', 'used_at', 'sent_at'], // sent_at 3.51
         'connectors' => ['expires_at', 'connected_at'],
         'connector_queue' => ['next_attempt', 'created_at', 'delivered_at'],
         'connector_log' => ['created_at'],
