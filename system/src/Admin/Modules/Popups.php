@@ -80,10 +80,13 @@ final class Popups extends Module
         }
         // "na celém webu" (on the whole site): the choice of places is inactive in the form and is not sent – it stays saved in case you return to it
         $selected = $r->post('kde') === 'vybrane';
+        // 3.50.1 review: the form lists at most 500 pages – stored pages (and collections) it did not offer stay chosen
+        $offered = $this->options();
+        $posted = Okna::sanitizeRules(['stranky' => is_array($_POST['stranky'] ?? null) ? $_POST['stranky'] : [], 'kolekce' => is_array($_POST['kolekce'] ?? null) ? $_POST['kolekce'] : []]);
         $rules = Okna::sanitizeRules([
             'kde' => $r->post('kde'),
-            'stranky' => $selected ? (is_array($_POST['stranky'] ?? null) ? $_POST['stranky'] : []) : $p['pravidla']['stranky'],
-            'kolekce' => $selected ? (is_array($_POST['kolekce'] ?? null) ? $_POST['kolekce'] : []) : $p['pravidla']['kolekce'],
+            'stranky' => $selected ? Okna::keepUnoffered($p['pravidla']['stranky'], $posted['stranky'], array_map('intval', array_column($offered['pages'], 'ids'))) : $p['pravidla']['stranky'],
+            'kolekce' => $selected ? Okna::keepUnoffered($p['pravidla']['kolekce'], $posted['kolekce'], array_map('strval', array_column($offered['collection'], 'seo_link'))) : $p['pravidla']['kolekce'],
             'novinky' => $selected ? $r->postBool('novinky') : $p['pravidla']['novinky'], 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
             'zarizeni' => $r->post('zarizeni'), 'utm' => $r->post('utm'), 'odkud' => $r->post('odkud'),
         ]);

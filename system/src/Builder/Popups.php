@@ -129,6 +129,20 @@ final class Popups
             || ($before['novinky'] && !$after['novinky']);
     }
 
+    /**
+     * 3.50.1 review: the pages or collections a settings form posted, plus the stored ones it did not offer (it lists at most
+     * 500 pages, Admin\Modules\Popups::options) – saving the form never drops a choice the person could not see. Pure.
+     *
+     * @param list<int|string> $stored
+     * @param list<int|string> $posted
+     * @param list<int|string> $offered
+     * @return list<int|string>
+     */
+    public static function keepUnoffered(array $stored, array $posted, array $offered): array
+    {
+        return array_values(array_unique(array_merge($posted, array_values(array_diff($stored, $offered)))));
+    }
+
     /** rulesNarrowed() with the pages and collections the site has now. */
     public static function narrowsOnSite(Db $db, array $before, array $after): bool
     {
