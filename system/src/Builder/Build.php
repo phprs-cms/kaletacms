@@ -669,8 +669,8 @@ final class Build
 
     /**
      * 3.50.1 release review: whether the display conditions $new hide an element anywhere the conditions $old did not – a
-     * condition $old did not have, a later "od", an earlier "do", a language fewer, or another login or address parameter
-     * rule. Unknown keys must stay equal. Pure.
+     * condition $old did not have, a later "od", an earlier "do", a language fewer, another login rule or another address
+     * parameter (the same parameter without its value is wider). Unknown keys must stay equal. Pure.
      *
      * @param array<mixed> $old
      * @param array<mixed> $new
@@ -686,6 +686,9 @@ final class Build
                 'od' => is_string($value) && is_string($was) && $value <= $was,
                 'do' => is_string($value) && is_string($was) && $value >= $was,
                 'jazyky' => is_array($value) && is_array($was) && array_diff($was, $value) === [],
+                // the same address parameter, with the value dropped or kept: shown at least as often
+                'parametr' => is_array($value) && is_array($was) && ($value['nazev'] ?? null) === ($was['nazev'] ?? null)
+                    && (!array_key_exists('hodnota', $value) || ($value['hodnota'] ?? null) === ($was['hodnota'] ?? null)),
                 default => $value === $was,
             }) {
                 return true;

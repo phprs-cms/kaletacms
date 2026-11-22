@@ -9501,4 +9501,6 @@ return [
     'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Omitidos: %d (un formulario de candidatura: solo un usuario que puede abrir Candidaturas puede retirarlo del sitio).',
     'Job application forms that can no longer be reached on the site' => 'Formularios de empleo a los que ya no se puede llegar en el sitio',
     'A job application form can no longer be reached on the site' => 'Ya no se puede llegar a un formulario de empleo en el sitio',
+    'deleted pop-up' => 'pop-up eliminado',
+    'deleted site part' => 'parte del sitio eliminada',
 ];

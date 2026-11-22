@@ -21,8 +21,8 @@ use Kaleta\Core\Validity;
  * A page, a pop-up or a site part (header, footer, their variants, the wrappers) is watched while its published build holds
  * an application form (directly or through components, nested components bounded). It is reachable when the page is
  * visible, not in the trash, without a password and still true (valid_until), or the pop-up is switched on, true, inside its
- * period, shown somewhere that exists (3.50.1 release review: a chosen page that can show, a collection with item pages, or
- * news) and its trigger can fire (not "only by clicking", at most MAX_PAGES pages, MAX_SECONDS seconds or 100 % scrolled),
+ * period, shown somewhere that exists (3.50.1 release review: a chosen page that can show, a collection with item pages
+ * or a visible category, or news) and its trigger can fire (not "only by clicking", at most MAX_PAGES pages, MAX_SECONDS seconds or 100 % scrolled),
  * or the part is the default one, or a variant applied to a page that can show or to other content – and the form in it,
  * or the component holding it, is hidden neither by its style, display conditions nor a class whose published style hides
  * (Build::showsApplicationForm). When one that was reachable is not, every user who may open Applications gets one
@@ -30,6 +30,8 @@ use Kaleta\Core\Validity;
  * "form:part:<hash>"); when it is reachable again, those notifications are removed. The last state is the setting
  * application_forms_watch (JSON: the reachable ids by kind, the reported keys with their titles), kept under MAX_STATE bytes.
  * Only builds that mention a job application form or a component are read, one row at a time.
+ * Not watched (3.50.1 release review, a known limit): the item template of a collection (the form on /<collection>/<item>,
+ * e.g. the jobs preset) – switching item pages off or hiding the form there rings no bell.
  */
 final class ApplicationFormWatch
 {
@@ -56,8 +58,9 @@ final class ApplicationFormWatch
             return 'off';
         }
         $db = $app->db();
-        // 3.50.1 release review: noted as run before the scan, so a scan that dies (memory, time) is not retried every minute
-        $db->run('UPDATE {jobs} SET last_run = ? WHERE name = ?', [date('Y-m-d H:i:s'), 'application_forms']);
+        // 3.50.1 release review: noted as run before the scan, so a scan that dies (memory, time) is not retried every minute –
+        // written also when the job has no row yet (its first run after an update), the same upsert as Scheduler::runOne
+        $db->run('INSERT INTO {jobs} (name, last_run) VALUES (?, ?) ON DUPLICATE KEY UPDATE last_run = VALUES(last_run)', ['application_forms', date('Y-m-d H:i:s')]);
         $current = self::scan($db, \Kaleta\Core\Clock::today());
         $stored = $s->get(self::SETTING);
         $state = self::state($stored);
@@ -73,7 +76,7 @@ final class ApplicationFormWatch
             $users = array_map('intval', array_column($db->all('SELECT idu FROM {uzivatele} u WHERE blokovat = 0 AND (admin = ? OR EXISTS (SELECT 1 FROM {uzivatele_prava} p WHERE p.fk_id_user = u.idu AND p.ident_modulu = ?))',
                 [Auth::ADMIN, Applications::SECTION]), 'idu'));
             foreach ($changes['alert'] as $key => $title) {
-                $title = $title !== '' ? $title : (str_starts_with($key, 'form:page:') ? t('deleted page') : t('deleted')); // gone without a trace
+                $title = $title !== '' ? $title : self::titleOf($db, (string) $key); // no longer holding a form, or gone
                 foreach ($users as $userId) {
                     Inbox::notify($app, $userId, self::KIND, $key, null, $title);
                 }
@@ -141,17 +144,54 @@ final class ApplicationFormWatch
                 }
             }
         }
-        $detailCollections = $popups === [] && $parts === [] ? [] : array_map('strval', array_column($db->all('SELECT seo_link FROM {kolekce} WHERE detail = 1'), 'seo_link'));
+        // a collection is a place when it has item pages or a visible category (its category pages draw pop-ups and parts too)
+        $detailCollections = $popups === [] && $parts === [] ? [] : array_map('strval', array_column($db->all('SELECT seo_link FROM {kolekce} k WHERE k.detail = 1
+            OR EXISTS (SELECT 1 FROM {collection_categories} c WHERE c.idk = k.idk AND c.visible = 1)'), 'seo_link'));
         foreach ($popups as $r) {
             $out['form:popup:' . (int) $r['idpp']] = ['reachable' => $r['shows'] && self::popupCanShow($r, $today, $livePages, $detailCollections), 'title' => (string) $r['nazev']];
         }
         foreach ($parts as $r) {
-            $label = t(SiteParts::TYPES[(string) $r['typ']][0] ?? (string) $r['typ']);
             $out[self::partKey((string) $r['typ'], (string) $r['jazyk'], (string) $r['varianta'])] = ['reachable' => $r['shows'] && self::partCanShow($r, $livePages, $detailCollections),
-                'title' => mb_substr($label . ((string) $r['jazyk'] !== '' ? ' (' . $r['jazyk'] . ')' : '') . ((string) $r['varianta'] !== '' ? ' – ' . ($r['nazev'] !== '' ? $r['nazev'] : $r['varianta']) : ''), 0, 200)];
+                'title' => self::partTitle($r)];
         }
 
         return $out;
+    }
+
+    /** The name of a site part row (typ, jazyk, varianta, nazev) in the bell: its type, language and variant. */
+    public static function partTitle(array $part): string
+    {
+        $label = t(SiteParts::TYPES[(string) ($part['typ'] ?? '')][0] ?? (string) ($part['typ'] ?? ''));
+        $variant = (string) ($part['varianta'] ?? '');
+
+        return mb_substr($label . ((string) ($part['jazyk'] ?? '') !== '' ? ' (' . $part['jazyk'] . ')' : '')
+            . ($variant !== '' ? ' – ' . ((string) ($part['nazev'] ?? '') !== '' ? $part['nazev'] : $variant) : ''), 0, 200);
+    }
+
+    /**
+     * 3.50.1 release review: the title for a key the scan no longer returns – the page, pop-up or site part still exists but
+     * holds no application form any more (its own title), or it is gone (the kind: "deleted page", "deleted pop-up",
+     * "deleted site part").
+     */
+    private static function titleOf(Db $db, string $key): string
+    {
+        if (preg_match('/^form:page:(\d+)$/D', $key, $m) === 1) {
+            $title = $db->value('SELECT titulek FROM {stranky} WHERE ids = ?', [(int) $m[1]]);
+
+            return $title !== null && (string) $title !== '' ? (string) $title : t('deleted page');
+        }
+        if (preg_match('/^form:popup:(\d+)$/D', $key, $m) === 1) {
+            $title = $db->value('SELECT nazev FROM {popupy} WHERE idpp = ?', [(int) $m[1]]);
+
+            return $title !== null && (string) $title !== '' ? (string) $title : t('deleted pop-up');
+        }
+        foreach ($db->all('SELECT typ, jazyk, varianta, nazev FROM {casti}') as $r) {
+            if (self::partKey((string) $r['typ'], (string) $r['jazyk'], (string) $r['varianta']) === $key) {
+                return self::partTitle($r);
+            }
+        }
+
+        return t('deleted site part');
     }
 
     /** The watch key of a site part: its type, language and variant hashed into the 40 characters of a notification target. Pure. */
@@ -162,7 +202,8 @@ final class ApplicationFormWatch
 
     /**
      * Whether a site part row (varianta, stranky, pravidla) is drawn somewhere: the default version always, a variant when one
-     * of its pages can show ($livePages), or it applies to news, the news list, a collection with item pages or pages under
+     * of its pages can show ($livePages), or it applies to news, the news list, a collection with item pages or a visible
+     * category ($detailCollections) or pages under
      * a parent. Pure.
      *
      * @param list<int> $livePages
@@ -202,7 +243,8 @@ final class ApplicationFormWatch
     /**
      * Whether a pop-up row (aktivni, valid_until, pravidla, spoustec, hodnota) can open today: switched on, true, inside the
      * period of its rules, shown on the whole site or on some chosen place, and with a trigger a visitor meets. 3.50.1 release
-     * review: with $livePages (the chosen pages that can show) and $detailCollections (collections with item pages) a pop-up
+     * review: with $livePages (the chosen pages that can show) and $detailCollections (collections with item pages or a visible
+     * category) a pop-up
      * limited to chosen places needs one of them that exists, or news. Pure.
      *
      * @param list<int>|null $livePages

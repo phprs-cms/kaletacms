@@ -9481,4 +9481,6 @@ return [
     'Skipped: %d (a job application form – only a user who may open Applications can take it off the site).' => 'Übersprungen: %d (ein Bewerbungsformular – von der Website nehmen darf es nur, wer den Bereich Bewerbungen öffnen darf).',
     'Job application forms that can no longer be reached on the site' => 'Bewerbungsformulare, die auf der Website nicht mehr erreichbar sind',
     'A job application form can no longer be reached on the site' => 'Ein Bewerbungsformular ist auf der Website nicht mehr erreichbar',
+    'deleted pop-up' => 'gelöschtes Pop-up',
+    'deleted site part' => 'gelöschter Seitenbereich',
 ];

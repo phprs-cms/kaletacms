@@ -42,15 +42,17 @@ difference); one new refusal text.
    "Job application forms that can no longer be reached on the site"): a page, pop-up or site part whose published build
    holds an application form (also through nested components) is reachable while the page is visible, not in the trash,
    without a password and still true, or the pop-up is switched on, true, in its period, limited to places that exist (a
-   chosen page that can show, a collection with item pages, or news) and has a trigger a visitor meets (not by click, at
+   chosen page that can show, a collection with item pages or a visible category, or news) and has a trigger a visitor meets (not by click, at
    most 10 pages, 120 seconds or 100 % scrolled), or the part is the default one or a variant for a page that can show or
    for other content, and the form is hidden neither by a style, display conditions
    nor a class whose published style hides. When one that was reachable is not, every user who may open Applications gets
-   one notification in the bell, "A job application form can no longer be reached on the site", leading to Applications
+   one notification in the bell, "A job application form can no longer be reached on the site", naming the page, pop-up
+   or part (or "deleted page", "deleted pop-up", "deleted site part" when it is gone), leading to Applications
    (instant or daily e-mail by their own choice); it is removed when the form is reachable again. The last state is the
    internal setting `application_forms_watch` (the reachable ids by kind, under 60 kB). The watch reads only builds that
-   mention an application form or a component, one row at a time, and notes its run before the scan, so a scan that dies
-   is not retried every minute.
+   mention an application form or a component, one row at a time, and notes its run before the scan (its first run too),
+   so a scan that dies is not retried every minute. Not watched: the item template of a collection (the form on an item
+   page, e.g. of the jobs preset). Dropping the value of an address-parameter display condition counts as wider.
 4. **Mail and backups.** A notification copy meant only for the queue is delivered once when the queue cannot be written
    (`Core\Mail`), and an error-log line is written when that fails too. An FTPS listing or delete over cURL no longer
    recreates a removed folder (`RemoteBackup::ftpsCommandOptions`), and a dot-named entry is never taken for deleted by a
