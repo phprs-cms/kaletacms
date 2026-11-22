@@ -50,7 +50,7 @@ b351_subscribers c01@example.cz c02@example.cz c03@example.cz c04@example.cz c05
 B730_C=$(b351_newsletter "Zrušit 730")
 b351_admin send -d "id=$B730_C" -d when=now; b351_cron
 B730_HALF=$(b351_state "$B730_C")
-b351_admin cancel -d "id=$B730_C"; b351_db "UPDATE ka_newsletter_queue SET sent_at = '$(site_time '-2 hours')' WHERE newsletter_id = $B730_C"; b351_cron
+b351_admin cancel -d "id=$B730_C"; b351_db "UPDATE ka_newsletter_queue SET sent_at = '$(site_time '-2 hours')' WHERE newsletter_id = $B730_C AND sent_at IS NOT NULL"; b351_cron
 expect "3.51 B1: cancelled after 10 of 14 – 4 skipped, the equality holds, nothing more goes out, the rows are kept (marked cancelled) for the hourly limit" \
   "$B730_HALF|$(b351_state "$B730_C")|$(b351_sum "$B730_C")|$(b351_db "SELECT CONCAT(COUNT(*), '/', SUM(error = 'cancelled'), '/', SUM(sent_at IS NOT NULL)) FROM ka_newsletter_queue WHERE newsletter_id = $B730_C")" \
   "sending|14|10|0|0|cancelled|14|10|0|4|1|14/4/10"
