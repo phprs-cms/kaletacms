@@ -364,6 +364,10 @@ final class Tools
             $data['show_on_publish'] = 0; // a publish date takes over from "show with the first content" (3.5, N35-1)
         }
         $data += self::validityDates($a);
+        if ($previous !== null && $previous['zobrazit'] && \Kaleta\Core\Validity::endsEarlier($previous['valid_until'] ?? null, $data['valid_until'] ?? null)) {
+            // 3.50.1 review: an earlier "true until" date hides the page the day after it (Core\Validity) – an application form needs the section
+            \Kaleta\Builder\Publisher::guardRemoval($db->value('SELECT stavba FROM {stranky} WHERE ids = ?', [(int) $previous['ids']]), $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+        }
         // a page with nothing to show yet is not made visible (3.5, Pages::visibility): its first published build or text
         // shows it – the same end state as before, without an empty page on the site and in the navigation in between
         $stored = $previous !== null ? $db->one('SELECT stavba IS NOT NULL AS built, show_on_publish FROM {stranky} WHERE ids = ?', [(int) $previous['ids']]) : null;
@@ -629,8 +633,11 @@ final class Tools
             $changes['aktivni'] = empty($a['aktivni']) ? 0 : 1;
         }
         $changes += self::validityDates($a);
-        // 3.50.1 review: switching off a pop-up with a published application form, or changing its rules, needs Applications
-        if ($p['aktivni'] && (($changes['aktivni'] ?? 1) === 0 || (isset($changes['pravidla']) && json_decode($changes['pravidla'], true) != $p['pravidla']))) {
+        // 3.50.1 review: switching off a pop-up with a published application form, rules that show it in fewer places, an
+        // earlier "true until" date or the trigger "only by clicking" need Applications
+        if ($p['aktivni'] && (($changes['aktivni'] ?? 1) === 0 || (isset($changes['spoustec']) && $changes['spoustec'] === 'klik' && $p['spoustec'] !== 'klik')
+            || \Kaleta\Core\Validity::endsEarlier($p['valid_until'] ?? null, $changes['valid_until'] ?? null)
+            || (isset($changes['pravidla']) && $popups::narrowsOnSite($db, $p['pravidla'], (array) json_decode($changes['pravidla'], true))))) {
             \Kaleta\Builder\Publisher::guardRemoval($p['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
         }
         if ($changes !== []) {

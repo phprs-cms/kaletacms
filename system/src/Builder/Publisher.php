@@ -109,6 +109,133 @@ final class Publisher
         return false;
     }
 
+    /**
+     * 3.50.1 review: publishing the draft look (Core\Look::publish) – refused for a person who may not open Applications
+     * when a draft class that a published application form or one of its ancestors carries (in any published build,
+     * Build::applicationFormClasses) would get display none in some state while the class on the site does not hide.
+     * $classes is the draft's "classes" (name => class, null = deleted).
+     *
+     * @param array<string, mixed> $classes
+     * @throws \DomainException
+     */
+    public static function guardClasses(array $classes, ?App $app = null): void
+    {
+        if ($app === null || self::mayChangeApplicationForms($app)) {
+            return;
+        }
+        $db = $app->db();
+        $hiding = [];
+        foreach ($classes as $name => $class) {
+            if (is_array($class) && Build::classHides($class)) {
+                $stored = $db->one('SELECT styl, css FROM {tridy} WHERE nazev = ?', [(string) $name]);
+                if ($stored === null || !Build::classHides(['styl' => json_decode((string) $stored['styl'], true), 'css' => (string) $stored['css']])) {
+                    $hiding[] = (string) $name;
+                }
+            }
+        }
+        if ($hiding === []) {
+            return;
+        }
+        $formComponents = self::applicationFormComponents($db);
+        foreach (self::publishedBuilds($db) as $json) {
+            if (array_intersect($hiding, Build::applicationFormClasses($json, $formComponents)) !== []) {
+                throw new \DomainException(self::APPLICATION_FORM_SHADOWED);
+            }
+        }
+    }
+
+    /**
+     * 3.50.1 review: rule (b) of Build::shadowedApplicationForms for a component that is already placed – a new form with
+     * a file field in component $idm (its own or in a component it embeds) shows beside every application form that a
+     * published build embedding the component holds. Refused for a person who may not open Applications.
+     *
+     * @throws \DomainException
+     */
+    private static function guardPlacedComponent(App $app, int $idm, ?string $published, ?string $new): void
+    {
+        if (self::mayChangeApplicationForms($app)) {
+            return;
+        }
+        $db = $app->db();
+        $hasFile = function (?string $json) use ($db): bool {
+            [$file, $inner] = Build::fileFormsAndComponents($json);
+
+            return $file || self::componentsWithFileForm($db, $inner);
+        };
+        if (!$hasFile($new) || $hasFile($published)) {
+            return;
+        }
+        // the component and every component that embeds it (published builds), then any published build holding both it and an application form
+        $targets = [$idm => true];
+        $componentBuilds = [];
+        foreach ($db->all('SELECT idm, stavba FROM {komponenty} WHERE stavba IS NOT NULL') as $r) {
+            $componentBuilds[(int) $r['idm']] = Build::fileFormsAndComponents((string) $r['stavba'])[1];
+        }
+        do {
+            $grown = false;
+            foreach ($componentBuilds as $id => $inner) {
+                if (!isset($targets[$id]) && array_intersect($inner, array_keys($targets)) !== []) {
+                    $targets[$id] = true;
+                    $grown = true;
+                }
+            }
+        } while ($grown);
+        $formComponents = self::applicationFormComponents($db);
+        foreach (self::publishedBuilds($db) as $json) {
+            $components = Build::fileFormsAndComponents($json)[1];
+            if (array_intersect($components, array_keys($targets)) !== []
+                && (Build::droppedApplicationForms($json, null) !== [] || array_intersect($components, $formComponents) !== [])) {
+                throw new \DomainException(self::APPLICATION_FORM_SHADOWED);
+            }
+        }
+    }
+
+    /**
+     * The components whose published build holds an application form, directly or through a component it embeds.
+     *
+     * @return list<int>
+     */
+    private static function applicationFormComponents(Db $db): array
+    {
+        $holding = [];
+        $embeds = [];
+        foreach ($db->all('SELECT idm, stavba FROM {komponenty} WHERE stavba IS NOT NULL') as $r) {
+            $json = (string) $r['stavba'];
+            if (Build::droppedApplicationForms($json, null) !== []) {
+                $holding[(int) $r['idm']] = true;
+            }
+            $embeds[(int) $r['idm']] = Build::fileFormsAndComponents($json)[1];
+        }
+        do {
+            $grown = false;
+            foreach ($embeds as $id => $inner) {
+                if (!isset($holding[$id]) && array_intersect($inner, array_keys($holding)) !== []) {
+                    $holding[$id] = true;
+                    $grown = true;
+                }
+            }
+        } while ($grown);
+
+        return array_keys($holding);
+    }
+
+    /**
+     * Every published build the site can show – the same sources as Core\MediaStaging::classInPublishedBuild (visible pages,
+     * site parts, pop-ups, components, collection and category templates).
+     *
+     * @return \Generator<int, string>
+     */
+    private static function publishedBuilds(Db $db): \Generator
+    {
+        foreach (\Kaleta\Core\MediaStaging::PUBLISHED as [$from, $content, $where]) {
+            if (str_contains($content, 'stavba')) {
+                foreach ($db->all('SELECT stavba FROM ' . $from . ' WHERE ' . $where . ' AND stavba IS NOT NULL') as $r) {
+                    yield (string) $r['stavba'];
+                }
+            }
+        }
+    }
+
     /** Build::$purposeAllowed, or when it was not set (null) the person signed in; nobody signed in = allowed (D3). */
     private static function mayChangeApplicationForms(?App $app): bool
     {
@@ -173,6 +300,7 @@ final class Publisher
     {
         self::guard($component, $app);
         $new = $component['stavba_koncept'] ?? $component['stavba'];
+        self::guardPlacedComponent($app, (int) $component['idm'], $component['stavba'] ?? null, $new); // 3.50.1 review
         self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)

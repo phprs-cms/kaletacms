@@ -211,6 +211,17 @@ final class Validity
         return self::isDate($value) ? $value : null;
     }
 
+    /**
+     * 3.50.1 review: whether a new "true until" date takes content off the site earlier than the stored one (none = never) –
+     * then hiding content that holds a job application form needs Applications. Pure.
+     */
+    public static function endsEarlier(mixed $stored, ?string $new): bool
+    {
+        $stored = self::date($stored);
+
+        return $new !== null && ($stored === null || $new < $stored);
+    }
+
     /** Whether a value is a real YYYY-MM-DD date (the 30th of February is not). */
     public static function isDate(mixed $value): bool
     {

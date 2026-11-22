@@ -421,8 +421,10 @@ final class Pages extends Module
         }
         $data['preklad_z'] = $data['jazyk'] === '' ? null : ($this->db->value("SELECT ids FROM {stranky} WHERE ids = ? AND jazyk = '' AND ids <> ?", [$r->postInt('preklad_z'), $id]) ?: null);
         // a page with nothing to show yet stays hidden until its build is published (3.5): a template, the builder, or no text
-        $stored = $id > 0 ? $this->db->one('SELECT zobrazit, stavba FROM {stranky} WHERE ids = ?', [$id]) : null;
-        if (!empty($stored['zobrazit']) && !$data['zobrazit']) { // 3.50.1 review: hiding a page with a published application form needs Applications
+        $stored = $id > 0 ? $this->db->one('SELECT zobrazit, stavba, valid_until, heslo_hash FROM {stranky} WHERE ids = ?', [$id]) : null;
+        // 3.50.1 review: hiding a page with a published application form needs Applications – also an earlier "true until"
+        // date (Core\Validity hides the page the day after it) and a new page password (below)
+        if (!empty($stored['zobrazit']) && (!$data['zobrazit'] || \Kaleta\Core\Validity::endsEarlier($stored['valid_until'] ?? null, $data['valid_until']))) {
             try {
                 \Kaleta\Builder\Publisher::guardRemoval($stored['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
             } catch (\DomainException) {
@@ -455,6 +457,13 @@ final class Pages extends Module
             $errors['heslo_stranky'] = $passwordError;
         } elseif ($passwordHash !== null) {
             $data['heslo_hash'] = $passwordHash === '' ? null : $passwordHash;
+            if ($passwordHash !== '' && !empty($stored['zobrazit']) && ($stored['heslo_hash'] ?? null) === null) { // 3.50.1 review: visitors would no longer reach the form
+                try {
+                    \Kaleta\Builder\Publisher::guardRemoval($stored['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
+                } catch (\DomainException) {
+                    return $this->back('Only a user who may open Applications can take a job application form off the site – nothing was changed.', 'edit', ['id' => $id], 'chyba');
+                }
+            }
         }
         if ($id > 0 && $id === $this->app->settings()->int('home_page') && !$data['zobrazit']) {
             $errors['zobrazit'] = 'The home page cannot be hidden. First choose another home page in Settings → General.';

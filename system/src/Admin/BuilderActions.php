@@ -756,7 +756,9 @@ trait BuilderActions
             return Response::json(['ok' => false, 'chyba' => t($e->getMessage())], 502);
         }
         try {
-            ['stavba' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false);
+            // the settings: a new class whose name a published build already lists waits in the draft look (N315-1) – it could
+            // otherwise restyle what is on the site at once, a published job application form too (3.50.1 review)
+            ['stavba' => $build, 'hlaseni' => $messages] = \Kaleta\Builder\HtmlConverter::saveToSite($this->db, $html, false, false, $this->app->settings());
         } catch (\Kaleta\Core\HtmlTooLarge $e) {
             return Response::json(['ok' => false, 'chyba' => $e->localized()], 502); // the model's HTML over a limit of Core\HtmlLimits
         }

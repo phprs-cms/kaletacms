@@ -87,8 +87,12 @@ final class Popups extends Module
             'novinky' => $selected ? $r->postBool('novinky') : $p['pravidla']['novinky'], 'jazyk' => $r->post('jazyk'), 'od' => $r->post('od'), 'do' => $r->post('do'),
             'zarizeni' => $r->post('zarizeni'), 'utm' => $r->post('utm'), 'odkud' => $r->post('odkud'),
         ]);
-        // 3.50.1 review: rules that may take a switched-on pop-up with a published application form off pages need Applications
-        if ($p['aktivni'] && $rules != $p['pravidla']) {
+        // 3.50.1 review: a switched-on pop-up with a published application form shown in fewer places (Okna::rulesNarrowed –
+        // the order of the lists and deleted pages do not count), only by clicking, or with an earlier "true until" date needs Applications
+        $trigger = isset(Okna::TRIGGERS[$r->post('spoustec')]) ? $r->post('spoustec') : $p['spoustec'];
+        $validUntil = \Kaleta\Core\Validity::date($r->post('valid_until'));
+        if ($p['aktivni'] && (Okna::narrowsOnSite($this->db, $p['pravidla'], $rules) || ($trigger === 'klik' && $p['spoustec'] !== 'klik')
+            || \Kaleta\Core\Validity::endsEarlier($p['valid_until'] ?? null, $validUntil))) {
             try {
                 \Kaleta\Builder\Publisher::guardRemoval($p['stavba'], $this->app, \Kaleta\Builder\Publisher::APPLICATION_FORM_OFF_SITE_REFUSED);
             } catch (\DomainException) {
@@ -98,14 +102,14 @@ final class Popups extends Module
         $this->db->update('popupy', [
             'nazev' => $name, 'adresa' => $url,
             'typ' => isset(Okna::TYPES[$r->post('typ')]) ? $r->post('typ') : $p['typ'],
-            'spoustec' => isset(Okna::TRIGGERS[$r->post('spoustec')]) ? $r->post('spoustec') : $p['spoustec'],
+            'spoustec' => $trigger,
             'hodnota' => max(0, min(3600, $r->postInt('hodnota'))),
             'cetnost' => isset(Okna::FREQUENCIES[$r->post('cetnost')]) ? $r->post('cetnost') : $p['cetnost'],
             'dni' => $r->post('dni') !== '' ? max(1, min(365, $r->postInt('dni', 7))) : (int) $p['dni'], // the field is active only for the frequency "dni"
             'poradi' => max(-9999, min(9999, $r->postInt('poradi', 100))),
             'pravidla' => (string) json_encode($rules, JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s'),
             // true until and review by (2.10, Core\Validity): empty or not a date = none
-            'valid_until' => \Kaleta\Core\Validity::date($r->post('valid_until')), 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
+            'valid_until' => $validUntil, 'review_by' => \Kaleta\Core\Validity::date($r->post('review_by')),
         ], ['idpp' => $p['idpp']]);
         \Kaleta\Core\PageCache::clear();
 

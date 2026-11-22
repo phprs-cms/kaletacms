@@ -471,6 +471,7 @@ final class Look
      * Publishes the draft look: the published one is kept as a version first. Returns the summary of what changed.
      *
      * @return list<string>
+     * @throws \DomainException Builder\Publisher::APPLICATION_FORM_SHADOWED – nothing published, the draft stays
      */
     public static function publish(App $app): array
     {
@@ -480,6 +481,8 @@ final class Look
         if ($draft === []) {
             return [];
         }
+        // 3.50.1 review: a class restyled to display none must not hide a published application form (Builder\Publisher::guardClasses)
+        \Kaleta\Builder\Publisher::guardClasses(is_array($draft['classes'] ?? null) ? $draft['classes'] : [], $app);
         $summary = self::summary($db, $s);
         self::keepVersion($app, $summary);
         // 3.15: the files waiting for approval the draft uses (custom fonts, background images of classes, the logo) go public

@@ -705,6 +705,67 @@ final class Build
     }
 
     /**
+     * 3.50.1 review: the shared classes a build puts on an application form or on one of its ancestors – a class restyled to
+     * display none would hide the form on the site (Publisher::guardClasses). A "komponenta" element pointing to one of
+     * $formComponents (components holding an application form) counts as an application form too. Pure.
+     *
+     * @param list<int> $formComponents
+     * @return list<string>
+     */
+    public static function applicationFormClasses(?string $json, array $formComponents = []): array
+    {
+        $build = $json === null ? null : self::fromJson($json);
+        if ($build === null) {
+            return [];
+        }
+        $out = [];
+        $walk = function (array $children, array $carried) use (&$walk, &$out, $formComponents): void {
+            foreach ($children as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $own = $carried;
+                foreach (is_array($p['tridy'] ?? null) ? $p['tridy'] : [] as $class) {
+                    if (is_string($class) && $class !== '') {
+                        $own[] = $class;
+                    }
+                }
+                $type = (string) ($p['typ'] ?? '');
+                if (($type === 'formular' && ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE)
+                    || ($type === 'komponenta' && in_array((int) ($p['obsah']['komponenta'] ?? 0), $formComponents, true))) {
+                    array_push($out, ...$own);
+                }
+                if (is_array($p['deti'] ?? null)) {
+                    $walk($p['deti'], $own);
+                }
+            }
+        };
+        $walk($build['deti'] ?? [], []);
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * 3.50.1 review: whether a shared class hides what carries it – display none in some state of its style, or in its own
+     * CSS declarations. Pure.
+     *
+     * @param array<string, mixed>|null $class ['styl' => states, 'css' => declarations]
+     */
+    public static function classHides(?array $class): bool
+    {
+        if ($class === null) {
+            return false;
+        }
+        foreach (is_array($class['styl'] ?? null) ? $class['styl'] : [] as $state) {
+            if (is_array($state) && ($state['zobrazeni'] ?? null) === 'none') {
+                return true;
+            }
+        }
+
+        return preg_match('/(^|[\s;])display\s*:\s*none\b/i', (string) ($class['css'] ?? '')) === 1;
+    }
+
+    /**
      * Every element of a build => what on its path (itself and its ancestors) can hide it on the site: "<id>" when the
      * element's style has display none in any state, "<id>?<conditions as JSON>" for its display conditions (podminky) and
      * "<id>.<class>" for each class it carries (3.50.1 review – a class's own style can hide it too). A marker in $new that was not

@@ -98,6 +98,44 @@ final class Popups
             || ($whereParts['novinky'] && $rules['novinky']);
     }
 
+    /**
+     * 3.50.1 review: whether $after would show the pop-up in fewer places, languages, dates, devices or visits than $before
+     * (both are sanitized first). The order of the lists does not matter, and pages or collections the settings form cannot
+     * offer – not in $pages (live pages) or $collections (collections with a detail page) – are left out on both sides, so
+     * saving unchanged rules with a deleted page in them is no narrowing. Pure.
+     *
+     * @param list<int> $pages
+     * @param list<string> $collections
+     */
+    public static function rulesNarrowed(array $before, array $after, array $pages, array $collections): bool
+    {
+        $before = self::sanitizeRules($before);
+        $after = self::sanitizeRules($after);
+        $any = fn (string $key): bool => $after[$key] !== '' && $after[$key] !== $before[$key]; // '' = any
+        if ($any('jazyk') || $any('utm') || $any('odkud') || $after['od'] > $before['od']
+            || ($after['do'] !== '' && ($before['do'] === '' || $after['do'] < $before['do']))
+            || ($after['zarizeni'] !== 'vse' && $after['zarizeni'] !== $before['zarizeni'])) {
+            return true;
+        }
+        if ($after['kde'] === 'vse') {
+            return false;
+        }
+        if ($before['kde'] === 'vse') {
+            return true;
+        }
+
+        return array_diff(array_intersect($before['stranky'], $pages), $after['stranky']) !== []
+            || array_diff(array_intersect($before['kolekce'], $collections), $after['kolekce']) !== []
+            || ($before['novinky'] && !$after['novinky']);
+    }
+
+    /** rulesNarrowed() with the pages and collections the site has now. */
+    public static function narrowsOnSite(Db $db, array $before, array $after): bool
+    {
+        return self::rulesNarrowed($before, $after, array_map('intval', array_column($db->all('SELECT ids FROM {stranky} WHERE smazano IS NULL'), 'ids')),
+            array_map('strval', array_column($db->all('SELECT seo_link FROM {kolekce} WHERE detail = 1'), 'seo_link')));
+    }
+
     /** A database row with the rules decoded. */
     public static function prepare(array $r): array
     {
