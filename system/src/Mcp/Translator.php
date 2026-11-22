@@ -969,8 +969,8 @@ final class Translator
             . '(7) Pop-ups: save_popup with a template (inactive), the content with the *_build tools and popup. (8) Language versions: create_page with language, translation_of and copy_build, '
             . 'then get_build texts_only and edit_build updates; parts and save_menu with language. (9) Facts stated in several places: list_facts, save_fact and {{fact.key}} in content; {{years_since:2004}} and '
             . '{{count:news}} never go stale; find_claims lists numbers typed as text. Ready-made collections: list_collection_presets, create_collection with preset (a notice board keeps its notices – list_notice_log). '
-            . 'Different opening hours on a day: save_hours_exception. Bookings: save_booking_service, save_booking_staff and a booking element; cancelling, confirming, declining and proposing times e-mail the customer. '
-            . 'Newsletters: draft_newsletter, send_test_newsletter; send_newsletter goes to all subscribers and cannot be taken back.',
+            . 'Other opening hours on a day: save_hours_exception. Bookings: save_booking_service, save_booking_staff, a booking element; cancelling, confirming, declining and proposing times e-mail the customer. '
+            . 'Newsletters: draft_newsletter, send_test_newsletter; send_newsletter mails all subscribers for good; pause: true stops it.',
         'move' => 'MOVING A SITE from another platform (the prompt migrate_site is the whole move): import_wordpress (a WordPress export – everything hidden, menus into the draft look, Polylang and WPML '
             . 'as linked language versions, WooCommerce as a catalogue) or import_website brings the content and redirects the old addresses; layout_queue lists the imported pages whose layout waits for a rebuild, with their old addresses; '
             . 'for each: read_old_page with format "semantic" (clean sections to rebuild from; "look" adds the colours and fonts), build_from_html (then edit_build), and layout_queue with done; import_enquiries brings the old form entries; save_redirect and save_redirects '
@@ -985,13 +985,9 @@ final class Translator
         // 3.48 (decision 3): customers and deals are features of their own – named only where they are on
         'customers' => 'CUSTOMERS: list_contacts, get_contact, save_contact, log_activity; merge_contacts cannot be taken back.',
         'pipeline' => 'DEALS: list_deals, save_deal, move_deal (lost needs a reason), pipeline_summary.',
-        'applications' => 'JOB APPLICATIONS: list_applications, get_application, update_application (status, a note), reply_to_application (a real e-mail from the site\'s templates). Applicants\' data is personal; '
-            . 'a CV never reaches you; it works only while the site lets Claude read applications.',
+        'applications' => 'JOB APPLICATIONS: list_applications, get_application, update_application (status, a note), reply_to_application (a real e-mail from the site\'s templates). Applicants\' data is personal; a CV never reaches you; it works only while the site lets Claude read applications.',
         // 3.44 (CPO 4): quotes and the office day, only where the quotes extension is on
-        'quotes' => 'QUOTES: list_quotes and get_quote read quotes (a draft has no number until it is sent; drafts prepared from new enquiries wait in status draft); save_quote creates or changes a DRAFT '
-            . 'from an enquiry, a deal, a contact or a company with the prices of the internal price list (list_prices) – never invent or guess a price: a line without a list price stays without one for a person, '
-            . 'and a price below the list or a discount above the site\'s limit is refused. mark_quote records the customer\'s answer (it moves the deal only when the user asks). A person usually checks a draft and '
-            . 'sends it in the admin (the quote\'s admin link); send_quote e-mails the customer only after the user\'s explicit yes. The prompt office_day walks through enquiries, drafted replies, quotes and follow-ups; set_up_quotes through the set-up.',
+        'quotes' => 'QUOTES: list_quotes, get_quote; save_quote makes or changes a DRAFT priced from the internal price list (list_prices) – never invent or guess a price; mark_quote records the customer\'s answer. send_quote e-mails the customer only after the user\'s explicit yes; usually a person checks and sends a draft in the admin. The prompts office_day (enquiries, replies, quotes, follow-ups) and set_up_quotes walk through it.',
         'fleet' => 'THE FLEET CONSOLE: list_sites shows the sites that report here, the ones needing attention first; get_site one site\'s last report and trends, fleet_today what needs attention today, '
             . 'fleet_inbox what waits across them, fleet_health every check of every site, fleet_inventory versions, PHP, database and features with where the newest release has reached, fleet_calendar '
             . 'certificate and domain dates, fleet_report the monthly report per customer and fleet_plan what to fix on which site with the address of each site\'s own connector (the prompt fleet_fix). '
