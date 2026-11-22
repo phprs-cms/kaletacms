@@ -2582,6 +2582,7 @@
         "parameters": {
             "at": "string",
             "id": "integer",
+            "pause": "boolean",
             "unschedule": "boolean"
         },
         "required": [
