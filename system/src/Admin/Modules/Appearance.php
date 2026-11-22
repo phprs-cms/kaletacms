@@ -96,6 +96,7 @@ final class Appearance extends Module
         // in a few plain words (3.12, UX310-23): "colours, logo" – the exact values stay in the bar's details and in Earlier looks
         $areas = Look::areas($this->app->settings());
         try {
+            \Kaleta\Builder\Publisher::guardClasses((array) (Look::draft($this->app->settings())['classes'] ?? []), $this->app);
             $summary = Look::publish($this->app);
         } catch (\DomainException) { // 3.50.1 review: a class would hide a job application form (Builder\Publisher::guardClasses)
             return $this->back('Only a user who may open Applications can hide a job application form or add another form with a file field beside it. Nothing was published; your changes stay saved as a draft.', '', [], 'chyba');

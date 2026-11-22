@@ -146,6 +146,8 @@ trait LookTools
         }
         // the summary for Claude in English; the stored version, the event and the change log keep the site's language
         $english = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\Look::summary($db, $this->app->settings()), 'admin-');
+        // 3.50.1 review: a draft class restyled to display none must not hide a published application form
+        \Kaleta\Builder\Publisher::guardClasses((array) (\Kaleta\Core\Look::draft($this->app->settings())['classes'] ?? []), $this->app);
         if (\Kaleta\Core\Look::publish($this->app) === []) {
             throw new \DomainException('There is no draft look to publish.');
         }

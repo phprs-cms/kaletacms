@@ -66,8 +66,8 @@ sq "UPDATE ka_stranky SET valid_until = NULL WHERE ids = $R696_A" > /dev/null
 # the look: a draft class on the form's ancestor restyled to display none is not published without Applications; another class is
 sq "DELETE FROM ka_tridy WHERE nazev IN ('wrap696', 'free696'); INSERT INTO ka_tridy (nazev, styl, css, zmeneno) VALUES ('wrap696', '{}', 'color: red;', '$R696_NOW')" > /dev/null
 R696_DRAFT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'look_draft'")
-r696_cli 'Kaleta\Core\Look::discard($app->settings()); Kaleta\Core\Look::setClass($app->settings(), "wrap696", ["styl" => ["mobil" => ["zobrazeni" => "none"]], "css" => ""]); Kaleta\Core\Look::publish($app);' > "$WORK/r696-look"
-expect "3.50.1 review: Look::publish refuses a class of the form's ancestor hidden on phones (in English) – the class on the site stays, the draft stays" \
+r696_cli 'Kaleta\Core\Look::discard($app->settings()); Kaleta\Core\Look::setClass($app->settings(), "wrap696", ["styl" => ["mobil" => ["zobrazeni" => "none"]], "css" => ""]); Kaleta\Builder\Publisher::guardClasses((array) (Kaleta\Core\Look::draft($app->settings())["classes"] ?? []), $app); Kaleta\Core\Look::publish($app);' > "$WORK/r696-look"
+expect "3.50.1 review: publishing the look (Publisher::guardClasses) refuses a class of the form's ancestor hidden on phones (in English) – the class on the site stays, the draft stays" \
   "$(grep -c "$R696_SHADOW" "$WORK/r696-look")|$(sq "SELECT styl FROM ka_tridy WHERE nazev = 'wrap696'")|$(sq "SELECT hodnota LIKE '%wrap696%' FROM ka_nastaveni WHERE promenna = 'look_draft'")" "1|{}|1"
 r696_cli 'Kaleta\Core\Look::discard($app->settings()); Kaleta\Core\Look::setClass($app->settings(), "wrap696", ["styl" => [], "css" => "color: blue;"]); Kaleta\Core\Look::publish($app); echo "published";' > "$WORK/r696-look"
 expect "3.50.1 review: a change of the same class that does not hide is published" "$(cat "$WORK/r696-look")|$(sq "SELECT css FROM ka_tridy WHERE nazev = 'wrap696'")" "published|color: blue;"
