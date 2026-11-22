@@ -2163,7 +2163,7 @@ return [
     'The file is larger than %d MB.' => 'A fájl nagyobb, mint %d MB.',
     'The files are larger than %d MB together.' => 'A fájlok együtt nagyobbak, mint %d MB.',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Legfeljebb %d fájl, egyenként legfeljebb %d MB, összesen legfeljebb %d MB: PDF, kép, dokumentum vagy ZIP.',
-    'Sent by {{company}}, {{address}}.' => 'Feladó: {{company}}, {{address}}.',
+    'Sent by {{company}}, {{address}}. {{registration}}' => 'Feladó: {{company}}, {{address}}. {{registration}}',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Azért kapja ezt az e-mailt, mert feliratkozott a(z) {{site}} híreire, és megerősítette a feliratkozást.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Ha nem szeretne tőlünk ilyen e-maileket kapni, jelezze itt: {{link}}',
     'This link is no longer valid – write to us at %s.' => 'Ez a link már nem érvényes – írjon nekünk: %s.',

@@ -33,6 +33,27 @@ final class SenderIdentity
             return null;
         }
 
-        return strtr($s->wording('mail_identity', $language), ['{{company}}' => $company, '{{address}}' => $address]);
+        $line = strtr($s->wording('mail_identity', $language), ['{{company}}' => $company, '{{address}}' => $address, '{{registration}}' => Language::runWith($language !== '' ? $language : Language::defaults($s), fn (): string => self::registration($s))]);
+
+        return trim(preg_replace('/[ \t]{2,}/u', ' ', $line) ?? $line);
+    }
+
+    /**
+     * 3.51: the company ID and the register entry (§ 435 of the Czech Civil Code: an entrepreneur names them in business
+     * correspondence) as one sentence in the current language – "Company ID 12345678, Regional Court in Brno, C 1234." –
+     * or '' while neither is filled in. In the current language – line() calls it in the language of the e-mail.
+     */
+    public static function registration(Settings $s): string
+    {
+        $parts = array_values(array_filter([
+            trim($s->get('company_id')) !== '' ? t('Company ID') . ' ' . trim($s->get('company_id')) : '',
+            trim($s->get('company_register')),
+        ], fn (string $p): bool => $p !== ''));
+        if ($parts === []) {
+            return '';
+        }
+        $sentence = implode(', ', $parts);
+
+        return preg_match('/[.!?。]$/u', $sentence) === 1 ? $sentence : $sentence . '.';
     }
 }

@@ -47,7 +47,12 @@ only (`tools/contracts.php` additive).
    own language (`Settings::wording()`). Claude cannot change them. Newsletter links to fewer than five reachable
    recipients (confirmed subscribers not on the register) carry no campaign name; from five `utm_campaign=<subject>-n<id>`.
    The addresses are read and compared with the register only when the number can be below five
-   (`Mailing::reachableForCampaign`).
+   (`Mailing::reachableForCampaign`). After the owner's review of the texts (23 November 2026): the default sender line
+   adds `{{registration}}` – the company ID and the register entry from Business details as one sentence in the e-mail's
+   language, nothing while neither is filled in (`SenderIdentity::registration`) – and the newsletter footer links to the
+   privacy policy of its language version (`cookies_policy_url`, the default language's when a version has none; no link
+   without one). A testimonial request stays a message within the business relationship: refuse line kept, never sent
+   without the sender.
 4. **Subscribers.** The language version a person signed up in is stored (`ka_odberatele.language`, backfilled from the
    sign-up address or the contact); Subscribers show the confirmed and waiting count per language, the register counts,
    a Language column on multilingual sites and a bounced or refused mark per row; the CSV gains the language.

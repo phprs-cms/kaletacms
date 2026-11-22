@@ -280,7 +280,7 @@ final class Settings
         'newsletter_hourly_limit' => '300', // newsletters: at most this many e-mails per hour (the SMTP relay's limit)
         // 3.51 default wording, pending legal review – plan/texty-pravnik-351.md. Per language; an empty field = the translated
         // default of the reader's language (Settings::wording). Never set by Claude.
-        'mail_identity' => 'Sent by {{company}}, {{address}}.', // the sender of a newsletter and a testimonial request (Core\SenderIdentity)
+        'mail_identity' => 'Sent by {{company}}, {{address}}. {{registration}}', // the sender of a newsletter and a testimonial request (Core\SenderIdentity); {{registration}} = company ID and register entry
         'newsletter_reason' => 'You receive this e-mail because you signed up for news from {{site}} and confirmed it.', // why a newsletter arrived
         'mail_refuse_text' => 'If you do not want e-mails like this from us, tell us here: {{link}}', // the refuse line of a testimonial request
         'data_cleanup' => '0',         // when the daily cleanup of personal data last ran (Core\Notifications)

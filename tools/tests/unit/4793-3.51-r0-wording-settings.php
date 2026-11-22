@@ -19,13 +19,13 @@ check('3.51 R0.6: wording() – the stored value of the language; for the defaul
     $r793Changed->wording('mail_identity', 'en'), $r793Changed->wording('newsletter_reason', ''), $r793Changed->wording('newsletter_reason', 'de'),
     $r793Changed->wording('mail_refuse_text', 'en')], [
     'Von {{company}}, {{address}}', 'Píše {{company}}, {{address}}', 'Píše {{company}}, {{address}}',
-    'Sent by {{company}}, {{address}}.', 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu {{site}} a přihlášení potvrdili.',
+    'Sent by {{company}}, {{address}}. {{registration}}', 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu {{site}} a přihlášení potvrdili.',
     'Sie erhalten diese E-Mail, weil Sie sich für Neuigkeiten von {{site}} angemeldet und die Anmeldung bestätigt haben.',
     'If you do not want e-mails like this from us, tell us here: {{link}}']);
 $r793English = $r793Settings(['site_language' => 'en', 'additional_languages' => 'cs']);
 check('3.51 R0.6: on an English site nothing stored gives the English default, the Czech version the Czech one; storedWording() is what the form shows', [
     $r793English->wording('mail_identity', ''), $r793English->wording('mail_identity', 'cs'), $r793Changed->storedWording('mail_identity'), $r793English->storedWording('mail_identity')],
-    ['Sent by {{company}}, {{address}}.', 'Odesílatel: {{company}}, {{address}}.', 'Píše {{company}}, {{address}}', '']);
+    ['Sent by {{company}}, {{address}}. {{registration}}', 'Odesílatel: {{company}}, {{address}}. {{registration}}', 'Píše {{company}}, {{address}}', '']);
 check('3.51 R0.6: the templates – mail_identity needs {{company}} and {{address}}, mail_refuse_text {{link}}, at most 300 characters; empty is accepted; a language variant is checked alike', [
     R793Module::verifyValue('mail_identity', 'Od {{company}}'), R793Module::verifyValue('mail_identity', '{{address}} – {{company}}'), R793Module::verifyValue('mail_identity', ''),
     R793Module::verifyValue('mail_refuse_text', 'Write to us'), R793Module::verifyValue('mail_refuse_text', 'Here: {{link}}'), R793Module::verifyValue('mail_refuse_text_en', 'No link'),

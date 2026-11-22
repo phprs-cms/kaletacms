@@ -692,13 +692,13 @@ final class Mailing
             $siteName = $s->get('site_name_' . $language) !== '' ? $s->get('site_name_' . $language) : $s->get('site_name');
             $button = $n['button_url'] !== '' && $n['button_label'] !== ''
                 ? [(string) $n['button_label'], self::campaign($app, str_starts_with((string) $n['button_url'], '/') ? self::origin($app) . $app->request->basePath() . $n['button_url'] : (string) $n['button_url'], $n)] : null;
-            ['identity' => $identity, 'reason' => $reason] = self::footer($s, $language, $siteName);
+            ['identity' => $identity, 'reason' => $reason, 'privacy' => $privacy] = self::footer($s, $language, $siteName, self::origin($app));
             $logo = preg_match('/\.(png|jpe?g|gif|webp)$/i', $s->get('logo')) ? self::image($app, $s->get('logo'), false) : '';
             $paragraphs = self::paragraphs((string) $n['intro'], $reason);
             $data = [
                 'language' => $language, 'subject' => (string) $n['subject'], 'preheader' => (string) $n['preheader'], 'paragraphs' => $paragraphs,
                 'items' => $items, 'button' => $button, 'siteName' => $siteName, 'siteUrl' => self::absolute($app, ''), 'logo' => $logo,
-                'identity' => $identity, 'reason' => $reason,
+                'identity' => $identity, 'reason' => $reason, 'privacy' => $privacy,
                 'colors' => $ds['barvy'] + ['tlumeny' => '#5b6170', 'na-primarni' => DesignSystem::contrastColor($ds['barvy']['primarni'])],
                 'headingFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_titulky'], true) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
                 'textFont' => DesignSystem::fontFamily($ds, (string) $ds['pismo_text'], false) ?: 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
@@ -714,7 +714,8 @@ final class Mailing
             if ($button !== null) {
                 $text .= $button[0] . ': ' . $button[1] . "\n\n";
             }
-            $text .= "--\n" . ($identity !== null ? $identity . "\n" : '') . $reason . "\n" . t('Unsubscribe') . ': ' . self::UNSUBSCRIBE . "\n";
+            $text .= "--\n" . ($identity !== null ? $identity . "\n" : '') . $reason . "\n" . ($privacy !== '' ? t('Privacy policy') . ': ' . $privacy . "\n" : '')
+                . t('Unsubscribe') . ': ' . self::UNSUBSCRIBE . "\n";
 
             return [$html, $text];
         });
@@ -723,13 +724,19 @@ final class Mailing
     /**
      * 3.51 (B5): the footer in one language – who sends it (mail_identity filled with the company name and the address; null
      * while either is missing, then the newsletter cannot be sent at all) and why it arrived (newsletter_reason with the
-     * site's name). Empty fields give the default wording of that language (Settings::wording).
+     * site's name). Empty fields give the default wording of that language (Settings::wording). 3.51: and the privacy policy
+     * of that language version (cookies_policy_url, an absolute address; '' while the site has none – then no link).
      *
-     * @return array{identity: ?string, reason: string}
+     * @return array{identity: ?string, reason: string, privacy: string}
      */
-    public static function footer(Settings $s, string $language, string $siteName): array
+    public static function footer(Settings $s, string $language, string $siteName, string $origin = ''): array
     {
-        return ['identity' => SenderIdentity::line($s, $language), 'reason' => strtr($s->wording('newsletter_reason', $language), ['{{site}}' => $siteName])];
+        $privacy = Privacy::policyUrl($s, $language);
+        if (str_starts_with($privacy, '/')) {
+            $privacy = $origin !== '' ? $origin . $privacy : '';
+        }
+
+        return ['identity' => SenderIdentity::line($s, $language), 'reason' => strtr($s->wording('newsletter_reason', $language), ['{{site}}' => $siteName]), 'privacy' => $privacy];
     }
 
     /**

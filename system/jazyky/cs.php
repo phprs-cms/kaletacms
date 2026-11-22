@@ -3316,7 +3316,7 @@ return [
     'The file is larger than %d MB.' => 'Soubor je větší než %d MB.',
     'The files are larger than %d MB together.' => 'Soubory mají dohromady víc než %d MB.',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Až %d souborů, každý do %d MB a dohromady do %d MB: PDF, obrázek, dokument nebo ZIP.',
-    'Sent by {{company}}, {{address}}.' => 'Odesílatel: {{company}}, {{address}}.',
+    'Sent by {{company}}, {{address}}. {{registration}}' => 'Odesílatel: {{company}}, {{address}}. {{registration}}',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu {{site}} a přihlášení potvrdili.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Pokud si podobné e-maily od nás nepřejete, dejte nám vědět zde: {{link}}',
     'This link is no longer valid – write to us at %s.' => 'Tento odkaz už neplatí – napište nám na %s.',

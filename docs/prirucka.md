@@ -375,7 +375,9 @@ firmy – a proč e-mail přišel (3.51).
 - **Nedoručitelné adresy.** Adresu, kterou server odmítl jako neexistující (5.1.1 a příbuzné), web vzdá hned, a když
   newsletter někomu doručil, zapamatuje si ji: další newslettery ji přeskočí. Server, který odmítá všechny, tenhle seznam
   nikdy nenaplní.
-- **Patička.** Každý newsletter uvádí odesílatele a proč přišel. Bez názvu firmy a poštovní adresy v **Nastavení → Údaje
+- **Patička.** Každý newsletter uvádí odesílatele – i s IČO a zápisem v rejstříku z Údajů firmy, když jsou vyplněné –,
+  proč přišel, a odkazuje na zásady ochrany osobních údajů (**Nastavení → Soukromí a cookies**, odkaz dané jazykové
+  verze). Bez názvu firmy a poštovní adresy v **Nastavení → Údaje
   firmy** newsletter odeslat nejde – naplánovaný se vrátí mezi koncepty a jeho autor dostane e-mail. Obě věty jsou výchozí
   znění v **Nastavení → Pošta**, pro každý jazyk zvlášť; `{{reason}}` v úvodu tam zopakuje větu s důvodem. Znění si
   nechte zkontrolovat pro svou zemi.

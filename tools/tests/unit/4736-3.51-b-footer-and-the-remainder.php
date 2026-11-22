@@ -18,9 +18,22 @@ check('3.51 B5: footer() – the default wording of each language with the compa
     B736Mailing::footer($b736Settings([]), '', 'Firma'), B736Mailing::footer($b736Settings([]), 'en', 'Firma EN'),
     B736Mailing::footer($b736Settings(['mail_identity_en' => 'From {{company}} ({{address}})', 'newsletter_reason_en' => 'You asked for news of {{site}}.']), 'en', 'Firma EN'),
     B736Mailing::footer($b736Settings(['company_name' => '']), 'en', 'Firma')['identity']],
-    [['identity' => 'Odesílatel: Firma s.r.o., Hlavní 1, 110 00 Praha.', 'reason' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu Firma a přihlášení potvrdili.'],
-        ['identity' => 'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha.', 'reason' => 'You receive this e-mail because you signed up for news from Firma EN and confirmed it.'],
-        ['identity' => 'From Firma s.r.o. (Hlavní 1, 110 00 Praha)', 'reason' => 'You asked for news of Firma EN.'], null]);
+    [['identity' => 'Odesílatel: Firma s.r.o., Hlavní 1, 110 00 Praha.', 'reason' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu Firma a přihlášení potvrdili.', 'privacy' => ''],
+        ['identity' => 'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha.', 'reason' => 'You receive this e-mail because you signed up for news from Firma EN and confirmed it.', 'privacy' => ''],
+        ['identity' => 'From Firma s.r.o. (Hlavní 1, 110 00 Praha)', 'reason' => 'You asked for news of Firma EN.', 'privacy' => ''], null]);
+$b736Registered = ['company_id' => '12345678', 'company_register' => 'Krajský soud v Brně, C 1234', 'cookies_policy_url' => '/zasady', 'cookies_policy_url_en' => 'https://example.com/privacy'];
+check('3.51 (owner decisions): the sender line names the company ID and the register entry in the e-mail\'s language; one of them alone; neither = the line ends after the address; the privacy policy link of the language version, absolute, the default language\'s when a version has none, none without the site address or the setting', [
+    Kaleta\Core\Language::runWith('cs', fn () => B736Mailing::footer($b736Settings($b736Registered), '', 'Firma', 'https://firma.cz')),
+    Kaleta\Core\Language::runWith('en', fn () => B736Mailing::footer($b736Settings($b736Registered), 'en', 'Firma', 'https://firma.cz'))['identity'],
+    Kaleta\Core\Language::runWith('en', fn () => B736Mailing::footer($b736Settings($b736Registered), 'en', 'Firma', 'https://firma.cz'))['privacy'],
+    Kaleta\Core\Language::runWith('en', fn () => B736Mailing::footer($b736Settings(['company_id' => '12345678', 'cookies_policy_url' => '/zasady']), 'en', 'Firma', 'https://firma.cz')),
+    Kaleta\Core\Language::runWith('en', fn () => B736Mailing::footer($b736Settings(['company_register' => 'Amtsgericht Berlin HRB 1.']), 'en', 'Firma'))['identity'],
+    B736Mailing::footer($b736Settings(['cookies_policy_url' => '/zasady']), '', 'Firma')['privacy'],
+    B736Mailing::footer($b736Settings(['cookies_policy_url' => 'javascript:alert(1)']), '', 'Firma', 'https://firma.cz')['privacy']],
+    [['identity' => 'Odesílatel: Firma s.r.o., Hlavní 1, 110 00 Praha. IČO 12345678, Krajský soud v Brně, C 1234.', 'reason' => 'Tento e-mail dostáváte, protože jste se přihlásili k odběru novinek z webu Firma a přihlášení potvrdili.', 'privacy' => 'https://firma.cz/zasady'],
+        'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha. Company ID 12345678, Krajský soud v Brně, C 1234.', 'https://example.com/privacy',
+        ['identity' => 'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha. Company ID 12345678.', 'reason' => 'You receive this e-mail because you signed up for news from Firma and confirmed it.', 'privacy' => 'https://firma.cz/zasady'],
+        'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha. Amtsgericht Berlin HRB 1.', '', '']);
 check('3.51 B5: {{reason}} in the introduction is the reason sentence; empty lines start paragraphs', B736Mailing::paragraphs("Dobrý den,\n\n{{reason}}\n\n\n Díky ", 'Protože jste chtěli.'),
     ['Dobrý den,', 'Protože jste chtěli.', 'Díky']);
 

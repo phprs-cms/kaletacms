@@ -14,6 +14,7 @@
  * @var string $logo absolute URL of a raster logo, or empty
  * @var ?string $identity 3.51: who sends it (Settings → Mail, company name and address); null only in a preview before they are filled in
  * @var string $reason 3.51: why the e-mail arrived (Settings → Mail)
+ * @var string $privacy 3.51: the privacy policy of this language version (an absolute address; '' = none, no link)
  * @var array<string, string> $colors design system colours (primarni, sekundarni, text, pozadi, plocha, tlumeny, na-primarni)
  * @var string $headingFont
  * @var string $textFont
@@ -88,6 +89,9 @@ $link = static fn (string $text): string => preg_replace_callback('~https?://[^\
 	<?= e($identity) ?><br>
 <?php endif ?>
 	<?= e($reason) ?><br>
+<?php if ($privacy !== ''): ?>
+	<a href="<?= e($privacy) ?>" style="color:<?= $c['tlumeny'] ?>;"><?= e(t('Privacy policy')) ?></a> &middot;
+<?php endif ?>
 	<a href="<?= $unsubscribe ?>" style="color:<?= $c['tlumeny'] ?>;"><?= e(t('Unsubscribe')) ?></a>
 </td></tr>
 </table>

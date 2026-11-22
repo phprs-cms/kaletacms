@@ -2152,7 +2152,7 @@ return [
     'The file is larger than %d MB.' => 'El archivo supera los %d MB.',
     'The files are larger than %d MB together.' => 'Los archivos superan juntos los %d MB.',
     'Up to %d files, each up to %d MB and together up to %d MB: PDF, image, document or ZIP.' => 'Hasta %d archivos, cada uno de hasta %d MB y en total hasta %d MB: PDF, imagen, documento o ZIP.',
-    'Sent by {{company}}, {{address}}.' => 'Remitente: {{company}}, {{address}}.',
+    'Sent by {{company}}, {{address}}. {{registration}}' => 'Remitente: {{company}}, {{address}}. {{registration}}',
     'You receive this e-mail because you signed up for news from {{site}} and confirmed it.' => 'Recibe este correo porque se suscribió a las novedades de {{site}} y lo confirmó.',
     'If you do not want e-mails like this from us, tell us here: {{link}}' => 'Si no desea recibir correos como este de nuestra parte, díganoslo aquí: {{link}}',
     'This link is no longer valid – write to us at %s.' => 'Este enlace ya no es válido: escríbanos a %s.',

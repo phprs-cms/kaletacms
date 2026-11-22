@@ -131,8 +131,8 @@ $wordingRows = ['mail_identity' => t('Sender line'), 'newsletter_reason' => t('W
 <legend><?= e(t('Texts of e-mails to visitors')) ?></legend>
 <p class="hlaska"><?= e(t('Default wording – not legal advice; have it checked for your country. An empty field uses the default wording of its language.')) ?></p>
 <?php
-$field('mail_identity', 'Sender line', 'text', $wordingHint('mail_identity', t('Must contain {{company}} and {{address}} – they are filled from Business details. Without the company name and address no newsletter or testimonial request goes out.')), $wordingPlaceholder('mail_identity'));
-$field('newsletter_reason', 'Why the newsletter arrives', 'text', $wordingHint('newsletter_reason', t('The last line of every newsletter. {{site}} is the site name.')), $wordingPlaceholder('newsletter_reason'));
+$field('mail_identity', 'Sender line', 'text', $wordingHint('mail_identity', t('Must contain {{company}} and {{address}} – they are filled from Business details; {{registration}} adds the company ID and the register entry. Without the company name and address no newsletter or testimonial request goes out.')), $wordingPlaceholder('mail_identity'));
+$field('newsletter_reason', 'Why the newsletter arrives', 'text', $wordingHint('newsletter_reason', t('Below the sender line of every newsletter. {{site}} is the site name. The link to the privacy policy (Settings → Privacy and cookies) and the unsubscribe link follow.')), $wordingPlaceholder('newsletter_reason'));
 $field('mail_refuse_text', 'Refuse line of a testimonial request', 'text', $wordingHint('mail_refuse_text', t('Must contain {{link}} – the page where the customer says they want no more requests or news.')), $wordingPlaceholder('mail_refuse_text'));
 ?>
 <?php if (($wordingLanguages = Kaleta\Core\Language::additional($siteSettings)) !== []): ?>

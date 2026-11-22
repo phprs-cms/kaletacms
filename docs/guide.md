@@ -400,7 +400,9 @@ Business details – and why the e-mail arrived (3.51).
 - **Addresses that bounced.** An address the server refused as unknown (5.1.1 and its kin) is given up at once and, when
   the newsletter delivered to someone, remembered: later newsletters skip it. A server that refuses everyone can never fill
   that list.
-- **The footer.** Every newsletter names its sender and says why it arrived. Without the company name and postal address
+- **The footer.** Every newsletter names its sender – with the company ID and the register entry from Business details
+  when they are filled in – says why it arrived and links to the privacy policy (**Settings → Privacy and cookies**, the
+  link of the language version). Without the company name and postal address
   in **Settings → Business details** a newsletter cannot be sent – a scheduled one goes back to the drafts and its author
   gets an e-mail. The two sentences are default wording in **Settings → Mail**, per language; `{{reason}}` in the
   introduction repeats the reason sentence there. Have the wording checked for your country.
