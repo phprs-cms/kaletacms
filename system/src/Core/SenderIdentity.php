@@ -52,8 +52,14 @@ final class SenderIdentity
         if ($parts === []) {
             return '';
         }
-        $sentence = implode(', ', $parts);
+        // the punctuation of the language: full-width in Chinese, the Arabic comma in Arabic (3.51 review)
+        [$comma, $stop] = match (Language::code()) {
+            'zh', 'zh-hant' => ['，', '。'],
+            'ar' => ['، ', '.'],
+            default => [', ', '.'],
+        };
+        $sentence = implode($comma, $parts);
 
-        return preg_match('/[.!?。]$/u', $sentence) === 1 ? $sentence : $sentence . '.';
+        return preg_match('/[.!?。]$/u', $sentence) === 1 ? $sentence : $sentence . $stop;
     }
 }

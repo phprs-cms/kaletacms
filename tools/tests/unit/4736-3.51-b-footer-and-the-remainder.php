@@ -34,6 +34,11 @@ check('3.51 (owner decisions): the sender line names the company ID and the regi
         'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha. Company ID 12345678, Krajský soud v Brně, C 1234.', 'https://example.com/privacy',
         ['identity' => 'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha. Company ID 12345678.', 'reason' => 'You receive this e-mail because you signed up for news from Firma and confirmed it.', 'privacy' => 'https://firma.cz/zasady'],
         'Sent by Firma s.r.o., Hlavní 1, 110 00 Praha. Amtsgericht Berlin HRB 1.', '', '']);
+check('3.51 review: the registration sentence takes the punctuation of the language – full-width in Chinese, the Arabic comma in Arabic', [
+    Kaleta\Core\Language::runWith('zh', fn () => Kaleta\Core\SenderIdentity::registration($b736Settings(['company_id' => '123', 'company_register' => '上海']))),
+    Kaleta\Core\Language::runWith('ar', fn () => Kaleta\Core\SenderIdentity::registration($b736Settings(['company_id' => '123', 'company_register' => 'X']))),
+    Kaleta\Core\Language::runWith('en', fn () => Kaleta\Core\SenderIdentity::registration($b736Settings([])))],
+    [Kaleta\Core\Language::runWith('zh', fn () => t('Company ID')) . ' 123，上海。', Kaleta\Core\Language::runWith('ar', fn () => t('Company ID')) . ' 123، X.', '']);
 check('3.51 B5: {{reason}} in the introduction is the reason sentence; empty lines start paragraphs', B736Mailing::paragraphs("Dobrý den,\n\n{{reason}}\n\n\n Díky ", 'Protože jste chtěli.'),
     ['Dobrý den,', 'Protože jste chtěli.', 'Díky']);
 
