@@ -9514,4 +9514,6 @@ return [
     'Must contain {{link}} – the page where the customer says they want no more requests or news.' => 'Debe contener {{link}}: la página donde el cliente dice que no quiere más solicitudes ni novedades.',
     'These texts in other language versions' => 'Estos textos en otras versiones de idioma',
     'Each e-mail uses the text of its own language. An empty field uses the default wording of that language, not the text above.' => 'Cada correo usa el texto de su propio idioma. Un campo vacío usa el texto predeterminado de ese idioma, no el texto de arriba.',
+    '%s – item page' => '%s – página del elemento',
+    'deleted collection' => 'colección eliminada',
 ];

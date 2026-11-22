@@ -9086,4 +9086,6 @@ return [
     'Must contain {{link}} – the page where the customer says they want no more requests or news.' => 'Musí obsahovat {{link}} – stránku, kde zákazník řekne, že už nechce žádosti ani novinky.',
     'These texts in other language versions' => 'Tyto texty v dalších jazykových verzích',
     'Each e-mail uses the text of its own language. An empty field uses the default wording of that language, not the text above.' => 'Každý e-mail použije text svého jazyka. Prázdné pole použije výchozí znění toho jazyka, ne text výše.',
+    '%s – item page' => '%s – stránka položky',
+    'deleted collection' => 'smazaná kolekce',
 ];

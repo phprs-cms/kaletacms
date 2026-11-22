@@ -786,6 +786,11 @@ v nastavení Žádostí.
 V **databázi talentů** zůstávají lidé, kteří souhlasili, že se dozví o dalších pozicích, dokud jim souhlas neskončí. Žádosti se
 mažou samy po době v Nastavení → Soukromí a cookies a každá ukazuje svůj den.
 
+Jednou za hodinu Kaleta zkontroluje, že každý zveřejněný formulář žádosti o práci jde na webu otevřít – na stránce, v pop-up
+okně, v části webu i v šabloně položky kolekce (v kolekci vytvořené z předvolby pracovních pozic se počítá každý formulář).
+Když z webu zmizí – stránka skrytá, stránky položek vypnuté, formulář skrytý –, dostanou upozornění všichni se sekcí Žádosti
+a zmizí, až je formulář zpět. Kolekce bez otevřené pozice je v pořádku; šablona jejích kategorií se nehlídá.
+
 ## 17. Interní soubory
 
 **Interní soubory** jsou dokumenty týmu – ceníky, smlouvy, návody – které nikdy nedostanou veřejnou adresu. Správce

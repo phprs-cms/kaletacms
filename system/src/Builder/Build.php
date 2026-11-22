@@ -829,42 +829,42 @@ final class Build
 
     /**
      * 3.50.1 release review: the hourly watch decodes each build once – whether it holds an application form (directly or
-     * through one of $holdingComponents) and whether it shows one (showsApplicationForm with $showingComponents). Pure.
+     * through one of $holdingComponents) and whether it shows one (showsApplicationForm with $showingComponents). Pure. 3.51:
+     * with $everyForm any Form counts (a jobs item template, as in Front\Forms) and the components are those holding any Form.
      *
      * @param list<string> $hidingClasses
      * @param list<int> $holdingComponents
      * @param list<int> $showingComponents
      * @return array{0: bool, 1: bool}
      */
-    public static function applicationFormPresence(?string $json, array $hidingClasses, array $holdingComponents, array $showingComponents): array
+    public static function applicationFormPresence(?string $json, array $hidingClasses, array $holdingComponents, array $showingComponents, bool $everyForm = false): array
     {
         $build = $json === null ? null : self::fromJson($json);
         if ($build === null) {
             return [false, false];
         }
-        $holds = false;
-        foreach (self::elementsOfType($build, fn (string $className): bool => in_array($className::TYPE, ['formular', 'komponenta'], true)) as $p) {
-            if ((($p['typ'] ?? '') === 'formular' && ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE)
-                || (($p['typ'] ?? '') === 'komponenta' && in_array((int) ($p['obsah']['komponenta'] ?? 0), $holdingComponents, true))) {
-                $holds = true;
-                break;
-            }
-        }
+        $forms = self::elementsOfType($build, fn (string $className): bool => in_array($className::TYPE, ['formular', 'komponenta'], true));
+        $holds = array_filter($forms, fn (array $p): bool => self::isWatchedForm($p, $holdingComponents, $everyForm)) !== [];
 
-        return [$holds, $holds && self::showsIn($build, $hidingClasses, $showingComponents)];
+        return [$holds, $holds && self::showsIn($build, $hidingClasses, $showingComponents, $everyForm)];
+    }
+
+    /** The watched form: a Form with the Purpose job application (any Form with $everyForm) or a component of $formComponents. */
+    private static function isWatchedForm(array $p, array $formComponents, bool $everyForm): bool
+    {
+        return (($p['typ'] ?? '') === 'formular' && ($everyForm || ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE))
+            || (($p['typ'] ?? '') === 'komponenta' && in_array((int) ($p['obsah']['komponenta'] ?? 0), $formComponents, true));
     }
 
     /**
      * @param list<string> $hidingClasses
      * @param list<int> $formComponents
      */
-    private static function showsIn(array $build, array $hidingClasses, array $formComponents): bool
+    private static function showsIn(array $build, array $hidingClasses, array $formComponents, bool $everyForm = false): bool
     {
         $hidden = self::hiddenElements($build);
         foreach (self::elementsOfType($build, fn (string $className): bool => in_array($className::TYPE, ['formular', 'komponenta'], true)) as $id => $p) {
-            $type = (string) ($p['typ'] ?? '');
-            if (!($type === 'formular' && ($p['obsah']['ucel'] ?? '') === \Kaleta\Core\Applications::PURPOSE)
-                && !($type === 'komponenta' && in_array((int) ($p['obsah']['komponenta'] ?? 0), $formComponents, true))) {
+            if (!self::isWatchedForm($p, $formComponents, $everyForm)) {
                 continue;
             }
             $shown = true;

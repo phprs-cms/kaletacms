@@ -831,6 +831,12 @@ templates for each language are in the settings of Applications.
 The **Talent pool** keeps people who agreed to hear about future openings until their consent runs out. Applications are
 deleted automatically after the period in Settings → Privacy and cookies, and each one shows the day.
 
+Once an hour Kaleta checks that every published job application form can still be reached – on a page, in a pop-up, in a
+site part and in the item template of a collection (in a collection made from the jobs preset every form there counts).
+When one goes off the site – the page hidden, item pages switched off, the form hidden – everyone with Applications gets a
+notification, and it goes away when the form is back. A collection with no open position is fine; its category template is
+not watched.
+
 ## 17. Internal files
 
 **Internal files** are the team's documents – price lists, contracts, manuals – that never get a public address. An
