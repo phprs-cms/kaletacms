@@ -65,6 +65,11 @@ trait PageTools
         // the agent notebook (2.15, Core\Notebook): how many notes colleagues and earlier conversations left, and the pinned titles – read_notebook has them all
         // 3.15 (N71): only for a user with the Notebook section – the pinned titles are notes too
         $notebook = $auth->hasModule('notebook') ? \Kaleta\Core\Notebook::summary($db) : ['count' => 0, 'pinned' => []];
+        // 3.51 (C3): the tool set always named; a connection that lists every tool hears what it costs and where to change it
+        $connection = ($auth->connection() ?? ['name' => '', 'access' => 'full']) + ['tool_set' => 'all'];
+        if ($connection['tool_set'] === 'all') {
+            $connection['hint'] = \Kaleta\Mcp\Translator::ALL_TOOLS_HINT;
+        }
 
         return [
             'web' => $siteSettings->get('site_name'), 'adresa' => $this->app->request->origin() . $this->app->url(''), 'popis' => $siteSettings->get('site_description'),
@@ -79,7 +84,7 @@ trait PageTools
             'smi_upravovat_stranky' => $auth->hasModule('pages'),
             'can_edit_appearance' => $auth->hasAppearanceArea(), // 3.22 (C9): menu, site parts, pop-ups and components
             // what this connection may do (2.2): full, drafts (reads and drafts, never publishes) or read
-            'connection' => $auth->connection() ?? ['name' => '', 'access' => 'full'],
+            'connection' => $connection,
             // what the site has switched on, so Claude does not guess (extension keys: novinky, poptavky, newsletter…)
             'extensions' => \Kaleta\Core\Extensions::enabled($siteSettings),
             // the whistleblowing channel (2.14): Claude learns only that it is on – no tool reads or lists its cases

@@ -24,8 +24,8 @@ trait ReportTools
     public static function reportToolsDefinitions(): array
     {
         return [
-            'list_monthly_reports' => ['Archived monthly reports (read-only, administrators, 3.16): the months stored, when each was made or rebuilt. One a month, kept 24 months; none before 3.16.', Schema::object([])],
-            'get_monthly_report' => ['One archived monthly report (read-only, administrators, 3.16): what happened to the site that month – requests, changes, Claude runs, updates, backups, security, audit, traffic, enquiries, bookings, newsletter, what was open, uptime by day (3.26.1, with a fleet console; null without). Counts and titles, no personal data; print_url opens the printable page; care (3.26.1) counts what it took to run the site – done automatically, by Claude and by people, and the decisions it needed (counts, never hours or money).',
+            'list_monthly_reports' => ['Archived monthly reports (read-only, administrators): the months stored, when each was made or rebuilt. One a month, kept 24 months; none before 3.16.', Schema::object([])],
+            'get_monthly_report' => ['One archived monthly report (read-only, administrators): what happened to the site that month – requests, changes, Claude runs, updates, backups, security, audit, traffic, enquiries, bookings, newsletter, what was open, uptime by day (with a fleet console; null without). Counts and titles, no personal data; print_url opens the printable page; care counts what it took to run the site – done automatically, by Claude and by people, and the decisions it needed (counts, never hours or money).',
                 Schema::object(['month' => Schema::text('YYYY-MM from list_monthly_reports')], ['month'])],
         ];
     }

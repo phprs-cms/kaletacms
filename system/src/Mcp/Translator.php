@@ -42,9 +42,9 @@ final class Translator
         'translation_of' => ['preklad_z', 'ID of the counterpart in the default language (for a page in another language version) – language switcher and hreflang'],
         'copy_build' => ['kopie_stavby', 'only for a new page with translation_of: the draft starts as a copy of the original’s build – then translate with get_build (texts_only) and edit_build'],
         'publish_at' => ['zverejnit_od', 'Scheduled publishing of a hidden page YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
-        'head_code' => ['kod_hlavicky', 'Not settable through MCP (since 2.5.1): code for <head> of a page is set by the administrator in the administration – tell the user where'],
-        'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'],
-        'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
+        'head_code' => ['kod_hlavicky', 'Not settable through MCP: code for <head> of a page is set by the administrator in the administration – tell the user where'],
+        'valid_until' => ['valid_until', 'True until YYYY-MM-DD: after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'],
+        'review_by' => ['review_by', 'Review by YYYY-MM-DD: on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
     ];
 
     private const array NEWS_ITEM = [
@@ -72,7 +72,7 @@ final class Translator
      * @var array<string, array{0: string, 1: string, 2: array<string, mixed>}>
      */
     private const array TOOLS = [
-        'site_info' => ['info_o_webu', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions.', []],
+        'site_info' => ['info_o_webu', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions, this connection (access, tool set).', []],
         'list_pages' => ['seznam_stranek', 'Pages of the site (Home, About, Services, Contact…) with their addresses. layout_not_rebuilt: an imported page whose build is still the imported text.', []],
         'get_page' => ['nacti_stranku', 'The whole page including its HTML content.', ['id' => ['id', 'Page ID']]],
         'create_page' => ['vytvor_stranku', 'Creates a page (editors and administrators). Without "visible": true it stays hidden.', ['*stranka']],
@@ -153,13 +153,13 @@ final class Translator
                 'icon' => ['icon', 'its icon in the admin menu and the list of collections (3.19; optional): one of the icons create_collection lists; empty string = the list icon again'], 'fields' => ['pole', '[{"key":"quote","label":"Quote","type":"lines"},{"label":"New field","type":"text"}] (optional)'],
                 'structured_data' => ['schema_org', 'schema.org type of item pages (optional): {"type":"Service|Person|Product|Event|FAQPage","fields":{"property":"field key"},"currency":"EUR"}; {"type":""} = none'],
                 'redirect_hidden_to' => ['presmerovat_skryte', 'where the page of a hidden or deleted item leads (2.10): /team or https://…; empty = page not found (optional)']]],
-        'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only. In a document library (preset documents, 2.11) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.',
+        'list_collection_items' => ['seznam_polozek_kolekce', 'Items of a collection with their field values, 50 per page (total is returned). Filter: text in the name and values, field=value, language, visible only. In a document library (preset documents) every item also carries downloads {last_30_days, total} and latest_url – the stable address of its current file.',
             ['collection' => ['kolekce', 'collection slug'], 'search' => ['hledat', 'text in the name or field values (optional)'], 'field' => ['pole', 'field key for an exact match (optional)'],
                 'value' => ['hodnota', 'field value for an exact match'], 'language' => ['jazyk', 'language version (empty = default; optional)'], 'visible_only' => ['jen_zobrazene', 'only items visible on the site'],
-                'page' => ['strana', 'page from 1'], 'category' => ['kategorie', 'only items in the category with this slug, its subcategories included (3.7; optional)']]],
-        'save_collection_item' => ['uloz_polozku_kolekce', 'Adds an item to a collection, or changes an existing one (with id). Without "visible": true a new item stays hidden. A drafts-only connection creates hidden items and changes hidden ones only – never a visible item, visible or publish_at (3.2).',
-            ['collection' => ['kolekce', 'collection slug'], 'id' => ['id', 'item ID – only when changing it'], 'name' => ['nazev', 'item name (required for a new item, when changing only if it changes)'],
-                'slug' => ['adresa', 'address of the item in URLs (optional, otherwise from the name), e.g. install'], 'language' => ['jazyk', 'language version of the item on a multilingual site (empty = default); a translation keeps the slug of the original, so the language switcher and hreflang link them'],
+                'page' => ['strana', 'page from 1'], 'category' => ['kategorie', 'only items in the category with this slug, its subcategories included (optional)']]],
+        'save_collection_item' => ['uloz_polozku_kolekce', 'Adds an item to a collection or changes one (with id). Without "visible": true a new item stays hidden. A drafts-only connection creates and changes hidden items only – never visible or publish_at.',
+            ['collection' => ['kolekce', 'collection slug'], 'id' => ['id', 'item ID – only when changing it'], 'name' => ['nazev', 'item name (required for a new item)'],
+                'slug' => ['adresa', 'the item\'s URL part (optional, otherwise from the name), e.g. install'], 'language' => ['jazyk', 'language version (empty = default); a translation keeps the original\'s slug, which links the versions (switcher, hreflang)'],
                 'values' => ['data', 'field values by the keys from list_collections, e.g. {"quote":"…","logo":"media/…"}; fields you leave out stay'],
                 'order' => ['poradi', 'Order, lower = first'], 'visible' => ['zobrazit', 'true = the item is on the site (only when the user asks)'],
                 'seo_title' => ['seo_titulek', 'title for search engines (optional, otherwise the name)'], 'description' => ['popis', 'description for search engines, up to 160 characters (optional, otherwise from the first longer text field)'],
@@ -167,8 +167,8 @@ final class Translator
                 'noindex' => ['noindex', 'true = keep the item page out of search engines, the sitemap, llms.txt and site search'],
                 'canonical_url' => ['canonical_url', 'canonical URL of the item page: https://… or /path on the site; empty = the item itself'],
                 'publish_at' => ['zverejnit_od', 'scheduled publishing of a hidden item YYYY-MM-DD HH:MM (only when the user explicitly asks; empty = cancel)'],
-                'valid_until' => ['valid_until', 'True until YYYY-MM-DD (2.10): after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD (2.10): on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
-                'categories' => ['kategorie', 'category slugs of the collection (3.7, list_collection_categories) – the whole new list; [] = none; leave it out to keep them']]],
+                'valid_until' => ['valid_until', 'True until YYYY-MM-DD: after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD: on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
+                'categories' => ['kategorie', 'category slugs (list_collection_categories) – the whole new list; [] = none; omit to keep them']]],
         'list_news' => ['seznam_novinek', 'List of news (newest first).',
             ['status' => ['stav', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'text in the headline'], 'limit' => ['limit', '1-50, default 20']]],
         'get_news' => ['nacti_novinku', 'The whole news item including the text and tags.', ['id' => ['id', 'News ID']]],
@@ -176,7 +176,7 @@ final class Translator
         'update_news' => ['uprav_novinku', 'Changes the given fields of a news item; the others stay. The previous version is saved to the history.', ['id' => ['id', 'News ID'], '*novinka']],
         'list_categories' => ['seznam_kategorii', 'News categories with counts.', []],
         'create_category' => ['vytvor_kategorii', 'Creates a news category (editors and administrators).', ['name' => ['nazev', 'Name'], 'description' => ['popis', 'Description (HTML)']]],
-        'import_website' => ['importuj_web', 'Imports a site from another platform by its address (administrators, 2.6): pages are found in the sitemap or along links and become hidden builder pages (articles become news), images go to Media and old addresses redirect. '
+        'import_website' => ['importuj_web', 'Imports a site from another platform by its address (administrators): pages are found in the sitemap or along links and become hidden builder pages (articles become news), images go to Media and old addresses redirect. '
             . 'One call = one batch (about 15 s). Start with url, then call again with import_id – first the pages are found; in the phase "preview" show the user what was found and only on their instruction send confirm: true. Keep calling until the phase is "done". '
             . 'Against the site owner\'s hourly change limit for Claude (if set) each call counts the records it created (pages, news items, images, redirects) – known only after the step, so a step can go over the limit and the next one is refused; then stop and tell the user what is left.',
             ['url' => ['adresa', 'address of the site, e.g. https://www.example.com (only for a new import)'], 'import_id' => ['import', 'id of a running import (from the previous call)'],
@@ -191,9 +191,9 @@ final class Translator
             . 'On a drafts-only connection the file is staged: shown in previews, public with the content using it.',
             ['filename' => ['nazev', 'file name with extension, e.g. team-london.jpg'], 'data' => ['data', 'file content in base64'], 'url' => ['url', 'https address of the file to download (instead of data; full access only)'],
                 'alt' => ['popis', 'image description for blind visitors (alt); otherwise from the name']]],
-        'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part – anyone can open it without signing in (the user, a colleague, a browser); it is valid only for this target and for a limited time. Search engines do not index it.',
-            ['*cil', 'minutes' => ['minut', 'validity in minutes, default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links on it keep the preview while browsing)'],
-                'comments' => ['komentare', 'true = whoever opens the link can click an element and write a comment with their name (page drafts only; read them with list_draft_comments)']]],
+        'preview_link' => ['nahled_odkaz', 'A signed link to the draft preview of a page or site part: anyone opens it without signing in, only for this target and for minutes (default 60); search engines do not index it.',
+            ['*cil', 'minutes' => ['minut', 'validity: default 60, at most 10080'], 'site' => ['web', 'true = the whole site with every draft and the draft look (links keep the preview)'],
+                'comments' => ['komentare', 'true = whoever opens it can comment on an element under their name (page drafts only; list_draft_comments reads them)']]],
         'update_settings' => ['uprav_nastaveni', 'Changes site settings (administrators) – they apply straight away; logo and favicon go to the draft look (publish_look). Keys: site_name, site_description, footer_text, logo, favicon and share_image – the sharing image 1200×630 (path media/… from upload_file or image/…), home_page (ID of the home page), news_slug (the first part of the news URLs in every language, e.g. blog gives /blog/…; empty = the default novinky or news; the old URLs redirect), news_title (the heading of the news list in the default language, e.g. Aktuality with news_slug aktuality; empty = News in the site language), social_facebook|instagram|x|youtube|linkedin (URL), '
             . 'news_per_page, share_buttons, article_outline, related_news_auto (1/0; yes/no works too), dark_mode (off = light only | auto = by device | dark = always dark; the stored values vypnuto | auto | tmavy work too), theme_switcher (1/0 = light/dark switcher for visitors), german_register (formal = Sie | informal = du: the form of address of the German texts for visitors), company details company_name, company_type, company_id, company_vat_id, company_register (commercial register entry), company_representative (who represents the company), company_street, company_city, company_postcode, company_country (CZ), company_phone, company_email (public contact), company_hours (one day per line), company_map, company_gps; site_name_de… for language versions. '
             . 'Since 2.2 also: extensions (the list of switched-on extensions, e.g. ["novinky","poptavky","claude"] – claude must stay), additional_languages (further language versions, e.g. ["de","cs"]), '
@@ -203,8 +203,8 @@ final class Translator
             ['settings' => ['nastaveni', '{"key":"value"}']]],
         'list_enquiries' => ['seznam_poptavek', 'Enquiries from the site forms (Forms and enquiries extension; only with access to Enquiries), newest first: date, form, page, what it was about (about: the collection item, page or pop-up the form was on), campaign (utm), e-mail, status, the filled-in fields and notes_count (internal notes). They contain personal data – use them only for what the user asks.',
             ['status' => ['stav', 'new | read | resolved | all (default)'], 'search' => ['hledat', 'text in the e-mail or content (optional)'], 'limit' => ['limit', '1-50, default 20'],
-                'category' => ['kategorie', 'sales | support | job | supplier | spam | other | unsorted (optional, 2.12; without it spam is left out). With Applications on (site_info features.applications) job applications are in list_applications']]],
-        'list_redirects' => ['seznam_presmerovani', 'Redirects of old addresses (Redirects extension; auto_score = created by the site itself from a missing address with this confidence, null = by hand) and the most frequent addresses that ended with a 404 error, each with the page the visitor most likely meant (suggestion, score 0–100; 2.14) – save_redirect accepts it when the user agrees. Redirects by themselves: settings redirect_auto and redirect_auto_threshold.', []],
+                'category' => ['kategorie', 'sales | support | job | supplier | spam | other | unsorted (optional; without it spam is left out). With Applications on (site_info features.applications) job applications are in list_applications']]],
+        'list_redirects' => ['seznam_presmerovani', 'Redirects of old addresses (Redirects extension; auto_score = created by the site itself from a missing address with this confidence, null = by hand) and the most frequent addresses that ended with a 404 error, each with the page the visitor most likely meant (suggestion, score 0–100) – save_redirect accepts it when the user agrees. Redirects by themselves: settings redirect_auto and redirect_auto_threshold.', []],
         'save_redirect' => ['uloz_presmerovani', 'Adds or changes a redirect (administrators): from an old path on the site to a new path or https address. Code 301 = permanent (default), 302 = temporary.',
             ['from' => ['z', 'old path, e.g. /docs or /about'], 'to' => ['na', 'new path (/guide) or https://…'], 'code' => ['typ', '301 or 302'], 'delete' => ['smazat', 'true = delete the redirect from the old path']]],
         'trash_page' => ['smaz_stranku', 'Moves a page to the trash (only when the user explicitly asks; editors or administrators). It can be restored for 30 days in the admin. The home page cannot be deleted.', ['id' => ['id', 'Page ID']]],
@@ -925,6 +925,10 @@ final class Translator
         return self::messages($message);
     }
 
+    /** 3.51 (C3): kB of tools/list of an "all" connection, every feature on (unit 4760: within 10 %), and site_info's hint to it. */
+    public const int ALL_TOOLS_KB = 210;
+    public const string ALL_TOOLS_HINT = 'This connection lists every tool, about ' . self::ALL_TOOLS_KB . ' kB in each conversation; the Work, Essentials or Migration set is a fraction of that and finds the other tools when needed. The user changes it in the administration: My account → Claude, "Change the tool set".';
+
     /**
      * Server instructions for Claude (response to initialize) – in English, with English tool names. 3.36: short and by task –
      * what always holds (drafts, preview, publishing, boundaries, the untrusted marker), then building a site, moving a site
@@ -969,8 +973,8 @@ final class Translator
             . '(7) Pop-ups: save_popup with a template (inactive), the content with the *_build tools and popup. (8) Language versions: create_page with language, translation_of and copy_build, '
             . 'then get_build texts_only and edit_build updates; parts and save_menu with language. (9) Facts stated in several places: list_facts, save_fact and {{fact.key}} in content; {{years_since:2004}} and '
             . '{{count:news}} never go stale; find_claims lists numbers typed as text. Ready-made collections: list_collection_presets, create_collection with preset (a notice board keeps its notices – list_notice_log). '
-            . 'Different opening hours on a day: save_hours_exception. Bookings: save_booking_service, save_booking_staff and a booking element; cancelling, confirming, declining and proposing times e-mail the customer. '
-            . 'Newsletters: draft_newsletter, send_test_newsletter; send_newsletter goes to all subscribers and cannot be taken back.',
+            . 'Other opening hours on a day: save_hours_exception. Bookings: save_booking_service, save_booking_staff, a booking element; cancelling, confirming, declining and proposing times e-mail the customer. '
+            . 'Newsletters: draft_newsletter, send_test_newsletter; send_newsletter mails all subscribers for good; pause: true stops it.',
         'move' => 'MOVING A SITE from another platform (the prompt migrate_site is the whole move): import_wordpress (a WordPress export – everything hidden, menus into the draft look, Polylang and WPML '
             . 'as linked language versions, WooCommerce as a catalogue) or import_website brings the content and redirects the old addresses; layout_queue lists the imported pages whose layout waits for a rebuild, with their old addresses; '
             . 'for each: read_old_page with format "semantic" (clean sections to rebuild from; "look" adds the colours and fonts), build_from_html (then edit_build), and layout_queue with done; import_enquiries brings the old form entries; save_redirect and save_redirects '
@@ -985,13 +989,9 @@ final class Translator
         // 3.48 (decision 3): customers and deals are features of their own – named only where they are on
         'customers' => 'CUSTOMERS: list_contacts, get_contact, save_contact, log_activity; merge_contacts cannot be taken back.',
         'pipeline' => 'DEALS: list_deals, save_deal, move_deal (lost needs a reason), pipeline_summary.',
-        'applications' => 'JOB APPLICATIONS: list_applications, get_application, update_application (status, a note), reply_to_application (a real e-mail from the site\'s templates). Applicants\' data is personal; '
-            . 'a CV never reaches you; it works only while the site lets Claude read applications.',
+        'applications' => 'JOB APPLICATIONS: list_applications, get_application, update_application (status, a note), reply_to_application (a real e-mail from the site\'s templates). Applicants\' data is personal; a CV never reaches you; it works only while the site lets Claude read applications.',
         // 3.44 (CPO 4): quotes and the office day, only where the quotes extension is on
-        'quotes' => 'QUOTES: list_quotes and get_quote read quotes (a draft has no number until it is sent; drafts prepared from new enquiries wait in status draft); save_quote creates or changes a DRAFT '
-            . 'from an enquiry, a deal, a contact or a company with the prices of the internal price list (list_prices) – never invent or guess a price: a line without a list price stays without one for a person, '
-            . 'and a price below the list or a discount above the site\'s limit is refused. mark_quote records the customer\'s answer (it moves the deal only when the user asks). A person usually checks a draft and '
-            . 'sends it in the admin (the quote\'s admin link); send_quote e-mails the customer only after the user\'s explicit yes. The prompt office_day walks through enquiries, drafted replies, quotes and follow-ups; set_up_quotes through the set-up.',
+        'quotes' => 'QUOTES: list_quotes, get_quote; save_quote makes or changes a DRAFT priced from the internal price list (list_prices) – never invent or guess a price; mark_quote records the customer\'s answer. send_quote e-mails the customer only after the user\'s explicit yes; usually a person checks and sends a draft in the admin. The prompts office_day (enquiries, replies, quotes, follow-ups) and set_up_quotes walk through it.',
         'fleet' => 'THE FLEET CONSOLE: list_sites shows the sites that report here, the ones needing attention first; get_site one site\'s last report and trends, fleet_today what needs attention today, '
             . 'fleet_inbox what waits across them, fleet_health every check of every site, fleet_inventory versions, PHP, database and features with where the newest release has reached, fleet_calendar '
             . 'certificate and domain dates, fleet_report the monthly report per customer and fleet_plan what to fix on which site with the address of each site\'s own connector (the prompt fleet_fix). '

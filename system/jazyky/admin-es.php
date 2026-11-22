@@ -9578,4 +9578,6 @@ return [
     'Recipients of a newsletter after it ends' => 'Destinatarios de un boletín después de terminar',
     '%s – item page' => '%s – página del elemento',
     'deleted collection' => 'colección eliminada',
+    'This connection lists every tool – about %d kB in each conversation. Essentials, Work or Migration load a fraction of it and find the other tools when needed.' => 'Esta conexión carga todas las herramientas – unos %d kB en cada conversación. Básicas, Trabajo o Migración cargan una fracción y encuentran las demás herramientas cuando las necesitan.',
+    'About %d kB in each conversation; the other sets load a fraction of it.' => 'Unos %d kB en cada conversación; los demás conjuntos cargan una fracción.',
 ];

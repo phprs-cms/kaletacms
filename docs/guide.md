@@ -569,7 +569,8 @@ faster and keeps more room for your work. Claude finds the other tools (news, re
 `find_tools` and runs them when it needs them – reads with `run_read_tool`, drafts and changes with `run_tool`, and
 deleting, sending or anything that reaches outside the site with `run_destructive_tool`, which Claude confirms with you
 first (your Claude app asks for each runner separately) – with the same access and rules. **All tools** lists
-everything at once (the default for a personal token – Claude Code and scripts). **Work** is for a colleague's own Claude
+everything at once (the default for a personal token – Claude Code and scripts) – about 210 kB in every conversation, so
+My account and `site_info` remind such a connection that the other sets are a fraction of it. **Work** is for a colleague's own Claude
 (my work, enquiries, customers, deals, tasks, comments, job applications), **Migration** for moving a site to Kaleta (the
 imports, old pages, the builder, redirects and the migration report) and **Fleet** for the fleet console (offered only
 where the Fleet console extension is on). A tool set only decides what Claude sees first – never what it may do: that is
