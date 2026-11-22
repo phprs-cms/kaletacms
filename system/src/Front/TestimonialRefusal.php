@@ -4,20 +4,22 @@ declare(strict_types=1);
 
 namespace Kaleta\Front;
 
+use Kaleta\Core\Antispam;
 use Kaleta\Core\App;
 use Kaleta\Core\Clock;
 use Kaleta\Core\SendRegister;
 use Kaleta\Core\Testimonials;
 
 /**
- * 3.51: the refuse link of a testimonial request (…/_testimonial/<token>?refuse=1, the line of the setting mail_refuse_text
+ * 3.51: the refuse link of a testimonial request (…/_testimonial/<token>?refuse=<code>, the line of the setting mail_refuse_text
  * in the e-mail). Opening it (GET) only asks and shows a button – a mail link scanner changes nothing; pressing it (POST)
  * puts the address on the send register as refused (Core\SendRegister: no testimonial request or newsletter again; answers
  * to the person's own enquiries and bookings still arrive), marks the request used and ends a newsletter subscription of
  * the address (owner decision 5 of 3.51: one refusal covers everything unsolicited).
  *
  * The link works as long as the request row is kept (Testimonials::forRefusal – used and expired requests too), longer
- * than the 30 days of the form, and only for a request that was e-mailed (a link only handed out refuses nothing). Neither the address nor anything else of the person is in the URL or on the page, and
+ * than the 30 days of the form, and only for a request that was e-mailed and with the code of its e-mail (a link only handed
+ * out, or the form link staff and Claude got back, refuses nothing). Neither the address nor anything else of the person is in the URL or on the page, and
  * nothing is written to the change log from the public site (Auth stays untouched); the register is the record.
  */
 final class TestimonialRefusal
@@ -27,11 +29,11 @@ final class TestimonialRefusal
     }
 
     /** @return array{0: string, 1: string} page title and content (HTML) */
-    public function page(string $token): array
+    public function page(string $token, string $code): array
     {
         $db = $this->app->db();
         $site = (string) $this->app->settings()->get('site_name');
-        $request = Testimonials::forRefusal($db, $token);
+        $request = Testimonials::forRefusal($db, (new Antispam($db, $this->app->settings()))->key(), $token, $code);
         if ($request === null) {
             $contact = (string) $this->app->settings()->get('company_email');
 
@@ -40,7 +42,7 @@ final class TestimonialRefusal
         $heading = t('Stop e-mails from %s', $site);
         if (!$this->app->request->isPost()) {
             return [$heading, '<p>' . e(t('Should we stop sending you requests and news?')) . '</p><form method="post" action="'
-                . e($this->app->url('_testimonial/' . $token) . '?refuse=1') . '"><p><button class="tlacitko" type="submit">' . e(t('Do not write to me')) . '</button></p></form>'];
+                . e($this->app->url('_testimonial/' . $token) . '?refuse=' . $code) . '"><p><button class="tlacitko" type="submit">' . e(t('Do not write to me')) . '</button></p></form>'];
         }
         $email = (string) $request['email'];
         SendRegister::record($db, 'refused', $email);

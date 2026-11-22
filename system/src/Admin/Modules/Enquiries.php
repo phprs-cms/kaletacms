@@ -386,8 +386,9 @@ final class Enquiries extends Module
             return $this->back(t(\Kaleta\Core\Testimonials::REASONS[$result['reason']]) . ' ' . t('The link to send yourself: %s', $result['link']), 'detail', ['id' => $id], 'chyba');
         }
 
-        // 3.51 review: queued = the mail server did not answer, the mail queue sends it later – it is not to be sent by hand as well
-        return $this->back(t(isset($result['queued']) ? 'The mail server did not answer – the request waits in the mail queue and goes out on its own. The link: %s'
+        // 3.51 review: queued = the mail server did not answer, the mail queue tries it later (RETRY_DELAYS, about half a day) –
+        // it is not to be sent by hand as well; when the queue gives up, the enquiry may be asked again (Testimonials::settle)
+        return $this->back(t(isset($result['queued']) ? 'The mail server did not answer – the mail queue keeps trying for about half a day; if the e-mail never gets through, the customer can be asked again. The link: %s'
             : ($result['sent'] ? 'The request was sent. The link: %s' : 'The link to send yourself: %s'), $result['link']), 'detail', ['id' => $id]);
     }
 

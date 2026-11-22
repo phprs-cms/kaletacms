@@ -6,9 +6,9 @@ b351_db "DELETE FROM ka_restore_ledger WHERE kind IN ('bounced', 'refused'); DEL
 b351_subscribers blokovano1@example.cz blokovano2@example.cz blokovano3@example.cz blokovano4@example.cz blokovano5@example.cz blokovano6@example.cz
 B732_NL=$(b351_newsletter "Brzda 732")
 b351_admin send -d "id=$B732_NL" -d when=now; b351_cron; b351_wait 1
-expect "3.51 B2: refused at RCPT with 5.7.1 – paused by the brake, the register empty, every row back in the queue without its answer (the five tried keep their attempt – review fix), failed 0, one e-mail to the author" \
-  "$(b351_state "$B732_NL")|$(b351_db "SELECT pause_reason FROM ka_newsletters WHERE id = $B732_NL")|$(b351_bounced)|$(b351_db "SELECT CONCAT(SUM(next_attempt IS NOT NULL), '/', SUM(attempts = 0), '/', SUM(reply = '')) FROM ka_newsletter_queue WHERE newsletter_id = $B732_NL")|$(b351_mails admin@example.cz)" \
-  "paused|6|0|0|0|brake|0|6/1/6|1"
+expect "3.51 B2: refused at RCPT with 5.7.1 – paused by the brake, the register empty, every row back in the queue without its answer (the five tried keep their attempt – review fix – and carry the put-back mark), failed 0, one e-mail to the author" \
+  "$(b351_state "$B732_NL")|$(b351_db "SELECT pause_reason FROM ka_newsletters WHERE id = $B732_NL")|$(b351_bounced)|$(b351_db "SELECT CONCAT(SUM(next_attempt IS NOT NULL), '/', SUM(attempts = 0), '/', SUM(reply = ''), '/', SUM(reply = 'brake')) FROM ka_newsletter_queue WHERE newsletter_id = $B732_NL")|$(b351_mails admin@example.cz)" \
+  "paused|6|0|0|0|brake|0|6/1/1/5|1"
 check "3.51 B2: the newsletter says the brake paused it" 200 "/admin.php?module=newsletters&action=edit&id=$B732_NL" "Pozastaveno brzdou"
 check "3.51 B6: System status lists the paused newsletter" 200 "/admin.php?module=status" "Pozastavený newsletter"
 # the server accepts again (the fake server decides by address): after the resume everyone is delivered, nothing failed

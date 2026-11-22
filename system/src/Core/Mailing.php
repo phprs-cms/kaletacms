@@ -51,6 +51,13 @@ final class Mailing
     /** … and pauses the send when this many of them failed at the mail server. */
     public const int BRAKE_FAILURES = 5;
 
+    /**
+     * 3.51 review: the reply of a queue row the brake put back – the only mark of such a row (a resume, an attempt cut off
+     * between claim() and its answer and a retry left from 3.50 also have attempts > 0 and no tried_at, so those cannot be
+     * told apart by them). The next attempt overwrites it; the brake never counts it.
+     */
+    public const string PUT_BACK = 'brake';
+
     /** 3.51: a send paused this many days is cancelled by itself (Retention::FIXED). */
     public const int PAUSED_DAYS = 7;
 
@@ -387,16 +394,16 @@ final class Mailing
         $sent = 0;
         $newsletters = [];
         $stopped = []; // newsletters the brake paused in this call: their remaining rows wait
-        // in the order of the list as in 3.50 – untried rows and due retries (a greylisted address keeps its RETRY_MINUTES);
-        // the rows the brake put back (tried before, their answer cleared: attempts > 0, tried_at NULL) only when nothing
-        // else is due, so five dead addresses at the head of a list cannot pause it after every resume (3.51 review). Two
-        // reads in the order of the primary key instead of one sort over the whole queue.
+        // in the order of the list as in 3.50 – untried rows and due retries (a greylisted address keeps its RETRY_MINUTES,
+        // also after a resume, an update from 3.50 or a cut-off attempt); the rows the brake put back (reply PUT_BACK) only
+        // when nothing else is due, so five dead addresses at the head of a list cannot pause it after every resume (3.51
+        // review). Two reads in the order of the primary key instead of one sort over the whole queue.
         $select = "SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
             JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {odberatele} o ON o.ido = q.subscriber_id
             WHERE q.next_attempt <= ? AND ";
-        $rows = $allowed <= 0 ? [] : $db->all($select . '(q.attempts = 0 OR q.tried_at IS NOT NULL) ORDER BY q.id LIMIT ' . (int) $allowed, [Clock::now()]);
+        $rows = $allowed <= 0 ? [] : $db->all($select . 'q.reply <> ? ORDER BY q.id LIMIT ' . (int) $allowed, [Clock::now(), self::PUT_BACK]);
         if ($allowed > count($rows)) {
-            $rows = array_merge($rows, $db->all($select . 'q.attempts > 0 AND q.tried_at IS NULL ORDER BY q.id LIMIT ' . ($allowed - count($rows)), [Clock::now()]));
+            $rows = array_merge($rows, $db->all($select . 'q.reply = ? ORDER BY q.id LIMIT ' . ($allowed - count($rows)), [Clock::now(), self::PUT_BACK]));
         }
         foreach ($rows as $q) {
             $newsletterId = (int) $q['newsletter_id'];
@@ -491,7 +498,7 @@ final class Mailing
     {
         $window = array_slice($window, 0, self::BRAKE_WINDOW);
         $delivered = array_filter($window, fn (array $r): bool => $r['sent_at'] !== null) !== [];
-        $failed = array_filter($window, fn (array $r): bool => $r['sent_at'] === null && $r['reply'] !== '' && !str_starts_with($r['reply'], 'local:')
+        $failed = array_filter($window, fn (array $r): bool => $r['sent_at'] === null && $r['reply'] !== '' && $r['reply'] !== self::PUT_BACK && !str_starts_with($r['reply'], 'local:')
             && !($delivered && self::isAddressRefusal($r['reply'])));
 
         return count($failed) >= self::BRAKE_FAILURES;
@@ -502,7 +509,7 @@ final class Mailing
      * window delivered nothing (the server refuses the site, not the addresses), its failed rows go back to the queue without
      * their answer – they go out after the resume and none of them can reach the register. They keep their attempts, and a
      * row that used its last one is not put back, so an address that fails after every resume is given up in the end and
-     * no resume repeats the same pause for ever (3.51 review). The send takes a put-back row only when no other row is due,
+     * no resume repeats the same pause for ever (3.51 review). Their reply is PUT_BACK; the send takes such a row only when no other row is due,
      * so after a resume the untried addresses go before the put-back ones – five dead addresses at the head of a list cannot
      * pause it again and again. true = the send was paused now.
      */
@@ -520,7 +527,7 @@ final class Mailing
             $given = count(array_filter($failed, fn (array $r): bool => $r['next_attempt'] === null)); // already counted as failed
             $ids = implode(',', array_map(fn (array $r): int => (int) $r['id'], $failed));
             if ($ids !== '') {
-                $db->run("UPDATE {newsletter_queue} SET reply = '', error = '', tried_at = NULL, next_attempt = ? WHERE id IN (" . $ids . ')', [Clock::now()]);
+                $db->run("UPDATE {newsletter_queue} SET reply = ?, error = '', tried_at = NULL, next_attempt = ? WHERE id IN (" . $ids . ')', [self::PUT_BACK, Clock::now()]);
             }
             if ($given > 0) {
                 $db->run('UPDATE {newsletters} SET failed_count = CASE WHEN failed_count > ? THEN failed_count - ? ELSE 0 END WHERE id = ?', [$given, $given, $id]);

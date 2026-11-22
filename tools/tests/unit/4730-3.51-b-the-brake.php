@@ -30,3 +30,8 @@ check('3.51 D5: five address refusals among deliveries do not trip (a stale list
     B730Mailing::brakeTripped($b730Rows(50, 'local::')),
     B730Mailing::brakeTripped([...$b730Rows(4, 'connect::'), ...$b730Rows(10, '')])],
     [false, true, true, false, false, false]);
+check('3.51 review (third round): a row the brake put back is marked by its reply PUT_BACK – no attempt record looks like it (no colon), and the brake never counts it', [
+    str_contains(B730Mailing::PUT_BACK, ':'), B730Mailing::PUT_BACK !== '',
+    B730Mailing::brakeTripped($b730Rows(B730Mailing::BRAKE_FAILURES, B730Mailing::PUT_BACK)),
+    B730Mailing::brakeTripped([...$b730Rows(4, 'connect::'), $b730Row(B730Mailing::PUT_BACK)])],
+    [false, true, false, false]);

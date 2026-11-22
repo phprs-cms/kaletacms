@@ -112,7 +112,12 @@ final class Scheduler
                 return 'ok';
             },
             'tasks' => fn (App $app): string => Tasks::run($app), // 3.27: due tasks notify their assignee once
-            'mail' => fn (App $app, string $source): string => 'sent ' . Mail::processQueue($app->settings(), $source === 'cron' ? 30 : 10),
+            'mail' => function (App $app, string $source): string {
+                $sent = Mail::processQueue($app->settings(), $source === 'cron' ? 30 : 10);
+                Testimonials::settle($app->db()); // 3.51 review: a request whose queued e-mail was given up is no longer e-mailed
+
+                return 'sent ' . $sent;
+            },
             'webhooks' => fn (App $app, string $source): string => 'delivered ' . Webhook::processQueue($app->settings(), $source === 'cron' ? 30 : 10),
             'newsletter_sync' => fn (App $app): string => 'synced ' . Newsletter::processQueue($app),
             'newsletter_mailing' => fn (App $app): string => 'sent ' . Mailing::processQueue($app),

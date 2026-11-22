@@ -331,10 +331,11 @@ for 30 days; what the customer writes arrives as a hidden draft in References wi
 the link only to a customer – the enquiry's customer record has a won deal or a quote the customer accepted on its page –
 once per enquiry, and only when **Business details** hold the company name and postal address, because the e-mail names its
 sender. Every e-mail carries a refuse link: "Do not write to me" puts the address on the register of addresses we do not
-write to and ends its newsletter subscription; a link you pass on yourself, or one of a request from before 3.51, has no
-such effect. When the mail server does not answer, the e-mail waits in the mail queue and goes out on its own – the screen
-says so, and it still counts as the one e-mail of the enquiry. In every other case the screen (and Claude) says why and
-gives you the link to pass on yourself.
+write to and ends its newsletter subscription. That link is only in the customer's e-mail: the link the screen gives you,
+a link you pass on yourself, or one of a request from before 3.51 has no such effect. When the mail server does not answer,
+the e-mail waits in the mail queue, which keeps trying for about half a day – the screen says so, and meanwhile it counts as
+the one e-mail of the enquiry. If it never gets through, it no longer counts and you can ask again. In every other case the
+screen (and Claude) says why and gives you the link to pass on yourself.
 
 **Where leads came from.** Turn on **Settings → Cookies → Remember where leads came from** and every enquiry and newsletter
 sign-up also records the **first page of the visit**, its campaign and the site that sent the visitor – even when the form
@@ -394,7 +395,8 @@ Business details – and why the e-mail arrived (3.51).
 - **The brake.** When 5 of the last 50 e-mails fail at the mail server (since the start or the last resume) the site pauses
   the send by itself and e-mails its author. Addresses the server refuses as unknown do not trip it while others are being
   delivered – an old list finishes normally. Pausing in a Claude session stays paused when you undo the session. When nothing got through at all (the server refuses the site), the e-mails of
-  that stretch go back to the queue and leave after you resume, after the addresses not tried yet. Check **Settings → Mail** and **System status** first.
+  that stretch go back to the queue and leave after you resume, after the addresses not tried yet (an ordinary retry of a
+  busy or greylisting server still goes at its time). Check **Settings → Mail** and **System status** first.
 - **Addresses that bounced.** An address the server refused as unknown (5.1.1 and its kin) is given up at once and, when
   the newsletter delivered to someone, remembered: later newsletters skip it. A server that refuses everyone can never fill
   that list.

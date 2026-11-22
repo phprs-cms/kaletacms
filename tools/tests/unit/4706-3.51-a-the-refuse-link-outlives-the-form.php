@@ -17,11 +17,23 @@ $a706Insert->execute([2, hash('sha256', $a706Tokens['used']), 'used@example.com'
 $a706Insert->execute([3, hash('sha256', $a706Tokens['expired']), 'old@example.com', date('Y-m-d H:i:s', time() - 40 * 86400), date('Y-m-d H:i:s', time() - 10 * 86400), null]);
 $a706Pdo->exec('UPDATE ka_testimonial_requests SET sent_at = created_at, refuse_link = 1'); // the three were e-mailed with the refuse line (a link only handed out refuses nothing – unit 4720)
 $a706Email = fn (?array $row): ?string => $row === null ? null : (string) $row['email'];
+// 3.51 review (third round): the refuse line carries the code of its token, signed with the site's key
+$a706Key = bin2hex(random_bytes(32));
+$a706Refuse = fn (string $token, ?string $code = null): ?array => A706Testimonials::forRefusal($a706Db, $a706Key, $token, $code ?? A706Testimonials::refuseCode($a706Key, hash('sha256', $token)));
 check('3.51 A5: forRefusal() finds an open, a used and an expired request by its token – the form (find()) only the open one', [
-    $a706Email(A706Testimonials::forRefusal($a706Db, $a706Tokens['open'])), $a706Email(A706Testimonials::forRefusal($a706Db, $a706Tokens['used'])),
-    $a706Email(A706Testimonials::forRefusal($a706Db, $a706Tokens['expired'])),
+    $a706Email($a706Refuse($a706Tokens['open'])), $a706Email($a706Refuse($a706Tokens['used'])),
+    $a706Email($a706Refuse($a706Tokens['expired'])),
     $a706Email(A706Testimonials::find($a706Db, $a706Tokens['open'])), $a706Email(A706Testimonials::find($a706Db, $a706Tokens['used'])), $a706Email(A706Testimonials::find($a706Db, $a706Tokens['expired']))],
     ['open@example.com', 'used@example.com', 'old@example.com', 'open@example.com', null, null]);
 check('3.51 A5: an unknown token or one that is not 32 hex characters finds nothing', [
-    A706Testimonials::forRefusal($a706Db, bin2hex(random_bytes(16))), A706Testimonials::forRefusal($a706Db, strtoupper($a706Tokens['open'])),
-    A706Testimonials::forRefusal($a706Db, $a706Tokens['open'] . 'a'), A706Testimonials::forRefusal($a706Db, '')], [null, null, null, null]);
+    $a706Refuse(bin2hex(random_bytes(16))), $a706Refuse(strtoupper($a706Tokens['open'])),
+    $a706Refuse($a706Tokens['open'] . 'a'), $a706Refuse('')], [null, null, null, null]);
+$a706Code = A706Testimonials::refuseCode($a706Key, hash('sha256', $a706Tokens['open']));
+check('3.51 review (third round): the refuse code – 32 hex characters, the same for the same token and key, another for another token or key; the form link alone (no code, "1", a made-up or another token\'s code, another key\'s code) refuses nothing', [
+    preg_match('/^[a-f0-9]{32}$/D', $a706Code), $a706Code === A706Testimonials::refuseCode($a706Key, hash('sha256', $a706Tokens['open'])),
+    $a706Code === A706Testimonials::refuseCode($a706Key, hash('sha256', $a706Tokens['used'])), $a706Code === A706Testimonials::refuseCode(bin2hex(random_bytes(32)), hash('sha256', $a706Tokens['open'])),
+    $a706Refuse($a706Tokens['open'], ''), $a706Refuse($a706Tokens['open'], '1'), $a706Refuse($a706Tokens['open'], bin2hex(random_bytes(16))),
+    $a706Refuse($a706Tokens['open'], A706Testimonials::refuseCode($a706Key, hash('sha256', $a706Tokens['used']))),
+    $a706Refuse($a706Tokens['open'], A706Testimonials::refuseCode(bin2hex(random_bytes(32)), hash('sha256', $a706Tokens['open']))),
+    $a706Refuse($a706Tokens['open'], strtoupper($a706Code))],
+    [1, true, false, false, null, null, null, null, null, null]);

@@ -22,14 +22,16 @@ A722_QUEUED=$(a722_customer fronta-a722@example.com)
 a722_smtp_down
 A722_FIRST=$(a722_ask "$A722_QUEUED")
 A722_PATH=$(printf '%s' "${A722_FIRST##*|}" | grep -o '/_testimonial/[a-f0-9]\{32\}' || true)
-expect "3.51 A review (second round): with the mail server down the request answers sent + queued, records sent_at and the refuse line, and its message waits in the mail queue" \
-  "${A722_FIRST%|*}|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(sent_at IS NOT NULL), '/', SUM(refuse_link)) FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'fronta-a722@example.com' AND odeslano IS NULL AND telo LIKE '%refuse=1%' AND dalsi_pokus IS NOT NULL AND chyba NOT LIKE '%sender address%'")" \
-  "true|true|-|1/1/1|1"
+expect "3.51 A review (second round): with the mail server down the request answers sent + queued, records sent_at, the refuse line and its queue row, and its message waits in the mail queue with an expiry (a backup leaves its body out – third round)" \
+  "${A722_FIRST%|*}|$(sq "SELECT CONCAT(COUNT(*), '/', SUM(sent_at IS NOT NULL), '/', SUM(refuse_link)) FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")|$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'fronta-a722@example.com' AND odeslano IS NULL AND telo LIKE '%refuse=%' AND telo LIKE '%\"expires\":%' AND dalsi_pokus IS NOT NULL AND chyba NOT LIKE '%sender address%'")|$(sq "SELECT mail_id = (SELECT MAX(idp) FROM ka_posta WHERE komu = 'fronta-a722@example.com') FROM ka_testimonial_requests WHERE idp = $A722_QUEUED")" \
+  "true|true|-|1/1/1|1|1"
 a722_smtp_up
 expect "3.51 A review (second round): the queued request is the one e-mail of its enquiry – a second request says already_sent and queues nothing" \
   "$(a722_ask "$A722_QUEUED" | cut -d'|' -f1-3)|$(sq "SELECT COUNT(*) FROM ka_posta WHERE komu = 'fronta-a722@example.com'")" "false|null|already_sent|1"
-if [ -n "$A722_PATH" ]; then
-  curl -s -o "$WORK/a722.html" -X POST "$B$A722_PATH?refuse=1"
+# the refuse code is only in the queued e-mail (JSON in ka_posta.telo), never in the link MCP returned
+A722_CODE=$(sq "SELECT telo FROM ka_posta WHERE komu = 'fronta-a722@example.com'" | grep -o 'refuse=[a-f0-9]\{32\}' | head -1 | cut -d= -f2 || true)
+if [ -n "$A722_PATH" ] && [ -n "$A722_CODE" ]; then
+  curl -s -o "$WORK/a722.html" -X POST "$B$A722_PATH?refuse=$A722_CODE"
   A722_BLOCKED=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); echo Kaleta\Core\SendRegister::blocked($app->db(), "fronta-a722@example.com") ?? "none";')
   expect "3.51 A review (second round): the refuse link of the queued e-mail works – the customer clicking it is refused, not told the link is no longer valid" \
     "$(grep -c 'Žádosti ani novinky vám už posílat nebudeme' "$WORK/a722.html")|$(grep -c 'Tento odkaz už neplatí' "$WORK/a722.html")|$A722_BLOCKED" "1|0|refused"

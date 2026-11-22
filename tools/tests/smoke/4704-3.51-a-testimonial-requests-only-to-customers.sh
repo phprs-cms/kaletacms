@@ -41,9 +41,9 @@ expect "3.51 A4: no won deal and no accepted quote – the admin gets the reason
 # a customer: one e-mail with the sender and the refuse line; a second request is not e-mailed again
 a704_ask "$A704_CUSTOMER" 1
 A704_MAIL=$(a704_mail zakaznik-a704@example.com)
-A704_LINK=$(printf '%s' "$A704_MAIL" | grep -o '/_testimonial/[a-f0-9]\{32\}?refuse=1' | head -1 || true)
+A704_LINK=$(printf '%s' "$A704_MAIL" | grep -o '/_testimonial/[a-f0-9]\{32\}?refuse=[a-f0-9]\{32\}' | head -1 || true)
 expect "3.51 A4: a customer gets one e-mail – with the sender's line (company and address) and the refuse line with its link; the request remembers it was sent" \
-  "$(a704_mails zakaznik-a704@example.com)|$(printf '%s' "$A704_MAIL" | grep -c 'Odesílatel: Firma A704 s.r.o., Dlouhá 7, 602 00 Brno.')|$(printf '%s' "$A704_MAIL" | grep -c 'Pokud si podobné e-maily od nás nepřejete, dejte nám vědět zde: .*/_testimonial/[a-f0-9]\{32\}?refuse=1')|$(sq "SELECT COUNT(*) FROM ka_testimonial_requests WHERE idp = $A704_CUSTOMER AND sent_at IS NOT NULL")" \
+  "$(a704_mails zakaznik-a704@example.com)|$(printf '%s' "$A704_MAIL" | grep -c 'Odesílatel: Firma A704 s.r.o., Dlouhá 7, 602 00 Brno.')|$(printf '%s' "$A704_MAIL" | grep -c 'Pokud si podobné e-maily od nás nepřejete, dejte nám vědět zde: .*/_testimonial/[a-f0-9]\{32\}?refuse=[a-f0-9]\{32\}')|$(sq "SELECT COUNT(*) FROM ka_testimonial_requests WHERE idp = $A704_CUSTOMER AND sent_at IS NOT NULL")" \
   "1|1|1|1"
 A704_SECOND=$(mcp_call "$A704_TOKEN" request_testimonial "{\"id\":$A704_CUSTOMER,\"send\":true}" | a704_reason)
 expect "3.51 A4: once per enquiry – the second request (MCP, with the code) says already_sent and sends nothing" "$A704_SECOND|$(a704_mails zakaznik-a704@example.com)" "already_sent|not sent|1"

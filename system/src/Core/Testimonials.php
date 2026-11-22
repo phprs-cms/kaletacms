@@ -18,8 +18,9 @@ use Kaleta\Builder\Presets;
  *  - The References collection (preset references) is created when the site has none.
  *  - 3.51 (decision 5): the e-mail goes only to a customer – the enquiry's customer record has a won deal or a quote the
  *    customer accepted themself – once per enquiry, with the sender's identity (Core\SenderIdentity) and a refuse link
- *    (/_testimonial/<token>?refuse=1, Front\TestimonialRefusal), never to an address on the send register. Otherwise the
- *    link is only returned to pass on, with the reason (maySend()).
+ *    (/_testimonial/<token>?refuse=<code>, Front\TestimonialRefusal), never to an address on the send register. Otherwise
+ *    the link is only returned to pass on, with the reason (maySend()). The refuse code (refuseCode()) is a signature of
+ *    the token that only the e-mail carries: the form link staff and Claude get back cannot refuse for the customer.
  */
 final class Testimonials
 {
@@ -44,7 +45,8 @@ final class Testimonials
     /**
      * Creates a request for an enquiry with an e-mail address; sends the e-mail when asked and allowed (3.51, maySend()).
      * Returns the link (absolute), whether the e-mail went out (sent – also when the mail server did not answer and the
-     * message waits in the mail queue, then queued: true), and why not when it was asked for and refused.
+     * message waits in the mail queue, then queued: true), and why not when it was asked for and refused. The link is the
+     * form only – the refuse line of the e-mail is never returned (refuseCode()).
      *
      * @return array{link: string, sent: bool, queued?: true, reason?: string}
      * @throws \DomainException when the enquiry has no e-mail address
@@ -57,10 +59,14 @@ final class Testimonials
         if ($enquiry === null || filter_var((string) $enquiry['email'], FILTER_VALIDATE_EMAIL) === false) {
             throw new \DomainException('The enquiry has no e-mail address to send the request to.');
         }
+        if ($send) {
+            self::settle($db); // a request whose queued e-mail the queue gave up on no longer counts as e-mailed
+        }
         $reason = $send ? self::maySend($db, $s, $enquiry) : null;
         $token = bin2hex(random_bytes(16));
+        $expires = time() + self::DAYS * 86400;
         $id = $db->insert('testimonial_requests', ['idp' => $idp, 'token_hash' => hash('sha256', $token), 'email' => (string) $enquiry['email'],
-            'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', time() + self::DAYS * 86400)]);
+            'created_at' => date('Y-m-d H:i:s'), 'expires_at' => date('Y-m-d H:i:s', $expires)]);
         $link = Mailing::absolute($app, '_testimonial/' . $token);
         $sent = $queued = false;
         if ($send && $reason === null) {
@@ -68,17 +74,20 @@ final class Testimonials
             // in the language of the version the customer wrote from, not of the admin who clicked
             $language = SavedReplies::languageOf($s, $enquiry);
             $identity = (string) SenderIdentity::line($s, $language); // maySend() made sure it exists
-            $refuse = strtr($s->wording('mail_refuse_text', $language), ['{{link}}' => $link . '?refuse=1']);
+            $refuse = strtr($s->wording('mail_refuse_text', $language), ['{{link}}' => $link . '?refuse=' . self::refuseCode((new Antispam($db, $s))->key(), hash('sha256', $token))]);
             [$subject, $text] = Language::runWith($language !== '' ? $language : Language::defaults($s), fn (): array => [t('Would you share your experience with %s?', $site),
                 t("Hello,\n\nthank you for working with us. Would you write a few words about your experience? It takes a minute, and we publish it only with your consent:\n\n%s\n\nThe link works for %d days.\n\n%s", $link, self::DAYS, $site)]);
-            $delivered = Mail::send($s, (string) $enquiry['email'], $subject, $text . "\n\n-- \n" . $identity . "\n" . $refuse . "\n");
+            // expires (3.51 review): a backup never carries the queued body with its live links, and a copy the queue still holds
+            // when the link stops working is dropped instead of sent
+            $delivered = Mail::send($s, (string) $enquiry['email'], $subject, $text . "\n\n-- \n" . $identity . "\n" . $refuse . "\n", expires: $expires);
             // 3.51 review: a failed first attempt still leaves the message in the mail queue (ka_posta), which delivers it later
             // with its refuse line – that e-mail exists, so the request counts as e-mailed (once per enquiry) and its refuse link
-            // works. Only when not even the queue row could be written does no e-mail exist: then nothing is recorded.
+            // works. The queue row is remembered (mail_id): when the queue gives up on it, settle() takes it back. Only when not
+            // even the queue row could be written does no e-mail exist: then nothing is recorded.
             $queued = !$delivered && Mail::$lastId !== null;
             $sent = $delivered || $queued;
             if ($sent) {
-                $db->update('testimonial_requests', ['sent_at' => Clock::now(), 'refuse_link' => 1], ['id' => $id]);
+                $db->update('testimonial_requests', ['sent_at' => Clock::now(), 'refuse_link' => 1, 'mail_id' => $queued ? Mail::$lastId : null], ['id' => $id]);
             }
         }
         \Kaleta\Core\ChangeLog::write($app, 'enquiries', 'testimonial_request', '#' . $idp . ($sent ? ($queued ? ' (e-mail queued)' : ' (e-mail)') : ($reason !== null ? ' (' . $reason . ')' : '')));
@@ -113,6 +122,33 @@ final class Testimonials
         return $customer ? null : 'not_a_customer';
     }
 
+    /**
+     * 3.51 review: the requests whose e-mail waited in the mail queue (mail_id) learn how it ended – delivered: the row is
+     * forgotten (the request stays e-mailed); given up (no delivery and no further attempt: the retries ran out, the link
+     * expired, it was withdrawn): the request was never e-mailed after all – sent_at and refuse_link go, so the enquiry may
+     * be asked again and nothing can refuse through it. A queue row gone already (its log is kept 30 days) leaves the request
+     * as it is. Runs with the mail queue (Scheduler) and before request() asks maySend().
+     */
+    public static function settle(Db $db): void
+    {
+        try {
+            $db->run('UPDATE {testimonial_requests} SET mail_id = NULL WHERE mail_id IN (SELECT idp FROM {posta} WHERE odeslano IS NOT NULL)');
+            $db->run('UPDATE {testimonial_requests} SET sent_at = NULL, refuse_link = 0, mail_id = NULL
+                WHERE mail_id IN (SELECT idp FROM {posta} WHERE odeslano IS NULL AND dalsi_pokus IS NULL)');
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // the mail log (or mail_id before the migration) missing – nothing to settle now
+        }
+    }
+
+    /**
+     * 3.51 review: the code of the refuse line (…?refuse=<code>) – a signature of the request's token hash with the site's key,
+     * 32 hex characters. Only the e-mail carries it; the link request() returns to staff and Claude is the form without it.
+     */
+    public static function refuseCode(string $key, string $tokenHash): string
+    {
+        return substr(hash_hmac('sha256', 'testimonial-refuse|' . $tokenHash, $key), 0, 32);
+    }
+
     /** The open request of a token from a link: not used, not expired; null otherwise. @return array<string, mixed>|null */
     public static function find(Db $db, string $token): ?array
     {
@@ -124,22 +160,26 @@ final class Testimonials
     }
 
     /**
-     * 3.51: the request of a refuse link (…/_testimonial/<token>?refuse=1) by its token alone – used and expired requests
-     * too: a person may refuse for as long as the request is kept, not only while the form works. Only a request whose
-     * e-mail carried the refuse line (refuse_link, set by request() when it e-mailed or queued the message): the refuse link
-     * exists only in that e-mail – a link handed out by staff or Claude, or one of a request from before 3.51 (its e-mail had
-     * no refuse line), must not let anyone put a customer on the register and end the subscription (3.51 review). Null for
-     * an unknown token.
+     * 3.51: the request of a refuse link (…/_testimonial/<token>?refuse=<code>) – used and expired requests too: a person may
+     * refuse for as long as the request is kept, not only while the form works. Only a request whose e-mail carried the
+     * refuse line (refuse_link, set by request() when it e-mailed or queued the message) and only with that line's code
+     * (refuseCode()): the refuse link exists only in that e-mail – the form link staff or Claude got back, a link only
+     * handed out, or one of a request from before 3.51 (its e-mail had no refuse line) must not let anyone put a customer on
+     * the register and end the subscription (3.51 review). Null for an unknown token or a wrong code.
      *
      * @return array<string, mixed>|null
      */
-    public static function forRefusal(Db $db, string $token): ?array
+    public static function forRefusal(Db $db, string $key, string $token, string $code): ?array
     {
-        if (preg_match('/^[a-f0-9]{32}$/D', $token) !== 1) {
+        if (preg_match('/^[a-f0-9]{32}$/D', $token) !== 1 || preg_match('/^[a-f0-9]{32}$/D', $code) !== 1) {
+            return null;
+        }
+        $hash = hash('sha256', $token);
+        if (!hash_equals(self::refuseCode($key, $hash), $code)) {
             return null;
         }
 
-        return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ? AND refuse_link = 1', [hash('sha256', $token)]);
+        return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ? AND refuse_link = 1', [$hash]);
     }
 
     /** The two consents, as the customer sees them. @return array{words: string, photo: string} */
