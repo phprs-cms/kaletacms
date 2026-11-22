@@ -9,10 +9,13 @@
  *     a person created for someone else is theirs to answer for) stays true for tasks that exist.
  *  3. ka_testimonial_requests.sent_at = created_at for every request made before the update (3.51 review): which of them
  *     went out by e-mail is known only from the change log's text, so each counts as e-mailed – the enquiry is not e-mailed a
- *     second time ("once per enquiry", reason already_sent); the link can still be passed on by hand.
+ *     second time ("once per enquiry", reason already_sent); the link can still be passed on by hand. refuse_link stays 0:
+ *     an e-mail sent before 3.51 never carried the refuse line, so none of these requests can be refused by its link – a
+ *     link that was only handed to staff or Claude puts nobody on the send register.
  *
  * Safe to run again: every step touches only rows that are still empty and gives the same result (a second run would also
- * count a request made since as e-mailed – the careful side: it only stops a second e-mail). Self-contained on purpose:
+ * count a request made since without an e-mail as e-mailed – the careful side: it only stops a second e-mail, and such a
+ * row keeps refuse_link 0, so it still refuses nothing). Self-contained on purpose:
  * the update request of the release before runs this file with its own classes already loaded, so the languages are read
  * from the stored settings here (site_language, additional_languages, site_url), not through Core\Language.
  */

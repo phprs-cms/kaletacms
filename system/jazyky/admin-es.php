@@ -9580,4 +9580,5 @@ return [
     'deleted collection' => 'colección eliminada',
     'This connection lists every tool – about %d kB in each conversation. Essentials, Work or Migration load a fraction of it and find the other tools when needed.' => 'Esta conexión carga todas las herramientas – unos %d kB en cada conversación. Básicas, Trabajo o Migración cargan una fracción y encuentran las demás herramientas cuando las necesitan.',
     'About %d kB in each conversation; the other sets load a fraction of it.' => 'Unos %d kB en cada conversación; los demás conjuntos cargan una fracción.',
+    'The mail server did not answer – the request waits in the mail queue and goes out on its own. The link: %s' => 'El servidor de correo no respondió: la solicitud espera en la cola de correo y saldrá sola. El enlace: %s',
 ];

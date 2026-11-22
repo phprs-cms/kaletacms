@@ -228,11 +228,19 @@ final class Mailing
     }
 
     /**
-     * 3.51 review: the confirmed subscribers a newsletter can reach – without the addresses on the send register, which the
-     * send skips. The campaign name (TAG_MIN) is decided by this number: five subscribers of whom three bounced are two people.
+     * 3.51 review: how many confirmed subscribers a newsletter can reach, as far as the campaign name (TAG_MIN) needs it –
+     * the addresses on the send register are skipped by the send: five subscribers of whom three bounced are two people.
+     * The number is exact only while it can be below TAG_MIN: when the confirmed subscribers minus every row of the register
+     * still reach TAG_MIN, that lower bound is returned without reading and fingerprinting every address (a list of
+     * thousands is rendered for each preview). Not for showing as a count of recipients.
      */
-    public static function reachableCount(Db $db): int
+    public static function reachableForCampaign(Db $db): int
     {
+        $atLeast = self::confirmedCount($db) - array_sum(SendRegister::counts($db));
+        if ($atLeast >= self::TAG_MIN) {
+            return $atLeast;
+        }
+
         return SendRegister::reachable($db, array_map('strval', array_column($db->all('SELECT email FROM {odberatele} WHERE stav = 1'), 'email')));
     }
 
@@ -344,7 +352,7 @@ final class Mailing
     private static function start(App $app, array $n): void
     {
         $db = $app->db();
-        $n['tag_recipients'] = self::reachableCount($db); // 3.51 (B7): the campaign name depends on the number, taken before the render
+        $n['tag_recipients'] = self::reachableForCampaign($db); // 3.51 (B7): the campaign name depends on the number, taken before the render
         [$html, $text] = self::render($app, $n);
         // only one caller starts it (cron and an admin click may meet)
         if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = ?, html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [Clock::now(), $html, $text, $n['id']])->rowCount() === 0) {
@@ -379,10 +387,17 @@ final class Mailing
         $sent = 0;
         $newsletters = [];
         $stopped = []; // newsletters the brake paused in this call: their remaining rows wait
-        // rows never tried first: the ones the brake put back (they keep their attempts) and retries come after them
-        $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
+        // in the order of the list as in 3.50 – untried rows and due retries (a greylisted address keeps its RETRY_MINUTES);
+        // the rows the brake put back (tried before, their answer cleared: attempts > 0, tried_at NULL) only when nothing
+        // else is due, so five dead addresses at the head of a list cannot pause it after every resume (3.51 review). Two
+        // reads in the order of the primary key instead of one sort over the whole queue.
+        $select = "SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
             JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {odberatele} o ON o.ido = q.subscriber_id
-            WHERE q.next_attempt <= ? ORDER BY q.attempts, q.id LIMIT " . (int) $allowed, [Clock::now()]);
+            WHERE q.next_attempt <= ? AND ";
+        $rows = $allowed <= 0 ? [] : $db->all($select . '(q.attempts = 0 OR q.tried_at IS NOT NULL) ORDER BY q.id LIMIT ' . (int) $allowed, [Clock::now()]);
+        if ($allowed > count($rows)) {
+            $rows = array_merge($rows, $db->all($select . 'q.attempts > 0 AND q.tried_at IS NULL ORDER BY q.id LIMIT ' . ($allowed - count($rows)), [Clock::now()]));
+        }
         foreach ($rows as $q) {
             $newsletterId = (int) $q['newsletter_id'];
             // claim the row first: a concurrent call does not send the same e-mail twice, and nothing goes after a pause or a cancel
@@ -487,9 +502,9 @@ final class Mailing
      * window delivered nothing (the server refuses the site, not the addresses), its failed rows go back to the queue without
      * their answer – they go out after the resume and none of them can reach the register. They keep their attempts, and a
      * row that used its last one is not put back, so an address that fails after every resume is given up in the end and
-     * no resume repeats the same pause for ever (3.51 review). The send takes the rows never tried first, so after a resume
-     * the untried addresses go before the put-back ones – five dead addresses at the head of a list cannot pause it again
-     * and again. true = the send was paused now.
+     * no resume repeats the same pause for ever (3.51 review). The send takes a put-back row only when no other row is due,
+     * so after a resume the untried addresses go before the put-back ones – five dead addresses at the head of a list cannot
+     * pause it again and again. true = the send was paused now.
      */
     private static function brake(App $app, int $id): bool
     {
@@ -631,7 +646,7 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $n['tag_recipients'] ??= self::reachableCount($db); // 3.51 (B7): the campaign name of the links depends on it
+        $n['tag_recipients'] ??= self::reachableForCampaign($db); // 3.51 (B7): the campaign name of the links depends on it
         $published = 'visible = 1 AND datum <= ? AND smazano IS NULL'; // the first parameter of both queries: Clock::now()
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
@@ -662,7 +677,7 @@ final class Mailing
     {
         $s = $app->settings();
         $language = (string) $n['language'] !== '' ? (string) $n['language'] : Language::defaults($s);
-        $n['tag_recipients'] ??= self::reachableCount($app->db()); // 3.51 (B7): the same number for the preview and the send
+        $n['tag_recipients'] ??= self::reachableForCampaign($app->db()); // 3.51 (B7): the same number for the preview and the send
 
         return Language::runWith($language, function () use ($app, $s, $n, $language): array {
             $ds = DesignSystem::load($s);
@@ -735,7 +750,7 @@ final class Mailing
     /** Links to the site carry utm parameters, so the site's cookie-free statistics show visits from the newsletter. */
     private static function campaign(App $app, string $url, array $n): string
     {
-        return self::campaignUrl(self::origin($app), $url, (string) $n['subject'], (int) ($n['id'] ?? 0), (int) ($n['tag_recipients'] ?? self::reachableCount($app->db())));
+        return self::campaignUrl(self::origin($app), $url, (string) $n['subject'], (int) ($n['id'] ?? 0), (int) ($n['tag_recipients'] ?? self::reachableForCampaign($app->db())));
     }
 
     /**

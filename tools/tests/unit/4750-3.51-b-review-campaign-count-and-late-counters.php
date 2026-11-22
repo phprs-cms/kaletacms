@@ -14,18 +14,18 @@ $b750Pdo->exec('CREATE TABLE ka_restore_ledger (id INTEGER PRIMARY KEY AUTOINCRE
 $b750Pdo->exec("INSERT INTO ka_restore_ledger (kind, hash, created_at) VALUES ('key', '" . str_repeat('cd', 32) . "', '2026-11-22 10:00:00')");
 $b750Pdo->exec('CREATE TABLE ka_odberatele (ido INTEGER PRIMARY KEY, email TEXT NOT NULL, stav INTEGER NOT NULL)');
 $b750Pdo->exec("INSERT INTO ka_odberatele (email, stav) VALUES ('a@example.com', 1), ('b@example.com', 1), ('c@example.com', 1), ('Dead1@Example.com', 1), ('dead2@example.com', 1), ('waiting@example.com', 0)");
-$b750Before = [B750Mailing::confirmedCount($b750Db), B750Mailing::reachableCount($b750Db)];
+$b750Before = [B750Mailing::confirmedCount($b750Db), B750Mailing::reachableForCampaign($b750Db)];
 $b750Put = fn (string $kind, string $email) => $b750Pdo->prepare('INSERT INTO ka_restore_ledger (kind, hash, created_at) VALUES (?, ?, ?)')->execute([$kind, B750Ledger::fingerprint($b750Db, $email), '2026-11-22 10:00:00']);
 $b750Put('bounced', 'dead1@example.com');
 $b750Put('refused', 'dead2@example.com');
 $b750Put('unsubscribed', 'a@example.com');
 $b750Put('refused', 'waiting@example.com');
 check('3.51 B review: five confirmed with one bounced and one refused can reach three – an unsubscribed record and an unconfirmed address change nothing; an empty register reaches all five', [
-    $b750Before, B750Mailing::confirmedCount($b750Db), B750Mailing::reachableCount($b750Db), B750Register::reachable($b750Db, []), B750Register::reachable($b750Db, ['x@example.com', ' DEAD1@example.com '])],
+    $b750Before, B750Mailing::confirmedCount($b750Db), B750Mailing::reachableForCampaign($b750Db), B750Register::reachable($b750Db, []), B750Register::reachable($b750Db, ['x@example.com', ' DEAD1@example.com '])],
     [[5, 5], 5, 3, 0, 1]);
 check('3.51 B review: fingerprints() gives what fingerprint() gives, address by address', B750Ledger::fingerprints($b750Db, ['A@example.com', 'b@example.com']),
     [B750Ledger::fingerprint($b750Db, 'a@example.com'), B750Ledger::fingerprint($b750Db, 'b@example.com')]);
-check('3.51 B review (unit 4734 case): 5 confirmed of whom 2 are on the register give no utm_campaign', B750Mailing::campaignUrl('https://firma.example', 'https://firma.example/novinky', 'Jaro', 9, B750Mailing::reachableCount($b750Db)),
+check('3.51 B review (unit 4734 case): 5 confirmed of whom 2 are on the register give no utm_campaign', B750Mailing::campaignUrl('https://firma.example', 'https://firma.example/novinky', 'Jaro', 9, B750Mailing::reachableForCampaign($b750Db)),
     'https://firma.example/novinky?utm_source=newsletter&utm_medium=email');
 
 // the counter update of an attempt that ends after the newsletter ended: finish() counted that row as skipped

@@ -331,8 +331,10 @@ for 30 days; what the customer writes arrives as a hidden draft in References wi
 the link only to a customer – the enquiry's customer record has a won deal or a quote the customer accepted on its page –
 once per enquiry, and only when **Business details** hold the company name and postal address, because the e-mail names its
 sender. Every e-mail carries a refuse link: "Do not write to me" puts the address on the register of addresses we do not
-write to and ends its newsletter subscription. In every other case the screen (and Claude) says why and gives you the link
-to pass on yourself.
+write to and ends its newsletter subscription; a link you pass on yourself, or one of a request from before 3.51, has no
+such effect. When the mail server does not answer, the e-mail waits in the mail queue and goes out on its own – the screen
+says so, and it still counts as the one e-mail of the enquiry. In every other case the screen (and Claude) says why and
+gives you the link to pass on yourself.
 
 **Where leads came from.** Turn on **Settings → Cookies → Remember where leads came from** and every enquiry and newsletter
 sign-up also records the **first page of the visit**, its campaign and the site that sent the visitor – even when the form

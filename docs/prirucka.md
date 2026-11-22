@@ -308,7 +308,9 @@ co zákazník napíše, přijde jako skrytý koncept do Referencí se souhlasem,
 zákazníkovi – jeho zákaznický záznam má vyhraný obchod nebo nabídku, kterou zákazník přijal na její stránce – jednou na
 poptávku a jen tehdy, když **Údaje firmy** obsahují název firmy a poštovní adresu, protože e-mail uvádí odesílatele.
 Každý e-mail nese odkaz pro odmítnutí: „Nepište mi“ zapíše adresu do registru adres, na které nepíšeme, a ukončí její
-odběr novinek. Ve všech ostatních případech obrazovka (i Claude) řekne proč a dá vám odkaz, který předáte sami.
+odběr novinek; odkaz, který předáte sami, ani odkaz žádosti z doby před 3.51 tohle nedokáže. Když poštovní server
+neodpoví, e-mail počká ve frontě pošty a odejde sám – obrazovka to řekne a počítá se jako ten jeden e-mail poptávky. Ve
+všech ostatních případech obrazovka (i Claude) řekne proč a dá vám odkaz, který předáte sami.
 
 **Odkud poptávky přišly.** Zapněte **Nastavení → Cookies → Pamatovat si, odkud poptávky přišly** a každá poptávka i přihláška
 k odběru uloží i **první stránku návštěvy**, její kampaň a web, ze kterého návštěvník přišel – i když je formulář na jiné

@@ -202,10 +202,12 @@ trait EnquiryAndPopupTools
         }
         $result = \Kaleta\Core\Testimonials::request($this->app, (int) ($a['id'] ?? 0), !empty($a['send']));
 
-        // 3.51: reason (additive) – sender_missing | not_a_customer | already_sent | refused | bounced when send=true was refused
-        return $result + ['next' => $result['sent'] ? 'The customer got the link by e-mail. Their answer will be a hidden draft in References – publish it when the user approves.'
+        // 3.51: reason (additive) – sender_missing | not_a_customer | already_sent | refused | bounced when send=true was refused;
+        // queued (additive, 3.51 review) – the mail server did not answer, the mail queue delivers the e-mail later
+        return $result + ['next' => isset($result['queued']) ? 'The mail server did not answer; the e-mail waits in the mail queue and goes out on its own – do not send the link by hand as well. Their answer will be a hidden draft in References.'
+            : ($result['sent'] ? 'The customer got the link by e-mail. Their answer will be a hidden draft in References – publish it when the user approves.'
             : (isset($result['reason']) ? \Kaleta\Core\Testimonials::REASONS[$result['reason']] . ' The link works once, for 30 days.'
-            : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.')];
+            : 'Pass the link to the customer (it works once, for 30 days). Their answer will be a hidden draft in References.'))];
     }
 
     /** reply_to_enquiry (3.22, C10): a real e-mail to the enquiry's own address, only with confirm=true */
