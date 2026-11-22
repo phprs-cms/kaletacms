@@ -53,8 +53,10 @@ for b2_page in 'module=settings&tab=general' 'module=settings&tab=languages' 'mo
 done
 b2_settings "$WORK/b2-after"
 expect "3.50 B2: the fifteen settings forms (the tabs, Business details, Claude settings, System status) post back with a redirect" "$B2_CODES" "$(printf ' 302%.0s' $(seq 1 15))"
+# notification_check and link_check_time are clocks of background work (Notifications::process, Links) that a request may run
+# during the fifteen posts – on a loaded full run more than a minute passes (3.50.1 release review: no longer a timing flake)
 expect "3.50 B2: saving every settings form unchanged leaves every setting reading what it read before (a row written with its default included)" \
-  "$(diff "$WORK/b2-before" "$WORK/b2-after" | grep '^[<>]' | sed 's/=.*//' | tr '\n' ' ')" ""
+  "$(diff "$WORK/b2-before" "$WORK/b2-after" | grep '^[<>]' | grep -vE '^[<>] (notification_check|link_check_time)=' | sed 's/=.*//' | tr '\n' ' ')" ""
 
 # update_settings: an allowed key is stored, a key only for the administration is refused, an undeclared company_ key is an invalid value
 B2_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
