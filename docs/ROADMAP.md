@@ -6,15 +6,15 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.50.1 closed the findings of the re-audit after 3.50 (whistleblowing limits, retention confirmed on one screen, job
-application forms locked tighter, Core without calls into the administration, every section in the guide). The next
-releases, in number order: **3.51** honest sending – a newsletter never reaches an address that refused or bounced, a bad
-send pauses itself, and room in the MCP tool set; **3.52** audiences by consent – a newsletter to the confirmed
-subscribers of its language or to customers, consent proved at the form, a results line per newsletter; **3.53** waiting
-for the customer – which enquiries wait for an answer from outside, and a support filter only where sites need it;
-**3.54** collection pages without holes – no heading over an empty field, no list of everything on an item page, and the
-sanitizers say what they dropped; **3.55** recovery – restoring from the off-site copy, and updates that check the
-host's PHP extensions first. A re-audit follows. Each release lists what it brought in the changelog when it ships.
+3.51 made sending honest: a newsletter skips addresses that bounced or refused, a send that keeps failing pauses itself
+and can be paused, resumed or cancelled, every newsletter names its sender, testimonial requests go only to customers
+with a way to refuse, and the MCP work set has room again. The next releases, in number order: **3.52** audiences by
+consent – a newsletter to the confirmed subscribers of its language or to customers, consent proved at the form, a
+results line per newsletter; **3.53** waiting for the customer – which enquiries wait for an answer from outside, and a
+support filter only where sites need it; **3.54** collection pages without holes – no heading over an empty field, no
+list of everything on an item page, and the sanitizers say what they dropped; **3.55** recovery – restoring from the
+off-site copy, and updates that check the host's PHP extensions first. A re-audit follows. Each release lists what it
+brought in the changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 

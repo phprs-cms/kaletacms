@@ -4,6 +4,78 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.51.0 – honest sending: the send register, pause and the brake, the sender named, testimonial requests to customers, MCP room (22 November 2026)
+
+A newsletter never reaches an address that bounced or said no, the sender can stop a bad send and a send that keeps
+failing stops itself, and the MCP work set and server instructions have room again. Added by the owner on 22 November
+2026: team totals that reassignment cannot plant (SECURITY-3, N148), the application form watch on collection item
+templates, and the e-mail texts a lawyer should check, shipped as marked, editable defaults. **Database 139** (two
+migrations, 0138 `.sql` and 0139 `.php`). **MCP:** shorter descriptions, `send_newsletter` gains `pause`, new output keys
+only (`tools/contracts.php` additive).
+
+1. **The send register.** Addresses that a mail server refused as non-existent at RCPT (enhanced codes 5.1.1, 5.1.2,
+   5.1.3, 5.1.6, 5.1.10 – never codes about the sender) and addresses whose owner pressed "do not write to me" are
+   remembered as one-way fingerprints only (`Core\SendRegister`, kinds `bounced` and `refused` in `ka_restore_ledger`,
+   outside every backup). A bounce is recorded when its newsletter ends and only when that newsletter delivered at least
+   one e-mail, so a server that refuses everyone can never fill the register. Newsletters and testimonial requests skip
+   register addresses without an attempt. An administrator lifts a bounce on Subscribers (`subscribers.lift`); a refusal
+   ends only with a new confirmed sign-up, and an address on the register gets the confirmation e-mail at most once in 7
+   days. Erasure keeps the fingerprint and says so; `find_personal_data` names it (`register`), the processing record
+   explains it.
+2. **Sending.** A newsletter under way can be paused, resumed and cancelled (Newsletters; `send_newsletter` `pause: true`
+   in MCP, at once and without a code – resume and cancel stay in the administration). **The brake:** 5 failed SMTP
+   attempts among the last 50 since the start or the resume pause the send and e-mail its author once; refusals of a
+   recipient's address do not count while the same window delivers, failures before SMTP (demo, invalid address) never
+   count, and when the window delivered nothing its rows go back to the queue. A refused address fails at once (no three
+   retries); temporary failures keep the retries. A paused send is cancelled after 7 days (also with SMTP switched off),
+   cancelled queue rows are kept for a day for the hourly limit. Each attempt stores its stage and reply code
+   (`Core\Mail::lastResult()`); the per-row claim re-checks that the newsletter is still sending, so a pause or a second
+   cron process cannot send more. When a newsletter ends, recipients = sent + failed + skipped (`skipped_count`). A
+   restored backup brings a paused newsletter back cancelled, never resumable. Warnings before sending (missing SPF or
+   DMARC, a connected mailing service) on the form and in `list_newsletters`; System status and the hand-over checklist
+   name a missing sender and a paused newsletter.
+3. **The sender and the reason.** A newsletter needs the company name and postal address (Business details): without
+   them it is refused, and a scheduled one goes back to draft with a change-log line and an e-mail to its author. Three
+   texts per language on Settings → Mail – the sender line (`mail_identity`), why the newsletter arrives
+   (`newsletter_reason`) and the refuse line of a testimonial request (`mail_refuse_text`) – with translated defaults
+   marked "default wording – not legal advice; have it checked". An empty field always means the default of the reader's
+   own language (`Settings::wording()`). Claude cannot change them. Newsletter links to fewer than five recipients carry
+   no campaign name; from five `utm_campaign=<subject>-n<id>`.
+4. **Subscribers.** The language version a person signed up in is stored (`ka_odberatele.language`, backfilled from the
+   sign-up address or the contact); Subscribers show the confirmed and waiting count per language, the register counts,
+   a Language column on multilingual sites and a bounced or refused mark per row; the CSV gains the language.
+5. **Testimonial requests.** E-mailed only to a customer – a won deal (Pipeline) or a quote the customer accepted (Quotes)
+   – once per enquiry, never to a register address, and only when the sender line can be filled; the e-mail is in the
+   language of the enquiry's page and ends with the sender line and a refuse link. Otherwise the request is created and
+   the screen and `request_testimonial` (`reason`) say why it was not e-mailed, with the link to pass on. The refuse page
+   (`/_testimonial/<token>?refuse=1`) works as long as the request exists, also after the form expired; a GET only asks,
+   the button records the refusal and ends a newsletter subscription. No address is in the link or on the page.
+6. **MCP.** Release tags are gone from the descriptions of the focused sets and five long descriptions are shorter: work
+   53,998 → 53,109 bytes, essentials 48,132 → 47,745, migration 48,257 → 47,852, fleet 27,433 → 27,280, every tool 211,305.
+   The QUOTES instruction block is 417 bytes (was 817; the prompts `office_day` and `set_up_quotes` carry the detail); the
+   instructions as served are 6,904 bytes (base), 7,776 (every block but the fleet one), 7,534 (base and fleet). New
+   output keys: `site_info.connection.tool_set` and, for a connection that lists every tool, `connection.hint`;
+   `list_newsletters` and `send_newsletter` give paused, cancelled and skipped counts, `paused_at`, `pause_reason`,
+   `cancel_on` and `warnings`; `request_testimonial` gives `reason`; `find_personal_data` gives `register`. My account
+   and the consent card show the cost of an "all tools" connection.
+7. **Team summary.** Enquiries, tasks, deals and quotes record who last changed the responsible person (`assigned_by`,
+   stamped only when the person changes; a rule of the site leaves it empty; existing tasks take their creator). Work the
+   viewer put on someone else – a reassigned task, an assigned enquiry, a changed deal or quote owner, a colleague's deal
+   the viewer won or a quote the viewer marked accepted – no longer lifts a count over the threshold of the viewer's team
+   totals. Totals, the administrator's per-person rows, the monthly report and MCP keys are unchanged.
+8. **Job application forms.** The hourly watch covers the published item templates of collections: any form in the item
+   template of a jobs collection (also inside a component) and a form with the purpose "job applicant" elsewhere. It
+   rings when item pages are switched off or the form is hidden, never because the last vacancy closed.
+9. **Updating.** Database 139: 0138 adds the columns of the release, 0139 backfills subscriber languages and task
+   assigners. What an existing site notices: a newsletter without the company name and address is refused (and a
+   scheduled one returns to draft); testimonial e-mails follow the customer rule; newsletter links to fewer than five
+   recipients carry no campaign name; a refused address fails at once instead of after three attempts.
+10. **Still open.** Team summary: anyone with Enquiries can set a colleague's finished enquiry back to open, and an
+    enquiry routed by a department rule counts for its person (N148 stays partly open). Category templates of collections
+    are not watched; the builder locks of a jobs template's form still decide by purpose. Resume and cancel of a
+    newsletter only in the administration. The default e-mail texts wait for a lawyer's review (approved wording ships in
+    3.51.1). Lows left in touched files: L2, L8 (`Core\Mail`), N151 b (`Core\Health`), N129–N132 (applications).
+
 ## 3.50.1 – gate fixes: whistleblowing limits, retention confirmed, application forms locked tighter, Core without admin calls, the whole guide (21 November 2026)
 
 The fixes of the four-view re-audit after 3.50, the gate before 3.51: the one confirmed Medium finding (a whistleblowing
