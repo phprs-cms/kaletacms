@@ -27,8 +27,8 @@ trait HealthTools
     public static function healthToolsDefinitions(): array
     {
         return [
-            'get_health' => ['The health of the site in one read (administrators, read-only, 2.8): the overall status and every check that is not fine (server, database, security, mail, backups, updates, domain…), the background jobs with their last run and failures in a row, when cron last ran, the last backup and the problem events of the last 7 days. Use it before you diagnose anything.', Schema::object([])],
-            'list_events' => ['What happened on the site (administrators, read-only, 2.8): enquiries received, publishing, backups, updates, failed e-mail and webhooks, 404 spikes, background job failures and recoveries. Oldest first after since_id – keep next_since_id to ask only for what is new next time. No personal data.',
+            'get_health' => ['The health of the site in one read (administrators, read-only): the overall status and every check that is not fine (server, database, security, mail, backups, updates, domain…), the background jobs with their last run and failures in a row, when cron last ran, the last backup and the problem events of the last 7 days. Use it before you diagnose anything.', Schema::object([])],
+            'list_events' => ['What happened on the site (administrators, read-only): enquiries received, publishing, backups, updates, failed e-mail and webhooks, 404 spikes, background job failures and recoveries. Oldest first after since_id – keep next_since_id to ask only for what is new next time. No personal data.',
                 Schema::object(['since_id' => Schema::number('only events after this id (from next_since_id of the previous call); 0 = from the start'), 'days' => Schema::number('without since_id: only the last N days (1–180)'),
                     'types' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'types or prefixes ending with a dot, e.g. ["backup.", "enquiry.received"]'],
                     'min_severity' => Schema::text('info (default) | warning | error'), 'limit' => Schema::number('1–200, default 50')])],

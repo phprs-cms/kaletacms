@@ -31,21 +31,21 @@ trait DealTools
     public static function dealToolsDefinitions(): array
     {
         return [
-            'list_deals' => ['The deals of the pipeline (read-only, 3.31, users with the pipeline): title, stage, status (open | won | lost), value and currency, the contact, company and responsible person, expected close, the lost reason, the enquiry it came from; and the stages in order. Names customers: list them when the user asks. Open deals by expected close by default.',
+            'list_deals' => ['The deals of the pipeline (read-only, users with the pipeline): title, stage, status (open | won | lost), value and currency, the contact, company and responsible person, expected close, the lost reason, the enquiry it came from; and the stages in order. Names customers: list them when the user asks. Open deals by expected close by default.',
                 Schema::object(['status' => Schema::text('open (default) | closed | won | lost | all'), 'stage' => Schema::text('a stage key (stages)'), 'owner' => Schema::text('a user id, e-mail or "me"; "none" = nobody is responsible'),
                     'contact' => Schema::number('only the deals of this contact id'), 'company' => Schema::number('only the deals of this company id'), 'search' => Schema::text('a word in the title, contact or company'),
-                    'next_step' => Schema::text('"none" = deals with no open task (3.44)'),
+                    'next_step' => Schema::text('"none" = deals with no open task'),
                     'page' => Schema::number('page, default 1'), 'limit' => Schema::number('1–100, default 25')])],
-            'save_deal' => ['Creates a deal, or changes the given fields of one with id (3.31, users with the pipeline). enquiry = a new deal from that enquiry (3.32: the title from who and what – the name of the person and the first words of the message, unless title is given –, its customer, its handler as responsible; one open deal per enquiry). A new deal starts in the first open stage (or stage); move it later with move_deal. Value: a number >= 0 with a currency (ISO code, e.g. EUR, CZK). '
-                . 'NOT UNDOABLE: deals point to customers and never enter the undo journal. Never shown on the site.',
-                Schema::object(['id' => Schema::number('deal id to change; without it a new deal'), 'enquiry' => Schema::number('create the deal from this enquiry id (list_enquiries)'), 'title' => Schema::text('what the deal is, up to 200 characters'),
+            'save_deal' => ['Creates a deal, or changes the given fields of one with id (users with the pipeline). enquiry = a new deal from that enquiry: the title from the person\'s name and the first words of the message (unless title is given), its customer, its handler as responsible; one open deal per enquiry. A new deal starts in the first open stage (or stage); move it with move_deal. Value: a number >= 0 with an ISO currency (EUR, CZK). '
+                . 'NOT UNDOABLE: deals never enter the undo journal. Never shown on the site.',
+                Schema::object(['id' => Schema::number('deal id to change; without it a new deal'), 'enquiry' => Schema::number('a new deal from this enquiry (list_enquiries)'), 'title' => Schema::text('what the deal is, up to 200 characters'),
                     'contact' => Schema::number('contact id (list_contacts); 0 = none'), 'company' => Schema::number('company id; 0 = none (a new deal takes the contact\'s company)'),
-                    'owner' => Schema::text('the responsible person: a user id, e-mail or "me"; "none" = nobody'), 'value' => Schema::text('the value, e.g. 12500 or 12500.50; empty = none'),
+                    'owner' => Schema::text('the responsible person: a user id, e-mail or "me"; "none" = nobody'), 'value' => Schema::text('e.g. 12500 or 12500.50; empty = none'),
                     'currency' => Schema::text('ISO currency code, e.g. EUR'), 'expected_close' => Schema::text('YYYY-MM-DD; "none" = no date'), 'stage' => Schema::text('a new deal only (also with enquiry): the open stage it starts in; default the first open stage')])],
-            'move_deal' => ['Moves a deal to another stage (3.31): the move is kept in its history; a won or lost stage closes it, lost needs lost_reason; moving a closed deal to an open stage reopens it. NOT UNDOABLE: never in the undo journal.',
+            'move_deal' => ['Moves a deal to another stage: the move is kept in its history; a won or lost stage closes it, lost needs lost_reason; moving a closed deal to an open stage reopens it. NOT UNDOABLE: never in the undo journal.',
                 Schema::object(['id' => Schema::number('deal id (list_deals)'), 'stage' => Schema::text('the stage key to move to (list_deals stages)'),
                     'lost_reason' => Schema::text('for a lost stage: ' . implode(' | ', array_keys(\Kaleta\Core\Deals::LOST_REASONS))), 'lost_note' => Schema::text('for a lost stage: an optional note, up to 500 characters')], ['id', 'stage'])],
-            'pipeline_summary' => ['The pipeline at a glance (read-only, 3.31): per stage the count and the value as sums per currency (open stages: the open deals; won and lost: closed this month), how many are open, won and lost this month. Never add different currencies together.',
+            'pipeline_summary' => ['The pipeline at a glance (read-only): per stage the count and the value as sums per currency (open stages: the open deals; won and lost: closed this month), how many are open, won and lost this month. Never add different currencies together.',
                 Schema::object(['owner' => Schema::text('only the deals of a user id, e-mail or "me"; "none" = nobody is responsible')])],
         ];
     }

@@ -40,19 +40,19 @@ final class Discovery
         ], 'required' => ['name']];
 
         return [
-            ['name' => 'find_tools', 'description' => 'Finds the other tools of this site (3.10). This connection lists a short set only; every other tool it may use (news, redirects, settings, '
+            ['name' => 'find_tools', 'description' => 'Finds the other tools of this site. This connection lists a short set only; every other tool it may use (news, redirects, settings, '
                 . 'health, bookings, newsletters…) is found here. Without arguments: a short index (name, access, runner, one line each). '
                 . 'With query (a few words, e.g. "redirect 404") or names (exact tool names): the full definitions, up to 8, each with the runner to call it with.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
                     'query' => ['type' => 'string', 'description' => 'words to look for in the tool names, titles and descriptions (at most 200 characters)'],
                     'names' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'exact tool names, e.g. ["list_news", "create_news"]'],
                 ], 'required' => []]],
-            ['name' => 'run_read_tool', 'description' => 'Runs a read-only tool of this site by its name (3.10), exactly as a direct call: it changes nothing and stays inside the site. '
+            ['name' => 'run_read_tool', 'description' => 'Runs a read-only tool of this site by its name, exactly as a direct call: it changes nothing and stays inside the site. '
                 . 'Any other tool is refused. Call find_tools first – it names the runner of each tool.', 'inputSchema' => $runner('list_news')],
-            ['name' => 'run_tool', 'description' => 'Runs a tool of this site that saves drafts or changes the site by its name (3.10), exactly as a direct call: the same access, limits, '
+            ['name' => 'run_tool', 'description' => 'Runs a tool of this site that saves drafts or changes the site by its name, exactly as a direct call: the same access, limits, '
                 . 'change log and undo. A tool that removes, sends or reaches outside the site is refused. Call find_tools first. Publish or make visible only when the user asks.',
                 'inputSchema' => $runner('create_news')],
-            ['name' => 'run_destructive_tool', 'description' => 'Runs a tool of this site that removes, overwrites or sends something, or reaches outside the site (3.10) – a delete, '
+            ['name' => 'run_destructive_tool', 'description' => 'Runs a tool of this site that removes, overwrites or sends something, or reaches outside the site – a delete, '
                 . 'a newsletter, a booking decision, a download from an address – exactly as a direct call. Confirm the exact action with the user before every call. Call find_tools first.',
                 'inputSchema' => $runner('delete_media')],
         ];
