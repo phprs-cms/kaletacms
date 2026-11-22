@@ -10,7 +10,7 @@ R682_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 R682_FORM='{"v":1,"deti":[{"id":"sek682","typ":"sekce","deti":[{"id":"frm682","typ":"formular","obsah":{"nazev":"Apply","ucel":"uchazec","pole":[{"typ":"text","popisek":"Name"}]}}]}]}'
 R682_PLAIN='{"v":1,"deti":[{"id":"sek682","typ":"sekce","deti":[{"id":"txt682","typ":"text","obsah":{"text":"We are not hiring now."}}]}]}'
 R682_PAGE=$(sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, stavba) VALUES ('r682-careers', 'R682 careers', '', 1, '$R682_FORM'); SELECT LAST_INSERT_ID();")
-R682_POP=$(sq "INSERT INTO ka_popupy (nazev, adresa, spoustec, hodnota, stavba, aktivni) VALUES ('r682-pop', 'r682-pop', 'cas', 5, '$R682_FORM', 1); SELECT LAST_INSERT_ID();")
+R682_POP=$(sq "INSERT INTO ka_popupy (nazev, adresa, spoustec, hodnota, pravidla, stavba, aktivni) VALUES ('r682-pop', 'r682-pop', 'cas', 5, '{}', '$R682_FORM', 1); SELECT LAST_INSERT_ID();")
 R682_COLL=$(sq "INSERT INTO ka_kolekce (nazev, seo_link, pole, detail) VALUES ('R682 positions', 'r682-positions', '[]', 0); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_collection_categories (idk, visible) VALUES ($R682_COLL, 1)" > /dev/null
 R682_HIDDEN=$(sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit) VALUES ('r682-hidden', 'R682 hidden', '', 0); SELECT LAST_INSERT_ID();")
