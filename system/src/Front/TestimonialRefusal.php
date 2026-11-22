@@ -17,7 +17,7 @@ use Kaleta\Core\Testimonials;
  * the address (owner decision 5 of 3.51: one refusal covers everything unsolicited).
  *
  * The link works as long as the request row is kept (Testimonials::forRefusal – used and expired requests too), longer
- * than the 30 days of the form. Neither the address nor anything else of the person is in the URL or on the page, and
+ * than the 30 days of the form, and only for a request that was e-mailed (a link only handed out refuses nothing). Neither the address nor anything else of the person is in the URL or on the page, and
  * nothing is written to the change log from the public site (Auth stays untouched); the register is the record.
  */
 final class TestimonialRefusal

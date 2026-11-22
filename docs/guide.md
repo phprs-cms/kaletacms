@@ -391,8 +391,8 @@ Business details – and why the e-mail arrived (3.51).
   send when you ask (no confirmation – stopping is always safe); resuming and cancelling are yours.
 - **The brake.** When 5 of the last 50 e-mails fail at the mail server (since the start or the last resume) the site pauses
   the send by itself and e-mails its author. Addresses the server refuses as unknown do not trip it while others are being
-  delivered – an old list finishes normally. When nothing got through at all (the server refuses the site), the e-mails of
-  that stretch go back to the queue and leave after you resume. Check **Settings → Mail** and **System status** first.
+  delivered – an old list finishes normally. Pausing in a Claude session stays paused when you undo the session. When nothing got through at all (the server refuses the site), the e-mails of
+  that stretch go back to the queue and leave after you resume, after the addresses not tried yet. Check **Settings → Mail** and **System status** first.
 - **Addresses that bounced.** An address the server refused as unknown (5.1.1 and its kin) is given up at once and, when
   the newsletter delivered to someone, remembered: later newsletters skip it. A server that refuses everyone can never fill
   that list.
@@ -402,7 +402,7 @@ Business details – and why the e-mail arrived (3.51).
   introduction repeats the reason sentence there. Have the wording checked for your country.
 - **The counts.** When a newsletter ends, recipients = sent + failed + skipped (unsubscribed in the meantime, on the list of
   addresses we do not write to, or not sent because it was cancelled). Links carry a campaign name only when the newsletter
-  goes to at least 5 people. The send form warns, without stopping you, when the sending domain has no SPF or DMARC record
+  can reach at least 5 people (addresses on the list we do not write to are not counted). The send form warns, without stopping you, when the sending domain has no SPF or DMARC record
   or when subscribers also go to a connected mailing service.
 
 **Online bookings.** With the Bookings feature on, visitors book an appointment on the site through the **Booking**

@@ -163,7 +163,9 @@ final class Mailing
         if ($n['status'] === 'paused') {
             throw new \DomainException('The newsletter is paused – cancel it first, then it can be deleted.');
         }
-        $app->db()->delete('newsletter_queue', ['newsletter_id' => $id]);
+        // the rows that went out in the last hour stay until the hourly limit no longer counts them (housekeeping deletes them):
+        // cancel, delete and send a corrected newsletter must not exceed the provider's limit (3.51 review)
+        $app->db()->run('DELETE FROM {newsletter_queue} WHERE newsletter_id = ? AND (sent_at IS NULL OR sent_at < ?)', [$id, Clock::at('-1 hour')]);
         $app->db()->delete('newsletters', ['id' => $id]);
     }
 
@@ -226,6 +228,15 @@ final class Mailing
     }
 
     /**
+     * 3.51 review: the confirmed subscribers a newsletter can reach – without the addresses on the send register, which the
+     * send skips. The campaign name (TAG_MIN) is decided by this number: five subscribers of whom three bounced are two people.
+     */
+    public static function reachableCount(Db $db): int
+    {
+        return SendRegister::reachable($db, array_map('strval', array_column($db->all('SELECT email FROM {odberatele} WHERE stav = 1'), 'email')));
+    }
+
+    /**
      * Sends the newsletter now (null) or at the given time (YYYY-MM-DD HH:MM). A scheduled one starts on the first cron
      * call after that time; the latest news items are taken at that moment.
      */
@@ -270,10 +281,21 @@ final class Mailing
      */
     public static function pause(App $app, int $id, string $reason = 'manual'): void
     {
-        $n = self::byId($app->db(), $id) ?? throw new \InvalidArgumentException('The newsletter does not exist.');
-        if (!self::markPaused($app->db(), $id, $reason === 'brake' ? 'brake' : 'manual')) {
+        $db = $app->db();
+        $n = self::byId($db, $id) ?? throw new \InvalidArgumentException('The newsletter does not exist.');
+        // 3.51 review: kept out of a Claude session's journal – undoing the session must not put the send back to "sending";
+        // a paused send goes on only by resume() in the administration, with its checks
+        $journal = $db->journal;
+        $db->journal = null;
+        try {
+            $paused = self::markPaused($db, $id, $reason === 'brake' ? 'brake' : 'manual');
+        } finally {
+            $db->journal = $journal;
+        }
+        if (!$paused) {
             throw new \DomainException($n['status'] === 'paused' ? 'The newsletter is already paused.' : 'Only a newsletter that is being sent can be paused.');
         }
+        $journal?->untracked('newsletters', 'a paused send is resumed only in the administration');
         ChangeLog::write($app, 'newsletters', 'pause', mb_substr((string) $n['subject'], 0, 200));
     }
 
@@ -322,7 +344,7 @@ final class Mailing
     private static function start(App $app, array $n): void
     {
         $db = $app->db();
-        $n['tag_recipients'] = self::confirmedCount($db); // 3.51 (B7): the campaign name depends on the number, taken before the render
+        $n['tag_recipients'] = self::reachableCount($db); // 3.51 (B7): the campaign name depends on the number, taken before the render
         [$html, $text] = self::render($app, $n);
         // only one caller starts it (cron and an admin click may meet)
         if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = ?, html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [Clock::now(), $html, $text, $n['id']])->rowCount() === 0) {
@@ -357,9 +379,10 @@ final class Mailing
         $sent = 0;
         $newsletters = [];
         $stopped = []; // newsletters the brake paused in this call: their remaining rows wait
+        // rows never tried first: the ones the brake put back (they keep their attempts) and retries come after them
         $rows = $allowed <= 0 ? [] : $db->all("SELECT q.id, q.newsletter_id, q.attempts, o.email, o.token, o.stav FROM {newsletter_queue} q
             JOIN {newsletters} n ON n.id = q.newsletter_id AND n.status = 'sending' LEFT JOIN {odberatele} o ON o.ido = q.subscriber_id
-            WHERE q.next_attempt <= ? ORDER BY q.id LIMIT " . (int) $allowed, [Clock::now()]);
+            WHERE q.next_attempt <= ? ORDER BY q.attempts, q.id LIMIT " . (int) $allowed, [Clock::now()]);
         foreach ($rows as $q) {
             $newsletterId = (int) $q['newsletter_id'];
             // claim the row first: a concurrent call does not send the same e-mail twice, and nothing goes after a pause or a cancel
@@ -386,7 +409,7 @@ final class Mailing
             $attempt = (int) $q['attempts'] + 1;
             if ($ok) {
                 $db->update('newsletter_queue', $tried + ['sent_at' => date('Y-m-d H:i:s'), 'next_attempt' => null, 'error' => ''], ['id' => $q['id']]);
-                $db->run('UPDATE {newsletters} SET sent_count = sent_count + 1 WHERE id = ?', [$newsletterId]);
+                $db->run('UPDATE {newsletters} SET sent_count = sent_count + 1, ' . self::LATE . ' WHERE id = ?', [$newsletterId]);
                 $sent++;
                 continue;
             }
@@ -395,7 +418,7 @@ final class Mailing
             } else {
                 // given up – at once for an address the server refused as unknown (3.51), after the last retry otherwise
                 $db->update('newsletter_queue', $tried + ['next_attempt' => null, 'error' => mb_substr(Mail::$error, 0, 255)], ['id' => $q['id']]);
-                $db->run('UPDATE {newsletters} SET failed_count = failed_count + 1 WHERE id = ?', [$newsletterId]);
+                $db->run('UPDATE {newsletters} SET failed_count = failed_count + 1, ' . self::LATE . ' WHERE id = ?', [$newsletterId]);
             }
             // 3.51 (D5): a failure at the server may trip the brake; one decided before any server (the demo, a bad address) never does
             if (!str_starts_with($reply, 'local:') && self::brake($app, $newsletterId)) {
@@ -427,6 +450,12 @@ final class Mailing
         return substr((string) ($result['stage'] ?? '') . ':' . ((int) ($result['code'] ?? 0) ?: '') . ':' . (string) ($result['enhanced'] ?? ''), 0, 32);
     }
 
+    /**
+     * 3.51 review: an attempt that ends after the newsletter ended (cancelled while this cron call was delivering the row)
+     * was counted as skipped by finish() – it moves to sent or failed, so recipients = sent + failed + skipped still holds.
+     */
+    private const string LATE = "skipped_count = CASE WHEN status IN ('sent', 'cancelled') AND skipped_count > 0 THEN skipped_count - 1 ELSE skipped_count END";
+
     /** 3.51 (D4): did the server refuse the recipient's address itself (at RCPT, a permanent 5xx with one of ADDRESS_REFUSALS)? */
     public static function isAddressRefusal(string $reply): bool
     {
@@ -455,23 +484,28 @@ final class Mailing
 
     /**
      * Checks the brake for a newsletter after a failure and, when it trips, pauses the send and tells its author. When the
-     * window delivered nothing (the server refuses the site, not the addresses), its failed rows go back to the queue as if
-     * never tried – they go out after the resume and none of them can reach the register. true = the send was paused now.
+     * window delivered nothing (the server refuses the site, not the addresses), its failed rows go back to the queue without
+     * their answer – they go out after the resume and none of them can reach the register. They keep their attempts, and a
+     * row that used its last one is not put back, so an address that fails after every resume is given up in the end and
+     * no resume repeats the same pause for ever (3.51 review). The send takes the rows never tried first, so after a resume
+     * the untried addresses go before the put-back ones – five dead addresses at the head of a list cannot pause it again
+     * and again. true = the send was paused now.
      */
     private static function brake(App $app, int $id): bool
     {
         $db = $app->db();
-        $window = $db->all('SELECT id, sent_at, reply, next_attempt FROM {newsletter_queue} WHERE newsletter_id = ? AND tried_at IS NOT NULL ORDER BY tried_at DESC, id DESC LIMIT ' . self::BRAKE_WINDOW, [$id]);
+        $window = $db->all('SELECT id, attempts, sent_at, reply, next_attempt FROM {newsletter_queue} WHERE newsletter_id = ? AND tried_at IS NOT NULL ORDER BY tried_at DESC, id DESC LIMIT ' . self::BRAKE_WINDOW, [$id]);
         $rows = array_map(fn (array $r): array => ['sent_at' => $r['sent_at'] !== null ? (string) $r['sent_at'] : null, 'reply' => (string) $r['reply']], $window);
         if (!self::brakeTripped($rows) || !self::markPaused($db, $id, 'brake')) {
             return false;
         }
         if (array_filter($window, fn (array $r): bool => $r['sent_at'] !== null) === []) {
-            $failed = array_values(array_filter($window, fn (array $r): bool => $r['sent_at'] === null));
+            // only rows with a try left: one that used every attempt stays given up, so each resume moves the send on
+            $failed = array_values(array_filter($window, fn (array $r): bool => $r['sent_at'] === null && (int) $r['attempts'] <= count(self::RETRY_MINUTES)));
             $given = count(array_filter($failed, fn (array $r): bool => $r['next_attempt'] === null)); // already counted as failed
             $ids = implode(',', array_map(fn (array $r): int => (int) $r['id'], $failed));
             if ($ids !== '') {
-                $db->run("UPDATE {newsletter_queue} SET attempts = 0, reply = '', error = '', tried_at = NULL, next_attempt = ? WHERE id IN (" . $ids . ')', [Clock::now()]);
+                $db->run("UPDATE {newsletter_queue} SET reply = '', error = '', tried_at = NULL, next_attempt = ? WHERE id IN (" . $ids . ')', [Clock::now()]);
             }
             if ($given > 0) {
                 $db->run('UPDATE {newsletters} SET failed_count = CASE WHEN failed_count > ? THEN failed_count - ? ELSE 0 END WHERE id = ?', [$given, $given, $id]);
@@ -532,6 +566,8 @@ final class Mailing
             }
         }
         $db->run("DELETE q FROM {newsletter_queue} q JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.status IN ('sent', 'cancelled') AND n.finished_at < ?", [Clock::at('-' . self::RECIPIENT_DAYS . ' day')]);
+        // the rows a deleted newsletter left for the hourly limit (delete())
+        $db->run('DELETE q FROM {newsletter_queue} q LEFT JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.id IS NULL AND (q.sent_at IS NULL OR q.sent_at < ?)', [Clock::at('-1 hour')]);
     }
 
     /** 3.51 (B5): a due scheduled newsletter without its sender goes back to the drafts; the change log and its author say why. */
@@ -595,7 +631,7 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $n['tag_recipients'] ??= self::confirmedCount($db); // 3.51 (B7): the campaign name of the links depends on it
+        $n['tag_recipients'] ??= self::reachableCount($db); // 3.51 (B7): the campaign name of the links depends on it
         $published = 'visible = 1 AND datum <= ? AND smazano IS NULL'; // the first parameter of both queries: Clock::now()
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
@@ -626,7 +662,7 @@ final class Mailing
     {
         $s = $app->settings();
         $language = (string) $n['language'] !== '' ? (string) $n['language'] : Language::defaults($s);
-        $n['tag_recipients'] ??= self::confirmedCount($app->db()); // 3.51 (B7): the same number for the preview and the send
+        $n['tag_recipients'] ??= self::reachableCount($app->db()); // 3.51 (B7): the same number for the preview and the send
 
         return Language::runWith($language, function () use ($app, $s, $n, $language): array {
             $ds = DesignSystem::load($s);
@@ -699,7 +735,7 @@ final class Mailing
     /** Links to the site carry utm parameters, so the site's cookie-free statistics show visits from the newsletter. */
     private static function campaign(App $app, string $url, array $n): string
     {
-        return self::campaignUrl(self::origin($app), $url, (string) $n['subject'], (int) ($n['id'] ?? 0), (int) ($n['tag_recipients'] ?? self::confirmedCount($app->db())));
+        return self::campaignUrl(self::origin($app), $url, (string) $n['subject'], (int) ($n['id'] ?? 0), (int) ($n['tag_recipients'] ?? self::reachableCount($app->db())));
     }
 
     /**

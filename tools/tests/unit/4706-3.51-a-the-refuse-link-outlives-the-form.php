@@ -15,6 +15,7 @@ $a706Insert = $a706Pdo->prepare('INSERT INTO ka_testimonial_requests (idp, token
 $a706Insert->execute([1, hash('sha256', $a706Tokens['open']), 'open@example.com', date('Y-m-d H:i:s'), date('Y-m-d H:i:s', time() + 86400), null]);
 $a706Insert->execute([2, hash('sha256', $a706Tokens['used']), 'used@example.com', date('Y-m-d H:i:s'), date('Y-m-d H:i:s', time() + 86400), date('Y-m-d H:i:s')]);
 $a706Insert->execute([3, hash('sha256', $a706Tokens['expired']), 'old@example.com', date('Y-m-d H:i:s', time() - 40 * 86400), date('Y-m-d H:i:s', time() - 10 * 86400), null]);
+$a706Pdo->exec('UPDATE ka_testimonial_requests SET sent_at = created_at'); // the three were e-mailed (a link only handed out refuses nothing – unit 4720)
 $a706Email = fn (?array $row): ?string => $row === null ? null : (string) $row['email'];
 check('3.51 A5: forRefusal() finds an open, a used and an expired request by its token – the form (find()) only the open one', [
     $a706Email(A706Testimonials::forRefusal($a706Db, $a706Tokens['open'])), $a706Email(A706Testimonials::forRefusal($a706Db, $a706Tokens['used'])),

@@ -12,6 +12,7 @@ $r790Pdo->exec('CREATE TABLE ka_nastaveni (promenna TEXT PRIMARY KEY, hodnota TE
 $r790Pdo->exec("CREATE TABLE ka_odberatele (ido INTEGER PRIMARY KEY, zdroj TEXT NOT NULL DEFAULT '', language TEXT NOT NULL DEFAULT '', contact_id INTEGER NULL)");
 $r790Pdo->exec("CREATE TABLE ka_contacts (id INTEGER PRIMARY KEY, language TEXT NOT NULL DEFAULT '')");
 $r790Pdo->exec('CREATE TABLE ka_tasks (id INTEGER PRIMARY KEY, assignee_id INTEGER NULL, created_by INTEGER NULL, assigned_by INTEGER NULL)');
+$r790Pdo->exec('CREATE TABLE ka_testimonial_requests (id INTEGER PRIMARY KEY, created_at TEXT NOT NULL, sent_at TEXT NULL)'); // step 3 (review): unit 4720
 // a Czech site in a sub-folder with English and German versions
 $r790Pdo->exec("INSERT INTO ka_nastaveni VALUES ('site_language', 'cs'), ('additional_languages', 'en,de'), ('site_url', 'https://example.com/web')");
 $r790Pdo->exec("INSERT INTO ka_contacts VALUES (7, 'de'), (8, 'fr'), (9, 'en')");

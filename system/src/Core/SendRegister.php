@@ -61,6 +61,27 @@ final class SendRegister
         }
     }
 
+    /**
+     * How many of these addresses are not on the register (3.51 review) – one read of the register, no query per address.
+     *
+     * @param list<string> $emails
+     */
+    public static function reachable(Db $db, array $emails): int
+    {
+        try {
+            $hashes = array_flip(array_map('strval', array_column($db->all("SELECT hash FROM {restore_ledger} WHERE kind IN ('refused', 'bounced')"), 'hash')));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0133
+
+            return count($emails);
+        }
+        if ($hashes === []) {
+            return count($emails);
+        }
+
+        return count(array_filter(RestoreLedger::fingerprints($db, $emails), fn (string $hash): bool => !isset($hashes[$hash])));
+    }
+
     /** @return array{bounced: int, refused: int} how many addresses are on the register */
     public static function counts(Db $db): array
     {

@@ -366,8 +366,8 @@ firmy – a proč e-mail přišel (3.51).
   pozastavit (bez potvrzení – zastavit je vždy bezpečné); obnovit a zrušit ho můžete jen vy.
 - **Brzda.** Když u poštovního serveru selže 5 z posledních 50 e-mailů (od začátku nebo od posledního obnovení), web
   odesílání sám pozastaví a napíše autorovi newsletteru. Adresy, které server odmítne jako neexistující, brzdu nespustí,
-  dokud se ostatním doručuje – starý seznam doběhne normálně. Když neprošlo vůbec nic (server odmítá celý web), vrátí se
-  e-maily z toho úseku do fronty a odejdou po obnovení. Nejdřív zkontrolujte **Nastavení → Pošta** a **Stav systému**.
+  dokud se ostatním doručuje – starý seznam doběhne normálně. Pozastavení v relaci Clauda zůstane, i když relaci vrátíte zpět. Když neprošlo vůbec nic (server odmítá celý web), vrátí se
+  e-maily z toho úseku do fronty a odejdou po obnovení, až po adresách, na které ještě nedošlo. Nejdřív zkontrolujte **Nastavení → Pošta** a **Stav systému**.
 - **Nedoručitelné adresy.** Adresu, kterou server odmítl jako neexistující (5.1.1 a příbuzné), web vzdá hned, a když
   newsletter někomu doručil, zapamatuje si ji: další newslettery ji přeskočí. Server, který odmítá všechny, tenhle seznam
   nikdy nenaplní.
@@ -377,7 +377,7 @@ firmy – a proč e-mail přišel (3.51).
   nechte zkontrolovat pro svou zemi.
 - **Počty.** Když newsletter skončí, platí příjemci = odesláno + nedoručeno + přeskočeno (mezitím se odhlásili, jsou na
   seznamu adres, na které nepíšeme, nebo nedošlo na ně, protože byl zrušen). Odkazy nesou název kampaně, jen když newsletter
-  jde aspoň 5 lidem. Formulář pro odeslání upozorní – ale nezastaví vás –, když odesílací doména nemá záznam SPF nebo DMARC
+  může dojít aspoň 5 lidem (adresy ze seznamu, na které nepíšeme, se nepočítají). Formulář pro odeslání upozorní – ale nezastaví vás –, když odesílací doména nemá záznam SPF nebo DMARC
   nebo když odběratelé jdou také do napojené mailingové služby.
 
 **Online rezervace.** Se zapnutými Rezervacemi si návštěvníci objednají termín na webu prvkem **Rezervace**: vyberou

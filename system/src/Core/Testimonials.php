@@ -119,7 +119,9 @@ final class Testimonials
 
     /**
      * 3.51: the request of a refuse link (…/_testimonial/<token>?refuse=1) by its token alone – used and expired requests
-     * too: a person may refuse for as long as the request is kept, not only while the form works. Null for an unknown token.
+     * too: a person may refuse for as long as the request is kept, not only while the form works. Only a request that was
+     * e-mailed (sent_at): the refuse link exists only in that e-mail – a link handed out by staff or Claude must not let
+     * them put a customer on the register and end the subscription (3.51 review). Null for an unknown token.
      *
      * @return array<string, mixed>|null
      */
@@ -129,7 +131,7 @@ final class Testimonials
             return null;
         }
 
-        return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ?', [hash('sha256', $token)]);
+        return $db->one('SELECT * FROM {testimonial_requests} WHERE token_hash = ? AND sent_at IS NOT NULL', [hash('sha256', $token)]);
     }
 
     /** The two consents, as the customer sees them. @return array{words: string, photo: string} */

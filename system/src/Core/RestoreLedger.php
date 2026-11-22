@@ -166,6 +166,22 @@ final class RestoreLedger
         return self::keyedHash(self::key($db), PersonalData::cleanAddress($email));
     }
 
+    /**
+     * fingerprint() of many addresses with one read of the key (3.51 review: the reachable count of a newsletter).
+     *
+     * @param list<string> $emails
+     * @return list<string>
+     */
+    public static function fingerprints(Db $db, array $emails): array
+    {
+        if ($emails === []) {
+            return [];
+        }
+        $key = self::key($db);
+
+        return array_map(fn (string $email): string => self::keyedHash($key, PersonalData::cleanAddress($email)), $emails);
+    }
+
     /** HMAC-SHA256 of an address under a key (hex). Pure. */
     public static function keyedHash(string $key, string $email): string
     {
