@@ -349,6 +349,26 @@ newsletter i žádost o referenci (3.51).
 pozastaví, když odesílání opakovaně selhává, a jeho patička uvádí odesílatele – název firmy a poštovní adresu z Údajů
 firmy – a proč e-mail přišel (3.51).
 
+- **Pozastavit, obnovit, zrušit.** Během odesílání nabízí stránka newsletteru **Pozastavit odesílání** – nic dalšího
+  neodejde, ani z volání cronu, které už běží – a **Zrušit newsletter**; pozastavený nabízí **Obnovit odesílání**. Zrušený
+  zbytek už nikdy nepošle. Newsletter, který zůstane pozastavený 7 dní, se zruší sám. Claude umí odesílání na vaši žádost
+  pozastavit (bez potvrzení – zastavit je vždy bezpečné); obnovit a zrušit ho můžete jen vy.
+- **Brzda.** Když u poštovního serveru selže 5 z posledních 50 e-mailů (od začátku nebo od posledního obnovení), web
+  odesílání sám pozastaví a napíše autorovi newsletteru. Adresy, které server odmítne jako neexistující, brzdu nespustí,
+  dokud se ostatním doručuje – starý seznam doběhne normálně. Když neprošlo vůbec nic (server odmítá celý web), vrátí se
+  e-maily z toho úseku do fronty a odejdou po obnovení. Nejdřív zkontrolujte **Nastavení → Pošta** a **Stav systému**.
+- **Nedoručitelné adresy.** Adresu, kterou server odmítl jako neexistující (5.1.1 a příbuzné), web vzdá hned, a když
+  newsletter někomu doručil, zapamatuje si ji: další newslettery ji přeskočí. Server, který odmítá všechny, tenhle seznam
+  nikdy nenaplní.
+- **Patička.** Každý newsletter uvádí odesílatele a proč přišel. Bez názvu firmy a poštovní adresy v **Nastavení → Údaje
+  firmy** newsletter odeslat nejde – naplánovaný se vrátí mezi koncepty a jeho autor dostane e-mail. Obě věty jsou výchozí
+  znění v **Nastavení → Pošta**, pro každý jazyk zvlášť; `{{reason}}` v úvodu tam zopakuje větu s důvodem. Znění si
+  nechte zkontrolovat pro svou zemi.
+- **Počty.** Když newsletter skončí, platí příjemci = odesláno + nedoručeno + přeskočeno (mezitím se odhlásili, jsou na
+  seznamu adres, na které nepíšeme, nebo nedošlo na ně, protože byl zrušen). Odkazy nesou název kampaně, jen když newsletter
+  jde aspoň 5 lidem. Formulář pro odeslání upozorní – ale nezastaví vás –, když odesílací doména nemá záznam SPF nebo DMARC
+  nebo když odběratelé jdou také do napojené mailingové služby.
+
 **Online rezervace.** Se zapnutými Rezervacemi si návštěvníci objednají termín na webu prvkem **Rezervace**: vyberou
 službu, člověka a volný čas a dostanou potvrzení e-mailem s odkazem na zrušení; web jim před termínem připomene. Správce
 nastaví **Služby** (délka, přestávka po ní, text ceny, kdo ji dělá, jestli každou rezervaci nejdřív potvrzujete), **Lidi**
@@ -813,6 +833,8 @@ a komentáře. Vymazání je vždy vaše rozhodnutí a záloha obnovená pozděj
 poptávky, žádosti o místo, zákazníci (výchozí 24 měsíců bez aktivity, pak se anonymizují), nabídky, rezervace, záznam
 souhlasů s cookies a další záznamy. Starší web smaže sám; kratší dobu než dosud potvrdíte na samostatné obrazovce.
 **Záznam o činnostech zpracování** pro vaše zásady ochrany osobních údajů připraví Claude podle toho, co web opravdu dělá.
+Mezi záznamy s pevnou dobou jsou i příjemci newsletteru, smazaní den po jeho skončení, a pozastavený newsletter, zrušený
+po 7 dnech.
 
 **Cookie lišta.** Stejná záložka rozhoduje o cookie liště: vestavěná (její text a odkaz na zásady ochrany osobních údajů
 v každé jazykové verzi), cizí podle svého kódu, nebo žádná pro web, který nenastavuje sledovací cookies. Vestavěná lišta

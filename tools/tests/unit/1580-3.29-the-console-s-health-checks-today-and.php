@@ -30,7 +30,7 @@ check('3.29 Console::clean – the new parts: enum values only, counts clamped, 
     ['at' => '2026-11-03', 'error' => false, 'cookies' => 0],
     'published', null, null, 'draft', null,
     ['done' => 16, 'total' => 16, 'failing' => ['smtp', 'notebook']],
-    null, ['done' => 3, 'total' => 36, 'failing' => []],
+    null, ['done' => 3, 'total' => count(Kaleta\Fleet\Checks::HANDOVER_ROWS) * 2, 'failing' => []],
     ['enquiries_this_week' => 4, 'enquiries_last_week' => null, 'unanswered_over_24h' => 0, 'median_first_reply_hours' => null, 'tasks_open' => 1_000_000, 'tasks_overdue' => 2, 'customers_this_month' => null],
 ]);
 check('3.29 Console::storedBeat – a site before 3.29 has none of the new parts; unknown keys never get in', [

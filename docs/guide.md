@@ -373,6 +373,26 @@ newsletter and testimonial request (3.51).
 pauses itself when sending keeps failing, and its footer names the sender – the company name and postal address from
 Business details – and why the e-mail arrived (3.51).
 
+- **Pause, resume, cancel.** While a newsletter is being sent its page offers **Pause sending** – nothing more goes out,
+  also not from a cron call already under way – and **Cancel the newsletter**; a paused one offers **Resume sending**. A
+  cancelled one never sends the rest. A newsletter that stays paused for 7 days is cancelled by itself. Claude can pause a
+  send when you ask (no confirmation – stopping is always safe); resuming and cancelling are yours.
+- **The brake.** When 5 of the last 50 e-mails fail at the mail server (since the start or the last resume) the site pauses
+  the send by itself and e-mails its author. Addresses the server refuses as unknown do not trip it while others are being
+  delivered – an old list finishes normally. When nothing got through at all (the server refuses the site), the e-mails of
+  that stretch go back to the queue and leave after you resume. Check **Settings → Mail** and **System status** first.
+- **Addresses that bounced.** An address the server refused as unknown (5.1.1 and its kin) is given up at once and, when
+  the newsletter delivered to someone, remembered: later newsletters skip it. A server that refuses everyone can never fill
+  that list.
+- **The footer.** Every newsletter names its sender and says why it arrived. Without the company name and postal address
+  in **Settings → Business details** a newsletter cannot be sent – a scheduled one goes back to the drafts and its author
+  gets an e-mail. The two sentences are default wording in **Settings → Mail**, per language; `{{reason}}` in the
+  introduction repeats the reason sentence there. Have the wording checked for your country.
+- **The counts.** When a newsletter ends, recipients = sent + failed + skipped (unsubscribed in the meantime, on the list of
+  addresses we do not write to, or not sent because it was cancelled). Links carry a campaign name only when the newsletter
+  goes to at least 5 people. The send form warns, without stopping you, when the sending domain has no SPF or DMARC record
+  or when subscribers also go to a connected mailing service.
+
 **Online bookings.** With the Bookings feature on, visitors book an appointment on the site through the **Booking**
 element: they pick a service, a person and a free time, and get a confirmation by e-mail with a link to cancel; the site reminds them before the time. Administrators
 set up the **Services** (length, a break after, price text, which people do it, whether you confirm each booking first), the **People** with their weekly hours and days off, and the
@@ -859,7 +879,9 @@ applies the erasures again.
 **Retention:** Settings → Privacy and cookies holds every retention period in one place – how long enquiries,
 applications, customers (24 months without activity by default, then anonymised), quotes, bookings, the cookie consent log
 and other records are kept. The site deletes older ones by itself; a shorter period than before is confirmed on its own
-screen. Claude prepares the **record of processing activities** for your privacy policy from what the site really does.
+screen. Claude prepares the **record of processing activities** for your privacy policy from what the site really does. Among the
+records kept for a fixed time: the recipients of a newsletter, deleted the day after it ends, and a paused newsletter,
+cancelled after 7 days.
 
 **Cookie bar.** The same tab decides the cookie bar: the built-in one (its text and the link to your privacy policy, in
 every language version), an external one by its code, or none for a site that sets no tracking cookies. The built-in bar

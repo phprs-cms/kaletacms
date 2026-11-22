@@ -169,7 +169,7 @@ check('[source-pin] 3.23 (C17): one checklist – the rows in order, the new che
     str_contains($auditView323, "t('%d of %d done'"), str_contains($audit323, 'Auth::APPEARANCE_AREA'), str_contains($audit323, "Roles::PRESETS['client'][0]"),
     str_contains($audit323, "promenna = 'claude_destructive'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/Mail.php'), 'self::rememberSmtp($siteSettings);'),
 ], [['site_email', 'smtp', 'remote_backup', 'company', 'indexing', 'favicon', 'cookies', 'security_contact', 'two_step', 'unused_access', 'auto_suspend',
-    'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'domain'], 'Handing over to a client', false, false, true, true, true, true, true]);
+    'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'newsletter', 'domain'], 'Handing over to a client', false, false, true, true, true, true, true]);
 check('[source-pin] 3.23 (C17): MCP site_audit returns handover_checklist additively (no new tool, no new parameter), its description stays in the essentials budget', [
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Mcp/Handlers/SettingsTools.php'), "\$out['handover_checklist'] = ["),
     Kaleta\Mcp\Translator::arguments('site_audit', ['kind' => 'handover']), str_contains((string) json_encode(array_column(Kaleta\Mcp\Tools::definitions(), null, 'name')['site_audit'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'handover_checklist = every row with done') /* 3.49 P0: the definition, not the source */,

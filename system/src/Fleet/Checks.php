@@ -97,7 +97,7 @@ final class Checks
 
     /** The keys of the hand-over checklist rows (Core\Audit::handoverRows) – a failing key outside this list is dropped. */
     public const array HANDOVER_ROWS = ['site_email', 'smtp', 'remote_backup', 'company', 'indexing', 'favicon', 'cookies', 'security_contact', 'two_step', 'unused_access',
-        'auto_suspend', 'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'domain'];
+        'auto_suspend', 'client_account', 'monthly_report', 'guardrails', 'agency', 'notebook', 'cron', 'newsletter', 'domain'];
 
     /** The counts of the workload part (Heartbeat::workload), each null when the site does not have it. */
     public const array WORKLOAD = ['enquiries_this_week', 'enquiries_last_week', 'unanswered_over_24h', 'median_first_reply_hours', 'tasks_open', 'tasks_overdue', 'customers_this_month'];
