@@ -78,7 +78,7 @@ final class SiteSearch
      * [type (page | collection_item | news), label (the kind for the visitor), title, path (for App::url), text (plain,
      * for the snippet; news: the intro), id, date (news)]. partial = no result has every word, these have some of them.
      *
-     * @return array{results: list<array<string, mixed>>, partial: bool, words: list<array{word: string, terms: list<string>}>}
+     * @return array{results: list<array<string, mixed>>, partial: bool, words: list<array{word: string, terms: list<string>, raw?: true}>}
      */
     public static function find(App $app, string $q, string $column): array
     {
@@ -100,7 +100,7 @@ final class SiteSearch
      * Ranks candidates [title, text (plain), bonus?, …]: with $all each must have every word in the title or the text,
      * otherwise at least one; the best first, an equal score keeps the order given. Each gets its score.
      *
-     * @param list<array{word: string, terms: list<string>}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
      * @param list<array<string, mixed>> $candidates
      * @return list<array<string, mixed>>
      */
@@ -151,7 +151,7 @@ final class SiteSearch
      * are whole words, printed in <mark> (snippetHtml) or as they are (MCP). Offsets come from the words of the original
      * text, so letters that normalize to two (ß, æ) never shift the window. Without a match: the beginning of the text.
      *
-     * @param list<array{word: string, terms: list<string>}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
      * @return list<array{0: string, 1: bool}>
      */
     public static function snippet(string $plain, array $words): array
@@ -410,7 +410,7 @@ final class SiteSearch
      * takes it from its text (read for the shown results only).
      *
      * @param array<string, mixed> $result
-     * @param list<array{word: string, terms: list<string>}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
      * @return list<array{0: string, 1: bool}>
      */
     public static function resultSnippet(App $app, array $result, array $words): array

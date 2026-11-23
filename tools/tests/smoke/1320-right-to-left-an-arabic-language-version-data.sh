@@ -56,6 +56,8 @@ sq "DELETE FROM ka_stranky WHERE seo_link LIKE '%-fxm'; DELETE FROM ka_novinky W
 SCALE_PORT=$((PORT + 8)); SCALE="http://127.0.0.1:$SCALE_PORT" # the big fake old site of 3.7 is stopped by now
 php "$ROOT/tools/fixtures/wordpress-scale.php" --products=60 --site="$SCALE" --out="$WORK/web/storage/import/fysio-scale.xml" # put there as over FTP
 (cd "$ROOT/tools" && KALETA_FAKE_MODE=wordpress KALETA_FAKE_WXR="$WORK/web/storage/import/fysio-scale.xml" exec php -S "127.0.0.1:$SCALE_PORT" fake-old-site.php > /dev/null 2>&1) & OLDSITE_PID=$!
+# the cron token of 0160, set here too so a partial run (ONLY=1320) can call /tasks below
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('tasks_token', 'testtoken123')" > /dev/null
 sq "DROP TABLE IF EXISTS ka_test_scale; CREATE TABLE ka_test_scale AS SELECT * FROM ka_nastaveni WHERE promenna IN ('look_draft', 'design_system', 'home_page'); UPDATE ka_nastaveni SET hodnota = '' WHERE promenna IN ('look_draft', 'additional_languages')" > /dev/null
 for _ in $(seq 1 30); do curl -s -o /dev/null "$SCALE/robots.txt" && break; sleep 0.2; done
 mcp import_wordpress '{"file":"fysio-scale.xml","confirm":true,"add_languages":true}' > "$WORK/response"; SCALE_CALLS=1
@@ -118,8 +120,11 @@ SC_NEWS=$(sq "SELECT idc FROM ka_novinky WHERE jazyk = 'ar' AND titulek = 'نص�
 sq "UPDATE ka_novinky SET visible = 1, datum = '$(site_time '-1 day')', hledani = 'نصيحة التمرين رقم 1' WHERE idc = $SC_NEWS; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0089-arabic-search-index,', ',')) WHERE promenna = 'data_migrations'" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php"
 SC_INDEX=$(sq "SELECT COALESCE(hledani, 'NULL') FROM ka_novinky WHERE idc = $SC_NEWS")
+# 3.52 (B1): the index is filled by the background job search_index, no longer by every search
+sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'search_index'" > /dev/null
+curl -s -o /dev/null "$B/tasks?token=testtoken123"
 curl -s -o "$WORK/response" -G "$B/ar/search" --data-urlencode "q=نصيحه"
-expect "3.12: migration 0089 empties an old Arabic news index, the next search fills it with ة as ه and finds the post" \
+expect "3.12: migration 0089 empties an old Arabic news index, the search_index job fills it with ة as ه and the search finds the post" \
   "$SC_INDEX|$(sq "SELECT hledani LIKE '%نصيحه التمرين%' FROM ka_novinky WHERE idc = $SC_NEWS")|$(grep -c 'نصيحة التمرين رقم 1' "$WORK/response")" "NULL|1|1"
 get39 /sitemap.xml > /dev/null
 expect "3.12 scale: the Arabic category page lists its products, Arabic search finds the products, the sitemap has both languages' products and categories" \
