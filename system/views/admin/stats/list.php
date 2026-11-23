@@ -126,6 +126,17 @@ $table('Most read news', $report['news'], [
     'News item' => fn (array $r): string => '<a href="' . e($app->url('admin.php?module=news&action=edit&id=' . (int) $r['id'])) . '">' . e($r['title']) . '</a>',
     'Views' => fn (array $r): string => format_count((int) $r['views']),
 ]);
+// 3.52 (B5): what visitors search for on the site (Core\SiteSearch::queries) – a query of an additional language version names it
+$queryCell = fn (array $r): string => e($r['query']) . (isset($r['language']) ? ' <span class="stitek">' . e(strtoupper($r['language'])) . '</span>' : '');
+$table('Searched terms', $report['site_search']['terms'], [
+    'Term' => $queryCell,
+    'Searches' => fn (array $r): string => format_count((int) $r['searches']),
+    'Without result' => fn (array $r): string => format_count((int) $r['without_result']),
+], 'Nobody has searched the site yet.');
+$table('Searches without result', $report['site_search']['without_result'], [
+    'Term' => $queryCell,
+    'Without result' => fn (array $r): string => format_count((int) $r['without_result']),
+], 'Every search found something.');
 // search engines (2.13, Core\SearchData): per connected engine the latest 28-day snapshot of the period – queries, pages, Google's sitemaps
 $searchTitles = ['google' => ['Top queries (Google)', 'Top pages (Google)'], 'bing' => ['Top queries (Bing)', 'Top pages (Bing)']];
 $searchColumns = fn (string $label, string $key): array => [
@@ -157,4 +168,4 @@ if ($searchDays === []) {
 ?>
 </div>
 <?php if ($searchDays !== []): ?><p class="smltxt"><?= e(t('Search engines: the latest snapshot of the period (%s), each covering the 28 days before it; the position is the average place in the results, 1 = first.', implode(', ', $searchDays))) ?></p><?php endif ?>
-<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>
+<p class="smltxt"><?= e(t('Pop-up counters run since the pop-up was made or reset. Claude reads the same report with get_stats.')) ?> <?= e(t('Site search: the queries visitors typed into the search of the site, without signed-in users and bots; a query with an e-mail address or a long number is never kept.')) ?> <?= e(t('Contact clicks: a click on a phone number, an e-mail address or a WhatsApp link counts as a lead once per visitor, page and day – without cookies.')) ?> <?= e(t('Speed: the 75th percentile of what real visitors experienced – loading of the main content (LCP, good up to 2.5 s), layout shifts (CLS, good up to 0.1) and the response to interaction (INP, good up to 200 ms); values are the upper edge of a histogram bucket, so they never flatter.')) ?></p>

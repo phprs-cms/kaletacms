@@ -9577,4 +9577,12 @@ return [
     'Field with a button' => 'Feld mit Schaltfläche',
     'Icon that opens the field' => 'Symbol, das das Feld öffnet',
     'The logo on the left, the menu and a magnifier that opens the search field on the right.' => 'Das Logo links, rechts das Menü und eine Lupe, die das Suchfeld öffnet.',
+    'Searched terms' => 'Gesuchte Begriffe',
+    'Searches without result' => 'Suchen ohne Ergebnis',
+    'Term' => 'Begriff',
+    'Searches' => 'Suchen',
+    'Without result' => 'Ohne Ergebnis',
+    'Nobody has searched the site yet.' => 'Auf der Website hat noch niemand gesucht.',
+    'Every search found something.' => 'Jede Suche hat etwas gefunden.',
+    'Site search: the queries visitors typed into the search of the site, without signed-in users and bots; a query with an e-mail address or a long number is never kept.' => 'Suche auf der Website: die Begriffe, die Besucher in die Suche der Website eingegeben haben, ohne angemeldete Benutzer und Bots; eine Anfrage mit einer E-Mail-Adresse oder einer langen Zahl wird nie gespeichert.',
 ];

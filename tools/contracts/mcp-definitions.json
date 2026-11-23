@@ -184,7 +184,7 @@
         "hledej",
         "search_site"
     ],
-    "raw": "048bc08cd78e6323fbe64eca07bb5be2ab26caa183c756885da533a8c830a330",
+    "raw": "c9c40ed66273f2fe3542c82ab57b9ddd4cd1558e7adcb27740134bb877ef4a1b",
     "discovery": "f1edcf77b0a8fdd0d2a94d6928db8cb69038a4775befd3e06ac1fcfb8d0cd74d",
     "sha256": {
         "info_o_webu": "f3616b3d0a440cac737e92ff73850d599c5a867d94736a7f68cb44414d0f059e",
@@ -256,7 +256,7 @@
         "publish_look": "dff6fe6caf01f74453a70307f4bd579d67e8b084224c57a8da266fe957f507e8",
         "discard_look": "77e2cbf6bbedf4601df34d616020e24815da001f31c4a6715a6bf67ea5715cf6",
         "site_audit": "bbfa32462807dda7c5f68afb1afc2c21a1e85ad94339fe147a1d0bf9dd4004db",
-        "get_stats": "f27612dc408b6f76890729108b0dc05b7d749e95839c56be0465b0c0348b0903",
+        "get_stats": "6f3967f617d2fe2fbced8d49f83130b360ed0cb0ad872beb9dcacbce036c1492",
         "list_changes": "f142d972ab8fb64fd1f35973259ac1306d52382625a099673c0096c295e17a69",
         "list_agent_sessions": "d65f94caf94204b5e2e24d66a2061ecc704532501b67ec2a0c03c22a5f38463b",
         "undo_agent_session": "cf5fcd04921442322a564d17f1f98058a05e95e8e3edc7e552ba60b5a1beaa0c",

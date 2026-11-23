@@ -60,7 +60,7 @@ expect_sql "3.3.4 (0076): an OAuth client registered before the upgrade counts a
 # 3.9 (0083): the language columns hold a BCP 47 tag – VARCHAR(35) in ASCII on an upgraded site as on a fresh one (the
 # structure check above compares the type, not the character set), and a site's language values stay as they were
 langcols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', CHARACTER_SET_NAME) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLUMN_NAME IN ('jazyk', 'language')"; }
-[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 20 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119), 3.38 (0123), 3.49 (0137) and 3.51 (0138): the 20 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
+[ "$(langcols "$OLD")" = "$(langcols "$NEW")" ] && [ "$(langcols "$OLD" | grep -o ':varchar(35):ascii' | wc -l | tr -d ' ')" = 21 ] && echo "  ok     3.9 (0083), 3.14 (0095), 3.28 (0114), 3.34 (0119), 3.38 (0123), 3.49 (0137), 3.51 (0138) and 3.52 (0140): the 21 language columns are VARCHAR(35) ASCII, as on a fresh install" || { echo "  CHYBA  0083/0095 language columns: $(langcols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_stranky (ids, seo_link, titulek, text, jazyk) VALUES (9083, 'kontakt-83', 'Kontakt', '', ''), (9084, 'contact-83', 'Contact', '', 'en')"
 # 3.19 (0105, 0106): the global keys are gone after the upgrade (the empty site could switch), the per-language ones stay
 expect_sql "3.9 (0083), 3.19 (0106): pages, news and categories keep the per-language slug key, the global one is gone" \
@@ -504,5 +504,16 @@ expect_sql_value "3.51 (0139): subscribers get the language of their sign-up pag
 expect_sql_value "3.51 (0139): run again by name – the same result" "$(m351b)" "m351-cs@example.com=,m351-de@example.com=de,m351-en@example.com=en|M351 a=3,M351 b=-|1"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_odberatele WHERE email LIKE 'm351-%'; DELETE FROM ka_tasks WHERE title LIKE 'M351 %'; DELETE FROM ka_contacts WHERE email = 'm351@example.com';
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', '${M351_KEEP%%|*}'), ('site_url', '${M351_KEEP#*|}')"
+
+# 3.52 B5 (0140): what visitors search for – one table with its key on (day, language, query) and an ascii language of 35;
+# the unused FULLTEXT ft_clanky is gone, ft_clanky_hledani stays; run again (the index already dropped) – nothing changes
+m352() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_search_queries), '|',
+  (SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_search_queries' AND index_name = 'PRIMARY'), '|',
+  (SELECT CONCAT(character_set_name, ':', character_maximum_length) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'ka_search_queries' AND column_name = 'language'), '|',
+  (SELECT GROUP_CONCAT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_novinky' AND index_type = 'FULLTEXT'))"; }
+expect_sql_value "3.52 B5 (0140): ka_search_queries exists after the update – empty, keyed by day, language and query, an ascii language of 35; ft_clanky dropped, ft_clanky_hledani kept" "$(m352)" "0|day,language,query|ascii:35|ft_clanky_hledani"
+"${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_search_queries (day, language, query, searches, without_result) VALUES (CURDATE(), '', 'm352', 2, 1); UPDATE ka_nastaveni SET hodnota = '139' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql_value "3.52 B5 (0140): run again – nothing changes, the row stays, the version is the latest again" "$(m352)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "1|day,language,query|ascii:35|ft_clanky_hledani|$LAST_MIGRATION"
+"${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_search_queries"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

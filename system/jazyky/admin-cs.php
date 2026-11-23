@@ -9169,4 +9169,12 @@ return [
     'Field with a button' => 'Pole s tlačítkem',
     'Icon that opens the field' => 'Ikona, která otevře pole',
     'The logo on the left, the menu and a magnifier that opens the search field on the right.' => 'Logo vlevo, vpravo menu a lupa, která otevře pole vyhledávání.',
+    'Searched terms' => 'Hledané výrazy',
+    'Searches without result' => 'Hledání bez výsledku',
+    'Term' => 'Výraz',
+    'Searches' => 'Hledání',
+    'Without result' => 'Bez výsledku',
+    'Nobody has searched the site yet.' => 'Na webu zatím nikdo nehledal.',
+    'Every search found something.' => 'Každé hledání něco našlo.',
+    'Site search: the queries visitors typed into the search of the site, without signed-in users and bots; a query with an e-mail address or a long number is never kept.' => 'Hledání na webu: výrazy, které návštěvníci zadali do vyhledávání webu, bez přihlášených uživatelů a robotů; dotaz s e-mailovou adresou nebo dlouhým číslem se nikdy neukládá.',
 ];

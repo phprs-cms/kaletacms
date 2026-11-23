@@ -26,6 +26,9 @@ final class SiteSearch
     /** At most this many words of a query are searched (Db::likeWords). */
     public const int MAX_WORDS = 6;
 
+    /** The longest query the statistics keep (B5, {search_queries}.query). */
+    public const int QUERY_LENGTH = 60;
+
     /** About this many words around the matches form a snippet. */
     private const int SNIPPET_WORDS = 30;
 
@@ -309,5 +312,68 @@ final class SiteSearch
         }
 
         return self::snippet($text, $words);
+    }
+
+    /**
+     * The form of a query the statistics keep (3.52, B5), null when it is not kept: trimmed, lower case, spaces collapsed,
+     * at most QUERY_LENGTH characters. A query that may name a person is never kept – one with an @ (an e-mail address) or
+     * with 6 or more digits (a phone number, an account, a birth number). Pure.
+     */
+    public static function recordedQuery(string $q): ?string
+    {
+        $q = trim((string) preg_replace('/\s+/u', ' ', mb_strtolower($q)));
+        if (mb_strlen($q) < self::MIN_LENGTH || str_contains($q, '@') || preg_match_all('/\d/u', $q) >= 6) {
+            return null;
+        }
+
+        return trim(mb_substr($q, 0, self::QUERY_LENGTH));
+    }
+
+    /**
+     * Counts one search of the site for the Statistics (3.52, B5): the day, the language version ('' = the default one),
+     * the query (recordedQuery) and whether it found nothing. Only while the statistics are on, never for a signed-in user
+     * or a bot; the caller counts only the first page of the results. No IP and nothing about the visitor is stored, rows
+     * older than 400 days are deleted now and then.
+     */
+    public static function record(App $app, string $q, string $column, int $total): void
+    {
+        $query = self::recordedQuery($q);
+        $agent = (string) ($app->request->serverValues()['HTTP_USER_AGENT'] ?? '');
+        if ($query === null || !StatsGate::isOn($app) || trim($agent) === '' || StatsGate::isBot($agent) || $app->auth()->user() !== null) {
+            return;
+        }
+        $empty = $total === 0 ? 1 : 0;
+        try {
+            $app->db()->run('INSERT INTO {search_queries} (day, language, query, searches, without_result) VALUES (?, ?, ?, 1, ?)
+                ON DUPLICATE KEY UPDATE searches = searches + 1, without_result = without_result + ?', [Clock::today(), $column, $query, $empty, $empty]);
+            if (random_int(1, 200) === 1) {
+                $app->db()->run('DELETE FROM {search_queries} WHERE day < ?', [Clock::day('-400 days')]);
+            }
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // new files, the database before migration 0140: the search still answers
+        }
+    }
+
+    /**
+     * What visitors searched for since a day (B5, Core\Report): terms = the most searched queries, without_result = the
+     * queries that found nothing most often; at most 20 each, [query, language (only for an additional language version),
+     * searches, without_result].
+     *
+     * @return array{terms: list<array<string, mixed>>, without_result: list<array<string, mixed>>}
+     */
+    public static function queries(Db $db, string $since): array
+    {
+        $rows = fn (string $having, string $order): array => array_map(fn (array $r): array => ['query' => (string) $r['query']]
+            + ($r['language'] !== '' ? ['language' => (string) $r['language']] : []) + ['searches' => (int) $r['s'], 'without_result' => (int) $r['w']],
+            $db->all("SELECT query, language, SUM(searches) AS s, SUM(without_result) AS w FROM {search_queries} WHERE day >= ?
+                GROUP BY query, language {$having} ORDER BY {$order}, query LIMIT 20", [$since]));
+
+        try {
+            return ['terms' => $rows('', 's DESC'), 'without_result' => $rows('HAVING w > 0', 'w DESC, s DESC')];
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // the database before migration 0140: nothing yet
+
+            return ['terms' => [], 'without_result' => []];
+        }
     }
 }

@@ -113,6 +113,7 @@ return [
     'stat_zdroje' => ['stats_sources', []],
     'web_vitals' => ['web_vitals', []],
     'search_stats' => ['search_stats', []],
+    'search_queries' => ['search_queries', []], // 3.52 B5
     // English since 1.5
     'webhook_deliveries' => ['webhook_deliveries', []],
     'events' => ['events', []],

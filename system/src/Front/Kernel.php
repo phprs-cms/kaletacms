@@ -1437,6 +1437,10 @@ final class Kernel
         $total = count($found['results']);
         $pages = max(1, (int) ceil($total / $perPage));
         $pageNumber = min(max(1, $this->app->request->getInt('page', 1)), $pages);
+        // 3.52 (B5): what visitors search for, for the Statistics – the first page of the results only, so paging counts once
+        if ($searching && $this->app->request->getInt('page', 1) <= 1) {
+            \Kaleta\Core\SiteSearch::record($this->app, $q, Language::siteColumn(), $total);
+        }
         $results = array_map(fn (array $r): array => $r + ['uryvek' => \Kaleta\Core\SiteSearch::snippetHtml(\Kaleta\Core\SiteSearch::resultSnippet($this->app, $r, $found['words']))],
             array_slice($found['results'], ($pageNumber - 1) * $perPage, $perPage));
 

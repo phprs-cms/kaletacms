@@ -35,6 +35,6 @@ check('3.35 B4 N105: every tool that hands Claude visitors\' text marks it – e
     $i335dMarks('CommentTools', 'toolListComments', "in_array(\$type, ['enquiry', 'contact', 'application'], true) ? \\Kaleta\\Mcp\\Untrusted::mark(['comments'])"), // 3.44 (N128): an applicant's too
     $i335dMarks('BuilderTools', 'toolListDraftComments', "'untrusted' => ['comments']"),
     $i335dMarks('CollectionTools', 'toolListCollectionItems', "Untrusted::mark(['nazev', 'data'])") && $i335dMarks('CollectionTools', 'toolListCollectionItems', 'Testimonials::itemsFromAnswers('),
-    $i335dMarks('SettingsTools', 'toolGetStats', "Untrusted::mark(['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries'])"),
+    $i335dMarks('SettingsTools', 'toolGetStats', "Untrusted::mark(['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries', 'site_search'])"), // 3.52 B5: the queries visitors typed
 ], array_fill(0, 9, true));
 check('3.35 B4 N105: testimonial items – nothing to look up for no ids', Kaleta\Core\Testimonials::itemsFromAnswers(new Kaleta\Core\Db('mysql:host=0.0.0.0;port=1', 'x', 'x'), [0, -1]), []);

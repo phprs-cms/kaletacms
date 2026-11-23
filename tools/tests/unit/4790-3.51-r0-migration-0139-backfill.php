@@ -50,5 +50,7 @@ $r790Pdo->exec('UPDATE ka_tasks SET assigned_by = NULL WHERE id = 1');
 $r790Run($r790Db, $r790Settings);
 check('3.51 R0.2: on a site with one language 0139 leaves the subscribers alone and still stamps a task with its creator', [$r790State()[0][1], $r790State()[1][1]], ['', 2]);
 
-check('3.51 R0.2: 0139 is the highest migration, a data migration listed in Migration::DATA, and the database version', [
-    max(array_keys(Kaleta\Core\Migration::files())), in_array('0139-subscriber-language-and-task-assigners', Kaleta\Core\Migration::DATA, true), KALETA_DB_VERSION], [139, true, 139]);
+// 3.52: a later release adds its own migrations after it (0140 – B5), so the rule holds for the migrations of 3.51
+check('3.51 R0.2: 0139 is the highest migration of 3.51, a data migration listed in Migration::DATA, and the database version is the latest migration', [
+    max(array_filter(array_keys(Kaleta\Core\Migration::files()), fn (int $n): bool => $n <= 139)), in_array('0139-subscriber-language-and-task-assigners', Kaleta\Core\Migration::DATA, true),
+    KALETA_DB_VERSION === Kaleta\Core\Migration::latest()], [139, true, true]);

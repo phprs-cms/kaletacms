@@ -169,7 +169,7 @@ final class TimeZoneConversion
         'applications' => ['pool_until', 'deletion_warned_on'], // 3.34: the last day the consent for future openings keeps an application; 3.40: the deletion day announced
         'quotes' => ['valid_until'], // 3.38: the last day a quote is valid
         'stat_dny' => ['den'], 'stat_navstevnici' => ['den'], 'stat_novinky' => ['den'], 'stat_stranky' => ['den'], 'stat_kampane' => ['den'],
-        'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'fleet_history' => ['day'],
+        'stat_zarizeni' => ['den'], 'stat_konverze' => ['den'], 'stat_zdroje' => ['den'], 'web_vitals' => ['day'], 'document_downloads' => ['day'], 'search_stats' => ['day'], 'search_queries' => ['day'], 'fleet_history' => ['day'],
         'fleet_expiry_reminders' => ['expires'], // 3.30: the day a certificate or domain ends, as the site reported it
         'fleet_acceptances' => ['ends_on'], // 3.39: the last day an accepted state holds on the console
         'absences' => ['starts_on', 'ends_on'], // 3.42: the first and the last day of an absence

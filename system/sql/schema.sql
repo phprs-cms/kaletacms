@@ -137,7 +137,6 @@ CREATE TABLE ka_novinky (
     KEY ix_clanky_smazano (smazano),
     KEY ix_clanky_tema (tema, visible, datum),
     KEY ix_clanky_autor (autor),
-    FULLTEXT KEY ft_clanky (titulek, uvod, text, t_slova),
     FULLTEXT KEY ft_clanky_hledani (hledani),
     CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES ka_kategorie (idt),
     CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
@@ -405,6 +404,18 @@ CREATE TABLE ka_web_vitals (
     bucket  TINYINT UNSIGNED NOT NULL,                        -- index into Core\WebVitals::BUCKETS[metric], the last one is open
     samples INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (day, path, metric, bucket)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
+
+-- 3.52 (B5): what visitors search for on the site (Core\SiteSearch::record) – per day, language version and query, how many
+-- searches and how many found nothing. No IP and nothing about the visitor; a query with an @ or 6+ digits is never kept,
+-- signed-in users and bots are not counted, rows older than 400 days are deleted
+CREATE TABLE ka_search_queries (
+    day            DATE NOT NULL,
+    language       VARCHAR(35) CHARACTER SET ascii NOT NULL DEFAULT '',   -- '' = the site's default language, else an additional language version
+    query          VARCHAR(60) NOT NULL,                                  -- lower case, spaces collapsed (SiteSearch::recordedQuery)
+    searches       INT UNSIGNED NOT NULL DEFAULT 0,
+    without_result INT UNSIGNED NOT NULL DEFAULT 0,                       -- the searches of them that found nothing
+    PRIMARY KEY (day, language, query)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
 
 CREATE TABLE ka_stat_zdroje (

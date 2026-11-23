@@ -35,7 +35,7 @@ final class Untrusted
         'list_enquiries' => ['fields', 'email', 'campaign', 'first_page', 'came_from'], 'triage_enquiries' => ['text'],
         'list_contacts' => ['contacts', 'companies'], 'get_contact' => ['contact', 'company', 'timeline'], 'list_bookings' => ['bookings'],
         'list_comments' => ['comments'], 'list_draft_comments' => ['comments'], 'list_collection_items' => ['name', 'values'],
-        'get_stats' => ['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries'], 'read_old_page' => ['old_page'],
+        'get_stats' => ['landing_pages', 'campaigns', 'referrers', 'referrers_of_enquiries', 'site_search'], 'read_old_page' => ['old_page'],
         'list_applications' => ['applications'], 'get_application' => ['name', 'email', 'phone', 'fields', 'attachments', 'notes'],
         // 3.44 (N128): the 404 addresses of the audit, deals titled from enquiries, tasks about them, my_work, the monthly report
         'site_audit' => ['where', 'target'], 'list_deals' => ['title', 'contact', 'company'], 'save_deal' => ['title', 'contact', 'company'],
