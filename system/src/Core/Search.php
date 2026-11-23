@@ -33,8 +33,8 @@ final class Search
     /**
      * A search of news in the admin list and MCP list_news (3.52, A7): each word in the title, the address or the index
      * (intro, text, keywords – normalize()d like the stored index, so diacritics do not matter there either). A word whose
-     * normalized form is shorter than 2 letters ("C++" → "c") is looked for in the title and the address only – one letter
-     * would match almost every index. $alias = the table alias with its dot.
+     * normalized form is shorter than 2 letters is no filter when it is a plain letter or digit ("dům v Praze"); a word with
+     * punctuation ("C++" → "c") is looked for in the title and the address only – one letter would match almost every index. $alias = the table alias with its dot.
      *
      * @return array{0: string, 1: list<string>}
      */
@@ -43,7 +43,12 @@ final class Search
         return Db::likeWords([$alias . 'titulek', $alias . 'seo_link'], $q, more: function (string $word) use ($alias): ?array {
             $normal = self::normalize($word);
 
-            return mb_strlen($normal) < 2 ? null : [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
+            if (mb_strlen($normal) >= 2) {
+                return [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
+            }
+
+            // A one-letter word ("v", "k", "5") narrows nothing, so it lets every row pass; "C++" stays in the title.
+            return preg_match('/^[\p{L}\p{N}]+$/u', $word) === 1 ? ['1 = 1', []] : null;
         });
     }
 

@@ -30,6 +30,9 @@ final class SiteSearch
     /** At most this many pages and this many collection items of the language version are ranked (3.51 read 500 and 2000). */
     public const int SCAN = 2000;
 
+    /** Pages read at most, as in 3.51: the folded-letter branch can make reading nearly every page the normal path. */
+    public const int SCAN_PAGES = 500;
+
     /**
      * Letters Search::normalize folds (remove_diacritics) but utf8mb4_unicode_ci does not in LIKE (it ignores their case),
      * with the first letter they normalize to: a row holding one may match a normalized query word with that letter in PHP
@@ -344,7 +347,7 @@ final class SiteSearch
         }
         [$filter, $filterParams, $order, $orderParams] = $scan(['titulek', 'seo_link', 'popis', 'text'], [], 'titulek');
         foreach ($db->all('SELECT ids, titulek, seo_link, popis, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? AND ' . $filter
-            . ' ORDER BY ' . $order . ', poradi, ids LIMIT ' . self::SCAN, [$column, ...$filterParams, ...$orderParams]) as $s) {
+            . ' ORDER BY ' . $order . ', poradi, ids LIMIT ' . self::SCAN_PAGES, [$column, ...$filterParams, ...$orderParams]) as $s) {
             $candidates[] = ['type' => 'page', 'label' => t('Page'), 'id' => (int) $s['ids'], 'title' => $s['titulek'], 'path' => (int) $s['ids'] === $home ? '' : $s['seo_link'],
                 'text' => trim($s['popis'] . ' ' . plain_text((string) $s['text']))];
         }
