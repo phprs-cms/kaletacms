@@ -1307,8 +1307,8 @@ body.login {
 	text-decoration: none;
 }
 .paleta-seznam small { flex: none; color: var(--text-slaby); font-size: 12px; }
-.paleta-seznam [aria-selected="true"] a { background: var(--akcent); color: var(--na-akcentu); }
-.paleta-seznam [aria-selected="true"] small { color: inherit; opacity: 0.8; }
+.paleta-seznam a[aria-selected="true"] { background: var(--akcent); color: var(--na-akcentu); }
+.paleta-seznam a[aria-selected="true"] small { color: inherit; opacity: 0.8; }
 .paleta-nic { padding: 14px 12px; color: var(--text-slaby); }
 /* 3.52 (A5): the heading of a kind of record (Pages, Customers…) and of "Recently opened" */
 .paleta-skupina { padding: 10px 12px 4px; color: var(--text-slaby); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }

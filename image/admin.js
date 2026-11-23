@@ -601,12 +601,12 @@
 		};
 		var popupSelect = function (i, scroll) {
 			popupSelected = Math.max(0, Math.min(i, popupShown.length - 1));
-			Array.prototype.forEach.call(popupList.querySelectorAll('[role="option"]'), function (li, j) { li.setAttribute('aria-selected', j === popupSelected ? 'true' : 'false'); });
+			Array.prototype.forEach.call(popupList.querySelectorAll('[role="option"]'), function (option, j) { option.setAttribute('aria-selected', j === popupSelected ? 'true' : 'false'); });
 			var item = popupShown[popupSelected];
 			popupSelectedUrl = item ? item.u : '';
 			if (item) { popupFields.setAttribute('aria-activedescendant', 'paleta-moznost-' + popupSelected); } else { popupFields.removeAttribute('aria-activedescendant'); }
-			var li = document.getElementById('paleta-moznost-' + popupSelected);
-			if (scroll && li && li.scrollIntoView) { li.scrollIntoView({ block: 'nearest' }); }
+			var option = document.getElementById('paleta-moznost-' + popupSelected);
+			if (scroll && option && option.scrollIntoView) { option.scrollIntoView({ block: 'nearest' }); }
 		};
 		var popupNote = function (text) {
 			var li = document.createElement('li');
@@ -629,10 +629,12 @@
 				section.items.forEach(function (p) {
 					var i = popupShown.length;
 					popupShown.push(p);
+					// 3.52: the link itself is the option (axe nested-interactive: an option holds no link); the row is only layout
 					var li = document.createElement('li');
-					li.id = 'paleta-moznost-' + i;
-					li.setAttribute('role', 'option');
+					li.setAttribute('role', 'presentation');
 					var a = document.createElement('a');
+					a.id = 'paleta-moznost-' + i;
+					a.setAttribute('role', 'option');
 					a.href = p.u;
 					a.tabIndex = -1;
 					a.textContent = p.n;

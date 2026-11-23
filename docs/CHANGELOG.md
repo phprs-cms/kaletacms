@@ -4,6 +4,118 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.52.0 – finding things: one search for the lists, Ctrl/⌘K across every record, a ranked site search, search in the header, what visitors search for (23 November 2026)
+
+The administration finds any record a person may open – regardless of diacritics, word order and kind of record – the
+same way from the palette, from the lists and over MCP, and the website gets one ranked list of results with the matched
+words marked, Czech, Slovak, English and German word forms and a search icon for the header. **Database 140** (one
+migration, 0140 `.sql`). **MCP:** new tools `search` and `search_site`, `list_pages` gains `search`, `get_stats` gains
+`site_search`; additions only (`tools/contracts.php` additive).
+
+1. **One search for the lists (A1).** `Db::likeWords()` splits a search into at most 6 words (cut to 100 characters);
+   every word must match one of the columns, in any order, compared as `column COLLATE utf8mb4_unicode_ci LIKE ?` with
+   `%`, `_` and `\` escaped – "dvorak" finds Dvořák, "novak jan" finds Jan Novák. `Db::likeJson()` searches JSON text in
+   all three ways it is stored (letters as they are with plain or escaped slashes, the old `\uXXXX`). It replaces the
+   hand-written copies in Contacts and companies, Deals, Quotes, Applications, Internal files, Prices, the Notebook, the
+   Pages, Media, Enquiries, News, Redirects, Change log and Subscribers lists, the link picker (`Admin\LinkTargets`) and
+   the MCP tools `list_news`, `list_media`, `list_enquiries` and `list_collection_items` – a list and its tool share
+   their columns (`Pages::SEARCH_COLUMNS`, `Media::SEARCH_COLUMNS`, `Enquiries::SEARCH_COLUMNS`).
+2. **Enquiries (A2).** A name in the form data is found also with diacritics (the form stores it unescaped, only the
+   `\uXXXX` form was searched), and the topic and the page are searched too. The total is counted first and a page past
+   the end shows the last one; paging keeps the search and the kind (`category`), the filter form carries the kind, and
+   the empty state knows a kind filter.
+3. **Other people's drafts (A3).** `module=news&action=search_json` applies `Auth::articleScope()` always, not only with
+   `edit=1`: an author no longer receives the titles and addresses of colleagues' unpublished news.
+4. **The palette searches every record on the server (A4, A5).** Ctrl/⌘K asks `admin.php?action=palette_search` once
+   (`session_write_close()`, `Response::NO_STORE`, one `fetch` with `AbortController`) and `Core\RecordSearch` answers
+   with pages (name, address or SEO title, with "English · hidden"), news, collection items, media, enquiries, quotes,
+   the person's open tasks, users, customers, deals, job applications and internal files – each kind only for whoever
+   may open its section and with the condition of its list (`articleScope()`, `collectionItemListScope()`, the enquiry
+   visibility, `Contacts::list`, `Deals::list`, `Quotes::list`, `Applications::list`, `InternalFiles::files`). The same
+   name and the start of the name come first (`RecordSearch::rank`), at most 5 per group, groups in the order of their
+   best row, "+ N more" to the section's list with `?search=` where the list can search. "Searching…" while waiting,
+   "Search is not available – reload the page." after an error or an expired sign-in; the selection is kept by address
+   so Enter opens the row it shows; the empty palette shows up to 8 recently opened records of this sign-in
+   (`localStorage`, never on the server); `role="combobox"` with `aria-activedescendant`, key hints hidden under 720 px.
+   `views/admin/layout.php` no longer reads 300 pages on every request; one `data-paleta-hledat` replaces four data
+   attributes. Keywords that are searched but never shown (`Admin\Palette::KEYWORDS` – SMTP, GDPR, cookies, backups,
+   2FA, logo, password…) lead to the settings tab or screen.
+5. **Collection items (A6).** Items are searched by name, address and values (`Collections::itemSearch`, also MCP
+   `list_collection_items`, which now reads the address too) and paged by 100 with the search, language, category, field
+   filters and the Mine tab kept; a search without a match shows the filter empty state, not "The collection is empty".
+6. **One paging, Found and marks (A8).** `views/admin/paging.php` (pages within 5 of the current one, the first and the
+   last, a gap between) in Media, Redirects, Subscribers (numbered, no longer Previous/Next), Enquiries, News, Customers,
+   Companies, Applications, the talent pool, Change log, Pipeline, Quotes and Internal files; Prices keeps its own.
+   `Module::pageNumber()` shows the last page for a page past the end (Media, News and Subscribers showed an empty list).
+   "Found: N" while searching; `mark_words()` escapes first, then marks the words in `<mark>` the way `likeWords` matches
+   (case and diacritics ignored), `mark_snippet()` shows 140 characters around the first match in Enquiries and
+   Applications. Media, Redirects and Subscribers say "Nothing matches the filter." with Clear filter instead of the
+   first-use advice. Labels "Headline contains", "Name or address contains" and "Detail contains" became "Search:".
+7. **News by their text, more columns (A7, A9).** News are found by a word of the title, the address or the text
+   (`Search::newsWords()` – `hledani` through `Search::normalize()`, a word normalizing to one letter such as "C++" only in
+   the title and the address) in the list, `list_news` and `search_json`. Pages also by the SEO title and the text, the
+   change log also by the reason and the name, `list_media` also by the caption; customers by phone digits
+   (`Contacts::phoneDigits` – a word of digits, `+` and `-` with at least 4 digits: "777-123"). `list_pages` takes
+   `search`, which also takes a number, as does the search of `list_media`.
+8. **One ranked site search (B1).** `Core\SiteSearch` (from `Front\Kernel::search()`) ranks pages, collection items with
+   their own page and news in one list with one count and one paging (`news_per_page`, a page past the end shows the
+   last one) – 3.51 showed at most 20 pages and items on the first page only and news apart by date. Only what a visitor
+   of the language version sees: published, without a password, not in the trash, without noindex – noindex news are now
+   left out too. The database picks the candidates (news: at most 300 whose normalized index has a word starting with
+   the query word; pages at most 500 and collection items at most 2,000, the likely matches first), PHP scores them: a
+   word in the title +100, the exact form and the whole word +5 each, occurrences up to 20 a word, news of the last 90
+   days +3. `NewsRepository::search()` (MATCH), `Search::find()` and `Search::query()` are gone; `Search::complete()` runs
+   as the background job `search_index` instead of on every search. `/hledani` stays uncached, noindex and at 30 searches
+   a minute.
+9. **Word forms, two letters, letters and scripts (B2).** `Search::stem()` and `Search::terms()` take Czech, Slovak,
+   English and German endings off the query word (a stem of at least 4 letters, words with digits untouched), with the
+   inserted Czech and Slovak "e" – "stavbách" finds "stavby", "koupelna" finds "koupelen". A text word matches when it
+   starts with the query word or its stem, so "IT" finds "IT" and not "sit amet"; queries from two letters
+   (`SiteSearch::MIN_LENGTH`, also in the listing form, the 404 page and the Search element). When nothing has every
+   word, results with some of them are shown and the page says so. Rows with letters the collation does not fold like
+   `Search::normalize` (`SiteSearch::FOLDED`: ß, ł, đ, ø, æ) stay candidates, an Arabic or Hebrew query reads every visible
+   row, and words in Chinese, Cyrillic or Greek are searched as typed, anywhere in the text.
+10. **Snippets and the results page (B3).** A snippet of about 30 words around the place with the most query words, cut
+    on the original text's word boundaries (ß and æ no longer shift it), escaped, with the matches in `<mark>`
+    (`.vypis-stranky mark` in the secondary colour without a background, layer `sablona`); a news item whose title and
+    intro miss a word takes its snippet from the full text. Each result shows its kind (`.vypis-stranky-typ`); the page
+    title is "Search: …"; with no result the page gives advice and the menu pages as the 404 page does. Search results
+    list news as plain entries, no longer as cards with images.
+11. **Search in the header (B4).** The Search element has an appearance (`podoba` – MCP `appearance`): *Field with a
+    button* (as before) or *Icon that opens the field* – a magnifier button with `popovertarget` and the field in a
+    popover (Popover API, no script, anchor positioning flipped to the other edge before it leaves the screen, mirrored
+    on right-to-left pages). New header template **With search** (`hlavicka:s-hledanim`: logo, menu, search icon) in the
+    template picker and `apply_part_template`.
+12. **What visitors search for (B5).** `ka_search_queries` (`{search_queries}`: day, language, query, searches,
+    without_result) counts searches per day – only with statistics on, only page 1, never for bots or signed-in people,
+    never a query with an @ or six digits; lower case, at most 60 characters, no IP and nothing about the visitor. Kept
+    400 days (the daily clean-up, `Retention::FIXED`). Statistics show **Searched terms** and **Searches without result**
+    (top 20 each), `get_stats` gives `site_search` (marked untrusted – visitors typed it).
+13. **MCP.** `search` (alias `hledej`, read-only, on demand) runs `RecordSearch` with the rights of the connected user
+    and returns `results` (`type`, `id`, `title`, `note` in English, absolute `url`) and `totals`; it never lists user
+    accounts, and job applications, the job enquiries still moving and the tasks about applications only while
+    `applications_claude` lets Claude read them. `search_site` (read-only, on demand: `query`, `language`, `limit` 1–50)
+    returns `results` (`type`, `title`, `url`, `snippet` as plain text), `total` and `partial`. Both mark `results`
+    untrusted. Sizes: work 53,109 → 53,191 bytes, essentials 47,745 → 47,838, migration 47,852 → 47,941, fleet 27,280,
+    every tool 211,305 → 213,868.
+14. **Review fixes.** Pages and items with ß, ł, đ, ø, æ (and `\u`-escaped item JSON) are found again, typed either way;
+    words in non-Latin scripts find news by title and intro as 3.51 did; the 300 news candidates count only word starts
+    of the normalized index, so short queries on large sites keep real matches; the snippet prints the window it scored;
+    searched terms are deleted by the daily clean-up, not by chance; a one-letter word no longer hides news found by their
+    text; MCP `search` respects `applications_claude`, leaves out user accounts and writes its notes in English;
+    "Recently opened" belongs to the sign-in (another person's list is forgotten, never shown); "+ N more" of job
+    applications opens the list with every status; the search icon's popover stays on the screen; the palette field
+    becomes a combobox only with the script, and each result link is itself the option (axe: no link inside an option).
+15. **Updating.** Database 140: 0140 creates `ka_search_queries` and drops the FULLTEXT index `ft_clanky`, which no query
+    used (`ft_clanky_hledani` stays). Search and Statistics keep working between the file update and the migration. What
+    an existing site notices: one mixed list of site search results with news as plain entries, noindex news no longer
+    found on the site, the news index filled by the background job instead of the first search, and the palette no
+    longer finds a job application by `#number`.
+16. **Still open.** MariaDB 10.6/11.4 collation behaviour is checked only by CI. Old `\uXXXX` JSON rows are found only
+    when the word is typed with diacritics. Enquiry kind and status tabs drop the search when clicked. Users, collection
+    items and tasks have no "+ N more" link (their lists cannot search). An index table for the whole site and dropping
+    `ft_clanky_hledani` wait for measurements.
+
 ## 3.51.0 – honest sending: the send register, pause and the brake, the sender named, testimonial requests to customers, MCP room (22 November 2026)
 
 A newsletter never reaches an address that bounced or said no, the sender can stop a bad send and a send that keeps
@@ -101,7 +213,7 @@ only (`tools/contracts.php` additive).
     that backup, so its enquiry could be e-mailed once more. The default e-mail texts wait for a lawyer's review (approved wording ships in
     3.51.1). Lows left in touched files: L2, L8 (`Core\Mail`), N151 b (`Core\Health`), N129–N132 (applications).
 
-## 3.50.1 – gate fixes: whistleblowing limits, retention confirmed, application forms locked tighter, Core without admin calls, the whole guide (21 November 2026)
+## 3.50.1 – gate fixes: whistleblowing limits, retention confirmed, application forms locked tighter, Core without admin calls, the whole guide (22 November 2026)
 
 The fixes of the four-view re-audit after 3.50, the gate before 3.51: the one confirmed Medium finding (a whistleblowing
 report over the server's post limit came back as "could not be verified" with everything gone) and the guide gap the

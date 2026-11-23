@@ -94,6 +94,10 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 - **Novinky** (`Modules\News`): koncept / vydaná (i naplánovaná), koš 30 dní, revize (20 posledních) s porovnáním, rozepsaný stav na serveru,
   kontrola nefunkčních odkazů, AI asistent a překlad. Změna adresy vydané novinky, stránky nebo kategorie zapíše přesměrování (`Core\RedirectStore::add`).
 - **Hledání** přes `ka_novinky.hledani` (`Core\Search`): kdo ukládá novinku jinudy než administrací nebo MCP, volá `Search::index()`.
+- **Hledání (3.52):** seznamy administrace i jejich nástroje MCP přes `Db::likeWords` (slova v libovolném pořadí, bez ohledu na diakritiku,
+  `likeJson` pro JSON); paleta Ctrl/⌘K a MCP `search` přes `Core\RecordSearch` (každý druh za podmínkou svého seznamu, skupiny po 5, „+ N dalších“);
+  web `/hledani` a MCP `search_site` přes `Core\SiteSearch` (předvýběr v SQL, řazení v PHP, tvary slov `Search::stem`, úryvky s `<mark>`); prvek Hledání
+  s podobou „ikona“ (Popover API); hledané výrazy v `ka_search_queries` jen se zapnutou statistikou, 400 dní, ve Statistice a `get_stats`.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Notifications::process()` a sloupec `oznameno`.
 - **Webhooky** (1.8, `Core\Webhook`): volání se uloží do `ka_webhook_deliveries` a odejde po odeslání odpovědi (`Webhook::afterResponse` v index.php
   a admin.php), opakování `Webhook::RETRY_DELAYS` z úloh na pozadí a cronu. Podpis `X-Kaleta-Signature: sha256=HMAC(timestamp.body, webhook_secret)`;

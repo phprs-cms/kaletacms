@@ -25,6 +25,14 @@ vaši kontrolu. **První kroky** provedou nový web nastavením, dokud není hot
 a dlaždice počítají, co v které sekci čeká. Dole jsou návštěvy za posledních 14 dní, poslední poptávky a co se naposledy
 upravovalo; každý řádek otevře svůj záznam.
 
+**Najít cokoli (Ctrl K, na Macu ⌘K).** Paleta najde každý záznam, který smíte otevřít – stránky, novinky, položky kolekcí,
+média, poptávky, zákazníky, obchody, nabídky, své úkoly, žádosti o práci, interní soubory – i sekce, záložky nastavení
+a akce. Slova můžete psát v libovolném pořadí a bez diakritiky („dvorak“ najde Dvořáka); výsledky přijdou ve skupinách
+po pěti, přesný název první, a **+ N dalších** otevře seznam sekce se stejným hledáním. Prázdná paleta ukáže, co jste
+v tomto přihlášení naposledy otevřeli. Stejně hledají i **seznamy**: slovo z textu najde novinku, jméno z formuláře
+poptávku, číslice telefonu („777-123“) zákazníka; seznam ukáže **Nalezeno: N**, hledaná slova zvýrazní a hledání drží
+na každé straně. Claude hledá stejné záznamy nástrojem `search`, s vašimi právy.
+
 **Funkce.** Správa → Funkce zapíná a vypíná vestavěné části Kalety – Novinky, Formuláře a poptávky, Zákazníky, Obchody,
 Nabídky, Rezervace, Newsletter, Statistiku, jazykové verze, AI asistenta, napojení na Clauda a další. Vypnutá funkce zmizí
 z menu, její prvky se v builderu přestanou nabízet a její adresy na webu odpovídají „nenalezeno“, ale nic se nesmaže:
@@ -88,7 +96,8 @@ webu**, vlevo panel **Přidat / Struktura**, vpravo vlastnosti vybraného prvku.
   **Kontrola** upozorní na tlačítka bez odkazu, obrázky bez popisu, chybějící hlavní nadpis a slabý kontrast textu.
 - **Prvky navíc:** ikona, galerie s prohlížečkou fotek, záložky, akordeon, karusel, mapa (načte se až po klepnutí),
   drobečková navigace, **počítadlo**, **ukazatele průběhu**, **hodnocení** hvězdičkami, **odpočet**, **sociální sítě**,
-  **vyhledávání**, **tlačítko nahoru** a **odběr novinek**. Sekce umí **video na pozadí**, video **plakát**, navigace
+  **vyhledávání**, **tlačítko nahoru** a **odběr novinek**. Prvek **vyhledávání** je pole s tlačítkem nebo **ikona**,
+  která pole otevře (Vzhled) – hodí se do záhlaví. Sekce umí **video na pozadí**, video **plakát**, navigace
   **mega menu** a obrázek pozadí **paralaxu**.
 
 Stránku, která byla dosud jen textem, builder převede na stavbu sám. Zpět k textu ji vrátíte v nastavení stránky.
@@ -135,7 +144,8 @@ administrace ukazuje lištu s tím, co mění, a třemi tlačítky:
 
 **Vzhled → Části webu.** Dokud část nepublikujete z builderu, kreslí ji vestavěná výchozí podoba.
 
-- **Začít ze šablony:** čtyři záhlaví (logo vlevo a menu vpravo, logo uprostřed, s kontaktní lištou, minimální), čtyři
+- **Začít ze šablony:** pět záhlaví (logo vlevo a menu vpravo, logo uprostřed, s kontaktní lištou, s vyhledáváním,
+  minimální), čtyři
   patičky (sloupce, kompaktní, s tiráží, s výzvou k akci) a jednoduché nebo rozšířené obálky. Šablona je čistá kostra –
   barvy, písma a mezery si bere z design systému. Uloží se do konceptu části, takže web se změní až po publikování;
   zkontrolujte ji na celém webu přes **Náhled celého webu**.
@@ -471,6 +481,13 @@ píše německé texty pro návštěvníky v oslovení webu, ať vám administra
 
 Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`, všechny ostatní `/news`, `/news/category/…`,
 `/news/tag/…` a `/search`. Druhá podoba natrvalo přesměruje, takže staré odkazy i pozice ve vyhledávačích zůstanou.
+
+**Hledání na webu.** `/hledani` (`/search`) vypíše stránky, položky kolekcí s vlastní stránkou a novinky jazyka
+návštěvníka v jednom seznamu, nejlepší shodu první, s nalezenými slovy zvýrazněnými v krátkém úryvku. Najde tvary slov
+v češtině, slovenštině, angličtině a němčině („stavbách“ najde „stavby“), už od dvou písmen; když žádný výsledek nemá
+všechna slova, ukáže výsledky s některými z nich. Skryté stránky, koncepty a nic se *Skrýt před vyhledávači (noindex)*
+se nikdy neukáže. Do záhlaví dáte hledání šablonou **S vyhledáváním** nebo prvkem Hledání jako ikonou. Claude hledá na
+webu stejně nástrojem `search_site`.
 
 **Stejná adresa ve všech jazycích (3.19):** stránka, novinka, kategorie i štítek smí použít stejnou adresu jednou
 v každé jazykové verzi – `/kontakt` a `/en/kontakt` jsou dvě stránky, jako na vícejazyčném webu ve WordPressu. Od 3.19
@@ -913,6 +930,7 @@ najde nástrojem `list_media_without_alt` a popíše je nástrojem `update_media
 **Statistika.** Péče o web → Statistika počítá návštěvy bez cookies a bez ukládání čehokoli o člověku – jen součty po
 dnech. Ukazuje návštěvy a zobrazení stránek, nejnavštěvovanější stránky, weby a kampaně, odkud návštěvníci přišli,
 zařízení, konverze pop-up oken a – když se pamatuje původ poptávek – které stránky a kampaně přinášejí poptávky a odběry.
+**Hledané výrazy** a **Hledání bez výsledku** ukážou, co návštěvníci na webu hledají – jen výrazy, drží se 400 dní.
 Počítají se jen návštěvy potvrzené prohlížečem návštěvníka, takže roboti a vaše vlastní návštěvy vypadnou. **Rychlost
 u návštěvníků** měří, jak rychle se stránky načítají ve skutečných prohlížečích (LCP, CLS, INP), a audit webu upozorní,
 když se stránka zpomalí. Stejný přehled čte Claude nástrojem `get_stats`.

@@ -27,6 +27,14 @@ and what waits for your review. **First steps** lead a new site through its set-
 has its own list – and the boxes count what waits in each section. Below are the visits of the last 14 days, the latest
 enquiries and what was edited recently; each row opens its record.
 
+**Finding anything (Ctrl K, ⌘K on a Mac).** The palette finds every record you may open – pages, news, collection items,
+media, enquiries, customers, deals, quotes, your tasks, job applications, internal files – together with sections,
+settings tabs and actions. Words may come in any order and without diacritics ("dvorak" finds Dvořák); results come in
+groups of five, the exact name first, and **+ N more** opens the section's list with the same search. An empty palette
+shows what you opened recently on this sign-in. The **lists** search the same way: a word of the text finds a news item,
+a name in the form an enquiry, phone digits ("777-123") a customer; the list says **Found: N**, marks the words and keeps
+the search on every page. Claude searches the same records with `search`, with your rights.
+
 **Features.** Administration → Features switches the built-in parts of Kaleta on and off – News, Forms and enquiries,
 Customers, Pipeline, Quotes, Bookings, Newsletter, Statistics, language versions, the writing assistant, the Claude
 connection and others. A switched-off feature disappears from the menu, its elements are no longer offered in the builder
@@ -98,7 +106,8 @@ page**, on the left the **Add / Structure** panel, on the right the properties o
   a **check** flags buttons without links, images without descriptions, a missing main heading and low text contrast.
 - **More elements:** icon, photo gallery with a viewer, tabs, accordion, carousel, map (loads only after a click),
   breadcrumbs, **counter**, **progress bars**, star **rating**, **countdown**, **social networks**, **search**,
-  **back-to-top button** and **newsletter sign-up**. Sections support a **background video**, videos a **poster**,
+  **back-to-top button** and **newsletter sign-up**. The **search** element is a field with a button or an **icon** that
+  opens the field (Appearance), handy in a header. Sections support a **background video**, videos a **poster**,
   navigation a **mega menu** and background images **parallax**.
 
 A page that used to be plain text is converted by the builder automatically. You can switch it back to text in the page settings.
@@ -146,7 +155,8 @@ A brand-new shared class applies at once – it changes nothing that is already 
 
 **Appearance → Site parts.** Until you publish a part from the builder, its built-in default design is shown.
 
-- **Start from a template:** four headers (logo left and menu right, centred logo, with a contact bar, minimal), four
+- **Start from a template:** five headers (logo left and menu right, centred logo, with a contact bar, with search,
+  minimal), four
   footers (columns, compact, with the imprint, with a call to action) and plain or extended wrappers. A template is a
   clean skeleton – colours, fonts and spacing come from your design system. It goes into the part's draft, so the site
   changes only when you publish it; check it on the whole site with **Preview the whole site**.
@@ -500,6 +510,13 @@ with "Sie". Claude writes German texts for visitors in the form of address of th
 
 System addresses follow the language: Czech versions use `/novinky` and `/hledani`, all others `/news`, `/news/category/…`,
 `/news/tag/…` and `/search`. The other form redirects permanently, so old links and search rankings keep working.
+
+**Site search.** `/search` (`/hledani`) lists pages, collection items with their own page and news of the visitor's
+language in one list, the best match first, with the found words marked in a short extract. Word forms are found in
+Czech, Slovak, English and German ("stavbách" finds "stavby"), from two letters; when no result has every word, results
+with some of them are shown. Hidden pages, drafts and anything with *Hide from search engines (noindex)* never appear.
+Put the search into the header with the template **With search** or the Search element as an icon. Claude searches the
+site the same way with `search_site`.
 
 **The same address in every language (3.19):** a page, a news item, a category or a tag may use the same address once in
 each language version – `/kontakt` and `/en/kontakt` are two pages, as on a multilingual WordPress site. This is how every
@@ -962,7 +979,8 @@ without a description with `list_media_without_alt` and describes them with `upd
 
 **Statistics.** Site care → Statistics counts visits without cookies and without storing anything about a person – only
 sums per day. It shows visits and page views, the most visited pages, the sites and campaigns visitors came from, devices,
-pop-up conversions and – when leads are remembered – which pages and campaigns bring enquiries and sign-ups. Only visits
+pop-up conversions and – when leads are remembered – which pages and campaigns bring enquiries and sign-ups.
+**Searched terms** and **Searches without result** show what visitors look for on the site – terms only, kept 400 days. Only visits
 confirmed by a visitor's browser count, so bots and your own visits are left out. **Speed for visitors** measures how fast
 pages load in real browsers (LCP, CLS, INP) and the site audit warns when a page gets slower. Claude reads the same report
 with `get_stats`.
