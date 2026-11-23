@@ -45,10 +45,7 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
     foreach (isset($modules['settings']) ? array_intersect_key(Kaleta\Admin\Modules\Settings::TABS, Kaleta\Admin\Modules\Settings::visibleTabs($app->settings()) + Kaleta\Admin\Modules\Settings::MOVED_TABS) : [] as $key => $name) {
         $statements[] = ['n' => t('Settings') . ' → ' . t($name), 'u' => $adminUrl('module=settings&tab=' . $key), 's' => t('Settings')];
     }
-    // site pages can be found in the palette by name (news is searched on the server, there are more of them)
-    foreach (isset($modules['pages']) ? $app->db()->all('SELECT ids, titulek FROM {stranky} WHERE smazano IS NULL ORDER BY poradi, ' . $app->db()->sortText('titulek') . ' LIMIT 300') : [] as $pageRow) {
-        $statements[] = ['n' => $pageRow['titulek'], 'u' => $adminUrl('module=pages&action=edit&id=' . (int) $pageRow['ids']), 's' => t('Page')];
-    }
+    // 3.52 (A4): pages, news and every other record are searched on the server (Admin\Palette::search) – none embedded here
     // My account and its tabs, Notifications (3.26) and the guide (3.45) – every signed-in user; a chapter of the guide per section the person may open
     foreach (Kaleta\Admin\Palette::EVERYONE as [$name, $query]) {
         $statements[] = ['n' => t($name), 'u' => $adminUrl($query), 's' => ''];
@@ -57,6 +54,14 @@ if ($user !== null && empty($gated)) { // 3.19 (N3183-2): nothing to search at t
         $statements[] = ['n' => t(Kaleta\Admin\Guide::CHAPTERS[$chapterKey]['title']), 'u' => $adminUrl('action=guide&chapter=' . $chapterKey), 's' => t('Guide')];
     }
     $statements[] = ['n' => t('View site'), 'u' => $app->url(''), 's' => ''];
+    // 3.52 (A9): the keywords of a section or a settings tab (Admin\Palette::KEYWORDS) – searched, translated and in English, never shown
+    foreach ($statements as &$statement) {
+        $query = (string) parse_url($statement['u'], PHP_URL_QUERY);
+        if (isset(Kaleta\Admin\Palette::KEYWORDS[$query])) {
+            $statement['k'] = t(Kaleta\Admin\Palette::KEYWORDS[$query]) . ' ' . Kaleta\Admin\Palette::KEYWORDS[$query];
+        }
+    }
+    unset($statement);
 }
 // 3.26: the bell – unread notifications of the signed-in person (Core\Inbox, one COUNT over its key); not at the two-factor gate
 $bell = $user !== null && empty($gated) ? Kaleta\Core\Inbox::unreadCount($app->db(), (int) $user['idu']) : null;
@@ -175,9 +180,9 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>" data-csrf="<?= e($app->session->csrfToken()) ?>"<?= isset($modules['news']) ? ' data-clanky="' . e($app->url('admin.php?module=news&action=search_json&edit=1')) . '"' : '' ?><?= isset($modules['contacts']) ? ' data-contacts="' . e($app->url('admin.php?module=contacts&action=search_json')) . '"' : '' /* 3.28: customers by name, e-mail or company */ ?><?= isset($modules['pipeline']) ? ' data-deals="' . e($app->url('admin.php?module=pipeline&action=search_json')) . '"' : '' /* 3.31: deals by title, customer or company */ ?><?= isset($modules['applications']) ? ' data-applications="' . e($app->url('admin.php?module=applications&action=search_json')) . '"' : '' /* 3.34 B: job applications by number, name or position – only with the section */ ?>>
-	<input class="paleta-pole" type="search" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
-	<ul class="paleta-seznam" id="paleta-seznam" role="listbox"></ul>
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>" data-csrf="<?= e($app->session->csrfToken()) ?>" data-paleta-hledat="<?= e($app->url('admin.php?action=palette_search')) /* 3.52 (A4): every kind of record in one answer */ ?>">
+	<input class="paleta-pole" type="search" role="combobox" aria-expanded="true" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
+	<ul class="paleta-seznam" id="paleta-seznam" role="listbox" aria-label="<?= e(t('Quick search and commands')) ?>"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
 	<script type="application/json" id="paleta-data"><?= json_encode($statements, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>

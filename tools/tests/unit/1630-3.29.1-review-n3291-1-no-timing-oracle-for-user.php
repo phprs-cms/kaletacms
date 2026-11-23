@@ -281,7 +281,8 @@ $b331Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.ph
 $b331Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
 $b331Board = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/pipeline/board.php');
 check('[source-pin] 3.31 (B): the palette searches deals only for whoever has the Pipeline; the board script posts the move form as JSON, announces moves and lets a lost column ask for the reason; the boxes on an enquiry, a customer and a company', [
-    str_contains($b331Layout, "isset(\$modules['pipeline']) ? ' data-deals=\"'"), str_contains($b331Script, "palette.getAttribute('data-deals')"), str_contains($b331Script, "T('deal')"),
+    // 3.52 (A4): one search on the server for every kind of record (Core\RecordSearch) – deals only with the section
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RecordSearch.php'), "'deal' => [Deals::SECTION,"), str_contains($b331Layout, ' data-paleta-hledat="'), str_contains($b331Script, "palette.getAttribute('data-paleta-hledat')"),
     str_contains($b331Script, "document.querySelector('[data-pipeline-board]')"), str_contains($b331Script, "data.set('format', 'json')"), str_contains($b331Board, 'aria-live="polite" data-pipeline-announce'),
     str_contains($b331Script, "col.getAttribute('data-kind') === 'lost'"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php'), "render('admin/deal_box'"),

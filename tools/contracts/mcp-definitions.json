@@ -180,9 +180,10 @@
         "list_internal_files",
         "get_internal_file",
         "save_internal_file",
-        "smaz_stranku"
+        "smaz_stranku",
+        "hledej"
     ],
-    "raw": "04de969d55c3a9dc9d00ec881cd4960d87dbb0ab60560c6a9634ac1ad940753c",
+    "raw": "494ba9d0601e347e4b437689fcfe4c1391c6d46515ad1fb9929c7c8ef6c4d3e1",
     "discovery": "f1edcf77b0a8fdd0d2a94d6928db8cb69038a4775befd3e06ac1fcfb8d0cd74d",
     "sha256": {
         "info_o_webu": "f3616b3d0a440cac737e92ff73850d599c5a867d94736a7f68cb44414d0f059e",
@@ -365,6 +366,7 @@
         "list_internal_files": "84a3515af374b89a9d3ed8f9e3758f12f42fabdf822e3b0e80405f081a6765ed",
         "get_internal_file": "53698e98c6e8997ec77f1dc31c3c15180ba7e1c42af34554c3d18af157f7a500",
         "save_internal_file": "8e81d3d3ff6c9840bf93ce7bc10dba7f1666b2c5ba51f34225ee4558ab4466be",
-        "smaz_stranku": "03c88464ea433726a0aed111e74bedf68daf18dfe72ea667d55df7cd38daba99"
+        "smaz_stranku": "03c88464ea433726a0aed111e74bedf68daf18dfe72ea667d55df7cd38daba99",
+        "hledej": "511806f15833b25e3174801b80b0374bcc92770e870b769411485b22999fb1d9"
     }
 }

@@ -3118,4 +3118,8 @@ window.KALETA_PREKLAD = {
 	"No result": "Ningún resultado",
 	"Up to %d files can go with one e-mail.": "Con un correo pueden ir como máximo %d archivos.",
 	"The attachments are too large together (%1$s, at most %2$s).": "Los adjuntos son demasiado grandes en conjunto (%1$s, como máximo %2$s).",
+	"Recently opened": "Abiertos recientemente",
+	"+ %s more": "+ %s más",
+	"Searching…": "Buscando…",
+	"Search is not available – reload the page.": "La búsqueda no está disponible: vuelva a cargar la página.",
 };

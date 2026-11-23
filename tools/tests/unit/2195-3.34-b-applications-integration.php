@@ -16,8 +16,9 @@ check('[source-pin] 3.34 B: My work – the undecided applications one is respon
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/my_work/list.php'), "<?php elseif (\$list === 'applications' || \$list === 'applications_new'):")],
     ['applications', 'applications', true, true]);
 check('[source-pin] 3.34 B: Ctrl K asks for applications only with the section; the palette, the jobs list and the builder get their data', [
-    str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.php'), "isset(\$modules['applications']) ? ' data-applications=\""),
-    str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.js'), "palette.getAttribute('data-applications')"),
+    // 3.52 (A4): one search on the server for every kind of record (Core\RecordSearch) – applications only with the section
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RecordSearch.php'), "'application' => [Applications::SECTION,"),
+    str_contains((string) file_get_contents(KALETA_ROOT . '/image/admin.js'), "palette.getAttribute('data-paleta-hledat')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/Modules/Collections.php'), "isset(\$this->kernel->modules()[\\Kaleta\\Core\\Applications::SECTION])"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Admin/BuilderActions.php'), "'pozice' => \\Kaleta\\Core\\Applications::openPositions(\$db, \$language),"),
     str_contains((string) file_get_contents(KALETA_ROOT . '/image/stavitel.js'), "options.klic === 'pole' && item.typ === 'vyber'")],

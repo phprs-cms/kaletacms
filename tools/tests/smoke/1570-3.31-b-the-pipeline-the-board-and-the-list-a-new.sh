@@ -20,7 +20,7 @@ B331_EVA=$(sq "INSERT INTO ka_contacts (email, email_norm, name, phone, company_
 # the menu and the empty board; a new deal from the board – the customer's company comes along, the change log has one row
 check "3.31: the Pipeline is in the menu after Customers, the empty board offers New deal" 200 "/admin.php?module=pipeline" 'data-new-deal'
 expect "3.31: … the menu item, the tabs (Stages for the administrator), the palette searches deals and offers New deal" \
-  "$(b331_has 'href="/admin.php?module=pipeline"' | head -1 | sed 's/[2-9]/1/')|$(b331_has 'data-pipeline-stages')|$(b331_has 'data-deals="/admin.php?module=pipeline&amp;action=search_json"')|$(b331_has 'module=pipeline\\u0026action=new')" "1|1|1|1"
+  "$(b331_has 'href="/admin.php?module=pipeline"' | head -1 | sed 's/[2-9]/1/')|$(b331_has 'data-pipeline-stages')|$(b331_has 'data-paleta-hledat="/admin.php?action=palette_search"')|$(b331_has 'module=pipeline\\u0026action=new')" "1|1|1|1"
 check "3.31: New deal for a customer – the customer and their company are filled in" 200 "/admin.php?module=pipeline&action=new&contact=$B331_EVA" "<option value=\"$B331_CO\" selected>"
 REDIRECT=$(b331_post "$JAR" "module=pipeline&action=new&contact=$B331_EVA" "module=pipeline&action=save" -d id=0 --data-urlencode "title=Nový web B331" -d "contact_id=$B331_EVA" -d "company_id=$B331_CO" -d "owner_id=$B331_ADMIN" --data-urlencode "value=12 500,50" -d currency=CZK -d "expected_close=$(site_date '-2 days')" -d stage=new)
 B331_D1=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_deals WHERE title = 'Nový web B331'")

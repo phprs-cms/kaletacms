@@ -522,7 +522,7 @@
 	if (summaryPeriod) { summaryPeriod.addEventListener('change', function () { if (summaryPeriod.form.requestSubmit) { summaryPeriod.form.requestSubmit(); } else { summaryPeriod.form.submit(); } }); }
 	var autoSubmit = document.querySelector('form[data-auto-odeslat]');
 	if (autoSubmit) { setTimeout(function () { autoSubmit.requestSubmit ? autoSubmit.requestSubmit() : autoSubmit.submit(); }, parseInt(autoSubmit.getAttribute('data-auto-odeslat'), 10) || 1200); }
-	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and news item search ---------- */
+	/* ---------- command palette: Ctrl/⌘+K – sections, quick actions and (3.52, A4) every kind of record, searched on the server ---------- */
 
 	var palette = document.getElementById('paleta');
 	if (palette && typeof palette.showModal === 'function') {
@@ -530,50 +530,124 @@
 		var popupList = palette.querySelector('.paleta-seznam');
 		var popupCommands = [];
 		try { popupCommands = JSON.parse(document.getElementById('paleta-data').textContent) || []; } catch (e) {}
-		var popupNews = [];
-		var popupContacts = []; // 3.28: customers found on the server (Customers → search_json)
-		var popupDeals = []; // 3.31: deals found on the server (Pipeline → search_json)
-		var popupApplications = []; // 3.34 B: job applications found on the server (Applications → search_json, only with the section)
+		var popupSearchUrl = palette.getAttribute('data-paleta-hledat') || ''; // admin.php?action=palette_search (Admin\Palette::search)
+		var popupGroups = []; // the groups of the server's answer to popupAnswered
+		var popupAnswered = '';
+		var popupState = ''; // '' | 'searching' | 'error'
+		var popupShown = []; // the rows as listed, in order (the selectable ones)
 		var popupSelected = 0;
+		var popupSelectedUrl = ''; // 3.52 (A5): the selection stays on its row when the answer comes, Enter never opens another one
 		var popupTimer = null;
+		var popupAbort = null;
+		var popupRecentKey = 'kaleta-paleta-posledni';
 		var removeDiacritics = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
 
-		var popupItems = function () {
-			var q = removeDiacritics(popupFields.value.trim());
-			var words = q.split(/\s+/).filter(Boolean);
-			var statements = popupCommands.filter(function (p) {
-				var whereParts = removeDiacritics(p.n + ' ' + p.s);
+		// how well a name fits the search – the same as Admin\Palette::rank(): 0 the same, 1 the start, 2 the start of a word, 3 anywhere
+		var popupRank = function (name, q) {
+			var n = removeDiacritics(name).replace(/[^a-z0-9]+/g, ' ').trim();
+			var w = removeDiacritics(q).replace(/[^a-z0-9]+/g, ' ').trim();
+			if (w === '' || n === '') { return 3; }
+			return n === w ? 0 : (n.indexOf(w) === 0 ? 1 : ((' ' + n).indexOf(' ' + w) !== -1 ? 2 : 3));
+		};
+		// 3.52 (A5): the last records and screens opened from the palette – in this browser only (localStorage), never on the server
+		var popupRecent = function () {
+			try {
+				var list = JSON.parse(localStorage.getItem(popupRecentKey) || '[]');
+				return Array.isArray(list) ? list.filter(function (p) { return p && typeof p.n === 'string' && typeof p.u === 'string' && p.u.charAt(0) === '/' && p.u.charAt(1) !== '/'; }).slice(0, 8) : [];
+			} catch (e) { return []; }
+		};
+		var popupRemember = function (p) {
+			if (p.p || p.more) { return; } // a command that creates something, "+ N more"
+			try {
+				var list = popupRecent().filter(function (r) { return r.u !== p.u; });
+				list.unshift({ n: p.n, u: p.u, s: p.s || '' });
+				localStorage.setItem(popupRecentKey, JSON.stringify(list.slice(0, 8)));
+			} catch (e) {}
+		};
+
+		// the sections of the list: the commands that match (sections, actions, settings – with their keywords), then the groups of the server
+		var popupSections = function () {
+			var q = popupFields.value.trim();
+			var words = removeDiacritics(q).split(/\s+/).filter(Boolean);
+			if (q === '') {
+				var recent = popupRecent();
+				return (recent.length ? [{ heading: T('Recently opened'), items: recent }] : []).concat([{ heading: '', items: popupCommands.slice(0, 9) }]);
+			}
+			var commands = popupCommands.filter(function (p) {
+				var whereParts = removeDiacritics(p.n + ' ' + p.s + ' ' + (p.k || ''));
 				return words.every(function (s) { return whereParts.indexOf(s) !== -1; });
-			});
-			return (q === '' ? statements.slice(0, 9) : statements.slice(0, 7)).concat(q === '' ? [] : popupContacts, q === '' ? [] : popupDeals, q === '' ? [] : popupApplications, q === '' ? [] : popupNews);
+			}).map(function (p, i) { return { p: p, r: popupRank(p.n, q), i: i }; }).sort(function (a, b) { return a.r - b.r || a.i - b.i; });
+			var sections = [{ heading: '', items: commands.slice(0, 7).map(function (c) { return c.p; }), best: commands.length ? commands[0].r : 3 }];
+			if (popupAnswered === q) {
+				popupGroups.forEach(function (g) {
+					var items = (g.items || []).map(function (r) { return { n: r.title, u: r.url, s: r.note || '' }; });
+					if (g.more && g.total > items.length) { items.push({ n: T('+ %s more').replace('%s', g.total - items.length), u: g.more, s: g.label, more: true }); }
+					sections.push({ heading: g.label, items: items, best: items.length ? popupRank(items[0].n, q) : 3 });
+				});
+			}
+			// 3.52 (A5): the exact name and the start of a name first – the server sends its groups in that order already
+			return sections.map(function (s, i) { s.i = i; return s; }).sort(function (a, b) { return a.best - b.best || a.i - b.i; });
+		};
+		var popupSelect = function (i, scroll) {
+			popupSelected = Math.max(0, Math.min(i, popupShown.length - 1));
+			Array.prototype.forEach.call(popupList.querySelectorAll('[role="option"]'), function (li, j) { li.setAttribute('aria-selected', j === popupSelected ? 'true' : 'false'); });
+			var item = popupShown[popupSelected];
+			popupSelectedUrl = item ? item.u : '';
+			if (item) { popupFields.setAttribute('aria-activedescendant', 'paleta-moznost-' + popupSelected); } else { popupFields.removeAttribute('aria-activedescendant'); }
+			var li = document.getElementById('paleta-moznost-' + popupSelected);
+			if (scroll && li && li.scrollIntoView) { li.scrollIntoView({ block: 'nearest' }); }
+		};
+		var popupNote = function (text) {
+			var li = document.createElement('li');
+			li.className = 'paleta-nic';
+			li.setAttribute('role', 'presentation');
+			li.textContent = text;
+			popupList.appendChild(li);
 		};
 		var popupRender = function () {
-			var items = popupItems();
-			popupSelected = Math.max(0, Math.min(popupSelected, items.length - 1));
+			popupShown = [];
 			popupList.textContent = '';
-			items.forEach(function (p, i) {
-				var li = document.createElement('li');
-				li.setAttribute('role', 'option');
-				li.setAttribute('aria-selected', i === popupSelected ? 'true' : 'false');
-				var a = document.createElement('a');
-				a.href = p.u;
-				a.textContent = p.n;
-				if (p.p) { a.addEventListener('click', function (e) { e.preventDefault(); popupPost(p.u); }); } // 3.45: "New quote" is a POST
-				var s = document.createElement('small');
-				s.textContent = p.s;
-				a.appendChild(s);
-				li.appendChild(a);
-				li.addEventListener('mousemove', function () { if (popupSelected !== i) { popupSelected = i; popupRender(); } });
-				popupList.appendChild(li);
+			popupSections().forEach(function (section) {
+				if (section.heading && section.items.length) {
+					var head = document.createElement('li');
+					head.className = 'paleta-skupina';
+					head.setAttribute('role', 'presentation');
+					head.textContent = section.heading;
+					popupList.appendChild(head);
+				}
+				section.items.forEach(function (p) {
+					var i = popupShown.length;
+					popupShown.push(p);
+					var li = document.createElement('li');
+					li.id = 'paleta-moznost-' + i;
+					li.setAttribute('role', 'option');
+					var a = document.createElement('a');
+					a.href = p.u;
+					a.tabIndex = -1;
+					a.textContent = p.n;
+					a.addEventListener('click', function (e) {
+						if (p.p) { e.preventDefault(); popupPost(p.u); return; } // 3.45: "New quote" is a POST
+						popupRemember(p);
+					});
+					var s = document.createElement('small');
+					s.textContent = p.s || '';
+					a.appendChild(s);
+					li.appendChild(a);
+					// 3.52 (A5): pointing at a row only moves the selection – the list is not drawn again under the mouse
+					li.addEventListener('mousemove', function () { if (popupSelected !== i) { popupSelect(i, false); } });
+					popupList.appendChild(li);
+				});
 			});
-			if (items.length === 0) {
-				var nothing = document.createElement('li');
-				nothing.className = 'paleta-nic';
-				nothing.textContent = T('Nothing like that here.');
-				popupList.appendChild(nothing);
+			if (popupState === 'searching') {
+				popupNote(T('Searching…'));
+			} else if (popupState === 'error') {
+				popupNote(T('Search is not available – reload the page.'));
+			} else if (popupShown.length === 0) {
+				popupNote(T('Nothing like that here.'));
 			}
-			var selected = popupList.querySelector('[aria-selected="true"]');
-			if (selected && selected.scrollIntoView) { selected.scrollIntoView({ block: 'nearest' }); }
+			var index = -1;
+			popupShown.forEach(function (p, i) { if (index === -1 && popupSelectedUrl !== '' && p.u === popupSelectedUrl) { index = i; } });
+			popupSelect(index === -1 ? 0 : index, true);
 		};
 		// 3.45 (U70): a command that creates something (p: 1 in the palette data) goes as a POST form with the form token
 		var popupPost = function (url) {
@@ -588,14 +662,31 @@
 			document.body.appendChild(form);
 			form.submit();
 		};
+		// one request for every kind of record; a newer word cancels the older request (AbortController)
+		var popupFetch = function (q) {
+			if (popupAbort) { popupAbort.abort(); }
+			popupAbort = typeof AbortController === 'function' ? new AbortController() : null;
+			fetch(popupSearchUrl + '&q=' + encodeURIComponent(q), { credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: popupAbort ? popupAbort.signal : undefined })
+				.then(function (r) { if (!r.ok) { throw new Error('search'); } return r.json(); }) // signed out: the sign-in page is no JSON
+				.then(function (d) {
+					if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
+					popupGroups = Array.isArray(d.groups) ? d.groups : [];
+					popupAnswered = q;
+					popupState = '';
+					popupRender();
+				}).catch(function (e) {
+					if ((e && e.name === 'AbortError') || popupFields.value.trim() !== q) { return; }
+					popupState = 'error';
+					popupRender();
+				});
+		};
 		var popupOpen = function () {
 			if (palette.open) { return; }
 			popupFields.value = '';
-			popupNews = [];
-			popupContacts = [];
-			popupDeals = [];
-			popupApplications = [];
-			popupSelected = 0;
+			popupGroups = [];
+			popupAnswered = '';
+			popupState = '';
+			popupSelectedUrl = '';
 			popupRender();
 			palette.showModal();
 			popupFields.focus();
@@ -612,57 +703,28 @@
 			if (e.target === palette) { palette.close(); } // click outside the dialog
 		});
 		popupFields.addEventListener('input', function () {
-			popupSelected = 0;
-			popupRender();
 			clearTimeout(popupTimer);
+			if (popupAbort) { popupAbort.abort(); popupAbort = null; }
+			popupSelectedUrl = '';
 			var q = popupFields.value.trim();
-			var address = palette.getAttribute('data-clanky');
-			var customers = palette.getAttribute('data-contacts');
-			var deals = palette.getAttribute('data-deals');
-			var applications = palette.getAttribute('data-applications');
-			if (q.length < 2) { popupNews = []; popupContacts = []; popupDeals = []; popupApplications = []; return; }
-			popupTimer = setTimeout(function () {
-				if (address) {
-					fetch(address + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-						if (popupFields.value.trim() !== q) { return; } // typing continued in the meantime
-						popupNews = (d.clanky || []).map(function (c) { return { n: c.titulek, u: c.url, s: c.vydany ? T('news item') : T('news item – unpublished') }; });
-						popupRender();
-					}).catch(function () {});
-				}
-				if (customers) {
-					fetch(customers + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-						if (popupFields.value.trim() !== q) { return; }
-						popupContacts = (d.contacts || []).map(function (c) { return { n: c.name, u: c.url, s: T('customer') + (c.note ? ' · ' + c.note : '') }; });
-						popupRender();
-					}).catch(function () {});
-				}
-				if (deals) {
-					fetch(deals + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-						if (popupFields.value.trim() !== q) { return; }
-						popupDeals = (d.deals || []).map(function (c) { return { n: c.name, u: c.url, s: T('deal') + (c.note ? ' · ' + c.note : '') }; });
-						popupRender();
-					}).catch(function () {});
-				}
-				if (applications) {
-					fetch(applications + '&q=' + encodeURIComponent(q), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-						if (popupFields.value.trim() !== q) { return; }
-						popupApplications = (d.applications || []).map(function (c) { return { n: c.name, u: c.url, s: T('job application') + (c.note ? ' · ' + c.note : '') }; });
-						popupRender();
-					}).catch(function () {});
-				}
-			}, 200);
+			popupState = q.length >= 2 && popupSearchUrl !== '' ? 'searching' : ''; // 3.52 (A5): "Searching…", never an early "Nothing like that here."
+			popupRender();
+			if (popupState === 'searching') {
+				popupTimer = setTimeout(function () { popupFetch(q); }, 200);
+			}
 		});
 		popupFields.addEventListener('keydown', function (e) {
-			var count = popupItems().length;
+			var count = popupShown.length;
 			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
 				e.preventDefault();
-				popupSelected = count === 0 ? 0 : (popupSelected + (e.key === 'ArrowDown' ? 1 : count - 1)) % count;
-				popupRender();
+				popupSelect(count === 0 ? 0 : (popupSelected + (e.key === 'ArrowDown' ? 1 : count - 1)) % count, true);
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
-				var target = popupList.querySelector('[aria-selected="true"] a');
-				var chosen = popupItems()[popupSelected];
-				if (target && chosen && chosen.p) { popupPost(target.href); } else if (target) { window.location.href = target.href; }
+				var chosen = popupShown[popupSelected];
+				if (!chosen) { return; }
+				if (chosen.p) { popupPost(chosen.u); return; }
+				popupRemember(chosen);
+				window.location.href = chosen.u;
 			}
 		});
 		// show ⌘K on a Mac

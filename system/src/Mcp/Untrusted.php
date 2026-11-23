@@ -48,6 +48,8 @@ final class Untrusted
         'fleet_health' => ['sites'], 'fleet_inventory' => ['sites'], 'fleet_calendar' => ['dates', 'recovery_keys'], 'fleet_plan' => ['sites', 'customer_tasks'],
         // 3.44 (N164 a): internal files – names, descriptions, tags and file names a drafts-only connection may write too
         'list_internal_files' => ['files'], 'get_internal_file' => ['name', 'description', 'tags', 'versions', 'content'], 'save_internal_file' => ['file'],
+        // 3.52 (A4): the names and e-mails of enquiries, customers and applications are visitors' text
+        'search' => ['results'],
     ];
 
     /**

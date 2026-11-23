@@ -10,7 +10,8 @@ use Kaleta\Mcp\Schema;
 /**
  * MCP tools of the team's work (3.24): my_work – the lists of the admin screen My work for the connected user – and
  * assign – the responsible person of a page or a collection item, or who handles an enquiry. Responsibility only: it
- * never limits access; the person must be able to open the section. Part of Mcp\Tools.
+ * never limits access; the person must be able to open the section. 3.52 (A4): search (alias hledej) – the search of the
+ * command palette, Core\RecordSearch. Part of Mcp\Tools.
  *
  * @phpstan-ignore trait.unused
  */
@@ -33,7 +34,34 @@ trait WorkTools
             'list_colleagues' => ['The colleagues of the connected user (read-only): everyone with an active account on the site – name, position, work phone and e-mail as each of them entered it in My account; department, reports_to (a colleague id), and while away today absent_until and deputy (who stands in), plus departments (the org chart: id, name, parent, head). Blocked accounts are not listed; nothing else of the accounts.', Schema::object([])],
             'team_summary' => ['How much of the team\'s work happened in a period (read-only) – counts only, never hours, money or deal values: open enquiries each person handles and enquiries answered, open, overdue and done tasks, deal moves, deals won and lost, job applications handled, quotes sent and accepted – each only for a section the user may open. team = the totals; you = the user\'s own; people (administrators only) = the counts of each person.',
                 Schema::object(['period' => Schema::text('7_days | 30_days (default) | this_month | last_month | 90_days')])],
+            'hledej' => ['Najde záznamy, které smí uživatel otevřít (jen čtení) – stránky, novinky, položky kolekcí, média, poptávky, nabídky, své úkoly, uživatele, zákazníky, obchody, žádosti o místo a interní soubory; každý druh jen se sekcí uživatele a za stejných podmínek jako jeho seznam. Každé slovo dotazu kdekoli, bez ohledu na pořadí a diakritiku; nejvýš 5 od druhu, přesný název a začátek názvu první.',
+                Schema::object(['dotaz' => Schema::text('hledaná slova (nejméně 2 znaky)')], ['dotaz'])],
         ];
+    }
+
+    /**
+     * search (3.52, A4): what the command palette finds (Core\RecordSearch) – results [{type, id, title, note, url}] with the
+     * admin address of each record (note left out when empty) and how many of each kind match (totals); more than five
+     * of a kind are listed by the kind's list tool.
+     */
+    private function toolSearch(string $name, array $a): mixed
+    {
+        $q = is_scalar($a['dotaz'] ?? null) ? trim((string) $a['dotaz']) : '';
+        if (mb_strlen($q) < 2) {
+            throw new \InvalidArgumentException('Give at least two characters to search for (query).');
+        }
+        $origin = $this->app->request->origin();
+        $results = [];
+        $totals = [];
+        foreach (\Kaleta\Core\RecordSearch::search($this->app, $q, array_keys((new \Kaleta\Admin\Kernel($this->app))->modules())) as $group) {
+            $totals[$group['type']] = $group['total'];
+            foreach ($group['items'] as $item) {
+                $results[] = ['type' => $group['type'], 'id' => $item['id'], 'title' => $item['title']] + ($item['note'] !== '' ? ['note' => $item['note']] : []) + ['url' => $origin . $item['url']];
+            }
+        }
+
+        // the names and e-mails of enquiries, customers and applications are typed by visitors (3.35, N105)
+        return ['results' => $results, 'totals' => $totals === [] ? new \stdClass() : $totals] + ($results !== [] ? \Kaleta\Mcp\Untrusted::mark(['results']) : []);
     }
 
     /**

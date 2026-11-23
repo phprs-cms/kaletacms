@@ -259,6 +259,8 @@ final class Catalog
         'list_internal_files' => ['read', ''],
         'get_internal_file' => ['read', ''],
         'save_internal_file' => ['draft', ''],
+        // 3.52 (A4): the search of the command palette – every kind of record the user may open
+        'search' => ['read', ''],
     ];
 
     /**
@@ -450,6 +452,7 @@ final class Catalog
         'list_internal_files' => 'List internal files',
         'get_internal_file' => 'Get an internal file',
         'save_internal_file' => 'Save an internal document',
+        'search' => 'Search the administration',
     ];
 
     /**
@@ -615,7 +618,8 @@ final class Catalog
         'draft_newsletter', 'send_test_newsletter', 'send_newsletter', 'delete_newsletter',
         'list_prices', 'save_price', 'send_quote', // 3.38: internal prices – one find_tools away (design A8: outside the essentials and the work set)
         // 3.38 B: list_quotes, get_quote, save_quote and mark_quote moved to the work set in 3.44 (WORK_FEATURES, listed while quotes are on)
-        'list_internal_files', 'get_internal_file', 'save_internal_file']; // 3.42: internal files – the work set is at its budget, one find_tools away
+        'list_internal_files', 'get_internal_file', 'save_internal_file', // 3.42: internal files – the work set is at its budget, one find_tools away
+        'search']; // 3.52 (A4): the sets are at their budgets – one find_tools away
 
     /**
      * The focused sets that list a tool by its English name (3.36): [] for a tool of ON_DEMAND (or an add-on's tool).

@@ -994,7 +994,8 @@ $b328Layout = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/layout.ph
 $b328Script = (string) file_get_contents(KALETA_ROOT . '/image/admin.js');
 $b328Box = (string) file_get_contents(KALETA_SYSTEM . '/views/admin/contact_box.php');
 check('[source-pin] 3.28 (B): the palette searches customers on the server only for whoever has Customers; the box on an enquiry and a booking; Link to a contact posts with the form token', [
-    str_contains($b328Layout, "isset(\$modules['contacts']) ? ' data-contacts=\"'"), str_contains($b328Script, "palette.getAttribute('data-contacts')"), str_contains($b328Script, "T('customer')"),
+    // 3.52 (A4): one search on the server for every kind of record (Core\RecordSearch) – customers only with the section
+    str_contains((string) file_get_contents(KALETA_SYSTEM . '/src/Core/RecordSearch.php'), "'contact' => [Contacts::SECTION,"), str_contains($b328Layout, ' data-paleta-hledat="'), str_contains($b328Script, "palette.getAttribute('data-paleta-hledat')"),
     str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/enquiries/detail.php'), "render('admin/contact_box'"), str_contains((string) file_get_contents(KALETA_SYSTEM . '/views/admin/bookings/detail.php'), "render('admin/contact_box'"),
     str_contains($b328Box, '<?= $csrf ?><input type="hidden" name="kind"'),
     array_map(fn (string $code): string => (string) json_decode((string) (preg_match('/^\t"customer": ("[^"]*")/m', (string) file_get_contents(KALETA_ROOT . '/image/jazyky/admin-' . $code . '.js'), $m) ? $m[1] : '""')), ['cs', 'de', 'es'])],

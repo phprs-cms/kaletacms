@@ -9,6 +9,9 @@ namespace Kaleta\Admin;
  * besides the sections themselves. Each belongs to a section and appears only for whoever may open it (the module list
  * of Kernel::modules() already follows the permissions); some are for administrators only, as their screens are.
  * 3.45 (U70): the sections of 3.34–3.42 – quotes, internal prices, applications, internal files, departments, the team.
+ *
+ * 3.52 (A4, A5): the records themselves – pages, news, collection items, media, enquiries… – are found on the server by
+ * Core\RecordSearch (admin.php?action=palette_search, the same as MCP search); the palette lists them in groups.
  */
 final class Palette
 {
@@ -43,6 +46,24 @@ final class Palette
         ['Org chart', 'action=account&tab=colleagues&view=departments'],
         ['Notifications', 'action=inbox'],
         ['Guide to the office', 'action=guide'],
+    ];
+
+    /**
+     * 3.52 (A9): words a section or a settings tab is found by besides its name – searched, never shown. Palette entry
+     * (its query) => keywords; the palette searches them translated and in English.
+     */
+    public const array KEYWORDS = [
+        'module=settings&tab=mail' => 'SMTP, e-mail, mail server, sender',
+        'module=settings&tab=cookies' => 'GDPR, cookies, consent, privacy',
+        'module=settings&tab=backups' => 'backups, restore, updates',
+        'module=settings&tab=security' => 'two-factor sign-in, 2FA, passwords',
+        'module=settings&tab=seo' => 'Google, search engines, sitemap, robots.txt',
+        'module=settings&tab=analytics' => 'Google Analytics, measuring, tracking code',
+        'module=settings&tab=company' => 'company details, address, opening hours, registration number',
+        'module=appearance' => 'logo, colours, fonts, design system',
+        'module=redirects' => '301, 404, old addresses',
+        'module=users' => 'accounts, permissions, roles',
+        'action=account' => 'password, two-factor sign-in, 2FA, passkey, profile',
     ];
 
     /**

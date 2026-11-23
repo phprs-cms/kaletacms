@@ -317,6 +317,13 @@ final class Kernel
             // 3.22 (U6): the link dialog of the text editor – pages, news, collection items, files and language versions
             return Response::json(['groups' => LinkTargets::search($app, $request->get('q'))]);
         }
+        if ($action === 'palette_search' && $ident === '') {
+            // 3.52 (A4): the command palette – every kind of record the person may open, in one answer; it only reads, so the
+            // session is let go at once (the next click does not wait for it)
+            session_write_close();
+
+            return Response::json(['groups' => \Kaleta\Core\RecordSearch::search($app, $request->get('q'), array_keys($this->modules()))], 200, Response::NO_STORE);
+        }
         if ($action === 'account') {
             return (new Account($this))->handle();
         }

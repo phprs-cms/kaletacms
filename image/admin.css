@@ -1310,8 +1310,11 @@ body.login {
 .paleta-seznam [aria-selected="true"] a { background: var(--akcent); color: var(--na-akcentu); }
 .paleta-seznam [aria-selected="true"] small { color: inherit; opacity: 0.8; }
 .paleta-nic { padding: 14px 12px; color: var(--text-slaby); }
+/* 3.52 (A5): the heading of a kind of record (Pages, Customers…) and of "Recently opened" */
+.paleta-skupina { padding: 10px 12px 4px; color: var(--text-slaby); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .paleta-napoveda { margin: 0; padding: 8px 14px; border-top: 1px solid var(--linka); color: var(--text-slaby); font-size: 12px; }
-@media (max-width: 720px) { .paleta-spustit kbd { display: none; } } /* on a phone a keyboard shortcut means nothing, „Hledat…“ (Search…) stays */
+/* on a phone a keyboard shortcut means nothing, „Hledat…“ (Search…) stays; 3.52 (A5): nor do the keys of the palette */
+@media (max-width: 720px) { .paleta-spustit kbd, .paleta-napoveda { display: none; } }
 
 /* the admin on a phone: Save is always at hand, the title fits, taking photos straight into the article */
 /* label.navigace sets display – the photo button needs the same weight to stay hidden on a desktop (3.12, UX310-24) */

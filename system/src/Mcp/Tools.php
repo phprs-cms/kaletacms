@@ -83,7 +83,7 @@ final class Tools
         'list_tasks', 'save_task', 'complete_task', 'list_contacts', 'get_contact', 'save_contact', 'log_activity', 'merge_contacts', 'list_deals',
         'save_deal', 'move_deal', 'pipeline_summary', 'list_applications', 'get_application', 'update_application', 'reply_to_application',
         'list_prices', 'save_price', 'send_quote', 'list_quotes', 'get_quote', 'save_quote', 'mark_quote', 'list_internal_files',
-        'get_internal_file', 'save_internal_file', 'smaz_stranku',
+        'get_internal_file', 'save_internal_file', 'smaz_stranku', 'hledej',
     ];
 
     /**

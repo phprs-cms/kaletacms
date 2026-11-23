@@ -3002,4 +3002,8 @@ window.KALETA_PREKLAD = {
 	"No result": "Nic nenalezeno",
 	"Up to %d files can go with one e-mail.": "Do jednoho e-mailu lze přiložit nejvýš %d souborů.",
 	"The attachments are too large together (%1$s, at most %2$s).": "Přílohy jsou dohromady příliš velké (%1$s, nejvýš %2$s).",
+	"Recently opened": "Naposledy otevřené",
+	"+ %s more": "+ %s dalších",
+	"Searching…": "Hledám…",
+	"Search is not available – reload the page.": "Hledání není dostupné – načtěte stránku znovu.",
 };

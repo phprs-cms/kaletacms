@@ -2580,6 +2580,20 @@
             "openWorldHint": false
         }
     },
+    "search": {
+        "parameters": {
+            "query": "string"
+        },
+        "required": [
+            "query"
+        ],
+        "annotations": {
+            "title": "Search the administration",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "send_newsletter": {
         "parameters": {
             "at": "string",

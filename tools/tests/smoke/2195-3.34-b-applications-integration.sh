@@ -6,7 +6,7 @@ expect "3.34 B: a leaver – Hana's undecided application counts, needs the sect
 curl -s -b "$T334_JH" -o "$WORK/response" "$B/admin.php?module=my_work"
 expect "3.34 B: My work lists Hana's application by name, number and position" "$(grep -c "data-application=\"$T3395\"" "$WORK/response")|$(grep -c "Application #$T3395 · Technician T334" "$WORK/response" | awk '{print ($1 > 0)}')" "1|1"
 expect "3.34 B: Ctrl K finds the application by number for Hana; Olga has no palette source and 403 on it" \
-  "$(curl -s -b "$T334_JH" "$B/admin.php?module=applications&action=search_json&q=%23$T3395" | grep -c 'Ida Integr T3395')|$(curl -s -b "$T334_JO" "$B/admin.php?module=enquiries" | grep -c 'data-applications=')|$(curl -s -b "$T334_JO" -o /dev/null -w '%{http_code}' "$B/admin.php?module=applications&action=search_json&q=Ida")" "1|0|403"
+  "$(curl -s -b "$T334_JH" "$B/admin.php?module=applications&action=search_json&q=%23$T3395" | grep -c 'Ida Integr T3395')|$(curl -s -b "$T334_JO" "$B/admin.php?action=palette_search&q=Ida+Integr" | grep -c '"type":"application"')|$(curl -s -b "$T334_JO" -o /dev/null -w '%{http_code}' "$B/admin.php?module=applications&action=search_json&q=Ida")" "1|0|403"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=collections&action=items&id=${T334_IDK:-0}"
 expect "3.34 B: the jobs collection's items list shows Applications (new / all) for the job" "$(grep -o "data-job-applications=\"${T334_ITEM:-0}\"><a [^>]*>0 / 1<" "$WORK/response" | wc -l | tr -d ' ')" "1"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=pages&action=build_choices&id=$(sq "SELECT MIN(ids) FROM ka_stranky WHERE smazano IS NULL")"

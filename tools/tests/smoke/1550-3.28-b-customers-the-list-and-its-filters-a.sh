@@ -19,7 +19,7 @@ rm -f "$WORK"/web/storage/cache/stranky/*.html; curl -s -o /dev/null "$B/"
 check "3.28: Customers is in the menu after Enquiries, with the tabs and New contact" 200 "/admin.php?module=contacts" 'data-new-contact'
 b328_has() { grep -q -- "$1" "$WORK/response" && echo 1 || echo 0; }
 expect "3.28: … the menu item, the Companies tab, the export and import for the administrator; the palette searches customers" \
-  "$(b328_has 'href="/admin.php?module=contacts"')|$(b328_has 'module=contacts&amp;action=companies')|$(b328_has 'data-contacts-export')|$(b328_has 'module=contacts&amp;action=import')|$(b328_has 'data-contacts="/admin.php?module=contacts&amp;action=search_json"')" "1|1|1|1|1"
+  "$(b328_has 'href="/admin.php?module=contacts"')|$(b328_has 'module=contacts&amp;action=companies')|$(b328_has 'data-contacts-export')|$(b328_has 'module=contacts&amp;action=import')|$(b328_has 'data-paleta-hledat="/admin.php?action=palette_search"')" "1|1|1|1|1"
 REDIRECT=$(b328_post "$JAR" "module=contacts&action=new" "module=contacts&action=save" -d id=0 --data-urlencode "name=Eva B328" -d "email=Eva-B328@b328firma.cz" --data-urlencode "phone=+420 600 328 001" -d company_id=0 -d owner_id=0 -d language= -d summary=)
 B328_EVA=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_contacts WHERE email_norm = 'eva-b328@b328firma.cz'")
 expect "3.28: New contact – saved by hand (source manual), back to its detail; the change log names it by number only; the cached page stays" \
