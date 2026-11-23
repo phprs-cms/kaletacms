@@ -479,10 +479,14 @@ m351() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT GROUP_CONCAT(CONCAT(t
   FROM information_schema.columns WHERE table_schema = DATABASE() AND ((table_name = 'ka_odberatele' AND column_name = 'language') OR (table_name = 'ka_testimonial_requests' AND column_name = 'sent_at')
   OR (table_name = 'ka_newsletter_queue' AND column_name IN ('tried_at', 'reply')) OR (table_name = 'ka_newsletters' AND column_name IN ('paused_at', 'pause_reason', 'resumed_at', 'skipped_count'))
   OR column_name = 'assigned_by')), '|', (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_newsletter_queue' AND index_name = 'ix_newsletter_queue_tried'))"; }
+# MariaDB quotes string defaults ('' and '0') and its information_schema collation orders the tables differently: both
+# are normalised, the column list sorted bytewise
+m351_normal() { local out cols; out=$(m351 | sed -E "s/int\(10\) unsigned/int unsigned/g; s/:''(,|\||$)/:\1/g; s/:'0'(,|\||$)/:0\1/g"); cols=${out%%|*}
+  printf '%s|%s' "$(printf '%s' "$cols" | tr ',' '\n' | LC_ALL=C sort | paste -sd, -)" "${out#*|}"; }
 M351_COLUMNS="ka_deals.assigned_by:int unsigned:YES:NULL,ka_newsletter_queue.reply:varchar(32):NO:,ka_newsletter_queue.tried_at:datetime:YES:NULL,ka_newsletters.pause_reason:varchar(10):NO:,ka_newsletters.paused_at:datetime:YES:NULL,ka_newsletters.resumed_at:datetime:YES:NULL,ka_newsletters.skipped_count:int unsigned:NO:0,ka_odberatele.language:varchar(35):NO:,ka_poptavky.assigned_by:int unsigned:YES:NULL,ka_quotes.assigned_by:int unsigned:YES:NULL,ka_tasks.assigned_by:int unsigned:YES:NULL,ka_testimonial_requests.sent_at:datetime:YES:NULL|2"
-expect_sql_value "3.51 (0138): the twelve columns and the index of the queue's last attempts after the update" "$(m351 | sed -E "s/int\(10\) unsigned/int unsigned/g; s/:'':/::/g; s/:'0'/:0/g")" "$M351_COLUMNS"
+expect_sql_value "3.51 (0138): the twelve columns and the index of the queue's last attempts after the update" "$(m351_normal)" "$M351_COLUMNS"
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '137' WHERE promenna = 'db_version'" && migrate > /dev/null
-expect_sql_value "3.51 (0138): run again – nothing changes, the version is the latest again" "$(m351 | sed -E "s/int\(10\) unsigned/int unsigned/g; s/:'':/::/g; s/:'0'/:0/g")|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$M351_COLUMNS|$LAST_MIGRATION"
+expect_sql_value "3.51 (0138): run again – nothing changes, the version is the latest again" "$(m351_normal)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$M351_COLUMNS|$LAST_MIGRATION"
 
 # 3.51 (0139): the language of existing subscribers (the sign-up page's version, else the customer's), the assigner of existing
 # tasks (their creator); run again by name – the same result

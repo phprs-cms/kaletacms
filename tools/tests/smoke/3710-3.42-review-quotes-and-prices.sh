@@ -71,8 +71,9 @@ sq "DELETE FROM ka_kontrola_ip WHERE typ = 'formular'" > /dev/null
 curl -s -o /dev/null -X POST "$B/form" -d "zdroj=$C342_SOURCE" -d "prvek=$C342_ELEMENT" -d zpet=/poptavka-342 -d "as_cas=$R342Q_TIME" -d "as_podpis=$R342Q_SIG" -d p0=LH-L2 -d p1=fyzio342@example.cz
 R342Q_ENQ_F=$(sq "SELECT MAX(idp) FROM ka_poptavky WHERE email = 'fyzio342@example.cz'"); R342Q_ENQ_F="${R342Q_ENQ_F:-0}"
 R342Q_QF=$(sq "SELECT IFNULL(MAX(id), 0) FROM ka_quotes WHERE enquiry_id = $R342Q_ENQ_F")
-# the sending runs after the response – a slow runner may still be at it when curl returns
-for _ in $(seq 1 30); do
+# the sending runs after the response – a slow runner may still be at it when curl returns (up to 30 s: the PHP 8.3 CI runner
+# of 3.51 needed more than 6)
+for _ in $(seq 1 150); do
   [ "$(sq "SELECT COUNT(*) FROM ka_posta WHERE idp > $R342Q_MAIL0 AND odeslano IS NULL AND chyba = '' AND (predmet LIKE 'Draft quote prepared: %' OR predmet LIKE 'Připravený koncept nabídky: %')")" = 0 ] && break
   sleep 0.2
 done
