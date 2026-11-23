@@ -101,6 +101,8 @@ final class Retention
         // 3.51: a paused newsletter is cancelled after this; who got a newsletter is deleted this long after it ended
         'paused_newsletters' => ['Paused newsletters before they are cancelled', Mailing::PAUSED_DAYS, 'days', 'Kaleta\Core\Mailing::PAUSED_DAYS'],
         'newsletter_recipients' => ['Recipients of a newsletter after it ends', Mailing::RECIPIENT_DAYS, 'days', 'Kaleta\Core\Mailing::RECIPIENT_DAYS'],
+        // 3.52: anonymous daily sums of what visitors searched for (no IP), shown in Statistics
+        'search_queries' => ['Searched terms in Statistics', SiteSearch::KEEP_DAYS, 'days', 'Kaleta\Core\SiteSearch::KEEP_DAYS'],
     ];
 
     /**

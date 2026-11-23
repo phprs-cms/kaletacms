@@ -109,6 +109,7 @@ final class Notifications
                 }
             },
             'unconfirmed_signups' => fn () => $app->db()->run('DELETE FROM {odberatele} WHERE stav = 0 AND datum < ?', [Clock::at('-' . Retention::UNCONFIRMED_SIGNUP_DAYS . ' days')]),
+            'search_queries' => fn () => SiteSearch::prune($app->db()), // 3.52 review: the searched terms of the Statistics after 400 days, every day
             'queues' => fn () => PersonalData::sweepQueues($app->db()), // 3.46 (N161): delivered and given-up webhook and connector bodies, every day – not only by chance
             'local_backups' => function (): void {
                 if (!Backup::refusedInDemo()) {

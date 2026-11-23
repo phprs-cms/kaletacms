@@ -32,8 +32,9 @@ final class Search
 
     /**
      * A search of news in the admin list and MCP list_news (3.52, A7): each word in the title, the address or the index
-     * (intro, text, keywords – normalize()d like the stored index, so diacritics do not matter there either).
-     * $alias = the table alias with its dot.
+     * (intro, text, keywords – normalize()d like the stored index, so diacritics do not matter there either). A word whose
+     * normalized form is shorter than 2 letters ("C++" → "c") is looked for in the title and the address only – one letter
+     * would match almost every index. $alias = the table alias with its dot.
      *
      * @return array{0: string, 1: list<string>}
      */
@@ -42,7 +43,7 @@ final class Search
         return Db::likeWords([$alias . 'titulek', $alias . 'seo_link'], $q, more: function (string $word) use ($alias): ?array {
             $normal = self::normalize($word);
 
-            return $normal === '' ? null : [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
+            return mb_strlen($normal) < 2 ? null : [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
         });
     }
 

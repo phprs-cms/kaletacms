@@ -33,12 +33,14 @@ final class Search extends Element
         return '.ka-hledani { display: flex; gap: var(--ka-mezera-xs); max-width: 32rem; }
 .ka-hledani input { flex: 1; min-width: 0; padding: 0.6em 0.9em; border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: inherit; font: inherit; }
 .ka-hledani button { padding: 0.6em 1.1em; border: 0; border-radius: var(--ka-zaobleni); background: var(--ka-barva-primarni); color: var(--ka-barva-na-primarni); font: inherit; font-weight: 600; cursor: pointer; }
-/* the icon appearance: a round magnifier button, the field hangs below it (anchor positioning; without it at the top right of the page) */
+/* the icon appearance: a round magnifier button, the field hangs below it (anchor positioning; without it at the top right of the page);
+   when it would leave the screen, it hangs from the other edge of the icon, and failing that from the edge of the screen */
 .ka-hledani--ikona { display: inline-flex; max-width: none; }
 .ka-hledani--ikona > .ka-hledani-tl { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; border: 1px solid var(--ka-barva-linka); border-radius: 50%; background: var(--ka-barva-pozadi); color: var(--ka-barva-text); }
 .ka-hledani--ikona > .ka-hledani-tl:focus-visible { outline: 3px solid var(--ka-barva-sekundarni); outline-offset: 2px; }
-.ka-hledani--ikona > [popover] { position: fixed; inset: auto; top: anchor(bottom); right: anchor(right); width: min(26rem, 100vw - 2rem); margin: 6px 0 0; padding: var(--ka-mezera-xs); gap: var(--ka-mezera-xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); }
+.ka-hledani--ikona > [popover] { position: fixed; inset: auto; top: anchor(bottom); right: anchor(right); width: min(26rem, 100vw - 2rem); position-try-fallbacks: flip-inline, --ka-hledani-okraj; margin: 6px 0 0; padding: var(--ka-mezera-xs); gap: var(--ka-mezera-xs); border: 1px solid var(--ka-barva-linka); border-radius: var(--ka-zaobleni); background: var(--ka-barva-pozadi); color: var(--ka-barva-text); box-shadow: var(--ka-stin-m); }
 .ka-hledani--ikona > [popover]:popover-open { display: flex; }
+@position-try --ka-hledani-okraj { top: anchor(bottom); right: auto; left: 1rem; }
 @supports not (top: anchor(bottom)) { .ka-hledani--ikona > [popover] { top: 4.5rem; right: 1rem; } }';
     }
 

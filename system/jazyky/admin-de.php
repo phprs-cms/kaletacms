@@ -9585,4 +9585,5 @@ return [
     'Nobody has searched the site yet.' => 'Auf der Website hat noch niemand gesucht.',
     'Every search found something.' => 'Jede Suche hat etwas gefunden.',
     'Site search: the queries visitors typed into the search of the site, without signed-in users and bots; a query with an e-mail address or a long number is never kept.' => 'Suche auf der Website: die Begriffe, die Besucher in die Suche der Website eingegeben haben, ohne angemeldete Benutzer und Bots; eine Anfrage mit einer E-Mail-Adresse oder einer langen Zahl wird nie gespeichert.',
+    'Searched terms in Statistics' => 'Gesuchte Begriffe in der Statistik',
 ];
