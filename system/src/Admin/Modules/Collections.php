@@ -38,6 +38,7 @@ final class Collections extends Module
      * 3.25 (menu design §6.3): 5, then "More…" to the list of collections.
      */
     public const int MENU_LIMIT = 5;
+    private const int ITEMS_PER_PAGE = 100; // 3.52 (A6): a collection with hundreds of items is paged, the search and filter kept
 
     /**
      * The collections for the left menu and the command palette (3.18.3), in the order of their names: id, name and
@@ -199,8 +200,10 @@ final class Collections extends Module
                 $fieldFilter[$f['klic']] = $value;
             }
         }
-        $where = 'idk = ? AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL') . ($mine ? ' AND owner_id = ' . $me : '');
-        $params = [$k['idk']];
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
+        [$searchSql, $searchParams] = KolekceObsahu::itemSearch($search); // 3.52 (A6): the search of MCP list_collection_items
+        $where = 'idk = ? AND ' . $searchSql . ' AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL') . ($mine ? ' AND owner_id = ' . $me : '');
+        $params = [$k['idk'], ...$searchParams];
         if ($column !== null) {
             $where .= ' AND jazyk = ?';
             $params[] = $column;
@@ -214,10 +217,12 @@ final class Collections extends Module
             $where .= ' AND idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($ids), '?')) . '))';
             $params = [...$params, ...$ids];
         }
+        $total = (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE ' . $where, $params);
+        $pageNumber = $this->pageNumber($total, self::ITEMS_PER_PAGE);
 
         return $this->view('items', $k['nazev'], ['k' => $k, 'languages' => Language::additional($this->app->settings()), 'siteLanguages' => $siteLanguages, 'language' => $language,
             'categories' => $categories, 'category' => $category, 'choiceFields' => $choiceFields, 'fieldFilter' => $fieldFilter,
-            'filtered' => $language !== '' || $category > 0 || $fieldFilter !== [] || $mine,
+            'filtered' => $language !== '' || $category > 0 || $fieldFilter !== [] || $mine || $search !== '', 'search' => $search, 'total' => $total, 'pageNumber' => $pageNumber, 'pageCount' => (int) ceil($total / self::ITEMS_PER_PAGE),
             'trash' => $trash, 'noticeBoard' => Notices::isNotices($k), 'inTrash' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NOT NULL', [$k['idk']]),
             'mine' => $mine, 'mineCount' => (int) $this->db->value('SELECT COUNT(*) FROM {kolekce_polozky} WHERE idk = ? AND smazano IS NULL AND owner_id = ?', [$k['idk'], $me]),
             // 3.20 (C5): the page that lists the collection (a preset makes it hidden) – its state, builder, publishing and the menu
@@ -233,7 +238,7 @@ final class Collections extends Module
             'staffSignatures' => !$trash && \Kaleta\Builder\EmailSignature::isPeople($k)
                 && \Kaleta\Builder\TeamRecord::linked($this->db, $this->db->all('SELECT idu, email, team_item_id FROM {uzivatele} WHERE blokovat = 0')) !== [],
             'items' => $this->db->all('SELECT idp, nazev, seo_link, poradi, zobrazit, jazyk, datum, smazano, valid_until, review_by FROM {kolekce_polozky} WHERE ' . $where
-                . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')), $params)]);
+                . ' ORDER BY ' . ($trash ? 'smazano DESC' : 'jazyk, poradi, ' . $this->db->sortText('nazev')) . ', idp LIMIT ' . self::ITEMS_PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::ITEMS_PER_PAGE), $params)]);
     }
 
     /**

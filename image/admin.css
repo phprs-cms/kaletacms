@@ -650,10 +650,13 @@ form > p.stred {
 }
 .strankovani {
 	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	gap: 6px;
 	margin: 16px 0;
 	font-size: 13px;
 }
+.strankovani-mezera { color: var(--text-slaby); }
 .strankovani a,
 .strankovani strong {
 	padding: 4px 10px;
@@ -664,6 +667,12 @@ form > p.stred {
 .strankovani strong {
 	border-color: var(--akcent);
 	color: var(--akcent);
+}
+/* 3.52 (A8): the words of a search in a list (mark_words(), mark_snippet()) – a tint of the warning orange under the text colour, readable in both modes */
+mark {
+	background: color-mix(in oklch, var(--varovani) 32%, transparent);
+	color: inherit;
+	border-radius: 2px;
 }
 
 /* filter above a listing */

@@ -27,13 +27,17 @@ final class Subscribers extends Module
     public const string HUB = 'newsletter';
     public const string ICON = 'newsletter';
 
+    private const int PER_PAGE = 100;
+
     protected function actionList(): Response
     {
-        $search = mb_substr($this->request->get('search'), 0, 100);
-        $pageNumber = max(1, $this->request->getInt('page', 1));
+        $search = mb_substr(trim($this->request->get('search')), 0, 100);
         [$whereParts, $params] = \Kaleta\Core\Db::likeWords(['email'], $search);
         $whereParts = ' WHERE ' . $whereParts;
-        $subscribers = $this->db->all('SELECT * FROM {odberatele}' . $whereParts . ' ORDER BY ido DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params);
+        $total = (int) $this->db->value('SELECT COUNT(*) FROM {odberatele}' . $whereParts, $params);
+        $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
+        $pageNumber = $this->pageNumber($total, self::PER_PAGE); // 3.52: past the end = the last page
+        $subscribers = $this->db->all('SELECT * FROM {odberatele}' . $whereParts . ' ORDER BY ido DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         $register = \Kaleta\Core\SendRegister::counts($this->db);
         // 3.51: the register's mark of the listed rows – asked only while the register holds anything
         $marks = [];
@@ -50,7 +54,7 @@ final class Subscribers extends Module
             'subscribers' => $subscribers,
             'languages' => $this->db->all('SELECT language, SUM(stav = 1) AS confirmed, SUM(stav = 0) AS waiting FROM {odberatele} GROUP BY language ORDER BY language'),
             'register' => $register, 'marks' => $marks,
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele}' . $whereParts, $params),
+            'total' => $total, 'pageCount' => $pageCount,
             'confirmed' => (int) $this->db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'),
             'service' => \Kaleta\Core\Newsletter::isEnabled($this->app->settings()) ? $this->app->settings()->get('newsletter_service') : '',
             'queue' => $this->db->one('SELECT SUM(dalsi IS NOT NULL) AS ceka, SUM(dalsi IS NULL) AS chyby FROM {odber_fronta}') ?? ['ceka' => 0, 'chyby' => 0],

@@ -9561,4 +9561,5 @@ return [
     'This connection lists every tool – about %d kB in each conversation. Essentials, Work or Migration load a fraction of it and find the other tools when needed.' => 'Diese Verbindung lädt alle Werkzeuge – etwa %d kB in jeder Unterhaltung. Grundwerkzeuge, Arbeit oder Umzug laden nur einen Bruchteil davon und finden die anderen Werkzeuge bei Bedarf.',
     'About %d kB in each conversation; the other sets load a fraction of it.' => 'Etwa %d kB in jeder Unterhaltung; die anderen Sätze laden nur einen Bruchteil davon.',
     'The mail server did not answer – the mail queue keeps trying for about half a day; if the e-mail never gets through, the customer can be asked again. The link: %s' => 'Der Mailserver hat nicht geantwortet – die Mail-Warteschlange versucht es etwa einen halben Tag lang weiter; kommt die E-Mail nie durch, kann der Kunde erneut gefragt werden. Der Link: %s',
+    'Why:' => 'Warum:',
 ];

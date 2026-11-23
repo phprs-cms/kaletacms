@@ -71,6 +71,12 @@ abstract class Module
      */
     public const int PICK_ROWS = 8;
 
+    /** The page of a paged list from ?page= (3.52, A8): at least 1, and a page past the end is the last one, never an empty list. */
+    protected function pageNumber(int $total, int $perPage): int
+    {
+        return max(1, min((int) ceil(max(1, $total) / $perPage), $this->request->getInt('page', 1)));
+    }
+
     /** The word a search action looks for (at most 80 characters); '' under two characters – those answer no rows. */
     protected function searchWord(): string
     {

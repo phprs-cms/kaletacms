@@ -31,9 +31,9 @@ $pageCount = (int) ceil($total / $perPage);
 $yes = Kaleta\Core\Language::runWith(Kaleta\Core\Language::defaults($app->settings()), fn (): string => t('yes'));
 $preview = function (string $data) use ($yes): string {
     $items = json_decode($data, true) ?: [];
-    $text = implode(' · ', array_filter(array_map(fn (array $d): string => (string) $d[1] === $yes ? t('Consent: yes') : (string) $d[1], $items), fn (string $v): bool => $v !== '' && mb_strlen($v) > 1));
 
-    return mb_strimwidth($text, 0, 140, '…');
+    // the whole text: the list shows 140 characters of it around the searched word (mark_snippet, 3.52 A8)
+    return implode(' · ', array_filter(array_map(fn (array $d): string => (string) $d[1] === $yes ? t('Consent: yes') : (string) $d[1], $items), fn (string $v): bool => $v !== '' && mb_strlen($v) > 1));
 };
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Enquiry status')) ?>">
@@ -50,6 +50,9 @@ $preview = function (string $data) use ($yes): string {
 	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="status" value="<?= e($filter) ?>"><?= $kind !== '' ? '<input type="hidden" name="category" value="' . e($kind) . '">' : '' /* 3.52: the search stays within the kind */ ?>
 	<label><?= e(t('Search (name, e-mail, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
+<?php if ($search !== ''): ?>
+	<span data-found><?= e(t('Found: %s', format_count($total))) ?></span>
+<?php endif ?>
 </form>
 <br>
 <?php if ($enquiries === [] && ($search !== '' || $filter !== '' || $kind !== '')): ?>
@@ -67,10 +70,10 @@ $preview = function (string $data) use ($yes): string {
 <tr<?= (int) $p['stav'] === 2 ? ' class="nevydany"' : '' ?>>
 	<td><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= (int) $p['stav'] === 0 ? '<strong>' . e(format_date($p['datum'], true)) . '</strong>' : e(format_date($p['datum'], true)) ?></a></td>
 	<?php /* 3.32 (U27): who wrote it and what about – the form's topic stays in the next column */ $who = Kaleta\Core\RecordTitle::enquiryWho($p); $what = Kaleta\Core\RecordTitle::enquiryWhat($p); ?>
-	<td data-enquiry-name><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= $who !== '' ? bdi($who) : '<span class="napoveda">' . e(t('(no name)')) . '</span>' ?></a><?= $what !== '' ? '<br><small>' . bdi($what) . '</small>' : '' ?></td>
-	<td><?= bdi($p['formular']) ?><?= ($p['tema'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': ' . (Kaleta\Front\Forms::isSafePage((string) $p['stranka']) ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . bdi($p['tema']) . '</a>' : bdi($p['tema'])) . '</small>' : '' ?><?= $p['email'] !== '' ? '<br><small>' . bdi($p['email']) . '</small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priorita'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
+	<td data-enquiry-name><a href="<?= e($module->url('detail', ['id' => $p['idp']])) ?>"><?= $who !== '' ? '<bdi>' . mark_words($who, $search) . '</bdi>' : '<span class="napoveda">' . e(t('(no name)')) . '</span>' ?></a><?= $what !== '' ? '<br><small>' . bdi($what) . '</small>' : '' ?></td>
+	<td><?= bdi($p['formular']) ?><?= ($p['tema'] ?? '') !== '' ? '<br><small>' . e(t('Topic')) . ': ' . (Kaleta\Front\Forms::isSafePage((string) $p['stranka']) ? '<a href="' . e($p['stranka']) . '" target="_blank" rel="noopener">' . bdi($p['tema']) . '</a>' : bdi($p['tema'])) . '</small>' : '' ?><?= $p['email'] !== '' ? '<br><small><bdi>' . mark_words((string) $p['email'], $search) . '</bdi></small>' : '' ?><?= $p['kategorie'] !== '' ? '<br><span class="stitek">' . e(t(Kaleta\Core\Triage::CATEGORIES[$p['kategorie']] ?? $p['kategorie'])) . '</span>' : '' ?><?= (int) $p['priorita'] === 3 ? ' <span class="stitek stitek-koncept">' . e(t('urgent')) . '</span>' : '' ?></td>
 	<?php $text = $preview((string) $p['data']); /* 3.32: no empty link when the form carried no text (axe link-name) */ ?>
-	<td><?= $text !== '' ? '<a href="' . e($module->url('detail', ['id' => $p['idp']])) . '">' . bdi($text) . '</a>' : '<span class="napoveda">—</span>' ?></td>
+	<td><?= $text !== '' ? '<a href="' . e($module->url('detail', ['id' => $p['idp']])) . '"><bdi>' . mark_snippet($text, $search) . '</bdi></a>' : '<span class="napoveda">—</span>' ?></td>
 	<td><span class="stitek<?= (int) $p['stav'] === 0 ? ' stitek-koncept' : ((int) $p['stav'] === 2 ? ' stitek-vydano' : '') ?>"><?= e(t(Enquiries::STATUSES[(int) $p['stav']])) ?></span><?= $p['prirazeno'] && isset($users[(int) $p['prirazeno']]) ? '<br><small>' . e($users[(int) $p['prirazeno']]) . '</small>' : '' ?><?php if (isset($deals[(int) $p['idp']])): $deal = $deals[(int) $p['idp']]; $dealKind = $stageKinds[$deal['stage']] ?? 'open'; /* 3.31 */ ?><br><a class="stitek obchod-odznak<?= $dealKind === 'won' ? ' stitek-vydano' : ($dealKind === 'lost' ? ' stitek-chyba' : '') ?>" href="<?= e($app->url(Kaleta\Core\Deals::adminPath($deal['id']))) ?>" data-enquiry-deal="<?= (int) $deal['id'] ?>"><?= e(t('Deal: %s', $stageLabels[$deal['stage']] ?? $deal['stage'])) ?></a><?php endif ?></td>
 	<td class="stred"><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" aria-label="<?= e(t('Select')) ?>: #<?= (int) $p['idp'] ?>"></td>
 </tr>
@@ -82,13 +85,7 @@ $preview = function (string $data) use ($yes): string {
 	<button class="tl" type="submit" name="provest" value="vyridit"><?= e(t('Mark as resolved')) ?></button>
 	<button class="navigace nebezpecne" type="submit" name="provest" value="smazat" data-potvrdit="<?= e(t('Delete the selected enquiries including attachments? This cannot be undone.')) ?>"><?= e(t('Delete')) ?></button></p>
 </form>
-<?php if ($pageCount > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $filter, 'category' => $kind, 'search' => $search]) + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => ['status' => $filter, 'category' => $kind, 'search' => $search], 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <p class="navigace-radek"><a class="navigace" href="<?= e($module->url('csv')) ?>"><?= e(t('Download all enquiries (CSV)')) ?></a></p>
 <?php endif ?>
 <?php if ($app->auth()->isAdmin()): ?>

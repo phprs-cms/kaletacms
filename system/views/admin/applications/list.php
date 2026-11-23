@@ -15,6 +15,7 @@
  * @var array{rows: list<array<string, mixed>>, total: int, filter: array{status: string, job: string, assignee: string, pool: bool, search: string}} $result
  * @var int $page
  * @var int $pages
+ * @var array<int, string> $snippets while searching: the form fields of each listed application as one line (3.52, A8)
  * @var array<string, int> $counts Core\Applications::counts
  * @var list<array{job_item_id: ?int, job_title: string, open: int, all: int}> $jobs
  * @var array<int, string> $people who may be responsible
@@ -91,7 +92,7 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <?= $app->view->render('admin/empty', ['icon' => 'uzivatele', 'heading' => $filtered ? t('No application matches the filter.') : t('No applications here.'),
     'text' => t('Applications come from the forms on your job pages and from forms whose Purpose is “Job application”. They never become customers or deals.')]) ?>
 <?php else: ?>
-<p class="napoveda" data-applications-total><?= e(t('Applications: %s', format_count($result['total']))) ?></p>
+<p class="napoveda" data-applications-total><?= e($filtered ? t('Found: %s', format_count($result['total'])) : t('Applications: %s', format_count($result['total']))) ?></p>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-applications-list>
 <thead><tr><th scope="col"><input type="checkbox" data-vybrat-vse="uchazeci-hromadne" aria-label="<?= e(t('Select all')) ?>"> <?= e(t('Number')) ?></th><th scope="col"><?= e(t('Received')) ?></th><th scope="col"><?= e(t('Name')) ?></th><th scope="col"><?= e(t('Position')) ?></th>
@@ -101,8 +102,8 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <tr data-application="<?= (int) $r['id'] ?>">
 	<td class="uchazeci-cislo"><input type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="uchazeci-hromadne" aria-label="<?= e(t('Select')) ?>: #<?= (int) $r['id'] ?>"> <a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>">#<?= (int) $r['id'] ?></a></td>
 	<td data-popisek="<?= e(t('Received')) ?>"><?= e(format_date((string) $r['received_at'])) ?></td>
-	<td data-popisek="<?= e(t('Name')) ?>"><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>"><?= bdi((string) $r['name'] !== '' ? (string) $r['name'] : (string) $r['email']) ?></a></td>
-	<td data-popisek="<?= e(t('Position')) ?>"><?= (string) $r['job_title'] !== '' ? bdi((string) $r['job_title']) : '<span class="napoveda">' . e(t('No position')) . '</span>' ?><?= !empty($r['attachments_locked']) ? ' <span class="stitek stitek-chyba" data-application-locked>' . e(t('CVs cannot be opened – encryption key')) . '</span>' : '' ?><?= $r['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></td>
+	<td data-popisek="<?= e(t('Name')) ?>"><a href="<?= e($module->url('detail', ['id' => $r['id']])) ?>"><bdi><?= mark_words((string) $r['name'] !== '' ? (string) $r['name'] : (string) $r['email'], $filter['search']) ?></bdi></a><?= ($snippets[(int) $r['id']] ?? '') !== '' && search_marks($snippets[(int) $r['id']], $filter['search']) !== [] ? '<br><small data-application-snippet><bdi>' . mark_snippet($snippets[(int) $r['id']], $filter['search']) . '</bdi></small>' : '' ?></td>
+	<td data-popisek="<?= e(t('Position')) ?>"><?= (string) $r['job_title'] !== '' ? '<bdi>' . mark_words((string) $r['job_title'], $filter['search']) . '</bdi>' : '<span class="napoveda">' . e(t('No position')) . '</span>' ?><?= !empty($r['attachments_locked']) ? ' <span class="stitek stitek-chyba" data-application-locked>' . e(t('CVs cannot be opened – encryption key')) . '</span>' : '' ?><?= $r['late'] ? ' <span class="stitek">' . e(t('after the closing date')) . '</span>' : '' ?></td>
 	<td data-popisek="<?= e(t('Status')) ?>"><span class="stitek<?= $r['status'] === 'hired' ? ' stitek-vydano' : ($r['status'] === 'rejected' ? ' stitek-chyba' : ($r['status'] === 'new' ? ' stitek-koncept' : '')) ?>"><?= e(t(Store::STATUS_LABELS[$r['status']] ?? (string) $r['status'])) ?></span></td>
 	<td data-popisek="<?= e(t('Responsible person')) ?>"><?= $r['assignee_id'] !== null ? e($names[$r['assignee_id']] ?? '') : '' ?></td>
 	<td data-popisek="<?= e(t('Will be deleted')) ?>"><?= $r['deletes_on'] !== null ? e(format_date($r['deletes_on'])) : '' ?></td>
@@ -152,11 +153,5 @@ $filtered = $filter['job'] !== '' || $filter['assignee'] !== '' || $filter['pool
 <?php endif ?>
 	</fieldset>
 </form>
-<?php if ($pages > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pages; $s++): ?>
-	<?= $s === $page ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $query + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['page' => $page, 'pages' => $pages, 'link' => fn (int $s): string => $module->url('', $query + ['page' => $s])]) /* status '' (all) must stay in the address */ ?>
 <?php endif ?>

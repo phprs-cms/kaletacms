@@ -72,6 +72,28 @@ final class Applications extends Module
         return Store::newCount($app->db());
     }
 
+    /**
+     * The form fields of the listed applications as one line of text each (id => text) – while searching, the list shows the
+     * place in them that matched (3.52, A8, mark_snippet); without a search nothing is read.
+     *
+     * @param list<int> $ids
+     * @return array<int, string>
+     */
+    private function formTexts(string $search, array $ids): array
+    {
+        if (trim($search) === '' || $ids === []) {
+            return [];
+        }
+        $texts = [];
+        foreach ($this->db->pairs('SELECT id, data FROM {applications} WHERE id IN (' . implode(',', array_map('intval', $ids)) . ')') as $id => $data) {
+            $fields = json_decode((string) $data, true);
+            $values = is_array($fields) ? array_map(fn ($f): string => is_array($f) && is_scalar($f[1] ?? null) ? trim((string) $f[1]) : '', $fields) : [];
+            $texts[(int) $id] = implode(' · ', array_filter($values, fn (string $v): bool => $v !== ''));
+        }
+
+        return $texts;
+    }
+
     protected function actionList(): Response
     {
         $me = $this->app->auth()->id();
@@ -79,9 +101,14 @@ final class Applications extends Module
             'assignee' => $this->request->get('assignee') === 'me' ? (string) $me : $this->request->get('assignee'), 'pool' => $this->request->get('pool'), 'search' => $this->request->get('search')];
         $page = max(1, $this->request->getInt('page', 1));
         $result = Store::list($this->app, $query, $page, self::PAGE);
+        if ($result['rows'] === [] && $page > 1 && $result['total'] > 0) { // 3.52: past the end = the last page
+            $page = (int) ceil($result['total'] / self::PAGE);
+            $result = Store::list($this->app, $query, $page, self::PAGE);
+        }
         $assignees = array_values(array_filter(array_column($result['rows'], 'assignee_id')));
 
         return $this->view('list', 'Applications', ['result' => $result, 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / self::PAGE)),
+            'snippets' => $this->formTexts($result['filter']['search'], array_column($result['rows'], 'id')),
             'counts' => Store::counts($this->db), 'jobs' => Store::byJob($this->db), 'people' => Assignment::candidates($this->db, 'application'),
             'names' => Assignment::labels($this->db, $assignees), 'me' => $me,
             // B-2: until somebody besides the administrators has the section, the administrators are told to choose

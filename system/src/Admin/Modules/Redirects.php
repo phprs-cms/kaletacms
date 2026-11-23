@@ -71,7 +71,7 @@ final class Redirects extends Module
         [$whereParts, $params] = \Kaleta\Core\Db::likeWords(['z_adresy', 'na_adresu'], $search);
         $whereParts = 'WHERE ' . $whereParts;
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $whereParts, $params);
-        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));
+        $pageNumber = $this->pageNumber($total, self::PER_PAGE); // 3.52: past the end = the last page
 
         $notFound = \Kaleta\Core\NotFound::pending($this->app, 60, 50);
 

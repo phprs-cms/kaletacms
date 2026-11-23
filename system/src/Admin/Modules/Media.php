@@ -30,9 +30,9 @@ final class Media extends Module
 
     protected function actionList(): Response
     {
-        $pageNumber = max(1, $this->request->getInt('page', 1));
         [$where, $params, $filter] = $this->filter();
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {media} o WHERE {$where}", $params);
+        $pageNumber = $this->pageNumber($total, self::PER_PAGE); // 3.52: past the end = the last page
 
         return $this->view('list', 'Media', [
             'images' => $this->load($where, $params, $pageNumber, self::PER_PAGE),

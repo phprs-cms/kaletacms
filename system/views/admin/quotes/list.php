@@ -80,11 +80,5 @@ $today = Clock::today();
 </tbody>
 </table>
 </div>
-<?php if ($result['pages'] > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $result['pages']; $s++): ?>
-	<?= $s === $result['page'] ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $query + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['page' => $result['page'], 'pages' => $result['pages'], 'link' => fn (int $s): string => $module->url('', $query + ['page' => $s])]) ?>
 <?php endif ?>

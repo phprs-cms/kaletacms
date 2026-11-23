@@ -118,12 +118,6 @@ $audience = fn (array $f): string => $f['audience'] === 'roles' ? t('roles only'
 </tbody>
 </table>
 </div>
-<?php if ($pages > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pages; $s++): ?>
-	<?= $s === $page ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $here + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['page' => $page, 'pages' => $pages, 'link' => fn (int $s): string => $module->url('', $here + ['page' => $s])]) ?>
 <?php endif ?>
 <?php endif ?>

@@ -105,7 +105,7 @@ final class Enquiries extends Module
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions) . ' AND ' . $this->visibleHere(); // never empty: spam is left out unless asked for
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params);
-        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1))); // past the end = the last page
+        $pageNumber = $this->pageNumber($total, self::PER_PAGE); // 3.52: past the end = the last page
         $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, zdroj, email, stav, kategorie, priorita, data, prirazeno, anonymizovano FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
         $deals = isset($this->kernel->modules()[Pipeline::IDENT]) ? \Kaleta\Core\Deals::forEnquiries($this->db, array_map('intval', array_column($rows, 'idp'))) : [];

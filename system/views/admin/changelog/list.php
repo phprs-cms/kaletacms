@@ -55,8 +55,9 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 		<option value="<?= e($m) ?>"<?= $whereParts === $m ? ' selected' : '' ?>><?= e(isset($names[$m]) ? t($names[$m]) : $m) ?></option>
 <?php endforeach ?>
 	</select></label>
-	<label><?= e(t('Detail contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="18"></label>
-	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)
+	<label><?= e(t('Search:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="18"></label>
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
+	<?= $search !== '' ? '<span data-found>' . e(t('Found: %s', format_count($total))) . '</span>' : '(' . e(t('Total:')) . ' ' . format_count($total) . ')' ?>
 </form>
 <?php if ($records === []): // 3.50.1 (UX-l3): an empty state – nothing matches the filter, or nothing logged yet ?>
 <?php $filtered = $who !== 0 || $by !== '' || $whereParts !== '' || $search !== ''; ?>
@@ -71,21 +72,15 @@ foreach (['update' => 'aktualizuj', 'automatic' => 'automaticky', 'duplicate' =>
 <?php foreach ($records as $z): ?>
 <tr<?= $z['akce'] === 'neuspech' ? ' class="nevydany"' : '' ?>>
 	<td class="cislo"><?= e(format_date($z['cas'], true)) ?></td>
-	<td><?= bdi($z['jmeno'] !== '' ? $z['jmeno'] : '–') ?><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
+	<td><bdi><?= mark_words($z['jmeno'] !== '' ? (string) $z['jmeno'] : '–', $search) ?></bdi><?php if (($z['via'] ?? '') !== ''): ?> <span class="stitek" title="<?= e(t('Made by Claude through the connection %s', $z['via'])) ?>"><?= e(t('Claude: %s', $z['via'])) ?></span><?php endif ?></td>
 	<td><?= e(isset($names[$z['modul']]) ? t($names[$z['modul']]) : $z['modul']) ?></td>
 	<td><?= e(t($action[$z['akce']] ?? $z['akce'])) ?></td>
-	<td><?= bdi($z['popis']) ?><?php if (($z['duvod'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why: %s', $z['duvod'])) ?></span><?php endif ?></td>
+	<td><bdi><?= mark_words((string) $z['popis'], $search) ?></bdi><?php if (($z['duvod'] ?? '') !== ''): ?><br><span class="smltxt"><?= e(t('Why:')) ?> <?= mark_words((string) $z['duvod'], $search) ?></span><?php endif ?></td>
 </tr>
 <?php endforeach ?>
 </tbody>
 </table>
 </div>
 <?php endif ?>
-<?php if ($pageCount > 1): ?>
-<p class="strankovani">
-<?php for ($s = max(1, $pageNumber - 5); $s <= min($pageCount, $pageNumber + 5); $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['user' => $who ?: null, 'by' => $by, 'area' => $whereParts, 'search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => ['user' => $who ?: null, 'by' => $by, 'area' => $whereParts, 'search' => $search], 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <p class="smltxt"><?= e(t('The log is kept for six months.')) ?></p>

@@ -8,6 +8,7 @@
  * @var int $confirmed
  * @var string $search
  * @var int $pageNumber
+ * @var int $pageCount
  * @var string $service connected mailing service (empty = none)
  * @var array{ceka: ?string, chyby: ?string} $queue
  * @var list<array{language: string, confirmed: ?string, waiting: ?string}> $languages confirmed and waiting per language version (3.51)
@@ -45,21 +46,26 @@ $multilingual = count($languages) > 1 || ($languages !== [] && (string) $languag
 	<input type="hidden" name="module" value="subscribers">
 	<input class="textpole" type="search" name="search" value="<?= e($search) ?>" placeholder="<?= e(t('Search e-mail')) ?>" aria-label="<?= e(t('Search e-mail')) ?>">
 	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
+<?php if ($search !== ''): ?>
+	<span class="smltxt" data-found><?= e(t('Found: %s', format_count($total))) ?></span>
+<?php endif ?>
 <?php if ($confirmed > 0): ?>
 	<a class="tl" href="<?= e($module->url('csv')) ?>"><?= e(t('Export confirmed (CSV)')) ?> · <?= $confirmed ?></a>
 <?php else: ?>
 	<button class="tl" type="button" disabled><?= e(t('Export confirmed (CSV)')) ?> · 0</button>
 <?php endif ?>
 </form>
-<?php if ($subscribers === []): ?>
-<?= $app->view->render('admin/empty', ['icon' => 'newsletter', 'heading' => t($search !== '' ? 'Nothing found.' : 'No subscribers yet.'), 'text' => t('Put the Newsletter sign-up element on the website – for example in the footer.')]) ?>
+<?php if ($subscribers === [] && $search !== ''): /* 3.52 (A8): a search without a match is not "no subscribers yet" */ ?>
+<?= $app->view->render('admin/empty', ['icon' => 'newsletter', 'heading' => t('Nothing matches the filter.'), 'text' => t('Try another word.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
+<?php elseif ($subscribers === []): ?>
+<?= $app->view->render('admin/empty', ['icon' => 'newsletter', 'heading' => t('No subscribers yet.'), 'text' => t('Put the Newsletter sign-up element on the website – for example in the footer.')]) ?>
 <?php else: ?>
 <div class="tab-obal"><table class="vypis">
 <thead><tr><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Status')) ?></th><?php if ($multilingual): ?><th scope="col"><?= e(t('Language')) ?></th><?php endif ?><?php if ($service !== ''): ?><th scope="col"><?= e(t('Service')) ?></th><?php endif ?><th scope="col"><?= e(t('Subscribed')) ?></th><th scope="col"><?= e(t('Page')) ?></th><th scope="col"><?= e(t('Actions')) ?></th></tr></thead>
 <tbody>
 <?php foreach ($subscribers as $o): ?>
 <tr<?= (int) $o['stav'] === 1 ? '' : ' class="nevydany"' ?>>
-	<td><?= bdi($o['email']) ?></td>
+	<td><bdi><?= mark_words((string) $o['email'], $search) ?></bdi></td>
 	<td><?= (int) $o['stav'] === 1 ? '<span class="stitek stitek-vydano">' . e(t('confirmed')) . '</span>' : e(t('awaiting confirmation')) ?>
 <?php if (isset($marks[(int) $o['ido']])): ?> <span class="stitek stitek-koncept" data-register="<?= e($marks[(int) $o['ido']]) ?>"><?= e($marks[(int) $o['ido']] === 'bounced' ? t('bounced') : t('refused')) ?></span><?php endif ?></td>
 <?php if ($multilingual): ?>	<td><?= e($languageName((string) $o['language'])) ?></td>
@@ -78,10 +84,5 @@ $multilingual = count($languages) > 1 || ($languages !== [] && (string) $languag
 <?php endforeach ?>
 </tbody>
 </table></div>
-<?php if ($total > 100): ?>
-<p class="navigace-radek">
-<?php if ($pageNumber > 1): ?><a class="navigace" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber - 1])) ?>"><?= e(t('Previous')) ?></a><?php endif ?>
-<?php if ($pageNumber * 100 < $total): ?><a class="navigace" href="<?= e($module->url('', ['search' => $search, 'page' => $pageNumber + 1])) ?>"><?= e(t('Next')) ?></a><?php endif ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => ['search' => $search], 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <?php endif ?>

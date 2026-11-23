@@ -15,6 +15,10 @@
  * @var list<array<string, mixed>> $choiceFields the choice fields of the collection – each one is a filter
  * @var array<string, string> $fieldFilter field key => selected option
  * @var bool $filtered some filter is on
+ * @var string $search words searched in the name, the address and the fields (3.52, A6)
+ * @var int $total items that match the filter, on all pages
+ * @var int $pageNumber
+ * @var int $pageCount pages of 100 items (Collections::ITEMS_PER_PAGE)
  * @var bool $trash the trash is shown
  * @var bool $noticeBoard an official notice board (2.11): its notices are never deleted
  * @var int $inTrash items in the trash
@@ -87,9 +91,9 @@
 </tbody>
 </table>
 </div>
+<?= $app->view->render('admin/paging', ['module' => $module, 'action' => 'items', 'query' => ['id' => (int) $k['idk'], 'status' => 'kos'], 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <?php endif ?>
 <?php else: ?>
-<?php if ($siteLanguages !== [] || $categories !== [] || $choiceFields !== []): ?>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="collections"><input type="hidden" name="action" value="items"><input type="hidden" name="id" value="<?= (int) $k['idk'] ?>"><?= $mine ? '<input type="hidden" name="status" value="mine">' : '' ?>
 <?= $app->view->render('admin/language_filter', ['siteLanguages' => $siteLanguages, 'language' => $language, 'submitOnChange' => true]) ?>
 <?php if ($categories !== []): ?>
@@ -112,18 +116,20 @@
 		</select>
 	</label>
 <?php endforeach ?>
+	<label><?= e(t('Search:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
+	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 <?php if ($filtered): ?>
+	<span data-found><?= e(t('Found: %s', format_count($total))) ?></span>
 	<a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Clear filter')) ?></a>
 <?php endif ?>
 </form>
-<?php endif ?>
 <?php if ($items === [] && !$filtered): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('The collection is empty.'),
     // 3.20 (C5): with a listing page the advice is to fill and publish that page, not to build a second list
     'text' => $listingPage !== null ? t('Add the first item – the page %s lists the items; publish it when they are ready.', $listingPage['path']) : t('Add the first item – then put it on the site with the Collection list element in the builder.'),
     'action' => [$module->url('item', ['id' => $k['idk']]), t('Add item')]]) ?>
 <?php elseif ($items === []): ?>
-<p class="stred"><?= e(t('Nothing matches the filter.')) ?> <a href="<?= e($module->url('items', ['id' => $k['idk']])) ?>"><?= e(t('Clear filter')) ?></a></p>
+<?= $app->view->render('admin/empty', ['icon' => 'kolekce', 'heading' => t('Nothing matches the filter.'), 'text' => t('Try another word or clear the filter.'), 'action' => [$module->url('items', ['id' => $k['idk']]), t('Clear filter')]]) ?>
 <?php else: ?>
 <div class="tab-obal">
 <table class="vypis">
@@ -132,7 +138,7 @@
 <?php foreach ($items as $p): ?>
 <tr<?= $p['zobrazit'] ? '' : ' class="nevydany"' ?>>
 	<td><input type="checkbox" name="oznacene[]" value="<?= (int) $p['idp'] ?>" form="hromadne" aria-label="<?= e(t('Select %s', $p['nazev'])) ?>"></td>
-	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'item' => $p['idp']])) ?>"><?= e($p['nazev']) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('item', ['id' => $k['idk'], 'item' => $p['idp']])) ?>"><?= mark_words((string) $p['nazev'], $search) ?></a><?= $p['jazyk'] !== '' ? ' <span class="stitek">' . e(strtoupper($p['jazyk'])) . '</span>' : '' ?><?= $p['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($p['valid_until']))) . '</span>' : '' ?><?= $p['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($p['review_by']))) . '</span>' : '' ?></td>
 	<td><?= (int) $p['poradi'] ?></td>
 <?php if ($downloads !== null): ?>
 	<td class="cislo stazeni"><?= (int) ($downloads[(int) $p['idp']][0] ?? 0) ?> / <?= (int) ($downloads[(int) $p['idp']][1] ?? 0) ?></td>
@@ -150,6 +156,9 @@
 </tbody>
 </table>
 </div>
+<?= $app->view->render('admin/paging', ['module' => $module, 'action' => 'items', 'page' => $pageNumber, 'pages' => $pageCount,
+    'query' => ['id' => (int) $k['idk'], 'status' => $mine ? 'mine' : null, 'language' => $language, 'category' => $category ?: null, 'search' => $search]
+        + array_combine(array_map(fn (string $key): string => 'field_' . $key, array_keys($fieldFilter)), array_values($fieldFilter))]) ?>
 <?= $app->view->render('admin/bulk_actions', ['csrf' => $csrf, 'action' => $module->url('bulk_items'), 'siteLanguages' => $siteLanguages, 'hidden' => ['idk' => (string) (int) $k['idk']],
     // 3.35 (N107): a role that does not publish only hides and trashes its hidden items
     'actions' => ($app->auth()->canPublish() ? ['zobrazit' => t('Publish')] : []) + ['skryt' => t('Hide')] + (empty($noticeBoard) ? ['kos' => t('Move to trash')] : [])]) ?>

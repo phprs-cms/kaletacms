@@ -83,8 +83,13 @@ $canPublish = $app->auth()->canPublish();
 <?php endforeach ?>
 	</select>
 	<button class="navigace" type="submit"><?= e(t('Filter')) ?></button>
+<?php if ($filter['search'] !== ''): ?>
+	<span class="smltxt" data-found><?= e(t('Found: %s', format_count($total))) ?></span>
+<?php endif ?>
 </form>
-<?php if ($images === []): ?>
+<?php if ($images === [] && ($filter['search'] !== '' || $filter['unused'] || $filter['staged'] || $filter['article'] > 0)): /* 3.52 (A8): a filter without a match, not an empty library */ ?>
+<?= $app->view->render('admin/empty', ['icon' => 'media', 'heading' => t('Nothing matches the filter.'), 'text' => t('Try another word or clear the filter.'), 'action' => [$module->url('', array_intersect_key($params, ['section' => 1])), t('Clear filter')]]) ?>
+<?php elseif ($images === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'media', 'heading' => t('No images.'), 'text' => t('Upload your first photos with the form above – or drag them straight into the text in the editor.')]) ?>
 <?php else: ?>
 <form method="post" action="<?= e($module->url('bulk')) ?>">
@@ -98,7 +103,7 @@ $canPublish = $app->auth()->canPublish();
 		<a href="<?= e($app->url($o['obr_poloha'])) ?>" target="_blank" rel="noopener"><img src="<?= e($app->url($o['nahl_poloha'])) ?>" alt="<?= e($o['nazev']) ?>" loading="lazy" width="<?= (int) $o['nahl_width'] ?>" height="<?= (int) $o['nahl_height'] ?>"></a>
 <?php endif ?>
 		<figcaption>
-			<strong title="<?= e($o['nazev']) ?>"><?= e($o['nazev'] !== '' ? $o['nazev'] : t('untitled')) ?></strong>
+			<strong title="<?= e($o['nazev']) ?>"><?= $o['nazev'] !== '' ? mark_words((string) $o['nazev'], $filter['search']) : e(t('untitled')) ?></strong>
 			<span><?= $o['nahl_poloha'] === '' ? '' : (int) $o['obr_width'] . '&times;' . (int) $o['obr_height'] . ' &middot; ' ?><?= e(Kaleta\Core\Files::size((int) $o['obr_vel'])) ?> &middot; <span><?= e((int) $o['pouzito'] > 0 ? t('used %s×', (int) $o['pouzito']) : t('unused')) ?></span></span>
 <?php if ($o['kde_odkazy'] !== []): // 3.20 (C22): the places as links, not a tooltip ?>
 			<details class="media-pouziti"><summary><?= e(t('Used in')) ?></summary><ul>
@@ -165,13 +170,7 @@ $canPublish = $app->auth()->canPublish();
 <?php endif ?>
 <?php endforeach ?>
 
-<?php if ($pageCount > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $params + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => $params, 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <?php endif ?>
 </div>
 </div>

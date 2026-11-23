@@ -82,7 +82,7 @@ final class News extends Module
         $cond = implode(' AND ', $where);
 
         $total = (int) $this->db->value("SELECT COUNT(*) FROM {novinky} c WHERE {$cond}", $params);
-        $pageNumber = max(1, $this->request->getInt('page', 1));
+        $pageNumber = $this->pageNumber($total, self::PER_PAGE); // 3.52: past the end = the last page
         $news = $this->db->all(
             "SELECT c.idc, c.seo_link, c.titulek, c.datum, c.visible, c.visit, c.smazano, c.valid_until, c.review_by,
                     t.nazev AS tema_jm, u.jmeno AS autor_jm, u.user AS autor_login, u.admin AS autor_uroven,

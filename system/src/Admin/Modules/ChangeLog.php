@@ -49,7 +49,7 @@ final class ChangeLog extends Module
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {protokol}' . $sql, $params);
         $pageCount = max(1, (int) ceil($total / self::PER_PAGE));
-        $pageNumber = max(1, min($pageCount, $this->request->getInt('page', 1)));
+        $pageNumber = $this->pageNumber($total, self::PER_PAGE); // 3.52: past the end = the last page
 
         return $this->view('list', 'Change log', [
             'records' => $this->db->all('SELECT * FROM {protokol}' . $sql . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params),

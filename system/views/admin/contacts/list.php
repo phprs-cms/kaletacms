@@ -65,7 +65,7 @@ $filtered = $search !== '' || $ownerKey !== '' || $activity !== '' || $company >
     'text' => t('Everyone who sends an enquiry, books an appointment or subscribes to the newsletter becomes a customer here – one record per e-mail address. You can also add one by hand.'),
     'action' => [$module->url('new'), t('New customer')]]) ?>
 <?php else: ?>
-<p class="napoveda" data-contacts-total><?= e(t('Customers: %s', format_count($result['total']))) ?></p>
+<p class="napoveda" data-contacts-total><?= e($filtered ? t('Found: %s', format_count($result['total'])) : t('Customers: %s', format_count($result['total']))) ?></p>
 <div class="tab-obal">
 <table class="vypis vypis-karty" data-contacts-list>
 <thead><tr><th scope="col"><?= e(t('Full name')) ?></th><th scope="col"><?= e(t('Company')) ?></th><th scope="col"><?= e(t('Email')) ?></th><th scope="col"><?= e(t('Responsible person')) ?></th>
@@ -73,9 +73,9 @@ $filtered = $search !== '' || $ownerKey !== '' || $activity !== '' || $company >
 <tbody>
 <?php foreach ($result['rows'] as $c): ?>
 <tr data-contact="<?= (int) $c['id'] ?>">
-	<td><a href="<?= e($module->url('detail', ['id' => $c['id']])) ?>"><?= bdi($c['name'] !== '' ? $c['name'] : ($c['email'] !== '' ? $c['email'] : '#' . $c['id'])) ?></a></td>
-	<td data-popisek="<?= e(t('Company')) ?>"><?= $c['company_id'] !== null ? '<a href="' . e($module->url('company', ['id' => $c['company_id']])) . '">' . bdi((string) $c['company_name']) . '</a>' : '' ?></td>
-	<td data-popisek="<?= e(t('Email')) ?>"><?= $c['email'] !== '' ? bdi($c['email']) : '' ?></td>
+	<td><a href="<?= e($module->url('detail', ['id' => $c['id']])) ?>"><bdi><?= mark_words($c['name'] !== '' ? (string) $c['name'] : ($c['email'] !== '' ? (string) $c['email'] : '#' . $c['id']), $search) ?></bdi></a></td>
+	<td data-popisek="<?= e(t('Company')) ?>"><?= $c['company_id'] !== null ? '<a href="' . e($module->url('company', ['id' => $c['company_id']])) . '"><bdi>' . mark_words((string) $c['company_name'], $search) . '</bdi></a>' : '' ?></td>
+	<td data-popisek="<?= e(t('Email')) ?>"><?= $c['email'] !== '' ? '<bdi>' . mark_words((string) $c['email'], $search) . '</bdi>' : '' ?></td>
 	<td data-popisek="<?= e(t('Responsible person')) ?>"><?= $c['owner_id'] !== null ? e($owners[$c['owner_id']] ?? '') : '' ?></td>
 	<td data-popisek="<?= e(t('Last activity')) ?>"><?= $c['last_activity_at'] !== null ? e(format_date($c['last_activity_at'])) : '' ?></td>
 	<td class="cislo" data-popisek="<?= e(t('Enquiries')) ?>"><?= $c['enquiries'] > 0 ? (int) $c['enquiries'] : '' ?></td>
@@ -86,11 +86,5 @@ $filtered = $search !== '' || $ownerKey !== '' || $activity !== '' || $company >
 </tbody>
 </table>
 </div>
-<?php if ($result['pages'] > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $result['pages']; $s++): ?>
-	<?= $s === $result['page'] ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', $query + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => $query, 'page' => $result['page'], 'pages' => $result['pages']]) ?>
 <?php endif ?>

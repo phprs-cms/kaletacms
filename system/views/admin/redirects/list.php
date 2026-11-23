@@ -30,9 +30,12 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t($u !== null ? 'Save changes' : 'Add redirect')) ?>"><?= $u !== null ? ' <a class="navigace" href="' . e($module->url()) . '">' . e(t('Cancel')) . '</a>' : '' ?></p>
 </form>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt"><input type="hidden" name="module" value="redirects">
-	<label><?= e(t('Address contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filter')) ?>"> (<?= e(t('Total:')) ?> <?= $total ?>)</form>
+	<label><?= e(t('Address contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label> <input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
+	<?= $search !== '' ? '<span data-found>' . e(t('Found: %s', format_count($total))) . '</span> <a href="' . e($module->url()) . '">' . e(t('Clear filter')) . '</a>' : '(' . e(t('Total:')) . ' ' . format_count($total) . ')' ?></form>
 <p class="smltxt"><?= e(t('A redirect is only used when nothing exists at the old address. It is created automatically when the address of a page, news item or category changes.')) ?></p>
-<?php if ($records === []): ?>
+<?php if ($records === [] && $search !== ''): /* 3.52 (A8): a search without a match is not "no redirects yet" */ ?>
+<?= $app->view->render('admin/empty', ['icon' => 'presmerovani', 'heading' => t('Nothing matches the filter.'), 'text' => t('Try another word.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
+<?php elseif ($records === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'presmerovani', 'heading' => t('No redirects yet.'), 'text' => t('Nothing to do – when you change the address of a page or news item, a redirect is created automatically.')]) ?>
 <?php endif ?>
 <?php if ($records !== []): ?>
@@ -42,8 +45,8 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 <tbody>
 <?php foreach ($records as $z): ?>
 <tr>
-	<td>/<?= e($z['z_adresy']) ?></td>
-	<td><?= (int) ($z['typ'] ?? 301) === 410 ? '<span class="stitek">' . e(t('gone (410)')) . '</span>' : e($path($z['na_adresu'])) ?><?= (int) ($z['typ'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="stitek" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
+	<td>/<?= mark_words((string) $z['z_adresy'], $search) ?></td>
+	<td><?= (int) ($z['typ'] ?? 301) === 410 ? '<span class="stitek">' . e(t('gone (410)')) . '</span>' : mark_words($path($z['na_adresu']), $search) ?><?= (int) ($z['typ'] ?? 301) === 302 ? ' <span class="stitek">302</span>' : '' ?><?= $z['auto_score'] !== null ? ' <span class="stitek" title="' . e(t('Created by the site itself from an address visitors could not find. Delete it to undo.')) . '">' . e(t('automatic, score %d', (int) $z['auto_score'])) . '</span>' : '' ?></td>
 	<td class="cislo"><?= (int) $z['pocet'] ?>×</td>
 	<td class="cislo"><?= e(format_date($z['vytvoreno'])) ?></td>
 	<td class="akce"><a href="<?= e($module->url('', ['edit' => (int) $z['idp']])) ?>#upravit"><?= e(t('Edit')) ?></a> ·
@@ -53,13 +56,7 @@ $path = fn (string $a): string => preg_match('#^https?://#i', $a) ? $a : '/' . $
 </tbody>
 </table>
 </div>
-<?php if ($pageCount > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['search' => $search, 'page' => $s]))) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => ['search' => $search], 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <?php endif ?>
 <details class="panel-sbaleny" id="import">
 <summary><h2><?= e(t('Import from a CSV file')) ?></h2></summary>

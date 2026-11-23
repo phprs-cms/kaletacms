@@ -44,11 +44,5 @@ $filtered = $search !== '' || $ownerKey !== '';
 </tbody>
 </table>
 </div>
-<?php if ($result['pages'] > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $result['pages']; $s++): ?>
-	<?= $s === $result['page'] ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('companies', array_filter(['search' => $search, 'owner' => $ownerKey]) + ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'action' => 'companies', 'query' => ['search' => $search, 'owner' => $ownerKey], 'page' => $result['page'], 'pages' => $result['pages']]) ?>
 <?php endif ?>

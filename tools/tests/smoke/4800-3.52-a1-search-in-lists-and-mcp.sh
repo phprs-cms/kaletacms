@@ -40,7 +40,7 @@ sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, kategorie) SELE
   (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5) b) t WHERE n < 51" > /dev/null
 A800_PAGED=$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&category=sales&search=strankovani+a800")
 expect "3.52 A2: page 2 of a search keeps search and category, the form keeps the kind, page=999 shows the last page" \
-  "$(printf '%s' "$A800_PAGED" | a800_has 'category=sales&amp;search=strankovani+a800&amp;page=2')|$(printf '%s' "$A800_PAGED" | a800_has 'name="category" value="sales"')|$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&category=sales&search=strankovani+a800&page=999" | a800_has '<strong>[2]</strong>')" \
+  "$(printf '%s' "$A800_PAGED" | a800_has 'category=sales&amp;search=strankovani+a800&amp;page=2')|$(printf '%s' "$A800_PAGED" | a800_has 'name="category" value="sales"')|$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&category=sales&search=strankovani+a800&page=999" | a800_has 'aria-current="page">[2]</strong>')" \
   "1|1|1"
 
 # A9: a customer by the digits of the phone, pages by the SEO title through MCP list_pages

@@ -278,8 +278,8 @@ trait CollectionTools
             $whereParts[] = 'zobrazit = 1';
         }
         if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
-            // 3.52 (A1, A6): every word in the name, the address or the fields (JSON – Db::likeJson), as the admin list of items
-            [$sql, $words] = \Kaleta\Core\Db::likeWords(['nazev', 'seo_link'], $a['hledat'], ['data']);
+            // 3.52 (A1, A6): every word in the name, the address or the fields – the same search as the admin list of items
+            [$sql, $words] = \Kaleta\Builder\Collections::itemSearch($a['hledat']);
             $whereParts[] = $sql;
             array_push($args, ...$words);
         }

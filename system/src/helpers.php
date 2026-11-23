@@ -46,6 +46,92 @@ function bdi(string|int|float|null $value): string
     return '<bdi>' . e($value) . '</bdi>';
 }
 
+/**
+ * Plain text as HTML with the words of a search marked by <mark> (3.52, A8): the text is escaped first, then marked. A word
+ * matches regardless of case and diacritics, as the search in admin lists does (Core\Db::likeWords) – "dvorak" marks
+ * "Dvořák". An empty search gives the escaped text.
+ */
+function mark_words(string $text, string $search): string
+{
+    return marked_html(mb_str_split($text), search_marks($text, $search));
+}
+
+/**
+ * A plain-text snippet of at most $width characters around the first match of a search, with the words marked (3.52, A8) –
+ * an enquiry or application in a list shows the place that matched instead of its first 140 characters. Without a match
+ * (the word was in another column) the beginning of the text. Returns HTML.
+ */
+function mark_snippet(string $text, string $search, int $width = 140): string
+{
+    $chars = mb_str_split($text);
+    $marks = search_marks($text, $search);
+    $start = $marks === [] ? 0 : max(0, min(array_keys($marks)) - intdiv($width, 3)); // a third of the window before the match
+    $start = min($start, max(0, count($chars) - $width)); // a match near the end still shows a full window
+    $sliceMarks = [];
+    foreach ($marks as $i => $_) {
+        if ($i >= $start && $i < $start + $width) {
+            $sliceMarks[$i - $start] = true;
+        }
+    }
+
+    return ($start > 0 ? '…' : '') . marked_html(array_slice($chars, $start, $width), $sliceMarks) . ($start + $width < count($chars) ? '…' : '');
+}
+
+/**
+ * The characters of $text that the words of $search cover (index => true): both sides compared in lower case without
+ * diacritics, each character folded on its own so the indexes stay those of the original text.
+ *
+ * @return array<int, true>
+ */
+function search_marks(string $text, string $search): array
+{
+    $words = array_slice(preg_split('/\s+/u', trim(mb_substr($search, 0, 100)), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 6); // as Db::likeWords
+    if ($words === [] || $text === '') {
+        return [];
+    }
+    $folded = '';
+    $owner = []; // byte of $folded => index of the character it came from
+    foreach (mb_str_split($text) as $i => $char) {
+        $part = mb_strtolower(remove_diacritics($char));
+        for ($b = 0, $n = strlen($part); $b < $n; $b++) {
+            $owner[strlen($folded) + $b] = $i;
+        }
+        $folded .= $part;
+    }
+    $marks = [];
+    foreach ($words as $word) {
+        $needle = mb_strtolower(remove_diacritics($word));
+        for ($at = $needle === '' ? false : strpos($folded, $needle); $at !== false; $at = strpos($folded, $needle, $at + strlen($needle))) {
+            for ($i = $owner[$at]; $i <= $owner[$at + strlen($needle) - 1]; $i++) {
+                $marks[$i] = true;
+            }
+        }
+    }
+
+    return $marks;
+}
+
+/**
+ * Characters as escaped HTML, the marked runs inside <mark>.
+ *
+ * @param list<string> $chars
+ * @param array<int, true> $marks
+ */
+function marked_html(array $chars, array $marks): string
+{
+    $html = '';
+    $open = false;
+    foreach ($chars as $i => $char) {
+        if (isset($marks[$i]) !== $open) {
+            $html .= $open ? '</mark>' : '<mark>';
+            $open = !$open;
+        }
+        $html .= e($char);
+    }
+
+    return $html . ($open ? '</mark>' : '');
+}
+
 /** Translation of a template text into the site language: t('Read more'), t('Page %s of %s', 2, 5). See Core\Language. */
 function t(string $text, string|int ...$values): string
 {

@@ -37,6 +37,17 @@ final class Collections
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/D';
 
     /**
+     * The search of items (3.52, A6): every word in the name, the address or the fields (JSON – Db::likeJson), without regard
+     * to case and diacritics. One place for the admin list of items and MCP list_collection_items.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function itemSearch(string $q): array
+    {
+        return Db::likeWords(['nazev', 'seo_link'], $q, ['data']);
+    }
+
+    /**
      * The SQL expression of one value of an item, JSON_UNQUOTE(JSON_EXTRACT(data, '$.<key>')) – null when the key is not a
      * field key (3.19, N3183-1). Every writer of ka_kolekce.pole goes through sanitizeFields, but a key becomes SQL text only
      * here, after it is checked again: a key stored some other way (a restore, a raw UPDATE, a future writer) can never reach

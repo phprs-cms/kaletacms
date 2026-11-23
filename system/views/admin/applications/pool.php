@@ -42,11 +42,5 @@ use Kaleta\Core\TalentPool;
 </tbody>
 </table>
 </div>
-<?php if ($pages > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pages; $s++): ?>
-	<?= $s === $page ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('pool', ['page' => $s])) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'action' => 'pool', 'page' => $page, 'pages' => $pages]) ?>
 <?php endif ?>

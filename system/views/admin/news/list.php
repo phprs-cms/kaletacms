@@ -14,7 +14,6 @@
  * @var int $toPublish  authors' drafts waiting to be published (seen by editors and administrators)
  */
 $trash = $filter['status'] === 'kos';
-$pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['page' => $s]);
 ?>
 <p class="navigace-radek"><a class="tl" href="<?= e($module->url('new')) ?>"><?= e(t('New news item')) ?></a>
 <?php if ($app->auth()->hasModule('categories')): ?>
@@ -61,7 +60,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <?php endif ?>
 	<label><?= e(t('Search:')) ?> <input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" size="20"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
-	(<?= e(t('Total:')) ?> <?= $total ?>)
+	<?= $filter['search'] !== '' ? '<span data-found>' . e(t('Found: %s', format_count($total))) . '</span>' : '(' . e(t('Total:')) . ' ' . format_count($total) . ')' ?>
 </form>
 <br>
 
@@ -86,7 +85,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr class="nevydany">
-	<td><?= bdi($c['titulek']) ?></td>
+	<td><bdi><?= mark_words((string) $c['titulek'], $filter['search']) ?></bdi></td>
 	<td><?= bdi($c['tema_jm']) ?></td>
 	<td class="cislo"><?= e(format_date($c['smazano'], true)) ?></td>
 	<td class="akce"><button class="navigace" type="submit" form="obnov-jeden" name="smaz[]" value="<?= (int) $c['idc'] ?>"><?= e(t('Restore')) ?></button></td>
@@ -115,7 +114,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 <tbody>
 <?php foreach ($news as $c): ?>
 <tr<?= $c['visible'] ? '' : ' class="nevydany"' ?>>
-	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><?= bdi($c['titulek']) ?></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
+	<td><a href="<?= e($module->url('edit', ['id' => $c['idc']])) ?>"><bdi><?= mark_words((string) $c['titulek'], $filter['search']) ?></bdi></a><?= $c['valid_until'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Hides itself the day after.')) . '">' . e(t('true until %s', format_date($c['valid_until']))) . '</span>' : '' ?><?= $c['review_by'] ? ' <span class="stitek stitek-koncept" title="' . e(t('Asks for a review on this day.')) . '">' . e(t('review by %s', format_date($c['review_by']))) . '</span>' : '' ?></td>
 	<td><?= bdi($c['tema_jm']) ?></td>
 	<td><?= bdi($c['autor_jm'] ?: $c['autor_login']) ?></td>
 	<td class="cislo"><?= e(format_date($c['datum'], true)) ?></td>
@@ -155,11 +154,5 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 </p>
 </form>
 
-<?php if ($pageCount > 1): ?>
-<p class="strankovani">
-<?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($pageUrl($s)) . '">' . $s . '</a>' ?>
-<?php endfor ?>
-</p>
-<?php endif ?>
+<?= $app->view->render('admin/paging', ['module' => $module, 'query' => ['category' => $filter['category'] ?: null] + $filter, 'page' => $pageNumber, 'pages' => $pageCount]) ?>
 <?php endif ?>
