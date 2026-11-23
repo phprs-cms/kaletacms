@@ -9574,4 +9574,7 @@ return [
     'accounts, permissions, roles' => 'Konten, Berechtigungen, Rollen',
     'password, two-factor sign-in, 2FA, passkey, profile' => 'Passwort, Zwei-Faktor-Anmeldung, 2FA, Passkey, Profil',
     'Search index of news filled in' => 'Suchindex der News ergänzt',
+    'Field with a button' => 'Feld mit Schaltfläche',
+    'Icon that opens the field' => 'Symbol, das das Feld öffnet',
+    'The logo on the left, the menu and a magnifier that opens the search field on the right.' => 'Das Logo links, rechts das Menü und eine Lupe, die das Suchfeld öffnet.',
 ];

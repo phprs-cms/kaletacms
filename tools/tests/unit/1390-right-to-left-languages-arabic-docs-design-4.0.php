@@ -122,5 +122,5 @@ foreach (Kaleta\Builder\Build::ELEMENTS as $rtlClass) {
         $rtlElements[] = $rtlClass::TYPE;
     }
 }
-check('RTL web.css, sablona.css, the cookie bar, the accessibility toolbar and the element CSS have no physical left/right (except the language menu anchor, the play icon and the centred mega menu panel)',
-    [$rtlWeb, $rtlTemplate, $rtlViews, $rtlElements], [[], 0, 0, ['navigace']]);
+check('RTL web.css, sablona.css, the cookie bar, the accessibility toolbar and the element CSS have no physical left/right (except the language menu anchor, the play icon, the centred mega menu panel and the anchor of the search icon with its rtlCss mirror)',
+    [$rtlWeb, $rtlTemplate, $rtlViews, $rtlElements], [[], 0, 0, ['hledani', 'navigace']]);

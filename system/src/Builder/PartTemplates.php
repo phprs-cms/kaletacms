@@ -20,6 +20,7 @@ final class PartTemplates
             'na-stred' => ['Centred logo', 'The logo in the middle with the menu below it – for a site led by the brand.', ''],
             's-listou' => ['With a contact bar', 'A thin bar with the phone and e-mail above the logo and the menu.', ''],
             'minimalni' => ['Minimal', 'Only the logo and one button – for a campaign page without the menu.', ''],
+            's-hledanim' => ['With search', 'The logo on the left, the menu and a magnifier that opens the search field on the right.', ''],
         ],
         'paticka' => [
             'sloupce' => ['Columns', 'The company, the footer menu, contacts and a newsletter sign-up, the copyright below.', ''],
@@ -89,6 +90,7 @@ final class PartTemplates
                     $s($row([$n('udaje', ['udaj' => 'telefon']), $n('udaje', ['udaj' => 'email'])], 'end'), ['zaklad' => ['velikost_pisma' => '-1', 'barva' => 'tlumeny', 'okraj_dole' => 's']]),
                     $row([$n('logo'), $n('navigace')]),
                 ])],
+                'hlavicka:s-hledanim' => [$header([$row([$n('logo'), $row([$n('navigace'), $n('hledani', ['podoba' => 'ikona'])], 'end')])])],
                 'hlavicka:minimalni' => [$header([$row([$n('logo'), $button])], ['pozice' => 'static'])],
                 'paticka:sloupce' => [$footer([
                     $s($n('mrizka', [], [

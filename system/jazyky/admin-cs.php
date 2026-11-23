@@ -9166,4 +9166,7 @@ return [
     'accounts, permissions, roles' => 'účty, oprávnění, role',
     'password, two-factor sign-in, 2FA, passkey, profile' => 'heslo, dvoufázové přihlášení, 2FA, passkey, profil',
     'Search index of news filled in' => 'Doplnění vyhledávacího indexu novinek',
+    'Field with a button' => 'Pole s tlačítkem',
+    'Icon that opens the field' => 'Ikona, která otevře pole',
+    'The logo on the left, the menu and a magnifier that opens the search field on the right.' => 'Logo vlevo, vpravo menu a lupa, která otevře pole vyhledávání.',
 ];

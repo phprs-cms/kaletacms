@@ -66,6 +66,8 @@ final class Vocabulary
         'nahledy' => 'thumbnails', 'pole_obrazku' => 'image_field', 'max_priloha' => 'max_attachment_mb',
         // 3.34: a form's purpose (a job application goes to Applications) and the consent for future openings
         'ucel' => 'purpose', 'souhlas_uchovani' => 'pool_consent',
+        // 3.52: the search field as a field or as an icon that opens it
+        'podoba' => 'appearance',
     ];
 
     /** A field that means something else in one element. */
@@ -109,6 +111,7 @@ final class Vocabulary
         'text_nahore' => ['svetly' => 'light', 'tmavy' => 'dark'],
         'rozlozeni' => ['seznam' => 'list', 'panel' => 'sidebar'],
         'cast' => ['cele' => 'whole', 'prvni' => 'first_half', 'druha' => 'second_half'],
+        'podoba' => ['pole' => 'field', 'ikona' => 'icon'],
         'udaj' => ['adresa' => 'address', 'telefon' => 'phone', 'email' => 'email', 'hodiny' => 'hours', 'otevreno' => 'open_now', 'mapa' => 'map', 'firma' => 'company', 'tiraz' => 'imprint',
             'copyright' => 'copyright', 'nazev' => 'name', 'popis' => 'description', 'text_paticky' => 'footer_text', 'site' => 'social', 'rss' => 'rss'],
     ];
