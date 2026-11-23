@@ -9569,7 +9569,7 @@ return [
     'Google, search engines, sitemap, robots.txt' => 'Google, Suchmaschinen, Sitemap, robots.txt',
     'Google Analytics, measuring, tracking code' => 'Google Analytics, Messung, Tracking-Code',
     'company details, address, opening hours, registration number' => 'Firmendaten, Adresse, Öffnungszeiten, Handelsregisternummer',
-    'logo, colours, fonts, design system' => 'Logo, Farben, Schriften, Designsystem',
+    'logo, colours, fonts, styles, look' => 'Logo, Farben, Schriften, Designsystem',
     '301, 404, old addresses' => '301, 404, alte Adressen',
     'accounts, permissions, roles' => 'Konten, Berechtigungen, Rollen',
     'password, two-factor sign-in, 2FA, passkey, profile' => 'Passwort, Zwei-Faktor-Anmeldung, 2FA, Passkey, Profil',

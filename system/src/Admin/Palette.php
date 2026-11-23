@@ -60,7 +60,7 @@ final class Palette
         'module=settings&tab=seo' => 'Google, search engines, sitemap, robots.txt',
         'module=settings&tab=analytics' => 'Google Analytics, measuring, tracking code',
         'module=settings&tab=company' => 'company details, address, opening hours, registration number',
-        'module=appearance' => 'logo, colours, fonts, design system',
+        'module=appearance' => 'logo, colours, fonts, styles, look',
         'module=redirects' => '301, 404, old addresses',
         'module=users' => 'accounts, permissions, roles',
         'action=account' => 'password, two-factor sign-in, 2FA, passkey, profile',

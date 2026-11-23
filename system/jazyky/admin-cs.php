@@ -9161,7 +9161,7 @@ return [
     'Google, search engines, sitemap, robots.txt' => 'Google, vyhledávače, sitemap, robots.txt',
     'Google Analytics, measuring, tracking code' => 'Google Analytics, měření, měřicí kód',
     'company details, address, opening hours, registration number' => 'údaje o firmě, adresa, otevírací doba, IČO',
-    'logo, colours, fonts, design system' => 'logo, barvy, písma, design systém',
+    'logo, colours, fonts, styles, look' => 'logo, barvy, písma, design systém',
     '301, 404, old addresses' => '301, 404, staré adresy',
     'accounts, permissions, roles' => 'účty, oprávnění, role',
     'password, two-factor sign-in, 2FA, passkey, profile' => 'heslo, dvoufázové přihlášení, 2FA, passkey, profil',

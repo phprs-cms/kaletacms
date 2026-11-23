@@ -528,6 +528,10 @@
 	if (palette && typeof palette.showModal === 'function') {
 		var popupFields = palette.querySelector('.paleta-pole');
 		var popupList = palette.querySelector('.paleta-seznam');
+		// the combobox roles only with the script that makes them true (without it the field is a plain text field)
+		popupFields.setAttribute('role', 'combobox');
+		popupFields.setAttribute('aria-expanded', 'true');
+		popupFields.setAttribute('aria-autocomplete', 'list');
 		var popupCommands = [];
 		try { popupCommands = JSON.parse(document.getElementById('paleta-data').textContent) || []; } catch (e) {}
 		var popupSearchUrl = palette.getAttribute('data-paleta-hledat') || ''; // admin.php?action=palette_search (Admin\Palette::search)
