@@ -59,7 +59,7 @@ $pageUrl = fn (int $s): string => $module->url('', array_filter($filter) + ['pag
 		</select>
 	</label>
 <?php endif ?>
-	<label><?= e(t('Headline contains:')) ?> <input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" size="20"></label>
+	<label><?= e(t('Search:')) ?> <input class="textpole" type="search" name="search" value="<?= e($filter['search']) ?>" size="20"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 	(<?= e(t('Total:')) ?> <?= $total ?>)
 </form>

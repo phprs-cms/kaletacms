@@ -462,9 +462,9 @@ final class Deals
         }
         $search = trim(is_scalar($filter['search'] ?? null) ? (string) $filter['search'] : '');
         if ($search !== '') {
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $where[] = '(d.title LIKE ? OR c.name LIKE ? OR c.email LIKE ? OR co.name LIKE ?)';
-            array_push($params, $like, $like, $like, $like);
+            [$sql, $words] = Db::likeWords(['d.title', 'c.name', 'c.email', 'co.name'], $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $sql = ' FROM {deals} d LEFT JOIN {contacts} c ON c.id = d.contact_id LEFT JOIN {companies} co ON co.id = d.company_id' . ($where !== [] ? ' WHERE ' . implode(' AND ', $where) : '');
         $order = $status === 'open' ? 'd.expected_close IS NULL, d.expected_close, d.id DESC' : ($status === 'all' ? 'd.closed_at IS NOT NULL, d.closed_at DESC, d.id DESC' : 'd.closed_at DESC, d.id DESC');

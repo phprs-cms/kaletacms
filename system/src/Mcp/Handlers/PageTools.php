@@ -39,7 +39,7 @@ trait PageTools
         ];
         return [
             'info_o_webu' => ['Název webu, úvodní stránka, šablona, počty stránek a novinek, role přihlášeného uživatele a jeho oprávnění.', Schema::object([])],
-            'seznam_stranek' => ['Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', Schema::object([])],
+            'seznam_stranek' => ['Stránky webu (Úvod, O nás, Služby, Kontakt…) s adresami.', Schema::object(['hledat' => Schema::text('slova v názvu, adrese, titulku pro vyhledávače nebo textu (nepovinné)')])],
             'nacti_stranku' => ['Celá stránka včetně HTML obsahu.', Schema::object(['id' => Schema::number('ID stránky')], ['id'])],
             'vytvor_stranku' => ['Založí stránku (editor a správce). Bez "zobrazit": true zůstane skrytá.', Schema::object($page, ['titulek'])],
             'uprav_stranku' => ['Změní zadaná pole stránky; ostatní ponechá.', Schema::object(['id' => Schema::number('ID stránky')] + $page, ['id'])],
@@ -115,6 +115,8 @@ trait PageTools
 
         $home = $siteSettings->int('home_page');
         $waiting = \Kaleta\Core\ImportLayout::pending($db); // 3.33: imported pages whose build is still the imported text
+        // 3.52 (A9): the same search as the admin list of pages (no search = every page)
+        [$search, $params] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Pages::SEARCH_COLUMNS, is_string($a['hledat'] ?? null) ? $a['hledat'] : '');
 
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
         return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()
@@ -125,7 +127,7 @@ trait PageTools
             // 3.33: the work queue of a move – an imported page whose layout waits to be rebuilt (clears with the first edit of its build)
             + (isset($waiting[(int) $r['ids']]) ? ['layout_not_rebuilt' => true] : []),
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
-            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z, owner_id FROM {stranky} WHERE smazano IS NULL' . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek')));
+            $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z, owner_id FROM {stranky} WHERE smazano IS NULL AND ' . $search . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek'), $params));
     }
 
     /** get_page (nacti_stranku) */

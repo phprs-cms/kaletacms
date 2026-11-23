@@ -411,9 +411,9 @@ final class Applications
             $params[] = $today;
         }
         if ($filter['search'] !== '') {
-            $like = '%' . addcslashes($filter['search'], '%_\\') . '%';
-            $where[] = '(name LIKE ? OR email LIKE ? OR job_title LIKE ? OR data LIKE ?)';
-            array_push($params, $like, $like, $like, $like);
+            [$sql, $words] = Db::likeWords(['name', 'email', 'job_title'], $filter['search'], ['data']);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
 
         return [$where === [] ? '1 = 1' : implode(' AND ', $where), $params];

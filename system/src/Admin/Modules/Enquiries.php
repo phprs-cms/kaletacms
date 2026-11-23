@@ -25,6 +25,9 @@ final class Enquiries extends Module
     public const array STATUSES = [0 => 'nová', 1 => 'přečtená', 2 => 'vyřízená'];
     private const int PER_PAGE = 50;
 
+    /** The text columns a search of enquiries looks in, besides the form data (3.52, A2) – the admin list and MCP list_enquiries. */
+    public const array SEARCH_COLUMNS = ['email', 'formular', 'poznamka', 'tema', 'stranka'];
+
     /** The list leaves spam out unless asked for (2.12) – 3.50.1: kept in Core\EnquiryVisibility, this name stays as an alias. */
     public const string NOT_SPAM = \Kaleta\Core\EnquiryVisibility::NOT_SPAM;
 
@@ -94,14 +97,15 @@ final class Enquiries extends Module
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
-            $conditions[] = '(email LIKE ? OR formular LIKE ? OR data LIKE ? OR poznamka LIKE ?)';
-            // the data is JSON with \uXXXX instead of diacritics – the search also looks in that form
-            $pattern = '%' . addcslashes($search, '%_\\') . '%';
-            $jsonPattern = '%' . addcslashes(substr((string) json_encode($search), 1, -1), '%_\\') . '%';
-            array_push($params, $pattern, $pattern, $jsonPattern, $pattern);
+            // 3.52 (A2): every word in the sender, the form, its topic and page, the note or the form data (JSON, as stored
+            // since 2.x with the letters themselves and before with \uXXXX – Db::likeJson), without regard to diacritics
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(self::SEARCH_COLUMNS, $search, ['data']);
+            $conditions[] = $sql;
+            array_push($params, ...$words);
         }
         $whereParts = 'WHERE ' . implode(' AND ', $conditions) . ' AND ' . $this->visibleHere(); // never empty: spam is left out unless asked for
-        $pageNumber = max(1, $this->request->getInt('page', 1));
+        $total = (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params);
+        $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1))); // past the end = the last page
         $rows = $this->db->all('SELECT idp, datum, formular, stranka, tema, zdroj, email, stav, kategorie, priorita, data, prirazeno, anonymizovano FROM {poptavky} ' . $whereParts . ' ORDER BY idp DESC LIMIT ' . self::PER_PAGE . ' OFFSET ' . (($pageNumber - 1) * self::PER_PAGE), $params);
         // 3.31: the deal each enquiry became – a small badge for whoever may open the Pipeline
         $deals = isset($this->kernel->modules()[Pipeline::IDENT]) ? \Kaleta\Core\Deals::forEnquiries($this->db, array_map('intval', array_column($rows, 'idp'))) : [];
@@ -109,7 +113,7 @@ final class Enquiries extends Module
         return $this->view('list', 'Enquiries', [
             'enquiries' => $rows,
             'deals' => $deals, 'stages' => $deals !== [] ? \Kaleta\Core\Deals::stages($this->app->settings()) : [],
-            'total' => (int) $this->db->value('SELECT COUNT(*) FROM {poptavky} ' . $whereParts, $params),
+            'total' => $total,
             'filter' => $filter, 'kind' => $kind, 'spam' => (int) $this->db->value("SELECT COUNT(*) FROM {poptavky} WHERE kategorie = 'spam' AND " . $this->visibleHere()), 'search' => $search, 'pageNumber' => $pageNumber, 'perPage' => self::PER_PAGE,
             'users' => $this->db->pairs("SELECT idu, IF(jmeno = '', user, jmeno) FROM {uzivatele} WHERE blokovat = 0 ORDER BY " . $this->db->sortText("IF(jmeno = '', user, jmeno)")),
             'months' => $this->app->settings()->int('enquiries_months'),

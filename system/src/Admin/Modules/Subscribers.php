@@ -31,8 +31,8 @@ final class Subscribers extends Module
     {
         $search = mb_substr($this->request->get('search'), 0, 100);
         $pageNumber = max(1, $this->request->getInt('page', 1));
-        $whereParts = $search !== '' ? ' WHERE email LIKE ?' : '';
-        $params = $search !== '' ? ['%' . addcslashes($search, '%_\\') . '%'] : [];
+        [$whereParts, $params] = \Kaleta\Core\Db::likeWords(['email'], $search);
+        $whereParts = ' WHERE ' . $whereParts;
         $subscribers = $this->db->all('SELECT * FROM {odberatele}' . $whereParts . ' ORDER BY ido DESC LIMIT 100 OFFSET ' . (($pageNumber - 1) * 100), $params);
         $register = \Kaleta\Core\SendRegister::counts($this->db);
         // 3.51: the register's mark of the listed rows – asked only while the register holds anything

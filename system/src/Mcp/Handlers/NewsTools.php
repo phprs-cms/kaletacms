@@ -34,7 +34,7 @@ trait NewsTools
             'valid_until' => Schema::text('True until YYYY-MM-DD (2.10): after this day it hides itself; empty string = always (optional)'), 'review_by' => Schema::text('Review by YYYY-MM-DD (2.10): on this day the site audit and the event content.review ask the user to check it; empty string = none (optional)'),
         ];
         return [
-            'seznam_novinek' => ['Seznam novinek (nejnovější první).', Schema::object(['stav' => Schema::text('vse | vydane | plan | koncepty'), 'kategorie' => Schema::text('název nebo adresa kategorie'), 'hledat' => Schema::text('text v titulku'), 'limit' => Schema::number('1-50, výchozí 20')])],
+            'seznam_novinek' => ['Seznam novinek (nejnovější první).', Schema::object(['stav' => Schema::text('vse | vydane | plan | koncepty'), 'kategorie' => Schema::text('název nebo adresa kategorie'), 'hledat' => Schema::text('slova v titulku, adrese, perexu, textu nebo klíčových slovech'), 'limit' => Schema::number('1-50, výchozí 20')])],
             'nacti_novinku' => ['Celá novinka včetně textu a štítků.', Schema::object(['id' => Schema::number('ID novinky (idc)')], ['id'])],
             'vytvor_novinku' => ['Založí novinku. Bez "vydat": true vznikne koncept.', Schema::object($newsItem, ['titulek', 'kategorie'])],
             'uprav_novinku' => ['Změní zadaná pole novinky; ostatní ponechá. Předchozí verze se uloží do historie.', Schema::object(['id' => Schema::number('ID novinky')] + $newsItem, ['id'])],
@@ -72,9 +72,11 @@ trait NewsTools
             $where[] = 'c.tema = ?';
             $p[] = $this->category((string) $a['kategorie']);
         }
-        if (!empty($a['hledat'])) {
-            $where[] = 'c.titulek LIKE ?';
-            $p[] = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
+        if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
+            // 3.52 (A7): the same words and columns as the admin list of news
+            [$sql, $words] = \Kaleta\Core\Search::newsWords($a['hledat']);
+            $where[] = $sql;
+            array_push($p, ...$words);
         }
 
         return $db->all(

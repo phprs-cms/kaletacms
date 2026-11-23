@@ -41,8 +41,10 @@ final class ChangeLog extends Module
             $params[] = $whereParts;
         }
         if ($search !== '') {
-            $conditions[] = 'popis LIKE ?';
-            $params[] = '%' . addcslashes($search, '%_\\') . '%';
+            // 3.52 (A9): also the reason Claude gave and the name of who did it
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(['popis', 'duvod', 'jmeno'], $search);
+            $conditions[] = $sql;
+            array_push($params, ...$words);
         }
         $sql = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {protokol}' . $sql, $params);

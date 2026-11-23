@@ -29,6 +29,9 @@ final class Pages extends Module
     /** Slugs that belong to the system and a page cannot have – 3.50.1: kept in Core\Routes (Core, Builder and the importers check them). */
     public const array RESERVED_SLUGS = \Kaleta\Core\Routes::RESERVED_SLUGS;
 
+    /** The columns a search in the list of pages looks in – the admin and MCP list_pages alike (3.52, A9). */
+    public const array SEARCH_COLUMNS = ['titulek', 'seo_link', 'seo_titulek', 'text'];
+
     /** Pages in the trash last this many days, then they are deleted permanently (like news). */
     public const int TRASH_DAYS = \Kaleta\Core\Retention::TRASH_DAYS; // 3.48 B: one number for every trash
 
@@ -120,9 +123,10 @@ final class Pages extends Module
             $params[] = $column;
         }
         if ($search !== '') {
-            $where[] = '(titulek LIKE ? OR seo_link LIKE ?)';
-            $pattern = '%' . addcslashes($search, '%_\\') . '%';
-            array_push($params, $pattern, $pattern);
+            // 3.52 (A9): also the SEO title and the text of the page, without regard to diacritics or word order
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(self::SEARCH_COLUMNS, $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
 
         $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . self::listOrder($trash, $this->db->sortText('titulek')), $params);

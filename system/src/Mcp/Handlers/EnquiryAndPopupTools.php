@@ -73,10 +73,11 @@ trait EnquiryAndPopupTools
             $whereParts[] = 'stav = ?';
             $params[] = $statuses[$a['stav']];
         }
-        if (($a['hledat'] ?? '') !== '') {
-            $whereParts[] = '(email LIKE ? OR data LIKE ?)';
-            $search = '%' . addcslashes((string) $a['hledat'], '%_\\') . '%';
-            array_push($params, $search, $search);
+        if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
+            // 3.52 (A1): the same columns and rules as the admin list of enquiries
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Enquiries::SEARCH_COLUMNS, $a['hledat'], ['data']);
+            $whereParts[] = $sql;
+            array_push($params, ...$words);
         }
         // the kind from triage (2.12): unsorted = not sorted yet; without a kind spam is left out
         $kind = (string) ($a['kategorie'] ?? '');

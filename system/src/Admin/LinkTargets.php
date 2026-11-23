@@ -6,6 +6,7 @@ namespace Kaleta\Admin;
 
 use Kaleta\Core\App;
 use Kaleta\Core\Clock;
+use Kaleta\Core\Db;
 use Kaleta\Core\Extensions;
 use Kaleta\Core\Language;
 
@@ -26,7 +27,8 @@ final class LinkTargets
     public static function search(App $app, string $query): array
     {
         $q = mb_substr(trim($query), 0, 80);
-        $like = '%' . addcslashes($q, '%_\\') . '%';
+        // 3.52 (A1): every word, in any order, without regard to diacritics (Db::likeWords; '' = no condition)
+        [$pageWhere, $pageParams] = Db::likeWords(['titulek', 'seo_link'], $q);
         $db = $app->db();
         $auth = $app->auth();
         $settings = $app->settings();
@@ -39,8 +41,8 @@ final class LinkTargets
         $home = $settings->int('home_page');
         $pages = [];
         foreach ($db->all('SELECT ids, titulek, seo_link, jazyk, zobrazit, preklad_z FROM {stranky} WHERE smazano IS NULL'
-            . ($q !== '' ? ' AND (titulek LIKE ? OR seo_link LIKE ?)' : '') . $auth->pageListScope()
-            . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek') . ' LIMIT ' . self::LIMIT, $q !== '' ? [$like, $like] : []) as $s) {
+            . ' AND ' . $pageWhere . $auth->pageListScope()
+            . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek') . ' LIMIT ' . self::LIMIT, $pageParams) as $s) {
             $prefix = $s['jazyk'] !== '' ? $s['jazyk'] . '/' : '';
             $isHome = (int) $s['ids'] === $home || ($s['jazyk'] !== '' && (int) $s['preklad_z'] === $home && $home > 0);
             $pages[] = ['url' => $app->url($prefix . ($isHome ? '' : $s['seo_link'])), 'title' => (string) $s['titulek'],
@@ -56,8 +58,8 @@ final class LinkTargets
 
         if ($q !== '' && $newsOn) {
             // published news of anyone; the rest by the user's own list (an author's drafts)
-            $news = $db->all('SELECT titulek, seo_link, jazyk, visible AND datum <= ? AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
-                . ' AND ((visible = 1 AND datum <= ?) OR (1 = 1' . $auth->newsListScope() . ')) ORDER BY datum DESC LIMIT ' . self::LIMIT, [Clock::now(), $like, Clock::now()]);
+            $news = $db->all('SELECT titulek, seo_link, jazyk, visible AND datum <= ? AS vydany FROM {novinky} WHERE smazano IS NULL AND ' . $pageWhere
+                . ' AND ((visible = 1 AND datum <= ?) OR (1 = 1' . $auth->newsListScope() . ')) ORDER BY datum DESC LIMIT ' . self::LIMIT, [Clock::now(), ...$pageParams, Clock::now()]);
             if ($news !== []) {
                 $groups[] = ['label' => t('News'), 'items' => array_map(fn (array $c): array => ['url' => $app->newsItemUrl((string) $c['seo_link'], (string) $c['jazyk']),
                     'title' => (string) $c['titulek'], 'note' => self::note($several ? $languageName((string) $c['jazyk']) : '', $c['vydany'] ? '' : t('not published'))], $news)];
@@ -66,9 +68,10 @@ final class LinkTargets
 
         if ($q !== '') {
             // items of collections that have their own pages (Collections → "Each item has its own page")
+            [$itemWhere, $itemParams] = Db::likeWords(['p.nazev', 'p.seo_link'], $q);
             $items = $db->all('SELECT p.nazev, p.seo_link, p.jazyk, p.zobrazit, k.nazev AS kolekce, k.seo_link AS kolekce_seo FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk'
-                . ' WHERE k.detail = 1 AND p.smazano IS NULL AND p.seo_link <> \'\' AND p.nazev LIKE ?' . $auth->collectionItemListScope('p.')
-                . ' ORDER BY p.zobrazit DESC, ' . $db->sortText('p.nazev') . ' LIMIT ' . self::LIMIT, [$like]);
+                . ' WHERE k.detail = 1 AND p.smazano IS NULL AND p.seo_link <> \'\' AND ' . $itemWhere . $auth->collectionItemListScope('p.')
+                . ' ORDER BY p.zobrazit DESC, ' . $db->sortText('p.nazev') . ' LIMIT ' . self::LIMIT, $itemParams);
             if ($items !== []) {
                 $groups[] = ['label' => t('Collection items'), 'items' => array_map(fn (array $p): array => [
                     'url' => $app->url(($p['jazyk'] !== '' ? $p['jazyk'] . '/' : '') . $p['kolekce_seo'] . '/' . $p['seo_link']),
@@ -79,7 +82,8 @@ final class LinkTargets
 
         if ($q !== '' && $auth->hasModule('media', Modules\Media::FOR_ALL_USERS)) {
             // files in Media (a price list in PDF, a photo) – never one still waiting for approval outside the web root
-            $files = $db->all('SELECT nazev, obr_poloha FROM {media} WHERE staged_at IS NULL AND (nazev LIKE ? OR obr_poloha LIKE ?) ORDER BY datum DESC LIMIT ' . self::LIMIT, [$like, $like]);
+            [$fileWhere, $fileParams] = Db::likeWords(['nazev', 'obr_poloha'], $q);
+            $files = $db->all('SELECT nazev, obr_poloha FROM {media} WHERE staged_at IS NULL AND ' . $fileWhere . ' ORDER BY datum DESC LIMIT ' . self::LIMIT, $fileParams);
             if ($files !== []) {
                 $groups[] = ['label' => t('Files in Media'), 'items' => array_map(fn (array $m): array => ['url' => $app->url((string) $m['obr_poloha']),
                     'title' => $m['nazev'] !== '' ? (string) $m['nazev'] : basename((string) $m['obr_poloha']), 'note' => strtoupper(pathinfo((string) $m['obr_poloha'], PATHINFO_EXTENSION))], $files)];

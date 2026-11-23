@@ -205,6 +205,67 @@ final class Db
         return Collation::sort($this, $expression, $language);
     }
 
+    /** The collation a search compares with: case and diacritics do not matter ("dvorak" finds Dvořák; MySQL and MariaDB). */
+    public const string SEARCH_COLLATION = 'utf8mb4_unicode_ci';
+
+    /**
+     * A search in admin lists and MCP (3.52, A1): the words of $q, each found in at least one of the columns, in any
+     * order – "novak jan" finds "Jan Novák". At most 100 characters and $maxWords words; '%', '_' and '\' are literal.
+     * $json names columns holding JSON text (the form data of enquiries, collection items), searched in both ways the
+     * text may be stored (likeJson()). $more adds one alternative per word (null = none), e.g. the normalised
+     * search column of news. An empty search gives ['1 = 1', []]. The columns must be utf8mb4 text.
+     *
+     * @param list<string> $columns
+     * @param list<string> $json
+     * @param (\Closure(string): (array{0: string, 1: list<string>}|null))|null $more
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function likeWords(array $columns, string $q, array $json = [], ?\Closure $more = null, int $maxWords = 6): array
+    {
+        $words = array_slice(preg_split('/\s+/u', trim(mb_substr($q, 0, 100)), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, max(1, $maxWords));
+        if ($words === []) {
+            return ['1 = 1', []];
+        }
+        $groups = [];
+        $params = [];
+        foreach ($words as $word) {
+            $alternatives = [];
+            foreach ($columns as $column) {
+                $alternatives[] = $column . ' COLLATE ' . self::SEARCH_COLLATION . ' LIKE ?';
+                $params[] = '%' . addcslashes($word, '%_\\') . '%';
+            }
+            foreach ($json as $column) {
+                [$sql, $jsonParams] = self::likeJson($column, $word);
+                $alternatives[] = $sql;
+                array_push($params, ...$jsonParams);
+            }
+            if ($more !== null && ($extra = $more($word)) !== null) {
+                $alternatives[] = $extra[0];
+                array_push($params, ...$extra[1]);
+            }
+            $groups[] = '(' . implode(' OR ', $alternatives) . ')';
+        }
+
+        return ['(' . implode(' AND ', $groups) . ')', $params];
+    }
+
+    /**
+     * One word in a column with JSON text: as json_encode writes it with JSON_UNESCAPED_UNICODE (forms, collection items),
+     * with or without escaped slashes, and as older rows have it, with \uXXXX instead of diacritics.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function likeJson(string $column, string $word): array
+    {
+        $patterns = [];
+        foreach ([JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES, JSON_UNESCAPED_UNICODE, 0] as $flags) {
+            $patterns['%' . addcslashes(substr((string) json_encode($word, $flags | JSON_INVALID_UTF8_SUBSTITUTE), 1, -1), '%_\\') . '%'] = true;
+        }
+        $patterns = array_map('strval', array_keys($patterns));
+
+        return ['(' . implode(' OR ', array_fill(0, count($patterns), $column . ' COLLATE ' . self::SEARCH_COLLATION . ' LIKE ?')) . ')', $patterns];
+    }
+
     /** @param array<int|string, scalar|null> $params */
     public function run(string $sql, array $params = []): PDOStatement
     {

@@ -68,8 +68,8 @@ final class Redirects extends Module
     protected function actionList(): Response
     {
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
-        $whereParts = $search !== '' ? 'WHERE z_adresy LIKE ? OR na_adresu LIKE ?' : '';
-        $params = $search !== '' ? array_fill(0, 2, '%' . addcslashes($search, '%_\\') . '%') : [];
+        [$whereParts, $params] = \Kaleta\Core\Db::likeWords(['z_adresy', 'na_adresu'], $search);
+        $whereParts = 'WHERE ' . $whereParts;
         $total = (int) $this->db->value('SELECT COUNT(*) FROM {presmerovani} ' . $whereParts, $params);
         $pageNumber = max(1, min((int) ceil(max(1, $total) / self::PER_PAGE), $this->request->getInt('page', 1)));
 

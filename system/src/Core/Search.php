@@ -30,6 +30,22 @@ final class Search
         return trim((string) preg_replace('/[^a-z0-9]+/', ' ', $text));
     }
 
+    /**
+     * A search of news in the admin list and MCP list_news (3.52, A7): each word in the title, the address or the index
+     * (intro, text, keywords – normalize()d like the stored index, so diacritics do not matter there either).
+     * $alias = the table alias with its dot.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function newsWords(string $q, string $alias = 'c.'): array
+    {
+        return Db::likeWords([$alias . 'titulek', $alias . 'seo_link'], $q, more: function (string $word) use ($alias): ?array {
+            $normal = self::normalize($word);
+
+            return $normal === '' ? null : [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
+        });
+    }
+
     /** Recomputes the index of one article; called after every save (admin, Claude). */
     public static function index(Db $db, int $idc): void
     {

@@ -278,9 +278,10 @@ trait CollectionTools
             $whereParts[] = 'zobrazit = 1';
         }
         if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
-            $whereParts[] = '(nazev LIKE ? OR data LIKE ?)';
-            $pattern = '%' . addcslashes(mb_substr(trim($a['hledat']), 0, 100), '%_\\') . '%';
-            array_push($args, $pattern, $pattern);
+            // 3.52 (A1, A6): every word in the name, the address or the fields (JSON – Db::likeJson), as the admin list of items
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(['nazev', 'seo_link'], $a['hledat'], ['data']);
+            $whereParts[] = $sql;
+            array_push($args, ...$words);
         }
         // 3.7 (N37-9): without the Collections section only the categories on the site – a hidden one is neither listed on an
         // item nor accepted as a filter (the same answer as an unknown one, so the filter tells nothing about hidden ones)

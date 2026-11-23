@@ -58,9 +58,11 @@ final class News extends Module
             $where[] = 'c.jazyk = ?';
             $params[] = \Kaleta\Core\Language::column($s, $language);
         }
-        if (($search = $this->request->get('search')) !== '') {
-            $where[] = 'c.titulek LIKE ?';
-            $params[] = '%' . addcslashes($search, '%_\\') . '%';
+        if (($search = mb_substr(trim($this->request->get('search')), 0, 100)) !== '') {
+            // 3.52 (A7): also the intro, the text, the keywords and the address
+            [$sql, $words] = \Kaleta\Core\Search::newsWords($search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $state = $this->request->get('status');
         $inTrash = $state === 'kos';
@@ -395,23 +397,26 @@ final class News extends Module
         return Response::json(['ok' => true]);
     }
 
-    /** Searching news by title for the link dialog in the editor and for the command palette (?edit=1). */
+    /**
+     * Searching news for the command palette: only the news items the user may edit (an author's own), each with the link to
+     * its editor. 3.52 (A3): always within articleScope() – the former answer without ?edit=1 (the editor's link dialog, now
+     * LinkTargets) listed the titles of other people's drafts; edit=1 is still accepted and changes nothing.
+     */
     protected function actionSearchJson(): Response
     {
-        $q = mb_substr(trim($this->request->get('q')), 0, 80);
-        if (mb_strlen($q) < 2) {
+        $q = $this->searchWord();
+        if ($q === '') {
             return Response::json(['clanky' => []]);
         }
-        $editMode = $this->request->get('edit') === '1';
+        [$sql, $words] = \Kaleta\Core\Search::newsWords($q, '');
         $news = $this->db->all(
-            'SELECT idc, titulek, seo_link, jazyk, visible AND datum <= ? AS vydany FROM {novinky} WHERE smazano IS NULL AND titulek LIKE ?'
-                . ($editMode ? $this->app->auth()->articleScope() : '') . ' ORDER BY datum DESC LIMIT 8',
-            [\Kaleta\Core\Clock::now(), '%' . addcslashes($q, '%_\\') . '%'],
+            'SELECT idc, titulek, visible AND datum <= ? AS vydany FROM {novinky} WHERE smazano IS NULL AND ' . $sql
+                . $this->app->auth()->articleScope() . ' ORDER BY datum DESC LIMIT 8',
+            [\Kaleta\Core\Clock::now(), ...$words],
         );
 
         return Response::json(['clanky' => array_map(fn (array $c): array => [
-            'titulek' => $c['titulek'], 'vydany' => (bool) $c['vydany'],
-            'url' => $editMode ? $this->url('edit', ['id' => $c['idc']]) : $this->app->url(($c['jazyk'] !== '' ? $c['jazyk'] . '/' : '') . 'novinky/' . $c['seo_link']),
+            'titulek' => $c['titulek'], 'vydany' => (bool) $c['vydany'], 'url' => $this->url('edit', ['id' => $c['idc']]),
         ], $news)]);
     }
 

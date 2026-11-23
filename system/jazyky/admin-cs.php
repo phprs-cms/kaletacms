@@ -785,7 +785,7 @@ return [
     'Current password' => 'Současné heslo',
     'Status' => 'Stav',
     'Light / dark mode' => 'Světlý / tmavý režim',
-    'Headline contains:' => 'Titulek obsahuje:',
+    'Search:' => 'Hledat:',
     'Search engine title' => 'Titulek pro vyhledávače',
     'The token has been created.' => 'Token je vytvořený.',
     'Save and continue' => 'Uložit a pokračovat',

@@ -20,6 +20,9 @@ final class Media extends Module
     public const string GROUP = 'Content';
     public const string ICON = 'media';
 
+    /** The columns a search of Media looks in, table alias o – the admin list and MCP list_media alike (3.52, A9). */
+    public const array SEARCH_COLUMNS = ['o.nazev', 'o.popis', 'o.obr_poloha'];
+
     /** Everyone who writes news must be able to upload; but only the administrator changes and deletes other people's images. */
     public const bool FOR_ALL_USERS = true;
 
@@ -543,9 +546,9 @@ final class Media extends Module
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
         if ($search !== '') {
-            $where[] = '(o.nazev LIKE ? OR o.popis LIKE ? OR o.obr_poloha LIKE ?)';
-            $pattern = '%' . addcslashes($search, '%_\\') . '%';
-            array_push($params, $pattern, $pattern, $pattern);
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(self::SEARCH_COLUMNS, $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $unused = $this->request->get('unused') === '1';
         if ($unused) {

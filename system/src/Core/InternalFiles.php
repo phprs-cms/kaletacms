@@ -435,9 +435,9 @@ final class InternalFiles
         $params = [];
         $search = mb_substr(trim((string) ($query['search'] ?? '')), 0, 100);
         if ($search !== '') {
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $where[] = '(f.name LIKE ? OR f.description LIKE ? OR f.tags LIKE ?)';
-            array_push($params, $like, $like, $like);
+            [$sql, $words] = Db::likeWords(['f.name', 'f.description', 'f.tags'], $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $tag = trim((string) ($query['tag'] ?? ''));
         if ($tag !== '') {

@@ -222,9 +222,9 @@ final class Quotes
         }
         $search = mb_substr(trim((string) ($filter['search'] ?? '')), 0, 100);
         if ($search !== '') {
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $where[] = '(number LIKE ? OR title LIKE ? OR customer_name LIKE ? OR customer_company LIKE ? OR customer_email LIKE ?)';
-            array_push($params, $like, $like, $like, $like, $like);
+            [$sql, $words] = Db::likeWords(['number', 'title', 'customer_name', 'customer_company', 'customer_email'], $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $limit = max(1, min(200, $limit));
         $sql = ' FROM {quotes} WHERE ' . implode(' AND ', $where);

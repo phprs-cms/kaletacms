@@ -97,7 +97,7 @@ check('3.34: the list filter is checked – statuses, open, a job or none, a res
     Applications::where(Applications::filter(['status' => 'open', 'job' => 'none', 'assignee' => '5', 'pool' => '1', 'search' => '50%']), '2026-11-11'),
     Applications::where(Applications::filter([]), '2026-11-11')],
     [['status' => 'interview', 'job' => '12', 'assignee' => 'none', 'pool' => true, 'search' => 'Jana'], '|||100',
-        ["status NOT IN ('hired', 'rejected') AND job_item_id IS NULL AND assignee_id = ? AND pool_until >= ? AND (name LIKE ? OR email LIKE ? OR job_title LIKE ? OR data LIKE ?)", [5, '2026-11-11', '%50\%%', '%50\%%', '%50\%%', '%50\%%']],
+        ["status NOT IN ('hired', 'rejected') AND job_item_id IS NULL AND assignee_id = ? AND pool_until >= ? AND ((name COLLATE utf8mb4_unicode_ci LIKE ? OR email COLLATE utf8mb4_unicode_ci LIKE ? OR job_title COLLATE utf8mb4_unicode_ci LIKE ? OR (data COLLATE utf8mb4_unicode_ci LIKE ?)))", [5, '2026-11-11', '%50\%%', '%50\%%', '%50\%%', '%50\%%']],
         ['1 = 1', []]]);
 // the notification of a new application: the number, the position and the link – the fields only when asked for
 $a334Settings = (new ReflectionClass(Kaleta\Core\Settings::class))->newInstanceWithoutConstructor();

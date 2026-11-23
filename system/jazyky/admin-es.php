@@ -786,7 +786,7 @@ return [
     'Current password' => 'Contraseña actual',
     'Status' => 'Estado',
     'Light / dark mode' => 'Modo claro / oscuro',
-    'Headline contains:' => 'El título contiene:',
+    'Search:' => 'Buscar:',
     'Search engine title' => 'Título para buscadores',
     'The token has been created.' => 'Se ha creado el token.',
     'Save and continue' => 'Guardar y continuar',

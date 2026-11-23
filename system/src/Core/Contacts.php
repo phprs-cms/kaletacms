@@ -281,6 +281,22 @@ final class Contacts
     }
 
     /**
+     * A word of a search that looks like a phone number (digits, '+', '-'; at least 4 digits) compared by its digits only
+     * with the stored number (3.52, A9): "777-123" finds "+420 777 123 456". null for any other word.
+     *
+     * @return array{0: string, 1: list<string>}|null
+     */
+    public static function phoneDigits(string $word): ?array
+    {
+        $digits = (string) preg_replace('/\D/', '', $word);
+        if (preg_match('/^[+\d-]+$/', $word) !== 1 || strlen($digits) < 4) {
+            return null;
+        }
+
+        return ["REPLACE(REPLACE(REPLACE(c.phone, ' ', ''), '-', ''), '+', '') LIKE ?", ['%' . $digits . '%']];
+    }
+
+    /**
      * A page of contacts. Filter keys: search (name, e-mail, phone or company), owner (a user id; 0 = anyone, -1 = nobody),
      * company (a company id), active_since (a DATETIME: last activity on or after it), inactive_before (no activity since),
      * sort (activity – the default –, name, created), anonymised (true = also the anonymised ones). Each row as find()
@@ -299,9 +315,10 @@ final class Contacts
         }
         $search = trim((string) ($filter['search'] ?? ''));
         if ($search !== '') {
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $where[] = '(c.name LIKE ? OR c.email LIKE ? OR c.phone LIKE ? OR co.name LIKE ?)';
-            array_push($params, $like, $like, $like, $like);
+            // 3.52: diacritics and word order do not matter; a phone number is compared by its digits (A9)
+            [$sql, $words] = Db::likeWords(['c.name', 'c.email', 'c.phone', 'co.name'], $search, more: self::phoneDigits(...));
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $owner = (int) ($filter['owner'] ?? 0);
         if ($owner > 0) {
@@ -944,9 +961,9 @@ final class Contacts
         $params = [];
         $search = trim((string) ($filter['search'] ?? ''));
         if ($search !== '') {
-            $like = '%' . addcslashes($search, '%_\\') . '%';
-            $where[] = '(name LIKE ? OR domain LIKE ? OR registration_no LIKE ? OR vat_id LIKE ?)';
-            array_push($params, $like, $like, $like, $like);
+            [$sql, $words] = Db::likeWords(['name', 'domain', 'registration_no', 'vat_id'], $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         $owner = (int) ($filter['owner'] ?? 0);
         if ($owner !== 0) {

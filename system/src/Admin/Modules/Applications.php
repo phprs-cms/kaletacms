@@ -362,13 +362,13 @@ final class Applications extends Module
      */
     protected function actionSearchJson(): Response
     {
-        $q = mb_substr(trim($this->request->get('q')), 0, 80);
-        if (mb_strlen($q) < 2) {
+        $q = $this->searchWord();
+        if ($q === '') {
             return Response::json(['applications' => []]);
         }
         $number = preg_match('/^#?(\d{1,9})$/D', $q, $m) === 1 ? (int) $m[1] : 0;
-        $like = '%' . addcslashes($q, '%_\\') . '%';
-        $rows = $this->db->all('SELECT id, name, job_title, status FROM {applications} WHERE id = ? OR name LIKE ? OR job_title LIKE ? ORDER BY id = ? DESC, id DESC LIMIT 6', [$number, $like, $like, $number]);
+        [$sql, $words] = \Kaleta\Core\Db::likeWords(['name', 'job_title'], $q); // 3.52 (A1): any word order, diacritics do not matter
+        $rows = $this->db->all('SELECT id, name, job_title, status FROM {applications} WHERE (id = ? OR ' . $sql . ') ORDER BY id = ? DESC, id DESC LIMIT 6', [$number, ...$words, $number]);
 
         return Response::json(['applications' => array_map(fn (array $r): array => ['name' => (string) $r['name'] !== '' ? (string) $r['name'] : t('Application #%s', (string) $r['id']),
             'note' => implode(' · ', array_filter(['#' . (int) $r['id'], (string) $r['job_title'], t(Store::STATUS_LABELS[(string) $r['status']] ?? (string) $r['status'])])),

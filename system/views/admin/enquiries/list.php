@@ -47,12 +47,12 @@ $preview = function (string $data) use ($yes): string {
 <?php endforeach ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">
-	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="status" value="<?= e($filter) ?>">
+	<input type="hidden" name="module" value="enquiries"><input type="hidden" name="status" value="<?= e($filter) ?>"><?= $kind !== '' ? '<input type="hidden" name="category" value="' . e($kind) . '">' : '' /* 3.52: the search stays within the kind */ ?>
 	<label><?= e(t('Search (name, e-mail, text):')) ?> <input class="textpole" type="search" name="search" value="<?= e($search) ?>" size="24"></label>
 	<input class="tl" type="submit" value="<?= e(t('Filter')) ?>">
 </form>
 <br>
-<?php if ($enquiries === [] && ($search !== '' || $filter !== '')): ?>
+<?php if ($enquiries === [] && ($search !== '' || $filter !== '' || $kind !== '')): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'poptavky', 'heading' => t('No enquiry matches the filter.'), 'text' => t('Try another word or status.'), 'action' => [$module->url(), t('Clear filter')]]) ?>
 <?php elseif ($enquiries === []): ?>
 <?= $app->view->render('admin/empty', ['icon' => 'poptavky', 'heading' => t('No enquiries yet.'), 'text' => t('Add a Form element in the page builder (or the ready-made Enquiry form section) – submitted messages will appear here and arrive by e-mail.'), 'action' => [$app->url('admin.php?module=pages'), t('Open pages')]]) ?>
@@ -85,7 +85,7 @@ $preview = function (string $data) use ($yes): string {
 <?php if ($pageCount > 1): ?>
 <p class="strankovani">
 <?php for ($s = 1; $s <= $pageCount; $s++): ?>
-	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $filter]) + ['page' => $s])) . '">' . $s . '</a>' ?>
+	<?= $s === $pageNumber ? '<strong>[' . $s . ']</strong>' : '<a href="' . e($module->url('', array_filter(['status' => $filter, 'category' => $kind, 'search' => $search]) + ['page' => $s])) . '">' . $s . '</a>' ?>
 <?php endfor ?>
 </p>
 <?php endif ?>

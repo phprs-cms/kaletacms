@@ -1523,7 +1523,9 @@
         }
     },
     "list_pages": {
-        "parameters": [],
+        "parameters": {
+            "search": "string"
+        },
         "required": [],
         "annotations": {
             "title": "List pages",

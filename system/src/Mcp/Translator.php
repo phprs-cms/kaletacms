@@ -73,7 +73,7 @@ final class Translator
      */
     private const array TOOLS = [
         'site_info' => ['info_o_webu', 'Site name, home page, theme, numbers of pages and news, the role of the signed-in user and their permissions, this connection (access, tool set).', []],
-        'list_pages' => ['seznam_stranek', 'Pages of the site (Home, About, Services, Contact…) with their addresses. layout_not_rebuilt: an imported page whose build is still the imported text.', []],
+        'list_pages' => ['seznam_stranek', 'Pages of the site (Home, About, Services, Contact…) with their addresses. layout_not_rebuilt: an imported page whose build is still the imported text.', ['search' => ['hledat', 'words in the title, address or text']]],
         'get_page' => ['nacti_stranku', 'The whole page including its HTML content.', ['id' => ['id', 'Page ID']]],
         'create_page' => ['vytvor_stranku', 'Creates a page (editors and administrators). Without "visible": true it stays hidden.', ['*stranka']],
         'update_page' => ['uprav_stranku', 'Changes the given fields of a page; the others stay.', ['id' => ['id', 'Page ID'], '*stranka']],
@@ -170,7 +170,7 @@ final class Translator
                 'valid_until' => ['valid_until', 'True until YYYY-MM-DD: after this day it hides itself on its own (the change is logged and recorded as the event content.expired); an empty string = always (optional)'], 'review_by' => ['review_by', 'Review by YYYY-MM-DD: on this day the site audit (kind review) and the event content.review ask the user to check it; an empty string = none (optional)'],
                 'categories' => ['kategorie', 'category slugs (list_collection_categories) – the whole new list; [] = none; omit to keep them']]],
         'list_news' => ['seznam_novinek', 'List of news (newest first).',
-            ['status' => ['stav', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'text in the headline'], 'limit' => ['limit', '1-50, default 20']]],
+            ['status' => ['stav', 'all | published | scheduled | drafts'], 'category' => ['kategorie', 'category name or slug'], 'search' => ['hledat', 'words in the headline or text'], 'limit' => ['limit', '1-50, default 20']]],
         'get_news' => ['nacti_novinku', 'The whole news item including the text and tags.', ['id' => ['id', 'News ID']]],
         'create_news' => ['vytvor_novinku', 'Creates a news item. Without "publish": true it is a draft.', ['*novinka']],
         'update_news' => ['uprav_novinku', 'Changes the given fields of a news item; the others stay. The previous version is saved to the history.', ['id' => ['id', 'News ID'], '*novinka']],
@@ -184,7 +184,7 @@ final class Translator
                 'images' => ['obrazky', 'download images into Media (default true)'], 'redirects' => ['presmerovani', 'redirect the old addresses (default true)'], 'news' => ['novinky', 'articles as news (default true)'],
                 'keep_starter_pages' => ['ponechat_vzory', 'old addresses whose starter page of this site stays (in the phase "preview"; ["*"] = all) – by default the import replaces an untouched starter page (Home, About us, Services, Contact of the installation) at the same address, listed in starter_pages'],
                 'replace_starter_pages' => ['nahradit_vzory', 'old addresses whose starter page with why "legacy" (recognised only by the titles of an installation before 3.33) the import replaces after all (in the phase "preview"; each address named, no "*") – by default such a page stays']]],
-        'list_media' => ['seznam_medii', 'Recently uploaded images and files with addresses and dimensions.', ['limit' => ['limit', '1-50, default 20'], 'search' => ['hledat', 'text in the name (optional)']]],
+        'list_media' => ['seznam_medii', 'Recently uploaded images and files with addresses and dimensions.', ['limit' => ['limit', '1-50, default 20'], 'search' => ['hledat', 'text in the name or caption (optional)']]],
         'upload_file' => ['nahraj_soubor', 'Uploads a file to Media: an image (JPG, PNG, WebP, GIF – resized, with WebP/AVIF variants), SVG (cleaned), a WOFF2 font or an attachment (PDF…). '
             . 'Give the https url of a public file (always for larger files), or data in base64 (at most 12 MB). Returns the path for the image or background image element or for custom fonts. '
             . 'A WordPress export (.xml, administrators) is kept privately for import_wordpress. '

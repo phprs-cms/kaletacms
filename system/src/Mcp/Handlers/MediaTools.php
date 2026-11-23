@@ -23,7 +23,7 @@ trait MediaTools
     public static function mediaToolsDefinitions(): array
     {
         return [
-            'seznam_medii' => ['Naposledy nahrané obrázky a soubory s adresami a rozměry.', Schema::object(['limit' => Schema::number('1-50, výchozí 20'), 'hledat' => Schema::text('text v názvu (nepovinné)')])],
+            'seznam_medii' => ['Naposledy nahrané obrázky a soubory s adresami a rozměry.', Schema::object(['limit' => Schema::number('1-50, výchozí 20'), 'hledat' => Schema::text('slova v názvu, popisku nebo cestě (nepovinné)')])],
             'nahraj_soubor' => ['Nahraje soubor do Médií: obrázek (JPG, PNG, WebP, GIF – zmenší se a dostane WebP/AVIF varianty), SVG (vyčistí se), písmo WOFF2 pro design system nebo přílohu (PDF…). '
                 . 'Zadej url veřejného souboru (https – obrázek, písmo, PDF; u větších souborů vždy url), nebo data v base64 (nejvýš ' . (self::MAX_UPLOAD >> 20) . ' MB). Vrátí adresu pro prvek obrázek, obrazek_pozadi nebo vlastni_pisma.',
                 Schema::object(['nazev' => Schema::text('název souboru s příponou, např. tym-praha.jpg'), 'data' => Schema::text('obsah souboru v base64'), 'url' => Schema::text('https adresa souboru ke stažení (místo data; jen plný přístup)'),
@@ -49,11 +49,11 @@ trait MediaTools
     {
         $db = $this->app->db();
 
-        $search = is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '' ? '%' . addcslashes(trim($a['hledat']), '%_\\') . '%' : null;
+        // 3.52 (A1, A9): the same columns and rules as the admin list of Media – the name, the caption and the path
+        [$where, $params] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Media::SEARCH_COLUMNS, is_string($a['hledat'] ?? null) ? $a['hledat'] : '');
 
         return array_map(fn (array $o): array => $this->medium($o),
-            $db->all('SELECT * FROM {media}' . ($search !== null ? ' WHERE nazev LIKE ? OR obr_poloha LIKE ?' : '') . ' ORDER BY ido DESC LIMIT ?',
-                [...($search !== null ? [$search, $search] : []), max(1, min(50, (int) ($a['limit'] ?? 20)))]));
+            $db->all('SELECT * FROM {media} o WHERE ' . $where . ' ORDER BY o.ido DESC LIMIT ?', [...$params, max(1, min(50, (int) ($a['limit'] ?? 20)))]));
     }
 
     /** import_website (importuj_web, 2.6): one batch of Core\WebImport per call */

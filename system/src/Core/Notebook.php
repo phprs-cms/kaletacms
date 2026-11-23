@@ -51,8 +51,9 @@ final class Notebook
             $params[] = $topic;
         }
         if ($search !== '') {
-            $where[] = '(title LIKE ? OR text LIKE ?)';
-            array_push($params, '%' . addcslashes($search, '%_\\') . '%', '%' . addcslashes($search, '%_\\') . '%');
+            [$sql, $words] = Db::likeWords(['title', 'text'], $search);
+            $where[] = $sql;
+            array_push($params, ...$words);
         }
         try {
             $rows = $db->all('SELECT * FROM {notebook}' . ($where !== [] ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY pinned DESC, updated_at DESC, id DESC LIMIT ' . max(1, min(self::MAX_NOTES, $limit)), $params);

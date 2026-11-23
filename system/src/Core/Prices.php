@@ -746,9 +746,9 @@ final class Prices
         $params = $ids;
         $search = trim((string) ($filter['search'] ?? ''));
         if ($search !== '') {
-            $where .= ' AND (p.nazev LIKE ? OR p.data LIKE ?)';
-            $like = '%' . addcslashes(mb_substr($search, 0, 100), '%_\\') . '%';
-            array_push($params, $like, $like);
+            [$sql, $words] = Db::likeWords(['p.nazev'], $search, ['p.data']);
+            $where .= ' AND ' . $sql;
+            array_push($params, ...$words);
         }
         $rows = [];
         $mapped = array_column(self::mapping($db), null, 'collection');
