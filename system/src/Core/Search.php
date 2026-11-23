@@ -67,51 +67,60 @@ final class Search
     }
 
     /**
-     * Search in pages and collection items without an index (a company site has hundreds of them, not thousands): all words
-     * of the query regardless of diacritics and letter case. Returns matches with an excerpt of the text around the first
-     * word found, sorted by relevance (a match in the title weighs most, then the number of occurrences in the text; on a tie
-     * the site's order stays).
-     *
-     * @param list<array{titulek: string, adresa: string, text: string}> $candidates
-     * @return list<array{titulek: string, adresa: string, uryvek: string}>
+     * The endings stem() takes off a query word (3.52, B2), longest first, in the normalized form (no diacritics). Czech and
+     * Slovak cases and plurals (-ách = -ach, -ům = -um), English plurals, German plural and case endings. Only the query is
+     * stemmed – the stored text stays as it is and a text word matches when it starts with the stem.
      */
-    public static function find(string $q, array $candidates, int $limit = 20): array
-    {
-        $words = array_values(array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 2));
-        if ($words === []) {
-            return [];
-        }
-        $results = [];
-        $score = [];
-        foreach ($candidates as $k) {
-            $plain = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $k['text'])), ENT_QUOTES | ENT_HTML5)));
-            $search = self::normalize($k['titulek'] . ' ' . $plain);
-            foreach ($words as $word) {
-                if (!str_contains($search, $word)) {
-                    continue 2;
-                }
-            }
-            // excerpt: Czech characters map 1:1 without diacritics, so a position in the text without diacritics matches the original too
-            $position = mb_strpos(remove_diacritics(mb_strtolower($plain)), $words[0]);
-            $from = $position === false ? 0 : max(0, $position - 60);
-            $excerpt = mb_substr($plain, $from, 180);
-            $results[] = ['titulek' => $k['titulek'], 'adresa' => $k['adresa'], 'uryvek' => ($from > 0 ? '…' : '') . $excerpt . (mb_strlen($plain) > $from + 180 ? '…' : '')];
-            $name = self::normalize($k['titulek']);
-            $text = self::normalize($plain);
-            $score[] = array_sum(array_map(fn (string $s): int => (str_contains($name, $s) ? 100 : 0) + min(20, substr_count($text, $s)), $words));
-        }
-        // stable sort: the same score = the order in which the site sorts them
-        $order = array_keys($results);
-        array_multisort($score, SORT_DESC, $order, SORT_ASC, $results);
+    public const array ENDINGS = [
+        'cs' => ['ami', 'ech', 'ach', 'ove', 'ovi', 'um', 'em', 'ou', 'y', 'a', 'e', 'i', 'u', 'o'],
+        'sk' => ['ami', 'ach', 'och', 'ove', 'ovi', 'om', 'ov', 'em', 'ou', 'y', 'a', 'e', 'i', 'u', 'o'],
+        'en' => ['es', 's'],
+        'de' => ['en', 'er', 'es', 'e'],
+    ];
 
-        return array_slice($results, 0, $limit);
+    /** A stem keeps at least this many letters – a shorter word is searched as it is ("auto" stays "auto", "IT" stays "it"). */
+    public const int STEM_MIN = 4;
+
+    /**
+     * A normalized query word without its ending (3.52, B2): "stavby" → "stavb", "koupelna" → "koupeln", "services" →
+     * "servic". Only for cs, sk, en and de (other languages: the word itself); a word with a digit stays as it is.
+     */
+    public static function stem(string $word, string $language): string
+    {
+        $endings = self::ENDINGS[Language::base($language)] ?? [];
+        if ($endings === [] || preg_match('/^[a-z]+$/D', $word) !== 1) {
+            return $word;
+        }
+        foreach ($endings as $ending) {
+            if (str_ends_with($word, $ending) && strlen($word) - strlen($ending) >= self::STEM_MIN) {
+                return substr($word, 0, -strlen($ending));
+            }
+        }
+
+        return $word;
     }
 
-    /** Query for MATCH … AGAINST in BOOLEAN mode: all words of 3 or more characters with any ending. */
-    public static function query(string $q): string
+    /**
+     * The beginnings a text word may have to match one query word (3.52, B2): the word, its stem and – in Czech and Slovak
+     * – the stem with or without the mobile e: "koupelna" (koupeln) also finds "koupelen", "služby" (služb) "služeb" and
+     * "služeb" (služeb) "služby". Normalized, without duplicates, the word itself first.
+     *
+     * @return list<string>
+     */
+    public static function terms(string $word, string $language): array
     {
-        $words = array_filter(explode(' ', self::normalize($q)), fn (string $s): bool => strlen($s) >= 3);
+        $stem = self::stem($word, $language);
+        $terms = [$word, $stem];
+        if (in_array(Language::base($language), ['cs', 'sk'], true) && preg_match('/^[a-z]+$/D', $stem) === 1) {
+            $consonant = '[bcdfghjklmnpqrstvwxz]';
+            if ($stem !== $word && preg_match('/' . $consonant . $consonant . '$/', $stem) === 1) {
+                $terms[] = substr($stem, 0, -1) . 'e' . substr($stem, -1); // koupeln → koupelen
+            }
+            if (preg_match('/' . $consonant . 'e' . $consonant . '$/', $stem) === 1 && strlen($stem) - 1 >= self::STEM_MIN) {
+                $terms[] = substr($stem, 0, -2) . substr($stem, -1); // sluzeb → sluzb
+            }
+        }
 
-        return implode(' ', array_map(fn (string $s): string => '+' . $s . '*', array_slice($words, 0, 8)));
+        return array_values(array_unique($terms));
     }
 }

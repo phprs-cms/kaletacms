@@ -10,7 +10,10 @@
  * @var int $stran
  * @var callable(int): string $strankaUrl
  * @var string|null $hledano  the searched text; null = not a search
- * @var list<array{titulek:string, seo_link:string, uryvek?:string}> $nalezeneStranky  pages and collection items matching the search
+ * @var list<array{type:string, label:string, title:string, path:string, uryvek:string, date?:string}> $nalezeneStranky  search results, ranked
+ *      across pages, collection items and news (Core\SiteSearch, 3.52); uryvek = escaped HTML with the matched words in <mark>
+ * @var bool $castecne  no result has every word – these have some of them
+ * @var list<array{titulek:string, seo_link:string}> $stranky  the main pages offered when a search finds nothing
  * @var callable(string): string $url
  */
 ?>
@@ -21,11 +24,14 @@
 <?php endif ?>
 <?php if ($hledano !== null): ?>
 	<form class="hledani" method="get" action="<?= e($url('hledani')) ?>" role="search">
-		<input type="search" name="q" value="<?= e($hledano) ?>" minlength="3" maxlength="100" aria-label="<?= e(t('Search text')) ?>" required>
+		<input type="search" name="q" value="<?= e($hledano) ?>" minlength="<?= \Kaleta\Core\SiteSearch::MIN_LENGTH ?>" maxlength="100" aria-label="<?= e(t('Search text')) ?>" required>
 		<button type="submit"><?= e(t('Hledat')) ?></button>
 	</form>
 <?php if ($hledano !== ''): ?>
-	<p><?= mb_strlen($hledano) < 3 ? e(t('Enter at least 3 characters.')) : e(t('Found: %s', $celkem + count($nalezeneStranky))) ?></p>
+	<p><?= mb_strlen($hledano) < \Kaleta\Core\SiteSearch::MIN_LENGTH ? e(t('Enter at least 2 characters.')) : e(t('Found: %s', $celkem)) ?></p>
+<?php if ($castecne): ?>
+	<p><?= e(t('No result contains all the words – these contain some of them.')) ?></p>
+<?php endif ?>
 <?php endif ?>
 <?php endif ?>
 </header>
@@ -33,9 +39,18 @@
 <?php if ($nalezeneStranky !== []): ?>
 <ul class="vypis-stranky">
 <?php foreach ($nalezeneStranky as $s): ?>
-	<li><a href="<?= e($url($s['seo_link'])) ?>"><?= e($s['titulek']) ?></a><?php if (($s['uryvek'] ?? '') !== ''): ?><p><?= e($s['uryvek']) ?></p><?php endif ?></li>
+	<li><span class="vypis-stranky-typ"><?= e($s['label']) ?></span> <a href="<?= e($url($s['path'])) ?>"><?= e($s['title']) ?></a><?php if ($s['uryvek'] !== ''): ?><p><?= $s['uryvek'] ?></p><?php endif ?></li>
 <?php endforeach ?>
 </ul>
+<?php elseif ($hledano !== null && mb_strlen($hledano) >= \Kaleta\Core\SiteSearch::MIN_LENGTH): ?>
+<p><?= e($stranky !== [] ? t('Nothing found. Try other or fewer words, or one of the main pages:') : t('Nothing found. Try other or fewer words.')) ?></p>
+<?php if ($stranky !== []): ?>
+<ul>
+<?php foreach ($stranky as $s): ?>
+	<li><a href="<?= e($url($s['seo_link'])) ?>"><?= e($s['titulek']) ?></a></li>
+<?php endforeach ?>
+</ul>
+<?php endif ?>
 <?php endif ?>
 
 <?php if ($novinky === [] && $hledano === null): ?>

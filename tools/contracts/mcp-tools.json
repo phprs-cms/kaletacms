@@ -2594,6 +2594,22 @@
             "openWorldHint": false
         }
     },
+    "search_site": {
+        "parameters": {
+            "language": "string",
+            "limit": "integer",
+            "query": "string"
+        },
+        "required": [
+            "query"
+        ],
+        "annotations": {
+            "title": "Search the site as a visitor",
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "openWorldHint": false
+        }
+    },
     "send_newsletter": {
         "parameters": {
             "at": "string",

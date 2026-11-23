@@ -1421,38 +1421,30 @@ final class Kernel
 
     private function search(): Response
     {
-        $q = mb_substr($this->app->request->get('q'), 0, 100);
+        $q = trim(mb_substr($this->app->request->get('q'), 0, 100));
+        $searching = mb_strlen($q) >= \Kaleta\Core\SiteSearch::MIN_LENGTH;
         // search is the site's most expensive query and is not cached: at most 30 searches per minute from one address
         $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
-        if (mb_strlen($q) >= 3) {
+        if ($searching) {
             if ($antispam->count($this->app->request->ip(), 'hledani', 0, 1) >= 30) {
                 return new Response(t('Too many searches in a row. Please try again in a moment.'), 429, ['Content-Type' => 'text/plain; charset=utf-8', 'Retry-After' => '60']);
             }
             $antispam->write($this->app->request->ip(), 'hledani', 0);
         }
-        $pageNumber = max(1, $this->app->request->getInt('page', 1));
-        [$news, $total] = mb_strlen($q) >= 3 && Extensions::isEnabled($this->app->settings(), 'novinky') ? $this->news->search($q, $pageNumber) : [[], 0];
-        // pages and collection items with their own page – regardless of diacritics, with a snippet (news are found by the
-        // fulltext above)
-        $pages = [];
-        if (mb_strlen($q) >= 3 && $pageNumber === 1) {
-            $db = $this->app->db();
-            $home = $this->homePageId();
-            $candidates = array_map(fn (array $s): array => ['titulek' => $s['titulek'], 'adresa' => (int) $s['ids'] === $home ? '' : $s['seo_link'], 'text' => (string) $s['text']],
-                $db->all('SELECT ids, titulek, seo_link, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? ORDER BY poradi LIMIT 500', [Language::siteColumn()]));
-            foreach ($db->all('SELECT p.nazev, p.seo_link, p.data, k.seo_link AS kolekce, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.jazyk = ? ORDER BY p.poradi LIMIT 2000', [Language::siteColumn()]) as $p) {
-                $data = json_decode((string) $p['data'], true);
-                // only text fields are searched – image paths and link URLs would add noise to the results and snippets
-                $textFields = array_column(array_filter(json_decode((string) $p['pole'], true) ?: [], fn (array $f): bool => in_array($f['typ'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
-                $candidates[] = ['titulek' => $p['nazev'], 'adresa' => $p['kolekce'] . '/' . $p['seo_link'],
-                    'text' => implode(' ', array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string'))];
-            }
-            $pages = array_map(fn (array $v): array => ['titulek' => $v['titulek'], 'seo_link' => $v['adresa'], 'uryvek' => $v['uryvek']], \Kaleta\Core\Search::find($q, $candidates));
-        }
+        // 3.52 (B1): one list ranked across pages, collection items and news (Core\SiteSearch), one paging
+        $found = $searching ? \Kaleta\Core\SiteSearch::find($this->app, $q, Language::siteColumn()) : ['results' => [], 'partial' => false, 'words' => []];
+        $perPage = $this->news->perPage();
+        $total = count($found['results']);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $pageNumber = min(max(1, $this->app->request->getInt('page', 1)), $pages);
+        $results = array_map(fn (array $r): array => $r + ['uryvek' => \Kaleta\Core\SiteSearch::snippetHtml(\Kaleta\Core\SiteSearch::resultSnippet($this->app, $r, $found['words']))],
+            array_slice($found['results'], ($pageNumber - 1) * $perPage, $perPage));
 
         return $this->page(
-            t('Vyhledávání'),
-            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $pages] + $this->listVariables($news, $total, $pageNumber, 'hledani', ['q' => $q])),
+            $q !== '' ? t('Search: %s', $q) : t('Vyhledávání'),
+            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $results, 'castecne' => $found['partial'],
+                'stranky' => $searching && $total === 0 ? $this->menuPages() : []]
+                + $this->listVariables([], $total, $pageNumber, 'hledani', ['q' => $q], $pages)),
             ['noindex' => true],
         );
     }
@@ -1641,18 +1633,20 @@ final class Kernel
      * @param array<string, string> $params extra parameters of the pagination links
      * @return array<string, mixed>
      */
-    private function listVariables(array $news, int $total, int $pageNumber, string $path, array $params = []): array
+    private function listVariables(array $news, int $total, int $pageNumber, string $path, array $params = [], ?int $pages = null): array
     {
-        $this->pastEnd = $pageNumber > 1 && $news === [];
+        $this->pastEnd = $pageNumber > 1 && $news === [] && $pages === null;
 
         return [
             'novinky' => array_map(fn (array $n): array => ['uvod' => self::authored((string) $n['uvod'])] + $n, $news),
             'celkem' => $total,
             'strana' => $pageNumber,
-            'stran' => max(1, (int) ceil($total / $this->news->perPage())),
+            'stran' => $pages ?? max(1, (int) ceil($total / $this->news->perPage())),
             'strankaUrl' => fn (int $s): string => $this->app->url($path) . (($query = http_build_query($params + ($s > 1 ? ['page' => $s] : []))) !== '' ? '?' . $query : ''),
             'hledano' => null,
             'nalezeneStranky' => [],
+            'castecne' => false,
+            'stranky' => [],
             'url' => $this->app->url(...),
         ];
     }

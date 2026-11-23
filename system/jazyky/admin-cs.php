@@ -9165,4 +9165,5 @@ return [
     '301, 404, old addresses' => '301, 404, staré adresy',
     'accounts, permissions, roles' => 'účty, oprávnění, role',
     'password, two-factor sign-in, 2FA, passkey, profile' => 'heslo, dvoufázové přihlášení, 2FA, passkey, profil',
+    'Search index of news filled in' => 'Doplnění vyhledávacího indexu novinek',
 ];

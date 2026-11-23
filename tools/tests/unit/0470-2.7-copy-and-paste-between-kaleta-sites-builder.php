@@ -201,15 +201,19 @@ check('Page content in a wrapper: the content sits in .obal.obsah, the only marg
     array_map('trim', $wrapperResets[1]),
 ], [true, [':where(.stavba) :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, figure, hr):not(:where(.obsah *))']]);
 check('Vocabulary: záhlaví při rolování anglicky', Kaleta\Mcp\Vocabulary::contentToEnglish('sekce', ['pri_rolovani' => 'pruhledna-zmensit', 'text_nahore' => 'svetly']), ['on_scroll' => 'transparent_shrink', 'text_at_top' => 'light']);
-check('Hledani::najdi: shoda v názvu má přednost', array_column(Kaleta\Core\Search::find('search', [
-    ['titulek' => 'Menus', 'adresa' => 'menus', 'text' => 'Link to site search from the menu.'],
-    ['titulek' => 'Site search', 'adresa' => 'site-search', 'text' => 'How search works.'],
-    ['titulek' => 'SEO', 'adresa' => 'seo', 'text' => 'Search engines and search results; search console.'],
-]), 'adresa'), ['site-search', 'seo', 'menus']);
-check('Hledani::najdi: bez diakritiky, všechna slova, úryvek', Kaleta\Core\Search::find('zkusenosti kuchyne', [
-    ['titulek' => 'O nás', 'adresa' => 'o-nas', 'text' => '<p>Máme dvacet let zkušeností s nábytkem.</p>'],
-    ['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'text' => '<p>Kuchyně na míru – bohaté zkušenosti.</p>'],
-]), [['titulek' => 'Kuchyně', 'adresa' => 'kuchyne', 'uryvek' => 'Kuchyně na míru – bohaté zkušenosti.']]);
+// 3.52 (B1): Search::find became SiteSearch::rank (candidates from the database) and SiteSearch::snippet
+check('SiteSearch::rank: a match in the title comes first', array_column(Kaleta\Core\SiteSearch::rank(Kaleta\Core\SiteSearch::words('search', 'en'), [
+    ['title' => 'Menus', 'path' => 'menus', 'text' => 'Link to site search from the menu.'],
+    ['title' => 'Site search', 'path' => 'site-search', 'text' => 'How search works.'],
+    ['title' => 'SEO', 'path' => 'seo', 'text' => 'Search engines and search results; search console.'],
+], true), 'path'), ['site-search', 'seo', 'menus']);
+$b27Words = Kaleta\Core\SiteSearch::words('zkusenosti kuchyne', 'cs');
+$b27Found = Kaleta\Core\SiteSearch::rank($b27Words, [
+    ['title' => 'O nás', 'path' => 'o-nas', 'text' => 'Máme dvacet let zkušeností s nábytkem.'],
+    ['title' => 'Kuchyně', 'path' => 'kuchyne', 'text' => 'Kuchyně na míru – bohaté zkušenosti.'],
+], true);
+check('SiteSearch::rank: without diacritics, every word; the snippet marks the words', [array_column($b27Found, 'path'), Kaleta\Core\SiteSearch::snippetHtml(Kaleta\Core\SiteSearch::snippet($b27Found[0]['text'], $b27Words))],
+    [['kuchyne'], '<mark>Kuchyně</mark> na míru – bohaté <mark>zkušenosti</mark>.']);
 check('Styl::css: bílé pozadí si nese tmavý text i v tmavém režimu', str_contains(Kaleta\Builder\Style::css('#s', ['zaklad' => ['pozadi' => 'bila']]), '--ka-barva-text: var(--ka-barva-text-svetle); color: var(--ka-barva-text-svetle)'), true);
 check('Styl::css: vlastní barva textu na bílém pozadí se nepřepíše', str_contains(Kaleta\Builder\Style::css('#s', ['zaklad' => ['pozadi' => 'bila', 'barva' => 'primarni']]), 'text-svetle'), false);
 $buildDiscarded = [];

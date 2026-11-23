@@ -9593,4 +9593,5 @@ return [
     '301, 404, old addresses' => '301, 404, direcciones antiguas',
     'accounts, permissions, roles' => 'cuentas, permisos, roles',
     'password, two-factor sign-in, 2FA, passkey, profile' => 'contraseña, inicio de sesión en dos pasos, 2FA, llave de acceso, perfil',
+    'Search index of news filled in' => 'Índice de búsqueda de noticias completado',
 ];

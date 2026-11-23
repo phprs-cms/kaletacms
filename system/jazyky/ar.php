@@ -2172,4 +2172,10 @@ return [
     'Should we stop sending you requests and news?' => 'هل نتوقف عن إرسال الطلبات والأخبار إليك؟',
     'Do not write to me' => 'لا تراسلوني',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'لن نرسل إليك طلبات أو أخبارًا بعد الآن. ستستمر الردود على استفساراتك وحجوزاتك في الوصول.',
+    'Page' => 'صفحة',
+    'Search: %s' => 'البحث: %s',
+    'Enter at least 2 characters.' => 'أدخل حرفين على الأقل.',
+    'No result contains all the words – these contain some of them.' => 'لا تحتوي أي نتيجة على كل الكلمات – هذه النتائج تحتوي على بعضها.',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => 'لم يتم العثور على شيء. جرّب كلمات أخرى أو أقل، أو إحدى الصفحات الرئيسية:',
+    'Nothing found. Try other or fewer words.' => 'لم يتم العثور على شيء. جرّب كلمات أخرى أو أقل.',
 ];

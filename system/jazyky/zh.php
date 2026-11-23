@@ -2172,4 +2172,10 @@ return [
     'Should we stop sending you requests and news?' => '我们是否应停止向您发送请求和新闻？',
     'Do not write to me' => '请不要再给我发邮件',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => '我们将不再向您发送请求或新闻。对您本人的咨询和预订的回复仍会照常送达。',
+    'Page' => '页面',
+    'Search: %s' => '搜索：%s',
+    'Enter at least 2 characters.' => '请至少输入 2 个字符。',
+    'No result contains all the words – these contain some of them.' => '没有结果包含所有词语——以下结果包含其中部分词语。',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => '未找到内容。请尝试其他或更少的词语，或访问以下主要页面：',
+    'Nothing found. Try other or fewer words.' => '未找到内容。请尝试其他或更少的词语。',
 ];

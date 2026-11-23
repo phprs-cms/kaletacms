@@ -155,6 +155,9 @@
 	}
 	.vypis-stranky { margin-bottom: var(--mezera); }
 	.vypis-stranky p { margin: 0.2em 0 0.9em; color: var(--ka-barva-tlumeny, #5b5f68); font-size: 0.92em; }
+	/* 3.52 (B3): the kind of a search result and the matched words – the complementary colour without a background */
+	.vypis-stranky-typ { display: block; color: var(--ka-barva-tlumeny, #5b5f68); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; }
+	.vypis-stranky mark { background: none; color: var(--ka-barva-sekundarni, var(--ka-barva-primarni, #2b5be3)); font-weight: 600; }
 
 	.hledani { display: flex; gap: 0.5rem; max-width: 30rem; margin: 1em 0; }
 	.hledani input { flex: 1; min-width: 0; padding: 0.65rem 0.9rem; border: 1px solid var(--ka-barva-linka, #dfe1e5); border-radius: 999px; background: var(--ka-barva-pozadi, #ffffff); color: inherit; font: inherit; }

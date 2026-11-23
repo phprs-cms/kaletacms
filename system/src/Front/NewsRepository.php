@@ -98,25 +98,6 @@ final class NewsRepository
         return $this->query($this->published . ' AND EXISTS (SELECT 1 FROM {novinky_stitky} cs WHERE cs.idc = c.idc AND cs.ids = ?)', [$this->now, $ids], 'c.datum DESC, c.idc DESC', $pageNumber);
     }
 
-    /** @return array{0: list<array<string, mixed>>, 1: int} */
-    public function search(string $q, int $pageNumber): array
-    {
-        // index without diacritics (Core\Search): "nabrezi" finds "nábřeží"; short words and parts of words are searched in the title
-        \Kaleta\Core\Search::complete($this->db); // news from before the index are filled in automatically
-        $like = '%' . addcslashes($q, '%_\\') . '%';
-        $query = \Kaleta\Core\Search::query($q);
-        if ($query === '') {
-            return $this->query($this->published . ' AND c.titulek LIKE ?', [$this->now, $like], 'c.datum DESC, c.idc DESC', $pageNumber);
-        }
-
-        return $this->query(
-            $this->published . ' AND (MATCH(c.hledani) AGAINST (? IN BOOLEAN MODE) OR c.titulek LIKE ?)',
-            [$this->now, $query, $like],
-            'c.datum DESC, c.idc DESC',
-            $pageNumber,
-        );
-    }
-
     /** @return array<string, mixed>|null */
     public function bySlug(string $seo, bool $includeUnpublished = false): ?array
     {

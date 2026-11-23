@@ -2172,4 +2172,10 @@ return [
     'Should we stop sending you requests and news?' => 'Ne küldjünk Önnek több kérést és hírt?',
     'Do not write to me' => 'Ne írjanak nekem',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Többé nem küldünk Önnek kéréseket és híreket. A saját megkereséseire és foglalásaira adott válaszok továbbra is megérkeznek.',
+    'Page' => 'Oldal',
+    'Search: %s' => 'Keresés: %s',
+    'Enter at least 2 characters.' => 'Adjon meg legalább 2 karaktert.',
+    'No result contains all the words – these contain some of them.' => 'Egyik találat sem tartalmazza az összes szót – ezek néhányat tartalmaznak közülük.',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nincs találat. Próbáljon más vagy kevesebb szót, vagy válasszon a főoldalak közül:',
+    'Nothing found. Try other or fewer words.' => 'Nincs találat. Próbáljon más vagy kevesebb szót.',
 ];

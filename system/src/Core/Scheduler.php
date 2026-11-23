@@ -26,6 +26,7 @@ final class Scheduler
         // fails, they run anyway and System status warns (3.12.1)
         'time_zone' => [0, 'any', 'Saved dates converted to a new time zone'],
         'notifications' => [0, 'any', 'Scheduled publishing and announcements'],
+        'search_index' => [0, 'any', 'Search index of news filled in'], // 3.52 (B1): no longer on every search of the site
         // 3.27 (Core\Tasks): before the mail, so a reminder e-mail queued now goes out in the same run
         'tasks' => [300, 'any', 'Task reminders'],
         'mail' => [0, 'any', 'Sending e-mail'],
@@ -111,6 +112,7 @@ final class Scheduler
 
                 return 'ok';
             },
+            'search_index' => fn (App $app): string => 'filled ' . Search::complete($app->db()),
             'tasks' => fn (App $app): string => Tasks::run($app), // 3.27: due tasks notify their assignee once
             'mail' => function (App $app, string $source): string {
                 $sent = Mail::processQueue($app->settings(), $source === 'cron' ? 30 : 10);

@@ -52,6 +52,10 @@ trait PageTools
                 Schema::object(['type' => Schema::text('page | news | collection_item'), 'id' => Schema::number('ID from list_trash')], ['type', 'id'])],
             'translation_status' => ['Translation overview (read-only, 2.14): every page, news item and collection item in the default language against the site\'s other languages – present, missing, or outdated (the original changed after the translation was last saved). A page translation is a page with translation_of (create_page with translation_of and copy_build, then get_build texts_only and edit_build); a news translation a news item in a category of that language; a collection item translation an item with the same slug and language in the same collection (save_collection_item). Empty languages = a single-language site.',
                 Schema::object(['status' => Schema::text('missing | outdated | all (default: missing and outdated only)'), 'type' => Schema::text('page | news | collection_item (optional)')])],
+            // 3.52 (B1): what a visitor finds with the site search (Core\SiteSearch) – English only
+            'search_site' => ['What a visitor finds with the site search (read-only, 3.52): one list ranked by relevance across published pages, collection items with their own page and news of one language version – only what visitors see (no hidden, password-protected or noindex content). Every word of the query, regardless of diacritics; a word matches the start of a word in the text, Czech, Slovak, English and German endings are taken off the query ("koupelna" finds "koupelen"). When nothing has every word, the results with some of them are listed and partial is true. results: type (page | collection_item | news), title, url, snippet (plain text around the matches); total = how many match.',
+                Schema::object(['query' => Schema::text('the words to find (at least 2 characters)'), 'language' => Schema::text('language version (code, e.g. en; empty = the default language)'),
+                    'limit' => Schema::number('1–50, default 10')], ['query'])],
             'smaz_stranku' => ['Přesune stránku do koše (jen na výslovný pokyn uživatele; editor nebo správce). Z koše jde 30 dní obnovit v administraci. Úvodní stránku smazat nejde.', Schema::object(['id' => Schema::number('ID stránky')], ['id'])],
         ];
     }
@@ -128,6 +132,29 @@ trait PageTools
             + (isset($waiting[(int) $r['ids']]) ? ['layout_not_rebuilt' => true] : []),
             // without the Pages section (news author) only published pages – it can link to those, it does not see drafts
             $db->all('SELECT ids, titulek, seo_link, zobrazit, v_menu, jazyk, preklad_z, owner_id FROM {stranky} WHERE smazano IS NULL AND ' . $search . $auth->pageListScope() . ' ORDER BY jazyk, poradi, ' . $db->sortText('titulek'), $params));
+    }
+
+    /**
+     * search_site (3.52, B1): the site search for a visitor of one language version (Core\SiteSearch) – the best results with
+     * their public address and a plain-text snippet, how many match, and partial when none has every word.
+     */
+    private function toolSearchSite(string $name, array $a): mixed
+    {
+        $q = is_scalar($a['query'] ?? null) ? trim((string) $a['query']) : '';
+        if (mb_strlen($q) < \Kaleta\Core\SiteSearch::MIN_LENGTH) {
+            throw new \InvalidArgumentException('Give at least two characters to search for (query).');
+        }
+        $column = is_string($a['language'] ?? null) && $a['language'] !== '' ? Language::column($this->app->settings(), $a['language']) : '';
+        $limit = max(1, min(50, (int) ($a['limit'] ?? 10)));
+        $found = \Kaleta\Core\SiteSearch::find($this->app, $q, $column);
+        $origin = $this->app->request->origin();
+        $results = array_map(fn (array $r): array => ['type' => $r['type'], 'title' => $r['title'],
+            'url' => $origin . ($r['type'] === 'news' ? $this->app->newsItemUrl(substr($r['path'], strlen('novinky/')), $column) : $this->app->url(($column !== '' ? $column . '/' : '') . $r['path']))]
+            + (($snippet = \Kaleta\Core\SiteSearch::snippetText(\Kaleta\Core\SiteSearch::resultSnippet($this->app, $r, $found['words']))) !== '' ? ['snippet' => $snippet] : []),
+            array_slice($found['results'], 0, $limit));
+
+        return ['results' => $results, 'total' => count($found['results'])] + ($found['partial'] ? ['partial' => true] : [])
+            + ($results !== [] ? \Kaleta\Mcp\Untrusted::mark(['results']) : []);
     }
 
     /** get_page (nacti_stranku) */

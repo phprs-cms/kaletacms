@@ -38,7 +38,7 @@ final class Search extends Element
 
         return '<form' . Text::withClass($a, 'ka-hledani') . ' role="search" method="get" action="' . e($k->url('hledani')) . '">'
             . '<label class="ka-jen-ctecka" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
-            . '<input type="search" id="' . e($id) . '" name="q" minlength="3" maxlength="100" placeholder="' . e($o['napoveda']) . '" required>'
+            . '<input type="search" id="' . e($id) . '" name="q" minlength="' . \Kaleta\Core\SiteSearch::MIN_LENGTH . '" maxlength="100" placeholder="' . e($o['napoveda']) . '" required>'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></form>';
     }
 }

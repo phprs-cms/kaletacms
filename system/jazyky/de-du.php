@@ -399,4 +399,7 @@ return [
     'This link is no longer valid – write to us.' => 'Dieser Link ist nicht mehr gültig – schreib uns.',
     'Should we stop sending you requests and news?' => 'Sollen wir dir keine Anfragen und Neuigkeiten mehr senden?',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Wir senden dir keine Anfragen oder Neuigkeiten mehr. Antworten auf deine eigenen Anfragen und Buchungen erhältst du weiterhin.',
+    'Enter at least 2 characters.' => 'Gib mindestens 2 Zeichen ein.',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nichts gefunden. Versuche andere oder weniger Wörter oder eine der Hauptseiten:',
+    'Nothing found. Try other or fewer words.' => 'Nichts gefunden. Versuche andere oder weniger Wörter.',
 ];

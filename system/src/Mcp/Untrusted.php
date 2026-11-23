@@ -50,6 +50,8 @@ final class Untrusted
         'list_internal_files' => ['files'], 'get_internal_file' => ['name', 'description', 'tags', 'versions', 'content'], 'save_internal_file' => ['file'],
         // 3.52 (A4): the names and e-mails of enquiries, customers and applications are visitors' text
         'search' => ['results'],
+        // 3.52 (B1): the site's own content, but pages and items may come from an import of another site
+        'search_site' => ['results'],
     ];
 
     /**

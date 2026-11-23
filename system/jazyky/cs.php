@@ -3325,4 +3325,9 @@ return [
     'Should we stop sending you requests and news?' => 'Máme vám přestat posílat žádosti a novinky?',
     'Do not write to me' => 'Nepište mi',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'Žádosti ani novinky vám už posílat nebudeme. Odpovědi na vaše vlastní poptávky a rezervace vám budou chodit dál.',
+    'Search: %s' => 'Hledání: %s',
+    'Enter at least 2 characters.' => 'Zadejte alespoň 2 znaky.',
+    'No result contains all the words – these contain some of them.' => 'Žádný výsledek neobsahuje všechna slova – tyto obsahují některá z nich.',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov, nebo některou z hlavních stránek:',
+    'Nothing found. Try other or fewer words.' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov.',
 ];

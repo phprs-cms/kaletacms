@@ -13,6 +13,10 @@ curl -s -o "$WORK/response" "$B/"; tr -d '\n\t' < "$WORK/response" > "$WORK/flat
   && echo "  ok     3.5: no empty footer navigation, the main content is the skip link's focus target" || { echo "  CHYBA  3.5: footer navigation or main"; ERRORS=$((ERRORS+1)); }
 check "kategorie" 200 /novinky/kategorie/aktuality
 check "hledání najde novinku i stránku" 200 "/hledani?q=Kontakt" 'href="/kontakt"'
+# 3.52 (B1, B3): one ranked list with one count; the title names the search
+check "hledání: jeden seznam s druhem výsledku a titulek Hledání: …" 200 "/hledani?q=Kontakt" '<title>Hledání: Kontakt'
+grep -q 'class="vypis-stranky-typ">Stránka<' "$WORK/response" && grep -q '<mark>Kontakt</mark>\|Nalezeno: [1-9]' "$WORK/response" \
+  && echo "  ok     3.52: the search result names its kind (Stránka)" || { echo "  CHYBA  3.52: the search result has no kind"; ERRORS=$((ERRORS+1)); }
 for u in /rss.xml /feed.json /sitemap.xml /robots.txt /llms.txt /novinky/vitejte-v-kalete.md; do check "$u" 200 "$u"; done
 check "mapa webu obsahuje novinku" 200 /sitemap.xml "/novinky/vitejte-v-kalete"
 check "llms.txt vyjmenuje stránky" 200 /llms.txt "## Stránky"

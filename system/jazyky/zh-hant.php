@@ -2172,4 +2172,10 @@ return [
     'Should we stop sending you requests and news?' => '我們是否應停止向您傳送請求和新聞？',
     'Do not write to me' => '請不要再寄信給我',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => '我們將不再向您傳送請求或新聞。對您本人的詢問和預訂的回覆仍會照常送達。',
+    'Page' => '頁面',
+    'Search: %s' => '搜尋：%s',
+    'Enter at least 2 characters.' => '請至少輸入 2 個字元。',
+    'No result contains all the words – these contain some of them.' => '沒有結果包含所有詞語——以下結果包含其中部分詞語。',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => '找不到內容。請嘗試其他或更少的詞語，或前往以下主要頁面：',
+    'Nothing found. Try other or fewer words.' => '找不到內容。請嘗試其他或更少的詞語。',
 ];

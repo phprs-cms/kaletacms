@@ -38,7 +38,7 @@ grep -q '<h2 id="jak-to-funguje">' "$WORK/response" && grep -q '<h2 id="jak-to-f
 grep -q 'data-ka-id' "$WORK/response" && { echo "  CHYBA  značky editoru na veřejném webu"; ERRORS=$((ERRORS+1)); } || echo "  ok     bez značek editoru na veřejném webu"
 grep -q '@layer prvky' "$WORK/response" && grep -q '#s-nad1 { color: var(--ka-barva-primarni); }' "$WORK/response" && grep -q '.karta { background-color: var(--ka-barva-plocha)' "$WORK/response" && echo "  ok     CSS prvků a tříd ve vrstvách" || { echo "  CHYBA  CSS stavby"; ERRORS=$((ERRORS+1)); }
 grep -q '"FAQPage"' "$WORK/response" && echo "  ok     otázky a odpovědi jako strukturovaná data" || { echo "  CHYBA  FAQPage chybí"; ERRORS=$((ERRORS+1)); }
-check "hledání najde obsah stavby" 200 "/hledani?q=Builder+test" 'Nalezeno: 1'
+check "hledání najde obsah stavby" 200 "/hledani?q=Builder+test" 'Nalezeno: 1' # 3.52 (B1): one count for the whole ranked list
 page_action build_save --data-urlencode "stavba=${BUILD/Builder test/Druhá verze}" > /dev/null; page_action build_publish > /dev/null
 expect "předchozí publikovaná verze je v historii" "$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT COUNT(*) FROM ka_stavba_revize WHERE ids = $IDS AND cast IS NULL AND stavba LIKE '%Builder test%'")" 1
 IDR=$("${MYSQL[@]}" "$DB_NAME" -N -e "SELECT idr FROM ka_stavba_revize WHERE ids = $IDS AND cast IS NULL AND stavba LIKE '%Builder test%'")

@@ -100,11 +100,11 @@ check('RTL slugify: Arabic titles get a stable lowercase ASCII transliteration (
 check('RTL bdi(): a typed value isolated and escaped for the administration lists', [bdi('سارة <x>'), bdi(null)], ['<bdi>سارة &lt;x&gt;</bdi>', '<bdi></bdi>']);
 check('RTL Slug::FALLBACK names the four tables a new slug can come from', array_keys(Kaleta\Core\Slug::FALLBACK), ['stranky', 'novinky', 'kategorie', 'kolekce_polozky']);
 check('RTL Search::normalize: Arabic stays searchable without vowel marks and with one alef; Latin tokens as before',
-    [Kaleta\Core\Search::normalize('<p>الأَمْنُ والسلامة – Kinesio Tape (5 cm)</p>'), Kaleta\Core\Search::normalize('Příliš žluťoučký kůň, 5 cm!'), Kaleta\Core\Search::query('شريط لاصق')],
-    ['الامن والسلامه kinesio tape 5 cm', 'prilis zlutoucky kun 5 cm', '+شريط* +لاصق*']);
+    [Kaleta\Core\Search::normalize('<p>الأَمْنُ والسلامة – Kinesio Tape (5 cm)</p>'), Kaleta\Core\Search::normalize('Příliš žluťoučký kůň, 5 cm!'), array_column(Kaleta\Core\SiteSearch::words('شريط لاصق', 'ar'), 'word')],
+    ['الامن والسلامه kinesio tape 5 cm', 'prilis zlutoucky kun 5 cm', ['شريط', 'لاصق']]);
 check('3.12 Search::normalize: taa marbuta as ha, every alef as one, alef maqsura as ya, no tatweel or harakat – the text and the query meet',
     [Kaleta\Core\Search::normalize('مَدْرَسَةٌ ٱلْإِسْلَامِيَّة آمِنَة عَلَى طـــويل'), Kaleta\Core\Search::normalize('مدرسه الاسلاميه امنه علي طويل'),
-        Kaleta\Core\Search::find('الركبه', [['titulek' => 'دعامة الركبة', 'adresa' => 'x', 'text' => '']]) !== []],
+        Kaleta\Core\SiteSearch::rank(Kaleta\Core\SiteSearch::words('الركبه', 'ar'), [['title' => 'دعامة الركبة', 'text' => '']], true) !== []],
     ['مدرسه الاسلاميه امنه علي طويل', 'مدرسه الاسلاميه امنه علي طويل', true]);
 $rtlMail = Kaleta\Core\Mail::rightToLeft("شكرًا لكم\nhttps://example.test/ar/x?a=1&b=2 <test>", 'ar');
 check('RTL Mail::rightToLeft: the HTML part of a plain Arabic e-mail is right to left, keeps the lines, links the address and escapes the rest',

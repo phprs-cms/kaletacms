@@ -2161,4 +2161,10 @@ return [
     'Should we stop sending you requests and news?' => '¿Dejamos de enviarle solicitudes y novedades?',
     'Do not write to me' => 'No me escriban',
     'We will not send you requests or news again. Answers to your own enquiries and bookings still arrive.' => 'No volveremos a enviarle solicitudes ni novedades. Las respuestas a sus propias consultas y reservas seguirán llegando.',
+    'Page' => 'Página',
+    'Search: %s' => 'Búsqueda: %s',
+    'Enter at least 2 characters.' => 'Introduzca al menos 2 caracteres.',
+    'No result contains all the words – these contain some of them.' => 'Ningún resultado contiene todas las palabras; estos contienen algunas de ellas.',
+    'Nothing found. Try other or fewer words, or one of the main pages:' => 'No se ha encontrado nada. Pruebe con otras palabras o con menos, o con una de las páginas principales:',
+    'Nothing found. Try other or fewer words.' => 'No se ha encontrado nada. Pruebe con otras palabras o con menos.',
 ];

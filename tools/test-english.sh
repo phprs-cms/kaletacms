@@ -66,7 +66,9 @@ public_site() { # public_site <starter>: every visible page, news, search, 404 a
   fi
   page "$1: search with results" "/search?q=contact"
   grep -q 'href="/contact"' "$WORK/page.html" || fail "$1: search does not find the Contact page"
+  grep -q '<title>Search: contact' "$WORK/page.html" || fail "$1: the search results page is not titled Search: … (3.52)"
   page "$1: search without results" "/search?q=zzqqxx"
+  grep -q 'Nothing found. Try other or fewer words' "$WORK/page.html" || fail "$1: a search without results gives no advice (3.52)"
   page "$1: not found" /this-page-does-not-exist 404
   sql "UPDATE ka_stranky SET zobrazit = 1 WHERE seo_link = 'privacy-policy'"; rm -rf "$WORK/web/storage/cache/stranky"
   page "$1: privacy policy (published)" /privacy-policy
