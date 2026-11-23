@@ -78,11 +78,11 @@ expect "3.38 review M3: the address of an enquiry import_enquiries brought in is
 kill "$R338_SMTP_PID" 2>/dev/null || true; wait "$R338_SMTP_PID" 2>/dev/null || true
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES $MAIL_SINK_VALUES; DELETE FROM ka_poptavky WHERE idp = $R338_IMP; DELETE FROM ka_contacts WHERE id = $R338_FAKE" > /dev/null
 
-# L1: a random token per link – a link made twice in one second differs, a withdrawn one never comes back; the plain link only in the session that made it
+# L1: a random token per link – a link made twice in one second differs (the clock frozen, so a slow machine never crosses a second), a withdrawn one never comes back; the plain link only in the session that made it
 r338_php '$q = Kaleta\Core\Quotes::finalise($app, Kaleta\Core\Quotes::save($app, null, ["customer" => ["name" => "Odkaz 338r"], "lines" => [["name" => "Kus 338r", "quantity" => "1", "unit_price" => "100"]]], 0)["id"], 0)["id"];
-  $one = Kaleta\Core\QuoteDelivery::issueLink($app, $q, 0); $h1 = $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [$q]); $e1 = $db->value("SELECT token_expires_at FROM {quotes} WHERE id = ?", [$q]);
+  Kaleta\Core\Clock::freeze(Kaleta\Core\Clock::now()); $one = Kaleta\Core\QuoteDelivery::issueLink($app, $q, 0); $h1 = $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [$q]); $e1 = $db->value("SELECT token_expires_at FROM {quotes} WHERE id = ?", [$q]);
   Kaleta\Core\QuoteDelivery::withdrawLink($app, $q, 0); $two = Kaleta\Core\QuoteDelivery::issueLink($app, $q, 0);
-  echo $q, " ", $one, " ", $two, " ", (int) ($h1 !== $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [$q])), " ", (int) ($e1 === $db->value("SELECT token_expires_at FROM {quotes} WHERE id = ?", [$q]));' > "$WORK/r338-links"
+  echo $q, " ", $one, " ", $two, " ", (int) ($h1 !== $db->value("SELECT token_hash FROM {quotes} WHERE id = ?", [$q])), " ", (int) ($e1 === $db->value("SELECT token_expires_at FROM {quotes} WHERE id = ?", [$q])); Kaleta\Core\Clock::freeze(null);' > "$WORK/r338-links"
 read -r R338_QL R338_L1 R338_L2 R338_LDIFF R338_LSAME < "$WORK/r338-links" || true; R338_QL="${R338_QL:-0}"
 expect "3.38 review L1: a new link in the same second as the withdrawn one has another token – the withdrawn one stays the 404, the new one opens" \
   "${R338_LDIFF:-}|${R338_LSAME:-}|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L1:-$B/quote/x}")|$(curl -s -o /dev/null -w '%{http_code}' "${R338_L2:-$B/quote/x}")" "1|1|404|200"

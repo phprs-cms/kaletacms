@@ -7,7 +7,7 @@ N8_A=$(sq "INSERT INTO ka_applications (received_at, form, data, status, status_
 expect "3.34 second review N8: a moved application waiting for the confirmation more than 30 days – System status says so" \
   "$(t334_php 'foreach (Kaleta\Core\Health::checks($app) as $c) { if (str_contains($c["info"], "to confirm the retention")) { echo $c["stav"]; } }')" "varovani"
 curl -s -b "$JAR" -o "$WORK/response" "$B/admin.php?module=applications&action=settings"
-curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=applications&action=settings_save" -d "_csrf=$(csrf)" -d applications_months=6 -d applications_pool_months=12
+curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php?module=applications&action=settings_save" -d "_csrf=$(csrf)" -d applications_months=6 -d applications_pool_months=12 -d applications_claude=1 # the form sends the ticked switch; without it the save would turn Claude off for the sections after this one
 expect "3.34 second review N8: saving the settings confirms every application there now – the highest id; System status is quiet" \
   "$(sq "SELECT hodnota = (SELECT MAX(id) FROM ka_applications) FROM ka_nastaveni WHERE promenna = 'applications_retention_confirmed'")|$(t334_php 'foreach (Kaleta\Core\Health::checks($app) as $c) { if (str_contains($c["info"], "to confirm the retention")) { echo $c["stav"]; } }')" "1|"
 # a later move (one enquiry, by anyone with both sections) after the confirmation: the confirmation stays, only the new row waits

@@ -7,6 +7,9 @@ R815_NOW=$(site_time)
 R815_ADMIN=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'admin'")
 R815_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
 features +applications
+# "on" said explicitly: an earlier section may leave the switch stored as 0 (it is put back as it was at the end)
+R815_CLAUDE=$(sq "SELECT IFNULL(MAX(hodnota), '') FROM ka_nastaveni WHERE promenna = 'applications_claude'")
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_claude', '1')" > /dev/null
 R815_TOKEN="kaleta_$(openssl rand -hex 24)"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($R815_ADMIN, 'r815 admin', 'full', 'all', SHA2('$R815_TOKEN', 256), '$R815_NOW')" > /dev/null
 
@@ -27,7 +30,6 @@ expect "3.52 review: MCP search with applications_claude on – the application 
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_claude', '0')" > /dev/null
 expect "3.52 review (high): MCP search with applications_claude off – no application, no task about one, nothing of them in totals" \
   "$(r815_kinds 'kovar r815')" "page|page|1"
-sq "DELETE FROM ka_nastaveni WHERE promenna = 'applications_claude'" > /dev/null
 
 # Recently opened of the palette belongs to the account and its sign-in
 expect "3.52 review: the palette carries the account and the sign-in its Recently opened belongs to" \
@@ -48,6 +50,8 @@ expect "3.52 review: list_enquiries {search: 608123815} and list_news {search: 1
   "1|0|1|0"
 
 features --exact "$R815_EXT"
+if [ -n "$R815_CLAUDE" ]; then sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('applications_claude', '$R815_CLAUDE')" > /dev/null
+else sq "DELETE FROM ka_nastaveni WHERE promenna = 'applications_claude'" > /dev/null; fi
 sq "DELETE FROM ka_applications WHERE id = $R815_APP; DELETE FROM ka_stranky WHERE seo_link = 'kovar-r815'; DELETE FROM ka_tasks WHERE title = 'Pohovor Kovář R815';
   DELETE FROM ka_uzivatele WHERE user = 'kovar-r815-login'; DELETE FROM ka_poptavky WHERE formular = 'Kontakt R815';
   DELETE FROM ka_novinky WHERE seo_link IN ('vyroci-r815', 'jina-r815'); DELETE FROM ka_api_tokeny WHERE nazev = 'r815 admin'" > /dev/null

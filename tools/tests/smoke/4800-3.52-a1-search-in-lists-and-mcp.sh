@@ -30,9 +30,11 @@ expect "3.52 A7: the news list finds a word of the text without diacritics (zele
 sq "INSERT INTO ka_poptavky (datum, formular, stranka, tema, email, data, stav) VALUES
   ('$A800_NOW', 'Kontakt A800', '/kontakt', 'Sklad A800', 'rehor@example.com', '[[\"Jméno\",\"Řehoř Dvořák\"],[\"Zpráva\",\"Ahoj A800\"]]', 0),
   ('$A800_NOW', 'Kontakt A800', '/kontakt', '', 'old@example.com', '[[\"Jm\\\\u00e9no\",\"Old \\\\u0160koda A800\"]]', 0)" > /dev/null
+# the list marks the searched words – also in the e-mail (<mark>rehor</mark>@…), so the row is found by its detail link
+A800_REHOR=$(sq "SELECT idp FROM ka_poptavky WHERE email = 'rehor@example.com' AND formular = 'Kontakt A800'")
 A800_LIST=$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&search=dvorak+rehor")
 expect "3.52 A2: enquiries find a name of the form data without diacritics in any order, an old \\\\u row by the word with diacritics, and the topic of the form" \
-  "$(printf '%s' "$A800_LIST" | a800_has 'rehor@example.com')|$(curl -s -G -b "$JAR" "$B/admin.php" -d module=enquiries --data-urlencode 'search=Škoda A800' | a800_has 'old@example.com')|$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&search=sklad+a800" | a800_has 'rehor@example.com')|$(a800_mcp list_enquiries '{"search":"DVORAK řehoř"}' | a800_count 'rehor@example.com')" \
+  "$(printf '%s' "$A800_LIST" | a800_has "action=detail&amp;id=${A800_REHOR:-0}\"")|$(curl -s -G -b "$JAR" "$B/admin.php" -d module=enquiries --data-urlencode 'search=Škoda A800' | a800_has 'old@example.com')|$(curl -s -b "$JAR" "$B/admin.php?module=enquiries&search=sklad+a800" | a800_has 'rehor@example.com')|$(a800_mcp list_enquiries '{"search":"DVORAK řehoř"}' | a800_count 'rehor@example.com')" \
   "1|1|1|1"
 # 51 more of the same word: page 2 keeps the search and the kind, a page past the end is the last one
 sq "INSERT INTO ka_poptavky (datum, formular, email, data, stav, kategorie) SELECT '$A800_NOW', 'Strana A800', CONCAT('p', n, '@example.com'), '[[\"Zpráva\",\"Stránkování A800\"]]', 0, 'sales'

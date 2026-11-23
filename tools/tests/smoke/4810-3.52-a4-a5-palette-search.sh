@@ -46,8 +46,9 @@ expect "3.52 A4: the author (role 0, News only) gets their own draft and the sha
 expect "3.52 A4: a user without Customers, Pages, News and Collections gets the enquiry (their section) and nothing of the others" \
   "$(a810_types "$A810_DJAR" 'sramek a810' | tr ',' '\n' | sort | tr '\n' ',')" \
   "enquiry,media,"
+# only the palette's own JSON (one line, its </script> on the same line) – the dashboard below may name the page
 expect "3.52 A4: the dashboard no longer carries the pages for the palette (they are searched on the server)" \
-  "$(curl -s -b "$JAR" "$B/admin.php" | sed -n '/id="paleta-data"/,/<\/script>/p' | grep -c 'Šrámek A810')" "0"
+  "$(curl -s -b "$JAR" "$B/admin.php" | php -r 'preg_match("~id=\"paleta-data\">(.*?)</script>~s", (string) stream_get_contents(STDIN), $m); echo isset($m[1]) ? substr_count($m[1], "Šrámek A810") : "no palette";')" "0"
 
 expect "3.52 A4: MCP search finds the same with admin addresses and totals; the Czech alias hledej answers too; a one-letter query is refused" \
   "$(a810_mcp search '{"query":"a810 sramek"}' | php -r '$d = json_decode(stream_get_contents(STDIN), true); $t = array_column($d["results"] ?? [], "type"); sort($t); echo implode(",", array_unique($t)), "|", ($d["totals"]["news"] ?? 0), "|", (int) str_contains(json_encode($d["results"] ?? []), "admin.php?module=pages&action=edit"), "|", implode(",", $d["untrusted"] ?? []);')|$(a810_mcp hledej '{"dotaz":"sramek a810"}' | grep -c 'Šrámek A810' | awk '{print ($1 > 0)}')|$(a810_mcp search '{"query":"s"}' | grep -c 'two characters')" \
