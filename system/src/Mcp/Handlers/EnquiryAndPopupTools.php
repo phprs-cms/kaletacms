@@ -73,9 +73,11 @@ trait EnquiryAndPopupTools
             $whereParts[] = 'stav = ?';
             $params[] = $statuses[$a['stav']];
         }
-        if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
+        // a number (a phone, a year) is searched as before 3.52, never ignored
+        $search = is_scalar($a['hledat'] ?? null) ? trim((string) $a['hledat']) : '';
+        if ($search !== '') {
             // 3.52 (A1): the same columns and rules as the admin list of enquiries
-            [$sql, $words] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Enquiries::SEARCH_COLUMNS, $a['hledat'], ['data']);
+            [$sql, $words] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Enquiries::SEARCH_COLUMNS, $search, ['data']);
             $whereParts[] = $sql;
             array_push($params, ...$words);
         }

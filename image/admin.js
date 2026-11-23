@@ -540,6 +540,7 @@
 		var popupTimer = null;
 		var popupAbort = null;
 		var popupRecentKey = 'kaleta-paleta-posledni';
+		var popupSignIn = palette.getAttribute('data-paleta-prihlaseni') || ''; // "<user id>:<start of the sign-in>" (Core\Auth's login_at)
 		var removeDiacritics = function (t) { return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
 
 		// how well a name fits the search – the same as Admin\Palette::rank(): 0 the same, 1 the start, 2 the start of a word, 3 anywhere
@@ -549,10 +550,16 @@
 			if (w === '' || n === '') { return 3; }
 			return n === w ? 0 : (n.indexOf(w) === 0 ? 1 : ((' ' + n).indexOf(' ' + w) !== -1 ? 2 : 3));
 		};
-		// 3.52 (A5): the last records and screens opened from the palette – in this browser only (localStorage), never on the server
+		// 3.52 (A5): the last records and screens opened from the palette – in this browser only (localStorage), never on the server;
+		// 3.52 review: only of this account and sign-in ({who, list}) – another person or a new sign-in never sees them
 		var popupRecent = function () {
 			try {
-				var list = JSON.parse(localStorage.getItem(popupRecentKey) || '[]');
+				var stored = JSON.parse(localStorage.getItem(popupRecentKey) || '{}') || {};
+				if (popupSignIn === '' || stored.who !== popupSignIn) {
+					if (popupSignIn !== '' && localStorage.getItem(popupRecentKey) !== null) { localStorage.removeItem(popupRecentKey); } // of someone else: forgotten
+					return [];
+				}
+				var list = stored.list;
 				return Array.isArray(list) ? list.filter(function (p) { return p && typeof p.n === 'string' && typeof p.u === 'string' && p.u.charAt(0) === '/' && p.u.charAt(1) !== '/'; }).slice(0, 8) : [];
 			} catch (e) { return []; }
 		};
@@ -561,7 +568,7 @@
 			try {
 				var list = popupRecent().filter(function (r) { return r.u !== p.u; });
 				list.unshift({ n: p.n, u: p.u, s: p.s || '' });
-				localStorage.setItem(popupRecentKey, JSON.stringify(list.slice(0, 8)));
+				if (popupSignIn !== '') { localStorage.setItem(popupRecentKey, JSON.stringify({ who: popupSignIn, list: list.slice(0, 8) })); }
 			} catch (e) {}
 		};
 

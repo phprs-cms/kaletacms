@@ -34,7 +34,7 @@ trait WorkTools
             'list_colleagues' => ['The colleagues of the connected user (read-only): everyone with an active account on the site – name, position, work phone and e-mail as each of them entered it in My account; department, reports_to (a colleague id), and while away today absent_until and deputy (who stands in), plus departments (the org chart: id, name, parent, head). Blocked accounts are not listed; nothing else of the accounts.', Schema::object([])],
             'team_summary' => ['How much of the team\'s work happened in a period (read-only) – counts only, never hours, money or deal values: open enquiries each person handles and enquiries answered, open, overdue and done tasks, deal moves, deals won and lost, job applications handled, quotes sent and accepted – each only for a section the user may open. team = the totals; you = the user\'s own; people (administrators only) = the counts of each person.',
                 Schema::object(['period' => Schema::text('7_days | 30_days (default) | this_month | last_month | 90_days')])],
-            'hledej' => ['Najde záznamy, které smí uživatel otevřít (jen čtení) – stránky, novinky, položky kolekcí, média, poptávky, nabídky, své úkoly, uživatele, zákazníky, obchody, žádosti o místo a interní soubory; každý druh jen se sekcí uživatele a za stejných podmínek jako jeho seznam. Každé slovo dotazu kdekoli, bez ohledu na pořadí a diakritiku; nejvýš 5 od druhu, přesný název a začátek názvu první.',
+            'hledej' => ['Najde záznamy, které smí uživatel otevřít (jen čtení) – stránky, novinky, položky kolekcí, média, poptávky, nabídky, své úkoly, zákazníky, obchody, žádosti o místo (smí-li je Claude číst) a interní soubory; každý druh jen se sekcí uživatele a za stejných podmínek jako jeho seznam. Každé slovo dotazu kdekoli, bez ohledu na pořadí a diakritiku; nejvýš 5 od druhu, přesný název a začátek názvu první.',
                 Schema::object(['dotaz' => Schema::text('hledaná slova (nejméně 2 znaky)')], ['dotaz'])],
         ];
     }
@@ -42,7 +42,8 @@ trait WorkTools
     /**
      * search (3.52, A4): what the command palette finds (Core\RecordSearch) – results [{type, id, title, note, url}] with the
      * admin address of each record (note left out when empty) and how many of each kind match (totals); more than five
-     * of a kind are listed by the kind's list tool.
+     * of a kind are listed by the kind's list tool. 3.52 review: without the kind user, and without job applications
+     * (and the tasks about them) while applications_claude is off; the notes in English.
      */
     private function toolSearch(string $name, array $a): mixed
     {
@@ -53,7 +54,17 @@ trait WorkTools
         $origin = $this->app->request->origin();
         $results = [];
         $totals = [];
-        foreach (\Kaleta\Core\RecordSearch::search($this->app, $q, array_keys((new \Kaleta\Admin\Kernel($this->app))->modules())) as $group) {
+        // never the user accounts (login names, blocked accounts – list_colleagues is what Claude knows of people); job
+        // applications, the job enquiries still moving and the tasks about applications only while the site lets Claude
+        // read them (applications_claude), as every other tool
+        $modules = array_values(array_diff(array_keys((new \Kaleta\Admin\Kernel($this->app))->modules()), ['users']));
+        $applications = $this->app->settings()->bool('applications_claude');
+        if (!$applications) {
+            $modules = array_values(array_diff($modules, [\Kaleta\Core\Applications::SECTION]));
+        }
+        // the notes (hidden, not published, the status, the date) in English, as the whole interface – never the site language
+        $groups = \Kaleta\Core\Language::runWith('en', fn (): array => \Kaleta\Core\RecordSearch::search($this->app, $q, $modules, $applications), 'admin-');
+        foreach ($groups as $group) {
             $totals[$group['type']] = $group['total'];
             foreach ($group['items'] as $item) {
                 $results[] = ['type' => $group['type'], 'id' => $item['id'], 'title' => $item['title']] + ($item['note'] !== '' ? ['note' => $item['note']] : []) + ['url' => $origin . $item['url']];

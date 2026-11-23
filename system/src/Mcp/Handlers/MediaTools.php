@@ -50,7 +50,7 @@ trait MediaTools
         $db = $this->app->db();
 
         // 3.52 (A1, A9): the same columns and rules as the admin list of Media – the name, the caption and the path
-        [$where, $params] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Media::SEARCH_COLUMNS, is_string($a['hledat'] ?? null) ? $a['hledat'] : '');
+        [$where, $params] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Media::SEARCH_COLUMNS, is_scalar($a['hledat'] ?? null) ? (string) $a['hledat'] : '');
 
         return array_map(fn (array $o): array => $this->medium($o),
             $db->all('SELECT * FROM {media} o WHERE ' . $where . ' ORDER BY o.ido DESC LIMIT ?', [...$params, max(1, min(50, (int) ($a['limit'] ?? 20)))]));

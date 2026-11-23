@@ -72,9 +72,11 @@ trait NewsTools
             $where[] = 'c.tema = ?';
             $p[] = $this->category((string) $a['kategorie']);
         }
-        if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
+        // a number (a year) is searched as before 3.52, never ignored
+        $search = is_scalar($a['hledat'] ?? null) ? trim((string) $a['hledat']) : '';
+        if ($search !== '') {
             // 3.52 (A7): the same words and columns as the admin list of news
-            [$sql, $words] = \Kaleta\Core\Search::newsWords($a['hledat']);
+            [$sql, $words] = \Kaleta\Core\Search::newsWords($search);
             $where[] = $sql;
             array_push($p, ...$words);
         }

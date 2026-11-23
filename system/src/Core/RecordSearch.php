@@ -31,11 +31,12 @@ final class RecordSearch
      * grouped by kind: at most GROUP of each, the exact name and the start of the name first (rank()), the groups in
      * the order of their best record. total = all of that kind that match; more = its list with ?search= ('' when the
      * list cannot search). URLs are of the administration, without the origin. Under two characters: nothing.
+     * $applicationTasks false leaves out the tasks about a job application (MCP search while applications_claude is off).
      *
      * @param list<string> $modules the sections the person may open (Kernel::modules())
      * @return list<array{type: string, label: string, items: list<array{id: int, title: string, note: string, url: string}>, total: int, more: string}>
      */
-    public static function search(App $app, string $q, array $modules): array
+    public static function search(App $app, string $q, array $modules, bool $applicationTasks = true): array
     {
         $q = mb_substr(trim($q), 0, 100);
         if (mb_strlen($q) < 2) {
@@ -49,7 +50,7 @@ final class RecordSearch
             'media' => ['media', 'Media', self::media(...)],
             'enquiry' => ['enquiries', 'Enquiries', self::enquiries(...)],
             'quote' => [Prices::SECTION, 'Quotes', self::quotes(...)],
-            'task' => ['my_work', 'Tasks', self::tasks(...)],
+            'task' => ['my_work', 'Tasks', fn (App $app, string $q): array => self::tasks($app, $q, $applicationTasks)],
             'user' => ['users', 'Users', self::users(...)],
             'contact' => [Contacts::SECTION, 'Customers', self::contacts(...)],
             'deal' => [Deals::SECTION, 'Deals', self::deals(...)],
@@ -196,11 +197,11 @@ final class RecordSearch
         return [$rows, $result['total'], 'module=quotes'];
     }
 
-    /** The person's own open tasks by the title – the ones My work lists for them (Core\Tasks::forUser). */
-    private static function tasks(App $app, string $q): array
+    /** The person's own open tasks by the title – the ones My work lists for them (Core\Tasks::forUser); without the ones about an application on request. */
+    private static function tasks(App $app, string $q, bool $applicationTasks = true): array
     {
         [$where, $params] = Db::likeWords(['title'], $q);
-        $from = 'FROM {tasks} WHERE assignee_id = ? AND done_at IS NULL AND ' . $where;
+        $from = 'FROM {tasks} WHERE assignee_id = ? AND done_at IS NULL AND ' . $where . ($applicationTasks ? '' : " AND (target IS NULL OR target NOT LIKE 'application:%')");
         $params = [$app->auth()->id(), ...$params];
         try {
             $rows = array_map(fn (array $r): array => ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'note' => $r['due_at'] !== null ? format_date((string) $r['due_at']) : '',
@@ -258,7 +259,8 @@ final class RecordSearch
             'note' => self::note('#' . (int) $r['id'], (string) $r['job_title'], t(Applications::STATUS_LABELS[(string) $r['status']] ?? (string) $r['status'])),
             'url' => $app->url('admin.php?module=applications&action=detail&id=' . (int) $r['id'])], $result['rows']);
 
-        return [$rows, $result['total'], 'module=applications'];
+        // status present and empty = every status, as the rows counted here (the list shows only the open ones without it)
+        return [$rows, $result['total'], 'module=applications&status='];
     }
 
     /** Ready internal files of the folders the person sees, by the name, the description or the tags (Core\InternalFiles::files). */

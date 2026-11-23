@@ -180,7 +180,7 @@ foreach (Kaleta\Admin\MenuGroups::groups($modules) as $menuGroup):
 </section>
 <?php endif ?>
 <?php if ($statements !== []): ?>
-<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>" data-csrf="<?= e($app->session->csrfToken()) ?>" data-paleta-hledat="<?= e($app->url('admin.php?action=palette_search')) /* 3.52 (A4): every kind of record in one answer */ ?>">
+<dialog class="paleta" id="paleta" aria-label="<?= e(t('Quick search and commands')) ?>" data-csrf="<?= e($app->session->csrfToken()) ?>" data-paleta-hledat="<?= e($app->url('admin.php?action=palette_search')) /* 3.52 (A4): every kind of record in one answer */ ?>" data-paleta-prihlaseni="<?= (int) $app->auth()->id() ?>:<?= (int) $app->session->get('login_at', 0) /* 3.52 review: "Recently opened" belongs to this account and sign-in */ ?>">
 	<input class="paleta-pole" type="search" role="combobox" aria-expanded="true" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="<?= e(t('Where do you want to go? Type the name of a section, action, page or news item…')) ?>" aria-label="<?= e(t('Quick search and commands')) ?>" aria-controls="paleta-seznam">
 	<ul class="paleta-seznam" id="paleta-seznam" role="listbox" aria-label="<?= e(t('Quick search and commands')) ?>"></ul>
 	<p class="paleta-napoveda"><kbd>↑</kbd> <kbd>↓</kbd> <?= e(t('select')) ?> · <kbd>Enter</kbd> <?= e(t('open')) ?> · <kbd>Esc</kbd> <?= e(t('close')) ?></p>
