@@ -9606,4 +9606,10 @@ return [
     'Every search found something.' => 'Todas las búsquedas encontraron algo.',
     'Site search: the queries visitors typed into the search of the site, without signed-in users and bots; a query with an e-mail address or a long number is never kept.' => 'Búsqueda en el sitio: los términos que los visitantes escribieron en el buscador del sitio, sin usuarios con sesión iniciada ni bots; una consulta con una dirección de correo o un número largo nunca se guarda.',
     'Searched terms in Statistics' => 'Términos buscados en Estadísticas',
+    'Search index filled in' => 'Índice de búsqueda completado',
+    'Search index' => 'Índice de búsqueda',
+    'every page, item and news item can be found' => 'todas las páginas, elementos y noticias se pueden encontrar',
+    '%d pages, %d items and %d news items wait for their search text' => '%d páginas, %d elementos y %d noticias esperan su texto de búsqueda',
+    'the number did not fall since the last run of the background jobs; see Background jobs below' => 'el número no ha bajado desde la última ejecución de las tareas en segundo plano; consulte Tareas en segundo plano más abajo',
+    'the background jobs fill it in' => 'las tareas en segundo plano lo completan',
 ];

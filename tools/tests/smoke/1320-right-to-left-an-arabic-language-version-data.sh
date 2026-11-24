@@ -120,9 +120,9 @@ SC_NEWS=$(sq "SELECT idc FROM ka_novinky WHERE jazyk = 'ar' AND titulek = 'نص�
 sq "UPDATE ka_novinky SET visible = 1, datum = '$(site_time '-1 day')', hledani = 'نصيحة التمرين رقم 1' WHERE idc = $SC_NEWS; UPDATE ka_nastaveni SET hodnota = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', hodnota, ','), ',0089-arabic-search-index,', ',')) WHERE promenna = 'data_migrations'" > /dev/null
 curl -s -b "$JAR" -o /dev/null "$B/admin.php"
 SC_INDEX=$(sq "SELECT COALESCE(hledani, 'NULL') FROM ka_novinky WHERE idc = $SC_NEWS")
-# 3.52 (B1): the index is filled by the background job search_index, no longer by every search
-sq "UPDATE ka_jobs SET last_run = NULL WHERE name = 'search_index'" > /dev/null
-curl -s -o /dev/null "$B/tasks?token=testtoken123"
+# 3.52 (B1): the index is filled by the background job search_index, no longer by every search; 3.53 (A3): the job fills
+# pages and items first – the cron runs go on until nothing waits
+fill_search_index
 curl -s -o "$WORK/response" -G "$B/ar/search" --data-urlencode "q=نصيحه"
 expect "3.12: migration 0089 empties an old Arabic news index, the search_index job fills it with ة as ه and the search finds the post" \
   "$SC_INDEX|$(sq "SELECT hledani LIKE '%نصيحه التمرين%' FROM ka_novinky WHERE idc = $SC_NEWS")|$(grep -c 'نصيحة التمرين رقم 1' "$WORK/response")" "NULL|1|1"

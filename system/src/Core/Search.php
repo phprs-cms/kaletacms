@@ -112,12 +112,12 @@ final class Search
         });
     }
 
-    /** Recomputes the index of one article; called after every save (admin, Claude). */
+    /** Recomputes the index of one article; called after every save (admin, Claude). The text: SearchIndex::text (3.53). */
     public static function index(Db $db, int $idc): void
     {
         $c = $db->one('SELECT titulek, uvod, text, t_slova FROM {novinky} WHERE idc = ?', [$idc]);
         if ($c !== null) {
-            $db->update('novinky', ['hledani' => self::normalize($c['titulek'] . ' ' . $c['t_slova'] . ' ' . $c['uvod'] . ' ' . $c['text'])], ['idc' => $idc]);
+            $db->update('novinky', ['hledani' => SearchIndex::text('novinky', $c)], ['idc' => $idc]);
         }
     }
 

@@ -41,6 +41,11 @@ retention_apply() {
 }
 # run_job <name>: one background job of Core\Scheduler, as cron runs it (T1: the clean-up no longer runs on admin GET requests)
 run_job() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone(); echo Kaleta\Core\Scheduler::jobs()[$argv[1]][3]($app, "cron");' -- "$1"); }
+# 3.53 (A3): the rows waiting for their search text (Core\SearchIndex::pending – pages, items, news) and a loop of cron runs
+# until none waits – never one call or a fixed sleep (a run fills what its budget allows and the next one goes on)
+search_index_pending() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); echo array_sum(Kaleta\Core\SearchIndex::pending($app->db(), $app->settings()));'); }
+fill_search_index() { local i token; token=$(setting_plain tasks_token)
+  for i in $(seq 1 30); do [ "$(search_index_pending)" = 0 ] && return 0; curl -s -o /dev/null -G "$B/tasks" --data-urlencode "token=$token"; done; [ "$(search_index_pending)" = 0 ]; }
 # setting_plain <key>: a setting as the site reads it – 3.39 (N106): a secret setting is stored sealed with the key in config.php
 # mcp_call <token> <tool> <arguments as JSON> [site]: one MCP tools/call. 3.39 (N105): a tool that e-mails outside the team or
 # erases for good first answers with a confirmation code – the call is repeated once with it, so a section tests what the

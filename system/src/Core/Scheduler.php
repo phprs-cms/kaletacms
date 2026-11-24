@@ -26,11 +26,13 @@ final class Scheduler
         // fails, they run anyway and System status warns (3.12.1)
         'time_zone' => [0, 'any', 'Saved dates converted to a new time zone'],
         'notifications' => [0, 'any', 'Scheduled publishing and announcements'],
-        'search_index' => [0, 'any', 'Search index of news filled in'], // 3.52 (B1): no longer on every search of the site
         // 3.27 (Core\Tasks): before the mail, so a reminder e-mail queued now goes out in the same run
         'tasks' => [300, 'any', 'Task reminders'],
         'mail' => [0, 'any', 'Sending e-mail'],
         'webhooks' => [0, 'any', 'Webhook deliveries'],
+        // 3.52 (B1): no longer on every search of the site; 3.53 (A3, Core\SearchIndex): pages, items and news, after the mail
+        // and the webhooks (they share the budget of a visit) with what is left of it
+        'search_index' => [0, 'any', 'Search index filled in'],
         'newsletter_sync' => [0, 'any', 'Subscribers to the mailing service'],
         'newsletter_mailing' => [0, 'cron', 'Sending newsletters'],
         'media_sync' => [0, 'any', 'Off-site copy of the media'],
@@ -80,6 +82,15 @@ final class Scheduler
 
     public const int FAILURES_TO_ALERT = 3;
 
+    /** The end of the running run's budget (microtime), null outside run(). */
+    private static ?float $end = null;
+
+    /** Seconds left of the running run's budget (3.53, A3: the search index takes what is left); outside a run no limit. */
+    public static function remaining(): float
+    {
+        return self::$end === null ? PHP_FLOAT_MAX : max(0.0, self::$end - microtime(true));
+    }
+
     /**
      * One run at a time; a time zone conversion started from Settings holds it too (Admin\Modules\Settings::actionTimeZone).
      * 3.36 (T4): per site (Db::lockName – the database and the prefix) – one name for every site on a MySQL server made a
@@ -112,7 +123,13 @@ final class Scheduler
 
                 return 'ok';
             },
-            'search_index' => fn (App $app): string => 'filled ' . Search::complete($app->db()),
+            'search_index' => function (App $app, string $source): string {
+                // what is left of the run's budget: from cron at most 20 s, on a visit 1.5 s – 0.4 s where the host cannot
+                // send the answer first (the visitor would wait)
+                $cap = $source === 'cron' ? 20.0 : (Notifications::answersFirst() ? 1.5 : 0.4);
+
+                return SearchIndex::run($app->db(), $app->settings(), min($cap, self::remaining()));
+            },
             'tasks' => fn (App $app): string => Tasks::run($app), // 3.27: due tasks notify their assignee once
             'mail' => function (App $app, string $source): string {
                 $sent = Mail::processQueue($app->settings(), $source === 'cron' ? 30 : 10);
@@ -245,7 +262,7 @@ final class Scheduler
         if ((int) $db->value('SELECT GET_LOCK(?, ?)', [self::lockName($db), $source === 'cron' ? 20 : 0]) !== 1) {
             return []; // another run is in progress
         }
-        $end = microtime(true) + $budget;
+        $end = self::$end = microtime(true) + $budget;
         $results = [];
         try {
             $state = [];
@@ -269,6 +286,7 @@ final class Scheduler
                 }
             }
         } finally {
+            self::$end = null;
             $db->value('SELECT RELEASE_LOCK(?)', [self::lockName($db)]);
         }
 

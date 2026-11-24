@@ -305,6 +305,7 @@ final class Installer
                 $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                     'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA), 'extensions' => $extensions === [] ? '-' : implode(',', $extensions),
                     'slugs_per_language' => '1', // 3.19: schema.sql has no global slug keys – the same address once in each language version
+                    \Kaleta\Core\SearchIndex::STATE => \Kaleta\Core\Search::VERSION . ':0', // 3.53: no index of an older version to re-make
                     // 3.33 review H1: an empty record – the pages an export brings are never sample pages (no legacy rule)
                     \Kaleta\Core\StarterPages::SETTING => '{}'];
                 foreach ($settings as $key => $value) {
@@ -352,12 +353,12 @@ final class Installer
             $privacyPolicyId = $db->insert('stranky', ['titulek' => $privacyPolicy, 'seo_link' => slugify($privacyPolicy), 'text' => $privacyPolicyText, 'zobrazit' => 0, 'v_menu' => 0, 'poradi' => 90, 'zmeneno' => $installed]);
             \Kaleta\Core\Menu::save($db, 'paticka', '', [['typ' => 'stranka', 'ids' => $privacyPolicyId, 'text' => '']]);
 
-            \Kaleta\Core\Search::complete($db);
             $settings = ['site_name' => $d['nazev_webu'], 'site_url' => $this->request->origin(), 'site_email' => $d['email'], 'site_language' => $siteLanguage, 'german_register' => $this->register,
                 'design_system' => (string) json_encode(\Kaleta\Builder\DesignSystem::preset($siteSettings['predvolba']), JSON_UNESCAPED_SLASHES),
                 'time_zone' => $d['casove_pasmo'], 'tasks_token' => $this->tasksToken, 'home_page' => (string) $home, 'db_version' => (string) Migration::latest(), 'data_migrations' => implode(',', Migration::DATA),
                 'extensions' => $extensions === [] ? '-' : implode(',', $extensions), 'cookies_policy_url' => $this->request->basePath() . '/' . slugify($privacyPolicy),
                 'slugs_per_language' => '1', // 3.19: schema.sql has no global slug keys – the same address once in each language version
+                \Kaleta\Core\SearchIndex::STATE => \Kaleta\Core\Search::VERSION . ':0', // 3.53: no index of an older version to re-make
                 // 3.33 (M2): what the installer wrote on each starter page – an import replaces an untouched one (Core\StarterPages)
                 \Kaleta\Core\StarterPages::SETTING => \Kaleta\Core\StarterPages::record($db, $starters)];
             foreach ($settings as $key => $value) {
@@ -365,6 +366,8 @@ final class Installer
             }
 
             if ($move || !in_array('novinky', $extensions, true)) {
+                \Kaleta\Core\SearchIndex::complete($db, 10.0); // 3.53: the starter pages are searchable at once
+
                 return; // without news (or a move: the old site's news arrive with the import) – no welcome news item
             }
             $category = $db->insert('kategorie', ['nazev' => $x('Aktuality'), 'seo_link' => slugify($x('Aktuality')), 'popis' => '']);
@@ -378,6 +381,7 @@ final class Installer
                 'datum' => date('Y-m-d H:i:s'),
                 'visible' => 1,
             ]);
+            \Kaleta\Core\SearchIndex::complete($db, 10.0); // 3.53: the starter pages and the welcome news item are searchable at once (before 3.53 the news item waited for the job)
         });
     }
 

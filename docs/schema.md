@@ -140,7 +140,7 @@ English name: `news`.
 | `odkazy_cas` |  | DATETIME NULL | when the links were last checked |
 | `smazano` | `deleted_at` | DATETIME NULL | in the trash since (deleted permanently after 30 days); NULL = not in the trash |
 
-Keys: `PRIMARY KEY (idc)`; `UNIQUE KEY uq_clanky_jazyk_seo (jazyk, seo_link)`; `KEY ix_clanky_seo (seo_link)`; `KEY ix_clanky_jazyk (jazyk, visible, datum)`; `KEY ix_clanky_oznameno (oznameno, visible, datum)`; `KEY ix_clanky_datum (datum)`; `KEY ix_clanky_smazano (smazano)`; `KEY ix_clanky_tema (tema, visible, datum)`; `KEY ix_clanky_autor (autor)`; `FULLTEXT KEY ft_clanky_hledani (hledani)`; `CONSTRAINT fk_clanky_tema FOREIGN KEY (tema) REFERENCES ka_kategorie (idt)`; `CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL`.
+Keys: `PRIMARY KEY (idc)`; `UNIQUE KEY uq_clanky_jazyk_seo (jazyk, seo_link)`; `KEY ix_clanky_seo (seo_link)`; `KEY ix_clanky_jazyk (jazyk, visible, datum)`; `KEY ix_clanky_oznameno (oznameno, visible, datum)`; `KEY ix_clanky_datum (datum)`; `KEY ix_clanky_smazano (smazano)`; `KEY ix_clanky_tema (tema, visible, datum)`; `KEY ix_clanky_autor (autor)`; `CONSTRAINT fk_clanky_tema FOREIGN KEY (tema) REFERENCES ka_kategorie (idt)`; `CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL`.
 
 ## ka_media_slozky
 
@@ -279,6 +279,7 @@ English name: `pages`.
 | `stavba_koncept` | `build_draft` | MEDIUMTEXT NULL | work-in-progress build from the editor; NULL = no unsaved changes |
 | `smazano` | `deleted_at` | DATETIME NULL | in the trash since (deleted permanently after 30 days); NULL = not in the trash |
 | `owner_id` |  | INT UNSIGNED NULL | responsible person (ka_uzivatele.idu), responsibility only; NULL = nobody (3.24, migration 0110) |
+| `hledani` | `search_text` | MEDIUMTEXT NULL | normalized search text (3.53, Core\SearchIndex); NULL = to index (migration 0141) |
 
 Keys: `PRIMARY KEY (ids)`; `UNIQUE KEY uq_stranky_jazyk_seo (jazyk, seo_link)`; `KEY ix_stranky_seo (seo_link)`; `KEY ix_stranky_smazano (smazano)`; `KEY ix_stranky_zverejnit (zverejnit_od)`; `KEY ix_stranky_owner (owner_id)`.
 
@@ -1159,6 +1160,7 @@ English name: `collection_items`.
 | `links_checked` |  | DATETIME NULL | when the links in the item's fields were last checked (2.14, Core\Links) |
 | `smazano` |  | DATETIME NULL | in the trash since (deleted permanently after 30 days); NULL = not in the trash |
 | `owner_id` |  | INT UNSIGNED NULL | responsible person (ka_uzivatele.idu), responsibility only; NULL = nobody (3.24, migration 0110) |
+| `hledani` | `search_text` | MEDIUMTEXT NULL | normalized search text (3.53, Core\SearchIndex); NULL = to index (migration 0141) |
 
 Keys: `PRIMARY KEY (idp)`; `UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link)`; `KEY ix_kolekce_polozky (idk, zobrazit, poradi)`; `KEY ix_kolekce_polozky_zverejnit (zverejnit_od)`; `KEY ix_kolekce_polozky_owner (owner_id)`; `CONSTRAINT fk_kolekce_polozky FOREIGN KEY (idk) REFERENCES ka_kolekce (idk) ON DELETE CASCADE`.
 

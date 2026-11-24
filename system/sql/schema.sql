@@ -137,7 +137,6 @@ CREATE TABLE ka_novinky (
     KEY ix_clanky_smazano (smazano),
     KEY ix_clanky_tema (tema, visible, datum),
     KEY ix_clanky_autor (autor),
-    FULLTEXT KEY ft_clanky_hledani (hledani),
     CONSTRAINT fk_clanky_tema  FOREIGN KEY (tema)  REFERENCES ka_kategorie (idt),
     CONSTRAINT fk_clanky_autor FOREIGN KEY (autor) REFERENCES ka_uzivatele (idu) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;
@@ -265,6 +264,7 @@ CREATE TABLE ka_stranky (
     stavba_koncept MEDIUMTEXT NULL,                        -- work-in-progress build from the editor; NULL = no unsaved changes
     smazano        DATETIME NULL,                          -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     owner_id INT UNSIGNED NULL,                           -- responsible person (ka_uzivatele.idu), responsibility only; NULL = nobody (3.24, migration 0110)
+    hledani  MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL, -- normalized search text (3.53, Core\SearchIndex); NULL = to index (migration 0141)
     PRIMARY KEY (ids),
     UNIQUE KEY uq_stranky_jazyk_seo (jazyk, seo_link),         -- per language (3.9); the global key is gone since 3.19 (migration 0106, Core\Slug)
     KEY ix_stranky_seo (seo_link),                              -- lookups in any language version (3.19, migration 0105)
@@ -1083,6 +1083,7 @@ CREATE TABLE ka_kolekce_polozky (
     links_checked DATETIME NULL,                        -- when the links in the item's fields were last checked (2.14, Core\Links)
     smazano  DATETIME NULL,                     -- in the trash since (deleted permanently after 30 days); NULL = not in the trash
     owner_id INT UNSIGNED NULL,                         -- responsible person (ka_uzivatele.idu), responsibility only; NULL = nobody (3.24, migration 0110)
+    hledani  MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL, -- normalized search text (3.53, Core\SearchIndex); NULL = to index (migration 0141)
     PRIMARY KEY (idp),
     UNIQUE KEY ux_kolekce_polozky_seo (idk, jazyk, seo_link),
     KEY ix_kolekce_polozky (idk, zobrazit, poradi),

@@ -95,8 +95,9 @@ expect_sql "3.10 (0085): an existing connection and code keep all tools and thei
 # above compares the type, not the collation), the values stay, and a lookup by token still uses its unique key
 tokencols() { "${MYSQL[@]}" -N -e "SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, '.', COLUMN_NAME, ':', COLUMN_TYPE, ':', IS_NULLABLE, ':', COALESCE(COLUMN_DEFAULT, 'NULL')) ORDER BY TABLE_NAME, COLUMN_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$1' AND COLLATION_NAME = 'utf8mb4_bin'"; }
 # 3.14 (0094) adds the 21st: ka_presmerovani.source_norm, the normalised old address of a redirect; 3.28 (0114) the 22nd:
-# ka_contacts.email_norm, the normalised address a contact is keyed by
-[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 23 ] && tokencols "$OLD" | grep -q 'ka_presmerovani.source_norm:varchar(255):YES:NULL' && tokencols "$OLD" | grep -q 'ka_contacts.email_norm:varchar(190):YES:NULL' && tokencols "$OLD" | grep -q 'ka_applications.email_norm:varchar(190):YES:NULL' && echo "  ok     3.12 (0092), 3.14 (0094), 3.28 (0114), 3.34 (0119): the 20 token and hash columns, the redirect source_norm and the contacts' and applications' email_norm are utf8mb4_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
+# ka_contacts.email_norm, the normalised address a contact is keyed by; 3.53 (0141) the 24th and 25th: the normalized search
+# text hledani of ka_stranky and ka_kolekce_polozky
+[ "$(tokencols "$OLD")" = "$(tokencols "$NEW")" ] && [ "$(tokencols "$OLD" | tr ',' '\n' | grep -c .)" = 25 ] && tokencols "$OLD" | grep -q 'ka_presmerovani.source_norm:varchar(255):YES:NULL' && tokencols "$OLD" | grep -q 'ka_contacts.email_norm:varchar(190):YES:NULL' && tokencols "$OLD" | grep -q 'ka_applications.email_norm:varchar(190):YES:NULL' && tokencols "$OLD" | grep -q 'ka_stranky.hledani:mediumtext:YES:NULL' && tokencols "$OLD" | grep -q 'ka_kolekce_polozky.hledani:mediumtext:YES:NULL' && echo "  ok     3.12 (0092), 3.14 (0094), 3.28 (0114), 3.34 (0119): the 20 token and hash columns, the redirect source_norm and the contacts' and applications' email_norm and the search text of pages and items (0141) are utf8mb4_bin, as on a fresh install" || { echo "  CHYBA  0092 token columns: $(tokencols "$OLD")"; ERRORS=$((ERRORS+1)); }
 "${MYSQL[@]}" "$OLD" -e "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO ka_api_tokeny (idu, nazev, klient, druh, otisk, vytvoren) VALUES (9092, 'Claude', REPEAT('a', 32), 'token', REPEAT('9', 64), '$(site_time)'); SET FOREIGN_KEY_CHECKS = 1"
 expect_sql "3.12 (0092): a token reads back by its hash and the client id compares exactly (no case folding)" "SELECT CONCAT((SELECT COUNT(*) FROM ka_api_tokeny WHERE otisk = REPEAT('9', 64)), (SELECT COUNT(*) FROM ka_api_tokeny WHERE idu = 9092 AND klient = REPEAT('A', 32)))" "10"
 # the traditional EXPLAIN names the key: MySQL takes FORMAT=TRADITIONAL (its default may be the tree), MariaDB knows only the plain one
@@ -506,14 +507,26 @@ expect_sql_value "3.51 (0139): run again by name – the same result" "$(m351b)"
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('additional_languages', '${M351_KEEP%%|*}'), ('site_url', '${M351_KEEP#*|}')"
 
 # 3.52 B5 (0140): what visitors search for – one table with its key on (day, language, query) and an ascii language of 35;
-# the unused FULLTEXT ft_clanky is gone, ft_clanky_hledani stays; run again (the index already dropped) – nothing changes
+# the unused FULLTEXT ft_clanky is gone (3.53: 0141 drops ft_clanky_hledani too – no FULLTEXT left, "-"); run again (the
+# index already dropped) – nothing changes
 m352() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT((SELECT COUNT(*) FROM ka_search_queries), '|',
   (SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_search_queries' AND index_name = 'PRIMARY'), '|',
   (SELECT CONCAT(character_set_name, ':', character_maximum_length) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'ka_search_queries' AND column_name = 'language'), '|',
-  (SELECT GROUP_CONCAT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_novinky' AND index_type = 'FULLTEXT'))"; }
-expect_sql_value "3.52 B5 (0140): ka_search_queries exists after the update – empty, keyed by day, language and query, an ascii language of 35; ft_clanky dropped, ft_clanky_hledani kept" "$(m352)" "0|day,language,query|ascii:35|ft_clanky_hledani"
+  (SELECT COALESCE(GROUP_CONCAT(DISTINCT index_name), '-') FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_novinky' AND index_type = 'FULLTEXT'))"; }
+expect_sql_value "3.52 B5 (0140): ka_search_queries exists after the update – empty, keyed by day, language and query, an ascii language of 35; ft_clanky dropped (ft_clanky_hledani by 0141)" "$(m352)" "0|day,language,query|ascii:35|-"
 "${MYSQL[@]}" "$OLD" -e "INSERT INTO ka_search_queries (day, language, query, searches, without_result) VALUES (CURDATE(), '', 'm352', 2, 1); UPDATE ka_nastaveni SET hodnota = '139' WHERE promenna = 'db_version'" && migrate > /dev/null
-expect_sql_value "3.52 B5 (0140): run again – nothing changes, the row stays, the version is the latest again" "$(m352)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "1|day,language,query|ascii:35|ft_clanky_hledani|$LAST_MIGRATION"
+expect_sql_value "3.52 B5 (0140): run again – nothing changes, the row stays, the version is the latest again" "$(m352)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "1|day,language,query|ascii:35|-|$LAST_MIGRATION"
 "${MYSQL[@]}" "$OLD" -e "DELETE FROM ka_search_queries"
+
+# 3.53 A2 (0141): pages and collection items get the normalized search text hledani (MEDIUMTEXT utf8mb4_bin, NULL = to index
+# – the background job search_index fills it), the FULLTEXT ft_clanky_hledani is dropped; existing rows stay NULL after the
+# update; run again from 140 (the columns there, the index gone) – nothing changes, the version is the latest again
+m353() { "${MYSQL[@]}" "$OLD" -N -e "SELECT CONCAT(
+  (SELECT GROUP_CONCAT(CONCAT(table_name, '.', column_name, ':', data_type, ':', collation_name, ':', is_nullable) ORDER BY table_name) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN ('ka_stranky', 'ka_kolekce_polozky') AND column_name = 'hledani'), '|',
+  (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'ka_novinky' AND index_name = 'ft_clanky_hledani'), '|',
+  (SELECT COUNT(*) FROM ka_stranky WHERE hledani IS NOT NULL) + (SELECT COUNT(*) FROM ka_kolekce_polozky WHERE hledani IS NOT NULL))"; }
+expect_sql_value "3.53 A2 (0141): hledani on pages and items (MEDIUMTEXT utf8mb4_bin NULL), ft_clanky_hledani gone, no row indexed by the update itself" "$(m353)" "ka_kolekce_polozky.hledani:mediumtext:utf8mb4_bin:YES,ka_stranky.hledani:mediumtext:utf8mb4_bin:YES|0|0"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '140' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql_value "3.53 A2 (0141): run again – nothing changes, the version is the latest again" "$(m353)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "ka_kolekce_polozky.hledani:mediumtext:utf8mb4_bin:YES,ka_stranky.hledani:mediumtext:utf8mb4_bin:YES|0|0|$LAST_MIGRATION"
 
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }

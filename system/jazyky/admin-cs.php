@@ -9178,4 +9178,10 @@ return [
     'Every search found something.' => 'Každé hledání něco našlo.',
     'Site search: the queries visitors typed into the search of the site, without signed-in users and bots; a query with an e-mail address or a long number is never kept.' => 'Hledání na webu: výrazy, které návštěvníci zadali do vyhledávání webu, bez přihlášených uživatelů a robotů; dotaz s e-mailovou adresou nebo dlouhým číslem se nikdy neukládá.',
     'Searched terms in Statistics' => 'Hledané výrazy ve Statistikách',
+    'Search index filled in' => 'Doplnění vyhledávacího indexu',
+    'Search index' => 'Vyhledávací index',
+    'every page, item and news item can be found' => 'každou stránku, položku i novinku lze najít',
+    '%d pages, %d items and %d news items wait for their search text' => 'na vyhledávací text čeká stránek: %d, položek: %d, novinek: %d',
+    'the number did not fall since the last run of the background jobs; see Background jobs below' => 'počet od posledního běhu úloh na pozadí neklesl – viz Úlohy na pozadí níže',
+    'the background jobs fill it in' => 'doplňují ho úlohy na pozadí',
 ];

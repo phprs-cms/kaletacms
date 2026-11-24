@@ -1315,9 +1315,9 @@ final class SiteImport
     /** After the import: the search index, the cache and the working files. */
     private function finish(): void
     {
-        for ($i = 0; $i < 500 && Search::complete($this->db, 200) > 0; $i++) {
-            // the search index of the imported news, 200 at a time
-        }
+        // the search text of the imported pages, items and news (3.53, Core\SearchIndex), for at most 25 s – resumable: what a
+        // large site leaves is filled by the background job
+        SearchIndex::complete($this->db, 25.0);
         \Kaleta\Core\PageCache::clear();
     }
 

@@ -99,6 +99,15 @@ final class Health
         } catch (\Throwable) {
             // the column of migration 0094 is missing before the update ran – System status still opens
         }
+        // 3.53 (A3): the search text of pages, items and news (Core\SearchIndex) – the background job fills what waits; a
+        // warning only when the number did not fall between its last two runs
+        if (SearchIndex::ready($siteSettings)) {
+            $waiting = SearchIndex::pending($db, $siteSettings);
+            $stuck = SearchIndex::stuck($siteSettings);
+            $add(t('Database'), t('Search index'), $stuck ? 'varovani' : 'ok', array_sum($waiting) === 0 ? t('every page, item and news item can be found')
+                : t('%d pages, %d items and %d news items wait for their search text', $waiting['pages'], $waiting['items'], $waiting['news'])
+                    . ' – ' . ($stuck ? t('the number did not fall since the last run of the background jobs; see Background jobs below') : t('the background jobs fill it in')));
+        }
         $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));
 
         // --- files and security

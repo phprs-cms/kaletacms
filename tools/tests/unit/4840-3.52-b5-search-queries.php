@@ -13,9 +13,9 @@ check('3.52 B5: SiteSearch::recordedQuery() – lower case, spaces collapsed, at
     ['rekonstrukce koupelen', 'služby v brně', 59, null, null, 'psč 602 00', null, 'iso 9001', '5g']);
 
 // the table, the recording rules, Statistics and get_stats are behaviour of the installed site: smoke 4840
-check('3.52 B5: ka_search_queries has its English name in the map, its days are civil dates (a time zone change never moves them), KALETA_DB_VERSION 140', [
+check('3.52 B5: ka_search_queries has its English name in the map, its days are civil dates (a time zone change never moves them), KALETA_DB_VERSION 141 (3.53: migration 0141)', [
     \Kaleta\Core\Names::map()['search_queries'][0] ?? null, \Kaleta\Core\TimeZoneConversion::CIVIL['search_queries'] ?? null, KALETA_DB_VERSION, \Kaleta\Core\Migration::latest()],
-    ['search_queries', ['day'], 140, 140]);
+    ['search_queries', ['day'], 141, 141]);
 
 check('3.52 B5: get_stats marks site_search as visitors\' text; no code searches with MATCH any more (the FULLTEXT ft_clanky is dropped by migration 0140)', [
     in_array('site_search', \Kaleta\Mcp\Untrusted::TOOLS['get_stats'], true),

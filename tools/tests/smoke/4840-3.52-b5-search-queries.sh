@@ -10,8 +10,8 @@ sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VA
   DELETE FROM ka_search_queries WHERE query LIKE '%840%'; DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 mcp_call "$B840_TOKEN" update_settings '{"settings":{"stats":true}}' > /dev/null
 
-expect "3.52 B5: no FULLTEXT ft_clanky on the news any more, ft_clanky_hledani stays" \
-  "$(sq "SELECT GROUP_CONCAT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_novinky' AND INDEX_TYPE = 'FULLTEXT'")" "ft_clanky_hledani"
+expect "3.52 B5: no FULLTEXT ft_clanky on the news any more (3.53: migration 0141 dropped ft_clanky_hledani too – none left)" \
+  "$(sq "SELECT COALESCE(GROUP_CONCAT(DISTINCT INDEX_NAME), '-') FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_novinky' AND INDEX_TYPE = 'FULLTEXT'")" "-"
 
 b840_get 'altány b840'
 b840_get '  Altány   B840 '      # the same query: lower case, spaces collapsed

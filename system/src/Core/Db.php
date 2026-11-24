@@ -393,6 +393,15 @@ final class Db
         return $count;
     }
 
+    /**
+     * 3.53 (A3): writes of derived data that never enter the undo journal of a Claude session (the search text hledani,
+     * Core\SearchIndex) – an undo restores the content, and the derived data is made again from it.
+     */
+    public function unjournaled(\Closure $fn): mixed
+    {
+        return $this->withoutJournal($fn);
+    }
+
     /** A helper's own statement: the helper journals it with the rows it knows, run() must not journal it again. */
     private function withoutJournal(\Closure $fn): mixed
     {

@@ -64,19 +64,10 @@ final class PricingTable extends Element
 .ka-cenik-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }';
     }
 
-    /** @return list<array{0: bool, 1: string}> features as [included, text] – a line starting with "-" is not included */
+    /** @return list<array{0: bool, 1: string}> features as [included, text] – a line starting with "-" is not included (Core\BuildText, 3.53) */
     public static function features(string $lines): array
     {
-        $features = [];
-        foreach (array_filter(array_map('trim', explode("\n", $lines)), fn (string $l): bool => $l !== '') as $line) {
-            $excluded = str_starts_with($line, '-');
-            $text = trim($excluded ? substr($line, 1) : $line);
-            if ($text !== '') {
-                $features[] = [!$excluded, $text];
-            }
-        }
-
-        return $features;
+        return \Kaleta\Core\BuildText::features($lines);
     }
 
     public static function rtlCss(): string

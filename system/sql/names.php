@@ -21,7 +21,7 @@ return [
     // core content
     'stranky' => ['pages', ['ids' => 'id', 'seo_link' => 'slug', 'titulek' => 'title', 'popis' => 'description', 'zobrazit' => 'visible', 'zverejnit_od' => 'publish_at',
         'v_menu' => 'in_menu', 'poradi' => 'position', 'zmeneno' => 'updated_at', 'jazyk' => 'language', 'preklad_z' => 'translation_of', 'nadrazena' => 'parent_id',
-        'stavba' => 'build', 'stavba_koncept' => 'build_draft', 'smazano' => 'deleted_at', 'kod_hlavicky' => 'head_code', 'heslo_hash' => 'password_hash']],
+        'stavba' => 'build', 'stavba_koncept' => 'build_draft', 'smazano' => 'deleted_at', 'kod_hlavicky' => 'head_code', 'heslo_hash' => 'password_hash', 'hledani' => 'search_text']],
     'novinky' => ['news', ['idc' => 'id', 'seo_link' => 'slug', 'titulek' => 'title', 'uvod' => 'intro', 'obrazek' => 'image', 'tema' => 'category_id', 'autor' => 'author_id',
         'datum' => 'published_at', 't_slova' => 'keywords', 'hledani' => 'search_text', 'oznameno' => 'announced_at', 'aktualizovano' => 'revised_at', 'jazyk' => 'language',
         'preklad_z' => 'translation_of', 'smazano' => 'deleted_at']],
@@ -46,7 +46,7 @@ return [
     'komponenty' => ['components', ['idm' => 'id', 'vlastnosti' => 'properties']],
     'sekce' => ['library_sections', ['idx' => 'id', 'prvek' => 'element']],
     'kolekce' => ['collections', ['idk' => 'id', 'pole' => 'fields']],
-    'kolekce_polozky' => ['collection_items', ['idp' => 'id', 'idk' => 'collection_id', 'data' => 'data', 'jazyk' => 'language']],
+    'kolekce_polozky' => ['collection_items', ['idp' => 'id', 'idk' => 'collection_id', 'data' => 'data', 'jazyk' => 'language', 'hledani' => 'search_text']],
     'kolekce_sablony' => ['collection_templates', ['idk' => 'collection_id', 'jazyk' => 'language']],
     'collection_categories' => ['collection_categories', []],
     'collection_category_texts' => ['collection_category_texts', []],
