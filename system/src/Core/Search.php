@@ -91,10 +91,13 @@ final class Search
     }
 
     /**
-     * A search of news in the admin list and MCP list_news (3.52, A7): each word in the title, the address or the index
-     * (intro, text, keywords – normalize()d like the stored index, so diacritics do not matter there either). A word whose
-     * normalized form is shorter than 2 letters is no filter when it is a plain letter or digit ("dům v Praze"); a word with
-     * punctuation ("C++" → "c") is looked for in the title and the address only – one letter would match almost every index. $alias = the table alias with its dot.
+     * A search of news in the admin list, the palette and MCP list_news (3.52, A7; 3.53, B1): each word in the title, the
+     * address or the index (intro, text, keywords – normalize()d like the stored index, so diacritics do not matter there
+     * either). A word whose normal form has several pieces ("R&B" → "r b", "e-mail", "s.r.o.") is a phrase: the pieces in a
+     * row from the start of a word, so "R&B" does not find "sektor bank". One character of a spaced script ("dům v Praze",
+     * "5") is no filter; a word that normalizes to one letter or to nothing ("C++", "—") is looked for in the title and the
+     * address only – one letter would match almost every index. One Han, Hangul or Kana character is a word. A word of any
+     * script reaches the index (3.53, A1), so no query lets every news item through. $alias = the table alias with its dot.
      *
      * @return array{0: string, 1: list<string>}
      */
@@ -102,13 +105,14 @@ final class Search
     {
         return Db::likeWords([$alias . 'titulek', $alias . 'seo_link'], $q, more: function (string $word) use ($alias): ?array {
             $normal = self::normalize($word);
-
-            if (self::longEnough($normal)) { // 3.53 (A5): one Han, Hangul or Kana character is a word too
+            if (str_contains($normal, ' ')) {
+                return ['CONCAT(\' \', ' . $alias . 'hledani) LIKE ?', ['% ' . addcslashes($normal, '%_\\') . '%']];
+            }
+            if (self::longEnough($normal)) {
                 return [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
             }
 
-            // A one-letter word ("v", "k", "5") narrows nothing, so it lets every row pass; "C++" stays in the title.
-            return preg_match('/^[\p{L}\p{N}]+$/u', $word) === 1 ? ['1 = 1', []] : null;
+            return $normal !== '' && preg_match('/^[\p{L}\p{N}]$/u', $word) === 1 ? ['1 = 1', []] : null;
         });
     }
 
@@ -146,33 +150,72 @@ final class Search
     }
 
     /**
-     * The endings stem() takes off a query word (3.52, B2), longest first, in the normalized form (no diacritics). Czech and
-     * Slovak cases and plurals (-ách = -ach, -ům = -um), English plurals, German plural and case endings. Only the query is
-     * stemmed – the stored text stays as it is and a text word matches when it starts with the stem.
+     * The endings stem() takes off a query word (3.52, B2; 3.53, B3), longest first, in the normalized form (no diacritics;
+     * Cyrillic as written, ё as е). Czech, Slovak and Polish cases, plurals and adjective endings (-ách = -ach, -ów = -ow),
+     * English and French plurals, German plural and case endings, Hungarian case suffixes (one round), Spanish and Portuguese
+     * plurals (then SECOND_ROUND), Italian plurals, Russian and Ukrainian cases. Only the query is stemmed – the stored
+     * text stays as it is and a text word matches when it starts with the stem. Every other language of Language::CODES is
+     * in NO_STEMMER (a unit test checks both lists cover them all).
      */
     public const array ENDINGS = [
-        'cs' => ['ami', 'ech', 'ach', 'ove', 'ovi', 'um', 'em', 'ou', 'y', 'a', 'e', 'i', 'u', 'o'],
-        'sk' => ['ami', 'ach', 'och', 'ove', 'ovi', 'om', 'ov', 'em', 'ou', 'y', 'a', 'e', 'i', 'u', 'o'],
-        'en' => ['es', 's'],
-        'de' => ['en', 'er', 'es', 'e'],
+        'cs' => ['ami', 'ech', 'ach', 'ove', 'ovi', 'eho', 'emu', 'iho', 'imu', 'ymi', 'imi', 'ych', 'ich', 'um', 'em', 'ou', 'ym', 'im', 'y', 'a', 'e', 'i', 'u', 'o'],
+        'sk' => ['ami', 'ach', 'och', 'ove', 'ovi', 'eho', 'emu', 'iho', 'imu', 'ymi', 'ych', 'ich', 'om', 'ov', 'em', 'ou', 'ym', 'im', 'y', 'a', 'e', 'i', 'u', 'o'],
+        'pl' => ['ami', 'ach', 'ego', 'emu', 'ymi', 'imi', 'ych', 'ich', 'iem', 'owi', 'ow', 'om', 'em', 'ej', 'ym', 'im', 'ie', 'a', 'e', 'i', 'o', 'u', 'y'],
+        'en' => ['ies', 'es', 's'],
+        'de' => ['ern', 'en', 'er', 'em', 'es', 'e', 'n', 's'],
+        'hu' => ['nak', 'nek', 'ban', 'ben', 'bol', 'rol', 'tol', 'hoz', 'hez', 'val', 'vel', 'nal', 'nel', 'ba', 'be', 'ra', 're', 'ig', 'ok', 'ek', 'ak', 'ot', 'et', 'at', 'on', 'en', 'k', 't', 'n'],
+        'es' => ['es', 's'],
+        'pt' => ['oes', 'aes', 'ais', 'eis', 'es', 's'],
+        'fr' => ['euses', 'euse', 'eaux', 'aux', 'ees', 'es', 'ee', 's', 'x', 'e'],
+        'it' => ['ioni', 'ione', 'i', 'e', 'a', 'o'],
+        'ru' => ['ями', 'ами', 'ого', 'его', 'ому', 'ему', 'ыми', 'ими', 'ых', 'их', 'ая', 'яя', 'ое', 'ее', 'ой', 'ей', 'ий', 'ый', 'ую', 'юю', 'ом', 'ем', 'ам', 'ям', 'ах', 'ях', 'ов', 'ев', 'а', 'я', 'о', 'е', 'ы', 'и', 'у', 'ю', 'ь'],
+        'uk' => ['ями', 'ами', 'ого', 'ому', 'ими', 'ах', 'ях', 'ів', 'ям', 'ам', 'ою', 'ею', 'ом', 'ем', 'ій', 'ий', 'их', 'ої', 'ая', 'а', 'я', 'о', 'е', 'и', 'і', 'у', 'ю', 'ь', 'ї'],
     ];
+
+    /** Spanish and Portuguese (3.53, B3): after the plural the gender vowel goes too – "servicios" → "servicio" → "servici". */
+    public const array SECOND_ROUND = ['es' => ['a', 'o', 'e'], 'pt' => ['a', 'o', 'e']];
+
+    /**
+     * The languages of Language::CODES without endings (3.53, B3): a query word is matched by prefix only – it finds the
+     * longer forms of a base form, not the other way round. Cheap stemmers for them were not prototyped (docs: limits).
+     */
+    public const array NO_STEMMER = ['bg', 'bs', 'ca', 'da', 'el', 'et', 'fi', 'ga', 'hr', 'is', 'lt', 'lv', 'mk', 'mt', 'nl', 'no', 'ro', 'sl', 'sq', 'sr', 'sv', 'tr',
+        'hi', 'id', 'ar', 'ja', 'ko', 'vi', 'zh'];
+
+    /** Languages written in Cyrillic themselves: a Cyrillic word there keeps its own rules (none for bg, bs, mk, sr), elsewhere it is Russian. */
+    private const array CYRILLIC = ['ru', 'uk', 'bg', 'bs', 'mk', 'sr'];
 
     /** A stem keeps at least this many letters – a shorter word is searched as it is ("auto" stays "auto", "IT" stays "it"). */
     public const int STEM_MIN = 4;
 
     /**
-     * A normalized query word without its ending (3.52, B2): "stavby" → "stavb", "koupelna" → "koupeln", "services" →
-     * "servic". Only for cs, sk, en and de (other languages: the word itself); a word with a digit stays as it is.
+     * A normalized query word without its ending (3.52, B2; 3.53, B3): "stavby" → "stavb", "uslugami" → "uslug", "services"
+     * → "servic", "москве" → "москв". The ending list is picked by the language and by the script of the word: a Cyrillic
+     * word on a site of a Latin language is stemmed as Russian, a Latin word on a Russian site is not stemmed, Serbian is
+     * not stemmed in either script. Characters, not bytes (mb_*); a word with a digit stays as it is. The stem is always a
+     * prefix of the word with at least STEM_MIN letters, or the word itself.
      */
     public static function stem(string $word, string $language): string
     {
-        $endings = self::ENDINGS[Language::base($language)] ?? [];
-        if ($endings === [] || preg_match('/^[a-z]+$/D', $word) !== 1) {
+        if (preg_match('/^\p{L}+$/u', $word) !== 1) {
             return $word;
         }
+        $key = Language::base($language);
+        if (preg_match('/^\p{Cyrillic}+$/u', $word) === 1 && !in_array($key, self::CYRILLIC, true)) {
+            $key = 'ru';
+        }
+        $stem = self::cut($word, self::ENDINGS[$key] ?? []);
+
+        return self::cut($stem, self::SECOND_ROUND[$key] ?? []);
+    }
+
+    /** @param list<string> $endings the word without the first of the endings it has, when STEM_MIN letters stay */
+    private static function cut(string $word, array $endings): string
+    {
+        $length = mb_strlen($word);
         foreach ($endings as $ending) {
-            if (str_ends_with($word, $ending) && strlen($word) - strlen($ending) >= self::STEM_MIN) {
-                return substr($word, 0, -strlen($ending));
+            if (str_ends_with($word, $ending) && $length - mb_strlen($ending) >= self::STEM_MIN) {
+                return mb_substr($word, 0, $length - mb_strlen($ending));
             }
         }
 
@@ -180,8 +223,8 @@ final class Search
     }
 
     /**
-     * The beginnings a text word may have to match one query word (3.52, B2): the word, its stem and – in Czech and Slovak
-     * – the stem with or without the mobile e: "koupelna" (koupeln) also finds "koupelen", "služby" (služb) "služeb" and
+     * The beginnings a text word may have to match one query word (3.52, B2): the word, its stem and – in Czech, Slovak
+     * and (3.53, B3) Polish – the stem with or without the mobile e: "koupelna" (koupeln) also finds "koupelen", "služby" (služb) "služeb" and
      * "služeb" (služeb) "služby". Normalized, without duplicates, the word itself first.
      *
      * @return list<string>
@@ -190,7 +233,7 @@ final class Search
     {
         $stem = self::stem($word, $language);
         $terms = [$word, $stem];
-        if (in_array(Language::base($language), ['cs', 'sk'], true) && preg_match('/^[a-z]+$/D', $stem) === 1) {
+        if (in_array(Language::base($language), ['cs', 'sk', 'pl'], true) && preg_match('/^[a-z]+$/D', $stem) === 1) {
             $consonant = '[bcdfghjklmnpqrstvwxz]';
             if ($stem !== $word && preg_match('/' . $consonant . $consonant . '$/', $stem) === 1) {
                 $terms[] = substr($stem, 0, -1) . 'e' . substr($stem, -1); // koupeln → koupelen

@@ -9,9 +9,11 @@ use Kaleta\Core\SiteSearch;
 
 // 3.53 (A5): the search reads the version 2 index – Cyrillic is an ordinary word, only Chinese and kana are raw, and a
 // token of two scripts gives both parts
-check('3.52 review, 3.53 A5: a Chinese word is raw, a Cyrillic word an ordinary one; Latin words as before; "北京hotel" gives both', [
+// 3.53 (B1, B3): a Cyrillic word on a German site has its Russian stem; "C++" is looked for in the titles as written
+check('3.52 review, 3.53 A5, B1, B3: a Chinese word is raw, a Cyrillic word an ordinary one; "C++" a title word; "北京hotel" gives both', [
     SiteSearch::words('北京 Москва hotel C++ Straße', 'de'), array_column(SiteSearch::words('北京hotel', 'zh'), 'word')],
-    [[['word' => '北京', 'terms' => ['北京'], 'raw' => true], ['word' => 'москва', 'terms' => ['москва']], ['word' => 'hotel', 'terms' => ['hotel']], ['word' => 'strasse', 'terms' => ['strasse', 'strass']]], ['北京', 'hotel']]);
+    [[['word' => '北京', 'terms' => ['北京'], 'raw' => true], ['word' => 'москва', 'terms' => ['москва', 'москв']], ['word' => 'hotel', 'terms' => ['hotel']],
+        ['word' => 'c++', 'terms' => ['c++'], 'title' => true], ['word' => 'strasse', 'terms' => ['strasse', 'strass']]], ['北京', 'hotel']]);
 
 check('3.52 review: a raw word is found anywhere in the title or the text (Chinese has no spaces), the title first', [
     array_column(SiteSearch::rank(SiteSearch::words('北京', 'zh'), [['title' => '上海', 'text' => '我们在北京有办公室'], ['title' => '北京市政府', 'text' => ''], ['title' => '上海', 'text' => '']], true), 'title'),

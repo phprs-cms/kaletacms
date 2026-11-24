@@ -64,23 +64,45 @@ final class SiteSearch
     /** About this many words around the matches form a snippet. */
     private const int SNIPPET_WORDS = 30;
 
+    /** At most this many overlapping pairs of a long Chinese or Japanese word are searched when it has no exact hit (B2). */
+    public const int BIGRAMS = 4;
+
     /**
-     * The words of a query with the beginnings each may have in the text: [word, terms, raw?]. Normalized like the stored
-     * index (Search::normalize), long enough (Search::longEnough – two characters, or one CJK character), at most MAX_WORDS,
-     * without repeats. A run of Chinese characters or kana is a word of its own with raw = true ("iPhone手机" → iphone and
-     * 手机): it is found anywhere in the text, not only at the start of a word. Every other script is an ordinary word.
+     * The words of a query with the beginnings each may have in the text: [word, terms, raw?, title?]. Normalized like the
+     * stored index (Search::normalize), long enough (Search::longEnough – two characters, or one CJK character), at most
+     * MAX_WORDS, without repeats. A run of Chinese characters or kana is a word of its own with raw = true ("iPhone手机" →
+     * iphone and 手机): it is found anywhere in the text, not only at the start of a word. Every other script is an ordinary
+     * word. 3.53 (B1): the query is read by its parts between spaces – a part whose normal form has a one-letter piece
+     * ("R&B" → "r b", "e-mail", "s.r.o.") is one phrase (its pieces in a row, from the start of a word); a letter with
+     * + or # ("C++", "C#") has no letters to search in the search text and is looked for in the titles as written (title).
      *
-     * @return list<array{word: string, terms: list<string>, raw?: true}>
+     * @return list<array{word: string, terms: list<string>, raw?: true, title?: true}>
      */
     public static function words(string $q, string $language): array
     {
         $words = [];
-        foreach (preg_split('/[^\p{L}\p{N}\p{M}]+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
-            foreach (preg_split('/([' . self::CJK . ']+)/u', Search::normalize($token), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [] as $run) {
+        $add = function (string $w, array $word) use (&$words): void {
+            if ($w !== '' && !isset($words[$w])) {
+                $words[$w] = ['word' => $w] + $word;
+            }
+        };
+        foreach (preg_split('/\s+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
+            $normal = Search::normalize($part);
+            $pieces = $normal === '' ? [] : explode(' ', $normal);
+            if (count($pieces) > 1 && min(array_map(mb_strlen(...), $pieces)) === 1 && preg_match('/[' . self::CJK . ']/u', $normal) !== 1) {
+                $add($normal, ['terms' => [$normal]]);
+                continue;
+            }
+            if (preg_match('/^\p{L}[+#]+$/u', $part) === 1) {
+                $title = mb_strtolower($part);
+                $add($title, ['terms' => [$title], 'title' => true]);
+                continue;
+            }
+            foreach (preg_split('/([' . self::CJK . ']+)/u', $normal, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [] as $run) {
                 $raw = preg_match('/^[' . self::CJK . ']/u', $run) === 1;
                 foreach ($raw ? [$run] : explode(' ', $run) as $w) {
-                    if ($w !== '' && Search::longEnough($w) && !isset($words[$w])) {
-                        $words[$w] = ['word' => $w, 'terms' => $raw ? [$w] : Search::terms($w, $language)] + ($raw ? ['raw' => true] : []);
+                    if (Search::longEnough($w)) {
+                        $add($w, ['terms' => $raw ? [$w] : Search::terms($w, $language)] + ($raw ? ['raw' => true] : []));
                     }
                 }
             }
@@ -90,12 +112,34 @@ final class SiteSearch
     }
 
     /**
+     * The words for the partial ranking when no row has every word (3.53, B2): a Chinese or Japanese word of three or more
+     * characters becomes its overlapping pairs (at most BIGRAMS, any of them matches) – "北京大学" also finds "北京" and
+     * "大学". null = no such word.
+     *
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
+     * @return list<array{word: string, terms: list<string>, raw?: true, title?: true}>|null
+     */
+    public static function bigramWords(array $words): ?array
+    {
+        $changed = false;
+        foreach ($words as $i => $w) {
+            if (isset($w['raw']) && ($length = mb_strlen($w['word'])) >= 3) {
+                $words[$i]['terms'] = array_map(fn (int $k): string => mb_substr($w['word'], $k, 2), range(0, min($length - 2, self::BIGRAMS) - 1));
+                $changed = true;
+            }
+        }
+
+        return $changed ? $words : null;
+    }
+
+    /**
      * The results for a query in one language version ('' = the default one): the best of every kind ranked, the best
      * first – [type (page | collection_item | news), label (the kind for the visitor), title, path (for App::url), id, date
      * (news), score]. total = how many rows match (exact; more than the results when a kind has more than CANDIDATES).
-     * partial = no row has every word, these have some of them. The snippets come from snippets(), for the shown ones.
+     * partial = no row has every word, these have some of them – a long Chinese word then also by its pairs (bigramWords,
+     * 3.53 B2). The snippets come from snippets(), for the shown ones.
      *
-     * @return array{results: list<array<string, mixed>>, total: int, partial: bool, words: list<array{word: string, terms: list<string>, raw?: true}>}
+     * @return array{results: list<array<string, mixed>>, total: int, partial: bool, words: list<array{word: string, terms: list<string>, raw?: true, title?: true}>}
      */
     public static function find(App $app, string $q, string $column): array
     {
@@ -105,12 +149,17 @@ final class SiteSearch
             return ['results' => [], 'total' => 0, 'partial' => false, 'words' => []];
         }
         ['counts' => $counts, 'best' => $best] = self::pool($app, $words, $column);
-        // every word, or – with nothing that has every word – some of them
+        // every word, or – with nothing that has every word – some of them; a long Chinese word then by its pairs (B2)
         $needed = count($words);
-        if (array_sum(array_map(fn (array $c): int => $c[$needed] ?? 0, $counts)) === 0 && $needed > 1) {
+        $partial = false;
+        if (array_sum(array_map(fn (array $c): int => $c[$needed] ?? 0, $counts)) === 0) {
+            if (($loose = self::bigramWords($words)) !== null) {
+                $words = $loose;
+                ['counts' => $counts, 'best' => $best] = self::pool($app, $words, $column);
+            }
+            $partial = $needed > 1 || $loose !== null;
             $needed = 1;
         }
-        $partial = $needed < count($words);
         $results = [];
         $total = 0;
         foreach ($best as $type => $rows) {
@@ -130,7 +179,7 @@ final class SiteSearch
      * Ranks candidates [title, text (plain) or normal (the search text), bonus?, …]: with $all each must have every word in
      * the title or the text, otherwise at least one; the best first, an equal score keeps the order given. Each gets its score.
      *
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @param list<array<string, mixed>> $candidates
      * @return list<array<string, mixed>>
      */
@@ -157,7 +206,7 @@ final class SiteSearch
      * How one candidate matches the words: found = the words it has, title_hits = the words in its title, occurrences
      * (at most 20 a word) and the score rank() orders by. The text is the search text (normal) or the plain text normalized.
      *
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @param array<string, mixed> $candidate
      * @return array{found: int, title_hits: int, occurrences: int, score: int}
      */
@@ -167,10 +216,14 @@ final class SiteSearch
         $text = ' ' . (string) ($candidate['normal'] ?? Search::normalize((string) ($candidate['text'] ?? ''))) . ' ';
         $match = ['found' => 0, 'title_hits' => 0, 'occurrences' => 0, 'score' => (int) ($candidate['bonus'] ?? 0)];
         foreach ($words as $w) {
-            if (isset($w['raw'])) {
-                $inTitle = str_contains($title, $w['word']);
-                $occurrences = substr_count($text, $w['word']);
+            if (isset($w['title'])) { // "C++": in the title as written
+                $inTitle = str_contains(mb_strtolower((string) $candidate['title']), $w['word']);
+                $occurrences = 0;
                 $exact = 5;
+            } elseif (isset($w['raw'])) { // its terms: the word, or its pairs in the partial pass (bigramWords)
+                $inTitle = array_filter($w['terms'], fn (string $term): bool => str_contains($title, $term)) !== [];
+                $occurrences = max(array_map(fn (string $term): int => substr_count($text, $term), $w['terms']));
+                $exact = str_contains($title . $text, $w['word']) ? 5 : 0;
             } else {
                 $inTitle = self::starts($title, $w['terms']);
                 $occurrences = max(array_map(fn (string $term): int => substr_count($text, ' ' . $term), $w['terms']));
@@ -194,7 +247,7 @@ final class SiteSearch
      * are whole words, printed in <mark> (snippetHtml) or as they are (MCP). Offsets come from the words of the original
      * text, so letters that normalize to two (ß, æ) never shift the window. Without a match: the beginning of the text.
      *
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @return list<array{0: string, 1: bool}>
      */
     public static function snippet(string $plain, array $words): array
@@ -213,14 +266,27 @@ final class SiteSearch
             $normal = null;
             foreach ($words as $i => $w) {
                 $end = null; // the byte the match ends at
+                if (isset($w['title'])) {
+                    continue; // looked for in the title only
+                }
                 if (isset($w['raw'])) {
-                    if (str_contains(mb_strtolower($token), $w['word'])) {
-                        $end = $offset + strlen($token);
-                    } else {
-                        // a raw word over several characters of Chinese: it starts here and goes on in the next ones
-                        $chunk = mb_substr(substr($plain, $offset, strlen($w['word']) * 2), 0, mb_strlen($w['word']));
-                        $end = mb_strlen($w['word']) > mb_strlen($token) && mb_strtolower($chunk) === $w['word'] ? $offset + strlen($chunk) : null;
+                    foreach ($w['terms'] as $term) {
+                        if (str_contains(mb_strtolower($token), $term)) {
+                            $end = $offset + strlen($token);
+                        } else {
+                            // a raw word over several characters of Chinese: it starts here and goes on in the next ones
+                            $chunk = mb_substr(substr($plain, $offset, strlen($term) * 2), 0, mb_strlen($term));
+                            $end = mb_strlen($term) > mb_strlen($token) && mb_strtolower($chunk) === $term ? $offset + strlen($chunk) : null;
+                        }
+                        if ($end !== null) {
+                            break;
+                        }
                     }
+                } elseif (str_contains($w['word'], ' ')) {
+                    // a phrase ("r b"): its pieces are this text word and the next ones
+                    $last = min($count, $t + substr_count($w['word'], ' ') + 1) - 1;
+                    $joined = ' ' . Search::normalize(implode(' ', array_column(array_slice($tokens, $t, $last - $t + 1), 0)));
+                    $end = self::starts($joined, $w['terms']) ? $tokens[$last][1] + strlen($tokens[$last][0]) : null;
                 } elseif (self::starts($normal ??= ' ' . Search::normalize($token), $w['terms'])) {
                     $end = $offset + strlen($token);
                 }
@@ -306,18 +372,22 @@ final class SiteSearch
      * condition per word – an ordinary word starts a word of the text (CONCAT(' ', h) LIKE '% term%', by its shortest
      * beginnings, prefixes()), a raw word is anywhere in it – and the occurrences: per word, how often its first beginning
      * starts a word of the text (at most 20; counted in bytes with REPLACE, the text is not copied), summed; '0' with
-     * ORDER_BY_OCCURRENCES off. $more(word) may add an alternative to a word's condition (news during a re-index). Never a
-     * condition on raw HTML, JSON or a "1 = 1".
+     * ORDER_BY_OCCURRENCES off. $more(word) may add an alternative to a word's condition (news during a re-index). A title
+     * word ("C++", B1) is a collation LIKE on $title. Never a condition on raw HTML, JSON or a "1 = 1".
      *
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @return array{conditions: list<array{0: string, 1: list<string>}>, occurrences: array{0: string, 1: list<string>}}
      */
-    public static function indexSql(array $words, string $h, ?\Closure $more = null): array
+    public static function indexSql(array $words, string $h, ?\Closure $more = null, ?string $title = null): array
     {
         $conditions = [];
         $occurrences = [];
         $occurrenceParams = [];
         foreach ($words as $w) {
+            if (isset($w['title'])) { // "C++" (B1): not in the search text, in the title as written (no title = no match)
+                $conditions[] = $title === null ? ['(0 = 1)', []] : ['(' . $title . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?)', ['%' . addcslashes($w['word'], '%_\\') . '%']];
+                continue;
+            }
             $raw = isset($w['raw']);
             $text = $raw ? $h : 'CONCAT(\' \', ' . $h . ')';
             $sql = [];
@@ -338,7 +408,7 @@ final class SiteSearch
             array_push($occurrenceParams, $needle, ...($raw ? [] : [addcslashes($terms[0], '%_\\') . '%']));
         }
 
-        return ['conditions' => $conditions, 'occurrences' => self::ORDER_BY_OCCURRENCES ? ['(' . implode(' + ', $occurrences) . ')', $occurrenceParams] : ['0', []]];
+        return ['conditions' => $conditions, 'occurrences' => self::ORDER_BY_OCCURRENCES && $occurrences !== [] ? ['(' . implode(' + ', $occurrences) . ')', $occurrenceParams] : ['0', []]];
     }
 
     /**
@@ -349,7 +419,7 @@ final class SiteSearch
      * only the best are kept, so a common word costs no memory per row; a row not indexed yet comes with its candidate,
      * already read and matched.
      *
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @return array{counts: array<string, array<int, int>>, best: array<string, list<array{0: int, 1: int, 2: int, 3: int, 4: int, 5: array<string, mixed>|null}>>}
      */
     private static function pool(App $app, array $words, string $column): array
@@ -373,14 +443,14 @@ final class SiteSearch
             $params = [];
             foreach ($words as $w) {
                 $sql[] = '(CONCAT(\' \', ' . $title . ') COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?)';
-                $params[] = (isset($w['raw']) ? '%' : '% ') . addcslashes(isset($w['raw']) ? $w['word'] : self::prefixes($w['terms'])[0], '%_\\') . '%';
+                $params[] = (isset($w['raw']) || isset($w['title']) ? '%' : '% ') . addcslashes(isset($w['raw']) || isset($w['title']) ? $w['terms'][0] : self::prefixes($w['terms'])[0], '%_\\') . '%';
             }
 
             return ['(' . implode(' + ', $sql) . ')', $params];
         };
         // the rows of one kind from the index: SQL flags each word, PHP sums them (exact – the search text is what rank() reads)
         $scan = function (string $type, string $id, string $title, string $from, string $h, array $params, string $order, ?\Closure $more = null) use ($db, $words, $keep, $titleHits): void {
-            $sql = self::indexSql($words, $h, $more);
+            $sql = self::indexSql($words, $h, $more, $title);
             [$titleSql, $titleParams] = $titleHits($title);
             $flags = [];
             $flagParams = [];
@@ -406,7 +476,7 @@ final class SiteSearch
             $conditionParams = [];
             foreach ($words as $w) {
                 $sql = [];
-                foreach (isset($w['raw']) ? $w['terms'] : self::prefixes($w['terms']) as $term) {
+                foreach (isset($w['raw']) || isset($w['title']) ? $w['terms'] : self::prefixes($w['terms']) as $term) {
                     foreach ($columns as $c) {
                         $sql[] = $c . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?';
                         $conditionParams[] = '%' . addcslashes($term, '%_\\') . '%';
@@ -418,10 +488,10 @@ final class SiteSearch
                 }
                 $conditions[] = '(' . implode(' OR ', $sql) . ')';
             }
-            $first = isset($words[0]['raw']) ? $words[0]['word'] : self::prefixes($words[0]['terms'])[0];
+            $first = isset($words[0]['raw']) || isset($words[0]['title']) ? $words[0]['terms'][0] : self::prefixes($words[0]['terms'])[0];
             $rows = $db->all('SELECT ' . $select . ' FROM ' . $from . ' AND (' . implode(' OR ', $conditions) . ')'
                 . ' ORDER BY (' . implode(' + ', $conditions) . ') DESC, CONCAT(\' \', ' . $title . ') COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ? DESC, ' . $order . ' LIMIT ' . $limit,
-                [...$params, ...$conditionParams, ...$conditionParams, (isset($words[0]['raw']) ? '%' : '% ') . addcslashes($first, '%_\\') . '%']);
+                [...$params, ...$conditionParams, ...$conditionParams, (isset($words[0]['raw']) || isset($words[0]['title']) ? '%' : '% ') . addcslashes($first, '%_\\') . '%']);
             foreach ($rows as $seq => $row) {
                 $candidate = self::candidate($app, $type, $row, $column);
                 $match = self::match($words, $candidate);
@@ -451,7 +521,7 @@ final class SiteSearch
             // during a re-index the news above the cursor still have a version 1 index: a word of letters it did not hold
             // (Cyrillic, Greek, Chinese…) is looked for in their title and intro as well
             $more = $cursor === null ? null : function (array $w) use ($cursor): ?array {
-                if (preg_match('/[^' . self::VERSION1_LETTERS . ']/u', $w['word']) !== 1) {
+                if (isset($w['title']) || preg_match('/[^' . self::VERSION1_LETTERS . ']/u', $w['word']) !== 1) {
                     return null;
                 }
                 $pattern = '%' . addcslashes($w['word'], '%_\\') . '%';
@@ -474,7 +544,7 @@ final class SiteSearch
      * The rows kept for one kind ranked: the indexed ones read again with their search text (in batches), the others as
      * read; each with every word it needs ($needed) gets its score, in the order given (rows as pool() keeps them).
      *
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @param list<array{0: int, 1: int, 2: int, 3: int, 4: int, 5: array<string, mixed>|null}> $rows
      * @return list<array<string, mixed>>
      */
@@ -607,7 +677,7 @@ final class SiteSearch
      * (text) uses it.
      *
      * @param list<array<string, mixed>> $results
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @return list<list<array{0: string, 1: bool}>>
      */
     public static function snippets(App $app, array $results, array $words): array
@@ -641,13 +711,17 @@ final class SiteSearch
      * The text a news snippet comes from: the intro, and the text after it when the title and the intro miss a word.
      *
      * @param array<string, mixed> $row
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      */
     private static function newsText(array $row, array $words): string
     {
         $intro = plain_text((string) $row['uvod']);
         $normal = ' ' . Search::normalize($row['titulek'] . ' ' . $intro);
-        $matched = array_filter($words, fn (array $w): bool => isset($w['raw']) ? str_contains($normal, $w['word']) : self::starts($normal, $w['terms']));
+        $matched = array_filter($words, fn (array $w): bool => match (true) {
+            isset($w['title']) => true, // in the title or nowhere
+            isset($w['raw']) => array_filter($w['terms'], fn (string $term): bool => str_contains($normal, $term)) !== [],
+            default => self::starts($normal, $w['terms']),
+        });
 
         return count($matched) < count($words) ? trim($intro . ' ' . plain_text((string) $row['text'])) : $intro;
     }
@@ -656,7 +730,7 @@ final class SiteSearch
      * The snippet of one result (snippets() for one).
      *
      * @param array<string, mixed> $result
-     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @return list<array{0: string, 1: bool}>
      */
     public static function resultSnippet(App $app, array $result, array $words): array

@@ -50,6 +50,6 @@ check('3.53 A1: search_marks() folds through Search::fold – a Polish, Romanian
     ['Muzeum w <mark>Łodz</mark>i, <mark>Łódź</mark>', '<mark>Științe</mark> aplicate', '<mark>İstanbul</mark> <mark>şehri</mark>']);
 
 // the site search reads the version 2 index (A5): Cyrillic is an ordinary word, Chinese stays raw, a mixed token gives both
-check('3.53 A1, A5: SiteSearch::words – a Polish word is one word, a Cyrillic word an ordinary one, Chinese raw', [
+check('3.53 A1, A5, B3: SiteSearch::words – a Polish word is one word, a Cyrillic word an ordinary one (with its Russian stem), Chinese raw', [
     array_column(SiteSearch::words('Książka usług', 'pl'), 'word'), SiteSearch::words('Москва 北京', 'ru'), array_column(SiteSearch::words('北京hotel', 'zh'), 'word')],
-    [['ksiazka', 'uslug'], [['word' => 'москва', 'terms' => ['москва']], ['word' => '北京', 'terms' => ['北京'], 'raw' => true]], ['北京', 'hotel']]);
+    [['ksiazka', 'uslug'], [['word' => 'москва', 'terms' => ['москва', 'москв']], ['word' => '北京', 'terms' => ['北京'], 'raw' => true]], ['北京', 'hotel']]);
