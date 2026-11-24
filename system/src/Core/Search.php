@@ -12,22 +12,82 @@ namespace Kaleta\Core;
 final class Search
 {
     /**
-     * Lowercase without diacritics, only letters and digits separated by a space. Arabic and Hebrew letters stay (an Arabic
-     * site is searchable), without the vowel marks (harakat) and the elongation (tatweel), with one form of alef (أ إ آ ٱ → ا)
-     * and ya (ى → ي), and – 3.12 – taa marbuta as ha (ة → ه), the way people type a query. Latin text gives the same tokens
-     * as before. A change here needs the stored news index re-made (migration 0089 empties the Arabic rows, complete()
-     * fills them again).
+     * The version of normalize() (3.53): what the stored indexes were made with. A change of normalize() that changes the
+     * tokens of some text raises it, and the stored indexes are re-made (Core\SearchIndex). 1 = up to 3.52 (Latin, Arabic
+     * and Hebrew only), 2 = every script, the Latin letters of every European alphabet and Vietnamese folded.
+     */
+    public const int VERSION = 2;
+
+    /**
+     * The Latin letters remove_diacritics() does not know (3.53, A1), by the plain letters they fold to: Polish,
+     * Romanian (comma and cedilla forms), Turkish, Latvian, Lithuanian, Maltese, Icelandic, Esperanto, Catalan (l·l),
+     * pinyin and Vietnamese, ligatures. Lower case only – fold() lowers first. Cyrillic letters written with a combining
+     * mark (NFD) are composed again here, before the marks go: й, ї and ў stay letters of their own.
+     */
+    private const array FOLD_LETTERS = [
+        'a' => 'ąăāảạằắẳẵặầấẩẫậǎªȧ', 'c' => 'ċĉ', 'd' => 'ð', 'e' => 'ęēėẻẽẹềếểễệȩ', 'g' => 'ğģġĝ', 'h' => 'ħĥ',
+        'i' => 'ıīįỉịǐĩ', 'j' => 'ĵ', 'k' => 'ķ', 'l' => 'ļŀ', 'n' => 'ņ', 'o' => 'ōỏọồốổỗộơờớởỡợǒŏºȯ',
+        's' => 'șşŝſ', 't' => 'țţ', 'u' => 'ūųủụưừứửữựǔǖǘǚǜũŭ', 'y' => 'ỳỷỹỵȳ',
+    ];
+
+    /** Letters that fold to more than one (3.53, A1); Cyrillic NFD forms composed (see FOLD_LETTERS). */
+    private const array FOLD_MORE = [
+        'þ' => 'th', 'œ' => 'oe', 'l·l' => 'll', 'ﬀ' => 'ff', 'ﬁ' => 'fi', 'ﬂ' => 'fl', 'ﬃ' => 'ffi', 'ﬄ' => 'ffl', 'ﬅ' => 'st', 'ﬆ' => 'st',
+        "и\u{0306}" => 'й', "і\u{0308}" => 'ї', "у\u{0306}" => 'ў',
+    ];
+
+    /**
+     * Letters of other scripts normalize() folds the way people type a query (3.53, A1): ё as е, Greek without the
+     * accent (tonos, dialytika) and the final sigma as σ; superscript digits as digits (m² → m2). й, і, ї, є, ґ, ъ stay.
+     */
+    private const array SCRIPT_FOLD = [
+        'ё' => 'е', 'ά' => 'α', 'έ' => 'ε', 'ή' => 'η', 'ί' => 'ι', 'ό' => 'ο', 'ύ' => 'υ', 'ώ' => 'ω', 'ϊ' => 'ι', 'ϋ' => 'υ',
+        'ΐ' => 'ι', 'ΰ' => 'υ', 'ς' => 'σ', '¹' => '1', '²' => '2', '³' => '3',
+    ];
+
+    /**
+     * Lower case without diacritics, Latin letters folded to plain ones (3.53, A1): mb_strtolower first, then
+     * remove_diacritics(), then FOLD_LETTERS / FOLD_MORE, then the combining marks U+0300–036F go – after lower-casing, so
+     * "İ" (i + U+0307) becomes "i", and a text written decomposed (NFD) folds as the composed one. No intl: a static table
+     * gives the same index on every host. remove_diacritics() itself stays as it is (stored keys elsewhere use it).
+     * Other characters pass unchanged.
+     */
+    public static function fold(string $text): string
+    {
+        static $table = null;
+        if ($table === null) {
+            $table = self::FOLD_MORE;
+            foreach (self::FOLD_LETTERS as $plain => $letters) {
+                foreach (mb_str_split($letters) as $letter) {
+                    $table[$letter] = $plain;
+                }
+            }
+        }
+
+        return (string) preg_replace('/[\x{0300}-\x{036F}]/u', '', strtr(remove_diacritics(mb_strtolower($text)), $table));
+    }
+
+    /**
+     * Lower case without diacritics, only letters and digits separated by a space (version 2, 3.53). Letters of every
+     * script stay (Cyrillic, Greek, CJK, Hangul, Devanagari…), with digits (\p{Nd} only – superscripts become digits);
+     * Latin letters through fold(), full-width ASCII as ASCII, half-width kana as full-width (mb_convert_kana), ё as е,
+     * Greek without accents and with one sigma. Combining marks of other scripts stay (Devanagari vowel signs), the Latin
+     * ones and the Arabic and Hebrew ones go. Arabic and Hebrew as before: without the vowel marks (harakat) and the
+     * elongation (tatweel), with one form of alef (أ إ آ ٱ → ا) and ya (ى → ي), and – 3.12 – taa marbuta as ha (ة → ه), the
+     * way people type a query. Typical Czech, Slovak, English, German and Arabic text gives the same tokens as version 1;
+     * a change here raises VERSION (the stored indexes are re-made).
      */
     public static function normalize(string $text): string
     {
-        $text = remove_diacritics(mb_strtolower(html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $text)), ENT_QUOTES | ENT_HTML5)));
+        $text = html_entity_decode(strip_tags(str_replace(['<', '>'], [' <', '> '], $text)), ENT_QUOTES | ENT_HTML5);
+        $text = strtr(self::fold(mb_convert_kana($text, 'asKV', 'UTF-8')), self::SCRIPT_FOLD);
         if (preg_match('/[\x{0590}-\x{06FF}]/u', $text) === 1) {
             $text = strtr((string) preg_replace('/[\x{0591}-\x{05C7}\x{064B}-\x{065F}\x{0670}\x{0640}]/u', '', $text), ['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ٱ' => 'ا', 'ى' => 'ي', 'ة' => 'ه']);
-
-            return trim((string) preg_replace('/[^a-z0-9\x{0621}-\x{064A}\x{0660}-\x{0669}\x{066E}-\x{06D3}\x{06F0}-\x{06F9}\x{05D0}-\x{05EA}]+/u', ' ', $text));
         }
+        // the remaining Arabic marks (Quranic signs) and the extended Latin combining ranges separate as before
+        $text = (string) preg_replace('/[\x{0610}-\x{061A}\x{06D6}-\x{06ED}\x{1AB0}-\x{1AFF}\x{1DC0}-\x{1DFF}\x{20D0}-\x{20FF}\x{FE20}-\x{FE2F}]/u', ' ', $text);
 
-        return trim((string) preg_replace('/[^a-z0-9]+/', ' ', $text));
+        return trim((string) preg_replace('/[^\p{L}\p{Nd}\p{M}]+/u', ' ', $text));
     }
 
     /**

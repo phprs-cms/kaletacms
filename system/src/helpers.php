@@ -79,7 +79,8 @@ function mark_snippet(string $text, string $search, int $width = 140): string
 
 /**
  * The characters of $text that the words of $search cover (index => true): both sides compared in lower case without
- * diacritics, each character folded on its own so the indexes stay those of the original text.
+ * diacritics (Search::fold, 3.53 – also ą, ș, ğ, ā and Vietnamese), each character folded on its own so the indexes stay
+ * those of the original text.
  *
  * @return array<int, true>
  */
@@ -92,7 +93,7 @@ function search_marks(string $text, string $search): array
     $folded = '';
     $owner = []; // byte of $folded => index of the character it came from
     foreach (mb_str_split($text) as $i => $char) {
-        $part = mb_strtolower(remove_diacritics($char));
+        $part = Kaleta\Core\Search::fold($char);
         for ($b = 0, $n = strlen($part); $b < $n; $b++) {
             $owner[strlen($folded) + $b] = $i;
         }
@@ -100,7 +101,7 @@ function search_marks(string $text, string $search): array
     }
     $marks = [];
     foreach ($words as $word) {
-        $needle = mb_strtolower(remove_diacritics($word));
+        $needle = Kaleta\Core\Search::fold($word);
         for ($at = $needle === '' ? false : strpos($folded, $needle); $at !== false; $at = strpos($folded, $needle, $at + strlen($needle))) {
             for ($i = $owner[$at]; $i <= $owner[$at + strlen($needle) - 1]; $i++) {
                 $marks[$i] = true;

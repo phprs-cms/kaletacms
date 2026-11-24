@@ -15,7 +15,7 @@ namespace Kaleta\Core;
  * Search::normalize does (FOLDED: ß, ł, đ, ø, æ – "Straße" for "strasse"); a query in Arabic or Hebrew reads every visible
  * row; at most SCAN of a kind, the likely matches first. A word in the title weighs most, the exact form and the whole
  * word add a little, then the number of occurrences (at most 20 a word), a fresh news item a little more. A text word matches when it starts with the query word or its stem
- * (Search::terms) – "IT" finds "IT", not "sit amet". A word in a script normalize() drops (Chinese, Cyrillic, Greek…)
+ * (Search::terms) – "IT" finds "IT", not "sit amet". A word in a script a version 1 index did not hold (Chinese, Cyrillic, Greek…)
  * is searched as it was typed, in lower case, anywhere in the text (raw). When no candidate has every word, the ones with
  * some of them are shown and the result says so (partial).
  */
@@ -32,6 +32,9 @@ final class SiteSearch
 
     /** Pages read at most, as in 3.51: the folded-letter branch can make reading nearly every page the normal path. */
     public const int SCAN_PAGES = 500;
+
+    /** The letters a stored index of Search::VERSION 1 held (3.53, A1): Latin letters, digits, Arabic and Hebrew – a regex class. */
+    private const string VERSION1_LETTERS = 'a-z0-9\x{0621}-\x{064A}\x{0660}-\x{0669}\x{066E}-\x{06D3}\x{06F0}-\x{06F9}\x{05D0}-\x{05EA}';
 
     /**
      * Letters Search::normalize folds (remove_diacritics) but utf8mb4_unicode_ci does not in LIKE (it ignores their case),
@@ -55,7 +58,7 @@ final class SiteSearch
     /**
      * The words of a query with the beginnings each may have in the text: [word, terms, raw?]. Normalized
      * (Search::normalize), words of at least MIN_LENGTH characters, at most MAX_WORDS, without repeats. A word of letters
-     * normalize() drops (Chinese, Cyrillic, Greek…) stays as typed, in lower case, with raw = true: it is found anywhere in
+     * a version 1 index did not hold (Chinese, Cyrillic, Greek… – VERSION1_LETTERS) stays as typed, in lower case, with raw = true: it is found anywhere in
      * the text, not only at the start of a word (Chinese has no spaces between words).
      *
      * @return list<array{word: string, terms: list<string>, raw?: true}>
@@ -64,7 +67,10 @@ final class SiteSearch
     {
         $words = [];
         foreach (preg_split('/[^\p{L}\p{N}\p{M}]+/u', mb_strtolower(mb_substr($q, 0, 100)), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
-            $normal = Search::normalize($token);
+            // 3.53 (A1): normalize() keeps every script now; until the search reads an index of that version (A5), a
+            // word keeps its 3.52 shape – the letters the version 1 index held (VERSION1_LETTERS) make words, a token
+            // without any is searched as typed (raw)
+            $normal = trim((string) preg_replace('/[^' . self::VERSION1_LETTERS . ']+/u', ' ', Search::normalize($token)));
             $raw = $normal === '' && preg_match('/\p{L}/u', $token) === 1;
             foreach ($raw ? [$token] : explode(' ', $normal) as $w) {
                 if (mb_strlen($w) >= self::MIN_LENGTH && !isset($words[$w])) {
