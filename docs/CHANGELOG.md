@@ -4,7 +4,7 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
-## 3.52.0 – finding things: one search for the lists, Ctrl/⌘K across every record, a ranked site search, search in the header, what visitors search for (23 November 2026)
+## 3.52.0 – finding things: one search for the lists, Ctrl/⌘K across every record, a ranked site search, search in the header, what visitors search for (24 November 2026)
 
 The administration finds any record a person may open – regardless of diacritics, word order and kind of record – the
 same way from the palette, from the lists and over MCP, and the website gets one ranked list of results with the matched
