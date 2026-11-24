@@ -571,8 +571,12 @@ final class SiteSearch
                     return null;
                 }
                 [$sql, $params] = [[], []];
-                // a raw word by its terms (the word, or its pairs in the pair pass), a phrase ("r b") by its longest piece
+                // a raw word by its terms (the word, or its pairs in the pair pass), a phrase ("п ять") by its longest piece;
+                // a phrase of ASCII letters and digits ("r b" from "R&B", "s r o") needs none: version 1 stored it the same way
                 foreach (isset($w['raw']) ? $w['terms'] : self::prefixes($w['terms']) as $term) {
+                    if (str_contains($term, ' ') && preg_match('/^[a-z0-9 ]+$/D', $term) === 1) {
+                        continue;
+                    }
                     $pieces = explode(' ', $term);
                     usort($pieces, fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
                     foreach (['c.titulek', 'c.uvod'] as $c) {
@@ -581,7 +585,7 @@ final class SiteSearch
                     }
                 }
 
-                return ['(c.idc > ' . $cursor . ' AND (' . implode(' OR ', $sql) . '))', $params];
+                return $sql === [] ? null : ['(c.idc > ' . $cursor . ' AND (' . implode(' OR ', $sql) . '))', $params];
             };
             $scan('news', 'c.idc', 'c.titulek', $news . ' AND c.hledani IS NOT NULL', 'c.hledani COLLATE utf8mb4_bin', [Clock::now(), $column], 'c.datum DESC, c.idc DESC', $more, $cursor);
             $fallback('news', 'c.idc, c.titulek, c.seo_link, c.uvod, c.datum', $news . ' AND c.hledani IS NULL', ['c.titulek', 'c.uvod'], [], 'c.titulek',

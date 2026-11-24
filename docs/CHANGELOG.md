@@ -52,7 +52,7 @@ to 50 000 of a kind) instead of the results kept.
    50 000 matching rows of one kind are not counted or ranked (`SiteSearch::MAX_ROWS`). The timing of the occurrence
    order on MariaDB is not measured (`SiteSearch::ORDER_BY_OCCURRENCES`). The languages of `Search::NO_STEMMER` match by
    word start only. While the news re-index runs, a news item it has not reached yet is not found by a word whose letters
-   the database collation does not fold (œ, ð, þ, ı, đ, ħ, ligatures).
+   the database collation does not fold (œ, ð, þ, ı, đ, ħ, ligatures), or is shown only among partial results.
 
 Measured (`tools/bench-search.php`, 5000 pages, 50 000 items, 5000 news, local MySQL, median of 5): a rare word 0.34 s
 (3.52: 0.79 s), a common word 0.63 s (0.47 s, but now reading all 60 000 matching rows to count every match), two words
