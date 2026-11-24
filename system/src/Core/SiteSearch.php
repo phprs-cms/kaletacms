@@ -471,18 +471,32 @@ final class SiteSearch
                 $flags[] = $condition;
                 array_push($flagParams, ...$p);
             }
-            $statement = $db->run('SELECT ' . $id . ', ' . $titleSql . ', ' . $sql['occurrences'][0] . ', ' . implode(', ', $flags) . ' FROM ' . $from
+            // a row above the re-index cursor needs the recheck only when a word was flagged by the title/intro alternative
+            // alone (its index condition false): the other rows are counted from the index as everywhere else
+            $need = '0';
+            $needParams = [];
+            if ($recheckAbove !== null && $more !== null) {
+                $parts = [];
+                foreach (self::indexSql($words, $h, null, $title)['conditions'] as $i => [$condition, $p]) {
+                    if (($extra = $more($words[$i])) !== null) {
+                        $parts[] = '(NOT ' . $condition . ' AND ' . $extra[0] . ')';
+                        array_push($needParams, ...$p, ...$extra[1]);
+                    }
+                }
+                $need = $parts === [] ? '0' : '(' . implode(' OR ', $parts) . ')';
+            }
+            $statement = $db->run('SELECT ' . $id . ', ' . $titleSql . ', ' . $sql['occurrences'][0] . ', ' . $need . ', ' . implode(', ', $flags) . ' FROM ' . $from
                 . ' AND (' . implode(' OR ', $flags) . ') ORDER BY ' . $order . ' LIMIT ' . self::MAX_ROWS,
-                [...$titleParams, ...$sql['occurrences'][1], ...$flagParams, ...$params, ...$flagParams]);
+                [...$titleParams, ...$sql['occurrences'][1], ...$needParams, ...$flagParams, ...$params, ...$flagParams]);
             $seq = 0;
             $recheck = [];
             while (($row = $statement->fetch(\PDO::FETCH_NUM)) !== false) {
-                if ($recheckAbove !== null && (int) $row[0] > $recheckAbove) {
-                    $recheck[(int) $row[0]] = -$seq++; // flagged by a substring of the title or intro: counted below by match()
+                if ((int) $row[3] > 0) {
+                    $recheck[(int) $row[0]] = -$seq++; // a word only in a substring of the title or intro: counted below by match()
                     continue;
                 }
                 $found = 0;
-                for ($i = 3, $n = count($row); $i < $n; $i++) {
+                for ($i = 4, $n = count($row); $i < $n; $i++) {
                     $found += (int) $row[$i] > 0 ? 1 : 0;
                 }
                 $keep($type, [$found, (int) $row[1], (int) $row[2], -$seq++, (int) $row[0], null]);
@@ -557,10 +571,13 @@ final class SiteSearch
                     return null;
                 }
                 [$sql, $params] = [[], []];
-                foreach (isset($w['raw']) ? [$w['word']] : self::prefixes($w['terms']) as $term) {
+                // a raw word by its terms (the word, or its pairs in the pair pass), a phrase ("r b") by its longest piece
+                foreach (isset($w['raw']) ? $w['terms'] : self::prefixes($w['terms']) as $term) {
+                    $pieces = explode(' ', $term);
+                    usort($pieces, fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
                     foreach (['c.titulek', 'c.uvod'] as $c) {
                         $sql[] = $c . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?';
-                        $params[] = '%' . addcslashes(str_contains($term, ' ') ? explode(' ', $term)[0] : $term, '%_\\') . '%';
+                        $params[] = '%' . addcslashes($pieces[0], '%_\\') . '%';
                     }
                 }
 
