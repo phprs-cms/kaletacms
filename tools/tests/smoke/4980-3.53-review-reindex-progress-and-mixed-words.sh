@@ -31,7 +31,19 @@ sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '1:
 expect "3.53 review 2: during a re-index \"artr980 decor980\" lists the two pages and the news item as a partial result – \"Smartr980\" does not count as \"artr980\", so no row seems to have both words" \
   "$(r980_found 'artr980 decor980' /artr980)$(r980_found 'artr980 decor980' /decor980)$(r980_found 'artr980 decor980' /novinky/smart-r980)" "111"
 expect "3.53 review 2: … \"decor980\" still finds the news item above the cursor by the start of a word in its intro" "$(r980_found 'decor980' /novinky/smart-r980)" "1"
-sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$R980_STATE'); DELETE FROM ka_novinky WHERE idc = $R980_ID; DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
+# … also a word after a tag (the intro is HTML) or an opening quote, which a version 1 index may lack entirely
+# … also a word after a tag (the intro is HTML), after a line break or in quotes, which a version 1 index may lack entirely;
+# a word that sits only in a link address of the intro is no match: the total stays 0 and the page "Hrefr980" is listed alone
+R980_HTML=$(sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ('html-r980', 'Nagroda „Quoter980”', CONCAT('<p>Tagr980 roku<br>', CHAR(10), 'Linebr980 <a href=\\"https://example.test/hrefr980\\">zde</a></p>'), '', $R980_TEMA, '$(site_time '-1 hour')', 1, 0, 'nagroda'); SELECT LAST_INSERT_ID();")
+sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('hrefr980', 'Hrefr980 stránka', '<p>Obsah.</p>', 1, 0);
+  REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$R980_STATE')" > /dev/null
+fill_search_index > /dev/null # indexes the page; the news item keeps its version 1 text
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '1:$((R980_ID - 1))')" > /dev/null
+expect "3.53 review 3: during a re-index a news item above the cursor is found by the first word of an HTML intro paragraph, a word after a line break and a word in quotes" \
+  "$(r980_found 'tagr980' /novinky/html-r980)$(r980_found 'linebr980' /novinky/html-r980)$(r980_found 'quoter980' /novinky/html-r980)" "111"
+expect "3.53 review 3: … a word only in a link address of its intro does not find it, and \"hrefr980 tagr980\" lists the page and the news item as a partial result" \
+  "$(r980_found 'hrefr980' /novinky/html-r980)$(r980_found 'hrefr980 tagr980' /hrefr980)$(r980_found 'hrefr980 tagr980' /novinky/html-r980)" "011"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$R980_STATE'); DELETE FROM ka_novinky WHERE idc IN ($R980_ID, $R980_HTML); DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 
 # the admin and MCP lists: a word mixing Chinese and Latin letters whose Chinese part sits inside a run of the text
 sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('cjk-r980', '网站 R980', '<p>我们使用WordPress搭建网站，商品价格100元</p>', 1, 0),
@@ -46,4 +58,4 @@ expect "3.53 review 2: list_pages \"使用WordPress\" and \"价格100\" find the
 expect "3.53 review 2: \"п'є\" finds the Ukrainian page" "$(r980_found "п'є" /ukr-r980)" "1"
 
 background_jobs resume
-sq "DELETE FROM ka_stranky WHERE seo_link IN ('artr980', 'decor980', 'cjk-r980', 'ukr-r980'); DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
+sq "DELETE FROM ka_stranky WHERE seo_link IN ('artr980', 'decor980', 'cjk-r980', 'ukr-r980', 'hrefr980'); DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null

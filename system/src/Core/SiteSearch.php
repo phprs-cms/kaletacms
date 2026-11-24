@@ -462,7 +462,7 @@ final class SiteSearch
             return ['(' . implode(' + ', $sql) . ')', $params];
         };
         // the rows of one kind from the index: SQL flags each word, PHP sums them (exact – the search text is what rank() reads)
-        $scan = function (string $type, string $id, string $title, string $from, string $h, array $params, string $order, ?\Closure $more = null) use ($db, $words, $keep, $titleHits): void {
+        $scan = function (string $type, string $id, string $title, string $from, string $h, array $params, string $order, ?\Closure $more = null, ?int $recheckAbove = null) use ($db, $words, $keep, $titleHits): void {
             $sql = self::indexSql($words, $h, $more, $title);
             [$titleSql, $titleParams] = $titleHits($title);
             $flags = [];
@@ -475,12 +475,29 @@ final class SiteSearch
                 . ' AND (' . implode(' OR ', $flags) . ') ORDER BY ' . $order . ' LIMIT ' . self::MAX_ROWS,
                 [...$titleParams, ...$sql['occurrences'][1], ...$flagParams, ...$params, ...$flagParams]);
             $seq = 0;
+            $recheck = [];
             while (($row = $statement->fetch(\PDO::FETCH_NUM)) !== false) {
+                if ($recheckAbove !== null && (int) $row[0] > $recheckAbove) {
+                    $recheck[(int) $row[0]] = -$seq++; // flagged by a substring of the title or intro: counted below by match()
+                    continue;
+                }
                 $found = 0;
                 for ($i = 3, $n = count($row); $i < $n; $i++) {
                     $found += (int) $row[$i] > 0 ? 1 : 0;
                 }
                 $keep($type, [$found, (int) $row[1], (int) $row[2], -$seq++, (int) $row[0], null]);
+            }
+            // news above the re-index cursor (3.53, removed with the re-index in 3.54): the SQL alternative only pre-filters
+            // them (a substring, also inside tags), so their words are counted as ranked() reads them – the version 1 index
+            // with the normalized title and intro – and the total and the partial pass stay exact
+            foreach (array_chunk(array_keys($recheck), 200) as $ids) {
+                $in = implode(', ', array_fill(0, count($ids), '?'));
+                foreach ($db->all('SELECT idc, titulek, uvod, hledani FROM {novinky} WHERE idc IN (' . $in . ')', $ids) as $r) {
+                    $match = self::match($words, ['title' => (string) $r['titulek'], 'normal' => (string) $r['hledani'] . ' ' . Search::normalize($r['titulek'] . ' ' . $r['uvod'])]);
+                    if ($match['found'] > 0) {
+                        $keep($type, [$match['found'], $match['title_hits'], $match['occurrences'], $recheck[(int) $r['idc']], (int) $r['idc'], null]);
+                    }
+                }
             }
         };
         // the rows not indexed yet, the 3.52 way: collation LIKE over the raw columns, read whole and matched in PHP
@@ -533,25 +550,23 @@ final class SiteSearch
             $cursor = self::newsReindexing($settings);
             // during a re-index the news above the cursor still have a version 1 index, which lacks the letters it did not
             // know (Cyrillic, Chinese…) and split the words with letters it did not fold ("książka" as "ksi zka"): every word
-            // is looked for in their title and intro as well (the search collation folds "ksiazka" to "książka") – as match()
-            // reads them: an ordinary word by its beginnings at the start of a word, a Chinese or Japanese word anywhere
+            // is also looked for as a substring of their title and intro (the search collation folds "ksiazka" to "książka");
+            // that only selects the rows – $scan counts them with match(), as ranked() reads them
             $more = $cursor === null ? null : function (array $w) use ($cursor): ?array {
                 if (isset($w['title'])) {
                     return null;
                 }
-                $raw = isset($w['raw']);
                 [$sql, $params] = [[], []];
-                foreach ($raw ? [$w['word']] : self::prefixes($w['terms']) as $term) {
-                    $pattern = ($raw ? '%' : '% ') . addcslashes($term, '%_\\') . '%';
+                foreach (isset($w['raw']) ? [$w['word']] : self::prefixes($w['terms']) as $term) {
                     foreach (['c.titulek', 'c.uvod'] as $c) {
-                        $sql[] = ($raw ? $c : 'CONCAT(\' \', ' . $c . ')') . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?';
-                        $params[] = $pattern;
+                        $sql[] = $c . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?';
+                        $params[] = '%' . addcslashes(str_contains($term, ' ') ? explode(' ', $term)[0] : $term, '%_\\') . '%';
                     }
                 }
 
                 return ['(c.idc > ' . $cursor . ' AND (' . implode(' OR ', $sql) . '))', $params];
             };
-            $scan('news', 'c.idc', 'c.titulek', $news . ' AND c.hledani IS NOT NULL', 'c.hledani COLLATE utf8mb4_bin', [Clock::now(), $column], 'c.datum DESC, c.idc DESC', $more);
+            $scan('news', 'c.idc', 'c.titulek', $news . ' AND c.hledani IS NOT NULL', 'c.hledani COLLATE utf8mb4_bin', [Clock::now(), $column], 'c.datum DESC, c.idc DESC', $more, $cursor);
             $fallback('news', 'c.idc, c.titulek, c.seo_link, c.uvod, c.datum', $news . ' AND c.hledani IS NULL', ['c.titulek', 'c.uvod'], [], 'c.titulek',
                 [Clock::now(), $column], 'c.datum DESC, c.idc DESC', self::CANDIDATES);
         }
