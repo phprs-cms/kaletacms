@@ -44,6 +44,9 @@ final class SiteExport
     /** News item columns that are only operational (search index, link check…) and do not belong in the export. */
     private const array EXCLUDED_ARTICLE_COLUMNS = ['hledani', 'odkazy_cas', 'oznameno', 'autor', 'autor_jmeno'];
 
+    /** Page columns that are derived data (3.53: the search text, made again on the receiving site) – never in the export. */
+    public const array EXCLUDED_PAGE_COLUMNS = ['hledani'];
+
     /**
      * @param int $format the version of obsah.json: FORMAT_VERSION (2), or 3 with English keys (ExportFormat) – tests and 4.0
      * @return array{soubor:string, media:bool, duvod:string} name of the created file; media = false when it contains only data (duvod says why)
@@ -134,7 +137,7 @@ final class SiteExport
         fwrite($f, substr(self::json($header), 0, -1));
 
         $authors = "(SELECT NULLIF(u.jmeno, '') FROM {uzivatele} u WHERE u.idu = c.autor) AS autor_jmeno";
-        self::fields($f, $format, 'stranky', self::streamRows($db, 'SELECT * FROM {stranky} WHERE ids > ? AND smazano IS NULL ORDER BY ids LIMIT 200', 'ids')); // the trash is not exported
+        self::fields($f, $format, 'stranky', self::pages($db)); // the trash is not exported
         self::fields($f, $format, 'kategorie', self::streamRows($db, 'SELECT idt, nazev, seo_link, popis, hodnost, jazyk, preklad_z FROM {kategorie} WHERE idt > ? ORDER BY idt LIMIT 500', 'idt'));
         self::fields($f, $format, 'stitky', self::streamRows($db, 'SELECT ids, nazev, seo_link, jazyk, popis, obrazek FROM {stitky} WHERE ids > ? ORDER BY ids LIMIT 500', 'ids'));
         self::fields($f, $format, 'novinky', self::articles($db, $authors));
@@ -198,6 +201,14 @@ final class SiteExport
             $newsItem['autor'] = (string) ($c['autor_jmeno'] ?? '');
             $newsItem['stitky'] = array_map(intval(...), array_column($db->all('SELECT ids FROM {novinky_stitky} WHERE idc = ?', [$c['idc']]), 'ids'));
             yield $newsItem;
+        }
+    }
+
+    /** The pages without their derived columns (EXCLUDED_PAGE_COLUMNS). */
+    private static function pages(Db $db): \Generator
+    {
+        foreach (self::streamRows($db, 'SELECT * FROM {stranky} WHERE ids > ? AND smazano IS NULL ORDER BY ids LIMIT 200', 'ids') as $page) {
+            yield array_diff_key($page, array_flip(self::EXCLUDED_PAGE_COLUMNS));
         }
     }
 

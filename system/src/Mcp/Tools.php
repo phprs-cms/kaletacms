@@ -410,6 +410,7 @@ final class Tools
             }
             $id = $db->insert('stranky', $data + ['text' => '', 'zobrazit' => 0, 'v_menu' => 0]);
             \Kaleta\Core\Slug::fromId($db, 'stranky', $id); // a title with nothing to transliterate: page-<id>, not n-a
+            \Kaleta\Core\SearchIndex::page($db, $id); // 3.53 (A4): found by search_site in the same session
             if (!empty($data['v_menu'])) {
                 \Kaleta\Core\Menu::setPage($db, $id, $language, true);
             }
@@ -419,6 +420,7 @@ final class Tools
                 Pages::version($db, $id, $this->app->auth()->id(), $previous['titulek'], (string) $previous['text']); // the previous version into the history
             }
             $db->update('stranky', $data, ['ids' => $id]);
+            \Kaleta\Core\SearchIndex::page($db, $id); // 3.53 (A4)
             if (isset($data['seo_link']) && $data['seo_link'] !== $previous['seo_link']) {
                 Pages::move($db, $previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit'], $language);
             }

@@ -983,7 +983,7 @@ final class Kernel
         }
         $rows = $itemSlug !== ''
             ? $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND seo_link = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL', [$collection['idk'], $itemSlug, Language::siteColumn()])
-            : $db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
+            : $db->all('SELECT ' . \Kaleta\Core\SearchIndex::columns($db, 'kolekce_polozky') . ' FROM {kolekce_polozky} WHERE idk = ? AND jazyk = ? AND zobrazit = 1 AND smazano IS NULL AND ' . $start . ' >= ? ORDER BY ' . $start . ' LIMIT 500',
                 [$collection['idk'], Language::siteColumn(), date('Y-m-d', strtotime('-30 days'))]);
         if ($itemSlug !== '' && $rows === []) {
             return $this->notFound();

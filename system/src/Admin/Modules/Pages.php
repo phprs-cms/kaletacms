@@ -129,7 +129,7 @@ final class Pages extends Module
             array_push($params, ...$words);
         }
 
-        $pages = $this->db->all('SELECT * FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . self::listOrder($trash, $this->db->sortText('titulek')), $params);
+        $pages = $this->db->all('SELECT ' . \Kaleta\Core\SearchIndex::columns($this->db, 'stranky') . ' FROM {stranky} WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . self::listOrder($trash, $this->db->sortText('titulek')), $params);
 
         // column "V navigaci" (In navigation): with a custom menu by the menu items (the page or a link to its URL), otherwise the flag v_menu
         foreach ($pages as &$s) {
@@ -329,6 +329,7 @@ final class Pages extends Module
             $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']); // an edit directly on the site goes to the history as in the admin
         }
         $this->db->update('stranky', ['titulek' => $title, 'text' => $text] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);
+        \Kaleta\Core\SearchIndex::page($this->db, (int) $page['ids']); // 3.53 (A4)
         \Kaleta\Core\ChangeLog::write($this->app, 'pages', 'edited directly on the site', mb_substr($title, 0, 80));
 
         return $this->redirectToSite($r->post('zpet'));
@@ -485,6 +486,7 @@ final class Pages extends Module
                 $this->saveVersion($id, $previous['titulek'], (string) $previous['text']);
             }
             $this->db->update('stranky', $data, ['ids' => $id]);
+            \Kaleta\Core\SearchIndex::page($this->db, $id); // 3.53 (A4): the saved page is searchable with the next request
             if ($previous !== null && $previous['seo_link'] !== $data['seo_link']) {
                 self::move($this->db, $previous['seo_link'], $data['seo_link'], (bool) $previous['zobrazit'], $language);
             }
@@ -492,6 +494,7 @@ final class Pages extends Module
         } else {
             $id = $this->db->insert('stranky', $data);
             \Kaleta\Core\Slug::fromId($this->db, 'stranky', $id); // a title with nothing to transliterate: page-<id>, not n-a
+            \Kaleta\Core\SearchIndex::page($this->db, $id); // 3.53 (A4)
             $notifyOwner($id);
             $original = $data['preklad_z'] !== null && $r->postBool('copy_build') ? $this->db->one('SELECT stavba, stavba_koncept FROM {stranky} WHERE ids = ?', [$data['preklad_z']]) : null;
             if ($original !== null && ($original['stavba_koncept'] ?? $original['stavba']) !== null) {
@@ -525,6 +528,7 @@ final class Pages extends Module
                 // in the page's language, from what the site has switched on (1.9); with the text it may be shown as chosen
                 $text = \Kaleta\Core\Language::runWith($this->contentLanguage($language), fn (): string => \Kaleta\Builder\Library::privacyPolicyText($this->app->settings(), \Kaleta\Core\Privacy::mapAtOnce($this->db)));
                 $this->db->update('stranky', ['text' => $text] + ($data['show_on_publish'] ? ['zobrazit' => 1, 'show_on_publish' => 0] : []), ['ids' => $id]);
+                \Kaleta\Core\SearchIndex::page($this->db, $id);
 
                 return $this->back('The page has been created with a privacy policy outline – fill in the details in square brackets.', 'edit', ['id' => $id]);
             }
@@ -729,6 +733,7 @@ final class Pages extends Module
         }
         $this->saveVersion((int) $page['ids'], $page['titulek'], (string) $page['text']);
         $this->db->update('stranky', ['titulek' => $version['titulek'], 'text' => $version['text']] + self::edited($this->app->auth()->id()), ['ids' => $page['ids']]);
+        \Kaleta\Core\SearchIndex::page($this->db, (int) $page['ids']); // 3.53 (A4)
 
         return $this->back(t('Version from %s restored.', format_date($version['datum'], true)), 'edit', ['id' => (int) $page['ids']]);
     }
@@ -911,7 +916,8 @@ final class Pages extends Module
         // a copy of a page without a responsible person has none either
         $copy['owner_id'] = $page['owner_id'] !== null && $this->app->auth()->id() > 0 ? $this->app->auth()->id() : null;
         $copy = self::edited($this->app->auth()->id()) + $copy; // when and who (3.20, C11) – the stamp replaces the original's
-        $id = $this->db->insert('stranky', $copy);
+        $id = $this->db->insert('stranky', $copy); // never the original's search text (Db::insert leaves it out) – the copy gets its own
+        \Kaleta\Core\SearchIndex::page($this->db, $id);
 
         return $this->back('The copy of the page is hidden – edit it and publish it.', 'edit', ['id' => $id]);
     }

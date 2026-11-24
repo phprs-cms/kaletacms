@@ -48,6 +48,12 @@ final class AgentJournal
     /** Settings keys that are the site's own bookkeeping (timestamps of background work, versions) – never undone. */
     private const string BOOKKEEPING = '/^(db_version|data_migrations|notification_check)$|_(check|time|checked|seen|ts|at)$/';
 
+    /**
+     * 3.53 (A4): derived columns never copied into the journal – the search text (Core\SearchIndex) is made again from the
+     * content, so a journal row does not carry up to 200 KB of it twice; undo empties it for the job to make again.
+     */
+    private const array DERIVED = ['stranky' => 'hledani', 'kolekce_polozky' => 'hledani', 'novinky' => 'hledani'];
+
     /** @var array<string, list<string>> primary key columns by table */
     private static array $keys = [];
 
@@ -102,7 +108,22 @@ final class AgentJournal
     public function rowsWhere(string $table, string $whereSql, array $params): array
     {
         $table = Names::table($table);
-        return $this->quietly(fn (): array => $this->db->all('SELECT * FROM {' . $table . '} WHERE ' . $whereSql, $params));
+        return array_map(fn (array $row): array => self::withoutDerived($table, $row), $this->quietly(fn (): array => $this->db->all('SELECT * FROM {' . $table . '} WHERE ' . $whereSql, $params)));
+    }
+
+    /**
+     * A row without its derived columns (DERIVED).
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function withoutDerived(string $table, array $row): array
+    {
+        if (isset(self::DERIVED[$table])) {
+            unset($row[self::DERIVED[$table]]);
+        }
+
+        return $row;
     }
 
     /**
@@ -133,6 +154,7 @@ final class AgentJournal
                     continue;
                 }
                 $new = $this->db->one('SELECT * FROM {' . $table . '} WHERE ' . self::condition(array_keys($key)), array_values($key));
+                $new = $new === null ? null : self::withoutDerived($table, $new);
                 if ($old === $new) {
                     continue; // nothing changed (an update to the same values)
                 }
@@ -243,7 +265,10 @@ final class AgentJournal
             $rows[$id]['after'] = $e['after_row'];
         }
         $result = ['restored' => 0, 'removed' => 0, 'conflicts' => [], 'untracked' => $untracked, 'undone' => false];
-        $db->transaction(function (Db $db) use ($rows, $force, &$result): void {
+        // 3.53 (A4): a restored page, item or news item gets its search text emptied – the job makes it from the restored
+        // content (the column of pages and items exists from migration 0141, that of news always did)
+        $derived = SearchIndex::ready($app->settings()) ? self::DERIVED : ['novinky' => 'hledani'];
+        $db->transaction(function (Db $db) use ($rows, $force, $derived, &$result): void {
             foreach (array_reverse($rows) as $row) {
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition(array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
@@ -260,7 +285,10 @@ final class AgentJournal
 
                     continue;
                 }
-                $before = (array) json_decode((string) $row['before'], true);
+                $before = self::withoutDerived($row['table'], (array) json_decode((string) $row['before'], true)); // a journal before 3.53 has it
+                if (isset($derived[$row['table']])) {
+                    $before[$derived[$row['table']]] = null;
+                }
                 $columns = array_keys($before);
                 $db->run('INSERT INTO {' . $row['table'] . '} (' . implode(', ', array_map(fn (string $c): string => '`' . str_replace('`', '', $c) . '`', $columns)) . ') VALUES ('
                     . implode(', ', array_fill(0, count($columns), '?')) . ') ON DUPLICATE KEY UPDATE '
@@ -311,6 +339,9 @@ final class AgentJournal
         if ($a === null || $b === null) {
             return $a === $b;
         }
+        // without the derived search text on both sides (3.53, A4): the job fills it after a session, and journals written
+        // before 3.53 still carry it – neither is a change by a person
+        unset($a['hledani'], $b['hledani']);
         $norm = fn (array $r): array => array_map(fn (mixed $v): ?string => $v === null ? null : (string) $v, $r);
 
         return $norm($a) == $norm($b);

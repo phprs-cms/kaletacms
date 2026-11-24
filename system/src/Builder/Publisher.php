@@ -278,6 +278,7 @@ final class Publisher
         $now = date('Y-m-d H:i:s');
         $app->db()->run('UPDATE {stranky} SET zobrazit = 1, show_on_publish = 0, zverejnit_od = NULL WHERE ids = ? AND show_on_publish = 1 AND smazano IS NULL AND (zverejnit_od IS NULL OR zverejnit_od <= ?)', [$page['ids'], $now]);
         $app->db()->run('UPDATE {stranky} SET show_on_publish = 0 WHERE ids = ? AND show_on_publish = 1 AND zverejnit_od > ?', [$page['ids'], $now]);
+        \Kaleta\Core\SearchIndex::page($app->db(), (int) $page['ids']); // 3.53 (A4): searchable with the next request
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Core\PageCache::clear();
     }

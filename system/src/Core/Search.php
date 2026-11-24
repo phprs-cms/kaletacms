@@ -117,7 +117,8 @@ final class Search
     {
         $c = $db->one('SELECT titulek, uvod, text, t_slova FROM {novinky} WHERE idc = ?', [$idc]);
         if ($c !== null) {
-            $db->update('novinky', ['hledani' => SearchIndex::text('novinky', $c)], ['idc' => $idc]);
+            // derived data: never in the undo journal of a Claude session (3.53, A4 – the undo empties it instead)
+            $db->unjournaled(fn () => $db->run('UPDATE {novinky} SET hledani = ? WHERE idc = ?', [SearchIndex::text('novinky', $c), $idc]));
         }
     }
 

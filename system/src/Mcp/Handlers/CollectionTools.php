@@ -228,7 +228,7 @@ trait CollectionTools
         if (array_key_exists('schema_org', $a)) {
             $changes['schema_org'] = self::collectionSchema($a['schema_org'], json_decode($changes['pole'] ?? '', true) ?: $collection['pole']);
         }
-        $db->update('kolekce', $changes, ['idk' => $collection['idk']]);
+        Collections::update($db, $collection, $changes); // 3.53 (A4): a change of the searched fields empties the items' search text
         \Kaleta\Core\PageCache::clear();
         $newVersion = (array) $db->one('SELECT * FROM {kolekce} WHERE idk = ?', [$collection['idk']]);
 
@@ -296,7 +296,7 @@ trait CollectionTools
             $whereParts[] = 'idp IN (SELECT idp FROM {collection_item_categories} WHERE category_id IN (' . implode(',', array_fill(0, count($ids), '?')) . '))';
             $args = [...$args, ...$ids];
         }
-        $rows = $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY poradi, ' . $db->sortText('nazev') . ' LIMIT 5000', $args);
+        $rows = $db->all('SELECT ' . \Kaleta\Core\SearchIndex::columns($db, 'kolekce_polozky') . ' FROM {kolekce_polozky} WHERE ' . implode(' AND ', $whereParts) . ' ORDER BY poradi, ' . $db->sortText('nazev') . ' LIMIT 5000', $args);
         $withCategories = CollectionCategories::has($db, (int) $collection['idk']);
         if (is_string($a['pole'] ?? null) && $a['pole'] !== '') {
             // exact match of a field value (JSON in the database – filtered here, without depending on the MySQL version)
@@ -440,6 +440,7 @@ trait CollectionTools
             $idp = $db->insert('kolekce_polozky', $row);
             \Kaleta\Core\Slug::fromId($db, 'kolekce_polozky', $idp); // a name with nothing to transliterate: item-<id>
         }
+        \Kaleta\Core\SearchIndex::item($db, $idp); // 3.53 (A4): found by search_site in the same session
         if ($categoryIds !== null) {
             CollectionCategories::assign($db, $idp, (int) $collection['idk'], $categoryIds);
         }
@@ -583,6 +584,7 @@ trait CollectionTools
         }
         \Kaleta\Builder\Collections::saveVersion($this->app, $item, $version);
         $db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $id]);
+        \Kaleta\Core\SearchIndex::item($db, $id); // 3.53 (A4)
         Notices::recordSave($this->app, $k, $item, $version, $id);
         \Kaleta\Core\PageCache::clear();
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kaleta\Builder;
 
 use Kaleta\Core\Db;
+use Kaleta\Core\SearchIndex;
 use Kaleta\Core\WpContent;
 
 /**
@@ -433,7 +434,7 @@ final class Collections
             $r['data'] = json_decode((string) $r['data'], true) ?: [];
 
             return $r;
-        }, $db->all('SELECT * FROM {kolekce_polozky} WHERE ' . $whereParts . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', [...$params, $count, (max(1, $pageNumber) - 1) * $count]));
+        }, $db->all('SELECT ' . \Kaleta\Core\SearchIndex::columns($db, 'kolekce_polozky') . ' FROM {kolekce_polozky} WHERE ' . $whereParts . ' ORDER BY ' . $order . ' LIMIT ? OFFSET ?', [...$params, $count, (max(1, $pageNumber) - 1) * $count]));
 
         return [$items, $total];
     }
@@ -771,6 +772,47 @@ final class Collections
         $old = $snapshot($previous);
         $new = $snapshot(array_replace($previous, $new));
         Publisher::version($app, ['cast' => 'polozka:' . (int) $previous['idp']], $old, $new, $previous['zmeneno'] ?? $previous['datum'] ?? null);
+    }
+
+    /**
+     * Writes changed columns of a collection ($previous = its row from byId()): a new field definition ('pole', JSON) that
+     * changes the searched fields empties the items' search text (searchFieldsChanged, 3.53 A4).
+     *
+     * @param array<string, mixed> $previous
+     * @param array<string, scalar|null> $changes
+     */
+    public static function update(Db $db, array $previous, array $changes): void
+    {
+        $db->update('kolekce', $changes, ['idk' => (int) $previous['idk']]);
+        if (isset($changes['pole'])) {
+            self::searchFieldsChanged($db, (int) $previous['idk'], (array) $previous['pole'], (array) (json_decode((string) $changes['pole'], true) ?: []));
+        }
+    }
+
+    /**
+     * 3.53 (A4): the field definitions of a collection were saved. When the fields whose values go to the search text changed
+     * (SearchIndex::SEARCH_TYPES – a new text field, a text field turned into a number, one removed), the items' search text
+     * is emptied for the background job to make again; any other change of the fields leaves it. Derived data: unjournaled.
+     *
+     * @param list<array<string, mixed>> $before
+     * @param list<array<string, mixed>> $after
+     */
+    public static function searchFieldsChanged(Db $db, int $idk, array $before, array $after): void
+    {
+        $searched = function (array $fields): array {
+            $keys = array_map(fn (array $f): string => (string) ($f['klic'] ?? ''), array_filter($fields, fn (mixed $f): bool => is_array($f) && in_array($f['typ'] ?? '', SearchIndex::SEARCH_TYPES, true)));
+            sort($keys);
+
+            return $keys;
+        };
+        if ($searched($before) === $searched($after)) {
+            return;
+        }
+        try {
+            $db->unjournaled(fn () => $db->run('UPDATE {kolekce_polozky} SET hledani = NULL WHERE idk = ?', [$idk]));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
+        }
     }
 
     /** @return array<string, mixed>|null the item columns stored in one version */

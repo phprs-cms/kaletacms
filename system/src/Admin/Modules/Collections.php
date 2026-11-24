@@ -147,7 +147,7 @@ final class Collections extends Module
             $data['schema_org'] = $schema === null ? null : (string) json_encode($schema, JSON_UNESCAPED_UNICODE);
         }
         if ($previous !== null) {
-            $this->db->update('kolekce', $data, ['idk' => $id]);
+            KolekceObsahu::update($this->db, $previous, $data); // 3.53 (A4): a change of the searched fields empties the items' search text
         } else {
             $id = $this->db->insert('kolekce', $data);
         }
@@ -181,7 +181,6 @@ final class Collections extends Module
         if ($k === null) {
             return $this->error('The collection does not exist.', 404);
         }
-
         [$siteLanguages, $language, $column] = $this->readLanguageFilter();
         $trash = $this->request->get('status') === 'kos';
         $mine = !$trash && $this->request->get('status') === 'mine'; // 3.24: the items I am the responsible person for
@@ -393,6 +392,7 @@ final class Collections extends Module
             $idp = $this->db->insert('kolekce_polozky', $row + ['datum' => date('Y-m-d H:i:s')]);
             \Kaleta\Core\Slug::fromId($this->db, 'kolekce_polozky', $idp); // a name with nothing to transliterate: item-<id>
         }
+        \Kaleta\Core\SearchIndex::item($this->db, $idp); // 3.53 (A4): the saved item is searchable with the next request
         if ($r->post('kategorie_formular') === '1') {
             CategoryTree::assign($this->db, $idp, (int) $k['idk'], array_map(intval(...), $r->postList('kategorie'))); // 3.7: the ticked categories
         }
@@ -469,7 +469,6 @@ final class Collections extends Module
             'zobrazit' => t('Items published: %d.', $done), 'skryt' => t('Items hidden: %d.', $done),
             'jazyk' => t('Items moved to the language version: %d.', $done), default => t('Items moved to the trash: %d.', $done),
         };
-
         $skippedText = $mayPublish ? t('Skipped: %d (the address is taken in that language).', $skipped) : t('Skipped: %d (on the site – only an editor changes it – or the address is taken in that language).', $skipped);
 
         return $this->back(trim($message . ($skipped > 0 ? ' ' . $skippedText : '') . ' ' . CategoryTree::shownMessage($shown)), 'items', ['id' => $idk], $done > 0 ? 'ok' : 'chyba');
@@ -759,6 +758,7 @@ final class Collections extends Module
         }
         KolekceObsahu::saveVersion($this->app, $item, $version);
         $this->db->update('kolekce_polozky', $version + ['zmeneno' => date('Y-m-d H:i:s')], ['idp' => $idp]);
+        \Kaleta\Core\SearchIndex::item($this->db, $idp); // 3.53 (A4)
         Notices::recordSave($this->app, (array) KolekceObsahu::byId($this->db, $idk), $item, $version, $idp);
         \Kaleta\Core\PageCache::clear();
 

@@ -141,7 +141,7 @@ final class ItemBatch
         $taken = []; // "language|slug" => the item that has it (0 = a new one in this batch)
         // the addresses of the collection's categories in every language – never an item's (3.7, N37-8)
         $categories = array_fill_keys(array_map('strval', array_column($db->all('SELECT DISTINCT slug FROM {collection_category_texts} WHERE idk = ?', [(int) $collection['idk']]), 'slug')), true);
-        foreach ($db->all('SELECT * FROM {kolekce_polozky} WHERE idk = ?', [(int) $collection['idk']]) as $r) {
+        foreach ($db->all('SELECT ' . \Kaleta\Core\SearchIndex::columns($db, 'kolekce_polozky') . ' FROM {kolekce_polozky} WHERE idk = ?', [(int) $collection['idk']]) as $r) {
             $byKey[$r['jazyk'] . '|' . $r['seo_link']] = $r;
             $byId[(int) $r['idp']] = $r;
             $taken[$r['jazyk'] . '|' . $r['seo_link']] = (int) $r['idp'];
@@ -341,6 +341,7 @@ final class ItemBatch
                     return $idp;
                 });
                 $written = true;
+                \Kaleta\Core\SearchIndex::item($db, $entry['id']); // 3.53 (A4): each saved row is searchable at once (never throws)
             } catch (\DomainException $e) {
                 $entry['status'] = 'refused';
                 $entry['reason'] = $e->getMessage();

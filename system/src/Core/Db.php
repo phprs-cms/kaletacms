@@ -339,6 +339,7 @@ final class Db
     {
         $name = $table; // the placeholder keeps the name the caller wrote ({news} resolves the same; only a legacy name is logged, 3.14)
         $table = Names::table($table); // {news} and 'news' are the news table – journaled and undone like 'novinky' (3.10, N310-5)
+        $data = $this->searchText($table, $data, true);
         $columns = array_keys($data);
         $sql = sprintf(
             'INSERT INTO {%s} (%s) VALUES (%s)',
@@ -363,16 +364,61 @@ final class Db
     {
         $name = $table;
         $table = Names::table($table);
-        $set = implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data)));
+        $data = $this->searchText($table, $data, false);
+        if ($data === []) {
+            return 0; // only a search text was passed: the rule took it away
+        }
         $cond = implode(' AND ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($where)));
-        $sql = sprintf('UPDATE {%s} SET %s WHERE %s', $name, $set, $cond);
+        $write = fn (array $data): int => $this->run(sprintf('UPDATE {%s} SET %s WHERE %s', $name, implode(', ', array_map(fn (string $c): string => self::quoteName($c) . ' = ?', array_keys($data))), $cond),
+            [...array_values($data), ...array_values($where)])->rowCount();
         $before = $this->journal !== null && AgentJournal::journaled($table) ? $this->journal->rowsWhere($table, $cond, array_values($where)) : null;
-        $count = $this->withoutJournal(fn (): int => $this->run($sql, [...array_values($data), ...array_values($where)])->rowCount());
+        $count = $this->withoutJournal(function () use ($write, $data): int {
+            try {
+                return $write($data);
+            } catch (\PDOException $e) {
+                // new files on a database before migration 0141 (the update has not run, or failed): the content is saved
+                // without the search text, which is not there yet – once per connection, then the rule leaves it out
+                if (!array_key_exists('hledani', $data) || !self::tableMissing($e)) {
+                    throw $e;
+                }
+                $this->searchTextMissing = true;
+                unset($data['hledani']);
+
+                return $write($data);
+            }
+        });
         if ($before !== null) {
             $this->journal?->record($table, $before);
         }
 
         return $count;
+    }
+
+    /** The search text column was found missing on this connection (a database before migration 0141, 3.53 A4). */
+    private bool $searchTextMissing = false;
+
+    /**
+     * 3.53 (A4): the one rule that keeps the search text of pages and collection items from going stale. An update that
+     * writes a content column (SearchIndex::CONTENT) empties hledani – also over a value the caller passed, so a copied
+     * full row never carries another row's text – and an insert never sets it. Core\SearchIndex makes the text again: right
+     * after a save (SearchIndex::page/item) or by the background job. Raw SQL that changes page or item content must set
+     * hledani = NULL itself.
+     *
+     * @param array<string, scalar|null> $data
+     * @return array<string, scalar|null>
+     */
+    private function searchText(string $table, array $data, bool $insert): array
+    {
+        $content = SearchIndex::CONTENT[$table] ?? null;
+        if ($content === null) {
+            return $data;
+        }
+        unset($data['hledani']);
+        if (!$insert && !$this->searchTextMissing && array_intersect_key($data, array_flip($content)) !== []) {
+            $data['hledani'] = null;
+        }
+
+        return $data;
     }
 
     /** @param array<string, scalar|null> $where */

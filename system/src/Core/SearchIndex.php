@@ -113,20 +113,49 @@ final class SearchIndex
         return $values;
     }
 
-    /** Indexes one page now (after a save or a publish). */
+    /** Indexes one page now (after a save or a publish). Never throws: a page the index could not take waits NULL for the job. */
     public static function page(Db $db, int $ids): void
     {
-        self::one($db, 'stranky', $ids, false);
+        self::now($db, 'stranky', $ids);
     }
 
     /** @var array<int, list<array<string, mixed>>|null> the field definitions of collections read by this run of complete() / item() */
     private static array $fields = [];
 
-    /** Indexes one collection item now (after a save). */
+    /** Indexes one collection item now (after a save). Never throws, as page(). */
     public static function item(Db $db, int $idp): void
     {
         self::$fields = []; // the fields may have changed in this request
-        self::one($db, 'kolekce_polozky', $idp, false);
+        self::now($db, 'kolekce_polozky', $idp);
+    }
+
+    /**
+     * The index right after a save (3.53, A4): the save is done, so nothing here may undo or fail it – a database without
+     * the column (before migration 0141) is silence, any other error is logged and the row stays NULL for the job.
+     */
+    private static function now(Db $db, string $table, int $id): void
+    {
+        try {
+            self::one($db, $table, $id, false);
+        } catch (\Throwable $e) {
+            if (!$e instanceof \PDOException || !Db::tableMissing($e)) {
+                ErrorLog::write(ErrorLog::exception($e));
+            }
+        }
+    }
+
+    /** @var array<string, string> the column lists of columns(), by the full table name */
+    private static array $columns = [];
+
+    /**
+     * Every column of pages or collection items but the search text, for the reads of many rows that would otherwise carry
+     * it for nothing (up to MAX_BYTES a row): 'SELECT ' . SearchIndex::columns($db, 'stranky') . ' FROM {stranky} …'. Asked
+     * once per request; on a database before migration 0141 it is simply every column.
+     */
+    public static function columns(Db $db, string $table): string
+    {
+        return self::$columns[$db->tableName($table)] ??= implode(', ', array_map(Db::quoteName(...), array_values(array_filter(
+            array_map(strval(...), array_column($db->all('SHOW COLUMNS FROM {' . $table . '}'), 'Field')), fn (string $c): bool => $c !== 'hledani'))));
     }
 
     /**
