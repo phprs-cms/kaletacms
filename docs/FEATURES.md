@@ -110,7 +110,7 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   stránky také ne; vrácení relace agenta vynuluje položky kolekce s obnovenými poli (`SearchIndex::fieldsChanged`), import exportu
   Kalety na konci stránky s komponentami (`SearchIndex::componentPagesChanged`). Komponenty a pole kolekce čte index až po zámku řádku,
   nikdy z předchozího řádku. Úsek CJK se v textu odděluje od latinky a číslic (Hangul od latinky a číslic), apostrof v dotazu dělí slovo
-  („l'hôtel“ hledá „hotel“). Stav systému ukáže, kolik čeká, a varuje, jen když poslední běh úlohy nic nedoplnil (`waiting:done`). Web (`SiteSearch::find`) čte jen index: jedno čtení na druh, přesný počet, nejlepších 300
+  („l'hôtel“ hledá „hotel“). Stav systému ukáže, kolik čeká, a varuje, jen když poslední běh úlohy nic nedoplnil (`waiting:done`). Web (`SiteSearch::find`) čte jen index: jedno čtení na druh, počet všech shod (do 50 000 na druh), nejlepších 300
   na druh do řazení, „Zobrazeno nejlepších N z M“; řádky ještě bez textu hledá do 3.54 postaru. Admin seznamy stránek a položek, paleta
   a `list_pages`/`list_collection_items` přes `Search::indexWords` (`SearchIndex::pageWords/itemWords`). Jeden práh délky `Search::longEnough`
   (dva znaky, nebo jeden znak CJK); tvary slov i pro pl, hu, es, pt, fr, it, ru, uk (`Search::NO_STEMMER` pro ostatní); nejvýš 2000 různých

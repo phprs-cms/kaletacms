@@ -4,6 +4,63 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.53.0 – search finished: a stored search text for pages and items, a total of every match, every script, word forms in more languages (24 November 2026)
+
+3.52 searched the website by reading raw columns with caps, so on a large site it could lose the best page, found words
+that only sat in a link or a field name and showed a total that was just what it kept. 3.53 gives pages and collection
+items a stored, normalized search text as news already had, keeps it fresh on every save and fills the rest in the
+background. **Database 141** (one migration, 0141 `.sql`: `hledani MEDIUMTEXT utf8mb4_bin` on `ka_stranky` and
+`ka_kolekce_polozky`, the unused FULLTEXT index over news dropped – on a large news table the update may take a moment).
+**MCP:** no new tools or keys; `search_site` keeps `results / total / partial` and `total` now counts every match (up
+to 50 000 of a kind) instead of the results kept.
+
+1. **A stored search text (A1–A4).** `Core\SearchIndex` builds it (page: title, SEO title, description and the published
+   build through `Core\SearchText` – components with their property values, the HTML element, carousels, gallery
+   captions and other labels; item: name, description and the fields of `SearchIndex::SEARCH_TYPES`; cut at 200 KB).
+   `NULL` means "to index": `Db::update` of a content column clears it, a change of a collection's field types, of a
+   component or of an agent session undone clears the rows they touch, an import of a Kaleta export clears pages with
+   components. Saving in the administration or over MCP indexes at once; the job `search_index` (after mail and
+   webhooks, with what is left of the run: at most 20 s from cron, 1.5 s on a visit, 0.4 s where the host cannot send the
+   answer first) fills the rest in batches and re-indexes news when `Search::VERSION`
+   changes. The index is derived data: it is written outside the agent journal and left out of the export and page
+   packages. System status shows how many rows wait and warns only when the last run filled none of them.
+2. **The site search reads only the index (A5).** One streamed read per kind, the best 300 per kind ranked (the page with
+   the most occurrences is no longer cut), a total of every match (up to 50 000 of a kind, `SiteSearch::MAX_ROWS`) and
+   "Showing the best N of M." Rows the job has not filled yet
+   are searched the 3.52 way until 3.54 removes that path.
+3. **Every script and alphabet (A1, B1, B2).** `Search::normalize` version 2 keeps every script and folds the Latin
+   letters of all European alphabets and Vietnamese ("strasse" finds Straße, "lodz" Łódź). One Chinese, Japanese or
+   Korean character is a query; a CJK run is split from Latin letters and digits ("WordPress" finds "使用WordPress搭建网站"),
+   and when nothing has every word of the query, a CJK run of three or more is tried by its first pairs (at most 4) and
+   the result is marked partial. "R&B" and "e-mail" are phrases, an apostrophe
+   splits a word ("l'hôtel" finds "hôtel"), a Cyrillic or Greek word no longer lists every news item in the admin.
+4. **Word forms in more languages (B3).** Endings for Polish, Hungarian, Spanish, Portuguese, French, Italian, Russian
+   and Ukrainian besides cs, sk, en and de, chosen by the language and the script of the word; the other languages
+   match by word start (`Search::NO_STEMMER`).
+5. **Admin lists, palette and MCP lists on the index (B4).** The Pages list, collection items, the palette and MCP
+   `list_pages` and `list_collection_items` search the title, address and the stored text: **they now match visible text
+   only** (text inside tags and JSON keys no longer matches) and fold ß, ł and similar letters; `list_collection_items`
+   also takes a number as `search`, as `list_pages` does. The exact title comes first in the palette; status and kind tabs keep the
+   search.
+6. **Searched terms stay bounded (B6).** At most 2000 distinct new terms a day and language are recorded.
+7. **Updating.** Database 141: 0141 adds `hledani` to `ka_stranky` and `ka_kolekce_polozky` and drops `ft_clanky_hledani`.
+   The search keeps working between the file update and the migration and until the job has filled the index (rows
+   without it are searched the 3.52 way, news during their re-index by their title and intro as well). What an existing
+   site notices: admin lists and MCP lists no longer match text inside tags or JSON keys, the site search shows the
+   total of all matches, backups grow by the visible text of pages and items.
+8. **Still open.** The 3.52-style search of rows not indexed yet and of news during a re-index goes in 3.54. More than
+   50 000 matching rows of one kind are not counted or ranked (`SiteSearch::MAX_ROWS`). The timing of the occurrence
+   order on MariaDB is not measured (`SiteSearch::ORDER_BY_OCCURRENCES`). The languages of `Search::NO_STEMMER` match by
+   word start only.
+
+Measured (`tools/bench-search.php`, 5000 pages, 50 000 items, 5000 news, local MySQL, median of 5): a rare word 0.34 s
+(3.52: 0.79 s), a common word 0.63 s (0.47 s, but now reading all 60 000 matching rows to count every match), two words
+1.01 s (0.82 s), two words without a full match 0.60 s (1.89 s), Cyrillic 0.46 s and Arabic 0.55 s with every match
+counted; peak memory 3.8 MB against 9.5 MB. After the update the job filled 60 000 rows in one or two cron runs; without
+cron it takes one short slice a minute – minutes on a small site, longer on a large one or on shared hosting. Backups
+and off-site copies grow by about the size of the visible text of pages and items. MariaDB correctness is covered by CI;
+its timing was not measured.
+
 ## 3.52.0 – finding things: one search for the lists, Ctrl/⌘K across every record, a ranked site search, search in the header, what visitors search for (24 November 2026)
 
 The administration finds any record a person may open – regardless of diacritics, word order and kind of record – the
