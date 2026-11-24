@@ -89,17 +89,18 @@ final class SearchIndex
 
     /**
      * The search text of one row, normalized and cut at MAX_BYTES. A page: its title, SEO title, description and body – the
-     * published build as text (BuildText::of, which Builder\Build::asText is) when it has one (also an empty one), else its text. An item: its name, description and the
+     * published build as SearchText::of makes it (the page content plus what a visitor also reads: custom HTML, image
+     * descriptions, labels and, with $db, the text inside components) when it has one (also an empty one), else its text. An item: its name, description and the
      * values of its SEARCH_TYPES fields ($fields = the collection's field definitions; broken JSON or no fields = name and
      * description only). A news item: title, keywords, intro and text, as Search::index has made it since 1.x.
      *
      * @param array<string, mixed> $row
      * @param list<array<string, mixed>>|null $fields
      */
-    public static function text(string $kind, array $row, ?array $fields = null): string
+    public static function text(string $kind, array $row, ?array $fields = null, ?Db $db = null): string
     {
         $parts = match ($kind) {
-            'stranky' => [$row['titulek'] ?? '', $row['seo_titulek'] ?? '', $row['popis'] ?? '', self::pageBody($row)],
+            'stranky' => [$row['titulek'] ?? '', $row['seo_titulek'] ?? '', $row['popis'] ?? '', self::pageBody($row, $db)],
             'kolekce_polozky' => [$row['nazev'] ?? '', $row['popis'] ?? '', ...self::itemValues($row, $fields)],
             'novinky' => [$row['titulek'] ?? '', $row['t_slova'] ?? '', $row['uvod'] ?? '', $row['text'] ?? ''],
             default => throw new \InvalidArgumentException('No search text for ' . $kind),
@@ -109,14 +110,68 @@ final class SearchIndex
     }
 
     /** @param array<string, mixed> $row */
-    private static function pageBody(array $row): string
+    private static function pageBody(array $row, ?Db $db): string
     {
         // the published build as Builder\Build::fromJson reads it: a JSON object with children; invalid = a text page
         $build = isset($row['stavba']) ? json_decode((string) $row['stavba'], true) : null;
 
         // a page with a published build is its build, also when the build has no text: the text column may be older then
         // (Publisher::page keeps it when the build text is empty)
-        return plain_text(is_array($build) && isset($build['deti']) ? BuildText::of($build) : (string) ($row['text'] ?? ''));
+        return plain_text(is_array($build) && isset($build['deti'])
+            ? SearchText::of($build, $db === null ? null : fn (int $idm): ?array => self::component($db, $idm)) : (string) ($row['text'] ?? ''));
+    }
+
+    /** @var array<int, array{stavba: array<string, mixed>, vlastnosti: list<mixed>}|null> the components read by this run of complete() / page() */
+    private static array $components = [];
+
+    /**
+     * A component as the search text of a page uses it: its published build and properties (null = none, or not
+     * published – a draft is not indexed). Read once per run.
+     *
+     * @return array{stavba: array<string, mixed>, vlastnosti: list<mixed>}|null
+     */
+    private static function component(Db $db, int $idm): ?array
+    {
+        if (!array_key_exists($idm, self::$components)) {
+            $r = $db->one('SELECT stavba, vlastnosti FROM {komponenty} WHERE idm = ?', [$idm]);
+            $build = $r === null || $r['stavba'] === null ? null : json_decode((string) $r['stavba'], true);
+            $properties = $r === null ? null : json_decode((string) $r['vlastnosti'], true);
+            self::$components[$idm] = is_array($build) ? ['stavba' => $build, 'vlastnosti' => is_array($properties) ? array_values($properties) : []] : null;
+        }
+
+        return self::$components[$idm];
+    }
+
+    /**
+     * A component was published, changed its properties or was deleted (3.53, B5): the pages whose published build uses
+     * it – also through another component – are emptied for the job (unjournaled, derived data). Returns the pages emptied.
+     */
+    public static function componentChanged(Db $db, int $idm): int
+    {
+        self::$components = [];
+        // the id as Build::sanitize stores it (a text) or as a number; never 12 for 123
+        $uses = function (array $ids): array {
+            $patterns = array_merge(...array_map(fn (int $id): array => ['%"komponenta":"' . $id . '"%', '%"komponenta":' . $id . ',%', '%"komponenta":' . $id . '}%'], $ids));
+
+            return ['(' . implode(' OR ', array_fill(0, count($patterns), 'stavba LIKE ?')) . ')', $patterns];
+        };
+        try {
+            // the components that hold this one, and those that hold them… (at most MAX_NESTING deep, as when rendering)
+            $ids = [$idm];
+            for ($level = 1, $new = [$idm]; $new !== [] && $level < SearchText::MAX_NESTING; $level++) {
+                [$where, $params] = $uses($new);
+                $found = array_map(intval(...), array_column($db->all('SELECT idm FROM {komponenty} WHERE stavba IS NOT NULL AND ' . $where, $params), 'idm'));
+                $new = array_values(array_diff($found, $ids));
+                $ids = [...$ids, ...$new];
+            }
+            [$where, $params] = $uses($ids);
+
+            return (int) $db->unjournaled(fn () => $db->run('UPDATE {stranky} SET hledani = NULL WHERE hledani IS NOT NULL AND stavba IS NOT NULL AND ' . $where, $params)->rowCount());
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
+
+            return 0;
+        }
     }
 
     /**
@@ -144,6 +199,7 @@ final class SearchIndex
     /** Indexes one page now (after a save or a publish). Never throws: a page the index could not take waits NULL for the job. */
     public static function page(Db $db, int $ids): void
     {
+        self::$components = []; // a component may have changed in this request
         self::now($db, 'stranky', $ids);
     }
 
@@ -201,7 +257,7 @@ final class SearchIndex
         if ($done['left']) {
             return $done;
         }
-        self::$fields = [];
+        [self::$fields, self::$components] = [[], []];
         $first = true;
         try {
             foreach (['stranky' => 'pages', 'kolekce_polozky' => 'items', 'novinky' => 'news'] as $table => $count) {
@@ -355,7 +411,7 @@ final class SearchIndex
                 return null;
             }
             try {
-                $text = self::text($table, $row, $table === 'kolekce_polozky' ? self::fields($db, (int) $row['idk']) : null);
+                $text = self::text($table, $row, $table === 'kolekce_polozky' ? self::fields($db, (int) $row['idk']) : null, $db);
                 $made = true;
             } catch (\Throwable $e) {
                 ErrorLog::write(ErrorLog::exception($e));

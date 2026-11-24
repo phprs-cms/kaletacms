@@ -327,6 +327,7 @@ final class Publisher
         self::guardPlacedComponent($app, (int) $component['idm'], $component['stavba'] ?? null, $new); // 3.50.1 review
         self::version($app, ['cast' => 'komponenta:' . (int) $component['idm']], $component['stavba'], $new, $component['zmeneno'] ?? null);
         $app->db()->update('komponenty', ['stavba' => $new, 'stavba_koncept' => null, 'zmeneno' => date('Y-m-d H:i:s')], ['idm' => $component['idm']]);
+        \Kaleta\Core\SearchIndex::componentChanged($app->db(), (int) $component['idm']); // the pages using it are found by their new text (3.53, B5)
         \Kaleta\Core\MediaStaging::promoteBuild($app->db(), (string) $new); // 3.15: its waiting files and those of its classes (N315-1)
         \Kaleta\Core\PageCache::clear();
     }

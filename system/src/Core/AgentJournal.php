@@ -268,7 +268,8 @@ final class AgentJournal
         // 3.53 (A4): a restored page, item or news item gets its search text emptied – the job makes it from the restored
         // content (the column of pages and items exists from migration 0141, that of news always did)
         $derived = SearchIndex::ready($app->settings()) ? self::DERIVED : ['novinky' => 'hledani'];
-        $db->transaction(function (Db $db) use ($rows, $force, $derived, &$result): void {
+        $components = []; // 3.53 (B5): a restored or removed component changes the text of the pages that use it
+        $db->transaction(function (Db $db) use ($rows, $force, $derived, &$result, &$components): void {
             foreach (array_reverse($rows) as $row) {
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition(array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
@@ -276,6 +277,9 @@ final class AgentJournal
                     $result['conflicts'][] = ['table' => $row['table'], 'key' => $row['key']];
 
                     continue;
+                }
+                if ($row['table'] === 'komponenty' && isset($row['key']['idm'])) {
+                    $components[] = (int) $row['key']['idm'];
                 }
                 if ($row['before'] === null) {
                     if ($current !== null) {
@@ -296,6 +300,9 @@ final class AgentJournal
                 $result['restored']++;
             }
         });
+        foreach (array_unique($components) as $idm) {
+            SearchIndex::componentChanged($db, $idm);
+        }
         $user = $app->auth()->user();
         $db->update('agent_sessions', ['undone_at' => Clock::now(), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);
         $result['undone'] = true;

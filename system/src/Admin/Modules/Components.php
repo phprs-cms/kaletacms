@@ -68,6 +68,7 @@ final class Components extends Module
         $data = ['nazev' => $name, 'vlastnosti' => (string) json_encode(KomponentyStavby::sanitizeProperties(is_array($_POST['vlastnosti'] ?? null) ? $_POST['vlastnosti'] : []), JSON_UNESCAPED_UNICODE), 'zmeneno' => date('Y-m-d H:i:s')];
         if ($id > 0 && KomponentyStavby::byId($this->db, $id) !== null) {
             $this->db->update('komponenty', $data, ['idm' => $id]);
+            \Kaleta\Core\SearchIndex::componentChanged($this->db, $id); // its default values are page text (3.53, B5)
         } else {
             $id = $this->db->insert('komponenty', $data + ['stavba_koncept' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
         }
@@ -86,6 +87,7 @@ final class Components extends Module
                 return $this->back('Only a user who may open Applications can remove a job application form – nothing was deleted.', '', [], 'chyba');
             }
             $this->db->delete('komponenty', ['idm' => $id]);
+            \Kaleta\Core\SearchIndex::componentChanged($this->db, $id);
             \Kaleta\Core\PageCache::clear();
         }
 

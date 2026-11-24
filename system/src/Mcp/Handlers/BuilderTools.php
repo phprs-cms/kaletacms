@@ -327,6 +327,7 @@ trait BuilderTools
             is_array($a['properties'] ?? null) ? $a['properties'] : ($current['vlastnosti'] ?? [])), JSON_UNESCAPED_UNICODE)];
         if ($current !== null) {
             $db->update('komponenty', $data, ['idm' => $id]);
+            \Kaleta\Core\SearchIndex::componentChanged($db, $id); // its default values are page text (3.53, B5)
         } else {
             $id = $db->insert('komponenty', $data + ['stavba_koncept' => Build::toJson(['v' => Build::VERSION, 'deti' => [Build::fresh('sekce')]])]);
         }
@@ -352,6 +353,7 @@ trait BuilderTools
         $need($auth->hasAppearanceArea() && $auth->canPublish(), 'Components can be deleted only by an administrator, or an editor with the Appearance area.'); // 3.22 (C9)
         \Kaleta\Builder\Publisher::guardRemoval($db->value('SELECT stavba FROM {komponenty} WHERE idm = ?', [$id]), $this->app); // 3.50.1: an application form needs the section
         $need($db->delete('komponenty', ['idm' => $id]) > 0, 'The component does not exist. Use list_components.');
+        \Kaleta\Core\SearchIndex::componentChanged($db, $id);
         \Kaleta\Core\PageCache::clear();
 
         return ['deleted' => $id];
