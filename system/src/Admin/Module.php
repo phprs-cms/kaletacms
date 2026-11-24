@@ -77,12 +77,12 @@ abstract class Module
         return max(1, min((int) ceil(max(1, $total) / $perPage), $this->request->getInt('page', 1)));
     }
 
-    /** The word a search action looks for (at most 80 characters); '' under two characters – those answer no rows. */
+    /** The word a search action looks for (at most 80 characters); '' under two characters (one CJK character is enough) – those answer no rows. */
     protected function searchWord(): string
     {
         $q = mb_substr(trim($this->request->get('q')), 0, 80);
 
-        return mb_strlen($q) < 2 ? '' : $q;
+        return \Kaleta\Core\Search::longEnough($q) ? $q : '';
     }
 
     /**

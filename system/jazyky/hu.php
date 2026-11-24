@@ -2178,4 +2178,5 @@ return [
     'No result contains all the words – these contain some of them.' => 'Egyik találat sem tartalmazza az összes szót – ezek néhányat tartalmaznak közülük.',
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nincs találat. Próbáljon más vagy kevesebb szót, vagy válasszon a főoldalak közül:',
     'Nothing found. Try other or fewer words.' => 'Nincs találat. Próbáljon más vagy kevesebb szót.',
+    'Showing the best %1$s of %2$s.' => 'A legjobb %1$s látható, összesen %2$s.',
 ];

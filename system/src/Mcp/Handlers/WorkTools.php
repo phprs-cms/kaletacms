@@ -48,7 +48,7 @@ trait WorkTools
     private function toolSearch(string $name, array $a): mixed
     {
         $q = is_scalar($a['dotaz'] ?? null) ? trim((string) $a['dotaz']) : '';
-        if (mb_strlen($q) < 2) {
+        if (!\Kaleta\Core\Search::longEnough($q)) {
             throw new \InvalidArgumentException('Give at least two characters to search for (query).');
         }
         $origin = $this->app->request->origin();

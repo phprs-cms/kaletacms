@@ -141,19 +141,20 @@ trait PageTools
     private function toolSearchSite(string $name, array $a): mixed
     {
         $q = is_scalar($a['query'] ?? null) ? trim((string) $a['query']) : '';
-        if (mb_strlen($q) < \Kaleta\Core\SiteSearch::MIN_LENGTH) {
+        if (!\Kaleta\Core\Search::longEnough($q)) {
             throw new \InvalidArgumentException('Give at least two characters to search for (query).');
         }
         $column = is_string($a['language'] ?? null) && $a['language'] !== '' ? Language::column($this->app->settings(), $a['language']) : '';
         $limit = max(1, min(50, (int) ($a['limit'] ?? 10)));
         $found = \Kaleta\Core\SiteSearch::find($this->app, $q, $column);
         $origin = $this->app->request->origin();
-        $results = array_map(fn (array $r): array => ['type' => $r['type'], 'title' => $r['title'],
+        $shown = array_slice($found['results'], 0, $limit);
+        $results = array_map(fn (array $r, array $pieces): array => ['type' => $r['type'], 'title' => $r['title'],
             'url' => $origin . ($r['type'] === 'news' ? $this->app->newsItemUrl(substr($r['path'], strlen('novinky/')), $column) : $this->app->url(($column !== '' ? $column . '/' : '') . $r['path']))]
-            + (($snippet = \Kaleta\Core\SiteSearch::snippetText(\Kaleta\Core\SiteSearch::resultSnippet($this->app, $r, $found['words']))) !== '' ? ['snippet' => $snippet] : []),
-            array_slice($found['results'], 0, $limit));
+            + (($snippet = \Kaleta\Core\SiteSearch::snippetText($pieces)) !== '' ? ['snippet' => $snippet] : []),
+            $shown, \Kaleta\Core\SiteSearch::snippets($this->app, $shown, $found['words']));
 
-        return ['results' => $results, 'total' => count($found['results'])] + ($found['partial'] ? ['partial' => true] : [])
+        return ['results' => $results, 'total' => $found['total']] + ($found['partial'] ? ['partial' => true] : [])
             + ($results !== [] ? \Kaleta\Mcp\Untrusted::mark(['results']) : []);
     }
 

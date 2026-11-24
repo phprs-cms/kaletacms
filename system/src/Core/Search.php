@@ -103,13 +103,25 @@ final class Search
         return Db::likeWords([$alias . 'titulek', $alias . 'seo_link'], $q, more: function (string $word) use ($alias): ?array {
             $normal = self::normalize($word);
 
-            if (mb_strlen($normal) >= 2) {
+            if (self::longEnough($normal)) { // 3.53 (A5): one Han, Hangul or Kana character is a word too
                 return [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
             }
 
             // A one-letter word ("v", "k", "5") narrows nothing, so it lets every row pass; "C++" stays in the title.
             return preg_match('/^[\p{L}\p{N}]+$/u', $word) === 1 ? ['1 = 1', []] : null;
         });
+    }
+
+    /**
+     * Is a query (or one word of it) long enough to be searched (3.53, A5) – the one gate of the site search, the admin
+     * search, the palette and MCP: two or more characters, or one Chinese, Japanese or Korean character (a whole word
+     * there). One Latin letter or digit is not.
+     */
+    public static function longEnough(string $q): bool
+    {
+        $q = trim($q);
+
+        return mb_strlen($q) >= 2 || preg_match('/^[\p{Han}\p{Hangul}\p{Hiragana}\p{Katakana}]$/u', $q) === 1;
     }
 
     /** Recomputes the index of one article; called after every save (admin, Claude). The text: SearchIndex::text (3.53). */

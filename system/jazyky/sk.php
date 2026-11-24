@@ -2141,4 +2141,5 @@ return [
     'No result contains all the words – these contain some of them.' => 'Žiadny výsledok neobsahuje všetky slová – tieto obsahujú niektoré z nich.',
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nič sme nenašli. Skúste iné alebo menej slov, alebo niektorú z hlavných stránok:',
     'Nothing found. Try other or fewer words.' => 'Nič sme nenašli. Skúste iné alebo menej slov.',
+    'Showing the best %1$s of %2$s.' => 'Zobrazených najlepších %1$s z %2$s.',
 ];

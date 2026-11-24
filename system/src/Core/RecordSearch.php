@@ -39,7 +39,7 @@ final class RecordSearch
     public static function search(App $app, string $q, array $modules, bool $applicationTasks = true): array
     {
         $q = mb_substr(trim($q), 0, 100);
-        if (mb_strlen($q) < 2) {
+        if (!Search::longEnough($q)) { // 3.53: two characters, or one CJK character
             return [];
         }
         $may = fn (string $ident): bool => in_array($ident, $modules, true);

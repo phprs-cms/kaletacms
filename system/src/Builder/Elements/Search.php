@@ -57,7 +57,7 @@ final class Search extends Element
         $id = 'hl-' . $p['id'];
         $icon = ($o['podoba'] ?? 'pole') === 'ikona';
         $field = '<label class="ka-jen-ctecka" for="' . e($id) . '">' . e(t('Search the website')) . '</label>'
-            . '<input type="search" id="' . e($id) . '" name="q" minlength="' . \Kaleta\Core\SiteSearch::MIN_LENGTH . '" maxlength="100" placeholder="' . e($o['napoveda']) . '" required'
+            . '<input type="search" id="' . e($id) . '" name="q" minlength="1" maxlength="100" placeholder="' . e($o['napoveda']) . '" required'
             . ($icon ? ' autofocus' : '') . '>' // autofocus inside a popover = the field gets the focus when the popover opens
             . '<button type="submit">' . e($o['tlacitko']) . '</button>';
         $open = '<form' . Text::withClass($a, $icon ? 'ka-hledani ka-hledani--ikona' : 'ka-hledani') . ' role="search" method="get" action="' . e($k->url('hledani')) . '">';

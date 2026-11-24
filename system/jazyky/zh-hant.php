@@ -2178,4 +2178,5 @@ return [
     'No result contains all the words – these contain some of them.' => '沒有結果包含所有詞語——以下結果包含其中部分詞語。',
     'Nothing found. Try other or fewer words, or one of the main pages:' => '找不到內容。請嘗試其他或更少的詞語，或前往以下主要頁面：',
     'Nothing found. Try other or fewer words.' => '找不到內容。請嘗試其他或更少的詞語。',
+    'Showing the best %1$s of %2$s.' => '顯示最佳的 %1$s 項，共 %2$s 項。',
 ];

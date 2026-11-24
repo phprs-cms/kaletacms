@@ -58,9 +58,11 @@ check('3.52 B3: a letter that normalizes to two (ß, æ) does not shift the snip
     SiteSearch::snippetHtml(SiteSearch::snippet('Ærø – Straße, Kunden', SiteSearch::words('strasse', 'de')))],
     ['Die Straße und die Größe der <mark>Kunden</mark>.', 'Ærø – <mark>Straße</mark>, Kunden']);
 
-check('3.52 B2: the Search element asks for 2 characters, as the search does', [SiteSearch::MIN_LENGTH,
-    str_contains(Kaleta\Builder\Elements\Search::render(['id' => 'x', 'obsah' => ['napoveda' => '', 'tlacitko' => 'Go']], '', '', new Kaleta\Builder\Context(new Kaleta\Core\App([]))), 'minlength="2"')],
-    [2, true]);
+// 3.53 (A5): one CJK character is a whole word – the form asks for one character and the server decides (Search::longEnough)
+check('3.52 B2, 3.53 A5: the Search element lets the server decide the length (minlength 1); two characters or one CJK character search', [SiteSearch::MIN_LENGTH,
+    str_contains(Kaleta\Builder\Elements\Search::render(['id' => 'x', 'obsah' => ['napoveda' => '', 'tlacitko' => 'Go']], '', '', new Kaleta\Builder\Context(new Kaleta\Core\App([]))), 'minlength="1"'),
+    array_map(Kaleta\Core\Search::longEnough(...), ['a', '5', 'ab', '茶', '물', 'カ', ' a ', 'ж'])],
+    [2, true, [false, false, true, true, true, true, false, false]]);
 
 check('3.52 B1: the news index is filled by a background job, no longer on a search; the news repository has no search of its own', [
     isset(Kaleta\Core\Scheduler::JOBS['search_index'], Kaleta\Core\Scheduler::jobs()['search_index']), method_exists(Kaleta\Front\NewsRepository::class, 'search')],

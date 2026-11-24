@@ -10,7 +10,7 @@
 <header class="vypis-hlavicka"><h1><?= e(t('Page not found')) ?></h1></header>
 <p><?= e(t('The page you are looking for is not here. It may have a different address.')) ?></p>
 <form class="hledani" method="get" action="<?= e($url('hledani')) ?>" role="search">
-	<input type="search" name="q" placeholder="<?= e(t('Search text')) ?>" aria-label="<?= e(t('Search text')) ?>" minlength="<?= \Kaleta\Core\SiteSearch::MIN_LENGTH ?>" required>
+	<input type="search" name="q" placeholder="<?= e(t('Search text')) ?>" aria-label="<?= e(t('Search text')) ?>" minlength="1" required>
 	<button type="submit"><?= e(t('Hledat')) ?></button>
 </form>
 <?php if ($stranky !== []): ?>

@@ -3330,4 +3330,5 @@ return [
     'No result contains all the words – these contain some of them.' => 'Žádný výsledek neobsahuje všechna slova – tyto obsahují některá z nich.',
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov, nebo některou z hlavních stránek:',
     'Nothing found. Try other or fewer words.' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov.',
+    'Showing the best %1$s of %2$s.' => 'Zobrazeno nejlepších %1$s z %2$s.',
 ];

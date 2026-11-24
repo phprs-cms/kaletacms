@@ -2178,4 +2178,5 @@ return [
     'No result contains all the words – these contain some of them.' => 'لا تحتوي أي نتيجة على كل الكلمات – هذه النتائج تحتوي على بعضها.',
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'لم يتم العثور على شيء. جرّب كلمات أخرى أو أقل، أو إحدى الصفحات الرئيسية:',
     'Nothing found. Try other or fewer words.' => 'لم يتم العثور على شيء. جرّب كلمات أخرى أو أقل.',
+    'Showing the best %1$s of %2$s.' => 'يتم عرض أفضل %1$s من أصل %2$s.',
 ];

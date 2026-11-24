@@ -24,11 +24,14 @@
 <?php endif ?>
 <?php if ($hledano !== null): ?>
 	<form class="hledani" method="get" action="<?= e($url('hledani')) ?>" role="search">
-		<input type="search" name="q" value="<?= e($hledano) ?>" minlength="<?= \Kaleta\Core\SiteSearch::MIN_LENGTH ?>" maxlength="100" aria-label="<?= e(t('Search text')) ?>" required>
+		<input type="search" name="q" value="<?= e($hledano) ?>" minlength="1" maxlength="100" aria-label="<?= e(t('Search text')) ?>" required>
 		<button type="submit"><?= e(t('Hledat')) ?></button>
 	</form>
 <?php if ($hledano !== ''): ?>
-	<p><?= mb_strlen($hledano) < \Kaleta\Core\SiteSearch::MIN_LENGTH ? e(t('Enter at least 2 characters.')) : e(t('Found: %s', $celkem)) ?></p>
+	<p><?= !\Kaleta\Core\Search::longEnough($hledano) ? e(t('Enter at least 2 characters.')) : e(t('Found: %s', $celkem)) ?></p>
+<?php if (($zobrazeno ?? 0) > 0 && $zobrazeno < $celkem): ?>
+	<p><?= e(t('Showing the best %1$s of %2$s.', $zobrazeno, $celkem)) ?></p>
+<?php endif ?>
 <?php if ($castecne): ?>
 	<p><?= e(t('No result contains all the words – these contain some of them.')) ?></p>
 <?php endif ?>
@@ -42,7 +45,7 @@
 	<li><span class="vypis-stranky-typ"><?= e($s['label']) ?></span> <a href="<?= e($url($s['path'])) ?>"><?= e($s['title']) ?></a><?php if ($s['uryvek'] !== ''): ?><p><?= $s['uryvek'] ?></p><?php endif ?></li>
 <?php endforeach ?>
 </ul>
-<?php elseif ($hledano !== null && mb_strlen($hledano) >= \Kaleta\Core\SiteSearch::MIN_LENGTH): ?>
+<?php elseif ($hledano !== null && \Kaleta\Core\Search::longEnough($hledano)): ?>
 <p><?= e($stranky !== [] ? t('Nothing found. Try other or fewer words, or one of the main pages:') : t('Nothing found. Try other or fewer words.')) ?></p>
 <?php if ($stranky !== []): ?>
 <ul>

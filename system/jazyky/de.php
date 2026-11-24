@@ -2171,4 +2171,5 @@ return [
     'No result contains all the words – these contain some of them.' => 'Kein Ergebnis enthält alle Wörter – diese enthalten einige davon.',
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nichts gefunden. Versuchen Sie andere oder weniger Wörter oder eine der Hauptseiten:',
     'Nothing found. Try other or fewer words.' => 'Nichts gefunden. Versuchen Sie andere oder weniger Wörter.',
+    'Showing the best %1$s of %2$s.' => 'Angezeigt werden die besten %1$s von %2$s.',
 ];

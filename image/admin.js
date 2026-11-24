@@ -7,6 +7,12 @@
 	window.T = function (s) { return (window.KALETA_PREKLAD || {})[s] || s; };
 	var T = window.T;
 
+	// 3.53 (A5): is a query long enough to search – two characters (code points, not UTF-16 units), or one Chinese,
+	// Japanese or Korean character; the server decides the same way (Core\Search::longEnough)
+	var longEnough = function (q) {
+		return Array.from(q).length >= 2 || /^[\p{Script=Han}\p{Script=Hangul}\p{Script=Hiragana}\p{Script=Katakana}]$/u.test(q);
+	};
+
 	// date and time like date() in PHP, in the site's time zone (<html data-pasmo>): Czech 25. 9. 2026 09:31, English 25 Sep 2026 09:31, Spanish 25/09/2026 09:31
 	window.kaletaCas = function (time, timeOnly) {
 		var c = {};
@@ -720,7 +726,7 @@
 			if (popupAbort) { popupAbort.abort(); popupAbort = null; }
 			popupSelectedUrl = '';
 			var q = popupFields.value.trim();
-			popupState = q.length >= 2 && popupSearchUrl !== '' ? 'searching' : ''; // 3.52 (A5): "Searching…", never an early "Nothing like that here."
+			popupState = longEnough(q) && popupSearchUrl !== '' ? 'searching' : ''; // 3.52 (A5): "Searching…", never an early "Nothing like that here."
 			popupRender();
 			if (popupState === 'searching') {
 				popupTimer = setTimeout(function () { popupFetch(q); }, 200);
@@ -1464,7 +1470,7 @@
 			var q = field.value.trim();
 			clearTimeout(timer);
 			render(local(q));
-			if (q.length < 2) { asked = ''; return; }
+			if (!longEnough(q)) { asked = ''; return; }
 			asked = q;
 			timer = setTimeout(function () {
 				fetch(address + (address.indexOf('?') === -1 ? '?' : '&') + 'q=' + encodeURIComponent(q) + '&pick=1', { credentials: 'same-origin', headers: { Accept: 'application/json' } })

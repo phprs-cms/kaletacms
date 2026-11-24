@@ -5,43 +5,52 @@ declare(strict_types=1);
 namespace Kaleta\Core;
 
 /**
- * The site search (3.52, B1–B3): one list ranked by relevance across pages, collection items with their own page and news,
- * for /hledani and MCP search_site. Only what a visitor of the language version sees: published, without a password,
- * without noindex (news too), not in the trash.
+ * The site search (3.52, B1–B3; 3.53, A5 on the stored index): one list ranked by relevance across pages, collection items
+ * with their own page and news, for /hledani and MCP search_site. Only what a visitor of the language version sees:
+ * published, without a password, without noindex (news too), not in the trash.
  *
- * The database picks the candidates, PHP ranks them. News: the normalized index (hledani) holds every word, so SQL keeps
- * only the news where a word starts with the query word (at most CANDIDATES). Pages and collection items have no index:
- * SQL keeps the rows with the word anywhere in the raw columns, or with a letter the collation does not fold the way
- * Search::normalize does (FOLDED: ß, ł, đ, ø, æ – "Straße" for "strasse"); a query in Arabic or Hebrew reads every visible
- * row; at most SCAN of a kind, the likely matches first. A word in the title weighs most, the exact form and the whole
- * word add a little, then the number of occurrences (at most 20 a word), a fresh news item a little more. A text word matches when it starts with the query word or its stem
- * (Search::terms) – "IT" finds "IT", not "sit amet". A word in a script a version 1 index did not hold (Chinese, Cyrillic, Greek…)
- * is searched as it was typed, in lower case, anywhere in the text (raw). When no candidate has every word, the ones with
- * some of them are shown and the result says so (partial).
+ * Every kind is read from its normalized search text (hledani, Core\SearchIndex) in one scan: SQL selects the id, the
+ * title, one match flag per query word and the occurrences of the rows matching any word (at most MAX_ROWS a kind, no
+ * LIMIT that cuts by relevance); PHP counts the exact total, orders them by the number of words matched, the words in the
+ * title, the occurrences and then the list order, and keeps the best CANDIDATES of each kind. Only those are read again
+ * with their search text and ranked (rank()): a word in the title weighs most, the exact form and the whole word add a
+ * little, then the occurrences (at most 20 a word), a fresh news item a little more. A text word matches when it starts
+ * with the query word or its stem (Search::terms) – "IT" finds "IT", not "sit amet"; a Chinese or Japanese word (raw) is
+ * found anywhere in the text (no spaces between words there). Words inside HTML tags, links and JSON keys are not in the
+ * search text, so they never make a candidate. When no row has every word, the ones with some of them are shown and the
+ * result says so (partial).
+ *
+ * Rows the background job has not indexed yet (hledani NULL, or a database before migration 0141) are searched the 3.52
+ * way – collation LIKE over the raw columns, at most FALLBACK_PAGES / FALLBACK_ITEMS, ranked in PHP – so body text is found
+ * right after an update too. To be removed in 3.54, with the news alternative for a re-index (newsReindexing()).
  */
 final class SiteSearch
 {
-    /** A query shorter than this (in characters) is not searched; the forms of the site ask for it too. */
+    /** A query shorter than this (in characters) is not searched, unless it is one CJK character (Search::longEnough). */
     public const int MIN_LENGTH = 2;
 
-    /** At most this many news come from the database (each with a word starting with the query word). */
+    /** The best rows of each kind (pages, items, news) that are read again and ranked; the total counts all of them. */
     public const int CANDIDATES = 300;
 
-    /** At most this many pages and this many collection items of the language version are ranked (3.51 read 500 and 2000). */
-    public const int SCAN = 2000;
+    /** A hard guard: at most this many matching rows of one kind are scanned (the total is then at least this). */
+    public const int MAX_ROWS = 50000;
 
-    /** Pages read at most, as in 3.51: the folded-letter branch can make reading nearly every page the normal path. */
-    public const int SCAN_PAGES = 500;
+    /** Pages and items not indexed yet read at most (as in 3.52) – until the job has filled the index after an update. */
+    public const int FALLBACK_PAGES = 500;
 
-    /** The letters a stored index of Search::VERSION 1 held (3.53, A1): Latin letters, digits, Arabic and Hebrew – a regex class. */
-    private const string VERSION1_LETTERS = 'a-z0-9\x{0621}-\x{064A}\x{0660}-\x{0669}\x{066E}-\x{06D3}\x{06F0}-\x{06F9}\x{05D0}-\x{05EA}';
+    public const int FALLBACK_ITEMS = 2000;
 
     /**
-     * Letters Search::normalize folds (remove_diacritics) but utf8mb4_unicode_ci does not in LIKE (it ignores their case),
-     * with the first letter they normalize to: a row holding one may match a normalized query word with that letter in PHP
-     * although SQL said no ("Straße" for "strasse", "usługi" for "uslugi"), so such rows are candidates too.
+     * Whether the scan orders the rows by the occurrences of the query words (REPLACE over the search text) before the cut
+     * to CANDIDATES – measured by tools/bench-search.php (3.53, A7). false = the number of words and the title only.
      */
-    public const array FOLDED = ['ß' => 's', 'ẞ' => 's', 'ł' => 'l', 'đ' => 'd', 'ø' => 'o', 'æ' => 'a'];
+    public const bool ORDER_BY_OCCURRENCES = true;
+
+    /** The letters a stored index of Search::VERSION 1 held: Latin letters, digits, Arabic and Hebrew – a regex class. */
+    private const string VERSION1_LETTERS = 'a-z0-9\x{0621}-\x{064A}\x{0660}-\x{0669}\x{066E}-\x{06D3}\x{06F0}-\x{06F9}\x{05D0}-\x{05EA}';
+
+    /** Chinese characters and kana – words without spaces between them, matched anywhere (raw); a regex class. */
+    private const string CJK = '\p{Han}\p{Hiragana}\p{Katakana}\x{30FC}';
 
     /** The days a searched term is kept in the Statistics (B5); the daily clean-up deletes older rows (Retention::FIXED). */
     public const int KEEP_DAYS = 400;
@@ -56,25 +65,23 @@ final class SiteSearch
     private const int SNIPPET_WORDS = 30;
 
     /**
-     * The words of a query with the beginnings each may have in the text: [word, terms, raw?]. Normalized
-     * (Search::normalize), words of at least MIN_LENGTH characters, at most MAX_WORDS, without repeats. A word of letters
-     * a version 1 index did not hold (Chinese, Cyrillic, Greek… – VERSION1_LETTERS) stays as typed, in lower case, with raw = true: it is found anywhere in
-     * the text, not only at the start of a word (Chinese has no spaces between words).
+     * The words of a query with the beginnings each may have in the text: [word, terms, raw?]. Normalized like the stored
+     * index (Search::normalize), long enough (Search::longEnough – two characters, or one CJK character), at most MAX_WORDS,
+     * without repeats. A run of Chinese characters or kana is a word of its own with raw = true ("iPhone手机" → iphone and
+     * 手机): it is found anywhere in the text, not only at the start of a word. Every other script is an ordinary word.
      *
      * @return list<array{word: string, terms: list<string>, raw?: true}>
      */
     public static function words(string $q, string $language): array
     {
         $words = [];
-        foreach (preg_split('/[^\p{L}\p{N}\p{M}]+/u', mb_strtolower(mb_substr($q, 0, 100)), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
-            // 3.53 (A1): normalize() keeps every script now; until the search reads an index of that version (A5), a
-            // word keeps its 3.52 shape – the letters the version 1 index held (VERSION1_LETTERS) make words, a token
-            // without any is searched as typed (raw)
-            $normal = trim((string) preg_replace('/[^' . self::VERSION1_LETTERS . ']+/u', ' ', Search::normalize($token)));
-            $raw = $normal === '' && preg_match('/\p{L}/u', $token) === 1;
-            foreach ($raw ? [$token] : explode(' ', $normal) as $w) {
-                if (mb_strlen($w) >= self::MIN_LENGTH && !isset($words[$w])) {
-                    $words[$w] = ['word' => $w, 'terms' => $raw ? [$w] : Search::terms($w, $language)] + ($raw ? ['raw' => true] : []);
+        foreach (preg_split('/[^\p{L}\p{N}\p{M}]+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $token) {
+            foreach (preg_split('/([' . self::CJK . ']+)/u', Search::normalize($token), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [] as $run) {
+                $raw = preg_match('/^[' . self::CJK . ']/u', $run) === 1;
+                foreach ($raw ? [$run] : explode(' ', $run) as $w) {
+                    if ($w !== '' && Search::longEnough($w) && !isset($words[$w])) {
+                        $words[$w] = ['word' => $w, 'terms' => $raw ? [$w] : Search::terms($w, $language)] + ($raw ? ['raw' => true] : []);
+                    }
                 }
             }
         }
@@ -83,31 +90,45 @@ final class SiteSearch
     }
 
     /**
-     * The results for a query in one language version ('' = the default one): every result ranked, the best first –
-     * [type (page | collection_item | news), label (the kind for the visitor), title, path (for App::url), text (plain,
-     * for the snippet; news: the intro), id, date (news)]. partial = no result has every word, these have some of them.
+     * The results for a query in one language version ('' = the default one): the best of every kind ranked, the best
+     * first – [type (page | collection_item | news), label (the kind for the visitor), title, path (for App::url), id, date
+     * (news), score]. total = how many rows match (exact; more than the results when a kind has more than CANDIDATES).
+     * partial = no row has every word, these have some of them. The snippets come from snippets(), for the shown ones.
      *
-     * @return array{results: list<array<string, mixed>>, partial: bool, words: list<array{word: string, terms: list<string>, raw?: true}>}
+     * @return array{results: list<array<string, mixed>>, total: int, partial: bool, words: list<array{word: string, terms: list<string>, raw?: true}>}
      */
     public static function find(App $app, string $q, string $column): array
     {
         $language = Language::ofContent($app->settings(), $column);
         $words = self::words($q, $language);
         if ($words === []) {
-            return ['results' => [], 'partial' => false, 'words' => []];
+            return ['results' => [], 'total' => 0, 'partial' => false, 'words' => []];
         }
-        $results = self::rank($words, self::candidates($app, $words, $column, true), true);
-        $partial = $results === [] && count($words) > 1;
-        if ($partial) {
-            $results = self::rank($words, self::candidates($app, $words, $column, false), false);
+        ['counts' => $counts, 'best' => $best] = self::pool($app, $words, $column);
+        // every word, or – with nothing that has every word – some of them
+        $needed = count($words);
+        if (array_sum(array_map(fn (array $c): int => $c[$needed] ?? 0, $counts)) === 0 && $needed > 1) {
+            $needed = 1;
         }
+        $partial = $needed < count($words);
+        $results = [];
+        $total = 0;
+        foreach ($best as $type => $rows) {
+            $total += array_sum(array_filter($counts[$type], fn (int $found): bool => $found >= $needed, ARRAY_FILTER_USE_KEY));
+            // the best rows come first (pool()); a row with fewer words than needed was only kept for a partial result
+            $rows = array_values(array_filter($rows, fn (array $row): bool => $row[0] >= $needed));
+            array_push($results, ...self::ranked($app, $words, $rows, $type, $needed, $column));
+        }
+        $scores = array_column($results, 'score');
+        $order = array_keys($results);
+        array_multisort($scores, SORT_DESC, $order, SORT_ASC, $results);
 
-        return ['results' => $results, 'partial' => $partial && $results !== [], 'words' => $words];
+        return ['results' => $results, 'total' => $total, 'partial' => $partial && $results !== [], 'words' => $words];
     }
 
     /**
-     * Ranks candidates [title, text (plain), bonus?, …]: with $all each must have every word in the title or the text,
-     * otherwise at least one; the best first, an equal score keeps the order given. Each gets its score.
+     * Ranks candidates [title, text (plain) or normal (the search text), bonus?, …]: with $all each must have every word in
+     * the title or the text, otherwise at least one; the best first, an equal score keeps the order given. Each gets its score.
      *
      * @param list<array{word: string, terms: list<string>, raw?: true}> $words
      * @param list<array<string, mixed>> $candidates
@@ -117,42 +138,55 @@ final class SiteSearch
     {
         $ranked = [];
         $scores = [];
-        $raw = array_filter($words, fn (array $w): bool => isset($w['raw']));
         foreach ($candidates as $candidate) {
-            $title = ' ' . Search::normalize((string) $candidate['title']) . ' ';
-            $text = ' ' . (string) ($candidate['normal'] ?? Search::normalize((string) $candidate['text'])) . ' ';
-            // a raw word is looked for in the lower-case title and text as they are
-            [$rawTitle, $rawText] = $raw === [] ? ['', ''] : [mb_strtolower((string) $candidate['title']), mb_strtolower((string) $candidate['text'])];
-            $score = 0;
-            $found = 0;
-            foreach ($words as $w) {
-                if (isset($w['raw'])) {
-                    $inTitle = str_contains($rawTitle, $w['word']);
-                    $occurrences = substr_count($rawText, $w['word']);
-                    $exact = 5;
-                } else {
-                    $inTitle = self::starts($title, $w['terms']);
-                    $occurrences = max(array_map(fn (string $term): int => substr_count($text, ' ' . $term), $w['terms']));
-                    $exact = (str_contains($title . $text, ' ' . $w['word']) ? 5 : 0) // the exact form
-                        + (str_contains($title . $text, ' ' . $w['word'] . ' ') ? 5 : 0); // the whole word
-                }
-                if (!$inTitle && $occurrences === 0) {
-                    continue;
-                }
-                $found++;
-                $score += ($inTitle ? 100 : 0) + min(20, $occurrences) + $exact;
-            }
-            if ($found === 0 || ($all && $found < count($words))) {
+            $match = self::match($words, $candidate);
+            if ($match['found'] === 0 || ($all && $match['found'] < count($words))) {
                 continue;
             }
             unset($candidate['normal']);
-            $ranked[] = $candidate + ['score' => $score + (int) ($candidate['bonus'] ?? 0)];
-            $scores[] = $score + (int) ($candidate['bonus'] ?? 0);
+            $ranked[] = $candidate + ['score' => $match['score']];
+            $scores[] = $match['score'];
         }
         $order = array_keys($ranked);
         array_multisort($scores, SORT_DESC, $order, SORT_ASC, $ranked);
 
         return $ranked;
+    }
+
+    /**
+     * How one candidate matches the words: found = the words it has, title_hits = the words in its title, occurrences
+     * (at most 20 a word) and the score rank() orders by. The text is the search text (normal) or the plain text normalized.
+     *
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param array<string, mixed> $candidate
+     * @return array{found: int, title_hits: int, occurrences: int, score: int}
+     */
+    private static function match(array $words, array $candidate): array
+    {
+        $title = ' ' . Search::normalize((string) $candidate['title']) . ' ';
+        $text = ' ' . (string) ($candidate['normal'] ?? Search::normalize((string) ($candidate['text'] ?? ''))) . ' ';
+        $match = ['found' => 0, 'title_hits' => 0, 'occurrences' => 0, 'score' => (int) ($candidate['bonus'] ?? 0)];
+        foreach ($words as $w) {
+            if (isset($w['raw'])) {
+                $inTitle = str_contains($title, $w['word']);
+                $occurrences = substr_count($text, $w['word']);
+                $exact = 5;
+            } else {
+                $inTitle = self::starts($title, $w['terms']);
+                $occurrences = max(array_map(fn (string $term): int => substr_count($text, ' ' . $term), $w['terms']));
+                $exact = (str_contains($title . $text, ' ' . $w['word']) ? 5 : 0) // the exact form
+                    + (str_contains($title . $text, ' ' . $w['word'] . ' ') ? 5 : 0); // the whole word
+            }
+            if (!$inTitle && $occurrences === 0) {
+                continue;
+            }
+            $match['found']++;
+            $match['title_hits'] += $inTitle ? 1 : 0;
+            $match['occurrences'] += min(20, $occurrences);
+            $match['score'] += ($inTitle ? 100 : 0) + min(20, $occurrences) + $exact;
+        }
+
+        return $match;
     }
 
     /**
@@ -268,130 +302,282 @@ final class SiteSearch
     }
 
     /**
-     * The candidates from the database, each kind picked by every word ($all) or any word. A normalized word is looked for
-     * by its shortest beginnings (prefixes() – a text word starting with a longer term starts with them too), a raw word as
-     * it is. News: a word of the index starts with the term (an index not filled yet: the title), at most CANDIDATES, the
-     * title matches first. Pages and items: see the class – at most SCAN, the title matches first, then the rows SQL found.
+     * The SQL of the scan over a search text $h (a column or an expression, normalized, words separated by spaces): one
+     * condition per word – an ordinary word starts a word of the text (CONCAT(' ', h) LIKE '% term%', by its shortest
+     * beginnings, prefixes()), a raw word is anywhere in it – and the occurrences: per word, how often its first beginning
+     * starts a word of the text (at most 20; counted in bytes with REPLACE, the text is not copied), summed; '0' with
+     * ORDER_BY_OCCURRENCES off. $more(word) may add an alternative to a word's condition (news during a re-index). Never a
+     * condition on raw HTML, JSON or a "1 = 1".
      *
      * @param list<array{word: string, terms: list<string>, raw?: true}> $words
-     * @return list<array<string, mixed>>
+     * @return array{conditions: list<array{0: string, 1: list<string>}>, occurrences: array{0: string, 1: list<string>}}
      */
-    private static function candidates(App $app, array $words, string $column, bool $all): array
+    public static function indexSql(array $words, string $h, ?\Closure $more = null): array
+    {
+        $conditions = [];
+        $occurrences = [];
+        $occurrenceParams = [];
+        foreach ($words as $w) {
+            $raw = isset($w['raw']);
+            $text = $raw ? $h : 'CONCAT(\' \', ' . $h . ')';
+            $sql = [];
+            $params = [];
+            $terms = $raw ? $w['terms'] : self::prefixes($w['terms']);
+            foreach ($terms as $term) {
+                $sql[] = $text . ' LIKE ?';
+                $params[] = ($raw ? '%' : '% ') . addcslashes($term, '%_\\') . '%';
+            }
+            if ($more !== null && ($extra = $more($w)) !== null) {
+                $sql[] = $extra[0];
+                array_push($params, ...$extra[1]);
+            }
+            $conditions[] = ['(' . implode(' OR ', $sql) . ')', $params];
+            // ' term' inside the text, and the term at its very start
+            $needle = ($raw ? '' : ' ') . $terms[0];
+            $occurrences[] = 'LEAST(20, (LENGTH(' . $h . ') - LENGTH(REPLACE(' . $h . ', ?, \'\'))) DIV ' . strlen($needle) . ($raw ? '' : ' + (' . $h . ' LIKE ?)') . ')';
+            array_push($occurrenceParams, $needle, ...($raw ? [] : [addcslashes($terms[0], '%_\\') . '%']));
+        }
+
+        return ['conditions' => $conditions, 'occurrences' => self::ORDER_BY_OCCURRENCES ? ['(' . implode(' + ', $occurrences) . ')', $occurrenceParams] : ['0', []]];
+    }
+
+    /**
+     * The rows of the language version that match at least one word, of every kind: counts = how many rows of each kind
+     * have how many of the words (for the exact total), best = the best CANDIDATES rows of each kind as [found, title_hits,
+     * occurrences, -seq, id, candidate|null], the best first – by the words found, the words in the title (collation LIKE
+     * on the title, for the order only), the occurrences and the list order (seq). The scan rows are read one at a time and
+     * only the best are kept, so a common word costs no memory per row; a row not indexed yet comes with its candidate,
+     * already read and matched.
+     *
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @return array{counts: array<string, array<int, int>>, best: array<string, list<array{0: int, 1: int, 2: int, 3: int, 4: int, 5: array<string, mixed>|null}>>}
+     */
+    private static function pool(App $app, array $words, string $column): array
     {
         $db = $app->db();
         $settings = $app->settings();
-        $like = fn (string $column, string $pattern): array => [$column . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?', [$pattern]];
-        $contains = fn (string $term): string => '%' . addcslashes($term, '%_\\') . '%';
-        // every word ($all) or any word: one condition per word, built from its terms by $condition(term, raw?)
-        $where = function (\Closure $condition) use ($words, $all): array {
-            $parts = [];
+        $ready = SearchIndex::ready($settings);
+        $counts = [];
+        $best = [];
+        $keep = function (string $type, array $row) use (&$counts, &$best): void {
+            $counts[$type][$row[0]] = ($counts[$type][$row[0]] ?? 0) + 1;
+            $best[$type][] = $row;
+            if (count($best[$type]) >= 2 * self::CANDIDATES) {
+                rsort($best[$type]);
+                $best[$type] = array_slice($best[$type], 0, self::CANDIDATES);
+            }
+        };
+        // the words in a title, for the order before the cut: each word at the start of a title word (collation LIKE)
+        $titleHits = function (string $title) use ($words): array {
+            $sql = [];
             $params = [];
             foreach ($words as $w) {
-                $alternatives = [];
-                foreach (isset($w['raw']) ? $w['terms'] : self::prefixes($w['terms']) as $term) {
-                    [$sql, $p] = $condition($term, isset($w['raw']));
-                    $alternatives[] = $sql;
-                    array_push($params, ...$p);
+                $sql[] = '(CONCAT(\' \', ' . $title . ') COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?)';
+                $params[] = (isset($w['raw']) ? '%' : '% ') . addcslashes(isset($w['raw']) ? $w['word'] : self::prefixes($w['terms'])[0], '%_\\') . '%';
+            }
+
+            return ['(' . implode(' + ', $sql) . ')', $params];
+        };
+        // the rows of one kind from the index: SQL flags each word, PHP sums them (exact – the search text is what rank() reads)
+        $scan = function (string $type, string $id, string $title, string $from, string $h, array $params, string $order, ?\Closure $more = null) use ($db, $words, $keep, $titleHits): void {
+            $sql = self::indexSql($words, $h, $more);
+            [$titleSql, $titleParams] = $titleHits($title);
+            $flags = [];
+            $flagParams = [];
+            foreach ($sql['conditions'] as [$condition, $p]) {
+                $flags[] = $condition;
+                array_push($flagParams, ...$p);
+            }
+            $statement = $db->run('SELECT ' . $id . ', ' . $titleSql . ', ' . $sql['occurrences'][0] . ', ' . implode(', ', $flags) . ' FROM ' . $from
+                . ' AND (' . implode(' OR ', $flags) . ') ORDER BY ' . $order . ' LIMIT ' . self::MAX_ROWS,
+                [...$titleParams, ...$sql['occurrences'][1], ...$flagParams, ...$params, ...$flagParams]);
+            $seq = 0;
+            while (($row = $statement->fetch(\PDO::FETCH_NUM)) !== false) {
+                $found = 0;
+                for ($i = 3, $n = count($row); $i < $n; $i++) {
+                    $found += (int) $row[$i] > 0 ? 1 : 0;
                 }
-                $parts[] = '(' . implode(' OR ', $alternatives) . ')';
+                $keep($type, [$found, (int) $row[1], (int) $row[2], -$seq++, (int) $row[0], null]);
             }
-
-            return ['(' . implode($all ? ' AND ' : ' OR ', $parts) . ')', $params];
         };
-        // the word anywhere in the raw columns (text and JSON) – what rank() can keep, unless FOLDED letters are involved
-        $anywhere = fn (array $columns, array $json = []): \Closure => function (string $term) use ($columns, $json, $like, $contains): array {
-            $sql = [];
-            $params = [];
-            foreach ($columns as $c) {
-                [$sql[], $p] = $like($c, $contains($term));
-                array_push($params, ...$p);
-            }
-            foreach ($json as $c) {
-                [$sql[], $p] = Db::likeJson($c, $term);
-                array_push($params, ...$p);
-            }
-
-            return ['(' . implode(' OR ', $sql) . ')', $params];
-        };
-        // a row with a FOLDED letter that could become part of a query word (ß when a word has an s…; in JSON maybe as
-        // \u00df) – SQL cannot tell, rank() does; one pass a letter over the columns joined
-        $letters = array_keys(array_filter(self::FOLDED, fn (string $ascii): bool => array_filter($words, fn (array $w): bool => !isset($w['raw']) && str_contains($w['word'], $ascii)) !== []));
-        $folded = function (array $columns, array $json = []) use ($letters, $like): array {
-            $sql = [];
-            $params = [];
-            foreach ($letters as $letter) {
-                [$sql[], $p] = $like('CONCAT_WS(\' \', ' . implode(', ', [...$columns, ...$json]) . ')', '%' . $letter . '%');
-                array_push($params, ...$p);
-                foreach ($json as $c) {
-                    foreach ([$letter, ...(['ł' => ['Ł'], 'đ' => ['Đ'], 'ø' => ['Ø'], 'æ' => ['Æ']][$letter] ?? [])] as $form) { // \u escapes keep the case
-                        [$sql[], $p] = $like($c, '%' . addcslashes(substr((string) json_encode($form), 1, -1), '%_\\') . '%');
-                        array_push($params, ...$p);
+        // the rows not indexed yet, the 3.52 way: collation LIKE over the raw columns, read whole and matched in PHP
+        $fallback = function (string $type, string $select, string $from, array $columns, array $json, string $title, array $params, string $order, int $limit) use ($app, $db, $words, $column, $keep): void {
+            $conditions = [];
+            $conditionParams = [];
+            foreach ($words as $w) {
+                $sql = [];
+                foreach (isset($w['raw']) ? $w['terms'] : self::prefixes($w['terms']) as $term) {
+                    foreach ($columns as $c) {
+                        $sql[] = $c . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?';
+                        $conditionParams[] = '%' . addcslashes($term, '%_\\') . '%';
+                    }
+                    foreach ($json as $c) {
+                        [$sql[], $p] = Db::likeJson($c, $term);
+                        array_push($conditionParams, ...$p);
                     }
                 }
+                $conditions[] = '(' . implode(' OR ', $sql) . ')';
             }
-
-            return $sql === [] ? ['0 = 1', []] : ['(' . implode(' OR ', $sql) . ')', $params];
-        };
-        // a normalized word with Arabic or Hebrew letters: the vowel marks and letter forms normalize() folds – every row
-        $unfiltered = array_filter($words, fn (array $w): bool => !isset($w['raw']) && preg_match('/^[a-z0-9]+$/D', $w['word']) !== 1) !== [];
-        $normalWords = array_filter($words, fn (array $w): bool => !isset($w['raw'])) !== [];
-        // the WHERE of pages and items and the order: the first word at the start of a title word, then the rows SQL found
-        $scan = function (array $columns, array $json, string $title) use ($where, $anywhere, $folded, $unfiltered, $normalWords, $words, $like): array {
-            [$match, $params] = $where($anywhere($columns, $json));
-            [$foldedSql, $foldedParams] = $folded($columns, $json);
-            [$filter, $filterParams] = $unfiltered ? ['1 = 1', []] : ($normalWords ? ['(' . $match . ' OR ' . $foldedSql . ')', [...$params, ...$foldedParams]] : [$match, $params]);
             $first = isset($words[0]['raw']) ? $words[0]['word'] : self::prefixes($words[0]['terms'])[0];
-            [$titleSql, $titleParams] = $like('CONCAT(\' \', ' . $title . ')', (isset($words[0]['raw']) ? '%' : '% ') . addcslashes($first, '%_\\') . '%');
-
-            return [$filter, $filterParams, $titleSql . ' DESC, ' . $match . ' DESC', [...$titleParams, ...$params]];
+            $rows = $db->all('SELECT ' . $select . ' FROM ' . $from . ' AND (' . implode(' OR ', $conditions) . ')'
+                . ' ORDER BY (' . implode(' + ', $conditions) . ') DESC, CONCAT(\' \', ' . $title . ') COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ? DESC, ' . $order . ' LIMIT ' . $limit,
+                [...$params, ...$conditionParams, ...$conditionParams, (isset($words[0]['raw']) ? '%' : '% ') . addcslashes($first, '%_\\') . '%']);
+            foreach ($rows as $seq => $row) {
+                $candidate = self::candidate($app, $type, $row, $column);
+                $match = self::match($words, $candidate);
+                if ($match['found'] > 0) {
+                    $keep($type, [$match['found'], $match['title_hits'], $match['occurrences'], -self::MAX_ROWS - $seq, $candidate['id'], $candidate]);
+                }
+            }
         };
-        $candidates = [];
 
-        $home = $settings->int('home_page');
-        if ($column !== '' && $home > 0) {
-            $home = (int) $db->value('SELECT ids FROM {stranky} WHERE preklad_z = ? AND jazyk = ?', [$home, $column]);
+        $visible = 'zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ?';
+        if ($ready) {
+            $scan('page', 'ids', 'titulek', '{stranky} WHERE ' . $visible . ' AND hledani IS NOT NULL', 'hledani', [$column], 'poradi, ids');
         }
-        [$filter, $filterParams, $order, $orderParams] = $scan(['titulek', 'seo_link', 'popis', 'text'], [], 'titulek');
-        foreach ($db->all('SELECT ids, titulek, seo_link, popis, text FROM {stranky} WHERE zobrazit = 1 AND noindex = 0 AND heslo_hash IS NULL AND smazano IS NULL AND jazyk = ? AND ' . $filter
-            . ' ORDER BY ' . $order . ', poradi, ids LIMIT ' . self::SCAN_PAGES, [$column, ...$filterParams, ...$orderParams]) as $s) {
-            $candidates[] = ['type' => 'page', 'label' => t('Page'), 'id' => (int) $s['ids'], 'title' => $s['titulek'], 'path' => (int) $s['ids'] === $home ? '' : $s['seo_link'],
-                'text' => trim($s['popis'] . ' ' . plain_text((string) $s['text']))];
-        }
+        $fallback('page', 'ids, titulek, seo_link, popis, text', '{stranky} WHERE ' . $visible . ($ready ? ' AND hledani IS NULL' : ''),
+            ['titulek', 'seo_link', 'popis', 'text'], [], 'titulek', [$column], 'poradi, ids', self::FALLBACK_PAGES);
 
-        [$filter, $filterParams, $order, $orderParams] = $scan(['p.nazev', 'p.seo_link', 'p.popis'], ['p.data'], 'p.nazev');
-        foreach ($db->all('SELECT p.idp, p.nazev, p.seo_link, p.popis, p.data, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk
-            WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk = ? AND ' . $filter
-            . ' ORDER BY ' . $order . ', p.poradi, p.idp LIMIT ' . self::SCAN, [$column, ...$filterParams, ...$orderParams]) as $p) {
-            $data = json_decode((string) $p['data'], true);
-            // only text fields – image paths and link URLs would add noise to the results and snippets
-            $textFields = array_column(array_filter(json_decode((string) $p['pole'], true) ?: [], fn (mixed $f): bool => is_array($f) && in_array($f['typ'] ?? '', ['text', 'radky', 'html'], true)), 'klic');
-            $text = implode(' ', array_map(fn (string $v): string => plain_text($v), array_filter(array_intersect_key(is_array($data) ? $data : [], array_flip($textFields)), 'is_string')));
-            $candidates[] = ['type' => 'collection_item', 'label' => $p['kolekce_nazev'], 'id' => (int) $p['idp'], 'title' => $p['nazev'], 'path' => $p['kolekce'] . '/' . $p['seo_link'],
-                'text' => trim($p['popis'] . ' ' . $text)];
+        $items = '{kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE k.detail = 1 AND p.zobrazit = 1 AND p.noindex = 0 AND p.smazano IS NULL AND p.jazyk = ?';
+        if ($ready) {
+            $scan('collection_item', 'p.idp', 'p.nazev', $items . ' AND p.hledani IS NOT NULL', 'p.hledani', [$column], 'p.poradi, p.idp');
         }
+        $fallback('collection_item', 'p.idp, p.nazev, p.seo_link, p.popis, p.data, k.seo_link AS kolekce, k.nazev AS kolekce_nazev, k.pole', $items . ($ready ? ' AND p.hledani IS NULL' : ''),
+            ['p.nazev', 'p.seo_link', 'p.popis'], ['p.data'], 'p.nazev', [$column], 'p.poradi, p.idp', self::FALLBACK_ITEMS);
 
         if (Extensions::isEnabled($settings, 'novinky')) {
-            $now = Clock::now();
-            $recent = Clock::at('-90 days');
-            // the index is normalized and its words are separated by spaces: a word starting with the term is exact in SQL,
-            // so the CANDIDATES only count news rank() keeps; a raw word in the title or the intro (a locked text has no
-            // other words in the index either)
-            [$sql, $params] = $where(fn (string $term, bool $raw): array => $raw
-                ? ['(' . $like('c.titulek', $contains($term))[0] . ' OR ' . $like('c.uvod', $contains($term))[0] . ')', [$contains($term), $contains($term)]]
-                : ['(CONCAT(\' \', c.hledani) LIKE ? OR (c.hledani IS NULL AND ' . $like('c.titulek', $contains($term))[0] . '))', ['% ' . addcslashes($term, '%_\\') . '%', $contains($term)]]);
-            $first = isset($words[0]['raw']) ? $words[0]['word'] : self::prefixes($words[0]['terms'])[0];
-            [$titleSql, $titleParams] = $like('CONCAT(\' \', c.titulek)', (isset($words[0]['raw']) ? '%' : '% ') . addcslashes($first, '%_\\') . '%');
-            foreach ($db->all('SELECT c.idc, c.titulek, c.seo_link, c.uvod, c.datum, c.hledani FROM {novinky} c
-                WHERE c.visible = 1 AND c.datum <= ? AND c.smazano IS NULL AND c.noindex = 0 AND c.jazyk = ? AND ' . $sql
-                . ' ORDER BY ' . $titleSql . ' DESC, c.datum DESC, c.idc DESC LIMIT ' . self::CANDIDATES, [$now, $column, ...$params, ...$titleParams]) as $c) {
-                $candidates[] = ['type' => 'news', 'label' => $settings->newsTitle(), 'id' => (int) $c['idc'], 'title' => $c['titulek'], 'path' => 'novinky/' . $c['seo_link'],
-                    'text' => plain_text((string) $c['uvod']), 'date' => (string) $c['datum'], 'bonus' => $c['datum'] >= $recent ? 3 : 0] // a fresh news item a little higher
-                    // the index for the normalized words; a raw word is looked for in the title and the intro (text)
-                    + ($c['hledani'] !== null ? ['normal' => (string) $c['hledani']] : []);
+            $news = '{novinky} c WHERE c.visible = 1 AND c.datum <= ? AND c.smazano IS NULL AND c.noindex = 0 AND c.jazyk = ?';
+            $cursor = self::newsReindexing($settings);
+            // during a re-index the news above the cursor still have a version 1 index: a word of letters it did not hold
+            // (Cyrillic, Greek, Chinese…) is looked for in their title and intro as well
+            $more = $cursor === null ? null : function (array $w) use ($cursor): ?array {
+                if (preg_match('/[^' . self::VERSION1_LETTERS . ']/u', $w['word']) !== 1) {
+                    return null;
+                }
+                $pattern = '%' . addcslashes($w['word'], '%_\\') . '%';
+
+                return ['(c.idc > ' . $cursor . ' AND (c.titulek COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ? OR c.uvod COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?))', [$pattern, $pattern]];
+            };
+            $scan('news', 'c.idc', 'c.titulek', $news . ' AND c.hledani IS NOT NULL', 'c.hledani COLLATE utf8mb4_bin', [Clock::now(), $column], 'c.datum DESC, c.idc DESC', $more);
+            $fallback('news', 'c.idc, c.titulek, c.seo_link, c.uvod, c.datum', $news . ' AND c.hledani IS NULL', ['c.titulek', 'c.uvod'], [], 'c.titulek',
+                [Clock::now(), $column], 'c.datum DESC, c.idc DESC', self::CANDIDATES);
+        }
+        foreach ($best as $type => $rows) {
+            rsort($rows);
+            $best[$type] = array_slice($rows, 0, self::CANDIDATES);
+        }
+
+        return ['counts' => $counts, 'best' => $best];
+    }
+
+    /**
+     * The rows kept for one kind ranked: the indexed ones read again with their search text (in batches), the others as
+     * read; each with every word it needs ($needed) gets its score, in the order given (rows as pool() keeps them).
+     *
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @param list<array{0: int, 1: int, 2: int, 3: int, 4: int, 5: array<string, mixed>|null}> $rows
+     * @return list<array<string, mixed>>
+     */
+    private static function ranked(App $app, array $words, array $rows, string $type, int $needed, string $column): array
+    {
+        $db = $app->db();
+        $cursor = $type === 'news' ? self::newsReindexing($app->settings()) : null;
+        $read = [];
+        foreach (array_chunk(array_column(array_filter($rows, fn (array $r): bool => $r[5] === null), 4), 100) as $ids) {
+            $in = implode(', ', array_fill(0, count($ids), '?'));
+            $found = match ($type) {
+                'page' => $db->all('SELECT ids, titulek, seo_link, hledani FROM {stranky} WHERE ids IN (' . $in . ')', $ids),
+                'collection_item' => $db->all('SELECT p.idp, p.nazev, p.seo_link, p.hledani, k.seo_link AS kolekce, k.nazev AS kolekce_nazev FROM {kolekce_polozky} p
+                    JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp IN (' . $in . ')', $ids),
+                default => $db->all('SELECT idc, titulek, seo_link, datum, hledani' . ($cursor !== null ? ', uvod' : '') . ' FROM {novinky} WHERE idc IN (' . $in . ')', $ids),
+            };
+            foreach ($found as $row) {
+                $candidate = self::candidate($app, $type, $row, $column);
+                // a version 1 news index (a re-index running) lacks other scripts: its title and intro are added
+                $candidate['normal'] = (string) $row['hledani'] . ($cursor !== null && $candidate['id'] > $cursor ? ' ' . Search::normalize($row['titulek'] . ' ' . $row['uvod']) : '');
+                $read[$candidate['id']] = $candidate;
+            }
+        }
+        $ranked = [];
+        foreach ($rows as $row) {
+            $candidate = $row[5] ?? $read[$row[4]] ?? null;
+            if ($candidate === null || ($match = self::match($words, $candidate))['found'] < $needed) {
+                continue; // deleted or changed since the scan
+            }
+            unset($candidate['normal'], $candidate['text']);
+            $ranked[] = $candidate + ['score' => $match['score']];
+        }
+
+        return $ranked;
+    }
+
+    /**
+     * A candidate of one kind from its row: [type, label, id, title, path, date + bonus (news), text (the plain text of a
+     * row read whole – not indexed yet)]. $column = the language version, for the home page of a page result.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function candidate(App $app, string $type, array $row, string $column): array
+    {
+        if ($type === 'page') {
+            return ['type' => 'page', 'label' => t('Page'), 'id' => (int) $row['ids'], 'title' => (string) $row['titulek'],
+                'path' => (int) $row['ids'] === self::home($app, $column) ? '' : (string) $row['seo_link']]
+                + (array_key_exists('text', $row) ? ['text' => trim($row['popis'] . ' ' . plain_text((string) $row['text']))] : []);
+        }
+        if ($type === 'collection_item') {
+            return ['type' => 'collection_item', 'label' => (string) $row['kolekce_nazev'], 'id' => (int) $row['idp'], 'title' => (string) $row['nazev'],
+                'path' => $row['kolekce'] . '/' . $row['seo_link']]
+                + (array_key_exists('data', $row) ? ['text' => trim($row['popis'] . ' ' . self::itemText((string) $row['data'], (string) $row['pole']))] : []);
+        }
+
+        return ['type' => 'news', 'label' => $app->settings()->newsTitle(), 'id' => (int) $row['idc'], 'title' => (string) $row['titulek'], 'path' => 'novinky/' . $row['seo_link'],
+            'date' => (string) $row['datum'], 'bonus' => $row['datum'] >= Clock::at('-90 days') ? 3 : 0] // a fresh news item a little higher
+            + (array_key_exists('uvod', $row) && !array_key_exists('hledani', $row) ? ['text' => plain_text((string) $row['uvod'])] : []);
+    }
+
+    /** @var array<string, int> the home page of each language version, read once a request */
+    private static array $home = [];
+
+    /** The page that is the home page of the language version $column (its result has the path ''). */
+    private static function home(App $app, string $column): int
+    {
+        if (!isset(self::$home[$column])) {
+            $home = $app->settings()->int('home_page');
+            self::$home[$column] = $column !== '' && $home > 0 ? (int) $app->db()->value('SELECT ids FROM {stranky} WHERE preklad_z = ? AND jazyk = ?', [$home, $column]) : $home;
+        }
+
+        return self::$home[$column];
+    }
+
+    /** The plain values of an item's fields the index holds (SearchIndex::SEARCH_TYPES) – for a snippet and a row not indexed yet. */
+    private static function itemText(string $data, string $pole): string
+    {
+        $values = json_decode($data, true);
+        $fields = json_decode($pole, true);
+        if (!is_array($values) || !is_array($fields)) {
+            return '';
+        }
+        $text = [];
+        foreach ($fields as $field) {
+            $value = is_array($field) && in_array($field['typ'] ?? '', SearchIndex::SEARCH_TYPES, true) ? ($values[(string) ($field['klic'] ?? '')] ?? null) : null;
+            if (is_scalar($value) && (string) $value !== '') {
+                $text[] = plain_text((string) $value);
             }
         }
 
-        return $candidates;
+        return implode(' ', $text);
+    }
+
+    /**
+     * The cursor of a news re-index that is running (Search::VERSION above the stored one): the news above it still have
+     * an index of the older version. null = the news index is current. 3.53; to be removed in 3.54.
+     */
+    private static function newsReindexing(Settings $settings): ?int
+    {
+        [$version, $cursor] = SearchIndex::state($settings);
+
+        return $version < Search::VERSION ? $cursor : null;
     }
 
     /**
@@ -415,8 +601,59 @@ final class SiteSearch
     }
 
     /**
-     * The snippet of one result: around the matches in its text; a news item whose title and intro have none of the words
-     * takes it from its text (read for the shown results only).
+     * The snippets of the shown results, in their order: around the matches in their plain text, read in one query a
+     * kind (3.53, A5) – a page its description and text, an item its description and the values of its indexed fields, a
+     * news item its intro, and its text too when the title and the intro miss a word. A result that carries its text
+     * (text) uses it.
+     *
+     * @param list<array<string, mixed>> $results
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     * @return list<list<array{0: string, 1: bool}>>
+     */
+    public static function snippets(App $app, array $results, array $words): array
+    {
+        $db = $app->db();
+        $texts = [];
+        foreach (['page', 'collection_item', 'news'] as $type) {
+            $ids = array_values(array_unique(array_map(intval(...), array_column(array_filter($results, fn (array $r): bool => $r['type'] === $type && !isset($r['text'])), 'id'))));
+            if ($ids === []) {
+                continue;
+            }
+            $in = implode(', ', array_fill(0, count($ids), '?'));
+            $rows = match ($type) {
+                'page' => $db->all('SELECT ids AS id, popis, text FROM {stranky} WHERE ids IN (' . $in . ')', $ids),
+                'collection_item' => $db->all('SELECT p.idp AS id, p.popis, p.data, k.pole FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.idp IN (' . $in . ')', $ids),
+                default => $db->all('SELECT idc AS id, titulek, uvod, text FROM {novinky} WHERE idc IN (' . $in . ')', $ids),
+            };
+            foreach ($rows as $row) {
+                $texts[$type][(int) $row['id']] = match ($type) {
+                    'page' => trim($row['popis'] . ' ' . plain_text((string) $row['text'])),
+                    'collection_item' => trim($row['popis'] . ' ' . self::itemText((string) $row['data'], (string) $row['pole'])),
+                    default => self::newsText($row, $words),
+                };
+            }
+        }
+
+        return array_map(fn (array $r): array => self::snippet((string) ($r['text'] ?? $texts[$r['type']][(int) $r['id']] ?? ''), $words), $results);
+    }
+
+    /**
+     * The text a news snippet comes from: the intro, and the text after it when the title and the intro miss a word.
+     *
+     * @param array<string, mixed> $row
+     * @param list<array{word: string, terms: list<string>, raw?: true}> $words
+     */
+    private static function newsText(array $row, array $words): string
+    {
+        $intro = plain_text((string) $row['uvod']);
+        $normal = ' ' . Search::normalize($row['titulek'] . ' ' . $intro);
+        $matched = array_filter($words, fn (array $w): bool => isset($w['raw']) ? str_contains($normal, $w['word']) : self::starts($normal, $w['terms']));
+
+        return count($matched) < count($words) ? trim($intro . ' ' . plain_text((string) $row['text'])) : $intro;
+    }
+
+    /**
+     * The snippet of one result (snippets() for one).
      *
      * @param array<string, mixed> $result
      * @param list<array{word: string, terms: list<string>, raw?: true}> $words
@@ -424,17 +661,7 @@ final class SiteSearch
      */
     public static function resultSnippet(App $app, array $result, array $words): array
     {
-        $text = (string) $result['text'];
-        if ($result['type'] === 'news') {
-            $normal = ' ' . Search::normalize($result['title'] . ' ' . $text);
-            $lower = mb_strtolower($result['title'] . ' ' . $text);
-            $matched = array_filter($words, fn (array $w): bool => isset($w['raw']) ? str_contains($lower, $w['word']) : self::starts($normal, $w['terms']));
-            if (count($matched) < count($words)) {
-                $text = trim($text . ' ' . plain_text((string) $app->db()->value('SELECT text FROM {novinky} WHERE idc = ?', [$result['id']])));
-            }
-        }
-
-        return self::snippet($text, $words);
+        return self::snippets($app, [$result], $words)[0];
     }
 
     /**
@@ -445,7 +672,7 @@ final class SiteSearch
     public static function recordedQuery(string $q): ?string
     {
         $q = trim((string) preg_replace('/\s+/u', ' ', mb_strtolower($q)));
-        if (mb_strlen($q) < self::MIN_LENGTH || str_contains($q, '@') || preg_match_all('/\d/u', $q) >= 6) {
+        if (!Search::longEnough($q) || str_contains($q, '@') || preg_match_all('/\d/u', $q) >= 6) {
             return null;
         }
 

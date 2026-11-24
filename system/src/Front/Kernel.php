@@ -1422,7 +1422,7 @@ final class Kernel
     private function search(): Response
     {
         $q = trim(mb_substr($this->app->request->get('q'), 0, 100));
-        $searching = mb_strlen($q) >= \Kaleta\Core\SiteSearch::MIN_LENGTH;
+        $searching = \Kaleta\Core\Search::longEnough($q); // 3.53 (A5): two characters, or one CJK character
         // search is the site's most expensive query and is not cached: at most 30 searches per minute from one address
         $antispam = new \Kaleta\Core\Antispam($this->app->db(), $this->app->settings());
         if ($searching) {
@@ -1432,21 +1432,23 @@ final class Kernel
             $antispam->write($this->app->request->ip(), 'hledani', 0);
         }
         // 3.52 (B1): one list ranked across pages, collection items and news (Core\SiteSearch), one paging
-        $found = $searching ? \Kaleta\Core\SiteSearch::find($this->app, $q, Language::siteColumn()) : ['results' => [], 'partial' => false, 'words' => []];
+        $found = $searching ? \Kaleta\Core\SiteSearch::find($this->app, $q, Language::siteColumn()) : ['results' => [], 'total' => 0, 'partial' => false, 'words' => []];
         $perPage = $this->news->perPage();
-        $total = count($found['results']);
-        $pages = max(1, (int) ceil($total / $perPage));
+        // 3.53 (A5): the total is exact; the paging ends at the ranked results (the best CANDIDATES of each kind)
+        $total = $found['total'];
+        $pages = max(1, (int) ceil(count($found['results']) / $perPage));
         $pageNumber = min(max(1, $this->app->request->getInt('page', 1)), $pages);
         // 3.52 (B5): what visitors search for, for the Statistics – the first page of the results only, so paging counts once
         if ($searching && $this->app->request->getInt('page', 1) <= 1) {
             \Kaleta\Core\SiteSearch::record($this->app, $q, Language::siteColumn(), $total);
         }
-        $results = array_map(fn (array $r): array => $r + ['uryvek' => \Kaleta\Core\SiteSearch::snippetHtml(\Kaleta\Core\SiteSearch::resultSnippet($this->app, $r, $found['words']))],
-            array_slice($found['results'], ($pageNumber - 1) * $perPage, $perPage));
+        $shown = array_slice($found['results'], ($pageNumber - 1) * $perPage, $perPage);
+        $results = array_map(fn (array $r, array $snippet): array => $r + ['uryvek' => \Kaleta\Core\SiteSearch::snippetHtml($snippet)],
+            $shown, \Kaleta\Core\SiteSearch::snippets($this->app, $shown, $found['words']));
 
         return $this->page(
             $q !== '' ? t('Search: %s', $q) : t('Vyhledávání'),
-            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $results, 'castecne' => $found['partial'],
+            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $results, 'castecne' => $found['partial'], 'zobrazeno' => count($found['results']),
                 'stranky' => $searching && $total === 0 ? $this->menuPages() : []]
                 + $this->listVariables([], $total, $pageNumber, 'hledani', ['q' => $q], $pages)),
             ['noindex' => true],
@@ -1650,6 +1652,7 @@ final class Kernel
             'hledano' => null,
             'nalezeneStranky' => [],
             'castecne' => false,
+            'zobrazeno' => 0,
             'stranky' => [],
             'url' => $this->app->url(...),
         ];

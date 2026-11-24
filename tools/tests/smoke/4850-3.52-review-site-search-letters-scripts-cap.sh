@@ -13,16 +13,18 @@ sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit) VALUES
   ('moskva-b850', 'Москва B850', 'Офис.', 1)" > /dev/null
 B850_IDK=$(sq "INSERT INTO ka_kolekce (nazev, seo_link, pole, detail) VALUES ('Pobočky B850', 'pobocky-b850', '[{\"klic\":\"mesto\",\"typ\":\"text\"}]', 1); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) VALUES ($B850_IDK, 'Pobočka B850', 'pobocka-b850', '{\"mesto\":\"\\\\u0141\\\\u00f3d\\\\u017a, \\\\u00e6ble\"}', '$B850_NOW', 1)" > /dev/null
+# 3.53 (A5): the letters 3.52 needed its FOLDED branch for are found through the index – the job fills it for these rows
+fill_search_index
 expect "3.52 review: \"hauptstrasse b850\" and \"Hauptstraße b850\" find the page with Hauptstraße in its text; \"uslugi b850\" finds Usługi; \"lodz b850\" and \"aeble b850\" the item with escaped Łódź and æble" \
   "$(b850_hrefs 'hauptstrasse b850')$(b850_hrefs 'Hauptstraße b850')$(b850_hrefs 'uslugi b850')$(b850_hrefs 'lodz b850')$(b850_hrefs 'aeble b850')" \
   "/anfahrt-b850|/anfahrt-b850|/uslugi-b850|/pobocky-b850/pobocka-b850|/pobocky-b850/pobocka-b850|"
 expect "3.52 review: an Arabic query with taa marbuta written as ha finds the page; a Cyrillic query finds its page" \
   "$(b850_hrefs 'مدرسه b850')$(b850_hrefs 'москва b850')" "/madrasa-b850|/moskva-b850|"
 
-# a Chinese news title (3.51 found news by title for such queries); 305 newer news hold "b850q" only inside a word, the
-# oldest one as a word of its own – the 300 candidates count only words that start with it
+# a Chinese news title (3.51 found news by title for such queries; 3.53: the version 2 index holds it); 305 newer news hold
+# "b850q" only inside a word, the oldest one as a word of its own – only words that start with it count
 sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES
-  ('beijing-b850', '北京办公室 B850', '', '', $B850_TEMA, '$(site_time '-2 days')', 1, 0, 'b850'),
+  ('beijing-b850', '北京办公室 B850', '', '', $B850_TEMA, '$(site_time '-2 days')', 1, 0, '北京办公室 b850'),
   ('slovo-b850', 'Stará zpráva', '', 'b850q', $B850_TEMA, '$(site_time '-3 days')', 1, 0, 'stara zprava b850q')" > /dev/null
 B850_ROWS=$(for i in $(seq 1 305); do printf "('sum-b850-%s', 'Zpráva %s', '', '', %s, '%s', 1, 0, 'zprava xb850q')," "$i" "$i" "$B850_TEMA" "$(site_time '-1 day')"; done)
 sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ${B850_ROWS%,}" > /dev/null
