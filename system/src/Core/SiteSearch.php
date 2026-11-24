@@ -76,7 +76,8 @@ final class SiteSearch
      * ("R&B" → "r b", "e-mail", "s.r.o.") is one phrase (its pieces in a row, from the start of a word); a letter with
      * + or # ("C++", "C#") has no letters to search in the search text and is looked for in the titles as written (title).
      * An apostrophe ends a part: "l'hôtel", "d'emploi" and "women's" search "hotel", "emploi" and "women" – the elided
-     * article or the possessive s is one letter and too short to be a word.
+     * article or the possessive s is one letter and too short to be a word. Not in Cyrillic, where it is inside the word
+     * (Ukrainian "п'ять" stays the phrase "п ять"), nor when no piece would be long enough ("п'є" → "п є").
      *
      * @return list<array{word: string, terms: list<string>, raw?: true, title?: true}>
      */
@@ -88,7 +89,17 @@ final class SiteSearch
                 $words[$w] = ['word' => $w] + $word;
             }
         };
-        foreach (preg_split('/[\s\'\x{2019}\x{02BC}]+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
+        $parts = [];
+        foreach (preg_split('/\s+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $spaced) {
+            // an apostrophe ends a part in a Latin text (elision, the possessive s); in Cyrillic it is inside a word
+            // (Ukrainian "п'ять", "м'ясо"), and a part whose pieces are all too short ("п'є", "b'z") stays one phrase
+            // (U+02BC itself counts as Cyrillic in PCRE's script extensions, so the apostrophes are left out of the test)
+            $split = preg_match('/\p{Cyrillic}/u', (string) preg_replace('/[\'\x{2019}\x{02BC}]/u', '', $spaced)) === 1 ? [$spaced]
+                : (preg_split('/[\'\x{2019}\x{02BC}]+/u', $spaced, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+            $long = array_filter($split, fn (string $p): bool => array_filter(explode(' ', Search::normalize($p)), Search::longEnough(...)) !== []);
+            array_push($parts, ...(count($split) > 1 && $long === [] ? [$spaced] : $split));
+        }
+        foreach ($parts as $part) {
             $normal = Search::normalize($part);
             $pieces = $normal === '' ? [] : explode(' ', $normal);
             if (count($pieces) > 1 && min(array_map(mb_strlen(...), $pieces)) === 1 && preg_match('/[' . self::CJK . ']/u', $normal) !== 1) {
@@ -522,14 +533,23 @@ final class SiteSearch
             $cursor = self::newsReindexing($settings);
             // during a re-index the news above the cursor still have a version 1 index, which lacks the letters it did not
             // know (Cyrillic, Chinese…) and split the words with letters it did not fold ("książka" as "ksi zka"): every word
-            // is looked for in their title and intro as well (the search collation folds "ksiazka" to "książka")
+            // is looked for in their title and intro as well (the search collation folds "ksiazka" to "książka") – as match()
+            // reads them: an ordinary word by its beginnings at the start of a word, a Chinese or Japanese word anywhere
             $more = $cursor === null ? null : function (array $w) use ($cursor): ?array {
                 if (isset($w['title'])) {
                     return null;
                 }
-                $pattern = '%' . addcslashes($w['word'], '%_\\') . '%';
+                $raw = isset($w['raw']);
+                [$sql, $params] = [[], []];
+                foreach ($raw ? [$w['word']] : self::prefixes($w['terms']) as $term) {
+                    $pattern = ($raw ? '%' : '% ') . addcslashes($term, '%_\\') . '%';
+                    foreach (['c.titulek', 'c.uvod'] as $c) {
+                        $sql[] = ($raw ? $c : 'CONCAT(\' \', ' . $c . ')') . ' COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?';
+                        $params[] = $pattern;
+                    }
+                }
 
-                return ['(c.idc > ' . $cursor . ' AND (c.titulek COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ? OR c.uvod COLLATE ' . Db::SEARCH_COLLATION . ' LIKE ?))', [$pattern, $pattern]];
+                return ['(c.idc > ' . $cursor . ' AND (' . implode(' OR ', $sql) . '))', $params];
             };
             $scan('news', 'c.idc', 'c.titulek', $news . ' AND c.hledani IS NOT NULL', 'c.hledani COLLATE utf8mb4_bin', [Clock::now(), $column], 'c.datum DESC, c.idc DESC', $more);
             $fallback('news', 'c.idc, c.titulek, c.seo_link, c.uvod, c.datum', $news . ' AND c.hledani IS NULL', ['c.titulek', 'c.uvod'], [], 'c.titulek',

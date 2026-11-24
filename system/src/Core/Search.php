@@ -137,6 +137,7 @@ final class Search
         return Db::likeWords($with($columns), $q, more: function (string $word) use ($alias, $with, $text, $json): ?array {
             $normal = self::normalize($word);
             $index = match (true) {
+                str_contains($normal, ' ') && preg_match('/[' . self::CJK . ']/u', $normal) === 1 => self::mixedCjk($normal, $alias . 'hledani'),
                 str_contains($normal, ' ') => ['CONCAT(\' \', ' . $alias . 'hledani) LIKE ?', ['% ' . addcslashes($normal, '%_\\') . '%']],
                 self::longEnough($normal) => [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']],
                 $normal !== '' && preg_match('/^[\p{L}\p{N}]$/u', $word) === 1 => ['1 = 1', []],
@@ -150,6 +151,28 @@ final class Search
 
             return ['(' . $index[0] . ' OR (' . $alias . 'hledani IS NULL AND ' . $late . '))', [...$index[1], ...$params]];
         });
+    }
+
+    /**
+     * A word with Chinese or Japanese next to Latin letters or digits ("使用WordPress" → "使用 wordpress"): the CJK run need not
+     * start a run of the text ("我们使用 wordpress…"), so its pieces are ANDed – a CJK piece anywhere, any other piece from
+     * the start of a word; a piece too short is no filter. null = no piece long enough.
+     *
+     * @return array{0: string, 1: list<string>}|null
+     */
+    private static function mixedCjk(string $normal, string $column): ?array
+    {
+        [$sql, $params] = [[], []];
+        foreach (explode(' ', $normal) as $piece) {
+            if (!self::longEnough($piece)) {
+                continue;
+            }
+            $cjk = preg_match('/[' . self::CJK . ']/u', $piece) === 1;
+            $sql[] = $cjk ? $column . ' LIKE ?' : 'CONCAT(\' \', ' . $column . ') LIKE ?';
+            $params[] = ($cjk ? '%' : '% ') . addcslashes($piece, '%_\\') . '%';
+        }
+
+        return $sql === [] ? null : ['(' . implode(' AND ', $sql) . ')', $params];
     }
 
     /**

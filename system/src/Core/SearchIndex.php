@@ -330,33 +330,38 @@ final class SearchIndex
     /**
      * Rewrites the news index made by an older Search::VERSION (3.53: version 1 knew only Latin, Arabic and Hebrew) for at
      * most $seconds: by idc above the stored cursor, only the rows whose text changes, the cursor stored after each batch;
-     * at the end the version is stored. The old text stays until its row is rewritten. Returns the rows rewritten.
+     * at the end the version is stored. The old text stays until its row is rewritten. Returns the rows rewritten and the
+     * rows examined (the cursor moved past them, whether their text changed or not – the progress for stuck()).
+     *
+     * @return array{rewritten: int, examined: int}
      */
-    public static function reindexNews(Db $db, Settings $settings, float $seconds): int
+    public static function reindexNews(Db $db, Settings $settings, float $seconds): array
     {
         [$version, $cursor] = self::state($settings);
         if ($version >= Search::VERSION) {
-            return 0;
+            return ['rewritten' => 0, 'examined' => 0];
         }
         $deadline = microtime(true) + $seconds;
         $rewritten = 0;
+        $examined = 0;
         $first = true;
         while (true) {
             $ids = array_map(intval(...), array_column($db->all('SELECT idc FROM {novinky} WHERE idc > ? ORDER BY idc LIMIT ' . self::BATCH, [$cursor]), 'idc'));
             if ($ids === []) {
                 $settings->set(self::STATE, Search::VERSION . ':0');
 
-                return $rewritten;
+                return ['rewritten' => $rewritten, 'examined' => $examined];
             }
             foreach ($ids as $id) {
                 if (!$first && microtime(true) >= $deadline) {
                     $settings->set(self::STATE, $version . ':' . $cursor);
 
-                    return $rewritten;
+                    return ['rewritten' => $rewritten, 'examined' => $examined];
                 }
                 $first = false;
                 $rewritten += self::one($db, 'novinky', $id, false, true) === true ? 1 : 0;
                 $cursor = $id;
+                $examined++;
             }
             $settings->set(self::STATE, $version . ':' . $cursor);
         }
@@ -403,7 +408,7 @@ final class SearchIndex
 
     /**
      * The background job search_index: complete() and then reindexNews() within $seconds; afterwards a run with time
-     * remembers how many rows wait and how many it filled or rewrote (WAITING), for System status. A short result for the job list.
+     * remembers how many rows wait and how many it filled or examined (WAITING), for System status. A short result for the job list.
      */
     public static function run(Db $db, Settings $settings, float $seconds): string
     {
@@ -412,9 +417,11 @@ final class SearchIndex
         }
         $start = microtime(true);
         $done = self::complete($db, $seconds);
-        $rewritten = $done['left'] ? 0 : self::reindexNews($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
+        ['rewritten' => $rewritten, 'examined' => $examined] = $done['left'] ? ['rewritten' => 0, 'examined' => 0]
+            : self::reindexNews($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
         $waiting = array_sum(self::pending($db, $settings));
-        $progress = $waiting . ':' . ($done['pages'] + $done['items'] + $done['news'] + $done['failed'] + $rewritten);
+        // a re-index examining news whose text stays the same moves its cursor: that is progress too, not a stuck index
+        $progress = $waiting . ':' . ($done['pages'] + $done['items'] + $done['news'] + $done['failed'] + $examined);
         if ($seconds > 0 && $settings->get(self::WAITING) !== $progress) {
             $settings->set(self::WAITING, $progress);
         }
@@ -425,7 +432,8 @@ final class SearchIndex
     }
 
     /**
-     * Whether the index is stuck (System status): rows wait and the last job run with time filled or rewrote none of them.
+     * Whether the index is stuck (System status): rows wait and the last job run with time filled none of them and moved
+     * no re-index cursor.
      * New rows arriving faster than a run fills them (an import, a collection's fields changed) are work, not a fault.
      */
     public static function stuck(Settings $settings): bool
