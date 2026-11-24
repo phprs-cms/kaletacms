@@ -12,6 +12,9 @@ sq "INSERT INTO ka_uzivatele (user, password, jmeno, email, admin, blokovat) VAL
 R194_BOSS=$(sq "SELECT idu FROM ka_uzivatele WHERE user = 'r194boss'")
 sq "INSERT INTO ka_uzivatele_prava (fk_id_user, ident_modulu) SELECT $R194_BOSS, ident_modulu FROM ka_uzivatele_prava WHERE fk_id_user = (SELECT idu FROM ka_uzivatele WHERE user = 'admin')" > /dev/null
 R194_ACTIVE=$(sq "SELECT COALESCE(GROUP_CONCAT(idu), '0') FROM ka_uzivatele WHERE admin = 2 AND blokovat = 0 AND idu <> $R194_BOSS")
+# the restore blocks the backup's administrators and revokes their API tokens (RestoreLedger::accounts) – the suite's connections
+# (the shared token of section 0110 included) are put aside here and come back with the clean-up, as section 1210 does
+sq "DROP TABLE IF EXISTS ka_tokeny_194; CREATE TABLE ka_tokeny_194 AS SELECT * FROM ka_api_tokeny" > /dev/null
 r194_login "$R194_JAR"; proof_fresh "$R194_JAR"
 sq "DELETE FROM ka_uzivatele WHERE admin = 2 AND idu <> $R194_BOSS" > /dev/null
 curl -s -b "$R194_JAR" -c "$R194_JAR" -o "$WORK/response" "$B/admin.php?module=settings&tab=backups"
@@ -23,6 +26,9 @@ expect "3.46 review N1: the restoring session goes on, and a new sign-in of the 
 
 # back as it was: the suite's administrators active again, the new owner gone
 sq "UPDATE ka_uzivatele SET blokovat = 0 WHERE idu IN ($R194_ACTIVE); DELETE FROM ka_uzivatele WHERE idu = $R194_BOSS" > /dev/null
+sq "DELETE FROM ka_api_tokeny; INSERT INTO ka_api_tokeny SELECT * FROM ka_tokeny_194; DROP TABLE ka_tokeny_194" > /dev/null
 rm -f "$R194_DIR/$R194_FILE" "$R194_JAR" "$R194_JAR-2"
 curl -s -c "$JAR" -b "$JAR" -o "$WORK/response" "$B/admin.php"
 if ! grep -q 'action=logout' "$WORK/response"; then curl -s -b "$JAR" -c "$JAR" -o /dev/null -X POST "$B/admin.php" -d "_csrf=$(csrf)" -d user=admin --data-urlencode "password=$PASSWORD"; fi
+expect "3.46 review N1: the clean-up gives the suite its connections back – the shared MCP token of section 0110 answers again" \
+  "$(sq "SELECT COUNT(*) FROM ka_api_tokeny WHERE nazev = 'test'")" "1"
