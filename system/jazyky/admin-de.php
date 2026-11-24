@@ -9590,6 +9590,6 @@ return [
     'Search index' => 'Suchindex',
     'every page, item and news item can be found' => 'jede Seite, jeder Eintrag und jede News ist auffindbar',
     '%d pages, %d items and %d news items wait for their search text' => '%d Seiten, %d Einträge und %d News warten auf ihren Suchtext',
-    'the number did not fall since the last run of the background jobs; see Background jobs below' => 'die Zahl ist seit dem letzten Lauf der Hintergrundaufgaben nicht gesunken – siehe Hintergrundaufgaben unten',
     'the background jobs fill it in' => 'die Hintergrundaufgaben ergänzen ihn',
+    'the last run of the background jobs filled none of them; see Background jobs below' => 'der letzte Lauf der Hintergrundaufgaben hat keinen davon ergänzt – siehe Hintergrundaufgaben unten',
 ];

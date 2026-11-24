@@ -800,20 +800,7 @@ final class Collections
      */
     public static function searchFieldsChanged(Db $db, int $idk, array $before, array $after): void
     {
-        $searched = function (array $fields): array {
-            $keys = array_map(fn (array $f): string => (string) ($f['klic'] ?? ''), array_filter($fields, fn (mixed $f): bool => is_array($f) && in_array($f['typ'] ?? '', SearchIndex::SEARCH_TYPES, true)));
-            sort($keys);
-
-            return $keys;
-        };
-        if ($searched($before) === $searched($after)) {
-            return;
-        }
-        try {
-            $db->unjournaled(fn () => $db->run('UPDATE {kolekce_polozky} SET hledani = NULL WHERE idk = ?', [$idk]));
-        } catch (\PDOException $e) {
-            Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
-        }
+        SearchIndex::fieldsChanged($db, $idk, $before, $after);
     }
 
     /** @return array<string, mixed>|null the item columns stored in one version */

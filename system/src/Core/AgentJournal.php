@@ -269,7 +269,8 @@ final class AgentJournal
         // content (the column of pages and items exists from migration 0141, that of news always did)
         $derived = SearchIndex::ready($app->settings()) ? self::DERIVED : ['novinky' => 'hledani'];
         $components = []; // 3.53 (B5): a restored or removed component changes the text of the pages that use it
-        $db->transaction(function (Db $db) use ($rows, $force, $derived, &$result, &$components): void {
+        $collections = []; // 3.53: restored fields of a collection change the text of its items – [idk, fields now, fields restored]
+        $db->transaction(function (Db $db) use ($rows, $force, $derived, &$result, &$components, &$collections): void {
             foreach (array_reverse($rows) as $row) {
                 $current = $db->one('SELECT * FROM {' . $row['table'] . '} WHERE ' . self::condition(array_keys($row['key'])), array_values($row['key']));
                 $expected = $row['after'] !== null ? json_decode((string) $row['after'], true) : null;
@@ -280,6 +281,10 @@ final class AgentJournal
                 }
                 if ($row['table'] === 'komponenty' && isset($row['key']['idm'])) {
                     $components[] = (int) $row['key']['idm'];
+                }
+                if ($row['table'] === 'kolekce' && isset($row['key']['idk'])) {
+                    $fields = fn (?array $r): array => array_values(array_filter((array) (json_decode((string) ($r['pole'] ?? ''), true) ?: []), 'is_array'));
+                    $collections[] = [(int) $row['key']['idk'], $fields($current), $fields($row['before'] !== null ? (array) json_decode((string) $row['before'], true) : null)];
                 }
                 if ($row['before'] === null) {
                     if ($current !== null) {
@@ -302,6 +307,9 @@ final class AgentJournal
         });
         foreach (array_unique($components) as $idm) {
             SearchIndex::componentChanged($db, $idm);
+        }
+        foreach ($collections as [$idk, $now, $restored]) {
+            SearchIndex::fieldsChanged($db, $idk, $now, $restored); // the raw restore bypassed Builder\Collections::update
         }
         $user = $app->auth()->user();
         $db->update('agent_sessions', ['undone_at' => Clock::now(), 'undone_by' => mb_substr((string) ($user['jmeno'] ?? '') ?: (string) ($user['user'] ?? ''), 0, 100)], ['id' => $sessionId]);

@@ -18,6 +18,9 @@ final class Search
      */
     public const int VERSION = 2;
 
+    /** Chinese characters and kana – words without spaces between them (SiteSearch matches them anywhere); a regex class. */
+    public const string CJK = '\p{Han}\p{Hiragana}\p{Katakana}\x{30FC}';
+
     /**
      * The Latin letters remove_diacritics() does not know (3.53, A1), by the plain letters they fold to: Polish,
      * Romanian (comma and cedilla forms), Turkish, Latvian, Lithuanian, Maltese, Icelandic, Esperanto, Catalan (l·l),
@@ -87,7 +90,13 @@ final class Search
         // the remaining Arabic marks (Quranic signs) and the extended Latin combining ranges separate as before
         $text = (string) preg_replace('/[\x{0610}-\x{061A}\x{06D6}-\x{06ED}\x{1AB0}-\x{1AFF}\x{1DC0}-\x{1DFF}\x{20D0}-\x{20FF}\x{FE20}-\x{FE2F}]/u', ' ', $text);
 
-        return trim((string) preg_replace('/[^\p{L}\p{Nd}\p{M}]+/u', ' ', $text));
+        $text = trim((string) preg_replace('/[^\p{L}\p{Nd}\p{M}]+/u', ' ', $text));
+
+        // Chinese and Japanese have no spaces around a Latin word or a number ("使用WordPress搭建", "价格100元"), Korean none
+        // before a particle: a run of CJK is cut off its neighbours, Hangul off Latin letters and digits, so "wordpress",
+        // "100" and "s24" (갤럭시S24) are words of their own, as the query reads them (SiteSearch::words)
+        return (string) preg_replace('/(?<=[' . self::CJK . '])(?=[\p{L}\p{Nd}])(?![' . self::CJK . '])|(?<=[\p{L}\p{Nd}])(?<![' . self::CJK . '])(?=[' . self::CJK . '])'
+            . '|(?<=\p{Hangul})(?=[\p{Latin}\p{Nd}])|(?<=[\p{Latin}\p{Nd}])(?=\p{Hangul})/u', ' ', $text);
     }
 
     /**

@@ -9610,6 +9610,6 @@ return [
     'Search index' => 'Índice de búsqueda',
     'every page, item and news item can be found' => 'todas las páginas, elementos y noticias se pueden encontrar',
     '%d pages, %d items and %d news items wait for their search text' => '%d páginas, %d elementos y %d noticias esperan su texto de búsqueda',
-    'the number did not fall since the last run of the background jobs; see Background jobs below' => 'el número no ha bajado desde la última ejecución de las tareas en segundo plano; consulte Tareas en segundo plano más abajo',
     'the background jobs fill it in' => 'las tareas en segundo plano lo completan',
+    'the last run of the background jobs filled none of them; see Background jobs below' => 'la última ejecución de las tareas en segundo plano no completó ninguno; consulte Tareas en segundo plano más abajo',
 ];

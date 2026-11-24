@@ -46,11 +46,8 @@ final class SiteSearch
      */
     public const bool ORDER_BY_OCCURRENCES = true;
 
-    /** The letters a stored index of Search::VERSION 1 held: Latin letters, digits, Arabic and Hebrew – a regex class. */
-    private const string VERSION1_LETTERS = 'a-z0-9\x{0621}-\x{064A}\x{0660}-\x{0669}\x{066E}-\x{06D3}\x{06F0}-\x{06F9}\x{05D0}-\x{05EA}';
-
     /** Chinese characters and kana – words without spaces between them, matched anywhere (raw); a regex class. */
-    private const string CJK = '\p{Han}\p{Hiragana}\p{Katakana}\x{30FC}';
+    private const string CJK = Search::CJK;
 
     /** The days a searched term is kept in the Statistics (B5); the daily clean-up deletes older rows (Retention::FIXED). */
     public const int KEEP_DAYS = 400;
@@ -78,6 +75,8 @@ final class SiteSearch
      * word. 3.53 (B1): the query is read by its parts between spaces – a part whose normal form has a one-letter piece
      * ("R&B" → "r b", "e-mail", "s.r.o.") is one phrase (its pieces in a row, from the start of a word); a letter with
      * + or # ("C++", "C#") has no letters to search in the search text and is looked for in the titles as written (title).
+     * An apostrophe ends a part: "l'hôtel", "d'emploi" and "women's" search "hotel", "emploi" and "women" – the elided
+     * article or the possessive s is one letter and too short to be a word.
      *
      * @return list<array{word: string, terms: list<string>, raw?: true, title?: true}>
      */
@@ -89,7 +88,7 @@ final class SiteSearch
                 $words[$w] = ['word' => $w] + $word;
             }
         };
-        foreach (preg_split('/\s+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
+        foreach (preg_split('/[\s\'\x{2019}\x{02BC}]+/u', mb_substr($q, 0, 100), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $part) {
             $normal = Search::normalize($part);
             $pieces = $normal === '' ? [] : explode(' ', $normal);
             if (count($pieces) > 1 && min(array_map(mb_strlen(...), $pieces)) === 1 && preg_match('/[' . self::CJK . ']/u', $normal) !== 1) {
@@ -127,7 +126,7 @@ final class SiteSearch
         $changed = false;
         foreach ($words as $i => $w) {
             if (isset($w['raw']) && ($length = mb_strlen($w['word'])) >= 3) {
-                $words[$i]['terms'] = array_map(fn (int $k): string => mb_substr($w['word'], $k, 2), range(0, min($length - 2, self::BIGRAMS) - 1));
+                $words[$i]['terms'] = array_map(fn (int $k): string => mb_substr($w['word'], $k, 2), range(0, min($length - 1, self::BIGRAMS) - 1));
                 $changed = true;
             }
         }
@@ -375,13 +374,13 @@ final class SiteSearch
      * condition per word – an ordinary word starts a word of the text (CONCAT(' ', h) LIKE '% term%', by its shortest
      * beginnings, prefixes()), a raw word is anywhere in it – and the occurrences: per word, how often its first beginning
      * starts a word of the text (at most 20; counted in bytes with REPLACE, the text is not copied), summed; '0' with
-     * ORDER_BY_OCCURRENCES off. $more(word) may add an alternative to a word's condition (news during a re-index). A title
+     * $byOccurrences false (ORDER_BY_OCCURRENCES, which tools/bench-search.php turns off). $more(word) may add an alternative to a word's condition (news during a re-index). A title
      * word ("C++", B1) is a collation LIKE on $title. Never a condition on raw HTML, JSON or a "1 = 1".
      *
      * @param list<array{word: string, terms: list<string>, raw?: true, title?: true}> $words
      * @return array{conditions: list<array{0: string, 1: list<string>}>, occurrences: array{0: string, 1: list<string>}}
      */
-    public static function indexSql(array $words, string $h, ?\Closure $more = null, ?string $title = null): array
+    public static function indexSql(array $words, string $h, ?\Closure $more = null, ?string $title = null, bool $byOccurrences = self::ORDER_BY_OCCURRENCES): array
     {
         $conditions = [];
         $occurrences = [];
@@ -411,7 +410,7 @@ final class SiteSearch
             array_push($occurrenceParams, $needle, ...($raw ? [] : [addcslashes($terms[0], '%_\\') . '%']));
         }
 
-        return ['conditions' => $conditions, 'occurrences' => self::ORDER_BY_OCCURRENCES && $occurrences !== [] ? ['(' . implode(' + ', $occurrences) . ')', $occurrenceParams] : ['0', []]];
+        return ['conditions' => $conditions, 'occurrences' => $byOccurrences && $occurrences !== [] ? ['(' . implode(' + ', $occurrences) . ')', $occurrenceParams] : ['0', []]];
     }
 
     /**
@@ -521,10 +520,11 @@ final class SiteSearch
         if (Extensions::isEnabled($settings, 'novinky')) {
             $news = '{novinky} c WHERE c.visible = 1 AND c.datum <= ? AND c.smazano IS NULL AND c.noindex = 0 AND c.jazyk = ?';
             $cursor = self::newsReindexing($settings);
-            // during a re-index the news above the cursor still have a version 1 index: a word of letters it did not hold
-            // (Cyrillic, Greek, Chinese…) is looked for in their title and intro as well
+            // during a re-index the news above the cursor still have a version 1 index, which lacks the letters it did not
+            // know (Cyrillic, Chinese…) and split the words with letters it did not fold ("książka" as "ksi zka"): every word
+            // is looked for in their title and intro as well (the search collation folds "ksiazka" to "książka")
             $more = $cursor === null ? null : function (array $w) use ($cursor): ?array {
-                if (isset($w['title']) || preg_match('/[^' . self::VERSION1_LETTERS . ']/u', $w['word']) !== 1) {
+                if (isset($w['title'])) {
                     return null;
                 }
                 $pattern = '%' . addcslashes($w['word'], '%_\\') . '%';
@@ -783,9 +783,9 @@ final class SiteSearch
      */
     public static function tally(Db $db, string $day, string $language, string $query, bool $empty): bool
     {
-        $add = fn (): int => $db->run('UPDATE {search_queries} SET searches = searches + 1, without_result = without_result + ?
-            WHERE day = ? AND language = ? AND query = ?', [(int) $empty, $day, $language, $query])->rowCount();
-        if ($add() > 0) {
+        $add = fn (): bool => $db->run('UPDATE {search_queries} SET searches = searches + 1, without_result = without_result + ?
+            WHERE day = ? AND language = ? AND query = ?', [(int) $empty, $day, $language, $query])->rowCount() > 0;
+        if ($add()) {
             return true;
         }
         if ((int) $db->value('SELECT COUNT(*) FROM {search_queries} WHERE day = ? AND language = ?', [$day, $language]) >= self::DAY_QUERIES) {
@@ -797,7 +797,7 @@ final class SiteSearch
             if ((string) $e->getCode() !== '23000') {
                 throw $e;
             }
-            return $add() > 0; // a parallel search inserted the same query a moment ago
+            return $add(); // a parallel search inserted the same query a moment ago
         }
         return true;
     }

@@ -302,7 +302,7 @@ final class Settings
         'stats_confirmed_since' => '', // 3.29 (Front\Stats::hit): the day the counting of page views confirmed by a visitor's browser started; '' = no beacon yet – internal
         'inbox_digest_day' => '',      // the day the daily summary of notifications last went out (3.26, Core\Inbox::run) – internal
         'search_index_at' => '',       // 3.53 (A3, Core\SearchIndex::STATE): "version:cursor" of the news search index; '' = version 1 (3.52 or older) – internal
-        'search_index_checked' => '',  // 3.53 (SearchIndex::WAITING): "previous:current" rows waiting after the last two runs of the job – internal
+        'search_index_checked' => '',  // 3.53 (SearchIndex::WAITING): "waiting:done" after the last run of the job with time – internal
         'application_forms_watch' => '', // 3.50.1 (Builder\ApplicationFormWatch): the pages and pop-ups whose application form was reachable / reported at the last hourly run (JSON) – internal
         'starter_pages' => '',         // 3.33 (M2, Core\StarterPages): the installer's record of its starter pages as JSON {ids: fingerprint}; '' = a site from before 3.33 – internal
         // 3.42 (audit Q9): keys the code read or wrote without declaring them – declared so that every setting has a default here

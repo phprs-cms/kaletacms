@@ -86,11 +86,11 @@ $a3State = function (array $values) use ($a3Settings): array {
 
     return [SearchIndex::ready($a3Settings), SearchIndex::state($a3Settings), SearchIndex::stuck($a3Settings)];
 };
-check('3.53 A3: the job search_index runs after the mail and the webhooks, with its new label; ready() from db_version 141; the state "version:cursor" (\'\' = version 1); stuck only when the waiting rows did not fall between two runs', [
+check('3.53 A3: the job search_index runs after the mail and the webhooks, with its new label; ready() from db_version 141; the state "version:cursor" (\'\' = version 1); stuck only when rows wait and the last run with time filled none ("waiting:done")', [
     array_search('search_index', $a3Jobs, true) > array_search('webhooks', $a3Jobs, true), array_search('mail', $a3Jobs, true) < array_search('webhooks', $a3Jobs, true),
     Kaleta\Core\Scheduler::JOBS['search_index'], Kaleta\Core\Scheduler::remaining() > 1e9,
     $a3State(['db_version' => '140']), $a3State([SearchIndex::STATE => '1:350', SearchIndex::WAITING => ':40']), $a3State([SearchIndex::STATE => Search::VERSION . ':0', SearchIndex::WAITING => '40:12']),
-    $a3State([SearchIndex::WAITING => '12:12']), $a3State([SearchIndex::WAITING => '12:0']),
+    $a3State([SearchIndex::WAITING => '12:0']), $a3State([SearchIndex::WAITING => '0:12']),
     Kaleta\Core\Settings::DEFAULTS[SearchIndex::STATE] ?? null, Kaleta\Core\Settings::DEFAULTS[SearchIndex::WAITING] ?? null,
     array_intersect([SearchIndex::STATE, SearchIndex::WAITING], array_merge(Kaleta\Core\Settings::keysWith('export'), Kaleta\Core\Settings::keysWith('mcp'), Kaleta\Core\SiteExport::SETTINGS)),
 ], [

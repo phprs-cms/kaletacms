@@ -43,7 +43,7 @@ final class SearchIndex
     /** The internal setting "version:cursor": the news index is complete for version, rewritten up to idc cursor for the next one. */
     public const string STATE = 'search_index_at';
 
-    /** The internal setting "previous:current" – the rows waiting after the last two job runs (System status warns when it does not fall). */
+    /** The internal setting "waiting:done" – after the last job run with time, the rows waiting and the rows it filled or rewrote (System status warns when rows wait and it did none). */
     public const string WAITING = 'search_index_checked';
 
     /** Table => [primary key, content columns read for text()]. */
@@ -121,12 +121,12 @@ final class SearchIndex
             ? SearchText::of($build, $db === null ? null : fn (int $idm): ?array => self::component($db, $idm)) : (string) ($row['text'] ?? ''));
     }
 
-    /** @var array<int, array{stavba: array<string, mixed>, vlastnosti: list<mixed>}|null> the components read by this run of complete() / page() */
+    /** @var array<int, array{stavba: array<string, mixed>, vlastnosti: list<mixed>}|null> the components read for the row being indexed (one()) */
     private static array $components = [];
 
     /**
      * A component as the search text of a page uses it: its published build and properties (null = none, or not
-     * published – a draft is not indexed). Read once per run.
+     * published – a draft is not indexed). Read once per row (a component used twice on a page is read once).
      *
      * @return array{stavba: array<string, mixed>, vlastnosti: list<mixed>}|null
      */
@@ -148,7 +148,6 @@ final class SearchIndex
      */
     public static function componentChanged(Db $db, int $idm): int
     {
-        self::$components = [];
         // the id as Build::sanitize stores it (a text) or as a number; never 12 for 123
         $uses = function (array $ids): array {
             $patterns = array_merge(...array_map(fn (int $id): array => ['%"komponenta":"' . $id . '"%', '%"komponenta":' . $id . ',%', '%"komponenta":' . $id . '}%'], $ids));
@@ -175,6 +174,32 @@ final class SearchIndex
     }
 
     /**
+     * The field definitions of collection $idk changed from $before to $after (Builder\Collections::searchFieldsChanged,
+     * an undone Claude session): when the fields whose values go to the search text differ (SEARCH_TYPES – a new text
+     * field, a text field turned into a number, one removed), the items' search text is emptied for the job. Unjournaled.
+     *
+     * @param list<mixed> $before
+     * @param list<mixed> $after
+     */
+    public static function fieldsChanged(Db $db, int $idk, array $before, array $after): void
+    {
+        $searched = function (array $fields): array {
+            $keys = array_map(fn (array $f): string => (string) ($f['klic'] ?? ''), array_filter($fields, fn (mixed $f): bool => is_array($f) && in_array($f['typ'] ?? '', self::SEARCH_TYPES, true)));
+            sort($keys);
+
+            return $keys;
+        };
+        if ($searched($before) === $searched($after)) {
+            return;
+        }
+        try {
+            $db->unjournaled(fn () => $db->run('UPDATE {kolekce_polozky} SET hledani = NULL WHERE idk = ?', [$idk]));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
+        }
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @param list<array<string, mixed>>|null $fields
      * @return list<string>
@@ -196,20 +221,34 @@ final class SearchIndex
         return $values;
     }
 
+    /**
+     * Empties the search text of every page whose build places a component (unjournaled). After an import of a Kaleta
+     * export (SiteImport::finish): the background job may have indexed a page in the middle of the import, before its
+     * components were there. Returns the pages emptied.
+     */
+    public static function componentPagesChanged(Db $db): int
+    {
+        try {
+            return (int) $db->unjournaled(fn () => $db->run('UPDATE {stranky} SET hledani = NULL WHERE hledani IS NOT NULL AND stavba LIKE ?', ['%"komponenta":%'])->rowCount());
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
+
+            return 0;
+        }
+    }
+
     /** Indexes one page now (after a save or a publish). Never throws: a page the index could not take waits NULL for the job. */
     public static function page(Db $db, int $ids): void
     {
-        self::$components = []; // a component may have changed in this request
         self::now($db, 'stranky', $ids);
     }
 
-    /** @var array<int, list<array<string, mixed>>|null> the field definitions of collections read by this run of complete() / item() */
+    /** @var array<int, list<array<string, mixed>>|null> the field definitions of collections read for the row being indexed (one()) */
     private static array $fields = [];
 
     /** Indexes one collection item now (after a save). Never throws, as page(). */
     public static function item(Db $db, int $idp): void
     {
-        self::$fields = []; // the fields may have changed in this request
         self::now($db, 'kolekce_polozky', $idp);
     }
 
@@ -257,7 +296,6 @@ final class SearchIndex
         if ($done['left']) {
             return $done;
         }
-        [self::$fields, self::$components] = [[], []];
         $first = true;
         try {
             foreach (['stranky' => 'pages', 'kolekce_polozky' => 'items', 'novinky' => 'news'] as $table => $count) {
@@ -364,8 +402,8 @@ final class SearchIndex
     }
 
     /**
-     * The background job search_index: complete() and then reindexNews() within $seconds; afterwards it remembers how many
-     * rows wait (WAITING), for System status. A short result for the job list.
+     * The background job search_index: complete() and then reindexNews() within $seconds; afterwards a run with time
+     * remembers how many rows wait and how many it filled or rewrote (WAITING), for System status. A short result for the job list.
      */
     public static function run(Db $db, Settings $settings, float $seconds): string
     {
@@ -376,9 +414,9 @@ final class SearchIndex
         $done = self::complete($db, $seconds);
         $rewritten = $done['left'] ? 0 : self::reindexNews($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
         $waiting = array_sum(self::pending($db, $settings));
-        $previous = explode(':', $settings->get(self::WAITING))[1] ?? '';
-        if ($settings->get(self::WAITING) !== $previous . ':' . $waiting) {
-            $settings->set(self::WAITING, $previous . ':' . $waiting);
+        $progress = $waiting . ':' . ($done['pages'] + $done['items'] + $done['news'] + $done['failed'] + $rewritten);
+        if ($seconds > 0 && $settings->get(self::WAITING) !== $progress) {
+            $settings->set(self::WAITING, $progress);
         }
 
         return 'filled ' . $done['pages'] . ' pages, ' . $done['items'] . ' items, ' . $done['news'] . ' news'
@@ -387,13 +425,14 @@ final class SearchIndex
     }
 
     /**
-     * Whether the index is stuck (System status): rows wait, and their number did not fall between the last two job runs.
+     * Whether the index is stuck (System status): rows wait and the last job run with time filled or rewrote none of them.
+     * New rows arriving faster than a run fills them (an import, a collection's fields changed) are work, not a fault.
      */
     public static function stuck(Settings $settings): bool
     {
         $parts = explode(':', $settings->get(self::WAITING));
 
-        return count($parts) === 2 && $parts[0] !== '' && (int) $parts[1] > 0 && (int) $parts[1] >= (int) $parts[0];
+        return count($parts) === 2 && (int) $parts[0] > 0 && $parts[1] === '0';
     }
 
     /**
@@ -410,6 +449,10 @@ final class SearchIndex
             if ($row === null) {
                 return null;
             }
+            // the components and the collection's fields are read now, after the row lock – never from an earlier row: a
+            // change committed meanwhile is then read here, and one still running empties the row again after this commit
+            // (fieldsChanged, componentChanged wait for the lock), so no row keeps a text of an old definition
+            [self::$fields, self::$components] = [[], []];
             try {
                 $text = self::text($table, $row, $table === 'kolekce_polozky' ? self::fields($db, (int) $row['idk']) : null, $db);
                 $made = true;
@@ -427,7 +470,7 @@ final class SearchIndex
     }
 
     /**
-     * The field definitions of a collection, read once per run of complete() or item().
+     * The field definitions of a collection, read once per row (one()).
      *
      * @return list<array<string, mixed>>|null
      */

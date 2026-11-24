@@ -1316,7 +1316,9 @@ final class SiteImport
     private function finish(): void
     {
         // the search text of the imported pages, items and news (3.53, Core\SearchIndex), for at most 25 s – resumable: what a
-        // large site leaves is filled by the background job
+        // large site leaves is filled by the background job. The job may have run between two batches of the import and
+        // indexed a page before its components came (they are imported later): such pages are indexed again
+        SearchIndex::componentPagesChanged($this->db);
         SearchIndex::complete($this->db, 25.0);
         \Kaleta\Core\PageCache::clear();
     }
