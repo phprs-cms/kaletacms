@@ -59,6 +59,34 @@ final class SearchIndex
         return $settings->int('db_version') >= self::DB_VERSION;
     }
 
+    /** The columns the admin search of pages looks in besides the index (3.53, B4): the Pages list, palette, MCP list_pages. */
+    public const array PAGE_COLUMNS = ['titulek', 'seo_link', 'seo_titulek'];
+
+    /** The columns the admin search of collection items looks in besides the index: the list of items, palette, MCP. */
+    public const array ITEM_COLUMNS = ['nazev', 'seo_link'];
+
+    /**
+     * The admin search of pages (3.53, B4): every word in PAGE_COLUMNS or the index, so "strasse" finds "Straße" and a word
+     * inside a tag attribute does not count; a page not indexed yet by its text. $ready = ready(). $alias with its dot.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function pageWords(string $q, bool $ready, string $alias = ''): array
+    {
+        return Search::indexWords($q, $alias, self::PAGE_COLUMNS, $ready, ['text']);
+    }
+
+    /**
+     * The admin search of collection items (3.53, B4): every word in ITEM_COLUMNS or the index (the values of the text
+     * fields – never a JSON key); an item not indexed yet by its fields (Db::likeJson), as in 3.52.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function itemWords(string $q, bool $ready, string $alias = ''): array
+    {
+        return Search::indexWords($q, $alias, self::ITEM_COLUMNS, $ready, json: ['data']);
+    }
+
     /**
      * The search text of one row, normalized and cut at MAX_BYTES. A page: its title, SEO title, description and body – the
      * published build as text (BuildText::of, which Builder\Build::asText is) when it has one (also an empty one), else its text. An item: its name, description and the

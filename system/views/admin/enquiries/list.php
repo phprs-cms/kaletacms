@@ -38,12 +38,12 @@ $preview = function (string $data) use ($yes): string {
 ?>
 <nav class="zalozky" aria-label="<?= e(t('Enquiry status')) ?>">
 <?php foreach (['' => 'Všechny', 'otevrene' => 'To do', 'moje' => 'Mine', 'vyrizene' => 'Resolved'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $filter === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+	<a href="<?= e($module->url('', array_filter(['status' => $key, 'search' => $search]))) ?>"<?= $filter === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 </nav>
 <nav class="zalozky" aria-label="<?= e(t('Kind')) ?>">
 <?php foreach (['' => t('All kinds'), '-' => t('Not sorted')] + array_map('t', Kaleta\Core\Triage::CATEGORIES) as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['status' => $filter, 'category' => $key]))) ?>"<?= $kind === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($name) ?><?= $key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '' ?></a>
+	<a href="<?= e($module->url('', array_filter(['status' => $filter, 'category' => $key, 'search' => $search]))) ?>"<?= $kind === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e($name) ?><?= $key === 'spam' && $spam > 0 ? ' (' . $spam . ')' : '' ?></a>
 <?php endforeach ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">

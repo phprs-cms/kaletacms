@@ -34,6 +34,6 @@ check('3.52 A7: newsWords() – the headline and the address in the search colla
     ['((c.titulek' . $a800C . ' OR c.seo_link' . $a800C . ' OR c.hledani LIKE ?))', ['%Dvořák%', '%Dvořák%', '%dvorak%'], ['%—%', '%—%']]);
 
 // the same columns in the admin list and its MCP tool (A1: admin and MCP together)
-check('3.52 A1/A9: the searched columns are shared – pages (with the SEO title and text), Media (with the caption), enquiries (with the topic and page)', [
-    Kaleta\Admin\Modules\Pages::SEARCH_COLUMNS, Kaleta\Admin\Modules\Media::SEARCH_COLUMNS, Kaleta\Admin\Modules\Enquiries::SEARCH_COLUMNS],
-    [['titulek', 'seo_link', 'seo_titulek', 'text'], ['o.nazev', 'o.popis', 'o.obr_poloha'], ['email', 'formular', 'poznamka', 'tema', 'stranka']]);
+check('3.52 A1/A9: the searched columns are shared – pages (with the SEO title; 3.53: the text by its index, Core\SearchIndex), Media (with the caption), enquiries (with the topic and page)', [
+    Kaleta\Core\SearchIndex::PAGE_COLUMNS, Kaleta\Admin\Modules\Media::SEARCH_COLUMNS, Kaleta\Admin\Modules\Enquiries::SEARCH_COLUMNS],
+    [['titulek', 'seo_link', 'seo_titulek'], ['o.nazev', 'o.popis', 'o.obr_poloha'], ['email', 'formular', 'poznamka', 'tema', 'stranka']]);

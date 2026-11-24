@@ -38,14 +38,15 @@ final class Collections
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/D';
 
     /**
-     * The search of items (3.52, A6): every word in the name, the address or the fields (JSON – Db::likeJson), without regard
-     * to case and diacritics. One place for the admin list of items and MCP list_collection_items.
+     * The search of items (3.52, A6; 3.53, B4): every word in the name, the address or the search index (the values of
+     * the text fields, without regard to case and diacritics – Core\SearchIndex::itemWords). One place for the admin list
+     * of items and MCP list_collection_items. $ready = SearchIndex::ready() (before migration 0141 the 3.52 JSON search).
      *
      * @return array{0: string, 1: list<string>}
      */
-    public static function itemSearch(string $q): array
+    public static function itemSearch(string $q, bool $ready = true): array
     {
-        return Db::likeWords(['nazev', 'seo_link'], $q, ['data']);
+        return SearchIndex::itemWords($q, $ready);
     }
 
     /**

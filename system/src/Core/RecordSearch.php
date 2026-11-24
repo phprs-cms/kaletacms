@@ -82,8 +82,9 @@ final class RecordSearch
     }
 
     /**
-     * How well a name fits a search, without regard to case and diacritics: 0 = the same, 1 = it starts with it, 2 = a
-     * word of it starts with it, 3 = anywhere (each word somewhere).
+     * How well a name fits a search, without regard to case, diacritics, punctuation or script (Search::normalize, which
+     * folds every Latin alphabet – 3.53, B4): 0 = the same words in any order ("novak jan" is "Jan Novák"), 1 = it starts
+     * with it, 2 = every word of the search starts a word of it, 3 = anywhere (each word somewhere).
      */
     public static function rank(string $title, string $q): int
     {
@@ -92,13 +93,33 @@ final class RecordSearch
         if ($wanted === '' || $name === '') {
             return 3;
         }
+        $set = function (string $text): array {
+            $words = array_values(array_unique(explode(' ', $text)));
+            sort($words);
+
+            return $words;
+        };
+        $starts = fn (string $word): bool => str_contains(' ' . $name, ' ' . $word);
 
         return match (true) {
-            $name === $wanted => 0,
+            $set($name) === $set($wanted) => 0,
             str_starts_with($name, $wanted) => 1,
-            str_contains(' ' . $name, ' ' . $wanted) => 2,
+            array_filter(explode(' ', $wanted), fn (string $w): bool => !$starts($w)) === [] => 2,
             default => 3,
         };
+    }
+
+    /**
+     * The start of an ORDER BY that reads the exact name first, then a name that starts with the search, before the
+     * list's own order (3.53, B4) – so the best record is among the FETCH rows read, however many newer ones mention it.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    private static function first(string $column, string $q): array
+    {
+        $c = $column . ' COLLATE ' . Db::SEARCH_COLLATION;
+
+        return [$c . ' = ? DESC, ' . $c . ' LIKE ? DESC, ', [$q, addcslashes($q, '%_\\') . '%']];
     }
 
     /** The total of a kind: the rows read when fewer than FETCH, otherwise one COUNT with the same condition. */
@@ -113,17 +134,18 @@ final class RecordSearch
         return implode(' · ', array_filter($parts, fn (string $p): bool => $p !== ''));
     }
 
-    /** Pages (the Pages list, trash left out): the name, the address or the SEO title; the language and "hidden" as the note. */
+    /** Pages (the Pages list, trash left out): the name, the address, the SEO title or the text (SearchIndex::pageWords – as the list); the language and "hidden" as the note. */
     private static function pages(App $app, string $q): array
     {
-        [$where, $params] = Db::likeWords(['titulek', 'seo_link', 'seo_titulek'], $q);
+        [$where, $params] = SearchIndex::pageWords($q, SearchIndex::ready($app->settings()));
+        [$order, $orderParams] = self::first('titulek', $q);
         $from = 'FROM {stranky} WHERE smazano IS NULL AND ' . $where;
         $settings = $app->settings();
         $several = Language::additional($settings) !== [];
         $rows = array_map(fn (array $s): array => ['id' => (int) $s['ids'], 'title' => (string) $s['titulek'],
             'note' => self::note($several ? (Language::AVAILABLE[Language::ofContent($settings, (string) $s['jazyk'])][0] ?? (string) $s['jazyk']) : '', $s['zobrazit'] ? '' : t('hidden'), '/' . $s['seo_link']),
             'url' => $app->url('admin.php?module=pages&action=edit&id=' . (int) $s['ids'])],
-            $app->db()->all('SELECT ids, titulek, seo_link, jazyk, zobrazit ' . $from . ' ORDER BY poradi, ' . $app->db()->sortText('titulek') . ' LIMIT ' . self::FETCH, $params));
+            $app->db()->all('SELECT ids, titulek, seo_link, jazyk, zobrazit ' . $from . ' ORDER BY ' . $order . 'poradi, ' . $app->db()->sortText('titulek') . ' LIMIT ' . self::FETCH, [...$params, ...$orderParams]));
 
         return [$rows, self::total($app, $rows, $from, $params), 'module=pages'];
     }
@@ -132,24 +154,26 @@ final class RecordSearch
     private static function news(App $app, string $q): array
     {
         [$where, $params] = Search::newsWords($q, '');
+        [$order, $orderParams] = self::first('titulek', $q);
         $from = 'FROM {novinky} WHERE smazano IS NULL AND ' . $where . $app->auth()->articleScope();
         $rows = array_map(fn (array $c): array => ['id' => (int) $c['idc'], 'title' => (string) $c['titulek'],
             'note' => self::note(format_date((string) $c['datum']), $c['vydany'] ? '' : t('not published')),
             'url' => $app->url('admin.php?module=news&action=edit&id=' . (int) $c['idc'])],
-            $app->db()->all('SELECT idc, titulek, datum, visible AND datum <= ? AS vydany ' . $from . ' ORDER BY datum DESC LIMIT ' . self::FETCH, [Clock::now(), ...$params]));
+            $app->db()->all('SELECT idc, titulek, datum, visible AND datum <= ? AS vydany ' . $from . ' ORDER BY ' . $order . 'datum DESC LIMIT ' . self::FETCH, [Clock::now(), ...$params, ...$orderParams]));
 
         return [$rows, self::total($app, $rows, $from, $params), 'module=news'];
     }
 
-    /** Collection items outside the trash by the name or the address; the collection as the note (its list is per collection). */
+    /** Collection items outside the trash by the name, the address or the fields (SearchIndex::itemWords – as their list); the collection as the note (its list is per collection). */
     private static function collectionItems(App $app, string $q): array
     {
-        [$where, $params] = Db::likeWords(['p.nazev', 'p.seo_link'], $q);
+        [$where, $params] = SearchIndex::itemWords($q, SearchIndex::ready($app->settings()), 'p.');
+        [$order, $orderParams] = self::first('p.nazev', $q);
         $from = 'FROM {kolekce_polozky} p JOIN {kolekce} k ON k.idk = p.idk WHERE p.smazano IS NULL AND ' . $where . $app->auth()->collectionItemListScope('p.');
         $rows = array_map(fn (array $p): array => ['id' => (int) $p['idp'], 'title' => (string) $p['nazev'],
             'note' => self::note((string) $p['kolekce'], $p['zobrazit'] ? '' : t('hidden')),
             'url' => $app->url('admin.php?module=collections&action=item&id=' . (int) $p['idk'] . '&item=' . (int) $p['idp'])],
-            $app->db()->all('SELECT p.idp, p.idk, p.nazev, p.zobrazit, k.nazev AS kolekce ' . $from . ' ORDER BY p.zobrazit DESC, ' . $app->db()->sortText('p.nazev') . ' LIMIT ' . self::FETCH, $params));
+            $app->db()->all('SELECT p.idp, p.idk, p.nazev, p.zobrazit, k.nazev AS kolekce ' . $from . ' ORDER BY ' . $order . 'p.zobrazit DESC, ' . $app->db()->sortText('p.nazev') . ' LIMIT ' . self::FETCH, [...$params, ...$orderParams]));
 
         return [$rows, self::total($app, $rows, $from, $params), ''];
     }
@@ -158,13 +182,14 @@ final class RecordSearch
     private static function media(App $app, string $q): array
     {
         [$where, $params] = Db::likeWords(self::MEDIA_COLUMNS, $q);
+        [$order, $orderParams] = self::first('o.nazev', $q);
         $from = 'FROM {media} o WHERE ' . $where;
         $rows = array_map(function (array $m) use ($app): array {
             $file = basename((string) $m['obr_poloha']);
 
             return ['id' => (int) $m['ido'], 'title' => $m['nazev'] !== '' ? (string) $m['nazev'] : $file, 'note' => self::note(strtoupper(pathinfo($file, PATHINFO_EXTENSION)), $m['nazev'] !== '' ? $file : ''),
                 'url' => $app->url('admin.php?module=media&search=' . rawurlencode($file))];
-        }, $app->db()->all('SELECT o.ido, o.nazev, o.obr_poloha ' . $from . ' ORDER BY o.datum DESC LIMIT ' . self::FETCH, $params));
+        }, $app->db()->all('SELECT o.ido, o.nazev, o.obr_poloha ' . $from . ' ORDER BY ' . $order . 'o.datum DESC LIMIT ' . self::FETCH, [...$params, ...$orderParams]));
 
         return [$rows, self::total($app, $rows, $from, $params), 'module=media'];
     }
@@ -203,10 +228,11 @@ final class RecordSearch
         [$where, $params] = Db::likeWords(['title'], $q);
         $from = 'FROM {tasks} WHERE assignee_id = ? AND done_at IS NULL AND ' . $where . ($applicationTasks ? '' : " AND (target IS NULL OR target NOT LIKE 'application:%')");
         $params = [$app->auth()->id(), ...$params];
+        [$order, $orderParams] = self::first('title', $q);
         try {
             $rows = array_map(fn (array $r): array => ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'note' => $r['due_at'] !== null ? format_date((string) $r['due_at']) : '',
                 'url' => $app->url('admin.php?module=my_work') . '#task-' . (int) $r['id']],
-                $app->db()->all('SELECT id, title, due_at ' . $from . ' ORDER BY due_at IS NULL, due_at, id LIMIT ' . self::FETCH, $params));
+                $app->db()->all('SELECT id, title, due_at ' . $from . ' ORDER BY ' . $order . 'due_at IS NULL, due_at, id LIMIT ' . self::FETCH, [...$params, ...$orderParams]));
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e);
 

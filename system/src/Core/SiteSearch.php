@@ -61,6 +61,9 @@ final class SiteSearch
     /** The longest query the statistics keep (B5, {search_queries}.query). */
     public const int QUERY_LENGTH = 60;
 
+    /** At most this many distinct queries a day and language version are kept (3.53 B6); a known one is still counted. */
+    public const int DAY_QUERIES = 2000;
+
     /** About this many words around the matches form a snippet. */
     private const int SNIPPET_WORDS = 30;
 
@@ -766,13 +769,37 @@ final class SiteSearch
         if ($query === null || !StatsGate::isOn($app) || trim($agent) === '' || StatsGate::isBot($agent) || $app->auth()->user() !== null) {
             return;
         }
-        $empty = $total === 0 ? 1 : 0;
         try {
-            $app->db()->run('INSERT INTO {search_queries} (day, language, query, searches, without_result) VALUES (?, ?, ?, 1, ?)
-                ON DUPLICATE KEY UPDATE searches = searches + 1, without_result = without_result + ?', [Clock::today(), $column, $query, $empty, $empty]);
+            self::tally($app->db(), Clock::today(), $column, $query, $total === 0);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // new files, the database before migration 0140: the search still answers
         }
+    }
+
+    /**
+     * Adds one search to the row of the day, language version and query (record()). A query not seen that day yet gets a
+     * new row only while the day and language have fewer than DAY_QUERIES rows (3.53 B6) – one COUNT on the prefix of the
+     * primary key, only on that path – so random queries cannot grow the table without bound. Returns whether it counted.
+     */
+    public static function tally(Db $db, string $day, string $language, string $query, bool $empty): bool
+    {
+        $add = fn (): int => $db->run('UPDATE {search_queries} SET searches = searches + 1, without_result = without_result + ?
+            WHERE day = ? AND language = ? AND query = ?', [(int) $empty, $day, $language, $query])->rowCount();
+        if ($add() > 0) {
+            return true;
+        }
+        if ((int) $db->value('SELECT COUNT(*) FROM {search_queries} WHERE day = ? AND language = ?', [$day, $language]) >= self::DAY_QUERIES) {
+            return false;
+        }
+        try {
+            $db->run('INSERT INTO {search_queries} (day, language, query, searches, without_result) VALUES (?, ?, ?, 1, ?)', [$day, $language, $query, (int) $empty]);
+        } catch (\PDOException $e) {
+            if ((string) $e->getCode() !== '23000') {
+                throw $e;
+            }
+            return $add() > 0; // a parallel search inserted the same query a moment ago
+        }
+        return true;
     }
 
     /**

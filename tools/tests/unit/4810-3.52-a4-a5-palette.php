@@ -7,10 +7,10 @@ use Kaleta\Mcp\Catalog;
 
 /* ---------- 3.52 A4, A5: the command palette searches every kind of record on the server, in one answer ---------- */
 
-check('3.52 A5: RecordSearch::rank() – the same name 0, its start 1, the start of a word 2, anywhere 3; case and diacritics do not matter', [
+check('3.52 A5: RecordSearch::rank() – the same name 0, its start 1, the start of a word 2, anywhere 3; case and diacritics do not matter (3.53 B4: the same words in any order are the same name)', [
     RecordSearch::rank('Dvořák', 'dvorak'), RecordSearch::rank('Škoda Auto', 'skoda'), RecordSearch::rank('Jan Novák', 'novak'),
     RecordSearch::rank('Janovák', 'novak'), RecordSearch::rank('Jan Novák', 'novak jan'), RecordSearch::rank('', 'x'), RecordSearch::rank('Ceník 2026', 'CENÍK  2026')],
-    [0, 1, 2, 3, 3, 3, 0]);
+    [0, 1, 2, 3, 0, 3, 0]);
 
 // a person without a section gets nothing of it – with no section at all, nothing is even read; under two characters neither
 $a810App = new Kaleta\Core\App([]);

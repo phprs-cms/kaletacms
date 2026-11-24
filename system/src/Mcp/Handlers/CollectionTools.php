@@ -277,9 +277,10 @@ trait CollectionTools
         if (!empty($a['jen_zobrazene'])) {
             $whereParts[] = 'zobrazit = 1';
         }
-        if (is_string($a['hledat'] ?? null) && trim($a['hledat']) !== '') {
+        if (is_scalar($a['hledat'] ?? null) && trim((string) $a['hledat']) !== '') {
             // 3.52 (A1, A6): every word in the name, the address or the fields – the same search as the admin list of items
-            [$sql, $words] = \Kaleta\Builder\Collections::itemSearch($a['hledat']);
+            // (3.53, B4: by the search index; a number is a search too)
+            [$sql, $words] = \Kaleta\Builder\Collections::itemSearch((string) $a['hledat'], \Kaleta\Core\SearchIndex::ready($this->app->settings()));
             $whereParts[] = $sql;
             array_push($args, ...$words);
         }

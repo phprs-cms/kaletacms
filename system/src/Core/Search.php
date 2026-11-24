@@ -103,16 +103,43 @@ final class Search
      */
     public static function newsWords(string $q, string $alias = 'c.'): array
     {
-        return Db::likeWords([$alias . 'titulek', $alias . 'seo_link'], $q, more: function (string $word) use ($alias): ?array {
-            $normal = self::normalize($word);
-            if (str_contains($normal, ' ')) {
-                return ['CONCAT(\' \', ' . $alias . 'hledani) LIKE ?', ['% ' . addcslashes($normal, '%_\\') . '%']];
-            }
-            if (self::longEnough($normal)) {
-                return [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']];
-            }
+        return self::indexWords($q, $alias, ['titulek', 'seo_link']);
+    }
 
-            return $normal !== '' && preg_match('/^[\p{L}\p{N}]$/u', $word) === 1 ? ['1 = 1', []] : null;
+    /**
+     * newsWords() for any table with a hledani index (3.53, B4): each word in $columns (the search collation) or in the
+     * index by its normal form, with the same rules for phrases, one character and words without a normal form. Pages
+     * and collection items may have rows not indexed yet (hledani NULL – right after the update, an import): those are
+     * searched in $text (collation LIKE) and $json (Db::likeJson) instead, as 3.52 did. $indexed false (the database before
+     * migration 0141, SearchIndex::ready) = the 3.52 search of $columns, $text and $json only. $alias = the alias with its dot.
+     *
+     * @param list<string> $columns
+     * @param list<string> $text
+     * @param list<string> $json
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function indexWords(string $q, string $alias, array $columns, bool $indexed = true, array $text = [], array $json = []): array
+    {
+        $with = fn (array $names): array => array_map(fn (string $c): string => $alias . $c, $names);
+        if (!$indexed) {
+            return Db::likeWords($with([...$columns, ...$text]), $q, $with($json));
+        }
+
+        return Db::likeWords($with($columns), $q, more: function (string $word) use ($alias, $with, $text, $json): ?array {
+            $normal = self::normalize($word);
+            $index = match (true) {
+                str_contains($normal, ' ') => ['CONCAT(\' \', ' . $alias . 'hledani) LIKE ?', ['% ' . addcslashes($normal, '%_\\') . '%']],
+                self::longEnough($normal) => [$alias . 'hledani LIKE ?', ['%' . addcslashes($normal, '%_\\') . '%']],
+                $normal !== '' && preg_match('/^[\p{L}\p{N}]$/u', $word) === 1 => ['1 = 1', []],
+                default => null,
+            };
+            if ($index === null || $index[0] === '1 = 1' || ($text === [] && $json === [])) {
+                return $index;
+            }
+            // a row not indexed yet: the word in its text and fields, as before the index (removed with the fallback in 3.54)
+            [$late, $params] = Db::likeWords($with($text), $word, $with($json), maxWords: 1);
+
+            return ['(' . $index[0] . ' OR (' . $alias . 'hledani IS NULL AND ' . $late . '))', [...$index[1], ...$params]];
         });
     }
 

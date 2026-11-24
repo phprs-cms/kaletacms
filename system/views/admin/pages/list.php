@@ -32,7 +32,7 @@ $tabs = array_filter(['mine' => 'Mine'] + ['published' => 'Published', 'hidden' 
 if ($tabs !== []): ?>
 <nav class="zalozky" aria-label="<?= e(t('Pages')) ?>">
 <?php foreach (['' => 'Všechny'] + $tabs as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $status === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?> (<?= (int) ($counts[$key] ?? 0) ?>)</a>
+	<a href="<?= e($module->url('', array_filter(['status' => $key, 'search' => $search]))) ?>"<?= $status === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?> (<?= (int) ($counts[$key] ?? 0) ?>)</a>
 <?php endforeach ?>
 </nav>
 <?php endif ?>

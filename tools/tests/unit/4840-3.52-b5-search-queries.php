@@ -34,3 +34,21 @@ check('3.52 B5: SiteSearch::queries() – the queries of the period summed and o
     'terms' => [['query' => 'altány', 'searches' => 5, 'without_result' => 1], ['query' => 'pergola', 'searches' => 4, 'without_result' => 4], ['query' => 'gazebo', 'language' => 'en', 'searches' => 1, 'without_result' => 0]],
     'without_result' => [['query' => 'pergola', 'searches' => 4, 'without_result' => 4], ['query' => 'altány', 'searches' => 5, 'without_result' => 1]],
 ]);
+
+// 3.53 B6: SiteSearch::tally() keeps at most DAY_QUERIES distinct queries a day and language; a known query is still counted,
+// another day or language version has its own budget
+$b6Insert = $b5Pdo->prepare("INSERT INTO ka_search_queries VALUES ('2026-11-20', '', ?, 1, 0)");
+for ($b6 = 1; $b6 < SiteSearch::DAY_QUERIES; $b6++) {
+    $b6Insert->execute(['dotaz ' . $b6]);
+}
+check('3.53 B6: SiteSearch::tally() – a new query fits up to DAY_QUERIES rows, the next new one is refused, a known one still counts (also "without result"), another language and day are separate', [
+    SiteSearch::DAY_QUERIES,
+    SiteSearch::tally($b5Db, '2026-11-20', '', 'poslední', false),
+    SiteSearch::tally($b5Db, '2026-11-20', '', 'navíc', true),
+    SiteSearch::tally($b5Db, '2026-11-20', '', 'dotaz 7', true),
+    SiteSearch::tally($b5Db, '2026-11-20', 'en', 'extra', false),
+    SiteSearch::tally($b5Db, '2026-11-21', '', 'navíc', false),
+    (int) $b5Pdo->query("SELECT COUNT(*) FROM ka_search_queries WHERE day = '2026-11-20' AND language = ''")->fetchColumn(),
+    $b5Pdo->query("SELECT searches || '/' || without_result FROM ka_search_queries WHERE day = '2026-11-20' AND query = 'dotaz 7'")->fetchColumn(),
+    $b5Pdo->query("SELECT COUNT(*) FROM ka_search_queries WHERE query = 'navíc' AND day = '2026-11-20'")->fetchColumn()],
+    [2000, true, false, true, true, true, 2000, '2/1', 0]);

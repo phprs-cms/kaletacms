@@ -119,8 +119,8 @@ trait PageTools
 
         $home = $siteSettings->int('home_page');
         $waiting = \Kaleta\Core\ImportLayout::pending($db); // 3.33: imported pages whose build is still the imported text
-        // 3.52 (A9): the same search as the admin list of pages (no search = every page)
-        [$search, $params] = \Kaleta\Core\Db::likeWords(\Kaleta\Admin\Modules\Pages::SEARCH_COLUMNS, is_scalar($a['hledat'] ?? null) ? (string) $a['hledat'] : '');
+        // 3.52 (A9): the same search as the admin list of pages (no search = every page); 3.53 (B4): the text by its index
+        [$search, $params] = \Kaleta\Core\SearchIndex::pageWords(is_scalar($a['hledat'] ?? null) ? (string) $a['hledat'] : '', \Kaleta\Core\SearchIndex::ready($siteSettings));
 
         // the URL of a language version has a prefix (/de/…); the translation of the home page is the root of its version (/de/)
         return array_map(fn (array $r): array => ['id' => (int) $r['ids'], 'titulek' => $r['titulek'], 'adresa' => $this->app->request->origin()

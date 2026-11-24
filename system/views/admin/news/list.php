@@ -26,13 +26,13 @@ $trash = $filter['status'] === 'kos';
 
 <nav class="zalozky" aria-label="<?= e(t('News status')) ?>">
 <?php foreach (['' => 'Všechny', 'vydane' => 'Vydané', 'plan' => 'Scheduled', 'koncepty' => 'Drafts'] as $key => $name): ?>
-	<a href="<?= e($module->url('', array_filter(['status' => $key]))) ?>"<?= $filter['status'] === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
+	<a href="<?= e($module->url('', array_filter(['status' => $key, 'search' => $filter['search']]))) ?>"<?= $filter['status'] === $key ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t($name)) ?></a>
 <?php endforeach ?>
 <?php if ($toPublish > 0 || $filter['status'] === 'ke_vydani'): ?>
-	<a href="<?= e($module->url('', ['status' => 'ke_vydani'])) ?>"<?= $filter['status'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Awaiting publication')) ?> (<?= $toPublish ?>)</a>
+	<a href="<?= e($module->url('', array_filter(['status' => 'ke_vydani', 'search' => $filter['search']]))) ?>"<?= $filter['status'] === 'ke_vydani' ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Awaiting publication')) ?> (<?= $toPublish ?>)</a>
 <?php endif ?>
 <?php if ($inTrash > 0 || $trash): ?>
-	<a href="<?= e($module->url('', ['status' => 'kos'])) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
+	<a href="<?= e($module->url('', array_filter(['status' => 'kos', 'search' => $filter['search']]))) ?>"<?= $trash ? ' class="aktivni" aria-current="true"' : '' ?>><?= e(t('Trash')) ?> (<?= $inTrash ?>)</a>
 <?php endif ?>
 </nav>
 <form method="get" action="<?= e($app->url('admin.php')) ?>" class="stred smltxt">

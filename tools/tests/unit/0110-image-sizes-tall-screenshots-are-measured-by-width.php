@@ -264,6 +264,8 @@ $parity = [
         'calendar_save' => 'admin: who is reminded of the dates and when is the owner\'s setting (3.30)', 'calendar_feed' => 'admin: a secret calendar link is a person\'s own (3.30)',
         'rollout_save' => 'admin: the delay of each ring decides when sites install versions (3.30)', 'window' => 'admin: the maintenance windows decide when sites install versions (3.30)'],
 ];
+// 3.53 (B4): actions Admin\Kernel answers itself, outside a module – the command palette's search only reads (MCP search reads the same)
+$parity['kernel'] = ['palette_search' => $readOnly];
 $missingParity = [];
 foreach (Kaleta\Admin\Kernel::MODULES as $moduleClass) {
     foreach ((new ReflectionClass($moduleClass))->getMethods() as $method) {

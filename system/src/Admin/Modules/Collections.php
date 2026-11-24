@@ -200,7 +200,7 @@ final class Collections extends Module
             }
         }
         $search = mb_substr(trim($this->request->get('search')), 0, 100);
-        [$searchSql, $searchParams] = KolekceObsahu::itemSearch($search); // 3.52 (A6): the search of MCP list_collection_items
+        [$searchSql, $searchParams] = KolekceObsahu::itemSearch($search, \Kaleta\Core\SearchIndex::ready($this->app->settings())); // as MCP list_collection_items
         $where = 'idk = ? AND ' . $searchSql . ' AND smazano IS ' . ($trash ? 'NOT NULL' : 'NULL') . ($mine ? ' AND owner_id = ' . $me : '');
         $params = [$k['idk'], ...$searchParams];
         if ($column !== null) {
