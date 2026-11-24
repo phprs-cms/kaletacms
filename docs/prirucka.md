@@ -483,11 +483,18 @@ Systémové adresy se řídí jazykem: česká verze má `/novinky` a `/hledani`
 `/news/tag/…` a `/search`. Druhá podoba natrvalo přesměruje, takže staré odkazy i pozice ve vyhledávačích zůstanou.
 
 **Hledání na webu.** `/hledani` (`/search`) vypíše stránky, položky kolekcí s vlastní stránkou a novinky jazyka
-návštěvníka v jednom seznamu, nejlepší shodu první, s nalezenými slovy zvýrazněnými v krátkém úryvku. Najde tvary slov
-v češtině, slovenštině, angličtině a němčině („stavbách“ najde „stavby“), už od dvou písmen; když žádný výsledek nemá
-všechna slova, ukáže výsledky s některými z nich. Skryté stránky, koncepty a nic se *Skrýt před vyhledávači (noindex)*
-se nikdy neukáže. Do záhlaví dáte hledání šablonou **S vyhledáváním** nebo prvkem Hledání jako ikonou. Claude hledá na
-webu stejně nástrojem `search_site`.
+návštěvníka v jednom seznamu, nejlepší shodu první, s nalezenými slovy zvýrazněnými v krátkém úryvku. Hledá v tom, co
+návštěvník čte – v textu stránky, v textu uvnitř komponent a vlastního HTML, v popiscích obrázků a v prohledávaných polích
+položky – a nikdy ve slovech, která jsou jen v adrese odkazu nebo v názvu pole. Hledá ve všech písmech, s diakritikou
+i bez ní („ksiazka“ najde „książka“, „strasse“ najde „Straße“), a stačí i jeden čínský, japonský nebo korejský znak.
+Najde tvary slov v češtině, slovenštině, angličtině, němčině, polštině, maďarštině, španělštině, portugalštině,
+francouzštině, italštině, ruštině a ukrajinštině („stavbách“ najde „stavby“); když žádný výsledek nemá všechna slova,
+ukáže výsledky s některými z nich. „Nalezeno“ je přesný počet; vypíšou se nejlepší shody, a když jich je víc, stránka to
+řekne. Skryté stránky, koncepty a nic se *Skrýt před vyhledávači (noindex)* se nikdy neukáže. Do záhlaví dáte hledání
+šablonou **S vyhledáváním** nebo prvkem Hledání jako ikonou. Claude hledá na webu stejně nástrojem `search_site`.
+
+Po aktualizaci na 3.53 web na pozadí připraví text pro hledání u stávajících stránek a položek (s cronem za pár minut,
+bez něj jeden krátký krok za minutu); do té doby se hledají jako dřív. Kolik jich čeká, ukáže **Stav systému**.
 
 **Stejná adresa ve všech jazycích (3.19):** stránka, novinka, kategorie i štítek smí použít stejnou adresu jednou
 v každé jazykové verzi – `/kontakt` a `/en/kontakt` jsou dvě stránky, jako na vícejazyčném webu ve WordPressu. Od 3.19

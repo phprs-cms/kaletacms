@@ -98,6 +98,20 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   `likeJson` pro JSON); paleta Ctrl/⌘K a MCP `search` přes `Core\RecordSearch` (každý druh za podmínkou svého seznamu, skupiny po 5, „+ N dalších“);
   web `/hledani` a MCP `search_site` přes `Core\SiteSearch` (předvýběr v SQL, řazení v PHP, tvary slov `Search::stem`, úryvky s `<mark>`); prvek Hledání
   s podobou „ikona“ (Popover API); hledané výrazy v `ka_search_queries` jen se zapnutou statistikou, 400 dní, ve Statistice a `get_stats`.
+- **Uložený text pro hledání (3.53):** `ka_stranky.hledani` a `ka_kolekce_polozky.hledani` (`MEDIUMTEXT utf8mb4_bin`, migrace 0141; FULLTEXT
+  nad novinkami zrušen) drží normalizovaný text jako novinky (`Search::normalize` verze 2 – všechna písma, `Search::fold` pro latinku všech
+  evropských abeced a vietnamštinu). Text skládá `Core\SearchIndex::text()` (stránka: titulek, SEO titulek, popis a publikovaná stavba přes
+  `Core\SearchText` – i komponenty, vlastní HTML, popisky galerií; položka: název, popis a pole typů `SEARCH_TYPES`; řez 200 KB).
+  `NULL` = k zaindexování: `Db::update` obsahu (sloupce `SearchIndex::CONTENT`) ho vynuluje sám, `Db::insert` klíč zahodí, změna typů polí
+  kolekce (`Collections::searchFieldsChanged`) a publikovaná, změněná či smazaná komponenta (`SearchIndex::componentChanged`) vynulují
+  dotčené řádky. Uložení v administraci a přes MCP indexuje hned (`SearchIndex::page/item`), zbytek doplní úloha `search_index` (po poště
+  a webhoocích; cron 20 s, návštěva 1,5 s) po dávkách 25 a s kurzorem; změna `Search::VERSION` přeindexuje novinky (`search_index_at`).
+  Zápisy `hledani` jdou mimo deník agenta (`Db::unjournaled`), deník sloupec nenese, export (`SiteExport::EXCLUDED_PAGE_COLUMNS`) ani balíček
+  stránky také ne. Stav systému ukáže, kolik čeká. Web (`SiteSearch::find`) čte jen index: jedno čtení na druh, přesný počet, nejlepších 300
+  na druh do řazení, „Zobrazeno nejlepších N z M“; řádky ještě bez textu hledá do 3.54 postaru. Admin seznamy stránek a položek, paleta
+  a `list_pages`/`list_collection_items` přes `Search::indexWords` (`SearchIndex::pageWords/itemWords`). Jeden práh délky `Search::longEnough`
+  (dva znaky, nebo jeden znak CJK); tvary slov i pro pl, hu, es, pt, fr, it, ru, uk (`Search::NO_STEMMER` pro ostatní); nejvýš 2000 různých
+  hledaných výrazů za den a jazyk (`SiteSearch::DAY_QUERIES`). Oprava indexu = `UPDATE … SET hledani = NULL` a úloha.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Notifications::process()` a sloupec `oznameno`.
 - **Webhooky** (1.8, `Core\Webhook`): volání se uloží do `ka_webhook_deliveries` a odejde po odeslání odpovědi (`Webhook::afterResponse` v index.php
   a admin.php), opakování `Webhook::RETRY_DELAYS` z úloh na pozadí a cronu. Podpis `X-Kaleta-Signature: sha256=HMAC(timestamp.body, webhook_secret)`;

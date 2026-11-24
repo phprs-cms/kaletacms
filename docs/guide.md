@@ -512,11 +512,19 @@ System addresses follow the language: Czech versions use `/novinky` and `/hledan
 `/news/tag/…` and `/search`. The other form redirects permanently, so old links and search rankings keep working.
 
 **Site search.** `/search` (`/hledani`) lists pages, collection items with their own page and news of the visitor's
-language in one list, the best match first, with the found words marked in a short extract. Word forms are found in
-Czech, Slovak, English and German ("stavbách" finds "stavby"), from two letters; when no result has every word, results
-with some of them are shown. Hidden pages, drafts and anything with *Hide from search engines (noindex)* never appear.
-Put the search into the header with the template **With search** or the Search element as an icon. Claude searches the
-site the same way with `search_site`.
+language in one list, the best match first, with the found words marked in a short extract. It searches what a visitor
+reads – the text of the page, text inside components and custom HTML, image descriptions, the searchable fields of an
+item – and never words that only sit in a link address or a field name. Every alphabet is searched, letters with or
+without accents ("ksiazka" finds "książka", "strasse" finds "Straße"), and one Chinese, Japanese or Korean character is
+enough. Word forms are found in Czech, Slovak, English, German, Polish, Hungarian, Spanish, Portuguese, French, Italian,
+Russian and Ukrainian ("stavbách" finds "stavby"); when no result has every word, results with some of them are shown.
+"Found" is the exact number; the best matches are listed, and when there are more the page says so. Hidden pages, drafts
+and anything with *Hide from search engines (noindex)* never appear. Put the search into the header with the template
+**With search** or the Search element as an icon. Claude searches the site the same way with `search_site`.
+
+After the update to 3.53 the site prepares the search text of existing pages and items in the background (with cron in
+a few minutes, without it one short step a minute); until then they are searched as before. **System status** shows how
+many wait.
 
 **The same address in every language (3.19):** a page, a news item, a category or a tag may use the same address once in
 each language version – `/kontakt` and `/en/kontakt` are two pages, as on a multilingual WordPress site. This is how every

@@ -75,8 +75,10 @@ Jen závazná pravidla hlídaná testem, strop **16 KB** (unit 3870); popis funk
 - **Adresa webu je nastavení `site_url`,** nikdy hlavička Host (`$app->request->origin()`). Trasy za cache = řádky `Front\Kernel::ROUTES` (unit 4531).
 - **Výpisy novinek nenačítají dlouhé texty** (`Front\NewsRepository::LIST_COLUMNS`). Kdo ukládá novinku mimo admin a MCP, volá
   `Search::index()`. Oznámení o vydání jen přes `Core\Notifications::process()`; změna adresy zapíše přesměrování (`RedirectStore::add`).
-- **Hledání** v seznamech admin i MCP vždy přes `Db::likeWords` (žádný ruční LIKE); paleta a MCP `search` jen `Core\RecordSearch`
-  se stejnou podmínkou jako seznam; web i `search_site` jen `Core\SiteSearch`.
+- **Hledání** v seznamech admin i MCP přes `Db::likeWords`, stránky/položky/novinky `SearchIndex::pageWords`/`itemWords`/
+  `Search::newsWords` (žádný ruční LIKE); paleta a MCP `search` jen `Core\RecordSearch` s podmínkou seznamu; web
+  i `search_site` jen `Core\SiteSearch`. **`hledani` stránek a položek** (`Core\SearchIndex`) odvozené: `Db::update` obsahu
+  ho vynuluje, raw SQL měnící obsah píše `hledani = NULL`, zápis přes `Db::unjournaled` (unit 4930).
 - **Statistika** bez cookies a identifikátorů, součty po dnech (`POST /hit`); **rychlost** bez kritického CSS a build kroku.
 - Kořenový `.htaccess` drží pravidla v bloku `# BEGIN Kaleta` … `# END Kaleta sha256:` – úprava bloku = nový otisk (unit test).
 
