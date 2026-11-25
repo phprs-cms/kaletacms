@@ -20,6 +20,8 @@ sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit) VALUES
   ('noindex-b820', 'Koupelna noindex B820', '', 'koupelna', $B820_TEMA, '$B820_NOW', 1, 1, 'koupelna noindex b820 koupelna')" > /dev/null
 B820_IDK=$(sq "INSERT INTO ka_kolekce (nazev, seo_link, pole, detail) VALUES ('Reference B820', 'reference-b820', '[{\"klic\":\"popis\",\"typ\":\"text\"}]', 1); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit) VALUES ($B820_IDK, 'Byt Brno B820', 'byt-b820', '{\"popis\":\"Kompletní rekonstrukce koupelny a kuchyně.\"}', '$B820_NOW', 1)" > /dev/null
+# 3.54 (D1): the site search reads the search text only – the rows inserted above get it first, as the job would
+fill_search_index > /dev/null
 
 # ranked: both words in the title (koupelen) first; the fresh news item (its text: koupelnách) gets a small bonus; the page
 # (koupelně) and the item (koupelny) tie and keep their order – pages before items

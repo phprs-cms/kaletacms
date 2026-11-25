@@ -67,24 +67,25 @@ final class SearchIndex
 
     /**
      * The admin search of pages (3.53, B4): every word in PAGE_COLUMNS or the index, so "strasse" finds "Straße" and a word
-     * inside a tag attribute does not count; a page not indexed yet by its text. $ready = ready(). $alias with its dot.
+     * inside a tag attribute does not count; a page not indexed yet only by PAGE_COLUMNS (3.54, D2). $ready = ready() –
+     * false = PAGE_COLUMNS only. $alias with its dot.
      *
      * @return array{0: string, 1: list<string>}
      */
     public static function pageWords(string $q, bool $ready, string $alias = ''): array
     {
-        return Search::indexWords($q, $alias, self::PAGE_COLUMNS, $ready, ['text']);
+        return Search::indexWords($q, $alias, self::PAGE_COLUMNS, $ready);
     }
 
     /**
      * The admin search of collection items (3.53, B4): every word in ITEM_COLUMNS or the index (the values of the text
-     * fields – never a JSON key); an item not indexed yet by its fields (Db::likeJson), as in 3.52.
+     * fields – never a JSON key); an item not indexed yet only by ITEM_COLUMNS (3.54, D2).
      *
      * @return array{0: string, 1: list<string>}
      */
     public static function itemWords(string $q, bool $ready, string $alias = ''): array
     {
-        return Search::indexWords($q, $alias, self::ITEM_COLUMNS, $ready, json: ['data']);
+        return Search::indexWords($q, $alias, self::ITEM_COLUMNS, $ready);
     }
 
     /**
@@ -144,7 +145,8 @@ final class SearchIndex
 
     /**
      * A component was published, changed its properties or was deleted (3.53, B5): the pages whose published build uses
-     * it – also through another component – are emptied for the job (unjournaled, derived data). Returns the pages emptied.
+     * it – also through another component – are emptied for the job (unjournaled, derived data) and filled again at once
+     * within SOON_SECONDS a request (soon(), 3.54). Returns the pages emptied.
      */
     public static function componentChanged(Db $db, int $idm): int
     {
@@ -164,19 +166,24 @@ final class SearchIndex
                 $ids = [...$ids, ...$new];
             }
             [$where, $params] = $uses($ids);
-
-            return (int) $db->unjournaled(fn () => $db->run('UPDATE {stranky} SET hledani = NULL WHERE hledani IS NOT NULL AND stavba IS NOT NULL AND ' . $where, $params)->rowCount());
+            $emptied = (int) $db->unjournaled(fn () => $db->run('UPDATE {stranky} SET hledani = NULL WHERE hledani IS NOT NULL AND stavba IS NOT NULL AND ' . $where, $params)->rowCount());
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
 
             return 0;
         }
+        if ($emptied > 0) {
+            self::soon($db); // 3.54 (D3): found by their new text right away, not only after the next job run
+        }
+
+        return $emptied;
     }
 
     /**
      * The field definitions of collection $idk changed from $before to $after (Builder\Collections::searchFieldsChanged,
      * an undone Claude session): when the fields whose values go to the search text differ (SEARCH_TYPES – a new text
-     * field, a text field turned into a number, one removed), the items' search text is emptied for the job. Unjournaled.
+     * field, a text field turned into a number, one removed), the items' search text is emptied for the job and filled again
+     * at once within SOON_SECONDS a request (soon(), 3.54). Unjournaled.
      *
      * @param list<mixed> $before
      * @param list<mixed> $after
@@ -196,7 +203,10 @@ final class SearchIndex
             $db->unjournaled(fn () => $db->run('UPDATE {kolekce_polozky} SET hledani = NULL WHERE idk = ?', [$idk]));
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // before migration 0141: no search text yet
+
+            return;
         }
+        self::soon($db); // 3.54 (D3): the items are found by their values again right away
     }
 
     /**
@@ -325,6 +335,77 @@ final class SearchIndex
         }
 
         return $done;
+    }
+
+    /** The most an import batch spends on the index at its end (afterBatch). */
+    public const float BATCH_SECONDS = 2.0;
+
+    /** The most a request spends on the index after a component or a collection's fields emptied it (soon()). */
+    public const float SOON_SECONDS = 1.0;
+
+    /**
+     * The end of an import batch (3.54, D3 – WordPress, another site, an export of another system): the rows it wrote are
+     * filled for at most BATCH_SECONDS within what the batch has left until $deadline, and for BATCH_SECONDS in full when
+     * the phase has just finished – an import that reports done is searchable without a job run. Never throws: the
+     * batch is saved, a row left waits for the job.
+     */
+    public static function afterBatch(Db $db, float $deadline, bool $finished): void
+    {
+        try {
+            self::complete($db, $finished ? self::BATCH_SECONDS : min(self::BATCH_SECONDS, $deadline - microtime(true)));
+        } catch (\Throwable $e) {
+            ErrorLog::write(ErrorLog::exception($e));
+        }
+    }
+
+    /** @var float|null when the fill of soon() ends in this request (one budget of SOON_SECONDS for all its calls) */
+    private static ?float $soonUntil = null;
+
+    /**
+     * Pages or items were just emptied for the job (componentChanged, fieldsChanged – 3.54, D3): filled at once for at most
+     * SOON_SECONDS a request, so they are not missing from the site search until the next job run. Not inside a caller's
+     * transaction (its locks would be held the longer; the job and the search page fill them then). Never throws.
+     */
+    private static function soon(Db $db): void
+    {
+        try {
+            if ($db->pdo()->inTransaction()) {
+                return;
+            }
+            self::$soonUntil ??= microtime(true) + self::SOON_SECONDS;
+            $left = self::$soonUntil - microtime(true);
+            if ($left > 0) {
+                self::complete($db, $left);
+            }
+        } catch (\Throwable $e) {
+            ErrorLog::write(ErrorLog::exception($e));
+        }
+    }
+
+    /**
+     * A short slice of the index for the site search page (3.54, D3 – SiteSearch::find with $heal): complete() and, with
+     * time left, reindexNews(), within $seconds. Only one request at a time (a lock that is not waited for – a second
+     * search at the same moment searches without it), and nothing remembered for System status (that is the job's).
+     * Never throws: the search answers anyway, an error is logged.
+     */
+    public static function heal(Db $db, Settings $settings, float $seconds): void
+    {
+        $lock = 'kaleta_search_heal_' . $db->prefix;
+        try {
+            if ((int) $db->value('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
+                return;
+            }
+            try {
+                $start = microtime(true);
+                if (!self::complete($db, $seconds)['left']) {
+                    self::reindexNews($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
+                }
+            } finally {
+                $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
+            }
+        } catch (\Throwable $e) {
+            ErrorLog::write(ErrorLog::exception($e));
+        }
     }
 
     /**

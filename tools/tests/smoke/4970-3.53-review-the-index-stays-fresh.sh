@@ -48,9 +48,9 @@ R970_CHANGED=$(r970_item "$R970_I1")
 mcp undo_agent_session "{\"id\":$R970_SESSION,\"confirm\":true}" > /dev/null
 R970_UNDONE=$(r970_item "$R970_I1")
 run_job search_index > /dev/null
-expect "3.53 review: undo of update_collection – the items' text loses the field with the session, is emptied by the undo and has the field again after the job" \
+expect "3.53 review: undo of update_collection – the items' text loses the field with the session and has it again after the undo (3.54: the undo fills the emptied items at once, SearchIndex::soon)" \
   "$R970_CHANGED|$R970_UNDONE|$(r970_item "$R970_I1")|$(sq "SELECT pole LIKE '%\"material\",\"popisek\":\"Materiál\",\"typ\":\"text\"%' FROM ka_kolekce WHERE idk = $R970_IDK")" \
-  "lod 1 r970 plachetnice|NULL|lod 1 r970 plachetnice dub r970|1"
+  "lod 1 r970 plachetnice|lod 1 r970 plachetnice dub r970|lod 1 r970 plachetnice dub r970|1"
 
 # the import of a Kaleta export: a page indexed by the job before its component was imported is indexed again at the end
 sq "UPDATE ka_stranky SET hledani = 'karty 1 r970' WHERE ids = ${R970_P1:-0}" > /dev/null
@@ -68,12 +68,14 @@ expect "3.53 review: \"wordpress r970\", \"iphone r970\" and \"100 r970\" find t
   "$(r970_found 'wordpress r970' /cjk-r970)$(r970_found 'iphone r970' /cjk-r970)$(r970_found '100 r970' /cjk-r970)|$(r970_found "l'hôtel r970" /hotel-r970)$(r970_found 'd’hôtel r970' /hotel-r970)" "111|11"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 
-# a news re-index running: a news item above the cursor has its version 1 index ("książka" split as "ksi zka") – found by its title
+# a news re-index running: a news item above the cursor has its version 1 index ("książka" split as "ksi zka") – 3.54: no
+# title alternative; the search page rewrites it first (SearchIndex::heal runs reindexNews) and finds it by its new index
 R970_STATE=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'search_index_at'), '')")
 R970_TEMA=$(sq "SELECT tema FROM ka_novinky ORDER BY idc LIMIT 1")
 R970_NEWS=$(sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ('ksiazka-r970', 'Nowa książka R970', '', '', $R970_TEMA, '$(site_time '-1 hour')', 1, 0, 'nowa ksi zka r970'); SELECT LAST_INSERT_ID();")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '1:$((R970_NEWS - 1))')" > /dev/null
-expect "3.53 review: during a news re-index \"ksiazka r970\" finds the news item whose version 1 index split the word" "$(r970_found 'ksiazka r970' /novinky/ksiazka-r970)" "1"
+expect "3.54 D3: during a news re-index \"ksiazka r970\" finds the news item whose version 1 index split the word – /hledani rewrote it first" \
+  "$(r970_found 'ksiazka r970' /novinky/ksiazka-r970)|$(sq "SELECT hledani FROM ka_novinky WHERE idc = $R970_NEWS")" "1|nowa ksiazka r970"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$R970_STATE'); DELETE FROM ka_novinky WHERE idc = $R970_NEWS; DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 
 # the job remembers the rows waiting and what its run did – a run that filled rows is progress, never "stuck"

@@ -2145,4 +2145,5 @@ return [
     'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Chcem dostávať novinky a ponuky e-mailom. Pošleme vám odkaz na potvrdenie; odhlásiť sa môžete kedykoľvek.',
     'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Pošleme vám len novinky a ponuky. E-mailom vám pošleme odkaz na potvrdenie odberu; odhlásiť sa môžete jedným kliknutím v každom e-maile.',
     'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'Na odber sa môžete prihlásiť aj zaškrtnutím nepovinného políčka v našich formulároch, ktoré nikdy nie je vopred zaškrtnuté; ako doklad súhlasu uchovávame jeho znenie a stránku, na ktorej ste ho udelili, počas celej doby odberu.',
+    'Some pages are still being indexed and may be missing.' => 'Niektoré stránky sa ešte indexujú a vo výsledkoch môžu chýbať.',
 ];

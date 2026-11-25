@@ -9609,7 +9609,7 @@ return [
     'Search index filled in' => 'Índice de búsqueda completado',
     'Search index' => 'Índice de búsqueda',
     'every page, item and news item can be found' => 'todas las páginas, elementos y noticias se pueden encontrar',
-    '%d pages, %d items and %d news items wait for their search text' => '%d páginas, %d elementos y %d noticias esperan su texto de búsqueda',
+    '%d pages, %d items and %d news items cannot be found on the site search yet' => '%d páginas, %d elementos y %d noticias aún no aparecen en la búsqueda del sitio',
     'the background jobs fill it in' => 'las tareas en segundo plano lo completan',
     'the last run of the background jobs filled none of them; see Background jobs below' => 'la última ejecución de las tareas en segundo plano no completó ninguno; consulte Tareas en segundo plano más abajo',
     'The newsletter “%s” was scheduled but did not go out: its audience cannot be sent to (an unknown audience, or only customers while the sales pipeline and quotes are switched off). It is a draft again – choose who it goes to and send it again.' => 'El boletín «%s» estaba programado, pero no salió: no se puede enviar a su audiencia (una audiencia desconocida, o solo clientes mientras el embudo de ventas y los presupuestos están desactivados). Vuelve a ser un borrador: elija a quién va y envíelo de nuevo.',

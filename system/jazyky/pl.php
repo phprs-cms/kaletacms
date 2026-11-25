@@ -2170,4 +2170,5 @@ return [
     'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Chcę otrzymywać nowości i oferty e-mailem. Wyślemy link do potwierdzenia; z subskrypcji można zrezygnować w każdej chwili.',
     'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Wysyłamy tylko nowości i oferty. Wyślemy e-mailem link do potwierdzenia subskrypcji; zrezygnować można jednym kliknięciem w każdym e-mailu.',
     'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'Można też zapisać się, zaznaczając nieobowiązkowe pole w naszych formularzach, które nigdy nie jest zaznaczone z góry; jako dowód zgody przechowujemy jej treść i stronę, na której została wyrażona, przez cały czas trwania subskrypcji.',
+    'Some pages are still being indexed and may be missing.' => 'Niektóre strony są jeszcze indeksowane i może ich brakować w wynikach.',
 ];

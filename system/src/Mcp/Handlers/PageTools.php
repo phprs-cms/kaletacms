@@ -136,7 +136,8 @@ trait PageTools
 
     /**
      * search_site (3.52, B1): the site search for a visitor of one language version (Core\SiteSearch) – the best results with
-     * their public address and a plain-text snippet, how many match, and partial when none has every word.
+     * their public address and a plain-text snippet, how many match, partial when none has every word, and indexing (3.54)
+     * while rows a visitor could find still wait for their search text.
      */
     private function toolSearchSite(string $name, array $a): mixed
     {
@@ -154,7 +155,8 @@ trait PageTools
             + (($snippet = \Kaleta\Core\SiteSearch::snippetText($pieces)) !== '' ? ['snippet' => $snippet] : []),
             $shown, \Kaleta\Core\SiteSearch::snippets($this->app, $shown, $found['words']));
 
-        return ['results' => $results, 'total' => $found['total']] + ($found['partial'] ? ['partial' => true] : [])
+        // 3.54 (D3): indexing only when rows a visitor could find still wait for their search text (the results may miss them)
+        return ['results' => $results, 'total' => $found['total']] + ($found['partial'] ? ['partial' => true] : []) + ($found['indexing'] ? ['indexing' => true] : [])
             + ($results !== [] ? \Kaleta\Mcp\Untrusted::mark(['results']) : []);
     }
 

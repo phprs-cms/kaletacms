@@ -1,4 +1,4 @@
-echo "== 3.53 A5: the site search reads the index – past every 3.52 cap, only visible words, any script, an exact total, rows not indexed yet the 3.52 way"
+echo "== 3.53 A5: the site search reads the index – past every 3.52 cap, only visible words, any script, an exact total; 3.54: rows not indexed yet are filled by the search page"
 a920_get() { curl -s -G -A "Mozilla/5.0 test" "$B/hledani" --data-urlencode "q=$1" ${2:+-d "page=$2"}; }
 a920_hrefs() { a920_get "$1" "${2:-}" | sed -n '/<ul class="vypis-stranky">/,/<\/ul>/p' | grep -o '<a href="[^"]*"' | sed 's/<a href="//; s/"$//' | tr '\n' '|'; }
 A920_NOW=$(site_time)
@@ -52,18 +52,26 @@ expect "3.53 A5: one Chinese character searches on the site and over search_site
   "/strana-a920-680||1|1|1"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 
-# while the news are re-indexed for a new Search::VERSION, a news item above the cursor has its old (version 1) index – a
-# Cyrillic word of its title is found through the title until its row is rewritten
+# while the news are re-indexed for a new Search::VERSION, a news item above the cursor has its old (version 1) index – 3.54
+# (D1): no title alternative any more; MCP (which never fills) misses its Cyrillic title word and says indexing, the search
+# page fills a slice first (SearchIndex::heal – reindexNews with the time complete() left) and then finds it
 A920_STATE=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'search_index_at'), '')")
-A920_OLD=$(sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ('stara-a920', 'Новости A920', '', '', $A920_TEMA, '$A920_NOW', 1, 0, 'a920'); SELECT LAST_INSERT_ID();")
+A920_OLD=$(sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ('stara-a920', 'Летопись A920', '', '', $A920_TEMA, '$A920_NOW', 1, 0, 'a920'); SELECT LAST_INSERT_ID();")
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '1:$((A920_OLD - 1))')" > /dev/null
-expect "3.53 A5: during a news re-index a Cyrillic title word finds a news item whose index is still of version 1" "$(a920_hrefs 'новости' | grep -c 'stara-a920')" "1"
+expect "3.54 D1: during a news re-index search_site misses a Cyrillic title word of a news item still of version 1 and says indexing; /hledani rewrites it and finds it" \
+  "$(mcp_call "$A920_TOKEN" search_site '{"query":"летопись"}' | php -r '$r = json_decode(stream_get_contents(STDIN), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "{}", true); echo count($d["results"] ?? []), "|", var_export($d["indexing"] ?? null, true);')|$(a920_hrefs 'летопись' | grep -c 'stara-a920')" "0|true|1"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$A920_STATE'); DELETE FROM ka_novinky WHERE idc = $A920_OLD" > /dev/null
+sq "DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 
-# a row the job has not indexed yet is searched the 3.52 way (its raw columns) – right after an update body text is found
+# 3.54 (D1): a row the job has not indexed yet is no longer searched the 3.52 way – MCP (never fills) does not find it by its
+# body and says indexing; the search page fills it first (heal) and finds it, and with nothing waiting shows no notice
 sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('fallback-a920', 'Starší stránka', '<p>Obsah fallbackq920 zde</p>', 1, 0)" > /dev/null
-expect "3.53 A5: a page with no search text yet (NULL) is found by a word of its body" \
-  "$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'fallback-a920' AND hledani IS NULL")|$(a920_hrefs 'fallbackq920')" "1|/fallback-a920|"
+A920_NULL=$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'fallback-a920' AND hledani IS NULL")
+A920_MCP=$(mcp_call "$A920_TOKEN" search_site '{"query":"fallbackq920"}' | php -r '$r = json_decode(stream_get_contents(STDIN), true); $d = json_decode($r["result"]["content"][0]["text"] ?? "{}", true); echo count($d["results"] ?? []), "|", var_export($d["indexing"] ?? null, true);')
+A920_PAGE=$(a920_get 'fallbackq920')
+expect "3.54 D1: a page with no search text yet (NULL) – search_site misses it with indexing: true; /hledani fills it, finds it by its body, no notice" \
+  "$A920_NULL|$A920_MCP|$(printf '%s' "$A920_PAGE" | grep -c 'href="/fallback-a920"')|$(printf '%s' "$A920_PAGE" | grep -c 'se ještě indexují')|$(sq "SELECT COUNT(*) FROM ka_stranky WHERE seo_link = 'fallback-a920' AND hledani IS NULL")" \
+  "1|0|true|1|0|0"
 
 sq "DELETE FROM ka_stranky WHERE seo_link LIKE 'strana-a920-%' OR seo_link = 'fallback-a920'; DELETE FROM ka_novinky WHERE seo_link LIKE 'zprava-a920-%';
   DELETE FROM ka_kolekce_polozky WHERE idk = $A920_IDK; DELETE FROM ka_kolekce WHERE idk = $A920_IDK; DELETE FROM ka_api_tokeny WHERE nazev = 'a920 admin';

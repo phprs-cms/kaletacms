@@ -20,10 +20,10 @@ check('3.53 A5: the occurrences per word – the first beginning counted in byte
     $a5Sql['occurrences'][1], substr_count($a5Sql['occurrences'][0], 'LEAST(20, '), str_contains($a5Sql['occurrences'][0], 'DIV 6 + (p.hledani LIKE ?))'), SiteSearch::ORDER_BY_OCCURRENCES],
     [[' medi', 'medi%', '北京', ' stavb', 'stavb%'], 3, true, true]);
 
-// % and _ are no letters, so they never reach a LIKE pattern (they separate words); $more adds an alternative to a word
-$a5More = SiteSearch::indexSql(SiteSearch::words('50_procent', 'cs'), 'c.hledani COLLATE utf8mb4_bin', fn (array $w): array => ['(c.idc > 7)', []]);
-check('3.53 A5: a LIKE wildcard never reaches a pattern (it separates words); an alternative of a re-index joins the word with OR', [
-    $a5More['conditions'][0]], [["(CONCAT(' ', c.hledani COLLATE utf8mb4_bin) LIKE ? OR (c.idc > 7))", ['% 50%']]]);
+// % and _ are no letters, so they never reach a LIKE pattern (they separate words); 3.54: a word's condition is the index alone
+$a5More = SiteSearch::indexSql(SiteSearch::words('50_procent', 'cs'), 'c.hledani COLLATE utf8mb4_bin');
+check('3.53 A5: a LIKE wildcard never reaches a pattern (it separates words); 3.54 D1: no alternative of a re-index joins the word', [
+    $a5More['conditions'][0], (new ReflectionMethod(SiteSearch::class, 'indexSql'))->getNumberOfParameters()], [["(CONCAT(' ', c.hledani COLLATE utf8mb4_bin) LIKE ?)", ['% 50%']], 4]);
 
 check('3.53 A5: rank() takes the search text as it is (normal) – a JSON key or a link in the raw text is not in it, so it never matches', [
     SiteSearch::rank(SiteSearch::words('media', 'cs'), [['title' => 'Kontakt', 'normal' => Kaleta\Core\SearchIndex::text('stranky', ['titulek' => 'Kontakt', 'text' => '<img src="/media/a.jpg"> <a href="/media/b">Napište nám</a>'])]], true),
@@ -43,7 +43,7 @@ check('3.53 A5: a single CJK character searches news in the admin and MCP throug
     str_contains(Search::newsWords('茶')[0], '1 = 1'), Search::newsWords('茶')[1][2] ?? null],
     [false, '%茶%']);
 
-check('3.53 A5: the caps of rows not indexed yet stay as in 3.52; the candidates and the scan guard are per kind', [
-    SiteSearch::FALLBACK_PAGES, SiteSearch::FALLBACK_ITEMS, SiteSearch::CANDIDATES, SiteSearch::MAX_ROWS,
+check('3.53 A5: the candidates and the scan guard are per kind; 3.54 D1: no caps of rows not indexed yet – they are not searched', [
+    defined(SiteSearch::class . '::FALLBACK_PAGES'), defined(SiteSearch::class . '::FALLBACK_ITEMS'), SiteSearch::CANDIDATES, SiteSearch::MAX_ROWS,
     defined(SiteSearch::class . '::SCAN'), defined(SiteSearch::class . '::SCAN_PAGES')],
-    [500, 2000, 300, 50000, false, false]);
+    [false, false, 300, 50000, false, false]);

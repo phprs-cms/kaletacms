@@ -111,8 +111,12 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   Kalety na konci stránky s komponentami (`SearchIndex::componentPagesChanged`). Komponenty a pole kolekce čte index až po zámku řádku,
   nikdy z předchozího řádku. Úsek CJK se v textu odděluje od latinky a číslic (Hangul od latinky a číslic), apostrof v dotazu dělí slovo
   („l'hôtel“ hledá „hotel“). Stav systému ukáže, kolik čeká, a varuje, jen když poslední běh úlohy nic nedoplnil (`waiting:done`). Web (`SiteSearch::find`) čte jen index: jedno čtení na druh, počet všech shod (do 50 000 na druh), nejlepších 300
-  na druh do řazení, „Zobrazeno nejlepších N z M“; řádky ještě bez textu hledá do 3.54 postaru. Admin seznamy stránek a položek, paleta
-  a `list_pages`/`list_collection_items` přes `Search::indexWords` (`SearchIndex::pageWords/itemWords`). Jeden práh délky `Search::longEnough`
+  na druh do řazení, „Zobrazeno nejlepších N z M“. Od 3.54 řádek bez textu na webu nenajde (žádné hledání postaru ani náhrada pro novinky
+  při přeindexování); `SiteSearch::waiting()` (jedno `SELECT 1 … LIMIT 1` na druh se stejným rozsahem jako hledání, i před 0141 a při přeindexování
+  novinek) dá `find()` příznak `indexing` – `/hledani` vypíše „Některé stránky se ještě indexují…“ a předtím doplní 0,3 s (`SearchIndex::heal`, zámek
+  bez čekání), `search_site` vrátí `indexing: true`; dávka importu (WordPress, web, jiný systém) končí `SearchIndex::afterBatch` (≤ 2 s), změna
+  komponenty či polí kolekce doplní vynulované hned (`soon()`, 1 s na požadavek). Admin seznamy stránek a položek, paleta
+  a `list_pages`/`list_collection_items` přes `Search::indexWords` (`SearchIndex::pageWords/itemWords`) – řádek bez textu jen podle názvu a adresy. Jeden práh délky `Search::longEnough`
   (dva znaky, nebo jeden znak CJK); tvary slov i pro pl, hu, es, pt, fr, it, ru, uk (`Search::NO_STEMMER` pro ostatní); nejvýš 2000 různých
   hledaných výrazů za den a jazyk (`SiteSearch::DAY_QUERIES`). Oprava indexu = `UPDATE … SET hledani = NULL` a úloha.
 - **Oznámení o vydání** (webhook, IndexNow) jen přes `Core\Notifications::process()` a sloupec `oznameno`.

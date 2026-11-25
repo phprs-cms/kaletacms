@@ -254,9 +254,16 @@ final class Batch
      */
     public function import(array &$state, ?string $path = null, int $batch = self::BATCH): void
     {
+        $end = microtime(true) + self::SECONDS;
+        $this->importBatch($state, $path, $batch, $end);
+        \Kaleta\Core\SearchIndex::afterBatch($this->db, $end, $state['faze'] === 'hotovo'); // 3.54 (D3): what it wrote is searchable soon
+    }
+
+    /** @param array<string, mixed> $state */
+    private function importBatch(array &$state, ?string $path, int $batch, float $end): void
+    {
         $source = self::sourceFor($state, $path);
         $this->source = self::label((string) $state['zdroj'], self::siteUrl($state));
-        $end = microtime(true) + self::SECONDS;
         $count = 0;
         foreach ($source->read((int) $state['pozice']) as $order => $record) {
             if ($record instanceof Post) {
@@ -527,6 +534,14 @@ final class Batch
         $this->source = self::label((string) $state['zdroj'], self::siteUrl($state));
         $this->downloadsLeft = self::IMAGE_BATCH;
         $this->end = microtime(true) + self::SECONDS;
+        $this->imageBatch($state, $downloader);
+        // 3.54 (D3): a text with its images rewritten waits for its search text again – filled within what the batch has left
+        \Kaleta\Core\SearchIndex::afterBatch($this->db, $this->end, $state['faze'] === 'obrazky-hotovo');
+    }
+
+    /** @param array<string, mixed> $state */
+    private function imageBatch(array &$state, ImageDownloader $downloader): void
+    {
         while (true) {
             $id = $this->db->value('SELECT MIN(nase_id) FROM {import_mapa} WHERE zdroj = ? AND typ = ? AND nase_id > ?', [$this->source, $state['obr']['typ'], (int) $state['obr']['id']]);
             if ($id === null && $state['obr']['typ'] === 'clanek') {

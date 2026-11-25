@@ -103,12 +103,6 @@ parameters:
 			path: system/src/Core/SiteImport.php
 
 		-
-			message: '#^Comparison operation "\<\=" between 30 and 0 is always false\.$#'
-			identifier: smallerOrEqual.alwaysFalse
-			count: 1
-			path: system/src/Core/WpImport.php
-
-		-
 			message: '#^PHPDoc tag @param references unknown parameter\: \$meta$#'
 			identifier: parameter.notFound
 			count: 1

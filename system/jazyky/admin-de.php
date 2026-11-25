@@ -9589,7 +9589,7 @@ return [
     'Search index filled in' => 'Suchindex ergänzt',
     'Search index' => 'Suchindex',
     'every page, item and news item can be found' => 'jede Seite, jeder Eintrag und jede News ist auffindbar',
-    '%d pages, %d items and %d news items wait for their search text' => '%d Seiten, %d Einträge und %d News warten auf ihren Suchtext',
+    '%d pages, %d items and %d news items cannot be found on the site search yet' => '%d Seiten, %d Einträge und %d News sind in der Suche der Website noch nicht zu finden',
     'the background jobs fill it in' => 'die Hintergrundaufgaben ergänzen ihn',
     'the last run of the background jobs filled none of them; see Background jobs below' => 'der letzte Lauf der Hintergrundaufgaben hat keinen davon ergänzt – siehe Hintergrundaufgaben unten',
     'The newsletter “%s” was scheduled but did not go out: its audience cannot be sent to (an unknown audience, or only customers while the sales pipeline and quotes are switched off). It is a draft again – choose who it goes to and send it again.' => 'Der Newsletter „%s“ war geplant, ging aber nicht hinaus: An seine Zielgruppe kann nicht gesendet werden (eine unbekannte Zielgruppe oder nur Kunden, während Vertriebspipeline und Angebote ausgeschaltet sind). Er ist wieder ein Entwurf – wählen Sie, an wen er geht, und senden Sie ihn erneut.',

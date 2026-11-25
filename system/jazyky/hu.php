@@ -2182,4 +2182,5 @@ return [
     'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Szeretnék híreket és ajánlatokat kapni e-mailben. Megerősítő linket küldünk; bármikor leiratkozhat.',
     'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Csak híreket és ajánlatokat küldünk. E-mailben küldünk egy linket a feliratkozás megerősítéséhez; minden e-mailben egy kattintással leiratkozhat.',
     'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'Űrlapjainkon a nem kötelező jelölőnégyzet bejelölésével is feliratkozhat – ez soha nincs előre bejelölve; hozzájárulása igazolására megőrizzük annak szövegét és az oldalt, ahol megadta, amíg fel van iratkozva.',
+    'Some pages are still being indexed and may be missing.' => 'Néhány oldal indexelése még folyamatban van, ezért hiányozhatnak a találatok közül.',
 ];

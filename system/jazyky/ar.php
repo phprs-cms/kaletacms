@@ -2182,4 +2182,5 @@ return [
     'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'أرغب في تلقي الأخبار والعروض عبر البريد الإلكتروني. سنرسل إليك رابطًا للتأكيد، ويمكنك إلغاء الاشتراك في أي وقت.',
     'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'نرسل الأخبار والعروض فقط. سنرسل إليك رابطًا عبر البريد الإلكتروني لتأكيد الاشتراك، ويمكنك إلغاء الاشتراك بنقرة واحدة في كل رسالة.',
     'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'يمكنك أيضًا الاشتراك بتحديد المربع الاختياري في نماذجنا، وهو غير محدد مسبقًا أبدًا؛ وكدليل على موافقتك نحتفظ بنصها وبالصفحة التي منحتها فيها طوال مدة اشتراكك.',
+    'Some pages are still being indexed and may be missing.' => 'لا تزال بعض الصفحات قيد الفهرسة وقد لا تظهر في النتائج.',
 ];

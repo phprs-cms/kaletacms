@@ -100,12 +100,12 @@ final class Health
             // the column of migration 0094 is missing before the update ran – System status still opens
         }
         // 3.53 (A3): the search text of pages, items and news (Core\SearchIndex) – the background job fills what waits; a
-        // warning only when rows wait and its last run filled none of them
+        // warning only when rows wait and its last run filled none of them. 3.54 (D3): a row waiting is not on the site search
         if (SearchIndex::ready($siteSettings)) {
             $waiting = SearchIndex::pending($db, $siteSettings);
             $stuck = SearchIndex::stuck($siteSettings);
             $add(t('Database'), t('Search index'), $stuck ? 'varovani' : 'ok', array_sum($waiting) === 0 ? t('every page, item and news item can be found')
-                : t('%d pages, %d items and %d news items wait for their search text', $waiting['pages'], $waiting['items'], $waiting['news'])
+                : t('%d pages, %d items and %d news items cannot be found on the site search yet', $waiting['pages'], $waiting['items'], $waiting['news'])
                     . ' – ' . ($stuck ? t('the last run of the background jobs filled none of them; see Background jobs below') : t('the background jobs fill it in')));
         }
         $add(t('Database'), t('Velikost'), 'ok', t('%s, news items: %d', self::size($size), (int) $db->value('SELECT COUNT(*) FROM {novinky}')));

@@ -43,9 +43,9 @@ check('3.52 review: Search::newsWords – a word normalizing to one letter ("C++
     Search::newsWords('C++')[1], count(Search::newsWords('stavby')[1])],
     [['%C++%', '%C++%'], 3]);
 
-check('3.52 review: Search::newsWords – a plain one-letter word ("dům v Praze") narrows nothing, so the phrase in the text still matches', [
-    str_contains(Search::newsWords('dům v Praze')[0], 'OR 1 = 1)'), SiteSearch::FALLBACK_PAGES],
-    [true, 500]);
+check('3.52 review: Search::newsWords – a plain one-letter word ("dům v Praze") narrows nothing, so the phrase in the text still matches; 3.54: no cap of rows not indexed yet (they are not searched)', [
+    str_contains(Search::newsWords('dům v Praze')[0], 'OR 1 = 1)'), defined(SiteSearch::class . '::FALLBACK_PAGES')],
+    [true, false]);
 
 check('3.52 review: searched terms older than KEEP_DAYS go with the daily clean-up, listed in Retention (smoke 4850 runs it)', [
     SiteSearch::KEEP_DAYS, Kaleta\Core\Retention::FIXED['search_queries'][1] ?? null,

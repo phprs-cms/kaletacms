@@ -575,9 +575,13 @@ Russian and Ukrainian ("stavbách" finds "stavby"); when no result has every wor
 and anything with *Hide from search engines (noindex)* never appear. Put the search into the header with the template
 **With search** or the Search element as an icon. Claude searches the site the same way with `search_site`.
 
-After the update to 3.53 the site prepares the search text of existing pages and items in the background (with cron in
-a few minutes, without it one short step a minute); until then they are searched as before. **System status** shows how
-many wait.
+The site searches a stored search text of each page, item and news item, which the background jobs prepare. A page or
+item that waits for it – after an update from 3.52 or older, after an import, after a component or a collection's fields
+changed – is not found on the site until then (in the admin lists it is found by its name and address). While anything
+a visitor could find still waits, the search page says *Some pages are still being indexed and may be missing.*,
+Claude's `search_site` answers `indexing: true`, and each search fills a short step itself, so even a site without cron
+heals when someone searches. With cron it takes a few minutes, without it one short step a minute; an import fills what
+it wrote before it reports done. **System status → Search index** shows how many cannot be found yet (3.54).
 
 **The same address in every language (3.19):** a page, a news item, a category or a tag may use the same address once in
 each language version – `/kontakt` and `/en/kontakt` are two pages, as on a multilingual WordPress site. This is how every

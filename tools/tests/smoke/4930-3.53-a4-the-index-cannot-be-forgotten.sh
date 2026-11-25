@@ -51,9 +51,9 @@ mcp update_collection '{"collection":"stany-a930","pole":[{"klic":"podnadpis","p
 S930_LABEL=$(sq "SELECT hledani IS NOT NULL FROM ka_kolekce_polozky WHERE idp = ${S930_ITEM:-0}")
 mcp update_collection '{"collection":"stany-a930","pole":[{"klic":"podnadpis","popisek":"Krátký popis","typ":"cislo"}]}' > /dev/null
 S930_ITEM_SESSION=$(sq "SELECT MAX(id) FROM ka_agent_sessions")
-expect "3.53 A4: update_collection – a new label keeps the items' search text, a text field turned into a number empties it; the session has no untracked item write" \
+expect "3.53 A4: update_collection – a new label keeps the items' search text, a text field turned into a number re-indexes it without the value (3.54: at once); the session has no untracked item write" \
   "$S930_LABEL|$(sq "SELECT COALESCE(hledani, 'NULL') FROM ka_kolekce_polozky WHERE idp = ${S930_ITEM:-0}")|$(s930_journal "$S930_ITEM_SESSION" | cut -d'|' -f2-)" \
-  "1|NULL|0|0"
+  "1|stan horizont a930|0|0"
 
 # the column never leaves the site: neither the site export nor the page package carry it
 S930_EXPORT=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $app->applyTimezone();

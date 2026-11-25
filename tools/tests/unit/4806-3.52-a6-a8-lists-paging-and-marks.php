@@ -37,9 +37,9 @@ check('3.52 A8: paging with $module and $query – the filter kept, empty values
     ['items?id=4&search=a+b&section=0', 'items?id=4&search=a+b&section=0&page=3']);
 
 // A6: the admin list of items and MCP list_collection_items search the same way
-check('3.52 A6: Collections::itemSearch() – the name, the address and the fields; 3.53 B4: the fields by the search index, the JSON only while an item has none or before migration 0141 (the smoke test runs it in the admin and MCP)', [
+check('3.52 A6: Collections::itemSearch() – the name, the address and the fields; 3.53 B4: the fields by the search index; 3.54 D2: never the JSON – before migration 0141 the name and the address only (the smoke test runs it in the admin and MCP)', [
     Kaleta\Builder\Collections::itemSearch('dvorak'), Kaleta\Builder\Collections::itemSearch('dvorak', false), Kaleta\Builder\Collections::itemSearch('')],
-    [Kaleta\Core\SearchIndex::itemWords('dvorak', true), Kaleta\Core\Db::likeWords(['nazev', 'seo_link'], 'dvorak', ['data']), ['1 = 1', []]]);
+    [Kaleta\Core\SearchIndex::itemWords('dvorak', true), Kaleta\Core\Db::likeWords(['nazev', 'seo_link'], 'dvorak'), ['1 = 1', []]]);
 
 // A8: no list builds its own numbered paging any more – the shared view does (Prices keeps its own: a page link warns of unsaved prices)
 $a806Own = [];

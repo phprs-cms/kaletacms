@@ -50,8 +50,8 @@ expect "3.53 B4: a field key or an image path of the fields is no match once the
   "$(curl -s -G -b "$JAR" "$B/admin.php" -d module=collections -d action=items -d id="$B950_IDK" --data-urlencode 'search=mesto' | b950_has 'Pobočka 950')|$(b950_mcp list_collection_items '{"collection":"pobocky-b950","search":"lodz-b950"}' | php -r 'echo json_decode(stream_get_contents(STDIN), true)["total"] ?? "?";')" \
   "0|0"
 sq "UPDATE ka_kolekce_polozky SET hledani = NULL WHERE seo_link = 'pobocka-950'" > /dev/null
-expect "3.53 B4: an item not indexed yet is still found by its fields (the 3.52 search until the job fills it)" \
-  "$(b950_mcp list_collection_items '{"collection":"pobocky-b950","search":"Łódź"}' | b950_has 'Pobočka 950')" "1"
+expect "3.54 D2: an item not indexed yet is found by its name, not by its fields (no 3.52 JSON search); found by the fields again once the job fills it" \
+  "$(b950_mcp list_collection_items '{"collection":"pobocky-b950","search":"Łódź"}' | b950_has 'Pobočka 950')|$(b950_mcp list_collection_items '{"collection":"pobocky-b950","search":"Pobočka 950"}' | b950_has 'Pobočka 950')|$(fill_search_index && b950_mcp list_collection_items '{"collection":"pobocky-b950","search":"Łódź"}' | b950_has 'Pobočka 950')" "0|1|1"
 
 # B6: a day keeps at most 2000 distinct queries of a language version – the next new one is not stored, a known one still counts
 B950_STATS=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'stats'), '')")

@@ -20,26 +20,26 @@ fill_search_index > /dev/null
 expect "3.53 review 2: … the job finishes the re-index – nothing waits, the version is current" \
   "$(search_index_pending)|$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'search_index_at'")" "0|$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; echo Kaleta\Core\Search::VERSION;'):0"
 
-# during a re-index a news item above the cursor is matched in its title and intro at the start of a word, as the ranking
-# reads it: "Smartr980" holds the letters of "artr980" inside a word and must not count – each row has one of the words,
-# so they are the partial result (counted as having both, the news item kept the partial pass away and nothing was listed)
+# during a re-index a news item above the cursor is matched at the start of a word: "Smartr980" holds the letters of
+# "artr980" inside a word and must not count – each row has one of the words, so they are the partial result. 3.54 (D1/D3):
+# no title alternative any more – /hledani rewrites the news above the cursor first (SearchIndex::heal) and reads the index
 sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('artr980', 'Artr980 galerie', '<p>Obrazy.</p>', 1, 0),
   ('decor980', 'Decor980 interiéry', '<p>Nábytek.</p>', 1, 0)" > /dev/null
 R980_ID=$(sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ('smart-r980', 'Smartr980 party', 'decor980ations', '', $R980_TEMA, '$(site_time '-1 hour')', 1, 0, 'smartr980 party decor980ations'); SELECT LAST_INSERT_ID();")
 fill_search_index > /dev/null
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '1:$((R980_ID - 1))')" > /dev/null
-expect "3.53 review 2: during a re-index \"artr980 decor980\" lists the two pages and the news item as a partial result – \"Smartr980\" does not count as \"artr980\", so no row seems to have both words" \
+expect "3.53 review 2 (3.54: after the search page's re-index slice): during a re-index \"artr980 decor980\" lists the two pages and the news item as a partial result – \"Smartr980\" does not count as \"artr980\", so no row seems to have both words" \
   "$(r980_found 'artr980 decor980' /artr980)$(r980_found 'artr980 decor980' /decor980)$(r980_found 'artr980 decor980' /novinky/smart-r980)" "111"
 expect "3.53 review 2: … \"decor980\" still finds the news item above the cursor by the start of a word in its intro" "$(r980_found 'decor980' /novinky/smart-r980)" "1"
-# … also a word after a tag (the intro is HTML) or an opening quote, which a version 1 index may lack entirely
-# … also a word after a tag (the intro is HTML), after a line break or in quotes, which a version 1 index may lack entirely;
-# a word that sits only in a link address of the intro is no match: the total stays 0 and the page "Hrefr980" is listed alone
+# … also a word after a tag (the intro is HTML), after a line break or in quotes, which a version 1 index may lack entirely
+# (3.54: the search page rewrites the row first, the version 2 index has them); a word that sits only in a link address of
+# the intro is no match: the total stays 0 and the page "Hrefr980" is listed alone
 R980_HTML=$(sq "INSERT INTO ka_novinky (seo_link, titulek, uvod, text, tema, datum, visible, noindex, hledani) VALUES ('html-r980', 'Nagroda „Quoter980”', CONCAT('<p>Tagr980 roku<br>', CHAR(10), 'Linebr980 <a href=\\"https://example.test/hrefr980\\">zde</a></p>'), '', $R980_TEMA, '$(site_time '-1 hour')', 1, 0, 'nagroda'); SELECT LAST_INSERT_ID();")
 sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu) VALUES ('hrefr980', 'Hrefr980 stránka', '<p>Obsah.</p>', 1, 0);
   REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$R980_STATE')" > /dev/null
 fill_search_index > /dev/null # indexes the page; the news item keeps its version 1 text
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '1:$((R980_ID - 1))')" > /dev/null
-expect "3.53 review 3: during a re-index a news item above the cursor is found by the first word of an HTML intro paragraph, a word after a line break and a word in quotes" \
+expect "3.53 review 3 (3.54: rewritten by the search page first): during a re-index a news item above the cursor is found by the first word of an HTML intro paragraph, a word after a line break and a word in quotes" \
   "$(r980_found 'tagr980' /novinky/html-r980)$(r980_found 'linebr980' /novinky/html-r980)$(r980_found 'quoter980' /novinky/html-r980)" "111"
 expect "3.53 review 3: … a word only in a link address of its intro does not find it, and \"hrefr980 tagr980\" lists the page and the news item as a partial result" \
   "$(r980_found 'hrefr980' /novinky/html-r980)$(r980_found 'hrefr980 tagr980' /hrefr980)$(r980_found 'hrefr980 tagr980' /novinky/html-r980)" "011"

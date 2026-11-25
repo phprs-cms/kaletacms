@@ -13,6 +13,7 @@
  * @var list<array{type:string, label:string, title:string, path:string, uryvek:string, date?:string}> $nalezeneStranky  search results, ranked
  *      across pages, collection items and news (Core\SiteSearch, 3.52); uryvek = escaped HTML with the matched words in <mark>
  * @var bool $castecne  no result has every word – these have some of them
+ * @var bool $indexuje  rows a visitor could find still wait for their search text (SiteSearch::waiting, 3.54) – the results may miss them
  * @var list<array{titulek:string, seo_link:string}> $stranky  the main pages offered when a search finds nothing
  * @var callable(string): string $url
  */
@@ -34,6 +35,9 @@
 <?php endif ?>
 <?php if ($castecne): ?>
 	<p><?= e(t('No result contains all the words – these contain some of them.')) ?></p>
+<?php endif ?>
+<?php if ($indexuje ?? false): ?>
+	<p><?= e(t('Some pages are still being indexed and may be missing.')) ?></p>
 <?php endif ?>
 <?php endif ?>
 <?php endif ?>
