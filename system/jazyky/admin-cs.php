@@ -9231,4 +9231,5 @@ return [
     'The subscription is combined with the customer records (won deals, accepted quotes) to choose which subscribers a newsletter goes to.' => 'Odběr se propojuje se záznamy zákazníků (vyhrané obchody, přijaté nabídky), aby šlo vybrat, kterým odběratelům newsletter půjde.',
     'consent to news by e-mail (optional, confirmed by a link)' => 'souhlas s novinkami e-mailem (nepovinný, potvrzuje se odkazem)',
     'The form offers news by e-mail but has no e-mail field – nobody can subscribe from it. Add an e-mail field.' => 'Formulář nabízí novinky e-mailem, ale nemá pole pro e-mail – nikdo se z něj nepřihlásí. Přidejte pole e-mail.',
+    'This newsletter already went out to some subscribers before it became a draft again – write a new newsletter instead of sending it once more.' => 'Tento newsletter už některým odběratelům odešel, než se znovu stal konceptem – místo dalšího odeslání napište nový newsletter.',
 ];

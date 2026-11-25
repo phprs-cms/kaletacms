@@ -25,6 +25,15 @@ expect "3.54 A2: a sign-up between the check and the queue – the queue got 6 r
   "changed 5->6: The number of recipients changed: was 5, now 6 – confirm again.|draft/0/0|0|0"
 expect "3.54 A2: with the right number it starts – recipients = queue rows = the number confirmed; without a number (cron, an older caller) only the comparison is skipped" \
   "$(s5020_try 'echo $try(fn () => Mailing::send($app, (int) $argv[1], null, 5));' "$S5020_ID")|$(s5020_state "$S5020_ID")" "ok|sending/5/5"
+# an undone start (an agent session undone before the first batch, a restore of a backup taken mid-send) leaves a draft
+# with its queue rows: unsent ones are dropped and counted again, so the confirmed number still matches (3.54 review)
+sq "UPDATE ka_newsletters SET status = 'draft', started_at = NULL WHERE id = $S5020_ID" > /dev/null
+expect "3.54 A2: a draft with its unsent queue rows left from an undone start – it starts again with recipients = expected, not \"was 5, now 0\"" \
+  "$(s5020_try 'echo $try(fn () => Mailing::send($app, (int) $argv[1], null, 5));' "$S5020_ID")|$(s5020_state "$S5020_ID")" "ok|sending/5/5"
+sq "UPDATE ka_newsletters SET status = 'draft', started_at = NULL WHERE id = $S5020_ID; UPDATE ka_newsletter_queue SET sent_at = '$(site_time)', next_attempt = NULL WHERE newsletter_id = $S5020_ID ORDER BY id LIMIT 1" > /dev/null
+expect "3.54 A2: … but one whose earlier start already reached someone is refused in its own words, scheduling too – nothing is queued twice" \
+  "$(s5020_try 'echo $try(fn () => Mailing::send($app, (int) $argv[1], null, 5)), "|", $try(fn () => Mailing::send($app, (int) $argv[1], "2099-01-01 08:00"));' "$S5020_ID")|$(s5020_state "$S5020_ID")" \
+  "This newsletter already went out to some subscribers before it became a draft again – write a new newsletter instead of sending it once more.|This newsletter already went out to some subscribers before it became a draft again – write a new newsletter instead of sending it once more.|draft/5/5"
 s354_php '$db->run("DELETE FROM {newsletter_queue}"); $db->run("UPDATE {newsletters} SET status = ? WHERE subject = ?", ["cancelled", "S354 race"]);'
 
 # scheduling: the audience must be allowed and not empty now; a scheduled audience cannot change

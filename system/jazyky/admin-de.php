@@ -9639,4 +9639,5 @@ return [
     'The subscription is combined with the customer records (won deals, accepted quotes) to choose which subscribers a newsletter goes to.' => 'Das Abonnement wird mit den Kundendatensätzen (gewonnene Deals, angenommene Angebote) verknüpft, um auszuwählen, an welche Abonnenten ein Newsletter geht.',
     'consent to news by e-mail (optional, confirmed by a link)' => 'Einwilligung in News per E-Mail (freiwillig, per Link bestätigt)',
     'The form offers news by e-mail but has no e-mail field – nobody can subscribe from it. Add an e-mail field.' => 'Das Formular bietet News per E-Mail an, hat aber kein E-Mail-Feld – darüber kann sich niemand anmelden. Fügen Sie ein E-Mail-Feld hinzu.',
+    'This newsletter already went out to some subscribers before it became a draft again – write a new newsletter instead of sending it once more.' => 'Dieser Newsletter ging bereits an einige Abonnenten, bevor er wieder zum Entwurf wurde – schreiben Sie einen neuen Newsletter, statt ihn noch einmal zu senden.',
 ];

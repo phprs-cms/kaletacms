@@ -354,6 +354,9 @@ final class Mailing
         if (self::newsItems($app, $n) === [] && $n['news_mode'] !== 'none') {
             throw new \DomainException('The newsletter has no news items to send – publish a news item or choose No news.');
         }
+        if (self::partlyDelivered($db, $id)) {
+            throw new \DomainException(self::DELIVERED_BEFORE);
+        }
         if ($at === null || $at === '') {
             if ($expected !== null && $count !== $expected) {
                 throw new RecipientCountChanged($expected, $count); // before the render and before anything is written
@@ -367,6 +370,15 @@ final class Mailing
             throw new \InvalidArgumentException('The time must be in the future, as YYYY-MM-DD HH:MM.');
         }
         $db->update('newsletters', ['status' => 'scheduled', 'scheduled_at' => $time->format('Y-m-d H:i:s'), 'changed' => date('Y-m-d H:i:s')], ['id' => $id]);
+    }
+
+    /** 3.54 review: the refusal for a draft whose earlier start already reached someone (partlyDelivered). */
+    public const string DELIVERED_BEFORE = 'This newsletter already went out to some subscribers before it became a draft again – write a new newsletter instead of sending it once more.';
+
+    /** 3.54 review: whether queue rows left from an earlier start of the newsletter were already sent to someone. */
+    public static function partlyDelivered(Db $db, int $id): bool
+    {
+        return (bool) $db->value('SELECT 1 FROM {newsletter_queue} WHERE newsletter_id = ? AND sent_at IS NOT NULL LIMIT 1', [$id]);
     }
 
     /** A scheduled newsletter goes back to the drafts. */
@@ -457,6 +469,12 @@ final class Mailing
             if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = ?, html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [Clock::now(), $html, $text, $n['id']])->rowCount() === 0) {
                 return false;
             }
+            // 3.54 review: queue rows of an earlier start (an undone agent session, a restore of a backup taken mid-send) –
+            // unsent ones are dropped so the insert counts the audience again; one that already reached someone is refused
+            if (self::partlyDelivered($db, (int) $n['id'])) {
+                throw new \DomainException(self::DELIVERED_BEFORE);
+            }
+            $db->run('DELETE FROM {newsletter_queue} WHERE newsletter_id = ?', [$n['id']]);
             $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, o.ido, ? FROM {odberatele} o WHERE ' . $where, [$n['id'], Clock::now(), ...$params])->rowCount();
             if ($expected !== null && $count !== $expected) {
                 throw new RecipientCountChanged($expected, $count);
