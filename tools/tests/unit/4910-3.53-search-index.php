@@ -72,9 +72,9 @@ check('3.53 A3: SearchIndex::CONTENT is exactly what text() reads – for pages 
 /* ---------- A2: schema and migration 0141 ---------- */
 
 // the statements of migration 0141, its re-run and the structure equal to a clean install: tools/test-migrations.sh (m353)
-check('3.53 A2: KALETA_DB_VERSION 141 is the version SearchIndex waits for; the column hledani has its English name search_text on pages and items', [
-    KALETA_DB_VERSION, SearchIndex::DB_VERSION, \Kaleta\Core\Names::columns('stranky')['hledani'] ?? null, \Kaleta\Core\Names::columns('kolekce_polozky')['hledani'] ?? null,
-], [141, 141, 'search_text', 'search_text']);
+check('3.53 A2: SearchIndex waits for DB version 141 (migration 0141), KALETA_DB_VERSION has reached it (3.54: 142); the column hledani has its English name search_text on pages and items', [
+    KALETA_DB_VERSION >= SearchIndex::DB_VERSION, SearchIndex::DB_VERSION, \Kaleta\Core\Names::columns('stranky')['hledani'] ?? null, \Kaleta\Core\Names::columns('kolekce_polozky')['hledani'] ?? null,
+], [true, 141, 'search_text', 'search_text']);
 
 /* ---------- A3: the job, the state and the settings ---------- */
 

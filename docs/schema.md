@@ -1367,6 +1367,9 @@ English name: `subscribers`. Newsletter extension: subscribers signed up via the
 | `sync_chyba` |  | VARCHAR(255) NOT NULL DEFAULT '' |  |
 | `contact_id` |  | INT UNSIGNED NULL DEFAULT NULL | the customer (3.28, Core\Contacts; linked once the subscription is confirmed) |
 | `language` |  | VARCHAR(35) NOT NULL DEFAULT '' | the language version they signed up in ('' = default; 3.51) |
+| `consent_text` |  | VARCHAR(500) NOT NULL DEFAULT '' | 3.54: the consent wording shown at sign-up ('' = before 3.54 or not readable) |
+| `consent_source` |  | VARCHAR(64) NOT NULL DEFAULT '' | 3.54: where it was given (the form source: page, item or site part) |
+| `consent_element` |  | VARCHAR(16) NOT NULL DEFAULT '' | 3.54: the id of the element that showed it |
 
 Keys: `PRIMARY KEY (ido)`; `UNIQUE KEY uq_odberatel_email (email)`; `UNIQUE KEY uq_odberatel_token (token)`; `KEY ix_odberatele_contact (contact_id)`.
 
@@ -1466,6 +1469,9 @@ Newsletters (1.5): one e-mail template styled by the design system (Core\Mailing
 | `pause_reason` |  | VARCHAR(10) NOT NULL DEFAULT '' | manual \| brake |
 | `resumed_at` |  | DATETIME NULL |  |
 | `skipped_count` |  | INT UNSIGNED NOT NULL DEFAULT 0 | the remainder when it ends: recipients = sent + failed + skipped |
+| `audience` |  | VARCHAR(20) NOT NULL DEFAULT 'all' | 3.54: all \| language (the confirmed subscribers of its language) |
+| `audience_filter` |  | VARCHAR(20) NOT NULL DEFAULT '' | 3.54: '' \| customers |
+| `unsubscribed_count` |  | INT UNSIGNED NOT NULL DEFAULT 0 | 3.54: unsubscribed through its links |
 
 Keys: `PRIMARY KEY (id)`; `KEY ix_newsletters_status (status, scheduled_at)`.
 

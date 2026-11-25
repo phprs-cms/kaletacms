@@ -529,4 +529,14 @@ expect_sql_value "3.53 A2 (0141): hledani on pages and items (MEDIUMTEXT utf8mb4
 "${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '140' WHERE promenna = 'db_version'" && migrate > /dev/null
 expect_sql_value "3.53 A2 (0141): run again – nothing changes, the version is the latest again" "$(m353)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "ka_kolekce_polozky.hledani:mediumtext:utf8mb4_bin:YES,ka_stranky.hledani:mediumtext:utf8mb4_bin:YES|0|0|$LAST_MIGRATION"
 
+# 3.54 (0142): newsletter audiences and news consent – three columns on ka_newsletters (audience ascii 'all', audience_filter
+# ascii '', unsubscribed_count 0) and three on ka_odberatele (consent_text 500, consent_source 64, consent_element 16, all '');
+# every default means the behaviour before 3.54; run again from 141 (the columns there) – nothing changes, the version is the latest again
+m354() { "${MYSQL[@]}" "$OLD" -N -e "SELECT GROUP_CONCAT(CONCAT(table_name, '.', column_name, ':', column_type, ':', COALESCE(character_set_name, '-'), ':', is_nullable, ':', COALESCE(column_default, 'NULL')) ORDER BY table_name, column_name SEPARATOR ',')
+  FROM information_schema.columns WHERE table_schema = DATABASE() AND ((table_name = 'ka_newsletters' AND column_name IN ('audience', 'audience_filter', 'unsubscribed_count')) OR (table_name = 'ka_odberatele' AND column_name IN ('consent_text', 'consent_source', 'consent_element')))" | sed -E "s/'//g; s/int\(10\) unsigned/int unsigned/g"; }
+M354_COLUMNS="ka_newsletters.audience:varchar(20):ascii:NO:all,ka_newsletters.audience_filter:varchar(20):ascii:NO:,ka_newsletters.unsubscribed_count:int unsigned:-:NO:0,ka_odberatele.consent_element:varchar(16):utf8mb4:NO:,ka_odberatele.consent_source:varchar(64):utf8mb4:NO:,ka_odberatele.consent_text:varchar(500):utf8mb4:NO:"
+expect_sql_value "3.54 (0142): audience, audience_filter and unsubscribed_count on newsletters, consent_text, consent_source and consent_element on subscribers – types, character sets and defaults" "$(m354)" "$M354_COLUMNS"
+"${MYSQL[@]}" "$OLD" -e "UPDATE ka_nastaveni SET hodnota = '141' WHERE promenna = 'db_version'" && migrate > /dev/null
+expect_sql_value "3.54 (0142): run again – nothing changes, the version is the latest again" "$(m354)|$("${MYSQL[@]}" "$OLD" -N -e "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'")" "$M354_COLUMNS|$LAST_MIGRATION"
+
 [ "$ERRORS" = 0 ] && echo "VŠE V POŘÁDKU" || { echo "NALEZENO CHYB: $ERRORS"; exit 1; }
