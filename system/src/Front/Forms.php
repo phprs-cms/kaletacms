@@ -380,7 +380,7 @@ final class Forms
     {
         $build = match (true) {
             (bool) preg_match('/^stranka:(\d+)$/D', $source, $m) => Build::fromJson($db->value('SELECT stavba FROM {stranky} WHERE ids = ? AND zobrazit = 1', [(int) $m[1]])),
-            (bool) preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/D', $source, $m) && isset(SiteParts::TYPES[$m[1]]) => SiteParts::build($db, $m[1], $m[2], false, $m[3] ?? ''),
+            ($part = SiteParts::parseSource($source)) !== null => SiteParts::build($db, $part[0], $part[1], false, $part[2]),
             (bool) preg_match('/^kolekce:(\d+)$/D', $source, $m) => self::templateBuild($db, false, (int) $m[1], $language),
             // a form in the category template of a collection (3.7)
             (bool) preg_match('/^kategorie:(\d+)$/D', $source, $m) => self::templateBuild($db, true, (int) $m[1], $language),

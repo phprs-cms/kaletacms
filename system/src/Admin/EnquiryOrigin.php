@@ -191,14 +191,15 @@ final class EnquiryOrigin
                 'builder' => $app->url($admin . 'popups&action=builder&id=' . (int) $popup['idpp']) . $anchor($element($popup['stavba'], $popup['stavba_koncept'])),
                 'settings' => $app->url($admin . 'popups&action=edit&id=' . (int) $popup['idpp'])];
         }
-        if (preg_match('/^cast:([a-z]+):([a-z]{0,2})(?::([a-z0-9-]{1,40}))?$/D', $source, $m)) {
-            if (!$auth->isAdmin() || !isset(\Kaleta\Builder\SiteParts::TYPES[$m[1]])) {
+        $part = \Kaleta\Builder\SiteParts::parseSource($source);
+        if ($part !== null) {
+            if (!$auth->isAdmin()) {
                 return null;
             }
-            $part = $db->one('SELECT stavba, stavba_koncept FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta = ?', [$m[1], $m[2], $m[3] ?? '']);
+            $row = $db->one('SELECT stavba, stavba_koncept FROM {casti} WHERE typ = ? AND jazyk = ? AND varianta = ?', [$part[0], $part[1], $part[2]]);
 
-            return ['form' => $form, 'kind' => 'part', 'title' => t(\Kaleta\Builder\SiteParts::TYPES[$m[1]][0]),
-                'builder' => $app->url($admin . 'parts&action=builder&' . http_build_query(['type' => $m[1], 'language' => $m[2], 'variant' => $m[3] ?? ''])) . $anchor($part === null ? '' : $element($part['stavba'], $part['stavba_koncept'])),
+            return ['form' => $form, 'kind' => 'part', 'title' => t(\Kaleta\Builder\SiteParts::TYPES[$part[0]][0]),
+                'builder' => $app->url($admin . 'parts&action=builder&' . http_build_query(['type' => $part[0], 'language' => $part[1], 'variant' => $part[2]])) . $anchor($row === null ? '' : $element($row['stavba'], $row['stavba_koncept'])),
                 'settings' => null];
         }
 

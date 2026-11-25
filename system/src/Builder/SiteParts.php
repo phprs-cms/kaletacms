@@ -26,6 +26,26 @@ final class SiteParts
 
     public const string VARIANT_PATTERN = '/^[a-z0-9][a-z0-9-]{0,39}$/D';
 
+    /**
+     * 3.54 review: the build source of a site part as Front\Kernel writes it – cast:<type>:<language>[:<variant>] – read
+     * back as [type, language, variant], or null. The language is any offered code ('' = the default one), the long
+     * ones too (en-gb, pt-br, zh-hant – a two-letter pattern never found a form or a consent in their header or footer).
+     *
+     * @return array{0: string, 1: string, 2: string}|null
+     */
+    public static function parseSource(string $source): ?array
+    {
+        if (preg_match('/^cast:([a-z]+):(' . \Kaleta\Core\Language::TAG . ')?(?::([a-z0-9-]{1,40}))?$/D', $source, $m) !== 1 || !isset(self::TYPES[$m[1]])) {
+            return null;
+        }
+        $language = $m[2] ?? '';
+        if ($language !== '' && !\Kaleta\Core\Language::isOffered($language)) {
+            return null;
+        }
+
+        return [$m[1], $language, $m[3] ?? ''];
+    }
+
     /** @return array<string, mixed>|null row of the part (variant '' = the default version) */
     public static function row(Db $db, string $type, string $language, string $variant = ''): ?array
     {
