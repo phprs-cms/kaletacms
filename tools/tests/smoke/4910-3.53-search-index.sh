@@ -4,10 +4,10 @@ s910_null() { sq "SELECT CONCAT((SELECT COUNT(*) FROM ka_stranky WHERE hledani I
 s910_complete() { (cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $r = Kaleta\Core\SearchIndex::complete($app->db(), (float) $argv[1]); echo ($r["pages"] + $r["items"] + $r["news"]), "|", $r["left"] ? "left" : "done";' -- "$1"); }
 s910_poison_log() { grep -c 'Array to string conversion in system/src/Core/SearchIndex.php' "$WORK/web/storage/log/chyby.log" 2>/dev/null || true; }
 
-expect "3.53 A2: migration 0141 – hledani on pages and items is MEDIUMTEXT utf8mb4_bin NULL, no FULLTEXT left on the news, database version 141" \
+expect "3.53 A2: migration 0141 – hledani on pages and items is MEDIUMTEXT utf8mb4_bin NULL, no FULLTEXT left on the news, database version 141 or later (3.54: 142)" \
   "$(sq "SELECT CONCAT((SELECT GROUP_CONCAT(CONCAT(TABLE_NAME, ':', DATA_TYPE, ':', COLLATION_NAME, ':', IS_NULLABLE) ORDER BY TABLE_NAME) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('ka_stranky', 'ka_kolekce_polozky') AND COLUMN_NAME = 'hledani'), '|',
-    (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_novinky' AND INDEX_TYPE = 'FULLTEXT'), '|', (SELECT hodnota FROM ka_nastaveni WHERE promenna = 'db_version'))")" \
-  "ka_kolekce_polozky:mediumtext:utf8mb4_bin:YES,ka_stranky:mediumtext:utf8mb4_bin:YES|0|141"
+    (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ka_novinky' AND INDEX_TYPE = 'FULLTEXT'), '|', (SELECT CAST(hodnota AS UNSIGNED) >= 141 FROM ka_nastaveni WHERE promenna = 'db_version'))")" \
+  "ka_kolekce_polozky:mediumtext:utf8mb4_bin:YES,ka_stranky:mediumtext:utf8mb4_bin:YES|0|1"
 
 # a builder page whose text column is older than its build, an item with fields of every kind, a Cyrillic news item, and an
 # item of a collection whose field definition cannot be read (a poison row: its text throws)

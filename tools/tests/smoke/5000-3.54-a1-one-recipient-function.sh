@@ -35,7 +35,7 @@ s354_fixture() {
 }
 s354_settings_save 5000
 S5000_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-features +newsletter +jazyky +customers +pipeline
+features +newsletter +jazyky +customers +pipeline -quotes
 s354_sending_site
 s354_fixture
 
@@ -62,9 +62,9 @@ S5000_REFUSED=$(s354_php '$try = function (callable $f): string { try { $f(); re
     $db->run("UPDATE {newsletters} SET audience = ? WHERE id = ?", ["everyone", $id]);
     echo $try(fn () => Mailing::send($app, $id)), "|", $db->value("SELECT CONCAT(status, \"/\", (SELECT COUNT(*) FROM {newsletter_queue} WHERE newsletter_id = ?)) FROM {newsletters} WHERE id = ?", [$id, $id]), "|";
     $id2 = Mailing::save($app, ["subject" => "S354 customers off", "news_mode" => "none", "customers_only" => "true"]);
-    Kaleta\Core\Extensions::save($app->settings(), array_values(array_diff(Kaleta\Core\Extensions::enabled($app->settings()), ["pipeline"])));
+    Kaleta\Core\Extensions::save($app->settings(), array_values(array_diff(Kaleta\Core\Extensions::enabled($app->settings()), ["pipeline", "quotes"])));
     echo $try(fn () => Mailing::send($app, $id2, null, 99)), "|", Mailing::recipientCount($app, (array) Mailing::byId($db, $id2));')
-expect "3.54 A1: a typo is refused at the save; an unknown stored audience and customers with the pipeline off refuse the send (a draft, no queue rows) and count nobody" \
+expect "3.54 A1: a typo is refused at the save; an unknown stored audience and customers with the pipeline and quotes off refuse the send (a draft, no queue rows) and count nobody" \
   "$S5000_REFUSED" "audience must be all or language.|The newsletter has an unknown audience – choose who it goes to again.|draft/0|Only customers needs the sales pipeline or quotes switched on in Extensions – switch one on, or send to everyone in the audience.|0"
 
 # the suite shares one database: the newsletters started here never go out (cancelled, queue gone), the settings come back

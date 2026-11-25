@@ -1,7 +1,7 @@
 echo "== 3.54 A1: the customers of a newsletter are the contacts of the testimonial rule; the contacts job links the confirmed subscribers it passed"
 s354_settings_save 5010
 S5010_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-features +newsletter +jazyky +customers +pipeline
+features +newsletter +jazyky +customers +pipeline -quotes
 s354_sending_site
 s354_fixture
 

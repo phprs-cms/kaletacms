@@ -1,7 +1,7 @@
 echo "== 3.54 A2: the number confirmed is the number queued – a change starts nothing; a scheduled send with a refused or empty audience goes back to the drafts; a scheduled audience is locked; a Czech newsletter reaches Czech subscribers only"
 s354_settings_save 5020
 S5020_EXT=$(sq "SELECT hodnota FROM ka_nastaveni WHERE promenna = 'extensions'")
-features +newsletter +jazyky +customers +pipeline
+features +newsletter +jazyky +customers +pipeline -quotes
 s354_sending_site
 s354_fixture
 s5020_try() { s354_php '$try = function (callable $f): string { try { $f(); return "ok"; } catch (\InvalidArgumentException | \DomainException $e) {
@@ -49,7 +49,7 @@ expect "3.54 A2: the administration's save of the scheduled one in another langu
 # at the start (cron): nobody left in the audience, or an audience the site no longer allows → back to the drafts with the reason, never "sent"
 S5020_CUST=$(s354_php '$id = Mailing::save($app, ["subject" => "S354 customers later", "news_mode" => "none", "customers_only" => true]); Mailing::send($app, $id, "2099-01-01 08:00"); echo $id;')
 sq "UPDATE ka_odberatele SET stav = 0 WHERE email = 's354-de1@example.com'; UPDATE ka_newsletters SET scheduled_at = '$(site_time '-1 minute')' WHERE id IN ($S5020_EMPTY, $S5020_CUST)" > /dev/null
-features -pipeline
+features -pipeline -quotes
 S5020_ADMIN_MAIL=$(sq "SELECT email FROM ka_uzivatele WHERE user = 'admin'")
 sq "UPDATE ka_uzivatele SET email = 'admin@example.cz' WHERE user = 'admin'" > /dev/null # the author is told (a partial run has no address yet)
 s354_php 'Mailing::processQueue($app);' > /dev/null
