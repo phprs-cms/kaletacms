@@ -7,6 +7,8 @@ m4_call send_newsletter "{\"id\":$M4_NL}"; M4_CODE=$(m4_key confirmation)
 expect "3.39 review M4: the first send_newsletter answer carries a server-rendered summary – the subject and how many subscribers get it – and sends nothing" \
   "$(m4_key confirmation_required)|$(m4_key summary.subject)|$([ -n "$(m4_key summary.recipients)" ] && echo counted)|$(m4_key summary.when)|$(sq "SELECT status FROM ka_newsletters WHERE id = $M4_NL")" \
   "true|M4 spring offer|counted|now|draft"
+# 3.54: the summary also says who it goes to – a newsletter from before 3.54 (the column defaults) goes to everyone confirmed
+expect "3.54: the summary names the audience – everyone confirmed, not only customers" "$(m4_key summary.audience)|$(m4_key summary.customers_only)" "all|false"
 # the newsletter is edited after the user's yes: the code no longer fits, a new one comes with the new subject
 sq "UPDATE ka_newsletters SET subject = 'M4 changed after the yes' WHERE id = $M4_NL" > /dev/null
 m4_call send_newsletter "{\"id\":$M4_NL,\"confirmation\":\"$M4_CODE\"}"

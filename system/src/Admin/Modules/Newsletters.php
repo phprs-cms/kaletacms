@@ -7,6 +7,7 @@ namespace Kaleta\Admin\Modules;
 use Kaleta\Admin\Module;
 use Kaleta\Core\Language;
 use Kaleta\Core\Mailing;
+use Kaleta\Core\RecipientCountChanged;
 use Kaleta\Core\Response;
 
 /**
@@ -35,8 +36,9 @@ final class Newsletters extends Module
     {
         $last = $this->db->one('SELECT subject, preheader, intro, news_mode, news_count, button_label, button_url, language FROM {newsletters} ORDER BY id DESC LIMIT 1');
 
-        // a new one starts from the previous one's settings (the intro and button often repeat), with an empty subject
-        return $this->form(['id' => 0, 'subject' => '', 'preheader' => '', 'status' => 'draft', 'news_ids' => '', 'scheduled_at' => null]
+        // a new one starts from the previous one's settings (the intro and button often repeat), with an empty subject;
+        // 3.54: never with the previous one's audience – a new newsletter goes to everyone confirmed until the author chooses
+        return $this->form(['id' => 0, 'subject' => '', 'preheader' => '', 'status' => 'draft', 'news_ids' => '', 'scheduled_at' => null, 'audience' => 'all', 'audience_filter' => '']
             + ($last ?? ['intro' => '', 'news_mode' => 'latest', 'news_count' => 3, 'button_label' => '', 'button_url' => '', 'language' => '']));
     }
 
@@ -59,6 +61,12 @@ final class Newsletters extends Module
             'news_count' => $r->postInt('news_count', 3), 'news_ids' => is_array($_POST['news_ids'] ?? null) ? $_POST['news_ids'] : [],
             'button_label' => $r->post('button_label'), 'button_url' => $r->post('button_url'), 'language' => $r->post('language'),
         ];
+        // 3.54: who it goes to – only when the form offered the choice (a disabled picker of a scheduled one sends nothing, so it stays)
+        foreach (['audience', 'audience_filter'] as $key) {
+            if (array_key_exists($key, $_POST)) {
+                $input[$key] = $r->post($key);
+            }
+        }
         $id = $r->postInt('id');
         try {
             $id = Mailing::save($this->app, $input, $id);
@@ -102,7 +110,10 @@ final class Newsletters extends Module
             return $this->back('Sending to subscribers needs the publishing permission.', 'edit', ['id' => $id], 'chyba');
         }
         try {
-            Mailing::send($this->app, $id, $r->post('when') === 'later' ? $r->post('at') : null);
+            // 3.54 (A2): the number the form showed – a different number at the start sends nothing and the form asks again
+            Mailing::send($this->app, $id, $r->post('when') === 'later' ? $r->post('at') : null, array_key_exists('expected', $_POST) ? $r->postInt('expected') : null);
+        } catch (RecipientCountChanged $e) {
+            return $this->back(t('The number of recipients changed: was %d, now %d. Nothing was sent – check the number and send again.', $e->expected, $e->actual), 'edit', ['id' => $id], 'chyba');
         } catch (\InvalidArgumentException | \DomainException $e) {
             return $this->back(t($e->getMessage()), 'edit', ['id' => $id], 'chyba');
         }
@@ -202,6 +213,28 @@ final class Newsletters extends Module
             'confirmed' => Mailing::confirmedCount($this->db), 'problem' => Mailing::problem($this->app), 'canPublish' => $this->app->auth()->canPublish(),
             'email' => (string) ($this->app->auth()->user()['email'] ?? ''), 'warnings' => Mailing::warnings($s),
             'left' => in_array($n['status'], ['sending', 'paused'], true) ? max(0, (int) $n['recipients'] - (int) $n['sent_count'] - (int) $n['failed_count']) : 0,
-        ]);
+        ] + $this->audienceView($n));
+    }
+
+    /**
+     * 3.54: who the newsletter goes to and how many that is now (A4), or what it did (C) once it started.
+     *
+     * @param array<string, mixed> $n
+     * @return array<string, mixed>
+     */
+    private function audienceView(array $n): array
+    {
+        $s = $this->app->settings();
+        $view = ['customersAvailable' => \Kaleta\Core\Audience::customersAvailable($s), 'recipients' => 0, 'audienceProblem' => null, 'emptyAudience' => null, 'unlinked' => 0, 'results' => null];
+        if (in_array($n['status'], ['draft', 'scheduled'], true)) {
+            $view['audienceProblem'] = Mailing::audienceProblem($this->app, $n);
+            $view['recipients'] = Mailing::recipientCount($this->app, $n);
+            $view['emptyAudience'] = $view['audienceProblem'] === null && $view['recipients'] === 0 ? Mailing::emptyAudience($this->app, $n) : null;
+            $view['unlinked'] = $view['audienceProblem'] === null && ($n['audience_filter'] ?? '') === 'customers' ? Mailing::unlinkedCount($this->app, $n) : 0;
+        } else {
+            $view['results'] = Mailing::results($this->app, $n);
+        }
+
+        return $view;
     }
 }

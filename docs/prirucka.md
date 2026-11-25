@@ -416,6 +416,20 @@ se jako zákazník nepočítá.
 - **Pevné od začátku.** Kdo do publika patří, rozhodne začátek odesílání; kdo se stane zákazníkem později, newsletter
   nedostane. Obnova ze zálohy ho nikdy nerozšíří: newsletter naplánovaný dnes, jehož publikum je v záloze jiné, se vrátí
   mezi koncepty.
+- **Kde se vybírá.** V části **Komu půjde** ve formuláři newsletteru (volba jazyka na webu s více jazyky, **Jen
+  zákazníci** se zapnutými Obchody nebo Nabídkami). Nový newsletter vždy začíná všemi potvrzenými – publikum předchozího
+  nikdy nepřebírá. Po uložení ukáže **Odeslat odběratelům**, kolik to teď je a v jakém publiku; když v něm nikdo není,
+  stránka řekne proč (nikdo v tom jazyce, mezi nimi žádný zákazník, odběratelé ještě nepropojení se záznamem zákazníka),
+  a publikum, které web už nedovolí, je upozornění a Odeslat zůstane vypnuté.
+- **Přes Clauda.** `draft_newsletter` bere `audience` (all | language) a `customers_only`; nastavit je smí i připojení
+  jen pro koncepty, odesílá jen připojení s plným přístupem. Potvrzení `send_newsletter` ukáže komu a kolika a řekne,
+  když by odeslání bylo odmítnuto; váže publikum a u odeslání hned i počet – změna po souhlasu potřebuje nové potvrzení.
+
+**Co newsletter udělal (3.54).** Jakmile se newsletter začne odesílat, jeho stránka pod počty ukáže jeden řádek: kolik
+lidí se odhlásilo přes jeho odkazy (u newsletterů odeslaných verzí 3.54 a novější) a návštěvy z něj – statistiku kampaně
+jeho odkazů. Návštěvy ukážou „–“, když je zjistit nejde: statistika je vypnutá, e-mail nenesl název kampaně (méně než pět
+příjemců nebo žádný odkaz na web) nebo začal před více než 400 dny. Jen počty – nikdy kdo. Claude vidí totéž jako
+`results` v `list_newsletters`.
 
 **Online rezervace.** Se zapnutými Rezervacemi si návštěvníci objednají termín na webu prvkem **Rezervace**: vyberou
 službu, člověka a volný čas a dostanou potvrzení e-mailem s odkazem na zrušení; web jim před termínem připomene. Správce

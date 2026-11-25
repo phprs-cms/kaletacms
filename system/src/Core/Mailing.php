@@ -910,9 +910,27 @@ final class Mailing
             return $url;
         }
         [$url, $anchor] = array_pad(explode('#', $url, 2), 2, null);
-        $campaign = $recipients >= self::TAG_MIN ? '&utm_campaign=' . rawurlencode(slugify($subject, 60) . ($id > 0 ? '-n' . $id : '')) : '';
+        $campaign = $recipients >= self::TAG_MIN ? '&utm_campaign=' . rawurlencode(self::campaignName($subject, $id)) : '';
 
         return $url . (str_contains($url, '?') ? '&' : '?') . 'utm_source=newsletter&utm_medium=email' . $campaign . ($anchor !== null ? '#' . $anchor : '');
+    }
+
+    /** The campaign name of a newsletter's links (utm_campaign): the subject's slug and its number. */
+    public static function campaignName(string $subject, int $id): string
+    {
+        return slugify($subject, 60) . ($id > 0 ? '-n' . $id : '');
+    }
+
+    /**
+     * 3.54 (C): what the newsletter did – sent, failed, skipped, unsubscribed through its links and visits from it (null
+     * when they cannot be known). Core\NewsletterResults.
+     *
+     * @param array<string, mixed> $n
+     * @return array{sent: int, failed: int, skipped: int, unsubscribed: int, visits: ?int}
+     */
+    public static function results(App $app, array $n): array
+    {
+        return NewsletterResults::of($app, $n);
     }
 
     /** Absolute URL of an image from Media; the 1200 px variant when there is one (e-mail is 600 px wide, sharp on retina). */

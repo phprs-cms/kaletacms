@@ -1575,4 +1575,7 @@ return [
     'The newsletter has an unknown audience – choose who it goes to again.' => 'Der Newsletter hat eine unbekannte Zielgruppe – wähle erneut, an wen er geht.',
     'The newsletter has an unknown audience filter – choose who it goes to again.' => 'Der Newsletter hat eine unbekannte Eingrenzung der Zielgruppe – wähle erneut, an wen er geht.',
     'Only customers needs the sales pipeline or quotes switched on in Extensions – switch one on, or send to everyone in the audience.' => '„Nur Kunden“ braucht die Vertriebspipeline oder Angebote unter Erweiterungen – schalte eines davon ein oder sende an alle in der Zielgruppe.',
+    'The number of recipients changed: was %d, now %d. Nothing was sent – check the number and send again.' => 'Die Zahl der Empfänger hat sich geändert: vorher %d, jetzt %d. Es wurde nichts versendet – prüfe die Zahl und sende erneut.',
+    'A scheduled newsletter keeps who it goes to – cancel scheduling to change it.' => 'Ein geplanter Newsletter behält seine Empfänger – brich die Planung ab, um sie zu ändern.',
+    'The number of recipients is shown under Send to subscribers after you save.' => 'Die Zahl der Empfänger siehst du nach dem Speichern unter An Abonnenten senden.',
 ];

@@ -265,6 +265,7 @@ final class Server
                 throw $e;
             } finally {
                 $db->journal = null;
+                Confirmation::remember(null); // 3.54: what the gate validated belongs to this one call
             }
             if ($writes) {
                 if (in_array($tool, \Kaleta\Core\Guardrails::COUNTED_AFTER, true)) {
@@ -315,7 +316,10 @@ final class Server
         // 3.39 review M4: a newsletter's or quote's content is bound too – an edit after the user's yes needs a new code
         $content = Confirmation::content($this->app, $tool, $arguments);
         $bound = $content !== null ? ["\0content" => $content['fingerprint']] + $arguments : $arguments; // the server's value wins over any argument of that name
+        Confirmation::remember(null);
         if ($code !== '' && Confirmation::valid($key, $code, $tool, $user, $connection, $bound, $now) && Confirmation::claim($this->app->db(), $code, $user)) {
+            Confirmation::remember($tool, $arguments, $content); // 3.54: the handler sends with the number this summary showed
+
             return null;
         }
 

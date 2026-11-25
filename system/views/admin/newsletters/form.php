@@ -15,6 +15,12 @@
  * @var string $email the signed-in user's address for the test
  * @var list<string> $warnings 3.51: what may hurt the delivery (SPF, DMARC, a connected mailing service) – not a refusal
  * @var int $left 3.51: e-mails of a send under way or paused not sent yet
+ * @var bool $customersAvailable 3.54: the pipeline or quotes is on, so a newsletter can go to customers only
+ * @var int $recipients 3.54: the newsletter's audience now (draft or scheduled)
+ * @var ?string $audienceProblem 3.54: why its audience cannot be sent to (an unknown value, customers with both features off)
+ * @var ?string $emptyAudience 3.54: why nobody is in its audience
+ * @var int $unlinked 3.54: confirmed subscribers of a customers audience not linked to a customer record yet
+ * @var array{sent: int, failed: int, skipped: int, unsubscribed: int, visits: ?int}|null $results 3.54: what a started one did
  */
 use Kaleta\Core\Language;
 use Kaleta\Core\Mailing;
@@ -22,6 +28,12 @@ use Kaleta\Core\Mailing;
 $id = (int) $n['id'];
 $editable = in_array($n['status'], ['draft', 'scheduled'], true);
 $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
+// 3.54: who it goes to, in words – the language for the audience "language", "customers" for the filter
+$audience = (string) ($n['audience'] ?? 'all');
+$customersOnly = ($n['audience_filter'] ?? '') === 'customers';
+$languageCode = (string) $n['language'] !== '' ? (string) $n['language'] : Language::defaults($app->settings());
+$who = implode(', ', array_filter([$audience === 'language' ? (Language::AVAILABLE[$languageCode][0] ?? $languageCode) : '', $customersOnly ? t('customers') : '']));
+$countText = ($who !== '' ? t('%d confirmed subscribers (%s).', $recipients, $who) : t('%d confirmed subscribers.', $recipients)) . ' ' . t('Addresses on the list we do not write to are skipped.');
 ?>
 <?php if (in_array($n['status'], ['sending', 'paused', 'sent', 'cancelled'], true)): ?>
 <div class="hlaska<?= $n['status'] === 'paused' ? ' hlaska-varovani' : '' ?>">
@@ -34,6 +46,12 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php endif ?>
 <?php if (in_array($n['status'], ['sent', 'cancelled'], true) && (int) ($n['skipped_count'] ?? 0) > 0): ?>
 	<p class="napoveda"><?= e(t('Skipped: unsubscribed in the meantime, on the list of addresses we do not write to, or not sent because the newsletter was cancelled.')) ?></p>
+<?php endif ?>
+<?php if ($results !== null): ?>
+	<p><?= e(t('Unsubscribed through this newsletter')) ?>: <?= $results['unsubscribed'] ?> · <?= e(t('Visits from it')) ?>: <?= $results['visits'] ?? '–' ?></p>
+<?php if ($results['visits'] === null): ?>
+	<p class="napoveda"><?= e(t('Visits are counted when the statistics are on and the e-mail carries a campaign name (from five recipients, with a link to the site); they are kept 400 days.')) ?></p>
+<?php endif ?>
 <?php endif ?>
 </div>
 <?php if ($canPublish && in_array($n['status'], ['sending', 'paused'], true)): ?>
@@ -87,7 +105,29 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php foreach ($languages as $code): ?>
 	<option value="<?= e($code) ?>"<?= ($n['language'] !== '' ? $n['language'] : $languages[0]) === $code ? ' selected' : '' ?>><?= e(Language::AVAILABLE[$code][0] ?? $code) ?></option>
 <?php endforeach ?>
-</select><span class="napoveda"><?= e(t('The language of the footer texts and of the latest news items.')) ?></span></div></div>
+</select><span class="napoveda"><?= e(t('The language of the footer texts and of the latest news items – and of the subscribers, when it goes to this language only.')) ?></span></div></div>
+<?php endif ?>
+<?php
+// 3.54 (A4): who gets it – everyone confirmed, or the subscribers of its language (a multilingual site), optionally customers
+// only (the pipeline or quotes on); a stored choice the site no longer offers stays visible, so it can be changed back
+$audienceChoice = $languages !== [] || $audience === 'language';
+$customersChoice = $customersAvailable || $customersOnly;
+$locked = $n['status'] === 'scheduled';
+?>
+<?php if ($audienceChoice || $customersChoice): ?>
+<div class="radek"><span class="popisek"><?= e(t('Who gets it')) ?></span><div class="volby volby-pod-sebou">
+<?php if ($audienceChoice): ?>
+<?php foreach (Mailing::AUDIENCES as $value => $label): ?>
+	<label><input type="radio" name="audience" value="<?= e($value) ?>"<?= $audience === $value ? ' checked' : '' ?><?= $locked ? ' disabled' : '' ?>> <?= e(t($label)) ?></label>
+<?php endforeach ?>
+<?php endif ?>
+<?php if ($customersChoice): ?>
+<?php if (!$locked): ?><input type="hidden" name="audience_filter" value=""><?php endif ?>
+	<label><input type="checkbox" name="audience_filter" value="customers"<?= $customersOnly ? ' checked' : '' ?><?= $locked ? ' disabled' : '' ?>> <?= e(t('Only customers')) ?> <span class="napoveda"><?= e(t('A won deal or a quote the customer accepted.')) ?></span></label>
+<?php endif ?>
+<span class="napoveda"><?= e(t($locked ? 'A scheduled newsletter keeps who it goes to – cancel scheduling to change it.' : 'The number of recipients is shown under Send to subscribers after you save.'))
+    . ($audienceChoice ? ' ' . e(t('Subscribers from before version 3.51 whose language is not known belong to the default language.')) : '') ?></span>
+</div></div>
 <?php endif ?>
 <p class="tlacitka"><input class="tl" type="submit" value="<?= e(t('Save draft')) ?>">
 <?php if ($email !== ''): ?>
@@ -101,6 +141,16 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <iframe class="rozesilka-nahled" src="<?= e($module->url('preview', ['id' => $id])) ?>" title="<?= e(t('Preview of the e-mail')) ?>" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
 <?php if ($editable): ?>
 <h2><?= e(t('Send to subscribers')) ?></h2>
+<?php if ($audienceProblem !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(t($audienceProblem)) ?></p>
+<?php elseif ($emptyAudience !== null): ?>
+<p class="hlaska hlaska-varovani"><?= e(t($emptyAudience)) ?></p>
+<?php else: ?>
+<p><?= e($countText) ?><?= $n['status'] === 'scheduled' ? ' ' . e(t('Counted now – it is counted again when it starts.')) : '' ?></p>
+<?php endif ?>
+<?php if ($unlinked > 0): ?>
+<p class="napoveda"><?= e(t('%d confirmed subscribers of the audience are not linked to a customer record yet, so they do not count as customers – that happens within a few minutes.', $unlinked)) ?></p>
+<?php endif ?>
 <?php if ($n['status'] === 'scheduled'): ?>
 <p><?= e(t('Scheduled for %s – the latest news items are taken at that moment.', format_date((string) $n['scheduled_at'], true))) ?></p>
 <?php if ($canPublish): ?>
@@ -112,14 +162,16 @@ $chosen = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])
 <?php foreach ($warnings as $warning): ?>
 <p class="hlaska hlaska-varovani"><?= e(t($warning)) ?></p>
 <?php endforeach ?>
-<form class="formular" method="post" action="<?= e($module->url('send')) ?>" data-potvrdit="<?= e(t('Send the newsletter to %d confirmed subscribers? Save your changes first – the saved version goes out.', $confirmed)) ?>">
+<form class="formular" method="post" action="<?= e($module->url('send')) ?>" data-potvrdit="<?= e(t('Send the newsletter to %d confirmed subscribers? Save your changes first – the saved version goes out.', $recipients)) ?>">
 <?= $csrf ?>
 <input type="hidden" name="id" value="<?= $id ?>">
+<input type="hidden" name="expected" value="<?= $recipients ?>">
 <div class="radek"><span class="popisek"><?= e(t('When')) ?></span><div class="volby">
 	<label><input type="radio" name="when" value="now" checked> <?= e(t('now')) ?></label>
 	<label><input type="radio" name="when" value="later"> <?= e(t('at')) ?> <span data-aktivni-kdyz="when=later"><input class="textpole" type="datetime-local" name="at" aria-label="<?= e(t('Date and time of sending')) ?>"></span></label>
+<span class="napoveda"><?= e(t('A scheduled newsletter is counted again when it starts; with nobody in its audience then, it goes back to the drafts.')) ?></span>
 </div></div>
-<p class="tlacitka"><button class="tl" type="submit"<?= $problem !== null || $confirmed === 0 ? ' disabled' : '' ?>><?= e(t('Send to %d subscribers', $confirmed)) ?></button></p>
+<p class="tlacitka"><button class="tl" type="submit"<?= $problem !== null || $recipients === 0 ? ' disabled' : '' ?>><?= e(t('Send to %d subscribers', $recipients)) ?></button></p>
 </form>
 <?php endif ?>
 <?php endif ?>

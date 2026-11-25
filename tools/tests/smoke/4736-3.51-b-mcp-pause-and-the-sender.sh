@@ -15,6 +15,7 @@ expect "3.51 MCP: sending still needs the code; pause: true stops the send at on
 mcp_call "$B736_TOKEN" list_newsletters '{}' > "$WORK/response"
 expect "3.51 MCP: list_newsletters – a paused one has paused_at, pause_reason, cancel_on and its counts; warnings is a list" \
   "$(b736_value newsletters 0 pause_reason)|$([ -n "$(b736_value newsletters 0 paused_at)" ] && [ -n "$(b736_value newsletters 0 cancel_on)" ] && echo dates)|$(b736_value newsletters 0 recipients)|$(b736_value warnings)" "manual|dates|2|[]"
+expect "3.54 C: the paused one also has its results line – nobody unsubscribed through it, visits unknown (no campaign name for two recipients)" "$(b736_value newsletters 0 results)" '{"unsubscribed":0,"visits":null}'
 mcp_call "$B736_TOKEN" send_newsletter "{\"id\":$B736_NL,\"pause\":true,\"at\":\"2099-01-01 08:00\"}" > "$WORK/response"
 expect "3.51 MCP: pause together with at needs a code and is then refused – choose one" "$(grep -c 'Choose one' "$WORK/response")|$(b351_db "SELECT CONCAT(status, '|', scheduled_at IS NULL) FROM ka_newsletters WHERE id = $B736_NL")" "1|paused|1"
 b351_db "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('newsletter_service', 'brevo')"; mcp_call "$B736_TOKEN" list_newsletters '{}' > "$WORK/response"; b351_db "UPDATE ka_nastaveni SET hodnota = '' WHERE promenna = 'newsletter_service'"
