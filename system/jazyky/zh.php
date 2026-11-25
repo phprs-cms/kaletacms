@@ -2181,6 +2181,6 @@ return [
     'Showing the best %1$s of %2$s.' => '显示最佳的 %1$s 项，共 %2$s 项。',
     'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => '我希望通过电子邮件接收新闻和优惠。我们会发送确认链接；您可以随时退订。',
     'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => '我们只会发送新闻和优惠。我们会通过电子邮件发送确认订阅的链接；您可以通过每封邮件中的链接一键退订。',
-    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => '您也可以在我们的表单中勾选可选的复选框来订阅，该复选框从不预先勾选；作为您同意的证明，我们会在您订阅期间保留其措辞以及您表示同意的页面。',
+    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it until you unsubscribe (for 30 days if you never confirm the subscription). The enquiry sent with the form also notes that you ticked the box; that note is kept as long as the enquiry.' => '您也可以在我们的表单中勾选可选的复选框来订阅，该复选框从不预先勾选；作为您同意的证明，我们会保留其措辞以及您表示同意的页面，直到您退订为止（如果您从未确认订阅，则保留 30 天）。通过表单发送的咨询也会记录您勾选了该复选框，该记录的保留期限与咨询相同。',
     'Some pages are still being indexed and may be missing.' => '部分页面仍在建立索引，可能未出现在结果中。',
 ];

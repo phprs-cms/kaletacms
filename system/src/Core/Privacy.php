@@ -476,7 +476,7 @@ final class Privacy
                 t('Data: e-mail address, date and language of the sign-up%s.', $s->bool('lead_attribution') ? ', ' . t('the first page of the visit and its campaign (with consent to marketing)') : ''),
                 t('Legal basis: consent (Art. 6(1)(a)); every e-mail carries an unsubscribe link.'),
                 // 3.54: the proof stored with each sign-up (Front\Subscription::request) and a form's news consent – pending the owner's review
-                t('Proof of consent: the wording the person agreed to and the page and form (or sign-up element) where they gave it – kept while they are subscribed and deleted with the subscription. Forms may offer an optional news consent box, never ticked in advance; a tick only sends the confirmation e-mail.'),
+                t('Proof of consent: the wording the person agreed to and the page and form (or sign-up element) where they gave it – stored with the sign-up request and deleted when they unsubscribe, or after 30 days if they never confirm. Forms may offer an optional news consent box, never ticked in advance; a tick only sends the confirmation e-mail, and the enquiry notes that the box was ticked for as long as the enquiry is kept.'),
                 ...(Extensions::isEnabled($s, 'pipeline') || Extensions::isEnabled($s, Prices::EXTENSION)
                     ? [t('The subscription is combined with the customer records (won deals, accepted quotes) to choose which subscribers a newsletter goes to.')] : []),
                 // 3.51 (Core\SendRegister) – default wording, pending legal review (plan/texty-pravnik-351.md, text 6)

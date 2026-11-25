@@ -462,7 +462,7 @@ final class Library
             $service = (\Kaleta\Core\Newsletter::SERVICES[$get('newsletter_service')][1] ?? false) ? \Kaleta\Core\Newsletter::SERVICES[$get('newsletter_service')][0] : '';
             $html .= $o('Newsletter', $x('If you subscribe to our newsletter, we keep your e-mail address and the time of your consent. You confirm the subscription in an e-mail (double opt-in) and can unsubscribe with one click in every newsletter; after that we delete the address.'),
                 // 3.54: the proof stored with a sign-up and the optional box in forms (new sites only – existing ones add it themselves)
-                $x('You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.'),
+                $x('You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it until you unsubscribe (for 30 days if you never confirm the subscription). The enquiry sent with the form also notes that you ticked the box; that note is kept as long as the enquiry.'),
                 $service !== '' ? $x('We send the newsletter through %s, who processes the addresses for us.', $service) : '');
         }
         $webhook = (string) parse_url($get('webhook_enquiries'), PHP_URL_HOST);
