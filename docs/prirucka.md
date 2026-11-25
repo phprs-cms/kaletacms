@@ -281,6 +281,11 @@ reCAPTCHA v3 nebo Cloudflare Turnstile (2.6): skript poskytovatele se načte jen
 na serveru, tajný klíč neopustí administraci a jednotlivý formulář jde z kontroly vyjmout v jeho nastavení.
 Novou poptávku umí web poslat i do CRM nebo Make/Zapier (Nastavení → Webhooky → Webhook nové poptávky); měření
 konverzí dostane událost `kaleta:odeslano` (a záznam do `dataLayer`).
+Se zapnutou funkcí Newsletter může formulář nabídnout i **novinky e-mailem** (3.54): napište znění do **Souhlas se
+zasíláním novinek e-mailem** a formulář ukáže nad tlačítkem ještě jedno zaškrtávací políčko – nikdy předem zaškrtnuté,
+nikdy povinné, oddělené od souhlasu se zpracováním. Zaškrtnutí jen pošle potvrzovací e-mail (double opt-in); viz *Souhlas
+s novinkami ve formuláři* u Newsletteru. Formulář pro uchazeče o práci ho nikdy nenabízí a formulář bez pole pro e-mail
+dostane před publikováním upozornění.
 
 **Google Tag Manager** (Nastavení → Měření, 2.6): zadejte ID kontejneru (`GTM-…`). Režim souhlasu je vestavěný – s vestavěnou
 cookie lištou se kontejner spustí, až návštěvník povolí analytické nebo marketingové cookies. Kaleta posílá do datové vrstvy
@@ -368,6 +373,18 @@ přihlášená a přeskakuje se, dokud správce nestiskne **Zrušit nedoručitel
 stiskl „Nepište mi“, **odmítl**: nedojde mu žádný newsletter ani žádost a vrátí ho jen jeho vlastní nové potvrzené
 přihlášení (potvrzovací e-mail na takovou adresu odejde nejvýš jednou týdně). Registr drží jednosměrný otisk, nikdy
 adresu; výmaz osobních údajů ho ponechá, aby se člověku už nepsalo (3.51).
+
+**Souhlas s novinkami ve formuláři a doklad souhlasu (3.54).** Formulář s vyplněným **Souhlasem se zasíláním novinek
+e-mailem** (viz Formuláře a poptávky) sám nikoho nepřihlásí: zaškrtnutí uloží adresu jako nepotvrzenou a pošle stejný
+potvrzovací e-mail jako prvek Odběr novinek; odběratelem je člověk až po kliknutí na odkaz. Z formuláře nedostane nic
+adresa, která už odběr potvrdila, adresa ze seznamu adres, na které nepíšeme (nedoručitelná nebo odmítla), nedostane
+e-mail ani záznam a nepotvrzená adresa dostane potvrzovací e-mail nejvýš jednou týdně – vlastní cestou zpět zůstává
+prvek Odběr novinek. Poptávka si zaškrtnutí ponechá jako jeden řádek souhlasu. Každé přihlášení od 3.54 si nese **doklad**:
+znění, které člověk viděl (souhlas formuláře, nebo text pod polem prvku Odběr novinek, jak ho má publikovaná stránka),
+stránku a formulář nebo prvek. **Odběratelé** ho ukážou u každého řádku pod **Souhlas**, export CSV přidá tři sloupce
+a export osobních údajů ho obsahuje; drží se po dobu odběru a odchází spolu s ním. Přihlášení z doby před 3.54 uložené
+znění nemá a obrazovka to řekne. Šablona zásad ochrany osobních údajů nového webu políčko a doklad zmíní; na existujícím
+webu tu větu doplňte sami. Odhlášení odkazem z newsletteru se tomu newsletteru započítá.
 
 **Odesílání: pozastavení, brzda a co nese patička.** Rozeslaný newsletter jde pozastavit, obnovit nebo zrušit, sám se
 pozastaví, když odesílání opakovaně selhává, a jeho patička uvádí odesílatele – název firmy a poštovní adresu z Údajů

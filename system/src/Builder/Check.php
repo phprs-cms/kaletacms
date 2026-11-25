@@ -40,6 +40,11 @@ final class Check
                 } elseif ($type === 'obrazek' && ($o['alt'] ?? '') === '' && !$tags($o['src'])) {
                     $findings[] = ['id' => $id, 'zprava' => t('The image has no description for blind visitors (alt).')];
                 }
+                // 3.54: a news consent needs an e-mail field – without one a tick subscribes nobody (Front\Forms)
+                if ($type === 'formular' && trim(is_string($o['souhlas_novinky'] ?? null) ? $o['souhlas_novinky'] : '') !== ''
+                    && !in_array('email', array_column(array_filter(is_array($o['pole'] ?? null) ? $o['pole'] : [], 'is_array'), 'typ'), true)) {
+                    $findings[] = ['id' => $id, 'zprava' => t('The form offers news by e-mail but has no e-mail field – nobody can subscribe from it. Add an e-mail field.')];
+                }
                 // a heading with the p tag (big number, label) does not belong in the outline
                 if ($type === 'nadpis' && preg_match('/^h([1-6])$/', (string) ($p['znacka'] ?? 'h2'), $m)) {
                     $outline[] = [$id, (int) $m[1], self::text($o['text'] ?? '')];

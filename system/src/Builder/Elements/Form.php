@@ -164,6 +164,12 @@ final class Form extends Element
             'ucel' => ['typ' => 'vyber', 'popisek' => 'Purpose', 'vychozi' => '', 'moznosti' => ['' => 'Enquiry', \Kaleta\Core\Applications::PURPOSE => 'Job application']],
             // when filled: one more optional checkbox with this text – the consent to keep the application for future openings
             'souhlas_uchovani' => ['typ' => 'text', 'popisek' => 'Consent to keep the application for future openings (empty = not offered)', 'vychozi' => '', 'max' => 500],
+            // 3.54: when filled (and the Newsletter feature is on), one more optional checkbox above the button – the consent to
+            // news by e-mail: never ticked in advance, never required, apart from the consent to processing; a tick sends the
+            // confirmation e-mail (double opt-in, Front\Subscription::request) and its wording is stored as the proof. The editor
+            // suggests the wording (priklad) but never stores it: the consent stays off until the author writes it.
+            'souhlas_novinky' => ['typ' => 'text', 'popisek' => 'Consent to news by e-mail (empty = not offered; a tick sends a link to confirm the subscription)', 'vychozi' => '', 'max' => 500,
+                'priklad' => t('I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.')],
         ];
     }
 
@@ -327,6 +333,7 @@ final class Form extends Element
             . $antispam->fields('formular|' . $k->source . '|' . $p['id'])
             . $html
             . self::poolConsent($o, $p['id'])
+            . self::newsConsent($o, $p['id'], $k)
             . (empty($o['bez_captcha']) ? self::captcha($k) : '')
             . '<p class="ka-pole"><button class="ka-tlacitko ka-tlacitko--primarni" type="submit">' . e($o['tlacitko']) . '</button></p></form>';
     }
@@ -342,6 +349,38 @@ final class Form extends Element
         $text = trim(is_string($content['souhlas_uchovani'] ?? null) ? $content['souhlas_uchovani'] : '');
 
         return $text === '' ? '' : '<p class="ka-pole ka-pole-souhlas"><label for="f-' . e($element) . '-pool"><input type="checkbox" id="f-' . e($element) . '-pool" name="ka_pool" value="1"> <span>' . e($text) . '</span></label></p>';
+    }
+
+    /**
+     * 3.54: the text of a form's news consent when it is offered: filled in, the Newsletter feature on, and not a job
+     * application form (Applications::isOn + isApplicationForm – the same predicate Front\Forms uses; that branch never
+     * subscribes); '' otherwise. The renderer and the server both ask here, so a box is processed exactly where it is shown.
+     *
+     * @param array<string, mixed> $content the Form element's content
+     */
+    public static function newsConsentText(\Kaleta\Core\App $app, array $content, string $source): string
+    {
+        $text = trim(is_string($content['souhlas_novinky'] ?? null) ? $content['souhlas_novinky'] : '');
+        if ($text === '' || !\Kaleta\Core\Extensions::isEnabled($app->settings(), 'newsletter')) {
+            return '';
+        }
+        $application = \Kaleta\Core\Applications::isOn($app->settings())
+            && \Kaleta\Core\Applications::isApplicationForm($content, $source, \Kaleta\Core\Jobs::sources($app->db()));
+
+        return $application ? '' : mb_substr($text, 0, 500);
+    }
+
+    /**
+     * 3.54: the news consent checkbox (ka_news) – unticked, never required, outside the field list (no Required switch, no
+     * condition, no summary row); '' when the form does not offer it (newsConsentText).
+     *
+     * @param array<string, mixed> $content
+     */
+    private static function newsConsent(array $content, string $element, Context $k): string
+    {
+        $text = self::newsConsentText($k->app, $content, $k->source);
+
+        return $text === '' ? '' : '<p class="ka-pole ka-pole-souhlas"><label for="f-' . e($element) . '-news"><input type="checkbox" id="f-' . e($element) . '-news" name="ka_news" value="1"> <span>' . e($text) . '</span></label></p>';
     }
 
     /**

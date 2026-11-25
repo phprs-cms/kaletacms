@@ -3331,4 +3331,7 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov, nebo některou z hlavních stránek:',
     'Nothing found. Try other or fewer words.' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov.',
     'Showing the best %1$s of %2$s.' => 'Zobrazeno nejlepších %1$s z %2$s.',
+    'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Chci dostávat novinky a nabídky e-mailem. Pošleme vám odkaz k potvrzení; odhlásit se můžete kdykoli.',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Pošleme vám jen novinky a nabídky. E-mailem vám pošleme odkaz k potvrzení odběru; odhlásit se můžete jedním kliknutím v každém e-mailu.',
+    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'K odběru se můžete přihlásit také zaškrtnutím nepovinného políčka v našich formulářích, které nikdy není předem zaškrtnuté; jako doklad souhlasu uchováváme jeho znění a stránku, na které jste ho udělili, a to po celou dobu odběru.',
 ];

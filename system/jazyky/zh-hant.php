@@ -2179,4 +2179,7 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => '找不到內容。請嘗試其他或更少的詞語，或前往以下主要頁面：',
     'Nothing found. Try other or fewer words.' => '找不到內容。請嘗試其他或更少的詞語。',
     'Showing the best %1$s of %2$s.' => '顯示最佳的 %1$s 項，共 %2$s 項。',
+    'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => '我希望透過電子郵件接收最新消息與優惠。我們會寄送確認連結；您可以隨時取消訂閱。',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => '我們只會寄送最新消息與優惠。我們會以電子郵件寄送確認訂閱的連結；您可以在每封電子郵件中一鍵取消訂閱。',
+    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => '您也可以在我們的表單中勾選選填的核取方塊來訂閱，該方塊從不預先勾選；作為您同意的證明，我們會在您訂閱期間保留其文字以及您表示同意的頁面。',
 ];

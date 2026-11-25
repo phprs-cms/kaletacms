@@ -2821,4 +2821,5 @@ return [
     'Enquiries with customers, the pipeline of deals and quotes – the daily work of a front office.' => 'Poptávky se zákazníky, obchody a nabídkami – každodenní práce kanceláře a prodeje.',
     'Choose yourself' => 'Vyberu si sám',
     'Tick the features one by one.' => 'Zaškrtněte funkce jednu po druhé.',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Pošleme vám jen novinky a nabídky. E-mailem vám pošleme odkaz k potvrzení odběru; odhlásit se můžete jedním kliknutím v každém e-mailu.',
 ];

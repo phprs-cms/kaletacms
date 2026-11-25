@@ -2179,4 +2179,7 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => '未找到内容。请尝试其他或更少的词语，或访问以下主要页面：',
     'Nothing found. Try other or fewer words.' => '未找到内容。请尝试其他或更少的词语。',
     'Showing the best %1$s of %2$s.' => '显示最佳的 %1$s 项，共 %2$s 项。',
+    'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => '我希望通过电子邮件接收新闻和优惠。我们会发送确认链接；您可以随时退订。',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => '我们只会发送新闻和优惠。我们会通过电子邮件发送确认订阅的链接；您可以通过每封邮件中的链接一键退订。',
+    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => '您也可以在我们的表单中勾选可选的复选框来订阅，该复选框从不预先勾选；作为您同意的证明，我们会在您订阅期间保留其措辞以及您表示同意的页面。',
 ];

@@ -29,7 +29,8 @@ expect "3.51 A1/A2: Subscribers – the counts per language and of the register,
   "$(grep -c 'English: 1 potvrzených, 0 čeká' "$WORK/a700-list.html")|$(grep -c 'v registru: 1 nedoručitelných, 0 odmítlo' "$WORK/a700-list.html")|$(grep -c '<th scope="col">Jazyk</th>' "$WORK/a700-list.html")|$(grep -c 'data-register="bounced"' "$WORK/a700-list.html")|$(grep -o 'action=lift' "$WORK/a700-list.html" | wc -l | tr -d ' ')" \
   "1|1|1|1|1"
 curl -s -b "$JAR" -o "$WORK/a700.csv" "$B/admin.php?module=subscribers&action=csv"
-expect "3.51 A1: the CSV of confirmed subscribers ends each row with the language" "$(grep -c '^a700-en@example.com;.*;en$' "$WORK/a700.csv" | tr -d ' ')" "1"
+# 3.54: the proof of consent follows the language (wording, page, form – empty for this sign-up without the element's inputs)
+expect "3.51 A1: the CSV of confirmed subscribers gives each row its language" "$(grep -c '^a700-en@example.com;.*;en;;/en/;$' "$WORK/a700.csv" | tr -d ' ')" "1"
 
 # A2: lift takes the bounce off; a refused address cannot be lifted by a person
 A700_IDO=$(sq "SELECT ido FROM ka_odberatele WHERE email = 'a700-en@example.com'")

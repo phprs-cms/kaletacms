@@ -2350,7 +2350,7 @@
 					}, false, true) }, T('Media'))));
 					return wrapper;
 				}
-				inputEl = el('input', { type: 'text', value: value ?? '', dir: def.typ === 'text' ? contentDir : null, placeholder: def.typ === 'odkaz' ? T('site page, https://…, #anchor, mailto:, tel:') : null,
+				inputEl = el('input', { type: 'text', value: value ?? '', dir: def.typ === 'text' ? contentDir : null, placeholder: def.typ === 'odkaz' ? T('site page, https://…, #anchor, mailto:, tel:') : (def.priklad || null), // 3.54: a suggested wording, never stored
 					'data-odkaz-vyber': def.typ === 'odkaz', oninput: (e) => change(e.target.value) }); // 3.25 (N-U9): the link picker of image/editor.js
 		}
 		wrapper.append(inputEl);

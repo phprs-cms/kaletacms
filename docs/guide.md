@@ -297,6 +297,10 @@ Cloudflare Turnstile on top (2.6): the provider's script loads only on pages wit
 server, the secret key never leaves the admin, and a single form can opt out in its settings.
 The site can also send each new enquiry to a CRM or Make/Zapier (Settings → Webhooks → New enquiry webhook); conversion
 tracking gets a `kaleta:odeslano` event (and a `dataLayer` entry).
+With the Newsletter feature on, a form can also offer **news by e-mail** (3.54): write the wording into **Consent to news
+by e-mail** and the form shows one more checkbox above the button – never ticked in advance, never required, apart from
+the consent to processing. A tick only sends the confirmation e-mail (double opt-in); see *News consent on a form* under
+Newsletter. A job application form never offers it, and a form without an e-mail field gets a warning before publishing.
 
 An **attachment** field accepts PDF, images, documents, drawings and ZIP up to 10 MB per file. A form whose visitors send
 larger files – scans, drawings – can raise its own **attachment size limit** in the Content panel up to 25 MB (3.7). The
@@ -393,6 +397,19 @@ subscribed and is skipped until an administrator presses **Lift the bounce**. A 
 behind a testimonial request is **refused**: no newsletter or request reaches them, and only their own new confirmed
 sign-up brings them back (the confirmation e-mail goes to such an address at most once a week). The register keeps a
 one-way fingerprint, never the address; erasing a person's data keeps it, so they are not written to again (3.51).
+
+**News consent on a form and the proof of consent (3.54).** A form with **Consent to news by e-mail** filled in (see Forms
+and enquiries) subscribes nobody by itself: a tick stores the address unconfirmed and sends the same confirmation e-mail
+as the Newsletter sign-up element, and the person is a subscriber only after clicking the link. From a form, an address
+that already confirmed gets nothing, an address on the list of addresses we do not write to (bounced or refused) gets no
+e-mail and no row at all, and an unconfirmed address gets the confirmation e-mail at most once a week – the Newsletter
+sign-up element stays the person's own way back. The enquiry keeps the tick as one consent row. Every sign-up from 3.54
+on keeps its **proof**: the wording the person saw (the form's consent, or the text under the sign-up element's field, as
+the published page has it), the page and the form or element. **Subscribers** shows it under **Consent** in each row, the
+CSV export adds three columns and a personal data export includes it; it is kept while the address is subscribed and goes
+with the subscription. A sign-up from before 3.54 has no stored wording, and the screen says so. The privacy policy
+template of a new site mentions the box and the proof; on an existing site add that sentence yourself. An unsubscribe
+through a newsletter's own link is counted for that newsletter.
 
 **Sending: pause, the brake, what the footer holds.** A newsletter on its way can be paused, resumed or cancelled, it
 pauses itself when sending keeps failing, and its footer names the sender – the company name and postal address from

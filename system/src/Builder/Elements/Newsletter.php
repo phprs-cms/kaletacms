@@ -10,7 +10,8 @@ use Kaleta\Builder\Element;
 
 /**
  * Subscription to news by e-mail (the Newsletter extension). The address is saved only after confirmation via the link in the e-mail
- * (double opt-in); the subscriber list can be exported from the admin to a mailing tool.
+ * (double opt-in); the subscriber list can be exported from the admin to a mailing tool. 3.54: the text under the field is
+ * what the person agrees to – the server stores it from the published build with the sign-up (Front\Subscription).
  */
 final class Newsletter extends Element
 {
@@ -26,7 +27,7 @@ final class Newsletter extends Element
     {
         return [
             'tlacitko' => ['typ' => 'text', 'popisek' => 'Button', 'vychozi' => t('Subscribe'), 'max' => 40],
-            'souhlas' => ['typ' => 'text', 'popisek' => 'Text below the field', 'vychozi' => t('We only send news and offers. You can unsubscribe with one click in every e-mail.'), 'max' => 300],
+            'souhlas' => ['typ' => 'text', 'popisek' => 'Text below the field', 'vychozi' => t('We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.'), 'max' => 300],
         ];
     }
 
@@ -67,7 +68,9 @@ final class Newsletter extends Element
             . '<button type="submit">' . e($o['tlacitko']) . '</button></div>'
             . Form::captcha($k)
             . ($o['souhlas'] !== '' ? '<small>' . e($o['souhlas']) . '</small>' : '')
-            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
+            . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">'
+            // 3.54: where the element is – the server reads the text under the field from the published build as the proof of consent
+            . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e((string) $p['id']) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('odber') . '</form>';
     }
 }

@@ -402,4 +402,7 @@ return [
     'Enter at least 2 characters.' => 'Gib mindestens 2 Zeichen ein.',
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nichts gefunden. Versuche andere oder weniger Wörter oder eine der Hauptseiten:',
     'Nothing found. Try other or fewer words.' => 'Nichts gefunden. Versuche andere oder weniger Wörter.',
+    'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Ich möchte Neuigkeiten und Angebote per E-Mail erhalten. Wir senden dir einen Link zur Bestätigung; du kannst dich jederzeit abmelden.',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Wir senden dir nur Neuigkeiten und Angebote. Den Link zur Bestätigung des Abonnements bekommst du per E-Mail; abmelden kannst du dich mit einem Klick in jeder E-Mail.',
+    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'Du kannst das Abonnement auch über das freiwillige Kästchen in unseren Formularen abschließen, das nie vorab angekreuzt ist; als Nachweis deiner Einwilligung speichern wir deren Wortlaut und die Seite, auf der du sie erteilt hast, solange du abonniert bist.',
 ];

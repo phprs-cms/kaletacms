@@ -2179,4 +2179,7 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nada encontrado. Tente outras palavras ou menos palavras, ou uma das páginas principais:',
     'Nothing found. Try other or fewer words.' => 'Nada encontrado. Tente outras palavras ou menos palavras.',
     'Showing the best %1$s of %2$s.' => 'A mostrar os %1$s melhores de %2$s.',
+    'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Quero receber novidades e ofertas por e-mail. Enviaremos um link de confirmação; você pode cancelar a inscrição a qualquer momento.',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Enviamos apenas novidades e ofertas. Enviaremos por e-mail um link para confirmar a inscrição; você pode cancelá-la com um clique em qualquer e-mail.',
+    'You can also subscribe by ticking the optional box in our forms, which is never ticked in advance; as proof of your consent we keep its wording and the page where you gave it for as long as you are subscribed.' => 'Você também pode se inscrever marcando a caixa opcional dos nossos formulários, que nunca vem marcada; como prova do seu consentimento, guardamos o texto e a página onde você o deu enquanto estiver inscrito.',
 ];
