@@ -14,7 +14,9 @@ declare(strict_types=1);
  * as from cron) – it prints how many runs that took. Then it times SiteSearch::find() for a rare word, a common word, two
  * words, no hit, two words without a full match, a Cyrillic and an Arabic word: the current search with the occurrences
  * ordering, the same without it (ORDER_BY_OCCURRENCES = false) and the search of 3.52.0 (from git), each the median of
- * --runs, with its peak memory. Never point DB_NAME at a database you want to keep.
+ * --runs, with its peak memory. 3.54 (D3): also the check behind the "still being indexed" notice (SiteSearch::waiting) –
+ * with nothing waiting (it reads every visible row: the worst case) and with one row waiting at the end of the items.
+ * Never point DB_NAME at a database you want to keep.
  */
 
 require dirname(__DIR__) . '/system/bootstrap.php';
@@ -65,8 +67,8 @@ $sizes = $db->one('SELECT (SELECT COUNT(*) FROM {stranky}) AS pages, (SELECT COU
 printf("%s %s – %d pages, %d items, %d news, search text %.1f MB\n\n", $db->value('SELECT VERSION()'), PHP_VERSION, $sizes['pages'], $sizes['items'], $sizes['news'], $sizes['mb']);
 
 $variants = [
-    '3.53' => variant('Bench353', (string) file_get_contents(KALETA_ROOT . '/system/src/Core/SiteSearch.php'), []),
-    '3.53 title order' => variant('Bench353Title', (string) file_get_contents(KALETA_ROOT . '/system/src/Core/SiteSearch.php'), ['ORDER_BY_OCCURRENCES = true' => 'ORDER_BY_OCCURRENCES = false']),
+    'current' => variant('BenchCurrent', (string) file_get_contents(KALETA_ROOT . '/system/src/Core/SiteSearch.php'), []),
+    'current title order' => variant('BenchCurrentTitle', (string) file_get_contents(KALETA_ROOT . '/system/src/Core/SiteSearch.php'), ['ORDER_BY_OCCURRENCES = true' => 'ORDER_BY_OCCURRENCES = false']),
 ];
 $old = (string) shell_exec('cd ' . escapeshellarg(KALETA_ROOT) . ' && git show v3.52.0:system/src/Core/SiteSearch.php 2>/dev/null');
 if ($old !== '') {
@@ -100,6 +102,26 @@ foreach ($queries as $label => $q) {
     }
     echo "\n";
 }
+
+// 3.54 (D3): the existence check of find()'s indexing flag, the median of --runs – nothing waiting, then one item waiting
+$waiting = function () use ($app, $runs): string {
+    $times = [];
+    $flag = false;
+    for ($i = 0; $i < $runs; $i++) {
+        $t = microtime(true);
+        $flag = Kaleta\Core\SiteSearch::waiting($app, '');
+        $times[] = microtime(true) - $t;
+    }
+    sort($times);
+
+    return sprintf('%.4f s (%s)', $times[intdiv(count($times), 2)], $flag ? 'waiting' : 'nothing waits');
+};
+echo "\nindexing check, nothing waiting: ", $waiting(), "\n";
+$last = (int) $db->value('SELECT MAX(idp) FROM {kolekce_polozky}');
+$kept = $db->value('SELECT hledani FROM {kolekce_polozky} WHERE idp = ?', [$last]);
+$db->run('UPDATE {kolekce_polozky} SET hledani = NULL WHERE idp = ?', [$last]);
+echo "indexing check, the last item waiting: ", $waiting(), "\n";
+$db->run('UPDATE {kolekce_polozky} SET hledani = ? WHERE idp = ?', [$kept, $last]);
 
 /**
  * A copy of a SiteSearch source as its own class (another name, some text replaced), so the variants run side by side.

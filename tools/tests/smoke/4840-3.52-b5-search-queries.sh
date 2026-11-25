@@ -8,6 +8,7 @@ B840_TOKEN="kaleta_$(openssl rand -hex 24)"
 sq "INSERT INTO ka_api_tokeny (idu, nazev, access, tool_set, otisk, vytvoren) VALUES ($B840_ADMIN, 'b840 admin', 'full', 'all', SHA2('$B840_TOKEN', 256), '$B840_NOW');
   INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit) VALUES ('altany-b840', 'Zahradní altány B840', 'Altány na míru.', 1);
   DELETE FROM ka_search_queries WHERE query LIKE '%840%'; DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
+fill_search_index > /dev/null # 3.54 (D1): the page inserted above is on the site search once it has its search text
 mcp_call "$B840_TOKEN" update_settings '{"settings":{"stats":true}}' > /dev/null
 
 expect "3.52 B5: no FULLTEXT ft_clanky on the news any more (3.53: migration 0141 dropped ft_clanky_hledani too – none left)" \

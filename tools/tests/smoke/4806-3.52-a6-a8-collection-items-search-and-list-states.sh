@@ -12,6 +12,8 @@ sq "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum) VALUES ($
 sq "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum) SELECT $A806_IDK, CONCAT('Skladník ', n), CONCAT('skladnik-', n), '{\"popis\":\"Sklad A806\"}', '$A806_NOW'
   FROM (SELECT a.N + b.N * 10 + c.N * 100 AS n FROM (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) a,
   (SELECT 0 AS N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) b, (SELECT 0 AS N UNION SELECT 1) c) t WHERE n < 129" > /dev/null
+# 3.54 (D2): the admin list finds an item by its field values through the search text only – filled first, as the job would
+fill_search_index > /dev/null
 A806_ITEMS="$B/admin.php?module=collections&action=items&id=$A806_IDK"
 A806_FOUND=$(curl -s -b "$JAR" "$A806_ITEMS&search=zdaru+SAZAVOU")
 expect "3.52 A6: the items list finds a word of the fields without diacritics and in any order, marks the name of the address match, says Found and offers Clear filter" \

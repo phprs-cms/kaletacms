@@ -33,7 +33,8 @@ export default async (t) => {
     $news("b352-workshops", "B352 Workshops for beginners", "<p>Two workshops a month in Brno.</p>", 1);
     $db->insert("stranky", ["seo_link" => "b352-dvorak", "titulek" => "B352 Dvořák page", "text" => "<p>About.</p>", "v_menu" => 0, "zobrazit" => 1]);
     $db->insert("stranky", ["seo_link" => "b352-workshop", "titulek" => "B352 Repairs in Brno", "text" => "<p>Our workshop repairs bikes and prams in Brno.</p>", "v_menu" => 0, "zobrazit" => 1]);
-    $db->insert("stranky", ["seo_link" => "b352-hidden", "titulek" => "B352 Workshop hidden", "text" => "<p>workshop</p>", "v_menu" => 0, "zobrazit" => 0]);`);
+    $db->insert("stranky", ["seo_link" => "b352-hidden", "titulek" => "B352 Workshop hidden", "text" => "<p>workshop</p>", "v_menu" => 0, "zobrazit" => 0]);
+    Kaleta\\Core\\SearchIndex::complete($db, 10.0); // 3.54 (D1): the site search reads the search text only – filled as the job would`);
   const cleanUp = () => sql("DELETE FROM ka_novinky WHERE seo_link LIKE 'b352-%'; DELETE FROM ka_stranky WHERE seo_link LIKE 'b352-%'; DELETE FROM ka_kategorie WHERE seo_link = 'b352'");
 
   try {
