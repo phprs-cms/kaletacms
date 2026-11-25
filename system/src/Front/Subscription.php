@@ -177,8 +177,11 @@ final class Subscription
             return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token'] . ($from > 0 ? '&newsletter=' . $from : '')) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }
         if ($action === 'unsubscribe') {
-            self::countUnsubscribe($db, self::newsletterId($r), $o);
-            self::remove($this->app, (string) $o['email']);
+            // 3.54 review: removed first, counted only by the request whose delete took the row – parallel posts of one
+            // token (the mail client's one-click POST beside the button) count once
+            if (self::remove($this->app, (string) $o['email'])) {
+                self::countUnsubscribe($db, self::newsletterId($r), $o);
+            }
 
             return [t('Unsubscribed'), '<p>' . e(t('We have removed %s from the subscriber list.', $o['email'])) . '</p>'];
         }
@@ -208,7 +211,9 @@ final class Subscription
         if ($o === null) {
             return false;
         }
-        $db->delete('odberatele', ['ido' => (int) $o['ido']]);
+        if ($db->delete('odberatele', ['ido' => (int) $o['ido']]) === 0) {
+            return false; // a parallel request removed it in the meantime
+        }
         \Kaleta\Core\RestoreLedger::record($db, 'unsubscribed', (string) $o['email']);
         if ((int) $o['stav'] === 1) {
             \Kaleta\Core\Newsletter::enqueue($app, (string) $o['email'], 'odebrat'); // from the mailing service too
@@ -252,7 +257,8 @@ final class Subscription
     /**
      * 3.54: "unsubscribed from this newsletter" (ka_newsletters.unsubscribed_count) – one more for the newsletter the link
      * came from, only when it was really sent (it started) and started after the person confirmed: a person who never got
-     * it adds nothing. A token works once (remove() deletes the row), so a person adds at most one.
+     * it adds nothing. A token works once (only the request whose remove() deleted the row counts), so a person adds at most
+     * one; while the newsletter's queue rows are kept, only a person it was queued for counts (3.54 review).
      *
      * @param array<string, mixed> $subscriber the row of the token
      */
@@ -262,8 +268,9 @@ final class Subscription
         if ($newsletterId <= 0 || (int) ($subscriber['stav'] ?? 0) !== 1 || $confirmed === '') {
             return;
         }
-        $db->run("UPDATE {newsletters} SET unsubscribed_count = unsubscribed_count + 1 WHERE id = ? AND status IN ('sending', 'paused', 'sent', 'cancelled') AND started_at >= ?",
-            [$newsletterId, $confirmed]);
+        $db->run("UPDATE {newsletters} SET unsubscribed_count = unsubscribed_count + 1 WHERE id = ? AND status IN ('sending', 'paused', 'sent', 'cancelled') AND started_at >= ?
+            AND (NOT EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = ?) OR EXISTS (SELECT 1 FROM {newsletter_queue} q WHERE q.newsletter_id = ? AND q.subscriber_id = ?))",
+            [$newsletterId, $confirmed, $newsletterId, $newsletterId, (int) ($subscriber['ido'] ?? 0)]);
     }
 
     private function address(string $path): string

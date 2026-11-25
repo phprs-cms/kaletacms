@@ -56,8 +56,20 @@ C5060_MAIL=$(grep -l "unsubscribe=$C5060_Q" "$MAIL_SINK_DIR"/* 2>/dev/null | hea
 expect "3.54 C: the newsletter's e-mail – List-Unsubscribe and the body link name the newsletter" \
   "$([ -n "$C5060_MAIL" ] && grep -c "^List-Unsubscribe: <.*unsubscribe=$C5060_Q&newsletter=$C5060_SENDING>" "$C5060_MAIL")|$(( $(ls "$MAIL_SINK_DIR" | wc -l | tr -d ' ') - C5060_SINK0 ))" "1|1"
 
+# while the newsletter's queue rows are kept only a person it was queued for counts – one outside its audience adds nothing (3.54 review)
+C5060_OUT=$(c5060_subscriber c5060-outside@example.com "$(site_time '-3 days')")
+curl -s -o /dev/null -X POST "$B/odber?unsubscribe=$C5060_OUT&newsletter=$C5060_SENDING"
+C5060_OUTSIDE="$(c5060_gone c5060-outside@example.com)/$(c5060_count "$C5060_SENDING")"
+curl -s -o /dev/null -X POST "$B/odber?unsubscribe=$C5060_Q&newsletter=$C5060_SENDING"
+expect "3.54 C: a subscriber the newsletter was not queued for is unsubscribed without counting; the one it went to counts" \
+  "$C5060_OUTSIDE|$(c5060_gone c5060-queue@example.com)/$(c5060_count "$C5060_SENDING")" "1/0|1/1"
+# remove() says whether it took the row – a second request for the same address (a parallel post) gets false and counts nothing
+C5060_TWICE=$(c5060_php '$db->insert("odberatele", ["email" => "c5060-twice@example.com", "token" => bin2hex(random_bytes(16)), "datum" => date("Y-m-d H:i:s"), "stav" => 1, "potvrzeno" => date("Y-m-d H:i:s")]);
+  echo json_encode([Kaleta\Front\Subscription::remove($app, "c5060-twice@example.com"), Kaleta\Front\Subscription::remove($app, "c5060-twice@example.com")]);')
+expect "3.54 C: remove() is true for the request that deleted the row, false afterwards" "$C5060_TWICE" "[true,false]"
+
 # the suite shares one database: what this section made goes
-for C5060_E in button oneclick old forged draft bare junk queue; do c5060_php 'Kaleta\Core\RestoreLedger::forget($db, "unsubscribed", $argv[1]);' "c5060-$C5060_E@example.com"; done
+for C5060_E in button oneclick old forged draft bare junk queue outside twice; do c5060_php 'Kaleta\Core\RestoreLedger::forget($db, "unsubscribed", $argv[1]);' "c5060-$C5060_E@example.com"; done
 sq "DELETE FROM ka_newsletter_queue WHERE newsletter_id IN (SELECT id FROM ka_newsletters WHERE subject LIKE 'C5060%'); DELETE FROM ka_newsletters WHERE subject LIKE 'C5060%'; DELETE FROM ka_odberatele WHERE email LIKE 'c5060-%'; DELETE FROM ka_odber_fronta WHERE email LIKE 'c5060-%'" > /dev/null
 if [ "${C5060_SITE_EMAIL%%|*}" = 0 ]; then sq "DELETE FROM ka_nastaveni WHERE promenna = 'site_email'" > /dev/null; else sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('site_email', '${C5060_SITE_EMAIL#*|}')" > /dev/null; fi
 features --exact "$C5060_EXT"
