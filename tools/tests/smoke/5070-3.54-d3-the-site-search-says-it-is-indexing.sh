@@ -39,12 +39,14 @@ expect "3.54 D3: /hledani fills the waiting rows first (heal) and finds the page
 # the notice itself: rows still wait after the page's slice of 0.3 s (another request holds the heal lock, as a parallel
 # search would) – the page prints the one sentence, the found count still answers
 sq "UPDATE ka_stranky SET hledani = NULL WHERE seo_link = 'hidden-d070'" > /dev/null
+# the lock is the site's own name (Db::lockName – a GET_LOCK name is shared by every database on the server, 3.54 review)
+D070_LOCK=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); echo Kaleta\Core\SearchIndex::lockName($app->db());')
 D070_HELD=$(DB_PASS="$DB_PASS" php -r '$pdo = new PDO("mysql:host=" . $argv[1] . ";port=" . $argv[2] . ";dbname=" . $argv[3], $argv[4], (string) getenv("DB_PASS"));
-  $pdo->query("SELECT GET_LOCK(\x27kaleta_search_heal_ka_\x27, 0)");
+  $got = (int) $pdo->query("SELECT GET_LOCK(" . $pdo->quote($argv[6]) . ", 0)")->fetchColumn();
   $html = (string) file_get_contents($argv[5] . "/hledani?q=pripravenoq070", false, stream_context_create(["http" => ["header" => "User-Agent: Mozilla/5.0 test"]]));
-  echo (int) str_contains($html, "se ještě indexují"), "|", (int) str_contains($html, "href=\"/ready-d070\"");' -- "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$B")
-expect "3.54 D3: while a visible page waits and the heal lock is taken, /hledani shows \"Některé stránky se ještě indexují…\" and still lists what it found" \
-  "$D070_HELD" "1|1"
+  echo $got, "|", (int) str_contains($html, "se ještě indexují"), "|", (int) str_contains($html, "href=\"/ready-d070\"");' -- "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$B" "$D070_LOCK")
+expect "3.54 D3: while a visible page waits and the heal lock (the site's own name, at most 64 characters, not the shared kaleta_search_heal_ka_) is taken, /hledani shows \"Některé stránky se ještě indexují…\" and still lists what it found" \
+  "$(printf '%s' "$D070_LOCK" | grep -c '^kaleta-search-heal-')|$([ ${#D070_LOCK} -le 64 ] && echo 1)|$D070_HELD" "1|1|1|1|1"
 sq "DELETE FROM ka_kontrola_ip WHERE typ = 'hledani'" > /dev/null
 
 # System status: the waiting rows "cannot be found on the site search yet"
@@ -61,6 +63,17 @@ expect "3.54 D3: a news re-index running – search_site says indexing and misse
   "$(d070_mcp 'новость')|$(d070_get 'новость' | d070_has 'href="/novinky/stara-d070"')|$(sq "SELECT hledani LIKE '%новость%' FROM ka_novinky WHERE idc = $D070_NEWS")|$(d070_mcp pripravenoq070)" \
   "0|true|1|1|1|-"
 sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$D070_STATE'); DELETE FROM ka_novinky WHERE idc = $D070_NEWS" > /dev/null
+
+# one re-indexer at a time, reading the state as stored: a search whose request read "1:0" before the job finished the
+# re-index never writes its old cursor back over the finished one (3.54 review)
+fill_search_index > /dev/null
+D070_RACE=$(cd "$WORK/web" && php -r 'require "system/bootstrap.php"; $app = new Kaleta\Core\App(require "config.php"); $db = $app->db(); $s = $app->settings();
+  $s->get("site_url"); $s->set(Kaleta\Core\SearchIndex::STATE, "1:0"); $done = Kaleta\Core\Search::VERSION . ":0";
+  $db->run("UPDATE {nastaveni} SET hodnota = ? WHERE promenna = ?", [$done, Kaleta\Core\SearchIndex::STATE]); // the job finished meanwhile
+  Kaleta\Core\SearchIndex::heal($db, $s, 0.000001);
+  echo $db->value("SELECT hodnota FROM {nastaveni} WHERE promenna = ?", [Kaleta\Core\SearchIndex::STATE]) === $done ? "kept" : "overwritten";')
+expect "3.54 D3: a finished re-index stays finished when a search that read the old state heals after it" "$D070_RACE" "kept"
+sq "REPLACE INTO ka_nastaveni (promenna, hodnota) VALUES ('search_index_at', '$D070_STATE')" > /dev/null
 
 background_jobs resume
 sq "DELETE FROM ka_stranky WHERE seo_link IN ('ready-d070', 'hidden-d070', 'trash-d070', 'other-d070'); DELETE FROM ka_api_tokeny WHERE nazev = 'd070 admin';

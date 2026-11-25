@@ -390,7 +390,7 @@ final class SearchIndex
      */
     public static function heal(Db $db, Settings $settings, float $seconds): void
     {
-        $lock = 'kaleta_search_heal_' . $db->prefix;
+        $lock = self::lockName($db);
         try {
             if ((int) $db->value('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
                 return;
@@ -398,6 +398,7 @@ final class SearchIndex
             try {
                 $start = microtime(true);
                 if (!self::complete($db, $seconds)['left']) {
+                    self::refreshState($db, $settings);
                     self::reindexNews($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
                 }
             } finally {
@@ -405,6 +406,47 @@ final class SearchIndex
             }
         } catch (\Throwable $e) {
             ErrorLog::write(ErrorLog::exception($e));
+        }
+    }
+
+    /**
+     * 3.54 review: the lock of heal() and of the job's re-index – one site's own name (Db::lockName: DSN and prefix, at most
+     * 64 characters), as GET_LOCK names are shared by every database on a MySQL server. Only one reindexNews() runs at a
+     * time, so a slower run never writes an older cursor over a finished re-index.
+     */
+    public static function lockName(Db $db): string
+    {
+        return $db->lockName('search-heal');
+    }
+
+    /**
+     * The re-index state as stored now – the settings of this request were read before the lock, and the other runner may
+     * have moved or finished the re-index since (a stale cursor written back would mark a finished index unfinished again).
+     */
+    private static function refreshState(Db $db, Settings $settings): void
+    {
+        if ((string) ($db->value('SELECT hodnota FROM {nastaveni} WHERE promenna = ?', [self::STATE]) ?? '') !== $settings->get(self::STATE)) {
+            $settings->reload();
+        }
+    }
+
+    /**
+     * The job's reindexNews() under the heal lock (not waited for: a search healing right now does it meanwhile).
+     *
+     * @return array{rewritten: int, examined: int}
+     */
+    private static function reindexUnderLock(Db $db, Settings $settings, float $seconds): array
+    {
+        $lock = self::lockName($db);
+        if ((int) $db->value('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
+            return ['rewritten' => 0, 'examined' => 0];
+        }
+        try {
+            self::refreshState($db, $settings);
+
+            return self::reindexNews($db, $settings, $seconds);
+        } finally {
+            $db->value('SELECT RELEASE_LOCK(?)', [$lock]);
         }
     }
 
@@ -499,7 +541,7 @@ final class SearchIndex
         $start = microtime(true);
         $done = self::complete($db, $seconds);
         ['rewritten' => $rewritten, 'examined' => $examined] = $done['left'] ? ['rewritten' => 0, 'examined' => 0]
-            : self::reindexNews($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
+            : self::reindexUnderLock($db, $settings, max(0.0, $seconds - (microtime(true) - $start)));
         $waiting = array_sum(self::pending($db, $settings));
         // a re-index examining news whose text stays the same moves its cursor: that is progress too, not a stuck index
         $progress = $waiting . ':' . ($done['pages'] + $done['items'] + $done['news'] + $done['failed'] + $examined);
