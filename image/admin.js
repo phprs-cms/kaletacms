@@ -862,6 +862,19 @@
 			}
 		}
 	}
+	// 3.54: a link to a folded section (Features#newsletter from Integrations and Subscribers, the card links #newsletter and
+	// #asistent) opens the <details> the fragment names – a closed one would only scroll to its one-line summary
+	var openFragment = function () {
+		var target = null;
+		if (location.hash.length < 2) { return; }
+		try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch (e) { target = null; }
+		if (target && target.tagName === 'DETAILS' && !target.open) {
+			target.open = true;
+			target.scrollIntoView({ block: 'start' });
+		}
+	};
+	openFragment();
+	window.addEventListener('hashchange', openFragment);
 	// 3.47 (U68): the first day of an absence is the earliest last day – input[data-date-min-for] names the id of the last day,
 	// which gets the minimum and, when it is empty or earlier, the same day
 	document.addEventListener('change', function (e) {
