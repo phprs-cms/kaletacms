@@ -138,7 +138,8 @@ final class Confirmation
             // 3.54: who it goes to is part of what the user confirms – and for "now" the number too (send() compares it again
             // at the start); a scheduled one is counted again at its start, so its number is shown but not bound
             $fields = array_intersect_key($n, array_flip(['subject', 'preheader', 'intro', 'news_mode', 'news_count', 'news_ids', 'button_label', 'button_url', 'language', 'audience', 'audience_filter']));
-            $at = isset($arguments['at']) ? (string) $arguments['at'] : '';
+            // trimmed exactly as the handler reads it: a blank `at` is "now", so its number is bound like any other "now"
+            $at = is_scalar($arguments['at'] ?? null) ? trim((string) $arguments['at']) : '';
             $recipients = \Kaleta\Core\Mailing::recipientCount($app, $n);
             $problem = \Kaleta\Core\Mailing::audienceProblem($app, $n) ?? ($recipients === 0 ? \Kaleta\Core\Mailing::emptyAudience($app, $n) : null);
 

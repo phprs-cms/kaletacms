@@ -83,6 +83,15 @@ s5030_raw "$S5030_FULL" send_newsletter "{\"id\":$S5030_ALL,\"at\":\"2099-01-01 
 expect "3.54 MCP: scheduling – the code given for 9 still schedules it after one left (8 now); it is counted again when it starts" \
   "$S5030_LATER|$(s5030_value status)|$(s5030_value recipients_now)" "2099-01-01 08:00|scheduled|8"
 
+# a blank `at` is "now" (the handler trims it): the summary says now and the code binds the number – one more confirmed
+# subscriber after the yes refuses the code instead of sending to a number nobody saw (3.54 review)
+s5030_raw "$S5030_FULL" draft_newsletter '{"subject":"S5030 blank at","news_mode":"none","intro":"Hello"}'; S5030_BLANK=$(s5030_value id)
+s5030_raw "$S5030_FULL" send_newsletter "{\"id\":$S5030_BLANK,\"at\":\" \"}"; S5030_CODE=$(s5030_value confirmation); S5030_WHEN="$(s5030_value summary when)/$(s5030_value summary recipients)"
+sq "UPDATE ka_odberatele SET stav = 1 WHERE email = 's5030-late@example.com'" > /dev/null
+s5030_raw "$S5030_FULL" send_newsletter "{\"id\":$S5030_BLANK,\"at\":\" \",\"confirmation\":\"$S5030_CODE\"}"
+expect "3.54 MCP: a blank at is now – the summary says now/8, one more confirmed subscriber refuses the code (new summary 9), nothing is sent" \
+  "$S5030_WHEN|$(s5030_value confirmation_required)|$(s5030_value summary recipients)|$(s5030_state "$S5030_BLANK")" "now/8|true|9|draft/0/0"
+
 sq "DELETE FROM ka_newsletter_queue; DELETE FROM ka_newsletters WHERE subject LIKE 'S5030 %'; DELETE FROM ka_odberatele WHERE email = 's5030-late@example.com'; DELETE FROM ka_api_tokeny WHERE nazev LIKE 's5030 %'" > /dev/null
 features --exact "$S5030_EXT"
 s354_settings_restore 5030
