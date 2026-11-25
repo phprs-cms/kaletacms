@@ -61,9 +61,10 @@ s5035_page "edit&id=$S5035_ID"
 S5035_LINE=$(s5035_has 'Odhlásili se přes tento newsletter: 2 · Návštěvy z něj: 5')
 features -statistika; S5035_OFF=$(s5035_results); features +statistika
 sq "UPDATE ka_newsletters SET started_at = '$(site_time '-401 days')' WHERE id = $S5035_ID" > /dev/null; S5035_OLD=$(s5035_results)
-sq "UPDATE ka_newsletters SET started_at = '$(site_time '-2 days')', html = '<p>no link to the site</p>' WHERE id = $S5035_ID" > /dev/null; S5035_UNTAGGED=$(s5035_results)
+# a link the author tagged himself (here a partner's) carries a utm_campaign of its own – no proof of the newsletter's campaign (3.54 review)
+sq "UPDATE ka_newsletters SET started_at = '$(site_time '-2 days')', html = '<p>no link to the site</p><a href=\"https://partner.example/?utm_campaign=spring\">partner</a>' WHERE id = $S5035_ID" > /dev/null; S5035_UNTAGGED=$(s5035_results)
 s5035_page "edit&id=$S5035_ID"
-expect "3.54 C: sent 4, failed 0, skipped 1, unsubscribed 2, visits 5 (the day before the start not counted; the list's grouped query agrees) and the page's line; visits unknown with the statistics off, after 400 days and without a campaign name – the page shows – and why" \
+expect "3.54 C: sent 4, failed 0, skipped 1, unsubscribed 2, visits 5 (the day before the start not counted; the list's grouped query agrees) and the page's line; visits unknown with the statistics off, after 400 days and without its own campaign name (only a partner's utm_campaign) – the page shows – and why" \
   "$S5035_TAGGED|$S5035_LINE|$S5035_OFF|$S5035_OLD|$S5035_UNTAGGED|$(s5035_has 'Návštěvy z něj: –')|$(s5035_has 'Návštěvy se počítají, když je zapnutá statistika')" \
   "4/0/1/2/5|1|4/0/1/2/null|4/0/1/2/null|4/0/1/2/null|1|1"
 

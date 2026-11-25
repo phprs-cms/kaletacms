@@ -71,13 +71,24 @@ final class NewsletterResults
     private static function since(App $app, array $n): ?string
     {
         $started = (string) ($n['started_at'] ?? '');
-        $tagged = array_key_exists('html', $n) ? str_contains((string) $n['html'], 'utm_campaign=') : (bool) ($n['tagged'] ?? false);
+        $tagged = array_key_exists('html', $n) ? str_contains((string) $n['html'], self::campaignNeedle($n)) : (bool) ($n['tagged'] ?? false);
         if ($started === '' || !$tagged || !StatsGate::isOn($app)) {
             return null;
         }
         $day = substr($started, 0, 10);
 
         return $day >= Clock::day('-' . self::STATS_DAYS . ' days') ? $day : null;
+    }
+
+    /**
+     * 3.54 review: what the frozen e-mail carries when Mailing::campaignUrl() tagged its links with the newsletter's own
+     * campaign name – any other utm_campaign= (a link the author tagged himself) says nothing about its visits.
+     *
+     * @param array<string, mixed> $n
+     */
+    public static function campaignNeedle(array $n): string
+    {
+        return 'utm_campaign=' . rawurlencode(Mailing::campaignName((string) $n['subject'], (int) $n['id']));
     }
 
     /**

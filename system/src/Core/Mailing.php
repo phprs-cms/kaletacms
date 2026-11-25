@@ -88,8 +88,24 @@ final class Mailing
     public static function all(Db $db): array
     {
         // 3.54: the audience, the unsubscriptions through its links and whether its frozen e-mail carries the campaign name
-        return $db->all("SELECT id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, skipped_count, created, changed, started_at, finished_at,
+        $rows = $db->all("SELECT id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, skipped_count, created, changed, started_at, finished_at,
             paused_at, pause_reason, resumed_at, audience, audience_filter, unsubscribed_count, (html LIKE '%utm_campaign=%') AS tagged FROM {newsletters} ORDER BY COALESCE(finished_at, started_at, scheduled_at, changed, created) DESC, id DESC");
+        // 3.54 review: any utm_campaign= is no proof – a link the author tagged himself carries one too; tagged means the
+        // newsletter's own campaign name (NewsletterResults::campaignNeedle), checked in one query for the candidates
+        $where = [];
+        $params = [];
+        foreach ($rows as $n) {
+            if ((int) $n['tagged'] === 1) {
+                $where[] = '(id = ? AND html LIKE ?)';
+                array_push($params, (int) $n['id'], '%' . addcslashes(NewsletterResults::campaignNeedle($n), '%_\\') . '%');
+            }
+        }
+        $own = $where === [] ? [] : $db->pairs('SELECT id, 1 FROM {newsletters} WHERE ' . implode(' OR ', $where), $params);
+        foreach ($rows as $i => $n) {
+            $rows[$i]['tagged'] = isset($own[(int) $n['id']]) ? 1 : 0;
+        }
+
+        return $rows;
     }
 
     /**
