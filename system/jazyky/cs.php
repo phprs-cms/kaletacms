@@ -3331,4 +3331,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov, nebo některou z hlavních stránek:',
     'Nothing found. Try other or fewer words.' => 'Nic jsme nenašli. Zkuste jiná nebo méně slov.',
     'Showing the best %1$s of %2$s.' => 'Zobrazeno nejlepších %1$s z %2$s.',
+    'Some pages are still being indexed and may be missing.' => 'Některé stránky se ještě indexují a ve výsledcích mohou chybět.',
 ];

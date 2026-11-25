@@ -493,8 +493,13 @@ ukáže výsledky s některými z nich. „Nalezeno“ je přesný počet; vypí
 řekne. Skryté stránky, koncepty a nic se *Skrýt před vyhledávači (noindex)* se nikdy neukáže. Do záhlaví dáte hledání
 šablonou **S vyhledáváním** nebo prvkem Hledání jako ikonou. Claude hledá na webu stejně nástrojem `search_site`.
 
-Po aktualizaci na 3.53 web na pozadí připraví text pro hledání u stávajících stránek a položek (s cronem za pár minut,
-bez něj jeden krátký krok za minutu); do té doby se hledají jako dřív. Kolik jich čeká, ukáže **Stav systému**.
+Web hledá v uloženém textu pro hledání každé stránky, položky a novinky, který připravují úlohy na pozadí. Stránka nebo
+položka, která na něj čeká – po aktualizaci z 3.52 nebo starší, po importu, po změně komponenty nebo polí kolekce –, se
+na webu do té doby nenajde (v seznamech administrace ji najdete podle názvu a adresy). Dokud čeká něco, co by návštěvník
+mohl najít, stránka hledání napíše *Některé stránky se ještě indexují a ve výsledcích mohou chybět.*, nástroj
+`search_site` vrátí `indexing: true` a každé hledání samo doplní krátký kousek, takže se uzdraví i web bez cronu, jakmile
+někdo hledá. S cronem to trvá pár minut, bez něj jeden krátký krok za minutu; import doplní, co zapsal, než ohlásí
+hotovo. Kolik se jich zatím nenajde, ukáže **Stav systému → Vyhledávací index** (3.54).
 
 **Stejná adresa ve všech jazycích (3.19):** stránka, novinka, kategorie i štítek smí použít stejnou adresu jednou
 v každé jazykové verzi – `/kontakt` a `/en/kontakt` jsou dvě stránky, jako na vícejazyčném webu ve WordPressu. Od 3.19

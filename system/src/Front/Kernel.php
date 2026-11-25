@@ -1431,8 +1431,9 @@ final class Kernel
             }
             $antispam->write($this->app->request->ip(), 'hledani', 0);
         }
-        // 3.52 (B1): one list ranked across pages, collection items and news (Core\SiteSearch), one paging
-        $found = $searching ? \Kaleta\Core\SiteSearch::find($this->app, $q, Language::siteColumn()) : ['results' => [], 'total' => 0, 'partial' => false, 'words' => []];
+        // 3.52 (B1): one list ranked across pages, collection items and news (Core\SiteSearch), one paging; 3.54 (D3): rows
+        // that wait for their search text are not found – the page says so and fills a short slice of the index first (heal)
+        $found = $searching ? \Kaleta\Core\SiteSearch::find($this->app, $q, Language::siteColumn(), heal: true) : ['results' => [], 'total' => 0, 'partial' => false, 'indexing' => false, 'words' => []];
         $perPage = $this->news->perPage();
         // 3.53 (A5): the total is exact; the paging ends at the ranked results (the best CANDIDATES of each kind)
         $total = $found['total'];
@@ -1448,7 +1449,7 @@ final class Kernel
 
         return $this->page(
             $q !== '' ? t('Search: %s', $q) : t('Vyhledávání'),
-            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $results, 'castecne' => $found['partial'], 'zobrazeno' => count($found['results']),
+            $this->view->render('vypis', ['nadpis' => t('Vyhledávání'), 'popis' => '', 'hledano' => $q, 'nalezeneStranky' => $results, 'castecne' => $found['partial'], 'indexuje' => $found['indexing'], 'zobrazeno' => count($found['results']),
                 'stranky' => $searching && $total === 0 ? $this->menuPages() : []]
                 + $this->listVariables([], $total, $pageNumber, 'hledani', ['q' => $q], $pages)),
             ['noindex' => true],

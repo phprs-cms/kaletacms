@@ -332,11 +332,15 @@ final class WebImport
         $this->checkpoint = $checkpoint;
         $this->answered = 0;
         $this->lastFailure = '';
+        $importing = $state['faze'] === 'import';
         match ($state['faze']) {
             'hledani' => $this->discover($state),
             'import' => $this->import($state),
             default => null,
         };
+        if ($importing) {
+            SearchIndex::afterBatch($this->db, $this->end, $state['faze'] === 'hotovo'); // 3.54 (D3): the pages it wrote are searchable soon
+        }
     }
 
     /** @param array<string, mixed> $state */

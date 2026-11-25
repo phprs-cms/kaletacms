@@ -2142,4 +2142,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nič sme nenašli. Skúste iné alebo menej slov, alebo niektorú z hlavných stránok:',
     'Nothing found. Try other or fewer words.' => 'Nič sme nenašli. Skúste iné alebo menej slov.',
     'Showing the best %1$s of %2$s.' => 'Zobrazených najlepších %1$s z %2$s.',
+    'Some pages are still being indexed and may be missing.' => 'Niektoré stránky sa ešte indexujú a vo výsledkoch môžu chýbať.',
 ];

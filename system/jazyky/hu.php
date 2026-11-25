@@ -2179,4 +2179,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nincs találat. Próbáljon más vagy kevesebb szót, vagy válasszon a főoldalak közül:',
     'Nothing found. Try other or fewer words.' => 'Nincs találat. Próbáljon más vagy kevesebb szót.',
     'Showing the best %1$s of %2$s.' => 'A legjobb %1$s látható, összesen %2$s.',
+    'Some pages are still being indexed and may be missing.' => 'Néhány oldal indexelése még folyamatban van, ezért hiányozhatnak a találatok közül.',
 ];

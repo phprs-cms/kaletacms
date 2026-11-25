@@ -2179,4 +2179,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'لم يتم العثور على شيء. جرّب كلمات أخرى أو أقل، أو إحدى الصفحات الرئيسية:',
     'Nothing found. Try other or fewer words.' => 'لم يتم العثور على شيء. جرّب كلمات أخرى أو أقل.',
     'Showing the best %1$s of %2$s.' => 'يتم عرض أفضل %1$s من أصل %2$s.',
+    'Some pages are still being indexed and may be missing.' => 'لا تزال بعض الصفحات قيد الفهرسة وقد لا تظهر في النتائج.',
 ];

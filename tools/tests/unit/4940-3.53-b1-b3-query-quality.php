@@ -28,7 +28,7 @@ check('3.53 B1: "R&B" finds R&B, not "sektor bank" or "for business"; "C++" find
     SiteSearch::snippetHtml(SiteSearch::snippet('Soul a R&B, bez e-mailu.', SiteSearch::words('R&B', 'cs')))],
     [['Night'], ['Kurz C++'], 'Soul a <mark>R</mark>&amp;<mark>B</mark>, bez e-mailu.']);
 check('3.53 B1: the scan – a title word is a collation LIKE on the title and adds no occurrence; without a title it matches nothing, never "1 = 1"', [
-    SiteSearch::indexSql(SiteSearch::words('C++', 'en'), 'h', null, 't')['conditions'][0][1], SiteSearch::indexSql(SiteSearch::words('C++', 'en'), 'h')['conditions'][0][0],
+    SiteSearch::indexSql(SiteSearch::words('C++', 'en'), 'h', 't')['conditions'][0][1], SiteSearch::indexSql(SiteSearch::words('C++', 'en'), 'h')['conditions'][0][0],
     SiteSearch::indexSql(SiteSearch::words('C++', 'en'), 'h')['occurrences'][0]],
     [['%c++%'], '(0 = 1)', '0']);
 

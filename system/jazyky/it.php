@@ -2168,4 +2168,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nessun risultato. Provi con altre parole o con meno parole, oppure con una delle pagine principali:',
     'Nothing found. Try other or fewer words.' => 'Nessun risultato. Provi con altre parole o con meno parole.',
     'Showing the best %1$s of %2$s.' => 'Sono mostrati i migliori %1$s di %2$s.',
+    'Some pages are still being indexed and may be missing.' => 'Alcune pagine sono ancora in fase di indicizzazione e potrebbero mancare nei risultati.',
 ];

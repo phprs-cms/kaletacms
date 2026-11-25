@@ -9181,7 +9181,7 @@ return [
     'Search index filled in' => 'Doplnění vyhledávacího indexu',
     'Search index' => 'Vyhledávací index',
     'every page, item and news item can be found' => 'každou stránku, položku i novinku lze najít',
-    '%d pages, %d items and %d news items wait for their search text' => 'na vyhledávací text čeká stránek: %d, položek: %d, novinek: %d',
+    '%d pages, %d items and %d news items cannot be found on the site search yet' => 'vyhledávání na webu zatím nenajde stránek: %d, položek: %d, novinek: %d',
     'the background jobs fill it in' => 'doplňují ho úlohy na pozadí',
     'the last run of the background jobs filled none of them; see Background jobs below' => 'poslední běh úloh na pozadí nedoplnil žádnou z nich – viz Úlohy na pozadí níže',
 ];

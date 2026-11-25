@@ -2172,4 +2172,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => 'Nichts gefunden. Versuchen Sie andere oder weniger Wörter oder eine der Hauptseiten:',
     'Nothing found. Try other or fewer words.' => 'Nichts gefunden. Versuchen Sie andere oder weniger Wörter.',
     'Showing the best %1$s of %2$s.' => 'Angezeigt werden die besten %1$s von %2$s.',
+    'Some pages are still being indexed and may be missing.' => 'Einige Seiten werden noch indexiert und können in den Ergebnissen fehlen.',
 ];

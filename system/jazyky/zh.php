@@ -2179,4 +2179,5 @@ return [
     'Nothing found. Try other or fewer words, or one of the main pages:' => '未找到内容。请尝试其他或更少的词语，或访问以下主要页面：',
     'Nothing found. Try other or fewer words.' => '未找到内容。请尝试其他或更少的词语。',
     'Showing the best %1$s of %2$s.' => '显示最佳的 %1$s 项，共 %2$s 项。',
+    'Some pages are still being indexed and may be missing.' => '部分页面仍在建立索引，可能未出现在结果中。',
 ];
