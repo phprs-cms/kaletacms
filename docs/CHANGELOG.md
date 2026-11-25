@@ -4,7 +4,7 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
-## 3.54.0 – audiences by consent: who a newsletter goes to, the number you confirm, news consent at the form, a results line; the site search on its index only
+## 3.54.0 – audiences by consent: who a newsletter goes to, the number you confirm, news consent at the form, a results line; the site search on its index only (26 November 2026)
 
 Until 3.54 every newsletter went to every confirmed subscriber, a Czech one to English subscribers too, and the number on
 the button could differ from the number queued. 3.54 lets a newsletter go to the subscribers of its language or only to
