@@ -26,7 +26,8 @@ check('3.51 R0.5: cancelledNewsletter() – status cancelled, the remainder as s
 
 // the restore step over the restored table: today's rows win, a send that was under way is a draft, a paused one cancelled
 $r794Db = $r794Sqlite(["CREATE TABLE ka_newsletters (id INTEGER PRIMARY KEY, status TEXT, scheduled_at TEXT NULL, started_at TEXT NULL, finished_at TEXT NULL, recipients INTEGER DEFAULT 0,
-    sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, paused_at TEXT NULL, pause_reason TEXT DEFAULT '', resumed_at TEXT NULL)",
+    sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, paused_at TEXT NULL, pause_reason TEXT DEFAULT '', resumed_at TEXT NULL,
+    language TEXT DEFAULT '', audience TEXT DEFAULT 'all', audience_filter TEXT DEFAULT '')", // 3.54: the audience columns (0142) – SQLite has no "unknown column" fallback
     "INSERT INTO ka_newsletters (id, status, recipients, sent_count, failed_count, paused_at, pause_reason) VALUES
         (1, 'paused', 20, 5, 1, '2026-11-01 10:00:00', 'brake'), (2, 'sending', 20, 5, 0, NULL, ''), (3, 'sent', 10, 9, 1, NULL, ''), (4, 'sending', 8, 2, 0, NULL, ''), (5, 'draft', 0, 0, 0, NULL, '')"]);
 $r794Today = [

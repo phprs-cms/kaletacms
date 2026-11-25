@@ -704,21 +704,45 @@ final class Quotes
         if ($contactId <= 0) {
             return false;
         }
+
+        return self::acceptedRows($db, 'contact_id = ?', [$contactId]) !== [];
+    }
+
+    /**
+     * 3.54 (A1): every contact that accepted a quote themself – the rule of acceptedByCustomer() as a set, for the customers
+     * audience of a newsletter (Core\Mailing::recipientsWhere). The history is JSON, so the rows are read in PHP.
+     *
+     * @return list<int> sorted, each contact once
+     */
+    public static function customerAcceptedContactIds(Db $db): array
+    {
+        $ids = array_values(array_unique(array_map(fn (array $r): int => (int) $r['contact_id'], self::acceptedRows($db, 'contact_id IS NOT NULL AND contact_id > 0', []))));
+        sort($ids);
+
+        return $ids;
+    }
+
+    /**
+     * The accepted quotes (contact_id, history) matching $where whose last change to "accepted" was the customer's own.
+     *
+     * @param list<mixed> $params
+     * @return list<array<string, mixed>>
+     */
+    private static function acceptedRows(Db $db, string $where, array $params): array
+    {
         try {
-            $rows = $db->all("SELECT history FROM {quotes} WHERE contact_id = ? AND status = 'accepted'", [$contactId]);
+            $rows = $db->all("SELECT contact_id, history FROM {quotes} WHERE status = 'accepted' AND " . $where, $params);
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // a site before the quotes
 
-            return false;
-        }
-        foreach ($rows as $row) {
-            $history = json_decode((string) ($row['history'] ?? ''), true);
-            if (is_array($history) && self::customerDecided($history, 'accepted')) {
-                return true;
-            }
+            return [];
         }
 
-        return false;
+        return array_values(array_filter($rows, function (array $row): bool {
+            $history = json_decode((string) ($row['history'] ?? ''), true);
+
+            return is_array($history) && self::customerDecided($history, 'accepted');
+        }));
     }
 
     /** Did the customer decide on this quote themself (an entry "by the customer"; with $status: the last change to it)? @param array<mixed> $history */

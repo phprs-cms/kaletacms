@@ -565,8 +565,9 @@ final class Contacts
     {
         $db = $app->db();
         $s = $app->settings();
-        $state = json_decode($s->get('contacts_backfill'), true);
-        $state = array_map('intval', array_intersect_key(is_array($state) ? $state : [], self::LINKED)) + array_fill_keys(array_keys(self::LINKED), 0);
+        $saved = json_decode($s->get('contacts_backfill'), true);
+        $saved = is_array($saved) ? $saved : [];
+        $state = array_map('intval', array_intersect_key($saved, self::LINKED)) + array_fill_keys(array_keys(self::LINKED), 0);
         $linked = 0;
         $scanned = 0;
         $done = true;
@@ -598,9 +599,48 @@ final class Contacts
                 $done = false;
             }
         }
-        $s->set('contacts_backfill', (string) json_encode($state));
+        $s->set('contacts_backfill', (string) json_encode($state + array_diff_key($saved, self::LINKED))); // 3.54: keeps the cursor of linkWaitingSubscribers()
 
         return ['linked' => $linked, 'scanned' => $scanned, 'done' => $done];
+    }
+
+    /** 3.54: confirmed subscribers without a contact that one run of the linking job tries again. */
+    public const int WAITING_SUBSCRIBERS = 50;
+
+    /**
+     * 3.54 (A1): the second step of the linking job – confirmed subscribers still without a contact. backfill() moves its
+     * cursor only upward and skips a subscription that was not confirmed yet when it passed, and the link after the
+     * confirmation's response swallows its failure, so such a subscriber would never count as a customer for a newsletter
+     * narrowed to customers. Up to $limit of them per run, each through link(); its own cursor (subscriber_repair in the
+     * setting contacts_backfill) starts again from the beginning at the end, so an address that cannot be linked does
+     * not block the others. Returns how many were linked.
+     */
+    public static function linkWaitingSubscribers(App $app, int $limit = self::WAITING_SUBSCRIBERS): int
+    {
+        $db = $app->db();
+        $s = $app->settings();
+        $saved = json_decode($s->get('contacts_backfill'), true);
+        $saved = is_array($saved) ? $saved : [];
+        $cursor = (int) ($saved['subscriber_repair'] ?? 0);
+        try {
+            $ids = array_map('intval', array_column($db->all('SELECT ido FROM {odberatele} WHERE stav = 1 AND contact_id IS NULL AND ido > ? ORDER BY ido LIMIT ' . max(1, $limit), [$cursor]), 'ido'));
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e); // contact_id before 3.28
+
+            return 0;
+        }
+        $linked = 0;
+        foreach ($ids as $id) {
+            try {
+                $linked += self::link($app, 'subscriber', $id) !== null ? 1 : 0;
+            } catch (\PDOException $e) {
+                Db::rethrowUnlessMissing($e); // contacts not installed yet – the cursor moves on, the next round tries again
+            }
+        }
+        $saved['subscriber_repair'] = count($ids) < max(1, $limit) ? 0 : (int) end($ids); // wraps: the next round starts from the first again
+        $s->set('contacts_backfill', (string) json_encode($saved));
+
+        return $linked;
     }
 
     /**

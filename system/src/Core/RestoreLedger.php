@@ -75,6 +75,13 @@ final class RestoreLedger
     /** 3.51: the columns of a newsletter's paused state that the capture keeps (migration 0138). */
     private const array NEWSLETTER_COLUMNS_351 = ['skipped_count', 'paused_at', 'pause_reason', 'resumed_at'];
 
+    /**
+     * 3.54 (A3): who a newsletter goes to (migration 0142). Today's values are written back with today's state; language is
+     * captured only to compare the audience "language" (the content, language included, is the backup's). The column
+     * unsubscribed_count is the restored row's own history and is not carried.
+     */
+    private const array NEWSLETTER_COLUMNS_354 = ['audience', 'audience_filter'];
+
     /** The credentials of an outside-service connection (ka_connectors) that are today's after a restore. */
     private const array CONNECTOR_COLUMNS = ['account', 'client_id', 'secret', 'access_token', 'refresh_token', 'expires_at', 'scopes', 'connected_at', 'connected_by'];
 
@@ -318,8 +325,11 @@ final class RestoreLedger
             'codes' => self::attempt(fn (): array => array_map('strval', array_column($db->all('SELECT otisk FROM {oauth_kody}'), 'otisk')), []),
             'connectors' => $connectors,
             'settings' => $settings,
-            // 3.51: with the state of a paused send (D10: a structure before 0138 gives the columns of 3.50)
-            'newsletters' => self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count, ' . implode(', ', self::NEWSLETTER_COLUMNS_351) . ' FROM {newsletters}'), null)
+            // 3.51: with the state of a paused send (D10: a structure before 0138 gives the columns of 3.50); 3.54: and the
+            // audience (A3: a structure before 0142 gives the columns of 3.51)
+            'newsletters' => self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count, ' . implode(', ', self::NEWSLETTER_COLUMNS_351)
+                    . ', ' . implode(', ', self::NEWSLETTER_COLUMNS_354) . ', language AS audience_language FROM {newsletters}'), null)
+                ?? self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count, ' . implode(', ', self::NEWSLETTER_COLUMNS_351) . ' FROM {newsletters}'), null)
                 ?? self::attempt(fn (): array => $db->all('SELECT id, status, scheduled_at, started_at, finished_at, recipients, sent_count, failed_count FROM {newsletters}'), []),
             'flags' => $flags,
             'queues' => $queues,
@@ -964,6 +974,12 @@ final class RestoreLedger
      * scheduled or sending and today's site does not (deleted since) goes back to a draft – a restore never sends a
      * newsletter to the list a second time.
      *
+     * 3.54 (A3): and never to a wider audience. A newsletter scheduled today keeps today's audience but the backup's content;
+     * it stays scheduled only when the restored row has the same audience (Mailing::audienceKey – audience, filter and, for
+     * the audience "language", the language). Otherwise it goes back to a draft: when the audiences differ, when the
+     * restored row has no audience columns (a backup before 0142 – after the migration it is the default) and today's is
+     * not the default, or when today's audience is not known.
+     *
      * @param list<array<string, mixed>> $today
      */
     private static function newsletters(Db $db, array $today): int
@@ -973,12 +989,17 @@ final class RestoreLedger
             $byId[(int) $n['id']] = $n;
         }
         $changed = 0;
-        foreach ($db->all('SELECT id, status, recipients, sent_count, failed_count, finished_at FROM {newsletters}') as $row) {
+        $rows = self::attempt(fn (): array => $db->all('SELECT id, status, recipients, sent_count, failed_count, finished_at, language, ' . implode(', ', self::NEWSLETTER_COLUMNS_354) . ' FROM {newsletters}'), null)
+            ?? $db->all('SELECT id, status, recipients, sent_count, failed_count, finished_at, language FROM {newsletters}'); // a backup before 0142: the defaults after the migration
+        foreach ($rows as $row) {
             $id = (int) $row['id'];
             if (isset($byId[$id])) {
-                $data = array_diff_key($byId[$id], ['id' => 0]);
+                $data = array_diff_key($byId[$id], ['id' => 0, 'audience_language' => 0]);
                 if (($data['status'] ?? '') === 'paused') {
                     $data = self::cancelledNewsletter($data); // its queue rows were stopped above – it can never go on
+                }
+                if (($data['status'] ?? '') === 'scheduled' && self::widens($byId[$id], $row)) {
+                    $data = ['status' => 'draft', 'scheduled_at' => null] + $data; // asked again before it goes anywhere
                 }
                 $changed += self::updateNewsletter($db, $id, $data) > 0 ? 1 : 0;
             } elseif (in_array((string) $row['status'], ['scheduled', 'sending'], true)) {
@@ -990,6 +1011,24 @@ final class RestoreLedger
         }
 
         return $changed;
+    }
+
+    /**
+     * 3.54 (A3): may the restored row of a newsletter scheduled today reach other people than today's? Today's audience
+     * unknown (a capture without the columns) = yes; the restored row without the columns has the default audience. Pure.
+     *
+     * @param array<string, mixed> $today the captured row (audience, audience_filter, audience_language)
+     * @param array<string, mixed> $restored the row of the backup
+     */
+    public static function widens(array $today, array $restored): bool
+    {
+        if (!array_key_exists('audience', $today) || !array_key_exists('audience_filter', $today)) {
+            return true;
+        }
+        $mine = ['audience' => $today['audience'], 'audience_filter' => $today['audience_filter'], 'language' => $today['audience_language'] ?? ''];
+        $theirs = ['audience' => $restored['audience'] ?? 'all', 'audience_filter' => $restored['audience_filter'] ?? '', 'language' => $restored['language'] ?? ''];
+
+        return Mailing::audienceKey($mine) !== Mailing::audienceKey($theirs);
     }
 
     /**
@@ -1007,13 +1046,19 @@ final class RestoreLedger
     }
 
     /**
-     * Writes a newsletter row; a restored structure older than 0138 (D10: the restore runs before the migrations) takes it
-     * without the columns of 3.51.
+     * Writes a newsletter row; a restored structure older than 0142 (A3) or 0138 (D10: the restore runs before the
+     * migrations) takes it without the columns of 3.54, then also without those of 3.51.
      *
      * @param array<string, mixed> $data
      */
     private static function updateNewsletter(Db $db, int $id, array $data): int
     {
+        try {
+            return $db->update('newsletters', $data, ['id' => $id]);
+        } catch (\PDOException $e) {
+            Db::rethrowUnlessMissing($e);
+        }
+        $data = array_diff_key($data, array_flip(self::NEWSLETTER_COLUMNS_354));
         try {
             return $db->update('newsletters', $data, ['id' => $id]);
         } catch (\PDOException $e) {
