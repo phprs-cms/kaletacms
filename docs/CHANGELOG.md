@@ -4,7 +4,7 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
-## 3.53.0 – search finished: a stored search text for pages and items, a total of every match, every script, word forms in more languages (24 November 2026)
+## 3.53.0 – search finished: a stored search text for pages and items, a total of every match, every script, word forms in more languages (25 November 2026)
 
 3.52 searched the website by reading raw columns with caps, so on a large site it could lose the best page, found words
 that only sat in a link or a field name and showed a total that was just what it kept. 3.53 gives pages and collection
