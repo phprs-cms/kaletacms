@@ -12,10 +12,12 @@ background_jobs hold
 fill_search_index > /dev/null
 D090_NOW=$(site_time)
 D090_PAGES=$(for i in $(seq 1 1500); do printf "('akcept-d090-%s', 'Akceptace %s D090', '<p>Obsah stránky s textem ver%sq090 a dalšími slovy pro hledání na webu.</p>', 1, 0, %s)," "$i" "$i" "$i" "$((5000 + i))"; done)
-sq "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, poradi) VALUES ${D090_PAGES%,}" > /dev/null
+# a long INSERT goes through stdin: Linux refuses one argument over 128 kB ("Argument list too long"), macOS does not
+d090_sq_in() { "${MYSQL[@]}" --default-character-set=utf8mb4 "$DB_NAME" -N; }
+printf '%s' "INSERT INTO ka_stranky (seo_link, titulek, text, zobrazit, v_menu, poradi) VALUES ${D090_PAGES%,}" | d090_sq_in > /dev/null
 D090_IDK=$(sq "INSERT INTO ka_kolekce (nazev, seo_link, pole, detail) VALUES ('Akceptace D090', 'akceptace-d090', '[{\"klic\":\"popis\",\"typ\":\"text\"}]', 1); SELECT LAST_INSERT_ID();")
 D090_ITEMS=$(for i in $(seq 1 1500); do printf "(%s, 'Položka %s D090', 'akcept-d090-%s', '{\"popis\":\"Popis položky pol%sq090\"}', '%s', 1, %s)," "$D090_IDK" "$i" "$i" "$i" "$D090_NOW" "$i"; done)
-sq "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit, poradi) VALUES ${D090_ITEMS%,}" > /dev/null
+printf '%s' "INSERT INTO ka_kolekce_polozky (idk, nazev, seo_link, data, datum, zobrazit, poradi) VALUES ${D090_ITEMS%,}" | d090_sq_in > /dev/null
 D090_STATE=$(sq "SELECT COALESCE((SELECT hodnota FROM ka_nastaveni WHERE promenna = 'search_index_at'), '')")
 
 # 1) visitors only, nobody searches until the end: the first search shows the notice (its own slice of 0.3 s cannot fill 3000
