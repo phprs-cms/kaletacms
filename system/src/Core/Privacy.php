@@ -475,6 +475,10 @@ final class Privacy
                 t('Subscribers: %d confirmed, %d waiting for confirmation (double opt-in; unconfirmed sign-ups are deleted after 30 days).', (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1'), (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 0')),
                 t('Data: e-mail address, date and language of the sign-up%s.', $s->bool('lead_attribution') ? ', ' . t('the first page of the visit and its campaign (with consent to marketing)') : ''),
                 t('Legal basis: consent (Art. 6(1)(a)); every e-mail carries an unsubscribe link.'),
+                // 3.54: the proof stored with each sign-up (Front\Subscription::request) and a form's news consent – pending the owner's review
+                t('Proof of consent: the wording the person agreed to and the page and form (or sign-up element) where they gave it – kept while they are subscribed and deleted with the subscription. Forms may offer an optional news consent box, never ticked in advance; a tick only sends the confirmation e-mail.'),
+                ...(Extensions::isEnabled($s, 'pipeline') || Extensions::isEnabled($s, Prices::EXTENSION)
+                    ? [t('The subscription is combined with the customer records (won deals, accepted quotes) to choose which subscribers a newsletter goes to.')] : []),
                 // 3.51 (Core\SendRegister) – default wording, pending legal review (plan/texty-pravnik-351.md, text 6)
                 t('Addresses that refused our e-mails or could not be delivered are kept only as a one-way fingerprint, so that we never write to them again.'),
                 $s->get('newsletter_service') !== '' ? t('Processor: the mailing service %s (confirmed subscribers are passed to it).', ucfirst($s->get('newsletter_service'))) : t('Processor: none – the newsletter is sent from this site.'),
@@ -551,11 +555,12 @@ final class Privacy
     public static function forms(App $app): array
     {
         $forms = [];
+        $newsletter = Extensions::isEnabled($app->settings(), 'newsletter');
         foreach (Facts::texts($app->db()) as $t) {
             if ($t['build'] === null) {
                 continue;
             }
-            $walk = function (array $nodes) use (&$walk, &$forms, $t): void {
+            $walk = function (array $nodes) use (&$walk, &$forms, $t, $newsletter): void {
                 foreach ($nodes as $n) {
                     if (($n['typ'] ?? '') === 'formular') {
                         $fields = [];
@@ -564,6 +569,11 @@ final class Privacy
                             if (!in_array($type, ['krok', 'skryte', 'odhad'], true)) {
                                 $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
+                        }
+                        // 3.54: the news consent is a property, not a field – listed with the fields while the form can offer it
+                        $newsConsent = trim((string) ($n['obsah']['souhlas_novinky'] ?? ''));
+                        if ($newsConsent !== '' && $newsletter && ($n['obsah']['ucel'] ?? '') !== \Kaleta\Core\Applications::PURPOSE) {
+                            $fields[] = ['label' => $newsConsent, 'type' => 'consent to news by e-mail (optional, confirmed by a link)'];
                         }
                         $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['prijemce'] ?? ''), 'bcc' => (string) ($n['obsah']['skryta_kopie'] ?? ''), 'confirmation' => !empty($n['obsah']['potvrzeni'])];
                     }

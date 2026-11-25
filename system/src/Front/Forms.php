@@ -237,6 +237,14 @@ final class Forms
             }
         }
 
+        // 3.54: the news consent – only the tick comes from the request; the wording is the published form's, and only where
+        // the form shows the box (Form::newsConsentText: filled in, Newsletter on, not a job application). The enquiry keeps it
+        // as a consent row (type souhlas, which the sheet and CRM mapping skip).
+        $newsConsent = $email !== '' && $r->post('ka_news') === '1' ? Form::newsConsentText($this->app, $element['obsah'], $source) : '';
+        if ($newsConsent !== '') {
+            $data[] = [$newsConsent, t('yes')];
+            $types[] = 'souhlas';
+        }
         $db = $this->app->db();
         [$landing, $visitCampaign, $referrer] = self::attribution($r);
         // the campaign of the page with the form, otherwise the campaign the visit started with (with consent, 2.3)
@@ -259,6 +267,12 @@ final class Forms
         \Kaleta\Core\EnquiryDelivery::enquiryReceived($this->app, $idp, $source, (string) $element['obsah']['nazev'], $about, $email, $back, \Kaleta\Core\EnquiryDelivery::fields($data, $types));
         if ($gatedFile !== '') {
             \Kaleta\Core\Documents::sendGated($this->app, $email, $gatedFile); // a signed link that works for a week
+        }
+        if ($newsConsent !== '') {
+            // double opt-in: the confirmation e-mail, never a subscription; the form rules of Subscription::request (nothing to an
+            // address on the send register, one e-mail a week to an unconfirmed one); the language is the form's (/en/form)
+            (new Subscription($this->app))->request($email, \Kaleta\Core\Language::siteColumn(), $back,
+                ['text' => $newsConsent, 'source' => $source, 'element' => (string) $element['id']], true);
         }
 
         return $this->finish($element, $email, $redirectUri);

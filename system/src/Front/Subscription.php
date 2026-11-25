@@ -10,6 +10,7 @@ use Kaleta\Core\Clock;
 use Kaleta\Core\Language;
 use Kaleta\Core\Mail;
 use Kaleta\Core\SendRegister;
+use Kaleta\Builder\Elements\Newsletter;
 
 /**
  * News subscription (Newsletter extension): sign-up from the News subscription element, confirmation and unsubscribe by
@@ -58,22 +59,57 @@ final class Subscription
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return 'chyba';
         }
-        $db = $this->app->db();
-        $subscriber = $db->one('SELECT * FROM {odberatele} WHERE email = ?', [$email]);
-        if ($subscriber !== null && (int) $subscriber['stav'] === 1) {
-            return 'ok'; // already subscribed – we send nothing more
+        $this->request($email, Language::siteColumn(), $r->post('zpet'), self::elementProof($this->app, $r->post('zdroj'), $r->post('prvek')), false);
+
+        return 'ok';
+    }
+
+    /**
+     * 3.54: one sign-up request – from the Newsletter element (subscribe) or from the news consent of a form (Front\Forms,
+     * $fromForm). Nobody is subscribed here: an unconfirmed row gets a token and the confirmation e-mail, and stav stays 0
+     * until the person confirms by the link (double opt-in). The rules:
+     * - a confirmed address gets nothing (no second confirmation e-mail);
+     * - from the Newsletter element, an unconfirmed address may ask again at once, an address on the send register once in
+     *   REGISTER_CONFIRM_DAYS (mayConfirmAgain – the person's own way back);
+     * - from a form, an address on the send register gets no e-mail and no row at all, and an unconfirmed address is mailed
+     *   at most once in REGISTER_CONFIRM_DAYS – somebody else's form cannot make the site keep writing to a person.
+     * When no e-mail goes out the row is not touched: datum is "last mailed" (mayConfirmAgain, the 30-day clean-up) and the
+     * stored proof must belong to the request whose link was mailed. When one goes out, insert and renewal both write the
+     * token, datum, language, the page and the proof ($proof: text = the wording the person saw, source = the build source,
+     * element = its id; empty strings when they could not be read – a sign-up is never refused for a missing proof).
+     * Returns whether a confirmation e-mail was sent.
+     *
+     * @param array{text?: string, source?: string, element?: string} $proof
+     */
+    public function request(string $email, string $language, string $page, array $proof, bool $fromForm): bool
+    {
+        $email = mb_strtolower(trim($email));
+        if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return false;
         }
-        if ($subscriber !== null && !self::mayConfirmAgain((string) $subscriber['datum'], SendRegister::blocked($db, $email) !== null, Clock::now())) {
-            return 'ok'; // 3.51: on the send register and mailed within the last days – nothing more, the same answer as always
+        $db = $this->app->db();
+        $subscriber = $db->one('SELECT ido, stav, datum FROM {odberatele} WHERE email = ?', [$email]);
+        if ($subscriber !== null && (int) $subscriber['stav'] === 1) {
+            return false; // already subscribed – we send nothing more
+        }
+        $onRegister = SendRegister::blocked($db, $email) !== null;
+        if ($fromForm && $onRegister) {
+            return false; // 3.54: a form never writes to an address that bounced or refused – the Newsletter element is their way back
+        }
+        // 3.51: on the send register and mailed within the last days – nothing more, the same answer as always; 3.54: from a
+        // form every unconfirmed address is held to that guard
+        if ($subscriber !== null && !self::mayConfirmAgain((string) $subscriber['datum'], $fromForm || $onRegister, Clock::now())) {
+            return false;
         }
         $token = bin2hex(random_bytes(16));
+        $row = ['token' => $token, 'datum' => date('Y-m-d H:i:s'), 'language' => $language, 'zdroj' => mb_substr($page, 0, 255)] + self::proofColumns($proof);
         // 3.51: the language version the form was sent from (its own /<code>/odber) – newsletters follow it
         if ($subscriber === null) {
+            $r = $this->app->request;
             [$landing, $visitCampaign] = Forms::attribution($r); // with the visitor's consent to marketing (2.3)
-            $db->insert('odberatele', ['email' => $email, 'token' => $token, 'datum' => date('Y-m-d H:i:s'), 'zdroj' => mb_substr($r->post('zpet'), 0, 255),
-                'kampan' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'vstup' => $landing, 'language' => Language::siteColumn()]);
+            $db->insert('odberatele', ['email' => $email, 'kampan' => Forms::campaign($r->referer(), $r->origin()) ?: $visitCampaign, 'vstup' => $landing] + $row);
         } else {
-            $db->update('odberatele', ['token' => $token, 'datum' => date('Y-m-d H:i:s'), 'language' => Language::siteColumn()], ['ido' => (int) $subscriber['ido']]);
+            $db->update('odberatele', $row, ['ido' => (int) $subscriber['ido']]);
         }
         $siteSettings = $this->app->settings();
         $link = $this->address('odber?confirm=' . $token);
@@ -81,7 +117,37 @@ final class Subscription
             t('Hello,') . "\n\n" . t('to confirm your subscription to news from %s, click the link:', $siteSettings->get('site_name')) . "\n" . $link . "\n\n"
             . t('If you did not ask to subscribe, ignore this e-mail – without confirmation we will not send you anything.') . "\n");
 
-        return 'ok';
+        return true;
+    }
+
+    /**
+     * 3.54: the proof columns of a sign-up, cut to their lengths. Pure.
+     *
+     * @param array{text?: string, source?: string, element?: string} $proof
+     * @return array{consent_text: string, consent_source: string, consent_element: string}
+     */
+    public static function proofColumns(array $proof): array
+    {
+        return ['consent_text' => mb_substr(trim((string) ($proof['text'] ?? '')), 0, 500), 'consent_source' => mb_substr((string) ($proof['source'] ?? ''), 0, 64),
+            'consent_element' => mb_substr((string) ($proof['element'] ?? ''), 0, 16)];
+    }
+
+    /**
+     * 3.54: the proof of a sign-up from the Newsletter element – the text under its field as the PUBLISHED build has it
+     * (never the request's), with the source and the element id the form names. An unknown source or element (a cached
+     * page with the markup of 3.53, an element removed since) gives an empty proof; the sign-up goes on.
+     *
+     * @return array{text: string, source: string, element: string}
+     */
+    public static function elementProof(App $app, string $source, string $element): array
+    {
+        $node = $source !== '' && $element !== '' ? Forms::findElement($app->db(), $source, $element, Newsletter::TYPE, Language::siteColumn()) : null;
+        if ($node === null) {
+            return ['text' => '', 'source' => '', 'element' => ''];
+        }
+        $text = $node['obsah']['souhlas'] ?? Newsletter::properties()['souhlas']['vychozi']; // as the element renders a missing value
+
+        return ['text' => is_string($text) ? $text : '', 'source' => $source, 'element' => $element];
     }
 
     /**
@@ -105,9 +171,13 @@ final class Subscription
                 ? [t('Potvrzení odběru'), t('Please confirm that you want to receive news at %s.', $o['email']), t('Potvrdit odběr')]
                 : [t('Odhlášení odběru'), t('Do you really no longer want to receive news at %s?', $o['email']), t('Odhlásit odběr')];
 
-            return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token']) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
+            // 3.54: the newsletter the link came from stays in the action, so the button counts like the one-click unsubscribe
+            $from = $action === 'unsubscribe' ? self::newsletterId($r) : 0;
+
+            return [$heading, '<p>' . e($text) . '</p><form method="post" action="' . e($this->app->url('odber') . '?' . $action . '=' . $o['token'] . ($from > 0 ? '&newsletter=' . $from : '')) . '"><p><button class="tlacitko" type="submit">' . e($button) . '</button></p></form>'];
         }
         if ($action === 'unsubscribe') {
+            self::countUnsubscribe($db, self::newsletterId($r), $o);
             self::remove($this->app, (string) $o['email']);
 
             return [t('Unsubscribed'), '<p>' . e(t('We have removed %s from the subscriber list.', $o['email'])) . '</p>'];
@@ -161,10 +231,39 @@ final class Subscription
         return $last === false || strtotime($now) - $last >= self::REGISTER_CONFIRM_DAYS * 86400;
     }
 
-    /** Unsubscribe link for the mailing tool (subscriber export). */
-    public static function unsubscribeLink(App $app, string $token): string
+    /**
+     * Unsubscribe link for the mailing tool (subscriber export) and the newsletters (Core\Mailing). 3.54: a newsletter's
+     * own link carries its id (&newsletter=), so the unsubscribe counts for it – both the button page and the one-click
+     * unsubscribe of the mail client (List-Unsubscribe-Post) post to this address.
+     */
+    public static function unsubscribeLink(App $app, string $token, int $newsletterId = 0): string
     {
-        return (new self($app))->address('odber?unsubscribe=' . $token);
+        return (new self($app))->address('odber?unsubscribe=' . $token . ($newsletterId > 0 ? '&newsletter=' . $newsletterId : ''));
+    }
+
+    /** 3.54: the newsletter id an unsubscribe link carries – a positive integer, otherwise 0 (an old link, a forged value). */
+    private static function newsletterId(\Kaleta\Core\Request $r): int
+    {
+        $id = $r->getInt('newsletter');
+
+        return $id > 0 && $id <= 4294967295 ? $id : 0;
+    }
+
+    /**
+     * 3.54: "unsubscribed from this newsletter" (ka_newsletters.unsubscribed_count) – one more for the newsletter the link
+     * came from, only when it was really sent (it started) and started after the person confirmed: a person who never got
+     * it adds nothing. A token works once (remove() deletes the row), so a person adds at most one.
+     *
+     * @param array<string, mixed> $subscriber the row of the token
+     */
+    private static function countUnsubscribe(\Kaleta\Core\Db $db, int $newsletterId, array $subscriber): void
+    {
+        $confirmed = (string) ($subscriber['potvrzeno'] ?? '');
+        if ($newsletterId <= 0 || (int) ($subscriber['stav'] ?? 0) !== 1 || $confirmed === '') {
+            return;
+        }
+        $db->run("UPDATE {newsletters} SET unsubscribed_count = unsubscribed_count + 1 WHERE id = ? AND status IN ('sending', 'paused', 'sent', 'cancelled') AND started_at >= ?",
+            [$newsletterId, $confirmed]);
     }
 
     private function address(string $path): string

@@ -539,7 +539,7 @@ final class Mailing
                 continue;
             }
             $n = $newsletters[$newsletterId] ??= (array) $db->one('SELECT subject, html, text FROM {newsletters} WHERE id = ?', [$newsletterId]);
-            $unsubscribe = Subscription::unsubscribeLink($app, (string) $q['token']);
+            $unsubscribe = Subscription::unsubscribeLink($app, (string) $q['token'], $newsletterId); // 3.54: the link counts its unsubscribe for this newsletter
             $ok = Mail::deliverNow($s, (string) $q['email'], (string) $n['subject'],
                 str_replace(self::UNSUBSCRIBE, $unsubscribe, (string) $n['text']), str_replace(self::UNSUBSCRIBE, e($unsubscribe), (string) $n['html']),
                 ['List-Unsubscribe' => '<' . $unsubscribe . '>', 'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click']);

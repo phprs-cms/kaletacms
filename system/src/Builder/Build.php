@@ -1433,6 +1433,9 @@ final class Build
             if ($className::TYPE === 'formular' && $extensions !== null && !in_array(\Kaleta\Core\Applications::EXTENSION, $extensions, true)) {
                 unset($properties['ucel'], $properties['souhlas_uchovani']); // 3.34 B: Purpose and the pool consent only while job applications are on
             }
+            if ($className::TYPE === 'formular' && $extensions !== null && !in_array('newsletter', $extensions, true)) {
+                unset($properties['souhlas_novinky']); // 3.54: the news consent only while the Newsletter feature is on
+            }
             if ($className::TYPE === 'formular' && isset($properties['ucel']) && self::$purposeAllowed === false) {
                 $properties['ucel']['jen_cteni'] = true; // review low (f): shown, not changed, without the section Applications
             }

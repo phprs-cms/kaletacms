@@ -103,7 +103,8 @@ final class PersonalData
     public static function find(Db $db, string $email, ?App $app = null): array
     {
         $like = '%' . addcslashes($email, '%_\\') . '%';
-        $subscriber = $db->one('SELECT ido, email, stav, zdroj, kampan, vstup, datum, potvrzeno, sync FROM {odberatele} WHERE LOWER(email) = ?', [$email]);
+        // 3.54: with the proof of consent (the wording, the build source and the element) – the person's export shows it
+        $subscriber = $db->one('SELECT ido, email, stav, zdroj, kampan, vstup, datum, potvrzeno, sync, consent_text, consent_source, consent_element FROM {odberatele} WHERE LOWER(email) = ?', [$email]);
         try {
             $bookings = $db->all('SELECT b.id, b.starts_at, b.ends_at, b.name, b.email, b.phone, b.note, b.status, b.created_at, s.name AS service, p.name AS staff FROM {bookings} b LEFT JOIN {booking_services} s ON s.id = b.service_id LEFT JOIN {booking_staff} p ON p.id = b.staff_id WHERE LOWER(b.email) = ? ORDER BY b.id', [$email]);
         } catch (\Throwable) {

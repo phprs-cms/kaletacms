@@ -115,16 +115,29 @@ final class Subscribers extends Module
         return $this->back('The failed transfers were tried again – see the result in the Service column.');
     }
 
+    /**
+     * 3.54: where the consent was given – the build source and the element id ("stranka:12 · a1b2c3"), '' when not stored
+     * (a sign-up before 3.54, or a form whose markup did not name itself). Pure.
+     *
+     * @param array<string, mixed> $subscriber
+     */
+    public static function consentForm(array $subscriber): string
+    {
+        return implode(' · ', array_filter([(string) ($subscriber['consent_source'] ?? ''), (string) ($subscriber['consent_element'] ?? '')], fn (string $v): bool => $v !== ''));
+    }
+
     /** Confirmed subscribers to CSV (UTF-8 with BOM, semicolon) with an unsubscribe link. */
     protected function actionCsv(): Response
     {
         $f = fopen('php://temp', 'w+');
         fwrite($f, "\xEF\xBB\xBF");
-        fputcsv($f, [t('Email'), t('Subscribed'), t('Confirmed'), t('Unsubscribe link'), t('Language')], ';', '"', '');
+        // 3.54: the proof of consent at the end – the wording, the page and the form or element it was given on
+        fputcsv($f, [t('Email'), t('Subscribed'), t('Confirmed'), t('Unsubscribe link'), t('Language'), t('Consent wording'), t('Consent page'), t('Consent form')], ';', '"', '');
         foreach ($this->db->all('SELECT * FROM {odberatele} WHERE stav = 1 ORDER BY ido') as $o) {
             $row = array_map(fn (string $v): string => preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
                 [(string) $o['email'], (string) $o['datum'], (string) $o['potvrzeno'], \Kaleta\Front\Subscription::unsubscribeLink($this->app, (string) $o['token']),
-                    (string) $o['language'] !== '' ? (string) $o['language'] : \Kaleta\Core\Language::defaults($this->app->settings())]); // 3.51
+                    (string) $o['language'] !== '' ? (string) $o['language'] : \Kaleta\Core\Language::defaults($this->app->settings()), // 3.51
+                    (string) $o['consent_text'], (string) $o['zdroj'], self::consentForm($o)]);
             fputcsv($f, $row, ';', '"', '');
         }
         rewind($f);

@@ -1578,4 +1578,7 @@ return [
     'The number of recipients changed: was %d, now %d. Nothing was sent – check the number and send again.' => 'Die Zahl der Empfänger hat sich geändert: vorher %d, jetzt %d. Es wurde nichts versendet – prüfe die Zahl und sende erneut.',
     'A scheduled newsletter keeps who it goes to – cancel scheduling to change it.' => 'Ein geplanter Newsletter behält seine Empfänger – brich die Planung ab, um sie zu ändern.',
     'The number of recipients is shown under Send to subscribers after you save.' => 'Die Zahl der Empfänger siehst du nach dem Speichern unter An Abonnenten senden.',
+    'I want to receive news and offers by e-mail. We will e-mail you a link to confirm; you can unsubscribe at any time.' => 'Ich möchte Neuigkeiten und Angebote per E-Mail erhalten. Wir senden dir einen Link zur Bestätigung; du kannst dich jederzeit abmelden.',
+    'We only send news and offers. We will e-mail you a link to confirm the subscription; you can unsubscribe with one click in every e-mail.' => 'Wir senden dir nur Neuigkeiten und Angebote. Den Link zur Bestätigung des Abonnements bekommst du per E-Mail; abmelden kannst du dich mit einem Klick in jeder E-Mail.',
+    'The form offers news by e-mail but has no e-mail field – nobody can subscribe from it. Add an e-mail field.' => 'Das Formular bietet News per E-Mail an, hat aber kein E-Mail-Feld – darüber kann sich niemand anmelden. Füge ein E-Mail-Feld hinzu.',
 ];

@@ -15,6 +15,7 @@
  * @var array{bounced: int, refused: int} $register addresses on the send register (3.51, Core\SendRegister)
  * @var array<int, string> $marks the register's kind of a listed row (ido => bounced | refused)
  */
+use Kaleta\Admin\Modules\Subscribers;
 use Kaleta\Core\Language;
 use Kaleta\Core\Newsletter;
 
@@ -78,7 +79,18 @@ $multilingual = count($languages) > 1 || ($languages !== [] && (string) $languag
     } ?></td>
 <?php endif ?>
 	<td class="cislo"><?= e(format_date($o['datum'], true)) ?></td>
-	<td class="smltxt"><?= e($o['zdroj']) ?></td>
+	<td class="smltxt"><?= e($o['zdroj']) ?>
+<?php /* 3.54: the proof of consent – the wording the person agreed to and the form or element it was given on */ ?>
+		<details data-consent><summary><?= e(t('Consent')) ?></summary>
+<?php if ((string) $o['consent_text'] !== ''): ?>
+		<p>“<?= e((string) $o['consent_text']) ?>”</p>
+<?php else: ?>
+		<p><?= e(t('No wording stored – signed up before 3.54, or the sign-up form could not be read.')) ?></p>
+<?php endif ?>
+<?php if (Subscribers::consentForm($o) !== ''): ?>
+		<p><?= e(t('Form: %s', Subscribers::consentForm($o))) ?></p>
+<?php endif ?>
+		</details></td>
 	<td class="akce"><?php if ($admin && ($marks[(int) $o['ido']] ?? '') === 'bounced'): ?><form class="vradku" method="post" action="<?= e($module->url('lift')) ?>" data-potvrdit="<?= e(t('Newsletters will be sent to this address again. Lift the bounce?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace" type="submit"><?= e(t('Lift the bounce')) ?></button></form> <?php endif ?><form class="vradku" method="post" action="<?= e($module->url('delete')) ?>" data-potvrdit="<?= e(t('Remove the address from the subscriber list?')) ?>"><?= $csrf ?><input type="hidden" name="ido" value="<?= (int) $o['ido'] ?>"><button class="navigace nebezpecne" type="submit"><?= e(t('Delete')) ?></button></form></td>
 </tr>
 <?php endforeach ?>
