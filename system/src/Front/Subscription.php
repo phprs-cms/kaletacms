@@ -59,7 +59,10 @@ final class Subscription
         if (mb_strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return 'chyba';
         }
-        $this->request($email, Language::siteColumn(), $r->post('zpet'), self::elementProof($this->app, $r->post('zdroj'), $r->post('prvek')), false);
+        // 3.54 review: the consent page is part of the proof – only a path on this site as the element writes it, never any text
+        $page = $r->post('zpet');
+        $page = preg_match('~^/[^\s\\\\?#]*$~D', $page) && !str_starts_with($page, '//') ? $page : '';
+        $this->request($email, Language::siteColumn(), $page, self::elementProof($this->app, $r->post('zdroj'), $r->post('prvek')), false);
 
         return 'ok';
     }
@@ -145,9 +148,8 @@ final class Subscription
         if ($node === null) {
             return ['text' => '', 'source' => '', 'element' => ''];
         }
-        $text = $node['obsah']['souhlas'] ?? Newsletter::properties()['souhlas']['vychozi']; // as the element renders a missing value
-
-        return ['text' => is_string($text) ? $text : '', 'source' => $source, 'element' => $element];
+        // as the element renders it: a missing value is the default, {{placeholders}} left out (3.54 review)
+        return ['text' => Newsletter::consentText(is_array($node['obsah'] ?? null) ? $node['obsah'] : []), 'source' => $source, 'element' => $element];
     }
 
     /**

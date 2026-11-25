@@ -35,6 +35,19 @@ final class Collections
 
     public const string PLACEHOLDER_PATTERN = '/\{\{([a-z][a-z0-9_]{0,30})\}\}/';
 
+    /**
+     * 3.54 review: a text with its {{placeholders}} left out (and the spaces around them tidied) – a consent wording is
+     * shown and stored as proof alike, so it is never filled with an item's or a component's values.
+     */
+    public static function withoutPlaceholders(string $text): string
+    {
+        if (preg_match(self::PLACEHOLDER_PATTERN, $text) !== 1) {
+            return trim($text);
+        }
+
+        return trim((string) preg_replace([self::PLACEHOLDER_PATTERN, '/[ \t]{2,}/', '/[ \t]+([.,;:!?])/u'], ['', ' ', '$1'], $text));
+    }
+
     public const string KEY_PATTERN = '/^[a-z][a-z0-9_]{0,30}$/D';
 
     /**

@@ -360,7 +360,7 @@ final class Form extends Element
      */
     public static function newsConsentText(\Kaleta\Core\App $app, array $content, string $source): string
     {
-        $text = trim(is_string($content['souhlas_novinky'] ?? null) ? $content['souhlas_novinky'] : '');
+        $text = \Kaleta\Builder\Collections::withoutPlaceholders(is_string($content['souhlas_novinky'] ?? null) ? $content['souhlas_novinky'] : '');
         if ($text === '' || !\Kaleta\Core\Extensions::isEnabled($app->settings(), 'newsletter')) {
             return '';
         }

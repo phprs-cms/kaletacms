@@ -555,12 +555,13 @@ final class Privacy
     public static function forms(App $app): array
     {
         $forms = [];
-        $newsletter = Extensions::isEnabled($app->settings(), 'newsletter');
         foreach (Facts::texts($app->db()) as $t) {
             if ($t['build'] === null) {
                 continue;
             }
-            $walk = function (array $nodes) use (&$walk, &$forms, $t, $newsletter): void {
+            // the build source as the form posts it – the news consent is listed by the same rule the form shows it by
+            $source = isset($t['target']['page']) ? 'stranka:' . $t['target']['page'] : (isset($t['target']['popup']) ? 'popup:' . $t['target']['popup'] : '');
+            $walk = function (array $nodes) use (&$walk, &$forms, $t, $app, $source): void {
                 foreach ($nodes as $n) {
                     if (($n['typ'] ?? '') === 'formular') {
                         $fields = [];
@@ -570,9 +571,10 @@ final class Privacy
                                 $fields[] = ['label' => (string) ($field['popisek'] ?? ''), 'type' => \Kaleta\Builder\Elements\Form::FIELD_TYPES[$type] ?? $type];
                             }
                         }
-                        // 3.54: the news consent is a property, not a field – listed with the fields while the form can offer it
-                        $newsConsent = trim((string) ($n['obsah']['souhlas_novinky'] ?? ''));
-                        if ($newsConsent !== '' && $newsletter && ($n['obsah']['ucel'] ?? '') !== \Kaleta\Core\Applications::PURPOSE) {
+                        // 3.54: the news consent is a property, not a field – listed with the fields while the form offers it
+                        // (Form::newsConsentText, as the form itself decides: Newsletter on, not a job application – 3.54 review)
+                        $newsConsent = \Kaleta\Builder\Elements\Form::newsConsentText($app, (array) ($n['obsah'] ?? []), $source);
+                        if ($newsConsent !== '') {
                             $fields[] = ['label' => $newsConsent, 'type' => 'consent to news by e-mail (optional, confirmed by a link)'];
                         }
                         $forms[] = ['name' => (string) ($n['obsah']['nazev'] ?? ''), 'where' => $t['where'], 'fields' => $fields, 'recipient' => (string) ($n['obsah']['prijemce'] ?? ''), 'bcc' => (string) ($n['obsah']['skryta_kopie'] ?? ''), 'confirmation' => !empty($n['obsah']['potvrzeni'])];

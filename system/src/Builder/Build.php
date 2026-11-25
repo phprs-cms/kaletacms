@@ -16,6 +16,9 @@ use Kaleta\Core\WpContent;
  */
 final class Build
 {
+    /** 3.54 review: consent wordings an item template or a component never fills ({{…}} is left out instead, Build::render). */
+    private const array CONSENT_TEXTS = ['formular' => ['souhlas_novinky'], 'newsletter' => ['souhlas']];
+
     public const int VERSION = 1;
     public const int MAX_ELEMENTS = 800;
     public const int MAX_DEPTH = 12;
@@ -1088,7 +1091,9 @@ final class Build
         $p['obsah'] = (is_array($p['obsah'] ?? null) ? $p['obsah'] : []) + array_map(fn (array $field): mixed => $field['vychozi'] ?? '', $className::properties());
         $k->types[$className::TYPE] = true;
         if ($k->item !== null) {
-            $p['obsah'] = self::fillItem($className::properties(), $p['obsah'] ?? [], $k->item);
+            // 3.54 review: a consent wording is never filled – the server stores it from the published build as the proof,
+            // so the page shows it as stored (Collections::withoutPlaceholders), not with an item's or a component's values
+            $p['obsah'] = self::fillItem(array_diff_key($className::properties(), array_flip(self::CONSENT_TEXTS[$className::TYPE] ?? [])), $p['obsah'] ?? [], $k->item);
         }
         $children = match (true) {
             $className === Elements\CollectionList::class => Elements\CollectionList::repeat($p, $k, fn (): string => self::renderChildren($p['deti'] ?? [], $k)),

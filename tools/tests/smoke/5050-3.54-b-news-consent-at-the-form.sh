@@ -130,12 +130,37 @@ expect "3.54 B3: the personal data export of the address carries the proof" \
   "$(php -r '$j = json_decode((string) file_get_contents($argv[1]), true); echo ($j["subscriber"]["consent_text"] ?? "none"), "|", ($j["subscriber"]["consent_source"] ?? ""), "|", ($j["subscriber"]["consent_element"] ?? "");' -- "$WORK/b5050.json")" \
   "$B5050_WORDING|$B5050_SOURCE|nf5050"
 # the processing record names the proof (and the form's box among the form's fields)
+# – listed by the rule the form shows it by (3.54 review): with job applications off the Job form offers the box too, with them on only the enquiry form
 curl -s -b "$JAR" -o "$WORK/b5050-record.html" "$B/admin.php?module=settings&action=processing_record"
-expect "3.54 B3: the processing record – the proof line, and the news consent listed with the form's fields" \
-  "$(grep -c 'Doklad souhlasu: znění' "$WORK/b5050-record.html")|$(grep -c "$B5050_WORDING (souhlas s novinkami e-mailem" "$WORK/b5050-record.html")" "2|2" # the list and its Markdown copy
+B5050_RECORD_OFF=$(grep -c "$B5050_WORDING (souhlas s novinkami e-mailem" "$WORK/b5050-record.html")
+features +applications
+curl -s -b "$JAR" -o "$WORK/b5050-record.html" "$B/admin.php?module=settings&action=processing_record"
+features -applications
+expect "3.54 B3: the processing record – the proof line, and the news consent listed with the form's fields (both forms with applications off, only the enquiry form with them on)" \
+  "$(grep -c 'Doklad souhlasu: znění' "$WORK/b5050-record.html")|$B5050_RECORD_OFF|$(grep -c "$B5050_WORDING (souhlas s novinkami e-mailem" "$WORK/b5050-record.html")" "2|4|2" # the list and its Markdown copy
+
+# a header or footer of a version with a long code (en-gb, pt-br, zh-hant) – its source cast:paticka:en-gb[:variant] finds
+# the element, so the proof is stored and the form's box is processed (a two-letter pattern found neither, 3.54 review)
+b5050_php '[$b] = Kaleta\Builder\Build::sanitize(["deti" => [["typ" => "newsletter", "id" => "pl5050", "obsah" => ["souhlas" => $argv[1]]],
+    ["typ" => "formular", "id" => "pf5050", "obsah" => ["nazev" => "Part 5050", "souhlas_novinky" => $argv[2], "pole" => [["popisek" => "Name", "typ" => "text"], ["popisek" => "E-mail", "typ" => "email", "povinne" => true]]]]]]);
+  foreach (["", "promo"] as $v) { $db->run("REPLACE INTO {casti} (typ, jazyk, varianta, stavba, zmeneno) VALUES (?, ?, ?, ?, NOW())", ["paticka", "en-gb", $v, json_encode($b, JSON_UNESCAPED_UNICODE)]); }' "$B5050_ELEMENT_TEXT" "$B5050_WORDING"
+B5050_P=b5050-part@example.com; B5050_V=b5050-variant@example.com; B5050_Q=b5050-partform@example.com
+b5050_element "$B5050_P" -d zdroj=cast:paticka:en-gb -d prvek=pl5050 > /dev/null
+b5050_element "$B5050_V" -d zdroj=cast:paticka:en-gb:promo -d prvek=pl5050 > /dev/null
+B5050_SOURCE_SAVED=$B5050_SOURCE; B5050_SOURCE=cast:paticka:en-gb
+B5050_PARTFORM=$(b5050_form pf5050 "$B5050_Q" -d ka_news=1)
+B5050_SOURCE=$B5050_SOURCE_SAVED
+expect "3.54 review: the Newsletter element in an en-gb footer (and its variant) stores the proof; the form there is found and its news box processed" \
+  "$(b5050_row "$B5050_P")|$(b5050_row "$B5050_V" | cut -d'|' -f3-4)|$(b5050_result "$B5050_PARTFORM" ok)|$(sq "SELECT CONCAT_WS('|', consent_text, consent_source, consent_element) FROM ka_odberatele WHERE email = '$B5050_Q'")" \
+  "0|$B5050_ELEMENT_TEXT|cast:paticka:en-gb|pl5050|/b5050-form|cast:paticka:en-gb:promo|pl5050|ok|$B5050_WORDING|cast:paticka:en-gb|pf5050"
+sq "DELETE FROM ka_casti WHERE typ = 'paticka' AND jazyk = 'en-gb'" > /dev/null
+# the consent page is a path on this site, never any text the request carries (3.54 review)
+B5050_W=b5050-elsewhere@example.com
+b5050_element "$B5050_W" -d zdroj="$B5050_SOURCE" -d prvek=nl5050 --data-urlencode zpet=https://other.example/win-a-prize > /dev/null
+expect "3.54 review: a sign-up whose page is another site's address keeps the wording and the element, the page stays empty" "$(b5050_row "$B5050_W")" "0|$B5050_ELEMENT_TEXT|$B5050_SOURCE|nl5050|"
 
 # the suite shares one database: what this section made goes, the settings come back
-for B5050_X in "$B5050_A" "$B5050_B" "$B5050_R" "$B5050_E" "$B5050_N" "$B5050_F" "$B5050_J" "$B5050_OFF"; do
+for B5050_X in "$B5050_A" "$B5050_B" "$B5050_R" "$B5050_E" "$B5050_N" "$B5050_F" "$B5050_J" "$B5050_OFF" "$B5050_P" "$B5050_V" "$B5050_Q" "$B5050_W"; do
   b5050_php 'Kaleta\Core\SendRegister::lift($db, "refused", $argv[1]); Kaleta\Core\RestoreLedger::forget($db, "unsubscribed", $argv[1]);' "$B5050_X"
 done
 b5050_php 'foreach ($db->all("SELECT id FROM {contacts} WHERE email LIKE ?", ["b5050-%"]) as $c) { Kaleta\Core\Contacts::delete($app, (int) $c["id"]); }'

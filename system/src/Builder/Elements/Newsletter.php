@@ -67,10 +67,23 @@ final class Newsletter extends Element
             . '<div class="ka-newsletter-radek"><input type="email" id="' . e($id) . '-email" name="email" autocomplete="email" required maxlength="190" placeholder="' . e(t('you@example.com')) . '">'
             . '<button type="submit">' . e($o['tlacitko']) . '</button></div>'
             . Form::captcha($k)
-            . ($o['souhlas'] !== '' ? '<small>' . e($o['souhlas']) . '</small>' : '')
+            . (($consent = self::consentText($o)) !== '' ? '<small>' . e($consent) . '</small>' : '')
             . '<input type="hidden" name="zpet" value="' . e($k->app->url($r->path())) . '"><input type="hidden" name="kotva" value="' . e($anchor) . '">'
             // 3.54: where the element is – the server reads the text under the field from the published build as the proof of consent
             . '<input type="hidden" name="zdroj" value="' . e($k->source) . '"><input type="hidden" name="prvek" value="' . e((string) $p['id']) . '">' . \Kaleta\Front\Forms::ATTRIBUTION_FIELDS
             . $antispam->fields('odber') . '</form>';
+    }
+
+    /**
+     * 3.54 review: the text under the field as the page shows it and as Front\Subscription::elementProof stores it – a missing
+     * value is the default, {{placeholders}} are left out (never filled, Build::CONSENT_TEXTS).
+     *
+     * @param array<string, mixed> $content
+     */
+    public static function consentText(array $content): string
+    {
+        $text = $content['souhlas'] ?? self::properties()['souhlas']['vychozi'];
+
+        return is_string($text) ? \Kaleta\Builder\Collections::withoutPlaceholders($text) : '';
     }
 }
