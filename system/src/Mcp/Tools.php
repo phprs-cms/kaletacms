@@ -556,6 +556,11 @@ final class Tools
                 };
             }
         }
+        // 3.54: who it goes to, and for one not started yet how many that is now (a scheduled one is counted again at its start)
+        $output += ['audience' => (string) ($n['audience'] ?? 'all'), 'customers_only' => ($n['audience_filter'] ?? '') === 'customers'];
+        if (in_array($n['status'], ['draft', 'scheduled'], true)) {
+            $output['recipients_now'] = \Kaleta\Core\Mailing::recipientCount($this->app, $n);
+        }
         if ($n['status'] === 'scheduled') {
             $output['scheduled_at'] = substr((string) $n['scheduled_at'], 0, 16);
         }

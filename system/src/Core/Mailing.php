@@ -30,6 +30,11 @@ final class Mailing
 
     public const array NEWS_MODES = ['latest' => 'The latest news', 'chosen' => 'Chosen news items', 'none' => 'No news'];
 
+    /** 3.54 (A1): who a newsletter goes to, and the filter on top (Core\Audience). */
+    public const array AUDIENCES = Audience::AUDIENCES;
+
+    public const array AUDIENCE_FILTERS = Audience::FILTERS;
+
     /** Cron must have called /tasks (/ulohy) within this many minutes, otherwise a newsletter would stall half-way. */
     public const int CRON_MINUTES = 30;
 
@@ -82,8 +87,9 @@ final class Mailing
     /** @return list<array<string, mixed>> newest first, without the rendered e-mail */
     public static function all(Db $db): array
     {
-        return $db->all('SELECT id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, skipped_count, created, changed, started_at, finished_at,
-            paused_at, pause_reason, resumed_at FROM {newsletters} ORDER BY COALESCE(finished_at, started_at, scheduled_at, changed, created) DESC, id DESC');
+        // 3.54: the audience, the unsubscriptions through its links and whether its frozen e-mail carries the campaign name
+        return $db->all("SELECT id, subject, news_mode, news_count, language, status, scheduled_at, recipients, sent_count, failed_count, skipped_count, created, changed, started_at, finished_at,
+            paused_at, pause_reason, resumed_at, audience, audience_filter, unsubscribed_count, (html LIKE '%utm_campaign=%') AS tagged FROM {newsletters} ORDER BY COALESCE(finished_at, started_at, scheduled_at, changed, created) DESC, id DESC");
     }
 
     /**
@@ -120,6 +126,11 @@ final class Mailing
             throw new \InvalidArgumentException('Unknown language – the site has: ' . implode(', ', $languages) . '.');
         }
 
+        $audience = $value('audience', 'all');
+        if (!isset(self::AUDIENCES[$audience])) {
+            throw new \InvalidArgumentException('audience must be all or language.'); // never a wider default for a typo
+        }
+
         return [
             'subject' => $subject,
             'preheader' => mb_substr(preg_replace('/\s+/u', ' ', $value('preheader')) ?? '', 0, 200),
@@ -130,6 +141,8 @@ final class Mailing
             'button_label' => $url !== '' ? ($label !== '' ? $label : '') : '',
             'button_url' => $label !== '' ? $url : '',
             'language' => $language === Language::defaults($app->settings()) ? '' : $language,
+            'audience' => $audience,
+            'audience_filter' => Audience::filterFrom($input, (string) ($current['audience_filter'] ?? '')),
         ];
     }
 
@@ -150,7 +163,12 @@ final class Mailing
             if ($n['status'] === 'scheduled' && !$app->auth()->canPublish()) {
                 throw new \DomainException('A scheduled newsletter can be changed only by someone who may send newsletters – unschedule it first.');
             }
-            $db->update('newsletters', self::sanitize($app, $input, $n) + ['changed' => date('Y-m-d H:i:s')], ['id' => $id]);
+            $data = self::sanitize($app, $input, $n);
+            // 3.54 (A2): who a scheduled newsletter goes to was confirmed when it was scheduled – it never changes behind that yes
+            if ($n['status'] === 'scheduled' && self::audienceKey($data) !== self::audienceKey($n)) {
+                throw new \DomainException('The audience of a scheduled newsletter cannot change – unschedule it first.');
+            }
+            $db->update('newsletters', $data + ['changed' => date('Y-m-d H:i:s')], ['id' => $id]);
 
             return $id;
         }
@@ -229,9 +247,53 @@ final class Mailing
         return $warnings;
     }
 
+    /** Every confirmed subscriber of the site – the Subscribers screens and the header of the list; a newsletter counts with recipientCount(). */
     public static function confirmedCount(Db $db): int
     {
         return (int) $db->value('SELECT COUNT(*) FROM {odberatele} WHERE stav = 1');
+    }
+
+    /** 3.54 (A1): why this newsletter's audience cannot be sent to, or null – fails closed, never wider (Audience::problem). */
+    public static function audienceProblem(App $app, array $n): ?string
+    {
+        return Audience::problem($app, $n);
+    }
+
+    /**
+     * 3.54 (A1): the one definition of a newsletter's recipients – a WHERE over "{odberatele} o" for the count shown, the
+     * send guard, the campaign-name rule and the queue (Audience::where).
+     *
+     * @return array{0: string, 1: list<mixed>}
+     */
+    public static function recipientsWhere(App $app, array $n): array
+    {
+        return Audience::where($app, $n);
+    }
+
+    /** 3.54 (A1): how many subscribers the newsletter goes to now – the number shown, confirmed and compared at the start. */
+    public static function recipientCount(App $app, array $n): int
+    {
+        [$where, $params] = Audience::where($app, $n);
+
+        return (int) $app->db()->value('SELECT COUNT(*) FROM {odberatele} o WHERE ' . $where, $params);
+    }
+
+    /** 3.54: the confirmed subscribers of the audience not linked to a customer record yet (Audience::unlinked). */
+    public static function unlinkedCount(App $app, array $n): int
+    {
+        return Audience::unlinked($app, $n);
+    }
+
+    /** 3.54 (A2): why the audience is empty, in its own words – the administration and MCP show it (Audience::emptyText). */
+    public static function emptyAudience(App $app, array $n): string
+    {
+        return Audience::emptyText($app, $n);
+    }
+
+    /** 3.54: what decides who a newsletter goes to – locked while scheduled, compared by a restore (Audience::key). */
+    public static function audienceKey(array $n): string
+    {
+        return Audience::key($n);
     }
 
     /**
@@ -240,22 +302,37 @@ final class Mailing
      * The number is exact only while it can be below TAG_MIN: when the confirmed subscribers minus every row of the register
      * still reach TAG_MIN, that lower bound is returned without reading and fingerprinting every address (a list of
      * thousands is rendered for each preview). Not for showing as a count of recipients.
+     *
+     * @param array{0: string, 1: list<mixed>}|null $where
      */
-    public static function reachableForCampaign(Db $db): int
+    public static function reachableForCampaign(Db $db, ?array $where = null): int
     {
-        $atLeast = self::confirmedCount($db) - array_sum(SendRegister::counts($db));
+        [$sql, $params] = $where ?? ['o.stav = 1', []]; // 3.54: the newsletter's own audience (recipientsWhere); without it every confirmed subscriber
+        $atLeast = (int) $db->value('SELECT COUNT(*) FROM {odberatele} o WHERE ' . $sql, $params) - array_sum(SendRegister::counts($db));
         if ($atLeast >= self::TAG_MIN) {
             return $atLeast;
         }
 
-        return SendRegister::reachable($db, array_map('strval', array_column($db->all('SELECT email FROM {odberatele} WHERE stav = 1'), 'email')));
+        return SendRegister::reachable($db, array_map('strval', array_column($db->all('SELECT o.email FROM {odberatele} o WHERE ' . $sql, $params), 'email')));
+    }
+
+    /** 3.54: reachableForCampaign() for this newsletter's audience – three customers on a list of 500 get no campaign name. */
+    private static function tagRecipients(App $app, array $n): int
+    {
+        return self::reachableForCampaign($app->db(), self::recipientsWhere($app, $n));
     }
 
     /**
      * Sends the newsletter now (null) or at the given time (YYYY-MM-DD HH:MM). A scheduled one starts on the first cron
      * call after that time; the latest news items are taken at that moment.
+     *
+     * 3.54 (A2): the audience must be allowed (audienceProblem) and not empty, also when scheduling. $expected is the number
+     * of recipients the person or Claude confirmed: for "now" a different number starts nothing (RecipientCountChanged, the
+     * newsletter stays a draft without queue rows) – checked before the render and again against the rows the queue got,
+     * in one transaction. null (cron, a caller without a number) skips only that comparison. A scheduled newsletter is
+     * counted again at its start (processQueue).
      */
-    public static function send(App $app, int $id, ?string $at = null): void
+    public static function send(App $app, int $id, ?string $at = null, ?int $expected = null): void
     {
         $db = $app->db();
         $n = self::byId($db, $id) ?? throw new \InvalidArgumentException('The newsletter does not exist.');
@@ -266,14 +343,22 @@ final class Mailing
         if ($problem !== null) {
             throw new \DomainException($problem);
         }
-        if (self::confirmedCount($db) === 0) {
-            throw new \DomainException('There are no confirmed subscribers yet.');
+        $refused = self::audienceProblem($app, $n);
+        if ($refused !== null) {
+            throw new \DomainException($refused);
+        }
+        $count = self::recipientCount($app, $n);
+        if ($count === 0) {
+            throw new \DomainException(self::emptyAudience($app, $n));
         }
         if (self::newsItems($app, $n) === [] && $n['news_mode'] !== 'none') {
             throw new \DomainException('The newsletter has no news items to send – publish a news item or choose No news.');
         }
         if ($at === null || $at === '') {
-            self::start($app, $n);
+            if ($expected !== null && $count !== $expected) {
+                throw new RecipientCountChanged($expected, $count); // before the render and before anything is written
+            }
+            self::start($app, $n, $expected);
 
             return;
         }
@@ -355,20 +440,39 @@ final class Mailing
             ? date('Y-m-d H:i:s', (int) strtotime((string) $n['paused_at']) + self::PAUSED_DAYS * 86400) : null;
     }
 
-    /** Freezes the content and puts every confirmed subscriber in the queue; the first batch goes out on the next cron call. */
-    private static function start(App $app, array $n): void
+    /**
+     * Freezes the content and puts the audience (recipientsWhere) in the queue; the first batch goes out on the next cron
+     * call. 3.54 (A2): the flip to "sending", the queue rows and the number of recipients are one transaction – when the
+     * rows differ from $expected (RecipientCountChanged) or nobody is left (DomainException), it is rolled back and the
+     * newsletter stays as it was, without queue rows. The effects outside the database follow the commit.
+     */
+    private static function start(App $app, array $n, ?int $expected = null): void
     {
         $db = $app->db();
-        $n['tag_recipients'] = self::reachableForCampaign($db); // 3.51 (B7): the campaign name depends on the number, taken before the render
+        $n['tag_recipients'] = self::tagRecipients($app, $n); // 3.51 (B7): the campaign name depends on the number, taken before the render
         [$html, $text] = self::render($app, $n);
-        // only one caller starts it (cron and an admin click may meet)
-        if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = ?, html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [Clock::now(), $html, $text, $n['id']])->rowCount() === 0) {
+        [$where, $params] = self::recipientsWhere($app, $n);
+        $started = $db->transaction(function (Db $db) use ($app, $n, $html, $text, $where, $params, $expected): bool {
+            // only one caller starts it (cron and an admin click may meet)
+            if ($db->run("UPDATE {newsletters} SET status = 'sending', started_at = ?, html = ?, text = ? WHERE id = ? AND status IN ('draft', 'scheduled')", [Clock::now(), $html, $text, $n['id']])->rowCount() === 0) {
+                return false;
+            }
+            $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, o.ido, ? FROM {odberatele} o WHERE ' . $where, [$n['id'], Clock::now(), ...$params])->rowCount();
+            if ($expected !== null && $count !== $expected) {
+                throw new RecipientCountChanged($expected, $count);
+            }
+            if ($count === 0) {
+                throw new \DomainException(self::emptyAudience($app, $n));
+            }
+            $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
+
+            return true;
+        });
+        if (!$started) {
             return;
         }
-        $count = $db->run('INSERT IGNORE INTO {newsletter_queue} (newsletter_id, subscriber_id, next_attempt) SELECT ?, ido, ? FROM {odberatele} WHERE stav = 1', [$n['id'], Clock::now()])->rowCount();
-        $db->update('newsletters', ['recipients' => $count], ['id' => $n['id']]);
         MediaStaging::promoteReferenced($db, $html); // 3.15: an image waiting for approval goes out with the e-mail, so it goes public
-        \Kaleta\Core\ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
+        ChangeLog::write($app, 'newsletters', 'send', mb_substr((string) $n['subject'], 0, 200));
     }
 
     /**
@@ -385,10 +489,23 @@ final class Mailing
         }
         foreach ($db->all("SELECT * FROM {newsletters} WHERE status = 'scheduled' AND scheduled_at <= ? ORDER BY scheduled_at", [Clock::now()]) as $n) {
             if (SenderIdentity::line($s, (string) $n['language']) === null) {
-                self::backToDraft($app, $n); // 3.51 (B5): it cannot go out without its sender
+                self::backToDraft($app, $n, 'sender'); // 3.51 (B5): it cannot go out without its sender
                 continue;
             }
-            self::start($app, $n);
+            // 3.54 (A2): the audience is counted again at the start – refused or empty, it goes back to the drafts, never "sent" to nobody
+            if (self::audienceProblem($app, $n) !== null) {
+                self::backToDraft($app, $n, 'audience');
+                continue;
+            }
+            if (self::recipientCount($app, $n) === 0) {
+                self::backToDraft($app, $n, 'empty');
+                continue;
+            }
+            try {
+                self::start($app, $n);
+            } catch (\DomainException) {
+                self::backToDraft($app, $n, 'empty'); // the last subscriber left between the count and the queue: rolled back
+            }
         }
         $allowed = min(self::BATCH, max(10, $s->int('newsletter_hourly_limit')) - (int) $db->value('SELECT COUNT(*) FROM {newsletter_queue} WHERE sent_at >= ?', [Clock::at('-1 hour')]));
         $sent = 0;
@@ -592,23 +709,34 @@ final class Mailing
         $db->run('DELETE q FROM {newsletter_queue} q LEFT JOIN {newsletters} n ON n.id = q.newsletter_id WHERE n.id IS NULL AND (q.sent_at IS NULL OR q.sent_at < ?)', [Clock::at('-1 hour')]);
     }
 
-    /** 3.51 (B5): a due scheduled newsletter without its sender goes back to the drafts; the change log and its author say why. */
-    private static function backToDraft(App $app, array $n): void
+    /** 3.54 (A2): why a due scheduled newsletter went back to the drafts – reason => the change log's note. */
+    public const array DRAFT_REASONS = [
+        'sender' => 'not sent: the sender\'s address is missing',
+        'audience' => 'not sent: its audience cannot be sent to',
+        'empty' => 'not sent: nobody is in its audience',
+    ];
+
+    /**
+     * 3.51 (B5): a due scheduled newsletter that cannot go out goes back to the drafts; the change log and its author say
+     * why (3.54: $reason of DRAFT_REASONS – the sender is missing, the audience is refused, nobody is in the audience).
+     */
+    private static function backToDraft(App $app, array $n, string $reason): void
     {
         if ($app->db()->run("UPDATE {newsletters} SET status = 'draft', scheduled_at = NULL WHERE id = ? AND status = 'scheduled'", [$n['id']])->rowCount() === 0) {
             return;
         }
-        ChangeLog::write($app, 'newsletters', 'unschedule', mb_substr((string) $n['subject'], 0, 200), 'not sent: the sender\'s address is missing');
-        self::tellAuthor($app, $n, 'draft');
+        ChangeLog::write($app, 'newsletters', 'unschedule', mb_substr((string) $n['subject'], 0, 200), self::DRAFT_REASONS[$reason] ?? self::DRAFT_REASONS['sender']);
+        self::tellAuthor($app, $n, 'draft', $reason);
     }
 
     /**
      * 3.51: one e-mail to the newsletter's author (the site e-mail when the author is gone) – never to the list – when the
-     * brake paused it, when it went back to the drafts (no sender) or when a paused one was cancelled automatically.
+     * brake paused it, when it went back to the drafts ($reason: no sender, a refused or an empty audience) or when a paused
+     * one was cancelled automatically.
      *
      * @param array<string, mixed> $n
      */
-    private static function tellAuthor(App $app, array $n, string $what): void
+    private static function tellAuthor(App $app, array $n, string $what, string $reason = 'sender'): void
     {
         $s = $app->settings();
         $user = isset($n['author']) ? $app->db()->one('SELECT email, jazyk, register FROM {uzivatele} WHERE idu = ? AND blokovat = 0', [(int) $n['author']]) : null;
@@ -622,7 +750,11 @@ final class Mailing
             'brake' => [t('Newsletter paused: %s', $subject), t('Sending of the newsletter “%s” was paused by itself: the mail server refused %d of the last attempts. Nothing more goes out until someone resumes it.', $subject, self::BRAKE_FAILURES)
                 . "\n\n" . t('Sent so far: %d of %d.', (int) ($n['sent_count'] ?? 0), (int) ($n['recipients'] ?? 0))
                 . "\n" . t('Check Settings → Mail and System status, then resume or cancel it. If nobody does, it is cancelled on %s.', format_date((string) self::cancelOn($n), true))],
-            'draft' => [t('Newsletter not sent: %s', $subject), t('The newsletter “%s” was scheduled but did not go out: the company name or the postal address of the sender is missing (Settings → Business details). It is a draft again – fill them in and send it again.', $subject)],
+            'draft' => [t('Newsletter not sent: %s', $subject), match ($reason) {
+                'audience' => t('The newsletter “%s” was scheduled but did not go out: its audience cannot be sent to (an unknown audience, or only customers while the sales pipeline and quotes are switched off). It is a draft again – choose who it goes to and send it again.', $subject),
+                'empty' => t('The newsletter “%s” was scheduled but did not go out: nobody was in its audience at the time of sending. It is a draft again – check who it goes to and send it again.', $subject),
+                default => t('The newsletter “%s” was scheduled but did not go out: the company name or the postal address of the sender is missing (Settings → Business details). It is a draft again – fill them in and send it again.', $subject),
+            }],
             default => [t('Newsletter cancelled: %s', $subject), t('The newsletter “%s” stayed paused for %d days and was cancelled; the e-mails not sent yet will not go.', $subject, self::PAUSED_DAYS)
                 . "\n\n" . t('Sent: %d of %d.', (int) ($n['sent_count'] ?? 0), (int) ($n['recipients'] ?? 0))],
         }, 'admin-', (string) ($user['register'] ?? ''));
@@ -653,7 +785,7 @@ final class Mailing
             return [];
         }
         $db = $app->db();
-        $n['tag_recipients'] ??= self::reachableForCampaign($db); // 3.51 (B7): the campaign name of the links depends on it
+        $n['tag_recipients'] ??= self::tagRecipients($app, $n); // 3.51 (B7): the campaign name of the links depends on it
         $published = 'visible = 1 AND datum <= ? AND smazano IS NULL'; // the first parameter of both queries: Clock::now()
         if ($n['news_mode'] === 'chosen') {
             $ids = array_map('intval', array_filter(explode(',', (string) $n['news_ids'])));
@@ -684,7 +816,7 @@ final class Mailing
     {
         $s = $app->settings();
         $language = (string) $n['language'] !== '' ? (string) $n['language'] : Language::defaults($s);
-        $n['tag_recipients'] ??= self::reachableForCampaign($app->db()); // 3.51 (B7): the same number for the preview and the send
+        $n['tag_recipients'] ??= self::tagRecipients($app, $n); // 3.51 (B7): the same number for the preview and the send
 
         return Language::runWith($language, function () use ($app, $s, $n, $language): array {
             $ds = DesignSystem::load($s);
@@ -764,7 +896,7 @@ final class Mailing
     /** Links to the site carry utm parameters, so the site's cookie-free statistics show visits from the newsletter. */
     private static function campaign(App $app, string $url, array $n): string
     {
-        return self::campaignUrl(self::origin($app), $url, (string) $n['subject'], (int) ($n['id'] ?? 0), (int) ($n['tag_recipients'] ?? self::reachableForCampaign($app->db())));
+        return self::campaignUrl(self::origin($app), $url, (string) $n['subject'], (int) ($n['id'] ?? 0), (int) ($n['tag_recipients'] ?? self::tagRecipients($app, $n)));
     }
 
     /**
@@ -778,9 +910,27 @@ final class Mailing
             return $url;
         }
         [$url, $anchor] = array_pad(explode('#', $url, 2), 2, null);
-        $campaign = $recipients >= self::TAG_MIN ? '&utm_campaign=' . rawurlencode(slugify($subject, 60) . ($id > 0 ? '-n' . $id : '')) : '';
+        $campaign = $recipients >= self::TAG_MIN ? '&utm_campaign=' . rawurlencode(self::campaignName($subject, $id)) : '';
 
         return $url . (str_contains($url, '?') ? '&' : '?') . 'utm_source=newsletter&utm_medium=email' . $campaign . ($anchor !== null ? '#' . $anchor : '');
+    }
+
+    /** The campaign name of a newsletter's links (utm_campaign): the subject's slug and its number. */
+    public static function campaignName(string $subject, int $id): string
+    {
+        return slugify($subject, 60) . ($id > 0 ? '-n' . $id : '');
+    }
+
+    /**
+     * 3.54 (C): what the newsletter did – sent, failed, skipped, unsubscribed through its links and visits from it (null
+     * when they cannot be known). Core\NewsletterResults.
+     *
+     * @param array<string, mixed> $n
+     * @return array{sent: int, failed: int, skipped: int, unsubscribed: int, visits: ?int}
+     */
+    public static function results(App $app, array $n): array
+    {
+        return NewsletterResults::of($app, $n);
     }
 
     /** Absolute URL of an image from Media; the 1200 px variant when there is one (e-mail is 600 px wide, sharp on retina). */

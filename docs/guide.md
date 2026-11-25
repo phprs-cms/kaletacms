@@ -421,6 +421,42 @@ Business details – and why the e-mail arrived (3.51).
   can reach at least 5 people (addresses on the list we do not write to are not counted). The send form warns, without stopping you, when the sending domain has no SPF or DMARC record
   or when subscribers also go to a connected mailing service.
 
+**Who gets it: audiences and the number you confirm (3.54).** A newsletter goes to **everyone confirmed**, or only to the
+confirmed subscribers of **its language** – each subscriber keeps the language version they signed up in; those from
+before 3.51 whose language could not be told belong to the default language. Either can be narrowed to **customers
+only**: a subscriber whose customer record has a won deal (Pipeline) or a quote the customer accepted on its page
+(Quotes) – the rule of testimonial requests, each half only while its feature is on. A subscriber is matched to a
+customer by the customer record, never by the e-mail address; a just-confirmed subscriber is linked within a few
+minutes, until then they are not counted as a customer.
+
+- **The number is the audience.** Addresses on the list we do not write to are counted and skipped while sending. The
+  number you confirm must still be the number when the sending starts: when someone signs up or leaves in between,
+  nothing is sent and you are asked again with the new number.
+- **Never wider.** An unknown audience is refused, never read as "everyone"; "customers only" with both Pipeline and
+  Quotes switched off cannot be sent.
+- **Scheduled newsletters.** Scheduling needs somebody in the audience now. While a newsletter is scheduled its audience –
+  and its language when it goes to one language – cannot change: unschedule it first. At its time the audience is counted
+  again; with nobody in it, or with an audience the site no longer allows, it goes back to the drafts, the change log says
+  why and its author gets an e-mail – it is never marked sent.
+- **Fixed at the start.** Who is in the audience is decided when the sending starts; somebody who becomes a customer later
+  does not get it. A restore from a backup never widens it: a newsletter scheduled today whose audience in the backup is a
+  different one goes back to the drafts.
+- **Where you choose it.** Under **Who gets it** in the newsletter's form (the language choice on a site with more than
+  one language, **Only customers** with Pipeline or Quotes on). A new newsletter always starts with everyone confirmed –
+  it never copies the previous one's audience. After you save, **Send to subscribers** shows how many it is now and in
+  which audience; with nobody in it the page says why (nobody of that language, no customer among them, subscribers not
+  linked to a customer record yet), and an audience the site no longer allows is a notice and Send stays off.
+- **Through Claude.** `draft_newsletter` takes `audience` (all | language) and `customers_only`; a connection limited to
+  drafts may set them, only a full connection sends. The confirmation of `send_newsletter` shows who and how many, and
+  says when the send would be refused; it binds the audience and, for sending now, the number – a change after the yes
+  needs a new confirmation.
+
+**What it did (3.54).** Once a newsletter has started, its page shows one line under the counts: how many unsubscribed
+through its links (from newsletters sent by 3.54 or later) and the visits from it – the campaign statistics of its
+links. Visits show "–" when they cannot be known: the statistics are off, the e-mail carried no campaign name (fewer than
+five recipients, or no link to the site) or it started more than 400 days ago. Counts only – never who. Claude sees the
+same as `results` in `list_newsletters`.
+
 **Online bookings.** With the Bookings feature on, visitors book an appointment on the site through the **Booking**
 element: they pick a service, a person and a free time, and get a confirmation by e-mail with a link to cancel; the site reminds them before the time. Administrators
 set up the **Services** (length, a break after, price text, which people do it, whether you confirm each booking first), the **People** with their weekly hours and days off, and the

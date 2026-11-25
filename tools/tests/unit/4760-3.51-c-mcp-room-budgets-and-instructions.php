@@ -38,8 +38,8 @@ check('3.51 C2: the shorter QUOTES block still names the rule, the yes and the t
     array_values(array_filter(['never invent', 'admin_url', 'mark_quote', 'send_quote'], fn (string $w): bool => !str_contains(Kaleta\Mcp\Prompts::get('office_day', [])['messages'][0]['content']['text'], $w))),
     str_contains(Kaleta\Mcp\Prompts::get('set_up_quotes', [])['messages'][0]['content']['text'], 'Never invent or guess a price')],
     [[], [], true]);
-check('3.51 C2: the newsletter sentence of BUILDING A SITE names the three tools and that send_newsletter is final but can be paused', [
-    preg_match('/Newsletters: draft_newsletter, send_test_newsletter; send_newsletter mails all subscribers for good; pause: true stops it\./', C760Translator::INSTRUCTION_TASKS['build'])],
+check('3.51 C2: the newsletter sentence of BUILDING A SITE names the three tools and that send_newsletter mails its audience, is final and can be paused', [
+    preg_match('/Newsletters: draft_newsletter, send_test_newsletter; send_newsletter mails its audience for good; pause: true stops it\./', C760Translator::INSTRUCTION_TASKS['build'])],
     [1]);
 
 // C3: a connection that lists every tool – the number in its hint stays honest

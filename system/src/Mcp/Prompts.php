@@ -793,7 +793,7 @@ final class Prompts
                 MD],
         'newsletter_release' => ['title' => 'Prepare a newsletter', 'description' => 'Draft a newsletter from the latest news or recent changes, send a test, and send it to subscribers only after an explicit OK.',
             'arguments' => ['topic' => ['What the newsletter is about (optional – otherwise the news since the last newsletter)', false, ' about %s', '']],
-            'terms' => ['sending_problem'],
+            'terms' => ['sending_problem', 'recipients_now'],
             'text' => <<<'MD'
                 Task: prepare the next newsletter{topic}. Draft it, send a test, and send it to subscribers only when the user
                 explicitly says so.
@@ -808,8 +808,10 @@ final class Prompts
                 The Newsletter extension must be on (`site_info`). Call `list_newsletters`: the drafts, the scheduled and the
                 sent newsletters with their dates, the number of confirmed subscribers and sending_problem – why the site cannot
                 send now (no SMTP server, cron not running); only an administrator fixes those in the administration.
-                Subscribers confirm their address by a link (double opt-in); only confirmed ones get the newsletter. A site
-                that hands subscribers to a mailing service (Brevo, Mailchimp…) may send from there instead – ask the user.
+                Subscribers confirm their address by a link (double opt-in); only confirmed ones in the newsletter's audience get
+                it. `audiences` says what the site offers beyond everyone: language (the subscribers of the newsletter's
+                language) and customers (`customers_only` – a won deal or a quote the customer accepted). A site that hands
+                subscribers to a mailing service (Brevo, Mailchimp…) may send from there instead – ask the user.
 
                 ## 2. The content
 
@@ -822,8 +824,9 @@ final class Prompts
                 Call `draft_newsletter`: a `subject` and a `preheader`, a short `intro` in the site's language and tone (the site
                 owner's instructions apply), the news with `news_mode` latest and `news_count`, or chosen with `news_ids` in
                 order, and an optional button (`button_label`, `button_url`). On a multilingual site, write one newsletter per
-                language with `language`. There is no e-mail builder: the template follows the design system. Read the
-                plain-text version it returns and fix it with `draft_newsletter` and the `id`.
+                language with `language` and `audience` language, so each subscriber gets theirs only once. There is no e-mail
+                builder: the template follows the design system. Read the plain-text version it returns and recipients_now, and
+                fix it with `draft_newsletter` and the `id`.
 
                 ## 4. The test
 
@@ -833,7 +836,8 @@ final class Prompts
 
                 ## 5. Sending
 
-                Tell the user the subject, the number of confirmed subscribers and when it would go out, and ask. Only after
+                Tell the user the subject, who gets it and how many (the summary of the first `send_newsletter` answer – with a
+                problem there, nothing can go out) and when it would go out, and ask. Only after
                 their explicit yes: `send_newsletter` with the `id` – now, or with `at` (YYYY-MM-DD HH:MM in the site's time
                 zone) to schedule it; `unschedule` true turns a scheduled one back into a draft. Then `list_newsletters` shows
                 the progress (sent and failed). Record the date and the topic with `write_notebook`.

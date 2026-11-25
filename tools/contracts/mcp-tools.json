@@ -520,8 +520,10 @@
     },
     "draft_newsletter": {
         "parameters": {
+            "audience": "string",
             "button_label": "string",
             "button_url": "string",
+            "customers_only": "boolean",
             "id": "integer",
             "intro": "string",
             "language": "string",

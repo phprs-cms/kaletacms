@@ -840,21 +840,42 @@ final class Deals
 
     /**
      * 3.51: has this contact a won deal – closed in a stage of the kind "won" (the customer rule of testimonial requests,
-     * decision 5 of 3.51; the audiences of 3.52)?
+     * decision 5 of 3.51; 3.54: the same predicate as the set of wonContactsSql() that narrows a newsletter to customers)?
      */
     public static function hasWon(Db $db, int $contactId, ?Settings $settings = null): bool
     {
-        $won = array_column(array_filter(self::stages($settings ?? new Settings($db)), fn (array $st): bool => $st['kind'] === 'won'), 'key');
-        if ($contactId <= 0 || $won === []) {
+        [$where, $params] = self::wonPredicate($settings ?? new Settings($db));
+        if ($contactId <= 0) {
             return false;
         }
         try {
-            return $db->value('SELECT 1 FROM {deals} WHERE contact_id = ? AND closed_at IS NOT NULL AND stage IN (' . implode(',', array_fill(0, count($won), '?')) . ') LIMIT 1', [$contactId, ...$won]) !== null;
+            return $db->value('SELECT 1 FROM {deals} WHERE contact_id = ? AND ' . $where . ' LIMIT 1', [$contactId, ...$params]) !== null;
         } catch (\PDOException $e) {
             Db::rethrowUnlessMissing($e); // a site before the pipeline
 
             return false;
         }
+    }
+
+    /**
+     * 3.54 (A1): the contacts with a won deal as an SQL subquery ("SELECT contact_id FROM {deals} WHERE …") – the predicate of
+     * hasWon(), for the customers audience of a newsletter (Core\Mailing::recipientsWhere). No stage of the kind won = nobody.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    public static function wonContactsSql(Settings $settings): array
+    {
+        [$where, $params] = self::wonPredicate($settings);
+
+        return ['SELECT contact_id FROM {deals} WHERE contact_id IS NOT NULL AND ' . $where, $params];
+    }
+
+    /** @return array{0: string, 1: list<string>} the WHERE part over {deals} of a won deal (closed in a stage of the kind won) */
+    private static function wonPredicate(Settings $settings): array
+    {
+        $won = array_map('strval', array_column(array_filter(self::stages($settings), fn (array $st): bool => $st['kind'] === 'won'), 'key'));
+
+        return $won === [] ? ['0 = 1', []] : ['closed_at IS NOT NULL AND stage IN (' . implode(',', array_fill(0, count($won), '?')) . ')', $won];
     }
 
     /** @return list<array<string, mixed>> */

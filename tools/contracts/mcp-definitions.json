@@ -184,7 +184,7 @@
         "hledej",
         "search_site"
     ],
-    "raw": "5e38cef047eb1cc7e7e89335e2bd0d2c950205486a708d6d7da81dab5b7a6d0e",
+    "raw": "4fc2cc6d46738a030028acbd5224da57a403820405338771689d88ba85ec7441",
     "discovery": "f1edcf77b0a8fdd0d2a94d6928db8cb69038a4775befd3e06ac1fcfb8d0cd74d",
     "sha256": {
         "info_o_webu": "f3616b3d0a440cac737e92ff73850d599c5a867d94736a7f68cb44414d0f059e",
@@ -272,10 +272,10 @@
         "get_email_signature": "12b05382fd3b3ea590544817c4aaa0e60c38624089cb67805f21428163a03b47",
         "list_look_versions": "266523c423a2d89f0bebd106ffe70926494549628a455aa7c1ba336f2dc71ff7",
         "restore_look_version": "0c8dfa54588e49d8d37c5ad430b851b389f32da94e1c2ddf1102b4a4e3679be0",
-        "list_newsletters": "8202ac54de6bdf472d60bea5d405569ed0cadc8d981f5d685e8cbb2179866b4b",
-        "draft_newsletter": "a527a5e399725febaa87e773c19b4bbada5449b5b70c42315b53c23b985b9cd6",
+        "list_newsletters": "82e65d3b6604acb155b1fec5d014deddedd2dcef7efb09e6e81272e97f509bde",
+        "draft_newsletter": "dc2ae0dce26e91edce4467bff5b5940b3e51affe43b80318aa5fc43e33f34626",
         "send_test_newsletter": "0c3b597d76ffd331f1efec4abc9dbc10bc7a8672f59d07477a1025e2f537a488",
-        "send_newsletter": "18ba942c0bd7e966039635ac9a5df0be2d109e454fc8d716a737425caef93c5a",
+        "send_newsletter": "ed8dd3c9ead314311662737d93b3d57bc9cd3eda1778e57b02ea4aa167d553b4",
         "delete_newsletter": "0a91b5dbbea15a75774893105dd77c54f05726a6eab92835da6b35b5662b7729",
         "migration_report": "9db3ca899eb1b926dea56d8996225363e7eb1d5cb404fdc32dbb30d21f07bbc9",
         "read_old_page": "d475403c4eadcf0f1b51ea0b5669f8f4aeb2d95e4486e638023fa3dc5a4b2ae8",

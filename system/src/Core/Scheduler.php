@@ -200,8 +200,10 @@ final class Scheduler
             'contacts' => function (App $app, string $source): string {
                 // 3.28: the rows from before 3.28 a few hundred per run, then anything an after-response link missed
                 $done = Contacts::backfill($app, $source === 'cron' ? Contacts::BACKFILL_BATCH : 100);
+                // 3.54 (A1): confirmed subscribers the cursor passed or a failed link left without a contact (customer audiences)
+                $waiting = Contacts::linkWaitingSubscribers($app);
 
-                return 'linked ' . $done['linked'] . ' of ' . $done['scanned'] . ($done['done'] ? '' : ', more left');
+                return 'linked ' . $done['linked'] . ' of ' . $done['scanned'] . ($done['done'] ? '' : ', more left') . ($waiting > 0 ? ', ' . $waiting . ' waiting subscribers' : '');
             },
             'connectors' => fn (App $app): string => Connectors::processQueue($app),
             'agent_journal' => fn (App $app): string => AgentJournal::purge($app->db()),
