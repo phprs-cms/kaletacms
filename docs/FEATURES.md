@@ -72,6 +72,17 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
   odkaz a `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058). Příjemci nejdou do `ka_posta` (`Mail::deliverNow`), fronta se den po
   dokončení smaže. MCP: `list_newsletters`, `draft_newsletter`, `send_test_newsletter`, `send_newsletter` (právo vydávat), `delete_newsletter` –
   jen anglicky (v `Translator::TOOLS` se stejným jménem na obou stranách). Testy: `tools/fake-smtp.php` v `tools/test.sh`.
+  **Komu půjde (3.54, `Core\Audience`):** `ka_newsletters.audience` (all | language) a `audience_filter` ('' | customers – vyhraný obchod
+  nebo nabídka přijatá zákazníkem, přes `contact_id`, jen se zapnutým obchodem nebo nabídkami); každý počet, stráž, pravidlo názvu kampaně
+  i fronta jdou přes `Mailing::recipientsWhere`, neznámá hodnota se odmítne (nikdy „všem“). Nový newsletter vždy začíná „všem potvrzeným“.
+  Stránka newsletteru ukáže počet teď a odešle ho jako `expected`; `send(…, $expected)` ho porovná před vykreslením i v transakci startu
+  (`RecipientCountChanged` – nic neodejde, správce potvrdí nový počet). Naplánovaný má komu zamčené, při startu se počítá znovu (prázdný nebo
+  nepovolený → zpět do konceptů s důvodem v historii změn a e-mailem autorovi); obnova zálohy ho vrátí do konceptů, když by komu rozšířila
+  (`RestoreLedger::widens`). Úloha `contacts` propojuje potvrzené odběratele bez zákazníka (50 za běh). MCP: `draft_newsletter` bere
+  `audience` a `customers_only`, kód `send_newsletter` váže komu a pro „teď“ i počet (souhrn `recipients`, `audience`, `customers_only`, `problem`;
+  handler posílá s potvrzeným číslem `Confirmation::confirmed`), `list_newsletters` dává `audiences`, `recipients_now` a `results`.
+  **Výsledky (`Core\NewsletterResults`):** odhlášení přes odkaz newsletteru (`unsubscribed_count`, odkaz nese `&newsletter=<id>`) a návštěvy
+  z něj (`stat_kampane` podle `Mailing::campaignName`; null bez názvu kampaně, bez statistiky nebo po 400 dnech).
 - **Firma** (`Front\Company`, Nastavení → Firma, klíče `firma_*`): prvek `udaje` (Údaje firmy) je vypisuje na webu, `Seo` z nich skládá
   Organization/LocalBusiness (`@id` …#firma) s adresou, otevírací dobou a geo. Otevírací doba se píše lidsky po řádcích, `Company::parseOpeningHours()` ji rozebere.
 - **Kolekce** (`Builder\Collections`, tabulky `ka_kolekce` + `ka_kolekce_polozky`, admin `Modules\Collections`, MCP `seznam_kolekci`, `vytvor_kolekci`,
@@ -84,7 +95,11 @@ popis a kód rozcházejí, platí kód a testy; závazná pravidla jsou v [CLAUD
 - **Formuláře** (prvek `formular`, `Front\Forms` na `POST /formular`): pole a příjemce se berou z PUBLIKOVANÉ stavby podle `zdroj` + id prvku,
   nikdy z požadavku. Ochrana `Core\Antispam` (podpis času, honeypot, limit na IP) – bez cookies, stránka zůstává v cache. Výsledek jen jako kód
   v adrese (`?form=<id>&result=ok|pole|limit|overeni`), text hlášení nikdy z adresy. Poptávky v `ka_poptavky` (admin `Modules\Enquiries`,
-  CSV, samy se mažou po `enquiries_months`), upozornění přes `Mail::send` s Reply-To návštěvníka.
+  CSV, samy se mažou po `enquiries_months`), upozornění přes `Mail::send` s Reply-To návštěvníka. **Souhlas s novinkami (3.54)** je vlastnost
+  formuláře `souhlas_novinky` (ne pole): jedno nezaškrtnuté, nepovinné políčko `ka_news` nad tlačítkem, jen když je text vyplněný, Newsletter
+  zapnutý a nejde o formulář uchazeče (`Form::newsConsentText`, totéž pro vykreslení i server). Zaškrtnutí jen pošle potvrzovací e-mail – obě
+  cesty přihlášení (prvek Newsletter i formulář) jdou přes `Subscription::request` (double opt-in; z formuláře nic adrese z registru a nejvýš
+  jeden e-mail za 7 dní) a uloží doklad `consent_text|consent_source|consent_element` z publikované stavby (Odběratelé, CSV, export osobních údajů).
 - **HTML → stavba** (`Builder\HtmlConverter`, MCP `stavba_z_html`): sémantické HTML + `<style>` s pravidly jedné třídy → prvky a třídy; `.trida:hover` a `@media (max-width: 1023px|767px)`
   se převedou na stavy třídy (`Style::fromCss` – deklarace s obdobou ve stylu builderu). Prvek se stylovanou třídou nedostane výchozí styl typu (vrstva `prvky` je
   v kaskádě za `tridy` a přebila by ji). Co převést nejde (mobile-first `min-width`, složité selektory), se nahlásí.

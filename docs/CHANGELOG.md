@@ -4,6 +4,81 @@ What each released version brought, newest first. Owner decisions that set the d
 ("Direction after …"). What comes next is in the [roadmap](ROADMAP.md); compatibility promises are in the
 [release policy](RELEASE-POLICY.md). Entries are history: names of classes, tools and settings are the ones of that release.
 
+## 3.54.0 – audiences by consent: who a newsletter goes to, the number you confirm, news consent at the form, a results line; the site search on its index only
+
+Until 3.54 every newsletter went to every confirmed subscriber, a Czech one to English subscribers too, and the number on
+the button could differ from the number queued. 3.54 lets a newsletter go to the subscribers of its language or only to
+customers, makes the confirmed number the queued number, lets a form offer news by e-mail with the wording kept as proof,
+and shows what a sent newsletter did. The site search drops the 3.52-style path for rows the index has not filled.
+**Database 142** (one migration, 0142 `.sql`: `audience`, `audience_filter` and `unsubscribed_count` on `ka_newsletters`,
+`consent_text`, `consent_source` and `consent_element` on `ka_odberatele`; every default keeps the behaviour before 3.54).
+**MCP:** no new tools; `draft_newsletter` gains `audience` and `customers_only`, `list_newsletters`, `draft_newsletter`
+and `search_site` only gain output keys, the builder schema gains the form property `news_consent`
+(`tools/contracts.php` additive).
+
+1. **Who gets it (A1, A4).** Under "Who gets it" a newsletter goes to everyone confirmed or to the confirmed subscribers
+   of its language (a multilingual site), optionally only to customers – a won deal or a quote the customer accepted,
+   offered while the sales pipeline or quotes is on. `Core\Audience` builds one recipient query (`Mailing::recipientsWhere`)
+   for the number shown, the send guard, the campaign-name rule and the queue; an unknown audience or "only customers"
+   with both features off is refused with the reason and Send disabled, never sent to everyone. A new newsletter always
+   starts with everyone confirmed – it never copies the previous one's audience. The page says how many it is now and why
+   nobody is in an empty audience. The `contacts` job links confirmed subscribers left without a customer record (50 a
+   run), so they count as customers within minutes.
+2. **The number you confirm is the number queued (A2).** The page and Claude's confirmation pass the number on; if a
+   sign-up or an unsubscription changed it before the queue is written, nothing is sent and both numbers are shown to
+   confirm again (`RecipientCountChanged`; the count, the status and the queue are one transaction). A scheduled
+   newsletter's audience cannot change until it is unscheduled; at its time it is counted again, and with nobody in it,
+   with an audience the site no longer allows or without the sender's company details it goes back to the drafts – the
+   change log and an e-mail to its author say why.
+3. **A restore never widens an audience (A3).** A newsletter scheduled today goes back to the drafts when a restore from a
+   backup would bring back a different or an unknown audience (`RestoreLedger::widens`).
+4. **News consent at the form (B1, B2).** A form can offer news by e-mail: the form property "Consent to news by e-mail"
+   (`souhlas_novinky`, empty = not offered; the editor only suggests a wording) adds one unticked, never required box
+   above the button, apart from the processing consent; not on a job application form or with Newsletter off. A tick only
+   sends the confirmation e-mail. Both sign-up paths – the Newsletter element and the form – go through
+   `Subscription::request`: nobody is subscribed before the link, a confirmed address gets nothing more, and from a form
+   an address on the send register gets nothing and an unconfirmed one at most one e-mail in 7 days. A form with the box
+   and no e-mail field gets a warning before publishing. The Newsletter element's default text now mentions the link.
+5. **The proof of consent (B3).** With the confirmation e-mail the wording shown, the page and the form or element are
+   stored from the published build, never from the request; they show under Consent in Subscribers, in the CSV (three new
+   columns at the end) and in the personal data export, and they live and die with the subscription. The processing
+   record names the proof (and the customer records with the pipeline or quotes on); the privacy policy template of new
+   sites gains one sentence.
+6. **A results line (C).** A newsletter that started shows sent, failed, skipped, unsubscribed through its own links
+   (each unsubscribe link carries `&newsletter=<id>`) and visits from it (from the campaign statistics: with statistics on
+   and a campaign name, for 400 days, otherwise "–" with the reason).
+7. **Claude (MCP).** `draft_newsletter` sets `audience` (all | language) and `customers_only` – a typo is refused, a
+   connection limited to drafts may set them. The confirmation of `send_newsletter` shows `recipients`, `audience`,
+   `customers_only` and a `problem`, and binds the audience and, for "now", the number: a change after the yes needs a new
+   code, and the send uses the number confirmed, never a recount. `list_newsletters` shows the `audiences` the site
+   offers, each newsletter's `audience`, `customers_only`, `recipients_now` and `results`.
+8. **The site search on its index only (D).** The 3.52-style search of rows without a search text is gone from the site
+   search, the admin lists (an unindexed row is found there by its title and address only), the palette and MCP lists,
+   together with the news alternative during a re-index. While rows wait, `/hledani` fills a 0.3 s slice itself and says
+   "Some pages are still being indexed and may be missing."; MCP `search_site` answers `indexing: true`. Imports are
+   searchable when they report done (each batch ends with a short fill), and a change of a component or of a collection's
+   fields refills the rows it emptied at once (up to 1 s a request). System status says how many pages, items and news
+   cannot be found yet.
+9. **Smaller.** Features#newsletter (the links from Integrations and Subscribers) opens the folded mailing-service
+   section: in the administration a link whose fragment names a folded section opens it.
+10. **Updating.** Database 142: 0142 adds the six columns. Existing newsletters, drafts and scheduled ones keep going to
+    everyone confirmed. Existing privacy policies do not get the new sentence – add it yourself if forms offer news.
+    Right after an update from 3.52 or older, pages and collection items are not on the site search until the background
+    job has filled their search text (minutes with cron; each search also fills a slice), and the search page shows the
+    notice meanwhile. While news are re-indexed, a news item not yet rewritten is found only by the words its 3.52 index
+    held: Cyrillic, Chinese, Japanese and Greek words in its title or intro, which 3.52 found, are missing until then – a
+    short, time-limited regression against 3.52. A 3.53 site whose index is already filled notices nothing.
+11. **Still open.** Subscriptions from before 3.54 have no stored proof (Subscribers says so). The proof is not sent to the
+    mailing services. The privacy policy does not mention that a subscription can be matched with the customer records.
+    No other audiences (an enquiry, an open deal), no saved segments, no per-recipient statistics, no collection items as
+    newsletter content, no "Duplicate" and no list of failed addresses. More than 50 000 matching rows of one kind are
+    still not counted or ranked (`SiteSearch::MAX_ROWS`).
+
+Measured (`tools/bench-search.php`, 2000 pages, 20 000 items, 2000 news, local MySQL): the check whether rows wait
+takes 0.012 s with nothing waiting (a full scan) and 0.009 s with the last item waiting; the index filled about 1900 rows a
+second. 3000 rows right after an update without cron: the first search showed the notice and its own 0.3 s slice filled
+about a third; one visit's slice filled the rest, or four searches alone.
+
 ## 3.53.0 – search finished: a stored search text for pages and items, a total of every match, every script, word forms in more languages (25 November 2026)
 
 3.52 searched the website by reading raw columns with caps, so on a large site it could lose the best page, found words

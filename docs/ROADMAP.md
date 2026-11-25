@@ -6,21 +6,18 @@ they are tested. What each released version brought is in the [changelog](CHANGE
 
 ## Next
 
-3.52 made things findable: one search for every list of the administration and for MCP (any word order, diacritics
-optional), Ctrl/⌘K across every kind of record a person may open, one ranked site search with word forms and marked
-snippets, a search icon for the header and the terms visitors search for in Statistics. 3.53 finishes the search: pages
-and collection items get a stored, normalized search text as news already had, filled in the background and kept up to
-date on every save, so the site search no longer loses the best page on a large site or finds words that only sit in a
-link or a field name, and the total it shows is exact; every script and every Latin alphabet is searchable, one Chinese,
-Japanese or Korean character is a query, and word forms work in more languages. The next releases, in number order:
-**3.54** audiences by consent – a newsletter to the confirmed subscribers of its language or to customers, consent
-proved at the form, a results line per newsletter; it also removes the 3.52-style search of rows the index has not
-filled yet; **3.55** waiting for the customer – which enquiries wait for an answer from outside, and a support filter
-only where sites need it; **3.56** collection pages without holes – no heading over an empty field, no list of
-everything on an item page, and the sanitizers say what they dropped; **3.57** recovery – restoring from the off-site
-copy, and updates that check the host's PHP extensions first. A re-audit follows. A full-text engine for the site search
-(FULLTEXT, an ngram parser or an outside service) waits until measurements ask for it. Each release lists what it
-brought in the changelog when it ships.
+3.53 finished the search: pages and collection items have a stored, normalized search text as news already had, filled
+in the background and kept up to date on every save; every script is searchable and word forms work in more languages.
+3.54 brought audiences by consent: a newsletter goes to everyone confirmed, to the confirmed subscribers of its language,
+or only to customers (a won deal or a quote the customer accepted); the number confirmed is the number queued; a form can
+offer news by e-mail with an unticked box whose wording is kept as proof; each sent newsletter shows who unsubscribed
+through it and the visits it brought; and the site search reads only its index, with a notice while the index fills.
+The next releases, in number order: **3.55** waiting for the customer – which enquiries wait for an answer from outside,
+and a support filter only where sites need it; **3.56** collection pages without holes – no heading over an empty field,
+no list of everything on an item page, and the sanitizers say what they dropped; **3.57** recovery – restoring from the
+off-site copy, and updates that check the host's PHP extensions first. A re-audit follows. A full-text engine for the
+site search (FULLTEXT, an ngram parser or an outside service) waits until measurements ask for it. Each release lists
+what it brought in the changelog when it ships.
 
 ## Path to 4.0 (owner decisions of 13 October 2026, revised on 21 and 22 October and 10 November 2026)
 
@@ -44,8 +41,8 @@ security fixes apply. `zh` means Simplified Chinese (owner, 13 October 2026).
 - English renames of database tables or columns (21 and 22 October 2026, confirmed on 10 November 2026) – `Core\Names`
   keeps the English aliases for queries instead.
 - A second e-mail renderer or an e-mail builder; automations, A/B tests, open tracking or per-recipient click tracking.
-  Audiences among confirmed subscribers (language, "is a customer") are planned for 3.54 (owner decision of 21 November
-  2026, moved by the search releases 3.52 and 3.53); mail to leads without consent never.
+  Audiences among confirmed subscribers (language, "is a customer") came in 3.54 (owner decision of 21 November 2026);
+  mail to leads without consent never.
 - Invoices and HR (owner decision of 21 November 2026).
 - A chat with Claude inside the admin that runs on the site's own Anthropic key (decided on 3 October 2026) – "Ask Claude"
   hands the work to Claude through requests instead.
